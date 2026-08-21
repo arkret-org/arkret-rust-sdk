@@ -196,17 +196,6 @@ impl<K: EventSpec> TypedEventDraft<K> {
         .with_optional_external_ref(self.external_ref))
     }
 
-    /// Erase the typed payload and derive the content-bound identity only after
-    /// every producer-signed envelope field has been supplied.
-    pub fn author(
-        self,
-        actor_seq: u64,
-        hlc: Hlc,
-        created_at: DateTime<Utc>,
-    ) -> Result<AuthoredEvent> {
-        self.author_with_digest_suite(actor_seq, hlc, created_at, DigestSuite::Sha256)
-    }
-
     /// Author under the Realm's declared content digest suite. Callers must
     /// obtain this suite from accepted Realm state; it is used for both the
     /// placeholder-derived genesis Realm id and the final content-bound Event
@@ -222,8 +211,13 @@ impl<K: EventSpec> TypedEventDraft<K> {
             .author_with_digest_suite(actor_seq, hlc, digest_suite)
     }
 
-    pub fn author_now(self, actor_seq: u64, hlc: Hlc) -> Result<AuthoredEvent> {
-        self.author(actor_seq, hlc, Utc::now())
+    pub fn author_now_with_digest_suite(
+        self,
+        actor_seq: u64,
+        hlc: Hlc,
+        digest_suite: DigestSuite,
+    ) -> Result<AuthoredEvent> {
+        self.author_with_digest_suite(actor_seq, hlc, Utc::now(), digest_suite)
     }
 }
 
@@ -320,6 +314,7 @@ impl ValidatedExtensionPayload {
         actor_seq: u64,
         hlc: Hlc,
         created_at: DateTime<Utc>,
+        digest_suite: DigestSuite,
     ) -> Result<AuthoredEvent> {
         EventIntent::new(
             self.kind,
@@ -329,7 +324,7 @@ impl ValidatedExtensionPayload {
             created_at,
             self.payload,
         )
-        .author(actor_seq, hlc)
+        .author_with_digest_suite(actor_seq, hlc, digest_suite)
     }
 }
 

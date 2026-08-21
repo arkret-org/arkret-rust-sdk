@@ -8,11 +8,11 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    Base64UrlString, BlobRef, CbaProofBundle, ConsentId, ControlProposalAck, Cursor, DeviceId,
-    DidCoreId, DidKey, Error, Event, EventId, EventInitialSubmission, Hash, IngressReceipt,
-    MimiRoomUri, MlsGroupId, MorphId, NonEmptyString, PayloadProof, ProofContextId, RealmId,
-    ReasonCode, RelationId, ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope,
-    SpaceId, StrandId, canonical,
+    Base64UrlString, BlobRef, ConsentId, ControlProposalAck, Cursor, DeviceId, DidCoreId, DidKey,
+    Error, Event, EventId, EventInitialSubmission, Hash, IngressReceipt, MimiRoomUri, MlsGroupId,
+    MorphId, NonEmptyString, PayloadProof, ProofContextId, RealmId, ReasonCode, RelationId,
+    ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId, StrandId,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -35,6 +35,7 @@ use crate::governance::agent_membership_cascade::{
     AgentMembershipCascadeOutcome, AgentMembershipCascadeSubmission,
 };
 use crate::governance::authorization::GrantList;
+use crate::history_key::{PeerHistoryTraversalAccess, SelfHistoryTraversalAccess};
 use crate::objects::blob::BlobUploadMetadata;
 use crate::objects::mimi::{
     MimiCiphertext, MimiConsentPurpose, MimiConsentTarget, MimiDelivery, MimiFailure,
@@ -523,36 +524,41 @@ pub struct EventsResolveRequestBody {
     pub event_ids: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub event_digests: Vec<Hash>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub seal_refs: Vec<SealId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub include_payload: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub history_traversal_access: Option<SelfHistoryTraversalAccess>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_response_bytes: Option<u32>,
 }
 
 impl EventsResolveRequestBody {
     pub fn validate(&self) -> Result<()> {
-        if self.event_ids.is_empty() && self.event_digests.is_empty() && self.seal_refs.is_empty() {
+        if self.event_ids.is_empty() && self.event_digests.is_empty() {
             return Err(Error::Protocol(
                 "events resolve requires at least one selector".to_owned(),
             ));
         }
         if self.event_ids.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
             || self.event_digests.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
-            || self.seal_refs.len() > MAX_PEER_RESOLVE_SEAL_SELECTORS
         {
             return Err(Error::Protocol(
                 "events resolve selector limit exceeded".to_owned(),
             ));
         }
-        let mut seals = self
-            .seal_refs
-            .iter()
-            .map(SealId::as_str)
-            .collect::<Vec<_>>();
-        seals.sort_unstable();
-        if seals.windows(2).any(|pair| pair[0] == pair[1]) {
+        if self
+            .max_response_bytes
+            .is_some_and(|bytes| !(1024..=MAX_PEER_RESOLVE_RESPONSE_BYTES).contains(&bytes))
+        {
             return Err(Error::Protocol(
-                "events resolve seal_refs must be unique".to_owned(),
+                "events resolve max_response_bytes is outside 1024..=8388608".to_owned(),
+            ));
+        }
+        if !unique_strings(self.event_ids.iter().map(EventId::as_str))
+            || !unique_strings(self.event_digests.iter().map(Hash::as_str))
+        {
+            return Err(Error::Protocol(
+                "events resolve selectors must be duplicate-free".to_owned(),
             ));
         }
         Ok(())
@@ -563,19 +569,140 @@ impl EventsResolveRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EventsResolveOutcome {
-    #[serde(default)]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub events: Vec<Event>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub seals: Vec<Seal>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub missing: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unauthorized: Vec<String>,
 }
 
+pub const MAX_SEAL_RESOLVE_SELECTORS: usize = 256;
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SealResolveRequestCore {
+    pub realm_id: RealmId,
+    pub seal_refs: Vec<SealId>,
+}
+
+impl SealResolveRequestCore {
+    pub fn validate(&self) -> Result<()> {
+        validate_seal_resolve_selectors(&self.seal_refs)
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SelfSealResolveRequestBody {
+    pub realm_id: RealmId,
+    pub seal_refs: Vec<SealId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub history_traversal_access: Option<SelfHistoryTraversalAccess>,
+}
+
+impl SelfSealResolveRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        validate_seal_resolve_selectors(&self.seal_refs)
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PeerSealResolveRequestBody {
+    pub realm_id: RealmId,
+    pub seal_refs: Vec<SealId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub history_traversal_access: Option<PeerHistoryTraversalAccess>,
+}
+
+impl PeerSealResolveRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        validate_seal_resolve_selectors(&self.seal_refs)
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SealResolveOutcome {
+    pub seals: Vec<Seal>,
+    pub missing_seal_refs: Vec<SealId>,
+}
+
+impl SealResolveOutcome {
+    pub fn validate_structural(&self) -> Result<()> {
+        for seal in &self.seals {
+            seal.validate_structural()?;
+        }
+        if self.seals.windows(2).any(|pair| pair[0].id >= pair[1].id)
+            || !unique_strings(self.missing_seal_refs.iter().map(SealId::as_str))
+            || self.seals.iter().any(|seal| {
+                self.missing_seal_refs
+                    .iter()
+                    .any(|missing| missing == &seal.id)
+            })
+        {
+            return Err(Error::Protocol(
+                "Seal resolve outcome must be sorted and duplicate-free".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_for_peer_request(&self, request: &PeerSealResolveRequestBody) -> Result<()> {
+        request.validate()?;
+        self.validate_structural()?;
+        let returned = self
+            .seals
+            .iter()
+            .map(|seal| seal.id.clone())
+            .collect::<std::collections::BTreeSet<_>>();
+        let missing = self
+            .missing_seal_refs
+            .iter()
+            .cloned()
+            .collect::<std::collections::BTreeSet<_>>();
+        let requested = request
+            .seal_refs
+            .iter()
+            .cloned()
+            .collect::<std::collections::BTreeSet<_>>();
+        if !returned.is_disjoint(&missing)
+            || returned
+                .union(&missing)
+                .cloned()
+                .collect::<std::collections::BTreeSet<_>>()
+                != requested
+        {
+            return Err(Error::Protocol(
+                "peer Seal resolve outcome does not account for every-and-only selector".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_seal_resolve_selectors(seal_refs: &[SealId]) -> Result<()> {
+    if seal_refs.is_empty()
+        || seal_refs.len() > MAX_SEAL_RESOLVE_SELECTORS
+        || !unique_strings(seal_refs.iter().map(SealId::as_str))
+    {
+        return Err(Error::Protocol(
+            "Seal resolve requires 1..=256 duplicate-free seal_refs".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn unique_strings<'a>(mut values: impl Iterator<Item = &'a str>) -> bool {
+    let mut unique = std::collections::BTreeSet::new();
+    values.all(|value| unique.insert(value))
+}
+
 pub const MAX_PEER_RESOLVE_EVENT_SELECTORS: usize = 1024;
-pub const MAX_PEER_RESOLVE_SEAL_SELECTORS: usize = 64;
 pub const MAX_PEER_RESOLVE_RESPONSE_BYTES: u32 = 8 * 1024 * 1024;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -587,24 +714,23 @@ pub struct PeerEventsResolveRequestBody {
     pub event_ids: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub event_digests: Vec<Hash>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub seal_refs: Vec<SealId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub include_payload: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_response_bytes: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub history_traversal_access: Option<PeerHistoryTraversalAccess>,
 }
 
 impl PeerEventsResolveRequestBody {
     pub fn validate(&self) -> Result<()> {
-        if self.event_ids.is_empty() && self.event_digests.is_empty() && self.seal_refs.is_empty() {
+        if self.event_ids.is_empty() && self.event_digests.is_empty() {
             return Err(Error::Protocol(
                 "peer dependency resolve requires at least one selector".to_owned(),
             ));
         }
         if self.event_ids.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
             || self.event_digests.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
-            || self.seal_refs.len() > MAX_PEER_RESOLVE_SEAL_SELECTORS
         {
             return Err(Error::Protocol(
                 "peer dependency resolve selector limit exceeded".to_owned(),
@@ -618,7 +744,7 @@ impl PeerEventsResolveRequestBody {
                 "peer dependency resolve max_response_bytes is outside 1024..=8388608".to_owned(),
             ));
         }
-        validate_typed_missing_order(&self.event_ids, &self.event_digests, &self.seal_refs)
+        validate_typed_missing_order(&self.event_ids, &self.event_digests, &[])
     }
 }
 
@@ -626,39 +752,105 @@ impl PeerEventsResolveRequestBody {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PeerEventsResolveOutcome {
-    #[serde(default)]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub events: Vec<Event>,
-    #[serde(default)]
-    pub cba_proof_bundles: Vec<CbaProofBundle>,
-    #[serde(default)]
     pub missing_event_ids: Vec<EventId>,
-    #[serde(default)]
     pub missing_event_digests: Vec<Hash>,
-    #[serde(default)]
-    pub missing_seal_refs: Vec<SealId>,
 }
 
 impl PeerEventsResolveOutcome {
     pub fn validate_structural(&self) -> Result<()> {
         if self.events.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
-            || self.cba_proof_bundles.len()
-                > arkret_wire::event_submission::MAX_SUBMISSION_CBA_BUNDLES
             || self.missing_event_ids.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
             || self.missing_event_digests.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
-            || self.missing_seal_refs.len() > MAX_PEER_RESOLVE_SEAL_SELECTORS
         {
             return Err(Error::Protocol(
                 "peer dependency resolve outcome limit exceeded".to_owned(),
             ));
         }
-        validate_typed_missing_order(
-            &self.missing_event_ids,
-            &self.missing_event_digests,
-            &self.missing_seal_refs,
-        )?;
-        for bundle in &self.cba_proof_bundles {
-            bundle.validate_structural()?;
+        let mut event_ids = std::collections::BTreeSet::new();
+        if self
+            .events
+            .iter()
+            .any(|event| !event_ids.insert(event.event_id.clone()))
+        {
+            return Err(Error::Protocol(
+                "peer dependency resolve events must be duplicate-free".to_owned(),
+            ));
+        }
+        validate_typed_missing_order(&self.missing_event_ids, &self.missing_event_digests, &[])?;
+        Ok(())
+    }
+
+    pub fn validate_for_request(&self, request: &PeerEventsResolveRequestBody) -> Result<()> {
+        request.validate()?;
+        self.validate_structural()?;
+        let mut returned_ids = std::collections::BTreeSet::new();
+        let mut returned_digests = std::collections::BTreeSet::new();
+        for event in &self.events {
+            let selected_by_id = request.event_ids.contains(&event.event_id);
+            let matching_digests = request
+                .event_digests
+                .iter()
+                .filter_map(|expected| {
+                    let suite = expected.digest_suite().ok()?;
+                    let actual =
+                        Hash::new(event.event_digest_with_digest_suite(suite).ok()?).ok()?;
+                    (actual == *expected).then_some(actual)
+                })
+                .collect::<Vec<_>>();
+            let selected_by_digest = !matching_digests.is_empty();
+            if !selected_by_id && !selected_by_digest {
+                return Err(Error::Protocol(
+                    "peer Event resolve returned an unrequested Event".to_owned(),
+                ));
+            }
+            returned_ids.insert(event.event_id.clone());
+            returned_digests.extend(matching_digests);
+        }
+        let missing_ids = self
+            .missing_event_ids
+            .iter()
+            .cloned()
+            .collect::<std::collections::BTreeSet<_>>();
+        let missing_digests = self
+            .missing_event_digests
+            .iter()
+            .cloned()
+            .collect::<std::collections::BTreeSet<_>>();
+        for event_id in &request.event_ids {
+            if returned_ids.contains(event_id) == missing_ids.contains(event_id) {
+                return Err(Error::Protocol(
+                    "peer Event resolve does not account for every Event id selector".to_owned(),
+                ));
+            }
+        }
+        for digest in &request.event_digests {
+            if returned_digests.contains(digest) == missing_digests.contains(digest) {
+                return Err(Error::Protocol(
+                    "peer Event resolve does not account for every Event digest selector"
+                        .to_owned(),
+                ));
+            }
+        }
+        if missing_ids
+            .iter()
+            .any(|event_id| !request.event_ids.contains(event_id))
+            || missing_digests
+                .iter()
+                .any(|digest| !request.event_digests.contains(digest))
+        {
+            return Err(Error::Protocol(
+                "peer Event resolve reports an unrequested missing selector".to_owned(),
+            ));
+        }
+        let byte_limit = request
+            .max_response_bytes
+            .unwrap_or(MAX_PEER_RESOLVE_RESPONSE_BYTES) as usize;
+        if canonical::canonical_json_bytes(self)?.len() > byte_limit {
+            return Err(Error::Protocol(
+                "peer Event resolve outcome exceeds the requested byte limit".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -2421,8 +2613,9 @@ impl DevicePairingTargetAttestation {
     pub fn validate_against_pair_request(
         &self,
         request: &AccountDevicePairRequestBody,
+        digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
-        request.validate_authorize_event_binding()?;
+        request.validate_authorize_event_binding(digest_suite)?;
         let payload: DeviceAuthorizePayload =
             decode_payload_after_kind_validation(&request.authorize_event.event)?;
         let public_key_bytes =
@@ -2518,8 +2711,11 @@ pub struct AccountDevicePairRequestBody {
 
 impl AccountDevicePairRequestBody {
     /// Validate that the gate only relays the approving device's exact Event.
-    pub fn validate_authorize_event_binding(&self) -> Result<()> {
-        self.authorize_event.validate_structural()?;
+    pub fn validate_authorize_event_binding(
+        &self,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        self.authorize_event.validate_structural(digest_suite)?;
         if arkret_wire::EventKind::DeviceAuthorize != self.authorize_event.event.kind {
             return Err(Error::Protocol(
                 "device-pair authorize_event is not ak.device.authorize".to_owned(),
@@ -2731,9 +2927,9 @@ mod federation_dependency_tests {
             realm_id: realm_id(),
             event_ids: vec![event_id("1"), event_id("2")],
             event_digests: Vec::new(),
-            seal_refs: Vec::new(),
             include_payload: None,
             max_response_bytes: Some(4096),
+            history_traversal_access: None,
         };
         assert!(valid.validate().is_ok());
 
@@ -2885,6 +3081,8 @@ mod device_pairing_tests {
                     ))
                     .unwrap(),
                     event_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
+                    signer_resolution_evidence_ref: None,
+                    signer_resolution_evidence_digest: None,
                     created_at,
                     domain: None,
                     audience: None,
@@ -2932,13 +3130,18 @@ mod device_pairing_tests {
     #[test]
     fn target_attestation_preassembly_binds_exact_pair_request_and_event() {
         let (attestation, request) = pair_request_fixture();
-        attestation.validate_against_pair_request(&request).unwrap();
+        attestation
+            .validate_against_pair_request(&request, arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
 
         let mut changed_request = request.clone();
         changed_request.hpke_key = NonEmptyString::new("different-hpke-key").unwrap();
         assert!(
             attestation
-                .validate_against_pair_request(&changed_request)
+                .validate_against_pair_request(
+                    &changed_request,
+                    arkret_canonical::DigestSuite::Sha256,
+                )
                 .is_err()
         );
 
@@ -2947,7 +3150,7 @@ mod device_pairing_tests {
             Hash::new(format!("sha256:{}", "d".repeat(64))).unwrap();
         assert!(
             changed_attestation
-                .validate_against_pair_request(&request)
+                .validate_against_pair_request(&request, arkret_canonical::DigestSuite::Sha256,)
                 .is_err()
         );
     }

@@ -1832,17 +1832,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "embedded-artifacts")]
-    #[test]
-    fn embedded_capability_action_reads_realm_key_share() {
-        let action = embedded_capability_action("ak.realm_key.share")
-            .expect("embedded registry should parse")
-            .expect("Realm key share should be registered");
-        assert_eq!(action.risk_tier, CapabilityRiskTier::High);
-        assert_eq!(action.target_event_kinds, vec!["ak.realm_key.share"]);
-        assert_eq!(action.event_mapping_kind, "same_name");
-    }
-
     #[test]
     fn embedded_capability_action_exposes_candidate_profile_gate() {
         let action = embedded_capability_action("ak.realm.join.review")
@@ -1888,7 +1877,7 @@ mod tests {
         assert_eq!(
             requirement.required_features,
             vec![
-                "discussion_history_visibility",
+                "discussion_history_access",
                 "supported_event_kinds",
                 "supported_sync_profiles",
             ]

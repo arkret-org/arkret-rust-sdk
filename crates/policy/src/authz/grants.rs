@@ -1143,12 +1143,12 @@ pub(crate) fn constraint_entries_from_spec(
             }
             Some(GrantConstraintSubkind::Visibility) => {
                 constraints.push(Constraint::VisibilityControl {
-                    allowed_history_visibility_values: constraint
-                        .allowed_history_visibility_values
+                    allowed_history_access_values: constraint
+                        .allowed_history_access_values
                         .iter()
                         .map(|value| value.as_str().to_owned())
                         .collect(),
-                    denied_history_visibility_values: Vec::new(),
+                    denied_history_access_values: Vec::new(),
                     redacted_history_allowed: constraint.redacted_history_allowed.unwrap_or(false),
                 });
             }
@@ -1466,10 +1466,7 @@ impl CapabilityGrantBuilder {
     /// Validates the grant against the spec wire contract first (schema
     /// constant, non-empty actions / resources, parseable
     /// selectors / constraints) so a violating grant can never be encoded.
-    pub fn build(
-        self,
-        created_at: chrono::DateTime<chrono::Utc>,
-    ) -> Result<arkret_event_draft::EventIntent> {
+    pub fn build(self, created_at: DateTime<Utc>) -> Result<arkret_event_draft::EventIntent> {
         if self.grant.issuer != self.actor_id {
             return Err(Error::Protocol(format!(
                 "CapabilityGrantBuilder: grant.issuer '{}' does not match actor_id '{}'",
@@ -1514,7 +1511,7 @@ impl CapabilityGrantBuilder {
 pub fn build_capability_relinquish_intent(
     scope_ref: arkret_wire::ScopeRef,
     subject: DidCoreId,
-    created_at: chrono::DateTime<chrono::Utc>,
+    created_at: DateTime<Utc>,
     payload: arkret_models_collaboration::events_payloads::CapabilityRelinquishPayload,
 ) -> Result<arkret_event_draft::EventIntent> {
     arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::CapabilityRelinquish>::new(
@@ -1577,7 +1574,11 @@ mod capability_grant_builder_tests {
     /// the durable signing stamp, which a unit test has neither of.
     fn authored(intent: arkret_event_draft::EventIntent) -> arkret_wire::AuthoredEvent {
         intent
-            .author(1, crate::Hlc::new("01970e589d21-0004-a13f9c2e").unwrap())
+            .author_with_digest_suite(
+                1,
+                crate::Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+                arkret_canonical::DigestSuite::Sha256,
+            )
             .expect("a test grant intent finalizes")
     }
 

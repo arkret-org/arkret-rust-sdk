@@ -14,23 +14,21 @@
 //! `arkret-rust-sdk/docs/move-anchor-runtime.md`. Wire / protocol rules
 //! live in `arkret-spec/spec/v1/zh/authz/event-auth-state-resolution.md`
 //! §5-§6.
-pub mod compaction;
 pub mod range_completeness;
 pub mod seal;
 pub mod state_root;
 pub mod store;
 pub mod verify;
 
-pub use compaction::{CompactionPolicy, PruneCandidate, PruneEligibility};
 pub use range_completeness::{
     RangeCompletenessError, VerifiedRangeCompleteness, full_realm_range_events,
-    full_realm_range_frontiers, range_completeness_actor_seq_ranges, range_completeness_root,
-    range_completeness_root_with_suite, verify_full_realm_range_completeness,
-    verify_full_realm_range_completeness_with_suite,
+    full_realm_range_frontiers, range_completeness_actor_seq_ranges,
+    range_completeness_root_with_suite, verify_full_realm_range_completeness_with_suite,
 };
 pub use seal::{
-    EffectiveSealView, SealEffect, SealLeafUnionProof, SealReject, apply_accepted_seal_in_context,
-    apply_seal, apply_seal_in_context, control_event_completeness_root, control_event_set_root,
+    EffectiveSealView, SealDigestSuites, SealEffect, SealLeafUnionProof, SealReject,
+    apply_accepted_seal_in_context, apply_replayed_seal_in_context, apply_seal,
+    apply_seal_in_context, control_event_completeness_root, control_event_set_root,
     deterministic_order, effective_seal_view, effective_state_at, join_cell,
     join_cell_seal_batches, leaf_union_proof, predecessor_seal_closure,
     union_predecessor_covered_events, verify_recovery_witness, verify_seal_basis, view_hash,

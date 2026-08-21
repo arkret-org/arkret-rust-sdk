@@ -45,11 +45,11 @@ pub struct AuthzContext {
     /// Encryption level of the target operation/payload, if already verified.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encryption_level: Option<String>,
-    /// Effective `history_visibility` of the target Space at the current
+    /// Effective `history_access` of the target scope at the current
     /// causal frontier (`world_readable` / `shared` / `invited` / `joined` /
     /// `restricted`). Used by `Constraint::VisibilityControl`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub history_visibility: Option<String>,
+    pub history_access: Option<String>,
     /// Byte count of the blob being uploaded (single-call), if any.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blob_byte_count: Option<u64>,
@@ -149,7 +149,7 @@ impl AuthzContext {
             revoked_claim_ids: Vec::new(),
             accountability_logged: false,
             encryption_level: None,
-            history_visibility: None,
+            history_access: None,
             blob_byte_count: None,
             scope_blob_total_bytes: None,
             scope_resource_count: None,
@@ -952,18 +952,18 @@ impl AuthzEngine {
                 }
             }
             Constraint::VisibilityControl {
-                allowed_history_visibility_values,
-                denied_history_visibility_values,
+                allowed_history_access_values,
+                denied_history_access_values,
                 ..
             } => {
-                if let Some(level) = ctx.history_visibility.as_deref() {
-                    if denied_history_visibility_values.iter().any(|v| v == level) {
+                if let Some(level) = ctx.history_access.as_deref() {
+                    if denied_history_access_values.iter().any(|v| v == level) {
                         return EngineDecision::Deny {
                             reason: format!("visibility level '{}' is denied", level),
                         };
                     }
-                    if !allowed_history_visibility_values.is_empty()
-                        && !allowed_history_visibility_values.iter().any(|v| v == level)
+                    if !allowed_history_access_values.is_empty()
+                        && !allowed_history_access_values.iter().any(|v| v == level)
                     {
                         return EngineDecision::Deny {
                             reason: format!("visibility level '{}' not in allow list", level),
@@ -1279,7 +1279,7 @@ impl AuthzEngine {
                 });
         let request_digest = arkret_canonical::canonical_sha256(&(
             &ctx.realm_id,
-            &ctx.history_visibility,
+            &ctx.history_access,
             &ctx.blob_byte_count,
             &ctx.scope_blob_total_bytes,
             &ctx.scope_resource_count,
@@ -1760,10 +1760,10 @@ mod engine_wire_tests {
             "constraint_subkind": "visibility",
             "effect": "allow",
             "evaluation_class": "realm_state",
-            "allowed_history_visibility_values": ["joined"],
+            "allowed_history_access_values": ["since_join"],
         }))]);
         let mut ctx = ctx();
-        ctx.history_visibility = Some("joined".to_owned());
+        ctx.history_access = Some("since_join".to_owned());
         let decision = engine.check_authorization(&ctx, &[grant]);
         assert_eq!(decision, EngineDecision::Allow);
         assert!(

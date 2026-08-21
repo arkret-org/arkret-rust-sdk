@@ -31,6 +31,8 @@ pub struct AuthorLeaf {
     pub credential: AuthorLeafCredential,
     /// The leaf's MLS `signature_key` bytes.
     pub signature_key: Vec<u8>,
+    /// Exact RFC 9420 TLS serialization of the active LeafNode.
+    pub leaf_node_canonical_bytes: Vec<u8>,
 }
 
 /// An already-authenticated historical MLS group-state view.
@@ -213,6 +215,7 @@ mod tests {
                 identity: identity.as_bytes().to_vec(),
             },
             signature_key,
+            leaf_node_canonical_bytes: Vec::new(),
         }
     }
 
@@ -373,6 +376,7 @@ mod tests {
                 credential_type: "x509".to_owned(),
             },
             signature_key: proof_key.clone(),
+            leaf_node_canonical_bytes: vec![0xA1],
         }]);
 
         let err = verify_minimal_metadata_author(&view, &claim(&actor, &proof_key)).unwrap_err();

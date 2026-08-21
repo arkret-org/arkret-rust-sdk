@@ -1232,7 +1232,6 @@ fn validate_seal_lineage(
     for seal in &core.seal_lineage {
         if seal.realm_id != core.principal_control_realm_id
             || seal.validate_structural().is_err()
-            || seal.validate_id().is_err()
             || (context.verify_seal_signature)(seal).is_err()
             || seals.insert(seal.id.as_str().to_owned(), seal).is_some()
         {
@@ -1311,7 +1310,14 @@ fn verify_witness_branch(
     let Ok(cell_ref) = CellRef::new(cell_ref.as_str().to_owned()) else {
         return false;
     };
-    let Ok(computed_leaf_digest) = arkret_state::state_value_leaf_digest(&cell_ref, cell_value)
+    let Some((suite, _)) = state_root.as_str().split_once(':') else {
+        return false;
+    };
+    let Ok(digest_suite) = arkret_canonical::digest_suite(suite) else {
+        return false;
+    };
+    let Ok(computed_leaf_digest) =
+        arkret_state::state_value_leaf_digest(&cell_ref, cell_value, digest_suite)
     else {
         return false;
     };
@@ -1322,6 +1328,7 @@ fn verify_witness_branch(
             leaf_count,
             inclusion_proof,
             state_root,
+            digest_suite,
         )
         .unwrap_or(false)
 }

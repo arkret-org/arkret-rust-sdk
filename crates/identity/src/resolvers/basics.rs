@@ -271,11 +271,12 @@ pub fn verify_event_proof_with_did_resolver<R>(
     event: &Event,
     proof: &Proof,
     resolver: &R,
+    digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<arkret_signatures::SignatureVerification>
 where
     R: DidResolver + ?Sized,
 {
-    let context = event_proof_verification_context(event)?;
+    let context = event_proof_verification_context_with_digest_suite(event, digest_suite)?;
     verify_event_proof_with_did_resolver_context(event, proof, resolver, context)
 }
 
@@ -299,12 +300,6 @@ where
         &context,
         resolver,
     )
-}
-
-pub fn event_proof_verification_context(
-    event: &Event,
-) -> Result<arkret_signatures::ProofVerificationContext> {
-    event_proof_verification_context_with_digest_suite(event, arkret_canonical::DigestSuite::Sha256)
 }
 
 /// Build an Event proof context with the active digest suite of its Realm.

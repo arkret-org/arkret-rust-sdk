@@ -5,6 +5,7 @@ mod development_identity;
 // did:webvh builders, the resolver, starid and the joint conformance harness
 // all sign or verify with it, and only some of them enable `webvh`.
 pub mod eddsa_jcs_2022;
+pub mod frozen_notary;
 pub mod http_signature;
 #[cfg(feature = "collaboration")]
 pub mod media;
@@ -24,6 +25,7 @@ pub use eddsa_jcs_2022::{
     EddsaJcs2022Error, build_eddsa_jcs_2022_proof, eddsa_jcs_2022_proof_config,
     eddsa_jcs_2022_signing_input, verify_eddsa_jcs_2022_proof,
 };
+pub use frozen_notary::verify_frozen_notary_signature;
 
 // Agent key-pairing canonical binding digests. Gated by `collaboration` because
 // they validate against the `PublicKey` wire model owned by

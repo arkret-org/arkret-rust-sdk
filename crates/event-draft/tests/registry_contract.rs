@@ -28,6 +28,8 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
             "sha256:43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777",
         )
         .unwrap(),
+        signer_resolution_evidence_ref: None,
+        signer_resolution_evidence_digest: None,
         created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
         domain: None,
         audience: None,

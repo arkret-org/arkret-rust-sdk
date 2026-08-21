@@ -193,9 +193,9 @@ pub enum Constraint {
     /// See `constraint-schema.md` §13.
     VisibilityControl {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        allowed_history_visibility_values: Vec<String>,
+        allowed_history_access_values: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        denied_history_visibility_values: Vec<String>,
+        denied_history_access_values: Vec<String>,
         #[serde(default = "default_false")]
         redacted_history_allowed: bool,
     },

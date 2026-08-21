@@ -35,6 +35,7 @@ pub fn raw_projected_operation(
         OperationKind::Create,
         None,
         &event,
+        arkret_canonical::DigestSuite::Sha256,
     )
     .expect("raw fixture operation is valid");
     if let Some(event_id) = fixture.event_id {

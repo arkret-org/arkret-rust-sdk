@@ -1,14 +1,13 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/authority-source-registry.json; version=2026-08-20.1;
-//! sha256=164060a9cb1c6432b49cad0b16e5b9c556ed812777f0b61d05dea70b32dd10eb Entries: registered=5
+//! Input: registry/authority-source-registry.json; version=2026-08-21.1;
+//! sha256=a491f93d58c6bb88e02c392bb0f7dea8bebe112b9ab08c423474aabcd90c57c8 Entries: registered=4
 
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
 pub enum AuthoritySourceId {
-    DirectConversationBootstrapParticipantV1,
     DirectConversationParticipantV1,
     DirectConversationRepairV1,
     MembershipCompensationV1,
@@ -45,15 +44,12 @@ pub struct AuthoritySourceDescriptor {
 
 impl AuthoritySourceId {
     pub const ALL: &'static [Self] = &[
-        Self::DirectConversationBootstrapParticipantV1,
         Self::DirectConversationParticipantV1,
         Self::DirectConversationRepairV1,
         Self::MembershipCompensationV1,
         Self::SidecarParentBootstrapV1,
     ];
 
-    pub const DIRECT_CONVERSATION_BOOTSTRAP_PARTICIPANT_V1: &'static str =
-        "ak.authority.direct_conversation_bootstrap_participant.v1";
     pub const DIRECT_CONVERSATION_PARTICIPANT_V1: &'static str =
         "ak.authority.direct_conversation_participant.v1";
     pub const DIRECT_CONVERSATION_REPAIR_V1: &'static str =
@@ -64,9 +60,6 @@ impl AuthoritySourceId {
 
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::DirectConversationBootstrapParticipantV1 => {
-                Self::DIRECT_CONVERSATION_BOOTSTRAP_PARTICIPANT_V1
-            }
             Self::DirectConversationParticipantV1 => Self::DIRECT_CONVERSATION_PARTICIPANT_V1,
             Self::DirectConversationRepairV1 => Self::DIRECT_CONVERSATION_REPAIR_V1,
             Self::MembershipCompensationV1 => Self::MEMBERSHIP_COMPENSATION_V1,
@@ -76,9 +69,6 @@ impl AuthoritySourceId {
 
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
-            Self::DIRECT_CONVERSATION_BOOTSTRAP_PARTICIPANT_V1 => {
-                Some(Self::DirectConversationBootstrapParticipantV1)
-            }
             Self::DIRECT_CONVERSATION_PARTICIPANT_V1 => Some(Self::DirectConversationParticipantV1),
             Self::DIRECT_CONVERSATION_REPAIR_V1 => Some(Self::DirectConversationRepairV1),
             Self::MEMBERSHIP_COMPENSATION_V1 => Some(Self::MembershipCompensationV1),
@@ -114,69 +104,6 @@ impl<'de> Deserialize<'de> for AuthoritySourceId {
 
 pub const REGISTERED_AUTHORITY_SOURCES: &[AuthoritySourceDescriptor] = &[
     AuthoritySourceDescriptor {
-        authority_source_id: AuthoritySourceId::DirectConversationBootstrapParticipantV1,
-        status: "active",
-        profile: "ak.profile.direct_conversation_realm.v1",
-        wire_ref: "ak.authority.direct_conversation_bootstrap_participant.v1",
-        binding_event_kind: "ak.realm.create",
-        binding_ref_role: "direct_conversation_founding_unit",
-        phases: &[
-            AuthoritySourcePhaseDescriptor {
-                phase: "provisional_history_send",
-                actor_rule: "founder_only",
-                action_allowlist: &[
-                    "ak.mls.genesis",
-                    "ak.mls.commit",
-                    "ak.mls.welcome.own_device",
-                    "ak.direct_conversation.mls_generation.activate",
-                    "ak.message.create",
-                    "ak.realm_key.share",
-                ],
-                activation_checks: &[
-                    "founding_unit_and_genesis_seal_accepted",
-                    "active_mls_generation_cell_not_past_generation_zero",
-                    "branch_current_authorization_valid",
-                    "device_account_or_agent_gates_pass",
-                    "sender_only_group_holds_founder_leaves_only",
-                    "exact_peer_keypackage_claim_add_and_welcome_preparation_only",
-                ],
-            },
-            AuthoritySourcePhaseDescriptor {
-                phase: "exact_pair_founding_completion",
-                actor_rule: "generation_one_activation_by_joiner_and_binding_endorsement_by_either_exact_participant",
-                action_allowlist: &[
-                    "ak.direct_conversation.mls_generation.activate",
-                    "ak.direct_conversation.bound",
-                    "ak.realm_key.share",
-                ],
-                activation_checks: &[
-                    "accepted_selected_group_state_holds_exact_pair_authorized_leaves",
-                    "peer_current_service_durably_accepted_welcome",
-                    "branch_current_authorization_valid",
-                    "device_gates_pass",
-                    "no_legal_binding_endorsement_exists_yet",
-                    "generation_one_predecessor_is_generation_zero_whole_value",
-                ],
-            },
-        ],
-        phase_selection: Some("verifier_recomputed_mutually_exclusive_from_accepted_facts"),
-        action_allowlist: &[],
-        activation_checks: &[],
-        forbidden_actions: &[
-            "ak.capability.grant",
-            "ak.capability.revoke",
-            "ak.realm.owner",
-            "ak.realm.admin",
-            "ak.member.state.third_participant",
-            "ak.strand.create.non_main",
-        ],
-        revocation_model: "permanent_retirement_on_first_legal_binding_endorsement",
-        authority_generation_independent: true,
-        grantable: false,
-        delegated_event_rule: "owned_agent_branch_adds_controller_delegation",
-        failure_mode: "fail_closed_or_dependency_pending",
-    },
-    AuthoritySourceDescriptor {
         authority_source_id: AuthoritySourceId::DirectConversationParticipantV1,
         status: "active",
         profile: "ak.profile.direct_conversation_realm.v1",
@@ -210,7 +137,7 @@ pub const REGISTERED_AUTHORITY_SOURCES: &[AuthoritySourceDescriptor] = &[
             "actor_is_one_of_exactly_two_stable_participants",
             "actor_membership_active_join",
             "realm_main_strand_and_target_scope_exact",
-            "active_mls_generation_cross_binding_exact",
+            "unique_scope_derived_group_state_cross_binding_exact",
             "realm_binding_and_target_strand_non_terminal_or_suspended",
             "resource_within_dm_realm_non_circle_discussion_scope",
             "current_signed_directional_contact_heads_gate_for_send_like_actions",
@@ -239,7 +166,7 @@ pub const REGISTERED_AUTHORITY_SOURCES: &[AuthoritySourceDescriptor] = &[
             "missing_member_branch_closed",
             "current_signed_directional_contact_heads_authorize_exact_pair",
             "current_human_or_owned_agent_authoring_proof",
-            "new_mls_generation_history_isolated",
+            "new_realm_group_history_isolated",
         ],
         forbidden_actions: &[],
         revocation_model: "current_profile_predicates",

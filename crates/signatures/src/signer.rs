@@ -279,16 +279,29 @@ mod tests {
             vec![move_id(0x11)],
             hash(0x77),
             hlc(),
+            arkret_canonical::DigestSuite::Sha256,
             &signer,
         )
         .unwrap();
-        a.validate_id().unwrap();
+        a.validate_id(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
         a.validate_structural().unwrap();
         match &a.notary_signature {
             NotarySig::Single(sig) => {
                 assert!(!sig.jws.is_empty());
                 let bytes = a.canonical_bytes_for_id().unwrap();
-                verify_ed25519_payload_signature(&bytes, sig, &signer.verifying_key()).unwrap();
+                verify_ed25519_payload_signature(
+                    &bytes,
+                    &PayloadSignature {
+                        verification_method: sig.verification_method.clone(),
+                        payload_digest: sig.payload_digest.clone(),
+                        created_at: a.sealed_at,
+                        jws: sig.jws.clone(),
+                        extra: BTreeMap::new(),
+                    },
+                    &signer.verifying_key(),
+                )
+                .unwrap();
             }
             other => panic!("expected single sig, got {other:?}"),
         }

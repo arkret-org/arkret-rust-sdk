@@ -71,8 +71,8 @@ pub struct ModerationReportAcceptedTargetBasis {
 
 impl ModerationReportRequestBody {
     /// Validate constraints carried entirely inside the signed request.
-    pub fn validate(&self) -> Result<()> {
-        self.report_event.validate_structural()?;
+    pub fn validate(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<()> {
+        self.report_event.validate_structural(digest_suite)?;
         let event = &self.report_event.event;
         if event.kind != EventKind::SelfModerationReport {
             return Err(arkret_wire::Error::Protocol(
@@ -156,8 +156,9 @@ impl ModerationReportRequestBody {
         &self,
         session_principal_id: &DidCoreId,
         accepted_target: &ModerationReportAcceptedTargetBasis,
+        digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
-        self.validate()?;
+        self.validate(digest_suite)?;
         let event = &self.report_event.event;
         let payload: crate::events_payloads::ModerationReportPayload =
             crate::events_payloads::event_wire::decode_payload_after_kind_validation(event)?;
@@ -175,8 +176,8 @@ impl ModerationReportRequestBody {
 
     /// The durable report identity is the accepted Event identity with only
     /// its typed prefix changed.
-    pub fn report_id(&self) -> Result<ReportId> {
-        self.validate()?;
+    pub fn report_id(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<ReportId> {
+        self.validate(digest_suite)?;
         Ok(ReportId::from_event_id(&self.report_event.event.event_id))
     }
 }
@@ -273,6 +274,7 @@ mod signed_request_tests {
     const CIRCLE: &str = "ak:circle:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0";
     const TARGET: &str = "ak:event:AYe0UROSIqIZGD1cBkkPMK8WhKaAJfv7SpPwNrYjFPOD";
     const VM: &str = "did:webvh:z6mkfixture:fixture.example#device-1";
+    const SUITE: arkret_canonical::DigestSuite = arkret_canonical::DigestSuite::Sha256;
 
     fn actor() -> DidCoreId {
         DidCoreId::new(ACTOR).unwrap()
@@ -315,13 +317,22 @@ mod signed_request_tests {
             key_epoch: 1,
             credential_epoch: None,
         });
-        event.refresh_content_bound_identity().unwrap();
-        let event_digest = Hash::new(event.event_digest().unwrap()).unwrap();
+        event
+            .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
+        let event_digest = Hash::new(
+            event
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .unwrap(),
+        )
+        .unwrap();
         event.proofs = vec![
             Proof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new(VM).unwrap(),
                 event_digest,
+                signer_resolution_evidence_ref: None,
+                signer_resolution_evidence_digest: None,
                 created_at,
                 domain: None,
                 audience: None,
@@ -345,12 +356,12 @@ mod signed_request_tests {
     #[test]
     fn valid_realm_and_circle_reports_bind_signed_authoring_context() {
         let realm_request = signed_request(None);
-        realm_request.validate().unwrap();
+        realm_request.validate(SUITE).unwrap();
         realm_request
-            .validate_authoring_context(&actor(), &realm_basis())
+            .validate_authoring_context(&actor(), &realm_basis(), SUITE)
             .unwrap();
         assert_eq!(
-            realm_request.report_id().unwrap(),
+            realm_request.report_id(SUITE).unwrap(),
             ReportId::from_event_id(&realm_request.report_event.event.event_id)
         );
 
@@ -366,6 +377,7 @@ mod signed_request_tests {
                     target_ref: TARGET.to_owned(),
                     effective_scope: circle_scope,
                 },
+                SUITE,
             )
             .unwrap();
     }
@@ -374,19 +386,23 @@ mod signed_request_tests {
     fn request_rejects_wrong_kind_scope_actor_and_target() {
         let mut wrong_kind = signed_request(None);
         wrong_kind.report_event.event.kind = arkret_wire::EventKind::MessageCreate;
-        assert!(wrong_kind.validate().is_err());
+        assert!(wrong_kind.validate(SUITE).is_err());
 
         let mut wrong_scope = signed_request(None);
         wrong_scope.report_event.event.scope_ref = ScopeRef::Circle {
             realm_id: realm(),
             circle_id: arkret_wire::CircleId::new(CIRCLE).unwrap(),
         };
-        assert!(wrong_scope.validate().is_err());
+        assert!(wrong_scope.validate(SUITE).is_err());
 
         let request = signed_request(None);
         assert!(
             request
-                .validate_authoring_context(&DidCoreId::new(OTHER_ACTOR).unwrap(), &realm_basis())
+                .validate_authoring_context(
+                    &DidCoreId::new(OTHER_ACTOR).unwrap(),
+                    &realm_basis(),
+                    SUITE,
+                )
                 .is_err()
         );
         let mut wrong_target = realm_basis();
@@ -394,7 +410,7 @@ mod signed_request_tests {
             "ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6".to_owned();
         assert!(
             request
-                .validate_authoring_context(&actor(), &wrong_target)
+                .validate_authoring_context(&actor(), &wrong_target, SUITE)
                 .is_err()
         );
     }
@@ -403,7 +419,7 @@ mod signed_request_tests {
     fn request_rejects_delegated_mimi_and_control_move_fields() {
         let mut delegated = signed_request(None);
         delegated.report_event.event.executed_by = Some(actor());
-        assert!(delegated.validate().is_err());
+        assert!(delegated.validate(SUITE).is_err());
 
         let mut mimi = signed_request(None);
         mimi.report_event.event.payload.insert(
@@ -414,7 +430,7 @@ mod signed_request_tests {
             "source_provider".to_owned(),
             serde_json::Value::String(OTHER_ACTOR.to_owned()),
         );
-        assert!(mimi.validate().is_err());
+        assert!(mimi.validate(SUITE).is_err());
 
         let mut guarded = signed_request(None);
         guarded.report_event.event.preconditions = vec![Precondition {
@@ -427,7 +443,7 @@ mod signed_request_tests {
                 predicate_id: None,
             },
         }];
-        assert!(guarded.validate().is_err());
+        assert!(guarded.validate(SUITE).is_err());
     }
 
     #[test]
@@ -437,7 +453,7 @@ mod signed_request_tests {
             "reporter".to_owned(),
             serde_json::Value::String(OTHER_ACTOR.to_owned()),
         );
-        assert!(wrong_reporter.validate().is_err());
+        assert!(wrong_reporter.validate(SUITE).is_err());
 
         let mut wrong_proof = signed_request(None);
         wrong_proof.report_event.event.proofs[0]
@@ -445,28 +461,28 @@ mod signed_request_tests {
             .unwrap()
             .verification_method =
             DidUrl::new("did:webvh:z6mkother:other.example#device-1").unwrap();
-        assert!(wrong_proof.validate().is_err());
+        assert!(wrong_proof.validate(SUITE).is_err());
 
         let mut other = signed_request(None);
         other.report_event.event.payload.insert(
             "report_reason_code".to_owned(),
             serde_json::Value::String("other".to_owned()),
         );
-        assert!(other.validate().is_err());
+        assert!(other.validate(SUITE).is_err());
     }
 
     #[test]
     fn submission_outcome_is_closed_and_submitted() {
         let request = signed_request(None);
         let outcome = ModerationReportOutcome {
-            report_id: request.report_id().unwrap(),
+            report_id: request.report_id(SUITE).unwrap(),
             status: ModerationReportStatus::Submitted,
             routed_to: Vec::new(),
         };
         assert_eq!(outcome.status, ModerationReportStatus::Submitted);
         assert!(
             serde_json::from_value::<ModerationReportOutcome>(json!({
-                "report_id": request.report_id().unwrap(),
+                "report_id": request.report_id(SUITE).unwrap(),
                 "status": "resolved"
             }))
             .is_err()

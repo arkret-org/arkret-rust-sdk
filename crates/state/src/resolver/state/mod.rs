@@ -209,7 +209,7 @@ impl RealmState {
             | EventKind::RealmLink
             | EventKind::RealmInheritancePolicy
             | EventKind::RealmJoinRule
-            | EventKind::RealmHistoryVisibility
+            | EventKind::RealmHistoryAccess
             | EventKind::RealmDiscovery
             | EventKind::RealmArchive
             | EventKind::RealmFreeze

@@ -13,7 +13,9 @@
 //! event bytes:
 //!
 //! ```text
-//! { event_digest, actor_id, verification_method, created_at, domain?, audience? }
+//! { event_digest, actor_id, verification_method,
+//!   signer_resolution_evidence_ref?, signer_resolution_evidence_digest?,
+//!   created_at, domain?, audience? }
 //! ```
 //!
 //! where `event_digest = sha256(canonical event bytes with proofs/unsigned
@@ -29,15 +31,18 @@
 //! object via [`arkret_wire::Proof::canonical_binding_bytes`].
 
 use arkret_canonical::canonical;
-use arkret_wire::{Audience, AuthoredEvent, DidUrl, Hash, PayloadSigner, Proof, proof_kind};
+use arkret_wire::{
+    Audience, AuthoredEvent, DidUrl, Hash, PayloadSigner, Proof, SignerEvidenceRef, proof_kind,
+};
 use chrono::{DateTime, Utc};
 
 use crate::{Error, Result};
 
 /// Options threaded into [`sign_event`].
 ///
-/// `domain` / `audience` are optional binding additions threaded into
-/// the produced [`Proof`]; both default to `None`. `created_at`
+/// `domain`, `audience`, and the direct-regime signer-resolution evidence
+/// pair are optional binding additions threaded into the produced [`Proof`].
+/// They default to `None`. `created_at`
 /// defaults to `Utc::now()` when omitted so callers don't have to
 /// stamp the wall clock themselves.
 #[derive(Clone, Debug, Default)]
@@ -45,6 +50,8 @@ pub struct SignEventOptions {
     pub domain: Option<String>,
     pub audience: Option<Audience>,
     pub created_at: Option<DateTime<Utc>>,
+    pub signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
+    pub signer_resolution_evidence_digest: Option<Hash>,
 }
 
 impl SignEventOptions {
@@ -64,6 +71,16 @@ impl SignEventOptions {
 
     pub fn with_created_at(mut self, created_at: DateTime<Utc>) -> Self {
         self.created_at = Some(created_at);
+        self
+    }
+
+    pub fn with_signer_resolution_evidence(
+        mut self,
+        evidence_ref: SignerEvidenceRef,
+        evidence_digest: Hash,
+    ) -> Self {
+        self.signer_resolution_evidence_ref = Some(evidence_ref);
+        self.signer_resolution_evidence_digest = Some(evidence_digest);
         self
     }
 }
@@ -139,12 +156,15 @@ pub fn sign_event<S: PayloadSigner + ?Sized>(
         kind: proof_kind::DETACHED_JWS.to_owned(),
         verification_method: verification_method.clone(),
         event_digest: payload_digest.clone(),
+        signer_resolution_evidence_ref: options.signer_resolution_evidence_ref,
+        signer_resolution_evidence_digest: options.signer_resolution_evidence_digest,
         created_at,
         domain: options.domain,
         audience: options.audience,
         proof_purpose: None,
         jws: String::new(),
     };
+    proof.validate_signer_resolution_evidence_pair()?;
     let binding_bytes = proof.canonical_binding_bytes(&event.actor_id)?;
     let signature = signer.sign_payload(&binding_bytes)?;
     proof.jws = signature.jws;
@@ -172,6 +192,8 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    const SUITE: arkret_canonical::DigestSuite = arkret_canonical::DigestSuite::Sha256;
 
     fn realm() -> RealmId {
         RealmId::from_event_id(&EventId::from_digest(
@@ -224,7 +246,7 @@ mod tests {
 
     /// `make_event` finished: the identity derived once from that content.
     fn authored() -> AuthoredEvent {
-        AuthoredEvent::finalize(make_event()).unwrap()
+        AuthoredEvent::finalize_with_digest_suite(make_event(), SUITE).unwrap()
     }
 
     /// Minimal in-test signer that mimics a detached JWS over arbitrary
@@ -272,14 +294,18 @@ mod tests {
         let signer = StubPayloadSigner::new(alice(), vm_alice());
         sign_event(&mut event, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
         assert_eq!(event.proofs.len(), 1);
-        let digest = event.event_digest().unwrap();
+        let digest = event
+            .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
         let proof = event.proofs[0].as_producer().unwrap();
         assert_eq!(proof.event_digest.as_str(), digest);
         assert_eq!(proof.verification_method, vm_alice());
         assert_eq!(proof.kind, proof_kind::DETACHED_JWS);
         assert!(!proof.jws.is_empty());
         // validate_proof_bindings (production) round-trips.
-        event.validate_proof_bindings().unwrap();
+        event
+            .validate_proof_bindings_with_digest_suite(SUITE)
+            .unwrap();
     }
 
     /// Authoring must be finished BEFORE signing, and signing must not move
@@ -295,7 +321,7 @@ mod tests {
             [0x42; 32],
         )];
         event.hlc = Some(Hlc::new("01970e589d21-0042-a13f9c2e").unwrap());
-        let mut event = AuthoredEvent::finalize(event).unwrap();
+        let mut event = AuthoredEvent::finalize_with_digest_suite(event, SUITE).unwrap();
         let authored_event_id = event.event_id().clone();
 
         let signer = StubPayloadSigner::new(alice(), vm_alice());
@@ -303,7 +329,9 @@ mod tests {
 
         assert_eq!(event.event_id(), &authored_event_id);
         event.verify_identity().unwrap();
-        event.validate_proof_bindings().unwrap();
+        event
+            .validate_proof_bindings_with_digest_suite(SUITE)
+            .unwrap();
     }
 
     /// Fail closed on authored content that no longer matches its id, instead
@@ -352,7 +380,7 @@ mod tests {
         let mut without = authored();
         let mut with = make_event();
         with.executed_by = Some(DidCoreId::new("ak:did_core:web:applet.example").unwrap());
-        let mut with = AuthoredEvent::finalize(with).unwrap();
+        let mut with = AuthoredEvent::finalize_with_digest_suite(with, SUITE).unwrap();
 
         let signer = StubPayloadSigner::new(alice(), vm_alice());
         sign_event(&mut without, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
@@ -381,7 +409,7 @@ mod tests {
             )
             .unwrap(),
         );
-        let mut with = AuthoredEvent::finalize(with).unwrap();
+        let mut with = AuthoredEvent::finalize_with_digest_suite(with, SUITE).unwrap();
 
         let signer = StubPayloadSigner::new(alice(), vm_alice());
         sign_event(&mut without, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
@@ -428,7 +456,9 @@ mod tests {
 
         let proof = serde_json::to_value(&event.proofs[0]).unwrap();
         assert_eq!(proof["created_at"], json!("2026-05-26T12:00:00.987Z"));
-        event.validate_proof_bindings().unwrap();
+        event
+            .validate_proof_bindings_with_digest_suite(SUITE)
+            .unwrap();
     }
 
     #[test]
@@ -454,7 +484,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(event.proofs.len(), 1, "re-sign must replace, not append");
-        event.validate_proof_bindings().unwrap();
+        event
+            .validate_proof_bindings_with_digest_suite(SUITE)
+            .unwrap();
     }
 
     #[test]
@@ -488,7 +520,9 @@ mod tests {
         let mut authored = authored();
         let signer = StubPayloadSigner::new(alice(), vm_alice());
         sign_event(&mut authored, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
-        authored.validate_proof_bindings().unwrap();
+        authored
+            .validate_proof_bindings_with_digest_suite(SUITE)
+            .unwrap();
         let event = authored.into_event();
 
         // Payload tamper: the recomputed canonical event digest changes, so
@@ -496,7 +530,7 @@ mod tests {
         let mut payload_tampered = event.clone();
         payload_tampered.payload = BTreeMap::from([("body".to_owned(), json!("tampered"))]);
         let err = payload_tampered
-            .validate_proof_bindings()
+            .validate_proof_bindings_with_digest_suite(SUITE)
             .expect_err("payload tamper must fail binding validation");
         assert!(format!("{err}").contains("event_digest"), "got: {err}");
 
@@ -510,7 +544,9 @@ mod tests {
             Hash::new("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
                 .unwrap();
         assert!(
-            digest_tampered.validate_proof_bindings().is_err(),
+            digest_tampered
+                .validate_proof_bindings_with_digest_suite(SUITE)
+                .is_err(),
             "proof event_digest tamper must fail binding validation"
         );
 
@@ -519,7 +555,9 @@ mod tests {
         let mut field_tampered = event;
         field_tampered.actor_seq += 1;
         assert!(
-            field_tampered.validate_proof_bindings().is_err(),
+            field_tampered
+                .validate_proof_bindings_with_digest_suite(SUITE)
+                .is_err(),
             "actor_seq tamper must fail binding validation"
         );
     }

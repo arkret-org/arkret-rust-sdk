@@ -1,7 +1,7 @@
 //! Directory search, resolve, announce, push, and takedown operation
 //! wire shapes (`discovery-directory.md`; R9).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use arkret_models_identity::ServiceResolutionCarrier;
@@ -108,7 +108,7 @@ pub struct RealmPreview {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub discoverability: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub history_visibility: Option<String>,
+    pub history_access: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub join_candidates: Vec<RealmJoinCandidate>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -133,8 +133,6 @@ pub struct RealmPreview {
 #[serde(rename_all = "snake_case")]
 pub enum RealmJoinCandidateServiceKind {
     PrincipalServer,
-    SyncNode,
-    Notary,
 }
 
 /// Routing role for a Realm join candidate. This is an ordering and
@@ -143,18 +141,12 @@ pub enum RealmJoinCandidateServiceKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RealmJoinCandidateRole {
-    Primary,
-    Mirror,
-    Notary,
-    Sync,
-    FederationPeer,
-    InviteOrigin,
-    ReviewerIngress,
+    JoinedMemberPrincipalServer,
 }
 
 /// Join-side strand supported by a Realm join candidate.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RealmJoinMethod {
     InviteAccept,
@@ -169,12 +161,8 @@ pub enum RealmJoinMethod {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RealmJoinCandidateSource {
-    RealmSyncEndpoint,
-    DirectoryIngest,
     InviteHint,
-    SignedLinkHint,
-    FederationRedirect,
-    LocalCache,
+    MemberDeliveryBinding,
 }
 
 /// `ak.schema.realm_join_candidate.v1`: time-bounded routing hint for
@@ -198,6 +186,9 @@ pub struct RealmJoinCandidate {
     /// instead of reading membership-gated Realm history when applying the
     /// E2EE recovery-material gate.
     pub encryption_profile: EncryptionProfile,
+    /// Verified current live digest suite at the complete accepted Seal basis.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    pub digest_algorithm: arkret_canonical::DigestSuite,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub priority: Option<u16>,
     pub source: RealmJoinCandidateSource,
@@ -205,10 +196,10 @@ pub struct RealmJoinCandidate {
     pub source_refs: Vec<EventId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub frontier_ref: Option<String>,
-    /// Full single-leaf Control Move basis for the current accepted Realm Seal
-    /// head at `as_of`. Principal server candidates MUST include this for
-    /// pre-join join / invite acceptance because the invitee cannot read the
-    /// membership-gated frontier view before joining.
+    /// Complete Control Move basis for the current accepted Realm Seal
+    /// frontier at `as_of`. Principal server candidates MUST include the full
+    /// canonical antichain because a pre-join client cannot read the
+    /// membership-gated frontier view.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub seal_basis: SealBasis,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -221,6 +212,43 @@ pub struct RealmJoinCandidate {
 
 impl RealmJoinCandidate {
     pub const SCHEMA: &'static str = SchemaId::REALM_JOIN_CANDIDATE_V1;
+
+    pub fn validate(&self) -> Result<()> {
+        self.seal_basis.validate_protocol_bounds()?;
+        if self.operations.is_empty()
+            || !self
+                .operations
+                .iter()
+                .any(|operation| operation == ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT)
+            || self.join_methods.is_empty()
+            || self.expires_at <= self.as_of
+        {
+            return Err(Error::Protocol(
+                "Realm join candidate has invalid operations, methods, basis, or lifetime"
+                    .to_owned(),
+            ));
+        }
+        let mut operations = self.operations.clone();
+        operations.sort();
+        operations.dedup();
+        if operations.len() != self.operations.len() {
+            return Err(Error::Protocol(
+                "Realm join candidate operations contain duplicates".to_owned(),
+            ));
+        }
+        let methods = self.join_methods.iter().copied().collect::<BTreeSet<_>>();
+        if methods.len() != self.join_methods.len() {
+            return Err(Error::Protocol(
+                "Realm join candidate methods contain duplicates".to_owned(),
+            ));
+        }
+        if self.source == RealmJoinCandidateSource::InviteHint && self.proofs.is_empty() {
+            return Err(Error::Protocol(
+                "invite-derived Realm join candidate requires a proof".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

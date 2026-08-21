@@ -43,7 +43,12 @@ key-verification = [
 # single-shot seal/open + the typed `ak.secret.*` to-device content bodies.
 # Pulls in the `hpke` stack (`hpke`, `getrandom`, `rand_core` 0.9) only when
 # enabled.
-secret-share = ["dep:hpke", "dep:getrandom", "dep:rand_core_09"]
+secret-share = [
+    "dep:arkret-models-collaboration",
+    "dep:hpke",
+    "dep:getrandom",
+    "dep:rand_core_09",
+]
 # Client-side key-backup helpers: Argon2id KDF + XChaCha20-Poly1305 AEAD +
 # typed `ak.schema.key_backup.v1` envelope builder + recovery-key codec.
 # Spec: crypto-media/key-management.md §7. Pulls in `argon2`,
@@ -72,6 +77,7 @@ bip39 = {workspace = true,optional = true}
 chacha20poly1305 = {workspace = true,optional = true}
 chrono = {workspace = true,features = ["serde"]}
 arkret-models-crypto = {workspace = true}
+arkret-models-collaboration = {workspace = true,optional = true}
 arkret-signatures.workspace = true
 arkret-wire = {workspace = true}
 ed25519-dalek = {workspace = true,optional = true}

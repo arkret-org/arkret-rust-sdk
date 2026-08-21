@@ -961,7 +961,7 @@ pub struct AgentGrantAttachRequestBody {
 }
 
 impl AgentGrantAttachRequestBody {
-    pub fn validate(&self) -> Result<()> {
+    pub fn validate(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<()> {
         self.requested_scope_disclosure.validate()?;
         let event = &self.grant_event.event;
         if event.kind != EventKind::CapabilityGrant {
@@ -969,7 +969,7 @@ impl AgentGrantAttachRequestBody {
                 "Agent grant attach requires an ak.capability.grant Event".to_owned(),
             ));
         }
-        event.validate_proof_bindings()?;
+        event.validate_proof_bindings_with_digest_suite(digest_suite)?;
         let payload: crate::events_payloads::capability::CapabilityGrantPayload =
             decode_payload_after_kind_validation(event)?;
         let grant = &payload.grant;
@@ -1024,14 +1024,14 @@ pub struct AgentGrantDetachRequestBody {
 }
 
 impl AgentGrantDetachRequestBody {
-    pub fn validate(&self) -> Result<()> {
+    pub fn validate(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<()> {
         let event = &self.revoke_event.event;
         if event.kind != EventKind::CapabilityRevoke {
             return Err(Error::Protocol(
                 "Agent grant detach requires an ak.capability.revoke Event".to_owned(),
             ));
         }
-        event.validate_proof_bindings()?;
+        event.validate_proof_bindings_with_digest_suite(digest_suite)?;
         let payload: crate::events_payloads::capability::CapabilityRevokePayload =
             decode_payload_after_kind_validation(event)?;
         if payload
@@ -2405,7 +2405,7 @@ mod tests {
     #[test]
     fn agent_grant_detach_accepts_exact_revoke_cell_guard() {
         agent_grant_detach_request()
-            .validate()
+            .validate(arkret_canonical::DigestSuite::Sha256)
             .expect("exact signed revoke contract");
     }
 
@@ -2413,11 +2413,19 @@ mod tests {
     fn agent_grant_detach_rejects_wrong_kind_guard_count_cell_head_and_grant_ref() {
         let mut wrong_kind = agent_grant_detach_request();
         wrong_kind.revoke_event.event.kind = EventKind::MessageCreate;
-        assert!(wrong_kind.validate().is_err());
+        assert!(
+            wrong_kind
+                .validate(arkret_canonical::DigestSuite::Sha256)
+                .is_err()
+        );
 
         let mut no_guard = agent_grant_detach_request();
         no_guard.revoke_event.event.preconditions.clear();
-        assert!(no_guard.validate().is_err());
+        assert!(
+            no_guard
+                .validate(arkret_canonical::DigestSuite::Sha256)
+                .is_err()
+        );
 
         let mut two_guards = agent_grant_detach_request();
         let second_guard = two_guards.revoke_event.event.preconditions[0].clone();
@@ -2426,20 +2434,32 @@ mod tests {
             .event
             .preconditions
             .push(second_guard);
-        assert!(two_guards.validate().is_err());
+        assert!(
+            two_guards
+                .validate(arkret_canonical::DigestSuite::Sha256)
+                .is_err()
+        );
 
         let mut wrong_cell = agent_grant_detach_request();
         wrong_cell.revoke_event.event.preconditions[0].cell = CellRef::new(format!(
             "ak:cell:ak.component.capability.grant.v1:{OTHER_GRANT_ID}"
         ))
         .unwrap();
-        assert!(wrong_cell.validate().is_err());
+        assert!(
+            wrong_cell
+                .validate(arkret_canonical::DigestSuite::Sha256)
+                .is_err()
+        );
 
         let mut empty_head = agent_grant_detach_request();
         empty_head.revoke_event.event.preconditions[0]
             .predicate
             .value = Some(serde_json::json!([]));
-        assert!(empty_head.validate().is_err());
+        assert!(
+            empty_head
+                .validate(arkret_canonical::DigestSuite::Sha256)
+                .is_err()
+        );
 
         let mut mismatched_ref = agent_grant_detach_request();
         mismatched_ref
@@ -2447,7 +2467,11 @@ mod tests {
             .event
             .payload
             .insert("grant_ref".to_owned(), serde_json::json!(OTHER_GRANT_ID));
-        assert!(mismatched_ref.validate().is_err());
+        assert!(
+            mismatched_ref
+                .validate(arkret_canonical::DigestSuite::Sha256)
+                .is_err()
+        );
     }
 
     #[test]

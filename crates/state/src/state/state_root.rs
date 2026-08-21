@@ -9,9 +9,9 @@
 //! 2. Sort leaves by `cell_wire` Unicode code point ascending.
 //! 3. Combine leaves via the unified Seal Merkle rule (§6.2.2): internal node = `H(0x01 || left ||
 //!    right)`, odd tail promoted without duplication, single-leaf root equals that leaf's `H(0x00
-//!    || ..)` (NOT the bare preimage hash), empty set → `H` over the empty byte string
-//!    (`sha256:e3b0...b855`).
-//! 4. Wire form: `state_root = "sha256:" + lower_hex(root)`.
+//!    || ..)` (NOT the bare preimage hash), empty set → `H` over the empty byte string (the
+//!    selected suite digest of the empty byte string).
+//! 4. Wire form: `state_root = "<suite>:" + lower_hex(root)`.
 //!
 //! This is the **Seal-level** Merkle family with `0x00`/`0x01` domain separation,
 //! shared with `control_event_set_root` / `data_view_root` / observation roots. It is
@@ -39,6 +39,14 @@ const NODE_PREFIX: u8 = 0x01;
 pub const EMPTY_STATE_ROOT: &str =
     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
+/// Compute the empty state root under an explicit Realm digest suite.
+pub fn empty_state_root_with_digest_suite(
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<Hash, crate::Error> {
+    Hash::new(canonical::digest(digest_suite, []))
+        .map_err(|error| crate::Error::Protocol(format!("invalid empty-state hash: {error}")))
+}
+
 /// Portable RFC 6962 branch for one non-bottom state cell.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StateInclusionProof {
@@ -56,19 +64,26 @@ pub struct StateInclusionProof {
 /// current Seal view; values are resolved via
 /// [`crate::lattice::Lattice::join`].
 /// Empty input returns [`EMPTY_STATE_ROOT`].
-pub fn compute_state_root(cells: &BTreeMap<CellRef, CellState>) -> Result<Hash, crate::Error> {
+/// Compute the canonical Merkle root under the Realm's verified digest suite.
+pub fn compute_state_root(
+    cells: &BTreeMap<CellRef, CellState>,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<Hash, crate::Error> {
     let mut leaves: Vec<(String, [u8; 32])> = Vec::with_capacity(cells.len());
     for (cell, state) in cells {
         if matches!(state, CellState::Bottom(_)) {
             continue;
         }
-        let leaf = leaf_hash(cell, state)?;
+        let leaf = leaf_hash(cell, state, digest_suite)?;
         leaves.push((cell.as_str().to_owned(), leaf));
     }
     // Sort by cell wire string ascending (Unicode code point).
     leaves.sort_by(|a, b| a.0.cmp(&b.0));
 
-    seal_merkle_root_from_leaf_hashes(leaves.into_iter().map(|(_, hash)| hash).collect())
+    seal_merkle_root_from_leaf_hashes(
+        leaves.into_iter().map(|(_, hash)| hash).collect(),
+        digest_suite,
+    )
 }
 
 /// Build the portable Merkle branch for `target_cell` in a resolved state map.
@@ -78,13 +93,17 @@ pub fn compute_state_root(cells: &BTreeMap<CellRef, CellState>) -> Result<Hash, 
 pub fn state_inclusion_proof(
     cells: &BTreeMap<CellRef, CellState>,
     target_cell: &CellRef,
+    digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<StateInclusionProof, crate::Error> {
     let mut leaves: Vec<(String, [u8; 32])> = Vec::with_capacity(cells.len());
     for (cell, state) in cells {
         if matches!(state, CellState::Bottom(_)) {
             continue;
         }
-        leaves.push((cell.as_str().to_owned(), leaf_hash(cell, state)?));
+        leaves.push((
+            cell.as_str().to_owned(),
+            leaf_hash(cell, state, digest_suite)?,
+        ));
     }
     leaves.sort_by(|a, b| a.0.cmp(&b.0));
     let mut index = leaves
@@ -100,18 +119,18 @@ pub fn state_inclusion_proof(
         .map_err(|_| crate::Error::Protocol("state leaf count exceeds u64".to_owned()))?;
     let leaf_index = u64::try_from(index)
         .map_err(|_| crate::Error::Protocol("state leaf index exceeds u64".to_owned()))?;
-    let leaf_digest = hash_from_raw(leaves[index].1)?;
+    let leaf_digest = hash_from_raw(leaves[index].1, digest_suite)?;
     let mut layer = leaves.into_iter().map(|(_, hash)| hash).collect::<Vec<_>>();
     let mut branch = Vec::new();
     while layer.len() > 1 {
         if index % 2 == 0 {
             if index + 1 < layer.len() {
-                branch.push(hash_from_raw(layer[index + 1])?);
+                branch.push(hash_from_raw(layer[index + 1], digest_suite)?);
             }
         } else {
-            branch.push(hash_from_raw(layer[index - 1])?);
+            branch.push(hash_from_raw(layer[index - 1], digest_suite)?);
         }
-        layer = next_seal_merkle_layer(&layer);
+        layer = next_seal_merkle_layer(&layer, digest_suite);
         index /= 2;
     }
     Ok(StateInclusionProof {
@@ -129,11 +148,12 @@ pub fn verify_state_inclusion_proof(
     leaf_count: u64,
     inclusion_proof: &[Hash],
     expected_root: &Hash,
+    digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<bool, crate::Error> {
     if leaf_count == 0 || leaf_index >= leaf_count {
         return Ok(false);
     }
-    let mut current = raw_from_hash(leaf_digest)?;
+    let mut current = raw_from_hash(leaf_digest, digest_suite)?;
     let mut index = leaf_index;
     let mut width = leaf_count;
     let mut siblings = inclusion_proof.iter();
@@ -147,11 +167,11 @@ pub fn verify_state_inclusion_proof(
             let Some(sibling) = siblings.next() else {
                 return Ok(false);
             };
-            let sibling = raw_from_hash(sibling)?;
+            let sibling = raw_from_hash(sibling, digest_suite)?;
             current = if index.is_multiple_of(2) {
-                node_hash(current, sibling)
+                node_hash(current, sibling, digest_suite)
             } else {
-                node_hash(sibling, current)
+                node_hash(sibling, current, digest_suite)
             };
         }
         index /= 2;
@@ -160,7 +180,7 @@ pub fn verify_state_inclusion_proof(
     if siblings.next().is_some() {
         return Ok(false);
     }
-    Ok(hash_from_raw(current)? == *expected_root)
+    Ok(hash_from_raw(current, digest_suite)? == *expected_root)
 }
 
 /// Compute the canonical portable leaf digest for one non-bottom state cell.
@@ -172,40 +192,57 @@ pub fn verify_state_inclusion_proof(
 pub fn state_value_leaf_digest(
     cell: &CellRef,
     value: &serde_json::Value,
+    digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<Hash, crate::Error> {
-    hash_from_raw(leaf_hash(cell, &CellState::Value(value.clone()))?)
+    hash_from_raw(
+        leaf_hash(cell, &CellState::Value(value.clone()), digest_suite)?,
+        digest_suite,
+    )
 }
 
 /// Compute a Seal-family Merkle root from already ordered raw leaf data.
 ///
 /// This is shared by `state_root` and `control_event_set_root`; snapshot
 /// roots intentionally use a different, unprefixed Merkle family.
-pub(crate) fn seal_merkle_root_from_leaf_data(leaf_data: &[Vec<u8>]) -> Result<Hash, crate::Error> {
+pub(crate) fn seal_merkle_root_from_leaf_data(
+    leaf_data: &[Vec<u8>],
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<Hash, crate::Error> {
     let leaves = leaf_data
         .iter()
-        .map(|data| canonical::sha256_bytes_from_slices(&[&[LEAF_PREFIX][..], data.as_slice()]))
+        .map(|data| {
+            canonical::digest_bytes_from_slices(
+                digest_suite,
+                &[&[LEAF_PREFIX][..], data.as_slice()],
+            )
+        })
         .collect();
-    seal_merkle_root_from_leaf_hashes(leaves)
+    seal_merkle_root_from_leaf_hashes(leaves, digest_suite)
 }
 
-fn seal_merkle_root_from_leaf_hashes(mut layer: Vec<[u8; 32]>) -> Result<Hash, crate::Error> {
+fn seal_merkle_root_from_leaf_hashes(
+    mut layer: Vec<[u8; 32]>,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<Hash, crate::Error> {
     if layer.is_empty() {
-        return Hash::new(EMPTY_STATE_ROOT.to_owned())
-            .map_err(|e| crate::Error::Protocol(format!("invalid empty-state hash: {e}")));
+        return empty_state_root_with_digest_suite(digest_suite);
     }
     while layer.len() > 1 {
-        layer = next_seal_merkle_layer(&layer);
+        layer = next_seal_merkle_layer(&layer, digest_suite);
     }
     let root = layer[0];
-    Hash::new(format!("sha256:{}", hex::encode(root)))
+    Hash::new(format!("{}:{}", digest_suite.as_str(), hex::encode(root)))
         .map_err(|e| crate::Error::Protocol(format!("invalid state root: {e}")))
 }
 
-fn next_seal_merkle_layer(layer: &[[u8; 32]]) -> Vec<[u8; 32]> {
+fn next_seal_merkle_layer(
+    layer: &[[u8; 32]],
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Vec<[u8; 32]> {
     let mut next = Vec::with_capacity(layer.len().div_ceil(2));
     let mut index = 0;
     while index + 1 < layer.len() {
-        next.push(node_hash(layer[index], layer[index + 1]));
+        next.push(node_hash(layer[index], layer[index + 1], digest_suite));
         index += 2;
     }
     if index < layer.len() {
@@ -214,20 +251,35 @@ fn next_seal_merkle_layer(layer: &[[u8; 32]]) -> Vec<[u8; 32]> {
     next
 }
 
-fn node_hash(left: [u8; 32], right: [u8; 32]) -> [u8; 32] {
-    canonical::sha256_bytes_from_slices(&[&[NODE_PREFIX][..], &left[..], &right[..]])
+fn node_hash(
+    left: [u8; 32],
+    right: [u8; 32],
+    digest_suite: arkret_canonical::DigestSuite,
+) -> [u8; 32] {
+    canonical::digest_bytes_from_slices(digest_suite, &[&[NODE_PREFIX][..], &left[..], &right[..]])
 }
 
-fn hash_from_raw(raw: [u8; 32]) -> Result<Hash, crate::Error> {
-    Hash::new(format!("sha256:{}", hex::encode(raw)))
+fn hash_from_raw(
+    raw: [u8; 32],
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<Hash, crate::Error> {
+    Hash::new(format!("{}:{}", digest_suite.as_str(), hex::encode(raw)))
         .map_err(|error| crate::Error::Protocol(format!("invalid state proof hash: {error}")))
 }
 
-fn raw_from_hash(hash: &Hash) -> Result<[u8; 32], crate::Error> {
+fn raw_from_hash(
+    hash: &Hash,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<[u8; 32], crate::Error> {
     let encoded = hash
         .as_str()
-        .strip_prefix("sha256:")
-        .ok_or_else(|| crate::Error::Protocol("state proof hash must use sha256".to_owned()))?;
+        .strip_prefix(&format!("{}:", digest_suite.as_str()))
+        .ok_or_else(|| {
+            crate::Error::Protocol(format!(
+                "state proof hash must use {}",
+                digest_suite.as_str()
+            ))
+        })?;
     let raw = hex::decode(encoded)
         .map_err(|error| crate::Error::Protocol(format!("invalid state proof hash: {error}")))?;
     raw.try_into()
@@ -238,7 +290,11 @@ fn raw_from_hash(hash: &Hash) -> Result<[u8; 32], crate::Error> {
 ///
 /// Public for use by selective Merkle-branch updaters and tests that
 /// want to verify per-cell encoding without running the whole tree.
-pub fn leaf_hash(cell: &CellRef, state: &CellState) -> Result<[u8; 32], crate::Error> {
+pub fn leaf_hash(
+    cell: &CellRef,
+    state: &CellState,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<[u8; 32], crate::Error> {
     let state_object = match state {
         CellState::Value(v) => json!({ "value": v }),
         CellState::Bottom(_) => {
@@ -253,10 +309,10 @@ pub fn leaf_hash(cell: &CellRef, state: &CellState) -> Result<[u8; 32], crate::E
     });
     let bytes = canonical::canonical_json_bytes(&leaf_input)?;
     // Leaf: H(0x00 || leaf_preimage_utf8_bytes) (spec §6.2.2).
-    Ok(canonical::sha256_bytes_from_slices(&[
-        &[LEAF_PREFIX][..],
-        &bytes,
-    ]))
+    Ok(canonical::digest_bytes_from_slices(
+        digest_suite,
+        &[&[LEAF_PREFIX][..], &bytes],
+    ))
 }
 
 #[cfg(test)]
@@ -266,13 +322,15 @@ mod tests {
     use super::*;
     use crate::BottomKind;
 
+    const SUITE: arkret_canonical::DigestSuite = arkret_canonical::DigestSuite::Sha256;
+
     fn cell(s: &str) -> CellRef {
         CellRef::new(s.to_owned()).unwrap()
     }
 
     #[test]
     fn empty_map_returns_constant_root() {
-        let root = compute_state_root(&BTreeMap::new()).unwrap();
+        let root = compute_state_root(&BTreeMap::new(), SUITE).unwrap();
         assert_eq!(root.as_str(), EMPTY_STATE_ROOT);
     }
 
@@ -283,13 +341,14 @@ mod tests {
             cell("ak:cell:ak.component.member.state.v1:did.web.alice.example"),
             CellState::Value(json!("join")),
         );
-        let root = compute_state_root(&map).unwrap();
+        let root = compute_state_root(&map, SUITE).unwrap();
         // Format must match ak:hash:sha256: prefix.
         assert!(root.as_str().starts_with("sha256:"));
         // Single-leaf root MUST equal the leaf hash directly (per spec §6.2.2).
         let leaf = leaf_hash(
             &cell("ak:cell:ak.component.member.state.v1:did.web.alice.example"),
             &CellState::Value(json!("join")),
+            SUITE,
         )
         .unwrap();
         let leaf_hex: String = leaf.iter().map(|b| format!("{b:02x}")).collect();
@@ -300,14 +359,19 @@ mod tests {
     fn portable_value_leaf_digest_binds_cell_and_value() {
         let cell = cell("ak:cell:ak.component.member.state.v1:did.web.alice.example");
         let value = json!({"accepted_event_id": "ak:event:one"});
-        let digest = state_value_leaf_digest(&cell, &value).unwrap();
+        let digest = state_value_leaf_digest(&cell, &value, SUITE).unwrap();
         assert_eq!(
             digest,
-            hash_from_raw(leaf_hash(&cell, &CellState::Value(value)).unwrap()).unwrap()
+            hash_from_raw(
+                leaf_hash(&cell, &CellState::Value(value), SUITE).unwrap(),
+                arkret_canonical::DigestSuite::Sha256,
+            )
+            .unwrap()
         );
         assert_ne!(
             digest,
-            state_value_leaf_digest(&cell, &json!({"accepted_event_id": "ak:event:two"})).unwrap()
+            state_value_leaf_digest(&cell, &json!({"accepted_event_id": "ak:event:two"}), SUITE,)
+                .unwrap()
         );
     }
 
@@ -333,8 +397,8 @@ mod tests {
             CellState::Value(json!(1)),
         );
         assert_eq!(
-            compute_state_root(&a).unwrap(),
-            compute_state_root(&b).unwrap()
+            compute_state_root(&a, SUITE).unwrap(),
+            compute_state_root(&b, SUITE).unwrap()
         );
     }
 
@@ -351,8 +415,8 @@ mod tests {
             CellState::Value(json!("b")),
         );
         assert_ne!(
-            compute_state_root(&a).unwrap(),
-            compute_state_root(&b).unwrap()
+            compute_state_root(&a, SUITE).unwrap(),
+            compute_state_root(&b, SUITE).unwrap()
         );
     }
 
@@ -367,10 +431,10 @@ mod tests {
         cells.insert(target.clone(), bottom.clone());
 
         assert_eq!(
-            compute_state_root(&cells).unwrap().as_str(),
+            compute_state_root(&cells, SUITE).unwrap().as_str(),
             EMPTY_STATE_ROOT
         );
-        assert!(leaf_hash(&target, &bottom).is_err());
+        assert!(leaf_hash(&target, &bottom, SUITE).is_err());
     }
 
     #[test]
@@ -391,11 +455,12 @@ mod tests {
             cell("ak:cell:ak.component.test.state_c.v1:3"),
             CellState::Value(json!("c")),
         );
-        let root = compute_state_root(&m).unwrap();
+        let root = compute_state_root(&m, SUITE).unwrap();
         // Must not match any leaf hash.
         let leaf_a = leaf_hash(
             &cell("ak:cell:ak.component.test.state_a.v1:1"),
             &CellState::Value(json!("a")),
+            SUITE,
         )
         .unwrap();
         let leaf_a_hex: String = leaf_a.iter().map(|b| format!("{b:02x}")).collect();
@@ -417,9 +482,9 @@ mod tests {
                 CellState::Value(json!(value)),
             );
         }
-        let root = compute_state_root(&cells).unwrap();
+        let root = compute_state_root(&cells, SUITE).unwrap();
         for target in cells.keys() {
-            let proof = state_inclusion_proof(&cells, target).unwrap();
+            let proof = state_inclusion_proof(&cells, target, SUITE).unwrap();
             assert!(
                 verify_state_inclusion_proof(
                     &proof.leaf_digest,
@@ -427,6 +492,7 @@ mod tests {
                     proof.leaf_count,
                     &proof.inclusion_proof,
                     &root,
+                    SUITE,
                 )
                 .unwrap()
             );
@@ -440,6 +506,7 @@ mod tests {
                     wrong_index.leaf_count,
                     &wrong_index.inclusion_proof,
                     &root,
+                    SUITE,
                 )
                 .unwrap()
             );
@@ -455,6 +522,7 @@ mod tests {
                     extra_sibling.leaf_count,
                     &extra_sibling.inclusion_proof,
                     &root,
+                    SUITE,
                 )
                 .unwrap()
             );
@@ -478,8 +546,44 @@ mod tests {
             CellState::Bottom(crate::Bottom::new(BottomKind::SchemaError, vec![target])),
         );
         assert_eq!(
-            compute_state_root(&conflict).unwrap(),
-            compute_state_root(&schema).unwrap()
+            compute_state_root(&conflict, SUITE).unwrap(),
+            compute_state_root(&schema, SUITE).unwrap()
+        );
+    }
+
+    #[test]
+    fn blake3_root_and_branch_use_the_selected_suite() {
+        let mut cells = BTreeMap::new();
+        let first = cell("ak:cell:ak.component.test.state_a.v1:1");
+        let second = cell("ak:cell:ak.component.test.state_b.v1:2");
+        cells.insert(first.clone(), CellState::Value(json!("alpha")));
+        cells.insert(second, CellState::Value(json!("beta")));
+
+        let root = compute_state_root(&cells, arkret_canonical::DigestSuite::Blake3).unwrap();
+        assert!(root.as_str().starts_with("blake3:"));
+        let proof =
+            state_inclusion_proof(&cells, &first, arkret_canonical::DigestSuite::Blake3).unwrap();
+        assert!(
+            verify_state_inclusion_proof(
+                &proof.leaf_digest,
+                proof.leaf_index,
+                proof.leaf_count,
+                &proof.inclusion_proof,
+                &root,
+                arkret_canonical::DigestSuite::Blake3,
+            )
+            .unwrap()
+        );
+        assert!(
+            verify_state_inclusion_proof(
+                &proof.leaf_digest,
+                proof.leaf_index,
+                proof.leaf_count,
+                &proof.inclusion_proof,
+                &root,
+                arkret_canonical::DigestSuite::Sha256,
+            )
+            .is_err()
         );
     }
 }

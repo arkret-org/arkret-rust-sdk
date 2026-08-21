@@ -15,7 +15,6 @@ use crate::events_payloads::{RealmCreatePayload, RealmGenesis, RealmPurpose, Str
 use crate::governance::delivery_binding::DeliveryStatus;
 use crate::governance::membership_invite::MembershipPayload;
 use crate::objects::profiles::{STRAND_TRACK_NAME_DISCUSSION, StrandTrack};
-use crate::objects::realm::NotaryProfile;
 use crate::objects::strand::Strand;
 
 pub const DIRECT_CONVERSATION_REALM_ROLE_FEATURE: &str =
@@ -156,7 +155,6 @@ impl DirectConversationRealmRole {
 pub fn direct_conversation_realm_create_payload(
     genesis_salt: GenesisSalt,
     trust_domain: TrustDomainId,
-    notary_profile: NotaryProfile,
     notary: NotaryValue,
     capability_action_registry_digest: Hash,
     _created_at: DateTime<Utc>,
@@ -173,7 +171,6 @@ pub fn direct_conversation_realm_create_payload(
         arkret_canonical::DigestSuite::Sha256,
         SecurityClass::Standard,
         EncryptionProfile::MlsRfc9420,
-        notary_profile,
         notary,
         capability_action_registry_digest,
     )?;
@@ -391,7 +388,8 @@ pub fn direct_conversation_may_found(
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{DidCoreId, DidFullId, StrandId};
+    use arkret_wire::notary::{NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor};
+    use arkret_wire::{DidCoreId, DidFullId, DidUrl, StrandId};
 
     use super::*;
 
@@ -409,6 +407,20 @@ mod tests {
 
     fn trust_domain() -> TrustDomainId {
         TrustDomainId::new("ak:trust_domain:example.test".to_owned()).unwrap()
+    }
+
+    fn notary(creator: &DidFullId) -> NotaryValue {
+        NotaryValue::single_signer(NotarySignerDescriptor {
+            actor_id: actor(creator.as_str()),
+            verification_method: DidUrl::new(format!("{}#key-1", creator.as_str())).unwrap(),
+            key_kind: NotaryKeyKind::Ed25519Raw32,
+            jose_algorithm: NotaryJoseAlgorithm::Ed25519,
+            frozen_public_key_b64u: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
+            frozen_public_key_digest: Hash::new(
+                "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925",
+            )
+            .unwrap(),
+        })
     }
 
     #[test]
@@ -480,8 +492,7 @@ mod tests {
         let payload = direct_conversation_realm_create_payload(
             GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap(),
             trust_domain(),
-            NotaryProfile::SingleDid,
-            NotaryValue::single_did(actor(creator.as_str())),
+            notary(&creator),
             Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
             DateTime::parse_from_rfc3339("2026-07-21T00:00:00.000Z")
                 .unwrap()
@@ -582,8 +593,7 @@ mod tests {
         let realm = direct_conversation_realm_create_payload(
             GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap(),
             trust_domain(),
-            NotaryProfile::SingleDid,
-            NotaryValue::single_did(actor(creator.as_str())),
+            notary(&creator),
             Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
             Utc::now(),
         )

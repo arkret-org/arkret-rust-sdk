@@ -6,9 +6,11 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::binding_contexts;
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
+use arkret_models_crypto::protected_payload::MlsPayloadType;
 use arkret_wire::{
-    CircleId, DeviceId, DidCoreId, DidUrl, Error, Hash, MorphId, ObjectStage, ObjectState,
-    PolicyId, RealmId, Result, SchemaId, StrandId, TrustDomainId, canonical,
+    Base64UrlString, CircleId, DeviceId, DidCoreId, DidFullId, DidUrl, Error, Hash, MorphId,
+    ObjectStage, ObjectState, PolicyId, RealmId, Result, SchemaId, StrandId, TrustDomainId,
+    canonical, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -408,6 +410,7 @@ fn identity_link_default_status() -> IdentityLinkStatus {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct IdentityLinkProof {
     pub verification_method: DidUrl,
     pub signature_algorithm: String,
@@ -415,7 +418,14 @@ pub struct IdentityLinkProof {
     pub signature: String,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum IdentityLinkResponseSigningAlgorithm {
+    Ed25519,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct IdentityLink {
     pub schema: String,
     #[serde(default = "identity_link_default_status")]
@@ -437,6 +447,10 @@ pub struct IdentityLink {
     pub mls_group_id: Option<String>,
     pub mls_leaf_index: u64,
     pub mls_epoch: u64,
+    pub response_signing_verification_method: DidUrl,
+    pub response_signing_algorithm: IdentityLinkResponseSigningAlgorithm,
+    pub response_signing_public_key_b64u: Base64UrlString,
+    pub response_signing_public_key_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub effective_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -445,6 +459,12 @@ pub struct IdentityLink {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disclosure_policy_id: Option<PolicyId>,
     pub proof: IdentityLinkProof,
+}
+
+pub const IDENTITY_LINK_MLS_CONTENT_TYPE: &str = "application/vnd.arkret.identity-link+json";
+
+impl MlsPayloadType for IdentityLink {
+    const MLS_CONTENT_TYPE: &'static str = IDENTITY_LINK_MLS_CONTENT_TYPE;
 }
 
 impl IdentityLink {
@@ -470,6 +490,28 @@ impl IdentityLink {
             return Err(Error::Protocol(
                 "identity_link proof requires verification_method, signature_algorithm, and signature"
                     .to_owned(),
+            ));
+        }
+        let (response_controller, _) = self
+            .response_signing_verification_method
+            .as_str()
+            .split_once('#')
+            .ok_or_else(|| {
+                Error::Protocol(
+                    "identity_link response-signing verification method lacks fragment".to_owned(),
+                )
+            })?;
+        let response_controller = DidFullId::new(response_controller.to_owned())?;
+        let response_key = arkret_wire::base64url::base64url_decode(
+            self.response_signing_public_key_b64u.as_str().as_bytes(),
+        )?;
+        if project_full_id_to_core_id(&response_controller)? != self.pairwise_actor_id
+            || response_key.len() != 32
+            || self.response_signing_public_key_digest
+                != Hash::new(arkret_canonical::sha256_digest(&response_key))?
+        {
+            return Err(Error::Protocol(
+                "identity_link response-signing key binding mismatch".to_owned(),
             ));
         }
         let expected = self.canonical_payload_digest()?;

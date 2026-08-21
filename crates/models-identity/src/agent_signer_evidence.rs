@@ -555,6 +555,25 @@ pub struct AgentSignerEvidenceQueryRequestBody {
     pub queries: Vec<AgentSignerEvidenceQuerySelector>,
 }
 
+impl AgentSignerEvidenceQueryRequestBody {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        if self.queries.is_empty() || self.queries.len() > 64 {
+            return Err(arkret_wire::Error::Protocol(
+                "Agent signer evidence query requires 1..=64 selectors".to_owned(),
+            ));
+        }
+        let mut selectors = std::collections::BTreeSet::new();
+        for selector in &self.queries {
+            if !selectors.insert(arkret_canonical::canonical_json_bytes(selector)?) {
+                return Err(arkret_wire::Error::Protocol(
+                    "Agent signer evidence query contains a duplicate selector".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -577,9 +596,115 @@ pub struct AgentSignerEvidenceQueryFailure {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentSignerEvidenceQueryOutcome {
-    pub evidence: Vec<AgentSignerEvidence>,
+    pub evidence: Vec<crate::AuthenticatedSignerResolutionEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failures: Option<Vec<AgentSignerEvidenceQueryFailure>>,
+}
+
+impl AgentSignerEvidenceQueryOutcome {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        if self.evidence.len() > 64 || self.failures.as_ref().is_some_and(|items| items.len() > 64)
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "Agent signer evidence query outcome exceeds 64 items".to_owned(),
+            ));
+        }
+        let mut digests = std::collections::BTreeSet::new();
+        for evidence in &self.evidence {
+            if !matches!(
+                evidence,
+                crate::AuthenticatedSignerResolutionEvidence::NativeAgent { .. }
+            ) {
+                return Err(arkret_wire::Error::Protocol(
+                    "Agent signer evidence query success is not a Native Agent root".to_owned(),
+                ));
+            }
+            evidence.validate_attester_binding()?;
+            if !digests.insert(evidence.canonical_sha256_digest()?) {
+                return Err(arkret_wire::Error::Protocol(
+                    "Agent signer evidence query outcome contains a duplicate root".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn validate_for_request(
+        &self,
+        request: &AgentSignerEvidenceQueryRequestBody,
+    ) -> arkret_wire::Result<()> {
+        request.validate()?;
+        self.validate()?;
+        let mut accounted = std::collections::BTreeMap::new();
+        for evidence in &self.evidence {
+            let crate::AuthenticatedSignerResolutionEvidence::NativeAgent {
+                signer_id,
+                verification_method,
+                agent_signer_evidence,
+                ..
+            } = evidence
+            else {
+                unreachable!("validate rejects non-agent query success roots")
+            };
+            let selector = match agent_signer_evidence {
+                AgentSignerEvidence::CurrentAdmission {
+                    current_observation,
+                    ..
+                } => AgentSignerEvidenceQuerySelector::CurrentAdmission {
+                    agent_id: signer_id.clone(),
+                    verification_method: verification_method.clone(),
+                    operation_id: current_observation.operation_id.clone(),
+                    request_digest: current_observation.request_digest.clone(),
+                    verifier_id: current_observation.verifier_id.clone(),
+                    audience: current_observation.audience.clone(),
+                    challenge: current_observation.challenge.clone(),
+                },
+                AgentSignerEvidence::HistoricalEvent {
+                    event_admission_receipt,
+                    ..
+                } => AgentSignerEvidenceQuerySelector::HistoricalEvent {
+                    agent_id: signer_id.clone(),
+                    verification_method: verification_method.clone(),
+                    event_id: event_admission_receipt.event_id.clone(),
+                    event_digest: event_admission_receipt.event_digest.clone(),
+                    receiver_service_id: event_admission_receipt.receiver_service_id.clone(),
+                },
+            };
+            let key = arkret_canonical::canonical_json_bytes(&selector)?;
+            if accounted.insert(key, "success").is_some() {
+                return Err(arkret_wire::Error::Protocol(
+                    "Agent signer evidence query selector is accounted more than once".to_owned(),
+                ));
+            }
+        }
+        for failure in self.failures.as_deref().unwrap_or_default() {
+            let key = arkret_canonical::canonical_json_bytes(&failure.selector)?;
+            if accounted.insert(key, "failure").is_some() {
+                return Err(arkret_wire::Error::Protocol(
+                    "Agent signer evidence query selector is accounted more than once".to_owned(),
+                ));
+            }
+        }
+        let requested = request
+            .queries
+            .iter()
+            .map(|selector| {
+                arkret_canonical::canonical_json_bytes(selector).map_err(arkret_wire::Error::from)
+            })
+            .collect::<arkret_wire::Result<std::collections::BTreeSet<_>>>()?;
+        if accounted
+            .keys()
+            .cloned()
+            .collect::<std::collections::BTreeSet<_>>()
+            != requested
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "Agent signer evidence outcome does not account every-and-only requested selector"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

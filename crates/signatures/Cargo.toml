@@ -35,6 +35,7 @@ arkret-models-crypto = {workspace = true,optional = true}
 arkret-models-identity = {workspace = true,optional = true}
 arkret-wire = {workspace = true}
 ed25519-dalek = {workspace = true}
+p256 = {workspace = true}
 rand_core = {workspace = true}
 serde = {workspace = true}
 serde_json = {workspace = true}

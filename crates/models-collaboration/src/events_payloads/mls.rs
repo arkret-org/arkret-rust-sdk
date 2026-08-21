@@ -4,6 +4,7 @@ use arkret_canonical::serde_helpers::{canonical_timestamp, serialize_canonical_t
 use arkret_models_crypto::PeerKeyPackageClaimReceipt;
 use arkret_wire::DidCoreId;
 
+use crate::history_key::AuthorizationIncarnation;
 use crate::internal_prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -209,6 +210,46 @@ pub struct MlsGenesisPayload {
     pub created_at: DateTime<Utc>,
 }
 
+/// Compute the registered Genesis MLS transition digest from a complete,
+/// schema-validated `mls_genesis_payload` JSON value. The embedded recovery
+/// archive is removed internally so callers cannot accidentally hash the
+/// self-referential archive branch.
+pub fn mls_genesis_transition_digest(payload: &Value) -> Result<Hash> {
+    let Value::Object(mut core) = payload.clone() else {
+        return Err(Error::Protocol(
+            "MLS Genesis transition payload must be an object".to_owned(),
+        ));
+    };
+    for required in [
+        "mls_group_id",
+        "effective_scope",
+        "epoch",
+        "cipher_suite",
+        "group_info_ref",
+        "group_info_digest",
+        "ratchet_tree_ref",
+        "ratchet_tree_digest",
+        "governance_binding",
+        "created_at",
+    ] {
+        if !core.contains_key(required) {
+            return Err(Error::Protocol(format!(
+                "MLS Genesis transition payload lacks {required}"
+            )));
+        }
+    }
+    if core.get("epoch").and_then(Value::as_u64) != Some(0) {
+        return Err(Error::Protocol(
+            "MLS Genesis transition payload epoch must equal zero".to_owned(),
+        ));
+    }
+    core.remove("organization_recovery_archive");
+    let mut preimage = b"ak.mls-genesis-transition-v1".to_vec();
+    preimage.push(0);
+    preimage.extend(arkret_canonical::canonical_json_bytes(&core)?);
+    Ok(Hash::new(arkret_canonical::sha256_digest(preimage))?)
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct MlsGenesisPayloadWire {
@@ -343,25 +384,20 @@ pub struct MlsKeypackagePayload {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/mls_proposal_payload`.
-#[derive(Clone, Debug, Serialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug)]
 pub struct MlsProposalPayload {
     pub mls_group_id: MlsGroupId,
     pub base_epoch: u64,
     pub proposal_type: MlsProposalType,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proposal_message_ref: Option<ObjectRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proposal_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_principal_id: Option<DidCoreId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_device_id: Option<DeviceId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub governance_binding: Option<MlsGovernanceBindingPayload>,
+    pub target_authorization_incarnation: Option<AuthorizationIncarnation>,
+    pub governance_binding: MlsGovernanceBindingPayload,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct MlsProposalPayloadWire {
     mls_group_id: MlsGroupId,
@@ -376,7 +412,73 @@ struct MlsProposalPayloadWire {
     #[serde(default)]
     target_device_id: Option<DeviceId>,
     #[serde(default)]
-    governance_binding: Option<MlsGovernanceBindingPayload>,
+    target_authorization_incarnation: Option<AuthorizationIncarnation>,
+    governance_binding: MlsGovernanceBindingPayload,
+}
+
+impl MlsProposalPayload {
+    pub fn validate(&self) -> Result<()> {
+        if self.proposal_message_ref.is_none() && self.proposal_digest.is_none() {
+            return Err(Error::Protocol(
+                "mls_proposal_payload requires proposal_message_ref or proposal_digest".to_owned(),
+            ));
+        }
+        if self.governance_binding.mls_group_id() != self.mls_group_id.as_str() {
+            return Err(Error::Protocol(
+                "mls_proposal_payload governance binding does not match mls_group_id".to_owned(),
+            ));
+        }
+        if matches!(self.proposal_type, MlsProposalType::Add) {
+            let Some(incarnation) = &self.target_authorization_incarnation else {
+                return Err(Error::Protocol(
+                    "add MLS proposal requires target authorization incarnation".to_owned(),
+                ));
+            };
+            if self.target_principal_id.is_none()
+                || !matches!(
+                    (self.governance_binding.effective_scope(), incarnation),
+                    (
+                        ScopeRef::Realm { .. },
+                        AuthorizationIncarnation::Realm { .. }
+                    ) | (
+                        ScopeRef::Circle { .. },
+                        AuthorizationIncarnation::Circle { .. }
+                    )
+                )
+            {
+                return Err(Error::Protocol(
+                    "add MLS proposal target authorization incarnation does not match its scope"
+                        .to_owned(),
+                ));
+            }
+        } else if self.target_authorization_incarnation.is_some() {
+            return Err(Error::Protocol(
+                "non-add MLS proposal forbids target_authorization_incarnation".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl Serialize for MlsProposalPayload {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.validate().map_err(serde::ser::Error::custom)?;
+        MlsProposalPayloadWire {
+            mls_group_id: self.mls_group_id.clone(),
+            base_epoch: self.base_epoch,
+            proposal_type: self.proposal_type,
+            proposal_message_ref: self.proposal_message_ref.clone(),
+            proposal_digest: self.proposal_digest.clone(),
+            target_principal_id: self.target_principal_id.clone(),
+            target_device_id: self.target_device_id.clone(),
+            target_authorization_incarnation: self.target_authorization_incarnation.clone(),
+            governance_binding: self.governance_binding.clone(),
+        }
+        .serialize(serializer)
+    }
 }
 
 impl<'de> Deserialize<'de> for MlsProposalPayload {
@@ -385,19 +487,7 @@ impl<'de> Deserialize<'de> for MlsProposalPayload {
         D: serde::Deserializer<'de>,
     {
         let wire = MlsProposalPayloadWire::deserialize(deserializer)?;
-        if wire.proposal_message_ref.is_none() && wire.proposal_digest.is_none() {
-            return Err(serde::de::Error::custom(
-                "mls_proposal_payload requires proposal_message_ref or proposal_digest",
-            ));
-        }
-        if let Some(binding) = &wire.governance_binding
-            && binding.mls_group_id() != wire.mls_group_id.as_str()
-        {
-            return Err(serde::de::Error::custom(
-                "mls_proposal_payload governance binding does not match mls_group_id",
-            ));
-        }
-        Ok(Self {
+        let payload = Self {
             mls_group_id: wire.mls_group_id,
             base_epoch: wire.base_epoch,
             proposal_type: wire.proposal_type,
@@ -405,8 +495,11 @@ impl<'de> Deserialize<'de> for MlsProposalPayload {
             proposal_digest: wire.proposal_digest,
             target_principal_id: wire.target_principal_id,
             target_device_id: wire.target_device_id,
+            target_authorization_incarnation: wire.target_authorization_incarnation,
             governance_binding: wire.governance_binding,
-        })
+        };
+        payload.validate().map_err(serde::de::Error::custom)?;
+        Ok(payload)
     }
 }
 

@@ -47,12 +47,16 @@
 //! let did: arkret::DidFullId = "did:webvh:z6mkfixture:alice.example";
 //! ```
 
+mod history_mailbox;
+mod mls_governance;
 mod sdk_error;
 mod sidecar_recovery;
+
 pub use arkret_auth as auth;
 pub use arkret_auth::{AdminKeyStore, session_grant};
 pub use arkret_bootstrap as bootstrap;
 pub use arkret_canonical as canonical;
+pub use arkret_canonical::DigestSuite;
 pub use arkret_canonical::base64url::{
     base64_standard_decode, base64_standard_encode, base64url_decode, base64url_encode,
 };
@@ -121,7 +125,6 @@ pub use arkret_models_collaboration::call_signal::{
     SessionDescriptionType,
 };
 pub use arkret_models_collaboration::direct_conversation_ops::*;
-pub use arkret_models_collaboration::direct_conversation_repair::*;
 pub use arkret_models_collaboration::event_query::*;
 pub use arkret_models_collaboration::event_sync::*;
 pub use arkret_models_collaboration::events_payloads::agent::*;
@@ -150,7 +153,6 @@ pub use arkret_models_collaboration::governance::delivery_binding::*;
 pub use arkret_models_collaboration::governance::erasure::*;
 pub use arkret_models_collaboration::governance::grant_constraint::*;
 pub use arkret_models_collaboration::governance::handle_claim::*;
-pub use arkret_models_collaboration::governance::history_visibility::*;
 pub use arkret_models_collaboration::governance::invite_addressing::*;
 pub use arkret_models_collaboration::governance::join_policy::*;
 pub use arkret_models_collaboration::governance::member_delivery_binding_candidate::*;
@@ -166,7 +168,9 @@ pub use arkret_models_collaboration::governance::realm_governance::*;
 pub use arkret_models_collaboration::governance::realm_lifecycle::*;
 pub use arkret_models_collaboration::governance::resource_selector::*;
 pub use arkret_models_collaboration::governance::third_party_invite::*;
+pub use arkret_models_collaboration::governance_dependencies::*;
 pub use arkret_models_collaboration::governance_payloads::*;
+pub use arkret_models_collaboration::history_key::*;
 pub use arkret_models_collaboration::http_bodies::*;
 pub use arkret_models_collaboration::mls_group_state_material::*;
 pub use arkret_models_collaboration::object_lifecycle::*;
@@ -218,8 +222,8 @@ pub use arkret_models_collaboration::sync_frames::stream_trace::{
     StreamTraceValidator,
 };
 pub use arkret_models_collaboration::{
-    contact_operations, direct_conversation_ops, direct_conversation_repair, federation,
-    history_operations, sidecar_operations,
+    contact_operations, direct_conversation_ops, federation, governance_dependencies, history_key,
+    sidecar_operations,
 };
 pub use arkret_models_crypto::artifacts_keys::*;
 pub use arkret_models_crypto::encrypted_envelope::{
@@ -280,7 +284,10 @@ pub use arkret_models_identity::identity_resolution::*;
 pub use arkret_models_identity::member_identity::*;
 pub use arkret_models_identity::service_identity::*;
 pub use arkret_models_identity::session_credential::*;
-pub use arkret_models_identity::{DID_WEBVH_V1_METHOD, validate_did_webvh_v1_method};
+pub use arkret_models_identity::{
+    AuthenticatedSignerResolutionEvidence, DID_WEBVH_V1_METHOD,
+    ed25519_notary_signer_descriptor_from_evidence, validate_did_webvh_v1_method,
+};
 pub use arkret_models_integration::applet::*;
 pub use arkret_models_integration::applet_audit_payload::*;
 pub use arkret_models_integration::applet_install_plan::*;
@@ -291,7 +298,6 @@ pub use arkret_models_integration::integration::*;
 pub use arkret_models_integration::models_push::*;
 pub use arkret_models_integration::{integration, push};
 pub use arkret_policy::authz::*;
-pub use arkret_policy::history_visibility::*;
 pub use arkret_policy::profile_claim::{
     ClaimedProfile, ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator,
 };
@@ -356,7 +362,9 @@ pub use arkret_wire::device_revocation::*;
 pub use arkret_wire::error_codes::*;
 pub use arkret_wire::event_envelope::*;
 pub use arkret_wire::http_signature::HttpMessageSignature;
-pub use arkret_wire::notary::{ForensicAttribution, NotaryValue};
+pub use arkret_wire::notary::{
+    ForensicAttribution, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, NotaryValue,
+};
 pub use arkret_wire::object_address::*;
 pub use arkret_wire::patch::*;
 pub use arkret_wire::peer_operation_paths::*;
@@ -367,8 +375,8 @@ pub use arkret_wire::receive_policy::{
     InviteReceiveAction, ReceivePolicyConstraints, ReceivePolicySurface, UnknownInviteAction,
 };
 pub use arkret_wire::seal::{
-    MultiSigKind, MultiSignature, NotarySig, Seal, SealKind, ThresholdSigKind, ThresholdSignature,
-    compute_seal_id, seal_canonical_bytes,
+    MultiSigKind, MultiSignature, NotarySig, Seal, SealKind, SealSignature, compute_seal_id,
+    seal_canonical_bytes,
 };
 pub use arkret_wire::self_contact_paths::*;
 pub use arkret_wire::signer::{PartialSignature, PayloadSigner, ThresholdAggregator};
@@ -382,8 +390,27 @@ pub use arkret_wire::{
     ProfileRole, ProofContextId, ProtocolOpaqueId, ProtocolOperationId, ProtocolSignature,
     QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS, ReservationHandle,
     SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId,
-    ServiceKind, ServiceOperationDescriptor, ServiceOperationId, WireError, XExtensionMap,
-    contains_query_auth_material, error_codes as error, event_spec, is_query_auth_parameter,
+    ServiceKind, ServiceOperationDescriptor, ServiceOperationId, SignerEvidenceRef, WireError,
+    XExtensionMap, contains_query_auth_material, error_codes as error, event_spec,
+    is_query_auth_parameter,
+};
+pub use history_mailbox::{
+    HistorySourceProofExternalVerificationRequest, VerifiedHistoryChunk, VerifiedHistoryEpochSuite,
+    VerifiedHistoryMailboxRecord, VerifiedHistoryManifest,
+    embedded_history_release_predicate_registry_digest, verify_history_mailbox_lost_record,
+    verify_history_mailbox_record, verify_history_source_proof,
+    verify_minimal_metadata_history_source_local_state,
+    verify_minimal_metadata_identity_link_signature,
+    winning_history_epoch_suites_from_verified_checkpoint,
+};
+pub use mls_governance::{
+    NativeAgentHistoricalTrustRequest, VerifiedMlsGovernanceClosure,
+    build_native_agent_signer_resolution_evidence, declared_genesis_live_digest_suite,
+    derive_verified_mls_governance_checkpoint_at_basis, materialize_mls_governance_frontier,
+    signed_event_digest_claim, verify_event_derived_genesis_checkpoint,
+    verify_mls_governance_checkpoint, verify_mls_governance_closure, verify_mls_governance_cut,
+    verify_mls_governance_frontier, verify_native_agent_historical_event_key,
+    verify_native_agent_history_source_key,
 };
 pub use sdk_error::{Error, Result};
 pub use sidecar_recovery::{AgentSidecarContextLocator, recover_agent_sidecar_context_locators};
@@ -404,11 +431,6 @@ pub mod sync {
 // visible in `cargo doc` and signals the supported surface to
 // downstream crates that depend only on the `arkret` umbrella.
 pub use arkret_hlc as hlc;
-// Realm Recovery Key (RRK) durable history sealing — provider-initiated
-// `ak.realm_key.share` to offline recovery recipients (encryption-and-audit.md
-// §2.10.8). Resolves the RRK HPKE public key from a recipient's DID Document
-// and HPKE-seals retained per-epoch history secrets to it. Reuses
-// `secret_share`'s HPKE seal primitive, so it carries the same feature gate.
 // RFC 9421 HTTP Message Signatures (Ed25519) + RFC 9530 Content-Digest.
 // The single source of truth is `arkret-signatures`, surfaced here as
 // `arkret::http_signature::*` / `arkret_sdk::http_signature::*`.
@@ -442,10 +464,9 @@ pub mod mls {
     pub use arkret_mls::*;
 }
 pub use arkret_crypto::{
-    AEAD_NONCE_AES_GCM_LEN, AEAD_NONCE_COUNTER_LEN, AEAD_NONCE_EXPORTER_LABEL,
-    AEAD_NONCE_XCHACHA20_POLY1305_LEN, AEAD_PROFILE_AES_256_GCM, AEAD_PROFILE_XCHACHA20_POLY1305,
-    AeadNonceContext, AeadNonceReplayTracker, EncryptedEnvelopeDigestReport,
-    aead_sender_nonce_context_bytes, compose_aead_nonce, derive_aead_sender_nonce_prefix,
+    AEAD_NONCE_AES_GCM_LEN, AEAD_NONCE_COUNTER_LEN, AEAD_NONCE_XCHACHA20_POLY1305_LEN,
+    AEAD_PROFILE_AES_256_GCM, AEAD_PROFILE_XCHACHA20_POLY1305, AeadNonceContext,
+    AeadNonceReplayTracker, EncryptedEnvelopeDigestReport, compose_aead_nonce,
     encrypted_envelope_digest_report, envelope_aad_digest, json_aad_digest,
     verify_aead_nonce_derivation, verify_aead_sender_nonce, verify_envelope_aad_digest,
 };
@@ -501,9 +522,8 @@ pub use identity::{
     HandleAttestation, HandleClaimChallenge, HandleProofProfile, IdentityManager,
     IdentityReceiptWitnessRole, PairwiseActorBinding, PairwiseActorResolutionProof,
     PairwiseActorStore, ResolvedDid, ResolvedVerificationMethodKey, VerifiedAccountBindingReceipt,
-    event_proof_verification_context, event_proof_verification_context_with_digest_suite,
-    handle_claim_proof, handle_dns_txt_name, handle_well_known_url,
-    pairwise_actor_resolution_proof, resolve_verification_method_key,
+    event_proof_verification_context_with_digest_suite, handle_claim_proof, handle_dns_txt_name,
+    handle_well_known_url, pairwise_actor_resolution_proof, resolve_verification_method_key,
     resolve_verification_method_key_from_document, verification_method_did,
     verify_account_binding_receipt_at_issuance, verify_canonical_proof_with_did_resolver,
     verify_event_proof_with_did_resolver, verify_event_proof_with_did_resolver_context,
@@ -546,14 +566,11 @@ const CELL_PROJECTION_SENTINEL: [u8; 32] = [0xEE; 32];
 /// does not exist yet: that case fails closed here rather than pinning a
 /// producer decision to a cell that authoring is about to rename.
 pub fn pre_authoring_cell_writes(
-    intent: &arkret_event_draft::EventIntent,
-) -> std::result::Result<Vec<arkret_wire::ProjectedCellWrite>, arkret_schema::EventCellContractError>
-{
-    let sentinel = arkret_wire::EventId::from_digest(
-        arkret_canonical::DigestSuite::Sha256,
-        CELL_PROJECTION_SENTINEL,
-    );
-    let input = arkret_wire::ProjectedEventInput {
+    intent: &EventIntent,
+    digest_suite: DigestSuite,
+) -> std::result::Result<Vec<ProjectedCellWrite>, arkret_schema::EventCellContractError> {
+    let sentinel = EventId::from_digest(digest_suite, CELL_PROJECTION_SENTINEL);
+    let input = ProjectedEventInput {
         kind: intent.kind().clone(),
         event_id: sentinel.clone(),
         actor_id: intent.actor_id().clone(),
@@ -563,7 +580,7 @@ pub fn pre_authoring_cell_writes(
         realm_id: intent
             .realm_id_opt()
             .cloned()
-            .unwrap_or_else(|| arkret_wire::RealmId::from_event_id(&sentinel)),
+            .unwrap_or_else(|| RealmId::from_event_id(&sentinel)),
         created_at: intent.created_at(),
         payload: intent.payload().clone(),
         refs: intent.refs().to_vec(),
@@ -571,10 +588,7 @@ pub fn pre_authoring_cell_writes(
         seal_ref: intent.seal_ref().cloned(),
         seal_basis: intent.seal_basis().cloned(),
     };
-    let writes = arkret_schema::project_registered_operation_writes(
-        &input,
-        arkret_canonical::DigestSuite::Sha256,
-    )?;
+    let writes = arkret_schema::project_registered_operation_writes(&input, digest_suite)?;
     // Registry-driven, not a substring guess: these are exactly the object ids
     // this kind would retype from the sentinel identity, so a cell naming one is
     // a cell that moves when the real identity is derived.
@@ -640,7 +654,7 @@ pub mod calendar {
         // which is what makes an unprojectable payload fail here instead of on
         // the wire. It runs on the intent because an RSVP cell is keyed by the
         // Strand its payload names, not by the Event's own identity.
-        super::pre_authoring_cell_writes(&intent)
+        super::pre_authoring_cell_writes(&intent, arkret_canonical::DigestSuite::Sha256)
             .map_err(|error| Error::Protocol(format!("rsvp cell contract failed: {error}")))?;
         Ok(intent)
     }

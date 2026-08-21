@@ -300,6 +300,8 @@ mod tests {
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:principal.example#key-1")
                     .unwrap(),
                 event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+                signer_resolution_evidence_ref: None,
+                signer_resolution_evidence_digest: None,
                 created_at: "2026-05-19T00:00:00.000Z".parse().unwrap(),
                 domain: None,
                 audience: None,

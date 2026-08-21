@@ -874,6 +874,8 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
         verification_method,
         event_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&canonical_bytes))
             .unwrap(),
+        signer_resolution_evidence_ref: None,
+        signer_resolution_evidence_digest: None,
         created_at: Utc::now(),
         domain: None,
         audience: None,
@@ -885,7 +887,13 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
     let binding_bytes = proof.canonical_binding_bytes(&event.actor_id).unwrap();
     proof.jws = arkret_signatures::jws::sign_jws_ed25519(&binding_bytes, &signing_key).unwrap();
 
-    let verified = verify_event_proof_with_did_resolver(&event, &proof, &resolver).unwrap();
+    let verified = verify_event_proof_with_did_resolver(
+        &event,
+        &proof,
+        &resolver,
+        arkret_canonical::DigestSuite::Sha256,
+    )
+    .unwrap();
     assert!(verified.valid);
 }
 
@@ -927,6 +935,8 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
         verification_method,
         event_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&canonical_bytes))
             .unwrap(),
+        signer_resolution_evidence_ref: None,
+        signer_resolution_evidence_digest: None,
         created_at: Utc::now(),
         domain: None,
         audience: None,
@@ -938,7 +948,13 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
     let binding_bytes = proof.canonical_binding_bytes(&event.actor_id).unwrap();
     proof.jws = arkret_signatures::jws::sign_jws_ed25519(&binding_bytes, &signing_key).unwrap();
 
-    let verified = verify_event_proof_with_did_resolver(&event, &proof, &resolver).unwrap();
+    let verified = verify_event_proof_with_did_resolver(
+        &event,
+        &proof,
+        &resolver,
+        arkret_canonical::DigestSuite::Sha256,
+    )
+    .unwrap();
     assert!(verified.valid);
 }
 

@@ -10,7 +10,8 @@ use thiserror::Error;
 use super::state_root::{compute_state_root, seal_merkle_root_from_leaf_data};
 use super::store::{CellRegistry, CellStore, ControlEventStore, SealStore};
 use super::verify::{
-    ControlMoveReject, recovery_capability_is_active, verify_control_move_in_context,
+    ControlMoveReject, recovery_capability_is_active, verify_accepted_control_move_in_context,
+    verify_control_move_in_context, verify_replayed_control_move_in_context,
 };
 use crate::lattice::ordered_log::IssuedOp;
 use crate::lattice::{CellState, SealedOp};
@@ -28,6 +29,41 @@ pub struct SealEffect {
     /// compare against.
     pub accepted_event_digests: Vec<Hash>,
     pub post_state_root: Hash,
+}
+
+/// Digest suites selected from the verified predecessor Realm state for one
+/// Seal application. An ordinary Seal uses one suite everywhere. A Genesis
+/// Seal uses `event_digest_suite` for every founding Event except the fixed
+/// SHA-256 `ak.realm.create` bridge. A transition Seal authenticates its delta
+/// Event under `event_digest_suite`, its pre-transition state under
+/// `previous_state_digest_suite`, and the Seal plus post-transition roots under
+/// `seal_digest_suite`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SealDigestSuites {
+    pub event_digest_suite: arkret_canonical::DigestSuite,
+    pub seal_digest_suite: arkret_canonical::DigestSuite,
+    pub previous_state_digest_suite: Option<arkret_canonical::DigestSuite>,
+}
+
+impl SealDigestSuites {
+    pub const fn standard(digest_suite: arkret_canonical::DigestSuite) -> Self {
+        Self {
+            event_digest_suite: digest_suite,
+            seal_digest_suite: digest_suite,
+            previous_state_digest_suite: None,
+        }
+    }
+
+    pub const fn transition(
+        from_digest_suite: arkret_canonical::DigestSuite,
+        to_digest_suite: arkret_canonical::DigestSuite,
+    ) -> Self {
+        Self {
+            event_digest_suite: from_digest_suite,
+            seal_digest_suite: to_digest_suite,
+            previous_state_digest_suite: Some(from_digest_suite),
+        }
+    }
 }
 
 impl SealEffect {
@@ -91,6 +127,12 @@ pub enum SealReject {
     #[error("covered_event_digests does not equal predecessor coverage plus delta")]
     CoveredSetMismatch,
 
+    #[error("declared completeness_root {declared} does not match recomputed {recomputed}")]
+    CompletenessRootMismatch {
+        declared: String,
+        recomputed: String,
+    },
+
     #[error("declared state_root {declared} does not match recomputed {recomputed}")]
     StateRootMismatch {
         declared: String,
@@ -121,12 +163,14 @@ pub fn apply_seal<VerifyProofs, ProjectWrites>(
     seals: &dyn SealStore,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
+    digest_suites: SealDigestSuites,
     verify_proofs: VerifyProofs,
     project_writes: ProjectWrites,
 ) -> Result<SealEffect, SealReject>
 where
-    VerifyProofs: Fn(&Event) -> Result<(), String> + Copy,
-    ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    VerifyProofs: Fn(&Event, arkret_canonical::DigestSuite) -> Result<(), String> + Copy,
+    ProjectWrites:
+        Fn(&Event, arkret_canonical::DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
 {
     apply_seal_in_context(
         seal,
@@ -134,6 +178,7 @@ where
         seals,
         cells,
         registry,
+        digest_suites,
         verify_proofs,
         project_writes,
         EventSubmitContext::Standard,
@@ -155,13 +200,15 @@ pub fn apply_seal_in_context<VerifyProofs, ProjectWrites>(
     seals: &dyn SealStore,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
+    digest_suites: SealDigestSuites,
     verify_proofs: VerifyProofs,
     project_writes: ProjectWrites,
     context: EventSubmitContext,
 ) -> Result<SealEffect, SealReject>
 where
-    VerifyProofs: Fn(&Event) -> Result<(), String> + Copy,
-    ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    VerifyProofs: Fn(&Event, arkret_canonical::DigestSuite) -> Result<(), String> + Copy,
+    ProjectWrites:
+        Fn(&Event, arkret_canonical::DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
 {
     apply_seal_with_proof_set(
         seal,
@@ -169,10 +216,11 @@ where
         seals,
         cells,
         registry,
+        digest_suites,
         verify_proofs,
         project_writes,
         context,
-        false,
+        SealEventProofRegime::ProducerSubmission,
     )
 }
 
@@ -186,13 +234,15 @@ pub fn apply_accepted_seal_in_context<VerifyProofs, ProjectWrites>(
     seals: &dyn SealStore,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
+    digest_suites: SealDigestSuites,
     verify_proofs: VerifyProofs,
     project_writes: ProjectWrites,
     context: EventSubmitContext,
 ) -> Result<SealEffect, SealReject>
 where
-    VerifyProofs: Fn(&Event) -> Result<(), String> + Copy,
-    ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    VerifyProofs: Fn(&Event, arkret_canonical::DigestSuite) -> Result<(), String> + Copy,
+    ProjectWrites:
+        Fn(&Event, arkret_canonical::DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
 {
     apply_seal_with_proof_set(
         seal,
@@ -200,11 +250,54 @@ where
         seals,
         cells,
         registry,
+        digest_suites,
         verify_proofs,
         project_writes,
         context,
-        true,
+        SealEventProofRegime::FederationAccepted,
     )
+}
+
+/// Apply a retained Seal whose Events may use either the historical
+/// sole-Producer direct regime or the Producer + Admission federation regime.
+/// The selected structural contract is derived from each exact Event proof
+/// set; all remaining CBA, reducer, recovery, and state-root checks are shared.
+#[allow(clippy::too_many_arguments)]
+pub fn apply_replayed_seal_in_context<VerifyProofs, ProjectWrites>(
+    seal: &Seal,
+    events: &dyn ControlEventStore,
+    seals: &dyn SealStore,
+    cells: &dyn CellStore,
+    registry: &dyn CellRegistry,
+    digest_suites: SealDigestSuites,
+    verify_proofs: VerifyProofs,
+    project_writes: ProjectWrites,
+    context: EventSubmitContext,
+) -> Result<SealEffect, SealReject>
+where
+    VerifyProofs: Fn(&Event, arkret_canonical::DigestSuite) -> Result<(), String> + Copy,
+    ProjectWrites:
+        Fn(&Event, arkret_canonical::DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+{
+    apply_seal_with_proof_set(
+        seal,
+        events,
+        seals,
+        cells,
+        registry,
+        digest_suites,
+        verify_proofs,
+        project_writes,
+        context,
+        SealEventProofRegime::RetainedReplay,
+    )
+}
+
+#[derive(Clone, Copy)]
+enum SealEventProofRegime {
+    ProducerSubmission,
+    FederationAccepted,
+    RetainedReplay,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -214,21 +307,23 @@ fn apply_seal_with_proof_set<VerifyProofs, ProjectWrites>(
     seals: &dyn SealStore,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
+    digest_suites: SealDigestSuites,
     verify_proofs: VerifyProofs,
     project_writes: ProjectWrites,
     context: EventSubmitContext,
-    accepted_events: bool,
+    proof_regime: SealEventProofRegime,
 ) -> Result<SealEffect, SealReject>
 where
-    VerifyProofs: Fn(&Event) -> Result<(), String> + Copy,
-    ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    VerifyProofs: Fn(&Event, arkret_canonical::DigestSuite) -> Result<(), String> + Copy,
+    ProjectWrites:
+        Fn(&Event, arkret_canonical::DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
 {
     if context == EventSubmitContext::AnchorUnit && !seal.predecessor_refs.is_empty() {
         return Err(SealReject::Structural(
             "anchor-unit context is only valid for the first Seal".to_owned(),
         ));
     }
-    seal.validate_id()
+    seal.validate_id(digest_suites.seal_digest_suite)
         .map_err(|e| SealReject::Structural(format!("id: {e}")))?;
     seal.validate_structural()
         .map_err(|e| SealReject::Structural(e.to_string()))?;
@@ -254,7 +349,8 @@ where
             return Err(SealReject::CoveredSetMismatch);
         }
     }
-    let recomputed_control_root = control_event_set_root(&covered)?;
+    let recomputed_control_root =
+        control_event_set_root(&covered, digest_suites.seal_digest_suite)?;
     if recomputed_control_root.as_str() != seal.control_event_set_root.as_str() {
         return Err(SealReject::ControlEventSetRootMismatch {
             declared: seal.control_event_set_root.as_str().to_owned(),
@@ -279,7 +375,52 @@ where
             .ok_or_else(|| SealReject::MissingControlEvent {
                 event_digest: digest.as_str().to_owned(),
             })?;
+        let event_digest_suite = event_digest_suite_for_seal(&event, seal, digest_suites);
+        let recomputed = Hash::new(
+            event
+                .event_digest_with_digest_suite(event_digest_suite)
+                .map_err(|error| {
+                    SealReject::Structural(format!("Control Event digest failed: {error}"))
+                })?,
+        )
+        .map_err(|error| {
+            SealReject::Structural(format!("Control Event digest is invalid: {error}"))
+        })?;
+        if recomputed != *digest {
+            return Err(SealReject::Structural(format!(
+                "Seal.delta digest {digest} does not match resolved Event digest {recomputed}"
+            )));
+        }
         new_events.push((digest.clone(), event));
+    }
+    validate_digest_suite_bridge(seal, &new_events, &pre_state, digest_suites)?;
+
+    // Completeness authenticates the exact cumulative accepted Event set, not
+    // just this Seal's delta. Resolve every covered digest before mutating any
+    // cell state so a missing predecessor Event or a mismatched actor interval
+    // fails without leaving partial reducer effects behind.
+    let mut covered_events = Vec::with_capacity(covered.len());
+    for digest in &covered {
+        let event = events
+            .get(digest)?
+            .ok_or_else(|| SealReject::MissingControlEvent {
+                event_digest: digest.as_str().to_owned(),
+            })?;
+        let event_digest_suite = events.digest_suite(digest)?.ok_or_else(|| {
+            SealReject::Structural(format!("Control Event {digest} has no frozen digest suite"))
+        })?;
+        covered_events.push((event, event_digest_suite));
+    }
+    let recomputed_completeness = control_event_completeness_root(
+        &covered_events,
+        &covered,
+        digest_suites.seal_digest_suite,
+    )?;
+    if recomputed_completeness != seal.completeness_root {
+        return Err(SealReject::CompletenessRootMismatch {
+            declared: seal.completeness_root.as_str().to_owned(),
+            recomputed: recomputed_completeness.as_str().to_owned(),
+        });
     }
     let ordered = deterministic_order(new_events);
 
@@ -288,6 +429,7 @@ where
     let mut staged_anchor_state = pre_state.clone();
     let mut staged_anchor_ops = BTreeMap::<CellRef, Vec<IssuedOp>>::new();
     for (digest, event) in ordered {
+        let event_digest_suite = event_digest_suite_for_seal(&event, seal, digest_suites);
         if event.seal_basis.is_some() || context == EventSubmitContext::Standard {
             verify_seal_basis(
                 &digest,
@@ -297,10 +439,11 @@ where
                 seals,
                 cells,
                 registry,
+                event_digest_suite,
             )?;
         }
-        let verification = if accepted_events {
-            crate::state::verify_accepted_control_move_in_context(
+        let verification = match proof_regime {
+            SealEventProofRegime::FederationAccepted => verify_accepted_control_move_in_context(
                 &event,
                 &seal.realm_id,
                 if context == EventSubmitContext::AnchorUnit {
@@ -309,12 +452,12 @@ where
                     &pre_state
                 },
                 registry,
-                verify_proofs,
-                project_writes,
+                event_digest_suite,
+                |event| verify_proofs(event, event_digest_suite),
+                |event| project_writes(event, event_digest_suite),
                 context,
-            )
-        } else {
-            verify_control_move_in_context(
+            ),
+            SealEventProofRegime::RetainedReplay => verify_replayed_control_move_in_context(
                 &event,
                 &seal.realm_id,
                 if context == EventSubmitContext::AnchorUnit {
@@ -323,10 +466,25 @@ where
                     &pre_state
                 },
                 registry,
-                verify_proofs,
-                project_writes,
+                event_digest_suite,
+                |event| verify_proofs(event, event_digest_suite),
+                |event| project_writes(event, event_digest_suite),
                 context,
-            )
+            ),
+            SealEventProofRegime::ProducerSubmission => verify_control_move_in_context(
+                &event,
+                &seal.realm_id,
+                if context == EventSubmitContext::AnchorUnit {
+                    &staged_anchor_state
+                } else {
+                    &pre_state
+                },
+                registry,
+                event_digest_suite,
+                |event| verify_proofs(event, event_digest_suite),
+                |event| project_writes(event, event_digest_suite),
+                context,
+            ),
         };
         match verification {
             Ok(effects) => {
@@ -339,6 +497,7 @@ where
                     seals,
                     cells,
                     registry,
+                    event_digest_suite,
                 )
                 .map_err(|reject| SealReject::ControlMoveRejected {
                     event_digest: digest.as_str().to_owned(),
@@ -386,7 +545,14 @@ where
     cells.append_sealed_effects(&seal.realm_id, &seal.id, &new_ops)?;
 
     let post_state = effective_state_for_covered_events(&covered, &seal.realm_id, cells, registry)?;
-    let recomputed_state = compute_state_root(&post_state)
+    let post_live_suite = live_digest_suite_from_state(&post_state)?;
+    if post_live_suite != digest_suites.seal_digest_suite {
+        cells.rollback_seal(&seal.realm_id, &seal.id)?;
+        return Err(SealReject::Structural(
+            "post-state live digest suite does not match the Seal suite".to_owned(),
+        ));
+    }
+    let recomputed_state = compute_state_root(&post_state, digest_suites.seal_digest_suite)
         .map_err(|e| SealReject::Store(format!("state_root recompute failed: {e}")))?;
     if recomputed_state.as_str() != seal.state_root.as_str() {
         cells.rollback_seal(&seal.realm_id, &seal.id)?;
@@ -396,7 +562,7 @@ where
         });
     }
 
-    seals.put(seal)?;
+    seals.put(seal, digest_suites.seal_digest_suite)?;
     for (digest, ..) in &accepted {
         events.mark_sealed(digest, seal)?;
     }
@@ -406,6 +572,192 @@ where
         accepted_event_digests: accepted.iter().map(|(digest, ..)| digest.clone()).collect(),
         post_state_root: recomputed_state,
     })
+}
+
+fn event_digest_suite_for_seal(
+    event: &Event,
+    seal: &Seal,
+    digest_suites: SealDigestSuites,
+) -> arkret_canonical::DigestSuite {
+    if seal.predecessor_refs.is_empty() && event.kind == arkret_wire::EventKind::RealmCreate {
+        arkret_canonical::DigestSuite::Sha256
+    } else {
+        digest_suites.event_digest_suite
+    }
+}
+
+fn validate_digest_suite_bridge(
+    seal: &Seal,
+    delta_events: &[(Hash, Event)],
+    pre_state: &BTreeMap<CellRef, CellState>,
+    digest_suites: SealDigestSuites,
+) -> Result<(), SealReject> {
+    let transition_events = delta_events
+        .iter()
+        .filter(|(_, event)| event.kind == arkret_wire::EventKind::RealmDigestSuiteTransition)
+        .map(|(_, event)| event)
+        .collect::<Vec<_>>();
+
+    if seal.predecessor_refs.is_empty() {
+        if seal.previous_state_root.is_some()
+            || seal.previous_digest_algorithm.is_some()
+            || !transition_events.is_empty()
+            || digest_suites.previous_state_digest_suite.is_some()
+        {
+            return Err(SealReject::Structural(
+                "Genesis Seal must not use compaction or transition fields".to_owned(),
+            ));
+        }
+        let create_events = delta_events
+            .iter()
+            .filter(|(_, event)| event.kind == arkret_wire::EventKind::RealmCreate)
+            .map(|(_, event)| event)
+            .collect::<Vec<_>>();
+        let [create] = create_events.as_slice() else {
+            return Err(SealReject::Structural(
+                "Genesis Seal must contain exactly one ak.realm.create Event".to_owned(),
+            ));
+        };
+        let declared = create
+            .payload
+            .get("object")
+            .and_then(|object| object.get("digest_algorithm"))
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                SealReject::Structural(
+                    "ak.realm.create payload omits object.digest_algorithm".to_owned(),
+                )
+            })
+            .and_then(|value| {
+                arkret_canonical::digest_suite(value).map_err(|error| {
+                    SealReject::Structural(format!(
+                        "ak.realm.create digest_algorithm is invalid: {error}"
+                    ))
+                })
+            })?;
+        if digest_suites.event_digest_suite != declared
+            || digest_suites.seal_digest_suite != declared
+        {
+            return Err(SealReject::Structural(
+                "Genesis Seal and non-create founding Events must use the create-declared digest suite"
+                    .to_owned(),
+            ));
+        }
+        return Ok(());
+    }
+
+    let live_suite = live_digest_suite_from_state(pre_state)?;
+    match transition_events.as_slice() {
+        [] => {
+            if digest_suites.previous_state_digest_suite.is_some()
+                || seal.previous_state_root.is_some()
+                || seal.previous_digest_algorithm.is_some()
+            {
+                return Err(SealReject::Structural(
+                    "non-transition Seal must omit previous digest fields".to_owned(),
+                ));
+            }
+            if digest_suites.event_digest_suite != live_suite
+                || digest_suites.seal_digest_suite != live_suite
+            {
+                return Err(SealReject::Structural(
+                    "ordinary Seal digest suites do not match predecessor live suite".to_owned(),
+                ));
+            }
+        }
+        [transition] => {
+            if seal.delta.len() != 1 || !seal.is_compaction() {
+                return Err(SealReject::Structural(
+                    "digest-suite transition Seal must be compaction and contain only the transition Move"
+                        .to_owned(),
+                ));
+            }
+            let from = transition
+                .payload
+                .get("from_digest_algorithm")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    SealReject::Structural(
+                        "digest-suite transition omits from_digest_algorithm".to_owned(),
+                    )
+                })
+                .and_then(parse_digest_suite)?;
+            let to = transition
+                .payload
+                .get("to_digest_algorithm")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    SealReject::Structural(
+                        "digest-suite transition omits to_digest_algorithm".to_owned(),
+                    )
+                })
+                .and_then(parse_digest_suite)?;
+            if from == to
+                || matches!(
+                    (from, to),
+                    (
+                        arkret_canonical::DigestSuite::Blake3,
+                        arkret_canonical::DigestSuite::Sha256
+                    )
+                )
+            {
+                return Err(SealReject::Structural(
+                    "digest-suite transition is a no-op or strength downgrade".to_owned(),
+                ));
+            }
+            if live_suite != from
+                || digest_suites.event_digest_suite != from
+                || digest_suites.previous_state_digest_suite != Some(from)
+                || digest_suites.seal_digest_suite != to
+                || seal.previous_digest_algorithm != Some(from)
+            {
+                return Err(SealReject::Structural(
+                    "digest-suite transition does not match predecessor, Event, or Seal suites"
+                        .to_owned(),
+                ));
+            }
+            let recomputed_previous = compute_state_root(pre_state, from)
+                .map_err(|error| SealReject::Store(format!("previous_state_root: {error}")))?;
+            if seal.previous_state_root.as_ref() != Some(&recomputed_previous) {
+                return Err(SealReject::StateRootMismatch {
+                    declared: seal
+                        .previous_state_root
+                        .as_ref()
+                        .map_or_else(|| "<missing>".to_owned(), |root| root.as_str().to_owned()),
+                    recomputed: recomputed_previous.as_str().to_owned(),
+                });
+            }
+        }
+        _ => {
+            return Err(SealReject::Structural(
+                "Seal contains more than one digest-suite transition Move".to_owned(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn parse_digest_suite(value: &str) -> Result<arkret_canonical::DigestSuite, SealReject> {
+    arkret_canonical::digest_suite(value)
+        .map_err(|error| SealReject::Structural(format!("invalid digest suite: {error}")))
+}
+
+fn live_digest_suite_from_state(
+    state: &BTreeMap<CellRef, CellState>,
+) -> Result<arkret_canonical::DigestSuite, SealReject> {
+    let cell = arkret_wire::null_subject_cell(arkret_wire::CellFamilyId::REALM_DIGEST_SUITE_V1);
+    match state.iter().find(|(cell_ref, _)| cell_ref.as_str() == cell) {
+        Some((_, CellState::Value(Value::String(value)))) => parse_digest_suite(value),
+        Some((_, CellState::Bottom(_))) => Err(SealReject::Structural(
+            "predecessor digest-suite cell is Bottom".to_owned(),
+        )),
+        Some(_) => Err(SealReject::Structural(
+            "predecessor digest-suite cell has a non-string value".to_owned(),
+        )),
+        None => Err(SealReject::Structural(
+            "predecessor view omits the live digest-suite cell".to_owned(),
+        )),
+    }
 }
 
 const DEFAULT_RECOVERY_WITNESS_FRESHNESS_WINDOW_MS: i64 = 86_400_000;
@@ -427,6 +779,7 @@ pub fn verify_recovery_witness(
     seals: &dyn SealStore,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
+    _event_digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<(), ControlMoveReject> {
     let Some(reset) = effects.iter().find(|effect| effect.recovery_reset) else {
         return Ok(());
@@ -483,7 +836,9 @@ pub fn verify_recovery_witness(
         let witness_state =
             effective_state_for_covered_events(&witness_covered, realm_id, cells, registry)
                 .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
-        let witness_root = compute_state_root(&witness_state)
+        let witness_digest_suite = digest_suite_from_trusted_hash(&witness.state_root)
+            .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
+        let witness_root = compute_state_root(&witness_state, witness_digest_suite)
             .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
         if witness_root != witness.state_root
             || !matches!(witness_state.get(&reset.cell), Some(CellState::Value(_)))
@@ -601,6 +956,7 @@ pub fn verify_seal_basis(
     seals: &dyn SealStore,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
+    digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<(), SealReject> {
     let basis = event
         .seal_basis
@@ -616,7 +972,14 @@ pub fn verify_seal_basis(
             });
         }
     }
-    effective_seal_view(&basis.leaves, realm_id, seals, cells, registry)?;
+    effective_seal_view(
+        &basis.leaves,
+        realm_id,
+        seals,
+        cells,
+        registry,
+        digest_suite,
+    )?;
     Ok(())
 }
 
@@ -650,15 +1013,16 @@ pub fn effective_seal_view(
     seals: &dyn SealStore,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
+    digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<EffectiveSealView, SealReject> {
     let mut sorted = leaves.to_vec();
     sorted.sort_by(|a, b| a.as_str().cmp(b.as_str()));
     let union_proof = leaf_union_proof(&sorted, seals)?;
     let covered = union_covered_from_proof(&union_proof);
     let covered_event_digests: Vec<Hash> = covered.iter().cloned().collect();
-    let control_event_set_root = control_event_set_root(&covered)?;
+    let control_event_set_root = control_event_set_root(&covered, digest_suite)?;
     let post_state = effective_state_at(&sorted, realm_id, seals, cells, registry)?;
-    let state_root = compute_state_root(&post_state)
+    let state_root = compute_state_root(&post_state, digest_suite)
         .map_err(|e| SealReject::Store(format!("state_root: {e}")))?;
     let view_hash = joined_control_view_hash(
         &sorted,
@@ -717,7 +1081,17 @@ pub fn leaf_union_proof(
             let mut covered = BTreeSet::new();
             collect_covered_events(&leaf, seals, &mut covered)?;
             let covered_event_digests: Vec<Hash> = covered.iter().cloned().collect();
-            let control_event_set_root = control_event_set_root(&covered)?;
+            let leaf_seal = seals
+                .get(&leaf)?
+                .ok_or_else(|| SealReject::Store(format!("predecessor {leaf} not in store")))?;
+            let digest_suite = digest_suite_from_trusted_hash(&leaf_seal.control_event_set_root)?;
+            let control_event_set_root = control_event_set_root(&covered, digest_suite)?;
+            if control_event_set_root != leaf_seal.control_event_set_root {
+                return Err(SealReject::ControlEventSetRootMismatch {
+                    declared: leaf_seal.control_event_set_root.as_str().to_owned(),
+                    recomputed: control_event_set_root.as_str().to_owned(),
+                });
+            }
             Ok(SealLeafUnionProof {
                 leaf,
                 covered_event_digests,
@@ -753,19 +1127,40 @@ fn collect_covered_events(
     Ok(())
 }
 
-pub fn control_event_set_root(covered: &BTreeSet<Hash>) -> Result<Hash, SealReject> {
+pub fn control_event_set_root(
+    covered: &BTreeSet<Hash>,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<Hash, SealReject> {
     let leaves: Result<Vec<Vec<u8>>, SealReject> = covered
         .iter()
         .map(|m| {
-            let digest = m.as_str().strip_prefix("sha256:").ok_or_else(|| {
-                SealReject::Structural(format!("unsupported control event digest suite: {m}"))
+            let (_, digest) = m.as_str().split_once(':').ok_or_else(|| {
+                SealReject::Structural(format!("control event digest has no suite: {m}"))
             })?;
-            hex::decode(digest).map_err(|e| {
-                SealReject::Structural(format!("invalid control event digest {m}: {e}"))
-            })
+            let suite = m
+                .as_str()
+                .split_once(':')
+                .map(|(suite, _)| suite)
+                .expect("split checked above");
+            arkret_canonical::digest_suite(suite).map_err(|error| {
+                SealReject::Structural(format!("unsupported control event digest suite: {error}"))
+            })?;
+            hex::decode(digest)
+                .map_err(|e| {
+                    SealReject::Structural(format!("invalid control event digest {m}: {e}"))
+                })
+                .and_then(|decoded| {
+                    if decoded.len() == 32 {
+                        Ok(decoded)
+                    } else {
+                        Err(SealReject::Structural(format!(
+                            "control event digest {m} must decode to 32 bytes"
+                        )))
+                    }
+                })
         })
         .collect();
-    seal_merkle_root_from_leaf_data(&leaves?)
+    seal_merkle_root_from_leaf_data(&leaves?, digest_suite)
         .map_err(|e| SealReject::Store(format!("control_event_set_root: {e}")))
 }
 
@@ -782,15 +1177,20 @@ struct CompletenessLeaf<'a> {
 /// The caller supplies the exact cumulative covered set. Every covered digest
 /// must resolve to exactly one Event; extra Events are ignored.
 pub fn control_event_completeness_root(
-    events: &[Event],
+    events: &[(Event, arkret_canonical::DigestSuite)],
     covered: &BTreeSet<Hash>,
+    root_digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<Hash, SealReject> {
     let mut by_actor = BTreeMap::<arkret_wire::DidCoreId, Vec<(u64, Hash)>>::new();
     let mut resolved = BTreeSet::new();
-    for event in events {
-        let digest = Hash::new(event.event_digest().map_err(|error| {
-            SealReject::Structural(format!("Control Event digest failed: {error}"))
-        })?)
+    for (event, event_digest_suite) in events {
+        let digest = Hash::new(
+            event
+                .event_digest_with_digest_suite(*event_digest_suite)
+                .map_err(|error| {
+                    SealReject::Structural(format!("Control Event digest failed: {error}"))
+                })?,
+        )
         .map_err(|error| {
             SealReject::Structural(format!("Control Event digest is invalid: {error}"))
         })?;
@@ -836,8 +1236,18 @@ pub fn control_event_completeness_root(
             })?,
         );
     }
-    seal_merkle_root_from_leaf_data(&leaf_data)
+    seal_merkle_root_from_leaf_data(&leaf_data, root_digest_suite)
         .map_err(|error| SealReject::Store(format!("completeness_root: {error}")))
+}
+
+fn digest_suite_from_trusted_hash(
+    hash: &Hash,
+) -> Result<arkret_canonical::DigestSuite, SealReject> {
+    let (suite, _) = hash.as_str().split_once(':').ok_or_else(|| {
+        SealReject::Structural(format!("trusted hash has no digest suite: {hash}"))
+    })?;
+    arkret_canonical::digest_suite(suite)
+        .map_err(|error| SealReject::Structural(format!("invalid trusted digest suite: {error}")))
 }
 
 pub fn effective_state_at(
@@ -1095,9 +1505,119 @@ mod tests {
         ControlProposalIngress, SealStore, control_event_digest,
     };
     use crate::{
-        Event, EventId, Hlc, LatticeOp, LatticeOpType, NotarySig, PayloadSignature, Precondition,
-        Predicate, PredicateOp, ProjectedOp, SealBasis, SealKind,
+        Event, EventId, Hlc, LatticeOp, LatticeOpType, NotarySig, Precondition, Predicate,
+        PredicateOp, ProjectedOp, SealBasis, SealSignature,
     };
+
+    const SUITE: arkret_canonical::DigestSuite = arkret_canonical::DigestSuite::Sha256;
+
+    fn compute_state_root(cells: &BTreeMap<CellRef, CellState>) -> Result<Hash, crate::Error> {
+        super::compute_state_root(cells, SUITE)
+    }
+
+    fn control_event_set_root(covered: &BTreeSet<Hash>) -> Result<Hash, SealReject> {
+        super::control_event_set_root(covered, SUITE)
+    }
+
+    fn control_event_completeness_root(
+        events: &[Event],
+        covered: &BTreeSet<Hash>,
+    ) -> Result<Hash, SealReject> {
+        let events = events
+            .iter()
+            .cloned()
+            .map(|event| (event, SUITE))
+            .collect::<Vec<_>>();
+        super::control_event_completeness_root(&events, covered, SUITE)
+    }
+
+    fn effective_seal_view(
+        leaves: &[SealId],
+        realm_id: &RealmId,
+        seals: &dyn SealStore,
+        cells: &dyn CellStore,
+        registry: &dyn CellRegistry,
+    ) -> Result<EffectiveSealView, SealReject> {
+        super::effective_seal_view(leaves, realm_id, seals, cells, registry, SUITE)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn verify_recovery_witness(
+        event: &Event,
+        effects: &[crate::ProjectionEffect],
+        realm_id: &RealmId,
+        pre_state: &BTreeMap<CellRef, CellState>,
+        predecessor_closure: &BTreeSet<SealId>,
+        seals: &dyn SealStore,
+        cells: &dyn CellStore,
+        registry: &dyn CellRegistry,
+    ) -> Result<(), ControlMoveReject> {
+        super::verify_recovery_witness(
+            event,
+            effects,
+            realm_id,
+            pre_state,
+            predecessor_closure,
+            seals,
+            cells,
+            registry,
+            SUITE,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn apply_seal<VerifyProofs, ProjectWrites>(
+        seal: &Seal,
+        events: &dyn ControlEventStore,
+        seals: &dyn SealStore,
+        cells: &dyn CellStore,
+        registry: &dyn CellRegistry,
+        verify_proofs: VerifyProofs,
+        project_writes: ProjectWrites,
+    ) -> Result<SealEffect, SealReject>
+    where
+        VerifyProofs: Fn(&Event) -> Result<(), String> + Copy,
+        ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    {
+        super::apply_seal(
+            seal,
+            events,
+            seals,
+            cells,
+            registry,
+            SealDigestSuites::standard(SUITE),
+            |event, _| verify_proofs(event),
+            |event, _| project_writes(event),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn apply_seal_in_context<VerifyProofs, ProjectWrites>(
+        seal: &Seal,
+        events: &dyn ControlEventStore,
+        seals: &dyn SealStore,
+        cells: &dyn CellStore,
+        registry: &dyn CellRegistry,
+        verify_proofs: VerifyProofs,
+        project_writes: ProjectWrites,
+        context: EventSubmitContext,
+    ) -> Result<SealEffect, SealReject>
+    where
+        VerifyProofs: Fn(&Event) -> Result<(), String> + Copy,
+        ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    {
+        super::apply_seal_in_context(
+            seal,
+            events,
+            seals,
+            cells,
+            registry,
+            SealDigestSuites::standard(SUITE),
+            |event, _| verify_proofs(event),
+            |event, _| project_writes(event),
+            context,
+        )
+    }
 
     fn ackless_ingress() -> ControlProposalIngress {
         ControlProposalIngress::AcklessSelfPrincipal(AcklessSelfPrincipalIngress {
@@ -1108,8 +1628,22 @@ mod tests {
         })
     }
 
+    fn raw_genesis_create() -> Event {
+        arkret_wire::test_support::raw_event_at(
+            arkret_wire::EventKind::RealmCreate.to_string(),
+            ScopeRef::RealmGenesis,
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps".to_owned()).unwrap(),
+            0,
+            Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
+            json!({"object": {"digest_algorithm": "sha256"}}),
+            Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
+        )
+        .unwrap()
+    }
+
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN".to_owned()).unwrap()
+        raw_genesis_create().realm_id
     }
 
     fn seal_id(byte: u8) -> SealId {
@@ -1152,12 +1686,25 @@ mod tests {
         event.prev_refs = prev_refs;
         event.refs = refs;
         event.seal_basis = Some(basis);
-        event.refresh_content_bound_identity().unwrap();
+        event
+            .refresh_content_bound_identity_with_digest_suite(SUITE)
+            .unwrap();
         event.proofs.push(
             Proof {
                 kind: "detached_jws".to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#k1").unwrap(),
-                event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
+                event_digest: Hash::new(event.event_digest_with_digest_suite(SUITE).unwrap())
+                    .unwrap(),
+                signer_resolution_evidence_ref: Some(
+                    arkret_wire::SignerEvidenceRef::new(format!(
+                        "ak:signer_evidence:sha256:{}",
+                        "11".repeat(32)
+                    ))
+                    .unwrap(),
+                ),
+                signer_resolution_evidence_digest: Some(
+                    Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
+                ),
                 created_at,
                 domain: None,
                 audience: None,
@@ -1167,6 +1714,57 @@ mod tests {
             .into(),
         );
         event
+    }
+
+    fn genesis_create() -> Event {
+        let mut event = raw_genesis_create();
+        event.proofs.push(
+            Proof {
+                kind: "detached_jws".to_owned(),
+                verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#k1").unwrap(),
+                event_digest: Hash::new(event.event_digest_with_digest_suite(SUITE).unwrap())
+                    .unwrap(),
+                signer_resolution_evidence_ref: Some(
+                    arkret_wire::SignerEvidenceRef::new(format!(
+                        "ak:signer_evidence:sha256:{}",
+                        "11".repeat(32)
+                    ))
+                    .unwrap(),
+                ),
+                signer_resolution_evidence_digest: Some(
+                    Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
+                ),
+                created_at: event.created_at,
+                domain: None,
+                audience: None,
+                proof_purpose: None,
+                jws: "AAAA.BBBB.CCCC".to_owned(),
+            }
+            .into(),
+        );
+        event
+    }
+
+    fn digest_suite_cell() -> CellRef {
+        CellRef::new(arkret_wire::null_subject_cell(
+            arkret_wire::CellFamilyId::REALM_DIGEST_SUITE_V1,
+        ))
+        .unwrap()
+    }
+
+    fn digest_suite_set_op() -> LatticeOp {
+        let mut op = LatticeOp::empty();
+        op.op_type = LatticeOpType::Set;
+        op.value = Some(json!("sha256"));
+        op
+    }
+
+    fn state_with_digest_suite(
+        extra: impl IntoIterator<Item = (CellRef, CellState)>,
+    ) -> BTreeMap<CellRef, CellState> {
+        let mut state = BTreeMap::from([(digest_suite_cell(), CellState::Value(json!("sha256")))]);
+        state.extend(extra);
+        state
     }
 
     fn hash(byte: u8) -> Hash {
@@ -1193,38 +1791,38 @@ mod tests {
         }
     }
 
-    fn dummy_signature() -> PayloadSignature {
-        PayloadSignature {
-            extra: Default::default(),
+    fn dummy_signature() -> SealSignature {
+        SealSignature {
             verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#k1").unwrap(),
             payload_digest: hash(0xff),
-            created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
             jws: "AAAA.BBBB.CCCC".to_owned(),
         }
     }
 
     fn materialized_seal(id: SealId, covered: Vec<Hash>) -> Seal {
-        Seal {
+        let seed = u64::from_str_radix(&id.as_str()[15..17], 16).unwrap();
+        let covered_set = covered.iter().cloned().collect::<BTreeSet<_>>();
+        let mut seal = Seal {
             id,
             realm_id: realm(),
             predecessor_refs: Vec::new(),
             delta: Vec::new(),
-            control_event_set_root: hash(0x22),
-            state_root: hash(0x77),
+            control_event_set_root: control_event_set_root(&covered_set).unwrap(),
+            state_root: compute_state_root(&BTreeMap::new()).unwrap(),
             completeness_root: hash(0x33),
-            notary_seq: 1,
+            notary_seq: seed,
             data_view_root: None,
             data_event_set_root: None,
-            availability_root: None,
-            coverage_scope: None,
+            availability_receipt_digests: Vec::new(),
             covered_event_digests: covered,
             previous_state_root: None,
             previous_digest_algorithm: None,
             notary_signature: NotarySig::Single(dummy_signature()),
             sealed_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
             hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
-            kind: SealKind::Normal,
-        }
+        };
+        seal.id = seal.derive_id(SUITE).unwrap();
+        seal
     }
 
     #[test]
@@ -1296,7 +1894,7 @@ mod tests {
         );
         let covered = [&alice, &bob]
             .into_iter()
-            .map(|event| Hash::new(event.event_digest().unwrap()).unwrap())
+            .map(|event| Hash::new(event.event_digest_with_digest_suite(SUITE).unwrap()).unwrap())
             .collect::<BTreeSet<_>>();
         let forward =
             control_event_completeness_root(&[alice.clone(), bob.clone()], &covered).unwrap();
@@ -1338,8 +1936,8 @@ mod tests {
                 )],
             )
             .unwrap();
-        seals.put(&seal_a).unwrap();
-        seals.put(&seal_b).unwrap();
+        seals.put(&seal_a, SUITE).unwrap();
+        seals.put(&seal_b, SUITE).unwrap();
 
         let state_a = effective_state_at(
             std::slice::from_ref(&seal_a.id),
@@ -1386,8 +1984,8 @@ mod tests {
         let move_b = move_id(0xbb);
         let seal_a = materialized_seal(seal_id(0xa1), vec![move_a.clone()]);
         let seal_b = materialized_seal(seal_id(0xb1), vec![move_b.clone()]);
-        seals.put(&seal_b).unwrap();
-        seals.put(&seal_a).unwrap();
+        seals.put(&seal_b, SUITE).unwrap();
+        seals.put(&seal_a, SUITE).unwrap();
 
         let first = effective_seal_view(
             &[seal_b.id.clone(), seal_a.id.clone()],
@@ -1406,7 +2004,9 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(first.predecessor_refs, vec![seal_a.id, seal_b.id]);
+        let mut expected_predecessors = vec![seal_a.id, seal_b.id];
+        expected_predecessors.sort();
+        assert_eq!(first.predecessor_refs, expected_predecessors);
         assert_eq!(first.covered_event_digests, vec![move_a, move_b]);
         assert_eq!(first.union_proof.len(), 2);
         assert_eq!(first.view_hash, second.view_hash);
@@ -1428,8 +2028,11 @@ mod tests {
         let first = control_move(1, basis.clone(), Vec::new(), Vec::new());
         let second = control_move(2, basis, Vec::new(), Vec::new());
         let apply_order = deterministic_order(vec![
-            (control_event_digest(&first).unwrap(), first.clone()),
-            (control_event_digest(&second).unwrap(), second.clone()),
+            (control_event_digest(&first, SUITE).unwrap(), first.clone()),
+            (
+                control_event_digest(&second, SUITE).unwrap(),
+                second.clone(),
+            ),
         ])
         .into_iter()
         .map(|(digest, _)| digest)
@@ -1464,7 +2067,7 @@ mod tests {
             Vec::new(),
             vec![EventRef::new(first.event_id.as_str(), "after")],
         );
-        let entry = |event: &Event| (control_event_digest(event).unwrap(), event.clone());
+        let entry = |event: &Event| (control_event_digest(event, SUITE).unwrap(), event.clone());
 
         let ordered = deterministic_order(vec![entry(&dependent), entry(&second), entry(&first)]);
         let ids: Vec<&str> = ordered
@@ -1493,7 +2096,7 @@ mod tests {
         let entries: Vec<(Hash, Event)> = (1..=3)
             .map(|seq| {
                 let event = control_move(seq, basis.clone(), Vec::new(), Vec::new());
-                (control_event_digest(&event).unwrap(), event)
+                (control_event_digest(&event, SUITE).unwrap(), event)
             })
             .collect();
         let mut reversed = entries.clone();
@@ -1530,17 +2133,40 @@ mod tests {
             notary_seq,
             data_view_root: None,
             data_event_set_root: None,
-            availability_root: None,
-            coverage_scope: None,
+            availability_receipt_digests: Vec::new(),
             covered_event_digests: Vec::new(),
             previous_state_root: None,
             previous_digest_algorithm: None,
             notary_signature: NotarySig::Single(dummy_signature()),
             sealed_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
             hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
-            kind: SealKind::Normal,
         };
-        seal.id = seal.derive_id().unwrap();
+        seal.id = seal.derive_id(SUITE).unwrap();
+        seal
+    }
+
+    fn signed_seal_with_coverage(
+        predecessor_refs: Vec<SealId>,
+        delta: Vec<Hash>,
+        covered_events: &[Event],
+        post_state: &BTreeMap<CellRef, CellState>,
+        notary_seq: u64,
+    ) -> Seal {
+        let covered = covered_events
+            .iter()
+            .map(|event| control_event_digest(event, SUITE))
+            .collect::<Result<BTreeSet<_>, _>>()
+            .unwrap();
+        let mut seal = signed_seal(
+            predecessor_refs,
+            delta,
+            control_event_set_root(&covered).unwrap(),
+            compute_state_root(post_state).unwrap(),
+            notary_seq,
+        );
+        seal.covered_event_digests = covered.iter().cloned().collect();
+        seal.completeness_root = control_event_completeness_root(covered_events, &covered).unwrap();
+        seal.id = seal.derive_id(SUITE).unwrap();
         seal
     }
 
@@ -1559,6 +2185,16 @@ mod tests {
         }])
     }
 
+    fn genesis_digest_suite_write(event: &Event) -> Result<Vec<ProjectedCellWrite>, String> {
+        if event.kind != arkret_wire::EventKind::RealmCreate {
+            return Err("only Realm create initializes the digest suite".to_owned());
+        }
+        Ok(vec![ProjectedCellWrite {
+            cell: digest_suite_cell(),
+            op: ProjectedOp::Direct(digest_suite_set_op()),
+        }])
+    }
+
     fn bootstrap_member_transition_write(event: &Event) -> Result<Vec<ProjectedCellWrite>, String> {
         let mut op = LatticeOp::empty();
         op.op_type = LatticeOpType::Transition;
@@ -1569,10 +2205,17 @@ mod tests {
         };
         op.from = Some(json!(state.0));
         op.to = Some(json!(state.1));
-        Ok(vec![ProjectedCellWrite {
+        let mut writes = vec![ProjectedCellWrite {
             cell: member_cell(),
             op: ProjectedOp::Direct(op),
-        }])
+        }];
+        if event.kind == arkret_wire::EventKind::RealmCreate {
+            writes.push(ProjectedCellWrite {
+                cell: digest_suite_cell(),
+                op: ProjectedOp::Direct(digest_suite_set_op()),
+            });
+        }
+        Ok(writes)
     }
 
     #[test]
@@ -1611,23 +2254,17 @@ mod tests {
         let seals = MemorySealStore::default();
         let cells = MemoryCellStore::default();
         let registry = MemoryCellRegistry::default();
-        let placeholder_basis = SealBasis {
-            leaves: vec![seal_id(0x01)],
-        };
-        let mut event = control_move(0, placeholder_basis, Vec::new(), Vec::new());
-        event.seal_basis = None;
-        event.proofs[0].as_producer_mut().unwrap().event_digest =
-            Hash::new(event.event_digest().unwrap()).unwrap();
-        let digest = control_event_digest(&event).unwrap();
+        let event = genesis_create();
+        let digest = control_event_digest(&event, SUITE).unwrap();
         events
-            .put_pending_with_ingress(&event, &ackless_ingress())
+            .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
             .unwrap();
-        let post_state = BTreeMap::from([(member_cell(), CellState::Value(json!("join")))]);
-        let seal = signed_seal(
+        let post_state = state_with_digest_suite([]);
+        let seal = signed_seal_with_coverage(
             Vec::new(),
             vec![digest.clone()],
-            control_event_set_root(&BTreeSet::from([digest.clone()])).unwrap(),
-            compute_state_root(&post_state).unwrap(),
+            std::slice::from_ref(&event),
+            &post_state,
             0,
         );
 
@@ -1638,7 +2275,7 @@ mod tests {
             &cells,
             &registry,
             ok_proofs,
-            join_transition_write,
+            genesis_digest_suite_write,
         )
         .unwrap_err();
         assert!(matches!(
@@ -1653,7 +2290,7 @@ mod tests {
             &cells,
             &registry,
             ok_proofs,
-            join_transition_write,
+            genesis_digest_suite_write,
             EventSubmitContext::AnchorUnit,
         )
         .unwrap();
@@ -1676,21 +2313,17 @@ mod tests {
             ],
             BottomMode::Reject,
         );
-        let placeholder_basis = SealBasis {
-            leaves: vec![seal_id(0x01)],
-        };
-        let mut create = control_move(0, placeholder_basis.clone(), Vec::new(), Vec::new());
-        create.seal_basis = None;
-        create.proofs[0].as_producer_mut().unwrap().event_digest =
-            Hash::new(create.event_digest().unwrap()).unwrap();
-        let create_digest = control_event_digest(&create).unwrap();
+        let create = genesis_create();
+        let create_digest = control_event_digest(&create, SUITE).unwrap();
         events
-            .put_pending_with_ingress(&create, &ackless_ingress())
+            .put_pending_with_ingress(&create, &ackless_ingress(), SUITE)
             .unwrap();
 
         let mut binding = control_move(
             1,
-            placeholder_basis,
+            SealBasis {
+                leaves: vec![seal_id(0x01)],
+            },
             vec![create.event_id.clone()],
             Vec::new(),
         );
@@ -1704,25 +2337,28 @@ mod tests {
                 predicate_id: None,
             },
         });
+        binding
+            .refresh_content_bound_identity_with_digest_suite(SUITE)
+            .unwrap();
         binding.proofs[0].as_producer_mut().unwrap().event_digest =
-            Hash::new(binding.event_digest().unwrap()).unwrap();
-        let binding_digest = control_event_digest(&binding).unwrap();
+            Hash::new(binding.event_digest_with_digest_suite(SUITE).unwrap()).unwrap();
+        let binding_digest = control_event_digest(&binding, SUITE).unwrap();
         events
-            .put_pending_with_ingress(&binding, &ackless_ingress())
+            .put_pending_with_ingress(&binding, &ackless_ingress(), SUITE)
             .unwrap();
 
-        let covered = BTreeSet::from([create_digest.clone(), binding_digest.clone()]);
-        let post_state = BTreeMap::from([(member_cell(), CellState::Value(json!("join")))]);
+        let post_state =
+            state_with_digest_suite([(member_cell(), CellState::Value(json!("join")))]);
         // `Seal.delta` is a canonical sorted, duplicate-free list — the staging
         // order the test is about lives in the Seal's covered set, not in this
         // wire field's order.
         let mut delta = vec![create_digest.clone(), binding_digest.clone()];
         delta.sort();
-        let seal = signed_seal(
+        let seal = signed_seal_with_coverage(
             Vec::new(),
             delta.clone(),
-            control_event_set_root(&covered).unwrap(),
-            compute_state_root(&post_state).unwrap(),
+            &[create.clone(), binding.clone()],
+            &post_state,
             0,
         );
 
@@ -1748,12 +2384,11 @@ mod tests {
 
     #[test]
     fn anchor_unit_context_rejects_a_nonempty_predecessor_view() {
-        let (genesis, ..) = genesis_and_basis();
         let seal = signed_seal(
-            vec![genesis.id],
+            vec![seal_id(0x01)],
             Vec::new(),
-            genesis.control_event_set_root,
-            genesis.state_root,
+            control_event_set_root(&BTreeSet::new()).unwrap(),
+            compute_state_root(&BTreeMap::new()).unwrap(),
             1,
         );
         let error = apply_seal_in_context(
@@ -1770,23 +2405,42 @@ mod tests {
         assert!(error.to_string().contains("only valid for the first Seal"));
     }
 
-    /// First Seal with a non-empty anchor digest, plus the `seal_basis` a
+    /// Install a fully replayable Genesis Seal and return the basis a
     /// successor Control Move must declare.
-    fn genesis_and_basis() -> (Seal, SealBasis, Hash) {
-        let anchor = hash(0x01);
-        let control_root = control_event_set_root(&BTreeSet::from([anchor.clone()])).unwrap();
-        let empty_state_root = compute_state_root(&BTreeMap::new()).unwrap();
-        let genesis = signed_seal(
+    fn install_genesis(
+        events: &MemoryControlEventStore,
+        seals: &MemorySealStore,
+        cells: &MemoryCellStore,
+        registry: &MemoryCellRegistry,
+    ) -> (Seal, SealBasis, Event, Hash) {
+        let create = genesis_create();
+        let anchor = control_event_digest(&create, SUITE).unwrap();
+        events
+            .put_pending_with_ingress(&create, &ackless_ingress(), SUITE)
+            .unwrap();
+        let post_state = state_with_digest_suite([]);
+        let genesis = signed_seal_with_coverage(
             Vec::new(),
             vec![anchor.clone()],
-            control_root,
-            empty_state_root,
+            std::slice::from_ref(&create),
+            &post_state,
             0,
         );
+        apply_seal_in_context(
+            &genesis,
+            events,
+            seals,
+            cells,
+            registry,
+            ok_proofs,
+            genesis_digest_suite_write,
+            EventSubmitContext::AnchorUnit,
+        )
+        .unwrap();
         let basis = SealBasis {
             leaves: vec![genesis.id.clone()],
         };
-        (genesis, basis, anchor)
+        (genesis, basis, create, anchor)
     }
 
     #[test]
@@ -1795,24 +2449,23 @@ mod tests {
         let cells = MemoryCellStore::default();
         let events = MemoryControlEventStore::default();
         let registry = MemoryCellRegistry::default();
-        let (genesis, basis, anchor) = genesis_and_basis();
-        seals.put(&genesis).unwrap();
+        let (genesis, basis, create, _) = install_genesis(&events, &seals, &cells, &registry);
 
         // The Event names no cell and no lattice op anywhere: the projector is
         // the sole source of the `invited -> join` write applied below.
         let event = control_move(1, basis, Vec::new(), Vec::new());
-        let digest = control_event_digest(&event).unwrap();
+        let digest = control_event_digest(&event, SUITE).unwrap();
         events
-            .put_pending_with_ingress(&event, &ackless_ingress())
+            .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
             .unwrap();
 
-        let covered = BTreeSet::from([anchor, digest.clone()]);
-        let post_state = BTreeMap::from([(member_cell(), CellState::Value(json!("join")))]);
-        let seal = signed_seal(
+        let post_state =
+            state_with_digest_suite([(member_cell(), CellState::Value(json!("join")))]);
+        let seal = signed_seal_with_coverage(
             vec![genesis.id],
             vec![digest.clone()],
-            control_event_set_root(&covered).unwrap(),
-            compute_state_root(&post_state).unwrap(),
+            &[create, event.clone()],
+            &post_state,
             2,
         );
 
@@ -1833,10 +2486,7 @@ mod tests {
         assert_eq!(ops.len(), 1);
         assert_eq!(ops[0].op.move_id, digest);
         assert_eq!(ops[0].issuer, event.actor_id);
-        assert_eq!(
-            events.list_sealed(&realm(), None, 10).unwrap()[0].seal,
-            seal.id
-        );
+        assert_eq!(events.covering_seals(&digest).unwrap(), vec![seal.id]);
     }
 
     #[test]
@@ -1845,20 +2495,18 @@ mod tests {
         let cells = MemoryCellStore::default();
         let events = MemoryControlEventStore::default();
         let registry = MemoryCellRegistry::default();
-        let (genesis, basis, anchor) = genesis_and_basis();
-        seals.put(&genesis).unwrap();
+        let (genesis, basis, create, _) = install_genesis(&events, &seals, &cells, &registry);
         let event = control_move(1, basis, Vec::new(), Vec::new());
-        let digest = control_event_digest(&event).unwrap();
+        let digest = control_event_digest(&event, SUITE).unwrap();
         events
-            .put_pending_with_ingress(&event, &ackless_ingress())
+            .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
             .unwrap();
 
-        let covered = BTreeSet::from([anchor, digest.clone()]);
-        let seal = signed_seal(
+        let seal = signed_seal_with_coverage(
             vec![genesis.id],
             vec![digest],
-            control_event_set_root(&covered).unwrap(),
-            compute_state_root(&BTreeMap::new()).unwrap(),
+            &[create, event],
+            &state_with_digest_suite([(member_cell(), CellState::Value(json!("join")))]),
             2,
         );
 
@@ -1881,24 +2529,22 @@ mod tests {
         let cells = MemoryCellStore::default();
         let events = MemoryControlEventStore::default();
         let registry = MemoryCellRegistry::default();
-        let (genesis, mut basis, anchor) = genesis_and_basis();
-        seals.put(&genesis).unwrap();
+        let (genesis, mut basis, create, _) = install_genesis(&events, &seals, &cells, &registry);
         // A concurrent Seal the receiving Seal does not descend from. Admitting
         // it would make acceptance depend on which leaves this receiver happens
         // to hold (§6.3 concurrent-leaf rule).
         basis.leaves = vec![seal_id(0xee)];
         let event = control_move(1, basis, Vec::new(), Vec::new());
-        let digest = control_event_digest(&event).unwrap();
+        let digest = control_event_digest(&event, SUITE).unwrap();
         events
-            .put_pending_with_ingress(&event, &ackless_ingress())
+            .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
             .unwrap();
 
-        let covered = BTreeSet::from([anchor, digest.clone()]);
-        let seal = signed_seal(
+        let seal = signed_seal_with_coverage(
             vec![genesis.id],
             vec![digest],
-            control_event_set_root(&covered).unwrap(),
-            compute_state_root(&BTreeMap::new()).unwrap(),
+            &[create, event],
+            &state_with_digest_suite([(member_cell(), CellState::Value(json!("join")))]),
             2,
         );
 
@@ -1934,8 +2580,8 @@ mod tests {
             empty_state_root,
             2,
         );
-        seals.put(&genesis).unwrap();
-        seals.put(&middle).unwrap();
+        seals.put(&genesis, SUITE).unwrap();
+        seals.put(&middle, SUITE).unwrap();
 
         let closure = predecessor_seal_closure(std::slice::from_ref(&middle.id), &seals).unwrap();
         assert_eq!(closure, BTreeSet::from([genesis.id, middle.id]));
@@ -1979,7 +2625,7 @@ mod tests {
                 ],
             )
             .unwrap();
-        seals.put(&seal).unwrap();
+        seals.put(&seal, SUITE).unwrap();
 
         let state = effective_state_at(
             std::slice::from_ref(&seal.id),
@@ -2108,7 +2754,19 @@ mod tests {
         grant_op.tag = Some(grant_id.to_owned());
         grant_op.value = Some(grant_value.clone());
 
-        let witness_id = seal_id(0x40);
+        let witness_state = BTreeMap::from([
+            (target.clone(), CellState::Value(target_value)),
+            (
+                capability_cell(),
+                CellState::Value(json!([{"tag": grant_id, "value": grant_value}])),
+            ),
+        ]);
+        let mut witness =
+            materialized_seal(seal_id(0x40), vec![target_move.clone(), grant_move.clone()]);
+        witness.delta = vec![target_move.clone(), grant_move.clone()];
+        witness.state_root = compute_state_root(&witness_state).unwrap();
+        witness.id = witness.derive_id(SUITE).unwrap();
+        let witness_id = witness.id.clone();
         cells
             .append_sealed_effects(
                 &realm(),
@@ -2125,20 +2783,7 @@ mod tests {
                 ],
             )
             .unwrap();
-        let witness_state = BTreeMap::from([
-            (target.clone(), CellState::Value(target_value)),
-            (
-                capability_cell(),
-                CellState::Value(json!([{"tag": grant_id, "value": grant_value}])),
-            ),
-        ]);
-        let mut witness = materialized_seal(
-            witness_id.clone(),
-            vec![target_move.clone(), grant_move.clone()],
-        );
-        witness.delta = vec![target_move.clone(), grant_move.clone()];
-        witness.state_root = compute_state_root(&witness_state).unwrap();
-        seals.put(&witness).unwrap();
+        seals.put(&witness, SUITE).unwrap();
 
         let mut conflict_a = materialized_seal(
             conflict_a_id(),
@@ -2152,7 +2797,8 @@ mod tests {
         conflict_a.delta = vec![conflict_a_move.clone()];
         conflict_a.state_root = witness.state_root.clone();
         conflict_a.sealed_at += chrono::Duration::seconds(1);
-        seals.put(&conflict_a).unwrap();
+        conflict_a.id = conflict_a.derive_id(SUITE).unwrap();
+        seals.put(&conflict_a, SUITE).unwrap();
         let mut conflict_b = materialized_seal(
             seal_id(0x52),
             vec![target_move, grant_move, conflict_b_move.clone()],
@@ -2161,7 +2807,8 @@ mod tests {
         conflict_b.delta = vec![conflict_b_move.clone()];
         conflict_b.state_root = witness.state_root;
         conflict_b.sealed_at += chrono::Duration::seconds(1);
-        seals.put(&conflict_b).unwrap();
+        conflict_b.id = conflict_b.derive_id(SUITE).unwrap();
+        seals.put(&conflict_b, SUITE).unwrap();
 
         let mut event = control_move(
             9,

@@ -137,7 +137,7 @@ fn event_read_projection_rows_match_their_schema_definitions() {
 
     let event_view: EventView = serde_json::from_value(json!({
         "event": locked,
-        "visibility": {"history_visibility": "joined"},
+        "visibility": {"history_access": "since_join"},
         "receipts": [{"receipt": "visible"}]
     }))
     .expect("every EventView field is accepted");
@@ -208,7 +208,7 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
             "account_deactivation": { "member_action": "leave_all" },
             "availability_policy": {
                 "min_holders": 1,
-                "holder_roles": ["notary"],
+                "holder_roles": ["joined_member_principal_server"],
                 "applies_to": ["seal_include"]
             },
             "audit_policy": {

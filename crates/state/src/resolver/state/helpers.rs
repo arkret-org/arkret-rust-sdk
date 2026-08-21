@@ -160,7 +160,7 @@ impl RealmState {
             | arkret_wire::event_kind_str::REALM_LINK
             | arkret_wire::event_kind_str::REALM_INHERITANCE_POLICY
             | arkret_wire::event_kind_str::REALM_JOIN_RULE
-            | arkret_wire::event_kind_str::REALM_HISTORY_VISIBILITY
+            | arkret_wire::event_kind_str::REALM_HISTORY_ACCESS
             | arkret_wire::event_kind_str::REALM_DISCOVERY
             | arkret_wire::event_kind_str::REALM_ARCHIVE
             | arkret_wire::event_kind_str::REALM_FREEZE

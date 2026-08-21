@@ -115,6 +115,8 @@ impl SnapshotManifest {
             kind: self.signature.kind.clone(),
             verification_method: self.signature.verification_method.clone(),
             event_digest: self.signature.payload_digest.clone(),
+            signer_resolution_evidence_ref: None,
+            signer_resolution_evidence_digest: None,
             created_at: self.signature.created_at,
             domain: None,
             audience: None,

@@ -43,20 +43,25 @@ pub enum StoreError {
 /// Merkle roots commit to. Keying on `event_id` would let the two variants
 /// of an equivocated id share one slot, which is exactly the case
 /// `event-auth-state-resolution.md` §6.3.2 requires to stay distinguishable.
-pub fn control_event_digest(event: &Event) -> StoreResult<Hash> {
+pub fn control_event_digest(
+    event: &Event,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> StoreResult<Hash> {
     let digest = event
-        .event_digest()
+        .event_digest_with_digest_suite(digest_suite)
         .map_err(|error| StoreError::Backend(format!("event_digest: {error}")))?;
     Hash::new(digest).map_err(|error| StoreError::Backend(format!("invalid event_digest: {error}")))
 }
 
 /// Sealed control-plane Event record: an Event that has been covered by
-/// some accepted Seal. Carries the Seal id back-reference for audit and
+/// one or more accepted Seals. Carries every direct Seal back-reference for audit and
 /// deterministic ordering.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SealedControlEventRecord {
     pub event: Event,
-    pub seal: SealId,
+    /// Trusted Realm digest suite used to key this exact accepted Event.
+    pub digest_suite: arkret_canonical::DigestSuite,
+    pub covering_seals: Vec<SealId>,
     pub control_proposal_ack: Option<ControlProposalAck>,
     pub decisions: Vec<ControlProposalDecision>,
     pub decision_overdue: bool,
@@ -134,6 +139,8 @@ impl ControlProposalIngress {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PendingControlEventRecord {
     pub event: Event,
+    /// Trusted Realm digest suite used to key this exact accepted Event.
+    pub digest_suite: arkret_canonical::DigestSuite,
     pub control_proposal_ack: Option<ControlProposalAck>,
     pub decisions: Vec<ControlProposalDecision>,
     /// The ingress class this Move was admitted under
@@ -150,9 +157,11 @@ pub struct PendingControlEventRecord {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ControlProposalSnapshot {
     pub event: Event,
+    /// Trusted Realm digest suite used to key this exact accepted Event.
+    pub digest_suite: arkret_canonical::DigestSuite,
     pub control_proposal_ack: Option<ControlProposalAck>,
     pub decisions: Vec<ControlProposalDecision>,
-    pub sealed_by: Option<SealId>,
+    pub covering_seals: Vec<SealId>,
     pub decision_overdue: bool,
 }
 
@@ -176,6 +185,7 @@ pub trait ControlEventStore: Send + Sync {
         &self,
         event: &Event,
         ingress: &ControlProposalIngress,
+        digest_suite: arkret_canonical::DigestSuite,
     ) -> StoreResult<()>;
 
     /// Promote a previously-pending Event to sealed under `seal`.
@@ -184,18 +194,23 @@ pub trait ControlEventStore: Send + Sync {
 
     fn get(&self, event_digest: &Hash) -> StoreResult<Option<Event>>;
 
-    /// The accepted Seal whose `delta[]` covers `event_digest`, or `None` when
-    /// the Control Move is unknown or still pending.
+    /// Trusted digest suite frozen atomically with the accepted Control Event.
+    fn digest_suite(
+        &self,
+        event_digest: &Hash,
+    ) -> StoreResult<Option<arkret_canonical::DigestSuite>>;
+
+    /// Every accepted Seal whose `delta[]` directly covers `event_digest`.
     ///
-    /// This is the point lookup behind the closed derived `seals[]` set that
-    /// `ak.self.events.read.resolve` returns alongside its Events: a covering
-    /// Seal, never a later descendant. Scanning [`Self::list_sealed`] would
-    /// answer the same question but is unbounded in the Realm's history.
+    /// This is the bounded internal point lookup for decision state and for
+    /// preparing explicit Seal-only resolve selectors. Event resolve never
+    /// attaches covering Seals. Scanning [`Self::list_sealed`] would answer
+    /// the same question but is unbounded in the Realm's history.
     /// Default implementation reports the backend as unmigrated, matching
     /// [`SealStore::successors`].
-    fn sealed_by(&self, _event_digest: &Hash) -> StoreResult<Option<SealId>> {
+    fn covering_seals(&self, _event_digest: &Hash) -> StoreResult<Vec<SealId>> {
         Err(StoreError::Backend(
-            "ControlEventStore::sealed_by not implemented for this backend".to_owned(),
+            "ControlEventStore::covering_seals not implemented for this backend".to_owned(),
         ))
     }
 
@@ -254,7 +269,7 @@ pub trait ControlEventStore: Send + Sync {
 pub trait SealStore: Send + Sync {
     /// Acquire a bounded, fenced signing lease for one `(Realm, signer slot)`.
     ///
-    /// `single_did`, `threshold`, and mixed-primary coordinators use one
+    /// Single-signer, threshold, and mixed-primary coordinators use one
     /// Realm-wide slot. `open_set` uses the signer DID as the slot so distinct
     /// authorized signers can create concurrent leaves without racing
     /// themselves across replicas.
@@ -275,7 +290,7 @@ pub trait SealStore: Send + Sync {
         fence: u64,
     ) -> StoreResult<bool>;
 
-    fn put(&self, a: &Seal) -> StoreResult<()>;
+    fn put(&self, seal: &Seal, digest_suite: arkret_canonical::DigestSuite) -> StoreResult<()>;
 
     /// Atomically insert `seal` only when the Realm's current leaf set is
     /// exactly `expected_leaves`.
@@ -289,9 +304,17 @@ pub trait SealStore: Send + Sync {
     ///
     /// Returns `true` when the Seal was inserted and `false` when the expected
     /// frontier was stale. A `false` result MUST leave the store unchanged.
-    fn put_if_frontier(&self, seal: &Seal, expected_leaves: &[SealId]) -> StoreResult<bool>;
+    fn put_if_frontier(
+        &self,
+        seal: &Seal,
+        expected_leaves: &[SealId],
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> StoreResult<bool>;
 
     fn get(&self, id: &SealId) -> StoreResult<Option<Seal>>;
+
+    /// Trusted digest suite frozen atomically with the accepted Seal.
+    fn digest_suite(&self, id: &SealId) -> StoreResult<Option<arkret_canonical::DigestSuite>>;
 
     /// Current leaf set for a Realm (Seals with no successor).
     fn list_leaves(&self, realm_id: &RealmId) -> StoreResult<Vec<SealId>>;
@@ -303,41 +326,13 @@ pub trait SealStore: Send + Sync {
     fn genesis(&self, realm_id: &RealmId) -> StoreResult<Option<SealId>>;
 
     /// Direct successors of `seal_id` — every Seal `S` for which
-    /// `S.predecessor_refs.contains(seal_id)`. Used by the MAL-11
-    /// compaction pipeline to find what to rewire when pruning a
-    /// historical Seal. Default implementation returns
-    /// `StoreError::Backend("unsupported")` so existing backends that
-    /// haven't migrated still compile; production backends MUST override
-    /// once they need compaction.
+    /// `S.predecessor_refs.contains(seal_id)`. This is a read-only DAG query;
+    /// callers MUST NOT rewrite signed predecessor references or delete an
+    /// object while any successor, frontier, or retention pin still names it.
+    /// Default implementation returns `StoreError::Backend("unsupported")`.
     fn successors(&self, _realm_id: &RealmId, _seal_id: &SealId) -> StoreResult<Vec<SealId>> {
         Err(StoreError::Backend(
             "SealStore::successors not implemented for this backend".to_owned(),
-        ))
-    }
-
-    /// MAL-11: drop `seal_id` from the DAG and rewire its direct
-    /// successors so their `predecessor_refs` point through to
-    /// `seal_id`'s parents instead. The caller MUST have validated that
-    /// pruning is safe (downstream witnessed by a compaction Seal,
-    /// `CompactionPolicy` accepts the candidate, etc.) — the trait only
-    /// performs the structural rewrite.
-    ///
-    /// Returns the list of successor Seal ids that were rewired so the
-    /// caller can re-derive their `id` if the receiver wants
-    /// content-addressed correctness (in practice MAL-11 keeps the
-    /// successor ids stable because rewriting `predecessor_refs` would
-    /// invalidate the signature — see `event-auth-state-resolution.md`
-    /// §6.4 prune semantics: pruning is metadata-only, ids stay).
-    ///
-    /// Default impl returns `Err(unsupported)` so backends that haven't
-    /// migrated still compile.
-    fn prune_predecessor(
-        &self,
-        _realm_id: &RealmId,
-        _seal_id: &SealId,
-    ) -> StoreResult<Vec<SealId>> {
-        Err(StoreError::Backend(
-            "SealStore::prune_predecessor not implemented for this backend".to_owned(),
         ))
     }
 }

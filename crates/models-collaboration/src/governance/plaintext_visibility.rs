@@ -62,10 +62,7 @@ impl PlaintextVisibleService {
 /// services allowed to receive plaintext / reversible-derived content outside
 /// the E2EE boundary.
 ///
-/// Note: like `HistoryVisibilityPayload`, the SDK kind→def resolver currently
-/// routes `ak.realm.plaintext_visible_services` to `generic_standard_payload`;
-/// this type still gives compile-time field safety, and the guard test
-/// validates directly against the named def schema_ref.
+/// The event-payload resolver binds this type to the registered named def.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PlaintextVisibleServicesPayload {

@@ -30,8 +30,8 @@ use arkret_models_collaboration::governance::realm_governance::{
     CapabilityDerived, RealmAliasPayload, RealmLinkPayload, RealmPolicyServerPayload,
 };
 use arkret_models_collaboration::governance::realm_lifecycle::{
-    HistoryVisibilityPayload, ObjectLifecyclePayload, RealmArchivePayload, RealmDestroyPayload,
-    RealmTombstonePayload,
+    CircleHistoryAccessPayload, HistoryAccessPayload, ObjectLifecyclePayload, RealmArchivePayload,
+    RealmDestroyPayload, RealmTombstonePayload,
 };
 use arkret_models_collaboration::governance_payloads::ConsentRevokePayload;
 use arkret_models_collaboration::object_lifecycle::{
@@ -186,7 +186,7 @@ event_payload_accessors! {
     event_spec::RealmLink => (as_realm_link, RealmLinkPayload),
     event_spec::RealmPolicy => (as_realm_policy, StatePayload),
     event_spec::RealmJoinRule => (as_realm_join_rule, StatePayload),
-    event_spec::RealmHistoryVisibility => (as_realm_history_visibility, HistoryVisibilityPayload),
+    event_spec::RealmHistoryAccess => (as_realm_history_access, HistoryAccessPayload, HistoryAccessPayload::validate),
     event_spec::RealmDiscovery => (as_realm_discovery, StatePayload),
     event_spec::RealmPreviewPolicy => (as_realm_preview_policy, PreviewPolicyPayload),
     event_spec::RealmSearchPolicy => (as_realm_search_policy, RealmSearchPolicyPayload),
@@ -195,7 +195,6 @@ event_payload_accessors! {
     event_spec::RealmDigestSuiteTransition => (as_realm_digest_suite_transition, RealmDigestSuiteTransitionPayload, RealmDigestSuiteTransitionPayload::validate),
     event_spec::RealmPolicyServer => (as_realm_policy_server, RealmPolicyServerPayload),
     event_spec::RealmPolicyBundle => (as_realm_policy_bundle, RealmPolicyBundlePayload),
-    event_spec::RealmHistorySharingPolicy => (as_realm_history_sharing_policy, HistorySharingPolicyPayload),
     event_spec::RealmDeliveryBindingPolicy => (as_realm_delivery_binding_policy, RealmDeliveryBindingPolicyPayload),
     event_spec::RealmAssetPrivacyPolicy => (as_realm_asset_privacy_policy, StatePayload),
     event_spec::RealmReadReceiptPolicy => (as_realm_read_receipt_policy, ReadReceiptPolicyPayload),
@@ -212,6 +211,7 @@ event_payload_accessors! {
     event_spec::SidecarCreate => (as_sidecar_create, SidecarCreatePayload),
     event_spec::SidecarContextAttach => (as_sidecar_context_attach, SidecarContextAttachPayload, SidecarContextAttachPayload::validate),
     event_spec::CircleUpdate => (as_circle_update, CirclePatchPayload),
+    event_spec::CircleHistoryAccess => (as_circle_history_access, CircleHistoryAccessPayload, CircleHistoryAccessPayload::validate),
     event_spec::CircleArchive => (as_circle_archive, ObjectLifecyclePayload),
     event_spec::CircleRestore => (as_circle_restore, ObjectLifecyclePayload),
     event_spec::CircleTombstone => (as_circle_tombstone, ObjectLifecyclePayload),
@@ -299,7 +299,6 @@ event_payload_accessors! {
     event_spec::ContactTombstone => (as_contact_tombstoned, ContactTombstonedPayload),
     event_spec::ContactScopeUpdate => (as_contact_scope_update, ContactScopeUpdatePayload),
     event_spec::DirectConversationBound => (as_direct_conversation_bound, DirectConversationBoundPayload),
-    event_spec::DirectConversationMlsGenerationActivate => (as_direct_conversation_mls_generation_activate, DirectConversationMlsGenerationActivatePayload),
     event_spec::AccountBlocklist => (as_account_blocklist, AccountBlocklistPayload),
     event_spec::AccountDataSet => (as_account_data_set, AccountDataSetPayload),
     event_spec::ProfileCreate => (as_profile_create, ActorProfileCreatePayload),
@@ -317,9 +316,6 @@ event_payload_accessors! {
     event_spec::MlsCommitFailed => (as_mls_commit_failed, MlsCommitFailedPayload),
     event_spec::MlsWelcome => (as_mls_welcome, MlsWelcomePayload),
     event_spec::MlsKeypackage => (as_mls_keypackage, MlsKeypackagePayload),
-    event_spec::RealmKeyShare => (as_realm_key_share, RealmKeySharePayload),
-    event_spec::RealmKeyWithheld => (as_realm_key_withheld, RealmKeyWithheldPayload),
-    event_spec::RealmKeyShareAudit => (as_realm_key_share_audit, RealmKeyShareAuditPayload),
     event_spec::AuditAccessed => (as_audit_accessed, AuditAccessedPayload),
     event_spec::AuditAppletBindingCreate => (as_audit_applet_binding_create, AuditAppletBindingCreatePayload),
     event_spec::AuditAppletBindingState => (as_audit_applet_binding_state, AuditAppletBindingStatePayload),
@@ -592,11 +588,18 @@ mod tests {
     #[test]
     fn payload_accessor_does_not_change_digest_input() {
         let event = base_event();
-        let digest = event.event_digest().unwrap();
+        let digest = event
+            .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
 
         let _payload = event.as_message_create().unwrap();
 
-        assert_eq!(event.event_digest().unwrap(), digest);
+        assert_eq!(
+            event
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .unwrap(),
+            digest
+        );
         assert_eq!(event.payload["content"]["body"], "hello");
     }
 

@@ -294,7 +294,11 @@ impl PreparedEventSubmissionBatch {
         })
     }
 
-    pub fn validate_structural(&self, coordinator_service_id: &DidCoreId) -> Result<()> {
+    pub fn validate_structural(
+        &self,
+        coordinator_service_id: &DidCoreId,
+        digest_suites: &[arkret_canonical::DigestSuite],
+    ) -> Result<()> {
         if &self.destination_service_id != coordinator_service_id
             || self.audience != self.destination_service_id
         {
@@ -310,8 +314,19 @@ impl PreparedEventSubmissionBatch {
             ));
         }
         arkret_canonical::canonical::verify_digest(&bytes, self.request_digest.as_str())?;
-        for submission in &self.request.events {
-            submission.validate_structural()?;
+        if self.request.events.len() != digest_suites.len() {
+            return Err(Error::Protocol(
+                "prepared Event publication batch and digest-suite cardinality must match"
+                    .to_owned(),
+            ));
+        }
+        for (submission, digest_suite) in self
+            .request
+            .events
+            .iter()
+            .zip(digest_suites.iter().copied())
+        {
+            submission.validate_structural(digest_suite)?;
         }
         Ok(())
     }

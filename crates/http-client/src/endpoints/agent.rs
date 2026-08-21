@@ -72,7 +72,10 @@ impl Client {
         &self,
         request: &AgentSignerEvidenceQueryRequestBody,
     ) -> Result<AgentSignerEvidenceQueryOutcome> {
-        self.post(AGENT_SIGNER_EVIDENCE_QUERY_PATH, request).await
+        let outcome: AgentSignerEvidenceQueryOutcome =
+            self.post(AGENT_SIGNER_EVIDENCE_QUERY_PATH, request).await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
     }
 
     /// `POST /_arkret/gate/account/agent-key-pair`
@@ -193,8 +196,10 @@ impl Client {
     pub async fn agent_grant_attach(
         &self,
         agent_id: &str,
+        digest_suite: arkret_canonical::DigestSuite,
         request: &AgentGrantAttachRequestBody,
     ) -> Result<AgentGrantAttachOutcome> {
+        request.validate(digest_suite)?;
         let path = format!("{}/{}/grants", AGENTS_PATH, agent_path_component(agent_id)?);
         self.post(&path, request).await
     }
@@ -205,8 +210,10 @@ impl Client {
         &self,
         agent_id: &str,
         grant_id: &GrantId,
+        digest_suite: arkret_canonical::DigestSuite,
         request: &AgentGrantDetachRequestBody,
     ) -> Result<AgentGrantDetachOutcome> {
+        request.validate(digest_suite)?;
         let path = format!(
             "{}/{}/grants/{}",
             AGENTS_PATH,

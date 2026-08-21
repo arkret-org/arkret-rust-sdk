@@ -17,6 +17,8 @@ fn valid_proof() -> Proof {
             "sha256:0000000000000000000000000000000000000000000000000000000000000000",
         )
         .unwrap(),
+        signer_resolution_evidence_ref: None,
+        signer_resolution_evidence_digest: None,
         created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
         domain: None,
         audience: None,
@@ -219,11 +221,15 @@ fn event_validate_proof_bindings_checks_digest_match() {
     )
     .unwrap();
 
-    let digest = event.event_digest().unwrap();
+    let digest = event
+        .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+        .unwrap();
     let proof = Proof {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: Hash::new(digest).unwrap(),
+        signer_resolution_evidence_ref: None,
+        signer_resolution_evidence_digest: None,
         created_at: Utc::now(),
         domain: None,
         audience: None,
@@ -233,7 +239,11 @@ fn event_validate_proof_bindings_checks_digest_match() {
 
     let mut signed_event = event;
     signed_event.proofs = vec![proof.into()];
-    assert!(signed_event.validate_proof_bindings().is_ok());
+    assert!(
+        signed_event
+            .validate_proof_bindings_with_digest_suite(arkret_canonical::DigestSuite::Sha256,)
+            .is_ok()
+    );
 }
 
 #[test]
@@ -258,6 +268,8 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
             "sha256:0000000000000000000000000000000000000000000000000000000000000000",
         )
         .unwrap(),
+        signer_resolution_evidence_ref: None,
+        signer_resolution_evidence_digest: None,
         created_at: Utc::now(),
         domain: None,
         audience: None,
@@ -267,7 +279,11 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
 
     let mut signed_event = event;
     signed_event.proofs = vec![bad_proof.into()];
-    assert!(signed_event.validate_proof_bindings().is_err());
+    assert!(
+        signed_event
+            .validate_proof_bindings_with_digest_suite(arkret_canonical::DigestSuite::Sha256,)
+            .is_err()
+    );
 }
 
 #[test]
@@ -285,11 +301,15 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
     )
     .unwrap();
 
-    let digest = event.event_digest().unwrap();
+    let digest = event
+        .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+        .unwrap();
     let proof = Proof {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: Hash::new(digest).unwrap(),
+        signer_resolution_evidence_ref: None,
+        signer_resolution_evidence_digest: None,
         created_at: Utc::now(),
         domain: None,
         audience: Some(Audience::Single(
@@ -301,12 +321,13 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
     let mut signed_event = event;
     signed_event.proofs = vec![proof.into()];
     let error = signed_event
-        .validate_proof_bindings_with_context(
+        .validate_proof_bindings_with_context_and_digest_suite(
             Some("ak:trust_domain:example.net".to_owned()),
             Some(Audience::Single(
                 "did:webvh:z6mkfixture:service.example".to_owned(),
             )),
             ProofBindingRequirements::cross_domain(),
+            arkret_canonical::DigestSuite::Sha256,
         )
         .unwrap_err();
     assert!(
@@ -317,12 +338,13 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
         Some("ak:trust_domain:example.net".to_owned());
     assert!(
         signed_event
-            .validate_proof_bindings_with_context(
+            .validate_proof_bindings_with_context_and_digest_suite(
                 Some("ak:trust_domain:example.net".to_owned()),
                 Some(Audience::Single(
                     "did:webvh:z6mkfixture:service.example".to_owned()
                 )),
                 ProofBindingRequirements::cross_domain(),
+                arkret_canonical::DigestSuite::Sha256,
             )
             .is_ok()
     );
@@ -342,7 +364,9 @@ fn event_digest_includes_schema_profiles_features_and_critical_extensions() {
         json!({ "body": "hello" }),
     )
     .unwrap();
-    let base_digest = event.event_digest().unwrap();
+    let base_digest = event
+        .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+        .unwrap();
 
     event
         .requirements
@@ -366,7 +390,12 @@ fn event_digest_includes_schema_profiles_features_and_critical_extensions() {
             fail_closed: true,
         });
 
-    assert_ne!(base_digest, event.event_digest().unwrap());
+    assert_ne!(
+        base_digest,
+        event
+            .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+            .unwrap()
+    );
     let value = serde_json::to_value(&event).unwrap();
     assert!(value.get("schema_profile_refs").is_none());
     assert_eq!(

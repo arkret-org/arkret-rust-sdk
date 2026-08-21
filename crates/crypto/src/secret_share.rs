@@ -19,6 +19,11 @@
 //! vocabulary.
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
+use arkret_models_collaboration::history_key::{
+    HistoryChunkPlaintext, HistoryMailboxCapabilitySealContext, HistorySecretChunkSealContext,
+    MailboxCapabilityPlaintext, SealedHistoryChunk, SealedHistoryChunkKind,
+    SealedMailboxCapability, mailbox_capability_commitment,
+};
 pub use arkret_models_crypto::{SecretShareRequestContent, SecretShareSendContent};
 #[cfg(test)]
 use arkret_wire::{DeviceId, HPKE_SUITE_X25519_CHACHA20POLY1305_V1};
@@ -113,10 +118,6 @@ impl SecretShareSendAad<'_> {
 // DHKEM encapsulated key. The AEAD nonce is the key-schedule-derived
 // `base_nonce` (single-shot seq=0), NOT carried on the wire.
 
-/// HKDF info / AEAD-AAD domain separator for the history-secret seal.
-const HISTORY_SEAL_INFO: &[u8] =
-    arkret_wire::DomainSeparationId::REALM_HISTORY_SECRET_SHARE_V1.as_bytes();
-
 // The v1 default-MUST HPKE suite as `hpke`-crate trait types.
 type HpkeKem = X25519HkdfSha256;
 type HpkeAead = ChaCha20Poly1305;
@@ -124,6 +125,10 @@ type HpkeKdf = HkdfSha256;
 
 /// DHKEM(X25519) encapsulated-key length (RFC 9180 `Npk`); fixed at 32 bytes.
 const HPKE_ENC_LEN: usize = 32;
+
+pub const HISTORY_MAILBOX_CAPABILITY_HPKE_PROFILE: &str =
+    "ak.hpke_surface.history_mailbox_capability.v1";
+pub const HISTORY_SECRET_CHUNK_HPKE_PROFILE: &str = "ak.hpke_surface.history_secret_chunk.v1";
 
 /// Minimal CSPRNG adapter over `getrandom` for the `hpke` crate's rand_core 0.9
 /// RNG interface. Only used to mint the per-seal ephemeral DHKEM keypair.
@@ -232,59 +237,167 @@ pub fn open_base_mode_with_x25519_privkey(
     .map_err(|_| Error::Crypto("hpke open AEAD tag check failed".to_owned()))
 }
 
-/// Canonical plaintext encoding of `[(epoch, secret)]`: JSON array of
-/// `[epoch, base64url(secret)]` pairs, deterministically ordered by epoch.
-fn encode_history_secrets(history_secrets: &[(u64, Vec<u8>)]) -> Vec<u8> {
-    let mut sorted: Vec<&(u64, Vec<u8>)> = history_secrets.iter().collect();
-    sorted.sort_by_key(|(epoch, _)| *epoch);
-    let rows: Vec<(u64, String)> = sorted
-        .into_iter()
-        .map(|(epoch, secret)| (*epoch, base64url_encode(secret)))
-        .collect();
-    // serde_json over a Vec of tuples is infallible for these types.
-    serde_json::to_vec(&rows).expect("history-secret rows serialize")
-}
-
-fn decode_history_secrets(plaintext: &[u8]) -> Result<Vec<(u64, Vec<u8>)>> {
-    let rows: Vec<(u64, String)> = serde_json::from_slice(plaintext)
-        .map_err(|err| Error::Protocol(format!("history-secret seal plaintext decode: {err}")))?;
-    let mut out = Vec::with_capacity(rows.len());
-    for (epoch, secret_b64) in rows {
-        out.push((epoch, base64url_decode(secret_b64.as_bytes())?));
+fn decode_x25519_key(field: &str, encoded: &str) -> Result<Vec<u8>> {
+    let decoded = base64url_decode(encoded.as_bytes())?;
+    if decoded.len() != HPKE_ENC_LEN || base64url_encode(&decoded) != encoded {
+        return Err(Error::Protocol(format!(
+            "{field} must be canonical base64url of exactly 32 bytes"
+        )));
     }
-    Ok(out)
+    Ok(decoded)
 }
 
-/// HPKE-seal the retained `history_secrets` to `recipient_pubkey` (raw 32-byte
-/// X25519 public key). Returns the `base64url(ephemeral_pub || ciphertext)`
-/// blob to place in `ak.realm_key.share.ciphertext`.
-///
-/// Thin wrapper over [`seal_base_mode_to_x25519_pubkey`] with the
-/// history-share `info`/`aad` label; the produced bytes are identical to the
-/// pre-refactor construction.
-pub fn seal_history_secret_to_device_pubkey(
-    recipient_pubkey: &[u8],
-    history_secrets: &[(u64, Vec<u8>)],
-) -> Result<String> {
-    let plaintext = encode_history_secrets(history_secrets);
-    seal_base_mode_to_x25519_pubkey(
-        recipient_pubkey,
-        &plaintext,
-        HISTORY_SEAL_INFO,
-        HISTORY_SEAL_INFO,
-    )
+fn split_hpke_seal(sealed: &str) -> Result<(String, String)> {
+    let blob = base64url_decode(sealed.as_bytes())?;
+    if blob.len() <= HPKE_ENC_LEN {
+        return Err(Error::Protocol(
+            "HPKE output does not contain enc and ciphertext".to_owned(),
+        ));
+    }
+    Ok((
+        base64url_encode(&blob[..HPKE_ENC_LEN]),
+        base64url_encode(&blob[HPKE_ENC_LEN..]),
+    ))
 }
 
-/// Open a blob produced by [`seal_history_secret_to_device_pubkey`] with the
-/// recipient device's raw 32-byte X25519 private key, recovering the
-/// `[(epoch, history_secret)]` list.
-pub fn open_history_secret_with_device_privkey(
-    privkey: &[u8],
-    sealed: &str,
-) -> Result<Vec<(u64, Vec<u8>)>> {
-    let plaintext =
-        open_base_mode_with_x25519_privkey(privkey, sealed, HISTORY_SEAL_INFO, HISTORY_SEAL_INFO)?;
-    decode_history_secrets(&plaintext)
+fn combine_hpke_seal(enc: &str, ciphertext: &str) -> Result<String> {
+    let enc = decode_x25519_key("HPKE enc", enc)?;
+    let ciphertext_encoded = ciphertext;
+    let ciphertext = base64url_decode(ciphertext_encoded.as_bytes())?;
+    if ciphertext.is_empty() || base64url_encode(&ciphertext) != ciphertext_encoded {
+        return Err(Error::Protocol(
+            "HPKE ciphertext must be non-empty canonical base64url".to_owned(),
+        ));
+    }
+    let mut blob = Vec::with_capacity(enc.len() + ciphertext.len());
+    blob.extend(enc);
+    blob.extend(ciphertext);
+    Ok(base64url_encode(blob))
+}
+
+/// Seal a 32-byte history reply-mailbox capability with the registered
+/// RFC 9180 base-mode profile. The exact closed context JCS bytes are passed
+/// byte-for-byte as both `info` and single-shot AEAD `aad`.
+pub fn seal_history_mailbox_capability(
+    recipient_public_key_b64u: &str,
+    context: &HistoryMailboxCapabilitySealContext,
+    plaintext: &MailboxCapabilityPlaintext,
+) -> Result<SealedMailboxCapability> {
+    context.validate()?;
+    plaintext.validate()?;
+    if mailbox_capability_commitment(
+        &context.reply_mailbox_id,
+        &plaintext.mailbox_capability_b64u,
+    )? != context.mailbox_capability_commitment
+    {
+        return Err(Error::Protocol(
+            "mailbox capability plaintext does not match the context commitment".to_owned(),
+        ));
+    }
+    let recipient = decode_x25519_key("recipient_public_key_b64u", recipient_public_key_b64u)?;
+    let binding = context.canonical_bytes()?;
+    let plaintext_bytes = arkret_canonical::canonical_json_bytes(plaintext)?;
+    let sealed = seal_base_mode_to_x25519_pubkey(&recipient, &plaintext_bytes, &binding, &binding)?;
+    let (enc, ciphertext) = split_hpke_seal(&sealed)?;
+    let sealed = SealedMailboxCapability { enc, ciphertext };
+    sealed.validate()?;
+    Ok(sealed)
+}
+
+/// Open and fully validate a registered history reply-mailbox capability.
+pub fn open_history_mailbox_capability(
+    recipient_private_key_b64u: &str,
+    context: &HistoryMailboxCapabilitySealContext,
+    sealed: &SealedMailboxCapability,
+) -> Result<MailboxCapabilityPlaintext> {
+    context.validate()?;
+    sealed.validate()?;
+    let private = decode_x25519_key("recipient_private_key_b64u", recipient_private_key_b64u)?;
+    let binding = context.canonical_bytes()?;
+    let combined = combine_hpke_seal(&sealed.enc, &sealed.ciphertext)?;
+    let plaintext_bytes =
+        open_base_mode_with_x25519_privkey(&private, &combined, &binding, &binding)?;
+    let plaintext: MailboxCapabilityPlaintext = serde_json::from_slice(&plaintext_bytes)?;
+    if arkret_canonical::canonical_json_bytes(&plaintext)? != plaintext_bytes {
+        return Err(Error::Protocol(
+            "mailbox capability plaintext is not canonical JSON".to_owned(),
+        ));
+    }
+    plaintext.validate()?;
+    if mailbox_capability_commitment(
+        &context.reply_mailbox_id,
+        &plaintext.mailbox_capability_b64u,
+    )? != context.mailbox_capability_commitment
+    {
+        return Err(Error::Protocol(
+            "opened mailbox capability does not match the context commitment".to_owned(),
+        ));
+    }
+    Ok(plaintext)
+}
+
+/// Seal one history-secret chunk with its exact registered context as both
+/// RFC 9180 `info` and single-shot AEAD `aad`.
+pub fn seal_history_secret_chunk(
+    recipient_public_key_b64u: &str,
+    context: &HistorySecretChunkSealContext,
+    plaintext: &HistoryChunkPlaintext,
+) -> Result<SealedHistoryChunk> {
+    context.validate()?;
+    plaintext.validate()?;
+    if plaintext.secret_range.from_epoch != context.covered_epoch_range.from_epoch
+        || plaintext.secret_range.to_epoch != context.covered_epoch_range.to_epoch
+    {
+        return Err(Error::Protocol(
+            "history chunk plaintext range does not match its HPKE context".to_owned(),
+        ));
+    }
+    let recipient = decode_x25519_key("recipient_public_key_b64u", recipient_public_key_b64u)?;
+    let binding = context.canonical_bytes()?;
+    let plaintext_bytes = arkret_canonical::canonical_json_bytes(plaintext)?;
+    let combined =
+        seal_base_mode_to_x25519_pubkey(&recipient, &plaintext_bytes, &binding, &binding)?;
+    let (enc, ciphertext) = split_hpke_seal(&combined)?;
+    let sealed = SealedHistoryChunk {
+        kind: SealedHistoryChunkKind::Value,
+        manifest_digest: context.manifest_digest.clone(),
+        manifest_admission_digest: context.manifest_admission_digest.clone(),
+        chunk_index: context.chunk_index,
+        enc,
+        ciphertext,
+    };
+    sealed.validate()?;
+    Ok(sealed)
+}
+
+/// Open and fully validate one registered history-secret chunk.
+pub fn open_history_secret_chunk(
+    recipient_private_key_b64u: &str,
+    context: &HistorySecretChunkSealContext,
+    sealed: &SealedHistoryChunk,
+) -> Result<HistoryChunkPlaintext> {
+    context.validate()?;
+    sealed.validate()?;
+    let private = decode_x25519_key("recipient_private_key_b64u", recipient_private_key_b64u)?;
+    let binding = context.canonical_bytes()?;
+    let combined = combine_hpke_seal(&sealed.enc, &sealed.ciphertext)?;
+    let plaintext_bytes =
+        open_base_mode_with_x25519_privkey(&private, &combined, &binding, &binding)?;
+    let plaintext: HistoryChunkPlaintext = serde_json::from_slice(&plaintext_bytes)?;
+    if arkret_canonical::canonical_json_bytes(&plaintext)? != plaintext_bytes {
+        return Err(Error::Protocol(
+            "history chunk plaintext is not canonical JSON".to_owned(),
+        ));
+    }
+    plaintext.validate()?;
+    if plaintext.secret_range.from_epoch != context.covered_epoch_range.from_epoch
+        || plaintext.secret_range.to_epoch != context.covered_epoch_range.to_epoch
+    {
+        return Err(Error::Protocol(
+            "opened history chunk range does not match its HPKE context".to_owned(),
+        ));
+    }
+    Ok(plaintext)
 }
 
 #[cfg(test)]
@@ -502,35 +615,6 @@ mod tests {
     fn hpke_keypair() -> (Vec<u8>, Vec<u8>) {
         let (sk, pk) = <HpkeKem as hpke::Kem>::gen_keypair(&mut OsCsRng);
         (sk.to_bytes().to_vec(), pk.to_bytes().to_vec())
-    }
-
-    #[test]
-    fn history_secret_seal_round_trips() {
-        let (recipient_priv, recipient_pub) = hpke_keypair();
-
-        let secrets: Vec<(u64, Vec<u8>)> = vec![
-            (0, vec![0xAA; 32]),
-            (3, vec![0xBB; 32]),
-            (7, vec![0xCC; 32]),
-        ];
-
-        let sealed = seal_history_secret_to_device_pubkey(&recipient_pub, &secrets).unwrap();
-        let opened = open_history_secret_with_device_privkey(&recipient_priv, &sealed).unwrap();
-        assert_eq!(opened, secrets);
-    }
-
-    #[test]
-    fn history_secret_seal_rejects_wrong_recipient_and_tamper() {
-        let (_recipient_priv, recipient_pub) = hpke_keypair();
-        let secrets = vec![(1u64, vec![0x11; 32])];
-        let sealed = seal_history_secret_to_device_pubkey(&recipient_pub, &secrets).unwrap();
-
-        // Wrong private key → AEAD tag check fails.
-        let (wrong_priv, _) = hpke_keypair();
-        assert!(open_history_secret_with_device_privkey(&wrong_priv, &sealed).is_err());
-
-        // Bad recipient pubkey length is rejected up front.
-        assert!(seal_history_secret_to_device_pubkey(&[0u8; 31], &secrets).is_err());
     }
 
     #[test]

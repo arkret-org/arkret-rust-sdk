@@ -24,6 +24,7 @@ pub mod jws;
 mod records;
 mod resolvers;
 pub mod service_identity;
+pub mod service_resolution_evidence;
 #[cfg(test)]
 mod tests;
 pub mod verifier;
@@ -77,9 +78,11 @@ pub use records::*;
 pub use resolvers::*;
 pub(crate) use serde::{Deserialize, Serialize};
 pub(crate) use serde_json::Value;
+pub use service_resolution_evidence::*;
 pub use verifier::{
     BindingResolveError, BindingResolveRequest, BindingVerifyError, DidVerificationRelationship,
-    public_key_material_from_binding, resolve_and_verify_binding, verify_event_proof_with_binding,
+    public_key_material_from_binding, public_key_material_from_document,
+    resolve_and_verify_binding, verify_event_proof_with_binding,
     verify_event_proof_with_binding_for_event, verify_jws_with_binding, verify_jws_with_document,
     verify_jws_with_document_relationship,
 };

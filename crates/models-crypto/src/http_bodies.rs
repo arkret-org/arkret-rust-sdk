@@ -189,7 +189,6 @@ pub struct KeyPackagesUploadOutcome {
 pub enum PeerKeyPackageClaimPurpose {
     RealmMembership,
     DirectConversation,
-    DirectConversationRepair,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -660,17 +659,14 @@ fn validate_peer_claim_fields(
     if target_devices.len() != request.target_device_ids.len() {
         return Err(PeerKeyPackageClaimShapeError::DuplicateTargetDevice);
     }
-    if matches!(
-        request.claim_purpose,
-        PeerKeyPackageClaimPurpose::DirectConversation
-            | PeerKeyPackageClaimPurpose::DirectConversationRepair
-    ) && (request.strand_id.is_none()
-        || request.pair_key.is_none()
-        || request.last_resort_allowed == Some(true))
+    if request.claim_purpose == PeerKeyPackageClaimPurpose::DirectConversation
+        && (request.strand_id.is_none()
+            || request.pair_key.is_none()
+            || request.last_resort_allowed == Some(true))
     {
         return Err(PeerKeyPackageClaimShapeError::InvalidDirectConversationFields);
     }
-    if request.claim_purpose == PeerKeyPackageClaimPurpose::DirectConversationRepair {
+    if request.target_keypackage_ref.is_some() {
         let human_target = request.target_device_ids.len() == 1
             && request.target_agent_id.is_none()
             && request.target_agent_verification_method.is_none()
@@ -679,7 +675,10 @@ fn validate_peer_claim_fields(
             && request.target_agent_id.is_some()
             && request.target_agent_verification_method.is_some()
             && request.target_agent_key_authorize_event_id.is_some();
-        if request.target_keypackage_ref.is_none() || human_target == agent_target {
+        if request.claim_purpose != PeerKeyPackageClaimPurpose::DirectConversation
+            || request.last_resort_allowed == Some(true)
+            || human_target == agent_target
+        {
             return Err(PeerKeyPackageClaimShapeError::InvalidDirectConversationFields);
         }
         if let Some(agent_id) = &request.target_agent_id

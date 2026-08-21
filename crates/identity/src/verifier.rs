@@ -454,6 +454,26 @@ pub fn public_key_material_from_binding(
     })
 }
 
+/// Resolve one Ed25519 verification method from an already authenticated DID
+/// document. This performs no network lookup and deliberately carries no
+/// freshness policy; callers must authenticate and time-bind the document
+/// before invoking it.
+pub fn public_key_material_from_document(
+    document: &DidDocument,
+    verification_method: &DidUrl,
+) -> Result<PublicKeyMaterial, BindingVerifyError> {
+    let material = lookup_verification_method_material(document, verification_method.as_str())?;
+    let verifying_key =
+        crate::jws::decode_ed25519_public_key_material(material).map_err(|error| {
+            BindingVerifyError::PublicKeyMaterial {
+                reason: error.to_string(),
+            }
+        })?;
+    Ok(PublicKeyMaterial::Ed25519Raw {
+        bytes: verifying_key.to_bytes().to_vec(),
+    })
+}
+
 /// Verify an Event [`Proof`] against an accepted binding's pinned document.
 ///
 /// # Why this is not `verify_jws_with_binding`
@@ -1157,6 +1177,8 @@ mod tests {
                     envelope_bytes(event),
                 ))
                 .expect("valid digest"),
+                signer_resolution_evidence_ref: None,
+                signer_resolution_evidence_digest: None,
                 created_at: arkret_canonical::canonical::normalize_timestamp_canonical(
                     Utc.with_ymd_and_hms(2026, 4, 26, 0, 0, 0)
                         .single()

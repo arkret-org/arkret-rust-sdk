@@ -17,7 +17,9 @@ use serde_json::Value;
 use crate::error::{Error, Result};
 use crate::event_envelope::{Event, SemanticRefProof};
 use crate::seal::Seal;
-use crate::{DidCoreId, EventId, Hash, PayloadSignature, RealmId, SchemaId, SealId, canonical};
+use crate::{
+    DidCoreId, EventId, Hash, PayloadProof, RealmId, SchemaId, SealId, SignerEvidenceRef, canonical,
+};
 
 pub const MAX_BUNDLE_SEALS: usize = 256;
 pub const MAX_BUNDLE_CONTROL_MOVES: usize = 1024;
@@ -36,30 +38,137 @@ pub const MAX_BUNDLE_DEPENDENCY_DEPTH: usize = 4096;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AvailabilityReceipt {
+    pub receipt: AvailabilityReceiptContent,
+    pub receipt_digest: Hash,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AvailabilityReceiptContent {
     pub realm_id: RealmId,
     pub event_id: EventId,
     pub bytes_digest: Hash,
     pub holder_id: DidCoreId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub retention_expires_at: DateTime<Utc>,
-    pub signature: PayloadSignature,
+    pub holder_signer_evidence_ref: SignerEvidenceRef,
+    pub holder_signer_evidence_digest: Hash,
+    pub signature: PayloadProof,
 }
 
 impl AvailabilityReceipt {
     pub const SCHEMA: &'static str = SchemaId::AVAILABILITY_RECEIPT_V1;
-    /// Hash of the canonical receipt bytes with `signature` omitted.
-    pub fn payload_digest(&self) -> Result<Hash> {
-        let mut json = serde_json::to_value(self)?;
+    pub fn canonical_receipt_bytes(&self) -> Result<Vec<u8>> {
+        canonical::canonical_json_bytes(&self.receipt).map_err(Into::into)
+    }
+
+    pub fn validate_receipt_digest<F>(&self, digest: F) -> Result<()>
+    where
+        F: FnOnce(&[u8]) -> Result<Hash>,
+    {
+        if digest(&self.canonical_receipt_bytes()?)? != self.receipt_digest {
+            return Err(Error::Protocol(
+                "availability receipt full canonical digest mismatch".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn canonical_signature_payload_bytes(&self) -> Result<Vec<u8>> {
+        let mut json = serde_json::to_value(&self.receipt)?;
         if let Value::Object(map) = &mut json {
             map.remove("signature");
         }
-        Ok(Hash::new(canonical::canonical_sha256(&json)?)?)
+        canonical::canonical_json_bytes(&json).map_err(Into::into)
+    }
+
+    pub fn validate_signature_payload_digest<F>(&self, digest: F) -> Result<()>
+    where
+        F: FnOnce(&[u8]) -> Result<Hash>,
+    {
+        if digest(&self.canonical_signature_payload_bytes()?)?
+            != self.receipt.signature.payload_digest
+        {
+            return Err(Error::Protocol(
+                "availability receipt signature payload digest mismatch".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Canonical registered transcript signed by the holder proof.
+    pub fn canonical_signature_binding_bytes(&self) -> Result<Vec<u8>> {
+        let core_bytes = self.canonical_signature_payload_bytes()?;
+        let core: Value = serde_json::from_slice(&core_bytes)?;
+        let core = core.as_object().ok_or_else(|| {
+            Error::Protocol("availability receipt core must be an object".to_owned())
+        })?;
+        let mut binding = core.clone();
+        binding.insert(
+            "context".to_owned(),
+            Value::String(crate::ProofContextId::AVAILABILITY_RECEIPT_PROOF_V1.to_owned()),
+        );
+        binding.insert(
+            "payload_digest".to_owned(),
+            serde_json::to_value(&self.receipt.signature.payload_digest)?,
+        );
+        binding.insert(
+            "verification_method".to_owned(),
+            serde_json::to_value(&self.receipt.signature.verification_method)?,
+        );
+        binding.insert(
+            "created_at".to_owned(),
+            Value::String(canonical::format_timestamp_canonical(
+                self.receipt.signature.created_at,
+            )),
+        );
+        canonical::canonical_json_bytes(&Value::Object(binding)).map_err(Into::into)
     }
 
     pub fn validate_structural(&self) -> Result<()> {
-        if self.signature.payload_digest != self.payload_digest()? {
+        self.receipt.signature.validate()?;
+        if self.receipt.holder_signer_evidence_ref.content_digest()?
+            != self.receipt.holder_signer_evidence_digest
+            || !self
+                .receipt
+                .holder_signer_evidence_digest
+                .as_ref()
+                .starts_with("sha256:")
+        {
             return Err(Error::Protocol(
-                "availability receipt signature does not cover its canonical bytes".to_owned(),
+                "availability receipt holder signer evidence ref and digest mismatch".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn event_bytes_digest_preimage(event: &Event) -> Result<Vec<u8>> {
+        let mut value = serde_json::to_value(event)?;
+        let Value::Object(map) = &mut value else {
+            return Err(Error::Protocol(
+                "accepted Event must serialize as an object".to_owned(),
+            ));
+        };
+        map.remove("unsigned");
+        let mut preimage = b"ak.availability-event-bytes-v1".to_vec();
+        preimage.push(0);
+        preimage.extend(canonical::canonical_json_bytes(&value)?);
+        Ok(preimage)
+    }
+
+    pub fn validate_event_bytes_digest<F>(&self, event: &Event, digest: F) -> Result<()>
+    where
+        F: FnOnce(&[u8]) -> Result<Hash>,
+    {
+        if event.event_id != self.receipt.event_id {
+            return Err(Error::Protocol(
+                "availability receipt Event id mismatch".to_owned(),
+            ));
+        }
+        if digest(&Self::event_bytes_digest_preimage(event)?)? != self.receipt.bytes_digest {
+            return Err(Error::Protocol(
+                "availability receipt Event bytes digest mismatch".to_owned(),
             ));
         }
         Ok(())
@@ -130,7 +239,7 @@ impl CbaProofBundle {
             "CBA proof bundle control_moves",
             self.control_moves
                 .iter()
-                .map(|event| event.event_digest().map(String::into_bytes)),
+                .map(|event| Ok(event.event_id.as_str().as_bytes().to_vec())),
         )?;
         ensure_strictly_sorted(
             "CBA proof bundle inclusion_proofs",
@@ -140,11 +249,9 @@ impl CbaProofBundle {
         )?;
         ensure_strictly_sorted(
             "CBA proof bundle availability_proofs",
-            self.availability_proofs.iter().map(|receipt| {
-                receipt
-                    .payload_digest()
-                    .map(|digest| digest.as_str().as_bytes().to_vec())
-            }),
+            self.availability_proofs
+                .iter()
+                .map(|receipt| Ok(receipt.receipt_digest.as_str().as_bytes().to_vec())),
         )?;
 
         let seals_by_id = self
@@ -159,7 +266,6 @@ impl CbaProofBundle {
         };
         let target_realm = &target.realm_id;
         for seal in &self.seals {
-            seal.validate_id()?;
             seal.validate_structural()?;
             if &seal.realm_id != target_realm {
                 return Err(Error::Protocol(
@@ -185,7 +291,7 @@ impl CbaProofBundle {
         }
         for receipt in &self.availability_proofs {
             receipt.validate_structural()?;
-            if receipt.realm_id != *target_realm {
+            if receipt.receipt.realm_id != *target_realm {
                 return Err(Error::Protocol(
                     "CBA proof bundle contains a cross-Realm availability proof".to_owned(),
                 ));
@@ -224,8 +330,22 @@ impl CbaProofBundle {
             .flat_map(|seal| seal.delta.iter().chain(&seal.covered_event_digests))
             .collect::<BTreeSet<_>>();
         for control_move in &self.control_moves {
-            let digest = Hash::new(control_move.event_digest()?)?;
-            if !covered_control_digests.contains(&digest) {
+            let reachable = covered_control_digests.iter().any(|expected| {
+                let suite = if expected.as_str().starts_with("sha256:") {
+                    arkret_canonical::DigestSuite::Sha256
+                } else if expected.as_str().starts_with("blake3:") {
+                    arkret_canonical::DigestSuite::Blake3
+                } else {
+                    return false;
+                };
+                control_move
+                    .event_digest_with_digest_suite(suite)
+                    .ok()
+                    .and_then(|digest| Hash::new(digest).ok())
+                    .as_ref()
+                    == Some(expected)
+            });
+            if !reachable {
                 return Err(Error::Protocol(
                     "CBA proof bundle contains a Control Move unreachable from target Seal coverage"
                         .to_owned(),

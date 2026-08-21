@@ -189,6 +189,24 @@ impl Client {
             .map(|(body, _headers)| body)
     }
 
+    pub(crate) async fn send_json_limited<T: DeserializeOwned>(
+        &self,
+        builder: RequestBuilder,
+        limit: usize,
+    ) -> Result<T> {
+        let response = self.execute_with_replay_policy(builder, false).await?;
+        let status = response.status();
+        if !status.is_success() {
+            let error = error_envelope_from_response(response).await;
+            return Err(Error::Api {
+                status: status.as_u16(),
+                error: Box::new(error),
+            });
+        }
+        let body = read_body_limited(response, limit).await?;
+        serde_json::from_slice(&body).map_err(Error::from)
+    }
+
     /// Send a request whose protocol operation registry defines durable exact
     /// replay from a stable request identity embedded in the canonical body.
     /// This is intentionally crate-private: ordinary POSTs must not opt into

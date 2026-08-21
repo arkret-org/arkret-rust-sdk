@@ -141,6 +141,7 @@ dependencies = [
  "arkret-state",
  "arkret-wire",
  "chrono",
+ "serde",
  "serde_json",
  "thiserror",
  "url",
@@ -205,6 +206,7 @@ version = "0.3.0"
 dependencies = [
  "argon2",
  "arkret-canonical",
+ "arkret-models-collaboration",
  "arkret-models-crypto",
  "arkret-schema",
  "arkret-signatures",
@@ -589,6 +591,7 @@ dependencies = [
  "chrono",
  "criterion",
  "ed25519-dalek",
+ "p256",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "serde",

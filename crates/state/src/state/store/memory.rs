@@ -38,8 +38,10 @@ pub struct MemoryControlEventStore {
 struct MemoryControlEventStoreInner {
     /// All known control-plane Events keyed by their `event_digest`.
     events: BTreeMap<String, Event>,
-    /// Seal membership: event_digest → seal id (absent means pending).
-    sealed: BTreeMap<String, SealId>,
+    /// Trusted digest suite stored atomically with each exact Event digest.
+    digest_suites: BTreeMap<String, arkret_canonical::DigestSuite>,
+    /// Seal membership: event_digest → direct covering Seal ids (absent means pending).
+    sealed: BTreeMap<String, BTreeSet<SealId>>,
     /// Insertion order so list_pending is deterministic.
     insertion_order: Vec<String>,
     control_proposal_acks: BTreeMap<String, ControlProposalAck>,
@@ -49,13 +51,66 @@ struct MemoryControlEventStoreInner {
     decision_overdue: BTreeSet<String>,
 }
 
+impl MemoryControlEventStore {
+    /// Seed a locally verified accepted Event for deterministic checkpoint
+    /// replay. This bypasses pending-ingress bookkeeping only; callers still
+    /// pass every Event through `apply_accepted_seal_in_context`, which repeats
+    /// the registered proof, reducer, root, and Seal checks before it becomes
+    /// part of the reconstructed checkpoint.
+    /// Seed a verified replay Event under the digest suite selected from its
+    /// authenticated historical Realm state.
+    pub fn insert_verified_replay_event_with_digest_suite(
+        &self,
+        event: &Event,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> StoreResult<Hash> {
+        let digest = Hash::new(
+            event
+                .event_digest_with_digest_suite(digest_suite)
+                .map_err(|error| StoreError::Backend(format!("event_digest: {error}")))?,
+        )
+        .map_err(|error| StoreError::Backend(format!("invalid event_digest: {error}")))?;
+        self.insert_verified_replay_event_with_digest(event, digest, digest_suite)
+    }
+
+    fn insert_verified_replay_event_with_digest(
+        &self,
+        event: &Event,
+        digest: Hash,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> StoreResult<Hash> {
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(existing) = inner.events.get(digest.as_str()) {
+            if existing != event || inner.digest_suites.get(digest.as_str()) != Some(&digest_suite)
+            {
+                return Err(StoreError::Conflict(format!(
+                    "control Event digest collision at {digest}"
+                )));
+            }
+            return Ok(digest);
+        }
+        inner.insertion_order.push(digest.as_str().to_owned());
+        inner
+            .events
+            .insert(digest.as_str().to_owned(), event.clone());
+        inner
+            .digest_suites
+            .insert(digest.as_str().to_owned(), digest_suite);
+        Ok(digest)
+    }
+}
+
 impl ControlEventStore for MemoryControlEventStore {
     fn put_pending_with_ingress(
         &self,
         event: &Event,
         ingress: &ControlProposalIngress,
+        digest_suite: arkret_canonical::DigestSuite,
     ) -> StoreResult<()> {
-        let digest = control_event_digest(event)?;
+        let digest = control_event_digest(event, digest_suite)?;
         let control_proposal_ack = ingress.ack();
         if let Some(ack) = control_proposal_ack
             && (ack.proposal_digest != digest || ack.realm_id != event.realm_id)
@@ -90,10 +145,21 @@ impl ControlEventStore for MemoryControlEventStore {
             ));
         }
         let key = digest.as_str().to_owned();
+        if let Some(existing) = inner.events.get(&key)
+            && (existing != event || inner.digest_suites.get(&key) != Some(&digest_suite))
+        {
+            return Err(StoreError::Conflict(format!(
+                "control Event digest collision at {digest}"
+            )));
+        }
         if !inner.events.contains_key(&key) {
             inner.insertion_order.push(key.clone());
         }
-        inner.events.entry(key).or_insert_with(|| event.clone());
+        inner
+            .events
+            .entry(key.clone())
+            .or_insert_with(|| event.clone());
+        inner.digest_suites.entry(key).or_insert(digest_suite);
         inner
             .ingress_classes
             .entry(digest.as_str().to_owned())
@@ -116,19 +182,22 @@ impl ControlEventStore for MemoryControlEventStore {
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if !inner.events.contains_key(event_digest.as_str()) {
+        let Some(event) = inner.events.get(event_digest.as_str()) else {
             return Err(StoreError::NotFound(format!(
                 "control Event {event_digest} not in store"
             )));
+        };
+        if event.realm_id != seal.realm_id || !seal.delta.contains(event_digest) {
+            return Err(StoreError::Conflict(format!(
+                "Seal {} does not directly cover control Event {event_digest}",
+                seal.id
+            )));
         }
         let mut overdue = false;
-        if let Some(stored_seal) = inner.sealed.get(event_digest.as_str()) {
-            if stored_seal == &seal.id {
+        if let Some(stored_seals) = inner.sealed.get(event_digest.as_str()) {
+            if stored_seals.contains(&seal.id) {
                 return Ok(());
             }
-            return Err(StoreError::Conflict(format!(
-                "control Event {event_digest} is already sealed by {stored_seal}"
-            )));
         }
         let decisions = inner
             .proposal_decisions
@@ -155,7 +224,9 @@ impl ControlEventStore for MemoryControlEventStore {
         }
         inner
             .sealed
-            .insert(event_digest.as_str().to_owned(), seal.id.clone());
+            .entry(event_digest.as_str().to_owned())
+            .or_default()
+            .insert(seal.id.clone());
         Ok(())
     }
 
@@ -169,14 +240,28 @@ impl ControlEventStore for MemoryControlEventStore {
             .cloned())
     }
 
-    fn sealed_by(&self, event_digest: &Hash) -> StoreResult<Option<SealId>> {
+    fn digest_suite(
+        &self,
+        event_digest: &Hash,
+    ) -> StoreResult<Option<arkret_canonical::DigestSuite>> {
+        Ok(self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .digest_suites
+            .get(event_digest.as_str())
+            .copied())
+    }
+
+    fn covering_seals(&self, event_digest: &Hash) -> StoreResult<Vec<SealId>> {
         Ok(self
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .sealed
             .get(event_digest.as_str())
-            .cloned())
+            .map(|seals| seals.iter().cloned().collect())
+            .unwrap_or_default())
     }
 
     fn control_proposal_ack(&self, event_digest: &Hash) -> StoreResult<Option<ControlProposalAck>> {
@@ -202,6 +287,12 @@ impl ControlEventStore for MemoryControlEventStore {
         };
         Ok(Some(ControlProposalSnapshot {
             event: event.clone(),
+            digest_suite: *inner
+                .digest_suites
+                .get(event_digest.as_str())
+                .ok_or_else(|| {
+                    StoreError::Backend("control Event digest suite is missing".to_owned())
+                })?,
             control_proposal_ack: inner
                 .control_proposal_acks
                 .get(event_digest.as_str())
@@ -211,7 +302,11 @@ impl ControlEventStore for MemoryControlEventStore {
                 .get(event_digest.as_str())
                 .cloned()
                 .unwrap_or_default(),
-            sealed_by: inner.sealed.get(event_digest.as_str()).cloned(),
+            covering_seals: inner
+                .sealed
+                .get(event_digest.as_str())
+                .map(|seals| seals.iter().cloned().collect())
+                .unwrap_or_default(),
             decision_overdue: inner.decision_overdue.contains(event_digest.as_str()),
         }))
     }
@@ -290,8 +385,10 @@ impl ControlEventStore for MemoryControlEventStore {
                 // Written atomically with the Event row in
                 // `put_pending_with_ingress`, under the same lock.
                 let ingress_class = inner.ingress_classes.get(digest)?.clone();
+                let digest_suite = *inner.digest_suites.get(digest)?;
                 (event.realm_id == *realm_id).then(|| PendingControlEventRecord {
                     event: event.clone(),
+                    digest_suite,
                     control_proposal_ack: inner.control_proposal_acks.get(digest).cloned(),
                     decisions: inner
                         .proposal_decisions
@@ -388,7 +485,7 @@ impl ControlEventStore for MemoryControlEventStore {
                 }
                 continue;
             }
-            if let (Some(event), Some(seal)) = (inner.events.get(digest), inner.sealed.get(digest))
+            if let (Some(event), Some(seals)) = (inner.events.get(digest), inner.sealed.get(digest))
                 && event.realm_id == *realm_id
             {
                 // Written atomically with the Event row in
@@ -398,7 +495,10 @@ impl ControlEventStore for MemoryControlEventStore {
                 };
                 out.push(SealedControlEventRecord {
                     event: event.clone(),
-                    seal: seal.clone(),
+                    digest_suite: *inner.digest_suites.get(digest).ok_or_else(|| {
+                        StoreError::Backend("control Event digest suite is missing".to_owned())
+                    })?,
+                    covering_seals: seals.iter().cloned().collect(),
                     control_proposal_ack: inner.control_proposal_acks.get(digest).cloned(),
                     decisions: inner
                         .proposal_decisions
@@ -439,6 +539,7 @@ pub struct MemorySealStore {
 #[derive(Default)]
 struct MemorySealStoreInner {
     seals: BTreeMap<String, Seal>,
+    digest_suites: BTreeMap<String, arkret_canonical::DigestSuite>,
     /// realm_id → leaves (seals with no successor)
     leaves: BTreeMap<String, Vec<SealId>>,
     /// realm_id → genesis seal (first put with empty predecessors)
@@ -447,10 +548,22 @@ struct MemorySealStoreInner {
 }
 
 impl MemorySealStoreInner {
-    fn put(&mut self, seal: &Seal) {
+    fn put(&mut self, seal: &Seal, digest_suite: arkret_canonical::DigestSuite) -> StoreResult<()> {
+        seal.validate_id(digest_suite)
+            .map_err(|error| StoreError::Conflict(error.to_string()))?;
         let realm = seal.realm_id.as_str().to_owned();
         let id_str = seal.id.as_str().to_owned();
-        self.seals.insert(id_str, seal.clone());
+        if let Some(existing) = self.seals.get(&id_str) {
+            if existing != seal || self.digest_suites.get(&id_str) != Some(&digest_suite) {
+                return Err(StoreError::Conflict(format!(
+                    "Seal {} already exists with different canonical content or digest suite",
+                    seal.id
+                )));
+            }
+            return Ok(());
+        }
+        self.seals.insert(id_str.clone(), seal.clone());
+        self.digest_suites.insert(id_str, digest_suite);
 
         if seal.predecessor_refs.is_empty() {
             self.genesis
@@ -463,6 +576,7 @@ impl MemorySealStoreInner {
         if !leaves.iter().any(|leaf| leaf == &seal.id) {
             leaves.push(seal.id.clone());
         }
+        Ok(())
     }
 
     fn frontier_matches(&self, realm_id: &RealmId, expected_leaves: &[SealId]) -> bool {
@@ -538,16 +652,20 @@ impl SealStore for MemorySealStore {
         Ok(matches)
     }
 
-    fn put(&self, seal: &Seal) -> StoreResult<()> {
+    fn put(&self, seal: &Seal, digest_suite: arkret_canonical::DigestSuite) -> StoreResult<()> {
         let mut inner = self
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        inner.put(seal);
-        Ok(())
+        inner.put(seal, digest_suite)
     }
 
-    fn put_if_frontier(&self, seal: &Seal, expected_leaves: &[SealId]) -> StoreResult<bool> {
+    fn put_if_frontier(
+        &self,
+        seal: &Seal,
+        expected_leaves: &[SealId],
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> StoreResult<bool> {
         let mut inner = self
             .inner
             .lock()
@@ -555,7 +673,7 @@ impl SealStore for MemorySealStore {
         if !inner.frontier_matches(&seal.realm_id, expected_leaves) {
             return Ok(false);
         }
-        inner.put(seal);
+        inner.put(seal, digest_suite)?;
         Ok(true)
     }
 
@@ -567,6 +685,16 @@ impl SealStore for MemorySealStore {
             .seals
             .get(id.as_str())
             .cloned())
+    }
+
+    fn digest_suite(&self, id: &SealId) -> StoreResult<Option<arkret_canonical::DigestSuite>> {
+        Ok(self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .digest_suites
+            .get(id.as_str())
+            .copied())
     }
 
     fn list_leaves(&self, realm_id: &RealmId) -> StoreResult<Vec<SealId>> {
@@ -614,83 +742,6 @@ impl SealStore for MemorySealStore {
         }
         out.sort_by(|a, b| a.as_str().cmp(b.as_str()));
         Ok(out)
-    }
-
-    fn prune_predecessor(&self, realm_id: &RealmId, seal_id: &SealId) -> StoreResult<Vec<SealId>> {
-        let mut inner = self
-            .inner
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        // Snapshot the parents of the pruned seal before removing it.
-        let parents: Vec<SealId> = inner
-            .seals
-            .get(seal_id.as_str())
-            .map(|a| a.predecessor_refs.clone())
-            .ok_or_else(|| StoreError::NotFound(format!("seal {seal_id} not in store")))?;
-
-        // Successor seals whose predecessor_refs reference the pruned id.
-        let successor_ids: Vec<String> = inner
-            .seals
-            .values()
-            .filter(|a| {
-                a.realm_id.as_str() == realm_id.as_str()
-                    && a.predecessor_refs.iter().any(|p| p == seal_id)
-            })
-            .map(|a| a.id.as_str().to_owned())
-            .collect();
-
-        if successor_ids.is_empty() {
-            return Err(StoreError::Conflict(format!(
-                "seal {seal_id} has no successors; can't prune a leaf via prune_predecessor"
-            )));
-        }
-
-        // Rewire each successor: remove the pruned id, splice in the parents.
-        // Dedup so a successor that previously referenced both pruned and
-        // a grandparent doesn't end up with the same predecessor twice.
-        for sid in &successor_ids {
-            if let Some(succ) = inner.seals.get_mut(sid) {
-                let mut new_refs: Vec<SealId> = succ
-                    .predecessor_refs
-                    .iter()
-                    .filter(|p| *p != seal_id)
-                    .cloned()
-                    .collect();
-                for parent in &parents {
-                    if !new_refs.iter().any(|p| p == parent) {
-                        new_refs.push(parent.clone());
-                    }
-                }
-                new_refs.sort_by(|a, b| a.as_str().cmp(b.as_str()));
-                succ.predecessor_refs = new_refs;
-            }
-        }
-
-        // Remove the pruned seal itself.
-        inner.seals.remove(seal_id.as_str());
-
-        // Pruned seal can't have been a leaf (we checked above) and its
-        // parents already had their successor-rewiring done before this
-        // seal existed, so the leaf set is unaffected. Nothing to do
-        // with `leaves`.
-
-        // Genesis: if we pruned the genesis (which only makes sense if a
-        // child compaction replaces it), forget the genesis pointer — the
-        // caller MUST set a new one explicitly when relevant.
-        let realm = realm_id.as_str();
-        if inner
-            .genesis
-            .get(realm)
-            .is_some_and(|g| g.as_str() == seal_id.as_str())
-        {
-            inner.genesis.remove(realm);
-        }
-
-        let rewired: Vec<SealId> = successor_ids
-            .into_iter()
-            .filter_map(|s| SealId::new(s).ok())
-            .collect();
-        Ok(rewired)
     }
 }
 
@@ -953,6 +1004,18 @@ impl Default for MemoryCellRegistry {
             },
         );
 
+        // Realm digest suite — the create projection installs the initial
+        // value and a hash-transition Move causally replaces it.
+        bindings.insert(
+            arkret_wire::CellFamilyId::REALM_DIGEST_SUITE_V1.to_owned(),
+            BindingDescriptor {
+                kind: LatticeKind::CasRegister,
+                bottom_mode: BottomMode::Reject,
+                fsm_initial: None,
+                fsm_transitions: vec![],
+            },
+        );
+
         // Audit log / message log — ordered-log.
         bindings.insert(
             arkret_wire::CellFamilyId::AUDIT_ACCESS_LOG_V1.to_owned(),
@@ -1098,7 +1161,11 @@ mod tests {
 
     use super::super::AcklessSelfPrincipalIngress;
     use super::*;
-    use crate::{Hlc, LatticeOp, LatticeOpType, NotarySig, PayloadSignature, SealBasis};
+    use crate::{
+        Hlc, LatticeOp, LatticeOpType, NotarySig, PayloadSignature, SealBasis, SealSignature,
+    };
+
+    const SUITE: arkret_canonical::DigestSuite = arkret_canonical::DigestSuite::Sha256;
 
     fn realm() -> RealmId {
         RealmId::new("ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN".to_owned()).unwrap()
@@ -1140,12 +1207,17 @@ mod tests {
         event.seal_basis = Some(SealBasis {
             leaves: vec![seal_id(0xaa)],
         });
-        event.refresh_content_bound_identity().unwrap();
+        event
+            .refresh_content_bound_identity_with_digest_suite(SUITE)
+            .unwrap();
         event.proofs.push(
             Proof {
                 kind: "detached_jws".to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:admin.example#k1").unwrap(),
-                event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
+                event_digest: Hash::new(event.event_digest_with_digest_suite(SUITE).unwrap())
+                    .unwrap(),
+                signer_resolution_evidence_ref: None,
+                signer_resolution_evidence_digest: None,
                 created_at,
                 domain: None,
                 audience: None,
@@ -1158,14 +1230,13 @@ mod tests {
     }
 
     fn dummy_seal(id: SealId, predecessors: Vec<SealId>, delta: Vec<Hash>) -> Seal {
-        let sig = PayloadSignature {
-            extra: Default::default(),
+        let seed = u64::from_str_radix(&id.as_str()[15..17], 16).unwrap();
+        let sig = SealSignature {
             verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#k1").unwrap(),
             payload_digest: hash(0xff),
-            created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
             jws: "AAAA.BBBB.CCCC".to_owned(),
         };
-        Seal {
+        let mut seal = Seal {
             id,
             realm_id: realm(),
             predecessor_refs: predecessors,
@@ -1173,24 +1244,24 @@ mod tests {
             control_event_set_root: hash(0x22),
             state_root: hash(0x77),
             completeness_root: hash(0x33),
-            notary_seq: 0,
+            notary_seq: seed,
             data_view_root: None,
             data_event_set_root: None,
-            availability_root: None,
-            coverage_scope: None,
+            availability_receipt_digests: Vec::new(),
             covered_event_digests: Vec::new(),
             previous_state_root: None,
             previous_digest_algorithm: None,
             notary_signature: NotarySig::Single(sig),
             sealed_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
             hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
-            kind: crate::SealKind::Normal,
-        }
+        };
+        seal.id = seal.derive_id(SUITE).unwrap();
+        seal
     }
 
     fn control_proposal_ack(event: &Event) -> ControlProposalAck {
         let received_at = Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap();
-        let proposal_digest = control_event_digest(event).unwrap();
+        let proposal_digest = control_event_digest(event, SUITE).unwrap();
         let authority_set_ref = hash(0x44);
         let mut authority_ack = arkret_wire::ControlProposalAuthorityAck {
             realm_id: event.realm_id.clone(),
@@ -1255,7 +1326,7 @@ mod tests {
     fn control_event_store_records_decision_with_effective_realm_policy() {
         let store = MemoryControlEventStore::default();
         let event = control_move(1);
-        let event_digest = control_event_digest(&event).unwrap();
+        let event_digest = control_event_digest(&event, SUITE).unwrap();
         let ack = control_proposal_ack(&event);
         let decision = signed_reject(&ack);
         let policy = arkret_wire::ControlProposalDecisionPolicy::default();
@@ -1272,7 +1343,11 @@ mod tests {
         );
 
         store
-            .put_pending_with_ingress(&event, &ControlProposalIngress::AckRequired(ack.clone()))
+            .put_pending_with_ingress(
+                &event,
+                &ControlProposalIngress::AckRequired(ack.clone()),
+                SUITE,
+            )
             .unwrap();
         store
             .record_proposal_decision(&event_digest, &decision, policy)
@@ -1293,7 +1368,7 @@ mod tests {
             .expect("rejected proposal remains durable");
         assert_eq!(snapshot.control_proposal_ack, Some(ack));
         assert_eq!(snapshot.decisions, vec![decision]);
-        assert!(snapshot.sealed_by.is_none());
+        assert!(snapshot.covering_seals.is_empty());
     }
 
     #[test]
@@ -1304,11 +1379,15 @@ mod tests {
         // finality arrives only when an accepted Seal covers the digest.
         let store = MemoryControlEventStore::default();
         let event = control_move(1);
-        let digest = control_event_digest(&event).unwrap();
+        let digest = control_event_digest(&event, SUITE).unwrap();
         let ack = control_proposal_ack(&event);
 
         store
-            .put_pending_with_ingress(&event, &ControlProposalIngress::AckRequired(ack.clone()))
+            .put_pending_with_ingress(
+                &event,
+                &ControlProposalIngress::AckRequired(ack.clone()),
+                SUITE,
+            )
             .unwrap();
 
         let pending = store.list_pending_records(&realm(), 10).unwrap();
@@ -1329,6 +1408,8 @@ mod tests {
 
         let seal = dummy_seal(seal_id(0xaa), Vec::new(), vec![digest.clone()]);
         store.mark_sealed(&digest, &seal).unwrap();
+        let concurrent_seal = dummy_seal(seal_id(0xab), Vec::new(), vec![digest.clone()]);
+        store.mark_sealed(&digest, &concurrent_seal).unwrap();
 
         assert!(
             store.list_pending_records(&realm(), 10).unwrap().is_empty(),
@@ -1336,20 +1417,30 @@ mod tests {
         );
         let sealed = store.list_sealed(&realm(), None, 10).unwrap();
         assert_eq!(sealed.len(), 1);
-        assert_eq!(sealed[0].seal, seal.id);
+        let mut expected_covering_seals = vec![seal.id, concurrent_seal.id];
+        expected_covering_seals.sort();
+        assert_eq!(sealed[0].covering_seals, expected_covering_seals);
     }
 
     #[test]
     fn control_event_store_put_and_seal_idempotent() {
         let store = MemoryControlEventStore::default();
         let first = control_move(1);
-        let digest = control_event_digest(&first).unwrap();
+        let digest = control_event_digest(&first, SUITE).unwrap();
         let ack = control_proposal_ack(&first);
         store
-            .put_pending_with_ingress(&first, &ControlProposalIngress::AckRequired(ack.clone()))
+            .put_pending_with_ingress(
+                &first,
+                &ControlProposalIngress::AckRequired(ack.clone()),
+                SUITE,
+            )
             .unwrap();
         store
-            .put_pending_with_ingress(&first, &ControlProposalIngress::AckRequired(ack.clone()))
+            .put_pending_with_ingress(
+                &first,
+                &ControlProposalIngress::AckRequired(ack.clone()),
+                SUITE,
+            )
             .unwrap(); // idempotent
         assert_eq!(
             store.get(&digest).unwrap().unwrap().event_id,
@@ -1361,7 +1452,7 @@ mod tests {
         store.mark_sealed(&digest, &seal).unwrap(); // idempotent
         let sealed = store.list_sealed(&realm(), None, 10).unwrap();
         assert_eq!(sealed.len(), 1);
-        assert_eq!(sealed[0].seal, seal.id);
+        assert_eq!(sealed[0].covering_seals, vec![seal.id]);
     }
 
     fn ackless_ingress() -> ControlProposalIngress {
@@ -1379,7 +1470,11 @@ mod tests {
         let event = control_move(1);
         let ack = control_proposal_ack(&event);
         store
-            .put_pending_with_ingress(&event, &ControlProposalIngress::AckRequired(ack.clone()))
+            .put_pending_with_ingress(
+                &event,
+                &ControlProposalIngress::AckRequired(ack.clone()),
+                SUITE,
+            )
             .unwrap();
         // The same digest replayed under a different class is a conflict:
         // the first admission's class is part of the durable basis.
@@ -1390,12 +1485,14 @@ mod tests {
             seal_basis_digest: "sha256:fixture".to_owned(),
         });
         assert!(
-            store.put_pending_with_ingress(&event, &ackless).is_err(),
+            store
+                .put_pending_with_ingress(&event, &ackless, SUITE)
+                .is_err(),
             "an Ack-required Move cannot be replayed as Ack-less"
         );
         assert!(
             store
-                .put_pending_with_ingress(&event, &ControlProposalIngress::AckRequired(ack))
+                .put_pending_with_ingress(&event, &ControlProposalIngress::AckRequired(ack), SUITE,)
                 .is_ok(),
             "the byte-identical class and Ack remain idempotent"
         );
@@ -1415,6 +1512,7 @@ mod tests {
             .put_pending_with_ingress(
                 &event,
                 &ControlProposalIngress::AcklessSelfPrincipal(class.clone()),
+                SUITE,
             )
             .unwrap();
         let pending = store.list_pending_records(&realm(), 10).unwrap();
@@ -1460,12 +1558,14 @@ mod tests {
             .put_pending_with_ingress(
                 &first,
                 &ControlProposalIngress::AckRequired(control_proposal_ack(&first)),
+                SUITE,
             )
             .unwrap();
         store
             .put_pending_with_ingress(
                 &second,
                 &ControlProposalIngress::AckRequired(control_proposal_ack(&second)),
+                SUITE,
             )
             .unwrap();
 
@@ -1474,7 +1574,7 @@ mod tests {
         assert_eq!(pending[0].event_id, first.event_id);
         assert_eq!(pending[1].event_id, second.event_id);
 
-        let first_digest = control_event_digest(&first).unwrap();
+        let first_digest = control_event_digest(&first, SUITE).unwrap();
         store
             .mark_sealed(
                 &first_digest,
@@ -1498,14 +1598,14 @@ mod tests {
         assert_eq!(variant.event_id, original.event_id);
 
         store
-            .put_pending_with_ingress(&original, &ackless_ingress())
+            .put_pending_with_ingress(&original, &ackless_ingress(), SUITE)
             .unwrap();
         store
-            .put_pending_with_ingress(&variant, &ackless_ingress())
+            .put_pending_with_ingress(&variant, &ackless_ingress(), SUITE)
             .unwrap();
         assert_ne!(
-            control_event_digest(&original).unwrap(),
-            control_event_digest(&variant).unwrap()
+            control_event_digest(&original, SUITE).unwrap(),
+            control_event_digest(&variant, SUITE).unwrap()
         );
         assert_eq!(
             store
@@ -1520,12 +1620,12 @@ mod tests {
     fn seal_store_tracks_genesis_and_leaves() {
         let store = MemorySealStore::default();
         let g = dummy_seal(seal_id(0xa0), vec![], vec![hash(0x01)]);
-        store.put(&g).unwrap();
+        store.put(&g, SUITE).unwrap();
         assert_eq!(store.genesis(&realm()).unwrap().unwrap(), g.id);
         assert_eq!(store.list_leaves(&realm()).unwrap(), vec![g.id.clone()]);
 
         let child = dummy_seal(seal_id(0xa1), vec![g.id], vec![hash(0x02)]);
-        store.put(&child).unwrap();
+        store.put(&child, SUITE).unwrap();
         assert_eq!(store.list_leaves(&realm()).unwrap(), vec![child.id]);
     }
 
@@ -1533,12 +1633,12 @@ mod tests {
     fn seal_store_put_if_frontier_accepts_exact_set() {
         let store = MemorySealStore::default();
         let genesis = dummy_seal(seal_id(0xe0), vec![], vec![hash(0x01)]);
-        assert!(store.put_if_frontier(&genesis, &[]).unwrap());
+        assert!(store.put_if_frontier(&genesis, &[], SUITE).unwrap());
 
         let left = dummy_seal(seal_id(0xe1), vec![genesis.id.clone()], vec![hash(0x02)]);
-        store.put(&left).unwrap();
+        store.put(&left, SUITE).unwrap();
         let right = dummy_seal(seal_id(0xe2), vec![genesis.id], vec![hash(0x03)]);
-        store.put(&right).unwrap();
+        store.put(&right, SUITE).unwrap();
 
         let joined = dummy_seal(
             seal_id(0xe3),
@@ -1547,7 +1647,7 @@ mod tests {
         );
         assert!(
             store
-                .put_if_frontier(&joined, &[right.id.clone(), left.id, right.id])
+                .put_if_frontier(&joined, &[right.id.clone(), left.id, right.id], SUITE)
                 .unwrap()
         );
         assert_eq!(store.list_leaves(&realm()).unwrap(), vec![joined.id]);
@@ -1557,10 +1657,14 @@ mod tests {
     fn seal_store_put_if_frontier_rejects_stale_set_without_mutation() {
         let store = MemorySealStore::default();
         let genesis = dummy_seal(seal_id(0xf0), vec![], vec![hash(0x01)]);
-        store.put(&genesis).unwrap();
+        store.put(&genesis, SUITE).unwrap();
         let stale = dummy_seal(seal_id(0xf1), vec![genesis.id.clone()], vec![hash(0x02)]);
 
-        assert!(!store.put_if_frontier(&stale, &[seal_id(0xff)]).unwrap());
+        assert!(
+            !store
+                .put_if_frontier(&stale, &[seal_id(0xff)], SUITE)
+                .unwrap()
+        );
         assert!(store.get(&stale.id).unwrap().is_none());
         assert_eq!(store.list_leaves(&realm()).unwrap(), vec![genesis.id]);
     }
@@ -1569,7 +1673,7 @@ mod tests {
     fn seal_store_put_if_frontier_allows_only_one_concurrent_writer() {
         let store = Arc::new(MemorySealStore::default());
         let genesis = dummy_seal(seal_id(0x90), vec![], vec![hash(0x01)]);
-        store.put(&genesis).unwrap();
+        store.put(&genesis, SUITE).unwrap();
         let barrier = Arc::new(Barrier::new(3));
 
         let writers: Vec<_> = [
@@ -1583,7 +1687,9 @@ mod tests {
             let expected = genesis.id.clone();
             std::thread::spawn(move || {
                 barrier.wait();
-                let inserted = store.put_if_frontier(&candidate, &[expected]).unwrap();
+                let inserted = store
+                    .put_if_frontier(&candidate, &[expected], SUITE)
+                    .unwrap();
                 (candidate.id, inserted)
             })
         })
@@ -1618,10 +1724,10 @@ mod tests {
         let child_a = dummy_seal(seal_id(0xa1), vec![g.id.clone()], vec![hash(0x02)]);
         let child_b = dummy_seal(seal_id(0xa2), vec![g.id.clone()], vec![hash(0x03)]);
         let leaf_x = dummy_seal(seal_id(0xa3), vec![child_a.id.clone()], vec![hash(0x04)]);
-        store.put(&g).unwrap();
-        store.put(&child_a).unwrap();
-        store.put(&child_b).unwrap();
-        store.put(&leaf_x).unwrap();
+        store.put(&g, SUITE).unwrap();
+        store.put(&child_a, SUITE).unwrap();
+        store.put(&child_b, SUITE).unwrap();
+        store.put(&leaf_x, SUITE).unwrap();
 
         // genesis has two direct children.
         let succ = store.successors(&realm(), &g.id).unwrap();
@@ -1634,62 +1740,10 @@ mod tests {
     }
 
     #[test]
-    fn seal_store_prune_predecessor_rewires_through() {
-        // g ─► a ─► b (leaf). Pruning `a` rewires b's predecessor to g.
-        let store = MemorySealStore::default();
-        let g = dummy_seal(seal_id(0xb0), vec![], vec![hash(0x01)]);
-        let a = dummy_seal(seal_id(0xb1), vec![g.id.clone()], vec![hash(0x02)]);
-        let b = dummy_seal(seal_id(0xb2), vec![a.id.clone()], vec![hash(0x03)]);
-        store.put(&g).unwrap();
-        store.put(&a).unwrap();
-        store.put(&b).unwrap();
-
-        let rewired = store.prune_predecessor(&realm(), &a.id).unwrap();
-        assert_eq!(rewired, vec![b.id.clone()]);
-
-        // `a` is gone.
-        assert!(store.get(&a.id).unwrap().is_none());
-        // `b` now points to `g`.
-        let b_after = store.get(&b.id).unwrap().unwrap();
-        assert_eq!(b_after.predecessor_refs, vec![g.id]);
-    }
-
-    #[test]
-    fn seal_store_prune_predecessor_rejects_leaf() {
-        let store = MemorySealStore::default();
-        let g = dummy_seal(seal_id(0xc0), vec![], vec![hash(0x01)]);
-        store.put(&g).unwrap();
-        // g is a leaf — can't prune.
-        let err = store.prune_predecessor(&realm(), &g.id).unwrap_err();
-        assert!(format!("{err}").contains("no successors"));
-    }
-
-    #[test]
-    fn seal_store_prune_predecessor_dedups_when_grandparent_already_referenced() {
-        // diamond: g ─► a ─► c; g ─► c. Pruning `a` shouldn't double-add g.
-        let store = MemorySealStore::default();
-        let g = dummy_seal(seal_id(0xd0), vec![], vec![hash(0x01)]);
-        let a = dummy_seal(seal_id(0xd1), vec![g.id.clone()], vec![hash(0x02)]);
-        let c = dummy_seal(
-            seal_id(0xd2),
-            vec![g.id.clone(), a.id.clone()],
-            vec![hash(0x03)],
-        );
-        store.put(&g).unwrap();
-        store.put(&a).unwrap();
-        store.put(&c).unwrap();
-
-        store.prune_predecessor(&realm(), &a.id).unwrap();
-        let c_after = store.get(&c.id).unwrap().unwrap();
-        // c.predecessor_refs has just one entry: g.
-        assert_eq!(c_after.predecessor_refs, vec![g.id]);
-    }
-
-    #[test]
     fn seal_store_predecessor_check() {
         let store = MemorySealStore::default();
         let a = dummy_seal(seal_id(0xa0), vec![], vec![]);
-        store.put(&a).unwrap();
+        store.put(&a, SUITE).unwrap();
         assert!(store.predecessors_known(&[a.id]).unwrap());
         assert!(!store.predecessors_known(&[seal_id(0xee)]).unwrap());
         assert!(store.predecessors_known(&[]).unwrap()); // empty = trivially known

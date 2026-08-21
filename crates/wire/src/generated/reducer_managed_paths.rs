@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/reducer-managed-path-registry.json; version=2026-08-18;
-//! sha256=488c8578254141b58a32bd9f57866d04431d974b448a6b6cd00aaeb79f07af37
+//! Input: registry/reducer-managed-path-registry.json; version=2026-08-21.1;
+//! sha256=b460206038e7e948563890302f8ee1f0e006b71cf5011ccce8bee9f1372e44fe
 //! Entries: universal_paths=9, object_kinds=7, any_object_paths=16
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -100,7 +100,7 @@ pub const REDUCER_MANAGED_OBJECTS: &[ReducerManagedObjectDescriptor] = &[
                 schema_enforced: false,
             },
             ReducerManagedObjectPathDescriptor {
-                path: "mls_group_ref",
+                path: "mls_group_id",
                 basis: "reducer_derived",
                 reason_code: "patch_path_reducer_managed",
                 schema_enforced: false,
@@ -183,7 +183,7 @@ pub const REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS: &[&str] = &[
     "effective_scope",
     "encryption_profile",
     "id",
-    "mls_group_ref",
+    "mls_group_id",
     "morph_kind",
     "realm_id",
     "resolution",

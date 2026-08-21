@@ -26,8 +26,6 @@ pub mod admin_scopes {
     pub const NOTARY_ROTATE_SIGNING_KEY: &str = "notary.rotate_signing_key";
     /// Trigger a compaction seal (MAL-11).
     pub const SEAL_COMPACT: &str = "seal.compact";
-    /// Prune historical seals via `SealStore::prune_predecessor`.
-    pub const SEAL_PRUNE: &str = "seal.prune";
     /// Submit a manual repair Move for a bottom cell.
     pub const BOTTOM_REPAIR: &str = "bottom.repair";
     /// Read admin-scoped collection surfaces (accounts, spaces, etc.).
@@ -189,8 +187,10 @@ mod tests {
     #[test]
     fn require_admin_scope_rejects_missing() {
         let g = grant_active(&[admin_scopes::ADMIN_READ]);
-        let err = g.require_admin_scope(admin_scopes::SEAL_PRUNE).unwrap_err();
-        assert!(format!("{err}").contains("seal.prune"));
+        let err = g
+            .require_admin_scope(admin_scopes::BOTTOM_REPAIR)
+            .unwrap_err();
+        assert!(format!("{err}").contains("bottom.repair"));
     }
 
     #[test]

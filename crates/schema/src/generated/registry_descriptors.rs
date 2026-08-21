@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-20.1;
-//! sha256=97935b27b57386439731b40337ff741a79d4056acfbff0a4dba75858c541ea1e Input: registry/
-//! capability-action-registry.json; version=2026-08-20.1;
-//! sha256=2b4e4166b62b8c17561a67bc6a91dc0be9f76729ee438d3ff1f85479b59db4fd Input: registry/
-//! schema-registry.json; version=2026-08-20.1;
-//! sha256=d5df5785acf732207ae2c18958ef078201aa6ce532a5e20fef82e74d4a7b85f6 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-21.1;
+//! sha256=e2223473a2a77a78cfde36a92d4f68f72aa135bea521ef3dc6aa15e2e77d0bd8 Input: registry/
+//! capability-action-registry.json; version=2026-08-21.1;
+//! sha256=0608a29c74f0a8f87692c0fa5c1bbaf00ea07195c0019a72028c84d894a2f47c Input: registry/
+//! schema-registry.json; version=2026-08-21.1;
+//! sha256=819abc05ee5085e693547524d6aa2c202f6031e3337686d3b38d73918e98ba1a Input: registry/
 //! account-data-key-registry.json; version=2026-08-20.1;
-//! sha256=cffb86be564ca10ff8f0b51963cabb48c05052d33986b145b7c6121192987e14 Entries: id_kinds=57,
-//! special_forms=13, actions=170, schemas=189, account_data_patterns=24
+//! sha256=cffb86be564ca10ff8f0b51963cabb48c05052d33986b145b7c6121192987e14 Entries: id_kinds=60,
+//! special_forms=15, actions=169, schemas=192, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -221,6 +221,16 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         wire_form: "ak:grant:<44-char-event-token>",
     },
     IdKindDescriptor {
+        kind: "history_request",
+        category: "scope_private",
+        wire_form: "ak:history_request:<uuidv7>",
+    },
+    IdKindDescriptor {
+        kind: "history_response",
+        category: "scope_private",
+        wire_form: "ak:history_response:<uuidv7>",
+    },
+    IdKindDescriptor {
         kind: "invite",
         category: "authz",
         wire_form: "ak:invite:<44-char-event-token>",
@@ -289,6 +299,11 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         kind: "receipt",
         category: "receipt",
         wire_form: "ak:receipt:<uuidv7>",
+    },
+    IdKindDescriptor {
+        kind: "recovery_key",
+        category: "identity",
+        wire_form: "ak:recovery_key:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "recovery_session",
@@ -389,6 +404,11 @@ pub const REGISTERED_SPECIAL_FORM_ID_KINDS: &[SpecialFormIdKindDescriptor] = &[
         payload_pattern: "[a-z0-9]+:[^\\s/?#]+",
     },
     SpecialFormIdKindDescriptor {
+        kind: "history_mailbox",
+        wire_form: "ak:history_mailbox:<base64url-no-pad-16-byte-csprng>",
+        payload_pattern: "[A-Za-z0-9_-]{22}",
+    },
+    SpecialFormIdKindDescriptor {
         kind: "membership_compensation_delegation",
         wire_form: "ak:membership_compensation_delegation:sha256:<lowercase_hex>",
         payload_pattern: "sha256:[0-9a-f]{64}",
@@ -427,6 +447,11 @@ pub const REGISTERED_SPECIAL_FORM_ID_KINDS: &[SpecialFormIdKindDescriptor] = &[
         kind: "service_registration_receipt",
         wire_form: "ak:service_registration_receipt:<sha256-hex>",
         payload_pattern: "[0-9a-f]{64}",
+    },
+    SpecialFormIdKindDescriptor {
+        kind: "signer_evidence",
+        wire_form: "ak:signer_evidence:sha256:<64-lowercase-hex>",
+        payload_pattern: "sha256:[0-9a-f]{64}",
     },
     SpecialFormIdKindDescriptor {
         kind: "trust_domain",
@@ -881,6 +906,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &["allowed_circle_ids"],
         target_event_kinds: &[
+            event_kind_str::CIRCLE_HISTORY_ACCESS,
             event_kind_str::CIRCLE_UPDATE,
             event_kind_str::CIRCLE_ARCHIVE,
             event_kind_str::CIRCLE_RESTORE,
@@ -1643,7 +1669,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_DELIVERY_BINDING_POLICY,
             event_kind_str::REALM_ASSET_PRIVACY_POLICY,
             event_kind_str::REALM_READ_RECEIPT_POLICY,
-            event_kind_str::REALM_HISTORY_SHARING_POLICY,
             event_kind_str::REALM_PREVIEW_POLICY,
             event_kind_str::REALM_MODERATION_POLICY,
             event_kind_str::REALM_SEARCH_POLICY,
@@ -1746,14 +1771,15 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_ALIAS,
             event_kind_str::REALM_POLICY,
             event_kind_str::REALM_JOIN_RULE,
-            event_kind_str::REALM_HISTORY_VISIBILITY,
+            event_kind_str::REALM_HISTORY_ACCESS,
+            event_kind_str::REALM_ORGANIZATION_RECOVERY_KEY_REGISTER,
+            event_kind_str::REALM_ORGANIZATION_RECOVERY_KEY_ROTATE,
             event_kind_str::REALM_DISCOVERY,
             event_kind_str::REALM_DIGEST_SUITE_TRANSITION,
             event_kind_str::REALM_NOTARY,
             event_kind_str::REALM_PREVIEW_POLICY,
             event_kind_str::REALM_POLICY_SERVER,
             event_kind_str::REALM_POLICY_BUNDLE,
-            event_kind_str::REALM_HISTORY_SHARING_POLICY,
             event_kind_str::REALM_DELIVERY_BINDING_POLICY,
             event_kind_str::REALM_ASSET_PRIVACY_POLICY,
             event_kind_str::REALM_READ_RECEIPT_POLICY,
@@ -1968,6 +1994,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::CAPABILITY_REVOKE,
             event_kind_str::CIRCLE_ARCHIVE,
             event_kind_str::CIRCLE_CREATE,
+            event_kind_str::CIRCLE_HISTORY_ACCESS,
             event_kind_str::CIRCLE_MEMBER_STATE,
             event_kind_str::CIRCLE_RESTORE,
             event_kind_str::CIRCLE_TOMBSTONE,
@@ -2016,8 +2043,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_DIGEST_SUITE_TRANSITION,
             event_kind_str::REALM_DISCOVERY,
             event_kind_str::REALM_FREEZE,
-            event_kind_str::REALM_HISTORY_SHARING_POLICY,
-            event_kind_str::REALM_HISTORY_VISIBILITY,
+            event_kind_str::REALM_HISTORY_ACCESS,
             event_kind_str::REALM_INHERITANCE_POLICY,
             event_kind_str::REALM_JOIN_RULE,
             event_kind_str::REALM_LINK,
@@ -2025,6 +2051,8 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_MODERATION_POLICY,
             event_kind_str::REALM_NOTARY,
             event_kind_str::REALM_ORGANIZATION,
+            event_kind_str::REALM_ORGANIZATION_RECOVERY_KEY_REGISTER,
+            event_kind_str::REALM_ORGANIZATION_RECOVERY_KEY_ROTATE,
             event_kind_str::REALM_PLAINTEXT_VISIBLE_SERVICES,
             event_kind_str::REALM_POLICY,
             event_kind_str::REALM_POLICY_BUNDLE,
@@ -2148,7 +2176,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.realm.profile",
             "ak.realm.set_default_strand",
             "ak.realm.upgrade",
-            "ak.realm_key.share",
             "ak.receipt.broadcast",
             "ak.relation.create",
             "ak.relation.tombstone",
@@ -2281,19 +2308,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
         target_event_kinds: &[event_kind_str::REALM_UPGRADE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::RealmKeyShare,
-        category: "service",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        target_event_kinds: &[event_kind_str::REALM_KEY_SHARE],
         grant_authority_actions: &[],
         profile: None,
         root_control_only: false,
@@ -3101,6 +3115,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/audit-ryw-receipt.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::AUTHENTICATED_SIGNER_RESOLUTION_EVIDENCE_V1,
+        file: "schemas/authenticated-signer-resolution-evidence.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::AUTHORITY_SET_POLICY_V1,
         file: "schemas/authority-set-policy.schema.json",
     },
@@ -3277,6 +3295,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/file-transfer.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::GOVERNANCE_REGISTRY_SNAPSHOT_V1,
+        file: "schemas/governance-registry-snapshot.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::GRANT_CONSTRAINT_V1,
         file: "schemas/grant-constraint.schema.json",
     },
@@ -3287,6 +3309,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::HIGH_RISK_AUTHORITY_PROOF_V1,
         file: "schemas/high-risk-authority-proof.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::HISTORY_KEY_V1,
+        file: "schemas/history-key.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::HTTP_ERROR_ENVELOPE_V1,

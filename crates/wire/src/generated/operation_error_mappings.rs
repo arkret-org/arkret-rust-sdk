@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-20.2;
-//! sha256=25022cde238919dd6772dbae82dc35dc60882c3bfcdbcfe2b0bb2bd10c0a27bc Input: registry/
-//! operations-error-mapping.json; version=2026-08-20.2;
-//! sha256=5e8307d1250f987e6db8738f246ed2652850fbc9a034054aca24877742e177dc Input: registry/
-//! error-code-registry.json; version=2026-08-20.4;
-//! sha256=eb95e75c4c33459ebf274ccc6b586aa9777ab819646c7e561f6b58f5baadaecb Entries: operations=243
+//! Input: registry/operation-registry.json; version=2026-08-21.1;
+//! sha256=8e94da3cb7161250e9477e3669bceddbfee57bd2fef4a3988666a1ecaa07da6d Input: registry/
+//! operations-error-mapping.json; version=2026-08-21.1;
+//! sha256=a3e13f15f1ce8c7fa2aa80684b0cdfe5f66c6036dbc9f585a2106318b836fb6e Input: registry/
+//! error-code-registry.json; version=2026-08-21.1;
+//! sha256=363120b09cdc7e31888d0bb4412c61fa8c7d4a41fdd304f2397f0ada6a4ae360 Entries: operations=257
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -151,7 +151,10 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::FindDirectoryReadResolveAgentSelector,
-        operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::NotFound)],
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::NotFound),
+            OperationSpecificError::ErrorCode(ErrorCode::LimitExceeded),
+        ],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::FindDirectoryReadResolveHandle,
@@ -288,7 +291,6 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ReasonCode(ReasonCode::VerificationMethodPrincipalMismatch),
             OperationSpecificError::ReasonCode(ReasonCode::PairingRequestExpired),
             OperationSpecificError::ReasonCode(ReasonCode::ProofInvalid),
-            OperationSpecificError::ReasonCode(ReasonCode::AgentPcrRecoveryNotReady),
             OperationSpecificError::ReasonCode(ReasonCode::AgentDeactivated),
             OperationSpecificError::ReasonCode(ReasonCode::AgentRequestedScopeCommitmentInvalid),
         ],
@@ -485,14 +487,6 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::PeerDirectConversationCommandRepairRelay,
-        operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
-            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
-            OperationSpecificError::ErrorCode(ErrorCode::DirectConversationUnavailable),
-        ],
-    },
-    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::PeerErasureReceiptCommandSubmit,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
@@ -525,7 +519,6 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::PeerStale),
             OperationSpecificError::ErrorCode(ErrorCode::DeliveryBindingStale),
             OperationSpecificError::ErrorCode(ErrorCode::DeliveryBindingHandedOver),
-            OperationSpecificError::ErrorCode(ErrorCode::MlsGenerationProposalFanoutExceeded),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -547,6 +540,28 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::CursorInvalid),
             OperationSpecificError::ErrorCode(ErrorCode::CursorRevoked),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerHistoryKeyRequestsCommandReplicate,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::DependencyMissing),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerHistoryKeyResponsesCommandRelay,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::DependencyMissing),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::HistoryNotVisible),
+            OperationSpecificError::ReasonCode(ReasonCode::HistoryTraversalAnchorUnreachable),
+            OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
+            OperationSpecificError::ErrorCode(ErrorCode::StateMismatch),
+            OperationSpecificError::ErrorCode(ErrorCode::SignatureInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::LimitExceeded),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -586,6 +601,19 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         ],
     },
     OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerOrganizationRecoveryArchivesCommandReplicate,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::DependencyMissing),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ReasonCode(ReasonCode::HistoryTraversalAnchorUnreachable),
+            OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
+            OperationSpecificError::ErrorCode(ErrorCode::StateMismatch),
+            OperationSpecificError::ErrorCode(ErrorCode::SignatureInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::LimitExceeded),
+        ],
+    },
+    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::PeerPrincipalGenesisCommandSubmit,
         operation_specific: &[
             OperationSpecificError::ReasonCode(ReasonCode::PcrGenesisConflict),
@@ -595,6 +623,38 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ReasonCode(ReasonCode::IdentityCreationLeaseFenced),
             OperationSpecificError::ReasonCode(ReasonCode::InitialSessionRequestMismatch),
         ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerSealsReadFrontier,
+        operation_specific: &[OperationSpecificError::ErrorCode(
+            ErrorCode::FrontierUnavailable,
+        )],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerSealsReadGovernanceDependencies,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::NotFound),
+            OperationSpecificError::ErrorCode(ErrorCode::LimitExceeded),
+            OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
+            OperationSpecificError::ErrorCode(ErrorCode::StateMismatch),
+            OperationSpecificError::ErrorCode(ErrorCode::SignatureInvalid),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerSealsReadMlsGovernanceProof,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::NotFound),
+            OperationSpecificError::ErrorCode(ErrorCode::MlsGovernanceAnchorUnreachable),
+            OperationSpecificError::ErrorCode(ErrorCode::MlsGovernanceProofBoundsExceeded),
+            OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
+            OperationSpecificError::ErrorCode(ErrorCode::StateMismatch),
+            OperationSpecificError::ErrorCode(ErrorCode::SignatureInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::UnsupportedProfile),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerSealsReadResolve,
+        operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::LimitExceeded)],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::PeerServiceResolutionCommandPublish,
@@ -1197,14 +1257,6 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfDirectConversationCommandRepairDispatch,
-        operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
-            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
-            OperationSpecificError::ErrorCode(ErrorCode::DirectConversationUnavailable),
-        ],
-    },
-    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfDirectConversationReadResolve,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
@@ -1223,19 +1275,8 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::SealRefUnknown),
             OperationSpecificError::ErrorCode(ErrorCode::RealmFrozen),
             OperationSpecificError::ErrorCode(ErrorCode::Quarantine),
-            OperationSpecificError::ErrorCode(ErrorCode::MlsGenerationProposalFanoutExceeded),
             OperationSpecificError::ErrorCode(ErrorCode::DeviceRevocationPending),
             OperationSpecificError::ErrorCode(ErrorCode::DeviceRevoked),
-        ],
-    },
-    OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfEventsCommandSubmitSeal,
-        operation_specific: &[
-            OperationSpecificError::ErrorCode(ErrorCode::DeviceGenerationFenced),
-            OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
-            OperationSpecificError::ErrorCode(ErrorCode::SealDeferredFutureSkew),
-            OperationSpecificError::ErrorCode(ErrorCode::SealSignerUnauthorized),
-            OperationSpecificError::ErrorCode(ErrorCode::StateMismatch),
         ],
     },
     OperationErrorMappingDescriptor {
@@ -1253,20 +1294,11 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         )],
     },
     OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfEventsReadMlsGovernanceProof,
+        operation: ServiceOperationId::SelfEventsReadResolve,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::NotFound),
-            OperationSpecificError::ErrorCode(ErrorCode::MlsGovernanceAnchorUnreachable),
-            OperationSpecificError::ErrorCode(ErrorCode::MlsGovernanceProofBoundsExceeded),
-            OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
-            OperationSpecificError::ErrorCode(ErrorCode::StateMismatch),
-            OperationSpecificError::ErrorCode(ErrorCode::DirectoryGovernanceProofSignatureInvalid),
-            OperationSpecificError::ErrorCode(ErrorCode::UnsupportedProfile),
+            OperationSpecificError::ErrorCode(ErrorCode::LimitExceeded),
         ],
-    },
-    OperationErrorMappingDescriptor {
-        operation: ServiceOperationId::SelfEventsReadResolve,
-        operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::NotFound)],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfEventsReadScan,
@@ -1287,6 +1319,48 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
             OperationSpecificError::ErrorCode(ErrorCode::StreamDropped),
             OperationSpecificError::ErrorCode(ErrorCode::StreamResyncRequired),
         ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfHistoryKeyRequestsCommandCreate,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::DependencyMissing),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::HistoryNotVisible),
+            OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
+            OperationSpecificError::ErrorCode(ErrorCode::StateMismatch),
+            OperationSpecificError::ErrorCode(ErrorCode::LimitExceeded),
+            OperationSpecificError::ReasonCode(ReasonCode::HistoryTraversalAnchorUnreachable),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfHistoryKeyRequestsReadList,
+        operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::NotFound)],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfHistoryKeyResponsesCommandAck,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::NotFound),
+            OperationSpecificError::ErrorCode(ErrorCode::StateMismatch),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfHistoryKeyResponsesCommandSend,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::DependencyMissing),
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ErrorCode(ErrorCode::HistoryNotVisible),
+            OperationSpecificError::ReasonCode(ReasonCode::HistoryTraversalAnchorUnreachable),
+            OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
+            OperationSpecificError::ErrorCode(ErrorCode::StateMismatch),
+            OperationSpecificError::ErrorCode(ErrorCode::SignatureInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::LimitExceeded),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfHistoryKeyResponsesReadList,
+        operation_specific: &[OperationSpecificError::ErrorCode(ErrorCode::NotFound)],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfIdentityReadResolutionAudit,
@@ -1432,6 +1506,16 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
         operation_specific: &[],
     },
     OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfOrganizationRecoveryArchivesReadList,
+        operation_specific: &[
+            OperationSpecificError::ReasonCode(ReasonCode::HistoryTraversalAnchorUnreachable),
+            OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
+            OperationSpecificError::ErrorCode(ErrorCode::StateMismatch),
+            OperationSpecificError::ErrorCode(ErrorCode::LimitExceeded),
+            OperationSpecificError::ErrorCode(ErrorCode::NotFound),
+        ],
+    },
+    OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfPolicyReadCheck,
         operation_specific: &[
             OperationSpecificError::ErrorCode(ErrorCode::PolicyUnavailable),
@@ -1561,6 +1645,51 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfRealmPolicyServerResourceReplace,
         operation_specific: &[],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfSealsCommandSubmit,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::DeviceGenerationFenced),
+            OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
+            OperationSpecificError::ErrorCode(ErrorCode::SealDeferredFutureSkew),
+            OperationSpecificError::ErrorCode(ErrorCode::SealSignerUnauthorized),
+            OperationSpecificError::ErrorCode(ErrorCode::StateMismatch),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfSealsReadFrontier,
+        operation_specific: &[OperationSpecificError::ErrorCode(
+            ErrorCode::FrontierUnavailable,
+        )],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfSealsReadGovernanceDependencies,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::NotFound),
+            OperationSpecificError::ErrorCode(ErrorCode::LimitExceeded),
+            OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
+            OperationSpecificError::ErrorCode(ErrorCode::StateMismatch),
+            OperationSpecificError::ErrorCode(ErrorCode::SignatureInvalid),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfSealsReadMlsGovernanceProof,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::NotFound),
+            OperationSpecificError::ErrorCode(ErrorCode::MlsGovernanceAnchorUnreachable),
+            OperationSpecificError::ErrorCode(ErrorCode::MlsGovernanceProofBoundsExceeded),
+            OperationSpecificError::ErrorCode(ErrorCode::FrontierUnavailable),
+            OperationSpecificError::ErrorCode(ErrorCode::StateMismatch),
+            OperationSpecificError::ErrorCode(ErrorCode::SignatureInvalid),
+            OperationSpecificError::ErrorCode(ErrorCode::UnsupportedProfile),
+        ],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::SelfSealsReadResolve,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::NotFound),
+            OperationSpecificError::ErrorCode(ErrorCode::LimitExceeded),
+        ],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::SelfSecurityTransactionCommandContinue,

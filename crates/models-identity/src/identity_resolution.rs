@@ -270,7 +270,7 @@ pub enum ResolutionDidBindingMethodProofKind {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ResolutionDidBindingWitness {
     pub witness_did: DidFullId,
-    pub controlling_organization: DidCoreId,
+    pub controlling_organization: DidFullId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -301,6 +301,8 @@ pub enum ResolutionMethodHistoryEvidence {
         adapter_version: String,
         boundary: ResolutionMethodEvidenceBoundary,
         evidence: ResolutionDidBindingEvidenceReceipt,
+        log_entries: Vec<serde_json::Value>,
+        witness_records: Vec<serde_json::Value>,
     },
     DidWebDocument {
         adapter_version: String,
@@ -334,42 +336,59 @@ impl ResolutionMethodHistoryEvidence {
     }
 
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
-        let (adapter, expected_adapter, expected_method, proof_count) = match self {
-            Self::WebvhLog {
-                adapter_version,
-                evidence,
-                ..
-            } => (
-                adapter_version,
-                "did:webvh:1.0",
-                "webvh",
-                evidence.method_proofs.len(),
-            ),
-            Self::DidWebDocument {
-                adapter_version,
-                evidence,
-                ..
-            } => (
-                adapter_version,
-                "did:web:1",
-                "web",
-                evidence.method_proofs.len(),
-            ),
-            Self::DidKeyExpansion {
-                adapter_version,
-                evidence,
-                ..
-            } => (
-                adapter_version,
-                "did:key:1",
-                "key",
-                evidence.method_proofs.len(),
-            ),
-        };
+        let (adapter, expected_adapter, expected_method, proof_count, log_entries_empty) =
+            match self {
+                Self::WebvhLog {
+                    adapter_version,
+                    evidence,
+                    log_entries,
+                    witness_records,
+                    ..
+                } => (
+                    adapter_version,
+                    "did:webvh:1.0",
+                    "webvh",
+                    evidence.method_proofs.len(),
+                    log_entries.is_empty()
+                        || log_entries.len() > 4_096
+                        || witness_records.len() > 4_096,
+                ),
+                Self::DidWebDocument {
+                    adapter_version,
+                    evidence,
+                    ..
+                } => (
+                    adapter_version,
+                    "did:web:1",
+                    "web",
+                    evidence.method_proofs.len(),
+                    false,
+                ),
+                Self::DidKeyExpansion {
+                    adapter_version,
+                    evidence,
+                    ..
+                } => (
+                    adapter_version,
+                    "did:key:1",
+                    "key",
+                    evidence.method_proofs.len(),
+                    false,
+                ),
+            };
         if adapter != expected_adapter
             || self.evidence().method != expected_method
             || (expected_method == "webvh" && proof_count != 1)
             || (expected_method != "webvh" && proof_count != 0)
+            || self.evidence().method_proofs.iter().any(|proof| {
+                proof.kind != ResolutionDidBindingMethodProofKind::WebvhLog
+                    || proof.history_head.is_empty()
+                    || proof
+                        .witnesses
+                        .windows(2)
+                        .any(|pair| pair[0].witness_did.as_str() >= pair[1].witness_did.as_str())
+            })
+            || log_entries_empty
             || self.boundary().from_method_history_head.is_empty()
             || self.boundary().from_version_id.is_empty()
             || self.boundary().to_method_history_head.is_empty()
@@ -579,6 +598,11 @@ impl AuthenticatedServiceResolution {
         expected_service_id: &DidCoreId,
         now: DateTime<Utc>,
     ) -> arkret_wire::Result<()> {
+        if arkret_canonical::canonical_json_bytes(self)?.len() > 1024 * 1024 {
+            return Err(arkret_wire::Error::Protocol(
+                "authenticated service resolution exceeds 1 MiB".to_owned(),
+            ));
+        }
         let record = &self.service_resolution_record.record;
         self.method_history_evidence.validate_shape()?;
         let projected = arkret_wire::project_full_id_to_core_id(&record.full_id)?;

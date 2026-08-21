@@ -4,15 +4,11 @@ use serde_json::json;
 
 mod models {
     pub use arkret_models_collaboration::events_payloads::{
-        HistorySharingPolicyPayload, HistorySharingPolicyPayloadValue,
-        HistorySharingPolicyPayloadValueAudit, RealmFreezePayload, StrandMoveExpectedPosition,
-        StrandMovePayload, StrandReorderExpectedPosition, StrandReorderPayload,
-        StrandWatchExpectedValue, StrandWatchLevel, StrandWatchSetPayload,
+        RealmFreezePayload, StrandMoveExpectedPosition, StrandMovePayload,
+        StrandReorderExpectedPosition, StrandReorderPayload, StrandWatchExpectedValue,
+        StrandWatchLevel, StrandWatchSetPayload,
     };
     pub use arkret_models_collaboration::governance::delivery_binding::DeliveryStatus;
-    pub use arkret_models_collaboration::governance::history_visibility::{
-        HistoryKeyShareDefault, HistoryKeySource,
-    };
     pub use arkret_models_collaboration::governance::invite_addressing::InviteDeliveryTarget;
     pub use arkret_models_collaboration::governance::membership_invite::{
         InviteCancelPayload, InviteCancelTargetState, InviteCreatePayload, InviteRevokePayload,
@@ -23,14 +19,14 @@ mod models {
         PlaintextServiceVisibility, PlaintextVisibleService, PlaintextVisibleServicesPayload,
     };
     pub use arkret_models_collaboration::governance::realm_lifecycle::{
-        HistoryVisibilityPayload, ObjectLifecyclePayload, RealmArchivePayload, RealmDestroyPayload,
+        HistoryAccessPayload, ObjectLifecyclePayload, RealmArchivePayload, RealmDestroyPayload,
         RealmTombstonePayload,
     };
     pub use arkret_models_collaboration::object_patch::ObjectPatchPayload;
     pub use arkret_models_identity::ServiceResolutionCarrier;
     pub use arkret_wire::patch::{Patch, PatchOp};
     pub use arkret_wire::{
-        DidCoreId, DidFullId, EventId, Hash, HistoryVisibility, InviteId, PlaintextDataClassKind,
+        DidCoreId, DidFullId, EventId, Hash, HistoryAccess, InviteId, PlaintextDataClassKind,
         RealmId, SpaceId, StrandId, project_full_id_to_core_id,
     };
 }
@@ -483,9 +479,7 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
     // Validate the strong types directly against the named `$defs/*_payload`
     // schema_ref so this test stays pinned to the exact artifact shape.
     use crate::models::{
-        HistoryKeyShareDefault, HistoryKeySource, HistorySharingPolicyPayload,
-        HistorySharingPolicyPayloadValue, HistorySharingPolicyPayloadValueAudit, HistoryVisibility,
-        HistoryVisibilityPayload, PlaintextDataClassKind, PlaintextServiceVisibility,
+        HistoryAccess, HistoryAccessPayload, PlaintextDataClassKind, PlaintextServiceVisibility,
         PlaintextVisibleService, PlaintextVisibleServicesPayload,
     };
     let Some(artifacts_dir) = default_spec_artifacts_dir() else {
@@ -494,11 +488,7 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
     let registry = schema_registry_from_spec_artifacts(&artifacts_dir).unwrap();
     let catalog = event_payload_validator_catalog_from_spec_artifacts(&artifacts_dir).unwrap();
     let history_ref = format!(
-        "{schemaid_event_payload_v1}#/$defs/history_visibility_payload",
-        schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
-    );
-    let history_policy_ref = format!(
-        "{schemaid_event_payload_v1}#/$defs/history_sharing_policy_payload",
+        "{schemaid_event_payload_v1}#/$defs/history_access_payload",
         schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
     );
     let services_ref = format!(
@@ -506,59 +496,23 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
         schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
     );
 
-    // history_visibility: non-restricted value carries just `{value}`.
-    let shared = HistoryVisibilityPayload::new(HistoryVisibility::Shared);
+    let initial = HistoryAccessPayload::initialize(HistoryAccess::AllHistoryForCurrentMembers);
     registry
-        .validate_value(&history_ref, &shared.to_value().unwrap())
+        .validate_value(&history_ref, &initial.to_value().unwrap())
         .unwrap();
     catalog
         .validate_payload(
-            EventKind::RealmHistoryVisibility.as_str(),
-            &shared.to_value().unwrap(),
+            EventKind::RealmHistoryAccess.as_str(),
+            &initial.to_value().unwrap(),
         )
         .unwrap();
-    // restricted requires restricted_policy_digest (schema allOf); to_value
-    // refuses to emit a non-conformant restricted payload.
-    assert!(
-        HistoryVisibilityPayload::new(HistoryVisibility::Restricted)
-            .to_value()
-            .is_err()
-    );
-    let restricted = HistoryVisibilityPayload::restricted("sha256:".to_owned() + &"a".repeat(64));
+    let tightened = HistoryAccessPayload::tighten();
     registry
-        .validate_value(&history_ref, &restricted.to_value().unwrap())
+        .validate_value(&history_ref, &tightened.to_value().unwrap())
         .unwrap();
-    // The named payload definition is closed at the top level.
-    let mut leaky = shared.to_value().unwrap();
+    let mut leaky = initial.to_value().unwrap();
     leaky["unexpected"] = json!(true);
     assert!(registry.validate_value(&history_ref, &leaky).is_err());
-
-    let history_policy = HistorySharingPolicyPayload {
-        value: HistorySharingPolicyPayloadValue {
-            version: 1,
-            default_key_share: HistoryKeyShareDefault::EventTimeVisibility,
-            pre_join_history: None,
-            post_removal_recovery: None,
-            allowed_key_sources: vec![HistoryKeySource::VerifiedMemberDevice],
-            allowed_receiver_states: None,
-            audit: HistorySharingPolicyPayloadValueAudit {
-                share_audit_event_required: false,
-                access_audit_required: false,
-            },
-            restricted_rules: None,
-        },
-        reason: None,
-    };
-    let history_policy_value = serde_json::to_value(&history_policy).unwrap();
-    registry
-        .validate_value(&history_policy_ref, &history_policy_value)
-        .unwrap();
-    catalog
-        .validate_payload(
-            EventKind::RealmHistorySharingPolicy.as_str(),
-            &history_policy_value,
-        )
-        .unwrap();
 
     // plaintext_visible_services: required item fields strongly typed.
     let services = PlaintextVisibleServicesPayload::new(vec![PlaintextVisibleService::new(

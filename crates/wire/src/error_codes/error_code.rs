@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-20.4;
-//! sha256=eb95e75c4c33459ebf274ccc6b586aa9777ab819646c7e561f6b58f5baadaecb Entries: error_codes=282
+//! Input: registry/error-code-registry.json; version=2026-08-21.1;
+//! sha256=363120b09cdc7e31888d0bb4412c61fa8c7d4a41fdd304f2397f0ada6a4ae360 Entries: error_codes=280
 
 use serde::{Deserialize, Serialize};
 
@@ -154,7 +154,6 @@ pub enum ErrorCode {
     HistoricalDidEvidenceInvalid,
     HistoricalOnly,
     HistoryNotVisible,
-    HistorySharingPolicyMissing,
     HlcLogicalOverflow,
     HttpSignatureInvalid,
     HttpSignatureRequired,
@@ -176,7 +175,6 @@ pub enum ErrorCode {
     MimiPayloadInvalid,
     MimiReporterResolutionRequired,
     MimiRoomBindingEventInvalid,
-    MlsGenerationProposalFanoutExceeded,
     MlsGenesisAlreadyExists,
     MlsGovernanceAnchorUnreachable,
     MlsGovernanceProofBoundsExceeded,
@@ -450,7 +448,6 @@ impl ErrorCode {
         Self::HistoricalDidEvidenceInvalid,
         Self::HistoricalOnly,
         Self::HistoryNotVisible,
-        Self::HistorySharingPolicyMissing,
         Self::HlcLogicalOverflow,
         Self::HttpSignatureInvalid,
         Self::HttpSignatureRequired,
@@ -472,7 +469,6 @@ impl ErrorCode {
         Self::MimiPayloadInvalid,
         Self::MimiReporterResolutionRequired,
         Self::MimiRoomBindingEventInvalid,
-        Self::MlsGenerationProposalFanoutExceeded,
         Self::MlsGenesisAlreadyExists,
         Self::MlsGovernanceAnchorUnreachable,
         Self::MlsGovernanceProofBoundsExceeded,
@@ -745,7 +741,6 @@ impl ErrorCode {
     pub const HISTORICAL_DID_EVIDENCE_INVALID: &'static str = "historical_did_evidence_invalid";
     pub const HISTORICAL_ONLY: &'static str = "historical_only";
     pub const HISTORY_NOT_VISIBLE: &'static str = "history_not_visible";
-    pub const HISTORY_SHARING_POLICY_MISSING: &'static str = "history_sharing_policy_missing";
     pub const HLC_LOGICAL_OVERFLOW: &'static str = "hlc_logical_overflow";
     pub const HTTP_SIGNATURE_INVALID: &'static str = "http_signature_invalid";
     pub const HTTP_SIGNATURE_REQUIRED: &'static str = "http_signature_required";
@@ -767,8 +762,6 @@ impl ErrorCode {
     pub const MIMI_PAYLOAD_INVALID: &'static str = "mimi_payload_invalid";
     pub const MIMI_REPORTER_RESOLUTION_REQUIRED: &'static str = "mimi_reporter_resolution_required";
     pub const MIMI_ROOM_BINDING_EVENT_INVALID: &'static str = "mimi_room_binding_event_invalid";
-    pub const MLS_GENERATION_PROPOSAL_FANOUT_EXCEEDED: &'static str =
-        "mls_generation_proposal_fanout_exceeded";
     pub const MLS_GENESIS_ALREADY_EXISTS: &'static str = "mls_genesis_already_exists";
     pub const MLS_GOVERNANCE_ANCHOR_UNREACHABLE: &'static str = "mls_governance_anchor_unreachable";
     pub const MLS_GOVERNANCE_PROOF_BOUNDS_EXCEEDED: &'static str =
@@ -1058,7 +1051,6 @@ impl ErrorCode {
             Self::HistoricalDidEvidenceInvalid => "historical_did_evidence_invalid",
             Self::HistoricalOnly => "historical_only",
             Self::HistoryNotVisible => "history_not_visible",
-            Self::HistorySharingPolicyMissing => "history_sharing_policy_missing",
             Self::HlcLogicalOverflow => "hlc_logical_overflow",
             Self::HttpSignatureInvalid => "http_signature_invalid",
             Self::HttpSignatureRequired => "http_signature_required",
@@ -1080,7 +1072,6 @@ impl ErrorCode {
             Self::MimiPayloadInvalid => "mimi_payload_invalid",
             Self::MimiReporterResolutionRequired => "mimi_reporter_resolution_required",
             Self::MimiRoomBindingEventInvalid => "mimi_room_binding_event_invalid",
-            Self::MlsGenerationProposalFanoutExceeded => "mls_generation_proposal_fanout_exceeded",
             Self::MlsGenesisAlreadyExists => "mls_genesis_already_exists",
             Self::MlsGovernanceAnchorUnreachable => "mls_governance_anchor_unreachable",
             Self::MlsGovernanceProofBoundsExceeded => "mls_governance_proof_bounds_exceeded",
@@ -1367,7 +1358,6 @@ impl ErrorCode {
             "historical_did_evidence_invalid" => Some(Self::HistoricalDidEvidenceInvalid),
             "historical_only" => Some(Self::HistoricalOnly),
             "history_not_visible" => Some(Self::HistoryNotVisible),
-            "history_sharing_policy_missing" => Some(Self::HistorySharingPolicyMissing),
             "hlc_logical_overflow" => Some(Self::HlcLogicalOverflow),
             "http_signature_invalid" => Some(Self::HttpSignatureInvalid),
             "http_signature_required" => Some(Self::HttpSignatureRequired),
@@ -1389,9 +1379,6 @@ impl ErrorCode {
             "mimi_payload_invalid" => Some(Self::MimiPayloadInvalid),
             "mimi_reporter_resolution_required" => Some(Self::MimiReporterResolutionRequired),
             "mimi_room_binding_event_invalid" => Some(Self::MimiRoomBindingEventInvalid),
-            "mls_generation_proposal_fanout_exceeded" => {
-                Some(Self::MlsGenerationProposalFanoutExceeded)
-            }
             "mls_genesis_already_exists" => Some(Self::MlsGenesisAlreadyExists),
             "mls_governance_anchor_unreachable" => Some(Self::MlsGovernanceAnchorUnreachable),
             "mls_governance_proof_bounds_exceeded" => Some(Self::MlsGovernanceProofBoundsExceeded),
@@ -2553,15 +2540,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The requested Event range, backfill window, preview field, or E2EE history key share is not visible to the caller under the target Event's T0 history_visibility and the current safety policy. Non-enumerating surfaces MAY map this to not_found. See zh/governance/history-visibility.md.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::HistorySharingPolicyMissing,
-        http_status: 422,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "A Realm or Circle attempted to use history_visibility=restricted, or to authorize a restricted history/key-share range, without an effective ak.realm.history_sharing_policy covering the target scope. Reducers and key sources MUST fail closed. See zh/governance/history-visibility.md.",
+        description: "The requested Event range, backfill window, preview field, or E2EE history key share is not visible to the caller under the target Event's T0 history_access and the current safety policy. Non-enumerating surfaces MAY map this to not_found. See zh/governance/history-visibility.md.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::HlcLogicalOverflow,
@@ -2732,14 +2711,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The caller-authored room binding Event is missing, unexpected, semantically inconsistent, or does not exactly bind the authenticated MIMI room update. These pre-admission causes deliberately share one outward envelope; the precise reason is audit-only.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::MlsGenerationProposalFanoutExceeded,
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "Sixteen not-yet-active candidate MLS groups already exist under one Direct Conversation active-generation predecessor, so the seventeenth ak.direct_conversation.mls_generation.activate candidate is refused. The cap is a hard structural bound and not a rate limit: 409 is correct and 429 is not, waiting alone never clears it, and progress requires one existing candidate to be activated by the cell or to expire. Only the offending candidate is refused with zero writes; the pair MUST NOT be quarantined and its coordinates, binding, membership and current active generation stay untouched. Servers MUST NOT promise a retry window through retry_after_ms for this code. Semantically it is the Direct Conversation sibling of contact_lineage_conflict rather than of rate_limited. See zh/identity/contact-and-direct-conversation.md §7.3.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::MlsGenesisAlreadyExists,
         http_status: 409,
         http_status_by_context: &[],
@@ -2753,7 +2724,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The MLS governance proof service cannot construct a verified Seal extension path from the exact trusted_anchor_seal_id supplied by the caller to the target accepted Seal. The service MUST NOT substitute or recommend an untrusted anchor. The caller MAY retry with another locally trusted older/genesis/compaction anchor or another authorized proof service.",
+        description: "The exact canonical proof_target_basis does not dominate the exact caller-supplied, locally trusted canonical proof_base_basis: at least one base leaf is neither retained as a target leaf nor an ancestor of a target leaf. Concurrent or otherwise unreachable cuts produce this error; byte-identical base and target antichains are a valid zero-transition query and MUST NOT produce it. Missing required Seal/Event/witness material that prevents the service from deciding dominance is frontier_unavailable instead. The service MUST NOT substitute a single head, common descendant, target, or untrusted base. The caller MAY retry only with another complete locally trusted basis or another authorized proof service.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MlsGovernanceProofBoundsExceeded,
@@ -2761,7 +2732,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The complete_control_state_v1 logical bundle exceeds a v1 total-item, total-byte, chunk-count, or collection-count interoperability bound and cannot be materialized without truncation. The service MUST NOT return a partial bundle. A caller MAY retry with a nearer locally trusted anchor only when the exceeded bound is seal_path; otherwise it MUST fail closed until a separately registered compact completeness profile or a smaller accepted state is available.",
+        description: "The complete near-current group_security_frontier outcome cannot fit the caller byte_limit or the v1 1 MiB canonical-response ceiling without splitting a registered frontier cell or completeness witness. The service MUST NOT truncate, omit boundary/nonmembership evidence, return a partial outcome, or split the request. The caller must present a closer independently verified proof_base_basis or fail closed; bulk history uses receipt-bound direct traversal and does not alter this query.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MlsKeypackageClaimRequestExpired,
@@ -2817,7 +2788,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "Realm create rejected: notary_profile=single_did was declared without a recovery_notary in a different controlling organization, in violation of zh/authz/event-auth-state-resolution.md §9.3.",
+        description: "Realm create rejected: notary.kind=single_signer was configured without the required disjoint recovery signer organization, in violation of zh/authz/event-auth-state-resolution.md §9.3.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::OneTimeKeysExhausted,
@@ -2937,7 +2908,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The submitted Realm policy combination (discoverability × join_rule × history_visibility) violates the v1 normative compatibility matrix in zh/discovery/discovery-directory.md §3.1. Reducer keeps the prior accepted state.",
+        description: "The submitted Realm policy combination (discoverability × join_rule × history_access) violates the v1 normative compatibility matrix in zh/discovery/discovery-directory.md §3.1. Reducer keeps the prior accepted state.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PolicyDenied,

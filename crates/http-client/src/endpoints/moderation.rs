@@ -14,9 +14,10 @@ impl Client {
     pub async fn moderation_report(
         &self,
         request: &ModerationReportRequestBody,
+        digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<ModerationReportOutcome> {
-        request.validate()?;
-        let expected_report_id = request.report_id()?;
+        request.validate(digest_suite)?;
+        let expected_report_id = request.report_id(digest_suite)?;
         let outcome: ModerationReportOutcome = self
             .post("/_arkret/self/moderation/report", request)
             .await?;
@@ -35,8 +36,9 @@ impl Client {
         &self,
         realm_id: &RealmId,
         request: &RealmModerationPolicyReplaceRequestBody,
+        digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<RealmModerationPolicyDocument> {
-        request.validate(realm_id)?;
+        request.validate(realm_id, digest_suite)?;
         self.put(
             &format!("/_arkret/self/realms/{realm_id}/moderation-policy"),
             request,

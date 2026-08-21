@@ -43,8 +43,8 @@ impl PcrGenesisSubmitRequestBody {
         let proof = &self.identity_creation_control_proof;
         let create = self.genesis_unit.create();
         let authorize = self.genesis_unit.founding_authorize();
-        create.validate_proof_bindings()?;
-        authorize.validate_proof_bindings()?;
+        create.validate_proof_bindings_with_digest_suite(canonical::DigestSuite::Sha256)?;
+        authorize.validate_proof_bindings_with_digest_suite(canonical::DigestSuite::Sha256)?;
         if self.principal_id != proof.principal_id
             || self.full_id != proof.full_id
             || project_full_id_to_core_id(&self.full_id)? != self.principal_id
@@ -169,9 +169,18 @@ impl PcrGenesisSubmitOutcome {
             .ok_or_else(|| {
                 Error::Protocol("PCR genesis omits founding device descriptor".to_owned())
             })?;
-        let create_digest = Hash::new(request.genesis_unit.create().event_digest()?)?;
-        let authorize_digest =
-            Hash::new(request.genesis_unit.founding_authorize().event_digest()?)?;
+        let create_digest = Hash::new(
+            request
+                .genesis_unit
+                .create()
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)?,
+        )?;
+        let authorize_digest = Hash::new(
+            request
+                .genesis_unit
+                .founding_authorize()
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)?,
+        )?;
         if self.principal_id != request.principal_id
             || self.pcr_realm_id != request.pcr_realm_id
             || self.accepted_device_id != descriptor.device_id

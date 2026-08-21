@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-20.2;
-//! sha256=25022cde238919dd6772dbae82dc35dc60882c3bfcdbcfe2b0bb2bd10c0a27bc Entries: registered=243
+//! Input: registry/operation-registry.json; version=2026-08-21.1;
+//! sha256=8e94da3cb7161250e9477e3669bceddbfee57bd2fef4a3988666a1ecaa07da6d Entries: registered=257
 
 use serde::{Deserialize, Serialize};
 
@@ -77,7 +77,6 @@ pub enum ServiceOperationId {
     PeerAccountStatusReadResolve,
     PeerContactsCommandSubmit,
     PeerDeviceRevocationsCommandCheck,
-    PeerDirectConversationCommandRepairRelay,
     PeerErasureReceiptCommandSubmit,
     PeerErasureReceiptResourceGet,
     PeerEventsCommandSubmit,
@@ -85,11 +84,18 @@ pub enum ServiceOperationId {
     PeerEventsReadFrontier,
     PeerEventsReadResolve,
     PeerEventsReadScan,
+    PeerHistoryKeyRequestsCommandReplicate,
+    PeerHistoryKeyResponsesCommandRelay,
     PeerInvitesCommandSubmit,
     PeerKeysKeypackagesCommandClaim,
     PeerKeysKeypackagesReadClaim,
     PeerMlsReadGroupStateMaterial,
+    PeerOrganizationRecoveryArchivesCommandReplicate,
     PeerPrincipalGenesisCommandSubmit,
+    PeerSealsReadFrontier,
+    PeerSealsReadGovernanceDependencies,
+    PeerSealsReadMlsGovernanceProof,
+    PeerSealsReadResolve,
     PeerServiceResolutionCommandPublish,
     PeerServiceResolutionReadResolve,
     PeerSignalCommandRelay,
@@ -180,18 +186,20 @@ pub enum ServiceOperationId {
     SelfDeviceMessagesCommandAck,
     SelfDeviceMessagesCommandSend,
     SelfDeviceMessagesReadList,
-    SelfDirectConversationCommandRepairDispatch,
     SelfDirectConversationReadResolve,
     SelfEventsCommandSubmit,
-    SelfEventsCommandSubmitSeal,
     SelfEventsReadDeliveryStatus,
     SelfEventsReadDescribe,
     SelfEventsReadFrontier,
-    SelfEventsReadMlsGovernanceProof,
     SelfEventsReadResolve,
     SelfEventsReadScan,
     SelfEventsResourceGet,
     SelfEventsStreamSubscribe,
+    SelfHistoryKeyRequestsCommandCreate,
+    SelfHistoryKeyRequestsReadList,
+    SelfHistoryKeyResponsesCommandAck,
+    SelfHistoryKeyResponsesCommandSend,
+    SelfHistoryKeyResponsesReadList,
     SelfIdentityReadResolutionAudit,
     SelfInviteLocatorCommandIssue,
     SelfInviteLocatorCommandRevoke,
@@ -216,6 +224,7 @@ pub enum ServiceOperationId {
     SelfModerationCommandReport,
     SelfMorphReadList,
     SelfMorphResourceGet,
+    SelfOrganizationRecoveryArchivesReadList,
     SelfPolicyReadCheck,
     SelfReadCursorCommandAdvance,
     SelfReadCursorReadList,
@@ -241,6 +250,11 @@ pub enum ServiceOperationId {
     SelfRealmPolicyServerResourceDelete,
     SelfRealmPolicyServerResourceGet,
     SelfRealmPolicyServerResourceReplace,
+    SelfSealsCommandSubmit,
+    SelfSealsReadFrontier,
+    SelfSealsReadGovernanceDependencies,
+    SelfSealsReadMlsGovernanceProof,
+    SelfSealsReadResolve,
     SelfSecurityTransactionCommandContinue,
     SelfSecurityTransactionCommandCreate,
     SelfSecurityTransactionResourceGet,
@@ -323,7 +337,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_ACCOUNT_STATUS_READ_RESOLVE,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_DEVICE_REVOCATIONS_COMMAND_CHECK,
-    ServiceOperationId::PEER_DIRECT_CONVERSATION_COMMAND_REPAIR_RELAY,
     ServiceOperationId::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT,
     ServiceOperationId::PEER_ERASURE_RECEIPT_RESOURCE_GET,
     ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT,
@@ -331,11 +344,18 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_EVENTS_READ_FRONTIER,
     ServiceOperationId::PEER_EVENTS_READ_RESOLVE,
     ServiceOperationId::PEER_EVENTS_READ_SCAN,
+    ServiceOperationId::PEER_HISTORY_KEY_REQUESTS_COMMAND_REPLICATE,
+    ServiceOperationId::PEER_HISTORY_KEY_RESPONSES_COMMAND_RELAY,
     ServiceOperationId::PEER_INVITES_COMMAND_SUBMIT,
     ServiceOperationId::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM,
     ServiceOperationId::PEER_KEYS_KEYPACKAGES_READ_CLAIM,
     ServiceOperationId::PEER_MLS_READ_GROUP_STATE_MATERIAL,
+    ServiceOperationId::PEER_ORGANIZATION_RECOVERY_ARCHIVES_COMMAND_REPLICATE,
     ServiceOperationId::PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT,
+    ServiceOperationId::PEER_SEALS_READ_FRONTIER,
+    ServiceOperationId::PEER_SEALS_READ_GOVERNANCE_DEPENDENCIES,
+    ServiceOperationId::PEER_SEALS_READ_MLS_GOVERNANCE_PROOF,
+    ServiceOperationId::PEER_SEALS_READ_RESOLVE,
     ServiceOperationId::PEER_SERVICE_RESOLUTION_COMMAND_PUBLISH,
     ServiceOperationId::PEER_SERVICE_RESOLUTION_READ_RESOLVE,
     ServiceOperationId::PEER_SIGNAL_COMMAND_RELAY,
@@ -426,18 +446,20 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_ACK,
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND,
     ServiceOperationId::SELF_DEVICE_MESSAGES_READ_LIST,
-    ServiceOperationId::SELF_DIRECT_CONVERSATION_COMMAND_REPAIR_DISPATCH,
     ServiceOperationId::SELF_DIRECT_CONVERSATION_READ_RESOLVE,
     ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT,
-    ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT_SEAL,
     ServiceOperationId::SELF_EVENTS_READ_DELIVERY_STATUS,
     ServiceOperationId::SELF_EVENTS_READ_DESCRIBE,
     ServiceOperationId::SELF_EVENTS_READ_FRONTIER,
-    ServiceOperationId::SELF_EVENTS_READ_MLS_GOVERNANCE_PROOF,
     ServiceOperationId::SELF_EVENTS_READ_RESOLVE,
     ServiceOperationId::SELF_EVENTS_READ_SCAN,
     ServiceOperationId::SELF_EVENTS_RESOURCE_GET,
     ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE,
+    ServiceOperationId::SELF_HISTORY_KEY_REQUESTS_COMMAND_CREATE,
+    ServiceOperationId::SELF_HISTORY_KEY_REQUESTS_READ_LIST,
+    ServiceOperationId::SELF_HISTORY_KEY_RESPONSES_COMMAND_ACK,
+    ServiceOperationId::SELF_HISTORY_KEY_RESPONSES_COMMAND_SEND,
+    ServiceOperationId::SELF_HISTORY_KEY_RESPONSES_READ_LIST,
     ServiceOperationId::SELF_IDENTITY_READ_RESOLUTION_AUDIT,
     ServiceOperationId::SELF_INVITE_LOCATOR_COMMAND_ISSUE,
     ServiceOperationId::SELF_INVITE_LOCATOR_COMMAND_REVOKE,
@@ -462,6 +484,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_MODERATION_COMMAND_REPORT,
     ServiceOperationId::SELF_MORPH_READ_LIST,
     ServiceOperationId::SELF_MORPH_RESOURCE_GET,
+    ServiceOperationId::SELF_ORGANIZATION_RECOVERY_ARCHIVES_READ_LIST,
     ServiceOperationId::SELF_POLICY_READ_CHECK,
     ServiceOperationId::SELF_READ_CURSOR_COMMAND_ADVANCE,
     ServiceOperationId::SELF_READ_CURSOR_READ_LIST,
@@ -487,6 +510,11 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_REALM_POLICY_SERVER_RESOURCE_DELETE,
     ServiceOperationId::SELF_REALM_POLICY_SERVER_RESOURCE_GET,
     ServiceOperationId::SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE,
+    ServiceOperationId::SELF_SEALS_COMMAND_SUBMIT,
+    ServiceOperationId::SELF_SEALS_READ_FRONTIER,
+    ServiceOperationId::SELF_SEALS_READ_GOVERNANCE_DEPENDENCIES,
+    ServiceOperationId::SELF_SEALS_READ_MLS_GOVERNANCE_PROOF,
+    ServiceOperationId::SELF_SEALS_READ_RESOLVE,
     ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE,
     ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CREATE,
     ServiceOperationId::SELF_SECURITY_TRANSACTION_RESOURCE_GET,
@@ -611,7 +639,6 @@ impl ServiceOperationId {
         Self::PeerAccountStatusReadResolve,
         Self::PeerContactsCommandSubmit,
         Self::PeerDeviceRevocationsCommandCheck,
-        Self::PeerDirectConversationCommandRepairRelay,
         Self::PeerErasureReceiptCommandSubmit,
         Self::PeerErasureReceiptResourceGet,
         Self::PeerEventsCommandSubmit,
@@ -619,11 +646,18 @@ impl ServiceOperationId {
         Self::PeerEventsReadFrontier,
         Self::PeerEventsReadResolve,
         Self::PeerEventsReadScan,
+        Self::PeerHistoryKeyRequestsCommandReplicate,
+        Self::PeerHistoryKeyResponsesCommandRelay,
         Self::PeerInvitesCommandSubmit,
         Self::PeerKeysKeypackagesCommandClaim,
         Self::PeerKeysKeypackagesReadClaim,
         Self::PeerMlsReadGroupStateMaterial,
+        Self::PeerOrganizationRecoveryArchivesCommandReplicate,
         Self::PeerPrincipalGenesisCommandSubmit,
+        Self::PeerSealsReadFrontier,
+        Self::PeerSealsReadGovernanceDependencies,
+        Self::PeerSealsReadMlsGovernanceProof,
+        Self::PeerSealsReadResolve,
         Self::PeerServiceResolutionCommandPublish,
         Self::PeerServiceResolutionReadResolve,
         Self::PeerSignalCommandRelay,
@@ -714,18 +748,20 @@ impl ServiceOperationId {
         Self::SelfDeviceMessagesCommandAck,
         Self::SelfDeviceMessagesCommandSend,
         Self::SelfDeviceMessagesReadList,
-        Self::SelfDirectConversationCommandRepairDispatch,
         Self::SelfDirectConversationReadResolve,
         Self::SelfEventsCommandSubmit,
-        Self::SelfEventsCommandSubmitSeal,
         Self::SelfEventsReadDeliveryStatus,
         Self::SelfEventsReadDescribe,
         Self::SelfEventsReadFrontier,
-        Self::SelfEventsReadMlsGovernanceProof,
         Self::SelfEventsReadResolve,
         Self::SelfEventsReadScan,
         Self::SelfEventsResourceGet,
         Self::SelfEventsStreamSubscribe,
+        Self::SelfHistoryKeyRequestsCommandCreate,
+        Self::SelfHistoryKeyRequestsReadList,
+        Self::SelfHistoryKeyResponsesCommandAck,
+        Self::SelfHistoryKeyResponsesCommandSend,
+        Self::SelfHistoryKeyResponsesReadList,
         Self::SelfIdentityReadResolutionAudit,
         Self::SelfInviteLocatorCommandIssue,
         Self::SelfInviteLocatorCommandRevoke,
@@ -750,6 +786,7 @@ impl ServiceOperationId {
         Self::SelfModerationCommandReport,
         Self::SelfMorphReadList,
         Self::SelfMorphResourceGet,
+        Self::SelfOrganizationRecoveryArchivesReadList,
         Self::SelfPolicyReadCheck,
         Self::SelfReadCursorCommandAdvance,
         Self::SelfReadCursorReadList,
@@ -775,6 +812,11 @@ impl ServiceOperationId {
         Self::SelfRealmPolicyServerResourceDelete,
         Self::SelfRealmPolicyServerResourceGet,
         Self::SelfRealmPolicyServerResourceReplace,
+        Self::SelfSealsCommandSubmit,
+        Self::SelfSealsReadFrontier,
+        Self::SelfSealsReadGovernanceDependencies,
+        Self::SelfSealsReadMlsGovernanceProof,
+        Self::SelfSealsReadResolve,
         Self::SelfSecurityTransactionCommandContinue,
         Self::SelfSecurityTransactionCommandCreate,
         Self::SelfSecurityTransactionResourceGet,
@@ -903,8 +945,6 @@ impl ServiceOperationId {
     pub const PEER_CONTACTS_COMMAND_SUBMIT: &'static str = "ak.peer.contacts.command.submit";
     pub const PEER_DEVICE_REVOCATIONS_COMMAND_CHECK: &'static str =
         "ak.peer.device_revocations.command.check";
-    pub const PEER_DIRECT_CONVERSATION_COMMAND_REPAIR_RELAY: &'static str =
-        "ak.peer.direct_conversation.command.repair_relay";
     pub const PEER_ERASURE_RECEIPT_COMMAND_SUBMIT: &'static str =
         "ak.peer.erasure_receipt.command.submit";
     pub const PEER_ERASURE_RECEIPT_RESOURCE_GET: &'static str =
@@ -914,6 +954,10 @@ impl ServiceOperationId {
     pub const PEER_EVENTS_READ_FRONTIER: &'static str = "ak.peer.events.read.frontier";
     pub const PEER_EVENTS_READ_RESOLVE: &'static str = "ak.peer.events.read.resolve";
     pub const PEER_EVENTS_READ_SCAN: &'static str = "ak.peer.events.read.scan";
+    pub const PEER_HISTORY_KEY_REQUESTS_COMMAND_REPLICATE: &'static str =
+        "ak.peer.history_key_requests.command.replicate";
+    pub const PEER_HISTORY_KEY_RESPONSES_COMMAND_RELAY: &'static str =
+        "ak.peer.history_key_responses.command.relay";
     pub const PEER_INVITES_COMMAND_SUBMIT: &'static str = "ak.peer.invites.command.submit";
     pub const PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM: &'static str =
         "ak.peer.keys.keypackages.command.claim";
@@ -921,8 +965,16 @@ impl ServiceOperationId {
         "ak.peer.keys.keypackages.read.claim";
     pub const PEER_MLS_READ_GROUP_STATE_MATERIAL: &'static str =
         "ak.peer.mls.read.group_state_material";
+    pub const PEER_ORGANIZATION_RECOVERY_ARCHIVES_COMMAND_REPLICATE: &'static str =
+        "ak.peer.organization_recovery_archives.command.replicate";
     pub const PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT: &'static str =
         "ak.peer.principal_genesis.command.submit";
+    pub const PEER_SEALS_READ_FRONTIER: &'static str = "ak.peer.seals.read.frontier";
+    pub const PEER_SEALS_READ_GOVERNANCE_DEPENDENCIES: &'static str =
+        "ak.peer.seals.read.governance_dependencies";
+    pub const PEER_SEALS_READ_MLS_GOVERNANCE_PROOF: &'static str =
+        "ak.peer.seals.read.mls_governance_proof";
+    pub const PEER_SEALS_READ_RESOLVE: &'static str = "ak.peer.seals.read.resolve";
     pub const PEER_SERVICE_RESOLUTION_COMMAND_PUBLISH: &'static str =
         "ak.peer.service_resolution.command.publish";
     pub const PEER_SERVICE_RESOLUTION_READ_RESOLVE: &'static str =
@@ -1058,22 +1110,27 @@ impl ServiceOperationId {
     pub const SELF_DEVICE_MESSAGES_COMMAND_SEND: &'static str =
         "ak.self.device_messages.command.send";
     pub const SELF_DEVICE_MESSAGES_READ_LIST: &'static str = "ak.self.device_messages.read.list";
-    pub const SELF_DIRECT_CONVERSATION_COMMAND_REPAIR_DISPATCH: &'static str =
-        "ak.self.direct_conversation.command.repair_dispatch";
     pub const SELF_DIRECT_CONVERSATION_READ_RESOLVE: &'static str =
         "ak.self.direct_conversation.read.resolve";
     pub const SELF_EVENTS_COMMAND_SUBMIT: &'static str = "ak.self.events.command.submit";
-    pub const SELF_EVENTS_COMMAND_SUBMIT_SEAL: &'static str = "ak.self.events.command.submit_seal";
     pub const SELF_EVENTS_READ_DELIVERY_STATUS: &'static str =
         "ak.self.events.read.delivery_status";
     pub const SELF_EVENTS_READ_DESCRIBE: &'static str = "ak.self.events.read.describe";
     pub const SELF_EVENTS_READ_FRONTIER: &'static str = "ak.self.events.read.frontier";
-    pub const SELF_EVENTS_READ_MLS_GOVERNANCE_PROOF: &'static str =
-        "ak.self.events.read.mls_governance_proof";
     pub const SELF_EVENTS_READ_RESOLVE: &'static str = "ak.self.events.read.resolve";
     pub const SELF_EVENTS_READ_SCAN: &'static str = "ak.self.events.read.scan";
     pub const SELF_EVENTS_RESOURCE_GET: &'static str = "ak.self.events.resource.get";
     pub const SELF_EVENTS_STREAM_SUBSCRIBE: &'static str = "ak.self.events.stream.subscribe";
+    pub const SELF_HISTORY_KEY_REQUESTS_COMMAND_CREATE: &'static str =
+        "ak.self.history_key_requests.command.create";
+    pub const SELF_HISTORY_KEY_REQUESTS_READ_LIST: &'static str =
+        "ak.self.history_key_requests.read.list";
+    pub const SELF_HISTORY_KEY_RESPONSES_COMMAND_ACK: &'static str =
+        "ak.self.history_key_responses.command.ack";
+    pub const SELF_HISTORY_KEY_RESPONSES_COMMAND_SEND: &'static str =
+        "ak.self.history_key_responses.command.send";
+    pub const SELF_HISTORY_KEY_RESPONSES_READ_LIST: &'static str =
+        "ak.self.history_key_responses.read.list";
     pub const SELF_IDENTITY_READ_RESOLUTION_AUDIT: &'static str =
         "ak.self.identity.read.resolution_audit";
     pub const SELF_INVITE_LOCATOR_COMMAND_ISSUE: &'static str =
@@ -1113,6 +1170,8 @@ impl ServiceOperationId {
     pub const SELF_MODERATION_COMMAND_REPORT: &'static str = "ak.self.moderation.command.report";
     pub const SELF_MORPH_READ_LIST: &'static str = "ak.self.morph.read.list";
     pub const SELF_MORPH_RESOURCE_GET: &'static str = "ak.self.morph.resource.get";
+    pub const SELF_ORGANIZATION_RECOVERY_ARCHIVES_READ_LIST: &'static str =
+        "ak.self.organization_recovery_archives.read.list";
     pub const SELF_POLICY_READ_CHECK: &'static str = "ak.self.policy.read.check";
     pub const SELF_READ_CURSOR_COMMAND_ADVANCE: &'static str =
         "ak.self.read_cursor.command.advance";
@@ -1152,6 +1211,13 @@ impl ServiceOperationId {
         "ak.self.realm_policy_server.resource.get";
     pub const SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE: &'static str =
         "ak.self.realm_policy_server.resource.replace";
+    pub const SELF_SEALS_COMMAND_SUBMIT: &'static str = "ak.self.seals.command.submit";
+    pub const SELF_SEALS_READ_FRONTIER: &'static str = "ak.self.seals.read.frontier";
+    pub const SELF_SEALS_READ_GOVERNANCE_DEPENDENCIES: &'static str =
+        "ak.self.seals.read.governance_dependencies";
+    pub const SELF_SEALS_READ_MLS_GOVERNANCE_PROOF: &'static str =
+        "ak.self.seals.read.mls_governance_proof";
+    pub const SELF_SEALS_READ_RESOLVE: &'static str = "ak.self.seals.read.resolve";
     pub const SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE: &'static str =
         "ak.self.security_transaction.command.continue";
     pub const SELF_SECURITY_TRANSACTION_COMMAND_CREATE: &'static str =
@@ -1281,9 +1347,6 @@ impl ServiceOperationId {
             Self::PeerAccountStatusReadResolve => Self::PEER_ACCOUNT_STATUS_READ_RESOLVE,
             Self::PeerContactsCommandSubmit => Self::PEER_CONTACTS_COMMAND_SUBMIT,
             Self::PeerDeviceRevocationsCommandCheck => Self::PEER_DEVICE_REVOCATIONS_COMMAND_CHECK,
-            Self::PeerDirectConversationCommandRepairRelay => {
-                Self::PEER_DIRECT_CONVERSATION_COMMAND_REPAIR_RELAY
-            }
             Self::PeerErasureReceiptCommandSubmit => Self::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT,
             Self::PeerErasureReceiptResourceGet => Self::PEER_ERASURE_RECEIPT_RESOURCE_GET,
             Self::PeerEventsCommandSubmit => Self::PEER_EVENTS_COMMAND_SUBMIT,
@@ -1291,11 +1354,26 @@ impl ServiceOperationId {
             Self::PeerEventsReadFrontier => Self::PEER_EVENTS_READ_FRONTIER,
             Self::PeerEventsReadResolve => Self::PEER_EVENTS_READ_RESOLVE,
             Self::PeerEventsReadScan => Self::PEER_EVENTS_READ_SCAN,
+            Self::PeerHistoryKeyRequestsCommandReplicate => {
+                Self::PEER_HISTORY_KEY_REQUESTS_COMMAND_REPLICATE
+            }
+            Self::PeerHistoryKeyResponsesCommandRelay => {
+                Self::PEER_HISTORY_KEY_RESPONSES_COMMAND_RELAY
+            }
             Self::PeerInvitesCommandSubmit => Self::PEER_INVITES_COMMAND_SUBMIT,
             Self::PeerKeysKeypackagesCommandClaim => Self::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM,
             Self::PeerKeysKeypackagesReadClaim => Self::PEER_KEYS_KEYPACKAGES_READ_CLAIM,
             Self::PeerMlsReadGroupStateMaterial => Self::PEER_MLS_READ_GROUP_STATE_MATERIAL,
+            Self::PeerOrganizationRecoveryArchivesCommandReplicate => {
+                Self::PEER_ORGANIZATION_RECOVERY_ARCHIVES_COMMAND_REPLICATE
+            }
             Self::PeerPrincipalGenesisCommandSubmit => Self::PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT,
+            Self::PeerSealsReadFrontier => Self::PEER_SEALS_READ_FRONTIER,
+            Self::PeerSealsReadGovernanceDependencies => {
+                Self::PEER_SEALS_READ_GOVERNANCE_DEPENDENCIES
+            }
+            Self::PeerSealsReadMlsGovernanceProof => Self::PEER_SEALS_READ_MLS_GOVERNANCE_PROOF,
+            Self::PeerSealsReadResolve => Self::PEER_SEALS_READ_RESOLVE,
             Self::PeerServiceResolutionCommandPublish => {
                 Self::PEER_SERVICE_RESOLUTION_COMMAND_PUBLISH
             }
@@ -1430,20 +1508,24 @@ impl ServiceOperationId {
             Self::SelfDeviceMessagesCommandAck => Self::SELF_DEVICE_MESSAGES_COMMAND_ACK,
             Self::SelfDeviceMessagesCommandSend => Self::SELF_DEVICE_MESSAGES_COMMAND_SEND,
             Self::SelfDeviceMessagesReadList => Self::SELF_DEVICE_MESSAGES_READ_LIST,
-            Self::SelfDirectConversationCommandRepairDispatch => {
-                Self::SELF_DIRECT_CONVERSATION_COMMAND_REPAIR_DISPATCH
-            }
             Self::SelfDirectConversationReadResolve => Self::SELF_DIRECT_CONVERSATION_READ_RESOLVE,
             Self::SelfEventsCommandSubmit => Self::SELF_EVENTS_COMMAND_SUBMIT,
-            Self::SelfEventsCommandSubmitSeal => Self::SELF_EVENTS_COMMAND_SUBMIT_SEAL,
             Self::SelfEventsReadDeliveryStatus => Self::SELF_EVENTS_READ_DELIVERY_STATUS,
             Self::SelfEventsReadDescribe => Self::SELF_EVENTS_READ_DESCRIBE,
             Self::SelfEventsReadFrontier => Self::SELF_EVENTS_READ_FRONTIER,
-            Self::SelfEventsReadMlsGovernanceProof => Self::SELF_EVENTS_READ_MLS_GOVERNANCE_PROOF,
             Self::SelfEventsReadResolve => Self::SELF_EVENTS_READ_RESOLVE,
             Self::SelfEventsReadScan => Self::SELF_EVENTS_READ_SCAN,
             Self::SelfEventsResourceGet => Self::SELF_EVENTS_RESOURCE_GET,
             Self::SelfEventsStreamSubscribe => Self::SELF_EVENTS_STREAM_SUBSCRIBE,
+            Self::SelfHistoryKeyRequestsCommandCreate => {
+                Self::SELF_HISTORY_KEY_REQUESTS_COMMAND_CREATE
+            }
+            Self::SelfHistoryKeyRequestsReadList => Self::SELF_HISTORY_KEY_REQUESTS_READ_LIST,
+            Self::SelfHistoryKeyResponsesCommandAck => Self::SELF_HISTORY_KEY_RESPONSES_COMMAND_ACK,
+            Self::SelfHistoryKeyResponsesCommandSend => {
+                Self::SELF_HISTORY_KEY_RESPONSES_COMMAND_SEND
+            }
+            Self::SelfHistoryKeyResponsesReadList => Self::SELF_HISTORY_KEY_RESPONSES_READ_LIST,
             Self::SelfIdentityReadResolutionAudit => Self::SELF_IDENTITY_READ_RESOLUTION_AUDIT,
             Self::SelfInviteLocatorCommandIssue => Self::SELF_INVITE_LOCATOR_COMMAND_ISSUE,
             Self::SelfInviteLocatorCommandRevoke => Self::SELF_INVITE_LOCATOR_COMMAND_REVOKE,
@@ -1474,6 +1556,9 @@ impl ServiceOperationId {
             Self::SelfModerationCommandReport => Self::SELF_MODERATION_COMMAND_REPORT,
             Self::SelfMorphReadList => Self::SELF_MORPH_READ_LIST,
             Self::SelfMorphResourceGet => Self::SELF_MORPH_RESOURCE_GET,
+            Self::SelfOrganizationRecoveryArchivesReadList => {
+                Self::SELF_ORGANIZATION_RECOVERY_ARCHIVES_READ_LIST
+            }
             Self::SelfPolicyReadCheck => Self::SELF_POLICY_READ_CHECK,
             Self::SelfReadCursorCommandAdvance => Self::SELF_READ_CURSOR_COMMAND_ADVANCE,
             Self::SelfReadCursorReadList => Self::SELF_READ_CURSOR_READ_LIST,
@@ -1517,6 +1602,13 @@ impl ServiceOperationId {
             Self::SelfRealmPolicyServerResourceReplace => {
                 Self::SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE
             }
+            Self::SelfSealsCommandSubmit => Self::SELF_SEALS_COMMAND_SUBMIT,
+            Self::SelfSealsReadFrontier => Self::SELF_SEALS_READ_FRONTIER,
+            Self::SelfSealsReadGovernanceDependencies => {
+                Self::SELF_SEALS_READ_GOVERNANCE_DEPENDENCIES
+            }
+            Self::SelfSealsReadMlsGovernanceProof => Self::SELF_SEALS_READ_MLS_GOVERNANCE_PROOF,
+            Self::SelfSealsReadResolve => Self::SELF_SEALS_READ_RESOLVE,
             Self::SelfSecurityTransactionCommandContinue => {
                 Self::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE
             }
@@ -1663,9 +1755,6 @@ impl ServiceOperationId {
             Self::PEER_DEVICE_REVOCATIONS_COMMAND_CHECK => {
                 Some(Self::PeerDeviceRevocationsCommandCheck)
             }
-            Self::PEER_DIRECT_CONVERSATION_COMMAND_REPAIR_RELAY => {
-                Some(Self::PeerDirectConversationCommandRepairRelay)
-            }
             Self::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT => {
                 Some(Self::PeerErasureReceiptCommandSubmit)
             }
@@ -1675,15 +1764,32 @@ impl ServiceOperationId {
             Self::PEER_EVENTS_READ_FRONTIER => Some(Self::PeerEventsReadFrontier),
             Self::PEER_EVENTS_READ_RESOLVE => Some(Self::PeerEventsReadResolve),
             Self::PEER_EVENTS_READ_SCAN => Some(Self::PeerEventsReadScan),
+            Self::PEER_HISTORY_KEY_REQUESTS_COMMAND_REPLICATE => {
+                Some(Self::PeerHistoryKeyRequestsCommandReplicate)
+            }
+            Self::PEER_HISTORY_KEY_RESPONSES_COMMAND_RELAY => {
+                Some(Self::PeerHistoryKeyResponsesCommandRelay)
+            }
             Self::PEER_INVITES_COMMAND_SUBMIT => Some(Self::PeerInvitesCommandSubmit),
             Self::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM => {
                 Some(Self::PeerKeysKeypackagesCommandClaim)
             }
             Self::PEER_KEYS_KEYPACKAGES_READ_CLAIM => Some(Self::PeerKeysKeypackagesReadClaim),
             Self::PEER_MLS_READ_GROUP_STATE_MATERIAL => Some(Self::PeerMlsReadGroupStateMaterial),
+            Self::PEER_ORGANIZATION_RECOVERY_ARCHIVES_COMMAND_REPLICATE => {
+                Some(Self::PeerOrganizationRecoveryArchivesCommandReplicate)
+            }
             Self::PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT => {
                 Some(Self::PeerPrincipalGenesisCommandSubmit)
             }
+            Self::PEER_SEALS_READ_FRONTIER => Some(Self::PeerSealsReadFrontier),
+            Self::PEER_SEALS_READ_GOVERNANCE_DEPENDENCIES => {
+                Some(Self::PeerSealsReadGovernanceDependencies)
+            }
+            Self::PEER_SEALS_READ_MLS_GOVERNANCE_PROOF => {
+                Some(Self::PeerSealsReadMlsGovernanceProof)
+            }
+            Self::PEER_SEALS_READ_RESOLVE => Some(Self::PeerSealsReadResolve),
             Self::PEER_SERVICE_RESOLUTION_COMMAND_PUBLISH => {
                 Some(Self::PeerServiceResolutionCommandPublish)
             }
@@ -1834,24 +1940,30 @@ impl ServiceOperationId {
             Self::SELF_DEVICE_MESSAGES_COMMAND_ACK => Some(Self::SelfDeviceMessagesCommandAck),
             Self::SELF_DEVICE_MESSAGES_COMMAND_SEND => Some(Self::SelfDeviceMessagesCommandSend),
             Self::SELF_DEVICE_MESSAGES_READ_LIST => Some(Self::SelfDeviceMessagesReadList),
-            Self::SELF_DIRECT_CONVERSATION_COMMAND_REPAIR_DISPATCH => {
-                Some(Self::SelfDirectConversationCommandRepairDispatch)
-            }
             Self::SELF_DIRECT_CONVERSATION_READ_RESOLVE => {
                 Some(Self::SelfDirectConversationReadResolve)
             }
             Self::SELF_EVENTS_COMMAND_SUBMIT => Some(Self::SelfEventsCommandSubmit),
-            Self::SELF_EVENTS_COMMAND_SUBMIT_SEAL => Some(Self::SelfEventsCommandSubmitSeal),
             Self::SELF_EVENTS_READ_DELIVERY_STATUS => Some(Self::SelfEventsReadDeliveryStatus),
             Self::SELF_EVENTS_READ_DESCRIBE => Some(Self::SelfEventsReadDescribe),
             Self::SELF_EVENTS_READ_FRONTIER => Some(Self::SelfEventsReadFrontier),
-            Self::SELF_EVENTS_READ_MLS_GOVERNANCE_PROOF => {
-                Some(Self::SelfEventsReadMlsGovernanceProof)
-            }
             Self::SELF_EVENTS_READ_RESOLVE => Some(Self::SelfEventsReadResolve),
             Self::SELF_EVENTS_READ_SCAN => Some(Self::SelfEventsReadScan),
             Self::SELF_EVENTS_RESOURCE_GET => Some(Self::SelfEventsResourceGet),
             Self::SELF_EVENTS_STREAM_SUBSCRIBE => Some(Self::SelfEventsStreamSubscribe),
+            Self::SELF_HISTORY_KEY_REQUESTS_COMMAND_CREATE => {
+                Some(Self::SelfHistoryKeyRequestsCommandCreate)
+            }
+            Self::SELF_HISTORY_KEY_REQUESTS_READ_LIST => Some(Self::SelfHistoryKeyRequestsReadList),
+            Self::SELF_HISTORY_KEY_RESPONSES_COMMAND_ACK => {
+                Some(Self::SelfHistoryKeyResponsesCommandAck)
+            }
+            Self::SELF_HISTORY_KEY_RESPONSES_COMMAND_SEND => {
+                Some(Self::SelfHistoryKeyResponsesCommandSend)
+            }
+            Self::SELF_HISTORY_KEY_RESPONSES_READ_LIST => {
+                Some(Self::SelfHistoryKeyResponsesReadList)
+            }
             Self::SELF_IDENTITY_READ_RESOLUTION_AUDIT => {
                 Some(Self::SelfIdentityReadResolutionAudit)
             }
@@ -1894,6 +2006,9 @@ impl ServiceOperationId {
             Self::SELF_MODERATION_COMMAND_REPORT => Some(Self::SelfModerationCommandReport),
             Self::SELF_MORPH_READ_LIST => Some(Self::SelfMorphReadList),
             Self::SELF_MORPH_RESOURCE_GET => Some(Self::SelfMorphResourceGet),
+            Self::SELF_ORGANIZATION_RECOVERY_ARCHIVES_READ_LIST => {
+                Some(Self::SelfOrganizationRecoveryArchivesReadList)
+            }
             Self::SELF_POLICY_READ_CHECK => Some(Self::SelfPolicyReadCheck),
             Self::SELF_READ_CURSOR_COMMAND_ADVANCE => Some(Self::SelfReadCursorCommandAdvance),
             Self::SELF_READ_CURSOR_READ_LIST => Some(Self::SelfReadCursorReadList),
@@ -1943,6 +2058,15 @@ impl ServiceOperationId {
             Self::SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE => {
                 Some(Self::SelfRealmPolicyServerResourceReplace)
             }
+            Self::SELF_SEALS_COMMAND_SUBMIT => Some(Self::SelfSealsCommandSubmit),
+            Self::SELF_SEALS_READ_FRONTIER => Some(Self::SelfSealsReadFrontier),
+            Self::SELF_SEALS_READ_GOVERNANCE_DEPENDENCIES => {
+                Some(Self::SelfSealsReadGovernanceDependencies)
+            }
+            Self::SELF_SEALS_READ_MLS_GOVERNANCE_PROOF => {
+                Some(Self::SelfSealsReadMlsGovernanceProof)
+            }
+            Self::SELF_SEALS_READ_RESOLVE => Some(Self::SelfSealsReadResolve),
             Self::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE => {
                 Some(Self::SelfSecurityTransactionCommandContinue)
             }
@@ -3473,7 +3597,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some(
-            "schemas/identity-resolution.schema.json#/$defs/service_resolution_record",
+            "schemas/identity-resolution.schema.json#/$defs/authenticated_service_resolution",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -3572,33 +3696,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("origin_service_local_durable_revocation_gate_decision_ledger_only"),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerDirectConversationCommandRepairRelay,
-        http_method: "POST",
-        http_path: "/_arkret/peer/direct-conversations/repair-relay",
-        grpc: Some("PeerDirectConversation/RepairRelay"),
-        mq: Some("peer.direct_conversation.command.repair_relay"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("idempotency_key"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/direct-conversation-operations.schema.json#/$defs/direct_conversation_repair_relay_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/direct-conversation-operations.schema.json#/$defs/direct_conversation_repair_enqueue_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some(
-                "atomically_freezes_one_closed_recipient_target_snapshot_and_queue_batch_without_authoring_an_event",
-            ),
             branch_contract_json: None,
         }),
     },
@@ -3755,6 +3852,54 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerHistoryKeyRequestsCommandReplicate,
+        http_method: "POST",
+        http_path: "/_arkret/peer/history-key-requests/replicate",
+        grpc: Some("PeerHistoryKey/RequestReplicate"),
+        mq: Some("peer.history_key_requests.command.replicate"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(1048576),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("object_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/history_key_request_replica",
+        ),
+        response_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/history_key_request_replica_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerHistoryKeyResponsesCommandRelay,
+        http_method: "POST",
+        http_path: "/_arkret/peer/history-key-responses/relay",
+        grpc: Some("PeerHistoryKey/ResponseRelay"),
+        mq: Some("peer.history_key_responses.command.relay"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(8388608),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("object_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some("schemas/history-key.schema.json#/$defs/history_key_source_relay"),
+        response_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/history_key_response_send_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::PeerInvitesCommandSubmit,
         http_method: "POST",
         http_path: "/_arkret/peer/invites",
@@ -3845,6 +3990,31 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerOrganizationRecoveryArchivesCommandReplicate,
+        http_method: "POST",
+        http_path: "/_arkret/peer/organization-recovery-archives/replicate",
+        grpc: Some("PeerHistoryKey/OrganizationRecoveryArchiveReplicate"),
+        mq: Some("peer.organization_recovery_archives.command.replicate"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(1048576),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/organization_recovery_archive_replica",
+        ),
+        response_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/organization_recovery_archive_replica_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::PeerPrincipalGenesisCommandSubmit,
         http_method: "POST",
         http_path: "/_arkret/peer/principal-genesis",
@@ -3871,6 +4041,96 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: None,
             branch_contract_json: None,
         }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerSealsReadFrontier,
+        http_method: "QUERY",
+        http_path: "/_arkret/peer/seals/frontier",
+        grpc: Some("PeerSeals/Frontier"),
+        mq: Some("peer.seals.read.frontier"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/SealFrontierRequestBody",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/PeerSealFrontierState",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerSealsReadGovernanceDependencies,
+        http_method: "POST",
+        http_path: "/_arkret/peer/seals/governance-dependencies",
+        grpc: Some("PeerSeals/GovernanceDependencies"),
+        mq: Some("peer.seals.read.governance_dependencies"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(8388608),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/PeerGovernanceDependencyResolveRequest",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/GovernanceDependencyResolveOutcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerSealsReadMlsGovernanceProof,
+        http_method: "POST",
+        http_path: "/_arkret/peer/seals/mls-governance-proof",
+        grpc: Some("PeerSeals/MlsGovernanceProof"),
+        mq: Some("peer.seals.read.mls_governance_proof"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(1048576),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/mls-governance-proof-bundle.schema.json#/$defs/read_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/mls-governance-proof-bundle.schema.json#/$defs/read_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerSealsReadResolve,
+        http_method: "QUERY",
+        http_path: "/_arkret/peer/seals/resolve",
+        grpc: Some("PeerSeals/Resolve"),
+        mq: Some("peer.seals.read.resolve"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/PeerSealResolveRequestBody",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/SealResolveOutcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerServiceResolutionCommandPublish,
@@ -5903,33 +6163,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfDirectConversationCommandRepairDispatch,
-        http_method: "POST",
-        http_path: "/_arkret/self/direct-conversations/repair-dispatch",
-        grpc: Some("SelfDirectConversation/RepairDispatch"),
-        mq: Some("self.direct_conversation.command.repair_dispatch"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("request_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/direct-conversation-operations.schema.json#/$defs/direct_conversation_repair_dispatch_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/direct-conversation-operations.schema.json#/$defs/direct_conversation_repair_enqueue_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some(
-                "persists_a_byte_identical_service_local_peer_relay_outbox_without_authoring_an_event",
-            ),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfDirectConversationReadResolve,
         http_method: "POST",
         http_path: "/_arkret/self/direct-conversations/resolve",
@@ -5976,29 +6209,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
                 "$request.agent_transitions[*].event.kind",
             ])),
             rationale: None,
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfEventsCommandSubmitSeal,
-        http_method: "POST",
-        http_path: "/_arkret/self/events/seals",
-        grpc: Some("SelfEvents/SubmitSeal"),
-        mq: Some("self.events.command.submit_seal"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "schema_resource",
-        idempotency_mechanism: Some("canonical_hash"),
-        retry_safe: Some(true),
-        request_schema_ref: Some("schemas/seal.schema.json"),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventSealSubmitOutcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("commits_a_seal_not_an_event"),
             branch_contract_json: None,
         }),
     },
@@ -6057,24 +6267,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         response_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/EventsFrontierState",
         ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfEventsReadMlsGovernanceProof,
-        http_method: "QUERY",
-        http_path: "/_arkret/self/events/mls-governance-proof",
-        grpc: Some("SelfEvents/MlsGovernanceProof"),
-        mq: Some("self.events.read.mls_governance_proof"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/mls-governance-proof-bundle.schema.json#/$defs/proof_request",
-        ),
-        response_schema_ref: Some("schemas/mls-governance-proof-bundle.schema.json"),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -6147,6 +6339,119 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: None,
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfHistoryKeyRequestsCommandCreate,
+        http_method: "POST",
+        http_path: "/_arkret/self/history-key-requests",
+        grpc: Some("SelfHistoryKey/RequestCreate"),
+        mq: Some("self.history_key_requests.command.create"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(1048576),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("request_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some("schemas/history-key.schema.json#/$defs/history_key_request"),
+        response_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/history_key_request_create_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfHistoryKeyRequestsReadList,
+        http_method: "POST",
+        http_path: "/_arkret/self/history-key-requests/read",
+        grpc: Some("SelfHistoryKey/RequestList"),
+        mq: Some("self.history_key_requests.read.list"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(8388608),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/history_key_request_list_query",
+        ),
+        response_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/history_key_request_list_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfHistoryKeyResponsesCommandAck,
+        http_method: "POST",
+        http_path: "/_arkret/self/history-key-responses/{reply_mailbox_id}/ack",
+        grpc: Some("SelfHistoryKey/ResponseAck"),
+        mq: Some("self.history_key_responses.command.ack"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(1048576),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("protocol_sequence"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/history_key_response_ack_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/history_key_response_ack_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfHistoryKeyResponsesCommandSend,
+        http_method: "POST",
+        http_path: "/_arkret/self/history-key-responses",
+        grpc: Some("SelfHistoryKey/ResponseSend"),
+        mq: Some("self.history_key_responses.command.send"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(8388608),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("object_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/history_key_response_send_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/history_key_response_send_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfHistoryKeyResponsesReadList,
+        http_method: "POST",
+        http_path: "/_arkret/self/history-key-responses/{reply_mailbox_id}/read",
+        grpc: Some("SelfHistoryKey/ResponseList"),
+        mq: Some("self.history_key_responses.read.list"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(8388608),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/history_key_response_list_query",
+        ),
+        response_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/history_key_response_list_outcome",
+        ),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -6706,6 +7011,31 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfOrganizationRecoveryArchivesReadList,
+        http_method: "POST",
+        http_path: "/_arkret/self/organization-recovery-archives/read",
+        grpc: Some("SelfHistoryKey/OrganizationRecoveryArchiveList"),
+        mq: Some("self.organization_recovery_archives.read.list"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(8388608),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/organization_recovery_archive_list_query",
+        ),
+        response_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/organization_recovery_archive_list_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfPolicyReadCheck,
         http_method: "POST",
         http_path: "/_arkret/self/policy/check",
@@ -7253,6 +7583,109 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: None,
             branch_contract_json: None,
         }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfSealsCommandSubmit,
+        http_method: "POST",
+        http_path: "/_arkret/self/seals",
+        grpc: Some("SelfSeals/Submit"),
+        mq: Some("self.seals.command.submit"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some("schemas/seal.schema.json"),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/SealSubmitOutcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("commits_a_seal_not_an_event"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfSealsReadFrontier,
+        http_method: "QUERY",
+        http_path: "/_arkret/self/seals/frontier",
+        grpc: Some("SelfSeals/Frontier"),
+        mq: Some("self.seals.read.frontier"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/SealFrontierRequestBody",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/SealFrontierState",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfSealsReadGovernanceDependencies,
+        http_method: "POST",
+        http_path: "/_arkret/self/seals/governance-dependencies",
+        grpc: Some("SelfSeals/GovernanceDependencies"),
+        mq: Some("self.seals.read.governance_dependencies"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(8388608),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/SelfGovernanceDependencyResolveRequest",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/GovernanceDependencyResolveOutcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfSealsReadMlsGovernanceProof,
+        http_method: "POST",
+        http_path: "/_arkret/self/seals/mls-governance-proof",
+        grpc: Some("SelfSeals/MlsGovernanceProof"),
+        mq: Some("self.seals.read.mls_governance_proof"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(1048576),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/mls-governance-proof-bundle.schema.json#/$defs/read_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/mls-governance-proof-bundle.schema.json#/$defs/read_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfSealsReadResolve,
+        http_method: "QUERY",
+        http_path: "/_arkret/self/seals/resolve",
+        grpc: Some("SelfSeals/Resolve"),
+        mq: Some("self.seals.read.resolve"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/SelfSealResolveRequestBody",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/SealResolveOutcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfSecurityTransactionCommandContinue,

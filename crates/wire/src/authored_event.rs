@@ -12,8 +12,9 @@
 //! [`AuthoredEvent`] closes that hole. It is the only type in the SDK whose
 //! `event_id` is guaranteed to equal the value re-derived from its own content,
 //! and it can only be obtained by finishing producer authoring
-//! ([`AuthoredEvent::finalize`]) or by proving an existing envelope already
-//! satisfies that equality ([`AuthoredEvent::from_verified`]). Producer fields
+//! ([`AuthoredEvent::finalize_with_digest_suite`]) or by proving an existing
+//! envelope already satisfies that equality
+//! ([`AuthoredEvent::from_verified_with_digest_suite`]). Producer fields
 //! are unreachable through `&mut`; the only in-place mutations are `proofs` and
 //! `unsigned`, both of which `event_digest_preimage` removes, so neither can
 //! move the identity.
@@ -61,13 +62,7 @@ pub struct AuthoredEvent {
 }
 
 impl AuthoredEvent {
-    /// Finish producer authoring: derive `event_id` from the finished envelope
-    /// under the v1 default digest suite.
-    pub fn finalize(event: Event) -> Result<Self> {
-        Self::finalize_with_digest_suite(event, DigestSuite::Sha256)
-    }
-
-    /// [`Self::finalize`] under the Realm's declared content digest suite.
+    /// Finish producer authoring under the Realm's declared content digest suite.
     ///
     /// The suite is an explicit input because it is accepted Realm state, never
     /// a fact inferred from the Event being authored. It is retained so proof
@@ -96,11 +91,7 @@ impl AuthoredEvent {
     /// the wire, restored from a durable queue, or reconstructed from canonical
     /// digest-payload bytes. It never rewrites `event_id`; a mismatch is a
     /// fail-closed error naming the caller's authoring mistake.
-    pub fn from_verified(event: Event) -> Result<Self> {
-        Self::from_verified_with_digest_suite(event, DigestSuite::Sha256)
-    }
-
-    /// [`Self::from_verified`] under an explicit Realm digest suite.
+    /// Accept an already identified Event under an explicit Realm digest suite.
     pub fn from_verified_with_digest_suite(
         event: Event,
         digest_suite: DigestSuite,
@@ -223,17 +214,33 @@ impl From<AuthoredEvent> for Event {
 
 impl Serialize for AuthoredEvent {
     fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
-        self.event.serialize(serializer)
+        AuthoredEventRecordRef {
+            digest_suite: self.digest_suite,
+            event: &self.event,
+        }
+        .serialize(serializer)
     }
 }
 
-/// Deserialization re-proves the identity instead of trusting it: a durable
-/// queue record or an inbound envelope that disagrees with its own content
-/// never materializes as an [`AuthoredEvent`].
+#[derive(Serialize)]
+#[serde(deny_unknown_fields)]
+struct AuthoredEventRecordRef<'a> {
+    digest_suite: DigestSuite,
+    event: &'a Event,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AuthoredEventRecord {
+    digest_suite: DigestSuite,
+    event: Event,
+}
+
 impl<'de> Deserialize<'de> for AuthoredEvent {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
-        let event = Event::deserialize(deserializer)?;
-        Self::from_verified(event).map_err(serde::de::Error::custom)
+        let record = AuthoredEventRecord::deserialize(deserializer)?;
+        Self::from_verified_with_digest_suite(record.event, record.digest_suite)
+            .map_err(serde::de::Error::custom)
     }
 }
 
@@ -247,6 +254,8 @@ mod tests {
     use crate::{
         DidCoreId, DidUrl, EventId, EventRequirements, Hash, Hlc, Proof, RealmId, ScopeRef,
     };
+
+    const SUITE: DigestSuite = DigestSuite::Sha256;
 
     fn realm() -> RealmId {
         RealmId::new("ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir").unwrap()
@@ -293,6 +302,8 @@ mod tests {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
+            signer_resolution_evidence_ref: None,
+            signer_resolution_evidence_digest: None,
             created_at: "2026-08-09T01:02:03.000Z".parse().unwrap(),
             domain: None,
             audience: None,
@@ -303,19 +314,25 @@ mod tests {
 
     #[test]
     fn finalize_derives_the_identity_and_verification_holds() {
-        let authored = AuthoredEvent::finalize(envelope()).unwrap();
+        let authored = AuthoredEvent::finalize_with_digest_suite(envelope(), SUITE).unwrap();
         assert_eq!(
             authored.event_id(),
-            &authored.event().derive_event_id().unwrap()
+            &authored
+                .event()
+                .derive_event_id_with_digest_suite(SUITE)
+                .unwrap()
         );
         authored.verify_identity().unwrap();
     }
 
     #[test]
     fn finalize_refuses_an_envelope_that_already_carries_proofs() {
-        let mut event = AuthoredEvent::finalize(envelope()).unwrap().into_event();
+        let mut event = AuthoredEvent::finalize_with_digest_suite(envelope(), SUITE)
+            .unwrap()
+            .into_event();
         event.proofs = vec![producer_proof()];
-        let error = AuthoredEvent::finalize(event).expect_err("proofs precede nothing");
+        let error = AuthoredEvent::finalize_with_digest_suite(event, SUITE)
+            .expect_err("proofs precede nothing");
         assert!(
             format!("{error}").contains("authored_event_finalize_after_proof"),
             "got: {error}"
@@ -326,7 +343,7 @@ mod tests {
     /// attaching them must leave the identity exactly where authoring put it.
     #[test]
     fn proof_and_unsigned_members_do_not_move_the_identity() {
-        let mut authored = AuthoredEvent::finalize(envelope()).unwrap();
+        let mut authored = AuthoredEvent::finalize_with_digest_suite(envelope(), SUITE).unwrap();
         let event_id = authored.event_id().clone();
         authored.attach_proof(producer_proof());
         authored.insert_unsigned("local_operation_id", json!("holder-local"));
@@ -337,10 +354,12 @@ mod tests {
 
     #[test]
     fn from_verified_rejects_a_carried_identity_that_does_not_match_its_content() {
-        let mut event = AuthoredEvent::finalize(envelope()).unwrap().into_event();
+        let mut event = AuthoredEvent::finalize_with_digest_suite(envelope(), SUITE)
+            .unwrap()
+            .into_event();
         event.actor_seq += 1;
-        let error =
-            AuthoredEvent::from_verified(event).expect_err("content moved under a settled id");
+        let error = AuthoredEvent::from_verified_with_digest_suite(event, SUITE)
+            .expect_err("content moved under a settled id");
         assert!(
             format!("{error}").contains("event_id_digest_mismatch"),
             "got: {error}"
@@ -350,17 +369,17 @@ mod tests {
     /// A durable record is not a trusted source of identity: restoring one
     /// re-proves the binding rather than believing the stored `event_id`.
     #[test]
-    fn deserialization_reproves_the_identity() {
-        let authored = AuthoredEvent::finalize(envelope()).unwrap();
+    fn restoration_reproves_the_identity_with_the_frozen_suite() {
+        let authored = AuthoredEvent::finalize_with_digest_suite(envelope(), SUITE).unwrap();
         let json = serde_json::to_value(&authored).unwrap();
         let restored: AuthoredEvent = serde_json::from_value(json.clone()).unwrap();
         assert_eq!(restored, authored);
 
         let mut tampered = json;
-        tampered["event_id"] =
+        tampered["event"]["event_id"] =
             json!(EventId::from_digest(DigestSuite::Sha256, [0x11; 32]).as_str());
         let error = serde_json::from_value::<AuthoredEvent>(tampered)
-            .expect_err("a rewritten event_id must not deserialize");
+            .expect_err("a rewritten event_id must not restore");
         assert!(
             format!("{error}").contains("event_id_digest_mismatch"),
             "got: {error}"
@@ -377,7 +396,7 @@ mod tests {
         event.scope_ref = ScopeRef::RealmGenesis;
         event.actor_seq = 0;
         event.payload = BTreeMap::new();
-        let authored = AuthoredEvent::finalize(event).unwrap();
+        let authored = AuthoredEvent::finalize_with_digest_suite(event, SUITE).unwrap();
         assert_eq!(
             authored.realm_id,
             RealmId::from_event_id(authored.event_id())

@@ -1,23 +1,23 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-20.1;
-//! sha256=ce168a18b3a9ce9d43bef74bd73cd528e1eccb563573e9cee8e63e9a0101e108 Input: registry/
-//! exporter-label-registry.json; version=2026-08-13.2;
-//! sha256=d34969b38e82214fab7eda88928c1ee2c250b29be58d0c5968666ebb5ea54533 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-21.2;
+//! sha256=564fb6fc751e99ea0dc824a18f2bedc41e17433ca9c6c758d9ab68dca6e91f17 Input: registry/
+//! exporter-label-registry.json; version=2026-08-21.1;
+//! sha256=ce7f4a1c53b50f33ee71ba4a70e638819abfba103a3fa26560661fe516dc4d37 Input: registry/
 //! digest-suite-registry.json; version=2026-08-18;
 //! sha256=7b9f5368e30cebd43c509db7815b9a01681f8cf11147600f6be16bddcc74657f Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
 //! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
-//! hpke-suite-registry.json; version=2026-08-18;
-//! sha256=00564ec5d5f123c750c1db89e342e037d7bc8b12b42fb1f94eadd34fb3c5df41 Input: registry/
+//! hpke-suite-registry.json; version=2026-08-21.1;
+//! sha256=302712b7ef2d1dc1aa7569beed658534dcb03abc7bde83ed80cdf30894298412 Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-08-18;
 //! sha256=8a270bf4fb05fa17f1594d61252f573fff6eca36e2da7afa910fc44c7d334dad Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
 //! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=65, exporter_labels=9, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1, domain_separations=23, aead_profiles=2
+//! Entries: proof_contexts=78, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1, domain_separations=21, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -36,6 +36,7 @@ pub enum ProofContextId {
     AuditReleaseAttestationProofV1,
     AuditRywReceiptProofV1,
     AuthorizationLeaseProofV1,
+    AvailabilityReceiptProofV1,
     ControlProposalAuthorityAckProofV1,
     ControlProposalDecisionProofV1,
     DeviceAuthorizeAcceptedDevicePossessionProofV1,
@@ -53,6 +54,15 @@ pub enum ProofContextId {
     EventProofV1,
     ExtensionManifestProofV1,
     HandleClaimProofV1,
+    HistoryKeyRequestProofV1,
+    HistoryKeyRequestReceiptProofV1,
+    HistoryKeyRequestReplicaProofV1,
+    HistoryKeyRequestReplicaReceiptProofV1,
+    HistoryKeyResponseLostRecordProofV1,
+    HistoryKeyResponseProofV1,
+    HistoryKeyResponseRecordProofV1,
+    HistoryKeyResponseSendReceiptProofV1,
+    HistoryKeySourceRelayAttestationProofV1,
     IdentityCreationControlProofV1,
     IdentityReceiptProofV1,
     IngressReceiptProofV1,
@@ -69,14 +79,17 @@ pub enum ProofContextId {
     MimiProviderDirectoryProofV1,
     MimiRequestConsentRequestProofV1,
     MimiUpdateConsentRequestProofV1,
+    OrganizationRecoveryArchiveReplicaProofV1,
+    OrganizationRecoveryArchiveReplicaReceiptProofV1,
+    OrganizationRecoveryKeyHolderAcceptanceProofV1,
     OrganizationRegistrationControlProofV1,
     OrganizationRegistrationReceiptProofV1,
+    PeerSealFrontierProofV1,
     PrincipalLocatorProofV1,
     PrincipalResolutionProjectionAttestationProofV1,
     PrincipalServerAdmissionProofV1,
     RangeCompletenessAttestationProofV1,
     RealmJoinCandidateProofV1,
-    RealmKeyShareSenderProofV1,
     ReceiptProofV1,
     RegistrationDidEvidenceControlProofV1,
     ServiceRegistrationReceiptProofV1,
@@ -105,6 +118,7 @@ impl ProofContextId {
         Self::AuditReleaseAttestationProofV1,
         Self::AuditRywReceiptProofV1,
         Self::AuthorizationLeaseProofV1,
+        Self::AvailabilityReceiptProofV1,
         Self::ControlProposalAuthorityAckProofV1,
         Self::ControlProposalDecisionProofV1,
         Self::DeviceAuthorizeAcceptedDevicePossessionProofV1,
@@ -122,6 +136,15 @@ impl ProofContextId {
         Self::EventProofV1,
         Self::ExtensionManifestProofV1,
         Self::HandleClaimProofV1,
+        Self::HistoryKeyRequestProofV1,
+        Self::HistoryKeyRequestReceiptProofV1,
+        Self::HistoryKeyRequestReplicaProofV1,
+        Self::HistoryKeyRequestReplicaReceiptProofV1,
+        Self::HistoryKeyResponseLostRecordProofV1,
+        Self::HistoryKeyResponseProofV1,
+        Self::HistoryKeyResponseRecordProofV1,
+        Self::HistoryKeyResponseSendReceiptProofV1,
+        Self::HistoryKeySourceRelayAttestationProofV1,
         Self::IdentityCreationControlProofV1,
         Self::IdentityReceiptProofV1,
         Self::IngressReceiptProofV1,
@@ -138,14 +161,17 @@ impl ProofContextId {
         Self::MimiProviderDirectoryProofV1,
         Self::MimiRequestConsentRequestProofV1,
         Self::MimiUpdateConsentRequestProofV1,
+        Self::OrganizationRecoveryArchiveReplicaProofV1,
+        Self::OrganizationRecoveryArchiveReplicaReceiptProofV1,
+        Self::OrganizationRecoveryKeyHolderAcceptanceProofV1,
         Self::OrganizationRegistrationControlProofV1,
         Self::OrganizationRegistrationReceiptProofV1,
+        Self::PeerSealFrontierProofV1,
         Self::PrincipalLocatorProofV1,
         Self::PrincipalResolutionProjectionAttestationProofV1,
         Self::PrincipalServerAdmissionProofV1,
         Self::RangeCompletenessAttestationProofV1,
         Self::RealmJoinCandidateProofV1,
-        Self::RealmKeyShareSenderProofV1,
         Self::ReceiptProofV1,
         Self::RegistrationDidEvidenceControlProofV1,
         Self::ServiceRegistrationReceiptProofV1,
@@ -179,6 +205,7 @@ impl ProofContextId {
         "ak.audit-release-attestation-proof-v1";
     pub const AUDIT_RYW_RECEIPT_PROOF_V1: &'static str = "ak.audit-ryw-receipt-proof-v1";
     pub const AUTHORIZATION_LEASE_PROOF_V1: &'static str = "ak.authorization-lease-proof-v1";
+    pub const AVAILABILITY_RECEIPT_PROOF_V1: &'static str = "ak.availability-receipt-proof-v1";
     pub const CONTROL_PROPOSAL_AUTHORITY_ACK_PROOF_V1: &'static str =
         "ak.control-proposal-authority-ack-proof-v1";
     pub const CONTROL_PROPOSAL_DECISION_PROOF_V1: &'static str =
@@ -210,6 +237,22 @@ impl ProofContextId {
     pub const EVENT_PROOF_V1: &'static str = "ak.event-proof-v1";
     pub const EXTENSION_MANIFEST_PROOF_V1: &'static str = "ak.extension-manifest-proof-v1";
     pub const HANDLE_CLAIM_PROOF_V1: &'static str = "ak.handle-claim-proof-v1";
+    pub const HISTORY_KEY_REQUEST_PROOF_V1: &'static str = "ak.history-key-request-proof-v1";
+    pub const HISTORY_KEY_REQUEST_RECEIPT_PROOF_V1: &'static str =
+        "ak.history-key-request-receipt-proof-v1";
+    pub const HISTORY_KEY_REQUEST_REPLICA_PROOF_V1: &'static str =
+        "ak.history-key-request-replica-proof-v1";
+    pub const HISTORY_KEY_REQUEST_REPLICA_RECEIPT_PROOF_V1: &'static str =
+        "ak.history-key-request-replica-receipt-proof-v1";
+    pub const HISTORY_KEY_RESPONSE_LOST_RECORD_PROOF_V1: &'static str =
+        "ak.history-key-response-lost-record-proof-v1";
+    pub const HISTORY_KEY_RESPONSE_PROOF_V1: &'static str = "ak.history-key-response-proof-v1";
+    pub const HISTORY_KEY_RESPONSE_RECORD_PROOF_V1: &'static str =
+        "ak.history-key-response-record-proof-v1";
+    pub const HISTORY_KEY_RESPONSE_SEND_RECEIPT_PROOF_V1: &'static str =
+        "ak.history-key-response-send-receipt-proof-v1";
+    pub const HISTORY_KEY_SOURCE_RELAY_ATTESTATION_PROOF_V1: &'static str =
+        "ak.history-key-source-relay-attestation-proof-v1";
     pub const IDENTITY_CREATION_CONTROL_PROOF_V1: &'static str =
         "ak.identity-creation-control-proof-v1";
     pub const IDENTITY_RECEIPT_PROOF_V1: &'static str = "ak.identity-receipt-proof-v1";
@@ -239,10 +282,17 @@ impl ProofContextId {
         "ak.mimi-request-consent-request-proof-v1";
     pub const MIMI_UPDATE_CONSENT_REQUEST_PROOF_V1: &'static str =
         "ak.mimi-update-consent-request-proof-v1";
+    pub const ORGANIZATION_RECOVERY_ARCHIVE_REPLICA_PROOF_V1: &'static str =
+        "ak.organization-recovery-archive-replica-proof-v1";
+    pub const ORGANIZATION_RECOVERY_ARCHIVE_REPLICA_RECEIPT_PROOF_V1: &'static str =
+        "ak.organization-recovery-archive-replica-receipt-proof-v1";
+    pub const ORGANIZATION_RECOVERY_KEY_HOLDER_ACCEPTANCE_PROOF_V1: &'static str =
+        "ak.organization-recovery-key-holder-acceptance-proof-v1";
     pub const ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1: &'static str =
         "ak.organization-registration-control-proof-v1";
     pub const ORGANIZATION_REGISTRATION_RECEIPT_PROOF_V1: &'static str =
         "ak.organization-registration-receipt-proof-v1";
+    pub const PEER_SEAL_FRONTIER_PROOF_V1: &'static str = "ak.peer-seal-frontier-proof-v1";
     pub const PRINCIPAL_LOCATOR_PROOF_V1: &'static str = "ak.principal-locator-proof-v1";
     pub const PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1: &'static str =
         "ak.principal-resolution-projection-attestation-proof-v1";
@@ -251,7 +301,6 @@ impl ProofContextId {
     pub const RANGE_COMPLETENESS_ATTESTATION_PROOF_V1: &'static str =
         "ak.range-completeness-attestation-proof-v1";
     pub const REALM_JOIN_CANDIDATE_PROOF_V1: &'static str = "ak.realm-join-candidate-proof-v1";
-    pub const REALM_KEY_SHARE_SENDER_PROOF_V1: &'static str = "ak.realm-key-share-sender-proof-v1";
     pub const RECEIPT_PROOF_V1: &'static str = "ak.receipt-proof-v1";
     pub const REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_V1: &'static str =
         "ak.registration-did-evidence-control-proof-v1";
@@ -292,6 +341,7 @@ impl ProofContextId {
             Self::AuditReleaseAttestationProofV1 => Self::AUDIT_RELEASE_ATTESTATION_PROOF_V1,
             Self::AuditRywReceiptProofV1 => Self::AUDIT_RYW_RECEIPT_PROOF_V1,
             Self::AuthorizationLeaseProofV1 => Self::AUTHORIZATION_LEASE_PROOF_V1,
+            Self::AvailabilityReceiptProofV1 => Self::AVAILABILITY_RECEIPT_PROOF_V1,
             Self::ControlProposalAuthorityAckProofV1 => {
                 Self::CONTROL_PROPOSAL_AUTHORITY_ACK_PROOF_V1
             }
@@ -329,6 +379,23 @@ impl ProofContextId {
             Self::EventProofV1 => Self::EVENT_PROOF_V1,
             Self::ExtensionManifestProofV1 => Self::EXTENSION_MANIFEST_PROOF_V1,
             Self::HandleClaimProofV1 => Self::HANDLE_CLAIM_PROOF_V1,
+            Self::HistoryKeyRequestProofV1 => Self::HISTORY_KEY_REQUEST_PROOF_V1,
+            Self::HistoryKeyRequestReceiptProofV1 => Self::HISTORY_KEY_REQUEST_RECEIPT_PROOF_V1,
+            Self::HistoryKeyRequestReplicaProofV1 => Self::HISTORY_KEY_REQUEST_REPLICA_PROOF_V1,
+            Self::HistoryKeyRequestReplicaReceiptProofV1 => {
+                Self::HISTORY_KEY_REQUEST_REPLICA_RECEIPT_PROOF_V1
+            }
+            Self::HistoryKeyResponseLostRecordProofV1 => {
+                Self::HISTORY_KEY_RESPONSE_LOST_RECORD_PROOF_V1
+            }
+            Self::HistoryKeyResponseProofV1 => Self::HISTORY_KEY_RESPONSE_PROOF_V1,
+            Self::HistoryKeyResponseRecordProofV1 => Self::HISTORY_KEY_RESPONSE_RECORD_PROOF_V1,
+            Self::HistoryKeyResponseSendReceiptProofV1 => {
+                Self::HISTORY_KEY_RESPONSE_SEND_RECEIPT_PROOF_V1
+            }
+            Self::HistoryKeySourceRelayAttestationProofV1 => {
+                Self::HISTORY_KEY_SOURCE_RELAY_ATTESTATION_PROOF_V1
+            }
             Self::IdentityCreationControlProofV1 => Self::IDENTITY_CREATION_CONTROL_PROOF_V1,
             Self::IdentityReceiptProofV1 => Self::IDENTITY_RECEIPT_PROOF_V1,
             Self::IngressReceiptProofV1 => Self::INGRESS_RECEIPT_PROOF_V1,
@@ -351,12 +418,22 @@ impl ProofContextId {
             Self::MimiProviderDirectoryProofV1 => Self::MIMI_PROVIDER_DIRECTORY_PROOF_V1,
             Self::MimiRequestConsentRequestProofV1 => Self::MIMI_REQUEST_CONSENT_REQUEST_PROOF_V1,
             Self::MimiUpdateConsentRequestProofV1 => Self::MIMI_UPDATE_CONSENT_REQUEST_PROOF_V1,
+            Self::OrganizationRecoveryArchiveReplicaProofV1 => {
+                Self::ORGANIZATION_RECOVERY_ARCHIVE_REPLICA_PROOF_V1
+            }
+            Self::OrganizationRecoveryArchiveReplicaReceiptProofV1 => {
+                Self::ORGANIZATION_RECOVERY_ARCHIVE_REPLICA_RECEIPT_PROOF_V1
+            }
+            Self::OrganizationRecoveryKeyHolderAcceptanceProofV1 => {
+                Self::ORGANIZATION_RECOVERY_KEY_HOLDER_ACCEPTANCE_PROOF_V1
+            }
             Self::OrganizationRegistrationControlProofV1 => {
                 Self::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1
             }
             Self::OrganizationRegistrationReceiptProofV1 => {
                 Self::ORGANIZATION_REGISTRATION_RECEIPT_PROOF_V1
             }
+            Self::PeerSealFrontierProofV1 => Self::PEER_SEAL_FRONTIER_PROOF_V1,
             Self::PrincipalLocatorProofV1 => Self::PRINCIPAL_LOCATOR_PROOF_V1,
             Self::PrincipalResolutionProjectionAttestationProofV1 => {
                 Self::PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1
@@ -366,7 +443,6 @@ impl ProofContextId {
                 Self::RANGE_COMPLETENESS_ATTESTATION_PROOF_V1
             }
             Self::RealmJoinCandidateProofV1 => Self::REALM_JOIN_CANDIDATE_PROOF_V1,
-            Self::RealmKeyShareSenderProofV1 => Self::REALM_KEY_SHARE_SENDER_PROOF_V1,
             Self::ReceiptProofV1 => Self::RECEIPT_PROOF_V1,
             Self::RegistrationDidEvidenceControlProofV1 => {
                 Self::REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_V1
@@ -412,6 +488,7 @@ impl ProofContextId {
             Self::AUDIT_RELEASE_ATTESTATION_PROOF_V1 => Some(Self::AuditReleaseAttestationProofV1),
             Self::AUDIT_RYW_RECEIPT_PROOF_V1 => Some(Self::AuditRywReceiptProofV1),
             Self::AUTHORIZATION_LEASE_PROOF_V1 => Some(Self::AuthorizationLeaseProofV1),
+            Self::AVAILABILITY_RECEIPT_PROOF_V1 => Some(Self::AvailabilityReceiptProofV1),
             Self::CONTROL_PROPOSAL_AUTHORITY_ACK_PROOF_V1 => {
                 Some(Self::ControlProposalAuthorityAckProofV1)
             }
@@ -453,6 +530,29 @@ impl ProofContextId {
             Self::EVENT_PROOF_V1 => Some(Self::EventProofV1),
             Self::EXTENSION_MANIFEST_PROOF_V1 => Some(Self::ExtensionManifestProofV1),
             Self::HANDLE_CLAIM_PROOF_V1 => Some(Self::HandleClaimProofV1),
+            Self::HISTORY_KEY_REQUEST_PROOF_V1 => Some(Self::HistoryKeyRequestProofV1),
+            Self::HISTORY_KEY_REQUEST_RECEIPT_PROOF_V1 => {
+                Some(Self::HistoryKeyRequestReceiptProofV1)
+            }
+            Self::HISTORY_KEY_REQUEST_REPLICA_PROOF_V1 => {
+                Some(Self::HistoryKeyRequestReplicaProofV1)
+            }
+            Self::HISTORY_KEY_REQUEST_REPLICA_RECEIPT_PROOF_V1 => {
+                Some(Self::HistoryKeyRequestReplicaReceiptProofV1)
+            }
+            Self::HISTORY_KEY_RESPONSE_LOST_RECORD_PROOF_V1 => {
+                Some(Self::HistoryKeyResponseLostRecordProofV1)
+            }
+            Self::HISTORY_KEY_RESPONSE_PROOF_V1 => Some(Self::HistoryKeyResponseProofV1),
+            Self::HISTORY_KEY_RESPONSE_RECORD_PROOF_V1 => {
+                Some(Self::HistoryKeyResponseRecordProofV1)
+            }
+            Self::HISTORY_KEY_RESPONSE_SEND_RECEIPT_PROOF_V1 => {
+                Some(Self::HistoryKeyResponseSendReceiptProofV1)
+            }
+            Self::HISTORY_KEY_SOURCE_RELAY_ATTESTATION_PROOF_V1 => {
+                Some(Self::HistoryKeySourceRelayAttestationProofV1)
+            }
             Self::IDENTITY_CREATION_CONTROL_PROOF_V1 => Some(Self::IdentityCreationControlProofV1),
             Self::IDENTITY_RECEIPT_PROOF_V1 => Some(Self::IdentityReceiptProofV1),
             Self::INGRESS_RECEIPT_PROOF_V1 => Some(Self::IngressReceiptProofV1),
@@ -483,12 +583,22 @@ impl ProofContextId {
             Self::MIMI_UPDATE_CONSENT_REQUEST_PROOF_V1 => {
                 Some(Self::MimiUpdateConsentRequestProofV1)
             }
+            Self::ORGANIZATION_RECOVERY_ARCHIVE_REPLICA_PROOF_V1 => {
+                Some(Self::OrganizationRecoveryArchiveReplicaProofV1)
+            }
+            Self::ORGANIZATION_RECOVERY_ARCHIVE_REPLICA_RECEIPT_PROOF_V1 => {
+                Some(Self::OrganizationRecoveryArchiveReplicaReceiptProofV1)
+            }
+            Self::ORGANIZATION_RECOVERY_KEY_HOLDER_ACCEPTANCE_PROOF_V1 => {
+                Some(Self::OrganizationRecoveryKeyHolderAcceptanceProofV1)
+            }
             Self::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1 => {
                 Some(Self::OrganizationRegistrationControlProofV1)
             }
             Self::ORGANIZATION_REGISTRATION_RECEIPT_PROOF_V1 => {
                 Some(Self::OrganizationRegistrationReceiptProofV1)
             }
+            Self::PEER_SEAL_FRONTIER_PROOF_V1 => Some(Self::PeerSealFrontierProofV1),
             Self::PRINCIPAL_LOCATOR_PROOF_V1 => Some(Self::PrincipalLocatorProofV1),
             Self::PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1 => {
                 Some(Self::PrincipalResolutionProjectionAttestationProofV1)
@@ -500,7 +610,6 @@ impl ProofContextId {
                 Some(Self::RangeCompletenessAttestationProofV1)
             }
             Self::REALM_JOIN_CANDIDATE_PROOF_V1 => Some(Self::RealmJoinCandidateProofV1),
-            Self::REALM_KEY_SHARE_SENDER_PROOF_V1 => Some(Self::RealmKeyShareSenderProofV1),
             Self::RECEIPT_PROOF_V1 => Some(Self::ReceiptProofV1),
             Self::REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_V1 => {
                 Some(Self::RegistrationDidEvidenceControlProofV1)
@@ -549,8 +658,6 @@ pub enum DomainSeparationId {
     MembershipCompensationSingleUseCasV1,
     MembershipCompensationTerminalCertificateV1,
     PeerEventsCommandSubmitServiceBindingV1,
-    PolicyCheckTranscriptV1,
-    RealmHistorySecretShareV1,
     RealmOrganizationStatementV1,
     SnapshotAuthStateIssuerLocalV1,
     WebsocketAuthV1,
@@ -576,8 +683,6 @@ impl DomainSeparationId {
         Self::MembershipCompensationSingleUseCasV1,
         Self::MembershipCompensationTerminalCertificateV1,
         Self::PeerEventsCommandSubmitServiceBindingV1,
-        Self::PolicyCheckTranscriptV1,
-        Self::RealmHistorySecretShareV1,
         Self::RealmOrganizationStatementV1,
         Self::SnapshotAuthStateIssuerLocalV1,
         Self::WebsocketAuthV1,
@@ -611,8 +716,6 @@ impl DomainSeparationId {
         "ak.membership-compensation.terminal-certificate.v1";
     pub const PEER_EVENTS_COMMAND_SUBMIT_SERVICE_BINDING_V1: &'static str =
         "ak.peer.events.command.submit.service_binding.v1";
-    pub const POLICY_CHECK_TRANSCRIPT_V1: &'static str = "ak.policy.check.transcript.v1";
-    pub const REALM_HISTORY_SECRET_SHARE_V1: &'static str = "ak.realm-history-secret-share-v1";
     pub const REALM_ORGANIZATION_STATEMENT_V1: &'static str = "ak.realm.organization.statement.v1";
     pub const SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1: &'static str =
         "ak.snapshot.auth_state.issuer_local.v1";
@@ -648,8 +751,6 @@ impl DomainSeparationId {
             Self::PeerEventsCommandSubmitServiceBindingV1 => {
                 Self::PEER_EVENTS_COMMAND_SUBMIT_SERVICE_BINDING_V1
             }
-            Self::PolicyCheckTranscriptV1 => Self::POLICY_CHECK_TRANSCRIPT_V1,
-            Self::RealmHistorySecretShareV1 => Self::REALM_HISTORY_SECRET_SHARE_V1,
             Self::RealmOrganizationStatementV1 => Self::REALM_ORGANIZATION_STATEMENT_V1,
             Self::SnapshotAuthStateIssuerLocalV1 => Self::SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1,
             Self::WebsocketAuthV1 => Self::WEBSOCKET_AUTH_V1,
@@ -692,8 +793,6 @@ impl DomainSeparationId {
             Self::PEER_EVENTS_COMMAND_SUBMIT_SERVICE_BINDING_V1 => {
                 Some(Self::PeerEventsCommandSubmitServiceBindingV1)
             }
-            Self::POLICY_CHECK_TRANSCRIPT_V1 => Some(Self::PolicyCheckTranscriptV1),
-            Self::REALM_HISTORY_SECRET_SHARE_V1 => Some(Self::RealmHistorySecretShareV1),
             Self::REALM_ORGANIZATION_STATEMENT_V1 => Some(Self::RealmOrganizationStatementV1),
             Self::SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1 => Some(Self::SnapshotAuthStateIssuerLocalV1),
             Self::WEBSOCKET_AUTH_V1 => Some(Self::WebsocketAuthV1),
@@ -780,49 +879,49 @@ impl HpkeSuiteId {
 pub enum ExporterLabelId {
     ContentV1,
     HistoryV1,
+    ReactionRoutingRootV1,
+    ReactionRoutingV1,
     RtcFrameKeyV1,
     RtcRecordingKeyV1,
     RtcTranscriptKeyV1,
+    SignalRootV1,
     SignalV1,
-    AeadSenderNoncePrefixV1,
-    MentionRoutingV1,
-    ReactionRoutingV1,
 }
 
 impl ExporterLabelId {
     pub const ALL: &'static [Self] = &[
         Self::ContentV1,
         Self::HistoryV1,
+        Self::ReactionRoutingRootV1,
+        Self::ReactionRoutingV1,
         Self::RtcFrameKeyV1,
         Self::RtcRecordingKeyV1,
         Self::RtcTranscriptKeyV1,
+        Self::SignalRootV1,
         Self::SignalV1,
-        Self::AeadSenderNoncePrefixV1,
-        Self::MentionRoutingV1,
-        Self::ReactionRoutingV1,
     ];
 
     pub const CONTENT_V1: &'static str = "ak.content-v1";
     pub const HISTORY_V1: &'static str = "ak.history-v1";
+    pub const REACTION_ROUTING_ROOT_V1: &'static str = "ak.reaction-routing-root-v1";
+    pub const REACTION_ROUTING_V1: &'static str = "ak.reaction-routing-v1";
     pub const RTC_FRAME_KEY_V1: &'static str = "ak.rtc-frame-key/v1";
     pub const RTC_RECORDING_KEY_V1: &'static str = "ak.rtc-recording-key/v1";
     pub const RTC_TRANSCRIPT_KEY_V1: &'static str = "ak.rtc-transcript-key/v1";
+    pub const SIGNAL_ROOT_V1: &'static str = "ak.signal-root-v1";
     pub const SIGNAL_V1: &'static str = "ak.signal-v1";
-    pub const AEAD_SENDER_NONCE_PREFIX_V1: &'static str = "arkret-aead-sender-nonce-prefix-v1";
-    pub const MENTION_ROUTING_V1: &'static str = "arkret-mention-routing-v1";
-    pub const REACTION_ROUTING_V1: &'static str = "arkret-reaction-routing-v1";
 
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::ContentV1 => Self::CONTENT_V1,
             Self::HistoryV1 => Self::HISTORY_V1,
+            Self::ReactionRoutingRootV1 => Self::REACTION_ROUTING_ROOT_V1,
+            Self::ReactionRoutingV1 => Self::REACTION_ROUTING_V1,
             Self::RtcFrameKeyV1 => Self::RTC_FRAME_KEY_V1,
             Self::RtcRecordingKeyV1 => Self::RTC_RECORDING_KEY_V1,
             Self::RtcTranscriptKeyV1 => Self::RTC_TRANSCRIPT_KEY_V1,
+            Self::SignalRootV1 => Self::SIGNAL_ROOT_V1,
             Self::SignalV1 => Self::SIGNAL_V1,
-            Self::AeadSenderNoncePrefixV1 => Self::AEAD_SENDER_NONCE_PREFIX_V1,
-            Self::MentionRoutingV1 => Self::MENTION_ROUTING_V1,
-            Self::ReactionRoutingV1 => Self::REACTION_ROUTING_V1,
         }
     }
 
@@ -830,13 +929,13 @@ impl ExporterLabelId {
         match value {
             Self::CONTENT_V1 => Some(Self::ContentV1),
             Self::HISTORY_V1 => Some(Self::HistoryV1),
+            Self::REACTION_ROUTING_ROOT_V1 => Some(Self::ReactionRoutingRootV1),
+            Self::REACTION_ROUTING_V1 => Some(Self::ReactionRoutingV1),
             Self::RTC_FRAME_KEY_V1 => Some(Self::RtcFrameKeyV1),
             Self::RTC_RECORDING_KEY_V1 => Some(Self::RtcRecordingKeyV1),
             Self::RTC_TRANSCRIPT_KEY_V1 => Some(Self::RtcTranscriptKeyV1),
+            Self::SIGNAL_ROOT_V1 => Some(Self::SignalRootV1),
             Self::SIGNAL_V1 => Some(Self::SignalV1),
-            Self::AEAD_SENDER_NONCE_PREFIX_V1 => Some(Self::AeadSenderNoncePrefixV1),
-            Self::MENTION_ROUTING_V1 => Some(Self::MentionRoutingV1),
-            Self::REACTION_ROUTING_V1 => Some(Self::ReactionRoutingV1),
             _ => None,
         }
     }
@@ -1098,6 +1197,25 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/offline-publication.schema.json#/$defs/authorization_lease",
     },
     ProofContextDescriptor {
+        id: ProofContextId::AvailabilityReceiptProofV1,
+        context: "ak.availability-receipt-proof-v1",
+        object_family: "availability_receipt_content",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "realm_id",
+            "event_id",
+            "bytes_digest",
+            "holder_id",
+            "retention_expires_at",
+            "holder_signer_evidence_ref",
+            "holder_signer_evidence_digest",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/availability-receipt.schema.json#/$defs/availability_receipt_content",
+    },
+    ProofContextDescriptor {
         id: ProofContextId::ControlProposalAuthorityAckProofV1,
         context: "ak.control-proposal-authority-ack-proof-v1",
         object_family: "control_proposal_authority_ack",
@@ -1320,6 +1438,8 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "event_digest",
             "actor_id",
             "verification_method",
+            "signer_resolution_evidence_ref?",
+            "signer_resolution_evidence_digest?",
             "created_at",
             "domain?",
             "audience?",
@@ -1357,6 +1477,205 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/handle-claim.schema.json",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::HistoryKeyRequestProofV1,
+        context: "ak.history-key-request-proof-v1",
+        object_family: "history_key_request",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "request_id",
+            "kind",
+            "effective_scope",
+            "requester_actor_id",
+            "requester_sender_domain",
+            "requester_author_profile",
+            "requester_endpoint_authorization",
+            "requester_authorization_incarnation",
+            "trusted_history_base_basis",
+            "trusted_current_basis",
+            "requested_ranges",
+            "recipient_hpke_public_key",
+            "expires_at",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/history-key.schema.json#/$defs/history_key_request",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::HistoryKeyRequestReceiptProofV1,
+        context: "ak.history-key-request-receipt-proof-v1",
+        object_family: "history_key_request_receipt",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "request_digest",
+            "reply_mailbox_id",
+            "mailbox_capability_commitment",
+            "sealed_capability_digest",
+            "effective_scope",
+            "requester_sender_domain",
+            "requester_authorization_incarnation",
+            "trusted_history_base_basis",
+            "trusted_current_basis",
+            "release_service_id",
+            "release_service_binding_ref",
+            "release_service_resolution_ref",
+            "release_service_resolution_sequence",
+            "release_service_resolution_record_digest",
+            "release_service_route_digest",
+            "history_traversal_retention",
+            "accepted_at",
+            "expires_at",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/history-key.schema.json#/$defs/history_key_request_receipt",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::HistoryKeyRequestReplicaProofV1,
+        context: "ak.history-key-request-replica-proof-v1",
+        object_family: "history_key_request_replica",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "kind",
+            "request",
+            "request_receipt",
+            "destination_service_id",
+            "destination_authorization",
+            "replicated_at",
+            "expires_at",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/history-key.schema.json#/$defs/history_key_request_replica",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::HistoryKeyRequestReplicaReceiptProofV1,
+        context: "ak.history-key-request-replica-receipt-proof-v1",
+        object_family: "history_key_request_replica_receipt",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "request_digest",
+            "destination_service_id",
+            "accepted_at",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/history-key.schema.json#/$defs/history_key_request_replica_outcome",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::HistoryKeyResponseLostRecordProofV1,
+        context: "ak.history-key-response-lost-record-proof-v1",
+        object_family: "history_key_response_lost_record",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "sequence",
+            "cursor",
+            "response_id",
+            "record_digest",
+            "lost_at",
+            "release_service_signer_evidence_ref",
+            "release_service_signer_evidence_digest",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/history-key.schema.json#/$defs/history_key_response_lost_record",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::HistoryKeyResponseProofV1,
+        context: "ak.history-key-response-proof-v1",
+        object_family: "history_key_response",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "response_id",
+            "effective_scope",
+            "source_actor_id",
+            "source_sender_domain",
+            "source_signer_evidence_ref",
+            "source_signer_evidence_digest",
+            "request_digest",
+            "request_receipt_digest",
+            "reply_mailbox_id",
+            "expires_at",
+            "content",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/history-key.schema.json#/$defs/history_key_response_send_request",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::HistoryKeyResponseRecordProofV1,
+        context: "ak.history-key-response-record-proof-v1",
+        object_family: "history_key_response_record",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "sequence",
+            "cursor",
+            "record_digest",
+            "source_record",
+            "sent_at",
+            "release_service_signer_evidence_ref",
+            "release_service_signer_evidence_digest",
+            "manifest_admission?",
+            "release_attestation?",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/history-key.schema.json#/$defs/history_key_response_record",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::HistoryKeyResponseSendReceiptProofV1,
+        context: "ak.history-key-response-send-receipt-proof-v1",
+        object_family: "history_key_response_send_receipt",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "response_id",
+            "source_record_digest",
+            "record_digest",
+            "sequence",
+            "accepted_at",
+            "manifest_admission_digest",
+            "release_attestation_digest",
+            "receipt_digest",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/history-key.schema.json#/$defs/history_key_response_send_receipt",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::HistoryKeySourceRelayAttestationProofV1,
+        context: "ak.history-key-source-relay-attestation-proof-v1",
+        object_family: "history_key_source_relay_attestation",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "kind",
+            "source_record_digest",
+            "request_digest",
+            "request_receipt_digest",
+            "effective_scope",
+            "source_actor_id",
+            "source_sender_domain",
+            "source_kind",
+            "source_author_profile?",
+            "source_authorization_incarnation?",
+            "source_service_id",
+            "source_authority_locator",
+            "destination_release_service_id",
+            "relayed_at",
+            "expires_at",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/history-key.schema.json#/$defs/source_relay_attestation",
     },
     ProofContextDescriptor {
         id: ProofContextId::IdentityCreationControlProofV1,
@@ -1638,6 +1957,56 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/mimi-operations.schema.json#/$defs/mimi_update_consent_request_body",
     },
     ProofContextDescriptor {
+        id: ProofContextId::OrganizationRecoveryArchiveReplicaProofV1,
+        context: "ak.organization-recovery-archive-replica-proof-v1",
+        object_family: "organization_recovery_archive_replica",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "kind",
+            "archive",
+            "container_event_ref",
+            "history_traversal_retention",
+            "source_service_id",
+            "holder_service_id",
+            "replicated_at",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/history-key.schema.json#/$defs/organization_recovery_archive_replica",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::OrganizationRecoveryArchiveReplicaReceiptProofV1,
+        context: "ak.organization-recovery-archive-replica-receipt-proof-v1",
+        object_family: "organization_recovery_archive_replica_receipt",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "archive_replica_digest",
+            "holder_service_id",
+            "archive_sequence",
+            "accepted_at",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/history-key.schema.json#/$defs/organization_recovery_archive_replica_outcome",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::OrganizationRecoveryKeyHolderAcceptanceProofV1,
+        context: "ak.organization-recovery-key-holder-acceptance-proof-v1",
+        object_family: "organization_recovery_key_holder_acceptance",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "realm_id",
+            "new_key_tuple",
+            "holder_trusted_basis",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/event-payload.schema.json#/$defs/organization_recovery_holder_acceptance",
+    },
+    ProofContextDescriptor {
         id: ProofContextId::OrganizationRegistrationControlProofV1,
         context: "ak.organization-registration-control-proof-v1",
         object_family: "organization_registration_control_proof",
@@ -1669,6 +2038,14 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationReceipt",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::PeerSealFrontierProofV1,
+        context: "ak.peer-seal-frontier-proof-v1",
+        object_family: "peer_seal_frontier",
+        consumer_operation: None,
+        binding_fields: &["frontier", "verification_method", "created_at"],
+        schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/PeerSealFrontierState/properties/service_proof",
     },
     ProofContextDescriptor {
         id: ProofContextId::PrincipalLocatorProofV1,
@@ -1714,6 +2091,8 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "producer_proof_digest",
             "producer_verification_method",
             "producer_signing_key",
+            "signer_resolution_evidence_ref",
+            "signer_resolution_evidence_digest",
             "accepted_at",
             "verification_method",
         ],
@@ -1750,28 +2129,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/realm-join-candidate.schema.json",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::RealmKeyShareSenderProofV1,
-        context: "ak.realm-key-share-sender-proof-v1",
-        object_family: "realm_key_share_sender_transcript",
-        consumer_operation: None,
-        binding_fields: &[
-            "share_kind",
-            "sender_device_id",
-            "source_authorization_ref",
-            "recipient_principal_id",
-            "recipient_device_id?",
-            "recipient_verification_method?",
-            "recovery_recipient_id?",
-            "key_scope",
-            "ciphertext?",
-            "encrypted_key_ref?",
-            "aad_digest?",
-            "expires_at?",
-            "created_at",
-        ],
-        schema_ref: "schemas/event-payload.schema.json#/$defs/realm_key_share_payload",
     },
     ProofContextDescriptor {
         id: ProofContextId::ReceiptProofV1,
@@ -1986,29 +2343,37 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         id: ExporterLabelId::ContentV1,
         label: "ak.content-v1",
         primitive: Some("ExpandWithLabel"),
-        context_fields: &[],
-        output_bytes: "AEAD.Nk for the active MLS ciphersuite",
-        empty_context_forbidden: false,
-        forbid_reuse_with: &[
-            "ak.history-v1",
-            "arkret-aead-sender-nonce-prefix-v1",
-            "arkret-reaction-routing-v1",
-            "arkret-mention-routing-v1",
-        ],
+        context_fields: &["sender_domain"],
+        output_bytes: "AEAD.Nk",
+        empty_context_forbidden: true,
+        forbid_reuse_with: &["ak.reaction-routing-v1", "ak.signal-v1"],
     },
     ExporterLabelDescriptor {
         id: ExporterLabelId::HistoryV1,
         label: "ak.history-v1",
         primitive: Some("MLS-Exporter"),
-        context_fields: &["realm_id"],
-        output_bytes: "KDF.Nh for the active MLS ciphersuite",
+        context_fields: &["effective_scope"],
+        output_bytes: "KDF.Nh",
         empty_context_forbidden: true,
-        forbid_reuse_with: &[
-            "ak.content-v1",
-            "arkret-aead-sender-nonce-prefix-v1",
-            "arkret-reaction-routing-v1",
-            "arkret-mention-routing-v1",
-        ],
+        forbid_reuse_with: &["ak.reaction-routing-root-v1", "ak.signal-root-v1"],
+    },
+    ExporterLabelDescriptor {
+        id: ExporterLabelId::ReactionRoutingRootV1,
+        label: "ak.reaction-routing-root-v1",
+        primitive: Some("MLS-Exporter"),
+        context_fields: &["effective_scope"],
+        output_bytes: "KDF.Nh",
+        empty_context_forbidden: true,
+        forbid_reuse_with: &["ak.history-v1", "ak.signal-root-v1"],
+    },
+    ExporterLabelDescriptor {
+        id: ExporterLabelId::ReactionRoutingV1,
+        label: "ak.reaction-routing-v1",
+        primitive: Some("ExpandWithLabel"),
+        context_fields: &["effective_scope", "target_ref", "routing_window"],
+        output_bytes: "32",
+        empty_context_forbidden: true,
+        forbid_reuse_with: &["ak.content-v1", "ak.signal-v1"],
     },
     ExporterLabelDescriptor {
         id: ExporterLabelId::RtcFrameKeyV1,
@@ -2059,45 +2424,22 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         forbid_reuse_with: &["ak.rtc-frame-key/v1", "ak.rtc-recording-key/v1"],
     },
     ExporterLabelDescriptor {
+        id: ExporterLabelId::SignalRootV1,
+        label: "ak.signal-root-v1",
+        primitive: Some("MLS-Exporter"),
+        context_fields: &["effective_scope"],
+        output_bytes: "KDF.Nh",
+        empty_context_forbidden: true,
+        forbid_reuse_with: &["ak.history-v1", "ak.reaction-routing-root-v1"],
+    },
+    ExporterLabelDescriptor {
         id: ExporterLabelId::SignalV1,
         label: "ak.signal-v1",
         primitive: Some("ExpandWithLabel"),
-        context_fields: &["sender_device_id"],
-        output_bytes: "AEAD.Nk for the active MLS ciphersuite",
+        context_fields: &["sender_domain"],
+        output_bytes: "AEAD.Nk",
         empty_context_forbidden: true,
-        forbid_reuse_with: &[
-            "ak.history-v1",
-            "arkret-aead-sender-nonce-prefix-v1",
-            "arkret-reaction-routing-v1",
-            "arkret-mention-routing-v1",
-        ],
-    },
-    ExporterLabelDescriptor {
-        id: ExporterLabelId::AeadSenderNoncePrefixV1,
-        label: "arkret-aead-sender-nonce-prefix-v1",
-        primitive: Some("MLS-Exporter"),
-        context_fields: &["key_ref", "epoch", "device_id", "purpose", "aead_profile"],
-        output_bytes: "N_AEAD - 8 (16 for XChaCha20-Poly1305, 4 for AES-GCM)",
-        empty_context_forbidden: true,
-        forbid_reuse_with: &[],
-    },
-    ExporterLabelDescriptor {
-        id: ExporterLabelId::MentionRoutingV1,
-        label: "arkret-mention-routing-v1",
-        primitive: Some("MLS-Exporter"),
-        context_fields: &["realm_id"],
-        output_bytes: "32",
-        empty_context_forbidden: true,
-        forbid_reuse_with: &["arkret-reaction-routing-v1"],
-    },
-    ExporterLabelDescriptor {
-        id: ExporterLabelId::ReactionRoutingV1,
-        label: "arkret-reaction-routing-v1",
-        primitive: Some("MLS-Exporter"),
-        context_fields: &["realm_id"],
-        output_bytes: "32",
-        empty_context_forbidden: true,
-        forbid_reuse_with: &["arkret-mention-routing-v1"],
+        forbid_reuse_with: &["ak.content-v1", "ak.reaction-routing-v1"],
     },
 ];
 

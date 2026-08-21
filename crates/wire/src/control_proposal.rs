@@ -15,7 +15,7 @@ use crate::error::{Error, Result};
 use crate::notary::NotaryValue;
 use crate::{
     AuthorizationLease, CbaProofBundle, DidFullId, Event, EventSubmitContext, Hash,
-    PayloadSignature, PayloadSigner, RealmId, SealId, canonical, project_full_id_to_core_id,
+    PayloadSignature, PayloadSigner, RealmId, SealId, canonical,
 };
 
 pub const MAX_PROPOSAL_DECISION_WINDOW: Duration = Duration::hours(24);
@@ -758,7 +758,7 @@ impl ControlProposalAck {
         let ack = Self::from_authority_acks(authority_acks, policy)?;
         let mut signers = BTreeSet::new();
         for member in &ack.authority_acks {
-            let (did, fragment) = member
+            let (_, fragment) = member
                 .signature
                 .verification_method
                 .rsplit_once('#')
@@ -772,15 +772,9 @@ impl ControlProposalAck {
                     "proposal member verification_method fragment is empty".to_owned(),
                 ));
             }
-            let did = DidFullId::new(did).map_err(|error| {
-                Error::Protocol(format!(
-                    "proposal member verification_method DID is invalid: {error}"
-                ))
-            })?;
-            let actor_id = project_full_id_to_core_id(&did)?;
-            if !signers.insert(actor_id) {
+            if !signers.insert(member.signature.verification_method.clone()) {
                 return Err(Error::Protocol(
-                    "Control Proposal Ack repeats an authority member".to_owned(),
+                    "Control Proposal Ack repeats an authority verification method".to_owned(),
                 ));
             }
         }
@@ -1087,11 +1081,8 @@ impl ControlProposalDecision {
         };
         let signers = proofs
             .iter()
-            .map(|proof| -> Result<_> {
-                let full_id = DidFullId::new(signer_controller(proof)?)?;
-                Ok(project_full_id_to_core_id(&full_id)?)
-            })
-            .collect::<Result<BTreeSet<_>>>()?;
+            .map(|proof| proof.verification_method.clone())
+            .collect::<BTreeSet<_>>();
         if !notary.proposal_quorum_met(&signers) {
             return Err(Error::Protocol(
                 "control proposal decision proof set does not satisfy the current notary quorum"
@@ -1260,7 +1251,7 @@ mod tests {
     use chrono::TimeZone;
 
     use super::*;
-    use crate::{DidCoreId, DidUrl};
+    use crate::{DidCoreId, DidUrl, NotarySignerDescriptor};
 
     struct FixtureSigner {
         did: DidFullId,
@@ -1445,6 +1436,22 @@ mod tests {
 
     #[test]
     fn canonical_ack_assembly_requires_current_threshold_quorum() {
+        fn descriptor(actor_suffix: &str, domain: &str) -> NotarySignerDescriptor {
+            let public_key = [0_u8; 32];
+            NotarySignerDescriptor {
+                actor_id: DidCoreId::new(format!("ak:did_core:webvh:{actor_suffix}")).unwrap(),
+                verification_method: DidUrl::new(format!(
+                    "did:webvh:{actor_suffix}:{domain}#notary-1"
+                ))
+                .unwrap(),
+                key_kind: crate::NotaryKeyKind::Ed25519Raw32,
+                jose_algorithm: crate::NotaryJoseAlgorithm::Ed25519,
+                frozen_public_key_b64u: crate::base64url::base64url_encode(public_key),
+                frozen_public_key_digest: Hash::new(crate::canonical::sha256_digest(public_key))
+                    .unwrap(),
+            }
+        }
+
         let first = ack().authority_acks.remove(0);
         let mut second = first.clone();
         second.signature.verification_method =
@@ -1453,9 +1460,9 @@ mod tests {
         let profile = NotaryValue::Threshold {
             threshold: 2,
             members: vec![
-                DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-                DidCoreId::new("ak:did_core:webvh:z6mkfixtureb").unwrap(),
-                DidCoreId::new("ak:did_core:webvh:z6mkfixturec").unwrap(),
+                descriptor("z6mkfixture", "authority.example"),
+                descriptor("z6mkfixtureb", "authority-b.example"),
+                descriptor("z6mkfixturec", "authority-c.example"),
             ],
             forensic_attribution: crate::notary::ForensicAttribution::QuorumIntersection,
         };

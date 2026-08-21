@@ -66,22 +66,29 @@ impl KeyBackupPlaintext {
                 "key backup public/plaintext item counts differ or are empty".to_owned(),
             ));
         }
-        for (public, secret) in envelope.contents.iter().zip(&self.items) {
+        for secret in &self.items {
             secret.validate()?;
-            if public.item_kind != secret.item_kind
-                || public.secret_id.as_deref() != Some(secret.secret_id.as_str())
-                || public.realm_id != secret.realm_id
-                || public.managed_principal_binding != secret.managed_principal_binding
-                || public.mls_group_id != secret.mls_group_id
-                || public.epoch != secret.epoch
-                || public.first_event_id != secret.first_event_id
-                || public.last_event_id != secret.last_event_id
-                || public.secret_version != secret.secret_version()?
-            {
+            let _ = secret.secret_version()?;
+        }
+        let mut matched_plaintext = vec![false; self.items.len()];
+        for public in &envelope.contents {
+            let matches = self
+                .items
+                .iter()
+                .enumerate()
+                .filter(|(index, secret)| {
+                    !matched_plaintext[*index]
+                        && public_metadata_matches_plaintext(public, secret).unwrap_or(false)
+                })
+                .map(|(index, _)| index)
+                .collect::<Vec<_>>();
+            if matches.len() != 1 {
                 return Err(Error::Protocol(
-                    "key backup public/plaintext item metadata mismatch".to_owned(),
+                    "key backup public/plaintext items do not have a unique metadata match"
+                        .to_owned(),
                 ));
             }
+            matched_plaintext[matches[0]] = true;
         }
 
         let canonical_set = |bindings: Vec<ManagedPrincipalBinding>| {
@@ -144,6 +151,18 @@ pub struct PlaintextItem {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_scope: Option<ScopeRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_epoch: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to_epoch: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_state_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub membership_frontier_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub epoch: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub first_event_id: Option<EventId>,
@@ -188,6 +207,102 @@ impl PlaintextItem {
                 "managed key backup plaintext requires realm_id and an MLS item_kind".to_owned(),
             ));
         }
+        if matches!(
+            self.item_kind.as_str(),
+            "mls_group_state" | "mls_epoch_secret" | "pending_welcome"
+        ) && self.managed_principal_binding.is_none()
+        {
+            return Err(Error::Protocol(
+                "device-bound MLS backup plaintext requires managed_principal_binding".to_owned(),
+            ));
+        }
+        if self.item_kind == "history_secret_segment" {
+            let (
+                Some(effective_scope),
+                Some(mls_group_id),
+                Some(from_epoch),
+                Some(to_epoch),
+                Some(_group_state_ref),
+                Some(_policy_digest),
+                Some(_membership_frontier_digest),
+            ) = (
+                self.effective_scope.as_ref(),
+                self.mls_group_id.as_ref(),
+                self.from_epoch,
+                self.to_epoch,
+                self.group_state_ref.as_ref(),
+                self.policy_digest.as_ref(),
+                self.membership_frontier_digest.as_ref(),
+            )
+            else {
+                return Err(Error::Protocol(
+                    "history_secret_segment plaintext requires complete scope, epoch, group-state and authorization basis"
+                        .to_owned(),
+                ));
+            };
+            if self.managed_principal_binding.is_some() {
+                return Err(Error::Protocol(
+                    "portable history_secret_segment plaintext forbids managed_principal_binding"
+                        .to_owned(),
+                ));
+            }
+            if !matches!(
+                effective_scope,
+                ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
+            ) {
+                return Err(Error::Protocol(
+                    "history_secret_segment plaintext supports only Realm and Circle history scopes"
+                        .to_owned(),
+                ));
+            }
+            if from_epoch > to_epoch || effective_scope.canonical_mls_group_id()? != *mls_group_id {
+                return Err(Error::Protocol(
+                    "history_secret_segment plaintext range or scope-derived group id is invalid"
+                        .to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Validate the fixed-width concatenation of history secrets after the
+    /// referenced MLS group ciphersuite has been resolved.
+    pub fn validate_history_secret_segment_length(&self, kdf_nh: usize) -> Result<()> {
+        self.validate()?;
+        if self.item_kind != "history_secret_segment" {
+            return Err(Error::Protocol(
+                "history secret length validation requires history_secret_segment".to_owned(),
+            ));
+        }
+        if kdf_nh == 0 {
+            return Err(Error::Protocol(
+                "MLS ciphersuite KDF.Nh must be positive".to_owned(),
+            ));
+        }
+        let from_epoch = self
+            .from_epoch
+            .expect("history segment validation requires from_epoch");
+        let to_epoch = self
+            .to_epoch
+            .expect("history segment validation requires to_epoch");
+        let epoch_count = to_epoch
+            .checked_sub(from_epoch)
+            .and_then(|distance| distance.checked_add(1))
+            .and_then(|count| usize::try_from(count).ok())
+            .ok_or_else(|| {
+                Error::Protocol("history secret segment epoch count overflows usize".to_owned())
+            })?;
+        let expected_len = epoch_count.checked_mul(kdf_nh).ok_or_else(|| {
+            Error::Protocol("history secret segment byte length overflows usize".to_owned())
+        })?;
+        let actual_len = arkret_canonical::base64url::base64url_decode(&self.secret_b64u)
+            .map_err(|error| Error::Protocol(format!("invalid history secret bytes: {error}")))?
+            .len();
+        if actual_len != expected_len {
+            return Err(Error::Protocol(format!(
+                "history_secret_segment contains {actual_len} bytes; expected {expected_len}"
+            )));
+        }
         Ok(())
     }
 
@@ -205,6 +320,32 @@ impl PlaintextItem {
             })
             .transpose()
     }
+}
+
+fn public_metadata_matches_plaintext(
+    public: &crate::key_backup::KeyBackupContentItem,
+    secret: &PlaintextItem,
+) -> Result<bool> {
+    if public.item_kind == "history_secret_segment" || secret.item_kind == "history_secret_segment"
+    {
+        return Ok(public.item_kind == secret.item_kind
+            && public.effective_scope == secret.effective_scope
+            && public.mls_group_id == secret.mls_group_id
+            && public.from_epoch == secret.from_epoch
+            && public.to_epoch == secret.to_epoch
+            && public.group_state_ref == secret.group_state_ref
+            && public.policy_digest == secret.policy_digest
+            && public.membership_frontier_digest == secret.membership_frontier_digest);
+    }
+    Ok(public.item_kind == secret.item_kind
+        && public.secret_id.as_deref() == Some(secret.secret_id.as_str())
+        && public.realm_id == secret.realm_id
+        && public.managed_principal_binding == secret.managed_principal_binding
+        && public.mls_group_id == secret.mls_group_id
+        && public.epoch == secret.epoch
+        && public.first_event_id == secret.first_event_id
+        && public.last_event_id == secret.last_event_id
+        && public.secret_version == secret.secret_version()?)
 }
 
 /// Counterpart for
@@ -1552,5 +1693,50 @@ mod untagged_contract_tests {
         ] {
             assert!(serde_json::from_value::<RecoverySessionProof>(value).is_err());
         }
+    }
+
+    #[test]
+    fn portable_history_secret_rejects_sidecar_scope() {
+        let scope = ScopeRef::Sidecar {
+            realm_id: RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5")
+                .unwrap(),
+            sidecar_id: arkret_wire::SidecarId::new(
+                "ak:sidecar:Ae0kN-KHls3vjqQ9FHo4P_2uAhcMVu8dI8qHcFsqGn5d",
+            )
+            .unwrap(),
+        };
+        let item = PlaintextItem {
+            item_kind: "history_secret_segment".to_owned(),
+            secret_id: "segment".to_owned(),
+            secret_b64u: "AA".to_owned(),
+            secret_generation: None,
+            realm_id: None,
+            managed_principal_binding: None,
+            mls_group_id: Some(scope.canonical_mls_group_id().unwrap()),
+            effective_scope: Some(scope),
+            from_epoch: Some(1),
+            to_epoch: Some(1),
+            group_state_ref: Some(
+                EventId::new("ak:event:Adl8EVE0XuYmtOeRAa0WJVGy5DWansCGrXuwPONweuzs").unwrap(),
+            ),
+            policy_digest: Some(
+                Hash::new(
+                    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                )
+                .unwrap(),
+            ),
+            membership_frontier_digest: Some(
+                Hash::new(
+                    "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                )
+                .unwrap(),
+            ),
+            epoch: None,
+            first_event_id: None,
+            last_event_id: None,
+            extra: XExtensionMap::default(),
+        };
+
+        assert!(item.validate().is_err());
     }
 }

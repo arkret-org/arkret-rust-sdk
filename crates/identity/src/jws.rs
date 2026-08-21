@@ -533,8 +533,7 @@ mod tests {
         use arkret_wire::{CellRef, LatticeOp, LatticeOpType, ProjectedOp};
         let mut op = LatticeOp::empty();
         op.op_type = LatticeOpType::Set;
-        op.value =
-            Some(serde_json::json!({"shape": "single_did", "did": "did:webvh:z6mkfixture:foo"}));
+        op.value = Some(serde_json::json!({"shape": "test_value", "value": "fixture"}));
         vec![ProjectedCellWrite {
             cell: CellRef::new(cell_id.to_owned()).unwrap(),
             op: ProjectedOp::Direct(op),

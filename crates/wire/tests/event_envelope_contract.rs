@@ -77,7 +77,9 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
     // this very digest (`conformance/encoding.md` sections 2, 4.0 and 6). Every
     // v1 Event digest changed; this value must only move again with the spec.
     assert_eq!(
-        event.event_digest().unwrap(),
+        event
+            .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+            .unwrap(),
         "sha256:999cbb094e0adcdd9a9117541d48626d03bf9d688e5e4bf611a8329a3382fe6e"
     );
     let value = serde_json::to_value(&event).unwrap();

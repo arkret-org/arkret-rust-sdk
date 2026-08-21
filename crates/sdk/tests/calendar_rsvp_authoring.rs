@@ -72,7 +72,11 @@ fn build(
         "2026-05-26T10:30:00.000Z".parse().unwrap(),
         causal_refs,
     )?
-    .author(1, Hlc::new("01970e589d21-0000-a13f9c2e").unwrap())
+    .author_with_digest_suite(
+        1,
+        Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
+        arkret_canonical::DigestSuite::Sha256,
+    )
     .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))
 }
 

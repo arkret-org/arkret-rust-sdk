@@ -5,7 +5,6 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_event_draft::EventPayloadExt;
 use arkret_models_collaboration::events_payloads::{RealmCreatePayload, RealmGenesis};
-use arkret_models_collaboration::objects::realm::NotaryProfile;
 use arkret_models_identity::ResolutionCommitment;
 use arkret_state::lattice::ordered_log::{IssuedOp, OrderedLog, ensure_unique_ordered_log_slots};
 use arkret_state::{
@@ -14,20 +13,23 @@ use arkret_state::{
 };
 use arkret_wire::{
     AuthorizationRef, CellRef, DidCoreId, EncryptionProfile, Error, Event, EventKind, GenesisSalt,
-    Hash, Hlc, NotarySig, NotaryValue, PayloadSignature, PayloadSigner, ProfileId, RealmId, Result,
-    SchemaId, Seal, SealId, SealKind, SecurityClass, TrustDomainId, event_spec,
-    project_full_id_to_core_id,
+    Hash, Hlc, NotarySig, NotaryValue, PayloadSigner, ProfileId, RealmId, Result, SchemaId, Seal,
+    SealId, SealSignature, SecurityClass, TrustDomainId, event_spec, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 
 use crate::REALM_CREATE_CELL;
 use crate::projection::{CellWriteProjector, direct_projection, validate_realm_create_projection};
 
+const MANAGED_AGENT_PCR_DIGEST_SUITE: arkret_canonical::DigestSuite =
+    arkret_canonical::DigestSuite::Sha256;
+
 /// Public inputs for the profile-closed managed Agent PCR Realm payload.
 #[derive(Clone, Debug)]
 pub struct ManagedAgentPcrCreatePayloadInput {
     pub agent_id: DidCoreId,
     pub controller_id: DidCoreId,
+    pub notary: NotaryValue,
     /// Exact, already accepted method-native inception position. The Agent
     /// PCR commits this immutable pre-binding head; the Realm service entry is
     /// published only by a later continuous DID update.
@@ -47,12 +49,12 @@ pub fn build_managed_agent_pcr_create_payload(
             "managed Agent initial_resolution full_id does not project to agent_id".to_owned(),
         ));
     }
-    let notary = NotaryValue::single_did_with_org(
-        input.agent_id.clone(),
-        vec![input.controller_id.clone()],
-        input.controller_id.clone(),
-        vec![input.controller_id.clone()],
-    );
+    input.notary.validate()?;
+    if !notary_primary_projects_to_actor(&input.notary, &input.agent_id)? {
+        return Err(Error::Protocol(
+            "managed Agent notary primary does not match agent_id".to_owned(),
+        ));
+    }
     let genesis = RealmGenesis::managed_agent_control(
         input.genesis_salt,
         input.initial_resolution,
@@ -65,8 +67,7 @@ pub fn build_managed_agent_pcr_create_payload(
         arkret_canonical::DigestSuite::Sha256,
         SecurityClass::HighAssurance,
         EncryptionProfile::MlsRfc9420,
-        NotaryProfile::SingleDid,
-        notary,
+        input.notary,
         input.capability_action_registry_digest,
     )?;
 
@@ -77,21 +78,11 @@ pub fn build_managed_agent_pcr_create_payload(
 
 fn notary_primary_projects_to_actor(notary: &NotaryValue, actor_id: &DidCoreId) -> Result<bool> {
     match notary {
-        NotaryValue::SingleDid {
-            actor_id: notary_actor_id,
-            ..
+        NotaryValue::SingleSigner { signer, .. } | NotaryValue::Mixed { signer, .. } => {
+            Ok(&signer.actor_id == actor_id)
         }
-        | NotaryValue::Mixed {
-            actor_id: notary_actor_id,
-            ..
-        } => Ok(notary_actor_id == actor_id),
         NotaryValue::Threshold { members, .. } | NotaryValue::OpenSet { members } => {
-            for member in members {
-                if member.as_core_id() == actor_id.as_core_id() {
-                    return Ok(true);
-                }
-            }
-            Ok(false)
+            Ok(members.iter().any(|member| &member.actor_id == actor_id))
         }
     }
 }
@@ -127,6 +118,15 @@ pub fn materialize_managed_agent_pcr_control(
     events: &[Event],
     project: CellWriteProjector<'_>,
 ) -> Result<ManagedAgentPcrControlMaterial> {
+    if events
+        .iter()
+        .any(|event| event.kind == EventKind::RealmDigestSuiteTransition)
+    {
+        return Err(Error::Protocol(
+            "managed Agent PCR bootstrap materializer does not accept digest-suite transition Seals"
+                .to_owned(),
+        ));
+    }
     let managed_cell = CellRef::new(REALM_CREATE_CELL)?;
     // The create-log cell is a derived target now, so "is this the canonical
     // genesis Event" is a question only the reducer contract can answer.
@@ -200,7 +200,12 @@ pub fn materialize_managed_agent_pcr_control(
 
     let mut ordered = included
         .into_iter()
-        .map(|event| Ok((event, Hash::new(event.event_digest()?)?)))
+        .map(|event| {
+            Ok((
+                event,
+                Hash::new(event.event_digest_with_digest_suite(MANAGED_AGENT_PCR_DIGEST_SUITE)?)?,
+            ))
+        })
         .collect::<Result<Vec<_>>>()?;
     ordered.sort_by(|(left, left_digest), (right, right_digest)| {
         left.actor_seq
@@ -275,7 +280,7 @@ pub fn materialize_managed_agent_pcr_control(
         cursor = end;
     }
 
-    let state_root = compute_state_root(&joined)
+    let state_root = compute_state_root(&joined, MANAGED_AGENT_PCR_DIGEST_SUITE)
         .map_err(|error| Error::Protocol(format!("managed Agent PCR state root: {error}")))?;
     Ok(ManagedAgentPcrControlMaterial {
         realm_id: create.realm_id.clone(),
@@ -525,12 +530,18 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
             "managed Agent PCR Seal has no new Event delta".to_owned(),
         ));
     }
-    let control_root = control_event_set_root(&target)
+    let control_root = control_event_set_root(&target, MANAGED_AGENT_PCR_DIGEST_SUITE)
         .map_err(|error| Error::Protocol(format!("managed Agent PCR control root: {error}")))?;
-    let completeness_root = arkret_state::control_event_completeness_root(events, &target)
-        .map_err(|error| {
-            Error::Protocol(format!("managed Agent PCR completeness root: {error}"))
-        })?;
+    let completeness_root = arkret_state::control_event_completeness_root(
+        &events
+            .iter()
+            .cloned()
+            .map(|event| (event, MANAGED_AGENT_PCR_DIGEST_SUITE))
+            .collect::<Vec<_>>(),
+        &target,
+        MANAGED_AGENT_PCR_DIGEST_SUITE,
+    )
+    .map_err(|error| Error::Protocol(format!("managed Agent PCR completeness root: {error}")))?;
     let sealed_at = Utc::now();
     let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
     let mut seal = Seal {
@@ -544,26 +555,26 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
         notary_seq,
         data_view_root: None,
         data_event_set_root: None,
-        availability_root: None,
-        coverage_scope: None,
+        availability_receipt_digests: Vec::new(),
         covered_event_digests: material.covered_event_digests,
         previous_state_root: None,
         previous_digest_algorithm: None,
-        notary_signature: NotarySig::Single(PayloadSignature {
+        notary_signature: NotarySig::Single(SealSignature {
             verification_method: signer.verification_method_id().clone(),
             payload_digest: zero_hash,
-            created_at: sealed_at,
             jws: String::new(),
-            extra: Default::default(),
         }),
         sealed_at,
         hlc,
-        kind: SealKind::Compaction,
     };
     let canonical_bytes = seal.canonical_bytes_for_id()?;
-    seal.id = Seal::id_from_canonical_bytes(&canonical_bytes)?;
-    seal.notary_signature = NotarySig::Single(signer.sign_payload(&canonical_bytes)?);
+    seal.id = Seal::id_from_canonical_bytes(&canonical_bytes, MANAGED_AGENT_PCR_DIGEST_SUITE)?;
+    seal.notary_signature = NotarySig::Single(
+        signer
+            .sign_payload_with_digest_suite(&canonical_bytes, MANAGED_AGENT_PCR_DIGEST_SUITE)?
+            .into(),
+    );
     seal.validate_structural()?;
-    seal.validate_id()?;
+    seal.validate_id(MANAGED_AGENT_PCR_DIGEST_SUITE)?;
     Ok(seal)
 }

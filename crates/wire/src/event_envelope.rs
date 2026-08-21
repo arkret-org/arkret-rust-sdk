@@ -1026,6 +1026,39 @@ pub enum ScopeRef {
 }
 
 impl ScopeRef {
+    /// Byte-exact v1 MLS security-scope key.
+    ///
+    /// Realm and Circle identifiers are already type-separated canonical IDs.
+    /// A Sidecar group additionally binds its parent Realm, separated by the
+    /// ASCII Unit Separator byte. Genesis has no executable MLS scope.
+    pub fn canonical_effective_scope_key_bytes(&self) -> Result<Vec<u8>> {
+        match self {
+            Self::RealmGenesis => Err(Error::Protocol(
+                "RealmGenesis has no executable MLS security scope".to_owned(),
+            )),
+            Self::Realm { realm_id } => Ok(realm_id.as_str().as_bytes().to_vec()),
+            Self::Circle { circle_id, .. } => Ok(circle_id.as_str().as_bytes().to_vec()),
+            Self::Sidecar {
+                realm_id,
+                sidecar_id,
+            } => {
+                let mut key =
+                    Vec::with_capacity(realm_id.as_str().len() + 1 + sidecar_id.as_str().len());
+                key.extend_from_slice(realm_id.as_str().as_bytes());
+                key.push(0x1f);
+                key.extend_from_slice(sidecar_id.as_str().as_bytes());
+                Ok(key)
+            }
+        }
+    }
+
+    /// Deterministic MLS `group_id` for this effective security scope.
+    pub fn canonical_mls_group_id(&self) -> Result<String> {
+        Ok(crate::base64url::base64url_encode(
+            self.canonical_effective_scope_key_bytes()?,
+        ))
+    }
+
     /// The parent Realm of this scope when the scope names one.
     ///
     /// `RealmGenesis` returns `None`: the Realm id is receiver-derived, not
@@ -1063,6 +1096,57 @@ impl ScopeRef {
             Self::Sidecar { sidecar_id, .. } => Some(sidecar_id),
             Self::RealmGenesis | Self::Realm { .. } | Self::Circle { .. } => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod scope_mls_group_id_tests {
+    use super::*;
+
+    #[test]
+    fn effective_scope_keys_are_byte_exact_and_genesis_is_rejected() {
+        let realm_id =
+            RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5").unwrap();
+        let circle_id =
+            CircleId::new("ak:circle:AXy9G1HY-05VpUDBKqm77h_Vu7DiFOJ3sduNSXuFewp_").unwrap();
+        let sidecar_id =
+            SidecarId::new("ak:sidecar:Ae0kN-KHls3vjqQ9FHo4P_2uAhcMVu8dI8qHcFsqGn5d").unwrap();
+
+        let realm = ScopeRef::Realm {
+            realm_id: realm_id.clone(),
+        };
+        assert_eq!(
+            realm.canonical_effective_scope_key_bytes().unwrap(),
+            realm_id.as_str().as_bytes()
+        );
+        assert_eq!(
+            realm.canonical_mls_group_id().unwrap(),
+            crate::base64url::base64url_encode(realm_id.as_str().as_bytes())
+        );
+
+        let circle = ScopeRef::Circle {
+            realm_id: realm_id.clone(),
+            circle_id: circle_id.clone(),
+        };
+        assert_eq!(
+            circle.canonical_effective_scope_key_bytes().unwrap(),
+            circle_id.as_str().as_bytes()
+        );
+
+        let sidecar = ScopeRef::Sidecar {
+            realm_id: realm_id.clone(),
+            sidecar_id: sidecar_id.clone(),
+        };
+        let expected = format!("{}\u{1f}{}", realm_id.as_str(), sidecar_id.as_str());
+        assert_eq!(
+            sidecar.canonical_effective_scope_key_bytes().unwrap(),
+            expected.as_bytes()
+        );
+        assert_ne!(
+            sidecar.canonical_mls_group_id().unwrap(),
+            realm.canonical_mls_group_id().unwrap()
+        );
+        assert!(ScopeRef::RealmGenesis.canonical_mls_group_id().is_err());
     }
 }
 
@@ -1106,7 +1190,10 @@ impl Event {
     /// transcript. This constructor is the only SDK path that restores those
     /// fields before a caller appends proofs, so downstream clients never need
     /// to patch JSON objects themselves.
-    pub fn from_digest_payload_bytes(bytes: &[u8]) -> Result<Self> {
+    pub fn from_digest_payload_bytes(
+        bytes: &[u8],
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<Self> {
         let mut value: Value = serde_json::from_slice(bytes)?;
         let object = value.as_object_mut().ok_or_else(|| {
             Error::Protocol("Event digest payload must be a JSON object".to_owned())
@@ -1128,7 +1215,7 @@ impl Event {
             Value::String(PLACEHOLDER_EVENT_ID.to_owned()),
         );
         let mut event: Self = serde_json::from_value(value)?;
-        event.event_id = event.derive_event_id()?;
+        event.event_id = event.derive_event_id_with_digest_suite(digest_suite)?;
         let canonical = arkret_canonical::canonical_json_bytes(&event.digest_payload()?)?;
         if canonical != bytes {
             return Err(Error::Protocol(
@@ -1157,14 +1244,6 @@ impl Event {
         event_digest_preimage(&serde_json::to_value(self)?)
     }
 
-    /// Derive this Event's `event_id` from its own canonical content.
-    ///
-    /// The id is one immutable suite-code byte plus all 256 bits of this
-    /// Event's digest. It contains no explicit timestamp segment.
-    pub fn derive_event_id(&self) -> Result<EventId> {
-        self.derive_event_id_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-    }
-
     /// Refresh the content-bound Event id after authoring has finished.
     ///
     /// Producers commonly have to attach actor-chain, HLC, CBA and requirement
@@ -1172,12 +1251,7 @@ impl Event {
     /// are in the Event digest preimage, so the id must be derived only after
     /// they are final. A Realm genesis additionally keeps its in-memory derived
     /// Realm id in sync with the refreshed Event id.
-    pub fn refresh_content_bound_identity(&mut self) -> Result<()> {
-        self.refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-    }
-
-    /// [`Self::refresh_content_bound_identity`] under an explicit Realm digest
-    /// suite.
+    /// Refresh the content-bound identity under the trusted Realm digest suite.
     pub fn refresh_content_bound_identity_with_digest_suite(
         &mut self,
         digest_suite: arkret_canonical::DigestSuite,
@@ -1189,7 +1263,7 @@ impl Event {
         Ok(())
     }
 
-    /// [`Event::derive_event_id`] under the Realm's declared digest suite.
+    /// Derive this Event's `event_id` under the Realm's declared digest suite.
     pub fn derive_event_id_with_digest_suite(
         &self,
         digest_suite: arkret_canonical::DigestSuite,
@@ -1215,19 +1289,13 @@ impl Event {
         Ok(EventId::from_digest(digest_suite, digest_bytes))
     }
 
-    /// Re-derive the id and compare it with the carried value.
+    /// Re-derive the id under the trusted Realm digest suite and compare it with
+    /// the carried value.
     ///
     /// `encoding.md` §6 makes the *order* a security property: a receiver MUST
     /// run this before using `event_id` for deduplication, indexing, routing,
     /// idempotency or authorization. Skipping it lets a caller-chosen identity
     /// enter those paths without proving its complete digest binding.
-    pub fn verify_event_id_matches_content(&self) -> Result<()> {
-        self.verify_event_id_matches_content_with_digest_suite(
-            arkret_canonical::DigestSuite::Sha256,
-        )
-    }
-
-    /// [`Event::verify_event_id_matches_content`] under an explicit suite.
     pub fn verify_event_id_matches_content_with_digest_suite(
         &self,
         digest_suite: arkret_canonical::DigestSuite,
@@ -1241,10 +1309,6 @@ impl Event {
                     .to_owned(),
             ))
         }
-    }
-
-    pub fn event_digest(&self) -> Result<String> {
-        self.event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
     }
 
     /// Compute the Event digest with the trusted Realm digest suite.
@@ -1275,6 +1339,24 @@ impl Event {
         self.validate_for_submit_structural_in_context(EventSubmitContext::Standard)
     }
 
+    /// Validate a retained direct-regime Event that has no Principal Server
+    /// admission proof. Its sole producer proof must carry the matching
+    /// content-addressed historical signer-resolution evidence locator.
+    pub fn validate_for_direct_history_structural(&self) -> Result<()> {
+        self.validate_for_direct_history_structural_in_context(EventSubmitContext::Standard)
+    }
+
+    pub fn validate_for_direct_history_structural_in_context(
+        &self,
+        context: EventSubmitContext,
+    ) -> Result<()> {
+        self.validate_structural_in_context(context, EventProofSetRequirement::ProducerSubmission)?;
+        let [EventProof::Producer(producer)] = self.proofs.as_slice() else {
+            unreachable!("producer proof set was validated above")
+        };
+        producer.validate_direct_signer_resolution_evidence()
+    }
+
     /// [`Event::validate_for_submit_structural`] under an explicit CBA context.
     ///
     /// Use [`EventSubmitContext::AnchorUnit`] only for the two closed
@@ -1301,9 +1383,10 @@ impl Event {
     pub fn validate_for_federation_structural_in_context(
         &self,
         context: EventSubmitContext,
+        digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
         self.validate_structural_in_context(context, EventProofSetRequirement::AcceptedEvent)?;
-        self.validate_principal_server_admission_binding()
+        self.validate_principal_server_admission_binding(digest_suite)
     }
 
     /// Validate a producer-authored Event before proofs are appended.
@@ -1351,7 +1434,9 @@ impl Event {
                 ));
             }
             EventProofSetRequirement::ProducerSubmission => match self.proofs.as_slice() {
-                [EventProof::Producer(_)] => {}
+                [EventProof::Producer(producer)] => {
+                    producer.validate_signer_resolution_evidence_pair()?;
+                }
                 _ => {
                     return Err(Error::Protocol(
                         "caller submission must carry exactly one producer proof and no principal server admission proof"
@@ -1361,9 +1446,18 @@ impl Event {
             },
             EventProofSetRequirement::AcceptedEvent => match self.proofs.as_slice() {
                 [
-                    EventProof::Producer(_),
+                    EventProof::Producer(producer),
                     EventProof::PrincipalServerAdmission(_),
-                ] => {}
+                ] => {
+                    if producer.signer_resolution_evidence_ref.is_some()
+                        || producer.signer_resolution_evidence_digest.is_some()
+                    {
+                        return Err(Error::Protocol(
+                            "admission-backed producer proof must omit direct signer resolution evidence"
+                                .to_owned(),
+                        ));
+                    }
+                }
                 _ => {
                     return Err(Error::Protocol(
                         "federated Event must carry exactly one producer proof followed by one principal server admission proof"
@@ -1440,14 +1534,6 @@ impl Event {
         Ok(())
     }
 
-    /// Validate that all proofs bind to this event's digest.
-    ///
-    /// Checks each proof's `event_digest` matches the canonical event digest,
-    /// and that each proof is structurally valid.
-    pub fn validate_proof_bindings(&self) -> Result<()> {
-        self.validate_proof_bindings_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-    }
-
     /// Validate proof bindings with the trusted Realm digest suite.
     pub fn validate_proof_bindings_with_digest_suite(
         &self,
@@ -1468,20 +1554,6 @@ impl Event {
             }
         }
         Ok(())
-    }
-
-    pub fn validate_proof_bindings_with_context(
-        &self,
-        domain: Option<String>,
-        audience: Option<Audience>,
-        requirements: ProofBindingRequirements,
-    ) -> Result<()> {
-        self.validate_proof_bindings_with_context_and_digest_suite(
-            domain,
-            audience,
-            requirements,
-            arkret_canonical::DigestSuite::Sha256,
-        )
     }
 
     pub fn validate_proof_bindings_with_context_and_digest_suite(
@@ -1508,8 +1580,11 @@ impl Event {
 
     /// Validate the closed accepted-Event proof set: exactly one producer
     /// proof followed by exactly one origin Principal Server admission proof.
-    pub fn validate_principal_server_admission_binding(&self) -> Result<()> {
-        let expected_event_digest = Hash::new(self.event_digest()?)?;
+    pub fn validate_principal_server_admission_binding(
+        &self,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        let expected_event_digest = Hash::new(self.event_digest_with_digest_suite(digest_suite)?)?;
         let [
             EventProof::Producer(producer),
             EventProof::PrincipalServerAdmission(admission),
@@ -1617,7 +1692,8 @@ impl Event {
             payload,
             created_at,
         )?;
-        event.event_id = event.derive_event_id()?;
+        event.event_id =
+            event.derive_event_id_with_digest_suite(arkret_canonical::DigestSuite::Sha256)?;
         // A genesis scope names no Realm, so `realm_id` was computed from the
         // placeholder id above; recompute it now that the real id is known.
         if event.scope_ref.realm_id_opt().is_none() {
@@ -1749,9 +1825,13 @@ mod event_wire_surface_tests {
         // derived id — which every wire Event must (section 4.0). Stamp it, so
         // the fixture is a legal Event rather than one with a made-up id.
         let mut event = base_event();
-        event.event_id = event.derive_event_id().unwrap();
+        event.event_id = event
+            .derive_event_id_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
         let bytes = canonical::canonical_json_bytes(&event.digest_payload().unwrap()).unwrap();
-        let reconstructed = Event::from_digest_payload_bytes(&bytes).unwrap();
+        let reconstructed =
+            Event::from_digest_payload_bytes(&bytes, arkret_canonical::DigestSuite::Sha256)
+                .unwrap();
 
         assert_eq!(reconstructed, event);
         assert!(reconstructed.proofs.is_empty());
@@ -1764,14 +1844,20 @@ mod event_wire_surface_tests {
         let mut with_proofs = base_event().digest_payload().unwrap();
         with_proofs["proofs"] = json!([]);
         let bytes = canonical::canonical_json_bytes(&with_proofs).unwrap();
-        assert!(Event::from_digest_payload_bytes(&bytes).is_err());
+        assert!(
+            Event::from_digest_payload_bytes(&bytes, arkret_canonical::DigestSuite::Sha256,)
+                .is_err()
+        );
 
         let canonical =
             canonical::canonical_json_bytes(&base_event().digest_payload().unwrap()).unwrap();
         let mut spaced = Vec::with_capacity(canonical.len() + 1);
         spaced.extend_from_slice(b" ");
         spaced.extend_from_slice(&canonical);
-        assert!(Event::from_digest_payload_bytes(&spaced).is_err());
+        assert!(
+            Event::from_digest_payload_bytes(&spaced, arkret_canonical::DigestSuite::Sha256,)
+                .is_err()
+        );
     }
 
     #[test]
@@ -1788,6 +1874,8 @@ mod event_wire_surface_tests {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
+            signer_resolution_evidence_ref: None,
+            signer_resolution_evidence_digest: None,
             created_at: event.created_at,
             domain: None,
             audience: None,
@@ -1816,6 +1904,8 @@ mod event_wire_surface_tests {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            signer_resolution_evidence_ref: None,
+            signer_resolution_evidence_digest: None,
             created_at: whole_second,
             domain: None,
             audience: None,
@@ -1878,7 +1968,11 @@ mod event_wire_surface_tests {
         )
         .unwrap();
 
-        event.verify_event_id_matches_content().unwrap();
+        event
+            .verify_event_id_matches_content_with_digest_suite(
+                arkret_canonical::DigestSuite::Sha256,
+            )
+            .unwrap();
         assert_eq!(
             serde_json::to_value(event).unwrap()["created_at"],
             json!("2026-06-03T12:34:56.000Z")
@@ -1952,8 +2046,12 @@ mod event_wire_surface_tests {
             ("external_id".to_owned(), json!("different")),
         ]));
         assert_ne!(
-            event.event_digest().unwrap(),
-            mutated.event_digest().unwrap()
+            event
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .unwrap(),
+            mutated
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .unwrap()
         );
     }
 
@@ -1964,12 +2062,19 @@ mod event_wire_surface_tests {
         // the digest from the accepted envelope must reach the same value.
         // See `encoding.md` §2 / §6.
         let event = base_event();
-        let baseline = event.event_digest().unwrap();
+        let baseline = event
+            .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
 
         let mut stamped = event;
         stamped.actor_kind = Some(EnvelopeActorKind::Agent);
 
-        assert_eq!(baseline, stamped.event_digest().unwrap());
+        assert_eq!(
+            baseline,
+            stamped
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .unwrap()
+        );
         let digest_payload = stamped.digest_payload().unwrap();
         assert!(digest_payload.get("actor_kind").is_none());
         assert!(digest_payload.get("proofs").is_none());
@@ -1979,7 +2084,9 @@ mod event_wire_surface_tests {
     #[test]
     fn signed_scope_ref_is_covered_by_the_event_digest() {
         let event = base_event();
-        let baseline = event.event_digest().unwrap();
+        let baseline = event
+            .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
         assert!(event.digest_payload().unwrap().get("scope_ref").is_some());
 
         let mut rescoped = event;
@@ -1991,7 +2098,12 @@ mod event_wire_surface_tests {
             )),
         };
 
-        assert_ne!(baseline, rescoped.event_digest().unwrap());
+        assert_ne!(
+            baseline,
+            rescoped
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .unwrap()
+        );
     }
 
     #[test]
@@ -2100,6 +2212,8 @@ mod event_wire_surface_tests {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            signer_resolution_evidence_ref: None,
+            signer_resolution_evidence_digest: None,
             created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             domain: None,
             audience: None,

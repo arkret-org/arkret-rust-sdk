@@ -71,6 +71,7 @@ pub mod self_contact_paths;
 pub mod service_kind;
 pub mod signal;
 pub mod signer;
+pub mod signer_evidence;
 pub mod string_profiles;
 #[doc(hidden)]
 #[cfg(any(test, feature = "test-support"))]
@@ -156,7 +157,9 @@ pub use generated::{
 pub use genesis_salt::GenesisSalt;
 pub use http_signature::HttpMessageSignature;
 pub use ingress_budget::WireBodyClass;
-pub use notary::{ForensicAttribution, NotaryValue};
+pub use notary::{
+    ForensicAttribution, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, NotaryValue,
+};
 pub use object_address::*;
 pub use offline_publication::{
     AnchorUnitLeaseBasis, AnchorUnitLeaseBasisRef, AuthoritySetAuthorizationRule,
@@ -184,8 +187,8 @@ pub use recovery_authority::{
 };
 pub use resource_selector::{ResourceMatchScope, ResourceSelectorKind, WireResourceSelector};
 pub use seal::{
-    MultiSigKind, MultiSignature, NotarySig, PayloadSignature, Seal, SealKind, ThresholdSigKind,
-    ThresholdSignature, compute_seal_id, seal_canonical_bytes,
+    MultiSigKind, MultiSignature, NotarySig, PayloadSignature, Seal, SealKind, SealSignature,
+    compute_seal_id, seal_canonical_bytes,
 };
 pub use security_transaction::{
     AcceptedStep, BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupRotationPlan,
@@ -210,6 +213,7 @@ pub use signal::{
     SignalKeyRef, SignalProof, SignalRelayOutcome, SignalRelayRequest, SignalStreamFrame,
 };
 pub use signer::{PartialSignature, PayloadSigner, ThresholdAggregator};
+pub use signer_evidence::SignerEvidenceRef;
 pub use string_profiles::*;
 pub use websocket_binding::{
     WEBSOCKET_AUTH_METHOD_TOKEN, WEBSOCKET_AUTH_REPLAY_CONTEXT, WEBSOCKET_AUTHENTICATION,

@@ -48,10 +48,18 @@ pub fn classify_event_submit_context(events: &[Event]) -> Result<EventSubmitCont
 
 /// Classify and validate a complete ordered federation unit whose Events have
 /// already received their origin Principal Server admission proof.
-pub fn classify_federated_event_submit_context(events: &[Event]) -> Result<EventSubmitContext> {
+pub fn classify_federated_event_submit_context(
+    events: &[Event],
+    digest_suites: &[arkret_canonical::DigestSuite],
+) -> Result<EventSubmitContext> {
+    if events.len() != digest_suites.len() {
+        return Err(Error::Protocol(
+            "federated Event and digest-suite cardinality must match".to_owned(),
+        ));
+    }
     let context = classify_event_submit_context_shape(events)?;
-    for event in events {
-        event.validate_for_federation_structural_in_context(context)?;
+    for (event, digest_suite) in events.iter().zip(digest_suites.iter().copied()) {
+        event.validate_for_federation_structural_in_context(context, digest_suite)?;
     }
     Ok(context)
 }
@@ -200,6 +208,7 @@ impl AuthorizationLeaseIssueOutcome {
     pub fn validate_against_request(
         &self,
         request: &AuthorizationLeaseIssueRequestBody,
+        digest_suites: &[arkret_canonical::DigestSuite],
     ) -> Result<()> {
         request.validate_structural()?;
         if self.authorization_leases.len() != request.events.len() + request.intents.len() {
@@ -211,8 +220,13 @@ impl AuthorizationLeaseIssueOutcome {
             lease.validate_structural()?;
         }
         if !request.events.is_empty() {
-            self.validate_event_bindings(&request.events)
+            self.validate_event_bindings(&request.events, digest_suites)
         } else {
+            if !digest_suites.is_empty() {
+                return Err(Error::Protocol(
+                    "non-Event authorization lease intents forbid digest suites".to_owned(),
+                ));
+            }
             for (lease, intent) in self.authorization_leases.iter().zip(&request.intents) {
                 if lease.scope_ref != intent.scope_ref
                     || lease.action != intent.action
@@ -229,12 +243,21 @@ impl AuthorizationLeaseIssueOutcome {
         }
     }
 
-    fn validate_event_bindings(&self, events: &[Event]) -> Result<()> {
+    fn validate_event_bindings(
+        &self,
+        events: &[Event],
+        digest_suites: &[arkret_canonical::DigestSuite],
+    ) -> Result<()> {
+        if events.len() != digest_suites.len() {
+            return Err(Error::Protocol(
+                "authorization lease Event and digest-suite cardinality must match".to_owned(),
+            ));
+        }
         let anchor_unit = events
             .iter()
             .all(|event| event.seal_ref.is_none() && event.seal_basis.is_none());
         if anchor_unit {
-            validate_anchor_unit_lease_bindings(events, &self.authorization_leases)?;
+            validate_anchor_unit_lease_bindings(events, &self.authorization_leases, digest_suites)?;
         }
         for (lease, event) in self.authorization_leases.iter().zip(events) {
             validate_lease_binds_event(event, lease)?;
@@ -262,10 +285,12 @@ pub const MAX_FEDERATION_INGRESS_RECEIPTS: usize = 32;
 pub fn validate_anchor_unit_lease_bindings(
     events: &[Event],
     leases: &[AuthorizationLease],
+    digest_suites: &[arkret_canonical::DigestSuite],
 ) -> Result<()> {
-    if events.is_empty() || events.len() != leases.len() {
+    if events.is_empty() || events.len() != leases.len() || events.len() != digest_suites.len() {
         return Err(Error::Protocol(
-            "anchor-unit Event and lease cardinality must match and be non-empty".to_owned(),
+            "anchor-unit Event, lease, and digest-suite cardinality must match and be non-empty"
+                .to_owned(),
         ));
     }
     let realm_id = events[0].realm_id.clone();
@@ -276,8 +301,9 @@ pub fn validate_anchor_unit_lease_bindings(
     }
     let event_digests = events
         .iter()
-        .map(|event| {
-            let digest = event.event_digest()?;
+        .zip(digest_suites.iter().copied())
+        .map(|(event, digest_suite)| {
+            let digest = event.event_digest_with_digest_suite(digest_suite)?;
             crate::Hash::new(digest).map_err(|error| {
                 Error::Protocol(format!("anchor Event digest is invalid: {error}"))
             })
@@ -367,6 +393,7 @@ fn validate_control_proposal_ack(
     event: &Event,
     receipt: Option<&ControlProposalAck>,
     context: EventSubmitContext,
+    digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<()> {
     if let Some(receipt) = receipt {
         // A caller-proven closed anchor unit consists entirely of Control
@@ -380,7 +407,7 @@ fn validate_control_proposal_ack(
                 "DataEvent submissions forbid a Control Proposal Ack".to_owned(),
             ));
         }
-        let event_digest = crate::Hash::new(event.event_digest()?)?;
+        let event_digest = crate::Hash::new(event.event_digest_with_digest_suite(digest_suite)?)?;
         if receipt.realm_id != event.realm_id || receipt.proposal_digest != event_digest {
             return Err(Error::Protocol(
                 "Control Proposal Ack does not bind the submitted Event".to_owned(),
@@ -457,8 +484,8 @@ impl EventInitialSubmission {
     ///
     /// Key material, accepted CBA basis and Realm issuer policy are checked by
     /// the caller; this covers only what the wrapper alone can decide.
-    pub fn validate_structural(&self) -> Result<()> {
-        self.validate_structural_in_context(EventSubmitContext::Standard)
+    pub fn validate_structural(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<()> {
+        self.validate_structural_in_context(EventSubmitContext::Standard, digest_suite)
     }
 
     /// Structural validation under an explicit Event submit context.
@@ -466,14 +493,23 @@ impl EventInitialSubmission {
     /// `AnchorUnit` is safe only after the caller has recognized and will
     /// validate a complete closed anchor unit. It must never be selected from
     /// one Event in isolation.
-    pub fn validate_structural_in_context(&self, context: EventSubmitContext) -> Result<()> {
+    pub fn validate_structural_in_context(
+        &self,
+        context: EventSubmitContext,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
         self.event
             .validate_for_submit_structural_in_context(context)?;
         if let Some(lease) = &self.authorization_lease {
             lease.validate_structural()?;
             validate_lease_binds_event(&self.event, lease)?;
         }
-        validate_control_proposal_ack(&self.event, self.control_proposal_ack.as_ref(), context)?;
+        validate_control_proposal_ack(
+            &self.event,
+            self.control_proposal_ack.as_ref(),
+            context,
+            digest_suite,
+        )?;
         validate_membership_compensation_evidence(
             &self.event,
             self.membership_compensation_evidence.as_ref(),
@@ -503,19 +539,28 @@ impl EventFederationSubmission {
     /// this exact Event digest inside that lease window. Whether the receipt
     /// issuers, threshold and transparency evidence satisfy the *target* Realm
     /// policy is a separate decision the caller makes.
-    pub fn validate_structural(&self) -> Result<()> {
-        self.validate_structural_in_context(EventSubmitContext::Standard)
+    pub fn validate_structural(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<()> {
+        self.validate_structural_in_context(EventSubmitContext::Standard, digest_suite)
     }
 
     /// Federation structural validation under a caller-proven anchor context.
-    pub fn validate_structural_in_context(&self, context: EventSubmitContext) -> Result<()> {
+    pub fn validate_structural_in_context(
+        &self,
+        context: EventSubmitContext,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
         self.event
-            .validate_for_federation_structural_in_context(context)?;
+            .validate_for_federation_structural_in_context(context, digest_suite)?;
         if let Some(lease) = &self.authorization_lease {
             lease.validate_structural()?;
             validate_lease_binds_event(&self.event, lease)?;
         }
-        validate_control_proposal_ack(&self.event, self.control_proposal_ack.as_ref(), context)?;
+        validate_control_proposal_ack(
+            &self.event,
+            self.control_proposal_ack.as_ref(),
+            context,
+            digest_suite,
+        )?;
         validate_membership_compensation_evidence(
             &self.event,
             self.membership_compensation_evidence.as_ref(),
@@ -542,7 +587,8 @@ impl EventFederationSubmission {
             }
             _ => {}
         }
-        let event_digest = crate::Hash::new(self.event.event_digest()?)?;
+        let event_digest =
+            crate::Hash::new(self.event.event_digest_with_digest_suite(digest_suite)?)?;
         for receipt in &self.ingress_receipts {
             receipt.validate_structural()?;
             if receipt.event_digest != event_digest {
@@ -679,13 +725,28 @@ mod tests {
             key_epoch: 1,
             credential_epoch: None,
         });
-        let event_digest = Hash::new(event.event_digest().unwrap()).unwrap();
+        let event_digest = Hash::new(
+            event
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .unwrap(),
+        )
+        .unwrap();
         event.proofs = vec![
             Proof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-1")
                     .unwrap(),
                 event_digest,
+                signer_resolution_evidence_ref: Some(
+                    crate::SignerEvidenceRef::new(format!(
+                        "ak:signer_evidence:sha256:{}",
+                        "22".repeat(32)
+                    ))
+                    .unwrap(),
+                ),
+                signer_resolution_evidence_digest: Some(
+                    Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
+                ),
                 created_at: event.created_at,
                 domain: None,
                 audience: None,
@@ -712,6 +773,13 @@ mod tests {
                 .unwrap(),
                 producer_verification_method: producer.verification_method.clone(),
                 producer_signing_key: DidKey::new("did:key:z6Mkhfixture").unwrap(),
+                signer_resolution_evidence_ref: crate::SignerEvidenceRef::new(format!(
+                    "ak:signer_evidence:sha256:{}",
+                    "11".repeat(32)
+                ))
+                .unwrap(),
+                signer_resolution_evidence_digest: Hash::new(format!("sha256:{}", "11".repeat(32)))
+                    .unwrap(),
                 accepted_at: event.created_at,
                 jws: "admission..signature".to_owned(),
             },
@@ -726,7 +794,9 @@ mod tests {
             submission.publication_lane(),
             EventPublicationLane::OnlineSelf
         );
-        submission.validate_structural().unwrap();
+        submission
+            .validate_structural(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
 
         let value = serde_json::to_value(submission).unwrap();
         assert!(value.get("authorization_lease").is_none());
@@ -737,7 +807,12 @@ mod tests {
         let mut event = online_event();
         event.seal_ref = None;
         event.seal_basis = None;
-        let proposal_digest = Hash::new(event.event_digest().unwrap()).unwrap();
+        let proposal_digest = Hash::new(
+            event
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .unwrap(),
+        )
+        .unwrap();
         let now = Utc::now();
         let receipt = ControlProposalAck {
             kind: crate::ControlProposalAckKind::SignedAck,
@@ -752,12 +827,22 @@ mod tests {
         };
 
         assert!(
-            validate_control_proposal_ack(&event, Some(&receipt), EventSubmitContext::Standard,)
-                .is_err(),
+            validate_control_proposal_ack(
+                &event,
+                Some(&receipt),
+                EventSubmitContext::Standard,
+                arkret_canonical::DigestSuite::Sha256,
+            )
+            .is_err(),
             "basis-free standard Events remain DataEvents"
         );
-        validate_control_proposal_ack(&event, Some(&receipt), EventSubmitContext::AnchorUnit)
-            .expect("caller-proven closed anchors remain Control Moves");
+        validate_control_proposal_ack(
+            &event,
+            Some(&receipt),
+            EventSubmitContext::AnchorUnit,
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .expect("caller-proven closed anchors remain Control Moves");
     }
 
     #[test]
@@ -768,7 +853,9 @@ mod tests {
             submission.publication_lane(),
             EventPublicationLane::OfflineDelayed
         );
-        submission.validate_structural().unwrap();
+        submission
+            .validate_structural(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
 
         let value = serde_json::to_value(submission).unwrap();
         assert!(value.get("authorization_lease").is_some());
@@ -787,7 +874,9 @@ mod tests {
             submission.publication_lane(),
             EventPublicationLane::PeerFederation
         );
-        submission.validate_structural().unwrap();
+        submission
+            .validate_structural(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
     }
 
     #[test]
@@ -799,7 +888,11 @@ mod tests {
             control_proposal_ack: None,
             membership_compensation_evidence: None,
         };
-        assert!(submission.validate_structural().is_err());
+        assert!(
+            submission
+                .validate_structural(arkret_canonical::DigestSuite::Sha256)
+                .is_err()
+        );
     }
 
     #[test]
@@ -848,10 +941,10 @@ mod tests {
         let outcome = AuthorizationLeaseIssueOutcome {
             authorization_leases: vec![lease_for(&requested)],
         };
-        outcome.validate_against_request(&request).unwrap();
+        outcome.validate_against_request(&request, &[]).unwrap();
 
         let mut changed = request;
         changed.intents[0].action = "ak.message.redact".to_owned();
-        assert!(outcome.validate_against_request(&changed).is_err());
+        assert!(outcome.validate_against_request(&changed, &[]).is_err());
     }
 }

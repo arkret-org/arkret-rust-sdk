@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-20.1;
-//! sha256=d5df5785acf732207ae2c18958ef078201aa6ce532a5e20fef82e74d4a7b85f6 Entries: schema_ids=189,
-//! active=189
+//! Input: registry/schema-registry.json; version=2026-08-21.1;
+//! sha256=819abc05ee5085e693547524d6aa2c202f6031e3337686d3b38d73918e98ba1a Entries: schema_ids=192,
+//! active=192
 
 use serde::{Deserialize, Serialize};
 
@@ -47,6 +47,7 @@ pub enum SchemaId {
     AppletWidgetDeclarationV1,
     AuditReleaseAttestationV1,
     AuditRywReceiptV1,
+    AuthenticatedSignerResolutionEvidenceV1,
     AuthoritySetPolicyV1,
     AuthzOperationsV1,
     AvailabilityReceiptV1,
@@ -91,9 +92,11 @@ pub enum SchemaId {
     EventsSubscribeFrameV1,
     ExtensionManifestV1,
     FileTransferV1,
+    GovernanceRegistrySnapshotV1,
     GrantConstraintV1,
     HandleClaimV1,
     HighRiskAuthorityProofV1,
+    HistoryKeyV1,
     HttpErrorEnvelopeV1,
     IceConfigResponseV1,
     IdentityLinkV1,
@@ -240,6 +243,7 @@ impl SchemaId {
         Self::AppletWidgetDeclarationV1,
         Self::AuditReleaseAttestationV1,
         Self::AuditRywReceiptV1,
+        Self::AuthenticatedSignerResolutionEvidenceV1,
         Self::AuthoritySetPolicyV1,
         Self::AuthzOperationsV1,
         Self::AvailabilityReceiptV1,
@@ -284,9 +288,11 @@ impl SchemaId {
         Self::EventsSubscribeFrameV1,
         Self::ExtensionManifestV1,
         Self::FileTransferV1,
+        Self::GovernanceRegistrySnapshotV1,
         Self::GrantConstraintV1,
         Self::HandleClaimV1,
         Self::HighRiskAuthorityProofV1,
+        Self::HistoryKeyV1,
         Self::HttpErrorEnvelopeV1,
         Self::IceConfigResponseV1,
         Self::IdentityLinkV1,
@@ -433,6 +439,7 @@ impl SchemaId {
         Self::AppletWidgetDeclarationV1,
         Self::AuditReleaseAttestationV1,
         Self::AuditRywReceiptV1,
+        Self::AuthenticatedSignerResolutionEvidenceV1,
         Self::AuthoritySetPolicyV1,
         Self::AuthzOperationsV1,
         Self::AvailabilityReceiptV1,
@@ -477,9 +484,11 @@ impl SchemaId {
         Self::EventsSubscribeFrameV1,
         Self::ExtensionManifestV1,
         Self::FileTransferV1,
+        Self::GovernanceRegistrySnapshotV1,
         Self::GrantConstraintV1,
         Self::HandleClaimV1,
         Self::HighRiskAuthorityProofV1,
+        Self::HistoryKeyV1,
         Self::HttpErrorEnvelopeV1,
         Self::IceConfigResponseV1,
         Self::IdentityLinkV1,
@@ -700,13 +709,18 @@ impl SchemaId {
     pub const APPLET_WIDGET_DECLARATION_V1: &'static str = "ak.schema.applet_widget_declaration.v1";
     pub const AUDIT_RELEASE_ATTESTATION_V1: &'static str = "ak.schema.audit_release_attestation.v1";
     pub const AUDIT_RYW_RECEIPT_V1: &'static str = "ak.schema.audit_ryw_receipt.v1";
+    /// Content-addressed historical signer-resolution evidence pinned for Event, Principal Server
+    /// and AvailabilityReceipt signature verification.
+    pub const AUTHENTICATED_SIGNER_RESOLUTION_EVIDENCE_V1: &'static str =
+        "ak.schema.authenticated_signer_resolution_evidence.v1";
     /// Canonical concrete authority policy rederived from accepted CBA control state and bound by
     /// AuthoritySetRef.
     pub const AUTHORITY_SET_POLICY_V1: &'static str = "ak.schema.authority_set_policy.v1";
     /// Closed response DTO bundle for authorization query operations.
     pub const AUTHZ_OPERATIONS_V1: &'static str = "ak.schema.authz_operations.v1";
-    /// Signed holder commitment that Event bytes are available until retention_expires_at; used by
-    /// CBA Seal availability_root.
+    /// Signed holder commitment that exact Event bytes are available until retention_expires_at. A
+    /// Seal commits every-and-only required receipt through its canonical
+    /// availability_receipt_digests array.
     pub const AVAILABILITY_RECEIPT_V1: &'static str = "ak.schema.availability_receipt.v1";
     /// Immutable transaction-bound completion artifact proving all planned old secret_storage and
     /// mls_history backup objects were erased after authoritative pointer switch.
@@ -827,6 +841,11 @@ impl SchemaId {
     /// Encrypted account-data plaintext shape and to-device key message content for
     /// principal-private cross-device file transfer.
     pub const FILE_TRANSFER_V1: &'static str = "ak.schema.file_transfer.v1";
+    /// Small content-addressed governance registry manifest plus a deterministic transitive
+    /// event-envelope/event-payload local-schema manifest; each named artifact is fetched
+    /// separately for historical apply_seal replay.
+    pub const GOVERNANCE_REGISTRY_SNAPSHOT_V1: &'static str =
+        "ak.schema.governance_registry_snapshot.v1";
     pub const GRANT_CONSTRAINT_V1: &'static str = "ak.schema.grant_constraint.v1";
     pub const HANDLE_CLAIM_V1: &'static str = "ak.schema.handle_claim.v1";
     /// Shared high-risk authority proof family (principal_signing / device_quorum /
@@ -834,6 +853,9 @@ impl SchemaId {
     /// common detached-JWS leaf. First consumer: active-series key backup tail deletion
     /// (key-management.md §7.8).
     pub const HIGH_RISK_AUTHORITY_PROOF_V1: &'static str = "ak.schema.high_risk_authority_proof.v1";
+    /// Closed private history-key request, mailbox, source relay, response, organization-recovery
+    /// archive, and HPKE plaintext DTO family
+    pub const HISTORY_KEY_V1: &'static str = "ak.schema.history_key.v1";
     /// Canonical default application/json HTTP error envelope from sync/api-conventions.md section
     /// 5.
     pub const HTTP_ERROR_ENVELOPE_V1: &'static str = "ak.schema.http_error_envelope.v1";
@@ -899,8 +921,8 @@ impl SchemaId {
     pub const MIMI_INTEROP_V1: &'static str = "ak.schema.mimi_interop.v1";
     /// Closed request/response DTO bundle for MIMI provider interop operations.
     pub const MIMI_OPERATIONS_V1: &'static str = "ak.schema.mimi_operations.v1";
-    /// Complete-materialization accepted-Seal proof bundle for independently verifying full-profile
-    /// MLS governance bindings
+    /// Closed near-current stateless MLS group-security frontier query carrier. Bulk and old
+    /// history use receipt-bound direct accepted-Seal traversal through standard resolve surfaces.
     pub const MLS_GOVERNANCE_PROOF_BUNDLE_V1: &'static str =
         "ak.schema.mls_governance_proof_bundle.v1";
     pub const MODERATION_APPEAL_V1: &'static str = "ak.schema.moderation_appeal.v1";
@@ -1144,6 +1166,9 @@ impl SchemaId {
             Self::AppletWidgetDeclarationV1 => Self::APPLET_WIDGET_DECLARATION_V1,
             Self::AuditReleaseAttestationV1 => Self::AUDIT_RELEASE_ATTESTATION_V1,
             Self::AuditRywReceiptV1 => Self::AUDIT_RYW_RECEIPT_V1,
+            Self::AuthenticatedSignerResolutionEvidenceV1 => {
+                Self::AUTHENTICATED_SIGNER_RESOLUTION_EVIDENCE_V1
+            }
             Self::AuthoritySetPolicyV1 => Self::AUTHORITY_SET_POLICY_V1,
             Self::AuthzOperationsV1 => Self::AUTHZ_OPERATIONS_V1,
             Self::AvailabilityReceiptV1 => Self::AVAILABILITY_RECEIPT_V1,
@@ -1194,9 +1219,11 @@ impl SchemaId {
             Self::EventsSubscribeFrameV1 => Self::EVENTS_SUBSCRIBE_FRAME_V1,
             Self::ExtensionManifestV1 => Self::EXTENSION_MANIFEST_V1,
             Self::FileTransferV1 => Self::FILE_TRANSFER_V1,
+            Self::GovernanceRegistrySnapshotV1 => Self::GOVERNANCE_REGISTRY_SNAPSHOT_V1,
             Self::GrantConstraintV1 => Self::GRANT_CONSTRAINT_V1,
             Self::HandleClaimV1 => Self::HANDLE_CLAIM_V1,
             Self::HighRiskAuthorityProofV1 => Self::HIGH_RISK_AUTHORITY_PROOF_V1,
+            Self::HistoryKeyV1 => Self::HISTORY_KEY_V1,
             Self::HttpErrorEnvelopeV1 => Self::HTTP_ERROR_ENVELOPE_V1,
             Self::IceConfigResponseV1 => Self::ICE_CONFIG_RESPONSE_V1,
             Self::IdentityLinkV1 => Self::IDENTITY_LINK_V1,
@@ -1362,6 +1389,9 @@ impl SchemaId {
             Self::AppletWidgetDeclarationV1 => "schemas/applet-widget-declaration.schema.json",
             Self::AuditReleaseAttestationV1 => "schemas/audit-release-attestation.schema.json",
             Self::AuditRywReceiptV1 => "schemas/audit-ryw-receipt.schema.json",
+            Self::AuthenticatedSignerResolutionEvidenceV1 => {
+                "schemas/authenticated-signer-resolution-evidence.schema.json"
+            }
             Self::AuthoritySetPolicyV1 => "schemas/authority-set-policy.schema.json",
             Self::AuthzOperationsV1 => "schemas/authz-operations.schema.json",
             Self::AvailabilityReceiptV1 => "schemas/availability-receipt.schema.json",
@@ -1412,9 +1442,13 @@ impl SchemaId {
             Self::EventsSubscribeFrameV1 => "schemas/events-subscribe-frame.schema.json",
             Self::ExtensionManifestV1 => "schemas/extension-manifest.schema.json",
             Self::FileTransferV1 => "schemas/file-transfer.schema.json",
+            Self::GovernanceRegistrySnapshotV1 => {
+                "schemas/governance-registry-snapshot.schema.json"
+            }
             Self::GrantConstraintV1 => "schemas/grant-constraint.schema.json",
             Self::HandleClaimV1 => "schemas/handle-claim.schema.json",
             Self::HighRiskAuthorityProofV1 => "schemas/high-risk-authority-proof.schema.json",
+            Self::HistoryKeyV1 => "schemas/history-key.schema.json",
             Self::HttpErrorEnvelopeV1 => "schemas/http-error-envelope.schema.json",
             Self::IceConfigResponseV1 => "schemas/ice-config-response.schema.json",
             Self::IdentityLinkV1 => "schemas/identity-link.schema.json",
@@ -1584,6 +1618,9 @@ impl SchemaId {
             Self::APPLET_WIDGET_DECLARATION_V1 => Some(Self::AppletWidgetDeclarationV1),
             Self::AUDIT_RELEASE_ATTESTATION_V1 => Some(Self::AuditReleaseAttestationV1),
             Self::AUDIT_RYW_RECEIPT_V1 => Some(Self::AuditRywReceiptV1),
+            Self::AUTHENTICATED_SIGNER_RESOLUTION_EVIDENCE_V1 => {
+                Some(Self::AuthenticatedSignerResolutionEvidenceV1)
+            }
             Self::AUTHORITY_SET_POLICY_V1 => Some(Self::AuthoritySetPolicyV1),
             Self::AUTHZ_OPERATIONS_V1 => Some(Self::AuthzOperationsV1),
             Self::AVAILABILITY_RECEIPT_V1 => Some(Self::AvailabilityReceiptV1),
@@ -1636,9 +1673,11 @@ impl SchemaId {
             Self::EVENTS_SUBSCRIBE_FRAME_V1 => Some(Self::EventsSubscribeFrameV1),
             Self::EXTENSION_MANIFEST_V1 => Some(Self::ExtensionManifestV1),
             Self::FILE_TRANSFER_V1 => Some(Self::FileTransferV1),
+            Self::GOVERNANCE_REGISTRY_SNAPSHOT_V1 => Some(Self::GovernanceRegistrySnapshotV1),
             Self::GRANT_CONSTRAINT_V1 => Some(Self::GrantConstraintV1),
             Self::HANDLE_CLAIM_V1 => Some(Self::HandleClaimV1),
             Self::HIGH_RISK_AUTHORITY_PROOF_V1 => Some(Self::HighRiskAuthorityProofV1),
+            Self::HISTORY_KEY_V1 => Some(Self::HistoryKeyV1),
             Self::HTTP_ERROR_ENVELOPE_V1 => Some(Self::HttpErrorEnvelopeV1),
             Self::ICE_CONFIG_RESPONSE_V1 => Some(Self::IceConfigResponseV1),
             Self::IDENTITY_LINK_V1 => Some(Self::IdentityLinkV1),

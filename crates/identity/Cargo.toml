@@ -20,7 +20,7 @@ arkret-egress-policy = {workspace = true}
 # cycle-free.
 arkret-keystore = {workspace = true}
 arkret-models-identity = {workspace = true}
-arkret-signatures = {workspace = true,features = ["webvh"]}
+arkret-signatures = {workspace = true,features = ["service-identity","webvh"]}
 arkret-wire = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
 ed25519-dalek = {workspace = true}

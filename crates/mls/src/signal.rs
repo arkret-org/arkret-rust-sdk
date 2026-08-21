@@ -27,18 +27,14 @@
 //! history_secret[N] = MLS-Exporter("ak.history-v1", realm_id, KDF.Nh)
 //! K_signal[N,D]     = ExpandWithLabel(history_secret[N], "ak.signal-v1",
 //!                                     JCS({sender_device_id:D}), AEAD.Nk)
-//! prefix            = MLS-Exporter("arkret-aead-sender-nonce-prefix-v1",
-//!                                  JCS({key_ref, epoch, device_id, purpose, aead_profile}),
-//!                                  N_AEAD - 8)
-//! nonce             = prefix || device_nonce_counter_be64
+//! nonce             = I2OSP(durable_sender_counter, AEAD.Nn)
 //! AAD               = JCS(pre-encryption immutable header)   // §10.2
 //! ```
 
+use std::mem::size_of;
+
 use arkret_canonical::{base64url_decode, base64url_encode};
-use arkret_crypto::{
-    AEAD_NONCE_COUNTER_LEN, AEAD_NONCE_EXPORTER_LABEL, AeadNonceContext, AeadNonceReplayTracker,
-    aead_sender_nonce_context_bytes, compose_aead_nonce,
-};
+use arkret_crypto::{AeadNonceContext, AeadNonceReplayTracker, compose_aead_nonce};
 use arkret_wire::{
     Hash, MAX_SIGNAL_PLAINTEXT_BYTES, ReasonCode, SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME,
     SignalAeadBinding, SignalEncryptedPayload, SignalEnvelope, canonical,
@@ -181,16 +177,15 @@ impl ArkretMlsGroup {
                 binding.aead_profile
             )));
         }
-        let prefix_len = suite.nonce_prefix_len();
-        let expected_prefix = self.signal_nonce_prefix(binding, suite)?;
-        if nonce_bytes[..prefix_len] != expected_prefix[..] {
+        let counter_offset = nonce_bytes.len() - size_of::<u64>();
+        if nonce_bytes[..counter_offset].iter().any(|byte| *byte != 0) {
             return Err(Error::Protocol(format!(
-                "{}: signal sender_nonce_prefix does not match the declared sender device",
-                ReasonCode::AEAD_NONCE_SENDER_DOMAIN_COLLISION
+                "{}: signal nonce is not full-width I2OSP of its counter",
+                ReasonCode::AEAD_NONCE_DERIVATION_INVALID
             )));
         }
-        let mut counter_bytes = [0u8; AEAD_NONCE_COUNTER_LEN];
-        counter_bytes.copy_from_slice(&nonce_bytes[prefix_len..]);
+        let mut counter_bytes = [0u8; size_of::<u64>()];
+        counter_bytes.copy_from_slice(&nonce_bytes[counter_offset..]);
         replay.accept_counter(
             &signal_nonce_context(binding)?,
             u64::from_be_bytes(counter_bytes),
@@ -273,35 +268,15 @@ impl ArkretMlsGroup {
         )
     }
 
-    /// `nonce = sender_nonce_prefix || device_nonce_counter_be64` (§10.1).
+    /// `nonce = I2OSP(counter, AEAD.Nn)` (§10.1).
     fn signal_nonce(
         &self,
         binding: &SignalAeadBinding<'_>,
         suite: ExporterAeadSuite,
         counter: u64,
     ) -> Result<Vec<u8>> {
-        let prefix = self.signal_nonce_prefix(binding, suite)?;
-        Ok(compose_aead_nonce(&prefix, counter))
-    }
-
-    /// The per-sender prefix, straight from the MLS exporter.
-    ///
-    /// Label and Context are the registry row verbatim: label
-    /// `arkret-aead-sender-nonce-prefix-v1`, Context the canonical bytes of
-    /// `{key_ref, epoch, device_id, purpose, aead_profile}`. The row forbids an
-    /// empty Context, and [`aead_sender_nonce_context_bytes`] rejects a context
-    /// missing any member before it reaches the exporter.
-    fn signal_nonce_prefix(
-        &self,
-        binding: &SignalAeadBinding<'_>,
-        suite: ExporterAeadSuite,
-    ) -> Result<Zeroizing<Vec<u8>>> {
-        let context_bytes = aead_sender_nonce_context_bytes(&signal_nonce_context(binding)?)?;
-        self.export_secret(
-            AEAD_NONCE_EXPORTER_LABEL,
-            &context_bytes,
-            suite.nonce_prefix_len(),
-        )
+        signal_nonce_context(binding)?;
+        compose_aead_nonce(counter, suite.nonce_len()).map_err(Into::into)
     }
 }
 
@@ -309,11 +284,9 @@ impl ArkretMlsGroup {
 /// also authenticates — so a receiver reconstructs it from what it verified.
 fn signal_nonce_context(binding: &SignalAeadBinding<'_>) -> Result<AeadNonceContext> {
     Ok(AeadNonceContext {
-        key_ref: serde_json::to_value(binding.key_ref)?,
+        mls_group_id: binding.scope_ref.canonical_mls_group_id()?,
         epoch: binding.epoch,
-        device_id: binding.sender_device_id.as_str().to_owned(),
-        purpose: binding.purpose.to_owned(),
-        aead_profile: binding.aead_profile.to_owned(),
+        sender_domain: binding.sender_device_id.as_str().to_owned(),
     })
 }
 
@@ -552,34 +525,20 @@ mod tests {
         }
     }
 
-    /// `nonce = sender_nonce_prefix || device_nonce_counter_be64` with an
-    /// 8-byte unsigned big-endian counter, and two senders under one
-    /// `(key_ref, epoch, purpose, aead_profile)` derive distinct prefixes.
+    /// `nonce = I2OSP(counter, AEAD.Nn)` with one durable per-sender counter.
     #[test]
-    fn nonce_is_the_exporter_prefix_followed_by_a_be64_counter() {
+    fn nonce_is_the_full_width_counter() {
         let (alice_group, _bob_group) = alice_and_bob();
         let epoch = alice_group.epoch();
         let alice_parts = BindingParts::new("ak:did_core:webvh:z6mkfixturealice", ALICE_DEVICE);
-        let bob_parts = BindingParts::new("ak:did_core:webvh:z6mkfixturebob", BOB_DEVICE);
         let suite = ExporterAeadSuite::resolve(ARKRET_MLS_CIPHERSUITE_CANONICAL_ID).unwrap();
 
         let nonce = alice_group
             .signal_nonce(&alice_parts.binding(epoch), suite, 0x0102_0304_0506_0708)
             .unwrap();
         assert_eq!(nonce.len(), 12);
+        assert_eq!(&nonce[..4], &[0; 4]);
         assert_eq!(&nonce[4..], &0x0102_0304_0506_0708u64.to_be_bytes());
-
-        let alice_prefix = alice_group
-            .signal_nonce_prefix(&alice_parts.binding(epoch), suite)
-            .unwrap();
-        let bob_prefix = alice_group
-            .signal_nonce_prefix(&bob_parts.binding(epoch), suite)
-            .unwrap();
-        assert_eq!(alice_prefix.len(), 4);
-        assert_ne!(
-            alice_prefix, bob_prefix,
-            "per-sender nonce prefixes MUST differ under one key_ref/epoch/purpose"
-        );
     }
 
     /// The AEAD AAD is the canonical bytes of the pre-encryption immutable

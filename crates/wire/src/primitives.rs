@@ -2,7 +2,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use super::*;
-use crate::{DidCoreId, DidFullId, ProofContextId};
+use crate::{DidCoreId, DidFullId, ProofContextId, SignerEvidenceRef};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -29,55 +29,46 @@ pub enum JoinRule {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum HistoryVisibility {
-    WorldReadable,
-    Shared,
-    Invited,
-    Joined,
-    Restricted,
+pub enum HistoryAccess {
+    SinceJoin,
+    AllHistoryForCurrentMembers,
 }
 
-impl HistoryVisibility {
+impl HistoryAccess {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::WorldReadable => "world_readable",
-            Self::Shared => "shared",
-            Self::Invited => "invited",
-            Self::Joined => "joined",
-            Self::Restricted => "restricted",
+            Self::SinceJoin => "since_join",
+            Self::AllHistoryForCurrentMembers => "all_history_for_current_members",
         }
     }
 
     pub fn admits_pre_join_history(&self) -> bool {
-        matches!(self, Self::WorldReadable | Self::Shared | Self::Invited)
+        matches!(self, Self::AllHistoryForCurrentMembers)
     }
 }
 
-impl FromStr for HistoryVisibility {
-    type Err = HistoryVisibilityParseError;
+impl FromStr for HistoryAccess {
+    type Err = HistoryAccessParseError;
 
     fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
         match value {
-            "world_readable" => Ok(Self::WorldReadable),
-            "shared" => Ok(Self::Shared),
-            "invited" => Ok(Self::Invited),
-            "joined" => Ok(Self::Joined),
-            "restricted" => Ok(Self::Restricted),
-            _ => Err(HistoryVisibilityParseError),
+            "since_join" => Ok(Self::SinceJoin),
+            "all_history_for_current_members" => Ok(Self::AllHistoryForCurrentMembers),
+            _ => Err(HistoryAccessParseError),
         }
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct HistoryVisibilityParseError;
+pub struct HistoryAccessParseError;
 
-impl fmt::Display for HistoryVisibilityParseError {
+impl fmt::Display for HistoryAccessParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("unknown history_visibility value")
+        f.write_str("unknown history_access value")
     }
 }
 
-impl std::error::Error for HistoryVisibilityParseError {}
+impl std::error::Error for HistoryAccessParseError {}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -333,7 +324,7 @@ pub enum PolicyKind {
     Moderation,
     Discoverability,
     Join,
-    HistoryVisibility,
+    HistoryAccess,
     PlaintextVisibility,
     Media,
     Applet,
@@ -785,10 +776,9 @@ pub enum EncryptedPayloadScheme {
     #[serde(rename = "mls_rfc9420")]
     MlsRfc9420,
     // §2.10 history-shareable content scheme: content is encrypted under a
-    // retainable / re-sealable per-epoch `history_secret` (MLS exporter) instead
-    // of the forward-secret message ratchet, so a late joiner granted the
-    // epoch's `history_secret` via `ak.realm_key.share` can decrypt pre-join
-    // content. Trades per-message forward secrecy for per-epoch (§2.10.5).
+    // retainable per-epoch `history_secret` (MLS exporter) instead of the
+    // forward-secret message ratchet, so an authorized current member can
+    // receive encrypted history keys through the history-key protocol.
     #[serde(rename = "mls_exporter_aead_v1")]
     MlsExporterAeadV1,
 }
@@ -928,6 +918,10 @@ pub struct ProducerEventProof {
     pub kind: String,
     pub verification_method: DidUrl,
     pub event_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer_resolution_evidence_digest: Option<Hash>,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1091,6 +1085,8 @@ pub struct PrincipalServerAdmissionProof {
     pub producer_proof_digest: Hash,
     pub producer_verification_method: DidUrl,
     pub producer_signing_key: DidKey,
+    pub signer_resolution_evidence_ref: SignerEvidenceRef,
+    pub signer_resolution_evidence_digest: Hash,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub jws: String,
@@ -1166,7 +1162,13 @@ impl PrincipalServerAdmissionProof {
             || self.event_digest != *expected_event_digest
             || self.producer_proof_digest != Self::producer_proof_digest(producer_proof)?
             || self.producer_verification_method != producer_proof.verification_method
-            || self.jws.is_empty()
+            || self.signer_resolution_evidence_ref.content_digest()?
+                != self.signer_resolution_evidence_digest
+            || !self
+                .signer_resolution_evidence_digest
+                .as_ref()
+                .starts_with("sha256:")
+            || !is_compact_jws(&self.jws)
         {
             return Err(Error::Protocol(
                 "principal server admission proof binding mismatch".to_owned(),
@@ -1183,6 +1185,8 @@ impl PrincipalServerAdmissionProof {
             "producer_proof_digest": &self.producer_proof_digest,
             "producer_verification_method": &self.producer_verification_method,
             "producer_signing_key": &self.producer_signing_key,
+            "signer_resolution_evidence_ref": &self.signer_resolution_evidence_ref,
+            "signer_resolution_evidence_digest": &self.signer_resolution_evidence_digest,
             "accepted_at": canonical::format_timestamp_canonical(self.accepted_at),
         }))
         .map_err(Into::into)
@@ -1247,6 +1251,35 @@ const DEV_PROOF_KINDS: &[&str] = &["dev", "test", "mock", "stub", "dummy"];
 const PROOF_CREATED_AT_HARD_SKEW_MINUTES: i64 = 5;
 
 impl ProducerEventProof {
+    pub fn validate_signer_resolution_evidence_pair(&self) -> Result<()> {
+        match (
+            &self.signer_resolution_evidence_ref,
+            &self.signer_resolution_evidence_digest,
+        ) {
+            (None, None) => Ok(()),
+            (Some(reference), Some(digest))
+                if reference.content_digest()? == *digest
+                    && digest.as_ref().starts_with("sha256:") =>
+            {
+                Ok(())
+            }
+            _ => Err(Error::Protocol(
+                "producer signer resolution evidence ref and digest must be absent together or match"
+                    .to_owned(),
+            )),
+        }
+    }
+
+    pub fn validate_direct_signer_resolution_evidence(&self) -> Result<()> {
+        self.validate_signer_resolution_evidence_pair()?;
+        if self.signer_resolution_evidence_ref.is_none() {
+            return Err(Error::Protocol(
+                "direct producer proof requires signer resolution evidence".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Deserialize an inbound Proof after canonical JSON ingress checks
     /// (NFC strings, duplicate keys, number profile).
     pub fn from_canonical_json_slice(bytes: &[u8]) -> Result<Self> {
@@ -1267,6 +1300,7 @@ impl ProducerEventProof {
     /// Build the canonical **proof binding object** that the detached JWS
     /// signs (encoding.md §6 / event-and-patch.md §3): a canonical-JSON
     /// object over `{event_digest, actor_id, verification_method,
+    /// signer_resolution_evidence_ref?, signer_resolution_evidence_digest?,
     /// created_at, domain?, audience?}`.
     ///
     /// The detached-JWS payload MUST be these bytes — **not** the raw
@@ -1322,6 +1356,18 @@ impl ProducerEventProof {
             "verification_method".to_owned(),
             Value::String(self.verification_method.as_str().to_owned()),
         );
+        if let Some(reference) = &self.signer_resolution_evidence_ref {
+            obj.insert(
+                "signer_resolution_evidence_ref".to_owned(),
+                Value::String(reference.as_ref().to_owned()),
+            );
+        }
+        if let Some(digest) = &self.signer_resolution_evidence_digest {
+            obj.insert(
+                "signer_resolution_evidence_digest".to_owned(),
+                Value::String(digest.as_str().to_owned()),
+            );
+        }
         obj.insert(
             "created_at".to_owned(),
             Value::String(canonical::format_timestamp_canonical(self.created_at)),
@@ -1343,11 +1389,13 @@ impl ProducerEventProof {
     /// Rejects empty JWS and kind values. The signature layer validates the
     /// protected JOSE `alg`; the Arkret wrapper deliberately does not repeat it.
     pub fn validate(&self) -> Result<()> {
-        if self.jws.is_empty() {
-            return Err(Error::Protocol("proof JWS must not be empty".to_owned()));
+        if !is_compact_jws(&self.jws) {
+            return Err(Error::Protocol("proof JWS is not compact JWS".to_owned()));
         }
-        if self.kind.is_empty() {
-            return Err(Error::Protocol("proof kind must not be empty".to_owned()));
+        if self.kind != proof_kind::DETACHED_JWS {
+            return Err(Error::Protocol(
+                "producer proof kind must equal detached_jws".to_owned(),
+            ));
         }
         if self
             .domain
@@ -1359,6 +1407,12 @@ impl ProducerEventProof {
         if let Some(audience) = &self.audience {
             audience.validate_binding_value()?;
         }
+        if self.proof_purpose == Some(PayloadProofPurpose::GovernanceAuthorization) {
+            return Err(Error::Protocol(
+                "producer proof purpose is not registered for Event proofs".to_owned(),
+            ));
+        }
+        self.validate_signer_resolution_evidence_pair()?;
         Ok(())
     }
 
@@ -1462,6 +1516,19 @@ impl ProducerEventProof {
     }
 }
 
+fn is_compact_jws(value: &str) -> bool {
+    let mut segments = value.split('.');
+    let protected = segments.next().unwrap_or_default();
+    let _payload = segments.next().unwrap_or_default();
+    let signature = segments.next().unwrap_or_default();
+    !protected.is_empty()
+        && !signature.is_empty()
+        && segments.next().is_none()
+        && value
+            .bytes()
+            .all(|byte| byte == b'.' || byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+}
+
 /// Server-verified fact-chain echo returned to clients after write admission.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FactChainEcho {
@@ -1554,6 +1621,8 @@ mod tests {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:server.example#key-1").unwrap(),
             event_digest: digest,
+            signer_resolution_evidence_ref: None,
+            signer_resolution_evidence_digest: None,
             created_at: echo.observed_at,
             domain: None,
             audience: None,

@@ -2,12 +2,11 @@ use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
 use arkret_identifiers::{DeviceId, DeviceMessageId, DidCoreId};
-use arkret_models_collaboration::events_payloads::{
-    MemberRepairRequestPayload, RealmKeyRequestPayload,
-};
 use arkret_models_collaboration::objects::productivity::{
     FILE_TRANSFER_KEY_MESSAGE_KIND, FileTransferKeyMessage,
 };
+/// The single source of truth for standard non-Event device-message kinds.
+pub use arkret_models_collaboration::sync_frames::account_sync::device_message_kind;
 use arkret_models_collaboration::sync_frames::account_sync::{
     DeviceMessageSender, DeviceMessageTarget, DeviceMessagesSendRequestBody,
     QueuedDeviceMessageBody,
@@ -20,24 +19,6 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::{EventDraftError, Result};
-
-/// The single source of truth for standard non-Event device-message kinds.
-///
-/// `ak.realm_key.request` is also a registered Event kind, so its spelling is
-/// reused from the generated Event registry rather than copied here.
-pub mod device_message_kind {
-    pub const KEY_VERIFICATION_REQUEST: &str = "ak.key.verification.request";
-    pub const KEY_VERIFICATION_READY: &str = "ak.key.verification.ready";
-    pub const KEY_VERIFICATION_START: &str = "ak.key.verification.start";
-    pub const KEY_VERIFICATION_ACCEPT: &str = "ak.key.verification.accept";
-    pub const KEY_VERIFICATION_KEY: &str = "ak.key.verification.key";
-    pub const KEY_VERIFICATION_MAC: &str = "ak.key.verification.mac";
-    pub const KEY_VERIFICATION_DONE: &str = "ak.key.verification.done";
-    pub const KEY_VERIFICATION_CANCEL: &str = "ak.key.verification.cancel";
-    pub const MLS_WELCOME_V1: &str = arkret_wire::event_kind_str::MLS_WELCOME;
-    pub const REALM_KEY_REQUEST: &str = "ak.realm_key.request";
-    pub const MEMBER_REPAIR_REQUEST: &str = "ak.member.repair.request";
-}
 
 mod private {
     pub trait Sealed {}
@@ -54,10 +35,6 @@ pub trait DeviceMessageSpec: private::Sealed {
 
 /// Marker types for standard device-message products.
 pub mod device_message_spec {
-    #[derive(Clone, Copy, Debug)]
-    pub struct RealmKeyRequest;
-    #[derive(Clone, Copy, Debug)]
-    pub struct MemberRepairRequest;
     #[derive(Clone, Copy, Debug)]
     pub struct FileTransferKey;
     #[derive(Clone, Copy, Debug)]
@@ -92,8 +69,6 @@ macro_rules! seal_specs {
 }
 
 seal_specs!(
-    device_message_spec::RealmKeyRequest,
-    device_message_spec::MemberRepairRequest,
     device_message_spec::FileTransferKey,
     device_message_spec::MlsWelcome,
     device_message_spec::KeyVerificationRequest,
@@ -110,28 +85,6 @@ seal_specs!(
     device_message_spec::SecretRequest,
     device_message_spec::SecretSend,
 );
-
-impl DeviceMessageSpec for device_message_spec::RealmKeyRequest {
-    type Content = RealmKeyRequestPayload;
-    const KIND: &'static str = device_message_kind::REALM_KEY_REQUEST;
-
-    fn validate(content: &Self::Content) -> Result<()> {
-        content
-            .validate()
-            .map_err(|error| EventDraftError::Protocol(error.to_string()))
-    }
-}
-
-impl DeviceMessageSpec for device_message_spec::MemberRepairRequest {
-    type Content = MemberRepairRequestPayload;
-    const KIND: &'static str = device_message_kind::MEMBER_REPAIR_REQUEST;
-
-    fn validate(content: &Self::Content) -> Result<()> {
-        content
-            .validate()
-            .map_err(|error| EventDraftError::Protocol(error.to_string()))
-    }
-}
 
 impl DeviceMessageSpec for device_message_spec::FileTransferKey {
     type Content = FileTransferKeyMessage;
@@ -315,10 +268,8 @@ impl<K: DeviceMessageSpec> TypedDeviceMessageTarget<K> {
 
 #[cfg(test)]
 mod tests {
-    use arkret_identifiers::{DeviceId, DeviceMessageId, DidCoreId, EventId, Hash, RealmId};
-    use arkret_models_collaboration::events_payloads::MemberRepairRequester;
+    use arkret_identifiers::{DeviceId, DeviceMessageId, DidCoreId, Hash};
     use arkret_models_crypto::{MlsEndpointIdentity, MlsWelcomeEnvelope};
-    use arkret_wire::NonEmptyString;
     use chrono::{Duration, Utc};
 
     use super::*;
@@ -351,53 +302,6 @@ mod tests {
         assert_eq!(target.kind.as_str(), device_message_kind::MLS_WELCOME_V1);
         assert_eq!(
             serde_json::from_value::<MlsWelcomeEnvelope>(
-                serde_json::to_value(target.content).unwrap(),
-            )
-            .unwrap(),
-            content
-        );
-    }
-
-    #[test]
-    fn member_repair_request_marker_preserves_closed_trigger_content() {
-        let content = MemberRepairRequestPayload {
-            realm_id: RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5")
-                .unwrap(),
-            requester_principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example")
-                .unwrap(),
-            requester: MemberRepairRequester::Device {
-                requester_device_id: DeviceId::new(
-                    "ak:device:01904100-0000-7000-8000-000000000002",
-                )
-                .unwrap(),
-            },
-            requester_keypackage_ref: NonEmptyString::new("keypackage-claim-1").unwrap(),
-            observed_active_generation_value_digest: Hash::new(format!(
-                "sha256:{}",
-                "a".repeat(64)
-            ))
-            .unwrap(),
-            rejoin_event_id: EventId::new("ak:event:Af-qizSfVETcKiliXG093VVneO4nQF194ZXGkMWJijix")
-                .unwrap(),
-            created_at: DateTime::parse_from_rfc3339("2026-08-10T00:00:00.123Z")
-                .unwrap()
-                .with_timezone(&Utc),
-        };
-        let target = TypedDeviceMessageTarget::<device_message_spec::MemberRepairRequest>::new(
-            DeviceMessageId::new("ak:device_message:01904100-0000-7000-8000-000000000004").unwrap(),
-            Utc::now() + Duration::minutes(5),
-            content.clone(),
-        )
-        .unwrap()
-        .build()
-        .unwrap();
-
-        assert_eq!(
-            target.kind.as_str(),
-            device_message_kind::MEMBER_REPAIR_REQUEST
-        );
-        assert_eq!(
-            serde_json::from_value::<MemberRepairRequestPayload>(
                 serde_json::to_value(target.content).unwrap(),
             )
             .unwrap(),

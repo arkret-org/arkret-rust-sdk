@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
     AppletId, CircleId, DidCoreId, EncryptionProfile, Error, EvaluationClass, Facet, GrantId, Hash,
-    HistoryVisibility, RealmId, Result, SchemaId, XExtensionMap,
+    HistoryAccess, RealmId, Result, SchemaId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -480,7 +480,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub claim_max_age: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub allowed_history_visibility_values: Vec<HistoryVisibility>,
+    pub allowed_history_access_values: Vec<HistoryAccess>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub redacted_history_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -593,7 +593,7 @@ impl GrantConstraint {
             trusted_claim_issuers: Vec::new(),
             claim_refresh_required: None,
             claim_max_age: None,
-            allowed_history_visibility_values: Vec::new(),
+            allowed_history_access_values: Vec::new(),
             redacted_history_allowed: None,
             encryption_required: None,
             min_encryption_level: None,

@@ -224,6 +224,8 @@ mod tests {
                     "sha256:0000000000000000000000000000000000000000000000000000000000000000",
                 )
                 .unwrap(),
+                signer_resolution_evidence_ref: None,
+                signer_resolution_evidence_digest: None,
                 created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
                 domain: None,
                 audience: None,

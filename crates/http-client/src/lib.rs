@@ -65,8 +65,8 @@ pub use endpoints::{
 pub use error::{Error, Result};
 #[cfg(not(target_arch = "wasm32"))]
 pub use service_resolution_fetcher::{
-    SERVICE_RESOLUTION_FETCH_MAX_BYTES, SERVICE_RESOLUTION_FETCH_TIMEOUT, ServiceResolutionFetcher,
-    UnverifiedServiceResolutionRecord,
+    MaterializedServiceResolution, SERVICE_RESOLUTION_FETCH_MAX_BYTES,
+    SERVICE_RESOLUTION_FETCH_TIMEOUT, ServiceResolutionFetcher,
 };
 
 pub const HEADER_REQUEST_ID: &str = "X-Arkret-Request-Id";
@@ -820,18 +820,21 @@ mod tests {
         use arkret_models_collaboration::http_bodies::MimiReportAbuseRequestBody;
         use arkret_models_collaboration::objects::blob::BlobUploadMetadata;
         use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
-        use arkret_models_crypto::MlsGovernanceProofRequestBody;
+        use arkret_models_crypto::{
+            MlsGovernanceBindingProfile, MlsGovernanceFrontierPurpose, MlsGovernanceProofProfile,
+            MlsGovernanceProofRequestBody,
+        };
         use arkret_models_discovery::{
             DirectoryPrivateContactDiscoveryOutcome, DirectoryPrivateContactDiscoveryRequestBody,
         };
         use arkret_wire::{
             AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
             AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
-            AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, BlobRef, DeviceId,
-            DidCoreId, DidFullId, DidUrl, Event, EventId, EventInitialSubmission,
-            EventRequirements, Hash, Hlc, LeaseBasisRef, MimiRoomUri, NonEmptyString, PayloadProof,
-            RealmId, RiskTier, ScopeRef, SealId, ServiceKind, StrandId, project_full_id_to_core_id,
-            proof_kind,
+            AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, Base64UrlString,
+            BlobRef, DeviceId, DidCoreId, DidFullId, DidUrl, Event, EventId,
+            EventInitialSubmission, EventRequirements, Hash, Hlc, LeaseBasisRef, MimiRoomUri,
+            NonEmptyString, PayloadProof, RealmId, RiskTier, ScopeRef, SealBasis, SealId,
+            ServiceKind, StrandId, project_full_id_to_core_id, proof_kind,
         };
         use serde_json::{Value, json};
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -1111,22 +1114,31 @@ mod tests {
             let (client, capture) = spawn_capture_server("{}").await;
             let realm_id =
                 RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI").unwrap();
-            let request = MlsGovernanceProofRequestBody {
+            let effective_scope = ScopeRef::Realm {
                 realm_id: realm_id.clone(),
-                effective_scope: ScopeRef::Realm {
-                    realm_id: realm_id.clone(),
-                },
-                mls_group_id: "Z3JvdXA".to_owned(),
-                previous_epoch: 0,
-                next_epoch: 0,
-                binding_profile: ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1.to_owned(),
-                reducer_profile: arkret_wire::CORE_REDUCER_PROFILE.to_owned(),
-                trusted_anchor_seal_id: SealId::new(
+            };
+            let group_id = effective_scope.canonical_mls_group_id().unwrap();
+            let basis = SealBasis {
+                leaves: vec![SealId::new(
                     "ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 )
-                .unwrap(),
-                chunk_index: 0,
-                expected_bundle_digest: None,
+                .unwrap()],
+            };
+            let request = MlsGovernanceProofRequestBody {
+                profile: MlsGovernanceProofProfile::GroupSecurityFrontier,
+                effective_scope,
+                mls_group_id: Base64UrlString::new(group_id.clone()).unwrap(),
+                proof_base_basis: basis.clone(),
+                proof_target_basis: basis,
+                byte_limit: 1_048_576,
+                frontier_purpose: MlsGovernanceFrontierPurpose::GroupBinding,
+                base_group_state_ref: Some(EventId::new(
+                    "ak:event:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                )
+                .unwrap()),
+                previous_epoch: 0,
+                next_epoch: 0,
+                binding_profile: MlsGovernanceBindingProfile::AkSecurityFrontierV1,
             };
 
             client.mls_governance_proof(&request).await.unwrap_err();
@@ -1134,19 +1146,16 @@ mod tests {
             let raw = capture.await.unwrap();
             let (request_line, _headers, body) = split_request(&raw);
             assert!(
-                request_line.starts_with("QUERY /_arkret/self/events/mls-governance-proof "),
+                request_line.starts_with("POST /_arkret/self/seals/mls-governance-proof "),
                 "unexpected request line: {request_line}",
             );
             let parsed: Value = serde_json::from_slice(&body).unwrap();
-            assert_eq!(parsed["realm_id"], realm_id.as_str());
+            assert_eq!(parsed["profile"], "group_security_frontier");
             assert_eq!(parsed["effective_scope"]["kind"], "realm");
-            assert_eq!(parsed["mls_group_id"], "Z3JvdXA");
+            assert_eq!(parsed["mls_group_id"], group_id);
             assert_eq!(parsed["previous_epoch"], 0);
             assert_eq!(parsed["next_epoch"], 0);
-            assert_eq!(
-                parsed["binding_profile"],
-                ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1
-            );
+            assert_eq!(parsed["binding_profile"], "ak.security_frontier.v1");
         }
 
         #[tokio::test]
@@ -1515,8 +1524,9 @@ mod tests {
             let request = arkret_models_collaboration::http_bodies::EventsResolveRequestBody {
                 event_ids: vec![event_id.clone()],
                 event_digests: Vec::new(),
-                seal_refs: Vec::new(),
                 include_payload: Some(true),
+                history_traversal_access: None,
+                max_response_bytes: None,
             };
 
             let response = client.events_resolve(&request).await.unwrap();
@@ -1529,7 +1539,7 @@ mod tests {
             assert_eq!(parsed["event_ids"], serde_json::json!([event_id.as_str()]));
             assert_eq!(parsed["include_payload"], true);
             assert!(parsed.get("event_digests").is_none());
-            assert!(parsed.get("seal_refs").is_none());
+            assert!(parsed.get("history_traversal_access").is_none());
         }
 
         #[tokio::test]
@@ -1669,8 +1679,8 @@ mod tests {
                     "main_strand_id":"ak:strand:AecaKJ8FXN30ZcALRwEuYjmb1ezqL2TQ3YA4OoGfdpx9",
                     "binding_event_ref":"ak:event:AfOnmtYgQpP17IGXP_64dE-weM-8C_AfXXXfYpJ3ubJG"
                 },
-                "active_mls_generation_ref":"ak:event:AfR_M7E56E86OkxTne77vQ9fmdFkzpnxO_TBqB4ymjKV",
-                "active_mls_generation_value_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "group_state_ref":"ak:event:AfR_M7E56E86OkxTne77vQ9fmdFkzpnxO_TBqB4ymjKV",
+                "group_state_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "send_blockers": []
             }"#;
             let (client, capture) = spawn_capture_server(canned).await;
@@ -1683,7 +1693,7 @@ mod tests {
             let response = client.direct_conversation_resolve(&request).await.unwrap();
             let DirectConversationResolveOutcome::Found {
                 coordinates,
-                active_mls_generation_ref,
+                group_state_ref,
                 ..
             } = response
             else {
@@ -1698,7 +1708,7 @@ mod tests {
                 "ak:event:AfOnmtYgQpP17IGXP_64dE-weM-8C_AfXXXfYpJ3ubJG"
             );
             assert_eq!(
-                active_mls_generation_ref.as_str(),
+                group_state_ref.as_str(),
                 "ak:event:AfR_M7E56E86OkxTne77vQ9fmdFkzpnxO_TBqB4ymjKV"
             );
 

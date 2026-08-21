@@ -10,12 +10,12 @@ use serde_json::Value;
 /// Used by `IdentityLinkCacheEntry.policy_frontier_digest` to invalidate
 /// cached identity-link routing decisions when any of these four governance
 /// inputs change. Canonicalisation per RFC 8785 JCS over the JSON object
-/// `{disclosure_policy, history_visibility, identity_disclosure_profile,
+/// `{disclosure_policy, history_access, identity_disclosure_profile,
 /// minimal_metadata_mode}`.
 pub fn compute_policy_frontier_digest(
     disclosure_policy: &Value,
 
-    history_visibility: &Value,
+    history_access: &Value,
 
     identity_disclosure_profile: &Value,
 
@@ -25,7 +25,7 @@ pub fn compute_policy_frontier_digest(
 
         "disclosure_policy": disclosure_policy,
 
-        "history_visibility": history_visibility,
+        "history_access": history_access,
 
         "identity_disclosure_profile": identity_disclosure_profile,
 
@@ -39,7 +39,7 @@ pub fn compute_policy_frontier_digest(
 ///
 /// Round R2/R3 — adds `policy_frontier_digest` so consumers can detect
 /// when the four governance inputs (`disclosure_policy`,
-/// `history_visibility`, `identity_disclosure_profile`,
+/// `history_access`, `identity_disclosure_profile`,
 /// `minimal_metadata_mode`) have shifted at the policy frontier and the
 /// cached link must be re-derived.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

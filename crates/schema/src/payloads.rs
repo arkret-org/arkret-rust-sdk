@@ -596,7 +596,7 @@ mod tests {
     fn catalog_reports_registered_payload_validators() {
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
 
-        assert!(catalog.has_payload_validator(EventKind::RealmKeyShare.as_str()));
+        assert!(catalog.has_payload_validator(EventKind::RealmHistoryAccess.as_str()));
         assert!(!catalog.has_payload_validator("ak.unknown.test"));
     }
 

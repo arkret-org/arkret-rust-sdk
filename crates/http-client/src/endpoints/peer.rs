@@ -3,8 +3,12 @@
 use arkret_models_collaboration::account_lifecycle::{
     AccountStatusResolveOutcome, AccountStatusResolveRequestBody,
 };
-use arkret_models_collaboration::direct_conversation_repair::{
-    DirectConversationRepairEnqueueOutcome, DirectConversationRepairRelayRequest,
+use arkret_models_collaboration::governance_dependencies::{
+    GovernanceDependencyResolveOutcome, PeerGovernanceDependencyResolveRequest,
+};
+use arkret_models_collaboration::http_bodies::{
+    PeerEventsResolveOutcome, PeerEventsResolveRequestBody, PeerSealResolveRequestBody,
+    SealResolveOutcome,
 };
 use arkret_models_collaboration::mls_group_state_material::{
     MlsGroupStateMaterialOutcome, MlsGroupStateMaterialRequestBody,
@@ -12,6 +16,7 @@ use arkret_models_collaboration::mls_group_state_material::{
 use arkret_models_collaboration::principal_operations::{
     PcrGenesisSubmitOutcome, PcrGenesisSubmitRequestBody,
 };
+use arkret_models_crypto::{MlsGovernanceProofBundle, MlsGovernanceProofRequestBody};
 use arkret_models_identity::{
     ServiceResolutionPublishOutcome, ServiceResolutionPublishRequest,
     ServiceResolutionResolveOutcome, ServiceResolutionResolveRequest,
@@ -19,14 +24,55 @@ use arkret_models_identity::{
 use arkret_wire::{
     DeviceRevocationGateCheckOutcome, DeviceRevocationGateCheckRequestBody,
     PATH_PEER_ACCOUNT_STATUS_RESOLVE, PATH_PEER_DEVICE_REVOCATIONS_CHECK,
-    PATH_PEER_DIRECT_CONVERSATIONS_REPAIR_RELAY, PATH_PEER_MLS_GROUP_STATE_MATERIAL,
-    PATH_PEER_PRINCIPAL_GENESIS,
+    PATH_PEER_MLS_GROUP_STATE_MATERIAL, PATH_PEER_PRINCIPAL_GENESIS,
 };
 use reqwest::Method;
 
 use crate::{Client, ClientRequestOptions, Error, Result};
 
 impl Client {
+    /// Resolve an exact retained Event selector set from an authenticated peer.
+    /// The formal operation uses QUERY with a canonical JSON body.
+    pub async fn peer_events_resolve(
+        &self,
+        request: &PeerEventsResolveRequestBody,
+    ) -> Result<PeerEventsResolveOutcome> {
+        request.validate()?;
+        let method = Method::from_bytes(b"QUERY")
+            .map_err(|error| Error::Protocol(format!("invalid QUERY method: {error}")))?;
+        let builder = self.request(method, "/_arkret/peer/events/resolve")?;
+        let builder = self.canonical_json_body(builder, request)?;
+        let outcome: PeerEventsResolveOutcome = self.send_json(builder).await?;
+        outcome.validate_for_request(request)?;
+        if !outcome.missing_event_ids.is_empty() || !outcome.missing_event_digests.is_empty() {
+            return Err(Error::Protocol(
+                "peer Event resolution is incomplete".to_owned(),
+            ));
+        }
+        Ok(outcome)
+    }
+
+    /// Resolve an exact retained Seal selector set from an authenticated peer.
+    /// The formal operation uses QUERY with a canonical JSON body.
+    pub async fn peer_seals_resolve(
+        &self,
+        request: &PeerSealResolveRequestBody,
+    ) -> Result<SealResolveOutcome> {
+        request.validate()?;
+        let method = Method::from_bytes(b"QUERY")
+            .map_err(|error| Error::Protocol(format!("invalid QUERY method: {error}")))?;
+        let builder = self.request(method, "/_arkret/peer/seals/resolve")?;
+        let builder = self.canonical_json_body(builder, request)?;
+        let outcome: SealResolveOutcome = self.send_json(builder).await?;
+        outcome.validate_for_peer_request(request)?;
+        if !outcome.missing_seal_refs.is_empty() {
+            return Err(Error::Protocol(
+                "peer Seal resolution is incomplete".to_owned(),
+            ));
+        }
+        Ok(outcome)
+    }
+
     /// Atomically linearize an immutable issuance intent against the origin
     /// Principal Server's durable device-revocation log.
     pub async fn peer_device_revocations_check(
@@ -80,32 +126,6 @@ impl Client {
         Ok(outcome)
     }
 
-    /// Relay one exact requester-authorized repair trigger. The idempotency
-    /// header is forced to the body request id; service HTTP-signature setup
-    /// remains the caller's transport responsibility.
-    pub async fn peer_direct_conversation_repair_relay(
-        &self,
-        request: &DirectConversationRepairRelayRequest,
-    ) -> Result<DirectConversationRepairEnqueueOutcome> {
-        request.validate_shape()?;
-        let options =
-            ClientRequestOptions::new().idempotency_key(request.request_id.as_str().to_owned());
-        let outcome: DirectConversationRepairEnqueueOutcome = self
-            .post_with_options(
-                PATH_PEER_DIRECT_CONVERSATIONS_REPAIR_RELAY,
-                request,
-                &options,
-            )
-            .await?;
-        outcome.validate_shape()?;
-        if outcome.request_id != request.request_id {
-            return Err(Error::Protocol(
-                "repair relay outcome request_id mismatch".to_owned(),
-            ));
-        }
-        Ok(outcome)
-    }
-
     /// Relay the exact client-signed PCR genesis unit. The service-to-service
     /// signature authenticates transport only and never replaces either
     /// client proof in the unit.
@@ -146,6 +166,39 @@ impl Client {
             .post(PATH_PEER_MLS_GROUP_STATE_MATERIAL, request)
             .await?;
         outcome.validate_for_request(request)?;
+        Ok(outcome)
+    }
+
+    /// Fetch one complete near-current MLS group-security-frontier proof from
+    /// an authenticated federation peer.
+    pub async fn peer_mls_governance_proof(
+        &self,
+        request: &MlsGovernanceProofRequestBody,
+    ) -> Result<MlsGovernanceProofBundle> {
+        request.validate()?;
+        let outcome: MlsGovernanceProofBundle = self
+            .post("/_arkret/peer/seals/mls-governance-proof", request)
+            .await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
+    }
+
+    /// Resolve one exact governance dependency selector set from a peer.
+    /// Missing selectors are a hard failure for replay consumers.
+    pub async fn peer_governance_dependencies_resolve(
+        &self,
+        request: &PeerGovernanceDependencyResolveRequest,
+    ) -> Result<GovernanceDependencyResolveOutcome> {
+        request.validate()?;
+        let outcome: GovernanceDependencyResolveOutcome = self
+            .post("/_arkret/peer/seals/governance-dependencies", request)
+            .await?;
+        outcome.validate_for_request(request)?;
+        if !outcome.missing_selectors.is_empty() {
+            return Err(Error::Protocol(
+                "peer governance dependency resolution is incomplete".to_owned(),
+            ));
+        }
         Ok(outcome)
     }
 }

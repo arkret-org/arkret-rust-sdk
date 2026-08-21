@@ -45,6 +45,8 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: Hash::new(digest).unwrap(),
+        signer_resolution_evidence_ref: None,
+        signer_resolution_evidence_digest: None,
         created_at: Utc::now(),
         domain: None,
         audience: Some(Audience::Single(
@@ -84,6 +86,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
         .into_event_envelope(
             &EventDraftKindRegistry::default(),
             OperationEventConversion::default(),
+            arkret_canonical::DigestSuite::Sha256,
         )
         .unwrap();
     assert_eq!(event.kind, EventKind::MessageCreate);

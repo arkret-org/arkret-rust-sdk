@@ -31,7 +31,12 @@ fn typed_authoring_matches_the_raw_canonical_chain_byte_for_byte() {
         payload.clone(),
     )
     .unwrap()
-    .author(7, hlc.clone(), created_at)
+    .author_with_digest_suite(
+        7,
+        hlc.clone(),
+        created_at,
+        arkret_canonical::DigestSuite::Sha256,
+    )
     .unwrap();
     let raw = arkret_wire::test_support::raw_event_at(
         EventKind::MessageCreate.as_str(),
@@ -66,10 +71,11 @@ fn typed_authoring_materializes_prev_refs_and_seal_basis() {
             .unwrap()
             .with_prev_refs(vec![prev.clone()])
             .with_seal_basis(basis.clone())
-            .author(
+            .author_with_digest_suite(
                 8,
                 Hlc::new("01970e589d21-0002-a13f9c2e").unwrap(),
                 Utc.with_ymd_and_hms(2026, 8, 9, 1, 2, 4).single().unwrap(),
+                arkret_canonical::DigestSuite::Sha256,
             )
             .unwrap();
 

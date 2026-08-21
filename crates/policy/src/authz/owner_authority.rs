@@ -243,7 +243,6 @@ mod tests {
     fn owner_may_grant_core_non_event_and_key_share() {
         let basis = basis();
         assert!(owner_may_grant("ak.audit.export", Some(&basis), &[]).unwrap());
-        assert!(owner_may_grant("ak.realm_key.share", Some(&basis), &[]).unwrap());
         assert!(owner_may_grant("ak.strand.create", Some(&basis), &[]).unwrap());
         // Owner is self-grantable: that is how a co-owner is appointed.
         assert!(owner_may_grant(CapabilityActionId::REALM_OWNER, Some(&basis), &[]).unwrap());

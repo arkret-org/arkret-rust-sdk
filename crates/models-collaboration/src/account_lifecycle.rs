@@ -1086,8 +1086,8 @@ pub struct AccountProfileAcceptedBasis {
 
 impl AccountUpdateProfileRequestBody {
     /// Validate constraints carried entirely inside the signed request.
-    pub fn validate(&self) -> Result<()> {
-        self.profile_event.validate_structural()?;
+    pub fn validate(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<()> {
+        self.profile_event.validate_structural(digest_suite)?;
         let event = &self.profile_event.event;
         if event.executed_by.is_some()
             || event.authorization_ref.is_some()
@@ -1132,8 +1132,9 @@ impl AccountUpdateProfileRequestBody {
         session_principal_id: &DidCoreId,
         principal_control_realm_id: &RealmId,
         accepted_basis: Option<&AccountProfileAcceptedBasis>,
+        digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
-        self.validate()?;
+        self.validate(digest_suite)?;
         let event = &self.profile_event.event;
         if &event.actor_id != session_principal_id
             || &event.realm_id != principal_control_realm_id
@@ -1205,8 +1206,11 @@ impl AccountUpdateProfileRequestBody {
 
     /// Return the profile identity selected by this signed Event. Create IDs
     /// are a byte-for-byte retype of the signed create Event ID.
-    pub fn profile_id(&self) -> Result<ActorProfileId> {
-        self.validate()?;
+    pub fn profile_id(
+        &self,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<ActorProfileId> {
+        self.validate(digest_suite)?;
         match &self.profile_event.event.kind {
             EventKind::ProfileCreate => Ok(ActorProfileId::from_event_id(
                 &self.profile_event.event.event_id,
@@ -1263,6 +1267,7 @@ mod account_update_profile_request_tests {
     const OTHER_ACTOR: &str = "ak:did_core:webvh:z6mkother";
     const PCR: &str = "ak:realm:AfTcej7ZFNg8uTbkOiUJT0KN1F_c9l1fmtil65CUwncm";
     const OTHER_PCR: &str = "ak:realm:ARmJMvTcKFyiF-V_8oL4mIoHfnlqERCrcgNBONtY4HQD";
+    const SUITE: arkret_canonical::DigestSuite = arkret_canonical::DigestSuite::Sha256;
 
     fn actor() -> DidCoreId {
         DidCoreId::new(ACTOR).unwrap()
@@ -1288,14 +1293,23 @@ mod account_update_profile_request_tests {
         event.seal_basis = Some(SealBasis {
             leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap()],
         });
-        event.refresh_content_bound_identity().unwrap();
-        let event_digest = Hash::new(event.event_digest().unwrap()).unwrap();
+        event
+            .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
+        let event_digest = Hash::new(
+            event
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .unwrap(),
+        )
+        .unwrap();
         event.proofs = vec![
             Proof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:fixture.example#device-1")
                     .unwrap(),
                 event_digest,
+                signer_resolution_evidence_ref: None,
+                signer_resolution_evidence_digest: None,
                 created_at,
                 domain: None,
                 audience: None,
@@ -1352,52 +1366,52 @@ mod account_update_profile_request_tests {
     #[test]
     fn valid_create_has_only_the_retyped_signed_event_id() {
         let request = create_request();
-        request.validate().unwrap();
+        request.validate(SUITE).unwrap();
         request
-            .validate_authoring_context(&actor(), &pcr(), None)
+            .validate_authoring_context(&actor(), &pcr(), None, SUITE)
             .unwrap();
         assert_eq!(
-            request.profile_id().unwrap(),
+            request.profile_id(SUITE).unwrap(),
             ActorProfileId::from_event_id(&request.profile_event.event.event_id)
         );
     }
 
     #[test]
     fn valid_update_requires_the_exact_accepted_basis() {
-        let profile_id = create_request().profile_id().unwrap();
+        let profile_id = create_request().profile_id(SUITE).unwrap();
         let basis = accepted_basis(profile_id.clone());
         let request = update_request(
             &profile_id,
             json!({"display_name": {"$op": "set", "value": "Updated"}}),
         );
-        request.validate().unwrap();
+        request.validate(SUITE).unwrap();
         request
-            .validate_authoring_context(&actor(), &pcr(), Some(&basis))
+            .validate_authoring_context(&actor(), &pcr(), Some(&basis), SUITE)
             .unwrap();
-        assert_eq!(request.profile_id().unwrap(), profile_id);
+        assert_eq!(request.profile_id(SUITE).unwrap(), profile_id);
     }
 
     #[test]
     fn create_and_update_are_gated_by_accepted_profile_presence() {
         let create = create_request();
-        let basis = accepted_basis(create.profile_id().unwrap());
+        let basis = accepted_basis(create.profile_id(SUITE).unwrap());
         assert!(
             create
-                .validate_authoring_context(&actor(), &pcr(), Some(&basis))
+                .validate_authoring_context(&actor(), &pcr(), Some(&basis), SUITE)
                 .is_err()
         );
 
         let update = update_request(&basis.profile_id, json!({"display_name": "Updated"}));
         assert!(
             update
-                .validate_authoring_context(&actor(), &pcr(), None)
+                .validate_authoring_context(&actor(), &pcr(), None, SUITE)
                 .is_err()
         );
     }
 
     #[test]
     fn update_rejects_wrong_target_pcr_and_actor() {
-        let profile_id = create_request().profile_id().unwrap();
+        let profile_id = create_request().profile_id(SUITE).unwrap();
         let wrong_profile_id =
             ActorProfileId::new("ak:actor_profile:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0")
                 .unwrap();
@@ -1405,7 +1419,7 @@ mod account_update_profile_request_tests {
         let request = update_request(&profile_id, json!({"display_name": "Updated"}));
         assert!(
             request
-                .validate_authoring_context(&actor(), &pcr(), Some(&basis))
+                .validate_authoring_context(&actor(), &pcr(), Some(&basis), SUITE)
                 .is_err()
         );
 
@@ -1416,6 +1430,7 @@ mod account_update_profile_request_tests {
                     &actor(),
                     &RealmId::new(OTHER_PCR).unwrap(),
                     Some(&basis),
+                    SUITE,
                 )
                 .is_err()
         );
@@ -1425,6 +1440,7 @@ mod account_update_profile_request_tests {
                     &DidCoreId::new(OTHER_ACTOR).unwrap(),
                     &pcr(),
                     Some(&basis),
+                    SUITE,
                 )
                 .is_err()
         );
@@ -1432,13 +1448,13 @@ mod account_update_profile_request_tests {
 
     #[test]
     fn request_rejects_forbidden_patch_provenance_and_precondition() {
-        let profile_id = create_request().profile_id().unwrap();
+        let profile_id = create_request().profile_id(SUITE).unwrap();
         let forbidden_patch = update_request(&profile_id, json!({"handle": "fixture.example"}));
-        assert!(forbidden_patch.validate().is_err());
+        assert!(forbidden_patch.validate(SUITE).is_err());
 
         let mut delegated = create_request();
         delegated.profile_event.event.executed_by = Some(actor());
-        assert!(delegated.validate().is_err());
+        assert!(delegated.validate(SUITE).is_err());
 
         let mut guarded = create_request();
         guarded.profile_event.event.preconditions = vec![Precondition {
@@ -1453,7 +1469,7 @@ mod account_update_profile_request_tests {
                 predicate_id: None,
             },
         }];
-        assert!(guarded.validate().is_err());
+        assert!(guarded.validate(SUITE).is_err());
     }
 }
 

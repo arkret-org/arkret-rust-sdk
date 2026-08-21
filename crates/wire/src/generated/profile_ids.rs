@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: profiles/conformance-profiles.json; version=2026-08-20.1;
-//! sha256=036e4731bef40557cb3cff15cde61145443a22973ae9c8c706e47d5ec8a47a4d Entries: profile_ids=100
+//! Input: profiles/conformance-profiles.json; version=2026-08-21.1;
+//! sha256=cc9849ae2d8e7986591d81d08343cc3d3603e3ecab3febd928824d927e24eb4d Entries: profile_ids=100
 
 use serde::{Deserialize, Serialize};
 
@@ -79,7 +79,7 @@ pub enum ProfileId {
     MorphSchemaMigrationTransformationsV1,
     NotaryMixedRecoveryV1,
     NotaryOpenSetV1,
-    NotarySingleDidV1,
+    NotarySingleSignerV1,
     NotaryThresholdV1,
     OrgHighAssuranceIdentityV1,
     OrganizationV1,
@@ -222,7 +222,7 @@ impl ProfileId {
         Self::MorphSchemaMigrationTransformationsV1,
         Self::NotaryMixedRecoveryV1,
         Self::NotaryOpenSetV1,
-        Self::NotarySingleDidV1,
+        Self::NotarySingleSignerV1,
         Self::NotaryThresholdV1,
         Self::OrgHighAssuranceIdentityV1,
         Self::OrganizationV1,
@@ -345,7 +345,7 @@ impl ProfileId {
         "ak.profile.morph.schema_migration_transformations.v1";
     pub const NOTARY_MIXED_RECOVERY_V1: &'static str = "ak.profile.notary.mixed_recovery.v1";
     pub const NOTARY_OPEN_SET_V1: &'static str = "ak.profile.notary.open_set.v1";
-    pub const NOTARY_SINGLE_DID_V1: &'static str = "ak.profile.notary.single_did.v1";
+    pub const NOTARY_SINGLE_SIGNER_V1: &'static str = "ak.profile.notary.single_signer.v1";
     pub const NOTARY_THRESHOLD_V1: &'static str = "ak.profile.notary.threshold.v1";
     pub const ORG_HIGH_ASSURANCE_IDENTITY_V1: &'static str =
         "ak.profile.org_high_assurance_identity.v1";
@@ -458,7 +458,7 @@ impl ProfileId {
             }
             Self::NotaryMixedRecoveryV1 => Self::NOTARY_MIXED_RECOVERY_V1,
             Self::NotaryOpenSetV1 => Self::NOTARY_OPEN_SET_V1,
-            Self::NotarySingleDidV1 => Self::NOTARY_SINGLE_DID_V1,
+            Self::NotarySingleSignerV1 => Self::NOTARY_SINGLE_SIGNER_V1,
             Self::NotaryThresholdV1 => Self::NOTARY_THRESHOLD_V1,
             Self::OrgHighAssuranceIdentityV1 => Self::ORG_HIGH_ASSURANCE_IDENTITY_V1,
             Self::OrganizationV1 => Self::ORGANIZATION_V1,
@@ -565,7 +565,7 @@ impl ProfileId {
             Self::MorphSchemaMigrationTransformationsV1 => ProfileRole::Server,
             Self::NotaryMixedRecoveryV1 => ProfileRole::Admin,
             Self::NotaryOpenSetV1 => ProfileRole::Admin,
-            Self::NotarySingleDidV1 => ProfileRole::Admin,
+            Self::NotarySingleSignerV1 => ProfileRole::Admin,
             Self::NotaryThresholdV1 => ProfileRole::Admin,
             Self::OrgHighAssuranceIdentityV1 => ProfileRole::Directory,
             Self::OrganizationV1 => ProfileRole::Admin,
@@ -686,7 +686,7 @@ impl ProfileId {
             }
             Self::NOTARY_MIXED_RECOVERY_V1 => Some(Self::NotaryMixedRecoveryV1),
             Self::NOTARY_OPEN_SET_V1 => Some(Self::NotaryOpenSetV1),
-            Self::NOTARY_SINGLE_DID_V1 => Some(Self::NotarySingleDidV1),
+            Self::NOTARY_SINGLE_SIGNER_V1 => Some(Self::NotarySingleSignerV1),
             Self::NOTARY_THRESHOLD_V1 => Some(Self::NotaryThresholdV1),
             Self::ORG_HIGH_ASSURANCE_IDENTITY_V1 => Some(Self::OrgHighAssuranceIdentityV1),
             Self::ORGANIZATION_V1 => Some(Self::OrganizationV1),

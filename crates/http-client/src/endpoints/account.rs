@@ -12,9 +12,6 @@ use arkret_models_collaboration::contact_operations::{
 use arkret_models_collaboration::direct_conversation_ops::{
     DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
 };
-use arkret_models_collaboration::direct_conversation_repair::{
-    DirectConversationRepairDispatchRequest, DirectConversationRepairEnqueueOutcome,
-};
 use arkret_models_collaboration::http_bodies::{
     AccountDevicePairOutcome, AccountDevicePairRequestBody, ContactList, DevicePairingBootstrap,
     DevicePairingResolveRequestBody, DevicePairingStageOutcome, DevicePairingStageRequestBody,
@@ -42,8 +39,7 @@ use arkret_models_identity::{
 };
 use arkret_wire::{
     PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST, PATH_SELF_CONTACTS_RESPOND,
-    PATH_SELF_CONTACTS_TOMBSTONE, PATH_SELF_DIRECT_CONVERSATIONS_REPAIR_DISPATCH,
-    PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE,
+    PATH_SELF_CONTACTS_TOMBSTONE, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE,
 };
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{Method, RequestBuilder, Response};
@@ -239,8 +235,9 @@ impl Client {
     pub async fn account_update_profile(
         &self,
         request: &AccountUpdateProfileRequestBody,
+        digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<AccountUpdateProfileOutcome> {
-        request.validate()?;
+        request.validate(digest_suite)?;
         self.post("/_arkret/self/account/profile", request).await
     }
 
@@ -580,25 +577,6 @@ impl Client {
     ) -> Result<DirectConversationResolveOutcome> {
         self.post(PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, request)
             .await
-    }
-
-    /// Persist one exact requester-authorized repair relay outbox and wait for
-    /// the destination's atomic closed-target durable-enqueue outcome.
-    pub async fn direct_conversation_repair_dispatch(
-        &self,
-        request: &DirectConversationRepairDispatchRequest,
-    ) -> Result<DirectConversationRepairEnqueueOutcome> {
-        request.validate_shape()?;
-        let outcome: DirectConversationRepairEnqueueOutcome = self
-            .post_protocol_replay_safe(PATH_SELF_DIRECT_CONVERSATIONS_REPAIR_DISPATCH, request)
-            .await?;
-        outcome.validate_shape()?;
-        if outcome.request_id != request.request_id {
-            return Err(Error::Protocol(
-                "repair dispatch outcome request_id mismatch".to_owned(),
-            ));
-        }
-        Ok(outcome)
     }
 }
 

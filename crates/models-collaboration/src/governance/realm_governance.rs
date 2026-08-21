@@ -576,8 +576,13 @@ impl RealmModerationPolicyReplaceRequestBody {
     /// This gate pins the signed Event to the path Realm, the registered kind,
     /// the closed policy payload, and the one complete CAS guard the service is
     /// forbidden to add on the caller's behalf.
-    pub fn validate(&self, realm_id: &RealmId) -> Result<()> {
-        self.moderation_policy_event.validate_structural()?;
+    pub fn validate(
+        &self,
+        realm_id: &RealmId,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        self.moderation_policy_event
+            .validate_structural(digest_suite)?;
         let event = &self.moderation_policy_event.event;
         if event.kind != EventKind::RealmModerationPolicy {
             return Err(Error::Protocol(

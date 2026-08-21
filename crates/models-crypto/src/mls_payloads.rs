@@ -19,6 +19,56 @@ pub const MLS_GOVERNANCE_BINDING_ENCODING_PROFILE: &str = "cbor-deterministic-rf
 pub const MLS_GOVERNANCE_BINDING_EXTENSION_TYPE: u16 = 0xF1C0;
 pub const MLS_GOVERNANCE_BINDING_EXTENSION_NAME: &str = "mls_governance_binding";
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MlsContentScheme {
+    MlsRfc9420,
+    MlsExporterAeadV1,
+}
+
+impl MlsContentScheme {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::MlsRfc9420 => "mls_rfc9420",
+            Self::MlsExporterAeadV1 => "mls_exporter_aead_v1",
+        }
+    }
+
+    fn from_str(value: &str) -> Result<Self> {
+        match value {
+            "mls_rfc9420" => Ok(Self::MlsRfc9420),
+            "mls_exporter_aead_v1" => Ok(Self::MlsExporterAeadV1),
+            _ => Err(cbor_error("content_scheme is unregistered")),
+        }
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MlsDurabilityPolicy {
+    None,
+    OrganizationRecoveryKey,
+}
+
+impl MlsDurabilityPolicy {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::OrganizationRecoveryKey => "organization_recovery_key",
+        }
+    }
+
+    fn from_str(value: &str) -> Result<Self> {
+        match value {
+            "none" => Ok(Self::None),
+            "organization_recovery_key" => Ok(Self::OrganizationRecoveryKey),
+            _ => Err(cbor_error("durability_policy is unregistered")),
+        }
+    }
+}
+
 /// Sidecar-specific extension of an MLS governance binding.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -71,6 +121,9 @@ pub struct MlsGovernanceBindingPayload {
     previous_epoch: u64,
     next_epoch: u64,
     security_frontier_digest: Hash,
+    content_scheme: MlsContentScheme,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    durability_policy: Option<MlsDurabilityPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     sidecar_binding: Option<SidecarMlsBinding>,
     binding_profile: String,
@@ -85,6 +138,8 @@ impl MlsGovernanceBindingPayload {
         previous_epoch: u64,
         next_epoch: u64,
         security_frontier_digest: Hash,
+        content_scheme: MlsContentScheme,
+        durability_policy: Option<MlsDurabilityPolicy>,
         binding_profile: impl Into<String>,
         reducer_profile: impl Into<String>,
     ) -> Result<Self> {
@@ -103,6 +158,8 @@ impl MlsGovernanceBindingPayload {
             previous_epoch,
             next_epoch,
             security_frontier_digest,
+            content_scheme,
+            durability_policy,
             sidecar_binding: None,
             binding_profile: binding_profile.into(),
             reducer_profile: reducer_profile.into(),
@@ -119,6 +176,8 @@ impl MlsGovernanceBindingPayload {
         previous_epoch: u64,
         next_epoch: u64,
         security_frontier_digest: Hash,
+        content_scheme: MlsContentScheme,
+        durability_policy: Option<MlsDurabilityPolicy>,
         binding_profile: impl Into<String>,
         reducer_profile: impl Into<String>,
     ) -> Result<Self> {
@@ -140,6 +199,8 @@ impl MlsGovernanceBindingPayload {
             previous_epoch,
             next_epoch,
             security_frontier_digest,
+            content_scheme,
+            durability_policy,
             sidecar_binding: None,
             binding_profile: binding_profile.into(),
             reducer_profile: reducer_profile.into(),
@@ -178,6 +239,8 @@ impl MlsGovernanceBindingPayload {
             previous_epoch,
             next_epoch,
             security_frontier_digest,
+            content_scheme: MlsContentScheme::MlsRfc9420,
+            durability_policy: None,
             sidecar_binding: Some(sidecar_binding),
             binding_profile: binding_profile.into(),
             reducer_profile: reducer_profile.into(),
@@ -216,6 +279,16 @@ impl MlsGovernanceBindingPayload {
         if self.reducer_profile.is_empty() {
             return Err(Error::Protocol(
                 "mls_governance_binding.reducer_profile must be non-empty (schema_violation)"
+                    .to_owned(),
+            ));
+        }
+        let valid_durability = match self.content_scheme {
+            MlsContentScheme::MlsRfc9420 => self.durability_policy.is_none(),
+            MlsContentScheme::MlsExporterAeadV1 => self.durability_policy.is_some(),
+        };
+        if !valid_durability {
+            return Err(Error::Protocol(
+                "mls_governance_binding durability_policy presence does not match content_scheme (schema_violation)"
                     .to_owned(),
             ));
         }
@@ -314,6 +387,20 @@ impl MlsGovernanceBindingPayload {
         {
             return Err(Error::Protocol("mls_governance_binding.security_frontier_digest is stale (mls_governance_binding_stale)".to_owned()));
         }
+        if let Some(content_scheme) = expected.content_scheme
+            && self.content_scheme != content_scheme
+        {
+            return Err(Error::Protocol(
+                "mls_governance_binding.content_scheme mismatch (state_mismatch)".to_owned(),
+            ));
+        }
+        if let Some(durability_policy) = expected.durability_policy
+            && self.durability_policy != durability_policy
+        {
+            return Err(Error::Protocol(
+                "mls_governance_binding.durability_policy mismatch (state_mismatch)".to_owned(),
+            ));
+        }
         if let Some(sidecar_binding) = expected.sidecar_binding
             && self.sidecar_binding.as_ref() != Some(sidecar_binding)
         {
@@ -359,6 +446,8 @@ impl MlsGovernanceBindingPayload {
                 "mls_governance_binding.mls_group_id must be base64url for CBOR bstr encoding: {err} (schema_violation)"
             ))
         })?);
+        cbor_put_tstr(&mut out, "content_scheme");
+        cbor_put_tstr(&mut out, self.content_scheme.as_str());
         cbor_put_tstr(&mut out, "previous_epoch");
         cbor_put_uint(&mut out, self.previous_epoch);
         cbor_put_tstr(&mut out, "binding_profile");
@@ -375,6 +464,10 @@ impl MlsGovernanceBindingPayload {
         }
         cbor_put_tstr(&mut out, "encoding_profile");
         cbor_put_tstr(&mut out, &self.encoding_profile);
+        if let Some(durability_policy) = self.durability_policy {
+            cbor_put_tstr(&mut out, "durability_policy");
+            cbor_put_tstr(&mut out, durability_policy.as_str());
+        }
         // Digest values and the decoded base64url group id are CBOR bstr;
         // protocol identifiers such as Realm and Sidecar ids remain tstr.
         cbor_put_tstr(&mut out, "security_frontier_digest");
@@ -436,6 +529,14 @@ impl MlsGovernanceBindingPayload {
         &self.security_frontier_digest
     }
 
+    pub fn content_scheme(&self) -> MlsContentScheme {
+        self.content_scheme
+    }
+
+    pub fn durability_policy(&self) -> Option<MlsDurabilityPolicy> {
+        self.durability_policy
+    }
+
     pub fn sidecar_binding(&self) -> Option<&SidecarMlsBinding> {
         self.sidecar_binding.as_ref()
     }
@@ -449,9 +550,10 @@ impl MlsGovernanceBindingPayload {
     }
 
     fn cbor_field_count(&self) -> u64 {
-        10 + self.circle_id.is_some() as u64
+        11 + self.circle_id.is_some() as u64
             + self.sidecar_id.is_some() as u64
             + self.sidecar_binding.is_some() as u64
+            + self.durability_policy.is_some() as u64
     }
 
     fn from_cbor_fields(mut fields: BTreeMap<String, CborValue>) -> Result<Self> {
@@ -464,6 +566,11 @@ impl MlsGovernanceBindingPayload {
             .map(CircleId::new)
             .transpose()
             .map_err(|err| cbor_error_message(format!("circle_id is invalid: {err}")))?;
+        let content_scheme =
+            MlsContentScheme::from_str(&take_tstr(&mut fields, "content_scheme")?)?;
+        let durability_policy = take_optional_tstr(&mut fields, "durability_policy")?
+            .map(|value| MlsDurabilityPolicy::from_str(&value))
+            .transpose()?;
         let effective_scope = take_effective_scope(&mut fields)?;
         let encoding_profile = take_tstr(&mut fields, "encoding_profile")?;
         let mls_group_id =
@@ -496,6 +603,8 @@ impl MlsGovernanceBindingPayload {
             previous_epoch,
             next_epoch,
             security_frontier_digest,
+            content_scheme,
+            durability_policy,
             sidecar_binding,
             binding_profile,
             reducer_profile,
@@ -520,6 +629,9 @@ struct MlsGovernanceBindingPayloadWire {
     previous_epoch: u64,
     next_epoch: u64,
     security_frontier_digest: Hash,
+    content_scheme: MlsContentScheme,
+    #[serde(default)]
+    durability_policy: Option<MlsDurabilityPolicy>,
     #[serde(default)]
     sidecar_binding: Option<SidecarMlsBinding>,
     binding_profile: String,
@@ -541,6 +653,8 @@ impl TryFrom<MlsGovernanceBindingPayloadWire> for MlsGovernanceBindingPayload {
             previous_epoch: wire.previous_epoch,
             next_epoch: wire.next_epoch,
             security_frontier_digest: wire.security_frontier_digest,
+            content_scheme: wire.content_scheme,
+            durability_policy: wire.durability_policy,
             sidecar_binding: wire.sidecar_binding,
             binding_profile: wire.binding_profile,
             reducer_profile: wire.reducer_profile,
@@ -581,6 +695,8 @@ pub struct MlsGovernanceBindingValidationContext<'a> {
     pub reducer_profile: &'a str,
     pub effective_scope: Option<&'a ScopeRef>,
     pub security_frontier_digest: Option<&'a Hash>,
+    pub content_scheme: Option<MlsContentScheme>,
+    pub durability_policy: Option<Option<MlsDurabilityPolicy>>,
     pub sidecar_binding: Option<&'a SidecarMlsBinding>,
     pub forbid_sidecar_binding: bool,
 }
@@ -601,9 +717,21 @@ impl<'a> MlsGovernanceBindingValidationContext<'a> {
             reducer_profile,
             effective_scope: None,
             security_frontier_digest: None,
+            content_scheme: None,
+            durability_policy: None,
             sidecar_binding: None,
             forbid_sidecar_binding: false,
         }
+    }
+
+    pub fn with_content_scheme(
+        mut self,
+        content_scheme: MlsContentScheme,
+        durability_policy: Option<MlsDurabilityPolicy>,
+    ) -> Self {
+        self.content_scheme = Some(content_scheme);
+        self.durability_policy = Some(durability_policy);
+        self
     }
 
     pub fn with_sidecar_binding(mut self, binding: &'a SidecarMlsBinding) -> Self {
@@ -1376,6 +1504,8 @@ mod tests {
             0,
             1,
             hash('2'),
+            MlsContentScheme::MlsRfc9420,
+            None,
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             reducer_profile(),
         )
@@ -1393,6 +1523,7 @@ mod tests {
             "previous_epoch": 0,
             "next_epoch": 1,
             "security_frontier_digest": hash('2'),
+            "content_scheme": "mls_rfc9420",
             "membership_frontier": [event(2)],
             "binding_profile": ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             "reducer_profile": reducer_profile()
@@ -1409,6 +1540,8 @@ mod tests {
             0,
             1,
             hash('2'),
+            MlsContentScheme::MlsRfc9420,
+            None,
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             reducer_profile(),
         )
@@ -1444,6 +1577,7 @@ mod tests {
             "mls_group_id": group_id(),
             "previous_epoch": 0,
             "next_epoch": 1,
+            "content_scheme": "mls_rfc9420",
             "binding_profile": ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             "reducer_profile": reducer_profile(),
         }))
@@ -1477,6 +1611,8 @@ mod tests {
             7,
             8,
             hash('5'),
+            MlsContentScheme::MlsRfc9420,
+            None,
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             reducer_profile(),
         )

@@ -861,17 +861,22 @@ impl ContactPreparedEventDraft {
     pub fn unsigned_event(&self) -> arkret_wire::Result<arkret_wire::AuthoredEvent> {
         let bytes =
             arkret_canonical::base64url_decode(self.unsigned_event_bytes.as_str().as_bytes())?;
-        let event = Event::from_digest_payload_bytes(&bytes)?;
+        let digest_suite = self.event_digest.digest_suite().map_err(|error| {
+            arkret_wire::Error::Protocol(format!(
+                "prepared Contact Event digest is invalid: {error}"
+            ))
+        })?;
+        let event = Event::from_digest_payload_bytes(&bytes, digest_suite)?;
         if event.event_id != self.event_id
             || event.kind != self.kind
-            || Hash::new(event.event_digest()?)? != self.event_digest
+            || Hash::new(event.event_digest_with_digest_suite(digest_suite)?)? != self.event_digest
         {
             return Err(arkret_wire::Error::Protocol(
                 "prepared Contact Event metadata does not match unsigned_event_bytes".to_owned(),
             ));
         }
         event.validate_for_authoring_structural()?;
-        arkret_wire::AuthoredEvent::from_verified(event)
+        arkret_wire::AuthoredEvent::from_verified_with_digest_suite(event, digest_suite)
     }
 }
 

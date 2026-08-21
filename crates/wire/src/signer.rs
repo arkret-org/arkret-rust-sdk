@@ -14,14 +14,13 @@
 //! feature, and other backends (HSM, threshold scheme) can layer on the
 //! same trait.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use chrono::Utc;
 
 use crate::{
-    DidCoreId, DidFullId, DidUrl, Error, Hash, Hlc, MultiSigKind, MultiSignature, NotarySig,
-    PayloadSignature, RealmId, Result, Seal, SealId, ThresholdSigKind, ThresholdSignature,
-    canonical,
+    DidFullId, DidUrl, Error, Hash, Hlc, MultiSigKind, MultiSignature, NotarySig, PayloadSignature,
+    RealmId, Result, Seal, SealId, SealSignature, canonical,
 };
 
 /// Trait implemented by Seal / notary signers (Ed25519 keypair, HSM,
@@ -39,6 +38,19 @@ pub trait PayloadSigner {
     /// detached JWS plus the matching `payload_digest`. Helpers such as
     /// [`Seal::sign_single`] build the canonical body bytes and delegate here.
     fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<PayloadSignature>;
+
+    /// Sign canonical bytes while binding `payload_digest` to an explicit
+    /// verified Realm digest suite. The compact detached JWS signs the same
+    /// canonical bytes; only the typed digest field changes with the suite.
+    fn sign_payload_with_digest_suite(
+        &self,
+        canonical_bytes: &[u8],
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<PayloadSignature> {
+        let mut signature = self.sign_payload(canonical_bytes)?;
+        signature.payload_digest = Hash::new(canonical::digest(digest_suite, canonical_bytes))?;
+        Ok(signature)
+    }
 }
 
 impl Seal {
@@ -50,6 +62,7 @@ impl Seal {
         delta: Vec<Hash>,
         state_root: Hash,
         hlc: Hlc,
+        digest_suite: arkret_canonical::DigestSuite,
         signer: &S,
     ) -> Result<Seal> {
         Self::sign_single_kind(
@@ -59,14 +72,15 @@ impl Seal {
             state_root,
             hlc,
             crate::SealKind::Normal,
+            digest_suite,
             signer,
         )
     }
 
-    /// MAL-11: build + single-sign a Seal with an explicit
-    /// [`crate::SealKind`]. Use `Normal` for delta-accepting seals and
-    /// `Compaction` for checkpoint seals that re-state the existing
-    /// delta without accepting new moves.
+    /// Build + single-sign a normal Seal with an explicit construction mode.
+    /// Compaction Seals require an explicit, complete
+    /// `covered_event_digests` input and are therefore rejected by this
+    /// delta-only convenience builder.
     ///
     /// Derives `control_event_set_root` from `delta` alone, which only
     /// equals the value a verifier recomputes when `predecessor_refs`
@@ -89,9 +103,15 @@ impl Seal {
         state_root: Hash,
         hlc: Hlc,
         kind: crate::SealKind,
+        digest_suite: arkret_canonical::DigestSuite,
         signer: &S,
     ) -> Result<Seal> {
-        let control_event_set_root = delta_control_root(&delta)?;
+        if kind.is_compaction() {
+            return Err(Error::Protocol(
+                "compaction Seal requires an explicit covered_event_digests set".to_owned(),
+            ));
+        }
+        let control_event_set_root = delta_control_root(&delta, digest_suite)?;
         Self::sign_single_kind_with_control_root(
             realm_id,
             predecessor_refs,
@@ -100,6 +120,7 @@ impl Seal {
             state_root,
             hlc,
             kind,
+            digest_suite,
             signer,
         )
     }
@@ -121,7 +142,8 @@ impl Seal {
         control_event_set_root: Hash,
         state_root: Hash,
         hlc: Hlc,
-        kind: crate::SealKind,
+        _kind: crate::SealKind,
+        digest_suite: arkret_canonical::DigestSuite,
         signer: &S,
     ) -> Result<Seal> {
         // Compute canonical body bytes (excluding id + notary_signature).
@@ -130,6 +152,10 @@ impl Seal {
         let previous_digest_algorithm = None;
         let completeness_root = control_event_set_root.clone();
         let notary_seq = 0;
+        let data_view_root = None;
+        let data_event_set_root = None;
+        let availability_receipt_digests = Vec::new();
+        let covered_event_digests = Vec::new();
         let body_bytes = canonical::canonical_json_bytes(&SealBodyView {
             realm_id: &realm_id,
             predecessor_refs: &predecessor_refs,
@@ -138,13 +164,17 @@ impl Seal {
             state_root: &state_root,
             completeness_root: &completeness_root,
             notary_seq,
+            data_view_root: &data_view_root,
+            data_event_set_root: &data_event_set_root,
+            availability_receipt_digests: &availability_receipt_digests,
+            covered_event_digests: &covered_event_digests,
             previous_state_root: &previous_state_root,
             previous_digest_algorithm: &previous_digest_algorithm,
             sealed_at,
             hlc: &hlc,
         })?;
-        let id = Seal::id_from_canonical_bytes(&body_bytes)?;
-        let sig = signer.sign_payload(&body_bytes)?;
+        let id = Seal::id_from_canonical_bytes(&body_bytes, digest_suite)?;
+        let sig = seal_signature(signer.sign_payload_with_digest_suite(&body_bytes, digest_suite)?);
         Ok(Seal {
             id,
             realm_id,
@@ -154,110 +184,16 @@ impl Seal {
             state_root,
             completeness_root,
             notary_seq,
-            data_view_root: None,
-            data_event_set_root: None,
-            availability_root: None,
-            coverage_scope: None,
-            covered_event_digests: Vec::new(),
+            data_view_root,
+            data_event_set_root,
+            availability_receipt_digests,
+            covered_event_digests,
             previous_state_root,
             previous_digest_algorithm,
             notary_signature: NotarySig::Single(sig),
             sealed_at,
             hlc,
-            kind,
         })
-    }
-
-    /// Build + threshold-sign a normal Seal. Delegates to
-    /// [`Seal::sign_threshold_kind`] with `kind=Normal`.
-    #[allow(clippy::too_many_arguments)]
-    pub fn sign_threshold(
-        realm_id: RealmId,
-        predecessor_refs: Vec<SealId>,
-        delta: Vec<Hash>,
-        state_root: Hash,
-        hlc: Hlc,
-        threshold: u32,
-        signers: Vec<DidCoreId>,
-        aggregated_proof: String,
-    ) -> Result<Seal> {
-        Self::sign_threshold_kind(
-            realm_id,
-            predecessor_refs,
-            delta,
-            state_root,
-            hlc,
-            crate::SealKind::Normal,
-            threshold,
-            signers,
-            aggregated_proof,
-        )
-    }
-
-    /// MAL-11: build + threshold-sign a Seal with an explicit
-    /// [`crate::SealKind`]. See [`Seal::sign_single_kind`] for the
-    /// kind semantics.
-    #[allow(clippy::too_many_arguments)]
-    pub fn sign_threshold_kind(
-        realm_id: RealmId,
-        predecessor_refs: Vec<SealId>,
-        delta: Vec<Hash>,
-        state_root: Hash,
-        hlc: Hlc,
-        kind: crate::SealKind,
-        threshold: u32,
-        signers: Vec<DidCoreId>,
-        aggregated_proof: String,
-    ) -> Result<Seal> {
-        let sealed_at = Utc::now();
-        let previous_state_root = None;
-        let previous_digest_algorithm = None;
-        let control_event_set_root = delta_control_root(&delta)?;
-        let completeness_root = control_event_set_root.clone();
-        let notary_seq = 0;
-        let body_bytes = canonical::canonical_json_bytes(&SealBodyView {
-            realm_id: &realm_id,
-            predecessor_refs: &predecessor_refs,
-            delta: &delta,
-            control_event_set_root: &control_event_set_root,
-            state_root: &state_root,
-            completeness_root: &completeness_root,
-            notary_seq,
-            previous_state_root: &previous_state_root,
-            previous_digest_algorithm: &previous_digest_algorithm,
-            sealed_at,
-            hlc: &hlc,
-        })?;
-        let id = Seal::id_from_canonical_bytes(&body_bytes)?;
-        let sig = NotarySig::Threshold(ThresholdSignature {
-            kind: ThresholdSigKind::ThresholdSig,
-            threshold,
-            signers,
-            proof: aggregated_proof,
-        });
-        let seal = Seal {
-            id,
-            realm_id,
-            predecessor_refs,
-            delta,
-            control_event_set_root,
-            state_root,
-            completeness_root,
-            notary_seq,
-            data_view_root: None,
-            data_event_set_root: None,
-            availability_root: None,
-            coverage_scope: None,
-            covered_event_digests: Vec::new(),
-            previous_state_root,
-            previous_digest_algorithm,
-            notary_signature: sig,
-            sealed_at,
-            hlc,
-            kind,
-        };
-        seal.validate_structural()?;
-        Ok(seal)
     }
 
     /// Build + multi-sign a normal Seal. Delegates to
@@ -268,6 +204,7 @@ impl Seal {
         delta: Vec<Hash>,
         state_root: Hash,
         hlc: Hlc,
+        digest_suite: arkret_canonical::DigestSuite,
         signers: &[&S],
     ) -> Result<Seal>
     where
@@ -280,13 +217,14 @@ impl Seal {
             state_root,
             hlc,
             crate::SealKind::Normal,
+            digest_suite,
             signers,
         )
     }
 
-    /// MAL-11: build + multi-sign a Seal with an explicit
-    /// [`crate::SealKind`]. See [`Seal::sign_single_kind`] for the
-    /// kind semantics.
+    /// Build + multi-sign a normal Seal with an explicit construction mode.
+    /// Compaction Seals are rejected for the same reason as
+    /// [`Seal::sign_single_kind`].
     #[allow(clippy::too_many_arguments)]
     pub fn sign_multi_kind<S>(
         realm_id: RealmId,
@@ -295,11 +233,17 @@ impl Seal {
         state_root: Hash,
         hlc: Hlc,
         kind: crate::SealKind,
+        digest_suite: arkret_canonical::DigestSuite,
         signers: &[&S],
     ) -> Result<Seal>
     where
         S: PayloadSigner + ?Sized,
     {
+        if kind.is_compaction() {
+            return Err(Error::Protocol(
+                "compaction Seal requires an explicit covered_event_digests set".to_owned(),
+            ));
+        }
         if signers.is_empty() {
             return Err(Error::Protocol(
                 "Seal::sign_multi requires at least one signer".to_owned(),
@@ -308,9 +252,13 @@ impl Seal {
         let sealed_at = Utc::now();
         let previous_state_root = None;
         let previous_digest_algorithm = None;
-        let control_event_set_root = delta_control_root(&delta)?;
+        let control_event_set_root = delta_control_root(&delta, digest_suite)?;
         let completeness_root = control_event_set_root.clone();
         let notary_seq = 0;
+        let data_view_root = None;
+        let data_event_set_root = None;
+        let availability_receipt_digests = Vec::new();
+        let covered_event_digests = Vec::new();
         let body_bytes = canonical::canonical_json_bytes(&SealBodyView {
             realm_id: &realm_id,
             predecessor_refs: &predecessor_refs,
@@ -319,16 +267,23 @@ impl Seal {
             state_root: &state_root,
             completeness_root: &completeness_root,
             notary_seq,
+            data_view_root: &data_view_root,
+            data_event_set_root: &data_event_set_root,
+            availability_receipt_digests: &availability_receipt_digests,
+            covered_event_digests: &covered_event_digests,
             previous_state_root: &previous_state_root,
             previous_digest_algorithm: &previous_digest_algorithm,
             sealed_at,
             hlc: &hlc,
         })?;
-        let id = Seal::id_from_canonical_bytes(&body_bytes)?;
+        let id = Seal::id_from_canonical_bytes(&body_bytes, digest_suite)?;
         let mut signatures = Vec::with_capacity(signers.len());
         for signer in signers {
-            signatures.push(signer.sign_payload(&body_bytes)?);
+            signatures.push(seal_signature(
+                signer.sign_payload_with_digest_suite(&body_bytes, digest_suite)?,
+            ));
         }
+        signatures.sort_by(|left, right| left.verification_method.cmp(&right.verification_method));
         let seal = Seal {
             id,
             realm_id,
@@ -338,11 +293,10 @@ impl Seal {
             state_root,
             completeness_root,
             notary_seq,
-            data_view_root: None,
-            data_event_set_root: None,
-            availability_root: None,
-            coverage_scope: None,
-            covered_event_digests: Vec::new(),
+            data_view_root,
+            data_event_set_root,
+            availability_receipt_digests,
+            covered_event_digests,
             previous_state_root,
             previous_digest_algorithm,
             notary_signature: NotarySig::Multi(MultiSignature {
@@ -351,24 +305,21 @@ impl Seal {
             }),
             sealed_at,
             hlc,
-            kind,
         };
         seal.validate_structural()?;
         Ok(seal)
     }
 }
 
-fn delta_control_root(delta: &[Hash]) -> Result<Hash> {
+fn delta_control_root(delta: &[Hash], digest_suite: arkret_canonical::DigestSuite) -> Result<Hash> {
     let covered: BTreeSet<Hash> = delta.iter().cloned().collect();
     let mut leaves: Vec<[u8; 32]> = covered
         .iter()
         .map(|event_digest| {
-            let digest = event_digest
-                .as_str()
-                .strip_prefix("sha256:")
-                .ok_or_else(|| {
-                    Error::Protocol("control-plane event_digest must use sha256".to_owned())
-                })?;
+            let (suite, digest) = event_digest.as_str().split_once(':').ok_or_else(|| {
+                Error::Protocol("control-plane event_digest must carry a suite".to_owned())
+            })?;
+            canonical::digest_suite(suite)?;
             let mut bytes = [0_u8; 32];
             hex::decode_to_slice(digest, &mut bytes).map_err(|error| {
                 Error::Protocol(format!("invalid control-plane event_digest: {error}"))
@@ -377,20 +328,35 @@ fn delta_control_root(delta: &[Hash]) -> Result<Hash> {
         })
         .collect::<Result<_>>()?;
     if leaves.is_empty() {
-        return Hash::new(canonical::sha256_digest([])).map_err(Error::from);
+        return Hash::new(canonical::digest(digest_suite, [])).map_err(Error::from);
+    }
+    for leaf in &mut leaves {
+        *leaf = canonical::digest_bytes_from_slices(digest_suite, &[&[0x00], leaf]);
     }
     while leaves.len() > 1 {
         let mut next = Vec::with_capacity(leaves.len().div_ceil(2));
         for pair in leaves.chunks(2) {
             if let Some(right) = pair.get(1) {
-                next.push(canonical::sha256_bytes_from_slices(&[&pair[0], right]));
+                next.push(canonical::digest_bytes_from_slices(
+                    digest_suite,
+                    &[&[0x01], &pair[0], right],
+                ));
             } else {
                 next.push(pair[0]);
             }
         }
         leaves = next;
     }
-    Hash::new(format!("sha256:{}", hex::encode(leaves[0]))).map_err(Error::from)
+    Hash::new(format!(
+        "{}:{}",
+        digest_suite.as_str(),
+        hex::encode(leaves[0])
+    ))
+    .map_err(Error::from)
+}
+
+fn seal_signature(signature: PayloadSignature) -> SealSignature {
+    signature.into()
 }
 
 // ---------------------------------------------------------------------------
@@ -429,7 +395,7 @@ impl PartialSignature {
 ///
 /// Collects [`PartialSignature`]s contributed by `n` signers and produces an
 /// aggregated [`MultiSignature`] (or an opaque proof string suitable for
-/// [`NotarySig::Threshold`]) once the threshold `k` is met.
+/// a canonical [`MultiSignature`] once the threshold `k` is met.
 ///
 /// This struct is scheme-agnostic: it does NOT know how to combine partials
 /// (BLS / FROST / Schnorr-musig all differ). Callers MUST supply a
@@ -529,7 +495,7 @@ impl ThresholdAggregator {
     /// Returns an error if any individual verification fails or threshold
     /// not met.
     ///
-    /// The resulting [`MultiSignature`] has one [`PayloadSignature`] per
+    /// The resulting [`MultiSignature`] has one [`SealSignature`] per
     /// partial, with `payload_digest` = the supplied canonical-bytes hash and
     /// `jws` = the partial's raw signature base64-encoded so the wire shape
     /// is uniform regardless of the underlying scheme.
@@ -553,87 +519,16 @@ impl ThresholdAggregator {
             // wire shape stays uniform; receivers re-decode and re-verify
             // via the same scheme verifier.
             let encoded_sig = crate::base64url::base64url_encode(&partial.signature);
-            signatures.push(PayloadSignature {
+            signatures.push(SealSignature {
                 verification_method: partial.kid.clone(),
                 payload_digest: payload_digest.clone(),
-                created_at: Utc::now(),
                 jws: format!("..{encoded_sig}"),
-                extra: BTreeMap::new(),
             });
         }
         Ok(MultiSignature {
             kind: MultiSigKind::MultiSig,
             signatures,
         })
-    }
-
-    /// Concatenate all partial signatures into a single proof string for
-    /// schemes whose aggregator output is the simple concatenation of
-    /// partials (or for tests that don't run a real threshold scheme).
-    ///
-    /// Returns base64url-no-pad of the concatenation, after checking that
-    /// the threshold is met. Each partial is encoded as
-    /// `<did>:<base64url-no-pad(sig)>` joined by `\n` then base64-encoded
-    /// once more to keep the proof a single opaque string.
-    pub fn aggregate_proof(&self) -> Result<String> {
-        if !self.threshold_met() {
-            return Err(Error::Protocol(format!(
-                "threshold not met: have {} partials, need {}",
-                self.partials.len(),
-                self.threshold
-            )));
-        }
-        use crate::base64url::base64url_encode;
-        let lines: Vec<String> = self
-            .partials
-            .iter()
-            .map(|p| format!("{}:{}", p.signer_did, base64url_encode(&p.signature)))
-            .collect();
-        Ok(base64url_encode(lines.join("\n").as_bytes()))
-    }
-
-    pub fn signers(&self) -> Result<Vec<DidCoreId>> {
-        self.partials
-            .iter()
-            .map(|partial| -> Result<_> {
-                Ok(crate::project_full_id_to_core_id(&partial.signer_did)?)
-            })
-            .collect()
-    }
-}
-
-impl Seal {
-    /// Construct + threshold-sign a Seal from already-collected partials.
-    ///
-    /// Calls [`ThresholdAggregator::aggregate_proof`] to derive the opaque
-    /// `proof` string for [`NotarySig::Threshold`], then runs
-    /// `validate_structural` (k ≤ n, unique signers, etc.).
-    ///
-    /// The partial signatures MUST have been individually verified before
-    /// being added to the aggregator (call
-    /// [`ThresholdAggregator::add_partial_verified`]). This constructor
-    /// performs no further per-partial verification.
-    #[allow(clippy::too_many_arguments)]
-    pub fn sign_threshold_partial(
-        realm_id: RealmId,
-        predecessor_refs: Vec<SealId>,
-        delta: Vec<Hash>,
-        state_root: Hash,
-        hlc: Hlc,
-        aggregator: &ThresholdAggregator,
-    ) -> Result<Seal> {
-        let proof = aggregator.aggregate_proof()?;
-        let signers = aggregator.signers()?;
-        Seal::sign_threshold(
-            realm_id,
-            predecessor_refs,
-            delta,
-            state_root,
-            hlc,
-            aggregator.threshold() as u32,
-            signers,
-            proof,
-        )
     }
 }
 
@@ -656,12 +551,23 @@ struct SealBodyView<'a> {
     completeness_root: &'a Hash,
     notary_seq: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
+    data_view_root: &'a Option<Hash>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    data_event_set_root: &'a Option<Hash>,
+    availability_receipt_digests: &'a [Hash],
+    #[serde(skip_serializing_if = "slice_is_empty")]
+    covered_event_digests: &'a [Hash],
+    #[serde(skip_serializing_if = "Option::is_none")]
     previous_state_root: &'a Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    previous_digest_algorithm: &'a Option<String>,
+    previous_digest_algorithm: &'a Option<arkret_canonical::DigestSuite>,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     sealed_at: chrono::DateTime<Utc>,
     hlc: &'a Hlc,
+}
+
+fn slice_is_empty(values: &&[Hash]) -> bool {
+    values.is_empty()
 }
 
 #[cfg(test)]
@@ -676,10 +582,6 @@ mod tests {
 
     fn alice() -> DidFullId {
         DidFullId::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()
-    }
-
-    fn actor(scid: &str) -> DidCoreId {
-        DidCoreId::new(format!("ak:did_core:webvh:{scid}")).unwrap()
     }
 
     fn alice_kid() -> DidUrl {
@@ -726,7 +628,7 @@ mod tests {
                 payload_digest,
                 created_at: Utc.with_ymd_and_hms(2026, 5, 9, 0, 0, 0).unwrap(),
                 jws: "AAAA.BBBB.CCCC".to_owned(),
-                extra: BTreeMap::new(),
+                extra: Default::default(),
             })
         }
     }
@@ -747,56 +649,17 @@ mod tests {
             vec![hash(0x11)],
             hash(0x77),
             hlc(),
+            arkret_canonical::DigestSuite::Sha256,
             &s,
         )
         .unwrap();
-        a.validate_id().unwrap();
+        a.validate_id(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
         a.validate_structural().unwrap();
         match &a.notary_signature {
             NotarySig::Single(sig) => assert!(!sig.jws.is_empty()),
             other => panic!("expected single sig, got {other:?}"),
         }
-    }
-
-    #[test]
-    fn seal_sign_threshold_round_trip() {
-        let a = Seal::sign_threshold(
-            realm(),
-            vec![seal_id(0xaa)],
-            vec![hash(0x11)],
-            hash(0x77),
-            hlc(),
-            2,
-            vec![actor("z6mkfixture"), actor("z6mkfixturebob")],
-            "BLS_AGG".to_owned(),
-        )
-        .unwrap();
-        a.validate_id().unwrap();
-        a.validate_structural().unwrap();
-        match &a.notary_signature {
-            NotarySig::Threshold(t) => {
-                assert_eq!(t.threshold, 2);
-                assert_eq!(t.signers.len(), 2);
-                assert_eq!(t.proof, "BLS_AGG");
-            }
-            other => panic!("expected threshold, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn seal_sign_threshold_rejects_threshold_above_signer_count() {
-        let err = Seal::sign_threshold(
-            realm(),
-            vec![seal_id(0xaa)],
-            vec![hash(0x11)],
-            hash(0x77),
-            hlc(),
-            5,
-            vec![actor("z6mkfixture")],
-            "p".to_owned(),
-        )
-        .unwrap_err();
-        assert!(format!("{err}").contains("exceeds signer count"));
     }
 
     #[test]
@@ -813,6 +676,7 @@ mod tests {
             vec![hash(0x11)],
             hash(0x77),
             hlc(),
+            arkret_canonical::DigestSuite::Sha256,
             signers,
         )
         .unwrap();
@@ -830,6 +694,7 @@ mod tests {
             vec![hash(0x11)],
             hash(0x77),
             hlc(),
+            arkret_canonical::DigestSuite::Sha256,
             &[],
         )
         .unwrap_err();
@@ -929,55 +794,6 @@ mod tests {
             .unwrap_err();
         assert!(format!("{err}").contains("scheme verifier said no"));
         assert_eq!(agg.collected(), 0);
-    }
-
-    #[test]
-    fn seal_sign_threshold_partial_round_trip() {
-        let mut agg = ThresholdAggregator::new(2).unwrap();
-        agg.add_partial(PartialSignature::new(alice(), vec![1u8; 64], alice_kid()))
-            .unwrap();
-        agg.add_partial(PartialSignature::new(bob(), vec![2u8; 64], bob_kid()))
-            .unwrap();
-
-        let a = Seal::sign_threshold_partial(
-            realm(),
-            vec![seal_id(0xaa)],
-            vec![hash(0x11)],
-            hash(0x77),
-            hlc(),
-            &agg,
-        )
-        .unwrap();
-
-        a.validate_id().unwrap();
-        a.validate_structural().unwrap();
-        match &a.notary_signature {
-            NotarySig::Threshold(t) => {
-                assert_eq!(t.threshold, 2);
-                assert_eq!(t.signers.len(), 2);
-                assert!(!t.proof.is_empty());
-            }
-            other => panic!("expected threshold, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn seal_sign_threshold_partial_below_threshold_errors() {
-        let mut agg = ThresholdAggregator::new(3).unwrap();
-        agg.add_partial(PartialSignature::new(alice(), vec![1u8; 64], alice_kid()))
-            .unwrap();
-        agg.add_partial(PartialSignature::new(bob(), vec![2u8; 64], bob_kid()))
-            .unwrap();
-        let err = Seal::sign_threshold_partial(
-            realm(),
-            vec![seal_id(0xaa)],
-            vec![hash(0x11)],
-            hash(0x77),
-            hlc(),
-            &agg,
-        )
-        .unwrap_err();
-        assert!(format!("{err}").contains("threshold not met"));
     }
 
     #[test]

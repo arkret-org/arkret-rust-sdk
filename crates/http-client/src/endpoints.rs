@@ -6,6 +6,7 @@ mod applet;
 mod circle;
 mod data;
 mod events;
+mod history_key;
 mod identity;
 mod join_policy;
 mod media;

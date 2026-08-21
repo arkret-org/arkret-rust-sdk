@@ -12,7 +12,7 @@ use arkret_wire::Base64UrlString;
 use arkret_wire::{
     CbaProofBundle, CellRef, DidCoreId, Event, EventFederationSubmission, EventId,
     EventInitialSubmission, Hash, IdempotencyKey, PredicateOp, ProtocolSignature, RealmId,
-    ScopeRef, StrandId, TrustDomainId,
+    ScopeRef, StrandId, TrustDomainId, canonical,
 };
 pub use arkret_wire::{
     DidBindingEvidenceKind, DidBindingEvidenceReceipt, DidBindingMethodProof,
@@ -22,6 +22,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::contact_operations::{ContactPeer, ContactRoundEvidenceBundle};
+use crate::events_payloads::RealmCreatePayload;
+use crate::events_payloads::event_wire::decode_payload_after_kind_validation;
 
 pub const DIRECT_CONVERSATION_FOUNDING_UNIT_KIND: &str = "direct_conversation_founding";
 pub const DIRECT_CONVERSATION_FOUNDING_UNIT_DOMAIN: &[u8] =
@@ -122,8 +124,13 @@ impl DirectConversationFoundingPlan {
                 "founding Event kinds or wire order mismatch",
             ));
         }
+        create.verify_event_id_matches_content_with_digest_suite(canonical::DigestSuite::Sha256)?;
+        let create_payload: RealmCreatePayload = decode_payload_after_kind_validation(create)?;
+        let genesis_suite = create_payload.object.digest_algorithm;
+        for event in [peer_member, strand, founder_member] {
+            event.verify_event_id_matches_content_with_digest_suite(genesis_suite)?;
+        }
         for event in events {
-            event.verify_event_id_matches_content()?;
             if event.seal_ref.is_some()
                 || event.auth_context.is_some()
                 || event.seal_basis.is_some()
@@ -652,23 +659,23 @@ pub enum DirectConversationResolveOutcome {
     Provisional {
         coordinates: DirectConversationCoordinates,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        active_mls_generation_ref: Option<EventId>,
+        group_state_ref: Option<EventId>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        active_mls_generation_value_digest: Option<Hash>,
+        group_state_digest: Option<Hash>,
     },
     Found {
         coordinates: DirectConversationCoordinates,
-        active_mls_generation_ref: EventId,
-        active_mls_generation_value_digest: Hash,
+        group_state_ref: EventId,
+        group_state_digest: Hash,
         send_blockers: Vec<DirectConversationSendBlocker>,
     },
     Suspended {
         coordinates: DirectConversationCoordinates,
         blockers: Vec<DirectConversationSendBlocker>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        active_mls_generation_ref: Option<EventId>,
+        group_state_ref: Option<EventId>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        active_mls_generation_value_digest: Option<Hash>,
+        group_state_digest: Option<Hash>,
     },
     TemporarilyUnavailable {
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -695,29 +702,24 @@ impl DirectConversationResolveOutcome {
         matches!(self, Self::CreationRequired { .. })
     }
 
-    /// Validate the dependent pair used as the repair/CAS predecessor. A
-    /// resolver never returns an Event ref without the digest of the complete
-    /// accepted singleton value, or vice versa.
+    /// Validate the exact current group-state Event reference and digest pair.
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
         let pair = match self {
             Self::Provisional {
-                active_mls_generation_ref,
-                active_mls_generation_value_digest,
+                group_state_ref,
+                group_state_digest,
                 ..
             }
             | Self::Suspended {
-                active_mls_generation_ref,
-                active_mls_generation_value_digest,
+                group_state_ref,
+                group_state_digest,
                 ..
-            } => Some((
-                active_mls_generation_ref.is_some(),
-                active_mls_generation_value_digest.is_some(),
-            )),
+            } => Some((group_state_ref.is_some(), group_state_digest.is_some())),
             _ => None,
         };
         if pair.is_some_and(|(event_ref, value_digest)| event_ref != value_digest) {
             return Err(arkret_wire::Error::Protocol(
-                "active MLS generation Event ref and whole-value digest must be paired".to_owned(),
+                "group state Event ref and digest must be paired".to_owned(),
             ));
         }
         Ok(())

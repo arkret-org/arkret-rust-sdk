@@ -79,10 +79,6 @@ mod tests {
             Self::default()
         }
 
-        fn put_commit(&mut self, record: MlsCommitEnvelope) {
-            self.commits.push(record);
-        }
-
         fn mls_group_state(&self, group_id: &str) -> Option<&MlsGroupStateRecord> {
             self.group_states.get(group_id)
         }
@@ -127,6 +123,8 @@ mod tests {
             previous_epoch,
             next_epoch,
             security_frontier_digest,
+            arkret_models_crypto::MlsContentScheme::MlsRfc9420,
+            None,
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             CORE_REDUCER_PROFILE,
         )
@@ -893,7 +891,7 @@ mod tests {
     }
 
     #[test]
-    fn multi_device_workflow_applies_missed_commits_and_models_recovery() {
+    fn multi_device_workflow_applies_missed_commits() {
         let alice = ArkretMlsIdentity::new_basic(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
@@ -922,29 +920,32 @@ mod tests {
             MlsDeviceWorkflowAction::RevokeKeyPackage
         );
 
-        let mut alice_group = alice
-            .create_group(b"ak:realm:AVOY9ncc7XoaJc87Ez4c1KSkt6q1UBS4E5pJERKswtT-")
-            .unwrap();
+        const REALM_ID: &str = "ak:realm:AVOY9ncc7XoaJc87Ez4c1KSkt6q1UBS4E5pJERKswtT-";
+        let mut alice_group = alice.create_group(REALM_ID.as_bytes()).unwrap();
         let bob_add = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
         let charlie_add = alice_group.add_member(&charlie_key_package).unwrap();
         let workflow = late_device_join_steps(&charlie_add.welcome).unwrap();
         assert_eq!(workflow[0].action, MlsDeviceWorkflowAction::ConsumeWelcome);
 
+        let mut wrong_group = charlie_add.commit.clone();
+        wrong_group.group_id = "wrong-group".to_owned();
+        assert!(bob_group.apply_commit(&wrong_group).is_err());
+        assert_ne!(bob_group.epoch(), alice_group.epoch());
+
         bob_group
-            .apply_commits(std::slice::from_ref(&charlie_add.commit))
+            .apply_commits_and_retain_history_secrets(
+                std::slice::from_ref(&charlie_add.commit),
+                REALM_ID,
+            )
             .unwrap();
         assert_eq!(bob_group.epoch(), alice_group.epoch());
-        let recovery = epoch_recovery_step(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
-            bob_group.group_id(),
-            bob_group.epoch() + 1,
-            bob_group.epoch() + 3,
-        );
         assert_eq!(
-            recovery.action,
-            MlsDeviceWorkflowAction::RequestEpochRecovery
+            bob_group
+                .export_history_secret_range(bob_group.epoch(), bob_group.epoch())
+                .len(),
+            1,
+            "entering an exporter epoch must retain its history secret before catch-up continues"
         );
     }
 
@@ -1022,91 +1023,6 @@ mod tests {
         let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
         let decrypted = MessageCrypto::decrypt(&mut bob_group, &encrypted).unwrap();
         assert_eq!(decrypted, br#"{"body":"arrives before local key"}"#);
-    }
-
-    #[test]
-    fn epoch_recovery_request_and_response_catch_up_offline_device() {
-        let alice = ArkretMlsIdentity::new_basic(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
-        )
-        .unwrap();
-        let bob = ArkretMlsIdentity::new_basic(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
-        )
-        .unwrap();
-        let charlie = ArkretMlsIdentity::new_basic(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturecharlie").unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000f").unwrap(),
-        )
-        .unwrap();
-
-        let bob_kp = bob.key_package_record().unwrap();
-        let charlie_kp = charlie.key_package_record().unwrap();
-
-        // Alice creates group and adds Bob and Charlie.
-        let mut alice_group = alice
-            .create_group(b"ak:realm:AR-6awdVG5e7uh4BUHwZLFm7Rq3-kmncXrZqNSOlFgK5")
-            .unwrap();
-        let bob_add = alice_group.add_member(&bob_kp).unwrap();
-        let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
-        let charlie_add = alice_group.add_member(&charlie_kp).unwrap();
-
-        // Bob is now offline. Alice adds Charlie (epoch advances).
-        // Bob's local epoch is behind.
-        let bob_epoch_before = bob_group.epoch();
-
-        // Create a recovery request.
-        let request = EpochRecoveryRequestBody::new(
-            bob_group.group_id(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
-            bob_epoch_before,
-            alice_group.epoch(),
-        );
-        request.validate().unwrap();
-
-        // Store the commits in a crypto store so we can build a response.
-        let mut store = TestStore::new();
-        store.put_commit(charlie_add.commit);
-
-        // Alice (who has the commits) builds the recovery response.
-        let response = build_epoch_recovery_response(&alice_group, &store, &request).unwrap();
-        response.validate_range(&request).unwrap();
-        assert!(!response.commits.is_empty());
-
-        // Bob applies the recovery response.
-        let new_epoch = response.apply_to_group(&mut bob_group).unwrap();
-        assert_eq!(new_epoch, alice_group.epoch());
-
-        // Bob can now decrypt messages from the current epoch.
-        let encrypted = alice_group
-            .encrypt_payload("application/json", br#"{"body":"after recovery"}"#)
-            .unwrap();
-        let decrypted = bob_group.decrypt_payload(&encrypted).unwrap();
-        assert_eq!(decrypted, br#"{"body":"after recovery"}"#);
-    }
-
-    #[test]
-    fn epoch_recovery_request_validates_range() {
-        let request = EpochRecoveryRequestBody::new(
-            "",
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
-            5,
-            3,
-        );
-        assert!(request.validate().is_err());
-
-        let request = EpochRecoveryRequestBody::new(
-            "group1",
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
-            5,
-            5,
-        );
-        assert!(request.validate().is_err());
     }
 
     #[test]
@@ -1403,16 +1319,33 @@ mod tests {
     // ── mls_exporter_aead_v1 content scheme ──────────────────────────────────
 
     const HISTORY_REALM: &str = "ak:realm:AXGA0fM2a_L3afx2ffIvrX5YVKbExabYEkxTUwvKu9HR";
+    const HISTORY_SENDER_DEVICE: &str = "ak:device:01904100-0000-7000-8000-00000000ae01";
 
     fn exporter_aead_founder() -> ArkretMlsGroup {
         let alice = ArkretMlsIdentity::new_basic(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000ae01").unwrap(),
+            DeviceId::new(HISTORY_SENDER_DEVICE).unwrap(),
         )
         .unwrap();
         alice
             .create_group(b"ak:realm:AXGA0fM2a_L3afx2ffIvrX5YVKbExabYEkxTUwvKu9HR")
             .unwrap()
+    }
+
+    #[test]
+    fn active_author_leaves_preserve_exact_basic_credential_identity() {
+        let group = exporter_aead_founder();
+        let leaves = group.active_author_leaves();
+        assert_eq!(leaves.len(), 1);
+        let AuthorLeafCredential::Basic { identity } = &leaves[0].credential else {
+            panic!("founder leaf must use a BasicCredential");
+        };
+        let principal = "ak:did_core:webvh:z6mkfixturealice";
+        assert_eq!(
+            identity,
+            format!("{principal}#{HISTORY_SENDER_DEVICE}").as_bytes()
+        );
+        assert_ne!(identity, principal.as_bytes());
     }
 
     fn exporter_aead_key_ref() -> arkret_models_crypto::KeyRefObject {
@@ -1444,7 +1377,14 @@ mod tests {
             .derive_and_retain_history_secret(HISTORY_REALM)
             .unwrap();
         let recovered = group
-            .decrypt_content_exporter_aead(&history_secret, &key_ref, group.epoch(), &sealed, &aad)
+            .decrypt_content_exporter_aead(
+                &history_secret,
+                HISTORY_SENDER_DEVICE.as_bytes(),
+                &key_ref,
+                group.epoch(),
+                &sealed,
+                &aad,
+            )
             .unwrap();
         assert_eq!(recovered, plaintext);
 
@@ -1455,6 +1395,7 @@ mod tests {
             group
                 .decrypt_content_exporter_aead(
                     &history_secret,
+                    HISTORY_SENDER_DEVICE.as_bytes(),
                     &key_ref,
                     group.epoch(),
                     &sealed,
@@ -1498,54 +1439,6 @@ mod tests {
         let mut mismatched = envelope;
         mismatched.key_ref.algorithm = EncryptedEnvelopeKeyAlgorithm::Mls;
         assert!(mismatched.validate().is_err());
-    }
-
-    #[test]
-    fn provider_retains_epoch_secret_and_receiver_decrypts_via_share() {
-        // Provider encrypts content at epoch N and retains history_secret[N].
-        let mut provider = exporter_aead_founder();
-        let epoch_n = provider.epoch();
-        let key_ref = exporter_aead_key_ref();
-        let aad = exporter_aead_aad();
-        let plaintext = b"pre-join secret content";
-        let sealed = provider
-            .encrypt_content_exporter_aead(HISTORY_REALM, &key_ref, &aad, plaintext)
-            .unwrap();
-
-        // Provider exports the retained secret range to seal for a joiner.
-        let range = provider.export_history_secret_range(epoch_n, epoch_n);
-        assert_eq!(range.len(), 1);
-        assert_eq!(range[0].0, epoch_n);
-
-        // Receiver device keypair; provider HPKE-seals the range to its pubkey.
-        let receiver_priv = x25519_dalek::StaticSecret::from([42u8; 32]);
-        let receiver_pub = *x25519_dalek::PublicKey::from(&receiver_priv).as_bytes();
-        let range_plain: Vec<(u64, Vec<u8>)> = range
-            .iter()
-            .map(|(epoch, secret)| (*epoch, secret.to_vec()))
-            .collect();
-        let share_ciphertext = arkret_crypto::secret_share::seal_history_secret_to_device_pubkey(
-            &receiver_pub,
-            &range_plain,
-        )
-        .unwrap();
-
-        // Receiver unseals and recovers history_secret[N]...
-        let installed = arkret_crypto::secret_share::open_history_secret_with_device_privkey(
-            receiver_priv.to_bytes().as_slice(),
-            &share_ciphertext,
-        )
-        .unwrap();
-        assert_eq!(installed, range_plain);
-        let history_secret_n = &installed[0].1;
-
-        // ...and decrypts the epoch-N content with it. A fresh group view (no
-        // ratchet access to epoch N) decrypts purely from the shared secret.
-        let receiver_group = exporter_aead_founder();
-        let recovered = receiver_group
-            .decrypt_content_exporter_aead(history_secret_n, &key_ref, epoch_n, &sealed, &aad)
-            .unwrap();
-        assert_eq!(recovered, plaintext);
     }
 
     #[test]

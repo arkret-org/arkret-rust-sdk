@@ -37,6 +37,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(CapabilityDerived);
     registry.register(CapabilityGrant);
     registry.register(CircleCreate);
+    registry.register(CircleHistoryAccess);
     registry.register(CircleMember);
     registry.register(CircleTombstone);
     registry.register(ConsentGrant);
@@ -66,8 +67,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(RealmDiscovery);
     registry.register(RealmFreeze);
     registry.register(RealmGenesis);
-    registry.register(RealmHistorySharingPolicy);
-    registry.register(RealmHistoryVisibility);
+    registry.register(RealmHistoryAccess);
     registry.register(RealmInheritancePolicy);
     registry.register(RealmJoinRule);
     registry.register(RealmLink);

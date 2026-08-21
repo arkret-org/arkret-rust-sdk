@@ -267,6 +267,8 @@ fn signature_binding_payload_matches_spec_encoding_vector() {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new(input["verification_method"].as_str().unwrap()).unwrap(),
         event_digest: Hash::new(input["event_digest"].as_str().unwrap()).unwrap(),
+        signer_resolution_evidence_ref: None,
+        signer_resolution_evidence_digest: None,
         created_at: input["created_at"].as_str().unwrap().parse().unwrap(),
         domain: None,
         audience: None,

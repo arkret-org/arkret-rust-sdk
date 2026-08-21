@@ -14,24 +14,27 @@ use arkret_models_discovery::{
     DirectorySearchUsersRequestBody, DirectorySubjectHandleList, DirectoryTargetResolutionOutcome,
     DirectoryUserSearchOutcome, ServiceDescribe, ServiceEndpointBinding, ServiceRequirements,
 };
+#[cfg(not(target_arch = "wasm32"))]
+use arkret_models_identity::AuthenticatedSignerResolutionEvidence;
 use arkret_models_identity::service_identity::{
     SERVICE_REGISTRATION_ENSURE_PATH, SERVICE_REGISTRATION_GET_PATH,
     ServiceRegistrationEnsureRequestBody, ServiceRegistrationKey, ServiceRegistrationOutcome,
 };
 use arkret_models_identity::{
-    ActorProfileResolveOutcome, ActorProfileResolveRequest, DidOperationSubmitOutcome,
-    DidOperationSubmitRequestBody, IdentityDescription, IdentityDocumentView,
-    IdentityLogListOutcome, IdentityReceiptListOutcome, IdentityResolveOutcome,
-    IdentityResolveRequestBody, ORGANIZATION_REGISTRATION_ENSURE_PATH,
+    ActorProfileResolveOutcome, ActorProfileResolveRequest, AuthenticatedServiceResolution,
+    DidOperationSubmitOutcome, DidOperationSubmitRequestBody, IdentityDescription,
+    IdentityDocumentView, IdentityLogListOutcome, IdentityReceiptListOutcome,
+    IdentityResolveOutcome, IdentityResolveRequestBody, ORGANIZATION_REGISTRATION_ENSURE_PATH,
     ORGANIZATION_REGISTRATION_GET_PATH, ORGANIZATION_REGISTRATION_PREPARE_PATH,
     ORGANIZATION_REGISTRATION_REFRESH_PATH, ORGANIZATION_REGISTRATION_REVOKE_PATH,
     OrganizationRegistrationChallenge, OrganizationRegistrationChallengeRequestBody,
     OrganizationRegistrationEnsureRequestBody, OrganizationRegistrationOutcome,
     OrganizationRegistrationRefreshRequestBody, OrganizationRegistrationRevokeRequestBody,
     PrincipalResolutionAuditEvidence, PrincipalResolutionAuditRequest, PublicPrincipalResolution,
-    ServiceResolutionRecord,
 };
 use arkret_wire::{DidCoreId, ServiceKind};
+#[cfg(not(target_arch = "wasm32"))]
+use chrono::{DateTime, Utc};
 use reqwest::Method;
 
 use crate::{Client, Error, Result};
@@ -113,16 +116,41 @@ impl Client {
         Ok(outcome)
     }
 
-    /// Fetch the current signed first-hop route record for one stable service id.
+    /// Fetch the current authenticated resolution closure for one stable service id.
+    ///
+    /// Unlike `ServiceDescribe`, this response retains the signed route record,
+    /// method-native history evidence, and normalized DID document together.
+    /// The returned shape is not trusted until
+    /// [`Client::open_service_signer_evidence`] verifies it.
     pub async fn open_service_resolution(
         &self,
         service_id: &DidCoreId,
-    ) -> Result<ServiceResolutionRecord> {
+    ) -> Result<AuthenticatedServiceResolution> {
         let encoded = url::form_urlencoded::byte_serialize(service_id.as_str().as_bytes())
             .collect::<String>();
         let path = format!("/_arkret/open/services/{encoded}/resolution");
         let builder = self.public_request(Method::GET, &path)?;
-        self.send_json(builder).await
+        self.send_json_limited(builder, 1024 * 1024).await
+    }
+
+    /// Fetch and cryptographically verify the immutable signer evidence for
+    /// the service assertion method that signed its current resolution record.
+    ///
+    /// Realm bootstrap code should retain the returned evidence object and
+    /// derive its frozen notary descriptor with
+    /// `ed25519_notary_signer_descriptor_from_evidence`; it must not assemble
+    /// either object from Describe fields or a separate current DID lookup.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn open_service_signer_evidence(
+        &self,
+        service_id: &DidCoreId,
+        now: DateTime<Utc>,
+    ) -> Result<AuthenticatedSignerResolutionEvidence> {
+        let resolution = self.open_service_resolution(service_id).await?;
+        arkret_identity::service_signer_evidence_from_authenticated_resolution(
+            resolution, service_id, now,
+        )
+        .map_err(|error| Error::Protocol(error.to_string()))
     }
 
     pub async fn describe(&self) -> Result<ServiceDescribe> {
@@ -245,8 +273,9 @@ impl Client {
     pub async fn identity_recovery_policy_publish(
         &self,
         request: &RecoveryPolicyPublishRequest,
+        digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<RecoveryPolicyPublishOutcome> {
-        request.validate_structural()?;
+        request.validate_structural(digest_suite)?;
         let payload = request.policy_payload()?;
         let outcome: RecoveryPolicyPublishOutcome = self
             .post("/_arkret/root/identity/recovery-policy", request)

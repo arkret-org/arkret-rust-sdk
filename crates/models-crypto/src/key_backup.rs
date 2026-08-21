@@ -12,7 +12,7 @@ use arkret_wire::{
     EventInitialSubmission, EventKind, HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES, Hash,
     LeaseBasisRef, NonEmptyString, PayloadProof, PolicyId, ProofContextId,
     RECOVERY_POLICY_SIGNATURE_TYPE, RealmId, ReasonCode, ReceiptId, RecoverySessionId, Result,
-    SchemaId, ServiceOperationId, TransactionId, TrustDomainId, XExtensionMap,
+    SchemaId, ScopeRef, ServiceOperationId, TransactionId, TrustDomainId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -933,6 +933,64 @@ impl KeyBackup {
                     "managed key backup content requires realm_id and an MLS item_kind".to_owned(),
                 ));
             }
+            if matches!(
+                item.item_kind.as_str(),
+                "mls_group_state" | "mls_epoch_secret" | "pending_welcome"
+            ) && item.managed_principal_binding.is_none()
+            {
+                return Err(Error::Protocol(
+                    "device-bound MLS backup material is allowed only with managed_principal_binding"
+                        .to_owned(),
+                ));
+            }
+            if item.item_kind == "history_secret_segment" {
+                let (
+                    Some(effective_scope),
+                    Some(mls_group_id),
+                    Some(from_epoch),
+                    Some(to_epoch),
+                    Some(_group_state_ref),
+                    Some(_policy_digest),
+                    Some(_membership_frontier_digest),
+                ) = (
+                    item.effective_scope.as_ref(),
+                    item.mls_group_id.as_ref(),
+                    item.from_epoch,
+                    item.to_epoch,
+                    item.group_state_ref.as_ref(),
+                    item.policy_digest.as_ref(),
+                    item.membership_frontier_digest.as_ref(),
+                )
+                else {
+                    return Err(Error::Protocol(
+                        "history_secret_segment requires complete scope, epoch, group-state and authorization basis"
+                            .to_owned(),
+                    ));
+                };
+                if item.managed_principal_binding.is_some() {
+                    return Err(Error::Protocol(
+                        "portable history_secret_segment forbids managed_principal_binding"
+                            .to_owned(),
+                    ));
+                }
+                if !matches!(
+                    effective_scope,
+                    ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
+                ) {
+                    return Err(Error::Protocol(
+                        "history_secret_segment supports only Realm and Circle history scopes"
+                            .to_owned(),
+                    ));
+                }
+                if from_epoch > to_epoch
+                    || effective_scope.canonical_mls_group_id()? != *mls_group_id
+                {
+                    return Err(Error::Protocol(
+                        "history_secret_segment range or scope-derived group id is invalid"
+                            .to_owned(),
+                    ));
+                }
+            }
         }
         if self.ciphertext.trim().is_empty() {
             return Err(Error::Protocol(
@@ -1322,7 +1380,7 @@ fn key_backup_item_kind_allowed(backup_kind: BackupKind, item_kind: &str) -> boo
         ),
         BackupKind::MlsHistory => matches!(
             item_kind,
-            "mls_group_state" | "mls_epoch_secret" | "pending_welcome"
+            "mls_group_state" | "mls_epoch_secret" | "history_secret_segment" | "pending_welcome"
         ),
     }
 }
@@ -1777,6 +1835,18 @@ pub struct KeyBackupContentItem {
     pub managed_principal_binding: Option<ManagedPrincipalBinding>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub effective_scope: Option<ScopeRef>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_epoch: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub to_epoch: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group_state_ref: Option<EventId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub policy_digest: Option<Hash>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub membership_frontier_digest: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub epoch: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2526,8 +2596,8 @@ impl RecoveryPolicyPublishRequest {
         Ok(payload)
     }
 
-    pub fn validate_structural(&self) -> Result<()> {
-        EventInitialSubmission::from(self.clone()).validate_structural()?;
+    pub fn validate_structural(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<()> {
+        EventInitialSubmission::from(self.clone()).validate_structural(digest_suite)?;
         self.policy_payload().map(|_| ())
     }
 }

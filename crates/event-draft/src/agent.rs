@@ -240,9 +240,10 @@ mod tests {
     /// neither, so it pins both.
     fn authored(intent: EventIntent, actor_seq: u64) -> AuthoredEvent {
         intent
-            .author(
+            .author_with_digest_suite(
                 actor_seq,
                 Hlc::new(format!("01970e589d21-{actor_seq:04}-a13f9c2e")).unwrap(),
+                arkret_canonical::DigestSuite::Sha256,
             )
             .expect("a test intent finalizes")
     }

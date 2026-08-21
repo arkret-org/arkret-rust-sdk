@@ -22,10 +22,7 @@ pub const RRK_SERVICE_DOMAIN: &str = "mls_history";
 /// form a `Multikey` `publicKeyMultibase` RRK key uses for HPKE key agreement.
 const MULTICODEC_X25519_PUB: u64 = 0xec;
 
-/// Fail-closed outcome of [`resolve_realm_history_recovery_key`]. Every variant
-/// maps to the spec reason code
-/// [`arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED`]; the inner string is a
-/// human-readable diagnostic only (never relax the fail-closed contract).
+/// Fail-closed outcome of [`resolve_realm_history_recovery_key`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RealmHistoryRecoveryKeyError {
     /// The recipient's `verification_method` is not designated by an active
@@ -35,12 +32,6 @@ pub enum RealmHistoryRecoveryKeyError {
 }
 
 impl RealmHistoryRecoveryKeyError {
-    /// Spec reason code for this failure (always
-    /// [`arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED`]).
-    pub fn reason_code(&self) -> &'static str {
-        arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
-    }
-
     /// Human-readable diagnostic detail.
     pub fn detail(&self) -> &str {
         match self {
@@ -51,12 +42,7 @@ impl RealmHistoryRecoveryKeyError {
 
 impl std::fmt::Display for RealmHistoryRecoveryKeyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}: {}",
-            arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED,
-            self.detail()
-        )
+        f.write_str(self.detail())
     }
 }
 
@@ -316,10 +302,7 @@ mod tests {
         document["service"] = serde_json::json!([]);
 
         let err = resolve(&recipient, &document).unwrap_err();
-        assert_eq!(
-            err.reason_code(),
-            arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
-        );
+        assert!(!err.detail().is_empty());
     }
 
     #[test]
@@ -330,10 +313,7 @@ mod tests {
         document["service"][0]["serviceEndpoint"]["domain"] = serde_json::json!("other_domain");
 
         let err = resolve(&recipient, &document).unwrap_err();
-        assert_eq!(
-            err.reason_code(),
-            arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
-        );
+        assert!(!err.detail().is_empty());
     }
 
     #[test]
@@ -344,10 +324,7 @@ mod tests {
         document["keyAgreement"] = serde_json::json!([]);
 
         let err = resolve(&recipient, &document).unwrap_err();
-        assert_eq!(
-            err.reason_code(),
-            arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
-        );
+        assert!(!err.detail().is_empty());
     }
 
     #[test]
@@ -361,10 +338,7 @@ mod tests {
             serde_json::json!("did:webvh:z6mkfixture:acme.example#some-other-key");
 
         let err = resolve(&recipient, &document).unwrap_err();
-        assert_eq!(
-            err.reason_code(),
-            arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
-        );
+        assert!(!err.detail().is_empty());
     }
 
     #[test]
@@ -378,10 +352,7 @@ mod tests {
             serde_json::json!(encode_multibase_base58btc(bytes));
 
         let err = resolve(&recipient, &document).unwrap_err();
-        assert_eq!(
-            err.reason_code(),
-            arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
-        );
+        assert!(!err.detail().is_empty());
     }
 
     #[test]
@@ -392,9 +363,6 @@ mod tests {
         document["id"] = serde_json::json!("did:webvh:z6mkfixture:evil.example");
 
         let err = resolve(&recipient, &document).unwrap_err();
-        assert_eq!(
-            err.reason_code(),
-            arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
-        );
+        assert!(!err.detail().is_empty());
     }
 }

@@ -403,8 +403,15 @@ fn nested_value<'a>(value: &'a Value, path: &str) -> Option<&'a Value> {
 /// projection incompatible with the declared lattice all mean the reducer
 /// cannot derive its writes, which fails the whole Event closed rather than
 /// falling back to an implementation-private default.
-pub fn validate_registered_cell_writes(event: &Event) -> Result<(), EventCellContractError> {
-    validate_registered_cell_writes_in_context(event, EventCellContractContext::Standard)
+pub fn validate_registered_cell_writes(
+    event: &Event,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<(), EventCellContractError> {
+    validate_registered_cell_writes_in_context(
+        event,
+        EventCellContractContext::Standard,
+        digest_suite,
+    )
 }
 
 /// [`validate_registered_cell_writes`] plus the CBA plane check for the given
@@ -416,9 +423,10 @@ pub fn validate_registered_cell_writes(event: &Event) -> Result<(), EventCellCon
 pub fn validate_registered_cell_writes_in_context(
     event: &Event,
     context: EventCellContractContext,
+    digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<(), EventCellContractError> {
     validate_registered_cell_plane_in_context(event, context)?;
-    project_registered_cell_writes(event, arkret_canonical::DigestSuite::Sha256).map(|_| ())
+    project_registered_cell_writes(event, digest_suite).map(|_| ())
 }
 
 /// Validate only the registry-declared CBA plane for an Event.
@@ -2033,7 +2041,7 @@ mod tests {
             derive_subject(&event, subject_rule(&event)).unwrap(),
             "RvGSzptaf8mnhg44Kh2C0cfAf7Oi62RomgaaZjm1WKE"
         );
-        validate_registered_cell_writes(&event).unwrap();
+        validate_registered_cell_writes(&event, arkret_canonical::DigestSuite::Sha256).unwrap();
 
         // effect_projection = set(payload.entry): the lattice value is the whole
         // entry, so basis and response converge together as one head. A producer
@@ -2416,61 +2424,24 @@ mod tests {
         .unwrap()
     }
 
-    /// A member-device realm key share on the data plane.
+    /// Realm history-access initialization facet.
     fn delivery_share_event() -> Event {
-        let payload = json!({
-            "share_kind": "member_device",
-            "recipient_principal_id": "ak:did_core:webvh:z6mkfixture",
-            "recipient_device_id": "ak:device:019f9000-0000-7000-8000-000000000003",
-            "sender_device_id": "ak:device:019f9000-0000-7000-8000-000000000004",
-            "source_authorization_ref": "ak:event:Adl8EVE0XuYmtOeRAa0WJVGy5DWansCGrXuwPONweuzs",
-            "sender_device_signature": {
-                "kid": "did:webvh:z6mkfixture:alice.example#ak:device:019f9000-0000-7000-8000-000000000004",
-                "signature_algorithm": "Ed25519",
-                "sig": "AAAA"
-            },
-            "key_scope": {
-                "effective_scope": {
-                    "kind": "realm",
-                    "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"
-                },
-                "policy_digest": format!("sha256:{}", "aa".repeat(32)),
-                "from_epoch": 1,
-                "to_epoch": 3
-            },
-            "ciphertext": "Y2lwaGVy",
-            "created_at": "2026-07-26T00:00:00.000Z"
-        });
-        serde_json::from_value(json!({
-            "event_id": "ak:event:AV1bzsPGpTD74Cq12d9EOrCkieTddiSndS0kDtK1W2hM",
-            "kind": EventKind::RealmKeyShare,
-            "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
-            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
-            "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "principal_server_id": "ak:did_core:web:principal.example",
-            "actor_seq": 7,
-            "created_at": "2026-07-26T00:00:00.000Z",
-            "hlc": "019f90000000-0000-aabbccdd",
-            "prev_refs": [],
-            "seal_ref": "ak:seal:sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-            "auth_context": {
-                "actor_id": "ak:did_core:webvh:z6mkfixture",
-                "key_id": "device:019f9000-0000-7000-8000-000000000004",
-                "key_epoch": 1
-            },
-            "payload": payload,
-            "proofs": []
-        }))
-        .unwrap()
+        realm_facet(
+            EventKind::RealmHistoryAccess,
+            json!({"from": null, "to": "since_join"}),
+        )
     }
 
-    /// The delivery cell the member-device share KAT derives.
-    const DELIVERY_CELL: &str =
-        "ak:cell:ak.component.realm_key.delivery.v1:myHLjvXArfwnXoQUiv0ErwzdG-cu891teQ9rYrT_9cw";
+    /// The history-access cell derived by the registry.
+    const DELIVERY_CELL: &str = "ak:cell:ak.component.realm.history_access.v1:null";
 
     #[test]
     fn validates_delivery_append_from_registry() {
-        validate_registered_cell_writes(&delivery_share_event()).unwrap();
+        validate_registered_cell_writes(
+            &delivery_share_event(),
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -2482,10 +2453,7 @@ mod tests {
         let rule = value_rule(&event);
         let value =
             derive_value_projection(&event, rule, arkret_canonical::DigestSuite::Sha256).unwrap();
-        assert_eq!(
-            project(&event),
-            vec![write(DELIVERY_CELL, append_op(value, event.actor_seq))]
-        );
+        assert_eq!(project(&event), vec![write(DELIVERY_CELL, set_op(value))]);
     }
 
     fn invite_create_event(invitee: Option<&str>) -> Event {
@@ -2792,10 +2760,16 @@ mod tests {
                     "digest_algorithm": "sha256",
                     "security_class": "standard",
                     "encryption_profile": "mls_rfc9420",
-                    "notary_profile": "single_did",
                     "notary": {
-                        "type": "single_did",
-                        "did": "did:webvh:z6mkfixture:alice.example"
+                        "kind": "single_signer",
+                        "signer": {
+                            "actor_id": "ak:did_core:webvh:z6mkfixture:alice.example",
+                            "verification_method": "did:webvh:z6mkfixture:alice.example#key-1",
+                            "key_kind": "ed25519_raw32",
+                            "jose_algorithm": "Ed25519",
+                            "frozen_public_key_b64u": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                            "frozen_public_key_digest": "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"
+                        }
                     },
                     "capability_action_registry_digest": "sha256:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a"
                 }
@@ -3162,7 +3136,7 @@ mod tests {
             json!("ak:circle:AXy9G1HY-05VpUDBKqm77h_Vu7DiFOJ3sduNSXuFewp_"),
             "circle branch must project the circle id"
         );
-        validate_registered_cell_writes(&event).unwrap();
+        validate_registered_cell_writes(&event, arkret_canonical::DigestSuite::Sha256).unwrap();
 
         // And a Realm-scoped share must still land on a different cell.
         assert_ne!(
@@ -3330,24 +3304,14 @@ mod tests {
     }
 
     #[test]
-    fn delivery_append_omits_absent_optional_members() {
-        let mut event = delivery_share_event();
-        event
-            .payload
-            .get_mut("key_scope")
-            .unwrap()
-            .as_object_mut()
-            .unwrap()
-            .remove("to_epoch");
+    fn history_access_projection_preserves_closed_transition() {
+        let event = delivery_share_event();
         let rule = value_rule(&event);
         let value =
             derive_value_projection(&event, rule, arkret_canonical::DigestSuite::Sha256).unwrap();
         let object = value.as_object().unwrap();
-        assert!(object.contains_key("from_epoch"));
-        assert!(
-            !object.contains_key("to_epoch"),
-            "absent optional members are omitted, never written as null"
-        );
+        assert_eq!(object.get("from"), Some(&Value::Null));
+        assert_eq!(object.get("to").and_then(Value::as_str), Some("since_join"));
     }
 
     #[test]
@@ -3366,7 +3330,7 @@ mod tests {
             EventKind::RealmJoinRule,
             json!({"value": "knock_restricted"}),
         );
-        validate_registered_cell_writes(&event).unwrap();
+        validate_registered_cell_writes(&event, arkret_canonical::DigestSuite::Sha256).unwrap();
         assert_eq!(
             project(&event),
             vec![write(
@@ -3399,6 +3363,7 @@ mod tests {
         validate_registered_cell_writes_in_context(
             &event,
             EventCellContractContext::OrdinaryRealmBootstrap,
+            arkret_canonical::DigestSuite::Sha256,
         )
         .unwrap();
 
@@ -3412,6 +3377,7 @@ mod tests {
             validate_registered_cell_writes_in_context(
                 &event,
                 EventCellContractContext::OrdinaryRealmBootstrap,
+                arkret_canonical::DigestSuite::Sha256,
             )
             .unwrap_err()
             .reason_code(),

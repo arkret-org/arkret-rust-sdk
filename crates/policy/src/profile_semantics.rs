@@ -381,7 +381,7 @@ mod tests {
         let requirements =
             collect_profile_semantic_requirements(&["ak.profile.chat_mvp.v1"]).unwrap();
         for feature in [
-            "discussion_history_visibility",
+            "discussion_history_access",
             "supported_event_kinds",
             "supported_sync_profiles",
         ] {

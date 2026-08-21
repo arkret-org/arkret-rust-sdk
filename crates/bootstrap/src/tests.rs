@@ -13,7 +13,8 @@ use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
     AuthorizationRef, CellRef, DeviceId, DidCoreId, DidFullId, DidKey, DidUrl, Event,
     EventDigestSuiteCode, EventId, EventIdentityKey, EventKind, EventProof, EventRef, Hash, Hlc,
-    NonEmptyString, NotarySig, PayloadSignature, PayloadSigner, PrincipalServerAdmissionProof,
+    NonEmptyString, NotaryJoseAlgorithm, NotaryKeyKind, NotarySig, NotarySignerDescriptor,
+    NotaryValue, PayloadSignature, PayloadSigner, PrincipalServerAdmissionProof,
     PrincipalServerAdmissionProofKind, ProjectedCellWrite, Proof, RealmId, ScopeRef, SealBasis,
     SealId, SemanticRefProof, SemanticRefProofKind, TrustDomainId, WireError, composite_subject,
     project_full_id_to_core_id, proof_kind,
@@ -86,12 +87,19 @@ impl PayloadSigner for FixtureSigner {
 }
 
 fn attach_fixture_proof(event: &mut Event, verification_method: &DidUrl) {
-    let digest = Hash::new(event.event_digest().unwrap()).unwrap();
+    let digest = Hash::new(
+        event
+            .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+            .unwrap(),
+    )
+    .unwrap();
     event.proofs = vec![
         Proof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
             verification_method: verification_method.clone(),
             event_digest: digest,
+            signer_resolution_evidence_ref: None,
+            signer_resolution_evidence_digest: None,
             created_at: event.created_at,
             domain: None,
             audience: None,
@@ -115,6 +123,13 @@ fn attach_fixture_admission_proof(event: &mut Event) {
             .unwrap(),
         producer_verification_method: producer.verification_method.clone(),
         producer_signing_key: DidKey::new(founding_device_public_key()).unwrap(),
+        signer_resolution_evidence_ref: arkret_wire::SignerEvidenceRef::new(format!(
+            "ak:signer_evidence:sha256:{}",
+            "11".repeat(32)
+        ))
+        .unwrap(),
+        signer_resolution_evidence_digest: Hash::new(format!("sha256:{}", "11".repeat(32)))
+            .unwrap(),
         accepted_at: event.created_at,
         jws: "fixture.admission-signature".to_owned(),
     };
@@ -155,7 +170,9 @@ fn bootstrap_unit() -> (Event, Event) {
     .unwrap();
     authorize.created_at = create.created_at;
     authorize.prev_refs = vec![create.event_id.clone()];
-    authorize.refresh_content_bound_identity().unwrap();
+    authorize
+        .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+        .unwrap();
     attach_fixture_proof(
         &mut authorize,
         &DidUrl::new(format!("{}#{}", principal_full_id, founding_device_id())).unwrap(),
@@ -171,6 +188,11 @@ fn input() -> SelfPrincipalPcrCreateInput {
         principal_id: principal_id.clone(),
         principal_server_id: DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
         principal_full_id: principal_full_id.clone(),
+        notary: fixture_notary(
+            &principal_id,
+            &principal_full_id,
+            founding_device_id().as_str(),
+        ),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
         trust_domain: TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
@@ -189,6 +211,20 @@ fn input() -> SelfPrincipalPcrCreateInput {
         created_at,
         hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
     }
+}
+
+fn fixture_notary(actor_id: &DidCoreId, actor_full_id: &DidFullId, fragment: &str) -> NotaryValue {
+    let public_key = arkret_canonical::decode_ed25519_multibase(founding_device_public_key())
+        .expect("fixture public key is valid");
+    NotaryValue::single_signer(NotarySignerDescriptor {
+        actor_id: actor_id.clone(),
+        verification_method: DidUrl::new(format!("{actor_full_id}#{fragment}")).unwrap(),
+        key_kind: NotaryKeyKind::Ed25519Raw32,
+        jose_algorithm: NotaryJoseAlgorithm::Ed25519,
+        frozen_public_key_b64u: arkret_wire::base64url::base64url_encode(&public_key),
+        frozen_public_key_digest: Hash::new(arkret_wire::canonical::sha256_digest(public_key))
+            .unwrap(),
+    })
 }
 
 fn founding_device_public_key() -> &'static str {
@@ -270,7 +306,9 @@ fn builder_emits_only_the_closed_unsigned_root_shape() {
     assert!(event.proofs.is_empty());
     assert_eq!(event.refs.len(), 1);
     assert_eq!(event.refs[0].role, DID_INCEPTION_REF_ROLE);
-    event.verify_event_id_matches_content().unwrap();
+    event
+        .verify_event_id_matches_content_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+        .unwrap();
     // A genesis envelope carries no realm_id and uses the closed genesis
     // scope; the Realm id is derived from this genesis event.
     assert_eq!(event.scope_ref, ScopeRef::RealmGenesis);
@@ -428,12 +466,20 @@ fn first_bootstrap_seal_covers_both_events_and_is_signed_by_device_one() {
     assert_eq!(
         seal.completeness_root,
         arkret_state::control_event_completeness_root(
-            &[create, authorize],
+            &[
+                (create, arkret_canonical::DigestSuite::Sha256),
+                (authorize, arkret_canonical::DigestSuite::Sha256),
+            ],
             &seal.delta.iter().cloned().collect(),
+            arkret_canonical::DigestSuite::Sha256,
         )
         .unwrap()
     );
-    assert_eq!(seal.derive_id().unwrap(), seal.id);
+    assert_eq!(
+        seal.derive_id(arkret_canonical::DigestSuite::Sha256)
+            .unwrap(),
+        seal.id
+    );
     let NotarySig::Single(signature) = seal.notary_signature else {
         panic!("bootstrap Seal must use one device signature")
     };
@@ -451,6 +497,7 @@ fn managed_agent_pcr_create() -> Event {
         agent_id: agent.clone(),
         initial_resolution: fixture_resolution(agent_full.clone()),
         controller_id: controller.clone(),
+        notary: fixture_notary(&agent, &agent_full, "root"),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
         trust_domain: TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
@@ -483,8 +530,13 @@ fn managed_agent_pcr_payload_is_built_from_the_public_realm_type() {
     let full_id = DidFullId::new("did:webvh:z6mkfixtureagent:agent.example").unwrap();
     let payload = build_managed_agent_pcr_create_payload(ManagedAgentPcrCreatePayloadInput {
         agent_id: project_full_id_to_core_id(&full_id).unwrap(),
-        initial_resolution: fixture_resolution(full_id),
+        initial_resolution: fixture_resolution(full_id.clone()),
         controller_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturecontroller").unwrap(),
+        notary: fixture_notary(
+            &project_full_id_to_core_id(&full_id).unwrap(),
+            &full_id,
+            "root",
+        ),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
         trust_domain: TrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
@@ -663,7 +715,12 @@ fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
     assert_eq!(successor.predecessor_refs, vec![first.id.clone()]);
     assert_eq!(successor.notary_seq, 1);
     assert_eq!(successor.delta.len(), 1);
-    assert_eq!(successor.delta[0].as_str(), anchor.event_digest().unwrap());
+    assert_eq!(
+        successor.delta[0].as_str(),
+        anchor
+            .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+            .unwrap()
+    );
     assert_eq!(successor.covered_event_digests.len(), 2);
     assert_eq!(successor.state_root, first.state_root);
     assert_ne!(
@@ -705,7 +762,11 @@ fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
     // Event's own, so the projection runs on the finalized envelope.
     let event = intent
         .with_prev_refs(vec![fixture_event_id(3)])
-        .author(4, Hlc::new("01980a8f3980-0001-a13f9c2e").unwrap())
+        .author_with_digest_suite(
+            4,
+            Hlc::new("01980a8f3980-0001-a13f9c2e").unwrap(),
+            arkret_canonical::DigestSuite::Sha256,
+        )
         .expect("the provision intent finalizes");
 
     let payload: AgentProvisionPayload =

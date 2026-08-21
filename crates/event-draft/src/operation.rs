@@ -72,6 +72,7 @@ impl ProjectedEventOperation {
         operation_kind: OperationKind,
         object_id: Option<String>,
         event: &Event,
+        digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<Self> {
         Ok(Self {
             schema: Self::SCHEMA.to_owned(),
@@ -92,7 +93,9 @@ impl ProjectedEventOperation {
                 event_id: event.event_id.clone(),
                 preconditions: event.preconditions.clone(),
                 accepted_event_id: event.event_id.clone(),
-                canonical_event_digest: Hash::new(event.event_digest()?)?,
+                canonical_event_digest: Hash::new(
+                    event.event_digest_with_digest_suite(digest_suite)?,
+                )?,
                 envelope_causal_refs: event.causal_refs.clone(),
                 seal_ref: event.seal_ref.clone(),
                 seal_basis: event.seal_basis.clone(),
@@ -366,6 +369,7 @@ impl OperationEnvelope {
     pub(crate) fn into_event_envelope(
         self,
         conversion: OperationEventConversion,
+        digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<AuthoredEvent> {
         let Value::Object(payload) = self.payload else {
             return Err(EventDraftError::Protocol(
@@ -387,7 +391,7 @@ impl OperationEnvelope {
             required_features: conversion.required_features,
             critical_extensions: conversion.critical_extensions,
         })
-        .author(self.causal.actor_seq, self.causal.hlc)?;
+        .author_with_digest_suite(self.causal.actor_seq, self.causal.hlc, digest_suite)?;
         for proof in conversion.proofs {
             event.attach_proof(proof.into());
         }
@@ -535,8 +539,10 @@ impl<K: EventSpec> OperationEnvelopeBuilder<K> {
         self,
         registry: &EventDraftKindRegistry,
         conversion: OperationEventConversion,
+        digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<AuthoredEvent> {
-        self.build(registry)?.into_event_envelope(conversion)
+        self.build(registry)?
+            .into_event_envelope(conversion, digest_suite)
     }
 }
 

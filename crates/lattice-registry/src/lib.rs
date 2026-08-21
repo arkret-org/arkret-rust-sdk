@@ -313,7 +313,7 @@ mod tests {
     #[test]
     fn canonical_fsm_contracts_resolve_all_templates_with_exact_closure() {
         let contracts = canonical_fsm_contracts().unwrap();
-        assert_eq!(contracts.len(), 17);
+        assert_eq!(contracts.len(), 19);
         let by_family: BTreeMap<_, _> = contracts
             .iter()
             .map(|contract| (contract.cell_family.as_str(), contract))
@@ -338,6 +338,20 @@ mod tests {
                 .allowed_transitions
                 .contains(&("published".to_owned(), "retired".to_owned()))
         );
+        for family in [
+            arkret_wire::CellFamilyId::REALM_HISTORY_ACCESS_V1,
+            arkret_wire::CellFamilyId::CIRCLE_HISTORY_ACCESS_V1,
+        ] {
+            let history_access = by_family[family];
+            assert!(history_access.runtime_transitions.iter().any(|(from, to)| {
+                from.is_null() && to == &serde_json::Value::String("since_join".to_owned())
+            }));
+            assert!(history_access.runtime_transitions.iter().any(|(from, to)| {
+                from.is_null()
+                    && to
+                        == &serde_json::Value::String("all_history_for_current_members".to_owned())
+            }));
+        }
     }
 
     fn private_candidate(

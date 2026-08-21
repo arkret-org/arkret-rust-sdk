@@ -1,14 +1,13 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-20.4;
-//! sha256=eb95e75c4c33459ebf274ccc6b586aa9777ab819646c7e561f6b58f5baadaecb
-//! Entries: reason_codes=480
+//! Input: registry/error-code-registry.json; version=2026-08-21.1;
+//! sha256=363120b09cdc7e31888d0bb4412c61fa8c7d4a41fdd304f2397f0ada6a4ae360
+//! Entries: reason_codes=474
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ReasonCode {
-    AadVisibilityPolicyViolation,
     AbuseCluster,
     AbuseNetwork,
     AbuseReview,
@@ -35,7 +34,6 @@ pub enum ReasonCode {
     AgentPcrGenesisAlreadyAccepted,
     AgentPcrGenesisDeclarationConflict,
     AgentPcrGenesisDeclarationMissing,
-    AgentPcrRecoveryNotReady,
     AgentProvisioningChallengeAlreadyConsumed,
     AgentProvisioningChallengeExpired,
     AgentReplyNotPermitted,
@@ -142,7 +140,6 @@ pub enum ReasonCode {
     DeviceReanchorAuthorizeMismatch,
     DeviceReanchorEntryNotHead,
     DeviceReanchorFrontierMismatch,
-    DirectConversationActivationAuthorInvalid,
     DirectConversationBindingInvalid,
     DirectConversationFoundingUnitInvalid,
     DirectConversationInviteForbidden,
@@ -156,9 +153,7 @@ pub enum ReasonCode {
     DirectConversationThirdPartyMemberForbidden,
     DirectDownloadDisallowedPresignForbidden,
     DuplicateConflict,
-    DurabilityRecoveryRecipientUnverified,
     DurabilitySchemeIncompatible,
-    DurabilitySealMissingBeforeGc,
     E2eeKeySourceUnauthorised,
     E2eeRelaxedDisallowedInComplianceProfile,
     E2eeRelaxedFederationPolicyUnsupported,
@@ -197,7 +192,8 @@ pub enum ReasonCode {
     HandleSubjectMismatch,
     Harassment,
     HateSpeech,
-    HistoryVisibilityRequiresHistoryCapableScheme,
+    HistoryAccessRequiresHistoryCapableScheme,
+    HistoryTraversalAnchorUnreachable,
     HumanApprovalRequired,
     IdentityCreationAlreadyAccepted,
     IdentityCreationChallengeAlreadyConsumed,
@@ -243,7 +239,6 @@ pub enum ReasonCode {
     LastResortRealmAffinityViolation,
     LastResortRotationRequired,
     LateRecoveryRejectedMembership,
-    LateRecoveryShareNotAuthorized,
     LegalHoldActive,
     LiteProfileWritesDisallowedEventKind,
     MediaNegotiationTimeout,
@@ -271,6 +266,7 @@ pub enum ReasonCode {
     MinimalMetadataAuthorCredentialInvalid,
     MinimalMetadataPresignForbidden,
     Misinformation,
+    MlsContentSchemeImmutable,
     MlsGenesisAlreadyExists,
     MlsGovernanceBindingStale,
     MlsSendPauseAdvisoryRequiresE2eeRelaxedProfile,
@@ -341,8 +337,6 @@ pub enum ReasonCode {
     RateLimited,
     ReactionScopeMismatch,
     ReactionTargetUnsupported,
-    ReadReceiptForcedPublicWorldReadableForbidden,
-    ReadReceiptVisibilityCombinationInvalid,
     RealmAliasAuthorityMismatch,
     RealmAliasHomographForbidden,
     RealmAliasTaken,
@@ -372,9 +366,9 @@ pub enum ReasonCode {
     RecoveryPolicyVersionNotMonotonic,
     RecoveryPrincipalIsolation,
     RecoveryProofKindUnknown,
+    RecoveryRequired,
     RecoverySessionChallengeMismatch,
     RecoverySessionTerminal,
-    RecoveryStale,
     RecoveryTargetNotInBottom,
     RecoveryWitnessInvalid,
     RecoveryWitnessMissing,
@@ -499,7 +493,6 @@ pub struct ReasonCodeDescriptor {
 }
 
 impl ReasonCode {
-    pub const AAD_VISIBILITY_POLICY_VIOLATION: &'static str = "aad_visibility_policy_violation";
     pub const ABUSE_CLUSTER: &'static str = "abuse_cluster";
     pub const ABUSE_NETWORK: &'static str = "abuse_network";
     pub const ABUSE_REVIEW: &'static str = "abuse_review";
@@ -533,7 +526,6 @@ impl ReasonCode {
         "agent_pcr_genesis_declaration_conflict";
     pub const AGENT_PCR_GENESIS_DECLARATION_MISSING: &'static str =
         "agent_pcr_genesis_declaration_missing";
-    pub const AGENT_PCR_RECOVERY_NOT_READY: &'static str = "agent_pcr_recovery_not_ready";
     pub const AGENT_PROVISIONING_CHALLENGE_ALREADY_CONSUMED: &'static str =
         "agent_provisioning_challenge_already_consumed";
     pub const AGENT_PROVISIONING_CHALLENGE_EXPIRED: &'static str =
@@ -663,8 +655,6 @@ impl ReasonCode {
         "device_reanchor_authorize_mismatch";
     pub const DEVICE_REANCHOR_ENTRY_NOT_HEAD: &'static str = "device_reanchor_entry_not_head";
     pub const DEVICE_REANCHOR_FRONTIER_MISMATCH: &'static str = "device_reanchor_frontier_mismatch";
-    pub const DIRECT_CONVERSATION_ACTIVATION_AUTHOR_INVALID: &'static str =
-        "direct_conversation_activation_author_invalid";
     pub const DIRECT_CONVERSATION_BINDING_INVALID: &'static str =
         "direct_conversation_binding_invalid";
     pub const DIRECT_CONVERSATION_FOUNDING_UNIT_INVALID: &'static str =
@@ -690,10 +680,7 @@ impl ReasonCode {
     pub const DIRECT_DOWNLOAD_DISALLOWED_PRESIGN_FORBIDDEN: &'static str =
         "direct_download_disallowed_presign_forbidden";
     pub const DUPLICATE_CONFLICT: &'static str = "duplicate_conflict";
-    pub const DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED: &'static str =
-        "durability_recovery_recipient_unverified";
     pub const DURABILITY_SCHEME_INCOMPATIBLE: &'static str = "durability_scheme_incompatible";
-    pub const DURABILITY_SEAL_MISSING_BEFORE_GC: &'static str = "durability_seal_missing_before_gc";
     pub const E2EE_KEY_SOURCE_UNAUTHORISED: &'static str = "e2ee_key_source_unauthorised";
     pub const E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE: &'static str =
         "e2ee_relaxed_disallowed_in_compliance_profile";
@@ -738,8 +725,10 @@ impl ReasonCode {
     pub const HANDLE_SUBJECT_MISMATCH: &'static str = "handle_subject_mismatch";
     pub const HARASSMENT: &'static str = "harassment";
     pub const HATE_SPEECH: &'static str = "hate_speech";
-    pub const HISTORY_VISIBILITY_REQUIRES_HISTORY_CAPABLE_SCHEME: &'static str =
-        "history_visibility_requires_history_capable_scheme";
+    pub const HISTORY_ACCESS_REQUIRES_HISTORY_CAPABLE_SCHEME: &'static str =
+        "history_access_requires_history_capable_scheme";
+    pub const HISTORY_TRAVERSAL_ANCHOR_UNREACHABLE: &'static str =
+        "history_traversal_anchor_unreachable";
     pub const HUMAN_APPROVAL_REQUIRED: &'static str = "human_approval_required";
     pub const IDENTITY_CREATION_ALREADY_ACCEPTED: &'static str =
         "identity_creation_already_accepted";
@@ -793,8 +782,6 @@ impl ReasonCode {
         "last_resort_realm_affinity_violation";
     pub const LAST_RESORT_ROTATION_REQUIRED: &'static str = "last_resort_rotation_required";
     pub const LATE_RECOVERY_REJECTED_MEMBERSHIP: &'static str = "late_recovery_rejected_membership";
-    pub const LATE_RECOVERY_SHARE_NOT_AUTHORIZED: &'static str =
-        "late_recovery_share_not_authorized";
     pub const LEGAL_HOLD_ACTIVE: &'static str = "legal_hold_active";
     pub const LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND: &'static str =
         "lite_profile_writes_disallowed_event_kind";
@@ -830,6 +817,7 @@ impl ReasonCode {
     pub const MINIMAL_METADATA_PRESIGN_FORBIDDEN: &'static str =
         "minimal_metadata_presign_forbidden";
     pub const MISINFORMATION: &'static str = "misinformation";
+    pub const MLS_CONTENT_SCHEME_IMMUTABLE: &'static str = "mls_content_scheme_immutable";
     pub const MLS_GENESIS_ALREADY_EXISTS: &'static str = "mls_genesis_already_exists";
     pub const MLS_GOVERNANCE_BINDING_STALE: &'static str = "mls_governance_binding_stale";
     pub const MLS_SEND_PAUSE_ADVISORY_REQUIRES_E2EE_RELAXED_PROFILE: &'static str =
@@ -908,10 +896,6 @@ impl ReasonCode {
     pub const RATE_LIMITED: &'static str = "rate_limited";
     pub const REACTION_SCOPE_MISMATCH: &'static str = "reaction_scope_mismatch";
     pub const REACTION_TARGET_UNSUPPORTED: &'static str = "reaction_target_unsupported";
-    pub const READ_RECEIPT_FORCED_PUBLIC_WORLD_READABLE_FORBIDDEN: &'static str =
-        "read_receipt_forced_public_world_readable_forbidden";
-    pub const READ_RECEIPT_VISIBILITY_COMBINATION_INVALID: &'static str =
-        "read_receipt_visibility_combination_invalid";
     pub const REALM_ALIAS_AUTHORITY_MISMATCH: &'static str = "realm_alias_authority_mismatch";
     pub const REALM_ALIAS_HOMOGRAPH_FORBIDDEN: &'static str = "realm_alias_homograph_forbidden";
     pub const REALM_ALIAS_TAKEN: &'static str = "realm_alias_taken";
@@ -949,10 +933,10 @@ impl ReasonCode {
         "recovery_policy_version_not_monotonic";
     pub const RECOVERY_PRINCIPAL_ISOLATION: &'static str = "recovery_principal_isolation";
     pub const RECOVERY_PROOF_KIND_UNKNOWN: &'static str = "recovery_proof_kind_unknown";
+    pub const RECOVERY_REQUIRED: &'static str = "recovery_required";
     pub const RECOVERY_SESSION_CHALLENGE_MISMATCH: &'static str =
         "recovery_session_challenge_mismatch";
     pub const RECOVERY_SESSION_TERMINAL: &'static str = "recovery_session_terminal";
-    pub const RECOVERY_STALE: &'static str = "recovery_stale";
     pub const RECOVERY_TARGET_NOT_IN_BOTTOM: &'static str = "recovery_target_not_in_bottom";
     pub const RECOVERY_WITNESS_INVALID: &'static str = "recovery_witness_invalid";
     pub const RECOVERY_WITNESS_MISSING: &'static str = "recovery_witness_missing";
@@ -1080,7 +1064,6 @@ impl ReasonCode {
 
     pub fn as_str(&self) -> &str {
         match self {
-            Self::AadVisibilityPolicyViolation => Self::AAD_VISIBILITY_POLICY_VIOLATION,
             Self::AbuseCluster => Self::ABUSE_CLUSTER,
             Self::AbuseNetwork => Self::ABUSE_NETWORK,
             Self::AbuseReview => Self::ABUSE_REVIEW,
@@ -1111,7 +1094,6 @@ impl ReasonCode {
                 Self::AGENT_PCR_GENESIS_DECLARATION_CONFLICT
             }
             Self::AgentPcrGenesisDeclarationMissing => Self::AGENT_PCR_GENESIS_DECLARATION_MISSING,
-            Self::AgentPcrRecoveryNotReady => Self::AGENT_PCR_RECOVERY_NOT_READY,
             Self::AgentProvisioningChallengeAlreadyConsumed => {
                 Self::AGENT_PROVISIONING_CHALLENGE_ALREADY_CONSUMED
             }
@@ -1238,9 +1220,6 @@ impl ReasonCode {
             Self::DeviceReanchorAuthorizeMismatch => Self::DEVICE_REANCHOR_AUTHORIZE_MISMATCH,
             Self::DeviceReanchorEntryNotHead => Self::DEVICE_REANCHOR_ENTRY_NOT_HEAD,
             Self::DeviceReanchorFrontierMismatch => Self::DEVICE_REANCHOR_FRONTIER_MISMATCH,
-            Self::DirectConversationActivationAuthorInvalid => {
-                Self::DIRECT_CONVERSATION_ACTIVATION_AUTHOR_INVALID
-            }
             Self::DirectConversationBindingInvalid => Self::DIRECT_CONVERSATION_BINDING_INVALID,
             Self::DirectConversationFoundingUnitInvalid => {
                 Self::DIRECT_CONVERSATION_FOUNDING_UNIT_INVALID
@@ -1272,11 +1251,7 @@ impl ReasonCode {
                 Self::DIRECT_DOWNLOAD_DISALLOWED_PRESIGN_FORBIDDEN
             }
             Self::DuplicateConflict => Self::DUPLICATE_CONFLICT,
-            Self::DurabilityRecoveryRecipientUnverified => {
-                Self::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
-            }
             Self::DurabilitySchemeIncompatible => Self::DURABILITY_SCHEME_INCOMPATIBLE,
-            Self::DurabilitySealMissingBeforeGc => Self::DURABILITY_SEAL_MISSING_BEFORE_GC,
             Self::E2eeKeySourceUnauthorised => Self::E2EE_KEY_SOURCE_UNAUTHORISED,
             Self::E2eeRelaxedDisallowedInComplianceProfile => {
                 Self::E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE
@@ -1319,9 +1294,10 @@ impl ReasonCode {
             Self::HandleSubjectMismatch => Self::HANDLE_SUBJECT_MISMATCH,
             Self::Harassment => Self::HARASSMENT,
             Self::HateSpeech => Self::HATE_SPEECH,
-            Self::HistoryVisibilityRequiresHistoryCapableScheme => {
-                Self::HISTORY_VISIBILITY_REQUIRES_HISTORY_CAPABLE_SCHEME
+            Self::HistoryAccessRequiresHistoryCapableScheme => {
+                Self::HISTORY_ACCESS_REQUIRES_HISTORY_CAPABLE_SCHEME
             }
+            Self::HistoryTraversalAnchorUnreachable => Self::HISTORY_TRAVERSAL_ANCHOR_UNREACHABLE,
             Self::HumanApprovalRequired => Self::HUMAN_APPROVAL_REQUIRED,
             Self::IdentityCreationAlreadyAccepted => Self::IDENTITY_CREATION_ALREADY_ACCEPTED,
             Self::IdentityCreationChallengeAlreadyConsumed => {
@@ -1371,7 +1347,6 @@ impl ReasonCode {
             Self::LastResortRealmAffinityViolation => Self::LAST_RESORT_REALM_AFFINITY_VIOLATION,
             Self::LastResortRotationRequired => Self::LAST_RESORT_ROTATION_REQUIRED,
             Self::LateRecoveryRejectedMembership => Self::LATE_RECOVERY_REJECTED_MEMBERSHIP,
-            Self::LateRecoveryShareNotAuthorized => Self::LATE_RECOVERY_SHARE_NOT_AUTHORIZED,
             Self::LegalHoldActive => Self::LEGAL_HOLD_ACTIVE,
             Self::LiteProfileWritesDisallowedEventKind => {
                 Self::LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND
@@ -1409,6 +1384,7 @@ impl ReasonCode {
             }
             Self::MinimalMetadataPresignForbidden => Self::MINIMAL_METADATA_PRESIGN_FORBIDDEN,
             Self::Misinformation => Self::MISINFORMATION,
+            Self::MlsContentSchemeImmutable => Self::MLS_CONTENT_SCHEME_IMMUTABLE,
             Self::MlsGenesisAlreadyExists => Self::MLS_GENESIS_ALREADY_EXISTS,
             Self::MlsGovernanceBindingStale => Self::MLS_GOVERNANCE_BINDING_STALE,
             Self::MlsSendPauseAdvisoryRequiresE2eeRelaxedProfile => {
@@ -1489,12 +1465,6 @@ impl ReasonCode {
             Self::RateLimited => Self::RATE_LIMITED,
             Self::ReactionScopeMismatch => Self::REACTION_SCOPE_MISMATCH,
             Self::ReactionTargetUnsupported => Self::REACTION_TARGET_UNSUPPORTED,
-            Self::ReadReceiptForcedPublicWorldReadableForbidden => {
-                Self::READ_RECEIPT_FORCED_PUBLIC_WORLD_READABLE_FORBIDDEN
-            }
-            Self::ReadReceiptVisibilityCombinationInvalid => {
-                Self::READ_RECEIPT_VISIBILITY_COMBINATION_INVALID
-            }
             Self::RealmAliasAuthorityMismatch => Self::REALM_ALIAS_AUTHORITY_MISMATCH,
             Self::RealmAliasHomographForbidden => Self::REALM_ALIAS_HOMOGRAPH_FORBIDDEN,
             Self::RealmAliasTaken => Self::REALM_ALIAS_TAKEN,
@@ -1528,9 +1498,9 @@ impl ReasonCode {
             Self::RecoveryPolicyVersionNotMonotonic => Self::RECOVERY_POLICY_VERSION_NOT_MONOTONIC,
             Self::RecoveryPrincipalIsolation => Self::RECOVERY_PRINCIPAL_ISOLATION,
             Self::RecoveryProofKindUnknown => Self::RECOVERY_PROOF_KIND_UNKNOWN,
+            Self::RecoveryRequired => Self::RECOVERY_REQUIRED,
             Self::RecoverySessionChallengeMismatch => Self::RECOVERY_SESSION_CHALLENGE_MISMATCH,
             Self::RecoverySessionTerminal => Self::RECOVERY_SESSION_TERMINAL,
-            Self::RecoveryStale => Self::RECOVERY_STALE,
             Self::RecoveryTargetNotInBottom => Self::RECOVERY_TARGET_NOT_IN_BOTTOM,
             Self::RecoveryWitnessInvalid => Self::RECOVERY_WITNESS_INVALID,
             Self::RecoveryWitnessMissing => Self::RECOVERY_WITNESS_MISSING,
@@ -1664,7 +1634,6 @@ impl ReasonCode {
 
     pub fn from_wire(value: &str) -> Self {
         match value {
-            Self::AAD_VISIBILITY_POLICY_VIOLATION => Self::AadVisibilityPolicyViolation,
             Self::ABUSE_CLUSTER => Self::AbuseCluster,
             Self::ABUSE_NETWORK => Self::AbuseNetwork,
             Self::ABUSE_REVIEW => Self::AbuseReview,
@@ -1695,7 +1664,6 @@ impl ReasonCode {
                 Self::AgentPcrGenesisDeclarationConflict
             }
             Self::AGENT_PCR_GENESIS_DECLARATION_MISSING => Self::AgentPcrGenesisDeclarationMissing,
-            Self::AGENT_PCR_RECOVERY_NOT_READY => Self::AgentPcrRecoveryNotReady,
             Self::AGENT_PROVISIONING_CHALLENGE_ALREADY_CONSUMED => {
                 Self::AgentProvisioningChallengeAlreadyConsumed
             }
@@ -1822,9 +1790,6 @@ impl ReasonCode {
             Self::DEVICE_REANCHOR_AUTHORIZE_MISMATCH => Self::DeviceReanchorAuthorizeMismatch,
             Self::DEVICE_REANCHOR_ENTRY_NOT_HEAD => Self::DeviceReanchorEntryNotHead,
             Self::DEVICE_REANCHOR_FRONTIER_MISMATCH => Self::DeviceReanchorFrontierMismatch,
-            Self::DIRECT_CONVERSATION_ACTIVATION_AUTHOR_INVALID => {
-                Self::DirectConversationActivationAuthorInvalid
-            }
             Self::DIRECT_CONVERSATION_BINDING_INVALID => Self::DirectConversationBindingInvalid,
             Self::DIRECT_CONVERSATION_FOUNDING_UNIT_INVALID => {
                 Self::DirectConversationFoundingUnitInvalid
@@ -1856,11 +1821,7 @@ impl ReasonCode {
                 Self::DirectDownloadDisallowedPresignForbidden
             }
             Self::DUPLICATE_CONFLICT => Self::DuplicateConflict,
-            Self::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED => {
-                Self::DurabilityRecoveryRecipientUnverified
-            }
             Self::DURABILITY_SCHEME_INCOMPATIBLE => Self::DurabilitySchemeIncompatible,
-            Self::DURABILITY_SEAL_MISSING_BEFORE_GC => Self::DurabilitySealMissingBeforeGc,
             Self::E2EE_KEY_SOURCE_UNAUTHORISED => Self::E2eeKeySourceUnauthorised,
             Self::E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE => {
                 Self::E2eeRelaxedDisallowedInComplianceProfile
@@ -1903,9 +1864,10 @@ impl ReasonCode {
             Self::HANDLE_SUBJECT_MISMATCH => Self::HandleSubjectMismatch,
             Self::HARASSMENT => Self::Harassment,
             Self::HATE_SPEECH => Self::HateSpeech,
-            Self::HISTORY_VISIBILITY_REQUIRES_HISTORY_CAPABLE_SCHEME => {
-                Self::HistoryVisibilityRequiresHistoryCapableScheme
+            Self::HISTORY_ACCESS_REQUIRES_HISTORY_CAPABLE_SCHEME => {
+                Self::HistoryAccessRequiresHistoryCapableScheme
             }
+            Self::HISTORY_TRAVERSAL_ANCHOR_UNREACHABLE => Self::HistoryTraversalAnchorUnreachable,
             Self::HUMAN_APPROVAL_REQUIRED => Self::HumanApprovalRequired,
             Self::IDENTITY_CREATION_ALREADY_ACCEPTED => Self::IdentityCreationAlreadyAccepted,
             Self::IDENTITY_CREATION_CHALLENGE_ALREADY_CONSUMED => {
@@ -1955,7 +1917,6 @@ impl ReasonCode {
             Self::LAST_RESORT_REALM_AFFINITY_VIOLATION => Self::LastResortRealmAffinityViolation,
             Self::LAST_RESORT_ROTATION_REQUIRED => Self::LastResortRotationRequired,
             Self::LATE_RECOVERY_REJECTED_MEMBERSHIP => Self::LateRecoveryRejectedMembership,
-            Self::LATE_RECOVERY_SHARE_NOT_AUTHORIZED => Self::LateRecoveryShareNotAuthorized,
             Self::LEGAL_HOLD_ACTIVE => Self::LegalHoldActive,
             Self::LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND => {
                 Self::LiteProfileWritesDisallowedEventKind
@@ -1993,6 +1954,7 @@ impl ReasonCode {
             }
             Self::MINIMAL_METADATA_PRESIGN_FORBIDDEN => Self::MinimalMetadataPresignForbidden,
             Self::MISINFORMATION => Self::Misinformation,
+            Self::MLS_CONTENT_SCHEME_IMMUTABLE => Self::MlsContentSchemeImmutable,
             Self::MLS_GENESIS_ALREADY_EXISTS => Self::MlsGenesisAlreadyExists,
             Self::MLS_GOVERNANCE_BINDING_STALE => Self::MlsGovernanceBindingStale,
             Self::MLS_SEND_PAUSE_ADVISORY_REQUIRES_E2EE_RELAXED_PROFILE => {
@@ -2073,12 +2035,6 @@ impl ReasonCode {
             Self::RATE_LIMITED => Self::RateLimited,
             Self::REACTION_SCOPE_MISMATCH => Self::ReactionScopeMismatch,
             Self::REACTION_TARGET_UNSUPPORTED => Self::ReactionTargetUnsupported,
-            Self::READ_RECEIPT_FORCED_PUBLIC_WORLD_READABLE_FORBIDDEN => {
-                Self::ReadReceiptForcedPublicWorldReadableForbidden
-            }
-            Self::READ_RECEIPT_VISIBILITY_COMBINATION_INVALID => {
-                Self::ReadReceiptVisibilityCombinationInvalid
-            }
             Self::REALM_ALIAS_AUTHORITY_MISMATCH => Self::RealmAliasAuthorityMismatch,
             Self::REALM_ALIAS_HOMOGRAPH_FORBIDDEN => Self::RealmAliasHomographForbidden,
             Self::REALM_ALIAS_TAKEN => Self::RealmAliasTaken,
@@ -2112,9 +2068,9 @@ impl ReasonCode {
             Self::RECOVERY_POLICY_VERSION_NOT_MONOTONIC => Self::RecoveryPolicyVersionNotMonotonic,
             Self::RECOVERY_PRINCIPAL_ISOLATION => Self::RecoveryPrincipalIsolation,
             Self::RECOVERY_PROOF_KIND_UNKNOWN => Self::RecoveryProofKindUnknown,
+            Self::RECOVERY_REQUIRED => Self::RecoveryRequired,
             Self::RECOVERY_SESSION_CHALLENGE_MISMATCH => Self::RecoverySessionChallengeMismatch,
             Self::RECOVERY_SESSION_TERMINAL => Self::RecoverySessionTerminal,
-            Self::RECOVERY_STALE => Self::RecoveryStale,
             Self::RECOVERY_TARGET_NOT_IN_BOTTOM => Self::RecoveryTargetNotInBottom,
             Self::RECOVERY_WITNESS_INVALID => Self::RecoveryWitnessInvalid,
             Self::RECOVERY_WITNESS_MISSING => Self::RecoveryWitnessMissing,
@@ -2307,11 +2263,6 @@ impl salvo_oapi::ComposeSchema for ReasonCode {
 
 pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
-        code: ReasonCode::AAD_VISIBILITY_POLICY_VIOLATION,
-        applies_to: &["event_envelope", "state_resolution"],
-        description: "Sub-reason for failed_precondition when an encrypted envelope declares an aad_visibility_event_id_kind wider than the Realm ceiling in ak.realm.policy_bundle payload aad_visibility.event_id_kind (disclosure order hidden < routing_digest < opaque_id; an absent component means the hidden ceiling). Receivers and reducers MUST reject and MUST NOT silently downgrade the envelope to hidden. See zh/crypto-media/encryption-and-audit.md §2.8.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::ABUSE_CLUSTER,
         applies_to: &["moderation_decision"],
         description: "Multiple reports clustered together for triage; not finalized.",
@@ -2440,11 +2391,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::AGENT_PCR_GENESIS_DECLARATION_MISSING,
         applies_to: &["pcr_genesis", "event_envelope"],
         description: "A managed_agent_control ak.realm.create was submitted without an already accepted ak.agent.provision in the controller PCR whose payload.principal_control_realm_id equals retype(this genesis event_id). The genesis carries no ref to its provision, so this reverse look-up is the whole binding: no match MUST fail closed with zero writes, and the receiver MUST NOT materialize the Realm, the agent-status transition or any partial projection. See zh/identity/key-management.md §3.6.3.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::AGENT_PCR_RECOVERY_NOT_READY,
-        applies_to: &["service_call", "auth_decision"],
-        description: "A Native Personal Agent runtime pairing commit was attempted while its controller-owned managed-PCR recovery projection was pending, stale, missing, or unverifiable. The endpoint MUST leave the pairing handle and every existing key/grant unchanged. The controller E2EE client must publish a current recovery_public_key mls_history series tail whose managed binding covers the Agent PCR accepted Seal frontier and MLS epoch, then retry the identical pairing request. See zh/identity/key-management.md §3.6.1 / §7.5.6.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PROVISIONING_CHALLENGE_ALREADY_CONSUMED,
@@ -2981,11 +2927,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "The re-anchor pre_fence_basis is null despite an accepted Seal, omits or adds frontier leaves, has unreconstructable roots, or lost the admission-time frontier compare-and-swap race. Dual-registered as a reason_code and a top-level service code (see codes[]).",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::DIRECT_CONVERSATION_ACTIVATION_AUTHOR_INVALID,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "An ak.direct_conversation.mls_generation.activate for generation 1 was authored by the founder instead of the joining participant. No portable proof exists that the peer Principal Server durably accepted the Welcome, so only the joiner can truthfully assert it, mirroring the rule that consume is called by the Welcome recipient and never proxied. Rejected even when every other field is correct. See zh/identity/contact-and-direct-conversation.md §7.3.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_BINDING_INVALID,
         applies_to: &["event_envelope", "auth_decision", "state_resolution"],
         description: "An authored immutable Direct Conversation binding fact has an invalid issuer, pair key, authorization basis, Realm role, exact two-member set, main Strand, founding unit digest, or founding MLS references.",
@@ -3013,7 +2954,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_PARTICIPANT_AUTHORITY_DENIED,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
-        description: "The ak.authority.direct_conversation_participant.v1 evaluator did not establish the immutable stable binding, exact participant, active membership, Realm/Strand/current-MLS-generation cross-binding, lifecycle, resource, both directional Contact heads/scopes, device or Agent gate required for the requested allowlisted action. Consent is not an authority source. The evaluator MUST NOT fall back to created_by, membership, a local projection row, Realm owner aggregation or an arbitrary Event/cell reference.",
+        description: "The ak.authority.direct_conversation_participant.v1 evaluator did not establish the immutable stable binding, exact participant, active membership, Realm/Strand/current scope-derived MLS group-and-epoch cross-binding, lifecycle, resource, both directional Contact heads/scopes, device or Agent gate required for the requested allowlisted action. Consent is not an authority source. The evaluator MUST NOT fall back to created_by, membership, a local projection row, Realm owner aggregation or an arbitrary Event/cell reference.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_ROOT_MASK_VIOLATION,
@@ -3051,19 +2992,9 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A stable protocol identity was reused with different canonical content. For Event Envelope event_id this is quarantined per event-auth-state-resolution.md §11; for to-device device_message_id the send operation rejects the conflicting enqueue with reason device_message_id_conflict.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED,
-        applies_to: &["state_resolution"],
-        description: "Sub-reason for failed_precondition on an unverifiable RRK durability recovery recipient, on either side. Sealer side: the sealer cannot resolve a durability_policy.recovery_recipients[].verification_method to a verification method designated by an active ArkretRealmHistoryRecoveryKey service entry published by the named principal_id; it MUST fail closed and MUST NOT fall back to any other key. Receiver side: replaying a historical RRK ak.realm_key.share, either the accepted-at point-in-time DID resolution does not yield that verification method as active, or the payload triple (recovery_recipient_id, recipient_principal_id, recipient_verification_method) has no unique field-for-field match in the durability_policy.recovery_recipients[] effective on the CBA/policy basis pinned by the Event seal_ref. Receivers MUST NOT substitute the receive-time DID document or the receive-time policy. See zh/crypto-media/encryption-and-audit.md §2.10.8 and zh/identity/identity-did.md §8.3.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::DURABILITY_SCHEME_INCOMPATIBLE,
         applies_to: &["state_resolution"],
         description: "Sub-reason for failed_precondition when a ak.realm.policy_bundle write declares durability_policy.mode != none on a Realm whose content_scheme is not mls_exporter_aead_v1. mls_rfc9420 Realms have no deliverable history_secret, so Realm Recovery Key (RRK) durability is structurally unavailable. See zh/models/realm-and-space.md §2.3.1 and zh/crypto-media/encryption-and-audit.md §2.10.8.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::DURABILITY_SEAL_MISSING_BEFORE_GC,
-        applies_to: &["state_resolution"],
-        description: "Sub-reason for failed_precondition raised when a member would GC an epoch's history_secret before the RRK durability ak.realm_key.share for every durability_policy.recovery_recipients[] is accepted (read-your-writes), i.e. the eager-seal precondition is unmet. The member MUST retain history_secret[N] until the durability seal is accepted or the policy no longer requires it. See zh/crypto-media/encryption-and-audit.md §2.10.8 and §2.10.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::E2EE_KEY_SOURCE_UNAUTHORISED,
@@ -3260,9 +3191,14 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Standard moderation reason: hate speech / targeted attacks against a protected group.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::HISTORY_VISIBILITY_REQUIRES_HISTORY_CAPABLE_SCHEME,
+        code: ReasonCode::HISTORY_ACCESS_REQUIRES_HISTORY_CAPABLE_SCHEME,
         applies_to: &["state_resolution"],
-        description: "Sub-reason for failed_precondition when an MLS-backed Realm sets history_visibility=world_readable/shared/invited while the effective content_scheme is not mls_exporter_aead_v1. mls_rfc9420 has per-message forward secrecy and no deliverable history_secret for later joiners; reducers MUST reject create/bootstrap or policy writes that would produce the invalid combination. See zh/models/realm-and-space.md §2.3 and zh/crypto-media/encryption-and-audit.md §2.10.",
+        description: "Sub-reason for failed_precondition when an MLS-backed Realm/Circle with content_scheme=mls_rfc9420 sets history_access other than since_join. Standard RFC 9420 content has no deliverable history_secret for later endpoints; plaintext and mls_exporter_aead_v1 may use either since_join or all_history_for_current_members. See zh/models/realm-and-space.md §2.3 and zh/crypto-media/encryption-and-audit.md §2.10.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::HISTORY_TRAVERSAL_ANCHOR_UNREACHABLE,
+        applies_to: &[],
+        description: "The exact retained direct-traversal target SealBasis does not dominate every leaf of the caller-pinned trusted_history_base_basis or trusted_current_basis. The service MUST NOT substitute a head, common descendant or different basis. Missing material that prevents the decision is frontier_unavailable instead.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::HUMAN_APPROVAL_REQUIRED,
@@ -3490,11 +3426,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A late-arriving key tried to upgrade a decryption_failed event to late_recovered, but the receiver was not a member of the Realm at the original causal time T₀ (or has since been banned/removed). Client MUST NOT admit the recovered plaintext to verified timeline; audit log records this code. See zh/crypto-media/encryption-and-audit.md §2.3.5.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::LATE_RECOVERY_SHARE_NOT_AUTHORIZED,
-        applies_to: &["audit_decision"],
-        description: "A key share or withheld decision is not covered by a verifiable source authorization. Covers three fail-closed cases. (a) A key backup / archive node / peer refused to deliver late key material because, on re-running the T₀ membership + policy check before sending, the current share policy no longer permits delivery to the requesting device (distinct from late_recovery_rejected_membership, which is the receiver-side T₀ non-membership case). (b) An ak.realm_key.share whose source_authorization_ref is missing or does not cover (source principal/device, recipient principal/device, key_scope, share_kind) at the Event CBA basis; this includes an RRK-holder re-share whose source principal is not the active RecoveryRecipient, whose signer is not a real accepted undertaken device of that principal, or whose reference does not satisfy the effective history-sharing policy for the recovery_service key source. (c) An ak.realm_key.withheld whose required source_authorization_ref is missing or does not cover the refusal decision; an unauthorized withheld MUST NOT be projected as a terminal state. See zh/crypto-media/encryption-and-audit.md §2.3.5 / §2.10.8 and zh/crypto-media/device-lifecycle.md §13.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::LEGAL_HOLD_ACTIVE,
         applies_to: &["auth_decision"],
         description: "Requested operation targets a blob / object currently under legal hold. ak.self.blob.command.presign / ak.blob.delete / redaction-equivalent operations MUST be rejected with this code; legal hold takes precedence over capability and TTL. See zh/crypto-media/media-and-blob.md §5.4.4.1.",
@@ -3628,6 +3559,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::MISINFORMATION,
         applies_to: &["moderation_report"],
         description: "Standard moderation reason: misleading / false information posing harm.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::MLS_CONTENT_SCHEME_IMMUTABLE,
+        applies_to: &["event_envelope", "state_resolution"],
+        description: "A policy or group-state transition attempted to change content_scheme after the ordinary Realm/Circle/Sidecar MLS group Genesis. The group scheme is immutable in v1; reducer and receiver MUST reject without creating an implicit second group. See zh/crypto-media/encryption-and-audit.md section 2.10.6.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MLS_GENESIS_ALREADY_EXISTS,
@@ -3985,16 +3921,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Sub-reason for schema_violation when a ak.reaction.add / ak.reaction.remove target_ref points at an object kind that the deployment does not allow reactions on. v1 core only allows ak:message: targets; profiles MAY register additional target kinds. See zh/models/strand-and-message.md §9.8.2.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::READ_RECEIPT_FORCED_PUBLIC_WORLD_READABLE_FORBIDDEN,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "Reducer rejected a read-receipt policy whose effective combination is `disclosure='required'` AND `visibility='public'` on a `world_readable` scope — forced emission of publicly-pullable read positions with no member opt-out (forced de-anonymized activity tracking) — unless the policy payload also sets the second explicit opt-in `receipt_compliance_opt_in.forced_public_world_readable_receipts=true`. See zh/discovery/read-receipts.md §2.5.1.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::READ_RECEIPT_VISIBILITY_COMBINATION_INVALID,
-        applies_to: &["schema_violation", "state_resolution"],
-        description: "Read receipt visibility=public was combined with history_visibility=world_readable without an explicit opt-in marker. Reducer MUST reject the combination to avoid leaking actor read positions to anonymous observers.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::REALM_ALIAS_AUTHORITY_MISMATCH,
         applies_to: &["state_resolution", "service_call"],
         description: "An ak.realm.alias declaration carried an alias whose <domain> is not an authority domain of this Realm's trust_domain, so the Realm's own notary signature is not evidence that the domain's alias issuer authorized the claim. Reducers and directories MUST fail closed instead of registering a foreign-domain alias. See zh/discovery/object-addressing.md §3.3.",
@@ -4140,6 +4066,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A recovery policy, receipt, or proof names a proof kind outside the ak.schema.recovery_policy.v1 allowed_proof_kinds enum. Producers MUST use one of principal_signing, recovery_unlock, device_quorum, trusted_recovery_service, or threshold_recovery.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::RECOVERY_REQUIRED,
+        applies_to: &["device_recovery", "state_resolution"],
+        description: "An existing account endpoint lacks the durable account MLS root, dependent snapshot/reference unit, or material claimed by its emitted marker. Ordinary feature APIs MUST stop and enter the existing recovery/pairing path; they MUST NOT mint a replacement root or tree. See zh/identity/key-management.md section 7.3.1.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_SESSION_CHALLENGE_MISMATCH,
         applies_to: &["device_recovery", "schema_validation"],
         description: "A recovery proof echoes a challenge value that does not exactly match the server-issued challenge for the referenced recovery_session_id. Servers MUST reject the proof before completing device recovery. See artifacts/schemas/recovery-session.schema.json and zh/identity/security-transactions.md §2.",
@@ -4148,11 +4079,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::RECOVERY_SESSION_TERMINAL,
         applies_to: &["device_recovery", "service_call"],
         description: "A recovery-session submit_proof or a new RecoveryTransaction binding targeted a recovery session that is already in a terminal state (`completed` / `rejected` / `expired`). Terminal recovery sessions are immutable; servers MUST reject with top-level `failed_precondition` carrying this reason_code. Recovery sessions have no public complete operation. See artifacts/schemas/recovery-session.schema.json and zh/identity/security-transactions.md §2.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::RECOVERY_STALE,
-        applies_to: &["agent_readiness"],
-        description: "Closed generic Agent readiness blocker: the controller-owned PCR recovery material no longer satisfies the current recovery policy or active runtime-key state.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_TARGET_NOT_IN_BOTTOM,

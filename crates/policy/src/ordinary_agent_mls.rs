@@ -81,6 +81,7 @@ mod tests {
                         identity: signer.as_str().as_bytes().to_vec(),
                     },
                     signature_key: key.clone(),
+                    leaf_node_canonical_bytes: vec![0xA1],
                 }],
             },
             leaf_authorization_refs: vec![(1, authorization.clone())],
@@ -157,6 +158,7 @@ mod tests {
                 identity: signer.as_str().as_bytes().to_vec(),
             },
             signature_key: key.clone(),
+            leaf_node_canonical_bytes: vec![0xA1, leaf_index as u8],
         };
         let view = AgentMlsSignerView {
             group_state: AuthorGroupStateView {

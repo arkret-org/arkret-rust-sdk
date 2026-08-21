@@ -135,16 +135,6 @@ fn range_leaf_event_digest(event: &Event) -> Result<Hash, RangeCompletenessError
     Ok(first_proof.event_digest.clone())
 }
 
-/// Compute the normative default SHA-256 range-completeness root.
-///
-/// Events must already be restricted to the attested range. Non-reducer Event
-/// kinds are ignored, as required by operations-sync.md §6.4.1.
-pub fn range_completeness_root(
-    events: &[Event],
-) -> Result<(Hash, BTreeSet<EventId>), RangeCompletenessError> {
-    range_completeness_root_with_suite(events, arkret_canonical::DigestSuite::Sha256)
-}
-
 /// Compute the normative range-completeness root with the Realm's active
 /// digest suite.
 pub fn range_completeness_root_with_suite(
@@ -439,23 +429,6 @@ fn validate_witnesses(
 /// DID resolution is transport/profile specific. This function verifies both
 /// proof digests, the range, Merkle root, count, actor ranges, and witness
 /// policy shape.
-pub fn verify_full_realm_range_completeness(
-    attestation_event: &Event,
-    accepted_events: &[Event],
-    expected_realm: &RealmId,
-    high_assurance: bool,
-    allowed_witnesses: &BTreeSet<DidCoreId>,
-) -> Result<VerifiedRangeCompleteness, RangeCompletenessError> {
-    verify_full_realm_range_completeness_with_suite(
-        attestation_event,
-        accepted_events,
-        expected_realm,
-        arkret_canonical::DigestSuite::Sha256,
-        high_assurance,
-        allowed_witnesses,
-    )
-}
-
 /// Verify a full-Realm range-completeness attestation with the Realm's active
 /// digest suite.
 pub fn verify_full_realm_range_completeness_with_suite(
@@ -491,7 +464,7 @@ pub fn verify_full_realm_range_completeness_with_suite(
         ));
     }
     let event_digest = attestation_event
-        .event_digest()
+        .event_digest_with_digest_suite(digest_suite)
         .map_err(|error| RangeCompletenessError::SchemaViolation(error.to_string()))?;
     if attestation_event.proofs.is_empty()
         || attestation_event
@@ -593,12 +566,19 @@ mod tests {
             proofs: Vec::new(),
             requirements: EventRequirements::default(),
         };
-        let digest = Hash::new(event.event_digest().unwrap()).unwrap();
+        let digest = Hash::new(
+            event
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .unwrap(),
+        )
+        .unwrap();
         event.proofs.push(
             Proof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new(format!("{actor_full}#device")).unwrap(),
                 event_digest: digest,
+                signer_resolution_evidence_ref: None,
+                signer_resolution_evidence_digest: None,
                 created_at: event.created_at,
                 domain: None,
                 audience: None,
@@ -625,7 +605,11 @@ mod tests {
         let realm = events[0].realm_id.clone();
         let (from_frontier, to_frontier) = full_realm_range_frontiers(events).unwrap();
         let range_events = full_realm_range_events(events).unwrap();
-        let (root, covered) = range_completeness_root(&range_events).unwrap();
+        let (root, covered) = range_completeness_root_with_suite(
+            &range_events,
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
         let created_at = Utc.timestamp_opt(1_800_000_100, 0).unwrap();
         let mut payload = RangeCompletenessAttestation {
             attestation_id: "ak:attestation:01904100-0000-7000-8000-000000000004".to_owned(),
@@ -709,7 +693,14 @@ mod tests {
             Proof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new(format!("{issuer_full}#notary-key")).unwrap(),
-                event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
+                event_digest: Hash::new(
+                    event
+                        .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                        .unwrap(),
+                )
+                .unwrap(),
+                signer_resolution_evidence_ref: None,
+                signer_resolution_evidence_digest: None,
                 created_at,
                 domain: None,
                 audience: None,
@@ -735,8 +726,16 @@ mod tests {
             "ak.attestation.range_completeness",
             Vec::new(),
         );
-        let forward = range_completeness_root(&[first.clone(), second.clone()]).unwrap();
-        let reverse = range_completeness_root(&[second, first]).unwrap();
+        let forward = range_completeness_root_with_suite(
+            &[first.clone(), second.clone()],
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
+        let reverse = range_completeness_root_with_suite(
+            &[second, first],
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
         assert_eq!(forward, reverse);
         assert_eq!(forward.1.len(), 1);
     }
@@ -757,10 +756,11 @@ mod tests {
         );
         let accepted = vec![genesis, active.clone()];
         let proof = attestation(&accepted);
-        let verified = verify_full_realm_range_completeness(
+        let verified = verify_full_realm_range_completeness_with_suite(
             &proof,
             &accepted,
             &active.realm_id,
+            arkret_canonical::DigestSuite::Sha256,
             false,
             &BTreeSet::new(),
         )
@@ -787,13 +787,18 @@ mod tests {
             .unwrap()[0]["payload_digest"] = json!(arkret_canonical::sha256_digest(
             tampered_payload.proof_payload_bytes().unwrap()
         ));
-        tampered.proofs[0].as_producer_mut().unwrap().event_digest =
-            Hash::new(tampered.event_digest().unwrap()).unwrap();
+        tampered.proofs[0].as_producer_mut().unwrap().event_digest = Hash::new(
+            tampered
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .unwrap(),
+        )
+        .unwrap();
         assert_eq!(
-            verify_full_realm_range_completeness(
+            verify_full_realm_range_completeness_with_suite(
                 &tampered,
                 &accepted,
                 &active.realm_id,
+                arkret_canonical::DigestSuite::Sha256,
                 false,
                 &BTreeSet::new(),
             ),
@@ -817,10 +822,11 @@ mod tests {
         );
         let accepted = vec![genesis, active.clone()];
         assert!(matches!(
-            verify_full_realm_range_completeness(
+            verify_full_realm_range_completeness_with_suite(
                 &attestation(&accepted),
                 &accepted,
                 &active.realm_id,
+                arkret_canonical::DigestSuite::Sha256,
                 true,
                 &BTreeSet::new(),
             ),
@@ -866,13 +872,18 @@ mod tests {
             .unwrap()[0]["payload_digest"] = json!(arkret_canonical::sha256_digest(
             tampered_payload.proof_payload_bytes().unwrap()
         ));
-        proof.proofs[0].as_producer_mut().unwrap().event_digest =
-            Hash::new(proof.event_digest().unwrap()).unwrap();
+        proof.proofs[0].as_producer_mut().unwrap().event_digest = Hash::new(
+            proof
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .unwrap(),
+        )
+        .unwrap();
         assert_eq!(
-            verify_full_realm_range_completeness(
+            verify_full_realm_range_completeness_with_suite(
                 &proof,
                 &accepted,
                 &active.realm_id,
+                arkret_canonical::DigestSuite::Sha256,
                 false,
                 &BTreeSet::new(),
             ),
@@ -891,7 +902,7 @@ mod tests {
         active.proofs[0].as_producer_mut().unwrap().event_digest =
             Hash::new(format!("sha256:{}", "ff".repeat(32))).unwrap();
         assert!(matches!(
-            range_completeness_root(&[active]),
+            range_completeness_root_with_suite(&[active], arkret_canonical::DigestSuite::Sha256,),
             Err(RangeCompletenessError::SchemaViolation(_))
         ));
     }

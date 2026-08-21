@@ -9,7 +9,6 @@ use arkret_models_collaboration::events_payloads::device_identity::{
 use arkret_models_collaboration::events_payloads::{
     FoundingDeviceDescriptor, RealmCreatePayload, RealmGenesis,
 };
-use arkret_models_collaboration::objects::realm::NotaryProfile;
 use arkret_models_identity::ResolutionCommitment;
 use arkret_wire::{
     CellRef, DidCoreId, DidFullId, EncryptionProfile, Error, Event, EventKind, EventRef,
@@ -33,6 +32,7 @@ pub struct SelfPrincipalPcrCreateInput {
     pub principal_server_id: DidCoreId,
     /// Resolvable DID admitted for the principal and published as Realm notary.
     pub principal_full_id: DidFullId,
+    pub notary: NotaryValue,
     pub genesis_salt: GenesisSalt,
     pub trust_domain: TrustDomainId,
     pub did_inception_ref: EventRef,
@@ -86,8 +86,7 @@ pub fn build_self_principal_pcr_create(
         arkret_canonical::DigestSuite::Sha256,
         SecurityClass::HighAssurance,
         EncryptionProfile::MlsRfc9420,
-        NotaryProfile::SingleDid,
-        NotaryValue::single_did(input.principal_id),
+        input.notary,
         input.capability_action_registry_digest.clone(),
     )?;
 
@@ -103,7 +102,12 @@ pub fn build_self_principal_pcr_create(
     )
     .map_err(|error| Error::Protocol(error.to_string()))?
     .with_ref(input.did_inception_ref)
-    .author(0, input.hlc, created_at)
+    .author_with_digest_suite(
+        0,
+        input.hlc,
+        created_at,
+        arkret_canonical::DigestSuite::Sha256,
+    )
     .map_err(|error| Error::Protocol(error.to_string()))?;
     validate_self_principal_pcr_create(&event, false, project)?;
     Ok(event)
@@ -175,11 +179,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
         DeviceOrPrincipalRef::DeviceId(_) => false,
     };
     let create_payload: RealmCreatePayload = create.typed_payload::<event_spec::RealmCreate>()?;
-    let NotaryValue::SingleDid {
-        actor_id: notary_actor_id,
-        ..
-    } = &create_payload.object.notary
-    else {
+    let NotaryValue::SingleSigner { signer, .. } = &create_payload.object.notary else {
         return Err(Error::Protocol(
             "PCR genesis notary must identify the principal actor".to_owned(),
         ));
@@ -209,7 +209,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
     let verification_controller = DidFullId::new(verification_controller.to_owned())?;
     let verification_principal = project_full_id_to_core_id(&verification_controller)?;
     if !authorized_by_matches
-        || notary_actor_id != &create.actor_id
+        || signer.actor_id != create.actor_id
         || verification_principal != create.actor_id
         || verification_controller != initial_resolution.full_id
         || verification_fragment != descriptor.device_id.as_str()
@@ -296,7 +296,7 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
         .filter(|profile| profile.as_str() == ProfileId::PRINCIPAL_CONTROL_REALM_V1)
         .count();
     let notary_matches = match &genesis.notary {
-        NotaryValue::SingleDid { actor_id, .. } => actor_id == &event.actor_id,
+        NotaryValue::SingleSigner { signer, .. } => signer.actor_id == event.actor_id,
         _ => false,
     };
     let resolution_matches = genesis
@@ -314,7 +314,6 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
         || genesis.security_class != SecurityClass::HighAssurance
         || profile_count != 1
         || genesis.encryption_profile != EncryptionProfile::MlsRfc9420
-        || genesis.notary_profile != NotaryProfile::SingleDid
         || !notary_matches
         || !resolution_matches
     {
@@ -335,7 +334,9 @@ fn validate_event_proof_digests(event: &Event) -> Result<&arkret_wire::ProducerE
             arkret_wire::EventProof::Producer(producer),
             arkret_wire::EventProof::PrincipalServerAdmission(_),
         ] => {
-            event.validate_principal_server_admission_binding()?;
+            event.validate_principal_server_admission_binding(
+                arkret_canonical::DigestSuite::Sha256,
+            )?;
             producer
         }
         _ => {
@@ -345,7 +346,7 @@ fn validate_event_proof_digests(event: &Event) -> Result<&arkret_wire::ProducerE
             ));
         }
     };
-    let digest = event.event_digest()?;
+    let digest = event.event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)?;
     if producer.kind != proof_kind::DETACHED_JWS
         || producer.event_digest.as_str() != digest
         || producer.jws.is_empty()

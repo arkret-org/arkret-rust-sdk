@@ -210,6 +210,33 @@ pub fn verify_ed25519_detached_jws_payload_proof(
     verify_detached_jws_over(&proof.jws, binding_bytes, public_key)
 }
 
+/// Verify a raw base64url Ed25519 signature over an exact protocol transcript.
+/// Object-family verifiers remain responsible for constructing and validating
+/// that transcript before calling this primitive.
+pub fn verify_ed25519_raw_transcript_signature(
+    transcript: &[u8],
+    signature_b64u: &str,
+    public_key: &PublicKeyMaterial,
+) -> std::result::Result<(), VerifierError> {
+    if transcript.is_empty() {
+        return Err(VerifierError::Encoding(
+            "signature transcript must not be empty".to_owned(),
+        ));
+    }
+    let key_bytes = public_key
+        .ed25519_bytes()
+        .map_err(|error| VerifierError::UnsupportedKey(error.to_string()))?;
+    let verifying = ed25519_dalek::VerifyingKey::from_bytes(&key_bytes)
+        .map_err(|error| VerifierError::UnsupportedKey(error.to_string()))?;
+    let signature_bytes = base64url_decode(signature_b64u)
+        .map_err(|error| VerifierError::Encoding(error.to_string()))?;
+    let signature = ed25519_dalek::Signature::from_slice(&signature_bytes)
+        .map_err(|error| VerifierError::Encoding(error.to_string()))?;
+    verifying
+        .verify_strict(transcript, &signature)
+        .map_err(|error| VerifierError::Backend(error.to_string()))
+}
+
 /// Verify a [`SignalEnvelope`] against the sending device's key.
 ///
 /// A Signal proof is not an Event proof: its transcript names the sending
@@ -958,6 +985,8 @@ pub fn build_proof_envelope(
         kind: kind.into(),
         verification_method,
         event_digest: payload_digest,
+        signer_resolution_evidence_ref: None,
+        signer_resolution_evidence_digest: None,
         created_at: Utc::now(),
         domain,
         audience,

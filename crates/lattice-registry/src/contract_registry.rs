@@ -516,7 +516,16 @@ fn resolve_fsm(
         )));
     }
     let terminal_states = string_array(source, "terminal_states", family)?;
-    let mut allowed_transitions = transition_array(source, "allowed_transitions", family)?;
+    let declared_transitions =
+        transition_array_allowing_initial(source, "allowed_transitions", family)?;
+    let mut explicit_initial_transitions = declared_transitions
+        .iter()
+        .filter_map(|(from, to)| from.is_none().then_some(to.clone()))
+        .collect::<Vec<_>>();
+    let mut allowed_transitions = declared_transitions
+        .into_iter()
+        .filter_map(|(from, to)| from.map(|from| (from, to)))
+        .collect::<Vec<_>>();
     if let Some(conditionals) = source.get("conditional_transitions") {
         for conditional in conditionals.as_array().ok_or_else(|| {
             ContractRegistryError::Invalid(format!(
@@ -565,6 +574,8 @@ fn resolve_fsm(
     }
     let initial_states = if let Some(values) = source.get("initial_states") {
         value_string_array(values, "initial_states", family)?
+    } else if !explicit_initial_transitions.is_empty() {
+        explicit_initial_transitions.clone()
     } else {
         vec![
             source
@@ -586,6 +597,16 @@ fn resolve_fsm(
             "FSM {family} declares an unknown initial state"
         )));
     }
+    if explicit_initial_transitions
+        .iter()
+        .any(|initial| !initial_states.contains(initial))
+    {
+        return Err(ContractRegistryError::Invalid(format!(
+            "FSM {family} null transition names a non-initial state"
+        )));
+    }
+    explicit_initial_transitions.sort();
+    explicit_initial_transitions.dedup();
 
     let explicit_null_initial = cell_contracts.values().any(|contract| {
         contract
@@ -601,7 +622,8 @@ fn resolve_fsm(
             })
     });
     let multiple_initials = source.get("initial_states").is_some();
-    let runtime_uses_null = explicit_null_initial || multiple_initials;
+    let runtime_uses_null =
+        explicit_null_initial || multiple_initials || !explicit_initial_transitions.is_empty();
     let runtime_initial_state = Some(if runtime_uses_null {
         Value::Null
     } else {
@@ -609,8 +631,13 @@ fn resolve_fsm(
     });
     let mut runtime_transitions = Vec::new();
     if runtime_uses_null {
+        let runtime_initials = if explicit_initial_transitions.is_empty() {
+            &initial_states
+        } else {
+            &explicit_initial_transitions
+        };
         runtime_transitions.extend(
-            initial_states
+            runtime_initials
                 .iter()
                 .cloned()
                 .map(|initial| (Value::Null, Value::String(initial))),
@@ -753,6 +780,51 @@ fn transition_array(
         })?
         .iter()
         .map(|value| transition_value(Some(value), family))
+        .collect()
+}
+
+fn transition_array_allowing_initial(
+    object: &Map<String, Value>,
+    member: &str,
+    family: &str,
+) -> Result<Vec<(Option<String>, String)>, ContractRegistryError> {
+    object
+        .get(member)
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            ContractRegistryError::Invalid(format!("FSM {family} omits array {member}"))
+        })?
+        .iter()
+        .map(|value| {
+            let pair = value.as_array().ok_or_else(|| {
+                ContractRegistryError::Invalid(format!("FSM {family} transition must be an array"))
+            })?;
+            if pair.len() != 2 {
+                return Err(ContractRegistryError::Invalid(format!(
+                    "FSM {family} transition must have exactly two states"
+                )));
+            }
+            let from = if pair[0].is_null() {
+                None
+            } else {
+                Some(
+                    pair[0]
+                        .as_str()
+                        .ok_or_else(|| {
+                            ContractRegistryError::Invalid(format!(
+                                "FSM {family} transition from must be null or a string"
+                            ))
+                        })?
+                        .to_owned(),
+                )
+            };
+            let to = pair[1].as_str().ok_or_else(|| {
+                ContractRegistryError::Invalid(format!(
+                    "FSM {family} transition to must be a string"
+                ))
+            })?;
+            Ok((from, to.to_owned()))
+        })
         .collect()
 }
 

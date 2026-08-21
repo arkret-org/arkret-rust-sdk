@@ -1,3 +1,4 @@
+use arkret_canonical::DigestSuite;
 use arkret_identifiers::{DidCoreId, Hlc};
 use arkret_models_collaboration::events_payloads::device_identity::DeviceAuthorizePayload;
 use arkret_wire::{AuthoredEvent, ScopeRef, event_spec};
@@ -14,6 +15,7 @@ pub fn build_device_authorize_event_at(
     hlc: Hlc,
     payload: DeviceAuthorizePayload,
     created_at: DateTime<Utc>,
+    digest_suite: DigestSuite,
 ) -> Result<AuthoredEvent> {
     let event = TypedEventDraft::<event_spec::DeviceAuthorize>::new(
         scope_ref,
@@ -21,6 +23,6 @@ pub fn build_device_authorize_event_at(
         principal_server_id,
         payload,
     )?
-    .author(actor_seq, hlc, created_at)?;
+    .author_with_digest_suite(actor_seq, hlc, created_at, digest_suite)?;
     Ok(event)
 }

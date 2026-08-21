@@ -774,7 +774,7 @@ impl EventsSubmitFederationBatchRequestBody {
     /// This is intentionally independent of receiver-local persistence. A
     /// receiver must additionally establish that every omitted predecessor is
     /// already accepted locally before it projects a transported Seal.
-    pub fn validate_federation_transport(&self) -> Result<()> {
+    pub fn validate_federation_transport(&self, digest_suites: &[DigestSuite]) -> Result<()> {
         if self.events.is_empty() || self.events.len() > MAX_FEDERATED_EVENTS {
             return Err(Error::Protocol(
                 "federation events must contain between 1 and 500 items".to_owned(),
@@ -785,7 +785,13 @@ impl EventsSubmitFederationBatchRequestBody {
             .iter()
             .map(|submission| submission.event.clone())
             .collect::<Vec<_>>();
-        let submit_context = arkret_wire::classify_federated_event_submit_context(&events)?;
+        if events.len() != digest_suites.len() {
+            return Err(Error::Protocol(
+                "federation Event and digest-suite cardinality must match".to_owned(),
+            ));
+        }
+        let submit_context =
+            arkret_wire::classify_federated_event_submit_context(&events, digest_suites)?;
         if submit_context == arkret_wire::EventSubmitContext::AnchorUnit {
             let leases = self
                 .events
@@ -798,11 +804,11 @@ impl EventsSubmitFederationBatchRequestBody {
                         "an anchor unit cannot mix online and delayed submissions".to_owned(),
                     ));
                 }
-                arkret_wire::validate_anchor_unit_lease_bindings(&events, &leases)?;
+                arkret_wire::validate_anchor_unit_lease_bindings(&events, &leases, digest_suites)?;
             }
         }
-        for submission in &self.events {
-            submission.validate_structural_in_context(submit_context)?;
+        for (submission, digest_suite) in self.events.iter().zip(digest_suites.iter().copied()) {
+            submission.validate_structural_in_context(submit_context, digest_suite)?;
         }
         if self.cba_proof_bundles.len() > arkret_wire::event_submission::MAX_SUBMISSION_CBA_BUNDLES
         {
@@ -876,7 +882,6 @@ impl EventsSubmitFederationBatchRequestBody {
                     "federation CBA proof bundles contain a duplicate Seal id".to_owned(),
                 ));
             }
-            seal.validate_id()?;
             seal.validate_structural()?;
             if seal.realm_id != self.service_binding_ref.realm_id {
                 return Err(Error::Protocol(
@@ -936,12 +941,51 @@ impl EventsSubmitFederationBatchRequestBody {
         // represented by this request can never be repaired by retry and is a
         // permanent schema violation, including cycles longer than the direct
         // Event -> Seal -> same Event case.
+        let submitted_digest_by_id = self
+            .events
+            .iter()
+            .zip(digest_suites.iter().copied())
+            .map(|(submission, digest_suite)| {
+                Ok((
+                    submission.event.event_id.clone(),
+                    Hash::new(
+                        submission
+                            .event
+                            .event_digest_with_digest_suite(digest_suite)?,
+                    )?,
+                ))
+            })
+            .collect::<Result<BTreeMap<_, _>>>()?;
+        let covered_digests = seals
+            .iter()
+            .flat_map(|seal| seal.delta.iter().chain(&seal.covered_event_digests))
+            .collect::<BTreeSet<_>>();
         let event_nodes_by_digest = self
             .transported_events()
             .map(|event| {
-                let digest = Hash::new(event.event_digest()?).map_err(|error| {
-                    Error::Protocol(format!("federation Event digest is not canonical: {error}"))
-                })?;
+                let digest = if let Some(digest) = submitted_digest_by_id.get(&event.event_id) {
+                    digest.clone()
+                } else {
+                    let mut matches = covered_digests.iter().filter_map(|expected| {
+                        let suite = expected.digest_suite().ok()?;
+                        let actual =
+                            Hash::new(event.event_digest_with_digest_suite(suite).ok()?).ok()?;
+                        (actual == **expected).then_some(actual)
+                    });
+                    let Some(digest) = matches.next() else {
+                        return Err(Error::Protocol(
+                            "federation Control Move is not bound by transported Seal coverage"
+                                .to_owned(),
+                        ));
+                    };
+                    if matches.next().is_some() {
+                        return Err(Error::Protocol(
+                            "federation Control Move has ambiguous digest-suite coverage"
+                                .to_owned(),
+                        ));
+                    }
+                    digest
+                };
                 Ok((digest, format!("event:{}", event.event_id)))
             })
             .collect::<Result<BTreeMap<_, _>>>()?;
@@ -1070,7 +1114,7 @@ mod tests {
         AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, ControlProposalAckKind,
         DeviceId, DidKey, DidUrl, EventProof, Hash, IngressReceipt, LeaseBasisRef, NotarySig,
         PayloadProof, PayloadSignature, PrincipalServerAdmissionProof,
-        PrincipalServerAdmissionProofKind, ReceiptId, RiskTier, ScopeRef, SealKind,
+        PrincipalServerAdmissionProofKind, ReceiptId, RiskTier, ScopeRef, SealSignature,
     };
     use serde_json::json;
 
@@ -1197,7 +1241,12 @@ mod tests {
     /// receipt that recorded its first publication inside the lease window.
     fn federation_submission(mut event: Event) -> EventFederationSubmission {
         let issued_at: DateTime<Utc> = "2026-07-21T08:00:00.000Z".parse().unwrap();
-        let event_digest = Hash::new(event.event_digest().unwrap()).unwrap();
+        let event_digest = Hash::new(
+            event
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .unwrap(),
+        )
+        .unwrap();
         event.proofs[0].as_producer_mut().unwrap().event_digest = event_digest;
         let producer = event.proofs[0].as_producer().unwrap().clone();
         event.proofs.push(EventProof::PrincipalServerAdmission(
@@ -1211,6 +1260,13 @@ mod tests {
                 .unwrap(),
                 producer_verification_method: producer.verification_method.clone(),
                 producer_signing_key: DidKey::new("did:key:z6Mkhfixture").unwrap(),
+                signer_resolution_evidence_ref: arkret_wire::SignerEvidenceRef::new(format!(
+                    "ak:signer_evidence:sha256:{}",
+                    "11".repeat(32)
+                ))
+                .unwrap(),
+                signer_resolution_evidence_digest: Hash::new(format!("sha256:{}", "11".repeat(32)))
+                    .unwrap(),
                 accepted_at: issued_at,
                 jws: "admission..signature".to_owned(),
             },
@@ -1273,7 +1329,12 @@ mod tests {
 
         let mut receipt = IngressReceipt {
             receipt_id: ReceiptId::new("ak:receipt:01904100-0000-7000-8000-cccccccccccc").unwrap(),
-            event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
+            event_digest: Hash::new(
+                event
+                    .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                    .unwrap(),
+            )
+            .unwrap(),
             authorization_lease_id: authorization_lease.authorization_lease_id.clone(),
             received_at: issued_at,
             service_id: DidCoreId::new("ak:did_core:web:ingress.example").unwrap(),
@@ -1301,7 +1362,12 @@ mod tests {
         authority_set_ref: &AuthoritySetRef,
         received_at: DateTime<Utc>,
     ) -> ControlProposalAck {
-        let proposal_digest = Hash::new(event.event_digest().unwrap()).unwrap();
+        let proposal_digest = Hash::new(
+            event
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .unwrap(),
+        )
+        .unwrap();
         let authority_set_digest = authority_set_ref.authority_set_digest.clone();
         let mut authority_ack = arkret_wire::ControlProposalAuthorityAck {
             realm_id: event.realm_id.clone(),
@@ -1426,23 +1492,21 @@ mod tests {
             notary_seq: 0,
             data_view_root: None,
             data_event_set_root: None,
-            availability_root: None,
-            coverage_scope: None,
+            availability_receipt_digests: Vec::new(),
             covered_event_digests: Vec::new(),
             previous_state_root: None,
             previous_digest_algorithm: None,
-            notary_signature: NotarySig::Single(PayloadSignature {
+            notary_signature: NotarySig::Single(SealSignature {
                 verification_method: DidUrl::new("did:web:notary.example#key-1").unwrap(),
-                extra: Default::default(),
                 payload_digest: hash('5'),
-                created_at: "2026-07-21T08:00:00Z".parse().unwrap(),
                 jws: "AAAA.BBBB.CCCC".to_owned(),
             }),
             sealed_at: "2026-07-21T08:00:00Z".parse().unwrap(),
             hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
-            kind: SealKind::Normal,
         };
-        seal.id = seal.derive_id().unwrap();
+        seal.id = seal
+            .derive_id(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
         seal
     }
 
@@ -1461,14 +1525,14 @@ mod tests {
         };
         assert!(
             federation_request(vec![data.clone(), other_realm])
-                .validate_federation_transport()
+                .validate_federation_transport(&[DigestSuite::Sha256; 2])
                 .is_err()
         );
 
         let control = control_move_over(&federation_prerequisite_seal());
         assert!(
             federation_request(vec![data, control])
-                .validate_federation_transport()
+                .validate_federation_transport(&[DigestSuite::Sha256; 2])
                 .is_err()
         );
     }
@@ -1478,10 +1542,11 @@ mod tests {
         let event = event_with_device_proof();
         let mut empty = federation_request(vec![event.clone()]);
         empty.events.clear();
-        assert!(empty.validate_federation_transport().is_err());
+        assert!(empty.validate_federation_transport(&[]).is_err());
+        let too_many_suites = vec![DigestSuite::Sha256; MAX_FEDERATED_EVENTS + 1];
         assert!(
             federation_request(vec![event.clone(); MAX_FEDERATED_EVENTS + 1])
-                .validate_federation_transport()
+                .validate_federation_transport(&too_many_suites)
                 .is_err()
         );
 
@@ -1514,7 +1579,7 @@ mod tests {
             availability_proofs: Vec::new(),
         }];
         request
-            .validate_federation_transport()
+            .validate_federation_transport(&[DigestSuite::Sha256])
             .expect("a Control Event may transport its non-local Seal basis");
     }
 
@@ -1531,7 +1596,9 @@ mod tests {
             inclusion_proofs: Vec::new(),
             availability_proofs: Vec::new(),
         }];
-        let error = request.validate_federation_transport().unwrap_err();
+        let error = request
+            .validate_federation_transport(&[DigestSuite::Sha256])
+            .unwrap_err();
         assert!(
             error
                 .to_string()
@@ -1547,17 +1614,25 @@ mod tests {
         // receipt binding that exact Event digest inside the lease window.
         let request = federation_request(vec![event_with_device_proof()]);
         request
-            .validate_federation_transport()
+            .validate_federation_transport(&[DigestSuite::Sha256])
             .expect("an Event with its lease and ingress receipt is transportable");
 
         let mut without_receipt = request.clone();
         without_receipt.events[0].ingress_receipts.clear();
-        assert!(without_receipt.validate_federation_transport().is_err());
+        assert!(
+            without_receipt
+                .validate_federation_transport(&[DigestSuite::Sha256])
+                .is_err()
+        );
 
         let mut foreign_digest = request.clone();
         foreign_digest.events[0].ingress_receipts[0].event_digest =
             Hash::new(format!("sha256:{}", "f".repeat(64))).unwrap();
-        assert!(foreign_digest.validate_federation_transport().is_err());
+        assert!(
+            foreign_digest
+                .validate_federation_transport(&[DigestSuite::Sha256])
+                .is_err()
+        );
 
         let mut foreign_actor = request;
         foreign_actor.events[0]
@@ -1565,6 +1640,10 @@ mod tests {
             .as_mut()
             .expect("fixture uses delayed federation")
             .actor_id = DidCoreId::new("ak:did_core:web:mallory.example").unwrap();
-        assert!(foreign_actor.validate_federation_transport().is_err());
+        assert!(
+            foreign_actor
+                .validate_federation_transport(&[DigestSuite::Sha256])
+                .is_err()
+        );
     }
 }

@@ -246,7 +246,7 @@ fn event_view_uses_the_same_closed_event_read_row_union() {
             "reason_code": "history_not_visible",
             "reducer_input": false
         },
-        "visibility": {"history_visibility": "joined"},
+        "visibility": {"history_access": "since_join"},
         "receipts": []
     }))
     .unwrap();

@@ -130,6 +130,7 @@ pub fn verify_control_move<VerifyProofs, ProjectWrites>(
     realm_id: &RealmId,
     pre_state: &BTreeMap<CellRef, CellState>,
     registry: &dyn CellRegistry,
+    digest_suite: arkret_canonical::DigestSuite,
     verify_proofs: VerifyProofs,
     project_writes: ProjectWrites,
 ) -> Result<Vec<ProjectionEffect>, ControlMoveReject>
@@ -142,6 +143,7 @@ where
         realm_id,
         pre_state,
         registry,
+        digest_suite,
         verify_proofs,
         project_writes,
         EventSubmitContext::Standard,
@@ -159,6 +161,7 @@ pub fn verify_control_move_in_context<VerifyProofs, ProjectWrites>(
     realm_id: &RealmId,
     pre_state: &BTreeMap<CellRef, CellState>,
     registry: &dyn CellRegistry,
+    digest_suite: arkret_canonical::DigestSuite,
     verify_proofs: VerifyProofs,
     project_writes: ProjectWrites,
     context: EventSubmitContext,
@@ -172,10 +175,11 @@ where
         realm_id,
         pre_state,
         registry,
+        digest_suite,
         verify_proofs,
         project_writes,
         context,
-        false,
+        StructuralProofRegime::ProducerSubmission,
     )
 }
 
@@ -187,6 +191,7 @@ pub fn verify_accepted_control_move_in_context<VerifyProofs, ProjectWrites>(
     realm_id: &RealmId,
     pre_state: &BTreeMap<CellRef, CellState>,
     registry: &dyn CellRegistry,
+    digest_suite: arkret_canonical::DigestSuite,
     verify_proofs: VerifyProofs,
     project_writes: ProjectWrites,
     context: EventSubmitContext,
@@ -200,11 +205,49 @@ where
         realm_id,
         pre_state,
         registry,
+        digest_suite,
         verify_proofs,
         project_writes,
         context,
-        true,
+        StructuralProofRegime::FederationAccepted,
     )
+}
+
+/// Verify one retained Control Move using its exact historical proof regime.
+/// Sole-Producer Events use the direct-history structural contract, while
+/// Producer + PrincipalServerAdmission Events use the federation contract.
+pub fn verify_replayed_control_move_in_context<VerifyProofs, ProjectWrites>(
+    event: &Event,
+    realm_id: &RealmId,
+    pre_state: &BTreeMap<CellRef, CellState>,
+    registry: &dyn CellRegistry,
+    digest_suite: arkret_canonical::DigestSuite,
+    verify_proofs: VerifyProofs,
+    project_writes: ProjectWrites,
+    context: EventSubmitContext,
+) -> Result<Vec<ProjectionEffect>, ControlMoveReject>
+where
+    VerifyProofs: Fn(&Event) -> Result<(), String>,
+    ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String>,
+{
+    verify_control_move_with_proof_set(
+        event,
+        realm_id,
+        pre_state,
+        registry,
+        digest_suite,
+        verify_proofs,
+        project_writes,
+        context,
+        StructuralProofRegime::RetainedReplay,
+    )
+}
+
+#[derive(Clone, Copy)]
+enum StructuralProofRegime {
+    ProducerSubmission,
+    FederationAccepted,
+    RetainedReplay,
 }
 
 fn verify_control_move_with_proof_set<VerifyProofs, ProjectWrites>(
@@ -212,10 +255,11 @@ fn verify_control_move_with_proof_set<VerifyProofs, ProjectWrites>(
     realm_id: &RealmId,
     pre_state: &BTreeMap<CellRef, CellState>,
     registry: &dyn CellRegistry,
+    digest_suite: arkret_canonical::DigestSuite,
     verify_proofs: VerifyProofs,
     project_writes: ProjectWrites,
     context: EventSubmitContext,
-    accepted_event: bool,
+    proof_regime: StructuralProofRegime,
 ) -> Result<Vec<ProjectionEffect>, ControlMoveReject>
 where
     VerifyProofs: Fn(&Event) -> Result<(), String>,
@@ -224,14 +268,29 @@ where
     // Step 1: structural. `validate_for_submit_structural` also enforces the
     // CBA envelope shape, so a DataEvent (`seal_ref` + `auth_context`) or an
     // Event with neither basis cannot reach the control-plane reducer here.
-    if accepted_event {
-        event
-            .validate_for_federation_structural_in_context(context)
-            .map_err(|e| ControlMoveReject::SchemaViolation(e.to_string()))?;
-    } else {
-        event
+    match proof_regime {
+        StructuralProofRegime::ProducerSubmission => event
             .validate_for_submit_structural_in_context(context)
-            .map_err(|e| ControlMoveReject::SchemaViolation(e.to_string()))?;
+            .map_err(|e| ControlMoveReject::SchemaViolation(e.to_string()))?,
+        StructuralProofRegime::FederationAccepted => event
+            .validate_for_federation_structural_in_context(context, digest_suite)
+            .map_err(|e| ControlMoveReject::SchemaViolation(e.to_string()))?,
+        StructuralProofRegime::RetainedReplay => match event.proofs.as_slice() {
+            [arkret_wire::EventProof::Producer(_)] => event
+                .validate_for_direct_history_structural_in_context(context)
+                .map_err(|e| ControlMoveReject::SchemaViolation(e.to_string()))?,
+            [
+                arkret_wire::EventProof::Producer(_),
+                arkret_wire::EventProof::PrincipalServerAdmission(_),
+            ] => event
+                .validate_for_federation_structural_in_context(context, digest_suite)
+                .map_err(|e| ControlMoveReject::SchemaViolation(e.to_string()))?,
+            _ => {
+                return Err(ControlMoveReject::SchemaViolation(
+                    "retained Event has an unsupported proof regime".to_owned(),
+                ));
+            }
+        },
     }
     if event.realm_id != *realm_id {
         return Err(ControlMoveReject::SchemaViolation(format!(
@@ -249,7 +308,10 @@ where
     // digest and rejects any proof that binds a different one, so a producer
     // cannot present a signature over bytes other than the ones we reduce.
     event
-        .validate_proof_bindings()
+        .verify_event_id_matches_content_with_digest_suite(digest_suite)
+        .map_err(|e| ControlMoveReject::SignatureInvalid(e.to_string()))?;
+    event
+        .validate_proof_bindings_with_digest_suite(digest_suite)
         .map_err(|e| ControlMoveReject::SignatureInvalid(e.to_string()))?;
     verify_proofs(event).map_err(ControlMoveReject::SignatureInvalid)?;
 
@@ -865,6 +927,55 @@ mod tests {
         RealmId, SealBasis, SealId,
     };
 
+    fn verify_control_move<VerifyProofs, ProjectWrites>(
+        event: &Event,
+        realm_id: &RealmId,
+        pre_state: &BTreeMap<CellRef, CellState>,
+        registry: &dyn CellRegistry,
+        verify_proofs: VerifyProofs,
+        project_writes: ProjectWrites,
+    ) -> Result<Vec<ProjectionEffect>, ControlMoveReject>
+    where
+        VerifyProofs: Fn(&Event) -> Result<(), String>,
+        ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String>,
+    {
+        super::verify_control_move(
+            event,
+            realm_id,
+            pre_state,
+            registry,
+            arkret_canonical::DigestSuite::Sha256,
+            verify_proofs,
+            project_writes,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn verify_accepted_control_move_in_context<VerifyProofs, ProjectWrites>(
+        event: &Event,
+        realm_id: &RealmId,
+        pre_state: &BTreeMap<CellRef, CellState>,
+        registry: &dyn CellRegistry,
+        verify_proofs: VerifyProofs,
+        project_writes: ProjectWrites,
+        context: EventSubmitContext,
+    ) -> Result<Vec<ProjectionEffect>, ControlMoveReject>
+    where
+        VerifyProofs: Fn(&Event) -> Result<(), String>,
+        ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String>,
+    {
+        super::verify_accepted_control_move_in_context(
+            event,
+            realm_id,
+            pre_state,
+            registry,
+            arkret_canonical::DigestSuite::Sha256,
+            verify_proofs,
+            project_writes,
+            context,
+        )
+    }
+
     fn realm() -> RealmId {
         RealmId::new("ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN".to_owned()).unwrap()
     }
@@ -917,11 +1028,29 @@ mod tests {
             proofs: Vec::new(),
             requirements: EventRequirements::default(),
         };
+        event
+            .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
         event.proofs.push(
             Proof {
                 kind: "detached_jws".to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:admin.example#k1").unwrap(),
-                event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
+                event_digest: Hash::new(
+                    event
+                        .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                        .unwrap(),
+                )
+                .unwrap(),
+                signer_resolution_evidence_ref: Some(
+                    arkret_wire::SignerEvidenceRef::new(format!(
+                        "ak:signer_evidence:sha256:{}",
+                        "11".repeat(32)
+                    ))
+                    .unwrap(),
+                ),
+                signer_resolution_evidence_digest: Some(
+                    Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
+                ),
                 created_at: event.created_at,
                 domain: None,
                 audience: None,
@@ -935,6 +1064,9 @@ mod tests {
 
     fn accepted_control_move(preconditions: Vec<Precondition>, refs: Vec<EventRef>) -> Event {
         let mut event = control_move(preconditions, refs);
+        let producer = event.proofs[0].as_producer_mut().unwrap();
+        producer.signer_resolution_evidence_ref = None;
+        producer.signer_resolution_evidence_digest = None;
         let producer = event.proofs[0].as_producer().unwrap().clone();
         event.proofs.push(EventProof::PrincipalServerAdmission(
             PrincipalServerAdmissionProof {
@@ -950,6 +1082,13 @@ mod tests {
                 .unwrap(),
                 producer_verification_method: producer.verification_method.clone(),
                 producer_signing_key: DidKey::new("did:key:z6Mkhfixture").unwrap(),
+                signer_resolution_evidence_ref: arkret_wire::SignerEvidenceRef::new(format!(
+                    "ak:signer_evidence:sha256:{}",
+                    "11".repeat(32)
+                ))
+                .unwrap(),
+                signer_resolution_evidence_digest: Hash::new(format!("sha256:{}", "11".repeat(32)))
+                    .unwrap(),
                 accepted_at: event.created_at,
                 jws: "admission..signature".to_owned(),
             },

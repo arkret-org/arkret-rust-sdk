@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-08-20.1;
-//! sha256=2b4e4166b62b8c17561a67bc6a91dc0be9f76729ee438d3ff1f85479b59db4fd Entries: registered=170
+//! Input: registry/capability-action-registry.json; version=2026-08-21.1;
+//! sha256=0608a29c74f0a8f87692c0fa5c1bbaf00ea07195c0019a72028c84d894a2f47c Entries: registered=169
 
 use serde::{Deserialize, Serialize};
 
@@ -127,7 +127,6 @@ pub enum CapabilityActionId {
     RealmSetDefaultStrand,
     RealmTombstone,
     RealmUpgrade,
-    RealmKeyShare,
     ReceiptBroadcast,
     RelationCreate,
     RelationTombstone,
@@ -301,7 +300,6 @@ impl CapabilityActionId {
         Self::RealmSetDefaultStrand,
         Self::RealmTombstone,
         Self::RealmUpgrade,
-        Self::RealmKeyShare,
         Self::ReceiptBroadcast,
         Self::RelationCreate,
         Self::RelationTombstone,
@@ -474,7 +472,6 @@ impl CapabilityActionId {
     pub const REALM_SET_DEFAULT_STRAND: &'static str = "ak.realm.set_default_strand";
     pub const REALM_TOMBSTONE: &'static str = "ak.realm.tombstone";
     pub const REALM_UPGRADE: &'static str = "ak.realm.upgrade";
-    pub const REALM_KEY_SHARE: &'static str = "ak.realm_key.share";
     pub const RECEIPT_BROADCAST: &'static str = "ak.receipt.broadcast";
     pub const RELATION_CREATE: &'static str = "ak.relation.create";
     pub const RELATION_TOMBSTONE: &'static str = "ak.relation.tombstone";
@@ -655,7 +652,6 @@ impl CapabilityActionId {
             Self::RealmSetDefaultStrand => Self::REALM_SET_DEFAULT_STRAND,
             Self::RealmTombstone => Self::REALM_TOMBSTONE,
             Self::RealmUpgrade => Self::REALM_UPGRADE,
-            Self::RealmKeyShare => Self::REALM_KEY_SHARE,
             Self::ReceiptBroadcast => Self::RECEIPT_BROADCAST,
             Self::RelationCreate => Self::RELATION_CREATE,
             Self::RelationTombstone => Self::RELATION_TOMBSTONE,
@@ -836,7 +832,6 @@ impl CapabilityActionId {
             Self::REALM_SET_DEFAULT_STRAND => Some(Self::RealmSetDefaultStrand),
             Self::REALM_TOMBSTONE => Some(Self::RealmTombstone),
             Self::REALM_UPGRADE => Some(Self::RealmUpgrade),
-            Self::REALM_KEY_SHARE => Some(Self::RealmKeyShare),
             Self::RECEIPT_BROADCAST => Some(Self::ReceiptBroadcast),
             Self::RELATION_CREATE => Some(Self::RelationCreate),
             Self::RELATION_TOMBSTONE => Some(Self::RelationTombstone),

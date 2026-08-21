@@ -6,14 +6,25 @@ use std::collections::BTreeSet;
 use arkret_models_collaboration::event_sync::RealmSealFrontierView;
 use arkret_state::control_event_set_root;
 use arkret_wire::{
-    DidCoreId, DidFullId, Error, Event, EventKind, Hash, Hlc, NotarySig, PayloadSignature,
-    PayloadSigner, Result, Seal, SealId, SealKind, project_full_id_to_core_id,
+    DidCoreId, DidFullId, Error, Event, EventKind, Hash, Hlc, NotarySig, PayloadSigner, Result,
+    Seal, SealId, SealSignature, project_full_id_to_core_id,
 };
 use chrono::Utc;
 use serde_json::Value;
 
 use crate::projection::{CellWriteProjector, state_root_from_projection};
 use crate::self_principal::validate_self_principal_pcr_genesis_unit;
+
+const SELF_PRINCIPAL_PCR_DIGEST_SUITE: arkret_canonical::DigestSuite =
+    arkret_canonical::DigestSuite::Sha256;
+
+fn completeness_events(events: &[Event]) -> Vec<(Event, arkret_canonical::DigestSuite)> {
+    events
+        .iter()
+        .cloned()
+        .map(|event| (event, SELF_PRINCIPAL_PCR_DIGEST_SUITE))
+        .collect()
+}
 
 fn signer_projects_to_actor(signer: &DidFullId, actor_id: &DidCoreId) -> Result<bool> {
     Ok(project_full_id_to_core_id(signer)? == *actor_id)
@@ -37,8 +48,10 @@ pub fn build_self_principal_bootstrap_seal<S: PayloadSigner + ?Sized>(
         ));
     }
 
-    let create_digest = Hash::new(create.event_digest()?)?;
-    let authorize_digest = Hash::new(authorize.event_digest()?)?;
+    let create_digest =
+        Hash::new(create.event_digest_with_digest_suite(SELF_PRINCIPAL_PCR_DIGEST_SUITE)?)?;
+    let authorize_digest =
+        Hash::new(authorize.event_digest_with_digest_suite(SELF_PRINCIPAL_PCR_DIGEST_SUITE)?)?;
     let covered = [create_digest, authorize_digest]
         .into_iter()
         .collect::<BTreeSet<_>>();
@@ -49,11 +62,12 @@ pub fn build_self_principal_bootstrap_seal<S: PayloadSigner + ?Sized>(
     }
     let delta = covered.iter().cloned().collect::<Vec<_>>();
     let state_root = self_principal_bootstrap_state_root(create, authorize, project)?;
-    let control_root = control_event_set_root(&covered)
+    let control_root = control_event_set_root(&covered, SELF_PRINCIPAL_PCR_DIGEST_SUITE)
         .map_err(|error| Error::Protocol(format!("bootstrap Seal coverage root: {error}")))?;
     let completeness_root = arkret_state::control_event_completeness_root(
-        &[create.clone(), authorize.clone()],
+        &completeness_events(&[create.clone(), authorize.clone()]),
         &covered,
+        SELF_PRINCIPAL_PCR_DIGEST_SUITE,
     )
     .map_err(|error| Error::Protocol(format!("bootstrap Seal completeness root: {error}")))?;
     let sealed_at = Utc::now();
@@ -69,27 +83,27 @@ pub fn build_self_principal_bootstrap_seal<S: PayloadSigner + ?Sized>(
         notary_seq: 0,
         data_view_root: None,
         data_event_set_root: None,
-        availability_root: None,
-        coverage_scope: None,
+        availability_receipt_digests: Vec::new(),
         covered_event_digests: delta,
         previous_state_root: None,
         previous_digest_algorithm: None,
-        notary_signature: NotarySig::Single(PayloadSignature {
+        notary_signature: NotarySig::Single(SealSignature {
             verification_method: signer.verification_method_id().clone(),
             payload_digest: zero_hash,
-            created_at: sealed_at,
             jws: String::new(),
-            extra: Default::default(),
         }),
         sealed_at,
         hlc,
-        kind: SealKind::Normal,
     };
     let canonical_bytes = seal.canonical_bytes_for_id()?;
-    seal.id = Seal::id_from_canonical_bytes(&canonical_bytes)?;
-    seal.notary_signature = NotarySig::Single(signer.sign_payload(&canonical_bytes)?);
+    seal.id = Seal::id_from_canonical_bytes(&canonical_bytes, SELF_PRINCIPAL_PCR_DIGEST_SUITE)?;
+    seal.notary_signature = NotarySig::Single(
+        signer
+            .sign_payload_with_digest_suite(&canonical_bytes, SELF_PRINCIPAL_PCR_DIGEST_SUITE)?
+            .into(),
+    );
     seal.validate_structural()?;
-    seal.validate_id()?;
+    seal.validate_id(SELF_PRINCIPAL_PCR_DIGEST_SUITE)?;
     Ok(seal)
 }
 
@@ -128,14 +142,18 @@ pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
         ));
     }
 
-    let create_digest = Hash::new(create.event_digest()?)?;
-    let authorize_digest = Hash::new(authorize.event_digest()?)?;
-    let successor_digest = Hash::new(successor.event_digest()?)?;
+    let create_digest =
+        Hash::new(create.event_digest_with_digest_suite(SELF_PRINCIPAL_PCR_DIGEST_SUITE)?)?;
+    let authorize_digest =
+        Hash::new(authorize.event_digest_with_digest_suite(SELF_PRINCIPAL_PCR_DIGEST_SUITE)?)?;
+    let successor_digest =
+        Hash::new(successor.event_digest_with_digest_suite(SELF_PRINCIPAL_PCR_DIGEST_SUITE)?)?;
     let bootstrap_covered = [create_digest.clone(), authorize_digest.clone()]
         .into_iter()
         .collect::<BTreeSet<_>>();
-    let bootstrap_control_root = control_event_set_root(&bootstrap_covered)
-        .map_err(|error| Error::Protocol(format!("bootstrap Seal coverage root: {error}")))?;
+    let bootstrap_control_root =
+        control_event_set_root(&bootstrap_covered, SELF_PRINCIPAL_PCR_DIGEST_SUITE)
+            .map_err(|error| Error::Protocol(format!("bootstrap Seal coverage root: {error}")))?;
     let bootstrap_state_root = self_principal_bootstrap_state_root(create, authorize, project)?;
     if predecessor.realm_id != create.realm_id
         || predecessor.control_event_set_root != bootstrap_control_root
@@ -158,22 +176,36 @@ pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
     let state_root = state_root_from_projection(
         &create.realm_id,
         &[
-            (create, Hash::new(create.event_digest()?)?),
-            (authorize, Hash::new(authorize.event_digest()?)?),
+            (
+                create,
+                Hash::new(create.event_digest_with_digest_suite(SELF_PRINCIPAL_PCR_DIGEST_SUITE)?)?,
+            ),
+            (
+                authorize,
+                Hash::new(
+                    authorize.event_digest_with_digest_suite(SELF_PRINCIPAL_PCR_DIGEST_SUITE)?,
+                )?,
+            ),
             (successor, successor_digest.clone()),
         ],
+        SELF_PRINCIPAL_PCR_DIGEST_SUITE,
         project,
     )?;
-    let control_event_set_root = control_event_set_root(&covered).map_err(|error| {
-        Error::Protocol(format!("self principal successor coverage root: {error}"))
-    })?;
-    let events = [create.clone(), authorize.clone(), successor.clone()];
-    let completeness_root = arkret_state::control_event_completeness_root(&events, &covered)
+    let control_event_set_root = control_event_set_root(&covered, SELF_PRINCIPAL_PCR_DIGEST_SUITE)
         .map_err(|error| {
-            Error::Protocol(format!(
-                "self principal successor completeness root: {error}"
-            ))
+            Error::Protocol(format!("self principal successor coverage root: {error}"))
         })?;
+    let events = [create.clone(), authorize.clone(), successor.clone()];
+    let completeness_root = arkret_state::control_event_completeness_root(
+        &completeness_events(&events),
+        &covered,
+        SELF_PRINCIPAL_PCR_DIGEST_SUITE,
+    )
+    .map_err(|error| {
+        Error::Protocol(format!(
+            "self principal successor completeness root: {error}"
+        ))
+    })?;
     let sealed_at = Utc::now();
     let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
     let mut seal = Seal {
@@ -187,27 +219,27 @@ pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
         notary_seq: 1,
         data_view_root: None,
         data_event_set_root: None,
-        availability_root: None,
-        coverage_scope: None,
+        availability_receipt_digests: Vec::new(),
         covered_event_digests: covered.into_iter().collect(),
         previous_state_root: None,
         previous_digest_algorithm: None,
-        notary_signature: NotarySig::Single(PayloadSignature {
+        notary_signature: NotarySig::Single(SealSignature {
             verification_method: signer.verification_method_id().clone(),
             payload_digest: zero_hash,
-            created_at: sealed_at,
             jws: String::new(),
-            extra: Default::default(),
         }),
         sealed_at,
         hlc,
-        kind: SealKind::Normal,
     };
     let canonical_bytes = seal.canonical_bytes_for_id()?;
-    seal.id = Seal::id_from_canonical_bytes(&canonical_bytes)?;
-    seal.notary_signature = NotarySig::Single(signer.sign_payload(&canonical_bytes)?);
+    seal.id = Seal::id_from_canonical_bytes(&canonical_bytes, SELF_PRINCIPAL_PCR_DIGEST_SUITE)?;
+    seal.notary_signature = NotarySig::Single(
+        signer
+            .sign_payload_with_digest_suite(&canonical_bytes, SELF_PRINCIPAL_PCR_DIGEST_SUITE)?
+            .into(),
+    );
     seal.validate_structural()?;
-    seal.validate_id()?;
+    seal.validate_id(SELF_PRINCIPAL_PCR_DIGEST_SUITE)?;
     Ok(seal)
 }
 
@@ -234,6 +266,15 @@ pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
             "self principal Seal Events must share one Realm and actor".to_owned(),
         ));
     }
+    if events
+        .iter()
+        .any(|event| event.kind == EventKind::RealmDigestSuiteTransition)
+    {
+        return Err(Error::Protocol(
+            "self principal ordinary Seal builder does not accept digest-suite transition Seals"
+                .to_owned(),
+        ));
+    }
     if !signer_projects_to_actor(signer.signer_did(), &first.actor_id)? {
         return Err(Error::Protocol(
             "self principal Seal signer DID must equal the principal DID".to_owned(),
@@ -247,7 +288,12 @@ pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
 
     let covered = events
         .iter()
-        .map(|event| Ok((event, Hash::new(event.event_digest()?)?)))
+        .map(|event| {
+            Ok((
+                event,
+                Hash::new(event.event_digest_with_digest_suite(SELF_PRINCIPAL_PCR_DIGEST_SUITE)?)?,
+            ))
+        })
         .collect::<Result<Vec<_>>>()?;
     let target = covered
         .iter()
@@ -270,11 +316,21 @@ pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
         ));
     }
 
-    let control_event_set_root = control_event_set_root(&target)
-        .map_err(|error| Error::Protocol(format!("self principal control root: {error}")))?;
-    let state_root = state_root_from_projection(&first.realm_id, &covered, project)?;
-    let completeness_root = arkret_state::control_event_completeness_root(events, &target)
-        .map_err(|error| Error::Protocol(format!("self principal completeness root: {error}")))?;
+    let control_event_set_root =
+        control_event_set_root(&target, SELF_PRINCIPAL_PCR_DIGEST_SUITE)
+            .map_err(|error| Error::Protocol(format!("self principal control root: {error}")))?;
+    let state_root = state_root_from_projection(
+        &first.realm_id,
+        &covered,
+        SELF_PRINCIPAL_PCR_DIGEST_SUITE,
+        project,
+    )?;
+    let completeness_root = arkret_state::control_event_completeness_root(
+        &completeness_events(events),
+        &target,
+        SELF_PRINCIPAL_PCR_DIGEST_SUITE,
+    )
+    .map_err(|error| Error::Protocol(format!("self principal completeness root: {error}")))?;
     let sealed_at = Utc::now();
     let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
     let mut seal = Seal {
@@ -291,27 +347,27 @@ pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
             .ok_or_else(|| Error::Protocol("self principal notary sequence overflow".to_owned()))?,
         data_view_root: None,
         data_event_set_root: None,
-        availability_root: None,
-        coverage_scope: None,
+        availability_receipt_digests: Vec::new(),
         covered_event_digests: target.into_iter().collect(),
         previous_state_root: None,
         previous_digest_algorithm: None,
-        notary_signature: NotarySig::Single(PayloadSignature {
+        notary_signature: NotarySig::Single(SealSignature {
             verification_method: signer.verification_method_id().clone(),
             payload_digest: zero_hash,
-            created_at: sealed_at,
             jws: String::new(),
-            extra: Default::default(),
         }),
         sealed_at,
         hlc,
-        kind: SealKind::Compaction,
     };
     let canonical_bytes = seal.canonical_bytes_for_id()?;
-    seal.id = Seal::id_from_canonical_bytes(&canonical_bytes)?;
-    seal.notary_signature = NotarySig::Single(signer.sign_payload(&canonical_bytes)?);
+    seal.id = Seal::id_from_canonical_bytes(&canonical_bytes, SELF_PRINCIPAL_PCR_DIGEST_SUITE)?;
+    seal.notary_signature = NotarySig::Single(
+        signer
+            .sign_payload_with_digest_suite(&canonical_bytes, SELF_PRINCIPAL_PCR_DIGEST_SUITE)?
+            .into(),
+    );
     seal.validate_structural()?;
-    seal.validate_id()?;
+    seal.validate_id(SELF_PRINCIPAL_PCR_DIGEST_SUITE)?;
     Ok(seal)
 }
 
@@ -347,16 +403,26 @@ pub fn build_self_principal_linear_successor_seal<S: PayloadSigner + ?Sized>(
     }
     let prior_with_digests = prior
         .iter()
-        .map(|event| Ok((event, Hash::new(event.event_digest()?)?)))
+        .map(|event| {
+            Ok((
+                event,
+                Hash::new(event.event_digest_with_digest_suite(SELF_PRINCIPAL_PCR_DIGEST_SUITE)?)?,
+            ))
+        })
         .collect::<Result<Vec<_>>>()?;
     let prior_covered = prior_with_digests
         .iter()
         .map(|(_, digest)| digest.clone())
         .collect::<BTreeSet<_>>();
-    let prior_control_root = control_event_set_root(&prior_covered)
-        .map_err(|error| Error::Protocol(format!("self principal control root: {error}")))?;
-    let prior_state_root =
-        state_root_from_projection(&first.realm_id, &prior_with_digests, project)?;
+    let prior_control_root =
+        control_event_set_root(&prior_covered, SELF_PRINCIPAL_PCR_DIGEST_SUITE)
+            .map_err(|error| Error::Protocol(format!("self principal control root: {error}")))?;
+    let prior_state_root = state_root_from_projection(
+        &first.realm_id,
+        &prior_with_digests,
+        SELF_PRINCIPAL_PCR_DIGEST_SUITE,
+        project,
+    )?;
     if predecessor.realm_id != first.realm_id
         || predecessor.control_event_set_root != prior_control_root
         || predecessor.state_root != prior_state_root
@@ -379,21 +445,17 @@ pub fn build_self_principal_linear_successor_seal<S: PayloadSigner + ?Sized>(
             .map_err(|_| Error::Protocol("self principal notary sequence overflow".to_owned()))?,
         data_view_root: None,
         data_event_set_root: None,
-        availability_root: None,
-        coverage_scope: None,
+        availability_receipt_digests: Vec::new(),
         covered_event_digests: prior_covered.into_iter().collect(),
         previous_state_root: None,
         previous_digest_algorithm: None,
-        notary_signature: NotarySig::Single(PayloadSignature {
+        notary_signature: NotarySig::Single(SealSignature {
             verification_method: signer.verification_method_id().clone(),
             payload_digest: zero_hash,
-            created_at: Utc::now(),
             jws: String::new(),
-            extra: Default::default(),
         }),
         sealed_at: Utc::now(),
         hlc: predecessor.hlc.clone().unwrap_or_else(|| hlc.clone()),
-        kind: SealKind::Normal,
     };
     build_self_principal_event_seal(events, &predecessor_seal, hlc, signer, project)
 }
@@ -403,8 +465,10 @@ fn self_principal_bootstrap_state_root(
     authorize: &Event,
     project: CellWriteProjector<'_>,
 ) -> Result<Hash> {
-    let create_digest = Hash::new(create.event_digest()?)?;
-    let authorize_digest = Hash::new(authorize.event_digest()?)?;
+    let create_digest =
+        Hash::new(create.event_digest_with_digest_suite(SELF_PRINCIPAL_PCR_DIGEST_SUITE)?)?;
+    let authorize_digest =
+        Hash::new(authorize.event_digest_with_digest_suite(SELF_PRINCIPAL_PCR_DIGEST_SUITE)?)?;
     if create_digest == authorize_digest {
         return Err(Error::Protocol(
             "bootstrap Event digests must be distinct".to_owned(),
@@ -432,6 +496,7 @@ fn self_principal_bootstrap_state_root(
     state_root_from_projection(
         &create.realm_id,
         &[(create, create_digest), (authorize, authorize_digest)],
+        SELF_PRINCIPAL_PCR_DIGEST_SUITE,
         project,
     )
 }

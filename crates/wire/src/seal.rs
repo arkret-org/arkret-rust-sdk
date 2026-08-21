@@ -11,17 +11,22 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{DidCoreId, DidUrl, Error, Hash, Hlc, RealmId, Result, SealId, canonical};
+use crate::{DidUrl, Error, Hash, Hlc, NotarySignerDescriptor, RealmId, Result, SealId, canonical};
 
 pub const MAX_SEAL_PREDECESSOR_REFS: usize = 128;
+pub const MAX_SEAL_DELTA: usize = 4_096;
+pub const MAX_SEAL_AVAILABILITY_RECEIPT_DIGESTS: usize = 65_536;
 pub const MAX_SEAL_COVERED_EVENT_DIGESTS: usize = 1_048_576;
 
 pub fn seal_canonical_bytes(seal: &Seal) -> Result<Vec<u8>> {
     seal.canonical_bytes_for_id()
 }
 
-pub fn compute_seal_id(canonical_bytes: &[u8]) -> Result<SealId> {
-    Seal::id_from_canonical_bytes(canonical_bytes)
+pub fn compute_seal_id(
+    canonical_bytes: &[u8],
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<SealId> {
+    Seal::id_from_canonical_bytes(canonical_bytes, digest_suite)
 }
 
 /// Detached signature over the canonical bytes of a non-Event protocol object.
@@ -49,13 +54,88 @@ pub struct PayloadSignature {
     pub extra: BTreeMap<String, Value>,
 }
 
+/// Closed signature shape used only by a Seal.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SealSignature {
+    pub verification_method: DidUrl,
+    pub payload_digest: Hash,
+    pub jws: String,
+}
+
+impl From<PayloadSignature> for SealSignature {
+    fn from(signature: PayloadSignature) -> Self {
+        Self {
+            verification_method: signature.verification_method,
+            payload_digest: signature.payload_digest,
+            jws: signature.jws,
+        }
+    }
+}
+
+impl SealSignature {
+    pub fn validate_descriptor_binding(&self, descriptor: &NotarySignerDescriptor) -> Result<()> {
+        descriptor.validate()?;
+        if self.verification_method != descriptor.verification_method {
+            return Err(Error::Protocol(
+                "Seal signature verification_method does not match frozen descriptor".to_owned(),
+            ));
+        }
+        let mut segments = self.jws.split('.');
+        let protected_b64u = segments.next().unwrap_or_default();
+        let payload = segments.next().unwrap_or_default();
+        let signature_b64u = segments.next().unwrap_or_default();
+        if segments.next().is_some() || !payload.is_empty() {
+            return Err(Error::Protocol(
+                "Seal signature must use compact detached JWS".to_owned(),
+            ));
+        }
+        let protected = crate::base64url::base64url_decode(protected_b64u)
+            .map_err(|error| Error::Protocol(format!("invalid Seal JWS header: {error}")))?;
+        if crate::base64url::base64url_encode(&protected) != protected_b64u {
+            return Err(Error::Protocol(
+                "Seal JWS protected header is not canonical base64url".to_owned(),
+            ));
+        }
+        let header: Value = serde_json::from_slice(&protected)?;
+        if canonical::canonical_json_bytes(&header)? != protected {
+            return Err(Error::Protocol(
+                "Seal JWS protected header is not canonical JSON".to_owned(),
+            ));
+        }
+        let Some(header) = header.as_object() else {
+            return Err(Error::Protocol(
+                "Seal JWS protected header must be an object".to_owned(),
+            ));
+        };
+        if header.get("alg").and_then(Value::as_str) != Some(descriptor.jose_algorithm.as_str())
+            || header.get("kid").and_then(Value::as_str)
+                != Some(descriptor.verification_method.as_str())
+            || header.contains_key("crit")
+        {
+            return Err(Error::Protocol(
+                "Seal JWS protected header does not match frozen descriptor".to_owned(),
+            ));
+        }
+        let signature = crate::base64url::base64url_decode(signature_b64u)
+            .map_err(|error| Error::Protocol(format!("invalid Seal JWS signature: {error}")))?;
+        if signature.len() != 64 || crate::base64url::base64url_encode(&signature) != signature_b64u
+        {
+            return Err(Error::Protocol(
+                "Seal JWS signature is not a canonical 64-byte encoding".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum NotarySig {
-    Single(PayloadSignature),
+    Single(SealSignature),
     Multi(MultiSignature),
-    Threshold(ThresholdSignature),
 }
 
 /// `seal.schema.json#/$defs/multi_signature` is a closed object; `kind` is the
@@ -65,20 +145,7 @@ pub enum NotarySig {
 #[serde(deny_unknown_fields)]
 pub struct MultiSignature {
     pub kind: MultiSigKind,
-    pub signatures: Vec<PayloadSignature>,
-}
-
-/// `seal.schema.json#/$defs/threshold_signature` is a closed object. Closing it
-/// is what makes the `notary_signature` union decidable: an instance that also
-/// carries the single-signature members no longer matches this branch.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ThresholdSignature {
-    pub kind: ThresholdSigKind,
-    pub threshold: u32,
-    pub signers: Vec<DidCoreId>,
-    pub proof: String,
+    pub signatures: Vec<SealSignature>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -86,13 +153,6 @@ pub struct ThresholdSignature {
 #[serde(rename_all = "snake_case")]
 pub enum MultiSigKind {
     MultiSig,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ThresholdSigKind {
-    ThresholdSig,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -112,6 +172,7 @@ impl SealKind {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Seal {
     pub id: SealId,
     pub realm_id: RealmId,
@@ -125,35 +186,18 @@ pub struct Seal {
     pub data_view_root: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub data_event_set_root: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub availability_root: Option<Hash>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_optional_object"
-    )]
-    pub coverage_scope: Option<BTreeMap<String, Value>>,
+    pub availability_receipt_digests: Vec<Hash>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub covered_event_digests: Vec<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_state_root: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous_digest_algorithm: Option<String>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    pub previous_digest_algorithm: Option<arkret_canonical::DigestSuite>,
     pub notary_signature: NotarySig,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub sealed_at: DateTime<Utc>,
     pub hlc: Hlc,
-    #[serde(default, skip)]
-    pub kind: SealKind,
-}
-
-fn deserialize_optional_object<'de, D>(
-    deserializer: D,
-) -> std::result::Result<Option<BTreeMap<String, Value>>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    BTreeMap::<String, Value>::deserialize(deserializer).map(Some)
 }
 
 #[derive(Serialize)]
@@ -169,22 +213,88 @@ struct SealBody<'a> {
     data_view_root: &'a Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
     data_event_set_root: &'a Option<Hash>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    availability_root: &'a Option<Hash>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    coverage_scope: &'a Option<BTreeMap<String, Value>>,
+    availability_receipt_digests: &'a [Hash],
     #[serde(skip_serializing_if = "move_slice_is_empty")]
     covered_event_digests: &'a [Hash],
     #[serde(skip_serializing_if = "Option::is_none")]
     previous_state_root: &'a Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    previous_digest_algorithm: &'a Option<String>,
+    previous_digest_algorithm: &'a Option<arkret_canonical::DigestSuite>,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     sealed_at: DateTime<Utc>,
     hlc: &'a Hlc,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CanonicalSealBody {
+    realm_id: RealmId,
+    predecessor_refs: Vec<SealId>,
+    delta: Vec<Hash>,
+    control_event_set_root: Hash,
+    state_root: Hash,
+    completeness_root: Hash,
+    notary_seq: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    data_view_root: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    data_event_set_root: Option<Hash>,
+    availability_receipt_digests: Vec<Hash>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    covered_event_digests: Vec<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    previous_state_root: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    previous_digest_algorithm: Option<arkret_canonical::DigestSuite>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
+    sealed_at: DateTime<Utc>,
+    hlc: Hlc,
+}
+
 impl Seal {
+    /// Reconstruct a complete signed Seal from the exact canonical unsigned
+    /// body retained by a multi-signature aggregator.
+    pub fn from_canonical_body_and_signature(
+        canonical_body: &[u8],
+        notary_signature: NotarySig,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<Self> {
+        let body: CanonicalSealBody = serde_json::from_slice(canonical_body)?;
+        if canonical::canonical_json_bytes(&body)? != canonical_body {
+            return Err(Error::Protocol(
+                "Seal body bytes are not canonical JSON".to_owned(),
+            ));
+        }
+        let id = Self::id_from_canonical_bytes(canonical_body, digest_suite)?;
+        let seal = Self {
+            id,
+            realm_id: body.realm_id,
+            predecessor_refs: body.predecessor_refs,
+            delta: body.delta,
+            control_event_set_root: body.control_event_set_root,
+            state_root: body.state_root,
+            completeness_root: body.completeness_root,
+            notary_seq: body.notary_seq,
+            data_view_root: body.data_view_root,
+            data_event_set_root: body.data_event_set_root,
+            availability_receipt_digests: body.availability_receipt_digests,
+            covered_event_digests: body.covered_event_digests,
+            previous_state_root: body.previous_state_root,
+            previous_digest_algorithm: body.previous_digest_algorithm,
+            notary_signature,
+            sealed_at: body.sealed_at,
+            hlc: body.hlc,
+        };
+        seal.validate_structural()?;
+        seal.validate_signature_payload_digests(|bytes| {
+            Hash::new(canonical::digest(digest_suite, bytes)).map_err(Into::into)
+        })?;
+        Ok(seal)
+    }
+
     pub fn is_compaction(&self) -> bool {
         !self.covered_event_digests.is_empty()
     }
@@ -208,8 +318,7 @@ impl Seal {
             notary_seq: self.notary_seq,
             data_view_root: &self.data_view_root,
             data_event_set_root: &self.data_event_set_root,
-            availability_root: &self.availability_root,
-            coverage_scope: &self.coverage_scope,
+            availability_receipt_digests: &self.availability_receipt_digests,
             covered_event_digests: &self.covered_event_digests,
             previous_state_root: &self.previous_state_root,
             previous_digest_algorithm: &self.previous_digest_algorithm,
@@ -219,17 +328,23 @@ impl Seal {
         Ok(canonical::canonical_json_bytes(&body)?)
     }
 
-    pub fn derive_id(&self) -> Result<SealId> {
-        Self::id_from_canonical_bytes(&self.canonical_bytes_for_id()?)
+    /// Derive this Seal identity under the Realm's verified digest suite.
+    pub fn derive_id(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<SealId> {
+        Self::id_from_canonical_bytes(&self.canonical_bytes_for_id()?, digest_suite)
     }
 
-    pub fn id_from_canonical_bytes(bytes: &[u8]) -> Result<SealId> {
-        let id = format!("ak:seal:{}", canonical::sha256_digest(bytes));
+    /// Derive a Seal identity under an explicit trusted Realm digest suite.
+    pub fn id_from_canonical_bytes(
+        bytes: &[u8],
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<SealId> {
+        let id = format!("ak:seal:{}", canonical::digest(digest_suite, bytes));
         SealId::new(id).map_err(|err| Error::Protocol(format!("invalid Seal id: {err}")))
     }
 
-    pub fn validate_id(&self) -> Result<()> {
-        let derived = self.derive_id()?;
+    /// Validate the Seal identity under the Realm's verified digest suite.
+    pub fn validate_id(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<()> {
+        let derived = self.derive_id(digest_suite)?;
         if derived != self.id {
             return Err(Error::Protocol(format!(
                 "Seal id mismatch: declared {} but canonical bytes hash to {}",
@@ -245,6 +360,16 @@ impl Seal {
                 "Seal.predecessor_refs exceeds maximum item count {MAX_SEAL_PREDECESSOR_REFS}"
             )));
         }
+        if self.delta.len() > MAX_SEAL_DELTA {
+            return Err(Error::Protocol(format!(
+                "Seal.delta exceeds maximum item count {MAX_SEAL_DELTA}"
+            )));
+        }
+        if self.availability_receipt_digests.len() > MAX_SEAL_AVAILABILITY_RECEIPT_DIGESTS {
+            return Err(Error::Protocol(format!(
+                "Seal.availability_receipt_digests exceeds maximum item count {MAX_SEAL_AVAILABILITY_RECEIPT_DIGESTS}"
+            )));
+        }
         if self.covered_event_digests.len() > MAX_SEAL_COVERED_EVENT_DIGESTS {
             return Err(Error::Protocol(format!(
                 "Seal.covered_event_digests exceeds maximum item count {MAX_SEAL_COVERED_EVENT_DIGESTS}"
@@ -252,6 +377,10 @@ impl Seal {
         }
         validate_sorted_unique("Seal.predecessor_refs", &self.predecessor_refs)?;
         validate_sorted_unique("Seal.delta", &self.delta)?;
+        validate_sorted_unique(
+            "Seal.availability_receipt_digests",
+            &self.availability_receipt_digests,
+        )?;
         validate_sorted_unique("Seal.covered_event_digests", &self.covered_event_digests)?;
         if self.previous_state_root.is_some() != self.previous_digest_algorithm.is_some() {
             return Err(Error::Protocol(
@@ -260,41 +389,63 @@ impl Seal {
             ));
         }
         match &self.notary_signature {
-            NotarySig::Single(_) => {}
+            NotarySig::Single(signature) => validate_seal_signature(signature)?,
             NotarySig::Multi(multi) => {
                 if multi.signatures.is_empty() {
                     return Err(Error::Protocol(
                         "Seal multi_sig must have at least one signature".to_owned(),
                     ));
                 }
-            }
-            NotarySig::Threshold(t) => {
-                if t.threshold == 0 {
-                    return Err(Error::Protocol(
-                        "Seal threshold_sig threshold must be >= 1".to_owned(),
-                    ));
+                for signature in &multi.signatures {
+                    validate_seal_signature(signature)?;
                 }
-                if t.signers.is_empty() {
-                    return Err(Error::Protocol(
-                        "Seal threshold_sig must list at least one signer".to_owned(),
-                    ));
-                }
-                if (t.threshold as usize) > t.signers.len() {
-                    return Err(Error::Protocol(format!(
-                        "Seal threshold_sig threshold {} exceeds signer count {}",
-                        t.threshold,
-                        t.signers.len()
-                    )));
-                }
-                if t.proof.is_empty() {
-                    return Err(Error::Protocol(
-                        "Seal threshold_sig proof must not be empty".to_owned(),
-                    ));
+                for pair in multi.signatures.windows(2) {
+                    if pair[0].verification_method >= pair[1].verification_method {
+                        return Err(Error::Protocol(
+                            "Seal multi_sig signatures must be sorted and unique by verification_method"
+                                .to_owned(),
+                        ));
+                    }
                 }
             }
         }
         Ok(())
     }
+
+    pub fn validate_signature_payload_digests<F>(&self, digest: F) -> Result<()>
+    where
+        F: FnOnce(&[u8]) -> Result<Hash>,
+    {
+        let expected = digest(&self.canonical_bytes_for_id()?)?;
+        let matches = match &self.notary_signature {
+            NotarySig::Single(signature) => signature.payload_digest == expected,
+            NotarySig::Multi(multi) => multi
+                .signatures
+                .iter()
+                .all(|signature| signature.payload_digest == expected),
+        };
+        if !matches {
+            return Err(Error::Protocol(
+                "Seal signature payload_digest does not match canonical Seal bytes".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_seal_signature(signature: &SealSignature) -> Result<()> {
+    let mut segments = signature.jws.split('.');
+    let valid = segments.next().is_some_and(|value| !value.is_empty())
+        && segments.next().is_some()
+        && segments.next().is_some_and(|value| !value.is_empty())
+        && segments.next().is_none()
+        && signature.jws.bytes().all(|byte| {
+            byte == b'.' || byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-')
+        });
+    if !valid {
+        return Err(Error::Protocol("Seal signature JWS is invalid".to_owned()));
+    }
+    Ok(())
 }
 
 fn validate_sorted_unique<T>(field: &str, values: &[T]) -> Result<()>
@@ -366,25 +517,41 @@ mod tests {
             notary_seq: 7,
             data_view_root: None,
             data_event_set_root: None,
-            availability_root: None,
-            coverage_scope: None,
+            availability_receipt_digests: Vec::new(),
             covered_event_digests: Vec::new(),
             previous_state_root: None,
             previous_digest_algorithm: None,
-            notary_signature: NotarySig::Single(sig()),
+            notary_signature: NotarySig::Single(sig().into()),
             sealed_at: Utc.with_ymd_and_hms(2026, 6, 11, 0, 0, 0).unwrap(),
             hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
-            kind: SealKind::Normal,
         };
-        seal.id = seal.derive_id().unwrap();
+        seal.id = seal
+            .derive_id(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
         seal
     }
 
     #[test]
     fn seal_id_round_trips() {
         let seal = sample();
-        seal.validate_id().unwrap();
+        seal.validate_id(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
         seal.validate_structural().unwrap();
+    }
+
+    #[test]
+    fn seal_id_uses_the_selected_realm_digest_suite() {
+        let mut seal = sample();
+        seal.id = seal
+            .derive_id(arkret_canonical::DigestSuite::Blake3)
+            .unwrap();
+        assert!(seal.id.as_str().starts_with("ak:seal:blake3:"));
+        seal.validate_id(arkret_canonical::DigestSuite::Blake3)
+            .unwrap();
+        assert!(
+            seal.validate_id(arkret_canonical::DigestSuite::Sha256)
+                .is_err()
+        );
     }
 
     #[test]
@@ -398,10 +565,41 @@ mod tests {
     }
 
     #[test]
+    fn reconstructs_from_exact_canonical_body_and_signature() {
+        let mut seal = sample();
+        let body = seal.canonical_bytes_for_id().unwrap();
+        let payload_digest = Hash::new(canonical::sha256_digest(&body)).unwrap();
+        match &mut seal.notary_signature {
+            NotarySig::Single(signature) => signature.payload_digest = payload_digest,
+            NotarySig::Multi(_) => unreachable!(),
+        }
+        let reconstructed = Seal::from_canonical_body_and_signature(
+            &body,
+            seal.notary_signature.clone(),
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
+        assert_eq!(reconstructed, seal);
+
+        let mut noncanonical = body;
+        noncanonical.push(b' ');
+        assert!(
+            Seal::from_canonical_body_and_signature(
+                &noncanonical,
+                seal.notary_signature,
+                arkret_canonical::DigestSuite::Sha256,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn empty_predecessors_allow_a_canonical_non_empty_delta() {
         let mut seal = sample();
         seal.predecessor_refs.clear();
-        seal.id = seal.derive_id().unwrap();
+        seal.id = seal
+            .derive_id(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
         seal.validate_structural().unwrap();
     }
 
@@ -410,7 +608,6 @@ mod tests {
         let value = json!({
             "verification_method": "did:webvh:z6mkfixture:notary.example#k1",
             "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "created_at": "2026-06-11T00:00:00.000Z",
             "jws": "AAAA.BBBB.CCCC"
         });
         let decoded: NotarySig = serde_json::from_value(value).unwrap();
@@ -428,7 +625,6 @@ mod tests {
             "signatures": [{
                 "verification_method": "did:webvh:z6mkfixture:notary.example#k1",
                 "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "created_at": "2026-06-11T00:00:00.000Z",
                 "jws": "AAAA.BBBB.CCCC"
             }]
         });
@@ -442,21 +638,17 @@ mod tests {
             serde_json::from_value::<NotarySig>(multi).unwrap(),
             NotarySig::Multi(_)
         ));
-        assert!(matches!(
-            serde_json::from_value::<NotarySig>(threshold.clone()).unwrap(),
-            NotarySig::Threshold(_)
-        ));
+        assert!(serde_json::from_value::<NotarySig>(threshold.clone()).is_err());
 
         // A future member added to either aggregate form must fail its own
         // branch rather than silently widening the union.
         let mut widened = threshold;
         widened["future_member"] = json!(true);
-        assert!(serde_json::from_value::<ThresholdSignature>(widened.clone()).is_err());
         assert!(serde_json::from_value::<NotarySig>(widened).is_err());
     }
 
     #[test]
-    fn coverage_scope_rejects_explicit_null() {
+    fn removed_coverage_scope_rejects_explicit_null() {
         let mut value = serde_json::to_value(sample()).unwrap();
         value["coverage_scope"] = Value::Null;
 

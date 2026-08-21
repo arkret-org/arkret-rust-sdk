@@ -31,8 +31,7 @@ pub fn is_realm_bootstrap_followup_kind(kind: &EventKind) -> bool {
         kind,
         EventKind::RealmProfile
             | EventKind::MemberState
-            | EventKind::RealmHistoryVisibility
-            | EventKind::RealmHistorySharingPolicy
+            | EventKind::RealmHistoryAccess
             | EventKind::RealmPolicyBundle
             | EventKind::RealmDiscovery
             | EventKind::RealmJoinRule
@@ -348,13 +347,12 @@ pub fn validate_realm_bootstrap_unit(
             EventKind::RealmProfile => 1,
             EventKind::RealmPolicyBundle => 2,
             EventKind::RealmJoinRule => 3,
-            EventKind::RealmHistoryVisibility => 4,
-            EventKind::RealmHistorySharingPolicy => 5,
-            EventKind::RealmDiscovery => 6,
-            EventKind::RealmAlias => 7,
-            EventKind::RealmPlaintextVisibleServices => 8,
-            EventKind::RealmDeliveryBindingPolicy => 9,
-            EventKind::MemberState => 10,
+            EventKind::RealmHistoryAccess => 4,
+            EventKind::RealmDiscovery => 5,
+            EventKind::RealmAlias => 6,
+            EventKind::RealmPlaintextVisibleServices => 7,
+            EventKind::RealmDeliveryBindingPolicy => 8,
+            EventKind::MemberState => 9,
             _ => return Err(RealmBootstrapValidationError::OutOfOrderBootstrap),
         };
         if slot <= previous_slot || !present.insert(followup.kind.clone()) {
@@ -409,6 +407,7 @@ pub fn validate_realm_bootstrap_unit(
         arkret_schema::validate_registered_cell_writes_in_context(
             followup,
             arkret_schema::EventCellContractContext::OrdinaryRealmBootstrap,
+            payload.object.digest_algorithm,
         )
         .map_err(|error| match error.reason_code() {
             "plane_cross_write" => RealmBootstrapValidationError::PlaneCrossWrite,
@@ -419,7 +418,7 @@ pub fn validate_realm_bootstrap_unit(
         EventKind::RealmProfile,
         EventKind::RealmPolicyBundle,
         EventKind::RealmJoinRule,
-        EventKind::RealmHistoryVisibility,
+        EventKind::RealmHistoryAccess,
         EventKind::RealmDiscovery,
         EventKind::RealmDeliveryBindingPolicy,
         EventKind::MemberState,
@@ -427,20 +426,6 @@ pub fn validate_realm_bootstrap_unit(
         if !present.contains(&required) {
             return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
         }
-    }
-    let visibility_requires_sharing = events.iter().any(|event| {
-        event.kind == EventKind::RealmHistoryVisibility
-            && event
-                .payload
-                .get("value")
-                .and_then(serde_json::Value::as_str)
-                == Some("restricted")
-    });
-    if visibility_requires_sharing && !present.contains(&EventKind::RealmHistorySharingPolicy) {
-        return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
-    }
-    if !visibility_requires_sharing && present.contains(&EventKind::RealmHistorySharingPolicy) {
-        return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
     }
     Ok(ValidatedRealmBootstrap {
         realm_id: realm_id.to_owned(),
@@ -511,10 +496,16 @@ mod tests {
                 "digest_algorithm": "sha256",
                 "security_class": "standard",
                 "encryption_profile": "mls_rfc9420",
-                "notary_profile": "single_did",
                 "notary": {
-                    "kind": "single_did",
-                    "actor_id": ACTOR
+                    "kind": "single_signer",
+                    "signer": {
+                        "actor_id": ACTOR,
+                        "verification_method": "did:webvh:z6mkfixture:founder.example#key-1",
+                        "key_kind": "ed25519_raw32",
+                        "jose_algorithm": "Ed25519",
+                        "frozen_public_key_b64u": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                        "frozen_public_key_digest": "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"
+                    }
                 },
                 "capability_action_registry_digest": DIGEST
             }}),
@@ -534,8 +525,8 @@ mod tests {
             ),
             event(EventKind::RealmJoinRule, json!({"value": "invite"})),
             event(
-                EventKind::RealmHistoryVisibility,
-                json!({"value": "joined"}),
+                EventKind::RealmHistoryAccess,
+                json!({"from": null, "to": "since_join"}),
             ),
             event(EventKind::RealmDiscovery, json!({"value": "invite_only"})),
             event(
@@ -562,18 +553,6 @@ mod tests {
             },
         }];
         events
-    }
-
-    fn history_sharing_followup() -> Event {
-        // The producer no longer states its writes: this kind's registry
-        // contract projects the set onto
-        // ak:cell:ak.component.realm.history_sharing_policy.v1:null from the
-        // payload alone, which is exactly what
-        // validate_realm_bootstrap_unit re-derives for cas_register follow-ups.
-        event(
-            EventKind::RealmHistorySharingPolicy,
-            json!({"value": {"version": 1}}),
-        )
     }
 
     #[test]
@@ -678,24 +657,6 @@ mod tests {
     }
 
     #[test]
-    fn rejects_unneeded_conditional_history_sharing_slot() {
-        let mut events = complete_unit();
-        events.insert(5, history_sharing_followup());
-        assert_eq!(
-            validate_realm_bootstrap_unit(&events),
-            Err(RealmBootstrapValidationError::OutOfOrderBootstrap)
-        );
-    }
-
-    #[test]
-    fn accepts_required_history_sharing_slot_for_restricted_history() {
-        let mut events = complete_unit();
-        events[4].payload = serde_json::from_value(json!({"value": "restricted"})).unwrap();
-        events.insert(5, history_sharing_followup());
-        assert!(validate_realm_bootstrap_unit(&events).is_ok());
-    }
-
-    #[test]
     fn rejects_direct_conversation_as_ordinary_bootstrap() {
         let mut events = complete_unit();
         events[0]
@@ -732,7 +693,7 @@ mod tests {
             }
         );
         assert_eq!(proof.authorization_ref(), REALM_AUTHORITY_ROOT_CELL);
-        assert!(staged_root_authorization(&history_sharing_followup()).is_err());
+        assert!(staged_root_authorization(&complete_unit()[4]).is_err());
     }
 
     #[test]

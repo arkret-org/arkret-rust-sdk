@@ -15,7 +15,7 @@ def cell_family_constant(family: str) -> str:
     return re.sub(r"[^A-Za-z0-9]+", "_", body).upper()
 
 
-def load_contract(source_path: Path) -> tuple[str, list[str]]:
+def load_contract(source_path: Path) -> tuple[str, list[str], str]:
     registry = json.loads(source_path.read_text(encoding="utf-8"))
     profile_id = registry.get("profile_id")
     rules = registry.get("cell_rules")
@@ -28,14 +28,16 @@ def load_contract(source_path: Path) -> tuple[str, list[str]]:
         if not isinstance(rule, dict) or not isinstance(rule.get("cell_family"), str):
             raise ValueError("MLS security-frontier cell rules require cell_family")
         families.append(rule["cell_family"])
-    if len(families) != len(set(families)):
-        raise ValueError("MLS security-frontier cell families must be unique")
-    families.sort(key=lambda value: value.encode("utf-8"))
-    return profile_id, families
+    families = sorted(set(families), key=lambda value: value.encode("utf-8"))
+    canonical = json.dumps(
+        registry, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    ).encode("utf-8")
+    registry_digest = f"sha256:{hashlib.sha256(canonical).hexdigest()}"
+    return profile_id, families, registry_digest
 
 
 def render(source_path: Path) -> str:
-    profile_id, families = load_contract(source_path)
+    profile_id, families, registry_digest = load_contract(source_path)
     source_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
     rows = [f"    CellFamilyId::{cell_family_constant(family)}," for family in families]
     return "\n".join(
@@ -46,6 +48,7 @@ def render(source_path: Path) -> str:
             "use arkret_wire::CellFamilyId;",
             "",
             f'pub(crate) const MLS_SECURITY_FRONTIER_PROFILE_ID: &str = "{profile_id}";',
+            f'pub(crate) const MLS_SECURITY_FRONTIER_REGISTRY_DIGEST: &str = "{registry_digest}";',
             "pub(crate) const MLS_SECURITY_FRONTIER_CELL_FAMILIES: &[&str] = &[",
             *rows,
             "];",
@@ -63,7 +66,7 @@ def main() -> None:
     output = render(source_path)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(output, encoding="utf-8", newline="\n")
-    _, families = load_contract(source_path)
+    _, families, _ = load_contract(source_path)
     print(f"Wrote {args.output} ({len(families)} frontier families)")
 
 

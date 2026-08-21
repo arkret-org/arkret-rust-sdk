@@ -155,7 +155,7 @@ impl GhostActorProfileRequest {
     pub fn profile_create_intent(
         &self,
         scope_ref: ScopeRef,
-        created_at: chrono::DateTime<chrono::Utc>,
+        created_at: DateTime<Utc>,
         authorization: Option<&AppletDelegatedEventAuthorization>,
     ) -> Result<crate::EventIntent> {
         let payload = ActorProfileCreatePayload {

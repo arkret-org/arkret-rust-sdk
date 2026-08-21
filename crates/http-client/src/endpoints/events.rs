@@ -1,6 +1,8 @@
 //! Event stream / query / submit, snapshot, and authz endpoint methods
 //! on [`Client`].
 
+use std::collections::BTreeSet;
+
 use arkret_models_collaboration::direct_conversation_ops::{
     DirectConversationFoundingAcceptanceOutcome, DirectConversationFoundingUnitSubmission,
 };
@@ -14,20 +16,20 @@ use arkret_models_collaboration::governance::authorization::{
     AuthzCheckOutcome, AuthzCheckRequestBody, AuthzInviteList, GrantList,
 };
 use arkret_models_collaboration::governance::realm_governance::RealmOrganizationRelationshipList;
+use arkret_models_collaboration::governance_dependencies::{
+    GovernanceDependencyResolveOutcome, SelfGovernanceDependencyResolveRequest,
+};
 use arkret_models_collaboration::http_bodies::{
     EventDeliveryStatusOutcome, EventDeliveryStatusRequestBody, EventSealSubmitOutcome, EventView,
     EventsQueryOutcome, EventsRangeCompleteness, EventsResolveOutcome, EventsResolveRequestBody,
     EventsSubmitBatchRequestBody, EventsSubmitOutcome, EventsSubscribeFrame, ProjectionSpaceList,
-    ProjectionStrandList,
+    ProjectionStrandList, SealResolveOutcome, SelfSealResolveRequestBody,
 };
 use arkret_models_collaboration::objects::query_projection::{
     CollectionProjectionView, DocumentMorphProjectionOutcome, ViewProjectionRequestBody,
 };
 use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceValidator;
-use arkret_models_crypto::{
-    MaterializedMlsGovernanceProofBundle, MlsGovernanceProofBundle, MlsGovernanceProofRequestBody,
-    assemble_mls_governance_proof_chunks,
-};
+use arkret_models_crypto::{MlsGovernanceProofBundle, MlsGovernanceProofRequestBody};
 use arkret_models_discovery::ServiceDescribe;
 use arkret_schema::PreparedStandardEvent;
 use arkret_state::SnapshotManifest;
@@ -219,13 +221,14 @@ impl Client {
     pub async fn issue_authorization_leases(
         &self,
         request: &AuthorizationLeaseIssueRequestBody,
+        digest_suites: &[arkret_canonical::DigestSuite],
         options: &ClientRequestOptions,
     ) -> Result<arkret_wire::AuthorizationLeaseIssueOutcome> {
         request.validate_structural()?;
         let outcome: arkret_wire::AuthorizationLeaseIssueOutcome = self
             .post_with_options("/_arkret/self/authorization-leases", request, options)
             .await?;
-        outcome.validate_against_request(request)?;
+        outcome.validate_against_request(request, digest_suites)?;
         Ok(outcome)
     }
 
@@ -238,7 +241,13 @@ impl Client {
     pub async fn prepare_initial_submissions(
         &self,
         events: &[Event],
+        digest_suites: &[arkret_canonical::DigestSuite],
     ) -> Result<Vec<EventInitialSubmission>> {
+        if events.len() != digest_suites.len() {
+            return Err(Error::Protocol(
+                "initial Event and digest-suite cardinality must match".to_owned(),
+            ));
+        }
         let submit_context = initial_submission_context(events)?;
         if submit_context == EventSubmitContext::AnchorUnit {
             // Realm genesis has no accepted authority from which a caller can
@@ -258,15 +267,21 @@ impl Client {
                 }),
             )?;
             return self
-                .prepare_initial_submissions_with_collector(events, None, collect_anchor_receipts)
+                .prepare_initial_submissions_with_collector(
+                    events,
+                    digest_suites,
+                    None,
+                    collect_anchor_receipts,
+                )
                 .await;
         }
         events
             .iter()
             .cloned()
-            .map(|event| {
+            .zip(digest_suites.iter().copied())
+            .map(|(event, digest_suite)| {
                 let submission = EventInitialSubmission::online(event);
-                submission.validate_structural_in_context(submit_context)?;
+                submission.validate_structural_in_context(submit_context, digest_suite)?;
                 Ok(submission)
             })
             .collect()
@@ -275,6 +290,7 @@ impl Client {
     pub async fn prepare_initial_submissions_with_local_proposal_authority<F>(
         &self,
         events: &[Event],
+        digest_suites: &[arkret_canonical::DigestSuite],
         mut issue_receipt: F,
     ) -> Result<Vec<EventInitialSubmission>>
     where
@@ -290,9 +306,15 @@ impl Client {
         let options = ClientRequestOptions::new()
             .request_id(request_key.clone())
             .idempotency_key(request_key);
-        let outcome = self.issue_authorization_leases(&request, &options).await?;
+        let outcome = self
+            .issue_authorization_leases(&request, digest_suites, &options)
+            .await?;
         let mut submissions = Vec::with_capacity(events.len());
-        for (event, lease) in events.iter().zip(outcome.authorization_leases) {
+        for ((event, digest_suite), lease) in events
+            .iter()
+            .zip(digest_suites.iter().copied())
+            .zip(outcome.authorization_leases)
+        {
             let control_proposal_ack = if anchor_unit || event.seal_basis.is_some() {
                 Some(issue_receipt(event, &lease)?)
             } else {
@@ -305,7 +327,7 @@ impl Client {
                 control_proposal_ack,
                 membership_compensation_evidence: None,
             };
-            submission.validate_structural_in_context(submit_context)?;
+            submission.validate_structural_in_context(submit_context, digest_suite)?;
             submissions.push(submission);
         }
         Ok(submissions)
@@ -319,6 +341,7 @@ impl Client {
     pub async fn prepare_initial_submissions_with_proposal_authorities(
         &self,
         events: &[Event],
+        digest_suites: &[arkret_canonical::DigestSuite],
         authority_clients: &[Client],
         notary: &NotaryValue,
         policy: ControlProposalDecisionPolicy,
@@ -330,6 +353,7 @@ impl Client {
         }
         self.prepare_initial_submissions_with_collector(
             events,
+            digest_suites,
             Some((authority_clients, notary, policy)),
             true,
         )
@@ -339,6 +363,7 @@ impl Client {
     async fn prepare_initial_submissions_with_collector(
         &self,
         events: &[Event],
+        digest_suites: &[arkret_canonical::DigestSuite],
         collector: Option<(&[Client], &NotaryValue, ControlProposalDecisionPolicy)>,
         collect_anchor_receipts: bool,
     ) -> Result<Vec<EventInitialSubmission>> {
@@ -352,9 +377,15 @@ impl Client {
         let options = ClientRequestOptions::new()
             .request_id(request_key.clone())
             .idempotency_key(request_key);
-        let outcome = self.issue_authorization_leases(&request, &options).await?;
+        let outcome = self
+            .issue_authorization_leases(&request, digest_suites, &options)
+            .await?;
         let mut submissions = Vec::with_capacity(events.len());
-        for (event, lease) in events.iter().zip(outcome.authorization_leases) {
+        for ((event, digest_suite), lease) in events
+            .iter()
+            .zip(digest_suites.iter().copied())
+            .zip(outcome.authorization_leases)
+        {
             let mut submission = EventInitialSubmission {
                 event: event.clone(),
                 authorization_lease: Some(lease),
@@ -375,20 +406,23 @@ impl Client {
                     if let Some((authority_clients, notary, policy)) = collector {
                         self.collect_control_proposal_ack(
                             &request,
+                            digest_suite,
                             authority_clients,
                             notary,
                             policy,
                         )
                         .await?
                     } else {
-                        let outcome = self.issue_control_proposal_ack(&request).await?;
+                        let outcome = self
+                            .issue_control_proposal_ack(&request, digest_suite)
+                            .await?;
                         ControlProposalAck::from_authority_acks_protocol_bounds(vec![
                             outcome.authority_ack,
                         ])?
                     },
                 );
             }
-            submission.validate_structural_in_context(submit_context)?;
+            submission.validate_structural_in_context(submit_context, digest_suite)?;
             submissions.push(submission);
         }
         Ok(submissions)
@@ -399,6 +433,7 @@ impl Client {
     pub async fn collect_control_proposal_ack(
         &self,
         request: &ControlProposalAckIssueRequest,
+        digest_suite: arkret_canonical::DigestSuite,
         authority_clients: &[Client],
         notary: &NotaryValue,
         policy: ControlProposalDecisionPolicy,
@@ -413,7 +448,7 @@ impl Client {
         for authority in authority_clients {
             members.push(
                 authority
-                    .issue_control_proposal_ack(request)
+                    .issue_control_proposal_ack(request, digest_suite)
                     .await?
                     .authority_ack,
             );
@@ -427,10 +462,12 @@ impl Client {
     pub async fn prepare_initial_submission(
         &self,
         event: &Event,
+        digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<EventInitialSubmission> {
         let prepared = PreparedStandardEvent::try_from(event.clone())
             .map_err(|error| Error::Protocol(error.to_string()))?;
-        self.prepare_initial_standard_submission(&prepared).await
+        self.prepare_initial_standard_submission(&prepared, digest_suite)
+            .await
     }
 
     /// Prepare one schema-validated, non-anchor Event for first publication.
@@ -441,9 +478,13 @@ impl Client {
     pub async fn prepare_initial_standard_submission(
         &self,
         prepared: &PreparedStandardEvent,
+        digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<EventInitialSubmission> {
         let submissions = self
-            .prepare_initial_submissions(std::slice::from_ref(prepared.event()))
+            .prepare_initial_submissions(
+                std::slice::from_ref(prepared.event()),
+                std::slice::from_ref(&digest_suite),
+            )
             .await?;
         submissions.into_iter().next().ok_or_else(|| {
             Error::Protocol("authorization issuer returned no initial submission".to_owned())
@@ -453,13 +494,14 @@ impl Client {
     pub async fn issue_control_proposal_ack(
         &self,
         request: &ControlProposalAckIssueRequest,
+        digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<ControlProposalAckIssueOutcome> {
         request.validate_structural()?;
         let outcome: ControlProposalAckIssueOutcome = self
             .post("/_arkret/self/control-proposal-acks", request)
             .await?;
         outcome.authority_ack.validate_protocol_bounds()?;
-        let event_digest = Hash::new(request.event.event_digest()?)?;
+        let event_digest = Hash::new(request.event.event_digest_with_digest_suite(digest_suite)?)?;
         if outcome.authority_ack.realm_id != request.event.realm_id
             || outcome.authority_ack.proposal_digest != event_digest
         {
@@ -605,6 +647,36 @@ impl Client {
             .await
     }
 
+    /// Resolve every-and-only canonical Seal named by the self selector.
+    pub async fn seals_resolve(
+        &self,
+        request: &SelfSealResolveRequestBody,
+    ) -> Result<SealResolveOutcome> {
+        request.validate()?;
+        let outcome: SealResolveOutcome = self
+            .events_read_query("/_arkret/self/seals/resolve", request)
+            .await?;
+        outcome.validate_structural()?;
+        let requested = request.seal_refs.iter().cloned().collect::<BTreeSet<_>>();
+        let returned = outcome
+            .seals
+            .iter()
+            .map(|seal| seal.id.clone())
+            .chain(outcome.missing_seal_refs.iter().cloned())
+            .collect::<BTreeSet<_>>();
+        if returned != requested
+            || outcome
+                .seals
+                .iter()
+                .any(|seal| seal.realm_id != request.realm_id)
+        {
+            return Err(Error::Protocol(
+                "Seal resolve outcome is cross-Realm or not every-and-only the request".to_owned(),
+            ));
+        }
+        Ok(outcome)
+    }
+
     /// Range-read Events via canonical `ak.self.events.read.scan` HTTP QUERY.
     pub async fn events_read(
         &self,
@@ -728,40 +800,36 @@ impl Client {
         Ok(combined)
     }
 
-    /// Fetch a complete accepted-Seal proof for a full-profile MLS
-    /// governance binding.
+    /// Fetch one complete near-current MLS group-security-frontier proof.
     pub async fn mls_governance_proof(
         &self,
         request: &MlsGovernanceProofRequestBody,
     ) -> Result<MlsGovernanceProofBundle> {
         request.validate()?;
-        self.events_read_query("/_arkret/self/events/mls-governance-proof", request)
-            .await
+        let outcome: MlsGovernanceProofBundle = self
+            .post("/_arkret/self/seals/mls-governance-proof", request)
+            .await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
     }
 
-    /// Fetch and authenticate every chunk of one logical MLS governance proof.
-    pub async fn mls_governance_proof_complete(
+    /// Resolve one exact same-service governance dependency selector set.
+    /// Missing selectors are a hard failure for replay consumers.
+    pub async fn governance_dependencies_resolve(
         &self,
-        request: &MlsGovernanceProofRequestBody,
-    ) -> Result<MaterializedMlsGovernanceProofBundle> {
-        let mut first_request = request.clone();
-        first_request.chunk_index = 0;
-        first_request.expected_bundle_digest = None;
-        let first = self.mls_governance_proof(&first_request).await?;
-        let chunk_count = first.chunk_manifest.chunk_count;
-        let bundle_digest = first.bundle_digest.clone();
-        let mut responses = Vec::with_capacity(chunk_count as usize);
-        responses.push(first);
-        for chunk_index in 1..chunk_count {
-            let mut next_request = first_request.clone();
-            next_request.chunk_index = chunk_index;
-            next_request.expected_bundle_digest = Some(bundle_digest.clone());
-            responses.push(self.mls_governance_proof(&next_request).await?);
+        request: &SelfGovernanceDependencyResolveRequest,
+    ) -> Result<GovernanceDependencyResolveOutcome> {
+        request.validate()?;
+        let outcome: GovernanceDependencyResolveOutcome = self
+            .post("/_arkret/self/seals/governance-dependencies", request)
+            .await?;
+        outcome.validate_for_request(request)?;
+        if !outcome.missing_selectors.is_empty() {
+            return Err(Error::Protocol(
+                "governance dependency resolution is incomplete".to_owned(),
+            ));
         }
-        Ok(assemble_mls_governance_proof_chunks(
-            &first_request,
-            &responses,
-        )?)
+        Ok(outcome)
     }
 
     /// Read the complete durable Realm fanout target set for one visible Event.

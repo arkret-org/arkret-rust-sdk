@@ -11,7 +11,8 @@ use arkret_egress_reqwest::EgressGuard;
 use arkret_models_discovery::ServiceDescribe;
 use arkret_models_identity::service_identity::CanonicalServiceUrl;
 use arkret_models_identity::{
-    ServiceResolutionCarrier, ServiceResolutionRecord, validate_service_current_record_url,
+    AuthenticatedServiceResolution, ServiceResolutionCarrier, ServiceResolutionRecord,
+    validate_service_current_record_url,
 };
 use arkret_wire::{DidCoreId, Hash, ServiceKind};
 use reqwest::StatusCode;
@@ -20,31 +21,53 @@ use reqwest::header::{ACCEPT_ENCODING, CONTENT_ENCODING, HeaderMap};
 use crate::client_internals::read_body_limited;
 use crate::{Error, Result};
 
-pub const SERVICE_RESOLUTION_FETCH_MAX_BYTES: usize = 64 * 1024;
+pub const SERVICE_RESOLUTION_FETCH_MAX_BYTES: usize = 1024 * 1024;
+const SERVICE_DESCRIBE_FETCH_MAX_BYTES: usize = 64 * 1024;
 pub const SERVICE_RESOLUTION_FETCH_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// A bounded canonical record whose transport locator was checked, but whose
 /// cryptographic and method-native authority has not yet been verified.
 #[derive(Clone, Debug)]
-pub struct UnverifiedServiceResolutionRecord {
-    record: ServiceResolutionRecord,
-    canonical_bytes: Vec<u8>,
+pub enum MaterializedServiceResolution {
+    InlineRecord {
+        record: ServiceResolutionRecord,
+        canonical_bytes: Vec<u8>,
+    },
+    AuthenticatedResolution {
+        resolution: AuthenticatedServiceResolution,
+        canonical_bytes: Vec<u8>,
+    },
 }
 
-impl UnverifiedServiceResolutionRecord {
+impl MaterializedServiceResolution {
     #[must_use]
     pub fn record(&self) -> &ServiceResolutionRecord {
-        &self.record
+        match self {
+            Self::InlineRecord { record, .. } => record,
+            Self::AuthenticatedResolution { resolution, .. } => {
+                &resolution.service_resolution_record
+            }
+        }
     }
 
     #[must_use]
     pub fn canonical_bytes(&self) -> &[u8] {
-        &self.canonical_bytes
+        match self {
+            Self::InlineRecord {
+                canonical_bytes, ..
+            }
+            | Self::AuthenticatedResolution {
+                canonical_bytes, ..
+            } => canonical_bytes,
+        }
     }
 
     #[must_use]
-    pub fn into_record(self) -> ServiceResolutionRecord {
-        self.record
+    pub fn authenticated_resolution(&self) -> Option<&AuthenticatedServiceResolution> {
+        match self {
+            Self::InlineRecord { .. } => None,
+            Self::AuthenticatedResolution { resolution, .. } => Some(resolution),
+        }
     }
 }
 
@@ -79,7 +102,7 @@ impl ServiceResolutionFetcher {
         &self,
         carrier: &ServiceResolutionCarrier,
         expected_service_id: &DidCoreId,
-    ) -> Result<UnverifiedServiceResolutionRecord> {
+    ) -> Result<MaterializedServiceResolution> {
         carrier
             .validate_shape(expected_service_id)
             .map_err(|error| Error::Protocol(error.to_string()))?;
@@ -87,7 +110,7 @@ impl ServiceResolutionFetcher {
             ServiceResolutionCarrier::Inline { inline } => {
                 let canonical_bytes = arkret_canonical::canonical::canonical_json_bytes(inline)
                     .map_err(|error| Error::Protocol(error.to_string()))?;
-                Ok(UnverifiedServiceResolutionRecord {
+                Ok(MaterializedServiceResolution::InlineRecord {
                     record: inline.clone(),
                     canonical_bytes,
                 })
@@ -153,11 +176,12 @@ impl ServiceResolutionFetcher {
             .map_err(|error| Error::Protocol(format!("invalid describe URL: {error}")))?;
         url.query_pairs_mut()
             .append_pair("service_kind", service_kind.as_str());
-        let bytes = tokio::time::timeout(timeout, self.fetch_bounded(url, timeout, "describe"))
-            .await
-            .map_err(|_| {
-                Error::Protocol("service describe fetch exceeded 5 seconds".to_owned())
-            })??;
+        let bytes = tokio::time::timeout(
+            timeout,
+            self.fetch_bounded(url, timeout, "describe", SERVICE_DESCRIBE_FETCH_MAX_BYTES),
+        )
+        .await
+        .map_err(|_| Error::Protocol("service describe fetch exceeded 5 seconds".to_owned()))??;
         serde_json::from_slice(&bytes)
             .map_err(|error| Error::Protocol(format!("invalid ServiceDescribe JSON: {error}")))
     }
@@ -167,7 +191,7 @@ impl ServiceResolutionFetcher {
         current_record_url: &str,
         pinned_record_digest: Option<&Hash>,
         expected_service_id: &DidCoreId,
-    ) -> Result<UnverifiedServiceResolutionRecord> {
+    ) -> Result<MaterializedServiceResolution> {
         let parsed = reqwest::Url::parse(current_record_url)
             .map_err(|error| Error::Protocol(format!("invalid service resolution URL: {error}")))?;
         let canonical_bytes = self
@@ -175,11 +199,13 @@ impl ServiceResolutionFetcher {
                 parsed,
                 SERVICE_RESOLUTION_FETCH_TIMEOUT,
                 "service resolution",
+                SERVICE_RESOLUTION_FETCH_MAX_BYTES,
             )
             .await?;
-        let record: ServiceResolutionRecord =
+        let resolution: AuthenticatedServiceResolution =
             arkret_canonical::canonical::from_canonical_json_slice(&canonical_bytes)
                 .map_err(|error| Error::Protocol(error.to_string()))?;
+        let record = &resolution.service_resolution_record;
         if &record.record.service_id != expected_service_id {
             return Err(Error::Protocol(
                 "fetched service resolution targets a different service".to_owned(),
@@ -196,8 +222,8 @@ impl ServiceResolutionFetcher {
                 ));
             }
         }
-        Ok(UnverifiedServiceResolutionRecord {
-            record,
+        Ok(MaterializedServiceResolution::AuthenticatedResolution {
+            resolution,
             canonical_bytes,
         })
     }
@@ -207,6 +233,7 @@ impl ServiceResolutionFetcher {
         parsed: reqwest::Url,
         timeout: Duration,
         purpose: &str,
+        max_bytes: usize,
     ) -> Result<Vec<u8>> {
         let target = EgressGuard::new(self.egress_policy)
             .lock_url_async(&parsed, purpose)
@@ -231,16 +258,17 @@ impl ServiceResolutionFetcher {
             .send()
             .await
             .map_err(crate::client_internals::transport_error)?;
-        validate_response_metadata(&response)?;
-        read_body_limited(response, SERVICE_RESOLUTION_FETCH_MAX_BYTES).await
+        validate_response_metadata(&response, max_bytes)?;
+        read_body_limited(response, max_bytes).await
     }
 }
 
-fn validate_response_metadata(response: &reqwest::Response) -> Result<()> {
+fn validate_response_metadata(response: &reqwest::Response, max_bytes: usize) -> Result<()> {
     validate_response_shape(
         response.status(),
         response.headers(),
         response.content_length(),
+        max_bytes,
     )
 }
 
@@ -248,6 +276,7 @@ fn validate_response_shape(
     status: StatusCode,
     headers: &HeaderMap,
     content_length: Option<u64>,
+    max_bytes: usize,
 ) -> Result<()> {
     if status.is_redirection() || !status.is_success() {
         return Err(Error::Protocol(format!(
@@ -260,10 +289,10 @@ fn validate_response_shape(
             "service resolution response must not carry Content-Encoding".to_owned(),
         ));
     }
-    if content_length.is_some_and(|length| length > SERVICE_RESOLUTION_FETCH_MAX_BYTES as u64) {
-        return Err(Error::Protocol(
-            "service resolution response exceeds 65536 bytes".to_owned(),
-        ));
+    if content_length.is_some_and(|length| length > max_bytes as u64) {
+        return Err(Error::Protocol(format!(
+            "service resolution response exceeds {max_bytes} bytes"
+        )));
     }
     Ok(())
 }
@@ -297,7 +326,8 @@ mod tests {
 
     #[test]
     fn transport_limits_are_protocol_hard_bounds() {
-        assert_eq!(SERVICE_RESOLUTION_FETCH_MAX_BYTES, 65_536);
+        assert_eq!(SERVICE_RESOLUTION_FETCH_MAX_BYTES, 1_048_576);
+        assert_eq!(SERVICE_DESCRIBE_FETCH_MAX_BYTES, 65_536);
         assert_eq!(SERVICE_RESOLUTION_FETCH_TIMEOUT, Duration::from_secs(5));
     }
 
@@ -305,19 +335,29 @@ mod tests {
     fn response_shape_rejects_redirect_compression_and_oversize() {
         let empty = HeaderMap::new();
         assert!(
-            validate_response_shape(StatusCode::FOUND, &empty, Some(0))
-                .unwrap_err()
-                .to_string()
-                .contains("HTTP 302")
+            validate_response_shape(
+                StatusCode::FOUND,
+                &empty,
+                Some(0),
+                SERVICE_RESOLUTION_FETCH_MAX_BYTES,
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("HTTP 302")
         );
 
         let mut compressed = HeaderMap::new();
         compressed.insert(CONTENT_ENCODING, HeaderValue::from_static("gzip"));
         assert!(
-            validate_response_shape(StatusCode::OK, &compressed, Some(32))
-                .unwrap_err()
-                .to_string()
-                .contains("Content-Encoding")
+            validate_response_shape(
+                StatusCode::OK,
+                &compressed,
+                Some(32),
+                SERVICE_RESOLUTION_FETCH_MAX_BYTES,
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("Content-Encoding")
         );
 
         assert!(
@@ -325,15 +365,17 @@ mod tests {
                 StatusCode::OK,
                 &empty,
                 Some(SERVICE_RESOLUTION_FETCH_MAX_BYTES as u64 + 1),
+                SERVICE_RESOLUTION_FETCH_MAX_BYTES,
             )
             .unwrap_err()
             .to_string()
-            .contains("65536")
+            .contains("1048576")
         );
         validate_response_shape(
             StatusCode::OK,
             &empty,
             Some(SERVICE_RESOLUTION_FETCH_MAX_BYTES as u64),
+            SERVICE_RESOLUTION_FETCH_MAX_BYTES,
         )
         .unwrap();
     }

@@ -148,6 +148,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::CircleArchive
         | EventKind::CircleRestore
         | EventKind::CircleTombstone
+        | EventKind::CircleHistoryAccess
         | EventKind::CircleMemberState
         | EventKind::CircleSealCommit => EventProductClass::Circle,
         EventKind::ConsentGrant | EventKind::ConsentRevoke => EventProductClass::Consent,
@@ -156,8 +157,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::ContactRejected
         | EventKind::ContactScopeUpdate
         | EventKind::ContactTombstone
-        | EventKind::DirectConversationBound
-        | EventKind::DirectConversationMlsGenerationActivate => EventProductClass::Contact,
+        | EventKind::DirectConversationBound => EventProductClass::Contact,
         EventKind::DeviceAuthorize
         | EventKind::DeviceListUpdate
         | EventKind::DevicePushRoute
@@ -169,10 +169,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::MlsGenesis
         | EventKind::MlsKeypackage
         | EventKind::MlsProposal
-        | EventKind::MlsWelcome
-        | EventKind::RealmKeyShare
-        | EventKind::RealmKeyShareAudit
-        | EventKind::RealmKeyWithheld => EventProductClass::E2ee,
+        | EventKind::MlsWelcome => EventProductClass::E2ee,
         EventKind::StrandArchive
         | EventKind::StrandCreate
         | EventKind::StrandMove
@@ -236,8 +233,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::RealmDiscovery
         | EventKind::RealmFreeze
         | EventKind::RealmAlias
-        | EventKind::RealmHistorySharingPolicy
-        | EventKind::RealmHistoryVisibility
+        | EventKind::RealmHistoryAccess
         | EventKind::RealmInheritancePolicy
         | EventKind::RealmJoinRule
         | EventKind::RealmSetDefaultStrand
@@ -247,6 +243,8 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::RealmMediaService
         | EventKind::RealmModerationPolicy
         | EventKind::RealmOrganization
+        | EventKind::RealmOrganizationRecoveryKeyRegister
+        | EventKind::RealmOrganizationRecoveryKeyRotate
         | EventKind::RealmPlaintextVisibleServices
         | EventKind::RealmPolicy
         | EventKind::RealmPolicyBundle

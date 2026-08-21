@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
     BlobRef, CORE_REDUCER_PROFILE, ControlProposalDecisionPolicy, DidCoreId, DidUrl,
-    Discoverability, EncryptionProfile, Error, FederationPolicy, Hash, HistoryVisibility, JoinRule,
+    Discoverability, EncryptionProfile, Error, FederationPolicy, Hash, HistoryAccess, JoinRule,
     PolicyId, RealmId, Result, SchemaId, SecurityClass, StrandId, TrustDomainId, canonical,
 };
 use chrono::{DateTime, Duration, Utc};
@@ -37,7 +37,7 @@ pub fn realm_object_is_principal_control(object: &Value) -> bool {
 }
 
 // Realm carries the security-boundary fields (`trust_domain` /
-// `security_class` / `federation_policy` / `history_visibility`; spec
+// `security_class` / `federation_policy` / `history_access`; spec
 // realm.schema.json). Product container fields live on `Space`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -88,7 +88,7 @@ pub struct Realm {
     pub default_strand_id: Option<StrandId>,
     pub default_discoverability: Discoverability,
     pub default_join_rule: JoinRule,
-    pub history_visibility: HistoryVisibility,
+    pub history_access: HistoryAccess,
     /// Materialized value of the Realm reducer-profile singleton cell.
     /// `ak.realm.create` supplies the genesis value; only
     /// `ak.realm.upgrade` can change it.
@@ -97,10 +97,10 @@ pub struct Realm {
     /// Content AEAD scheme selector (realm-and-space.md §2, encryption-and-audit.md
     /// §2.10). Applies only when `encryption_profile = mls_rfc9420`. Absent means
     /// `mls_rfc9420`: MLS PrivateMessage, pre-join history undecryptable, so the
-    /// Realm may only use `history_visibility` `joined` / `restricted`.
-    /// `Some("mls_exporter_aead_v1")` selects per-epoch `history_secret`, which is
-    /// the only scheme that structurally admits `world_readable` / `shared` /
-    /// `invited` history and a `durability_policy` with `mode != none`.
+    /// Realm must use `history_access=since_join`.
+    /// `Some("mls_exporter_aead_v1")` selects per-epoch `history_secret`, which
+    /// structurally permits either history-access state and a
+    /// `durability_policy` with `mode != none`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_scheme: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -121,10 +121,6 @@ pub struct Realm {
     pub durability_policy: Option<DurabilityPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
-    /// Seal profile (data-structures.md §4 — Move/Seal/Lattice). Single-DID /
-    /// threshold / open-set / mixed deployment shape. This create-locked
-    /// discriminator must match the genesis `notary` cell value.
-    pub notary_profile: NotaryProfile,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub availability_policy: Option<RealmAvailabilityPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -238,29 +234,6 @@ pub struct RealmRecoveryRecipient {
     pub controller_organization: Option<DidCoreId>,
 }
 
-/// Seal deployment profile for a Realm (data-structures.md §4 —
-/// Move/Seal/Lattice).
-///
-/// This is a **hint field on `Realm`** — the live notary identity always
-/// lives in the `ak:cell:ak.component.notary.v1:<realm_id>` cell. The
-/// hint exists so clients can pre-allocate state before observing the cell.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum NotaryProfile {
-    /// Single DID notary signs every Seal. Lowest latency, single
-    /// point of failure / governance.
-    SingleDid,
-    /// k-of-n threshold signature on each Seal. Higher governance,
-    /// higher latency.
-    Threshold,
-    /// Any member of an open set may sign; subsequent signers can replace
-    /// or extend prior commitments via the notary cell or-set semantics.
-    OpenSet,
-    /// Primary single notary with a fallback recovery quorum that can
-    /// rotate the primary via a recovery Move.
-    Mixed,
-}
-
 /// Per-cell-family lattice declaration carried on `Realm` (Move/Seal/Lattice
 /// data-structures.md §4). Maps a cell family used in this Realm to its
 /// declared lattice + bottom shape. Reducer-derived in practice; this is a
@@ -280,10 +253,8 @@ pub struct CellLatticeDeclaration {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AvailabilityHolderRole {
-    Notary,
-    IndependentWitness,
-    SyncMirror,
-    ArchiveNode,
+    JoinedMemberPrincipalServer,
+    JoinedServiceActor,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -302,6 +273,43 @@ pub struct RealmAvailabilityPolicy {
     pub applies_to: Vec<AvailabilityEvidenceScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub minimum_retention_ms: Option<u64>,
+}
+
+impl Default for RealmAvailabilityPolicy {
+    fn default() -> Self {
+        Self {
+            min_holders: 1,
+            holder_roles: vec![AvailabilityHolderRole::JoinedMemberPrincipalServer],
+            applies_to: vec![AvailabilityEvidenceScope::SealInclude],
+            minimum_retention_ms: Some(86_400_000),
+        }
+    }
+}
+
+impl RealmAvailabilityPolicy {
+    pub fn validate(&self) -> Result<()> {
+        if !(1..=16).contains(&self.min_holders)
+            || self.holder_roles.is_empty()
+            || self.applies_to.is_empty()
+            || self
+                .holder_roles
+                .iter()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+                != self.holder_roles.len()
+            || self
+                .applies_to
+                .iter()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+                != self.applies_to.len()
+        {
+            return Err(Error::Protocol(
+                "Realm availability_policy violates its bounded unique-set contract".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -346,7 +354,6 @@ impl Realm {
         created_by: DidCoreId,
         trust_domain: TrustDomainId,
         reducer_profile: impl Into<String>,
-        notary_profile: NotaryProfile,
         notary: NotaryValue,
         capability_action_registry_digest: Hash,
     ) -> Self {
@@ -368,7 +375,7 @@ impl Realm {
             default_strand_id: None,
             default_discoverability: Discoverability::InviteOnly,
             default_join_rule: JoinRule::Invite,
-            history_visibility: HistoryVisibility::Joined,
+            history_access: HistoryAccess::SinceJoin,
             reducer_profile: reducer_profile.into(),
             encryption_profile: EncryptionProfile::None,
             content_scheme: None,
@@ -377,7 +384,6 @@ impl Realm {
             agent_participation: None,
             durability_policy: None,
             federation_policy: None,
-            notary_profile,
             availability_policy: None,
             audit_policy: None,
             digest_algorithm: canonical::DigestSuite::Sha256,
@@ -400,14 +406,6 @@ impl Realm {
             updated_by: None,
             updated_at: None,
         }
-    }
-
-    /// Builder: declare the Seal deployment profile (data-structures.md §4).
-    /// `SingleDid` uses a single-DID notary; `Threshold` / `OpenSet` / `Mixed`
-    /// introduce multi-signer governance.
-    pub fn with_notary_profile(mut self, profile: NotaryProfile) -> Self {
-        self.notary_profile = profile;
-        self
     }
 
     /// Builder: declare the initial notary cell value. Servers seed the
@@ -486,17 +484,6 @@ impl Realm {
             ));
         }
         self.notary.validate()?;
-        if !matches!(
-            (&self.notary_profile, &self.notary),
-            (NotaryProfile::SingleDid, NotaryValue::SingleDid { .. })
-                | (NotaryProfile::Threshold, NotaryValue::Threshold { .. })
-                | (NotaryProfile::OpenSet, NotaryValue::OpenSet { .. })
-                | (NotaryProfile::Mixed, NotaryValue::Mixed { .. })
-        ) {
-            return Err(Error::Protocol(
-                "Realm notary_profile must match notary.kind".to_owned(),
-            ));
-        }
         self.control_proposal_decision_policy()?;
         if self
             .recovery_witness_freshness_window_ms
@@ -514,26 +501,8 @@ impl Realm {
                 "seal_compaction_max_interval_ms must be within 5 minutes..=7 days".to_owned(),
             ));
         }
-        if let Some(policy) = &self.availability_policy
-            && (!(1..=16).contains(&policy.min_holders)
-                || policy.holder_roles.is_empty()
-                || policy.applies_to.is_empty()
-                || policy
-                    .holder_roles
-                    .iter()
-                    .collect::<std::collections::BTreeSet<_>>()
-                    .len()
-                    != policy.holder_roles.len()
-                || policy
-                    .applies_to
-                    .iter()
-                    .collect::<std::collections::BTreeSet<_>>()
-                    .len()
-                    != policy.applies_to.len())
-        {
-            return Err(Error::Protocol(
-                "Realm availability_policy violates its bounded unique-set contract".to_owned(),
-            ));
+        if let Some(policy) = &self.availability_policy {
+            policy.validate()?;
         }
         if let Some(policy) = &self.audit_policy {
             let witness_count = policy.range_completeness_witnesses.len();
@@ -558,7 +527,8 @@ impl Realm {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::DidCoreId;
+    use arkret_wire::notary::{NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor};
+    use arkret_wire::{DidCoreId, DidUrl};
 
     use super::*;
 
@@ -570,8 +540,17 @@ mod tests {
             notary_actor.clone(),
             TrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
             CORE_REDUCER_PROFILE,
-            NotaryProfile::SingleDid,
-            NotaryValue::single_did(notary_actor),
+            NotaryValue::single_signer(NotarySignerDescriptor {
+                actor_id: notary_actor,
+                verification_method: DidUrl::new("did:web:notary.example#key-1").unwrap(),
+                key_kind: NotaryKeyKind::Ed25519Raw32,
+                jose_algorithm: NotaryJoseAlgorithm::Ed25519,
+                frozen_public_key_b64u: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
+                frozen_public_key_digest: Hash::new(
+                    "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925",
+                )
+                .unwrap(),
+            }),
             Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
         )
     }

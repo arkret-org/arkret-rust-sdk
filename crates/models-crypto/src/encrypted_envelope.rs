@@ -5,7 +5,7 @@
 
 use arkret_canonical::canonical;
 use arkret_wire::{
-    EncryptedPayloadScheme, Error, EventId, Hash, RealmId, ReasonCode, Result, SchemaId, ScopeRef,
+    EncryptedPayloadScheme, Error, EventId, Hash, RealmId, Result, SchemaId, ScopeRef,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -155,9 +155,7 @@ impl AadVisibilityCeiling {
         Err(Error::Protocol(format!(
             "{}: encrypted envelope aad_visibility_event_id_kind {:?} is wider than the Realm ceiling \
              {:?}",
-            ReasonCode::AAD_VISIBILITY_POLICY_VIOLATION,
-            envelope,
-            self.0
+            "aad_visibility_policy_violation", envelope, self.0
         )))
     }
 }

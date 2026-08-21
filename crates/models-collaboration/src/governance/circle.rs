@@ -2,7 +2,7 @@
 //!
 //! A `Circle` is an intra-Realm scoped event/message boundary. It hosts
 //! its own membership (which MUST be a strict subset of the parent
-//! Realm's membership), history visibility and delivery/query/projection
+//! Realm's membership), history access and delivery/query/projection
 //! boundary. A Circle may be plaintext delivery-only
 //! (`encryption_profile=none`) or MLS-backed (`mls_rfc9420`) depending on
 //! the parent Realm policy floor.
@@ -21,8 +21,7 @@ pub use arkret_wire::CircleId;
 /// types from this module.
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    DidCoreId, EncryptionProfile, EventId, EventInitialSubmission, HistoryVisibility, RealmId,
-    SchemaId,
+    DidCoreId, EncryptionProfile, EventId, EventInitialSubmission, HistoryAccess, RealmId, SchemaId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -75,6 +74,14 @@ pub enum CircleJoinRule {
 pub enum EncryptionFloor {
     AllowPlaintext,
     E2eeRequired,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum CircleDurabilityPolicy {
+    None,
+    OrganizationRecoveryKey,
 }
 
 /// Color tokens accepted on `Circle.display.color_token` (spec
@@ -189,7 +196,7 @@ pub struct Circle {
     pub display: CircleDisplay,
     pub directory_visibility: CircleDirectoryVisibility,
     pub join_rule: CircleJoinRule,
-    pub history_visibility: HistoryVisibility,
+    pub history_access: HistoryAccess,
     /// Optional Circle-local content-encryption floor. When omitted the
     /// Circle inherits the parent Realm `content_encryption_floor`; effective
     /// floor = max(parent Realm, Circle). MAY only tighten parent Realm floor
@@ -206,10 +213,14 @@ pub struct Circle {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_participation: Option<AgentParticipationPolicy>,
     pub encryption_profile: EncryptionProfile,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_scheme: Option<String>,
     /// Reducer-derived; populated by `ak.circle.create` reducer once the
     /// independent MLS group is bound. NOT actor-supplied on wire.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mls_group_ref: Option<String>,
+    pub mls_group_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub durability_policy: Option<CircleDurabilityPolicy>,
     pub state: CircleState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -261,7 +272,7 @@ pub struct CircleView {
     pub display: CircleDisplay,
     pub directory_visibility: CircleDirectoryVisibility,
     pub join_rule: CircleJoinRule,
-    pub history_visibility: HistoryVisibility,
+    pub history_access: HistoryAccess,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content_encryption_floor: Option<EncryptionFloor>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -269,8 +280,12 @@ pub struct CircleView {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_participation: Option<AgentParticipationPolicy>,
     pub encryption_profile: EncryptionProfile,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_scheme: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub mls_group_ref: Option<String>,
+    pub mls_group_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub durability_policy: Option<CircleDurabilityPolicy>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pending_mls_removals: Vec<CirclePendingMlsRemoval>,
     pub state: CircleState,
@@ -393,7 +408,7 @@ pub struct CircleScopeRotateRequestBody {
 pub struct CircleScopeRotateOutcome {
     pub circle_id: CircleId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub mls_group_ref: Option<String>,
+    pub mls_group_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
 }
@@ -623,43 +638,6 @@ pub fn validate_no_scope_rebind(
     }
 }
 
-/// Strictness rank for [`HistoryVisibility`] on the linear floor lattice.
-/// Returns `None` for `Restricted`, which is a profile-evaluated overlay
-/// rather than a point on the linear ordering.
-fn history_visibility_rank(v: &HistoryVisibility) -> Option<u8> {
-    match v {
-        HistoryVisibility::WorldReadable => Some(0),
-        HistoryVisibility::Shared => Some(1),
-        HistoryVisibility::Invited => Some(2),
-        HistoryVisibility::Joined => Some(3),
-        HistoryVisibility::Restricted => None,
-    }
-}
-
-/// Reducer-pure helper: a Circle's effective history visibility is the
-/// stricter of `(realm_floor, circle_setting)` (AKP-0007 §3.4). Returns
-/// `Err` when either input is `Restricted` (which lives off the linear
-/// floor lattice).
-///
-/// Strictness order (least → most strict):
-///   `world_readable < shared < invited < joined`.
-pub fn compute_effective_history_visibility(
-    realm_floor: HistoryVisibility,
-    circle_setting: HistoryVisibility,
-) -> Result<HistoryVisibility, CircleScopeError> {
-    let r = history_visibility_rank(&realm_floor).ok_or(
-        CircleScopeError::RestrictedNotInLinearFloor {
-            side: "realm_floor",
-        },
-    )?;
-    let c = history_visibility_rank(&circle_setting).ok_or(
-        CircleScopeError::RestrictedNotInLinearFloor {
-            side: "circle_setting",
-        },
-    )?;
-    Ok(if r >= c { realm_floor } else { circle_setting })
-}
-
 /// Strictness rank for [`EncryptionFloor`]: stricter →
 /// larger rank.
 fn metadata_floor_rank(floor: EncryptionFloor) -> u8 {
@@ -762,6 +740,8 @@ pub fn validate_content_encryption_floor(
 /// AKP-0007 reducer-pure validators in this module.
 #[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
 pub enum CircleScopeError {
+    #[error("invalid Circle MLS configuration: {0}")]
+    InvalidMlsConfiguration(&'static str),
     #[error(
         "circle member {circle_member} is not an active parent-Realm member \
          (reducer reason=circle_member_must_be_realm_member, AKP-0007)"
@@ -793,13 +773,6 @@ pub enum CircleScopeError {
         from: Option<CircleId>,
         to: Option<CircleId>,
     },
-    /// `Restricted` history visibility cannot participate in the linear
-    /// floor lattice (AKP-0007 §3.4).
-    #[error(
-        "history_visibility=restricted is not on the linear floor lattice \
-         (side={side}, AKP-0007 §3.4)"
-    )]
-    RestrictedNotInLinearFloor { side: &'static str },
     /// Circle's `metadata_encryption_floor` is laxer than the parent
     /// Realm's. Wire reason:
     /// [`arkret_wire::ReasonCode::METADATA_ENCRYPTION_FLOOR_VIOLATION`].
@@ -851,9 +824,58 @@ pub enum CircleScopeError {
 
 impl Circle {
     pub const SCHEMA: &'static str = SchemaId::CIRCLE_V1;
+
+    pub fn validate_protocol_shape(&self) -> Result<(), CircleScopeError> {
+        match self.encryption_profile {
+            EncryptionProfile::None
+                if self.content_scheme.is_none()
+                    && self.mls_group_id.is_none()
+                    && self.durability_policy.is_none() => {}
+            EncryptionProfile::MlsRfc9420 => {
+                let scheme = self.content_scheme.as_deref().ok_or(
+                    CircleScopeError::InvalidMlsConfiguration("MLS Circle requires content_scheme"),
+                )?;
+                if let Some(circle_id) = &self.id {
+                    let group_id = self.mls_group_id.as_deref().ok_or(
+                        CircleScopeError::InvalidMlsConfiguration(
+                            "materialized MLS Circle requires mls_group_id",
+                        ),
+                    )?;
+                    let expected =
+                        arkret_wire::base64url::base64url_encode(circle_id.as_str().as_bytes());
+                    if group_id != expected {
+                        return Err(CircleScopeError::InvalidMlsConfiguration(
+                            "mls_group_id does not match canonical CircleId",
+                        ));
+                    }
+                } else if self.mls_group_id.is_some() {
+                    return Err(CircleScopeError::InvalidMlsConfiguration(
+                        "Circle create payload must omit reducer-derived mls_group_id",
+                    ));
+                }
+                match scheme {
+                    "mls_rfc9420"
+                        if self.history_access == HistoryAccess::SinceJoin
+                            && self.durability_policy.is_none() => {}
+                    "mls_exporter_aead_v1" if self.durability_policy.is_some() => {}
+                    _ => {
+                        return Err(CircleScopeError::InvalidMlsConfiguration(
+                            "content_scheme, history_access, and durability_policy mismatch",
+                        ));
+                    }
+                }
+            }
+            _ => {
+                return Err(CircleScopeError::InvalidMlsConfiguration(
+                    "Circle encryption_profile is unsupported",
+                ));
+            }
+        }
+        Ok(())
+    }
     /// Create a Circle struct with required defaults filled in.
     ///
-    /// Reducer-derived fields (`mls_group_ref`, `state_changed_at`,
+    /// Reducer-derived fields (`mls_group_id`, `state_changed_at`,
     /// `updated_*`) start unset and are populated by the spec-defined
     /// reducer; callers that want a fully-formed snapshot can mutate
     /// the struct after construction.
@@ -874,12 +896,14 @@ impl Circle {
             display,
             directory_visibility: CircleDirectoryVisibility::Members,
             join_rule: CircleJoinRule::Invite,
-            history_visibility: HistoryVisibility::Joined,
+            history_access: HistoryAccess::SinceJoin,
             content_encryption_floor: None,
             metadata_encryption_floor: None,
             agent_participation: None,
             encryption_profile: EncryptionProfile::None,
-            mls_group_ref: None,
+            content_scheme: None,
+            mls_group_id: None,
+            durability_policy: None,
             state: CircleState::Active,
             state_changed_at: None,
             created_by,
@@ -913,12 +937,14 @@ impl Circle {
             display,
             directory_visibility: CircleDirectoryVisibility::Members,
             join_rule: CircleJoinRule::Invite,
-            history_visibility: HistoryVisibility::Joined,
+            history_access: HistoryAccess::SinceJoin,
             content_encryption_floor: None,
             metadata_encryption_floor: None,
             agent_participation: None,
             encryption_profile: EncryptionProfile::None,
-            mls_group_ref: None,
+            content_scheme: None,
+            mls_group_id: None,
+            durability_policy: None,
             state: CircleState::Active,
             state_changed_at: None,
             created_by,
@@ -1234,45 +1260,6 @@ mod tests {
         assert!(matches!(
             validate_no_scope_rebind(Some(&a), Some(&b)),
             Err(CircleScopeError::ScopeRebindForbidden { .. })
-        ));
-    }
-
-    // ── compute_effective_history_visibility ───────────────────────────────
-
-    #[test]
-    fn effective_history_visibility_takes_stricter() {
-        use HistoryVisibility::*;
-        // Realm stricter than Circle.
-        assert_eq!(
-            compute_effective_history_visibility(Joined, WorldReadable).unwrap(),
-            Joined
-        );
-        // Circle stricter than Realm.
-        assert_eq!(
-            compute_effective_history_visibility(WorldReadable, Invited).unwrap(),
-            Invited
-        );
-        // Equal levels.
-        assert_eq!(
-            compute_effective_history_visibility(Shared, Shared).unwrap(),
-            Shared
-        );
-    }
-
-    #[test]
-    fn effective_history_visibility_rejects_restricted_on_either_side() {
-        use HistoryVisibility::*;
-        assert!(matches!(
-            compute_effective_history_visibility(Restricted, Joined),
-            Err(CircleScopeError::RestrictedNotInLinearFloor {
-                side: "realm_floor"
-            })
-        ));
-        assert!(matches!(
-            compute_effective_history_visibility(Joined, Restricted),
-            Err(CircleScopeError::RestrictedNotInLinearFloor {
-                side: "circle_setting"
-            })
         ));
     }
 

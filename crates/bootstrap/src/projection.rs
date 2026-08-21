@@ -141,6 +141,7 @@ pub(crate) fn validate_realm_create_projection(
 pub(crate) fn state_root_from_projection(
     realm_id: &RealmId,
     covered: &[(&Event, Hash)],
+    digest_suite: arkret_canonical::DigestSuite,
     project: CellWriteProjector<'_>,
 ) -> Result<Hash> {
     let mut ops_by_cell = BTreeMap::<CellRef, Vec<IssuedOp>>::new();
@@ -191,7 +192,7 @@ pub(crate) fn state_root_from_projection(
         }
         joined.insert(cell, state);
     }
-    compute_state_root(&joined)
+    compute_state_root(&joined, digest_suite)
         .map_err(|error| Error::Protocol(format!("bootstrap state root: {error}")))
 }
 

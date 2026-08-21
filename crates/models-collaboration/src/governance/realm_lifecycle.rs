@@ -1,5 +1,5 @@
 use arkret_wire::serde_helpers::serialize_optional_canonical_timestamp;
-use arkret_wire::{Error, HistoryVisibility, RealmId, Result};
+use arkret_wire::{CircleId, Error, HistoryAccess, RealmId, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -247,44 +247,31 @@ impl ObjectLifecyclePayload {
     }
 }
 
-/// Strong type for `ak.realm.history_visibility` payloads
-/// (`event-payload.schema.json#/$defs/history_visibility_payload`).
-///
-/// `{ value, restricted_policy_digest?, reason? }`, `additionalProperties
-/// :false`. Per the schema `allOf`, `restricted_policy_digest` is required
-/// when `value == restricted`; [`HistoryVisibilityPayload::to_value`] enforces
-/// that conditional.
-///
-/// The event-payload validator resolves `ak.realm.history_visibility` to this
-/// named schema def, so producers and validators share the same fail-closed
-/// shape.
+/// Scope-local history-access state-machine transition.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct HistoryVisibilityPayload {
-    pub value: HistoryVisibility,
-    /// Digest of the effective `ak.realm.history_sharing_policy` value;
-    /// required when `value == restricted`.
+pub struct HistoryAccessPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub restricted_policy_digest: Option<String>,
+    pub from: Option<HistoryAccess>,
+    pub to: HistoryAccess,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }
 
-impl HistoryVisibilityPayload {
-    pub fn new(value: HistoryVisibility) -> Self {
+impl HistoryAccessPayload {
+    pub fn initialize(to: HistoryAccess) -> Self {
         Self {
-            value,
-            restricted_policy_digest: None,
+            from: None,
+            to,
             reason: None,
         }
     }
 
-    /// Build a `restricted` payload with its mandatory policy digest.
-    pub fn restricted(restricted_policy_digest: impl Into<String>) -> Self {
+    pub fn tighten() -> Self {
         Self {
-            value: HistoryVisibility::Restricted,
-            restricted_policy_digest: Some(restricted_policy_digest.into()),
+            from: Some(HistoryAccess::AllHistoryForCurrentMembers),
+            to: HistoryAccess::SinceJoin,
             reason: None,
         }
     }
@@ -294,13 +281,49 @@ impl HistoryVisibilityPayload {
         self
     }
 
-    pub fn to_value(&self) -> Result<Value> {
-        if self.value == HistoryVisibility::Restricted && self.restricted_policy_digest.is_none() {
-            return Err(Error::Protocol(
-                "history_visibility=restricted requires restricted_policy_digest".to_owned(),
-            ));
+    pub fn validate(&self) -> Result<()> {
+        match (&self.from, &self.to) {
+            (None, _) => Ok(()),
+            (Some(from), to) if from == to => Ok(()),
+            (
+                Some(HistoryAccess::AllHistoryForCurrentMembers),
+                HistoryAccess::SinceJoin,
+            ) => Ok(()),
+            _ => Err(Error::Protocol(
+                "history_access permits only initialization or all_history_for_current_members to since_join"
+                    .to_owned(),
+            )),
         }
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        self.validate()?;
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("history visibility payload serialize: {err}")))
+            .map_err(|err| Error::Protocol(format!("history access payload serialize: {err}")))
+    }
+}
+
+/// Circle-local history-access transition. Circle state is independent of the
+/// parent Realm history-access state.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CircleHistoryAccessPayload {
+    pub circle_id: CircleId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from: Option<HistoryAccess>,
+    pub to: HistoryAccess,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+impl CircleHistoryAccessPayload {
+    pub fn validate(&self) -> Result<()> {
+        HistoryAccessPayload {
+            from: self.from.clone(),
+            to: self.to.clone(),
+            reason: self.reason.clone(),
+        }
+        .validate()
     }
 }

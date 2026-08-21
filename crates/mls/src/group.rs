@@ -277,7 +277,7 @@ struct OpenMlsStateSnapshot {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     history_secrets: BTreeMap<String, String>,
     /// Persisted monotonic content AEAD nonce counter so a reloaded group
-    /// never re-emits a `(sender_nonce_prefix, counter)` pair. Defaults to 0
+    /// never re-emits a counter in the same sender scope. Defaults to 0
     /// for snapshots written before the content scheme existed.
     #[serde(default, skip_serializing_if = "is_zero_u64")]
     content_nonce_counter: u64,
@@ -479,12 +479,12 @@ impl ArkretMlsGroup {
     // The content key for epoch `N` is derived purely from the MLS exporter at
     // that epoch:
     //   history_secret[N] = MLS-Exporter("ak.history-v1", realm_id, KDF.Nh)
-    //   K_content[N]      = ExpandWithLabel(history_secret[N], "ak.content-v1", "", AEAD.Nk)
+    //   K_content[N,S]    = ExpandWithLabel(history_secret[N], "ak.content-v1", S, AEAD.Nk)
     // `AEAD` is the one the group negotiated ([`ExporterAeadSuite`]) — §2.10.1
     // takes its lengths and §2.10.2 its `aead_profile` from the MLS ciphersuite
     // registry, never from a locally chosen algorithm. Content is sealed over
     // (nonce, aad, plaintext) with the §10.1 nonce
-    // `sender_nonce_prefix || counter_be64`. Because `history_secret[N]`
+    // `I2OSP(durable_sender_counter, AEAD.Nn)`. Because `history_secret[N]`
     // is reproducible from `history_secret` alone (no ratchet state), a provider
     // can HPKE-seal a retained `history_secret[N]` to a joiner who can then
     // decrypt every epoch-`N` message — the basis of encrypted history sharing.
@@ -539,6 +539,8 @@ impl ArkretMlsGroup {
     /// later re-decrypt or share it) and advances the device nonce counter.
     /// The typed routing `aad` is embedded in the closed immutable header with
     /// scheme, key_ref, epoch, nonce, purpose and negotiated profile.
+    /// The ordinary-profile sender domain is derived internally from the local
+    /// identity and exact active LeafNode; callers cannot inject sender bytes.
     pub fn encrypt_content_exporter_aead(
         &mut self,
         realm_id: &str,
@@ -546,16 +548,21 @@ impl ArkretMlsGroup {
         aad: &EncryptedEnvelopeAad,
         plaintext: &[u8],
     ) -> Result<Vec<u8>> {
+        let sender_domain = self.local_content_sender_domain()?;
         // Resolved before any secret is derived: an unregistered or non-active
         // ciphersuite must fail closed rather than produce ciphertext under an
         // algorithm no receiver is allowed to accept.
         let suite = self.content_suite()?;
         let history_secret = self.derive_and_retain_history_secret(realm_id)?;
-        let content_key = derive_content_key(&history_secret, suite.key_len())?;
+        let content_key = derive_content_key_from_history_secret(
+            &history_secret,
+            &sender_domain,
+            suite.key_len(),
+        )?;
 
         let epoch = self.epoch();
         let counter = self.content_nonce_counter;
-        let nonce = self.content_aead_nonce(key_ref, epoch, suite, counter)?;
+        let nonce = self.content_aead_nonce(&sender_domain, epoch, suite, counter)?;
 
         let aead_aad = content_aead_aad(key_ref, epoch, &nonce, suite.canonical_id(), aad)?;
         let ciphertext = suite.seal(&content_key, &nonce, &aead_aad, plaintext)?;
@@ -573,9 +580,13 @@ impl ArkretMlsGroup {
 
     /// Decrypt content produced by [`Self::encrypt_content_exporter_aead`] using
     /// a supplied `history_secret` (e.g. one retained locally for the sender's
-    /// own epoch, or unsealed from a `ak.realm_key.share`). `nonce_and_ct` is the
+    /// own epoch, or opened from a history-key carrier). `nonce_and_ct` is the
     /// `nonce || ciphertext` blob; `key_ref`, `epoch` and `aad` MUST be the
     /// verified envelope values. Takes `&self` — it does not touch ratchet state.
+    /// This primitive authenticates the carried nonce through AEAD AAD, but it
+    /// does not recompute or validate the nonce's MLS-exporter-derived prefix.
+    /// Late-history recovery must remain disabled until the protocol defines
+    /// the evidence needed to perform that validation.
     ///
     /// The AEAD comes from the ciphersuite *this group* negotiated rather than
     /// from a caller-declared `aead_profile`: §10.1 makes the group at
@@ -586,6 +597,7 @@ impl ArkretMlsGroup {
     pub fn decrypt_content_exporter_aead(
         &self,
         history_secret: &[u8],
+        verified_sender_domain: &[u8],
         key_ref: &KeyRefObject,
         epoch: u64,
         nonce_and_ct: &[u8],
@@ -593,6 +605,7 @@ impl ArkretMlsGroup {
     ) -> Result<Vec<u8>> {
         decrypt_content_exporter_aead_standalone(
             history_secret,
+            verified_sender_domain,
             key_ref,
             epoch,
             self.group_ciphersuite_canonical_id()?,
@@ -602,7 +615,7 @@ impl ArkretMlsGroup {
     }
 
     /// Return the retained `history_secret[from_epoch..=to_epoch]` subset a
-    /// provider seals into a `ak.realm_key.share`. Epochs outside the retained
+    /// provider seals into a history-key carrier. Epochs outside the retained
     /// range (never derived, or pruned) are simply absent from the result.
     pub fn export_history_secret_range(
         &self,
@@ -638,46 +651,63 @@ impl ArkretMlsGroup {
         }
     }
 
-    /// Compose the §10.1 content nonce for `(epoch, counter)`: the sender prefix
-    /// is taken from the MLS exporter so it is bound to this device + epoch +
-    /// purpose, followed by the big-endian counter.
+    /// Compose the §10.1 full-width content counter nonce.
     fn content_aead_nonce(
         &self,
-        key_ref: &KeyRefObject,
+        verified_sender_domain: &[u8],
         epoch: u64,
         suite: ExporterAeadSuite,
         counter: u64,
     ) -> Result<Vec<u8>> {
-        let context = self.content_nonce_context(key_ref, epoch)?;
-        let context_bytes = arkret_crypto::aead_sender_nonce_context_bytes(&context)?;
-        // `encoding.md` §10.1 gives the exporter a label AND a Context, and the
-        // Context is the canonical context bytes *alone*. Folding the label into
-        // the Context as well would count it twice and produce a prefix no other
-        // implementation of the formula reproduces.
-        let prefix = self.export_secret(
-            arkret_crypto::AEAD_NONCE_EXPORTER_LABEL,
-            &context_bytes,
-            suite.nonce_prefix_len(),
-        )?;
-        Ok(arkret_crypto::compose_aead_nonce(&prefix, counter))
+        self.content_nonce_context(verified_sender_domain, epoch)?;
+        Ok(arkret_crypto::compose_aead_nonce(
+            counter,
+            suite.nonce_len(),
+        )?)
+    }
+
+    fn local_content_sender_domain(&self) -> Result<Vec<u8>> {
+        let mut own_leaves = self
+            .group
+            .members()
+            .filter(|member| member.signature_key.as_slice() == self.identity.signer.public());
+        let own_leaf = own_leaves.next().ok_or_else(|| {
+            Error::Protocol("local MLS sender has no active leaf in this group".to_owned())
+        })?;
+        if own_leaves.next().is_some() {
+            return Err(Error::Protocol(
+                "local MLS signer matches multiple active leaves".to_owned(),
+            ));
+        }
+        if own_leaf.credential.credential_type() != openmls::prelude::CredentialType::Basic {
+            return Err(Error::Protocol(
+                "local MLS sender leaf is not a BasicCredential".to_owned(),
+            ));
+        }
+        let actual_identity = own_leaf.credential.serialized_content();
+        let expected_identity =
+            leaf_credential_bytes(&self.identity.principal_id, &self.identity.device_id);
+        if actual_identity != expected_identity {
+            return Err(Error::Protocol(
+                "local MLS sender leaf credential is not the canonical principal#device identity"
+                    .to_owned(),
+            ));
+        }
+        Ok(self.identity.device_id.as_str().as_bytes().to_vec())
     }
 
     fn content_nonce_context(
         &self,
-        key_ref: &KeyRefObject,
+        verified_sender_domain: &[u8],
         epoch: u64,
     ) -> Result<arkret_crypto::AeadNonceContext> {
+        let verified_sender_domain = std::str::from_utf8(verified_sender_domain).map_err(|_| {
+            Error::Protocol("verified sender domain must be canonical UTF-8".to_owned())
+        })?;
         Ok(arkret_crypto::AeadNonceContext {
-            key_ref: serde_json::to_value(key_ref)
-                .map_err(|error| Error::Protocol(format!("key_ref encode: {error}")))?,
+            mls_group_id: self.group_id(),
             epoch,
-            device_id: self.identity.device_id.as_str().to_owned(),
-            purpose: MLS_EXPORTER_AEAD_CONTENT_PURPOSE.to_owned(),
-            // §2.10.2: the active ciphersuite `canonical_id` of the group at
-            // `key_ref.group_state_ref`, never an HPKE suite name or a local
-            // alias — so the algorithm this nonce is scoped to is the one the
-            // group actually negotiated.
-            aead_profile: self.group_ciphersuite_canonical_id()?.to_owned(),
+            sender_domain: verified_sender_domain.to_owned(),
         })
     }
 
@@ -711,25 +741,22 @@ impl ArkretMlsGroup {
         self.group
             .members()
             .map(|member| {
+                let leaf_node_canonical_bytes = self
+                    .group
+                    .public_group()
+                    .leaf(member.index)
+                    .expect("member iterator only yields occupied LeafNodes")
+                    .tls_serialize_detached()
+                    .expect("verified RFC 9420 LeafNode serializes canonically");
                 let credential = if member.credential.credential_type()
                     == openmls::prelude::CredentialType::Basic
                 {
-                    let identity = member.credential.serialized_content();
-                    if identity.starts_with(b"ak:did_core:key:") {
-                        crate::AuthorLeafCredential::Basic {
-                            // Minimal-metadata pairwise credentials carry the
-                            // Core DidCoreId itself. Preserve it byte-for-byte.
-                            identity: identity.to_vec(),
-                        }
-                    } else {
-                        match decode_leaf_credential(identity) {
-                            Ok((principal_id, _)) => crate::AuthorLeafCredential::Basic {
-                                identity: principal_id.as_str().as_bytes().to_vec(),
-                            },
-                            Err(_) => crate::AuthorLeafCredential::Other {
-                                credential_type: "invalid_arkret_basic_credential".to_owned(),
-                            },
-                        }
+                    crate::AuthorLeafCredential::Basic {
+                        // Author verification is byte-exact. Never project an
+                        // ordinary `principal#device` credential down to the
+                        // principal: doing so could masquerade as a valid
+                        // minimal-metadata actor credential.
+                        identity: member.credential.serialized_content().to_vec(),
                     }
                 } else {
                     crate::AuthorLeafCredential::Other {
@@ -740,6 +767,7 @@ impl ArkretMlsGroup {
                     leaf_index: member.index.u32(),
                     credential,
                     signature_key: member.signature_key,
+                    leaf_node_canonical_bytes,
                 }
             })
             .collect()
@@ -1457,14 +1485,10 @@ impl ArkretMlsGroup {
 
         match processed.into_content() {
             ProcessedMessageContent::ApplicationMessage(message) => Ok(message.into_bytes()),
-            ProcessedMessageContent::StagedCommitMessage(commit) => {
-                self.group
-                    .merge_staged_commit(&self.identity.provider, *commit)
-                    .map_err(mls_error)?;
-                Err(Error::Protocol(
-                    "expected MLS application message, got commit".to_owned(),
-                ))
-            }
+            ProcessedMessageContent::StagedCommitMessage(_) => Err(Error::Protocol(
+                "expected MLS application message, got commit; apply it through apply_commit"
+                    .to_owned(),
+            )),
             _ => Err(Error::Protocol(
                 "expected MLS application message".to_owned(),
             )),
@@ -1472,6 +1496,21 @@ impl ArkretMlsGroup {
     }
 
     pub fn apply_commit(&mut self, envelope: &MlsCommitEnvelope) -> Result<u64> {
+        if envelope.group_id != self.group_id() {
+            return Err(Error::Protocol(
+                "MLS Commit group_id does not match the local group".to_owned(),
+            ));
+        }
+        let expected_epoch = self
+            .epoch()
+            .checked_add(1)
+            .ok_or_else(|| Error::Protocol("MLS epoch overflow".to_owned()))?;
+        if envelope.epoch != expected_epoch {
+            return Err(Error::Protocol(format!(
+                "MLS Commit epoch {} is not the next local epoch {expected_epoch}",
+                envelope.epoch
+            )));
+        }
         let commit_bytes = decode(&envelope.commit)?;
         let actual_commit_digest = canonical::sha256_digest(&commit_bytes);
         if actual_commit_digest != envelope.commit_digest.as_str() {
@@ -1493,7 +1532,14 @@ impl ArkretMlsGroup {
                 self.group
                     .merge_staged_commit(&self.identity.provider, *commit)
                     .map_err(mls_error)?;
-                Ok(self.epoch())
+                let applied_epoch = self.epoch();
+                if applied_epoch != envelope.epoch {
+                    return Err(Error::Protocol(format!(
+                        "MLS Commit entered epoch {applied_epoch}, envelope declared {}",
+                        envelope.epoch
+                    )));
+                }
+                Ok(applied_epoch)
             }
             _ => Err(Error::Protocol("expected MLS Commit".to_owned())),
         }
@@ -1539,14 +1585,87 @@ impl ArkretMlsGroup {
     pub fn apply_commits(&mut self, envelopes: &[MlsCommitEnvelope]) -> Result<u64> {
         let mut sorted = envelopes.iter().collect::<Vec<_>>();
         sorted.sort_by_key(|envelope| envelope.epoch);
-        for envelope in sorted {
-            if envelope.epoch <= self.epoch() {
-                continue;
-            }
+        let pending = validate_commit_backfill(&self.group_id(), self.epoch(), &sorted)?;
+        for envelope in pending {
             self.apply_commit(envelope)?;
         }
         Ok(self.epoch())
     }
+
+    /// Apply one strictly-next Commit and immediately retain the entered
+    /// epoch's history secret before the caller exports a durable snapshot.
+    ///
+    /// Callers MUST persist the resulting group snapshot and retention marker
+    /// as one recovery unit. This method deliberately takes the Realm context
+    /// explicitly so Circle and Sidecar group identifiers are never mistaken
+    /// for the MLS exporter context.
+    pub fn apply_commit_and_retain_history_secret(
+        &mut self,
+        envelope: &MlsCommitEnvelope,
+        realm_id: &str,
+    ) -> Result<u64> {
+        let epoch = self.apply_commit(envelope)?;
+        self.derive_and_retain_history_secret(realm_id)?;
+        Ok(epoch)
+    }
+
+    /// Apply a contiguous Commit range, retaining history material on every
+    /// entered epoch instead of retaining only the final one.
+    pub fn apply_commits_and_retain_history_secrets(
+        &mut self,
+        envelopes: &[MlsCommitEnvelope],
+        realm_id: &str,
+    ) -> Result<u64> {
+        let mut sorted = envelopes.iter().collect::<Vec<_>>();
+        sorted.sort_by_key(|envelope| envelope.epoch);
+        let pending = validate_commit_backfill(&self.group_id(), self.epoch(), &sorted)?;
+        for envelope in pending {
+            self.apply_commit_and_retain_history_secret(envelope, realm_id)?;
+        }
+        Ok(self.epoch())
+    }
+}
+
+fn validate_commit_backfill<'a>(
+    expected_group_id: &str,
+    current_epoch: u64,
+    sorted: &[&'a MlsCommitEnvelope],
+) -> Result<Vec<&'a MlsCommitEnvelope>> {
+    if sorted.windows(2).any(|pair| pair[0].epoch == pair[1].epoch) {
+        return Err(Error::Protocol(
+            "MLS Commit backfill contains more than one candidate for an epoch".to_owned(),
+        ));
+    }
+    if sorted
+        .iter()
+        .any(|envelope| envelope.group_id != expected_group_id)
+    {
+        return Err(Error::Protocol(
+            "MLS Commit backfill contains a foreign group_id".to_owned(),
+        ));
+    }
+    let pending = sorted
+        .iter()
+        .copied()
+        .filter(|envelope| envelope.epoch > current_epoch)
+        .collect::<Vec<_>>();
+    if pending.is_empty() {
+        return Ok(pending);
+    }
+    let mut expected_epoch = current_epoch
+        .checked_add(1)
+        .ok_or_else(|| Error::Protocol("MLS epoch overflow".to_owned()))?;
+    for envelope in &pending {
+        if envelope.epoch != expected_epoch {
+            return Err(Error::Protocol(format!(
+                "MLS Commit backfill omits epoch {expected_epoch}"
+            )));
+        }
+        expected_epoch = expected_epoch
+            .checked_add(1)
+            .ok_or_else(|| Error::Protocol("MLS epoch overflow".to_owned()))?;
+    }
+    Ok(pending)
 }
 
 /// Standalone (group-free) variant of
@@ -1557,6 +1676,11 @@ impl ArkretMlsGroup {
 /// `nonce || ciphertext`; `key_ref`, `epoch` and `aad` MUST be the verified
 /// envelope values used at encrypt time.
 ///
+/// This low-level primitive does not recompute or validate the carried nonce's
+/// MLS-exporter-derived prefix: a holder of `history_secret` alone cannot derive
+/// the separate exporter output used by the author. It therefore is not, by
+/// itself, a complete late-history recovery verifier.
+///
 /// `aead_profile` is a parameter here and not on the group method because this
 /// path has no group to ask: it is the envelope's declared `aead_profile`
 /// (§2.10.2), and it fixes both the key length and where the nonce ends. It is
@@ -1564,6 +1688,7 @@ impl ArkretMlsGroup {
 /// not-yet-active suite fails closed before any key material is derived.
 pub fn decrypt_content_exporter_aead_standalone(
     history_secret: &[u8],
+    verified_sender_domain: &[u8],
     key_ref: &KeyRefObject,
     epoch: u64,
     aead_profile: &str,
@@ -1577,22 +1702,50 @@ pub fn decrypt_content_exporter_aead_standalone(
         ));
     }
     let (nonce, ciphertext) = nonce_and_ct.split_at(suite.nonce_len());
-    let content_key = derive_content_key(history_secret, suite.key_len())?;
+    if verified_sender_domain.is_empty() {
+        return Err(Error::Protocol(
+            "verified sender domain must not be empty".to_owned(),
+        ));
+    }
+    let content_key = derive_content_key_from_history_secret(
+        history_secret,
+        verified_sender_domain,
+        suite.key_len(),
+    )?;
     let aead_aad = content_aead_aad(key_ref, epoch, nonce, aead_profile, aad)?;
     suite.open(&content_key, nonce, &aead_aad, ciphertext)
 }
 
-/// `K_content[N] = ExpandWithLabel(history_secret[N], "ak.content-v1", "", AEAD.Nk)`
-/// (§2.10.1). `key_len` is the negotiated suite's `AEAD.Nk` and is encoded into
+/// `K_content[N,S] = ExpandWithLabel(history_secret[N], "ak.content-v1", S, AEAD.Nk)`
+/// (§2.10.1), where `S` is the already-verified sender domain. For the ordinary
+/// profile it is the canonical `device_id` UTF-8 bytes; for minimal metadata it
+/// is the exact active LeafNode credential identity bytes. Callers MUST verify
+/// that identity before invoking this function.
+///
+/// `key_len` is the negotiated suite's `AEAD.Nk` and is encoded into
 /// the `ExpandWithLabel` info, so two suites never derive a shared prefix.
 ///
 /// Expand-only, no Extract: the `history_secret` is an MLS exporter output and
 /// already has full entropy, which is what `ExpandWithLabel` assumes of its
 /// Secret input.
-fn derive_content_key(history_secret: &[u8], key_len: usize) -> Result<Zeroizing<Vec<u8>>> {
+pub fn derive_content_key_from_history_secret(
+    history_secret: &[u8],
+    verified_sender_domain: &[u8],
+    key_len: usize,
+) -> Result<Zeroizing<Vec<u8>>> {
+    if verified_sender_domain.is_empty() {
+        return Err(Error::Protocol(
+            "verified sender domain must not be empty".to_owned(),
+        ));
+    }
+    if key_len == 0 {
+        return Err(Error::Protocol(
+            "content key length must be the positive AEAD.Nk of the active ciphersuite".to_owned(),
+        ));
+    }
     let hkdf = Hkdf::<Sha256>::from_prk(history_secret)
         .map_err(|_| Error::Crypto("history_secret too short for HKDF PRK".to_owned()))?;
-    let info = mls_kdf_label(key_len, CONTENT_KEY_LABEL, &[])?;
+    let info = mls_kdf_label(key_len, CONTENT_KEY_LABEL, verified_sender_domain)?;
     let mut key = Zeroizing::new(vec![0u8; key_len]);
     hkdf.expand(&info, key.as_mut())
         .map_err(|_| Error::Crypto("content key derivation failed".to_owned()))?;
@@ -1735,9 +1888,7 @@ impl arkret_crypto::sframe::MlsExporterSource for ArkretMlsGroup {
 
 #[cfg(test)]
 mod content_scheme_anchor_tests {
-    use arkret_crypto::{
-        AEAD_NONCE_EXPORTER_LABEL, aead_sender_nonce_context_bytes, compose_aead_nonce,
-    };
+    use arkret_crypto::compose_aead_nonce;
 
     use super::*;
     use crate::identity::ArkretMlsIdentity;
@@ -1759,6 +1910,36 @@ mod content_scheme_anchor_tests {
         .unwrap()
     }
 
+    fn commit_stub(group_id: &str, epoch: u64, digest_byte: char) -> MlsCommitEnvelope {
+        MlsCommitEnvelope {
+            group_id: group_id.to_owned(),
+            epoch,
+            commit: "AA".to_owned(),
+            commit_digest: Hash::new(format!("sha256:{}", digest_byte.to_string().repeat(64)))
+                .unwrap(),
+            ratchet_tree: None,
+        }
+    }
+
+    #[test]
+    fn commit_backfill_rejects_gaps_duplicates_and_foreign_groups_before_apply() {
+        let first = commit_stub("group", 4, '1');
+        let duplicate = commit_stub("group", 4, '2');
+        assert!(validate_commit_backfill("group", 3, &[&first, &duplicate]).is_err());
+
+        let gap = commit_stub("group", 5, '3');
+        assert!(validate_commit_backfill("group", 3, &[&gap]).is_err());
+
+        let foreign = commit_stub("other", 4, '4');
+        assert!(validate_commit_backfill("group", 3, &[&foreign]).is_err());
+        assert_eq!(
+            validate_commit_backfill("group", 3, &[&first])
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
     /// Every wire-breaking AEAD parameter of the content scheme, checked
     /// against the registry rather than against this module.
     ///
@@ -1776,11 +1957,10 @@ mod content_scheme_anchor_tests {
         assert_eq!(profile, "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519");
         assert_eq!(
             group
-                .content_nonce_context(&KeyRefObject::mls_exporter_aead("group", 3), 3)
+                .content_nonce_context(group.identity.device_id.as_str().as_bytes(), 3,)
                 .unwrap()
-                .aead_profile,
-            profile,
-            "the nonce-derivation context MUST carry the negotiated canonical_id"
+                .mls_group_id,
+            group.group_id()
         );
 
         let suite = group.content_suite().unwrap();
@@ -1808,44 +1988,6 @@ mod content_scheme_anchor_tests {
         assert!(error.contains("reserved"), "{error}");
     }
 
-    /// `encoding.md` §10.1 gives the exporter a label and a Context as two
-    /// separate parameters, and defines the Context as the canonical context
-    /// bytes alone. Folding `label || 0x00 || context` into the Context (while
-    /// still passing the label) yields a different prefix, so the deviation is
-    /// pinned as a negative here rather than left to review.
-    #[test]
-    fn content_nonce_prefix_is_the_exporter_over_the_canonical_context_alone() {
-        let group = founder();
-        let epoch = group.epoch();
-        let suite = group.content_suite().unwrap();
-        let key_ref = KeyRefObject::mls_exporter_aead("group", epoch);
-        let context_bytes =
-            aead_sender_nonce_context_bytes(&group.content_nonce_context(&key_ref, epoch).unwrap())
-                .unwrap();
-
-        let expected_prefix = group
-            .export_secret(AEAD_NONCE_EXPORTER_LABEL, &context_bytes, 4)
-            .unwrap();
-        let nonce = group
-            .content_aead_nonce(&key_ref, epoch, suite, 0x0102_0304_0506_0708)
-            .unwrap();
-        assert_eq!(nonce.len(), 12);
-        assert_eq!(&nonce[..4], &expected_prefix[..]);
-        assert_eq!(&nonce[4..], &0x0102_0304_0506_0708u64.to_be_bytes());
-
-        let mut conflated = AEAD_NONCE_EXPORTER_LABEL.as_bytes().to_vec();
-        conflated.push(0x00);
-        conflated.extend_from_slice(&context_bytes);
-        let deviating = group
-            .export_secret(AEAD_NONCE_EXPORTER_LABEL, &conflated, 4)
-            .unwrap();
-        assert_ne!(
-            &nonce[..4],
-            &deviating[..],
-            "the exporter Context MUST be the canonical bytes alone, not label || 0x00 || context"
-        );
-    }
-
     /// Pins the byte-exact `mls_exporter_aead_v1` content-scheme chain from a
     /// fixed history_secret — RFC 9420 ExpandWithLabel content key, canonical
     /// AAD construction, and the AEAD ciphertext itself. Any silent change to
@@ -1856,16 +1998,24 @@ mod content_scheme_anchor_tests {
     #[test]
     fn exporter_aead_content_scheme_regression_anchor() {
         let history_secret = [0x42u8; 32];
+        let verified_sender_domain = DEVICE.as_bytes();
         let suite = ExporterAeadSuite::Aes128Gcm;
         let profile = ARKRET_MLS_CIPHERSUITE_CANONICAL_ID;
-        let content_key = derive_content_key(&history_secret, suite.key_len()).unwrap();
-        assert_eq!(
-            hex(content_key.as_ref()),
-            "76ab7dcbbbc1782052dc28c399e95bb5",
-            "ak.content-v1 ExpandWithLabel content key drifted"
-        );
+        let content_key = derive_content_key_from_history_secret(
+            &history_secret,
+            verified_sender_domain,
+            suite.key_len(),
+        )
+        .unwrap();
+        let other_sender_key = derive_content_key_from_history_secret(
+            &history_secret,
+            b"ak:device:01904100-0000-7000-8000-000000000008",
+            suite.key_len(),
+        )
+        .unwrap();
+        assert_ne!(content_key.as_slice(), other_sender_key.as_slice());
 
-        let nonce = compose_aead_nonce(&[0x71, 0x43, 0x72, 0xa2], 7);
+        let nonce = compose_aead_nonce(7, suite.nonce_len()).unwrap();
         assert_eq!(nonce.len(), suite.nonce_len());
         assert_eq!(&nonce[4..], 7u64.to_be_bytes(), "counter suffix drifted");
 
@@ -1880,7 +2030,7 @@ mod content_scheme_anchor_tests {
         let aad = content_aead_aad(&key_ref, 42, &nonce, profile, &envelope_aad).unwrap();
         assert_eq!(
             std::str::from_utf8(&aad).unwrap(),
-            "{\"aad\":{\"event_kind\":\"ak.message.create\",\"realm_id\":\"ak:realm:AWaw3_J06Ml7_fh-rnNBMJ3WJ6cLKzz1DvKyRhPSuJs0\",\"scope_digest\":\"sha256:d55205975616853ef197cee86857c19fd8d43a0d45e0c184ad214aa5a9778660\"},\"aead_profile\":\"MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519\",\"epoch\":42,\"key_ref\":{\"algorithm\":\"MLS-EXPORTER-AEAD\",\"group_state_ref\":\"ak:event:AQNy1zG98lAoTz0YOf-2Yp2-GXeJioPlyg8nW6qxW-OB\"},\"nonce\":\"cUNyogAAAAAAAAAH\",\"purpose\":\"mls_exporter_aead_content\",\"scheme\":\"mls_exporter_aead_v1\"}",
+            "{\"aad\":{\"event_kind\":\"ak.message.create\",\"realm_id\":\"ak:realm:AWaw3_J06Ml7_fh-rnNBMJ3WJ6cLKzz1DvKyRhPSuJs0\",\"scope_digest\":\"sha256:d55205975616853ef197cee86857c19fd8d43a0d45e0c184ad214aa5a9778660\"},\"aead_profile\":\"MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519\",\"epoch\":42,\"key_ref\":{\"algorithm\":\"MLS-EXPORTER-AEAD\",\"group_state_ref\":\"ak:event:AQNy1zG98lAoTz0YOf-2Yp2-GXeJioPlyg8nW6qxW-OB\"},\"nonce\":\"AAAAAAAAAAAAAAAH\",\"purpose\":\"mls_exporter_aead_content\",\"scheme\":\"mls_exporter_aead_v1\"}",
             "canonical content AAD drifted"
         );
 
@@ -1888,15 +2038,17 @@ mod content_scheme_anchor_tests {
         let ciphertext = suite.seal(&content_key, &nonce, &aad, plaintext).unwrap();
         assert_eq!(
             hex(&ciphertext),
-            "e758b2f7d462d5170fe80aa7daee698cbdef6d5247cdd6cfc71e311632aa172f1fa66b1c876334061abf44ff20001c",
+            "860e00daad42592db97de97c320876153027b49a5ed7a67fbec6f0cbc66f2db95ff0d938fd992e7f3b8a230621764b",
             "exporter-aead ciphertext drifted"
         );
 
-        // Round-trip through the standalone decrypt path.
+        // Primitive round-trip with the carried nonce. This does not claim to
+        // verify the separately-derived MLS exporter nonce prefix.
         let mut nonce_and_ct = nonce;
         nonce_and_ct.extend_from_slice(&ciphertext);
         let recovered = decrypt_content_exporter_aead_standalone(
             &history_secret,
+            verified_sender_domain,
             &key_ref,
             42,
             profile,
@@ -1913,6 +2065,7 @@ mod content_scheme_anchor_tests {
         assert!(
             decrypt_content_exporter_aead_standalone(
                 &history_secret,
+                verified_sender_domain,
                 &key_ref,
                 42,
                 profile,
@@ -1955,11 +2108,15 @@ mod content_scheme_anchor_tests {
             ARKRET_MLS_CIPHERSUITE_CANONICAL_ID,
         );
 
+        let sender_domain = case["input"]["verified_sender_domain_utf8"]
+            .as_str()
+            .expect("content key vector must bind a verified sender domain")
+            .as_bytes();
         assert_eq!(
             hex(&mls_kdf_label(
                 vector_key_len,
                 arkret_wire::ExporterLabelId::CONTENT_V1,
-                &[]
+                sender_domain
             )
             .unwrap()),
             case["expected"]["content_expand_with_label_info_hex"]
@@ -1967,9 +2124,13 @@ mod content_scheme_anchor_tests {
                 .unwrap()
         );
         assert_eq!(
-            hex(derive_content_key(&history_secret, vector_key_len)
-                .unwrap()
-                .as_ref()),
+            hex(derive_content_key_from_history_secret(
+                &history_secret,
+                sender_domain,
+                vector_key_len
+            )
+            .unwrap()
+            .as_ref()),
             case["expected"]["content_key_hex"].as_str().unwrap()
         );
     }

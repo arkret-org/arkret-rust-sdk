@@ -799,7 +799,7 @@ def generate_reason_codes(artifacts: Path) -> str:
             [
                 "    ReasonCodeDescriptor {",
                 f"        code: ReasonCode::{row['code'].upper()},",
-                f"        applies_to: {rust_slice(row['applies_to'])},",
+                f"        applies_to: {rust_slice(row.get('applies_to'))},",
                 f"        description: {rust_string(row['description'])},",
                 "    },",
             ]

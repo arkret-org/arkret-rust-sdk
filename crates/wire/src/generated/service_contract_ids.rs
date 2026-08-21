@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/contract-registry.json; version=2026-08-20.1;
-//! sha256=097f06957f4dd9a8b691fd741d4a534b99bebfe8d7ea50fd73dca22b7d69fc07
+//! Input: registry/contract-registry.json; version=2026-08-21.1;
+//! sha256=68889368d0d660e4159e0ab041a9342b1040aaf57ed353c769bc9e0669ab79c5
 //! Entries: service_contracts=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

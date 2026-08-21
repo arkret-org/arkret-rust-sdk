@@ -4,10 +4,10 @@
 > Coverage is credited only from explicit evidence in `tools/operation-coverage-evidence.json`.
 
 - Claimable profiles: 69 (implementation + deployment + hardening profiles)
-- Effective profile/operation requirements: 617
+- Effective profile/operation requirements: 615
 - Complete rows: 10
 - Partial rows: 8
-- Gap rows: 599
+- Gap rows: 597
 
 `gap` is an explicit non-claim: registry recognition or a generated constant is not SDK implementation evidence. Inherited requirements are expanded into every claiming child profile.
 
@@ -103,7 +103,6 @@
 | `ak.profile.attested_audit.e2ee.v1` | `admin` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.attested_audit.e2ee.v1` | `admin` | `ak.self.events.read.describe` | `QUERY /_arkret/self/events/describe` | — | — | — | gap |
 | `ak.profile.attested_audit.e2ee.v1` | `admin` | `ak.self.events.read.frontier` | `QUERY /_arkret/self/events/frontier` | — | — | — | gap |
-| `ak.profile.attested_audit.e2ee.v1` | `admin` | `ak.self.events.read.mls_governance_proof` | `QUERY /_arkret/self/events/mls-governance-proof` | — | — | — | gap |
 | `ak.profile.attested_audit.e2ee.v1` | `admin` | `ak.self.events.read.resolve` | `QUERY /_arkret/self/events/resolve` | — | — | — | gap |
 | `ak.profile.attested_audit.e2ee.v1` | `admin` | `ak.self.events.read.scan` | `QUERY /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.attested_audit.e2ee.v1` | `admin` | `ak.self.events.resource.get` | `GET /_arkret/self/events/{event_id}` | — | — | — | gap |
@@ -119,6 +118,7 @@
 | `ak.profile.attested_audit.e2ee.v1` | `admin` | `ak.self.keys.keypackages.upload.create` | `POST /_arkret/self/keys/keypackages/upload` | — | — | — | gap |
 | `ak.profile.attested_audit.e2ee.v1` | `admin` | `ak.self.keys.read.lookup` | `POST /_arkret/self/keys/query` | — | — | — | gap |
 | `ak.profile.attested_audit.e2ee.v1` | `admin` | `ak.self.keys.upload.create` | `POST /_arkret/self/keys/upload` | — | — | — | gap |
+| `ak.profile.attested_audit.e2ee.v1` | `admin` | `ak.self.seals.read.mls_governance_proof` | `POST /_arkret/self/seals/mls-governance-proof` | — | — | — | gap |
 | `ak.profile.attested_audit.e2ee.v1` | `admin` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.auth_server.v1` | `server` | `ak.gate.account.command.introspect_session_grant` | `POST /_arkret/gate/account/session-grants/introspect` | — | — | — | gap |
 | `ak.profile.auth_server.v1` | `server` | `ak.gate.account.command.issue_session_grant` | `POST /_arkret/gate/account/session-grants` | — | — | — | gap |
@@ -153,7 +153,6 @@
 | `ak.profile.core_event_store.v1` | `server` | `ak.self.events.resource.get` | `GET /_arkret/self/events/{event_id}` | — | — | — | gap |
 | `ak.profile.core_event_store.v1` | `server` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.peer.contacts.command.submit` | `POST /_arkret/peer/contacts` | — | — | — | gap |
-| `ak.profile.direct_conversation_repair.v1` | `server` | `ak.peer.direct_conversation.command.repair_relay` | `POST /_arkret/peer/direct-conversations/repair-relay` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.peer.events.command.submit` | `POST /_arkret/peer/events` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.peer.events.read.resolve` | `QUERY /_arkret/peer/events/resolve` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.peer.events.read.scan` | `QUERY /_arkret/peer/events` | — | — | — | gap |
@@ -165,7 +164,6 @@
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.self.contact.command.respond` | `POST /_arkret/self/contacts/respond` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.self.contact.command.scope_update` | `POST /_arkret/self/contacts/scope-update` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.self.contact.command.tombstone` | `POST /_arkret/self/contacts/tombstone` | — | — | — | gap |
-| `ak.profile.direct_conversation_repair.v1` | `server` | `ak.self.direct_conversation.command.repair_dispatch` | `POST /_arkret/self/direct-conversations/repair-dispatch` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.self.direct_conversation.read.resolve` | `POST /_arkret/self/direct-conversations/resolve` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.directory_service.v1` | `directory` | `ak.find.directory.command.announce` | `POST /_arkret/find/directory/announce` | — | — | — | gap |
@@ -187,7 +185,6 @@
 | `ak.profile.disclosed_audit.e2ee.v1` | `admin` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.disclosed_audit.e2ee.v1` | `admin` | `ak.self.events.read.describe` | `QUERY /_arkret/self/events/describe` | — | — | — | gap |
 | `ak.profile.disclosed_audit.e2ee.v1` | `admin` | `ak.self.events.read.frontier` | `QUERY /_arkret/self/events/frontier` | — | — | — | gap |
-| `ak.profile.disclosed_audit.e2ee.v1` | `admin` | `ak.self.events.read.mls_governance_proof` | `QUERY /_arkret/self/events/mls-governance-proof` | — | — | — | gap |
 | `ak.profile.disclosed_audit.e2ee.v1` | `admin` | `ak.self.events.read.resolve` | `QUERY /_arkret/self/events/resolve` | — | — | — | gap |
 | `ak.profile.disclosed_audit.e2ee.v1` | `admin` | `ak.self.events.read.scan` | `QUERY /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.disclosed_audit.e2ee.v1` | `admin` | `ak.self.events.resource.get` | `GET /_arkret/self/events/{event_id}` | — | — | — | gap |
@@ -203,6 +200,7 @@
 | `ak.profile.disclosed_audit.e2ee.v1` | `admin` | `ak.self.keys.keypackages.upload.create` | `POST /_arkret/self/keys/keypackages/upload` | — | — | — | gap |
 | `ak.profile.disclosed_audit.e2ee.v1` | `admin` | `ak.self.keys.read.lookup` | `POST /_arkret/self/keys/query` | — | — | — | gap |
 | `ak.profile.disclosed_audit.e2ee.v1` | `admin` | `ak.self.keys.upload.create` | `POST /_arkret/self/keys/upload` | — | — | — | gap |
+| `ak.profile.disclosed_audit.e2ee.v1` | `admin` | `ak.self.seals.read.mls_governance_proof` | `POST /_arkret/self/seals/mls-governance-proof` | — | — | — | gap |
 | `ak.profile.disclosed_audit.e2ee.v1` | `admin` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.draft_sync.v1` | `client` | `ak.self.account.stream.subscribe` | `GET /_arkret/self/account/subscribe` | — | — | — | gap |
 | `ak.profile.e2ee_client.v1` | `client` | `ak.peer.mls.read.group_state_material` | `POST /_arkret/peer/mls/group-state-material` | — | — | — | gap |
@@ -213,7 +211,6 @@
 | `ak.profile.e2ee_client.v1` | `client` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.e2ee_client.v1` | `client` | `ak.self.events.read.describe` | `QUERY /_arkret/self/events/describe` | — | — | — | gap |
 | `ak.profile.e2ee_client.v1` | `client` | `ak.self.events.read.frontier` | `QUERY /_arkret/self/events/frontier` | — | — | — | gap |
-| `ak.profile.e2ee_client.v1` | `client` | `ak.self.events.read.mls_governance_proof` | `QUERY /_arkret/self/events/mls-governance-proof` | — | — | — | gap |
 | `ak.profile.e2ee_client.v1` | `client` | `ak.self.events.read.resolve` | `QUERY /_arkret/self/events/resolve` | — | — | — | gap |
 | `ak.profile.e2ee_client.v1` | `client` | `ak.self.events.read.scan` | `QUERY /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.e2ee_client.v1` | `client` | `ak.self.events.resource.get` | `GET /_arkret/self/events/{event_id}` | — | — | — | gap |
@@ -229,6 +226,7 @@
 | `ak.profile.e2ee_client.v1` | `client` | `ak.self.keys.keypackages.upload.create` | `POST /_arkret/self/keys/keypackages/upload` | — | — | — | gap |
 | `ak.profile.e2ee_client.v1` | `client` | `ak.self.keys.read.lookup` | `POST /_arkret/self/keys/query` | — | — | — | gap |
 | `ak.profile.e2ee_client.v1` | `client` | `ak.self.keys.upload.create` | `POST /_arkret/self/keys/upload` | — | — | — | gap |
+| `ak.profile.e2ee_client.v1` | `client` | `ak.self.seals.read.mls_governance_proof` | `POST /_arkret/self/seals/mls-governance-proof` | — | — | — | gap |
 | `ak.profile.e2ee_client.v1` | `client` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.enterprise_client.v1` | `client` | `ak.find.directory.read.resolve_organization` | `POST /_arkret/find/directory/resolve-organization` | — | — | — | gap |
 | `ak.profile.enterprise_client.v1` | `client` | `ak.find.directory.read.search_organizations` | `POST /_arkret/find/directory/search-organizations` | — | — | — | gap |
@@ -311,7 +309,6 @@
 | `ak.profile.high_security_organization.v1` | `admin` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.high_security_organization.v1` | `admin` | `ak.self.events.read.describe` | `QUERY /_arkret/self/events/describe` | — | — | — | gap |
 | `ak.profile.high_security_organization.v1` | `admin` | `ak.self.events.read.frontier` | `QUERY /_arkret/self/events/frontier` | — | — | — | gap |
-| `ak.profile.high_security_organization.v1` | `admin` | `ak.self.events.read.mls_governance_proof` | `QUERY /_arkret/self/events/mls-governance-proof` | — | — | — | gap |
 | `ak.profile.high_security_organization.v1` | `admin` | `ak.self.events.read.resolve` | `QUERY /_arkret/self/events/resolve` | — | — | — | gap |
 | `ak.profile.high_security_organization.v1` | `admin` | `ak.self.events.read.scan` | `QUERY /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.high_security_organization.v1` | `admin` | `ak.self.events.resource.get` | `GET /_arkret/self/events/{event_id}` | — | — | — | gap |
@@ -327,6 +324,7 @@
 | `ak.profile.high_security_organization.v1` | `admin` | `ak.self.keys.keypackages.upload.create` | `POST /_arkret/self/keys/keypackages/upload` | — | — | — | gap |
 | `ak.profile.high_security_organization.v1` | `admin` | `ak.self.keys.read.lookup` | `POST /_arkret/self/keys/query` | — | — | — | gap |
 | `ak.profile.high_security_organization.v1` | `admin` | `ak.self.keys.upload.create` | `POST /_arkret/self/keys/upload` | — | — | — | gap |
+| `ak.profile.high_security_organization.v1` | `admin` | `ak.self.seals.read.mls_governance_proof` | `POST /_arkret/self/seals/mls-governance-proof` | — | — | — | gap |
 | `ak.profile.high_security_organization.v1` | `admin` | `ak.self.snapshot.read.manifest_head` | `GET /_arkret/self/snapshot/head` | — | — | — | gap |
 | `ak.profile.high_security_organization.v1` | `admin` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.identity_registry.v1` | `directory` | `ak.root.identity.command.submit_did_operation` | `POST /_arkret/root/identity/submit-did-operation` | — | — | — | gap |
@@ -357,7 +355,6 @@
 | `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.self.events.read.describe` | `QUERY /_arkret/self/events/describe` | — | — | — | gap |
 | `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.self.events.read.frontier` | `QUERY /_arkret/self/events/frontier` | — | — | — | gap |
-| `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.self.events.read.mls_governance_proof` | `QUERY /_arkret/self/events/mls-governance-proof` | — | — | — | gap |
 | `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.self.events.read.resolve` | `QUERY /_arkret/self/events/resolve` | — | — | — | gap |
 | `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.self.events.read.scan` | `QUERY /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.self.events.resource.get` | `GET /_arkret/self/events/{event_id}` | — | — | — | gap |
@@ -373,6 +370,7 @@
 | `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.self.keys.keypackages.upload.create` | `POST /_arkret/self/keys/keypackages/upload` | — | — | — | gap |
 | `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.self.keys.read.lookup` | `POST /_arkret/self/keys/query` | — | — | — | gap |
 | `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.self.keys.upload.create` | `POST /_arkret/self/keys/upload` | — | — | — | gap |
+| `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.self.seals.read.mls_governance_proof` | `POST /_arkret/self/seals/mls-governance-proof` | — | — | — | gap |
 | `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.self.snapshot.read.manifest_head` | `GET /_arkret/self/snapshot/head` | — | — | — | gap |
 | `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.kanban_mvp.v1` | `client` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
@@ -414,7 +412,6 @@
 | `ak.profile.mls.minimal_metadata_realm.v1` | `admin` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.mls.minimal_metadata_realm.v1` | `admin` | `ak.self.events.read.describe` | `QUERY /_arkret/self/events/describe` | — | — | — | gap |
 | `ak.profile.mls.minimal_metadata_realm.v1` | `admin` | `ak.self.events.read.frontier` | `QUERY /_arkret/self/events/frontier` | — | — | — | gap |
-| `ak.profile.mls.minimal_metadata_realm.v1` | `admin` | `ak.self.events.read.mls_governance_proof` | `QUERY /_arkret/self/events/mls-governance-proof` | — | — | — | gap |
 | `ak.profile.mls.minimal_metadata_realm.v1` | `admin` | `ak.self.events.read.resolve` | `QUERY /_arkret/self/events/resolve` | — | — | — | gap |
 | `ak.profile.mls.minimal_metadata_realm.v1` | `admin` | `ak.self.events.read.scan` | `QUERY /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.mls.minimal_metadata_realm.v1` | `admin` | `ak.self.events.resource.get` | `GET /_arkret/self/events/{event_id}` | — | — | — | gap |
@@ -430,12 +427,13 @@
 | `ak.profile.mls.minimal_metadata_realm.v1` | `admin` | `ak.self.keys.keypackages.upload.create` | `POST /_arkret/self/keys/keypackages/upload` | — | — | — | gap |
 | `ak.profile.mls.minimal_metadata_realm.v1` | `admin` | `ak.self.keys.read.lookup` | `POST /_arkret/self/keys/query` | — | — | — | gap |
 | `ak.profile.mls.minimal_metadata_realm.v1` | `admin` | `ak.self.keys.upload.create` | `POST /_arkret/self/keys/upload` | — | — | — | gap |
+| `ak.profile.mls.minimal_metadata_realm.v1` | `admin` | `ak.self.seals.read.mls_governance_proof` | `POST /_arkret/self/seals/mls-governance-proof` | — | — | — | gap |
 | `ak.profile.mls.minimal_metadata_realm.v1` | `admin` | `ak.server.read.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.mls_governance_binding.full.v1` | `admin` | `ak.peer.mls.read.group_state_material` | `POST /_arkret/peer/mls/group-state-material` | — | — | — | gap |
-| `ak.profile.mls_governance_binding.full.v1` | `admin` | `ak.self.events.read.mls_governance_proof` | `QUERY /_arkret/self/events/mls-governance-proof` | — | — | — | gap |
 | `ak.profile.mls_governance_binding.full.v1` | `admin` | `ak.self.events.read.scan` | `QUERY /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.mls_governance_binding.full.v1` | `admin` | `ak.self.keys.keypackages.command.claim` | `POST /_arkret/self/keys/keypackages/claim` | — | — | — | gap |
 | `ak.profile.mls_governance_binding.full.v1` | `admin` | `ak.self.keys.keypackages.command.consume` | `POST /_arkret/self/keys/keypackages/consume` | — | — | — | gap |
+| `ak.profile.mls_governance_binding.full.v1` | `admin` | `ak.self.seals.read.mls_governance_proof` | `POST /_arkret/self/seals/mls-governance-proof` | — | — | — | gap |
 | `ak.profile.organization.v1` | `admin` | `ak.find.directory.read.resolve_organization` | `POST /_arkret/find/directory/resolve-organization` | — | — | — | gap |
 | `ak.profile.organization.v1` | `admin` | `ak.open.identity.read.resolution` | `GET /_arkret/open/principals/{principal_id}/resolution` | — | — | — | gap |
 | `ak.profile.organization.v1` | `admin` | `ak.peer.account_status.command.submit` | `POST /_arkret/peer/account-status` | — | — | — | gap |

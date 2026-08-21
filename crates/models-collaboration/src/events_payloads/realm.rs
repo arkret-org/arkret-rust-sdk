@@ -241,7 +241,7 @@ pub const RELAXED_WINDOW_DEFAULT_MS: u64 = 30_000;
 ///
 /// The closed property set is exactly the Realm policy components that have
 /// **no** independent facet Event kind. Components that own their own kind and
-/// cell (`ak.realm.join_rule`, `ak.realm.history_visibility`,
+/// cell (`ak.realm.join_rule`, `ak.realm.history_access`,
 /// `ak.realm.read_receipt_policy`, `ak.realm.media_service`, …) are written by
 /// those events and already reach `policy_root` through the
 /// `ak.component.realm.*policy*` leaf filter; echoing them here would create a
@@ -703,7 +703,6 @@ pub struct RealmGenesis {
     pub digest_algorithm: canonical::DigestSuite,
     pub security_class: SecurityClass,
     pub encryption_profile: EncryptionProfile,
-    pub notary_profile: NotaryProfile,
     pub notary: NotaryValue,
     pub capability_action_registry_digest: Hash,
 }
@@ -719,7 +718,6 @@ impl RealmGenesis {
         digest_algorithm: canonical::DigestSuite,
         security_class: SecurityClass,
         encryption_profile: EncryptionProfile,
-        notary_profile: NotaryProfile,
         notary: NotaryValue,
         capability_action_registry_digest: Hash,
     ) -> Result<Self> {
@@ -735,7 +733,6 @@ impl RealmGenesis {
             digest_algorithm,
             security_class,
             encryption_profile,
-            notary_profile,
             notary,
             capability_action_registry_digest,
         };
@@ -754,7 +751,6 @@ impl RealmGenesis {
         digest_algorithm: canonical::DigestSuite,
         security_class: SecurityClass,
         encryption_profile: EncryptionProfile,
-        notary_profile: NotaryProfile,
         notary: NotaryValue,
         capability_action_registry_digest: Hash,
     ) -> Result<Self> {
@@ -770,7 +766,6 @@ impl RealmGenesis {
             digest_algorithm,
             security_class,
             encryption_profile,
-            notary_profile,
             notary,
             capability_action_registry_digest,
         };
@@ -788,7 +783,6 @@ impl RealmGenesis {
         digest_algorithm: canonical::DigestSuite,
         security_class: SecurityClass,
         encryption_profile: EncryptionProfile,
-        notary_profile: NotaryProfile,
         notary: NotaryValue,
         capability_action_registry_digest: Hash,
     ) -> Result<Self> {
@@ -804,7 +798,6 @@ impl RealmGenesis {
             digest_algorithm,
             security_class,
             encryption_profile,
-            notary_profile,
             notary,
             capability_action_registry_digest,
         };
@@ -1302,8 +1295,15 @@ mod realm_control_payload_tests {
         let value = json!({
             "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
             "notary": {
-                "kind": "single_did",
-                "actor_id": "ak:did_core:web:notary.example"
+                "kind": "single_signer",
+                "signer": {
+                    "actor_id": "ak:did_core:web:notary.example",
+                    "verification_method": "did:web:notary.example#key-1",
+                    "key_kind": "ed25519_raw32",
+                    "jose_algorithm": "Ed25519",
+                    "frozen_public_key_b64u": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                    "frozen_public_key_digest": "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"
+                }
             }
         });
         let payload: RealmNotaryPayload = serde_json::from_value(value.clone()).unwrap();

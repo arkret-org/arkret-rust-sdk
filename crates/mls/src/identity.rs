@@ -494,6 +494,7 @@ pub fn author_leaf_from_key_package_bytes(
         leaf_index,
         credential,
         signature_key: leaf.signature_key().as_slice().to_vec(),
+        leaf_node_canonical_bytes: leaf.tls_serialize_detached().map_err(mls_error)?,
     })
 }
 

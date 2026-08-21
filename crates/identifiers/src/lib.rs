@@ -1169,6 +1169,22 @@ fn is_device_message_transaction_id(value: &str) -> bool {
 // declared with the other `special_forms` kinds.
 id_type!(Hash, is_hash);
 
+impl Hash {
+    /// Parse the algorithm carried by this already validated typed digest.
+    ///
+    /// This does not establish a Realm's trusted live suite; callers may use
+    /// it only when the digest itself is the authenticated selector or
+    /// commitment being verified.
+    pub fn digest_suite(&self) -> Result<arkret_canonical::DigestSuite> {
+        let (algorithm, _) = self
+            .as_str()
+            .split_once(':')
+            .ok_or_else(|| IdentifierError::InvalidId(self.as_str().to_owned()))?;
+        arkret_canonical::canonical::digest_suite(algorithm)
+            .map_err(|_| IdentifierError::InvalidId(self.as_str().to_owned()))
+    }
+}
+
 impl EventIdentityKey {
     pub fn from_event_digest(value: &Hash) -> Result<Self> {
         let (suite, hex) = value

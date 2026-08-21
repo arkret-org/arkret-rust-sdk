@@ -10,6 +10,20 @@ use serde::Serializer;
 
 use crate::internal_prelude::*;
 
+/// Standard non-Event device-message kinds shared by wire validation and the
+/// client drafting layer.
+pub mod device_message_kind {
+    pub const KEY_VERIFICATION_REQUEST: &str = "ak.key.verification.request";
+    pub const KEY_VERIFICATION_READY: &str = "ak.key.verification.ready";
+    pub const KEY_VERIFICATION_START: &str = "ak.key.verification.start";
+    pub const KEY_VERIFICATION_ACCEPT: &str = "ak.key.verification.accept";
+    pub const KEY_VERIFICATION_KEY: &str = "ak.key.verification.key";
+    pub const KEY_VERIFICATION_MAC: &str = "ak.key.verification.mac";
+    pub const KEY_VERIFICATION_DONE: &str = "ak.key.verification.done";
+    pub const KEY_VERIFICATION_CANCEL: &str = "ak.key.verification.cancel";
+    pub const MLS_WELCOME_V1: &str = arkret_wire::event_kind_str::MLS_WELCOME;
+}
+
 /// Closed action set for account notification projection deltas.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -167,13 +181,8 @@ pub struct NotificationContainer {
 /// Closed sender endpoint of one to-device message.
 ///
 /// A Native Agent runtime is not a human device:
-/// `identity/contact-and-direct-conversation.md` §8.2.1 forbids disguising it
-/// as an `ak:device`, and `crypto-media/device-lifecycle.md` forbids borrowing
-/// `requester_device_id` for it. So the endpoint is a closed XOR rather than an
-/// `Option<DeviceId>` a producer could fill with a principal id — the same
-/// shape [`crate::events_payloads::MemberRepairRequester`] and the KeyPackage
-/// consume / claim envelopes already use, so a reader meets one spelling of
-/// this distinction across the whole protocol.
+/// It cannot be represented as an `ak:device`, so the endpoint is a closed XOR
+/// rather than an `Option<DeviceId>` a producer could fill with a principal id.
 ///
 /// The Agent branch carries the signer evidence the device branch gets from
 /// the accepted device projection: without `sender_agent_verification_method`
@@ -316,7 +325,7 @@ pub struct DeviceMessageEnvelope {
     pub expires_at: DateTime<Utc>,
     pub content: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_proof: Option<BTreeMap<String, Value>>,
+    pub device_proof: Option<PayloadProof>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unsigned: Option<BTreeMap<String, Value>>,
 }
@@ -343,7 +352,7 @@ struct DeviceMessageEnvelopeWire {
     expires_at: DateTime<Utc>,
     content: BTreeMap<String, Value>,
     #[serde(default)]
-    device_proof: Option<BTreeMap<String, Value>>,
+    device_proof: Option<PayloadProof>,
     #[serde(default)]
     unsigned: Option<BTreeMap<String, Value>>,
 }
@@ -767,46 +776,6 @@ impl Serialize for MlsWelcomeProjectedDeviceMessage {
     }
 }
 
-/// SDK-owned outbound Realm Key Share device-message envelope. The standard
-/// Event kind is emitted atomically with its typed payload.
-#[derive(Clone, Debug)]
-pub struct RealmKeyShareProjectedDeviceMessage {
-    pub sender_device_id: String,
-    pub realm_id: RealmId,
-    pub operation_id: String,
-    pub payload: crate::events_payloads::RealmKeySharePayload,
-}
-
-impl Serialize for RealmKeyShareProjectedDeviceMessage {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        #[derive(Serialize)]
-        struct Content<'a> {
-            realm_id: &'a RealmId,
-            operation_id: &'a str,
-            payload: &'a crate::events_payloads::RealmKeySharePayload,
-        }
-        #[derive(Serialize)]
-        struct Wire<'a> {
-            kind: EventKind,
-            sender_device_id: &'a str,
-            content: Content<'a>,
-        }
-        Wire {
-            kind: EventKind::RealmKeyShare,
-            sender_device_id: &self.sender_device_id,
-            content: Content {
-                realm_id: &self.realm_id,
-                operation_id: &self.operation_id,
-                payload: &self.payload,
-            },
-        }
-        .serialize(serializer)
-    }
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DeviceMessagesSendOutcome {
@@ -905,7 +874,13 @@ mod device_message_tests {
             "sent_at": "2026-07-15T00:00:00.000Z",
             "expires_at": "2026-07-15T00:10:00.000Z",
             "content": {"transaction_id": "txn"},
-            "device_proof": {"vendor_proof": true},
+            "device_proof": {
+                "kind": "detached_jws",
+                "verification_method": "did:webvh:z6mkfixture:example.test#device-1",
+                "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "created_at": "2026-07-15T00:00:00.000Z",
+                "jws": "e30..c2ln"
+            },
             "unsigned": {"retry_after_ms": 1000}
         })
     }

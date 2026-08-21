@@ -393,13 +393,7 @@ impl EventIntent {
         self
     }
 
-    /// The single finalize boundary: supply the actor-chain position and HLC,
-    /// derive `event_id` once from the finished content.
-    pub fn author(self, actor_seq: u64, hlc: Hlc) -> Result<AuthoredEvent> {
-        self.author_with_digest_suite(actor_seq, hlc, DigestSuite::Sha256)
-    }
-
-    /// [`Self::author`] under the Realm's declared content digest suite.
+    /// Finalize under the Realm's declared content digest suite.
     pub fn author_with_digest_suite(
         self,
         actor_seq: u64,

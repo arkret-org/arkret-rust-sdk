@@ -1185,8 +1185,8 @@ singleton_lattice!(
 );
 
 singleton_lattice!(
-    RealmHistoryVisibility,
-    arkret_wire::CellFamilyId::REALM_HISTORY_VISIBILITY_V1,
+    RealmHistoryAccess,
+    arkret_wire::CellFamilyId::REALM_HISTORY_ACCESS_V1,
     Criticality::Required
 );
 
@@ -1277,8 +1277,8 @@ singleton_lattice!(
 );
 
 singleton_lattice!(
-    RealmHistorySharingPolicy,
-    arkret_wire::CellFamilyId::REALM_HISTORY_SHARING_POLICY_V1,
+    CircleHistoryAccess,
+    arkret_wire::CellFamilyId::CIRCLE_HISTORY_ACCESS_V1,
     Criticality::Required
 );
 

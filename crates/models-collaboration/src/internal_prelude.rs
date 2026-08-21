@@ -17,14 +17,12 @@ pub(crate) use serde_json::Value;
 
 pub(crate) use crate::ObjectRef;
 pub(crate) use crate::events_payloads::event_wire::*;
-pub(crate) use crate::events_payloads::history_sharing::*;
 pub(crate) use crate::events_payloads::message::*;
 pub(crate) use crate::events_payloads::object::*;
 pub(crate) use crate::events_payloads::signature::*;
 pub(crate) use crate::governance::circle::*;
 pub(crate) use crate::governance::grant_constraint::*;
 pub(crate) use crate::governance::handle_claim::*;
-pub(crate) use crate::governance::history_visibility::*;
 pub(crate) use crate::governance::moderation_appeal::*;
 pub(crate) use crate::objects::direct_conversation::*;
 pub(crate) use crate::objects::profiles::*;
