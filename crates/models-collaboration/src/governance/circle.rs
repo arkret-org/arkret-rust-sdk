@@ -21,7 +21,8 @@ pub use arkret_wire::CircleId;
 /// types from this module.
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    DidCoreId, EncryptionProfile, EventId, EventInitialSubmission, HistoryAccess, RealmId, SchemaId,
+    ContentScheme, DidCoreId, DurabilityPolicy, EncryptionProfile, EventId, EventInitialSubmission,
+    HistoryAccess, RealmId, SchemaId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -74,14 +75,6 @@ pub enum CircleJoinRule {
 pub enum EncryptionFloor {
     AllowPlaintext,
     E2eeRequired,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum CircleDurabilityPolicy {
-    None,
-    OrganizationRecoveryKey,
 }
 
 /// Color tokens accepted on `Circle.display.color_token` (spec
@@ -214,13 +207,13 @@ pub struct Circle {
     pub agent_participation: Option<AgentParticipationPolicy>,
     pub encryption_profile: EncryptionProfile,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content_scheme: Option<String>,
+    pub content_scheme: Option<ContentScheme>,
     /// Reducer-derived; populated by `ak.circle.create` reducer once the
     /// independent MLS group is bound. NOT actor-supplied on wire.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub durability_policy: Option<CircleDurabilityPolicy>,
+    pub durability_policy: Option<DurabilityPolicy>,
     pub state: CircleState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -281,11 +274,11 @@ pub struct CircleView {
     pub agent_participation: Option<AgentParticipationPolicy>,
     pub encryption_profile: EncryptionProfile,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content_scheme: Option<String>,
+    pub content_scheme: Option<ContentScheme>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub durability_policy: Option<CircleDurabilityPolicy>,
+    pub durability_policy: Option<DurabilityPolicy>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pending_mls_removals: Vec<CirclePendingMlsRemoval>,
     pub state: CircleState,
@@ -832,9 +825,11 @@ impl Circle {
                     && self.mls_group_id.is_none()
                     && self.durability_policy.is_none() => {}
             EncryptionProfile::MlsRfc9420 => {
-                let scheme = self.content_scheme.as_deref().ok_or(
-                    CircleScopeError::InvalidMlsConfiguration("MLS Circle requires content_scheme"),
-                )?;
+                let scheme =
+                    self.content_scheme
+                        .ok_or(CircleScopeError::InvalidMlsConfiguration(
+                            "MLS Circle requires content_scheme",
+                        ))?;
                 if let Some(circle_id) = &self.id {
                     let group_id = self.mls_group_id.as_deref().ok_or(
                         CircleScopeError::InvalidMlsConfiguration(
@@ -854,10 +849,10 @@ impl Circle {
                     ));
                 }
                 match scheme {
-                    "mls_rfc9420"
+                    ContentScheme::MlsRfc9420
                         if self.history_access == HistoryAccess::SinceJoin
                             && self.durability_policy.is_none() => {}
-                    "mls_exporter_aead_v1" if self.durability_policy.is_some() => {}
+                    ContentScheme::MlsExporterAeadV1 if self.durability_policy.is_some() => {}
                     _ => {
                         return Err(CircleScopeError::InvalidMlsConfiguration(
                             "content_scheme, history_access, and durability_policy mismatch",

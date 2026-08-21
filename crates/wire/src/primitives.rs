@@ -95,6 +95,110 @@ pub enum EncryptionProfile {
     External,
 }
 
+/// MLS-backed content envelope scheme, frozen by the accepted MLS group
+/// Genesis.
+///
+/// `models/realm-and-space.md` section 2.3 and `models/circle.md` section 2 both
+/// make this a closed two-value union that applies exactly when
+/// `encryption_profile = mls_rfc9420`. `mls_rfc9420` uses MLS PrivateMessage and
+/// produces no deliverable history secret, so it pins `history_access` to
+/// `since_join`; `mls_exporter_aead_v1` derives a per-epoch `history_secret` and
+/// admits either state. It is immutable for the lifetime of the derived
+/// `mls_group_id`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ContentScheme {
+    MlsRfc9420,
+    MlsExporterAeadV1,
+}
+
+impl ContentScheme {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::MlsRfc9420 => "mls_rfc9420",
+            Self::MlsExporterAeadV1 => "mls_exporter_aead_v1",
+        }
+    }
+
+    /// Whether this scheme derives a per-epoch `history_secret` that can be
+    /// delivered to an endpoint that joined later.
+    pub const fn delivers_history_secret(self) -> bool {
+        matches!(self, Self::MlsExporterAeadV1)
+    }
+}
+
+impl FromStr for ContentScheme {
+    type Err = ContentSchemeParseError;
+
+    fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
+        match value {
+            "mls_rfc9420" => Ok(Self::MlsRfc9420),
+            "mls_exporter_aead_v1" => Ok(Self::MlsExporterAeadV1),
+            _ => Err(ContentSchemeParseError),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ContentSchemeParseError;
+
+impl fmt::Display for ContentSchemeParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("content_scheme is unregistered")
+    }
+}
+
+impl std::error::Error for ContentSchemeParseError {}
+
+/// Realm Recovery Key (RRK) persistence policy, frozen together with
+/// [`ContentScheme`] by the accepted MLS group Genesis.
+///
+/// `models/realm-and-space.md` section 2.3.1 makes this a required closed
+/// two-value string on an exporter effective scope and forbids it on every
+/// other scheme. Custody topology — replica count, HSM, Shamir, threshold —
+/// never reaches the Realm or Circle wire, so this carries no recipient or
+/// threshold structure.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum DurabilityPolicy {
+    None,
+    OrganizationRecoveryKey,
+}
+
+impl DurabilityPolicy {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::OrganizationRecoveryKey => "organization_recovery_key",
+        }
+    }
+}
+
+impl FromStr for DurabilityPolicy {
+    type Err = DurabilityPolicyParseError;
+
+    fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
+        match value {
+            "none" => Ok(Self::None),
+            "organization_recovery_key" => Ok(Self::OrganizationRecoveryKey),
+            _ => Err(DurabilityPolicyParseError),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DurabilityPolicyParseError;
+
+impl fmt::Display for DurabilityPolicyParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("durability_policy is unregistered")
+    }
+}
+
+impl std::error::Error for DurabilityPolicyParseError {}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ActorKind {

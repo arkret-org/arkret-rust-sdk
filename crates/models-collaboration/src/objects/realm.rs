@@ -4,9 +4,10 @@ use std::collections::BTreeMap;
 
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    BlobRef, CORE_REDUCER_PROFILE, ControlProposalDecisionPolicy, DidCoreId, DidUrl,
-    Discoverability, EncryptionProfile, Error, FederationPolicy, Hash, HistoryAccess, JoinRule,
-    PolicyId, RealmId, Result, SchemaId, SecurityClass, StrandId, TrustDomainId, canonical,
+    BlobRef, CORE_REDUCER_PROFILE, ContentScheme, ControlProposalDecisionPolicy, DidCoreId,
+    Discoverability, DurabilityPolicy, EncryptionProfile, Error, FederationPolicy, Hash,
+    HistoryAccess, JoinRule, PolicyId, RealmId, Result, SchemaId, SecurityClass, StrandId,
+    TrustDomainId, canonical,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -102,7 +103,7 @@ pub struct Realm {
     /// structurally permits either history-access state and a
     /// `durability_policy` with `mode != none`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content_scheme: Option<String>,
+    pub content_scheme: Option<ContentScheme>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_encryption_floor: Option<EncryptionFloor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -111,12 +112,14 @@ pub struct Realm {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_participation: Option<AgentParticipationPolicy>,
     /// Realm Recovery Key (RRK) durability policy (realm-and-space.md §2.3.1,
-    /// encryption-and-audit.md §2.10.8). Declares who can recover Realm history
-    /// after all member devices are lost or all members leave. Confidentiality-
-    /// axis durability, orthogonal to `notary` / `notary.recovery_*` (finality
-    /// axis). Only effective (`mode != none`) when
-    /// `content_scheme == "mls_exporter_aead_v1"`. Reducer-derived (written via
-    /// `ak.realm.policy_bundle`); a value at create time is a hint only.
+    /// encryption-and-audit.md §2.10.8). Declares whether an organization
+    /// recovery key can recover Realm history after all member devices are lost
+    /// or all members leave. Confidentiality-axis durability, orthogonal to
+    /// `notary` / `notary.recovery_*` (finality axis). Required exactly on
+    /// `content_scheme = mls_exporter_aead_v1`, and frozen together with it by
+    /// the accepted MLS group Genesis — never mutable policy state. Custody
+    /// topology (replica count, HSM, Shamir, k-of-n threshold, recipient list)
+    /// is deliberately absent: section 2.3.1 keeps it off the Realm wire.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub durability_policy: Option<DurabilityPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -187,51 +190,6 @@ pub struct Realm {
         with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub updated_at: Option<DateTime<Utc>>,
-}
-
-/// Realm Recovery Key (RRK) durability policy (realm-and-space.md §2.3.1,
-/// encryption-and-audit.md §2.10.8). Recovery recipients are offline HPKE
-/// public keys, NOT MLS members; granularity is expressed by organization
-/// composition, not a per-Realm knob.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DurabilityPolicy {
-    pub mode: DurabilityMode,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub recovery_recipients: Vec<RealmRecoveryRecipient>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub threshold: Option<DurabilityThreshold>,
-}
-
-/// Durability mode selector. `None` = no organizational recovery path (total
-/// member loss = permanent loss); `OrgRecoveryKey` = single org RRK;
-/// `Threshold` = k-of-n recovery recipients.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DurabilityMode {
-    None,
-    OrgRecoveryKey,
-    Threshold,
-}
-
-/// k-of-n threshold parameters for `DurabilityMode::Threshold`. `k <= n` and
-/// `n` MUST equal `recovery_recipients.len()`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct DurabilityThreshold {
-    pub k: u32,
-    pub n: u32,
-}
-
-/// One Realm Recovery Key holder. `verification_method` MUST point to a
-/// verification method designated by an active `ArkretRealmHistoryRecoveryKey`
-/// service entry published by `principal_id` (identity-did.md §8.3),
-/// domain-separated from the principal's DID control-key recovery material.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RealmRecoveryRecipient {
-    pub recipient_id: String,
-    pub principal_id: DidCoreId,
-    pub verification_method: DidUrl,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub controller_organization: Option<DidCoreId>,
 }
 
 /// Per-cell-family lattice declaration carried on `Realm` (Move/Seal/Lattice

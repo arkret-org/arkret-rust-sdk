@@ -228,6 +228,12 @@ pub const RELAXED_WINDOW_DEFAULT_MS: u64 = 30_000;
 /// `ak.component.realm.*policy*` leaf filter; echoing them here would create a
 /// second, drifting truth.
 ///
+/// `content_scheme` and `durability_policy` are **not** members: both are
+/// frozen by the accepted MLS group Genesis and are read from that exact group
+/// state (`models/realm-and-space.md` sections 2.3 and 2.3.1). The closed
+/// schema omits them, so a bundle that restated either value would create a
+/// second, mutable truth for a create-locked field.
+///
 /// `policy_revision` is strictly monotonic and is what gives this cell family a
 /// generation dimension inside its value — `cas_register` supersession binds by
 /// value, so a family that can otherwise repeat a value needs one
@@ -239,15 +245,11 @@ pub const RELAXED_WINDOW_DEFAULT_MS: u64 = 30_000;
 pub struct RealmPolicyBundlePayload {
     pub policy_revision: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content_scheme: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_encryption_floor: Option<EncryptionFloor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata_encryption_floor: Option<EncryptionFloor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub durability_policy: Option<DurabilityPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_send_pause: Option<MlsSendPause>,
     /// Declared `ak.profile.e2ee_relaxed.v1` removed-member decryption window.
@@ -310,11 +312,9 @@ impl RealmPolicyBundlePayload {
     pub fn new(policy_revision: u64) -> Self {
         Self {
             policy_revision,
-            content_scheme: None,
             content_encryption_floor: None,
             metadata_encryption_floor: None,
             federation_policy: None,
-            durability_policy: None,
             mls_send_pause: None,
             relaxed_window_max_ms: None,
             media_service_decrypts: None,

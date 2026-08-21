@@ -16,12 +16,12 @@ use arkret_models_collaboration::governance_dependencies::{
 };
 use arkret_models_collaboration::objects::realm::{Realm, RealmAvailabilityPolicy};
 pub use arkret_models_crypto::mls_governance_proof::*;
-use arkret_models_crypto::mls_payloads::{MlsContentScheme, MlsDurabilityPolicy};
 use arkret_wire::cell::CellId;
 use arkret_wire::event_envelope::{Event, EventSubmitContext, ScopeRef};
 use arkret_wire::{
-    Base64UrlString, CellRef, DidCoreId, Error, EventId, Hash, NotarySig, NotarySignerDescriptor,
-    NotaryValue, ProjectedCellWrite, RealmId, Seal, SealBasis, SealId, SealSignature,
+    Base64UrlString, CellRef, ContentScheme, DidCoreId, DurabilityPolicy, Error, EventId, Hash,
+    NotarySig, NotarySignerDescriptor, NotaryValue, ProjectedCellWrite, RealmId, Seal, SealBasis,
+    SealId, SealSignature,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
@@ -46,18 +46,18 @@ pub fn mls_security_frontier_registry_digest() -> Hash {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsGroupGenesisBinding {
-    pub content_scheme: MlsContentScheme,
+    pub content_scheme: ContentScheme,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub durability_policy: Option<MlsDurabilityPolicy>,
+    pub durability_policy: Option<DurabilityPolicy>,
 }
 
 impl MlsGroupGenesisBinding {
     pub fn validate(&self) -> arkret_wire::Result<()> {
         match (self.content_scheme, self.durability_policy) {
-            (MlsContentScheme::MlsRfc9420, None)
+            (ContentScheme::MlsRfc9420, None)
             | (
-                MlsContentScheme::MlsExporterAeadV1,
-                Some(MlsDurabilityPolicy::None | MlsDurabilityPolicy::OrganizationRecoveryKey),
+                ContentScheme::MlsExporterAeadV1,
+                Some(DurabilityPolicy::None | DurabilityPolicy::OrganizationRecoveryKey),
             ) => Ok(()),
             _ => Err(Error::Protocol(
                 "MLS group genesis binding content scheme and durability policy mismatch"
@@ -2495,7 +2495,7 @@ fn project_frontier_value(
         )?)),
         arkret_wire::CellFamilyId::REALM_ORGANIZATION_RECOVERY_KEY_V1 => {
             if group_genesis_binding.durability_policy
-                != Some(MlsDurabilityPolicy::OrganizationRecoveryKey)
+                != Some(DurabilityPolicy::OrganizationRecoveryKey)
             {
                 return Ok(None);
             }

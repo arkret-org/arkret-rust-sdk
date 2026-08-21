@@ -12,11 +12,11 @@ use arkret_models_collaboration::history_key::{
     HistorySecretChunkSealContext, HistorySecretChunkSealPurpose,
     MinimalMetadataMlsLeafSignerEvidence, SealedHistoryChunk,
 };
-use arkret_models_crypto::mls_payloads::{MlsCommitPayload, MlsContentScheme};
+use arkret_models_crypto::mls_payloads::MlsCommitPayload;
 use arkret_models_identity::AuthenticatedSignerResolutionEvidence;
 use arkret_signatures::proof::PublicKeyMaterial;
 use arkret_state::mls_governance_proof::MlsGovernanceVerificationCheckpoint;
-use arkret_wire::{DidCoreId, Error, EventId, Hash, ScopeRef};
+use arkret_wire::{ContentScheme, DidCoreId, Error, EventId, Hash, ScopeRef};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -982,7 +982,7 @@ pub fn winning_history_epoch_suites_from_verified_checkpoint(
                         payload.governance_binding().effective_scope(),
                     )
                     || payload.governance_binding().content_scheme()
-                        != MlsContentScheme::MlsExporterAeadV1
+                        != ContentScheme::MlsExporterAeadV1
                 {
                     return invalid("winning MLS Commit crosses group, scope, or content scheme");
                 }
@@ -1011,7 +1011,7 @@ pub fn winning_history_epoch_suites_from_verified_checkpoint(
             _ => return invalid("winning MLS transition_ref names a non-transition Event"),
         }
     };
-    if genesis.governance_binding.content_scheme() != MlsContentScheme::MlsExporterAeadV1 {
+    if genesis.governance_binding.content_scheme() != ContentScheme::MlsExporterAeadV1 {
         return invalid("history secret ranges require mls_exporter_aead_v1");
     }
     let cipher_suite = genesis.cipher_suite.as_str().to_owned();

@@ -147,7 +147,7 @@ mod tests {
             previous_epoch,
             next_epoch,
             security_frontier_digest,
-            arkret_models_crypto::MlsContentScheme::MlsRfc9420,
+            arkret_wire::ContentScheme::MlsRfc9420,
             None,
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             CORE_REDUCER_PROFILE,

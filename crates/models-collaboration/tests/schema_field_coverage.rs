@@ -182,11 +182,9 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
     let fully_populated: arkret_models_collaboration::events_payloads::RealmPolicyBundlePayload =
         serde_json::from_value(json!({
             "policy_revision": 4,
-            "content_scheme": "mls_exporter_aead_v1",
             "content_encryption_floor": "e2ee_required",
             "metadata_encryption_floor": "e2ee_required",
             "federation_policy": "restricted",
-            "durability_policy": { "mode": "none" },
             "mls_send_pause": "advisory",
             "relaxed_window_max_ms": 60000,
             "media_service_decrypts": true,

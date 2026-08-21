@@ -69,7 +69,7 @@ fn mls_commit_payload_matches_registered_event_schema() {
         0,
         1,
         hash('2'),
-        arkret_models_crypto::MlsContentScheme::MlsRfc9420,
+        arkret_wire::ContentScheme::MlsRfc9420,
         None,
         ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
         arkret_wire::CORE_REDUCER_PROFILE,
