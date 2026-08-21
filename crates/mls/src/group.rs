@@ -2230,7 +2230,7 @@ mod content_scheme_anchor_tests {
             )
             .unwrap();
             assert_eq!(
-                hex(base64url_decode(tag.as_bytes()).unwrap()),
+                hex(&base64url_decode(tag.as_bytes()).unwrap()),
                 expected.as_str().unwrap()
             );
         }

@@ -742,7 +742,13 @@ fn parse_digest_suite(value: &str) -> Result<arkret_canonical::DigestSuite, Seal
         .map_err(|error| SealReject::Structural(format!("invalid digest suite: {error}")))
 }
 
-fn live_digest_suite_from_state(
+/// Resolve the Realm's live digest suite from its effective control state.
+///
+/// The transition cell is authoritative once present.  Before the first
+/// transition, `ak.realm.create` carries the initial suite inside the
+/// create-locked genesis cell and deliberately does not emit a separate
+/// digest-suite-cell write.
+pub fn live_digest_suite_from_state(
     state: &BTreeMap<CellRef, CellState>,
 ) -> Result<arkret_canonical::DigestSuite, SealReject> {
     let cell = arkret_wire::null_subject_cell(arkret_wire::CellFamilyId::REALM_DIGEST_SUITE_V1);
@@ -754,9 +760,33 @@ fn live_digest_suite_from_state(
         Some(_) => Err(SealReject::Structural(
             "predecessor digest-suite cell has a non-string value".to_owned(),
         )),
-        None => Err(SealReject::Structural(
-            "predecessor view omits the live digest-suite cell".to_owned(),
-        )),
+        None => {
+            let genesis_cell =
+                arkret_wire::null_subject_cell(arkret_wire::CellFamilyId::REALM_GENESIS_V1);
+            match state
+                .iter()
+                .find(|(cell_ref, _)| cell_ref.as_str() == genesis_cell)
+            {
+                Some((_, CellState::Value(Value::Object(genesis)))) => genesis
+                    .get("digest_algorithm")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| {
+                        SealReject::Structural(
+                            "Realm genesis cell omits digest_algorithm".to_owned(),
+                        )
+                    })
+                    .and_then(parse_digest_suite),
+                Some((_, CellState::Bottom(_))) => Err(SealReject::Structural(
+                    "Realm genesis cell is Bottom".to_owned(),
+                )),
+                Some(_) => Err(SealReject::Structural(
+                    "Realm genesis cell has a non-object value".to_owned(),
+                )),
+                None => Err(SealReject::Structural(
+                    "effective Realm view omits both digest-suite and genesis cells".to_owned(),
+                )),
+            }
+        }
     }
 }
 
@@ -1510,6 +1540,43 @@ mod tests {
     };
 
     const SUITE: arkret_canonical::DigestSuite = arkret_canonical::DigestSuite::Sha256;
+
+    #[test]
+    fn live_digest_suite_uses_genesis_until_a_transition_cell_exists() {
+        let genesis_cell = CellRef::new(arkret_wire::null_subject_cell(
+            arkret_wire::CellFamilyId::REALM_GENESIS_V1,
+        ))
+        .unwrap();
+        let transition_cell = CellRef::new(arkret_wire::null_subject_cell(
+            arkret_wire::CellFamilyId::REALM_DIGEST_SUITE_V1,
+        ))
+        .unwrap();
+        let mut state = BTreeMap::from([(
+            genesis_cell,
+            CellState::Value(json!({"digest_algorithm": "sha256"})),
+        )]);
+
+        assert_eq!(live_digest_suite_from_state(&state).unwrap(), SUITE);
+
+        state.insert(
+            transition_cell,
+            CellState::Value(Value::String("blake3".to_owned())),
+        );
+        assert_eq!(
+            live_digest_suite_from_state(&state).unwrap(),
+            arkret_canonical::DigestSuite::Blake3
+        );
+    }
+
+    #[test]
+    fn live_digest_suite_fails_closed_without_transition_or_genesis_state() {
+        let error = live_digest_suite_from_state(&BTreeMap::new()).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("omits both digest-suite and genesis cells")
+        );
+    }
 
     fn compute_state_root(cells: &BTreeMap<CellRef, CellState>) -> Result<Hash, crate::Error> {
         super::compute_state_root(cells, SUITE)

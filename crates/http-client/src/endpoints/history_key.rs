@@ -5,18 +5,20 @@ use arkret_models_collaboration::history_key::{
     HistoryKeyRequestListQuery, HistoryKeyRequestReplica, HistoryKeyRequestReplicaOutcome,
     HistoryKeyResponseAckOutcome, HistoryKeyResponseAckRequest, HistoryKeyResponseListOutcome,
     HistoryKeyResponseListQuery, HistoryKeyResponseSendOutcome, HistoryKeyResponseSendRequest,
-    HistoryKeySourceRelay, HistoryMailboxId, OrganizationRecoveryArchiveListOutcome,
+    HistoryKeySourceRelay, OrganizationRecoveryArchiveListOutcome,
     OrganizationRecoveryArchiveListQuery, OrganizationRecoveryArchiveReplica,
     OrganizationRecoveryArchiveReplicaOutcome,
 };
 use reqwest::Method;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue};
 
-use crate::{Client, Error, Result, reject_path_segment};
+use crate::{Client, Error, Result};
 
 const PATH_SELF_HISTORY_KEY_REQUESTS: &str = "/_arkret/self/history-key-requests";
 const PATH_SELF_HISTORY_KEY_REQUESTS_READ: &str = "/_arkret/self/history-key-requests/read";
 const PATH_SELF_HISTORY_KEY_RESPONSES: &str = "/_arkret/self/history-key-responses";
+const PATH_SELF_HISTORY_KEY_RESPONSES_READ: &str = "/_arkret/self/history-key-responses/read";
+const PATH_SELF_HISTORY_KEY_RESPONSES_ACK: &str = "/_arkret/self/history-key-responses/ack";
 const PATH_SELF_ORGANIZATION_RECOVERY_ARCHIVES_READ: &str =
     "/_arkret/self/organization-recovery-archives/read";
 const PATH_PEER_HISTORY_KEY_REQUESTS_REPLICATE: &str =
@@ -25,18 +27,24 @@ const PATH_PEER_HISTORY_KEY_RESPONSES_RELAY: &str = "/_arkret/peer/history-key-r
 const PATH_PEER_ORGANIZATION_RECOVERY_ARCHIVES_REPLICATE: &str =
     "/_arkret/peer/organization-recovery-archives/replicate";
 
-fn mailbox_authorization(capability_b64u: &str) -> Result<HeaderValue> {
-    if capability_b64u.len() != 43
-        || !capability_b64u
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+fn history_response_authorization(capability_b64u: &str) -> Result<HeaderValue> {
+    let decoded = arkret_canonical::base64url::base64url_decode(capability_b64u)
+        .map_err(|error| Error::Protocol(error.to_string()))?;
+    if decoded.len() != 32
+        || arkret_canonical::base64url::base64url_encode(&decoded) != capability_b64u
     {
         return Err(Error::Protocol(
-            "history mailbox capability must encode exactly 32 bytes as base64url".to_owned(),
+            "history response capability must canonically encode exactly 32 bytes as base64url"
+                .to_owned(),
         ));
     }
-    HeaderValue::from_str(&format!("Arkret-Mailbox {capability_b64u}"))
-        .map_err(|error| Error::Protocol(format!("invalid mailbox capability header: {error}")))
+    HeaderValue::from_str(&format!("Arkret-History-Capability {capability_b64u}")).map_err(
+        |error| {
+            Error::Protocol(format!(
+                "invalid history response capability header: {error}"
+            ))
+        },
+    )
 }
 
 impl Client {
@@ -88,19 +96,16 @@ impl Client {
 
     pub async fn history_key_response_list(
         &self,
-        reply_mailbox_id: &HistoryMailboxId,
         capability_b64u: &str,
         query: &HistoryKeyResponseListQuery,
     ) -> Result<HistoryKeyResponseListOutcome> {
         query.validate()?;
-        reject_path_segment(reply_mailbox_id.as_str())?;
-        let path = format!(
-            "/_arkret/self/history-key-responses/{}/read",
-            reply_mailbox_id.as_str()
-        );
         let builder = self
-            .public_request(Method::POST, &path)?
-            .header(AUTHORIZATION, mailbox_authorization(capability_b64u)?);
+            .public_request(Method::POST, PATH_SELF_HISTORY_KEY_RESPONSES_READ)?
+            .header(
+                AUTHORIZATION,
+                history_response_authorization(capability_b64u)?,
+            );
         let builder = self.canonical_json_body(builder, query)?;
         let outcome: HistoryKeyResponseListOutcome = self.send_json(builder).await?;
         outcome.validate()?;
@@ -109,19 +114,16 @@ impl Client {
 
     pub async fn history_key_response_ack(
         &self,
-        reply_mailbox_id: &HistoryMailboxId,
         capability_b64u: &str,
         request: &HistoryKeyResponseAckRequest,
     ) -> Result<HistoryKeyResponseAckOutcome> {
         request.validate()?;
-        reject_path_segment(reply_mailbox_id.as_str())?;
-        let path = format!(
-            "/_arkret/self/history-key-responses/{}/ack",
-            reply_mailbox_id.as_str()
-        );
         let builder = self
-            .public_request(Method::POST, &path)?
-            .header(AUTHORIZATION, mailbox_authorization(capability_b64u)?)
+            .public_request(Method::POST, PATH_SELF_HISTORY_KEY_RESPONSES_ACK)?
+            .header(
+                AUTHORIZATION,
+                history_response_authorization(capability_b64u)?,
+            )
             .header(CONTENT_TYPE, "application/json");
         let builder = self.canonical_json_body(builder, request)?;
         let outcome: HistoryKeyResponseAckOutcome = self.send_json(builder).await?;

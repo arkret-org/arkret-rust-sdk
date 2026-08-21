@@ -1,6 +1,6 @@
 use arkret_models_collaboration::history_key::{
     EpochRange, HistoryEffectiveScope, HistoryKeyResponseContent, HistoryKeyResponseSendRequest,
-    HistoryMailboxId, HistoryResponseChunkDescriptor, HistoryResponseId, HistoryResponseManifest,
+    HistoryResponseChunkDescriptor, HistoryResponseId, HistoryResponseManifest,
     HistoryResponseManifestKind, HistorySourceAgentObservationInput,
 };
 use arkret_wire::{DidCoreId, DidUrl, Hash, RealmId, SignerEvidenceRef};
@@ -24,8 +24,6 @@ fn observation_input() -> HistorySourceAgentObservationInput {
         source_sender_domain: "history.example".to_owned(),
         request_digest: digest("1"),
         request_receipt_digest: digest("2"),
-        reply_mailbox_id: HistoryMailboxId::new("ak:history_mailbox:AAAAAAAAAAAAAAAAAAAAAA")
-            .unwrap(),
         expires_at: DateTime::parse_from_rfc3339("2026-08-28T00:00:00Z")
             .unwrap()
             .with_timezone(&Utc),
@@ -68,7 +66,6 @@ fn native_agent_observation_digest_precedes_evidence_and_complete_source_proof()
             source_signer_evidence_digest: evidence_digest.clone(),
             request_digest: observation.request_digest.clone(),
             request_receipt_digest: observation.request_receipt_digest.clone(),
-            reply_mailbox_id: observation.reply_mailbox_id.clone(),
             expires_at: observation.expires_at,
             content: observation.content.clone(),
             source_proof,

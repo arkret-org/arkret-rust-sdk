@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/account-data-key-registry.json; version=2026-08-20.1;
-//! sha256=cffb86be564ca10ff8f0b51963cabb48c05052d33986b145b7c6121192987e14
+//! Input: registry/account-data-key-registry.json; version=2026-08-21.1;
+//! sha256=07b1fff8931e4405b3dfae6c3b852acc836f270e982a6772eb00fd966d8eadc1
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};
@@ -79,9 +79,11 @@ impl AccountDataKey {
     /// entries purged first, then oldest evicted; accepted writes fan out as ak.account_data.update
     /// actor-private device updates. Key pattern: `ak.account.invite_delivery`.
     pub const ACCOUNT_INVITE_DELIVERY: &'static str = "ak.account.invite_delivery";
-    /// Actor-private quarantine inbox for invites held by consent gate default profile; MUST NOT
-    /// expose contactability signals to the inviter. Key pattern:
-    /// `ak.account.invite_quarantine`.
+    /// Actor-private plaintext quarantine inbox for invites held by the consent gate default
+    /// profile. The recipient Principal Server is the sole CAS writer; holder self PUT/DELETE and
+    /// synthetic ak.account_data.set are forbidden. Accepted writes fan out as service-sender
+    /// ak.account_data.update hints and MUST NOT expose contactability signals to the inviter.
+    /// Key pattern: `ak.account.invite_quarantine`.
     pub const ACCOUNT_INVITE_QUARANTINE: &'static str = "ak.account.invite_quarantine";
     /// Controller-owned encrypted draft created when Principal Server materializes an agent's
     /// ak.agent.draft.propose / ak.agent.action_request after capability / policy / accountability

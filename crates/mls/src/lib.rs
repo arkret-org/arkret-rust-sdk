@@ -997,10 +997,18 @@ mod tests {
         let mut alice_group = alice
             .create_group(b"ak:realm:ASZ1iAvlGxgLC_-P6WHoR9vfijpaxbI5hoSwBx8zWTcT")
             .unwrap();
+        let header = content_header(
+            &alice_group,
+            "ak:realm:ASZ1iAvlGxgLC_-P6WHoR9vfijpaxbI5hoSwBx8zWTcT",
+            "ak:device:01904100-0000-7000-8000-000000000006",
+            "application/json",
+            EncryptedPayloadScheme::MlsRfc9420,
+            None,
+        );
         let encrypted = MessageCrypto::encrypt(
             &mut alice_group,
             "ak:message:02",
-            "application/json",
+            header,
             br#"{"body":"keep ciphertext"}"#,
         )
         .unwrap();
@@ -1041,10 +1049,18 @@ mod tests {
             .create_group(b"ak:realm:AbiYluN0ZZon1OoU2ZkF1WIMsKC0wZ_5CPq0jHVfdeye")
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
+        let header = content_header(
+            &alice_group,
+            "ak:realm:AbiYluN0ZZon1OoU2ZkF1WIMsKC0wZ_5CPq0jHVfdeye",
+            "ak:device:01904100-0000-7000-8000-000000000006",
+            "application/vnd.arkret.message+json",
+            EncryptedPayloadScheme::MlsRfc9420,
+            None,
+        );
         let encrypted = MessageCrypto::encrypt(
             &mut alice_group,
             "ak:event:Aac-gXWJTa6raGBgFHR0jFlCNRz6AKECGYBRqW6MMO1n",
-            "application/vnd.arkret.message+json",
+            header,
             br#"{"body":"arrives before local key"}"#,
         )
         .unwrap();

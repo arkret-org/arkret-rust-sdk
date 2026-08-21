@@ -20,9 +20,9 @@
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_models_collaboration::history_key::{
-    HistoryChunkPlaintext, HistoryMailboxCapabilitySealContext, HistorySecretChunkSealContext,
-    MailboxCapabilityPlaintext, SealedHistoryChunk, SealedHistoryChunkKind,
-    SealedMailboxCapability, mailbox_capability_commitment,
+    HistoryChunkPlaintext, HistoryResponseCapabilityPlaintext,
+    HistoryResponseCapabilitySealContext, HistorySecretChunkSealContext, SealedHistoryChunk,
+    SealedHistoryChunkKind, SealedHistoryResponseCapability, response_capability_commitment,
 };
 pub use arkret_models_crypto::{SecretShareRequestContent, SecretShareSendContent};
 #[cfg(test)]
@@ -126,8 +126,8 @@ type HpkeKdf = HkdfSha256;
 /// DHKEM(X25519) encapsulated-key length (RFC 9180 `Npk`); fixed at 32 bytes.
 const HPKE_ENC_LEN: usize = 32;
 
-pub const HISTORY_MAILBOX_CAPABILITY_HPKE_PROFILE: &str =
-    "ak.hpke_surface.history_mailbox_capability.v1";
+pub const HISTORY_RESPONSE_CAPABILITY_HPKE_PROFILE: &str =
+    "ak.hpke_surface.history_response_capability.v1";
 pub const HISTORY_SECRET_CHUNK_HPKE_PROFILE: &str = "ak.hpke_surface.history_secret_chunk.v1";
 
 /// Minimal CSPRNG adapter over `getrandom` for the `hpke` crate's rand_core 0.9
@@ -275,23 +275,40 @@ fn combine_hpke_seal(enc: &str, ciphertext: &str) -> Result<String> {
     Ok(base64url_encode(blob))
 }
 
-/// Seal a 32-byte history reply-mailbox capability with the registered
+/// Generate the service-owned 32-byte capability for one history response stream.
+///
+/// Collision detection belongs to the release-service commitment index and must
+/// happen before any durable write; this helper only guarantees the canonical
+/// CSPRNG preimage and closed plaintext shape.
+pub fn generate_history_response_capability() -> Result<HistoryResponseCapabilityPlaintext> {
+    let mut capability = [0u8; 32];
+    getrandom::fill(&mut capability)
+        .map_err(|error| Error::Protocol(format!("OS CSPRNG unavailable: {error}")))?;
+    let plaintext = HistoryResponseCapabilityPlaintext {
+        kind:
+            arkret_models_collaboration::history_key::HistoryResponseCapabilityPlaintextKind::Value,
+        response_capability_b64u: base64url_encode(capability),
+    };
+    plaintext.validate()?;
+    Ok(plaintext)
+}
+
+/// Seal a 32-byte history response stream capability with the registered
 /// RFC 9180 base-mode profile. The exact closed context JCS bytes are passed
 /// byte-for-byte as both `info` and single-shot AEAD `aad`.
-pub fn seal_history_mailbox_capability(
+pub fn seal_history_response_capability(
     recipient_public_key_b64u: &str,
-    context: &HistoryMailboxCapabilitySealContext,
-    plaintext: &MailboxCapabilityPlaintext,
-) -> Result<SealedMailboxCapability> {
+    context: &HistoryResponseCapabilitySealContext,
+    plaintext: &HistoryResponseCapabilityPlaintext,
+) -> Result<SealedHistoryResponseCapability> {
     context.validate()?;
     plaintext.validate()?;
-    if mailbox_capability_commitment(
-        &context.reply_mailbox_id,
-        &plaintext.mailbox_capability_b64u,
-    )? != context.mailbox_capability_commitment
+    if response_capability_commitment(&plaintext.response_capability_b64u)?
+        != context.response_capability_commitment
     {
         return Err(Error::Protocol(
-            "mailbox capability plaintext does not match the context commitment".to_owned(),
+            "history response capability plaintext does not match the context commitment"
+                .to_owned(),
         ));
     }
     let recipient = decode_x25519_key("recipient_public_key_b64u", recipient_public_key_b64u)?;
@@ -299,17 +316,17 @@ pub fn seal_history_mailbox_capability(
     let plaintext_bytes = arkret_canonical::canonical_json_bytes(plaintext)?;
     let sealed = seal_base_mode_to_x25519_pubkey(&recipient, &plaintext_bytes, &binding, &binding)?;
     let (enc, ciphertext) = split_hpke_seal(&sealed)?;
-    let sealed = SealedMailboxCapability { enc, ciphertext };
+    let sealed = SealedHistoryResponseCapability { enc, ciphertext };
     sealed.validate()?;
     Ok(sealed)
 }
 
-/// Open and fully validate a registered history reply-mailbox capability.
-pub fn open_history_mailbox_capability(
+/// Open and fully validate a registered history response stream capability.
+pub fn open_history_response_capability(
     recipient_private_key_b64u: &str,
-    context: &HistoryMailboxCapabilitySealContext,
-    sealed: &SealedMailboxCapability,
-) -> Result<MailboxCapabilityPlaintext> {
+    context: &HistoryResponseCapabilitySealContext,
+    sealed: &SealedHistoryResponseCapability,
+) -> Result<HistoryResponseCapabilityPlaintext> {
     context.validate()?;
     sealed.validate()?;
     let private = decode_x25519_key("recipient_private_key_b64u", recipient_private_key_b64u)?;
@@ -317,20 +334,18 @@ pub fn open_history_mailbox_capability(
     let combined = combine_hpke_seal(&sealed.enc, &sealed.ciphertext)?;
     let plaintext_bytes =
         open_base_mode_with_x25519_privkey(&private, &combined, &binding, &binding)?;
-    let plaintext: MailboxCapabilityPlaintext = serde_json::from_slice(&plaintext_bytes)?;
+    let plaintext: HistoryResponseCapabilityPlaintext = serde_json::from_slice(&plaintext_bytes)?;
     if arkret_canonical::canonical_json_bytes(&plaintext)? != plaintext_bytes {
         return Err(Error::Protocol(
-            "mailbox capability plaintext is not canonical JSON".to_owned(),
+            "history response capability plaintext is not canonical JSON".to_owned(),
         ));
     }
     plaintext.validate()?;
-    if mailbox_capability_commitment(
-        &context.reply_mailbox_id,
-        &plaintext.mailbox_capability_b64u,
-    )? != context.mailbox_capability_commitment
+    if response_capability_commitment(&plaintext.response_capability_b64u)?
+        != context.response_capability_commitment
     {
         return Err(Error::Protocol(
-            "opened mailbox capability does not match the context commitment".to_owned(),
+            "opened history response capability does not match the context commitment".to_owned(),
         ));
     }
     Ok(plaintext)

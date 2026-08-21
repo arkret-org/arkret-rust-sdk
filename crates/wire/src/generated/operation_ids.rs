@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-21.1;
-//! sha256=8e94da3cb7161250e9477e3669bceddbfee57bd2fef4a3988666a1ecaa07da6d Entries: registered=257
+//! Input: registry/operation-registry.json; version=2026-08-21.2;
+//! sha256=921d3564bcce44f6e82a9d7d270950d27e3cb3b611373d9b2578e347fff20392 Entries: registered=257
 
 use serde::{Deserialize, Serialize};
 
@@ -6388,7 +6388,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfHistoryKeyResponsesCommandAck,
         http_method: "POST",
-        http_path: "/_arkret/self/history-key-responses/{reply_mailbox_id}/ack",
+        http_path: "/_arkret/self/history-key-responses/ack",
         grpc: Some("SelfHistoryKey/ResponseAck"),
         mq: Some("self.history_key_responses.command.ack"),
         body_class: Some("non_streaming_json"),
@@ -6438,7 +6438,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfHistoryKeyResponsesReadList,
         http_method: "POST",
-        http_path: "/_arkret/self/history-key-responses/{reply_mailbox_id}/read",
+        http_path: "/_arkret/self/history-key-responses/read",
         grpc: Some("SelfHistoryKey/ResponseList"),
         mq: Some("self.history_key_responses.read.list"),
         body_class: Some("non_streaming_json"),

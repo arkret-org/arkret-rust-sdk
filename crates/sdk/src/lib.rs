@@ -47,7 +47,7 @@
 //! let did: arkret::DidFullId = "did:webvh:z6mkfixture:alice.example";
 //! ```
 
-mod history_mailbox;
+mod history_response;
 mod mls_governance;
 mod sdk_error;
 mod sidecar_recovery;
@@ -394,11 +394,11 @@ pub use arkret_wire::{
     XExtensionMap, contains_query_auth_material, error_codes as error, event_spec,
     is_query_auth_parameter,
 };
-pub use history_mailbox::{
+pub use history_response::{
     HistorySourceProofExternalVerificationRequest, VerifiedHistoryChunk, VerifiedHistoryEpochSuite,
-    VerifiedHistoryMailboxRecord, VerifiedHistoryManifest,
-    embedded_history_release_predicate_registry_digest, verify_history_mailbox_lost_record,
-    verify_history_mailbox_record, verify_history_source_proof,
+    VerifiedHistoryManifest, VerifiedHistoryResponseRecord,
+    embedded_history_release_predicate_registry_digest, verify_history_response_lost_record,
+    verify_history_response_record, verify_history_source_proof,
     verify_minimal_metadata_history_source_local_state,
     verify_minimal_metadata_identity_link_signature,
     winning_history_epoch_suites_from_verified_checkpoint,

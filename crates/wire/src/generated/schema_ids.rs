@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-21.2;
-//! sha256=0f527b2970fee0592d4d6ad8a145e99da47279766ba9d80f9d7bf2920290e5db Entries: schema_ids=192,
-//! active=192
+//! Input: registry/schema-registry.json; version=2026-08-21.4;
+//! sha256=85d552c51ca335c53128720dbd7ed506315a1f529d1218e2fd85a82a02cb6802 Entries: schema_ids=193,
+//! active=193
 
 use serde::{Deserialize, Serialize};
 
@@ -106,6 +106,7 @@ pub enum SchemaId {
     InviteV1,
     InviteDeliveryV1,
     InviteDeliveryRequestV1,
+    InviteQuarantineV1,
     InviteReceivePolicyV1,
     JoinPolicyOperationsV1,
     KeyBackupV1,
@@ -302,6 +303,7 @@ impl SchemaId {
         Self::InviteV1,
         Self::InviteDeliveryV1,
         Self::InviteDeliveryRequestV1,
+        Self::InviteQuarantineV1,
         Self::InviteReceivePolicyV1,
         Self::JoinPolicyOperationsV1,
         Self::KeyBackupV1,
@@ -498,6 +500,7 @@ impl SchemaId {
         Self::InviteV1,
         Self::InviteDeliveryV1,
         Self::InviteDeliveryRequestV1,
+        Self::InviteQuarantineV1,
         Self::InviteReceivePolicyV1,
         Self::JoinPolicyOperationsV1,
         Self::KeyBackupV1,
@@ -853,8 +856,8 @@ impl SchemaId {
     /// common detached-JWS leaf. First consumer: active-series key backup tail deletion
     /// (key-management.md §7.8).
     pub const HIGH_RISK_AUTHORITY_PROOF_V1: &'static str = "ak.schema.high_risk_authority_proof.v1";
-    /// Closed private history-key request, mailbox, source relay, response, organization-recovery
-    /// archive, and HPKE plaintext DTO family
+    /// Closed private history-key request, response stream, source relay, response record,
+    /// organization-recovery archive, and HPKE plaintext DTO family
     pub const HISTORY_KEY_V1: &'static str = "ak.schema.history_key.v1";
     /// Canonical default application/json HTTP error envelope from sync/api-conventions.md section
     /// 5.
@@ -878,6 +881,10 @@ impl SchemaId {
     /// Private service-to-service invite delivery request carrying invite_address and
     /// introduction_evidence.
     pub const INVITE_DELIVERY_REQUEST_V1: &'static str = "ak.schema.invite_delivery_request.v1";
+    /// Actor-private plaintext account-data cell value of ak.account.invite_quarantine, written
+    /// only by the recipient Principal Server CAS materializer. See zh/identity/consent-model.md
+    /// and zh/sync/client-sync.md.
+    pub const INVITE_QUARANTINE_V1: &'static str = "ak.schema.invite_quarantine.v1";
     /// Subject-private invite receive policy controlling which introduction evidence kinds may
     /// notify the holder.
     pub const INVITE_RECEIVE_POLICY_V1: &'static str = "ak.schema.invite_receive_policy.v1";
@@ -1233,6 +1240,7 @@ impl SchemaId {
             Self::InviteV1 => Self::INVITE_V1,
             Self::InviteDeliveryV1 => Self::INVITE_DELIVERY_V1,
             Self::InviteDeliveryRequestV1 => Self::INVITE_DELIVERY_REQUEST_V1,
+            Self::InviteQuarantineV1 => Self::INVITE_QUARANTINE_V1,
             Self::InviteReceivePolicyV1 => Self::INVITE_RECEIVE_POLICY_V1,
             Self::JoinPolicyOperationsV1 => Self::JOIN_POLICY_OPERATIONS_V1,
             Self::KeyBackupV1 => Self::KEY_BACKUP_V1,
@@ -1458,6 +1466,7 @@ impl SchemaId {
             Self::InviteV1 => "schemas/invite.schema.json",
             Self::InviteDeliveryV1 => "schemas/invite-delivery.schema.json",
             Self::InviteDeliveryRequestV1 => "schemas/invite-delivery-request.schema.json",
+            Self::InviteQuarantineV1 => "schemas/invite-quarantine.schema.json",
             Self::InviteReceivePolicyV1 => "schemas/invite-receive-policy.schema.json",
             Self::JoinPolicyOperationsV1 => "schemas/join-policy-operations.schema.json",
             Self::KeyBackupV1 => "schemas/key-backup.schema.json",
@@ -1687,6 +1696,7 @@ impl SchemaId {
             Self::INVITE_V1 => Some(Self::InviteV1),
             Self::INVITE_DELIVERY_V1 => Some(Self::InviteDeliveryV1),
             Self::INVITE_DELIVERY_REQUEST_V1 => Some(Self::InviteDeliveryRequestV1),
+            Self::INVITE_QUARANTINE_V1 => Some(Self::InviteQuarantineV1),
             Self::INVITE_RECEIVE_POLICY_V1 => Some(Self::InviteReceivePolicyV1),
             Self::JOIN_POLICY_OPERATIONS_V1 => Some(Self::JoinPolicyOperationsV1),
             Self::KEY_BACKUP_V1 => Some(Self::KeyBackupV1),

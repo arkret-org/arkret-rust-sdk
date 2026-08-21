@@ -880,22 +880,22 @@ pub fn history_source_signer_dependency_closure(
     Ok(selected)
 }
 
-/// Exact signer dependencies retained for one admitted mailbox record.
+/// Exact signer dependencies retained for one admitted response record.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct HistoryMailboxSignerDependencyClosure {
+pub struct HistoryResponseSignerDependencyClosure {
     pub source_signer_dependencies: Vec<GovernanceDependency>,
     pub release_service_signer_dependencies: Vec<GovernanceDependency>,
 }
 
 /// Partition a page-level signer dependency superset into the exact source
-/// closure and the release-service root required by one mailbox record.
-pub fn history_mailbox_record_signer_dependency_closure(
+/// closure and the release-service root required by one response record.
+pub fn history_response_record_signer_dependency_closure(
     record: &HistoryKeyResponseRecord,
     dependencies: &[GovernanceDependency],
-) -> Result<HistoryMailboxSignerDependencyClosure> {
+) -> Result<HistoryResponseSignerDependencyClosure> {
     record.validate()?;
     validate_page_signer_digest_kinds(dependencies)?;
-    Ok(HistoryMailboxSignerDependencyClosure {
+    Ok(HistoryResponseSignerDependencyClosure {
         source_signer_dependencies: history_source_signer_dependency_closure(
             &record.source_record,
             &signer_dependencies_only(dependencies),
@@ -911,7 +911,7 @@ pub fn history_mailbox_record_signer_dependency_closure(
 
 /// Select the exact release-service signer root required by one signed lost
 /// descriptor from a page-level dependency superset.
-pub fn history_mailbox_lost_signer_dependency_closure(
+pub fn history_response_lost_signer_dependency_closure(
     lost_record: &HistoryKeyResponseLostRecord,
     dependencies: &[GovernanceDependency],
 ) -> Result<Vec<GovernanceDependency>> {

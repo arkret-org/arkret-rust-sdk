@@ -1756,6 +1756,19 @@ mod capability_grant_builder_tests {
     }
 
     #[test]
+    fn archived_capability_registry_predecessor_resolves_by_complete_jcs_digest() {
+        let basis =
+            Hash::new("sha256:9d8a6444e11860907a3e451aff19bf0b4da87bfd7481fa630bd0b00cd7ae2db9")
+                .unwrap();
+        let snapshot = capability_action_registry_snapshot(&basis).unwrap();
+
+        assert_eq!(snapshot["version"], "2026-08-21.5");
+        assert_eq!(capability_action_registry_digest(&snapshot).unwrap(), basis);
+        assert!(capability_action_descriptor_in(&snapshot, "ak.realm.admin").is_ok());
+        assert!(capability_action_descriptor_in(&snapshot, "ak.consent.grant").is_err());
+    }
+
+    #[test]
     fn capability_grant_builder_encodes_authority_control_constraint() {
         let event = authored(
             CapabilityGrantBuilder::new(scope(), alice(), base_grant())

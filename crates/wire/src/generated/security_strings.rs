@@ -1,15 +1,15 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-21.2;
-//! sha256=564fb6fc751e99ea0dc824a18f2bedc41e17433ca9c6c758d9ab68dca6e91f17 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-21.3;
+//! sha256=3231abd46c5aa3096e436dc868b5209f9314f2df5998ff0ae118086335648c5a Input: registry/
 //! exporter-label-registry.json; version=2026-08-21.1;
-//! sha256=ce7f4a1c53b50f33ee71ba4a70e638819abfba103a3fa26560661fe516dc4d37 Input: registry/
+//! sha256=6cb34e722ce41df3c91204d48f6cdf66b68640e9d86a379a9267cefce484bb02 Input: registry/
 //! digest-suite-registry.json; version=2026-08-18;
 //! sha256=7b9f5368e30cebd43c509db7815b9a01681f8cf11147600f6be16bddcc74657f Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
 //! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
-//! hpke-suite-registry.json; version=2026-08-21.1;
-//! sha256=302712b7ef2d1dc1aa7569beed658534dcb03abc7bde83ed80cdf30894298412 Input: registry/
+//! hpke-suite-registry.json; version=2026-08-21.2;
+//! sha256=1f8f4c9d3e8ab00fe6178c16171ebe5f23a01ff53cd1c39589fabc3c77f42fcc Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-08-18;
 //! sha256=8a270bf4fb05fa17f1594d61252f573fff6eca36e2da7afa910fc44c7d334dad Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
@@ -1511,9 +1511,8 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "payload_digest",
             "request_digest",
-            "reply_mailbox_id",
-            "mailbox_capability_commitment",
-            "sealed_capability_digest",
+            "response_capability_commitment",
+            "sealed_response_capability_digest",
             "effective_scope",
             "requester_sender_domain",
             "requester_authorization_incarnation",
@@ -1601,7 +1600,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "source_signer_evidence_digest",
             "request_digest",
             "request_receipt_digest",
-            "reply_mailbox_id",
             "expires_at",
             "content",
             "verification_method",

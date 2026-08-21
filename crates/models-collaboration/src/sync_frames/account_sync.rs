@@ -188,6 +188,11 @@ pub struct NotificationContainer {
 /// the accepted device projection: without `sender_agent_verification_method`
 /// and `sender_agent_key_authorize_event_id` a receiver would hold an Agent
 /// principal id and no way to say which key currently speaks for it.
+///
+/// The Service branch is narrower: only the recipient Principal Server's
+/// internal actor-private materializer may produce it. Envelope validation
+/// additionally requires an actor-private update kind and equal sender /
+/// recipient principal ids.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(untagged)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -200,9 +205,12 @@ pub enum DeviceMessageSender {
         sender_agent_verification_method: DidUrl,
         sender_agent_key_authorize_event_id: EventId,
     },
+    Service {
+        sender_service_id: DidCoreId,
+    },
 }
 
-/// The four wire slots the endpoint XOR is spelled with.
+/// The five wire slots the endpoint XOR is spelled with.
 ///
 /// Deliberately not `deny_unknown_fields`: this shape is flattened into the
 /// envelope and into the queued body, so the surrounding fields reach it as
@@ -217,6 +225,8 @@ struct DeviceMessageSenderWire {
     sender_agent_verification_method: Option<DidUrl>,
     #[serde(default)]
     sender_agent_key_authorize_event_id: Option<EventId>,
+    #[serde(default)]
+    sender_service_id: Option<DidCoreId>,
 }
 
 impl<'de> Deserialize<'de> for DeviceMessageSender {
@@ -234,13 +244,14 @@ impl<'de> Deserialize<'de> for DeviceMessageSender {
             wire.sender_agent_id,
             wire.sender_agent_verification_method,
             wire.sender_agent_key_authorize_event_id,
+            wire.sender_service_id,
         )
         .map_err(serde::de::Error::custom)
     }
 }
 
 impl DeviceMessageSender {
-    /// Select the endpoint branch from the four wire slots, or reject.
+    /// Select the endpoint branch from the five wire slots, or reject.
     ///
     /// Exactly one complete branch is legal. A half-filled Agent branch, or a
     /// device id beside an Agent id, would let a producer carry a second
@@ -251,26 +262,34 @@ impl DeviceMessageSender {
         sender_agent_id: Option<DidCoreId>,
         sender_agent_verification_method: Option<DidUrl>,
         sender_agent_key_authorize_event_id: Option<EventId>,
+        sender_service_id: Option<DidCoreId>,
     ) -> std::result::Result<Self, &'static str> {
         match (
             sender_device_id,
             sender_agent_id,
             sender_agent_verification_method,
             sender_agent_key_authorize_event_id,
+            sender_service_id,
         ) {
-            (Some(sender_device_id), None, None, None) => Ok(Self::Device { sender_device_id }),
+            (Some(sender_device_id), None, None, None, None) => {
+                Ok(Self::Device { sender_device_id })
+            }
             (
                 None,
                 Some(sender_agent_id),
                 Some(sender_agent_verification_method),
                 Some(sender_agent_key_authorize_event_id),
+                None,
             ) => Ok(Self::NativeAgent {
                 sender_agent_id,
                 sender_agent_verification_method,
                 sender_agent_key_authorize_event_id,
             }),
+            (None, None, None, None, Some(sender_service_id)) => {
+                Ok(Self::Service { sender_service_id })
+            }
             _ => Err(
-                "device message sender must contain exactly one complete device or Native Agent branch",
+                "device message sender must contain exactly one complete device, Native Agent, or Service branch",
             ),
         }
     }
@@ -279,14 +298,15 @@ impl DeviceMessageSender {
     ///
     /// `device-message.schema.json` keys deduplication on
     /// `(sender_principal_id, <endpoint>, device_message_id)`; the endpoint is the
-    /// device for a human sender and the Agent principal for a Native Agent,
-    /// which has no device dimension to key on.
+    /// device for a human sender, the Agent principal for a Native Agent, and
+    /// the Principal Server service id for a Service sender.
     pub fn endpoint_id(&self) -> &str {
         match self {
             Self::Device { sender_device_id } => sender_device_id.as_str(),
             Self::NativeAgent {
                 sender_agent_id, ..
             } => sender_agent_id.as_str(),
+            Self::Service { sender_service_id } => sender_service_id.as_str(),
         }
     }
 
@@ -294,7 +314,16 @@ impl DeviceMessageSender {
     pub fn device_id(&self) -> Option<&DeviceId> {
         match self {
             Self::Device { sender_device_id } => Some(sender_device_id),
-            Self::NativeAgent { .. } => None,
+            Self::NativeAgent { .. } | Self::Service { .. } => None,
+        }
+    }
+
+    /// The Principal Server materializer, when this is the restricted service
+    /// branch.
+    pub fn service_id(&self) -> Option<&DidCoreId> {
+        match self {
+            Self::Service { sender_service_id } => Some(sender_service_id),
+            Self::Device { .. } | Self::NativeAgent { .. } => None,
         }
     }
 }
@@ -344,6 +373,8 @@ struct DeviceMessageEnvelopeWire {
     sender_agent_verification_method: Option<DidUrl>,
     #[serde(default)]
     sender_agent_key_authorize_event_id: Option<EventId>,
+    #[serde(default)]
+    sender_service_id: Option<DidCoreId>,
     recipient_principal_id: DidCoreId,
     recipient_device_id: DeviceId,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
@@ -373,8 +404,21 @@ impl<'de> Deserialize<'de> for DeviceMessageEnvelope {
             wire.sender_agent_id,
             wire.sender_agent_verification_method,
             wire.sender_agent_key_authorize_event_id,
+            wire.sender_service_id,
         )
         .map_err(serde::de::Error::custom)?;
+        if matches!(&sender, DeviceMessageSender::Service { .. }) {
+            if wire.sender_principal_id != wire.recipient_principal_id {
+                return Err(serde::de::Error::custom(
+                    "service device message sender_principal_id must equal recipient_principal_id",
+                ));
+            }
+            if ActorPrivateUpdateKind::from_wire(wire.kind.as_str()).is_none() {
+                return Err(serde::de::Error::custom(
+                    "service device message sender is restricted to actor-private update kinds",
+                ));
+            }
+        }
         Ok(Self {
             device_message_id: wire.device_message_id,
             kind: wire.kind,
@@ -673,31 +717,184 @@ pub struct ActorPrivateReadCursorUpdate {
 }
 
 /// Self-describing actor-private update envelope. The wire `type` tag and its
-/// content shape cannot be constructed independently.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type", deny_unknown_fields)]
+/// content shape cannot be constructed independently. Its sender is the same
+/// closed flattened XOR as [`DeviceMessageEnvelope`], because Principal Server
+/// CAS materializers have no authoring device id.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(tag = "type")]
 pub enum ActorPrivateDeviceUpdate {
     #[serde(rename = "ak.account_data.update")]
     AccountData {
-        sender_device_id: String,
+        #[serde(flatten)]
+        sender: DeviceMessageSender,
         content: ActorPrivateAccountDataUpdate,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         created_at: DateTime<Utc>,
     },
     #[serde(rename = "ak.account.blocklist.update")]
     Blocklist {
-        sender_device_id: String,
+        #[serde(flatten)]
+        sender: DeviceMessageSender,
         content: ActorPrivateAccountDataUpdate,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         created_at: DateTime<Utc>,
     },
     #[serde(rename = "ak.read_cursor.update")]
     ReadCursor {
-        sender_device_id: String,
+        #[serde(flatten)]
+        sender: DeviceMessageSender,
         content: ActorPrivateReadCursorUpdate,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         created_at: DateTime<Utc>,
     },
+}
+
+/// Closed deserialization shape for [`ActorPrivateDeviceUpdate`].
+///
+/// The public type flattens [`DeviceMessageSender`] when serializing. A derived
+/// flattened deserializer cannot also use `deny_unknown_fields`, so it would
+/// silently accept an extra sender slot or an unrelated root field. This wire
+/// type instead names all five sender slots and closes every variant before
+/// selecting the XOR through [`DeviceMessageSender::from_slots`].
+#[derive(Deserialize)]
+#[serde(tag = "type", deny_unknown_fields)]
+enum ActorPrivateDeviceUpdateWire {
+    #[serde(rename = "ak.account_data.update")]
+    AccountData {
+        #[serde(default)]
+        sender_device_id: Option<DeviceId>,
+        #[serde(default)]
+        sender_agent_id: Option<DidCoreId>,
+        #[serde(default)]
+        sender_agent_verification_method: Option<DidUrl>,
+        #[serde(default)]
+        sender_agent_key_authorize_event_id: Option<EventId>,
+        #[serde(default)]
+        sender_service_id: Option<DidCoreId>,
+        content: ActorPrivateAccountDataUpdate,
+        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+        created_at: DateTime<Utc>,
+    },
+    #[serde(rename = "ak.account.blocklist.update")]
+    Blocklist {
+        #[serde(default)]
+        sender_device_id: Option<DeviceId>,
+        #[serde(default)]
+        sender_agent_id: Option<DidCoreId>,
+        #[serde(default)]
+        sender_agent_verification_method: Option<DidUrl>,
+        #[serde(default)]
+        sender_agent_key_authorize_event_id: Option<EventId>,
+        #[serde(default)]
+        sender_service_id: Option<DidCoreId>,
+        content: ActorPrivateAccountDataUpdate,
+        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+        created_at: DateTime<Utc>,
+    },
+    #[serde(rename = "ak.read_cursor.update")]
+    ReadCursor {
+        #[serde(default)]
+        sender_device_id: Option<DeviceId>,
+        #[serde(default)]
+        sender_agent_id: Option<DidCoreId>,
+        #[serde(default)]
+        sender_agent_verification_method: Option<DidUrl>,
+        #[serde(default)]
+        sender_agent_key_authorize_event_id: Option<EventId>,
+        #[serde(default)]
+        sender_service_id: Option<DidCoreId>,
+        content: ActorPrivateReadCursorUpdate,
+        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+        created_at: DateTime<Utc>,
+    },
+}
+
+impl ActorPrivateDeviceUpdateWire {
+    fn sender(
+        sender_device_id: Option<DeviceId>,
+        sender_agent_id: Option<DidCoreId>,
+        sender_agent_verification_method: Option<DidUrl>,
+        sender_agent_key_authorize_event_id: Option<EventId>,
+        sender_service_id: Option<DidCoreId>,
+    ) -> std::result::Result<DeviceMessageSender, &'static str> {
+        DeviceMessageSender::from_slots(
+            sender_device_id,
+            sender_agent_id,
+            sender_agent_verification_method,
+            sender_agent_key_authorize_event_id,
+            sender_service_id,
+        )
+    }
+}
+
+impl<'de> Deserialize<'de> for ActorPrivateDeviceUpdate {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        match ActorPrivateDeviceUpdateWire::deserialize(deserializer)? {
+            ActorPrivateDeviceUpdateWire::AccountData {
+                sender_device_id,
+                sender_agent_id,
+                sender_agent_verification_method,
+                sender_agent_key_authorize_event_id,
+                sender_service_id,
+                content,
+                created_at,
+            } => Ok(Self::AccountData {
+                sender: ActorPrivateDeviceUpdateWire::sender(
+                    sender_device_id,
+                    sender_agent_id,
+                    sender_agent_verification_method,
+                    sender_agent_key_authorize_event_id,
+                    sender_service_id,
+                )
+                .map_err(serde::de::Error::custom)?,
+                content,
+                created_at,
+            }),
+            ActorPrivateDeviceUpdateWire::Blocklist {
+                sender_device_id,
+                sender_agent_id,
+                sender_agent_verification_method,
+                sender_agent_key_authorize_event_id,
+                sender_service_id,
+                content,
+                created_at,
+            } => Ok(Self::Blocklist {
+                sender: ActorPrivateDeviceUpdateWire::sender(
+                    sender_device_id,
+                    sender_agent_id,
+                    sender_agent_verification_method,
+                    sender_agent_key_authorize_event_id,
+                    sender_service_id,
+                )
+                .map_err(serde::de::Error::custom)?,
+                content,
+                created_at,
+            }),
+            ActorPrivateDeviceUpdateWire::ReadCursor {
+                sender_device_id,
+                sender_agent_id,
+                sender_agent_verification_method,
+                sender_agent_key_authorize_event_id,
+                sender_service_id,
+                content,
+                created_at,
+            } => Ok(Self::ReadCursor {
+                sender: ActorPrivateDeviceUpdateWire::sender(
+                    sender_device_id,
+                    sender_agent_id,
+                    sender_agent_verification_method,
+                    sender_agent_key_authorize_event_id,
+                    sender_service_id,
+                )
+                .map_err(serde::de::Error::custom)?,
+                content,
+                created_at,
+            }),
+        }
+    }
 }
 
 impl ActorPrivateDeviceUpdate {
@@ -709,18 +906,18 @@ impl ActorPrivateDeviceUpdate {
         }
     }
 
-    pub fn sender_device_id(&self) -> &str {
+    pub fn sender(&self) -> &DeviceMessageSender {
         match self {
-            Self::AccountData {
-                sender_device_id, ..
-            }
-            | Self::Blocklist {
-                sender_device_id, ..
-            }
-            | Self::ReadCursor {
-                sender_device_id, ..
-            } => sender_device_id,
+            Self::AccountData { sender, .. }
+            | Self::Blocklist { sender, .. }
+            | Self::ReadCursor { sender, .. } => sender,
         }
+    }
+
+    /// Authoring device when this update came from a holder device. Service
+    /// materializers intentionally return `None`.
+    pub fn sender_device_id(&self) -> Option<&DeviceId> {
+        self.sender().device_id()
     }
 
     pub fn created_at(&self) -> DateTime<Utc> {
@@ -895,6 +1092,12 @@ mod device_message_tests {
         })
     }
 
+    fn service_sender_fields() -> Value {
+        json!({
+            "sender_service_id": "ak:did_core:webvh:z6mkfixtureservice"
+        })
+    }
+
     /// The two sender endpoints are one closed XOR: a Native Agent has no
     /// device identity and MUST NOT be spelled as one, and its branch is only
     /// usable complete — an Agent principal id without the key that currently
@@ -913,6 +1116,18 @@ mod device_message_tests {
                 "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e"
         });
         assert!(serde_json::from_value::<DeviceMessageSender>(both).is_err());
+        assert!(
+            serde_json::from_value::<DeviceMessageSender>(json!({
+                "sender_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
+                "sender_service_id": "ak:did_core:webvh:z6mkfixtureservice"
+            }))
+            .is_err(),
+            "a mixed device/service branch is not a sender"
+        );
+        assert!(
+            serde_json::from_value::<DeviceMessageSender>(service_sender_fields()).is_ok(),
+            "a lone service slot is the complete third branch"
+        );
         assert!(
             serde_json::from_value::<DeviceMessageSender>(json!({
                 "sender_agent_id": "ak:did_core:webvh:z6mkfixtureagent"
@@ -969,6 +1184,94 @@ mod device_message_tests {
             .unwrap()
             .remove("sender_device_id");
         assert!(serde_json::from_value::<DeviceMessageEnvelope>(no_endpoint).is_err());
+
+        let mut service = envelope_value();
+        service.as_object_mut().unwrap().remove("sender_device_id");
+        service["kind"] = json!(ActorPrivateUpdateKind::ACCOUNT_DATA_UPDATE);
+        for (key, value) in service_sender_fields().as_object().unwrap() {
+            service
+                .as_object_mut()
+                .unwrap()
+                .insert(key.clone(), value.clone());
+        }
+        let parsed = serde_json::from_value::<DeviceMessageEnvelope>(service.clone()).unwrap();
+        assert_eq!(
+            parsed.sender.endpoint_id(),
+            "ak:did_core:webvh:z6mkfixtureservice"
+        );
+        assert!(parsed.sender.device_id().is_none());
+
+        let mut service_with_device = service.clone();
+        service_with_device["sender_device_id"] =
+            json!("ak:device:01904100-0000-7000-8000-000000000001");
+        assert!(serde_json::from_value::<DeviceMessageEnvelope>(service_with_device).is_err());
+
+        let mut service_with_normal_kind = service.clone();
+        service_with_normal_kind["kind"] = json!("ak.secret.request");
+        assert!(
+            serde_json::from_value::<DeviceMessageEnvelope>(service_with_normal_kind).is_err(),
+            "service senders are restricted to actor-private update kinds"
+        );
+
+        let mut cross_principal_service = service;
+        cross_principal_service["sender_principal_id"] =
+            json!("ak:did_core:webvh:z6mkfixtureother");
+        assert!(
+            serde_json::from_value::<DeviceMessageEnvelope>(cross_principal_service).is_err(),
+            "service senders cannot cross the recipient principal boundary"
+        );
+    }
+
+    #[test]
+    fn actor_private_service_update_round_trips_without_a_fake_device() {
+        let value = json!({
+            "type": ActorPrivateUpdateKind::ACCOUNT_DATA_UPDATE,
+            "sender_service_id": "ak:did_core:webvh:z6mkfixtureservice",
+            "content": {
+                "operation": "put",
+                "account_data_key": "ak.account.invite_delivery",
+                "revision": 3,
+                "content": {
+                    "schema": "ak.schema.invite_delivery.v1",
+                    "updated_at": "2026-07-15T00:00:00.000Z",
+                    "entries": []
+                },
+                "updated_at": "2026-07-15T00:00:00.000Z"
+            },
+            "created_at": "2026-07-15T00:00:00.000Z"
+        });
+        let update: ActorPrivateDeviceUpdate = serde_json::from_value(value.clone()).unwrap();
+        assert!(update.sender_device_id().is_none());
+        assert_eq!(
+            update.sender().endpoint_id(),
+            "ak:did_core:webvh:z6mkfixtureservice"
+        );
+        assert_eq!(serde_json::to_value(update).unwrap(), value);
+
+        let mut unknown = value.clone();
+        unknown["legacy_sender_hint"] = json!(true);
+        assert!(
+            serde_json::from_value::<ActorPrivateDeviceUpdate>(unknown).is_err(),
+            "actor-private update root is closed"
+        );
+
+        let mut mixed = value.clone();
+        mixed["sender_device_id"] = json!("ak:device:01904100-0000-7000-8000-000000000001");
+        assert!(
+            serde_json::from_value::<ActorPrivateDeviceUpdate>(mixed).is_err(),
+            "actor-private update cannot mix service and device sender slots"
+        );
+
+        let mut half_agent = value;
+        half_agent
+            .as_object_mut()
+            .unwrap()
+            .remove("sender_service_id");
+        half_agent["sender_agent_id"] = json!("ak:did_core:webvh:z6mkfixtureagent");
+        assert!(
+            serde_json::from_value::<ActorPrivateDeviceUpdate>(half_agent).is_err(),
+            "actor-private update cannot carry a half-filled Agent sender"
+        );
     }
 
     #[test]

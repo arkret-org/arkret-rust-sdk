@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-08-21.3;
-//! sha256=ef600739a48ad98f449b25d74b932fe8eded4c9bec050a877f5ec6d84147275b Entries: registered=169
+//! Input: registry/capability-action-registry.json; version=2026-08-21.6;
+//! sha256=c061c86f55c2233e43a1b63858dfafe1fb68f250f165b29da223fae581756171 Entries: registered=171
 
 use serde::{Deserialize, Serialize};
 
@@ -46,6 +46,8 @@ pub enum CapabilityActionId {
     CircleMemberAddOthers,
     CircleMemberManage,
     ConflictRecovery,
+    ConsentGrant,
+    ConsentRevoke,
     ContactScopeUpdate,
     ContainerMoveItem,
     ContainerRebalance,
@@ -219,6 +221,8 @@ impl CapabilityActionId {
         Self::CircleMemberAddOthers,
         Self::CircleMemberManage,
         Self::ConflictRecovery,
+        Self::ConsentGrant,
+        Self::ConsentRevoke,
         Self::ContactScopeUpdate,
         Self::ContainerMoveItem,
         Self::ContainerRebalance,
@@ -390,6 +394,8 @@ impl CapabilityActionId {
     pub const CIRCLE_MEMBER_ADD_OTHERS: &'static str = "ak.circle.member.add.others";
     pub const CIRCLE_MEMBER_MANAGE: &'static str = "ak.circle.member.manage";
     pub const CONFLICT_RECOVERY: &'static str = "ak.conflict.recovery";
+    pub const CONSENT_GRANT: &'static str = "ak.consent.grant";
+    pub const CONSENT_REVOKE: &'static str = "ak.consent.revoke";
     pub const CONTACT_SCOPE_UPDATE: &'static str = "ak.contact.scope.update";
     pub const CONTAINER_MOVE_ITEM: &'static str = "ak.container.move_item";
     pub const CONTAINER_REBALANCE: &'static str = "ak.container.rebalance";
@@ -571,6 +577,8 @@ impl CapabilityActionId {
             Self::CircleMemberAddOthers => Self::CIRCLE_MEMBER_ADD_OTHERS,
             Self::CircleMemberManage => Self::CIRCLE_MEMBER_MANAGE,
             Self::ConflictRecovery => Self::CONFLICT_RECOVERY,
+            Self::ConsentGrant => Self::CONSENT_GRANT,
+            Self::ConsentRevoke => Self::CONSENT_REVOKE,
             Self::ContactScopeUpdate => Self::CONTACT_SCOPE_UPDATE,
             Self::ContainerMoveItem => Self::CONTAINER_MOVE_ITEM,
             Self::ContainerRebalance => Self::CONTAINER_REBALANCE,
@@ -751,6 +759,8 @@ impl CapabilityActionId {
             Self::CIRCLE_MEMBER_ADD_OTHERS => Some(Self::CircleMemberAddOthers),
             Self::CIRCLE_MEMBER_MANAGE => Some(Self::CircleMemberManage),
             Self::CONFLICT_RECOVERY => Some(Self::ConflictRecovery),
+            Self::CONSENT_GRANT => Some(Self::ConsentGrant),
+            Self::CONSENT_REVOKE => Some(Self::ConsentRevoke),
             Self::CONTACT_SCOPE_UPDATE => Some(Self::ContactScopeUpdate),
             Self::CONTAINER_MOVE_ITEM => Some(Self::ContainerMoveItem),
             Self::CONTAINER_REBALANCE => Some(Self::ContainerRebalance),

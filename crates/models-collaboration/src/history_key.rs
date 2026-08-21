@@ -78,16 +78,6 @@ history_id!(HistoryRequestId, "ak:history_request:", |value: &str| {
 history_id!(HistoryResponseId, "ak:history_response:", |value: &str| {
     uuid_v7_suffix(value, "ak:history_response:")
 });
-history_id!(HistoryMailboxId, "ak:history_mailbox:", |value: &str| {
-    value
-        .strip_prefix("ak:history_mailbox:")
-        .is_some_and(|token| {
-            token.len() == 22
-                && token
-                    .bytes()
-                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-        })
-});
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -486,25 +476,27 @@ impl HistoryChunkPlaintext {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum MailboxCapabilityPlaintextKind {
-    #[serde(rename = "ak.history_key.mailbox_capability_plaintext")]
+pub enum HistoryResponseCapabilityPlaintextKind {
+    #[serde(rename = "ak.history_key.response_capability_plaintext")]
     Value,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MailboxCapabilityPlaintext {
-    pub kind: MailboxCapabilityPlaintextKind,
-    pub mailbox_capability_b64u: String,
+pub struct HistoryResponseCapabilityPlaintext {
+    pub kind: HistoryResponseCapabilityPlaintextKind,
+    pub response_capability_b64u: String,
 }
 
-impl MailboxCapabilityPlaintext {
+impl HistoryResponseCapabilityPlaintext {
     pub fn validate(&self) -> Result<()> {
-        if self.mailbox_capability_b64u.len() != 43 || !is_base64url(&self.mailbox_capability_b64u)
+        let decoded = arkret_wire::base64url::base64url_decode(&self.response_capability_b64u)?;
+        if decoded.len() != 32
+            || arkret_wire::base64url::base64url_encode(&decoded) != self.response_capability_b64u
         {
             return Err(Error::Protocol(
-                "mailbox capability plaintext is invalid".to_owned(),
+                "history response capability plaintext is invalid".to_owned(),
             ));
         }
         Ok(())
@@ -513,19 +505,18 @@ impl MailboxCapabilityPlaintext {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum HistoryMailboxCapabilitySealPurpose {
-    #[serde(rename = "history_reply_mailbox_capability")]
+pub enum HistoryResponseCapabilitySealPurpose {
+    #[serde(rename = "history_response_capability")]
     Value,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct HistoryMailboxCapabilitySealContext {
-    pub purpose: HistoryMailboxCapabilitySealPurpose,
+pub struct HistoryResponseCapabilitySealContext {
+    pub purpose: HistoryResponseCapabilitySealPurpose,
     pub request_digest: Hash,
-    pub reply_mailbox_id: HistoryMailboxId,
-    pub mailbox_capability_commitment: Hash,
+    pub response_capability_commitment: Hash,
     pub effective_scope: HistoryEffectiveScope,
     pub release_service_id: DidCoreId,
     pub release_service_binding_ref: EventId,
@@ -537,7 +528,7 @@ pub struct HistoryMailboxCapabilitySealContext {
     pub expires_at: DateTime<Utc>,
 }
 
-impl HistoryMailboxCapabilitySealContext {
+impl HistoryResponseCapabilitySealContext {
     pub fn validate(&self) -> Result<()> {
         validate_bounded_chars(
             &self.release_service_resolution_ref,
@@ -567,7 +558,6 @@ pub struct HistorySecretChunkSealContext {
     pub purpose: HistorySecretChunkSealPurpose,
     pub request_digest: Hash,
     pub request_receipt_digest: Hash,
-    pub reply_mailbox_id: HistoryMailboxId,
     pub manifest_digest: Hash,
     pub manifest_admission_digest: Hash,
     pub chunk_response_id: HistoryResponseId,
@@ -976,9 +966,8 @@ pub enum HistoryKeyRequestReceiptKind {
 pub struct HistoryKeyRequestReceipt {
     pub kind: HistoryKeyRequestReceiptKind,
     pub request_digest: Hash,
-    pub reply_mailbox_id: HistoryMailboxId,
-    pub mailbox_capability_commitment: Hash,
-    pub sealed_capability_digest: Hash,
+    pub response_capability_commitment: Hash,
+    pub sealed_response_capability_digest: Hash,
     pub effective_scope: HistoryEffectiveScope,
     pub requester_sender_domain: String,
     pub requester_authorization_incarnation: AuthorizationIncarnation,
@@ -1017,12 +1006,12 @@ impl HistoryKeyRequestReceipt {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SealedMailboxCapability {
+pub struct SealedHistoryResponseCapability {
     pub enc: String,
     pub ciphertext: String,
 }
 
-impl SealedMailboxCapability {
+impl SealedHistoryResponseCapability {
     pub fn validate(&self) -> Result<()> {
         if self.enc.is_empty()
             || self.ciphertext.is_empty()
@@ -1030,7 +1019,7 @@ impl SealedMailboxCapability {
             || !is_base64url(&self.ciphertext)
         {
             return Err(Error::Protocol(
-                "sealed mailbox capability is not canonical base64url".to_owned(),
+                "sealed history response capability is not canonical base64url".to_owned(),
             ));
         }
         Ok(())
@@ -1051,14 +1040,14 @@ pub struct HistoryKeyRequestAcceptedOutcome {
     pub kind: HistoryKeyRequestAcceptedKind,
     pub request: HistoryKeyRequest,
     pub request_receipt: HistoryKeyRequestReceipt,
-    pub sealed_mailbox_capability: SealedMailboxCapability,
+    pub sealed_history_response_capability: SealedHistoryResponseCapability,
 }
 
 impl HistoryKeyRequestAcceptedOutcome {
     pub fn validate(&self) -> Result<()> {
         self.request.validate()?;
         self.request_receipt.validate()?;
-        self.sealed_mailbox_capability.validate()?;
+        self.sealed_history_response_capability.validate()?;
         if self.request.effective_scope != self.request_receipt.effective_scope
             || self.request.requester_sender_domain != self.request_receipt.requester_sender_domain
             || self.request.requester_authorization_incarnation
@@ -1646,7 +1635,6 @@ pub struct HistorySourceAgentObservationInput {
     pub source_sender_domain: String,
     pub request_digest: Hash,
     pub request_receipt_digest: Hash,
-    pub reply_mailbox_id: HistoryMailboxId,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub content: HistoryKeyResponseContent,
@@ -1679,7 +1667,6 @@ pub struct HistoryKeyResponseSigningInput {
     pub source_signer_evidence_digest: Hash,
     pub request_digest: Hash,
     pub request_receipt_digest: Hash,
-    pub reply_mailbox_id: HistoryMailboxId,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub content: HistoryKeyResponseContent,
@@ -1710,7 +1697,6 @@ impl HistoryKeyResponseSigningInput {
             source_sender_domain: self.source_sender_domain.clone(),
             request_digest: self.request_digest.clone(),
             request_receipt_digest: self.request_receipt_digest.clone(),
-            reply_mailbox_id: self.reply_mailbox_id.clone(),
             expires_at: self.expires_at,
             content: self.content.clone(),
         }
@@ -1730,7 +1716,6 @@ pub struct HistoryKeyResponseSendRequest {
     pub source_signer_evidence_digest: Hash,
     pub request_digest: Hash,
     pub request_receipt_digest: Hash,
-    pub reply_mailbox_id: HistoryMailboxId,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub content: HistoryKeyResponseContent,
@@ -1748,7 +1733,6 @@ impl HistoryKeyResponseSendRequest {
             source_signer_evidence_digest: self.source_signer_evidence_digest.clone(),
             request_digest: self.request_digest.clone(),
             request_receipt_digest: self.request_receipt_digest.clone(),
-            reply_mailbox_id: self.reply_mailbox_id.clone(),
             expires_at: self.expires_at,
             content: self.content.clone(),
         }
@@ -1766,7 +1750,6 @@ impl HistoryKeyResponseSendRequest {
             source_signer_evidence_digest: self.source_signer_evidence_digest.clone(),
             request_digest: self.request_digest.clone(),
             request_receipt_digest: self.request_receipt_digest.clone(),
-            reply_mailbox_id: self.reply_mailbox_id.clone(),
             expires_at: self.expires_at,
             content: self.content.clone(),
         }
@@ -2366,7 +2349,6 @@ pub struct HistoryReleaseAttestation {
     pub response_id: HistoryResponseId,
     pub request_digest: Hash,
     pub request_receipt_digest: Hash,
-    pub reply_mailbox_id: HistoryMailboxId,
     pub effective_scope: HistoryEffectiveScope,
     pub manifest_admission_digest: Hash,
     pub t0_pass: HistoryManifestAdmissionPass,
@@ -2560,7 +2542,7 @@ impl HistoryKeyResponseLostRecord {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum HistoryMailboxPageEntry {
+pub enum HistoryResponsePageEntry {
     Record {
         record: HistoryKeyResponseRecord,
     },
@@ -2569,7 +2551,7 @@ pub enum HistoryMailboxPageEntry {
     },
 }
 
-impl HistoryMailboxPageEntry {
+impl HistoryResponsePageEntry {
     pub fn sequence(&self) -> u64 {
         match self {
             Self::Record { record } => record.sequence,
@@ -2582,7 +2564,7 @@ impl HistoryMailboxPageEntry {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HistoryKeyResponseListOutcome {
-    pub ack_entries: Vec<HistoryMailboxPageEntry>,
+    pub ack_entries: Vec<HistoryResponsePageEntry>,
     pub ack_token: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
@@ -2595,14 +2577,14 @@ impl HistoryKeyResponseListOutcome {
         validate_pagination(self.limited, self.cursor.as_deref())?;
         for entry in &self.ack_entries {
             match entry {
-                HistoryMailboxPageEntry::Record { record } => record.validate()?,
-                HistoryMailboxPageEntry::Lost { lost_record } => lost_record.validate()?,
+                HistoryResponsePageEntry::Record { record } => record.validate()?,
+                HistoryResponsePageEntry::Lost { lost_record } => lost_record.validate()?,
             }
         }
         for pair in self.ack_entries.windows(2) {
             if pair[0].sequence() >= pair[1].sequence() {
                 return Err(Error::Protocol(
-                    "history mailbox entries must be strictly sequence ascending".to_owned(),
+                    "history response entries must be strictly sequence ascending".to_owned(),
                 ));
             }
         }
@@ -2635,7 +2617,7 @@ impl HistoryKeyResponseListQuery {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum HistoryMailboxRecordStatus {
+pub enum HistoryResponseRecordStatus {
     Installed,
     CryptographicallyRejected,
     SupersededDuplicate,
@@ -2643,7 +2625,7 @@ pub enum HistoryMailboxRecordStatus {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum HistoryMailboxLostStatus {
+pub enum HistoryResponseLostStatus {
     #[serde(rename = "service_record_lost")]
     Value,
 }
@@ -2651,22 +2633,22 @@ pub enum HistoryMailboxLostStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum HistoryMailboxAckEntry {
+pub enum HistoryResponseAckEntry {
     Record {
         sequence: u64,
         response_id: HistoryResponseId,
         record_digest: Hash,
-        status: HistoryMailboxRecordStatus,
+        status: HistoryResponseRecordStatus,
     },
     Lost {
         sequence: u64,
         response_id: HistoryResponseId,
         lost_record_digest: Hash,
-        status: HistoryMailboxLostStatus,
+        status: HistoryResponseLostStatus,
     },
 }
 
-impl HistoryMailboxAckEntry {
+impl HistoryResponseAckEntry {
     pub fn sequence(&self) -> u64 {
         match self {
             Self::Record { sequence, .. } | Self::Lost { sequence, .. } => *sequence,
@@ -2680,7 +2662,7 @@ impl HistoryMailboxAckEntry {
 pub struct HistoryKeyResponseAckRequest {
     pub ack_token: String,
     pub high_water_cursor: String,
-    pub ack_entries: Vec<HistoryMailboxAckEntry>,
+    pub ack_entries: Vec<HistoryResponseAckEntry>,
 }
 
 impl HistoryKeyResponseAckRequest {
@@ -3306,34 +3288,29 @@ impl HistoryKeyRequestReplica {
     }
 }
 
-impl SealedMailboxCapability {
-    pub fn sealed_capability_digest(&self) -> Result<Hash> {
+impl SealedHistoryResponseCapability {
+    pub fn sealed_response_capability_digest(&self) -> Result<Hash> {
         self.validate()?;
-        full_object_digest(self, "ak.history-mailbox-sealed-capability-v1")
+        full_object_digest(self, "ak.history-response-sealed-capability-v1")
     }
 }
 
-pub fn mailbox_capability_commitment(
-    reply_mailbox_id: &HistoryMailboxId,
-    capability_b64u: &str,
-) -> Result<Hash> {
+pub fn response_capability_commitment(capability_b64u: &str) -> Result<Hash> {
     let decoded = arkret_wire::base64url::base64url_decode(capability_b64u)?;
     if decoded.len() != 32 || arkret_wire::base64url::base64url_encode(&decoded) != capability_b64u
     {
         return Err(Error::Protocol(
-            "history mailbox capability must be canonical base64url for 32 bytes".to_owned(),
+            "history response capability must be canonical base64url for 32 bytes".to_owned(),
         ));
     }
     #[derive(Serialize)]
     struct Commitment<'a> {
-        reply_mailbox_id: &'a HistoryMailboxId,
-        reply_mailbox_capability_b64u: &'a str,
+        response_capability_b64u: &'a str,
     }
     framed_sha256(
-        "ak.history-mailbox-capability-commitment-v1",
+        "ak.history-response-capability-commitment-v1",
         &Commitment {
-            reply_mailbox_id,
-            reply_mailbox_capability_b64u: capability_b64u,
+            response_capability_b64u: capability_b64u,
         },
     )
 }
@@ -3355,7 +3332,6 @@ impl HistoryKeyResponseSendRequest {
                     source_signer_evidence_digest: self.source_signer_evidence_digest.clone(),
                     request_digest: self.request_digest.clone(),
                     request_receipt_digest: self.request_receipt_digest.clone(),
-                    reply_mailbox_id: self.reply_mailbox_id.clone(),
                     expires_at: self.expires_at,
                     content: self.content.clone(),
                 },
@@ -3447,7 +3423,7 @@ impl OrganizationRecoveryArchiveReplica {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum HistoryMailboxAckTokenEntryKind {
+pub enum HistoryResponseAckTokenEntryKind {
     Record,
     Lost,
 }
@@ -3455,9 +3431,9 @@ pub enum HistoryMailboxAckTokenEntryKind {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct HistoryMailboxAckTokenEntry {
+pub struct HistoryResponseAckTokenEntry {
     pub sequence: u64,
-    pub kind: HistoryMailboxAckTokenEntryKind,
+    pub kind: HistoryResponseAckTokenEntryKind,
     pub response_id: HistoryResponseId,
     pub entry_digest: Hash,
 }
@@ -3465,16 +3441,16 @@ pub struct HistoryMailboxAckTokenEntry {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct HistoryMailboxAckTokenClaims {
+pub struct HistoryResponseAckTokenClaims {
     pub release_service_id: DidCoreId,
-    pub reply_mailbox_id: HistoryMailboxId,
-    pub ordered_ack_entries: Vec<HistoryMailboxAckTokenEntry>,
+    pub request_id: HistoryRequestId,
+    pub ordered_ack_entries: Vec<HistoryResponseAckTokenEntry>,
     pub high_water_cursor: String,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
-    pub token_expiry: DateTime<Utc>,
+    pub token_expires_at: DateTime<Utc>,
 }
 
-impl HistoryMailboxAckTokenClaims {
+impl HistoryResponseAckTokenClaims {
     pub fn validate(&self) -> Result<()> {
         validate_non_empty(&self.high_water_cursor, "high_water_cursor")?;
         if self.ordered_ack_entries.is_empty() {
@@ -3494,25 +3470,25 @@ impl HistoryMailboxAckTokenClaims {
 
     pub fn hmac_input_bytes(&self) -> Result<Vec<u8>> {
         self.validate()?;
-        let mut bytes = b"ak.history-mailbox-ack-token-v1".to_vec();
+        let mut bytes = b"ak.history-response-ack-token-v1".to_vec();
         bytes.push(0);
         bytes.extend(arkret_wire::canonical::canonical_json_bytes(self)?);
         Ok(bytes)
     }
 }
 
-impl HistoryMailboxPageEntry {
-    pub fn ack_token_entry(&self) -> Result<HistoryMailboxAckTokenEntry> {
+impl HistoryResponsePageEntry {
+    pub fn ack_token_entry(&self) -> Result<HistoryResponseAckTokenEntry> {
         match self {
-            Self::Record { record } => Ok(HistoryMailboxAckTokenEntry {
+            Self::Record { record } => Ok(HistoryResponseAckTokenEntry {
                 sequence: record.sequence,
-                kind: HistoryMailboxAckTokenEntryKind::Record,
+                kind: HistoryResponseAckTokenEntryKind::Record,
                 response_id: record.source_record.response_id.clone(),
                 entry_digest: record.record_digest.clone(),
             }),
-            Self::Lost { lost_record } => Ok(HistoryMailboxAckTokenEntry {
+            Self::Lost { lost_record } => Ok(HistoryResponseAckTokenEntry {
                 sequence: lost_record.sequence,
-                kind: HistoryMailboxAckTokenEntryKind::Lost,
+                kind: HistoryResponseAckTokenEntryKind::Lost,
                 response_id: lost_record.response_id.clone(),
                 entry_digest: lost_record.lost_record_digest()?,
             }),
@@ -3521,11 +3497,11 @@ impl HistoryMailboxPageEntry {
 }
 
 impl HistoryKeyResponseListOutcome {
-    pub fn ack_token_entries(&self) -> Result<Vec<HistoryMailboxAckTokenEntry>> {
+    pub fn ack_token_entries(&self) -> Result<Vec<HistoryResponseAckTokenEntry>> {
         self.validate()?;
         self.ack_entries
             .iter()
-            .map(HistoryMailboxPageEntry::ack_token_entry)
+            .map(HistoryResponsePageEntry::ack_token_entry)
             .collect()
     }
 }

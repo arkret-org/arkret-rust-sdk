@@ -1,4 +1,4 @@
-//! High-level verification for receipt-bound history mailbox records.
+//! High-level verification for receipt-bound history response records.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -230,7 +230,7 @@ pub struct VerifiedHistoryChunk {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum VerifiedHistoryMailboxRecord {
+pub enum VerifiedHistoryResponseRecord {
     Manifest {
         sequence: u64,
         cursor: String,
@@ -245,7 +245,7 @@ pub enum VerifiedHistoryMailboxRecord {
     },
 }
 
-impl VerifiedHistoryMailboxRecord {
+impl VerifiedHistoryResponseRecord {
     pub fn sequence(&self) -> u64 {
         match self {
             Self::Manifest { sequence, .. } | Self::Chunk { sequence, .. } => *sequence,
@@ -253,7 +253,7 @@ impl VerifiedHistoryMailboxRecord {
     }
 }
 
-/// Verify one mailbox record against the exact accepted request and its
+/// Verify one response record against the exact accepted request and its
 /// independently replayed governance checkpoint.
 ///
 /// The source key is resolved from the exact content-addressed signer evidence
@@ -262,7 +262,7 @@ impl VerifiedHistoryMailboxRecord {
 /// encrypted IdentityLink plus LeafNode check against the receiver's verified local MLS
 /// state; it cannot substitute a key outside the signed evidence.
 #[allow(clippy::too_many_arguments)]
-pub fn verify_history_mailbox_record<VerifyExternalSourceKey>(
+pub fn verify_history_response_record<VerifyExternalSourceKey>(
     accepted: &HistoryKeyRequestCreateOutcome,
     record: &HistoryKeyResponseRecord,
     verified_checkpoint: &MlsGovernanceVerificationCheckpoint,
@@ -270,7 +270,7 @@ pub fn verify_history_mailbox_record<VerifyExternalSourceKey>(
     signer_dependencies: &[GovernanceDependency],
     now: DateTime<Utc>,
     verify_external_source_key: VerifyExternalSourceKey,
-) -> Result<VerifiedHistoryMailboxRecord, Error>
+) -> Result<VerifiedHistoryResponseRecord, Error>
 where
     VerifyExternalSourceKey:
         Fn(HistorySourceProofExternalVerificationRequest<'_>) -> Result<PublicKeyMaterial, Error>,
@@ -282,7 +282,7 @@ where
         || record.sent_at > accepted.request.expires_at
         || record.source_record.expires_at != accepted.request.expires_at
     {
-        return invalid("history mailbox record is outside the accepted request lifetime");
+        return invalid("history response record is outside the accepted request lifetime");
     }
 
     let request_digest = accepted.request.request_digest()?;
@@ -291,9 +291,8 @@ where
     if source.effective_scope != accepted.request.effective_scope
         || source.request_digest != request_digest
         || source.request_receipt_digest != receipt_digest
-        || source.reply_mailbox_id != accepted.request_receipt.reply_mailbox_id
     {
-        return invalid("history source record does not bind the accepted request and mailbox");
+        return invalid("history source record does not bind the accepted request");
     }
 
     verify_release_service_proof(
@@ -331,7 +330,7 @@ where
     ) {
         (HistoryKeyResponseContent::Manifest(manifest), Some(admission), None) => {
             verify_manifest(accepted, source, manifest, admission, intent)?;
-            Ok(VerifiedHistoryMailboxRecord::Manifest {
+            Ok(VerifiedHistoryResponseRecord::Manifest {
                 sequence: record.sequence,
                 cursor: record.cursor.clone(),
                 record_digest: record.record_digest.clone(),
@@ -377,7 +376,6 @@ where
                 purpose: HistorySecretChunkSealPurpose::Value,
                 request_digest,
                 request_receipt_digest: receipt_digest,
-                reply_mailbox_id: source.reply_mailbox_id.clone(),
                 manifest_digest: chunk.manifest_digest.clone(),
                 manifest_admission_digest: chunk.manifest_admission_digest.clone(),
                 chunk_response_id: source.response_id.clone(),
@@ -391,7 +389,7 @@ where
                 expires_at: source.expires_at,
             };
             seal_context.validate()?;
-            Ok(VerifiedHistoryMailboxRecord::Chunk {
+            Ok(VerifiedHistoryResponseRecord::Chunk {
                 sequence: record.sequence,
                 cursor: record.cursor.clone(),
                 record_digest: record.record_digest.clone(),
@@ -587,7 +585,7 @@ where
 
 /// Verify a signed lost-record descriptor against the request's frozen release
 /// service resolution and the exact successor chain effective at `lost_at`.
-pub fn verify_history_mailbox_lost_record(
+pub fn verify_history_response_lost_record(
     accepted: &HistoryKeyRequestCreateOutcome,
     lost_record: &HistoryKeyResponseLostRecord,
     signer_dependencies: &[GovernanceDependency],
@@ -663,7 +661,7 @@ fn member_history_intent(
         ..
     } = intent
     else {
-        return invalid("history mailbox request used a non-member traversal intent");
+        return invalid("history response request used a non-member traversal intent");
     };
     let request = &accepted.request;
     if effective_scope != &request.effective_scope
@@ -763,7 +761,6 @@ fn verify_release_attestation(
         || attestation.response_id != source.response_id
         || attestation.request_digest != source.request_digest
         || attestation.request_receipt_digest != source.request_receipt_digest
-        || attestation.reply_mailbox_id != source.reply_mailbox_id
         || attestation.effective_scope != source.effective_scope
         || attestation.manifest_admission_digest != chunk.manifest_admission_digest
         || attestation.released_range != descriptor.covered_epoch_range
