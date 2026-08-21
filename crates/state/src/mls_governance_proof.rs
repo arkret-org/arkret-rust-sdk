@@ -655,6 +655,11 @@ where
     ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
 {
     bundle.validate_for_request(request)?;
+    if request.local_mls_leaves != local_mls_leaves {
+        return frontier_rejected(
+            "query local_mls_leaves differ from the verifier's RFC 9420 group state",
+        );
+    }
     group_genesis_binding.validate()?;
     if bundle.frontier_projection.frontier_registry_digest
         != mls_security_frontier_registry_digest()
@@ -866,6 +871,9 @@ where
     ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
 {
     request.validate()?;
+    if request.local_mls_leaves != local_mls_leaves {
+        return frontier_rejected("query local_mls_leaves differ from the materializer input");
+    }
     target_checkpoint.validate_checkpoint()?;
     group_genesis_binding.validate()?;
     let expected_realm = request
@@ -1081,7 +1089,7 @@ where
     let placeholder =
         Hash::new("sha256:0000000000000000000000000000000000000000000000000000000000000000")?;
     let mut bundle = MlsGovernanceProofBundle {
-        query: request.clone(),
+        query_digest: request.query_digest()?,
         frontier_projection: MlsGovernanceFrontierProjection {
             frontier_registry_digest: mls_security_frontier_registry_digest(),
             branches,

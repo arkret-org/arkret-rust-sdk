@@ -16,6 +16,8 @@ use serde::{Deserialize, Serialize};
 
 pub const MLS_GOVERNANCE_PROOF_MIN_BYTES: u32 = 65_536;
 pub const MLS_GOVERNANCE_PROOF_MAX_BYTES: u32 = 1_048_576;
+pub const MLS_GOVERNANCE_PROOF_MAX_REQUEST_BYTES: usize = 8_388_608;
+pub const MLS_GOVERNANCE_PROOF_MAX_LEAVES: usize = 65_536;
 pub const MLS_GOVERNANCE_PROOF_MAX_SIBLINGS: usize = 64;
 const MLS_GOVERNANCE_PAGE_DIGEST_DOMAIN: &[u8] = b"ak.mls-governance-proof-page-v1";
 
@@ -58,6 +60,7 @@ pub struct MlsGovernanceProofRequestBody {
     pub profile: MlsGovernanceProofProfile,
     pub effective_scope: ScopeRef,
     pub mls_group_id: Base64UrlString,
+    pub local_mls_leaves: Vec<MlsSecurityFrontierLeaf>,
     pub proof_base_basis: SealBasis,
     pub proof_target_basis: SealBasis,
     pub byte_limit: u32,
@@ -87,6 +90,29 @@ impl MlsGovernanceProofRequestBody {
         if self.effective_scope.canonical_mls_group_id()? != self.mls_group_id.as_str() {
             return state("MLS governance proof group does not match effective_scope");
         }
+        if self.local_mls_leaves.is_empty()
+            || self.local_mls_leaves.len() > MLS_GOVERNANCE_PROOF_MAX_LEAVES
+        {
+            return schema("MLS governance proof local_mls_leaves is outside 1..=65536");
+        }
+        let mut previous_leaf_index = None;
+        let mut credential_refs = BTreeSet::new();
+        for leaf in &self.local_mls_leaves {
+            if leaf.credential_ref.as_str().chars().count() > 2_048 {
+                return schema(
+                    "MLS governance proof local_mls_leaves credential_ref exceeds 2048 characters",
+                );
+            }
+            if previous_leaf_index.is_some_and(|previous| previous >= leaf.leaf_index) {
+                return schema(
+                    "MLS governance proof local_mls_leaves must use strictly increasing leaf_index order",
+                );
+            }
+            previous_leaf_index = Some(leaf.leaf_index);
+            if !credential_refs.insert(leaf.credential_ref.as_str()) {
+                return schema("MLS governance proof local_mls_leaves repeats credential_ref");
+            }
+        }
         let genesis = self.previous_epoch == 0 && self.next_epoch == 0;
         let successor = self.previous_epoch.checked_add(1) == Some(self.next_epoch);
         if !genesis && !successor {
@@ -96,6 +122,11 @@ impl MlsGovernanceProofRequestBody {
             return schema(
                 "MLS governance proof genesis forbids base_group_state_ref and successor requires it",
             );
+        }
+        if arkret_canonical::canonical_json_bytes(self)?.len()
+            > MLS_GOVERNANCE_PROOF_MAX_REQUEST_BYTES
+        {
+            return bounds("MLS governance proof request exceeds 8 MiB");
         }
         Ok(())
     }
@@ -412,7 +443,7 @@ impl MlsGovernanceFrontierBranchProjection {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceProofBundle {
-    pub query: MlsGovernanceProofRequestBody,
+    pub query_digest: Hash,
     pub frontier_projection: MlsGovernanceFrontierProjection,
     pub proof_material: MlsGovernanceTypedProofMaterial,
     pub page_digest: Hash,
@@ -421,8 +452,8 @@ pub struct MlsGovernanceProofBundle {
 impl MlsGovernanceProofBundle {
     pub fn validate_for_request(&self, request: &MlsGovernanceProofRequestBody) -> Result<()> {
         request.validate()?;
-        if &self.query != request {
-            return state("MLS governance proof response repeats a different query");
+        if self.query_digest != request.query_digest()? {
+            return state("MLS governance proof response binds a different query");
         }
         self.frontier_projection.validate()?;
         self.proof_material.validate()?;
@@ -496,7 +527,6 @@ impl MlsGovernanceProofBundle {
             frontier_projection: &'a MlsGovernanceFrontierProjection,
             proof_material: &'a MlsGovernanceTypedProofMaterial,
         }
-        let query = arkret_canonical::canonical_json_bytes(&self.query)?;
         let body = arkret_canonical::canonical_json_bytes(&PageBody {
             frontier_projection: &self.frontier_projection,
             proof_material: &self.proof_material,
@@ -505,7 +535,7 @@ impl MlsGovernanceProofBundle {
             arkret_canonical::canonical::sha256_digest_from_slices(&[
                 MLS_GOVERNANCE_PAGE_DIGEST_DOMAIN,
                 &[0],
-                &query,
+                self.query_digest.as_str().as_bytes(),
                 &[0],
                 &body,
             ]),

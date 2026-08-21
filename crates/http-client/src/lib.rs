@@ -822,7 +822,7 @@ mod tests {
         use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
         use arkret_models_crypto::{
             MlsGovernanceBindingProfile, MlsGovernanceFrontierPurpose, MlsGovernanceProofProfile,
-            MlsGovernanceProofRequestBody,
+            MlsGovernanceProofRequestBody, MlsSecurityFrontierLeaf,
         };
         use arkret_models_discovery::{
             DirectoryPrivateContactDiscoveryOutcome, DirectoryPrivateContactDiscoveryRequestBody,
@@ -1128,6 +1128,11 @@ mod tests {
                 profile: MlsGovernanceProofProfile::GroupSecurityFrontier,
                 effective_scope,
                 mls_group_id: Base64UrlString::new(group_id.clone()).unwrap(),
+                local_mls_leaves: vec![MlsSecurityFrontierLeaf {
+                    leaf_index: 0,
+                    principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                    credential_ref: NonEmptyString::new("did:webvh:z6mkfixture#device-1").unwrap(),
+                }],
                 proof_base_basis: basis.clone(),
                 proof_target_basis: basis,
                 byte_limit: 1_048_576,
