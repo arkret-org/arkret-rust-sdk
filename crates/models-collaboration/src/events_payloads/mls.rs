@@ -122,9 +122,6 @@ pub enum MlsWelcomeRecipient {
     },
 }
 
-/// The same destination-signed receipt is carried for local and remote claims.
-pub type MlsWelcomeClaimReceipt = PeerKeyPackageClaimReceipt;
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MlsWelcomeCarrier {
     welcome_ref: Option<ObjectRef>,
@@ -925,7 +922,7 @@ pub struct MlsWelcomePayload {
     pub claim_id: NonEmptyString,
     pub claim_ref: MlsWelcomePayloadClaimRef,
     pub claim_envelope: MlsWelcomeClaimEnvelope,
-    pub claim_receipt: MlsWelcomeClaimReceipt,
+    pub claim_receipt: PeerKeyPackageClaimReceipt,
     pub carrier: MlsWelcomeCarrier,
     pub commit_ref: Option<EventId>,
     pub governance_binding: MlsGovernanceBindingPayload,
