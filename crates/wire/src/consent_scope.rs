@@ -7,11 +7,3 @@
 
 /// Counterpart for `spec/v1/artifacts/schemas/contact-operations.schema.json#/$defs/consent_scope`.
 pub type ConsentScope = String;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/contact-operations.schema.json#/$defs/consent_scope_list`.
-pub type ConsentScopeList = Vec<ConsentScope>;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/contact-operations.schema.json#/$defs/consent_scopes`.
-pub type ConsentScopes = Vec<ConsentScope>;
