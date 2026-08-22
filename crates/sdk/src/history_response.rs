@@ -943,7 +943,7 @@ pub fn winning_history_epoch_suites_from_verified_checkpoint(
         Error::Protocol(format!("MLS history registry construction failed: {error}"))
     })?;
     let cell = arkret_state::mls_cells::mls_epoch_cell_id(
-        &arkret_wire::ScopeRef::from(effective_scope.clone()),
+        &ScopeRef::from(effective_scope.clone()),
         mls_group_id,
     )?;
     let target = arkret_state::mls_governance_proof::materialize_registered_cell_value_from_verified_checkpoint(
