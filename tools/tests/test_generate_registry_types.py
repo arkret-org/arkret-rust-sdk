@@ -136,6 +136,17 @@ class RegistryGeneratorTests(unittest.TestCase):
         )
         self.assertNotIn('        code: "', descriptors)
 
+    def test_relation_kinds_expose_only_the_descriptor_identity(self) -> None:
+        temporary, artifacts = self.registry_fixture(["relation-kind-registry.json"])
+        with temporary:
+            generated = GENERATOR.generate_relation_kinds(artifacts)
+
+        self.assertIn("pub struct RelationKindDescriptor", generated)
+        self.assertIn("pub const RELATION_KIND_DESCRIPTORS", generated)
+        self.assertNotIn("StandardRelationKindMetadata", generated)
+        self.assertNotIn("STANDARD_RELATION_KIND_METADATA", generated)
+        self.assertNotIn("standard_relation_kind_metadata", generated)
+
     def test_authority_sources_generate_closed_ids_and_phase_descriptors(self) -> None:
         temporary, artifacts = self.registry_fixture(["authority-source-registry.json"])
         with temporary:

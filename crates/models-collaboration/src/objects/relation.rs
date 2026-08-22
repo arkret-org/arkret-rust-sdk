@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use arkret_wire::{
     CircleId, DidCoreId, Error, RealmId, ReasonCode, RelationId, RelationKind, RelationState,
-    RelationTruthSourceClass, Result, SchemaId, ScopeRef, standard_relation_kind_metadata,
+    RelationTruthSourceClass, Result, SchemaId, ScopeRef,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -198,7 +198,8 @@ pub struct RelationEdgeRef<'a> {
 }
 
 pub fn relation_kind_is_structural(relation_kind: &str) -> bool {
-    standard_relation_kind_metadata(relation_kind)
+    RelationKind::from_wire(relation_kind)
+        .descriptor()
         .map(|metadata| !metadata.weak_semantic)
         .unwrap_or(false)
 }
@@ -207,7 +208,8 @@ pub fn relation_direct_write_reject_reason(
     relation_kind: &str,
     from_ref: Option<&str>,
 ) -> Option<&'static str> {
-    let metadata = standard_relation_kind_metadata(relation_kind)?;
+    let relation_kind_value = RelationKind::from_wire(relation_kind);
+    let metadata = relation_kind_value.descriptor()?;
     if metadata.truth_source_class == RelationTruthSourceClass::DerivedProjection
         && relation_kind == RELATION_KIND_WATCHES
     {
@@ -518,7 +520,8 @@ mod tests {
     fn relation_cardinality_parses_registry_defaults_without_guessing_special_classes() {
         assert_eq!(
             RelationCardinality::from_registry_value(
-                standard_relation_kind_metadata("belongs_to")
+                RelationKind::from_wire("belongs_to")
+                    .descriptor()
                     .unwrap()
                     .default_cardinality
             ),
@@ -526,7 +529,8 @@ mod tests {
         );
         assert_eq!(
             RelationCardinality::from_registry_value(
-                standard_relation_kind_metadata("contains")
+                RelationKind::from_wire("contains")
+                    .descriptor()
                     .unwrap()
                     .default_cardinality
             ),

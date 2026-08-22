@@ -220,15 +220,3 @@ pub const RELATION_KIND_DESCRIPTORS: &[RelationKindDescriptor] = &[
         weak_semantic: false,
     },
 ];
-
-pub type StandardRelationKindMetadata = RelationKindDescriptor;
-pub const STANDARD_RELATION_KIND_METADATA: &[StandardRelationKindMetadata] =
-    RELATION_KIND_DESCRIPTORS;
-
-pub fn standard_relation_kind_metadata(
-    relation_kind: &str,
-) -> Option<&'static StandardRelationKindMetadata> {
-    RELATION_KIND_DESCRIPTORS
-        .iter()
-        .find(|row| row.canonical_id == relation_kind)
-}

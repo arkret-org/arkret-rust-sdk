@@ -290,9 +290,7 @@ fn signature_binding_payload_matches_spec_encoding_vector() {
 #[cfg(feature = "embedded-artifacts")]
 #[test]
 fn generated_relation_kind_metadata_matches_embedded_registry() {
-    use arkret_wire::{
-        RelationTruthSourceClass, STANDARD_RELATION_KIND_METADATA, standard_relation_kind_metadata,
-    };
+    use arkret_wire::{RELATION_KIND_DESCRIPTORS, RelationKind, RelationTruthSourceClass};
 
     let registry = embedded_json_artifact("registry/relation-kind-registry.json")
         .expect("embedded relation registry");
@@ -303,7 +301,7 @@ fn generated_relation_kind_metadata_matches_embedded_registry() {
         .iter()
         .map(|row| row["canonical_id"].as_str().expect("canonical_id"))
         .collect();
-    let mut sdk_ids: Vec<&str> = STANDARD_RELATION_KIND_METADATA
+    let mut sdk_ids: Vec<&str> = RELATION_KIND_DESCRIPTORS
         .iter()
         .map(|metadata| metadata.canonical_id)
         .collect();
@@ -313,7 +311,9 @@ fn generated_relation_kind_metadata_matches_embedded_registry() {
 
     for row in relation_kinds {
         let id = row["canonical_id"].as_str().expect("canonical_id");
-        let metadata = standard_relation_kind_metadata(id).expect("SDK metadata row");
+        let metadata = RelationKind::from_wire(id)
+            .descriptor()
+            .expect("SDK descriptor row");
         assert_eq!(
             metadata.default_cardinality,
             row["default_cardinality"]

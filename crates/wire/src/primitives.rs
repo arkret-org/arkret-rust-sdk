@@ -344,7 +344,6 @@ impl Facets {
 
 pub use crate::generated::relation_kinds::{
     RELATION_KIND_DESCRIPTORS, RelationKind, RelationKindDescriptor, RelationTruthSourceClass,
-    STANDARD_RELATION_KIND_METADATA, StandardRelationKindMetadata, standard_relation_kind_metadata,
 };
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
