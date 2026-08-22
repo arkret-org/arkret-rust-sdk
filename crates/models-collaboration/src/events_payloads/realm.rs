@@ -14,10 +14,6 @@ use crate::governance::delivery_binding::BindingSource;
 use crate::internal_prelude::*;
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/hierarchy_link_status`.
-pub type HierarchyLinkStatus = String;
-
-/// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/inheritance_policy_status`.
 pub type InheritancePolicyStatus = String;
 

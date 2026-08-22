@@ -14,9 +14,6 @@ use crate::events_payloads::poll::{PollBlock, PollResponseBlock};
 use crate::internal_prelude::*;
 use crate::objects::strand::MessageMetadata;
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/content_kind`.
-pub type ContentKind = String;
-
 /// Canonical decrypted media type for an MLS-protected message ContentBlock.
 pub const MESSAGE_CONTENT_BLOCK_MLS_CONTENT_TYPE: &str = "application/vnd.arkret.message+json";
 
@@ -28,10 +25,6 @@ pub const MESSAGE_METADATA_MLS_CONTENT_TYPE: &str = "application/vnd.arkret.mess
 pub enum MessageTrackName {
     Discussion,
 }
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/message_metadata_fields`.
-pub type MessageMetadataFields = BTreeMap<String, Value>;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/message_redact_payload`.

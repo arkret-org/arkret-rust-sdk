@@ -18,10 +18,6 @@ pub(crate) fn decode_payload_after_kind_validation<T: DeserializeOwned>(
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/nullable_timestamp`.
 pub type NullableTimestamp = Option<DateTime<Utc>>;
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/plaintext_data_class`.
-pub type PlaintextDataClass = String;
-
 pub use arkret_models_crypto::encrypted_envelope::{
     EncryptedEnvelope, EncryptedEnvelopeEncryptionContext, EncryptedEnvelopeRoutingContext,
     EventContentPreEncryptionHeader, EventContentRoutingContext, base64url_token,
@@ -122,12 +118,6 @@ pub enum MessageLifecycleState {
     Active,
     Redacted,
 }
-
-/// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/grant_ref`.
-pub type GrantRef = String;
-
-/// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/rank`.
-pub type Rank = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/message.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

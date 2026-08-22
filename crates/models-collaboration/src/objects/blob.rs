@@ -10,9 +10,6 @@ use arkret_wire::{BlobRef, DidCoreId, Hash, RealmId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Counterpart for `spec/v1/artifacts/schemas/blob-operations.schema.json#/$defs/media_type`.
-pub type MediaType = String;
-
 /// Counterpart for `spec/v1/artifacts/schemas/blob-operations.schema.json#/$defs/upload_receipt`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]

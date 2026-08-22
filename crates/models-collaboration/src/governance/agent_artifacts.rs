@@ -79,9 +79,6 @@ pub struct PublicKey {
     pub key_digest: Option<Hash>,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/seal.schema.json#/$defs/seal_ref`.
-pub type SealRef = String;
-
 // `seal.schema.json#/$defs/signature` is modelled by
 // [`arkret_wire::PayloadSignature`]. A second, incompatible `Signature` struct
 // used to live here with `verification_method: DidCoreId`, which rejected every legal

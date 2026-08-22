@@ -53,9 +53,6 @@ pub struct StrandTrack {
     pub encrypted_content: Option<EncryptedEnvelope>,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/strand.schema.json#/$defs/metadata_fields`.
-pub type MetadataFields = BTreeMap<String, Value>;
-
 /// Counterpart for `spec/v1/artifacts/schemas/morph-customer-risk.schema.json#/properties/fields`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MorphCustomerRiskFields {
@@ -106,9 +103,6 @@ pub struct MorphCustomerRiskExt {
 impl MorphCustomerRiskExt {
     pub const SCHEMA: &'static str = SchemaId::MORPH_CUSTOMER_RISK_EXT_V1;
 }
-
-/// Counterpart for `spec/v1/artifacts/schemas/morph.schema.json#/$defs/facet_config`.
-pub type FacetConfig = BTreeMap<String, Value>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/pin.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
