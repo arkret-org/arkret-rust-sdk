@@ -326,9 +326,12 @@ fn limits() -> arkret_wire::HistoryStoreLimits {
 /// candidate_digest, outcome)` — the canonical ascending order an over-cap
 /// Event-binding ledger keeps the minimum of
 /// (`history_store/event_candidate_binding_rule`).
+///
+/// `expires_at` uses the canonical fixed-millisecond form: chrono's default
+/// trims trailing subsecond zeros, so `…:00Z` would sort after `…:00.500Z`.
 fn event_binding_retention_key(binding: &EventCandidateBinding) -> Result<Vec<u8>> {
     arkret_wire::canonical::canonical_json_bytes(&serde_json::json!([
-        binding.expires_at,
+        arkret_wire::canonical::format_timestamp_canonical(binding.expires_at),
         binding.event_binding_key.event_id,
         binding.event_binding_key.event_digest,
         binding.event_binding_key.verified_sender_domain,
@@ -455,6 +458,27 @@ mod tests {
         assert_eq!(ledger.resident.len(), 1);
         assert_eq!(ledger.resident[0].material_received_sequence, sequence);
         assert_eq!(ledger.origins.len(), 2);
+    }
+
+    #[test]
+    fn retention_order_does_not_depend_on_subsecond_precision() {
+        // A whole-second expiry and a half-second one must order by time.
+        // chrono's default RFC 3339 trims the `.000`, which would put the
+        // whole second after the half second because `Z` > `.` in UTF-8.
+        let whole = DateTime::parse_from_rfc3339("2026-08-23T10:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let half = DateTime::parse_from_rfc3339("2026-08-23T10:00:00.500Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let ttl = chrono::Duration::seconds(HISTORY_STORE_LIMITS.origin_attribution_ttl_seconds);
+        let earlier = attribution(digest(1), "sender.one", 1, whole - ttl)
+            .canonical_retention_key()
+            .unwrap();
+        let later = attribution(digest(1), "sender.one", 2, half - ttl)
+            .canonical_retention_key()
+            .unwrap();
+        assert!(earlier < later);
     }
 
     #[test]

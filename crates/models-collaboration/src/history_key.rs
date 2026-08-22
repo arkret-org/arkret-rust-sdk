@@ -337,9 +337,14 @@ impl HistoryCandidateOriginAttribution {
     /// `(expires_at, candidate_digest, origin_domain, JCS(origin_quota_domain),
     /// JCS(origin_ref))` — the canonical tuple an over-cap ledger keeps the
     /// minimum of (`history-visibility.md:433-434`).
+    ///
+    /// `expires_at` is rendered through the canonical fixed-millisecond
+    /// formatter rather than chrono's default: the default trims trailing
+    /// subsecond zeros, which would make `…:00Z` sort after `…:00.500Z` and
+    /// turn a deterministic rule into a precision-dependent one.
     pub fn canonical_retention_key(&self) -> Result<Vec<u8>> {
         arkret_wire::canonical::canonical_json_bytes(&serde_json::json!([
-            self.expires_at(),
+            arkret_wire::canonical::format_timestamp_canonical(self.expires_at()),
             self.material_key().candidate_digest,
             self.origin_domain(),
             serde_json::from_slice::<serde_json::Value>(&self.origin_quota_domain_bytes()?)?,
