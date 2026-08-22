@@ -2,12 +2,12 @@
 
 use arkret_models_identity::{
     AuthenticatedServiceResolution, AuthenticatedSignerResolutionEvidence, DidDocument,
-    ResolutionDidBindingEvidenceKind, ResolutionDidBindingEvidenceReceipt,
-    ResolutionDidBindingMethodProof, ResolutionDidBindingMethodProofKind,
-    ResolutionDidBindingWitness, ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence,
-    ServiceResolutionRecord,
+    PublicPrincipalResolution, ResolutionDidBindingEvidenceKind,
+    ResolutionDidBindingEvidenceReceipt, ResolutionDidBindingMethodProof,
+    ResolutionDidBindingMethodProofKind, ResolutionDidBindingWitness,
+    ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence, ServiceResolutionRecord,
 };
-use arkret_wire::{DidCoreId, DidFullId, Error as WireError, Hash};
+use arkret_wire::{DidCoreId, DidFullId, Error as WireError, Hash, project_full_id_to_core_id};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -149,6 +149,199 @@ pub fn verify_authenticated_service_resolution_history(
     )
     .map(|_| ())
     .map_err(wire)
+}
+
+/// Verify the complete public principal-resolution closure and return the
+/// accepted projection.
+///
+/// The Principal Server resolution authenticates the projection attester. The
+/// separately resolved principal document and the response's method-history
+/// evidence authenticate the projected full DID and its exact method head.
+/// Callers must not persist `resolution_projection` before this function
+/// succeeds.
+pub fn verify_public_principal_resolution_history(
+    resolution: &PublicPrincipalResolution,
+    principal_server_resolution: &AuthenticatedServiceResolution,
+    principal_document: &DidDocument,
+    now: DateTime<Utc>,
+) -> Result<arkret_models_identity::PrincipalResolutionProjection> {
+    verify_authenticated_service_resolution_history(
+        principal_server_resolution,
+        &resolution.principal_server_id,
+        now,
+    )?;
+    arkret_signatures::service_resolution::verify_public_principal_resolution(
+        resolution,
+        &principal_server_resolution.normalized_did_document,
+        now,
+    )
+    .map_err(wire)?;
+
+    let projection = &resolution.resolution_projection;
+    if project_full_id_to_core_id(&projection.full_id)
+        .map_err(|error| Error::Protocol(error.to_string()))?
+        != resolution.principal_id
+        || principal_document.id != projection.full_id
+        || projection.updated_at > resolution.projection_attestation.attestation.issued_at
+    {
+        return Err(Error::Protocol(
+            "principal resolution projection does not bind its identity document".to_owned(),
+        ));
+    }
+    let evidence = &resolution.method_history_evidence;
+    evidence.validate_shape().map_err(wire)?;
+    let boundary = evidence.boundary();
+    if boundary.from_method_history_head != projection.method_history_head
+        || boundary.to_method_history_head != projection.method_history_head
+        || boundary.from_version_id != projection.version_id
+        || boundary.to_version_id != projection.version_id
+    {
+        return Err(Error::Protocol(
+            "principal resolution method-history boundary differs from the projection".to_owned(),
+        ));
+    }
+    let document_digest = Hash::new(arkret_canonical::canonical_sha256(principal_document)?)
+        .map_err(|error| Error::Protocol(error.to_string()))?;
+    if evidence.evidence().document_digest != document_digest {
+        return Err(Error::Protocol(
+            "principal resolution evidence binds a different DID document".to_owned(),
+        ));
+    }
+
+    match evidence {
+        ResolutionMethodHistoryEvidence::WebvhLog {
+            evidence,
+            log_entries,
+            witness_records,
+            ..
+        } => {
+            let first = log_entries.first().ok_or_else(|| {
+                Error::Protocol("principal WebVH resolution has no log entries".to_owned())
+            })?;
+            let complete_boundary = ResolutionMethodEvidenceBoundary {
+                from_method_history_head: history_head(first)?.to_owned(),
+                from_version_id: version_id(first)?.to_owned(),
+                to_method_history_head: projection.method_history_head.clone(),
+                to_version_id: projection.version_id.clone(),
+            };
+            verify_webvh_history(
+                &projection.full_id,
+                principal_document,
+                &complete_boundary,
+                evidence,
+                log_entries,
+                witness_records,
+                &projection.method_history_head,
+                &projection.version_id,
+            )?;
+        }
+        ResolutionMethodHistoryEvidence::DidKeyExpansion { .. } => {
+            if projection.full_id.method() != "key" {
+                return Err(Error::Protocol(
+                    "did:key evidence was supplied for another DID method".to_owned(),
+                ));
+            }
+            let expected = DidKeyResolver::new()
+                .resolve_did(&projection.full_id)?
+                .document;
+            require_same_document(&expected, principal_document)?;
+            verify_synthetic_projection_coordinates(
+                projection,
+                &Hash::new(arkret_canonical::sha256_digest(
+                    projection.full_id.as_str().as_bytes(),
+                ))
+                .map_err(|error| Error::Protocol(error.to_string()))?,
+                "synthetic-full-id-sha256:",
+            )?;
+        }
+        ResolutionMethodHistoryEvidence::DidWebDocument { .. } => {
+            if projection.full_id.method() != "web" {
+                return Err(Error::Protocol(
+                    "did:web evidence was supplied for another DID method".to_owned(),
+                ));
+            }
+            verify_synthetic_projection_coordinates(
+                projection,
+                &document_digest,
+                "synthetic-jcs-sha256:",
+            )?;
+        }
+    }
+    Ok(projection.clone())
+}
+
+/// Verify a public principal resolution whose method evidence is sufficient to
+/// reconstruct the current document without another network lookup.
+///
+/// `did:webvh` carries its complete log and `did:key` is self-certifying.
+/// Mutable `did:web` deliberately requires the caller to obtain the current
+/// document independently and use [`verify_public_principal_resolution_history`].
+pub fn verify_embedded_public_principal_resolution_history(
+    resolution: &PublicPrincipalResolution,
+    principal_server_resolution: &AuthenticatedServiceResolution,
+    now: DateTime<Utc>,
+) -> Result<(
+    arkret_models_identity::PrincipalResolutionProjection,
+    DidDocument,
+)> {
+    let projection = &resolution.resolution_projection;
+    let document = match &resolution.method_history_evidence {
+        ResolutionMethodHistoryEvidence::WebvhLog {
+            log_entries,
+            witness_records,
+            ..
+        } => {
+            let log_bytes = json_lines(log_entries)?;
+            let witness_bytes = arkret_canonical::canonical_json_bytes(witness_records)
+                .map_err(|error| Error::Protocol(error.to_string()))?;
+            let verified = verify_did_webvh_v1_chain_and_witness_bytes(
+                &projection.full_id,
+                &log_bytes,
+                (!witness_records.is_empty()).then_some(witness_bytes.as_slice()),
+            )
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+            serde_json::from_value(verified.log.head_state).map_err(|error| {
+                Error::Protocol(format!("invalid principal WebVH head document: {error}"))
+            })?
+        }
+        ResolutionMethodHistoryEvidence::DidKeyExpansion { .. } => {
+            DidKeyResolver::new()
+                .resolve_did(&projection.full_id)?
+                .document
+        }
+        ResolutionMethodHistoryEvidence::DidWebDocument { .. } => {
+            return Err(Error::Protocol(
+                "did:web public resolution requires an independently fetched current document"
+                    .to_owned(),
+            ));
+        }
+    };
+    let projection = verify_public_principal_resolution_history(
+        resolution,
+        principal_server_resolution,
+        &document,
+        now,
+    )?;
+    Ok((projection, document))
+}
+
+fn verify_synthetic_projection_coordinates(
+    projection: &arkret_models_identity::PrincipalResolutionProjection,
+    digest: &Hash,
+    version_prefix: &str,
+) -> Result<()> {
+    let digest_hex = digest.as_str().strip_prefix("sha256:").ok_or_else(|| {
+        Error::Protocol("principal resolution digest omits its suite prefix".to_owned())
+    })?;
+    if projection.method_history_head != digest.as_str()
+        || projection.version_id != format!("{version_prefix}{digest_hex}")
+    {
+        return Err(Error::Protocol(
+            "principal resolution synthetic coordinates do not match the DID method evidence"
+                .to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 /// Verify the retained carrier and return the DID document that was effective
