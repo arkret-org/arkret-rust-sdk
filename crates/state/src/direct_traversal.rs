@@ -867,16 +867,11 @@ pub fn derive_history_join_epoch(
                     .is_some_and(|group| group == subject.mls_group_id.as_str())
                     && event.payload.get("epoch").and_then(Value::as_u64) == Some(0)
                 {
-                    let creator = event
-                        .payload
-                        .get("creator_principal_id")
-                        .and_then(Value::as_str)
-                        .ok_or_else(|| {
-                            Error::Protocol(
-                                "retained MLS Genesis omits creator_principal_id".to_owned(),
-                            )
-                        })?;
-                    genesis.push((event.event_id.clone(), DidCoreId::new(creator)?));
+                    // The creator coordinate is not a payload field: the
+                    // closed mls_genesis_payload schema does not declare one,
+                    // and encryption-and-audit.md fixes creator principal as
+                    // the accepted Event's own actor_id.
+                    genesis.push((event.event_id.clone(), event.actor_id.clone()));
                 }
             }
             _ => {}
@@ -1230,13 +1225,23 @@ mod tests {
     }
 
     fn event(kind: &str, seq: u64, payload: Value, event_id: &str) -> Event {
+        event_by(actor(), kind, seq, payload, event_id)
+    }
+
+    fn event_by(
+        actor_id: DidCoreId,
+        kind: &str,
+        seq: u64,
+        payload: Value,
+        event_id: &str,
+    ) -> Event {
         let mut event = arkret_wire::test_support::raw_event(
             kind,
             ScopeRef::Realm {
                 realm_id: RealmId::new(REALM).expect("Realm id"),
             },
-            actor(),
-            actor(),
+            actor_id.clone(),
+            actor_id,
             seq,
             Hlc::new(format!("01970e589d21-{seq:04}-a13f9c2e")).expect("hlc"),
             payload,
@@ -1255,14 +1260,16 @@ mod tests {
         )
     }
 
+    // The creator coordinate is the Genesis Event's own actor_id, not a
+    // payload field: the closed mls_genesis_payload schema declares none.
     fn genesis(event_id: &str, creator: &DidCoreId) -> Event {
-        event(
+        event_by(
+            creator.clone(),
             event_kind_str::MLS_GENESIS,
             2,
             json!({
                 "mls_group_id": GROUP,
-                "epoch": 0,
-                "creator_principal_id": creator.as_str()
+                "epoch": 0
             }),
             event_id,
         )
