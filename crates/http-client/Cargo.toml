@@ -39,6 +39,7 @@ arkret-signatures.workspace = true
 arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
 arkret-wire = {workspace = true}
 arkret-state = {workspace = true}
+ed25519-dalek.workspace = true
 futures-util = {workspace = true,default-features = false,features = ["std"]}
 reqwest = {workspace = true,features = ["json", "gzip", "http2", "multipart", "stream"]}
 serde = {workspace = true}

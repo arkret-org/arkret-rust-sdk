@@ -3,7 +3,6 @@
 /// that the per-chunk audit-path overhead stays negligible.
 pub const DEFAULT_SNAPSHOT_CHUNK_BYTES: usize = 256 * 1024;
 pub const SNAPSHOT_CHUNK_TYPE: &str = "snapshot_chunk";
-pub use arkret_wire::CORE_REDUCER_PROFILE as SNAPSHOT_REDUCER_PROFILE_V1;
 pub const EVENT_SET_ALGORITHM_ORDERED_SHA256_V1: &str = "ordered_event_id_sha256_v1";
 pub const EVENT_SET_ALGORITHM_MERKLE_V1: &str = "merkle_event_set_v1";
 pub const SNAPSHOT_SECURITY_STANDARD: &str = "standard";

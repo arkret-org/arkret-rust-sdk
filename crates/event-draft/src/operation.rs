@@ -7,7 +7,7 @@ use arkret_models_crypto::mls_envelopes::{
 use arkret_wire::{
     Audience, AuthoredEvent, AuthorizationRef, CriticalExtension, DeviceId, DeviceMessageId,
     DidCoreId, DidFullId, Event, EventId, EventKind, EventRef, EventRequirements, FeatureRef,
-    GrantId, Hash, Hlc, OperationId, OperationKind, Precondition, ProfileRef, Proof,
+    GrantId, Hash, Hlc, OperationId, OperationKind, Precondition, ProducerEventProof, ProfileRef,
     ProofBindingRequirements, RealmId, ScopeRef, SealBasis, SealId, SignatureBindingPayload,
     canonical, project_full_id_to_core_id,
 };
@@ -293,7 +293,7 @@ pub struct OperationEnvelope {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authz_ref: Option<GrantId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<ProducerEventProof>,
 }
 
 impl OperationEnvelope {
@@ -449,7 +449,7 @@ pub struct OperationEventConversion {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub critical_extensions: Vec<CriticalExtension>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<ProducerEventProof>,
 }
 
 impl OperationEventConversion {
@@ -463,7 +463,7 @@ impl OperationEventConversion {
         self
     }
 
-    pub fn with_proof(mut self, proof: Proof) -> Self {
+    pub fn with_proof(mut self, proof: ProducerEventProof) -> Self {
         self.proofs.push(proof);
         self
     }
@@ -481,7 +481,7 @@ pub struct OperationEnvelopeBuilder<K: EventSpec> {
     actor_seq: u64,
     payload: K::Payload,
     authz_ref: Option<GrantId>,
-    proofs: Vec<Proof>,
+    proofs: Vec<ProducerEventProof>,
 }
 
 impl<K: EventSpec> OperationEnvelopeBuilder<K> {
@@ -527,7 +527,7 @@ impl<K: EventSpec> OperationEnvelopeBuilder<K> {
     }
 
     /// Attach a proof.
-    pub fn with_proof(mut self, proof: Proof) -> Self {
+    pub fn with_proof(mut self, proof: ProducerEventProof) -> Self {
         self.proofs.push(proof);
         self
     }

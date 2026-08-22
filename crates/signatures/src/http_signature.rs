@@ -39,9 +39,6 @@ use std::collections::BTreeSet;
 
 use arkret_canonical::{base64_standard_decode, base64_standard_encode};
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
-// -- public re-exports of the underlying crypto primitives so callers
-// -- can construct keys without depending on `ed25519-dalek` directly.
-pub use ed25519_dalek::{SigningKey as Ed25519SigningKey, VerifyingKey as Ed25519PublicKey};
 use thiserror::Error;
 
 /// Errors emitted by the RFC 9421 helpers.
@@ -715,7 +712,7 @@ pub fn verify_signed_http_message<I, N, V>(
     path: &str,
     headers: I,
     body: &[u8],
-    public_key: &Ed25519PublicKey,
+    public_key: &VerifyingKey,
     policy: &SignatureVerificationPolicy,
     now_unix_seconds: i64,
 ) -> Result<VerifiedHttpMessageSignature, HttpMessageVerificationError>
@@ -812,7 +809,7 @@ pub fn verify_signed_canonical_json_message<I, N, V>(
     headers: I,
     content_encoding_present: bool,
     body: &[u8],
-    public_key: &Ed25519PublicKey,
+    public_key: &VerifyingKey,
     policy: &SignatureVerificationPolicy,
     now_unix_seconds: i64,
 ) -> Result<VerifiedHttpMessageSignature, HttpMessageVerificationError>
@@ -923,7 +920,7 @@ fn component_value(
 
 /// Ed25519-sign the canonical message bytes and return a base64
 /// (standard alphabet) string suitable for the `Signature` header.
-pub fn sign_message(message: &[u8], signing_key: &Ed25519SigningKey) -> String {
+pub fn sign_message(message: &[u8], signing_key: &SigningKey) -> String {
     let signature: Signature = signing_key.sign(message);
     encode_signature_b64(&signature.to_bytes())
 }
@@ -935,7 +932,7 @@ pub fn sign_message(message: &[u8], signing_key: &Ed25519SigningKey) -> String {
 pub fn verify_signature(
     message: &[u8],
     signature_b64: &str,
-    public_key: &Ed25519PublicKey,
+    public_key: &VerifyingKey,
 ) -> Result<(), SignatureError> {
     let bytes = decode_signature_b64(signature_b64)?;
     if bytes.len() != 64 {
@@ -951,7 +948,7 @@ pub fn verify_signature(
 
 /// Construct an Ed25519 public key from raw 32 bytes. Helper for
 /// callers that store keys as hex / base64.
-pub fn public_key_from_bytes(bytes: &[u8]) -> Result<Ed25519PublicKey, SignatureError> {
+pub fn public_key_from_bytes(bytes: &[u8]) -> Result<VerifyingKey, SignatureError> {
     if bytes.len() != 32 {
         return Err(SignatureError::InvalidPublicKey);
     }
@@ -961,7 +958,7 @@ pub fn public_key_from_bytes(bytes: &[u8]) -> Result<Ed25519PublicKey, Signature
 }
 
 /// Construct an Ed25519 signing key from a 32-byte seed.
-pub fn signing_key_from_seed(seed: &[u8; 32]) -> Ed25519SigningKey {
+pub fn signing_key_from_seed(seed: &[u8; 32]) -> SigningKey {
     SigningKey::from_bytes(seed)
 }
 

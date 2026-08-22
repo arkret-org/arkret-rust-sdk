@@ -289,7 +289,7 @@ impl SignalAeadBinding<'_> {
 
 /// Detached device proof over the Signal envelope.
 ///
-/// Distinct from [`crate::primitives::Proof`]: the transcript names the
+/// Distinct from [`crate::primitives::ProducerEventProof`]: the transcript names the
 /// sending device explicitly and commits to `envelope_digest`, not to an
 /// Event digest.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

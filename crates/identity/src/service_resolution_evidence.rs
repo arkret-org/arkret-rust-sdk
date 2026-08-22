@@ -12,7 +12,7 @@ use chrono::{DateTime, Utc};
 use serde_json::Value;
 
 use crate::{
-    DidKeyResolver, DidResolver as _, Error, Result, parse_did_webvh_witness_policy,
+    DidKeyResolver, DidResolver as _, IdentityError, Result, parse_did_webvh_witness_policy,
     verify_did_webvh_v1_chain_and_witness_bytes,
 };
 
@@ -27,15 +27,14 @@ pub fn build_authenticated_webvh_service_resolution(
 ) -> Result<AuthenticatedServiceResolution> {
     let record = &service_resolution_record.record;
     if record.full_id.method() != "webvh" || normalized_did_document.id != record.full_id {
-        return Err(Error::Protocol(
+        return Err(IdentityError::Protocol(
             "WebVH service resolution builder received a different DID method or document"
                 .to_owned(),
         ));
     }
-    let first_version =
-        version_id(log_entries.first().ok_or_else(|| {
-            Error::Protocol("WebVH signer evidence has no log entries".to_owned())
-        })?)?;
+    let first_version = version_id(log_entries.first().ok_or_else(|| {
+        IdentityError::Protocol("WebVH signer evidence has no log entries".to_owned())
+    })?)?;
     let last_version = version_id(
         log_entries
             .last()
@@ -53,11 +52,11 @@ pub fn build_authenticated_webvh_service_resolution(
     )?;
     let witnesses = terminal_witnesses(&log_entries)?;
     let witness_proofs_digest = Hash::new(arkret_canonical::canonical_sha256(&witness_records)?)
-        .map_err(|error| Error::Protocol(error.to_string()))?;
+        .map_err(|error| IdentityError::Protocol(error.to_string()))?;
     let document_digest = Hash::new(arkret_canonical::canonical_sha256(
         &normalized_did_document,
     )?)
-    .map_err(|error| Error::Protocol(error.to_string()))?;
+    .map_err(|error| IdentityError::Protocol(error.to_string()))?;
     let resolution = AuthenticatedServiceResolution {
         service_resolution_record,
         method_history_evidence: ResolutionMethodHistoryEvidence::WebvhLog {
@@ -129,7 +128,7 @@ pub fn verify_authenticated_service_resolution_history(
                 || boundary.to_method_history_head != record.method_history_head
                 || boundary.to_version_id != record.version_id
             {
-                return Err(Error::Protocol(
+                return Err(IdentityError::Protocol(
                     "did:key service resolution boundary mismatch".to_owned(),
                 ));
             }
@@ -137,7 +136,7 @@ pub fn verify_authenticated_service_resolution_history(
             require_same_document(&expected, &resolution.normalized_did_document)?;
         }
         ResolutionMethodHistoryEvidence::DidWebDocument { .. } => {
-            return Err(Error::Protocol(
+            return Err(IdentityError::Protocol(
                 "mutable did:web cannot be retained as historical service signer evidence"
                     .to_owned(),
             ));
@@ -169,15 +168,15 @@ pub fn authenticated_service_document_at(
                 log_entries,
                 at,
             )
-            .map_err(|error| Error::Protocol(error.to_string()))?;
+            .map_err(|error| IdentityError::Protocol(error.to_string()))?;
             serde_json::from_value(point.document).map_err(|error| {
-                Error::Protocol(format!("invalid historical WebVH document: {error}"))
+                IdentityError::Protocol(format!("invalid historical WebVH document: {error}"))
             })
         }
         ResolutionMethodHistoryEvidence::DidKeyExpansion { .. } => {
             Ok(resolution.normalized_did_document.clone())
         }
-        ResolutionMethodHistoryEvidence::DidWebDocument { .. } => Err(Error::Protocol(
+        ResolutionMethodHistoryEvidence::DidWebDocument { .. } => Err(IdentityError::Protocol(
             "mutable did:web cannot be used for historical service key selection".to_owned(),
         )),
     }
@@ -217,7 +216,7 @@ pub fn service_signer_evidence_for_method_from_authenticated_resolution(
         .verification_methods
         .contains_key(verification_method.as_str())
     {
-        return Err(Error::Protocol(
+        return Err(IdentityError::Protocol(
             "historical service document does not authorize the requested method".to_owned(),
         ));
     }
@@ -246,19 +245,19 @@ fn verify_webvh_history(
         || log_entries.len() > 4_096
         || witness_records.len() > 4_096
     {
-        return Err(Error::Protocol(
+        return Err(IdentityError::Protocol(
             "WebVH signer evidence omits a complete history".to_owned(),
         ));
     }
     let log_bytes = json_lines(log_entries)?;
     let witness_bytes = arkret_canonical::canonical_json_bytes(&witness_records)
-        .map_err(|error| Error::Protocol(error.to_string()))?;
+        .map_err(|error| IdentityError::Protocol(error.to_string()))?;
     let verified = verify_did_webvh_v1_chain_and_witness_bytes(
         full_id,
         &log_bytes,
         (!witness_records.is_empty()).then_some(witness_bytes.as_slice()),
     )
-    .map_err(|error| Error::Protocol(error.to_string()))?;
+    .map_err(|error| IdentityError::Protocol(error.to_string()))?;
     let mut supplied_witness_versions = witness_records
         .iter()
         .map(version_id)
@@ -268,7 +267,7 @@ fn verify_webvh_history(
         .windows(2)
         .any(|pair| pair[0] == pair[1])
     {
-        return Err(Error::Protocol(
+        return Err(IdentityError::Protocol(
             "WebVH signer evidence repeats a witness record version".to_owned(),
         ));
     }
@@ -279,7 +278,7 @@ fn verify_webvh_history(
         .collect::<Vec<_>>();
     required_witness_versions.sort();
     if supplied_witness_versions != required_witness_versions {
-        return Err(Error::Protocol(
+        return Err(IdentityError::Protocol(
             "WebVH signer evidence has missing or surplus witness records".to_owned(),
         ));
     }
@@ -292,11 +291,11 @@ fn verify_webvh_history(
             .expect("non-empty WebVH log checked above"),
     )?;
     let method_proof = evidence.method_proofs.first().ok_or_else(|| {
-        Error::Protocol("WebVH signer evidence omits its method proof".to_owned())
+        IdentityError::Protocol("WebVH signer evidence omits its method proof".to_owned())
     })?;
     let expected_witnesses = terminal_witnesses(log_entries)?;
     let witness_digest = Hash::new(arkret_canonical::canonical_sha256(&witness_records)?)
-        .map_err(|error| Error::Protocol(error.to_string()))?;
+        .map_err(|error| IdentityError::Protocol(error.to_string()))?;
     if boundary.from_method_history_head != first_history_head
         || boundary.from_version_id != first_version
         || boundary.to_method_history_head != last_history_head
@@ -309,23 +308,25 @@ fn verify_webvh_history(
         || method_proof.witnesses != expected_witnesses
         || method_proof.witness_proofs_digest != witness_digest
     {
-        return Err(Error::Protocol(
+        return Err(IdentityError::Protocol(
             "WebVH signer evidence boundary or head mismatch".to_owned(),
         ));
     }
-    let head_document: DidDocument = serde_json::from_value(verified.log.head_state)
-        .map_err(|error| Error::Protocol(format!("invalid WebVH head document: {error}")))?;
+    let head_document: DidDocument =
+        serde_json::from_value(verified.log.head_state).map_err(|error| {
+            IdentityError::Protocol(format!("invalid WebVH head document: {error}"))
+        })?;
     require_same_document(&head_document, document)
 }
 
 fn terminal_witnesses(log_entries: &[Value]) -> Result<Vec<ResolutionDidBindingWitness>> {
     let mut policy = None;
     for entry in log_entries {
-        let parameters = entry
-            .get("parameters")
-            .ok_or_else(|| Error::Protocol("WebVH log entry omits parameters".to_owned()))?;
+        let parameters = entry.get("parameters").ok_or_else(|| {
+            IdentityError::Protocol("WebVH log entry omits parameters".to_owned())
+        })?;
         if let Some(next) = parse_did_webvh_witness_policy(parameters)
-            .map_err(|error| Error::Protocol(error.to_string()))?
+            .map_err(|error| IdentityError::Protocol(error.to_string()))?
         {
             policy = Some(next);
         }
@@ -336,7 +337,7 @@ fn terminal_witnesses(log_entries: &[Value]) -> Result<Vec<ResolutionDidBindingW
         .into_iter()
         .map(|id| {
             let witness_did =
-                DidFullId::new(id).map_err(|error| Error::Protocol(error.to_string()))?;
+                DidFullId::new(id).map_err(|error| IdentityError::Protocol(error.to_string()))?;
             Ok(ResolutionDidBindingWitness {
                 controlling_organization: witness_did.clone(),
                 witness_did,
@@ -352,7 +353,7 @@ fn json_lines(entries: &[Value]) -> Result<Vec<u8>> {
     for entry in entries {
         bytes.extend(
             arkret_canonical::canonical_json_bytes(entry)
-                .map_err(|error| Error::Protocol(error.to_string()))?,
+                .map_err(|error| IdentityError::Protocol(error.to_string()))?,
         );
         bytes.push(b'\n');
     }
@@ -365,28 +366,28 @@ fn version_id(entry: &Value) -> Result<String> {
         .and_then(Value::as_str)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
-        .ok_or_else(|| Error::Protocol("WebVH log entry omits versionId".to_owned()))
+        .ok_or_else(|| IdentityError::Protocol("WebVH log entry omits versionId".to_owned()))
 }
 
 fn history_head(entry: &Value) -> Result<String> {
     Hash::new(arkret_canonical::canonical_sha256(entry)?)
         .map(|digest| digest.as_ref().to_owned())
-        .map_err(|error| Error::Protocol(error.to_string()))
+        .map_err(|error| IdentityError::Protocol(error.to_string()))
 }
 
 fn require_same_document(expected: &DidDocument, actual: &DidDocument) -> Result<()> {
     let expected = arkret_canonical::canonical_json_bytes(expected)
-        .map_err(|error| Error::Protocol(error.to_string()))?;
+        .map_err(|error| IdentityError::Protocol(error.to_string()))?;
     let actual = arkret_canonical::canonical_json_bytes(actual)
-        .map_err(|error| Error::Protocol(error.to_string()))?;
+        .map_err(|error| IdentityError::Protocol(error.to_string()))?;
     if expected != actual {
-        return Err(Error::Protocol(
+        return Err(IdentityError::Protocol(
             "retained normalized DID document does not match method-native history".to_owned(),
         ));
     }
     Ok(())
 }
 
-fn wire(error: WireError) -> Error {
-    Error::Protocol(error.to_string())
+fn wire(error: WireError) -> IdentityError {
+    IdentityError::Protocol(error.to_string())
 }

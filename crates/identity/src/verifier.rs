@@ -15,7 +15,7 @@
 //!
 //! | signed object | entry point | what the JWS covers |
 //! | --- | --- | --- |
-//! | Event [`Proof`] | [`verify_event_proof_with_binding`] | the canonical **proof binding object** (`encoding.md` §6) |
+//! | Event [`ProducerEventProof`] | [`verify_event_proof_with_binding`] | the canonical **proof binding object** (`encoding.md` §6) |
 //! | anything else (auth data, receipts, handle claims) | [`verify_jws_with_binding`] | the canonical bytes you pass in |
 //!
 //! Routing an Event proof through [`verify_jws_with_binding`] verifies the wrong
@@ -64,7 +64,7 @@
 //! it is an identity-anchor path and belongs on the ordinary API.
 
 use arkret_signatures::{Ed25519DetachedJwsVerifier, PublicKeyMaterial};
-use arkret_wire::{DidCoreId, DidFullId, DidUrl, Event, Hash, Proof, TrustDomainId};
+use arkret_wire::{DidCoreId, DidFullId, DidUrl, Event, Hash, ProducerEventProof, TrustDomainId};
 use chrono::{DateTime, Utc};
 
 use crate::binding::{
@@ -474,7 +474,7 @@ pub fn public_key_material_from_document(
     })
 }
 
-/// Verify an Event [`Proof`] against an accepted binding's pinned document.
+/// Verify an Event [`ProducerEventProof`] against an accepted binding's pinned document.
 ///
 /// # Why this is not `verify_jws_with_binding`
 ///
@@ -512,7 +512,7 @@ pub fn public_key_material_from_document(
 /// should use [`verify_event_proof_with_binding_for_event`], or check
 /// `executed_by` themselves.
 pub fn verify_event_proof_with_binding(
-    proof: &Proof,
+    proof: &ProducerEventProof,
     envelope_bytes: &[u8],
     actor_id: &DidCoreId,
     accepted: &AcceptedDidBinding,
@@ -574,7 +574,7 @@ pub fn verify_event_proof_with_binding(
 /// `event.actor_id` — **not** `event.executed_by`, per `encoding.md` §6.
 pub fn verify_event_proof_with_binding_for_event(
     event: &Event,
-    proof: &Proof,
+    proof: &ProducerEventProof,
     accepted: &AcceptedDidBinding,
 ) -> Result<(), BindingVerifyError> {
     let envelope_bytes = arkret_signatures::EventProofBuilder::new()
@@ -1169,8 +1169,8 @@ mod tests {
         }
 
         /// A proof whose `jws` still has to be filled in.
-        fn unsigned_proof(event: &Event) -> Proof {
-            Proof {
+        fn unsigned_proof(event: &Event) -> ProducerEventProof {
+            ProducerEventProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: verification_method(),
                 event_digest: Hash::new(arkret_canonical::canonical::sha256_digest(
@@ -1193,7 +1193,7 @@ mod tests {
 
         /// Sign the canonical proof **binding object** — the bytes an Event
         /// proof actually covers (`encoding.md` §6).
-        fn signed_proof(event: &Event) -> Proof {
+        fn signed_proof(event: &Event) -> ProducerEventProof {
             let mut proof = unsigned_proof(event);
             let binding_bytes = proof
                 .canonical_binding_bytes(&event.actor_id)

@@ -12,7 +12,7 @@
 //! The profile divergence this file used to report is gone. The v1 fixture
 //! signs `{context, event_digest, actor_id, verification_method, created_at,
 //! domain}` under `{"alg":"Ed25519"}`, which is the SDK event-proof profile
-//! (`Proof::canonical_binding_bytes` + `verify_ed25519_detached_jws_proof`):
+//! (`ProducerEventProof::canonical_binding_bytes` + `verify_ed25519_detached_jws_proof`):
 //! the duplicate `payload_digest` and the `typ`/`kid` header members were
 //! removed by the kernel restructure. So the vector is verified end to end
 //! here, not only below the transcript layer.
@@ -23,7 +23,7 @@ use arkret_signatures::proof::{PublicKeyMaterial, verify_detached_ed25519_signat
 use arkret_signatures::{
     FUTURE_ALGORITHMS, PRODUCTION_ALGORITHMS, verify_ed25519_detached_jws_proof,
 };
-use arkret_wire::{DidFullId, DidUrl, Hash, Proof, project_full_id_to_core_id};
+use arkret_wire::{DidFullId, DidUrl, Hash, ProducerEventProof, project_full_id_to_core_id};
 use ed25519_dalek::Signer as _;
 use serde_json::Value;
 
@@ -220,11 +220,11 @@ fn non_ed25519_vectors_pin_canonical_chain_and_stay_wire_reserved() {
     assert!(FUTURE_ALGORITHMS.contains(&"ML-DSA-65"));
 }
 
-/// Build a well-formed SDK `Proof` around a negative-case JWS so the reject
+/// Build a well-formed SDK `ProducerEventProof` around a negative-case JWS so the reject
 /// path under test (alg gate / payload segment) is reached with everything
 /// else valid.
-fn proof_for_negative(base: &Value, jws: &str) -> Proof {
-    Proof {
+fn proof_for_negative(base: &Value, jws: &str) -> ProducerEventProof {
+    ProducerEventProof {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new(s(&base["proof"], "verification_method")).unwrap(),
         event_digest: Hash::new(s(base, "event_digest")).unwrap(),

@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DidCoreId, Error, EventId, Hash, ProfileId, Proof, RealmId, ReasonCode, Result, SchemaId,
-    TrustDomainId,
+    DidCoreId, Error, EventId, Hash, ProducerEventProof, ProfileId, RealmId, ReasonCode, Result,
+    SchemaId, TrustDomainId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -183,7 +183,7 @@ pub struct AuditRywReceipt {
     pub observed_at: DateTime<Utc>,
     pub receipt_independence: ReceiptIndependence,
     pub audit_assurance_class: AuditAssurance,
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<ProducerEventProof>,
 }
 
 impl AuditRywReceipt {

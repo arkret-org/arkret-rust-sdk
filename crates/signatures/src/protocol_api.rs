@@ -81,13 +81,12 @@ use arkret_canonical::canonical;
 ///
 /// Re-export of the single source of truth in `arkret-wire`
 /// ([`arkret_wire::PRODUCTION_ALGORITHMS`]) so the structural gate
-/// (`Proof::validate_production`) and this crate's verifiers can never
+/// (`ProducerEventProof::validate_production`) and this crate's verifiers can never
 /// diverge again. The v1 set is exactly `["Ed25519"]` — see the wire constant's
 /// documentation for why the other registry-active rows are excluded.
 pub use arkret_wire::PRODUCTION_ALGORITHMS;
-pub use arkret_wire::Proof as ProtocolProof;
 use arkret_wire::{
-    Audience, DidCoreId, DidFullId, DidUrl, Hash, Proof, ProofBindingRequirements,
+    Audience, DidCoreId, DidFullId, DidUrl, Hash, ProducerEventProof, ProofBindingRequirements,
     SignatureBindingPayload,
 };
 use chrono::{DateTime, Duration, Utc};
@@ -193,7 +192,7 @@ pub struct DetachedSignature {
 }
 
 impl DetachedSignature {
-    pub fn from_proof(proof: Proof) -> Self {
+    pub fn from_proof(proof: ProducerEventProof) -> Self {
         Self {
             kind: proof.kind,
             verification_method: proof.verification_method,
@@ -205,8 +204,8 @@ impl DetachedSignature {
         }
     }
 
-    pub fn into_proof(self) -> Proof {
-        Proof {
+    pub fn into_proof(self) -> ProducerEventProof {
+        ProducerEventProof {
             kind: self.kind,
             verification_method: self.verification_method,
             event_digest: self.payload_digest,
@@ -324,14 +323,14 @@ impl ProofVerificationContext {
 }
 
 pub fn verify_proof_with_resolver<R, F>(
-    proof: &Proof,
+    proof: &ProducerEventProof,
     context: &ProofVerificationContext,
     resolver: &R,
     verify_jws: F,
 ) -> Result<SignatureVerification>
 where
     R: DidVerificationMethodResolver + ?Sized,
-    F: Fn(&VerificationMethodDocument, &Proof) -> Result<bool>,
+    F: Fn(&VerificationMethodDocument, &ProducerEventProof) -> Result<bool>,
 {
     proof.validate_production()?;
     if proof.event_digest != context.expected_payload_digest {
@@ -409,7 +408,7 @@ pub fn canonical_payload_digest<T: Serialize>(payload: &T) -> Result<Hash> {
     Hash::new(canonical::canonical_sha256(payload)?).map_err(Into::into)
 }
 
-pub fn validate_production_proof(proof: &Proof) -> Result<()> {
+pub fn validate_production_proof(proof: &ProducerEventProof) -> Result<()> {
     Ok(proof.validate_production()?)
 }
 
@@ -497,7 +496,7 @@ mod tests {
             public_key_multibase: "zKey".to_owned(),
             controller: None,
         });
-        let proof = Proof {
+        let proof = ProducerEventProof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: payload_digest.clone(),
@@ -548,7 +547,7 @@ mod tests {
             public_key_multibase: "zKey".to_owned(),
             controller: None,
         });
-        let mut proof = Proof {
+        let mut proof = ProducerEventProof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: payload_digest.clone(),

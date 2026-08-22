@@ -35,7 +35,7 @@ use std::fmt;
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical;
-use arkret_wire::{DidUrl, Hash, PayloadProof, Proof, SignalEnvelope, proof_kind};
+use arkret_wire::{DidUrl, Hash, PayloadProof, ProducerEventProof, SignalEnvelope, proof_kind};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
@@ -141,7 +141,7 @@ struct DetachedJwsProtectedHeader {
     crit: Option<serde_json::Value>,
 }
 
-/// Verify an Ed25519 detached-JWS [`Proof`] against canonical event bytes,
+/// Verify an Ed25519 detached-JWS [`ProducerEventProof`] against canonical event bytes,
 /// the signing `actor_id`, and a resolver-supplied public key.
 ///
 /// Per `encoding.md` §6 the verifier sequence is fixed:
@@ -156,7 +156,7 @@ struct DetachedJwsProtectedHeader {
 /// This is intentionally not gated behind the `signer` feature: production
 /// receivers need verification even when they never hold signing material.
 pub fn verify_ed25519_detached_jws_proof(
-    proof: &Proof,
+    proof: &ProducerEventProof,
     canonical_bytes: &[u8],
     actor_id: &arkret_wire::DidCoreId,
     public_key: &PublicKeyMaterial,
@@ -176,7 +176,7 @@ pub fn verify_ed25519_detached_jws_proof(
 /// proof has verified. Callers must resolve it from accepted Realm state (or
 /// the verified genesis authoring context), never infer it from the Event.
 pub fn verify_ed25519_detached_jws_proof_with_digest_suite(
-    proof: &Proof,
+    proof: &ProducerEventProof,
     canonical_bytes: &[u8],
     actor_id: &arkret_wire::DidCoreId,
     public_key: &PublicKeyMaterial,
@@ -265,7 +265,7 @@ pub fn verify_ed25519_signal_proof(
 }
 
 fn verify_ed25519_detached_jws_proof_inner(
-    proof: &Proof,
+    proof: &ProducerEventProof,
     canonical_bytes: &[u8],
     actor_id: &arkret_wire::DidCoreId,
     public_key: &PublicKeyMaterial,
@@ -558,7 +558,7 @@ pub struct SignedPayload {
 pub trait EventSigner {
     fn sign(&self, bytes: &[u8]) -> std::result::Result<Vec<u8>, SignerError>;
     /// Fully specified algorithm name used by the protected JWS header
-    /// (e.g. `"Ed25519"`). It is not duplicated in the outer [`Proof`].
+    /// (e.g. `"Ed25519"`). It is not duplicated in the outer [`ProducerEventProof`].
     fn algorithm(&self) -> &str;
     /// Verification method id (`did:...#fragment`) the produced
     /// signatures should reference.
@@ -654,7 +654,10 @@ impl<V> ProductionVerifier<V> {
 
     /// Reject any `Proof` whose `kind` is in the canonical dev-kind
     /// allowlist (`dev` / `test` / `mock` / `stub` / `dummy`).
-    pub fn assert_production_proof(&self, proof: &Proof) -> std::result::Result<(), VerifierError> {
+    pub fn assert_production_proof(
+        &self,
+        proof: &ProducerEventProof,
+    ) -> std::result::Result<(), VerifierError> {
         proof
             .validate_production()
             .map_err(|err| VerifierError::DevProofRejected(err.to_string()))
@@ -720,8 +723,8 @@ mod ed25519_jws {
 
         /// Produce a generic detached JWS over caller-supplied bytes.
         ///
-        /// This primitive does not assemble an Arkret event [`arkret_wire::Proof`]. Event
-        /// proofs must be created with [`crate::sign_event`], which signs the
+        /// This primitive does not assemble an Arkret event [`arkret_wire::ProducerEventProof`].
+        /// Event proofs must be created with [`crate::sign_event`], which signs the
         /// protocol proof-binding object rather than raw event bytes.
         pub fn sign_detached_jws(&self, bytes: &[u8]) -> String {
             detached_jws_over(&self.signing_key, bytes)
@@ -969,7 +972,7 @@ pub fn ed25519_detached_jws_from_signature(
     Ok(format!("{protected}..{}", base64url_encode(signature)))
 }
 
-/// Construct a [`Proof`] envelope for an already-signed payload. The
+/// Construct a [`ProducerEventProof`] envelope for an already-signed payload. The
 /// caller is responsible for supplying the detached JWS string produced by
 /// their signer. The algorithm is carried only in its protected header.
 #[allow(clippy::too_many_arguments)]
@@ -980,8 +983,8 @@ pub fn build_proof_envelope(
     domain: Option<String>,
     audience: Option<arkret_wire::Audience>,
     jws: impl Into<String>,
-) -> Proof {
-    Proof {
+) -> ProducerEventProof {
+    ProducerEventProof {
         kind: kind.into(),
         verification_method,
         event_digest: payload_digest,

@@ -22,7 +22,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use arkret_signatures::http_signature::Ed25519SigningKey;
+use ed25519_dalek::SigningKey;
 use reqwest::Method;
 #[cfg(any(not(target_arch = "wasm32"), test))]
 use reqwest::StatusCode;
@@ -186,7 +186,7 @@ impl DpopAuth {
 #[derive(Clone)]
 pub struct HttpMessageSigner {
     key_id: String,
-    signing_key: Arc<Ed25519SigningKey>,
+    signing_key: Arc<SigningKey>,
     validity: Duration,
 }
 
@@ -200,7 +200,7 @@ impl std::fmt::Debug for HttpMessageSigner {
 }
 
 impl HttpMessageSigner {
-    pub fn new(key_id: impl Into<String>, signing_key: Ed25519SigningKey) -> Self {
+    pub fn new(key_id: impl Into<String>, signing_key: SigningKey) -> Self {
         Self {
             key_id: key_id.into(),
             signing_key: Arc::new(signing_key),
@@ -219,7 +219,7 @@ impl HttpMessageSigner {
         &self.key_id
     }
 
-    pub(crate) fn signing_key(&self) -> &Ed25519SigningKey {
+    pub(crate) fn signing_key(&self) -> &SigningKey {
         &self.signing_key
     }
 
@@ -1269,8 +1269,7 @@ mod tests {
         #[tokio::test]
         async fn http_message_signer_signs_self_requests_before_send() {
             let canned = r#"{"status":"accepted","delivery_state":"complete","pending_delivery_count":0,"accepted":["ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6"]}"#;
-            let signer =
-                HttpMessageSigner::new("grant-key", Ed25519SigningKey::from_bytes(&[7u8; 32]));
+            let signer = HttpMessageSigner::new("grant-key", SigningKey::from_bytes(&[7u8; 32]));
             let (client, capture) =
                 spawn_capture_server_with(canned, |builder| builder.http_message_signer(signer))
                     .await;
@@ -1314,8 +1313,7 @@ mod tests {
         #[tokio::test]
         async fn http_message_signer_does_not_sign_public_describe() {
             let canned = r#"{"name":"test","version":"v1"}"#;
-            let signer =
-                HttpMessageSigner::new("grant-key", Ed25519SigningKey::from_bytes(&[8u8; 32]));
+            let signer = HttpMessageSigner::new("grant-key", SigningKey::from_bytes(&[8u8; 32]));
             let (client, capture) =
                 spawn_capture_server_with(canned, |builder| builder.http_message_signer(signer))
                     .await;

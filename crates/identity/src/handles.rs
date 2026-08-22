@@ -174,25 +174,26 @@ impl PairwiseActorStore {
         pairwise_actor_id: &DidCoreId,
         proof: &PairwiseActorResolutionProof,
     ) -> Result<&DidCoreId> {
-        let binding = self
-            .by_pairwise
-            .get(pairwise_actor_id)
-            .ok_or_else(|| Error::Protocol("pairwise actor binding not found".to_owned()))?;
+        let binding = self.by_pairwise.get(pairwise_actor_id).ok_or_else(|| {
+            IdentityError::Protocol("pairwise actor binding not found".to_owned())
+        })?;
         if binding.is_expired() {
-            return Err(Error::Protocol("pairwise DID binding expired".to_owned()));
+            return Err(IdentityError::Protocol(
+                "pairwise DID binding expired".to_owned(),
+            ));
         }
         if &proof.pairwise_actor_id != pairwise_actor_id {
-            return Err(Error::Protocol(
+            return Err(IdentityError::Protocol(
                 "pairwise DID proof target mismatch".to_owned(),
             ));
         }
         if proof.requester != binding.peer_principal_id && proof.requester != binding.principal_id {
-            return Err(Error::Protocol(
+            return Err(IdentityError::Protocol(
                 "pairwise DID proof requester is not authorized".to_owned(),
             ));
         }
         if proof.peer_principal_id != binding.peer_principal_id || proof.scope != binding.scope {
-            return Err(Error::Protocol(
+            return Err(IdentityError::Protocol(
                 "pairwise DID proof scope mismatch".to_owned(),
             ));
         }
@@ -204,7 +205,7 @@ impl PairwiseActorStore {
             &proof.challenge,
         );
         if proof.proof != expected {
-            return Err(Error::Protocol(
+            return Err(IdentityError::Protocol(
                 "invalid pairwise DID resolution proof".to_owned(),
             ));
         }
@@ -292,7 +293,7 @@ impl ExternalHandleProof {
         if self.proof.trim() == expected {
             Ok(())
         } else {
-            Err(Error::Protocol("handle proof mismatch".to_owned()))
+            Err(IdentityError::Protocol("handle proof mismatch".to_owned()))
         }
     }
 }
@@ -363,20 +364,20 @@ impl VerifiedHandleBinding {
     ) -> Result<Self> {
         let normalized = normalize_handle(handle);
         if handle_proof.handle != normalized {
-            return Err(Error::Protocol(
+            return Err(IdentityError::Protocol(
                 "handle in proof does not match requested handle".to_owned(),
             ));
         }
         let document_principal = project_full_id_to_core_id(&document.id)?;
         if handle_proof.subject != document_principal {
-            return Err(Error::Protocol(
+            return Err(IdentityError::Protocol(
                 "handle proof DID does not match document subject".to_owned(),
             ));
         }
         if !document.also_known_as.iter().any(|aka| {
             normalize_handle(aka) == normalized || aka.trim_end_matches('/').ends_with(&normalized)
         }) {
-            return Err(Error::Protocol(
+            return Err(IdentityError::Protocol(
                 "did document does not list handle in alsoKnownAs".to_owned(),
             ));
         }
@@ -432,7 +433,7 @@ impl IdentityManager {
         let document = self
             .documents
             .get_mut(did)
-            .ok_or_else(|| Error::Protocol("did document not found".to_owned()))?;
+            .ok_or_else(|| IdentityError::Protocol("did document not found".to_owned()))?;
         document
             .verification_methods
             .insert(key_id.into(), public_key.into());
@@ -465,10 +466,12 @@ impl IdentityManager {
         let claim = self
             .handles
             .get_mut(&handle)
-            .ok_or_else(|| Error::Protocol("handle claim not found".to_owned()))?;
+            .ok_or_else(|| IdentityError::Protocol("handle claim not found".to_owned()))?;
         let expected = handle_claim_proof(&claim.handle, &claim.subject, &claim.challenge);
         if expected != proof {
-            return Err(Error::Protocol("invalid handle claim proof".to_owned()));
+            return Err(IdentityError::Protocol(
+                "invalid handle claim proof".to_owned(),
+            ));
         }
         claim.verified = true;
         Ok(())
@@ -485,9 +488,11 @@ impl IdentityManager {
         let claim = self
             .handles
             .get_mut(&handle)
-            .ok_or_else(|| Error::Protocol("handle claim not found".to_owned()))?;
+            .ok_or_else(|| IdentityError::Protocol("handle claim not found".to_owned()))?;
         if !claim.verified {
-            return Err(Error::Protocol("handle claim is not verified".to_owned()));
+            return Err(IdentityError::Protocol(
+                "handle claim is not verified".to_owned(),
+            ));
         }
         claim.attestation = Some(HandleAttestation {
             issuer,
@@ -520,7 +525,7 @@ impl IdentityManager {
                 project_full_id_to_core_id(&document.id)
                     .is_ok_and(|core_id| core_id.as_str() == subject.as_str())
             })
-            .ok_or_else(|| Error::Protocol("DID document not found for user".to_owned()))?;
+            .ok_or_else(|| IdentityError::Protocol("DID document not found for user".to_owned()))?;
 
         // Check that the DID document lists the handle in also_known_as
         let handle_variants: Vec<String> = vec![normalized.clone(), format!("@{normalized}")];
@@ -529,7 +534,7 @@ impl IdentityManager {
             handle_variants.contains(&normalized_aka)
         });
         if !listed_in_document {
-            return Err(Error::Protocol(format!(
+            return Err(IdentityError::Protocol(format!(
                 "handle '{}' is not listed in DID document also_known_as for {}",
                 normalized, subject
             )));
@@ -537,16 +542,16 @@ impl IdentityManager {
 
         // Check that the handle claim exists and is verified
         let claim = self.handles.get(&normalized).ok_or_else(|| {
-            Error::Protocol(format!("handle claim not found for '{}'", normalized))
+            IdentityError::Protocol(format!("handle claim not found for '{}'", normalized))
         })?;
         if claim.subject != *subject {
-            return Err(Error::Protocol(format!(
+            return Err(IdentityError::Protocol(format!(
                 "handle claim links to {} but expected {}",
                 claim.subject, subject
             )));
         }
         if !claim.verified {
-            return Err(Error::Protocol(format!(
+            return Err(IdentityError::Protocol(format!(
                 "handle '{}' claim for {} is not yet verified",
                 normalized, subject
             )));

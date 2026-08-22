@@ -102,13 +102,13 @@ impl ResolverPolicy {
     }
 
     /// Validate `did` against the policy. Returns
-    /// `Err(Error::Protocol("unauthorized_method"))` when the method is
+    /// `Err(IdentityError::Protocol("unauthorized_method"))` when the method is
     /// not in the allow list.
     pub fn validate(&self, did: &DidFullId) -> Result<()> {
         if self.permits(did) {
             Ok(())
         } else {
-            Err(Error::Protocol(format!(
+            Err(IdentityError::Protocol(format!(
                 "unauthorized_method: '{}' not in resolver allow list",
                 did.as_str()
             )))

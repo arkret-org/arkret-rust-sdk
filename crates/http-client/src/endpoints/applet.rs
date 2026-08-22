@@ -10,11 +10,12 @@ use arkret_models_integration::{
     AppletThirdPartyLocationList, AppletThirdPartyUserList, AppletTransactionOutcome,
 };
 use arkret_signatures::http_signature::{
-    Component, ContentDigest, ContentDigestAlgorithm, Ed25519SigningKey, SignedRequestParts,
-    canonical_message, format_signature_header, format_signature_input_component_list,
-    parse_signature_input, sign_message,
+    Component, ContentDigest, ContentDigestAlgorithm, SignedRequestParts, canonical_message,
+    format_signature_header, format_signature_input_component_list, parse_signature_input,
+    sign_message,
 };
 use arkret_wire::{DidCoreId, canonical};
+use ed25519_dalek::SigningKey;
 use reqwest::Method;
 use reqwest::header::CONTENT_TYPE;
 
@@ -24,7 +25,7 @@ pub struct SignedAppletTransactionOptions<'a> {
     pub source_service_id: &'a DidCoreId,
     pub destination_service_id: &'a DidCoreId,
     pub key_id: &'a str,
-    pub signing_key: &'a Ed25519SigningKey,
+    pub signing_key: &'a SigningKey,
     pub created: Option<i64>,
     pub expires: Option<i64>,
 }

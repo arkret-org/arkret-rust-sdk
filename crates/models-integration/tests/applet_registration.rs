@@ -9,7 +9,7 @@ use arkret_models_integration::{
 };
 use arkret_wire::{
     AppletId, DidCoreId, DidFullId, DidUrl, Hash, Hlc, PayloadSignature, PayloadSigner, PlanId,
-    Proof, RealmId, Result as WireResult, ScopeRef,
+    ProducerEventProof, RealmId, Result as WireResult, ScopeRef,
 };
 use chrono::Utc;
 use serde_json::{Value, json};
@@ -172,7 +172,7 @@ fn wire_registration_round_trips_and_excludes_proof_from_digest() {
 
     let expected_digest = registration.payload_digest().unwrap();
     let mut signed = registration;
-    signed.proof = Some(Proof {
+    signed.proof = Some(ProducerEventProof {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: expected_digest.clone(),
@@ -196,7 +196,7 @@ fn applet_package_derives_registration_and_rejects_stale_epoch() {
     assert!(package.validate().is_err());
 
     package.seal().unwrap();
-    package.proof = Some(Proof {
+    package.proof = Some(ProducerEventProof {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: package.package_digest.clone().unwrap(),

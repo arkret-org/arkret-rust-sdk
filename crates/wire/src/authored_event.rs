@@ -252,7 +252,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        DidCoreId, DidUrl, EventId, EventRequirements, Hash, Hlc, Proof, RealmId, ScopeRef,
+        DidCoreId, DidUrl, EventId, EventRequirements, Hash, Hlc, ProducerEventProof, RealmId,
+        ScopeRef,
     };
 
     const SUITE: DigestSuite = DigestSuite::Sha256;
@@ -298,7 +299,7 @@ mod tests {
     }
 
     fn producer_proof() -> EventProof {
-        EventProof::Producer(Proof {
+        EventProof::Producer(ProducerEventProof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),

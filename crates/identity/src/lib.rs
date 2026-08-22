@@ -41,7 +41,7 @@ pub use arkret_models_identity::primary_handle::{
     select_primary_handle_string,
 };
 pub use arkret_models_identity::{DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, HandleAttestation};
-pub(crate) use arkret_wire::{DidUrl, Event, Hash, Proof};
+pub(crate) use arkret_wire::{DidUrl, Event, Hash, ProducerEventProof};
 // DID-P0-B: flat re-exports of the verified-binding surface, so downstream
 // repos consume one shared model (`arkret_identity::VerifiedDidBinding`, or
 // `arkret::identity::*` through the umbrella) instead of inventing parallel
@@ -67,7 +67,6 @@ pub use binding_store::{
     InMemoryVerifiedDidBindingStore, VerifiedDidBindingStore, binding_freshness_at,
 };
 pub(crate) use chrono::{DateTime, Utc};
-pub(crate) use error::IdentityError as Error;
 pub use error::{IdentityError, Result};
 pub use handles::*;
 pub(crate) use helpers::*;

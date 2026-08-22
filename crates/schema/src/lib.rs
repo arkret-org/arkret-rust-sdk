@@ -32,8 +32,8 @@ pub use prepared_event::{
     PreparedStandardEvent,
 };
 pub use protocol::{
-    GeneratedObjectShape, ProtocolSchemaRegistry, ProtocolSchemaRegistry as Registry,
-    SchemaFieldSummary, SchemaValidatorStats, SchemaValueTypeSummary,
+    GeneratedObjectShape, ProtocolSchemaRegistry, SchemaFieldSummary, SchemaValidatorStats,
+    SchemaValueTypeSummary,
 };
 
 mod artifacts;

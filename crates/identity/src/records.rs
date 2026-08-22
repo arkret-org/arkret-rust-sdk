@@ -106,7 +106,7 @@ impl DidRegistryReceipt {
         let binding_bytes = receipt.binding_bytes()?;
         receipt.signature.jws =
             arkret_signatures::jws::sign_jws_ed25519(&binding_bytes, signing_key)
-                .map_err(Error::Protocol)?;
+                .map_err(IdentityError::Protocol)?;
         Ok(receipt)
     }
 
@@ -171,7 +171,7 @@ impl DidRegistryReceipt {
             verification_method_did(self.signature.verification_method.as_str())?;
         let projected = project_full_id_to_core_id(&registry_full_id)?;
         if projected.as_str() != self.registry_service_id.as_str() {
-            return Err(Error::Protocol(
+            return Err(IdentityError::Protocol(
                 "identity receipt registry_service_id does not match proof controller".to_owned(),
             ));
         }
@@ -197,24 +197,24 @@ impl DidRegistryReceipt {
         if project_full_id_to_core_id(registry_full_id)?.as_str()
             != self.registry_service_id.as_str()
         {
-            return Err(Error::Protocol(
+            return Err(IdentityError::Protocol(
                 "identity receipt registry_service_id does not match proof controller".to_owned(),
             ));
         }
         if self.schema != arkret_wire::SchemaId::IDENTITY_RECEIPT_V1 {
-            return Err(Error::Protocol(format!(
+            return Err(IdentityError::Protocol(format!(
                 "identity receipt schema '{}' is not {}",
                 self.schema,
                 arkret_wire::SchemaId::IDENTITY_RECEIPT_V1
             )));
         }
         if self.signature.kind != "detached_jws" {
-            return Err(Error::Protocol(
+            return Err(IdentityError::Protocol(
                 "identity receipt proof kind must be detached_jws".to_owned(),
             ));
         }
         if self.signature.created_at != self.created_at {
-            return Err(Error::Protocol(
+            return Err(IdentityError::Protocol(
                 "identity receipt proof created_at must equal receipt created_at".to_owned(),
             ));
         }
@@ -223,14 +223,14 @@ impl DidRegistryReceipt {
             (Some(expected), Some(arkret_wire::Audience::Single(actual))) if expected == actual => {
             }
             _ => {
-                return Err(Error::Protocol(
+                return Err(IdentityError::Protocol(
                     "identity receipt and proof audience must be the same single value".to_owned(),
                 ));
             }
         }
         let recomputed = self.payload_digest()?;
         if !constant_time_digest_eq(&recomputed, &self.signature.payload_digest) {
-            return Err(Error::Protocol(
+            return Err(IdentityError::Protocol(
                 "identity receipt payload_digest does not match the canonical receipt bytes"
                     .to_owned(),
             ));
@@ -244,6 +244,6 @@ impl DidRegistryReceipt {
             document,
             DidVerificationRelationship::AssertionMethod,
         )
-        .map_err(|err| Error::Protocol(err.to_string()))
+        .map_err(|err| IdentityError::Protocol(err.to_string()))
     }
 }

@@ -1,8 +1,8 @@
-use arkret_wire::{DidCoreId, DidUrl, Hash, Proof, proof_kind};
+use arkret_wire::{DidCoreId, DidUrl, Hash, ProducerEventProof, proof_kind};
 use chrono::{TimeZone, Timelike, Utc};
 
-fn proof_with_submillisecond_created_at() -> Proof {
-    Proof {
+fn proof_with_submillisecond_created_at() -> ProducerEventProof {
+    ProducerEventProof {
         kind: proof_kind::DETACHED_JWS.to_owned(),
         verification_method: DidUrl::new("did:web:alice.example#key-1").unwrap(),
         event_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
@@ -38,5 +38,5 @@ fn proof_ingress_rejects_noncanonical_timestamp_before_verification() {
     let mut wire = serde_json::to_value(&proof).unwrap();
     wire["created_at"] = "2026-07-21T12:34:56Z".into();
 
-    assert!(serde_json::from_value::<Proof>(wire).is_err());
+    assert!(serde_json::from_value::<ProducerEventProof>(wire).is_err());
 }

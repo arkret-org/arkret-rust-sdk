@@ -15,9 +15,9 @@ use arkret_wire::{
     EventDigestSuiteCode, EventId, EventIdentityKey, EventKind, EventProof, EventRef, Hash, Hlc,
     NonEmptyString, NotaryJoseAlgorithm, NotaryKeyKind, NotarySig, NotarySignerDescriptor,
     NotaryValue, PayloadSignature, PayloadSigner, PrincipalServerAdmissionProof,
-    PrincipalServerAdmissionProofKind, ProjectedCellWrite, Proof, RealmId, ScopeRef, SealBasis,
-    SealId, SemanticRefProof, SemanticRefProofKind, TrustDomainId, WireError, composite_subject,
-    project_full_id_to_core_id, proof_kind,
+    PrincipalServerAdmissionProofKind, ProducerEventProof, ProjectedCellWrite, RealmId, ScopeRef,
+    SealBasis, SealId, SemanticRefProof, SemanticRefProofKind, TrustDomainId, WireError,
+    composite_subject, project_full_id_to_core_id, proof_kind,
 };
 use chrono::Utc;
 use serde_json::Value;
@@ -94,7 +94,7 @@ fn attach_fixture_proof(event: &mut Event, verification_method: &DidUrl) {
     )
     .unwrap();
     event.proofs = vec![
-        Proof {
+        ProducerEventProof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
             verification_method: verification_method.clone(),
             event_digest: digest,

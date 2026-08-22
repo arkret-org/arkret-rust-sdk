@@ -250,6 +250,7 @@ pub use arkret_models_crypto::protected_payload::{
 pub use arkret_models_discovery::directory::*;
 pub use arkret_models_discovery::directory_artifacts::*;
 pub use arkret_models_discovery::http_bodies::*;
+pub use arkret_models_discovery::ops;
 pub use arkret_models_discovery::presence::{
     LAST_ACTIVE_BUCKET_FLOOR_SECONDS, PresencePreference, PresenceStatus, PresenceValidationError,
     PresenceVisibility, PresenceVisibilityPreference, STATUS_MESSAGE_MAX_CODE_POINTS,
@@ -261,7 +262,6 @@ pub use arkret_models_discovery::service_requirements::{
     QuotaMetadata, RateLimitMetadata, RateLimitScopeKind, ServiceEndpointBinding,
     ServiceRequirements,
 };
-pub use arkret_models_discovery::{ops, service_requirements as service};
 pub use arkret_models_identity::account::*;
 pub use arkret_models_identity::actor_profile::*;
 pub use arkret_models_identity::admin_grant::{
@@ -386,16 +386,15 @@ pub use arkret_wire::signer::{PartialSignature, PayloadSigner, ThresholdAggregat
 pub use arkret_wire::string_profiles::*;
 pub use arkret_wire::wire_strings::*;
 pub use arkret_wire::{
-    AccountDataKey, BindingKind, CapabilityActionId, DIGEST_SUITES, DidFreshnessProfileId,
-    DidFreshnessRiskTier, EXPORTER_LABELS, EffectId, EvaluationClass, EventInitialSubmission,
-    EventKind, ExporterLabelId, GenesisSalt, HPKE_SUITES, IdempotencyKey, KeyPackageClaimId,
-    KeyPackageRef, MLS_CIPHERSUITES, MLS_EXTENSIONS, MlsCiphersuiteId, PROOF_CONTEXTS, ProfileId,
-    ProfileRole, ProofContextId, ProtocolOpaqueId, ProtocolOperationId, ProtocolSignature,
-    QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS, ReservationHandle,
+    AccountDataKey, BindingKind, CORE_REDUCER_PROFILE, CapabilityActionId, DIGEST_SUITES,
+    DidFreshnessProfileId, DidFreshnessRiskTier, EXPORTER_LABELS, EffectId, EvaluationClass,
+    EventInitialSubmission, EventKind, ExporterLabelId, GenesisSalt, HPKE_SUITES, IdempotencyKey,
+    KeyPackageClaimId, KeyPackageRef, MLS_CIPHERSUITES, MLS_EXTENSIONS, MlsCiphersuiteId,
+    PROOF_CONTEXTS, ProfileId, ProfileRole, ProofContextId, ProtocolOpaqueId, ProtocolOperationId,
+    ProtocolSignature, QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS, ReservationHandle,
     SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId,
     ServiceKind, ServiceOperationDescriptor, ServiceOperationId, SignerEvidenceRef, WireError,
-    XExtensionMap, contains_query_auth_material, error_codes as error, event_spec,
-    is_query_auth_parameter,
+    XExtensionMap, contains_query_auth_material, error_codes, event_spec, is_query_auth_parameter,
 };
 pub use history_response::{
     HistorySourceProofExternalVerificationRequest, VerifiedHistoryChunk, VerifiedHistoryEpochSuite,
@@ -420,7 +419,6 @@ pub use sidecar_recovery::{AgentSidecarContextLocator, recover_agent_sidecar_con
 
 pub mod events {
     pub use arkret_models_collaboration::events_payloads::redaction::*;
-    pub use arkret_wire::Event as RawEvent;
     pub use arkret_wire::events::*;
 }
 
@@ -535,10 +533,9 @@ pub use key_backup_client::KeyBackupClient;
 #[cfg(feature = "mls")]
 pub use mls::*;
 pub use resolver::{
-    REDUCER_SNAPSHOT_PROFILE, REDUCER_SNAPSHOT_SCHEMA, RealmState, ReducerSnapshotManifest,
-    SnapshotChunkManifest, SnapshotRestore, SnapshotRestoreSource, SnapshotSignature,
-    SnapshotSignatureBindingPayload, StateSnapshot, merkle_root, state_merkle_root,
-    verify_snapshot_chunks,
+    REDUCER_SNAPSHOT_SCHEMA, RealmState, ReducerSnapshotManifest, SnapshotChunkManifest,
+    SnapshotRestore, SnapshotRestoreSource, SnapshotSignature, SnapshotSignatureBindingPayload,
+    StateSnapshot, merkle_root, state_merkle_root, verify_snapshot_chunks,
 };
 #[cfg(feature = "server")]
 pub use server::reject_query_auth;

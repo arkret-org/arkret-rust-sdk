@@ -76,7 +76,7 @@ pub struct ResolvedVerificationMethodKey {
     ///
     /// The exemption covers **only** values carried verbatim out of a DID
     /// Document. Before this value is compared against anything on the wire — a
-    /// `Proof.verification_method`, an `auth_data.verification_method`, a
+    /// `ProducerEventProof.verification_method`, an `auth_data.verification_method`, a
     /// `binding_proof.verification_method` — it MUST be absolutized into a
     /// `DidUrl` via [`ResolvedVerificationMethodKey::absolutize`], which is the
     /// single exit from this exemption.
@@ -96,18 +96,18 @@ impl ResolvedVerificationMethodKey {
     pub fn absolutize(&self, did: &DidFullId) -> Result<DidUrl> {
         let reference = self.verification_method.trim();
         if reference.is_empty() {
-            return Err(Error::Protocol(
+            return Err(IdentityError::Protocol(
                 "verification method reference must not be empty".to_owned(),
             ));
         }
         if let Some(fragment) = reference.strip_prefix('#') {
             return DidUrl::new(format!("{}#{fragment}", did.as_str()))
-                .map_err(|reason| Error::Protocol(reason.to_owned()));
+                .map_err(|reason| IdentityError::Protocol(reason.to_owned()));
         }
         let absolute =
-            DidUrl::new(reference).map_err(|reason| Error::Protocol(reason.to_owned()))?;
+            DidUrl::new(reference).map_err(|reason| IdentityError::Protocol(reason.to_owned()))?;
         if verification_method_did(absolute.as_str())? != *did {
-            return Err(Error::Protocol(format!(
+            return Err(IdentityError::Protocol(format!(
                 "verification method '{absolute}' is not controlled by {did}"
             )));
         }
@@ -118,7 +118,7 @@ impl ResolvedVerificationMethodKey {
 /// Extract the controller DID portion from a DID URL verification method.
 pub fn verification_method_did(verification_method: &str) -> Result<DidFullId> {
     if verification_method.trim().is_empty() {
-        return Err(Error::Protocol(
+        return Err(IdentityError::Protocol(
             "verification_method must not be empty".to_owned(),
         ));
     }
@@ -130,7 +130,7 @@ pub fn verification_method_did(verification_method: &str) -> Result<DidFullId> {
         (None, Some(query)) => query,
         (None, None) => verification_method.len(),
     };
-    DidFullId::new(verification_method[..end].to_owned()).map_err(Error::from)
+    DidFullId::new(verification_method[..end].to_owned()).map_err(IdentityError::from)
 }
 
 /// Resolve a verification method key from an already-resolved DID document.
@@ -216,17 +216,17 @@ where
 
 /// Downcast the SDK facade error into the signature-layer error for the
 /// resolver adapter above. The signatures crate owns its boundary error and
-/// (by design) has no `From<Error>`; the facade message is
+/// (by design) has no `From<IdentityError>`; the facade message is
 /// carried verbatim.
-fn to_signature_error(error: Error) -> arkret_signatures::Error {
+fn to_signature_error(error: IdentityError) -> arkret_signatures::Error {
     match error {
-        Error::Protocol(message) => arkret_signatures::Error::Protocol(message),
-        Error::Crypto(message) => arkret_signatures::Error::Crypto(message),
+        IdentityError::Protocol(message) => arkret_signatures::Error::Protocol(message),
+        IdentityError::Crypto(message) => arkret_signatures::Error::Crypto(message),
         other => arkret_signatures::Error::Protocol(other.to_string()),
     }
 }
 
-/// Verify a Arkret [`Proof`] over caller-supplied canonical bytes by
+/// Verify an Arkret [`ProducerEventProof`] over caller-supplied canonical bytes by
 /// resolving `proof.verification_method` through a DID document.
 ///
 /// `binding_actor_id` is the `actor_id` folded into the canonical proof
@@ -235,7 +235,7 @@ fn to_signature_error(error: Error) -> arkret_signatures::Error {
 /// (`executed_by`) used for the verification-method binding check.
 pub fn verify_canonical_proof_with_did_resolver<R>(
     canonical_bytes: &[u8],
-    proof: &Proof,
+    proof: &ProducerEventProof,
     binding_actor_id: &DidCoreId,
     context: &arkret_signatures::ProofVerificationContext,
     resolver: &R,
@@ -269,7 +269,7 @@ where
 /// that DID; otherwise it is bound to `event.actor_id`.
 pub fn verify_event_proof_with_did_resolver<R>(
     event: &Event,
-    proof: &Proof,
+    proof: &ProducerEventProof,
     resolver: &R,
     digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<arkret_signatures::SignatureVerification>
@@ -282,7 +282,7 @@ where
 
 pub fn verify_event_proof_with_did_resolver_context<R>(
     event: &Event,
-    proof: &Proof,
+    proof: &ProducerEventProof,
     resolver: &R,
     context: arkret_signatures::ProofVerificationContext,
 ) -> Result<arkret_signatures::SignatureVerification>
@@ -363,7 +363,7 @@ fn lookup_verification_method_value(
     {
         return Ok((method_id.clone(), value.clone()));
     }
-    Err(Error::Protocol(format!(
+    Err(IdentityError::Protocol(format!(
         "verification_method `{verification_method}` not found in DID document for `{}`",
         document.id
     )))
@@ -389,7 +389,7 @@ fn public_key_material_from_did_document_value(
             value: multibase.to_owned(),
         });
     }
-    Err(Error::Protocol(
+    Err(IdentityError::Protocol(
         "DID verification method must carry Ed25519 publicKeyMultibase or publicKeyJwk".to_owned(),
     ))
 }

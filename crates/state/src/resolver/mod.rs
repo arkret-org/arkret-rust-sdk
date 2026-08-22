@@ -12,6 +12,7 @@ use std::collections::{BTreeMap, BTreeSet};
 // (read by both this reducer runtime and `arkret-policy`), re-exported here
 // for the reducer's own callers.
 pub use arkret_models_collaboration::ResolvedStateEvent;
+use arkret_wire::CORE_REDUCER_PROFILE;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -22,7 +23,6 @@ use crate::{
 };
 
 pub const REDUCER_SNAPSHOT_SCHEMA: &str = "org.arkret.sdk.reducer_snapshot.v1";
-pub use arkret_wire::CORE_REDUCER_PROFILE as REDUCER_SNAPSHOT_PROFILE;
 
 mod snapshot;
 mod state;

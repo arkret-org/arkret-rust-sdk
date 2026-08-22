@@ -4,7 +4,7 @@ use std::str::FromStr;
 use super::*;
 use crate::{DidCoreId, DidFullId, ProofContextId, SignerEvidenceRef};
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Discoverability {
     Public,
@@ -14,6 +14,50 @@ pub enum Discoverability {
     InviteOnly,
     Secret,
 }
+
+impl Discoverability {
+    pub const ALL: [Self; 6] = [
+        Self::Public,
+        Self::Listed,
+        Self::Restricted,
+        Self::Unlisted,
+        Self::InviteOnly,
+        Self::Secret,
+    ];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Public => "public",
+            Self::Listed => "listed",
+            Self::Restricted => "restricted",
+            Self::Unlisted => "unlisted",
+            Self::InviteOnly => "invite_only",
+            Self::Secret => "secret",
+        }
+    }
+}
+
+impl FromStr for Discoverability {
+    type Err = DiscoverabilityParseError;
+
+    fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
+        Self::ALL
+            .into_iter()
+            .find(|discoverability| discoverability.as_str() == value)
+            .ok_or(DiscoverabilityParseError)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DiscoverabilityParseError;
+
+impl fmt::Display for DiscoverabilityParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("unknown discoverability value")
+    }
+}
+
+impl std::error::Error for DiscoverabilityParseError {}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -454,8 +498,6 @@ pub enum AuthzDecision {
     Quarantine,
     RequireReview,
 }
-
-pub type Decision = AuthzDecision;
 
 /// Frontier freshness classification for revocation-sensitive authz decisions.
 /// Spec `AuthzCheckOutcome.freshness_state` enum.
@@ -1037,11 +1079,6 @@ pub struct ProducerEventProof {
     pub jws: String,
 }
 
-/// Producer proof type retained as the concise public name used throughout
-/// signing code. Event envelopes use [`EventProof`] so an admission proof can
-/// never be mistaken for a producer proof.
-pub type Proof = ProducerEventProof;
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -1354,7 +1391,7 @@ impl PrincipalServerAdmissionProof {
 }
 
 /// Fixed signing-context domain tag for Event proof bindings (`encoding.md`
-/// §2). Included in every [`Proof::binding_object`] so an Event proof
+/// §2). Included in every [`ProducerEventProof::binding_object`] so an Event proof
 /// signature is domain-separated from other proof families (receipts,
 /// snapshot witnesses, handle claims, which carry their own context values).
 pub const EVENT_PROOF_BINDING_CONTEXT: &str = ProofContextId::EVENT_PROOF_V1;
@@ -1365,7 +1402,7 @@ pub mod proof_kind {
     /// the signed bytes are the canonical **proof binding object**
     /// (`{event_digest, actor_id, verification_method, created_at, domain?,
     /// audience?}`), NOT the raw canonical event bytes — see
-    /// [`super::Proof::canonical_binding_bytes`].
+    /// [`super::ProducerEventProof::canonical_binding_bytes`].
     pub const DETACHED_JWS: &str = "detached_jws";
 }
 
@@ -1703,7 +1740,7 @@ pub struct FactChainEcho {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<ProducerEventProof>,
 }
 
 impl FactChainEcho {
@@ -1762,8 +1799,28 @@ pub struct SignatureBindingPayload {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
     use crate::test_support::DETACHED_JWS_FIXTURE;
+
+    #[test]
+    fn discoverability_tokens_are_closed_and_round_trip() {
+        let tokens = [
+            "public",
+            "listed",
+            "restricted",
+            "unlisted",
+            "invite_only",
+            "secret",
+        ];
+        assert_eq!(Discoverability::ALL.map(Discoverability::as_str), tokens);
+        for (value, token) in Discoverability::ALL.into_iter().zip(tokens) {
+            assert_eq!(Discoverability::from_str(token), Ok(value));
+            assert_eq!(serde_json::to_value(value).unwrap(), token);
+        }
+        assert!(Discoverability::from_str("private").is_err());
+    }
 
     #[test]
     fn fact_chain_echo_validates_server_proof_binding() {
@@ -1778,7 +1835,7 @@ mod tests {
             proofs: Vec::new(),
         };
         let digest = Hash::new(echo.echo_digest().unwrap()).unwrap();
-        echo.proofs.push(Proof {
+        echo.proofs.push(ProducerEventProof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:server.example#key-1").unwrap(),
             event_digest: digest,

@@ -527,8 +527,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use arkret_wire::{
-        DidCoreId, DidFullId, DidUrl, EventKind, EventRequirements, PayloadProof, Proof, ScopeRef,
-        project_full_id_to_core_id, proof_kind,
+        DidCoreId, DidFullId, DidUrl, EventKind, EventRequirements, PayloadProof,
+        ProducerEventProof, ScopeRef, project_full_id_to_core_id, proof_kind,
     };
     use chrono::{TimeZone, Utc};
     use serde_json::{Value, json};
@@ -573,7 +573,7 @@ mod tests {
         )
         .unwrap();
         event.proofs.push(
-            Proof {
+            ProducerEventProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new(format!("{actor_full}#device")).unwrap(),
                 event_digest: digest,
@@ -690,7 +690,7 @@ mod tests {
             requirements: EventRequirements::default(),
         };
         event.proofs.push(
-            Proof {
+            ProducerEventProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new(format!("{issuer_full}#notary-key")).unwrap(),
                 event_digest: Hash::new(

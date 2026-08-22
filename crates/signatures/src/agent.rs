@@ -448,8 +448,8 @@ mod tests {
         AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
         AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
         AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, DeviceId, DidCoreId,
-        DidFullId, EventId, Hlc, LeaseBasisRef, Proof, RealmId, RequestId, RiskTier, SchemaId,
-        SealId,
+        DidFullId, EventId, Hlc, LeaseBasisRef, ProducerEventProof, RealmId, RequestId, RiskTier,
+        SchemaId, SealId,
     };
     use chrono::TimeZone;
     use serde_json::json;
@@ -703,7 +703,7 @@ mod tests {
             challenge: NonEmptyString::new(pairing_request_id).unwrap(),
             issued_at,
             expires_at: issued_at + chrono::Duration::minutes(5),
-            proofs: vec![Proof {
+            proofs: vec![ProducerEventProof {
                 kind: "detached_jws".to_owned(),
                 verification_method: DidUrl::new(format!("{controller_full_id}#key-1")).unwrap(),
                 event_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),

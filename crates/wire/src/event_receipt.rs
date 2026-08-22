@@ -394,7 +394,7 @@ impl EventBatchReceipt {
 }
 
 // `event-envelope.schema.json#/$defs/event_proof` is modelled by
-// [`crate::primitives::Proof`]. A second, incompatible `EventProof` struct used
+// [`crate::primitives::ProducerEventProof`]. A second, incompatible `EventProof` struct used
 // to live here with `verification_method: DidCoreId`, which rejected every legal wire
 // value (the schema pattern requires a `#fragment`). It had zero constructors
 // and zero readers across all repositories, so it was removed rather than

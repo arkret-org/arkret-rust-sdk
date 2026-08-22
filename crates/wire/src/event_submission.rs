@@ -616,7 +616,8 @@ mod tests {
     use crate::{
         AuthContext, AuthoritySetPolicyKind, AuthoritySetSourceKind, AuthorizationLeaseId,
         DeviceId, DidKey, DidUrl, EventProof, Hash, PayloadProof, PrincipalServerAdmissionProof,
-        PrincipalServerAdmissionProofKind, Proof, RealmId, SchemaId, SealId, proof_kind,
+        PrincipalServerAdmissionProofKind, ProducerEventProof, RealmId, SchemaId, SealId,
+        proof_kind,
     };
 
     fn instant(hour: u32) -> chrono::DateTime<Utc> {
@@ -732,7 +733,7 @@ mod tests {
         )
         .unwrap();
         event.proofs = vec![
-            Proof {
+            ProducerEventProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-1")
                     .unwrap(),

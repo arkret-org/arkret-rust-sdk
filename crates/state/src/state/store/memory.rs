@@ -1155,7 +1155,7 @@ mod tests {
 
     use std::sync::{Arc, Barrier};
 
-    use arkret_wire::Proof;
+    use arkret_wire::ProducerEventProof;
     use arkret_wire::event_envelope::ScopeRef;
     use chrono::{TimeZone, Utc};
 
@@ -1211,7 +1211,7 @@ mod tests {
             .refresh_content_bound_identity_with_digest_suite(SUITE)
             .unwrap();
         event.proofs.push(
-            Proof {
+            ProducerEventProof {
                 kind: "detached_jws".to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:admin.example#k1").unwrap(),
                 event_digest: Hash::new(event.event_digest_with_digest_suite(SUITE).unwrap())

@@ -22,7 +22,7 @@ mod caching_tests {
 
     use super::*;
     use crate::helpers::did_key_material;
-    use crate::{DidDocument, DidResolver, Error, Result};
+    use crate::{DidDocument, DidResolver, IdentityError, Result};
 
     /// Controllable resolver stub that tracks upstream calls and can be
     /// switched into a forced-failure mode.
@@ -57,10 +57,12 @@ mod caching_tests {
         fn resolve_did(&self, did: &DidFullId) -> Result<ResolvedDid> {
             self.calls.fetch_add(1, Ordering::SeqCst);
             if self.fail.load(Ordering::SeqCst) {
-                return Err(Error::Protocol("stub resolver forced failure".to_owned()));
+                return Err(IdentityError::Protocol(
+                    "stub resolver forced failure".to_owned(),
+                ));
             }
             let key = did_key_material(did)
-                .ok_or_else(|| Error::Protocol("stub: unsupported did:key".to_owned()))?;
+                .ok_or_else(|| IdentityError::Protocol("stub: unsupported did:key".to_owned()))?;
             Ok(ResolvedDid::proofless(DidDocument::new(
                 did.clone(),
                 format!("{}#{key}", did.as_str()),

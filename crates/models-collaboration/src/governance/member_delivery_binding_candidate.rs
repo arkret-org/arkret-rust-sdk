@@ -19,7 +19,7 @@
 //!
 //! Any object lacking `proofs[]` MUST NOT be named a candidate.
 use arkret_models_identity::handle::{Handle, HandleHintBindingSource};
-use arkret_wire::{DidCoreId, EventId, Hash, Proof, SchemaId, canonical};
+use arkret_wire::{DidCoreId, EventId, Hash, ProducerEventProof, SchemaId, canonical};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -136,7 +136,7 @@ pub struct MemberDeliveryBindingCandidate {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     pub source_refs: Vec<EventId>,
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<ProducerEventProof>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub claim_digest: Option<Hash>,
     pub intent: CandidateIntent,
@@ -295,7 +295,7 @@ mod tests {
             source_refs: vec![
                 EventId::new("ak:event:AeNGlAfR_7DYDMpGTuaQllQuzIHBST1VxVvsrW2QBQfg").unwrap(),
             ],
-            proofs: vec![Proof {
+            proofs: vec![ProducerEventProof {
                 kind: "detached_jws".to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:principal.example#key-1")
                     .unwrap(),

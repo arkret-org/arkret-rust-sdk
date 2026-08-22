@@ -1,4 +1,4 @@
-use arkret_wire::{DidFullId, DidUrl};
+use arkret_wire::{CORE_REDUCER_PROFILE, DidFullId, DidUrl};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -37,7 +37,7 @@ fn manifest_for_items(
 ) -> (SnapshotManifest, Vec<SnapshotChunkPayload>, Vec<Vec<u8>>) {
     let state_digest = state_digest_from_items(&items).unwrap();
     let built =
-        build_snapshot_chunks(&snapshot_v1_id(), SNAPSHOT_REDUCER_PROFILE_V1, items, 4096).unwrap();
+        build_snapshot_chunks(&snapshot_v1_id(), CORE_REDUCER_PROFILE, items, 4096).unwrap();
     let chunk_payloads = built
         .iter()
         .map(|chunk| chunk.payload.clone())
@@ -54,7 +54,7 @@ fn manifest_for_items(
     let mut manifest = SnapshotManifest {
         id: snapshot_v1_id(),
         realm_id: realm(),
-        reducer_profile: SNAPSHOT_REDUCER_PROFILE_V1.to_owned(),
+        reducer_profile: CORE_REDUCER_PROFILE.to_owned(),
         schema_profile_refs: vec!["ak.profile.core_event_store.v1".to_owned()],
         state_digest,
         frontier: SnapshotFrontier {
@@ -111,7 +111,7 @@ fn snapshot_v1_manifest_and_chunk_verify() {
         &payloads,
         &SnapshotVerifyOptions::standard(
             "2026-06-02T00:00:00.000Z".parse::<DateTime<Utc>>().unwrap(),
-            SNAPSHOT_REDUCER_PROFILE_V1,
+            CORE_REDUCER_PROFILE,
         ),
     )
     .unwrap();
@@ -129,7 +129,7 @@ fn snapshot_v1_covered_event_ids_mismatch_rejects() {
         &payloads,
         &SnapshotVerifyOptions::standard(
             "2026-06-02T00:00:00.000Z".parse::<DateTime<Utc>>().unwrap(),
-            SNAPSHOT_REDUCER_PROFILE_V1,
+            CORE_REDUCER_PROFILE,
         ),
     )
     .unwrap_err();
@@ -144,7 +144,7 @@ fn snapshot_v1_stale_standard_manifest_rejects() {
         &payloads,
         &SnapshotVerifyOptions::standard(
             "2026-07-15T00:00:00.000Z".parse::<DateTime<Utc>>().unwrap(),
-            SNAPSHOT_REDUCER_PROFILE_V1,
+            CORE_REDUCER_PROFILE,
         ),
     )
     .unwrap_err();
@@ -577,8 +577,7 @@ fn spec_chunk_builder_uses_item_boundaries_and_digest_refs() {
         ),
     ];
 
-    let built =
-        build_snapshot_chunks(&snapshot_id(), SNAPSHOT_REDUCER_PROFILE_V1, items, 240).unwrap();
+    let built = build_snapshot_chunks(&snapshot_id(), CORE_REDUCER_PROFILE, items, 240).unwrap();
 
     assert_eq!(
         built

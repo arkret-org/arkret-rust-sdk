@@ -181,7 +181,8 @@ impl From<PreparedNonReducerEvent> for PreparedStandardEvent {
 #[cfg(test)]
 mod tests {
     use arkret_wire::{
-        AuthContext, DidCoreId, DidUrl, Event, Hash, Hlc, Proof, RealmId, ScopeRef, SealId,
+        AuthContext, DidCoreId, DidUrl, Event, Hash, Hlc, ProducerEventProof, RealmId, ScopeRef,
+        SealId,
     };
     use serde_json::json;
 
@@ -214,7 +215,7 @@ mod tests {
             credential_epoch: None,
         });
         event.proofs.push(
-            Proof {
+            ProducerEventProof {
                 kind: "detached_jws".to_owned(),
                 verification_method: DidUrl::new(
                     "did:webvh:z6mkfixture:agent.example#agent-device",

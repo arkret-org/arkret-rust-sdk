@@ -17,7 +17,7 @@ use crate::{DidCoreId, Event, EventId, Hlc, Result, ScopeRef};
 /// `^[A-Za-z0-9_-]+\.(?:[A-Za-z0-9_-]+)?\.[A-Za-z0-9_-]+$`, so a fixture
 /// placeholder still needs the base64url protected header, the empty detached
 /// payload segment, and the signature segment. Single-token placeholders such
-/// as `"sig"` are wire-invalid and are rejected by `Proof::validate`.
+/// as `"sig"` are wire-invalid and are rejected by `ProducerEventProof::validate`.
 #[doc(hidden)]
 pub const DETACHED_JWS_FIXTURE: &str = "eyJhbGciOiJFZDI1NTE5In0..c2lnbmF0dXJl";
 

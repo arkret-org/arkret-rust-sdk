@@ -10,8 +10,8 @@ use arkret_canonical::DigestSuite;
 use arkret_wire::SchemaId;
 use arkret_wire::{
     CbaProofBundle, ControlProposalAck, ControlProposalDecision, ControlProposalDecisionPolicy,
-    DidCoreId, Error, Event, EventFederationSubmission, EventId, Hash, RealmId, Result, Seal,
-    SealBasis, SealId,
+    DidCoreId, Error, Event, EventFederationSubmission, EventId, Hash,
+    MAX_ACTOR_SEQ_TOTAL_SIBLINGS, RealmId, Result, Seal, SealBasis, SealId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -69,11 +69,6 @@ pub enum ManagedAgentPcrSealHeadReceiptKind {
     #[serde(rename = "ak.managed_agent_pcr.seal_head.v1")]
     ManagedAgentPcrSealHeadV1,
 }
-
-/// Maximum accepted siblings represented by one Realm-scoped actor frontier.
-/// This aliases the single v1 cumulative same-height limit from the Event
-/// envelope artifact implementation.
-pub use arkret_wire::MAX_ACTOR_SEQ_TOTAL_SIBLINGS as MAX_ACTOR_FRONTIER_EVENT_IDS;
 
 /// Domain separator for the canonical Realm actor frontier digest transcript.
 pub const REALM_ACTOR_FRONTIER_DIGEST_DOMAIN: &[u8] = b"ak-realm-actor-frontier-v1\0";
@@ -252,7 +247,7 @@ impl RealmActorFrontierView {
     }
 
     pub fn validate_with_suite(&self, digest_suite: DigestSuite) -> Result<()> {
-        if self.frontier_event_ids.len() > MAX_ACTOR_FRONTIER_EVENT_IDS {
+        if self.frontier_event_ids.len() > MAX_ACTOR_SEQ_TOTAL_SIBLINGS {
             return Err(Error::Protocol(
                 "realm actor frontier exceeds the v1 sibling limit".to_owned(),
             ));

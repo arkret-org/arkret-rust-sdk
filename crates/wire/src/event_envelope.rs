@@ -1861,7 +1861,7 @@ mod event_wire_surface_tests {
     use serde_json::json;
 
     use super::*;
-    use crate::Proof;
+    use crate::ProducerEventProof;
 
     fn realm() -> RealmId {
         RealmId::from_event_id(&EventId::from_digest(
@@ -1966,7 +1966,7 @@ mod event_wire_surface_tests {
         });
         event.validate_for_authoring_structural().unwrap();
 
-        event.proofs.push(EventProof::Producer(Proof {
+        event.proofs.push(EventProof::Producer(ProducerEventProof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
@@ -1996,7 +1996,7 @@ mod event_wire_surface_tests {
         .unwrap();
         let whole_second = "2026-06-03T12:34:56.000Z".parse().unwrap();
         event.created_at = whole_second;
-        event.proofs.push(EventProof::Producer(Proof {
+        event.proofs.push(EventProof::Producer(ProducerEventProof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
@@ -2304,7 +2304,7 @@ mod event_wire_surface_tests {
                 predicate_id: None,
             },
         });
-        event.proofs.push(EventProof::Producer(Proof {
+        event.proofs.push(EventProof::Producer(ProducerEventProof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),

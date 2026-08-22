@@ -1252,8 +1252,8 @@ fn validate_account_profile_create_payload(
 #[cfg(test)]
 mod account_update_profile_request_tests {
     use arkret_wire::{
-        CellRef, DidUrl, Hlc, Precondition, Predicate, PredicateOp, Proof, SealBasis, SealId,
-        proof_kind,
+        CellRef, DidUrl, Hlc, Precondition, Predicate, PredicateOp, ProducerEventProof, SealBasis,
+        SealId, proof_kind,
     };
     use chrono::{DateTime, Utc};
     use serde_json::json;
@@ -1303,7 +1303,7 @@ mod account_update_profile_request_tests {
         )
         .unwrap();
         event.proofs = vec![
-            Proof {
+            ProducerEventProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:fixture.example#device-1")
                     .unwrap(),

@@ -869,7 +869,7 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
     .unwrap();
     let builder = arkret_signatures::EventProofBuilder::new();
     let canonical_bytes = builder.envelope_bytes(&event).unwrap();
-    let mut proof = Proof {
+    let mut proof = ProducerEventProof {
         kind: "detached_jws".to_owned(),
         verification_method,
         event_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&canonical_bytes))
@@ -930,7 +930,7 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
     );
     let builder = arkret_signatures::EventProofBuilder::new();
     let canonical_bytes = builder.envelope_bytes(&event).unwrap();
-    let mut proof = Proof {
+    let mut proof = ProducerEventProof {
         kind: "detached_jws".to_owned(),
         verification_method,
         event_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&canonical_bytes))
@@ -1299,7 +1299,7 @@ fn pairwise_did_visibility_enum_roundtrips() {
 
 fn webvh_url_error(did: &str) -> crate::DidWebvhUrlError {
     let did = DidFullId::new(did.to_owned()).expect("DID syntax is accepted by the wire type");
-    // The resolver flattens to Error::Protocol for the wire, so assert both:
+    // The resolver flattens to IdentityError::Protocol for the wire, so assert both:
     // that the accessor still refuses, and how the helper classified it.
     DidWebvhResolver::log_url(&did).expect_err("this DID must not yield a URL");
     crate::helpers::try_did_webvh_url(&did, "did.jsonl").expect_err("this DID must not yield a URL")

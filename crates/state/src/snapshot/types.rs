@@ -110,8 +110,8 @@ impl SnapshotManifest {
         self.unsigned_view().payload_digest()
     }
 
-    pub fn signature_as_proof(&self) -> crate::models::Proof {
-        crate::models::Proof {
+    pub fn signature_as_proof(&self) -> crate::models::ProducerEventProof {
+        crate::models::ProducerEventProof {
             kind: self.signature.kind.clone(),
             verification_method: self.signature.verification_method.clone(),
             event_digest: self.signature.payload_digest.clone(),

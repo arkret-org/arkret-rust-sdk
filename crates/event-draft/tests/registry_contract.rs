@@ -4,8 +4,8 @@ use arkret_event_draft::{
 };
 use arkret_models_collaboration::events_payloads::{ContentBlock, MessageCreatePayload};
 use arkret_wire::{
-    DidCoreId, DidUrl, EventKind, Hash, Hlc, OperationId, Proof, RealmId, ScopeRef, StrandId,
-    event_spec,
+    DidCoreId, DidUrl, EventKind, Hash, Hlc, OperationId, ProducerEventProof, RealmId, ScopeRef,
+    StrandId, event_spec,
 };
 use serde_json::json;
 
@@ -21,7 +21,7 @@ fn scope_ref() -> ScopeRef {
 
 #[test]
 fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
-    let proof = Proof {
+    let proof = ProducerEventProof {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-1").unwrap(),
         event_digest: Hash::new(
@@ -52,7 +52,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
     }))
     .unwrap();
     let mut different_proof = envelope.clone();
-    different_proof.proofs = vec![Proof {
+    different_proof.proofs = vec![ProducerEventProof {
         jws: "sig-b".to_owned(),
         ..proof
     }];

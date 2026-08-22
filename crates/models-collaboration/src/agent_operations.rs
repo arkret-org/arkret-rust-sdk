@@ -255,7 +255,7 @@ pub struct AgentRequestedScopeDisclosure {
     pub issued_at: DateTime<Utc>,
     #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<ProducerEventProof>,
 }
 
 impl AgentRequestedScopeDisclosure {
@@ -276,7 +276,7 @@ impl AgentRequestedScopeDisclosure {
         .map_err(|reason| Error::Protocol(reason.to_string()))
     }
 
-    pub fn canonical_proof_binding_bytes(&self, proof: &Proof) -> Result<Vec<u8>> {
+    pub fn canonical_proof_binding_bytes(&self, proof: &ProducerEventProof) -> Result<Vec<u8>> {
         let payload_digest = self.payload_digest()?;
         if proof.event_digest != payload_digest {
             return Err(Error::Protocol(

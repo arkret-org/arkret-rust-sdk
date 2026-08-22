@@ -2992,7 +2992,8 @@ mod federation_dependency_tests {
 #[cfg(test)]
 mod device_pairing_tests {
     use arkret_wire::{
-        AuthContext, DidCoreId, DidUrl, EventKind, EventRequirements, Proof, ScopeRef, proof_kind,
+        AuthContext, DidCoreId, DidUrl, EventKind, EventRequirements, ProducerEventProof, ScopeRef,
+        proof_kind,
     };
 
     use super::*;
@@ -3100,7 +3101,7 @@ mod device_pairing_tests {
                 .collect(),
             unsigned: BTreeMap::new(),
             proofs: vec![
-                Proof {
+                ProducerEventProof {
                     kind: proof_kind::DETACHED_JWS.to_owned(),
                     verification_method: DidUrl::new(format!(
                         "{}#{}",

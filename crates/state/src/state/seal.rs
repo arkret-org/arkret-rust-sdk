@@ -1520,7 +1520,7 @@ mod tests {
         }
     }
 
-    use arkret_wire::Proof;
+    use arkret_wire::ProducerEventProof;
     use arkret_wire::event_envelope::{EventRef, ScopeRef};
     use chrono::{TimeZone, Utc};
     use serde_json::json;
@@ -1757,7 +1757,7 @@ mod tests {
             .refresh_content_bound_identity_with_digest_suite(SUITE)
             .unwrap();
         event.proofs.push(
-            Proof {
+            ProducerEventProof {
                 kind: "detached_jws".to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#k1").unwrap(),
                 event_digest: Hash::new(event.event_digest_with_digest_suite(SUITE).unwrap())
@@ -1786,7 +1786,7 @@ mod tests {
     fn genesis_create() -> Event {
         let mut event = raw_genesis_create();
         event.proofs.push(
-            Proof {
+            ProducerEventProof {
                 kind: "detached_jws".to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#k1").unwrap(),
                 event_digest: Hash::new(event.event_digest_with_digest_suite(SUITE).unwrap())

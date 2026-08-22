@@ -54,7 +54,7 @@ impl RealmState {
     pub fn new(realm_id: RealmId) -> Self {
         Self {
             realm_id,
-            reducer_profile: REDUCER_SNAPSHOT_PROFILE.to_owned(),
+            reducer_profile: CORE_REDUCER_PROFILE.to_owned(),
             subjects: BTreeMap::new(),
             morphs: BTreeMap::new(),
             spaces: BTreeMap::new(),

@@ -27,7 +27,9 @@ impl DidWebResolver {
     /// Register a limited `did:web` document.
     pub fn insert(&mut self, document: DidDocument) -> Result<()> {
         if document.id.method() != "web" || did_web_document_url(&document.id).is_none() {
-            return Err(Error::Protocol("unsupported did:web form".to_owned()));
+            return Err(IdentityError::Protocol(
+                "unsupported did:web form".to_owned(),
+            ));
         }
         document.validate()?;
         self.documents.insert(document.id.clone(), document);
@@ -37,7 +39,7 @@ impl DidWebResolver {
     /// Return the HTTPS DID document URL for the limited supported form.
     pub fn document_url(did: &DidFullId) -> Result<String> {
         did_web_document_url(did)
-            .ok_or_else(|| Error::Protocol("unsupported did:web form".to_owned()))
+            .ok_or_else(|| IdentityError::Protocol("unsupported did:web form".to_owned()))
     }
 
     /// Validate a host-fetched HTTPS response and cache the DID document.
@@ -48,21 +50,25 @@ impl DidWebResolver {
     ) -> Result<DidDocument> {
         let expected_url = Self::document_url(did)?;
         if response.url != expected_url {
-            return Err(Error::Protocol("did:web response URL mismatch".to_owned()));
+            return Err(IdentityError::Protocol(
+                "did:web response URL mismatch".to_owned(),
+            ));
         }
         if !is_allowed_did_web_content_type(&response.content_type) {
-            return Err(Error::Protocol(
+            return Err(IdentityError::Protocol(
                 "unsupported did:web content type".to_owned(),
             ));
         }
         if response.body.len() > DID_WEB_MAX_DOCUMENT_BYTES {
-            return Err(Error::Protocol(
+            return Err(IdentityError::Protocol(
                 "did:web document exceeds size limit".to_owned(),
             ));
         }
         let document: DidDocument = serde_json::from_slice(&response.body)?;
         if &document.id != did {
-            return Err(Error::Protocol("did:web document id mismatch".to_owned()));
+            return Err(IdentityError::Protocol(
+                "did:web document id mismatch".to_owned(),
+            ));
         }
         self.insert(document.clone())?;
         Ok(document)
@@ -76,7 +82,7 @@ impl DidResolver for DidWebResolver {
 
     fn resolve_did(&self, did: &DidFullId) -> Result<ResolvedDid> {
         if !self.supports(did) {
-            return Err(Error::Protocol(
+            return Err(IdentityError::Protocol(
                 "unsupported DID method for did:web resolver".to_owned(),
             ));
         }
@@ -87,6 +93,6 @@ impl DidResolver for DidWebResolver {
             .get(did)
             .cloned()
             .map(ResolvedDid::proofless)
-            .ok_or_else(|| Error::Protocol("did:web document not found".to_owned()))
+            .ok_or_else(|| IdentityError::Protocol("did:web document not found".to_owned()))
     }
 }

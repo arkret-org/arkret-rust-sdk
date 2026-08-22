@@ -914,7 +914,7 @@ mod tests {
     use arkret_wire::event_envelope::{EventRef, ScopeRef};
     use arkret_wire::{
         DidKey, DidUrl, EventProof, PrincipalServerAdmissionProof,
-        PrincipalServerAdmissionProofKind, Proof,
+        PrincipalServerAdmissionProofKind, ProducerEventProof,
     };
     use chrono::{TimeZone, Utc};
     use serde_json::json;
@@ -1032,7 +1032,7 @@ mod tests {
             .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
             .unwrap();
         event.proofs.push(
-            Proof {
+            ProducerEventProof {
                 kind: "detached_jws".to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:admin.example#k1").unwrap(),
                 event_digest: Hash::new(

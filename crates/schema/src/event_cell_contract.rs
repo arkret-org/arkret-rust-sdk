@@ -12,14 +12,9 @@ use std::sync::OnceLock;
 
 #[cfg(test)]
 use arkret_wire::EventCellRule;
-/// Canonical wire subject segment of a cell family declared with
-/// `cell_subject: null` (`conformance/encoding.md` section 4).
-///
-/// Re-exported so this module and the wire layer cannot drift apart.
-pub use arkret_wire::NULL_SUBJECT as NULL_CELL_SUBJECT;
 use arkret_wire::{
-    CellRef, Event, EventId, EventKind, LatticeOp, LatticeOpType, ObservedRemoveMatch, PredicateOp,
-    ProjectedCellWrite, ProjectedEventInput, ProjectedOp,
+    CellRef, Event, EventId, EventKind, LatticeOp, LatticeOpType, NULL_SUBJECT,
+    ObservedRemoveMatch, PredicateOp, ProjectedCellWrite, ProjectedEventInput, ProjectedOp,
 };
 use serde_json::Value;
 use thiserror::Error;
@@ -1331,7 +1326,7 @@ fn derive_subject_value(
         // ASCII string `null` (`conformance/encoding.md` section 4). Encoding the
         // Realm id here instead would fork the `state_root` leaf set and leaf
         // order against any implementation that follows the spec.
-        return Ok(NULL_CELL_SUBJECT.to_owned());
+        return Ok(NULL_SUBJECT.to_owned());
     };
     let rule_kind = rule.get("kind").and_then(Value::as_str).unwrap_or_default();
     match rule_kind {

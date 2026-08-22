@@ -257,8 +257,8 @@ pub struct ModerationFrankingProof {
 #[cfg(test)]
 mod signed_request_tests {
     use arkret_wire::{
-        AuthContext, DidCoreId, DidUrl, EventInitialSubmission, Hash, Hlc, Precondition, Proof,
-        RealmId, ReportId, ScopeRef, SealId, proof_kind,
+        AuthContext, DidCoreId, DidUrl, EventInitialSubmission, Hash, Hlc, Precondition,
+        ProducerEventProof, RealmId, ReportId, ScopeRef, SealId, proof_kind,
     };
     use chrono::{DateTime, Utc};
     use serde_json::json;
@@ -327,7 +327,7 @@ mod signed_request_tests {
         )
         .unwrap();
         event.proofs = vec![
-            Proof {
+            ProducerEventProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new(VM).unwrap(),
                 event_digest,

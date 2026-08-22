@@ -1,4 +1,6 @@
 use std::collections::BTreeMap;
+use std::fmt;
+use std::str::FromStr;
 
 use arkret_wire::generated::profile_requirements::requirements_for;
 use arkret_wire::{DidCoreId, DidFullId, ProfileId, SchemaId, *};
@@ -16,6 +18,48 @@ pub enum DirectoryResourceKind {
     Applet,
     Handle,
 }
+
+impl DirectoryResourceKind {
+    pub const ALL: [Self; 5] = [
+        Self::Realm,
+        Self::Organization,
+        Self::Actor,
+        Self::Applet,
+        Self::Handle,
+    ];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Realm => "realm",
+            Self::Organization => "organization",
+            Self::Actor => "actor",
+            Self::Applet => "applet",
+            Self::Handle => "handle",
+        }
+    }
+}
+
+impl FromStr for DirectoryResourceKind {
+    type Err = DirectoryResourceKindParseError;
+
+    fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
+        Self::ALL
+            .into_iter()
+            .find(|kind| kind.as_str() == value)
+            .ok_or(DirectoryResourceKindParseError)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DirectoryResourceKindParseError;
+
+impl fmt::Display for DirectoryResourceKindParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("unknown directory resource_kind value")
+    }
+}
+
+impl std::error::Error for DirectoryResourceKindParseError {}
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -573,9 +617,25 @@ impl ServiceDescribe {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn directory_resource_kind_tokens_are_closed_and_round_trip() {
+        let tokens = ["realm", "organization", "actor", "applet", "handle"];
+        assert_eq!(
+            DirectoryResourceKind::ALL.map(DirectoryResourceKind::as_str),
+            tokens
+        );
+        for (value, token) in DirectoryResourceKind::ALL.into_iter().zip(tokens) {
+            assert_eq!(DirectoryResourceKind::from_str(token), Ok(value));
+            assert_eq!(serde_json::to_value(value).unwrap(), token);
+        }
+        assert!(DirectoryResourceKind::from_str("space").is_err());
+    }
 
     #[test]
     fn sdk_build_identity_round_trips_through_shared_type() {

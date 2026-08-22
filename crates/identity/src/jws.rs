@@ -41,7 +41,7 @@ pub enum JwsVerifyError {
     DidResolveFailed {
         did: String,
         #[source]
-        source: Box<crate::Error>,
+        source: Box<crate::IdentityError>,
     },
     /// The DID document has no matching verification method entry.
     #[error(
@@ -384,7 +384,7 @@ mod tests {
     use ed25519_dalek::SigningKey;
 
     use super::*;
-    use crate::{DidDocument, Error as SdkError};
+    use crate::{DidDocument, IdentityError};
 
     /// Minimal in-memory resolver used by the key-resolution tests. Holds a
     /// single `(did, public_key_material)` pair and surfaces it as a one-key
@@ -401,7 +401,7 @@ mod tests {
 
         fn resolve_did(&self, did: &DidFullId) -> crate::Result<crate::ResolvedDid> {
             if did.as_str() != self.did.as_str() {
-                return Err(SdkError::Protocol(format!(
+                return Err(IdentityError::Protocol(format!(
                     "stub resolver does not handle {did}"
                 )));
             }

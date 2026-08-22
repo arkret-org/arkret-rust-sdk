@@ -5,7 +5,7 @@
 //! canonical-JSON + detached-JWS pipelines per Envelope. This module is
 //! the single one-shot entry point: compute the canonical event bytes
 //! (with `proofs` / `unsigned` removed), sign them with the supplied
-//! [`arkret_wire::PayloadSigner`], and append a [`Proof`] to
+//! [`arkret_wire::PayloadSigner`], and append a [`ProducerEventProof`] to
 //! `event.proofs`.
 //!
 //! Per spec `encoding.md` §6 / `event-and-patch.md` §3 the detached JWS
@@ -28,11 +28,12 @@
 //! The companion verification path is
 //! [`crate::proof::verify_ed25519_detached_jws_proof`]
 //! (`crates/signatures/src/proof.rs`), which rebuilds the same binding
-//! object via [`arkret_wire::Proof::canonical_binding_bytes`].
+//! object via [`arkret_wire::ProducerEventProof::canonical_binding_bytes`].
 
 use arkret_canonical::canonical;
 use arkret_wire::{
-    Audience, AuthoredEvent, DidUrl, Hash, PayloadSigner, Proof, SignerEvidenceRef, proof_kind,
+    Audience, AuthoredEvent, DidUrl, Hash, PayloadSigner, ProducerEventProof, SignerEvidenceRef,
+    proof_kind,
 };
 use chrono::{DateTime, Utc};
 
@@ -41,7 +42,7 @@ use crate::{Error, Result};
 /// Options threaded into [`sign_event`].
 ///
 /// `domain`, `audience`, and the direct-regime signer-resolution evidence
-/// pair are optional binding additions threaded into the produced [`Proof`].
+/// pair are optional binding additions threaded into the produced [`ProducerEventProof`].
 /// They default to `None`. `created_at`
 /// defaults to `Utc::now()` when omitted so callers don't have to
 /// stamp the wall clock themselves.
@@ -86,16 +87,16 @@ impl SignEventOptions {
 }
 
 /// Sign an [`AuthoredEvent`] in place: compute its canonical digest,
-/// produce a detached JWS with `signer`, and attach a [`Proof`].
+/// produce a detached JWS with `signer`, and attach a [`ProducerEventProof`].
 ///
 /// The signing transcript covers canonical event bytes (with
 /// `proofs` / `unsigned` removed). Because `executed_by` and
 /// `authorization_ref` are top-level fields of the Envelope they are
 /// already in the canonical event bytes when set. `domain` and
-/// `audience` are folded into the [`Proof`] envelope and verified by
-/// [`Proof::validate_binding`].
+/// `audience` are folded into the [`ProducerEventProof`] envelope and verified by
+/// [`ProducerEventProof::validate_binding`].
 ///
-/// The produced `Proof::payload_digest` equals
+/// The produced `ProducerEventProof::payload_digest` equals
 /// [`arkret_wire::Event::event_digest`].
 ///
 /// The input is an [`AuthoredEvent`], not a bare `Event`, because signing comes
@@ -109,7 +110,7 @@ impl SignEventOptions {
 /// The digest suite comes from the `AuthoredEvent`, so the proof can never be
 /// bound under a suite other than the one that produced the identity.
 ///
-/// Refuses to attach if the event already carries a producer [`Proof`] from a
+/// Refuses to attach if the event already carries a [`ProducerEventProof`] from a
 /// different `verification_method` — clear the proofs to re-sign with another
 /// key. Calling `sign_event` again with the **same** signer is idempotent
 /// (replaces the existing proof).
@@ -152,7 +153,7 @@ pub fn sign_event<S: PayloadSigner + ?Sized>(
     // compared as plaintext. `actor_id` in the binding object is the
     // Event envelope's `actor_id` field (spec §6 L201). The binding object
     // does not include `alg`/`jws`, so it can be built before signing.
-    let mut proof = Proof {
+    let mut proof = ProducerEventProof {
         kind: proof_kind::DETACHED_JWS.to_owned(),
         verification_method: verification_method.clone(),
         event_digest: payload_digest.clone(),

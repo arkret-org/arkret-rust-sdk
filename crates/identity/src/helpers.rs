@@ -54,7 +54,7 @@ pub fn ip_is_public(ip: IpAddr) -> bool {
 pub(super) fn split_domain_handle(handle: &str) -> Result<(String, String)> {
     let normalized = normalize_handle(handle);
     let Some((local, domain)) = normalized.split_once('@') else {
-        return Err(Error::Protocol(
+        return Err(IdentityError::Protocol(
             "handle proof requires local@domain form".to_owned(),
         ));
     };
@@ -65,7 +65,7 @@ pub(super) fn split_domain_handle(handle: &str) -> Result<(String, String)> {
         || domain.contains('/')
         || domain.contains("..")
     {
-        return Err(Error::Protocol("invalid domain handle".to_owned()));
+        return Err(IdentityError::Protocol("invalid domain handle".to_owned()));
     }
     Ok((local.to_owned(), domain.to_owned()))
 }

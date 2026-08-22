@@ -5,8 +5,8 @@ use arkret_event_draft::{
 use arkret_identifiers::{DidCoreId, Hlc, OperationId, RealmId};
 use arkret_models_collaboration::events_payloads::{ContentBlock, MessageCreatePayload};
 use arkret_wire::{
-    Audience, DidUrl, EventKind, Hash, OperationKind, Proof, ProofBindingRequirements, ScopeRef,
-    StrandId, event_spec,
+    Audience, DidUrl, EventKind, Hash, OperationKind, ProducerEventProof, ProofBindingRequirements,
+    ScopeRef, StrandId, event_spec,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -47,7 +47,7 @@ fn projected_event_with_proof(
     .unwrap();
     event.executed_by = executed_by.map(|value| DidCoreId::new(value.to_owned()).unwrap());
     event.proofs = vec![
-        Proof {
+        ProducerEventProof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new(verification_method).unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
@@ -147,7 +147,7 @@ fn accepted_event_projection_requires_exactly_one_producer_proof() {
     .unwrap();
     assert!(without_proof.context.producer_device_id.is_none());
 
-    let proof = Proof {
+    let proof = ProducerEventProof {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new(
             "did:web:alice.example#ak:device:01904100-0000-7000-8000-000000000004",
@@ -187,7 +187,7 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
     .build(&EventDraftKindRegistry::default())
     .unwrap();
     let digest = operation.operation_digest().unwrap();
-    operation.proofs = vec![Proof {
+    operation.proofs = vec![ProducerEventProof {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: Hash::new(digest).unwrap(),

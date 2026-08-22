@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use arkret_models_identity::did_document::DidDocument;
 use arkret_wire::{
-    DidCoreId, DidFullId, DidUrl, Error, EventKind, Hash, PayloadSigner, ProfileId, Proof, Result,
-    SchemaId, XExtensionMap, canonical, proof_kind,
+    DidCoreId, DidFullId, DidUrl, Error, EventKind, Hash, PayloadSigner, ProducerEventProof,
+    ProfileId, Result, SchemaId, XExtensionMap, canonical, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -429,7 +429,7 @@ pub struct WireAppletRegistration {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manifest: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proof: Option<Proof>,
+    pub proof: Option<ProducerEventProof>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
 }
@@ -494,7 +494,7 @@ pub fn sign_registration<S: PayloadSigner + ?Sized>(
     let canonical_bytes = canonical::canonical_json_bytes(&unsigned)?;
     let payload_digest = Hash::new(canonical::sha256_digest(&canonical_bytes))?;
     let sig = signer.sign_payload(&canonical_bytes)?;
-    reg.proof = Some(Proof {
+    reg.proof = Some(ProducerEventProof {
         kind: proof_kind::DETACHED_JWS.to_owned(),
         verification_method: verification_method.to_owned(),
         event_digest: payload_digest,
@@ -1083,7 +1083,7 @@ pub struct AppletPackage {
     pub created_at: DateTime<Utc>,
     /// Controller DID detached proof. `None` until [`sign`](Self::sign).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proof: Option<Proof>,
+    pub proof: Option<ProducerEventProof>,
 }
 
 impl AppletPackage {
@@ -1214,7 +1214,7 @@ impl AppletPackage {
         let canonical_bytes = canonical::canonical_json_bytes(&unsigned)?;
         let payload_digest = Hash::new(canonical::sha256_digest(&canonical_bytes))?;
         let sig = signer.sign_payload(&canonical_bytes)?;
-        self.proof = Some(Proof {
+        self.proof = Some(ProducerEventProof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
             verification_method: verification_method.to_owned(),
             event_digest: payload_digest,

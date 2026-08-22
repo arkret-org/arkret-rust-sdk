@@ -1,6 +1,6 @@
 use arkret_wire::{
-    Audience, CriticalExtension, DidCoreId, DidUrl, FeatureRef, Hash, Hlc, ProfileRef, Proof,
-    ProofBindingRequirements, RealmId,
+    Audience, CriticalExtension, DidCoreId, DidUrl, FeatureRef, Hash, Hlc, ProducerEventProof,
+    ProfileRef, ProofBindingRequirements, RealmId,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -9,8 +9,8 @@ fn test_realm_id() -> RealmId {
     RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI").unwrap()
 }
 
-fn valid_proof() -> Proof {
-    Proof {
+fn valid_proof() -> ProducerEventProof {
+    ProducerEventProof {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: Hash::new(
@@ -62,7 +62,7 @@ fn proof_validate_production_rejects_dev_kinds() {
 fn proof_wrapper_rejects_duplicate_outer_algorithm_selector() {
     let mut value = serde_json::to_value(valid_proof()).unwrap();
     value["alg"] = json!("Ed25519");
-    let error = serde_json::from_value::<Proof>(value).unwrap_err();
+    let error = serde_json::from_value::<ProducerEventProof>(value).unwrap_err();
     assert!(error.to_string().contains("unknown field `alg`"));
 }
 
@@ -224,7 +224,7 @@ fn event_validate_proof_bindings_checks_digest_match() {
     let digest = event
         .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
         .unwrap();
-    let proof = Proof {
+    let proof = ProducerEventProof {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: Hash::new(digest).unwrap(),
@@ -261,7 +261,7 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
     )
     .unwrap();
 
-    let bad_proof = Proof {
+    let bad_proof = ProducerEventProof {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: Hash::new(
@@ -304,7 +304,7 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
     let digest = event
         .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
         .unwrap();
-    let proof = Proof {
+    let proof = ProducerEventProof {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: Hash::new(digest).unwrap(),
@@ -442,7 +442,7 @@ fn critical_extension_uses_spec_extension_scope_field() {
 
 #[test]
 fn proof_verification_method_rejects_non_did_url() {
-    // `Proof.verification_method: DidUrl` replaces the old
+    // `ProducerEventProof.verification_method: DidUrl` replaces the old
     // `String` + emptiness/`starts_with("did:")` checks.
     assert!(DidUrl::new("").is_err());
     assert!(DidUrl::new("not-a-did").is_err());

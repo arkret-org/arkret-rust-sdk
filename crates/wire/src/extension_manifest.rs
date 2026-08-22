@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::error::{Error, Result};
-use crate::primitives::Proof;
+use crate::primitives::ProducerEventProof;
 use crate::{DidCoreId, Hash, ProofContextId};
 
 pub const MAX_MANIFEST_DEPENDENCY_REFS: usize = 64;
@@ -132,7 +132,7 @@ pub struct ExtensionManifest {
     pub federation_profile_ref: Option<String>,
     pub conformance_vector_refs: Vec<RegistryContentRef>,
     pub resource_limits: ManifestResourceLimits,
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<ProducerEventProof>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -351,7 +351,7 @@ impl ExtensionManifest {
         Ok(format!("ak.{body}"))
     }
 
-    pub fn proof_signing_bytes(&self, proof: &Proof) -> Result<Vec<u8>> {
+    pub fn proof_signing_bytes(&self, proof: &ProducerEventProof) -> Result<Vec<u8>> {
         let mut object = Map::new();
         object.insert(
             "context".to_owned(),
@@ -935,7 +935,7 @@ mod tests {
                 max_depth: Some(64),
                 max_operation_count_per_minute: Some(1_000),
             },
-            proofs: vec![Proof {
+            proofs: vec![ProducerEventProof {
                 kind: crate::proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new("did:web:publisher.example#manifest-signing")
                     .unwrap(),

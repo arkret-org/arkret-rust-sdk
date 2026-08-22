@@ -22,7 +22,7 @@ impl DidKeriResolver {
     /// Register a `did:keri` document.
     pub fn insert(&mut self, document: DidDocument) -> Result<()> {
         if document.id.method() != "keri" {
-            return Err(Error::Protocol(
+            return Err(IdentityError::Protocol(
                 "did:keri resolver only accepts did:keri".to_owned(),
             ));
         }
@@ -39,7 +39,7 @@ impl DidResolver for DidKeriResolver {
 
     fn resolve_did(&self, did: &DidFullId) -> Result<ResolvedDid> {
         if !self.supports(did) {
-            return Err(Error::Protocol(
+            return Err(IdentityError::Protocol(
                 "unsupported DID method for did:keri resolver".to_owned(),
             ));
         }
@@ -47,7 +47,7 @@ impl DidResolver for DidKeriResolver {
             .get(did)
             .cloned()
             .map(ResolvedDid::proofless)
-            .ok_or_else(|| Error::Protocol("did:keri document not found".to_owned()))
+            .ok_or_else(|| IdentityError::Protocol("did:keri document not found".to_owned()))
     }
 }
 
@@ -69,7 +69,7 @@ impl DidResolver for DidKeyResolver {
 
     fn resolve_did(&self, did: &DidFullId) -> Result<ResolvedDid> {
         let key = did_key_material(did)
-            .ok_or_else(|| Error::Protocol("unsupported did:key form".to_owned()))?;
+            .ok_or_else(|| IdentityError::Protocol("unsupported did:key form".to_owned()))?;
         // `did:key` is self-describing: there is no log, no witness set and
         // nothing to prove beyond the identifier, so the receipt degrades to an
         // empty proof array rather than to an invented placeholder.
@@ -133,7 +133,7 @@ impl DidResolver for CompositeDidResolver {
         self.resolvers
             .iter()
             .find(|resolver| resolver.supports(did))
-            .ok_or_else(|| Error::Protocol("unsupported DID method".to_owned()))?
+            .ok_or_else(|| IdentityError::Protocol("unsupported DID method".to_owned()))?
             .resolve_did(did)
     }
 }
@@ -225,8 +225,9 @@ impl CachedResolution {
 
 /// Compute the document's canonical SHA-256 digest with the `sha256:` prefix.
 fn document_canonical_hash(document: &DidDocument) -> Result<String> {
-    let bytes = arkret_canonical::canonical::canonical_json_bytes(document)
-        .map_err(|e| Error::Protocol(format!("DID document canonicalization failed: {e}")))?;
+    let bytes = arkret_canonical::canonical::canonical_json_bytes(document).map_err(|e| {
+        IdentityError::Protocol(format!("DID document canonicalization failed: {e}"))
+    })?;
     Ok(arkret_canonical::canonical::sha256_digest(bytes))
 }
 

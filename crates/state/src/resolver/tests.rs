@@ -1,5 +1,5 @@
 use arkret_wire::event_envelope::ScopeRef;
-use arkret_wire::{DidCoreId, EventKind, MessageId, SchemaId};
+use arkret_wire::{CORE_REDUCER_PROFILE, DidCoreId, EventKind, MessageId, SchemaId};
 use serde_json::json;
 
 use super::*;
@@ -947,7 +947,7 @@ fn snapshot_manifest_tracks_state_digest_and_merkle_root() {
     let manifest = snapshot.manifest.as_ref().unwrap();
 
     assert_eq!(manifest.schema, REDUCER_SNAPSHOT_SCHEMA);
-    assert_eq!(manifest.reducer_profile, REDUCER_SNAPSHOT_PROFILE);
+    assert_eq!(manifest.reducer_profile, CORE_REDUCER_PROFILE);
     assert_eq!(manifest.state_digest, snapshot.state_digest);
     assert_eq!(manifest.merkle_root, snapshot.state_merkle_root().unwrap());
     snapshot.verify().unwrap();

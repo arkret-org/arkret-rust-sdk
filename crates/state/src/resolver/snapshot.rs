@@ -299,7 +299,7 @@ impl ReducerSnapshotManifest {
                 "snapshot manifest schema mismatch".to_owned(),
             ));
         }
-        if self.reducer_profile != REDUCER_SNAPSHOT_PROFILE {
+        if self.reducer_profile != CORE_REDUCER_PROFILE {
             return Err(Error::Protocol(
                 "snapshot manifest reducer profile mismatch".to_owned(),
             ));
