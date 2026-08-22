@@ -207,7 +207,6 @@ pub struct MlsGenesisPayload {
     pub group_info_digest: Hash,
     pub ratchet_tree_ref: BlobRef,
     pub ratchet_tree_digest: Hash,
-    pub initial_keypackage_refs: Option<Vec<ObjectRef>>,
     pub governance_binding: MlsGovernanceBindingPayload,
     pub organization_recovery_archive: Option<OrganizationRecoveryArchive>,
     pub created_at: DateTime<Utc>,
@@ -264,8 +263,6 @@ struct MlsGenesisPayloadWire {
     group_info_digest: Hash,
     ratchet_tree_ref: BlobRef,
     ratchet_tree_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    initial_keypackage_refs: Option<Vec<ObjectRef>>,
     governance_binding: MlsGovernanceBindingPayload,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     organization_recovery_archive: Option<OrganizationRecoveryArchive>,
@@ -290,14 +287,6 @@ impl MlsGenesisPayload {
                 "mls_genesis_payload governance binding does not match the group and scope"
                     .to_owned(),
             ));
-        }
-        if let Some(refs) = &self.initial_keypackage_refs {
-            let unique = refs.iter().collect::<std::collections::BTreeSet<_>>();
-            if unique.len() != refs.len() {
-                return Err(Error::Protocol(
-                    "mls_genesis_payload initial_keypackage_refs must be unique".to_owned(),
-                ));
-            }
         }
         let transition_digest = self.transition_digest()?;
         validate_transition_recovery_archive(
@@ -326,7 +315,6 @@ impl MlsGenesisPayload {
             group_info_digest: self.group_info_digest.clone(),
             ratchet_tree_ref: self.ratchet_tree_ref.clone(),
             ratchet_tree_digest: self.ratchet_tree_digest.clone(),
-            initial_keypackage_refs: self.initial_keypackage_refs.clone(),
             governance_binding: self.governance_binding.clone(),
             organization_recovery_archive: self.organization_recovery_archive.clone(),
             created_at: self.created_at,
@@ -359,7 +347,6 @@ impl<'de> Deserialize<'de> for MlsGenesisPayload {
             group_info_digest: wire.group_info_digest,
             ratchet_tree_ref: wire.ratchet_tree_ref,
             ratchet_tree_digest: wire.ratchet_tree_digest,
-            initial_keypackage_refs: wire.initial_keypackage_refs,
             governance_binding: wire.governance_binding,
             organization_recovery_archive: wire.organization_recovery_archive,
             created_at: wire.created_at,
@@ -1382,6 +1369,8 @@ mod tests {
             "next_epoch": 1,
             "security_frontier_digest":
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "content_scheme": "mls_exporter_aead_v1",
+            "durability_policy": "none",
             "binding_profile": "ak.profile.mls_governance_binding.full.v1",
             "reducer_profile": "ak.reducer.control_state.v1"
         });

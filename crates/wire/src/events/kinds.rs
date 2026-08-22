@@ -264,7 +264,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::RelationTombstone
         | EventKind::RelationUpdate => EventProductClass::Relation,
         EventKind::RsvpSet => EventProductClass::Strand,
-        EventKind::SchemaDefine | EventKind::SchemaUpdate => EventProductClass::Schema,
+        EventKind::SchemaDefine => EventProductClass::Schema,
         EventKind::SovereignDidPolicy => EventProductClass::Sovereign,
         EventKind::SpaceArchive
         | EventKind::SpaceCreate

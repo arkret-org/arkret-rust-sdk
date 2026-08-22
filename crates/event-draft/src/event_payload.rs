@@ -231,7 +231,6 @@ event_payload_accessors! {
     event_spec::IdentityPresentationResponse => (as_identity_presentation_response, IdentityPresentationResponseStatePayload),
     event_spec::IdentityAccountabilityGrant => (as_identity_accountability_grant, AccountabilityGrantPayload),
     event_spec::SchemaDefine => (as_schema_define, SchemaDefineStatePayload, SchemaDefineStatePayload::validate),
-    event_spec::SchemaUpdate => (as_schema_update, SchemaUpdateStatePayload, SchemaUpdateStatePayload::validate),
     event_spec::PolicySet => (as_policy_set, PolicySetStatePayload, PolicySetStatePayload::validate),
     event_spec::PolicyRule => (as_policy_rule, PolicyRuleStatePayload),
     event_spec::PolicyAction => (as_policy_action, PolicyActionStatePayload, PolicyActionStatePayload::validate),

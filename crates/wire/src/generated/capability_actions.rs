@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-08-22.1;
-//! sha256=13651c173603351dc5dcfe44190fba9bd1935b6ede9bf1218e7f7fc1cf4826b8 Entries: registered=171
+//! Input: registry/capability-action-registry.json; version=2026-08-22.2;
+//! sha256=2bfc6a2efa9e0500db6098be17dee11629cb4442177712b95b4bb135d0d264ec Entries: registered=170
 
 use serde::{Deserialize, Serialize};
 
@@ -135,7 +135,6 @@ pub enum CapabilityActionId {
     RelationUpdate,
     RsvpSet,
     SchemaDefine,
-    SchemaUpdate,
     SelfAccountReadDescribe,
     SelfAccountStreamSubscribe,
     SelfAgentCommandAbandonProvisioning,
@@ -310,7 +309,6 @@ impl CapabilityActionId {
         Self::RelationUpdate,
         Self::RsvpSet,
         Self::SchemaDefine,
-        Self::SchemaUpdate,
         Self::SelfAccountReadDescribe,
         Self::SelfAccountStreamSubscribe,
         Self::SelfAgentCommandAbandonProvisioning,
@@ -484,7 +482,6 @@ impl CapabilityActionId {
     pub const RELATION_UPDATE: &'static str = "ak.relation.update";
     pub const RSVP_SET: &'static str = "ak.rsvp.set";
     pub const SCHEMA_DEFINE: &'static str = "ak.schema.define";
-    pub const SCHEMA_UPDATE: &'static str = "ak.schema.update";
     pub const SELF_ACCOUNT_READ_DESCRIBE: &'static str = "ak.self.account.read.describe";
     pub const SELF_ACCOUNT_STREAM_SUBSCRIBE: &'static str = "ak.self.account.stream.subscribe";
     pub const SELF_AGENT_COMMAND_ABANDON_PROVISIONING: &'static str =
@@ -666,7 +663,6 @@ impl CapabilityActionId {
             Self::RelationUpdate => Self::RELATION_UPDATE,
             Self::RsvpSet => Self::RSVP_SET,
             Self::SchemaDefine => Self::SCHEMA_DEFINE,
-            Self::SchemaUpdate => Self::SCHEMA_UPDATE,
             Self::SelfAccountReadDescribe => Self::SELF_ACCOUNT_READ_DESCRIBE,
             Self::SelfAccountStreamSubscribe => Self::SELF_ACCOUNT_STREAM_SUBSCRIBE,
             Self::SelfAgentCommandAbandonProvisioning => {
@@ -848,7 +844,6 @@ impl CapabilityActionId {
             Self::RELATION_UPDATE => Some(Self::RelationUpdate),
             Self::RSVP_SET => Some(Self::RsvpSet),
             Self::SCHEMA_DEFINE => Some(Self::SchemaDefine),
-            Self::SCHEMA_UPDATE => Some(Self::SchemaUpdate),
             Self::SELF_ACCOUNT_READ_DESCRIBE => Some(Self::SelfAccountReadDescribe),
             Self::SELF_ACCOUNT_STREAM_SUBSCRIBE => Some(Self::SelfAccountStreamSubscribe),
             Self::SELF_AGENT_COMMAND_ABANDON_PROVISIONING => {

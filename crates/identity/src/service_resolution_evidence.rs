@@ -152,6 +152,37 @@ pub fn verify_authenticated_service_resolution_history(
     .map_err(wire)
 }
 
+/// Verify the retained carrier and return the DID document that was effective
+/// at `at`. WebVH selection is performed from the complete retained log; it
+/// never falls back to the carrier's current head document.
+pub fn authenticated_service_document_at(
+    resolution: &AuthenticatedServiceResolution,
+    expected_service_id: &DidCoreId,
+    at: DateTime<Utc>,
+) -> Result<DidDocument> {
+    verify_authenticated_service_resolution_history(resolution, expected_service_id, at)?;
+    let record = &resolution.service_resolution_record.record;
+    match &resolution.method_history_evidence {
+        ResolutionMethodHistoryEvidence::WebvhLog { log_entries, .. } => {
+            let point = arkret_signatures::webvh::validate_webvh_history_at(
+                &record.full_id,
+                log_entries,
+                at,
+            )
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+            serde_json::from_value(point.document).map_err(|error| {
+                Error::Protocol(format!("invalid historical WebVH document: {error}"))
+            })
+        }
+        ResolutionMethodHistoryEvidence::DidKeyExpansion { .. } => {
+            Ok(resolution.normalized_did_document.clone())
+        }
+        ResolutionMethodHistoryEvidence::DidWebDocument { .. } => Err(Error::Protocol(
+            "mutable did:web cannot be used for historical service key selection".to_owned(),
+        )),
+    }
+}
+
 /// Verify a complete current resolution and retain the exact assertion method
 /// that signed its record as a content-addressed service signer-evidence leaf.
 pub fn service_signer_evidence_from_authenticated_resolution(
@@ -159,14 +190,40 @@ pub fn service_signer_evidence_from_authenticated_resolution(
     expected_service_id: &DidCoreId,
     now: DateTime<Utc>,
 ) -> Result<AuthenticatedSignerResolutionEvidence> {
-    verify_authenticated_service_resolution_history(&resolution, expected_service_id, now)?;
+    let verification_method = resolution
+        .service_resolution_record
+        .proof
+        .verification_method
+        .clone();
+    service_signer_evidence_for_method_from_authenticated_resolution(
+        resolution,
+        expected_service_id,
+        verification_method,
+        now,
+    )
+}
+
+/// Retain a service signer-evidence leaf for the exact method that was
+/// effective at `at`, while carrying the single complete authenticated
+/// resolution history.
+pub fn service_signer_evidence_for_method_from_authenticated_resolution(
+    resolution: AuthenticatedServiceResolution,
+    expected_service_id: &DidCoreId,
+    verification_method: arkret_wire::DidUrl,
+    at: DateTime<Utc>,
+) -> Result<AuthenticatedSignerResolutionEvidence> {
+    let document = authenticated_service_document_at(&resolution, expected_service_id, at)?;
+    if !document
+        .verification_methods
+        .contains_key(verification_method.as_str())
+    {
+        return Err(Error::Protocol(
+            "historical service document does not authorize the requested method".to_owned(),
+        ));
+    }
     let evidence = AuthenticatedSignerResolutionEvidence::Service {
         signer_id: expected_service_id.clone(),
-        verification_method: resolution
-            .service_resolution_record
-            .proof
-            .verification_method
-            .clone(),
+        verification_method,
         authenticated_resolution: resolution,
     };
     evidence.validate_attester_binding().map_err(wire)?;
