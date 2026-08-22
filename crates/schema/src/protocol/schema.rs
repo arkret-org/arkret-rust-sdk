@@ -222,12 +222,12 @@ impl ProtocolSchemaRegistry {
         let schema_id = schema_id.into();
         let fragment = fragment.into();
         let pointer = fragment.strip_prefix('#').ok_or_else(|| {
-            Error::Protocol(format!(
+            SchemaError::Protocol(format!(
                 "schema '{schema_id}' fragment must start with '#': {fragment}"
             ))
         })?;
         if !pointer.is_empty() && schema.pointer(pointer).is_none() {
-            return Err(Error::Protocol(format!(
+            return Err(SchemaError::Protocol(format!(
                 "schema '{schema_id}' has unresolved fragment '{fragment}'"
             )));
         }
@@ -244,13 +244,15 @@ impl ProtocolSchemaRegistry {
             .and_then(Value::as_str)
             .filter(|document_id| document_id.contains(':'))
             .ok_or_else(|| {
-                Error::Protocol("reference schema document must declare an absolute $id".to_owned())
+                SchemaError::Protocol(
+                    "reference schema document must declare an absolute $id".to_owned(),
+                )
             })?
             .to_owned();
         if let Some(previous) = self.documents.get(&document_id)
             && previous != &schema
         {
-            return Err(Error::Protocol(format!(
+            return Err(SchemaError::Protocol(format!(
                 "conflicting schema documents declare $id '{document_id}'"
             )));
         }
@@ -335,7 +337,7 @@ impl ProtocolSchemaRegistry {
     pub fn generated_object_shape(&self, schema_id: &str) -> Result<GeneratedObjectShape> {
         let schema = self
             .schema(schema_id)
-            .ok_or_else(|| Error::Protocol(format!("unknown schema '{schema_id}'")))?;
+            .ok_or_else(|| SchemaError::Protocol(format!("unknown schema '{schema_id}'")))?;
         let required = schema
             .get("required")
             .and_then(Value::as_array)
@@ -399,7 +401,7 @@ impl ProtocolSchemaRegistry {
         if let Some(error) = validator.iter_errors(value).next() {
             let instance_path = error.instance_path().to_string();
             let schema_path = error.schema_path().to_string();
-            return Err(Error::Validation(SchemaValidationIssue {
+            return Err(SchemaError::Validation(SchemaValidationIssue {
                 schema_id: schema_id.to_owned(),
                 instance_pointer: instance_path,
                 keyword: json_pointer_last_segment(&schema_path),
@@ -436,12 +438,12 @@ impl ProtocolSchemaRegistry {
         let root = self
             .schemas
             .get(base_id)
-            .ok_or_else(|| Error::Protocol(format!("unknown schema '{base_id}'")))?;
+            .ok_or_else(|| SchemaError::Protocol(format!("unknown schema '{base_id}'")))?;
         let registered_fragment = self.fragments.get(base_id).map(String::as_str);
         let fragment = match (registered_fragment, requested_fragment.is_empty()) {
             (Some(fragment), true) => Some(fragment),
             (Some(_), false) => {
-                return Err(Error::Protocol(format!(
+                return Err(SchemaError::Protocol(format!(
                     "schema '{base_id}' already targets a registered fragment"
                 )));
             }
@@ -452,12 +454,12 @@ impl ProtocolSchemaRegistry {
         let schema = if let Some(fragment) = fragment {
             let fragment = fragment.strip_prefix('#').unwrap_or(fragment);
             let document_id = root.get("$id").and_then(Value::as_str).ok_or_else(|| {
-                Error::Protocol(format!(
+                SchemaError::Protocol(format!(
                     "schema '{base_id}' needs an absolute $id to validate fragment '#{fragment}'"
                 ))
             })?;
             if !document_id.contains(':') {
-                return Err(Error::Protocol(format!(
+                return Err(SchemaError::Protocol(format!(
                     "schema '{base_id}' needs an absolute $id to validate fragment '#{fragment}'"
                 )));
             }
@@ -514,7 +516,7 @@ impl ProtocolSchemaRegistry {
                     .last_failure_schema_id
                     .write()
                     .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(schema_id.to_owned());
-                Error::Protocol(format!(
+                SchemaError::Protocol(format!(
                     "schema '{schema_id}' could not compile as Draft 2020-12: {error}"
                 ))
             })?;
@@ -567,7 +569,7 @@ impl ProtocolSchemaRegistry {
                     retriever_schemas.insert(document_id.to_owned(), document.clone())
                 && previous != *document
             {
-                return Err(Error::Protocol(format!(
+                return Err(SchemaError::Protocol(format!(
                     "conflicting schema documents declare $id '{document_id}'"
                 )));
             }
@@ -599,7 +601,7 @@ impl ProtocolSchemaRegistry {
                 .iter()
                 .any(|prefix| field.starts_with(prefix));
             if !trusted {
-                return Err(Error::Protocol(format!(
+                return Err(SchemaError::Protocol(format!(
                     "schema '{schema_id}' rejects unknown security-sensitive extension '{field}'"
                 )));
             }

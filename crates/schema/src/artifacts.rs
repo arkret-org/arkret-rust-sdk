@@ -496,7 +496,7 @@ impl SpecArtifactBundle {
         // A single-write kind owns one component slot. Registry rows carry
         // that identity in `cell_writes[0]`.
         let (component_type, cell_subject) = component_cell_identity(entry).ok_or_else(|| {
-            Error::Protocol(format!(
+            SchemaError::Protocol(format!(
                 "event kind {event_kind} does not declare one unambiguous component slot"
             ))
         })?;
@@ -505,7 +505,7 @@ impl SpecArtifactBundle {
             .rsplit_once(".v")
             .and_then(|(_, suffix)| suffix.parse::<u64>().ok())
             .ok_or_else(|| {
-                Error::Protocol(format!(
+                SchemaError::Protocol(format!(
                     "event kind {event_kind} cell_family missing .vN version suffix"
                 ))
             })?;
@@ -608,7 +608,7 @@ impl ArtifactDriftReport {
         {
             Ok(())
         } else {
-            Err(Error::Protocol(format!(
+            Err(SchemaError::Protocol(format!(
                 "spec artifact drift detected: schemas={:?} events={:?} operations={:?} ids={:?} special_forms={:?} profiles={:?} profile_requirements={:?} payload_validators={:?} unlisted_schemas={:?} unlisted_events={:?} unlisted_operations={:?} unlisted_ids={:?} unlisted_special_forms={:?}",
                 self.missing_schemas,
                 self.missing_event_kinds,
@@ -783,16 +783,17 @@ pub fn schema_registry_from_spec_artifacts(
         .schema_registry
         .get("schemas")
         .and_then(Value::as_array)
-        .ok_or_else(|| Error::Protocol("schema registry missing schemas".to_owned()))?;
+        .ok_or_else(|| SchemaError::Protocol("schema registry missing schemas".to_owned()))?;
     for entry in schemas {
         let schema_id = entry
             .get("schema_id")
             .and_then(Value::as_str)
-            .ok_or_else(|| Error::Protocol("schema registry entry missing schema_id".to_owned()))?;
-        let file = entry
-            .get("file")
-            .and_then(Value::as_str)
-            .ok_or_else(|| Error::Protocol(format!("schema artifact {schema_id} has no file")))?;
+            .ok_or_else(|| {
+                SchemaError::Protocol("schema registry entry missing schema_id".to_owned())
+            })?;
+        let file = entry.get("file").and_then(Value::as_str).ok_or_else(|| {
+            SchemaError::Protocol(format!("schema artifact {schema_id} has no file"))
+        })?;
         let schema_path = artifacts_dir.join(file);
         let schema = read_json_artifact(&schema_path)?;
         if let Some(fragment) = entry.get("fragment").and_then(Value::as_str) {
@@ -812,16 +813,17 @@ pub fn schema_registry_from_embedded_spec_artifacts() -> Result<ProtocolSchemaRe
         .schema_registry
         .get("schemas")
         .and_then(Value::as_array)
-        .ok_or_else(|| Error::Protocol("schema registry missing schemas".to_owned()))?;
+        .ok_or_else(|| SchemaError::Protocol("schema registry missing schemas".to_owned()))?;
     for entry in schemas {
         let schema_id = entry
             .get("schema_id")
             .and_then(Value::as_str)
-            .ok_or_else(|| Error::Protocol("schema registry entry missing schema_id".to_owned()))?;
-        let file = entry
-            .get("file")
-            .and_then(Value::as_str)
-            .ok_or_else(|| Error::Protocol(format!("schema artifact {schema_id} has no file")))?;
+            .ok_or_else(|| {
+                SchemaError::Protocol("schema registry entry missing schema_id".to_owned())
+            })?;
+        let file = entry.get("file").and_then(Value::as_str).ok_or_else(|| {
+            SchemaError::Protocol(format!("schema artifact {schema_id} has no file"))
+        })?;
         let schema = read_embedded_json_artifact(file)?;
         if let Some(fragment) = entry.get("fragment").and_then(Value::as_str) {
             registry.register_fragment(schema_id, schema, fragment)?;
@@ -842,14 +844,14 @@ fn register_schema_documents_from_dir(
     directory: &Path,
 ) -> Result<()> {
     let entries = fs::read_dir(directory).map_err(|error| {
-        Error::Protocol(format!(
+        SchemaError::Protocol(format!(
             "failed to read schema artifact directory {}: {error}",
             directory.display()
         ))
     })?;
     for entry in entries {
         let entry = entry.map_err(|error| {
-            Error::Protocol(format!(
+            SchemaError::Protocol(format!(
                 "failed to read schema artifact entry in {}: {error}",
                 directory.display()
             ))
@@ -907,7 +909,7 @@ pub fn embedded_capability_action(
         capability_actions_from_registry(registry).map_err(|error| error.to_string())
     }) {
         Ok(actions) => Ok(actions.get(action)),
-        Err(error) => Err(Error::Protocol(error.clone())),
+        Err(error) => Err(SchemaError::Protocol(error.clone())),
     }
 }
 
@@ -954,7 +956,7 @@ pub fn embedded_capability_actions_for_event_kind(event_kind: &str) -> Result<&'
         Ok(by_kind)
     }) {
         Ok(by_kind) => Ok(by_kind.get(event_kind).map_or(EMPTY, Vec::as_slice)),
-        Err(error) => Err(Error::Protocol(error.clone())),
+        Err(error) => Err(SchemaError::Protocol(error.clone())),
     }
 }
 
@@ -974,7 +976,9 @@ fn capability_actions_from_registry(
     let entries = registry
         .get("actions")
         .and_then(Value::as_array)
-        .ok_or_else(|| Error::Protocol("capability action registry missing actions".to_owned()))?;
+        .ok_or_else(|| {
+            SchemaError::Protocol("capability action registry missing actions".to_owned())
+        })?;
     let mut actions = BTreeMap::new();
     for entry in entries {
         let action = required_registry_string(entry, "action", "capability action")?;
@@ -990,7 +994,7 @@ fn capability_action_from_entry(
 ) -> Result<ParsedCapabilityActionDescriptor> {
     let action_field = required_registry_string(entry, "action", action)?;
     if action_field != action {
-        return Err(Error::Protocol(format!(
+        return Err(SchemaError::Protocol(format!(
             "capability action registry lookup for {action} returned {action_field}"
         )));
     }
@@ -999,7 +1003,7 @@ fn capability_action_from_entry(
         "medium" => CapabilityRiskTier::Medium,
         "high" => CapabilityRiskTier::High,
         other => {
-            return Err(Error::Protocol(format!(
+            return Err(SchemaError::Protocol(format!(
                 "capability action {action} has unknown risk_tier {other:?}"
             )));
         }
@@ -1008,7 +1012,7 @@ fn capability_action_from_entry(
         Some(Value::String(profile)) => Some(profile.clone()),
         Some(Value::Null) | None => None,
         Some(_) => {
-            return Err(Error::Protocol(format!(
+            return Err(SchemaError::Protocol(format!(
                 "capability action {action} field profile must be string or null"
             )));
         }
@@ -1038,7 +1042,7 @@ fn registry_flag(entry: &Value, field: &str, label: &str) -> Result<bool> {
     match entry.get(field) {
         None | Some(Value::Null) => Ok(false),
         Some(Value::Bool(value)) => Ok(*value),
-        Some(_) => Err(Error::Protocol(format!(
+        Some(_) => Err(SchemaError::Protocol(format!(
             "capability action {label} field {field} must be a boolean"
         ))),
     }
@@ -1046,7 +1050,7 @@ fn registry_flag(entry: &Value, field: &str, label: &str) -> Result<bool> {
 
 fn required_registry_string<'a>(entry: &'a Value, field: &str, label: &str) -> Result<&'a str> {
     entry.get(field).and_then(Value::as_str).ok_or_else(|| {
-        Error::Protocol(format!(
+        SchemaError::Protocol(format!(
             "registry entry {label} field {field} must be a string"
         ))
     })
@@ -1057,7 +1061,7 @@ fn registry_string_array(entry: &Value, field: &str, label: &str) -> Result<Vec<
         return Ok(Vec::new());
     };
     let array = raw.as_array().ok_or_else(|| {
-        Error::Protocol(format!(
+        SchemaError::Protocol(format!(
             "registry entry {label} field {field} must be an array"
         ))
     })?;
@@ -1065,7 +1069,7 @@ fn registry_string_array(entry: &Value, field: &str, label: &str) -> Result<Vec<
         .iter()
         .map(|item| {
             item.as_str().map(str::to_owned).ok_or_else(|| {
-                Error::Protocol(format!(
+                SchemaError::Protocol(format!(
                     "registry entry {label} field {field} contains a non-string"
                 ))
             })
@@ -1104,14 +1108,14 @@ fn optional_string_array(value: &Value, field: &str, profile_id: &str) -> Result
         return Ok(Vec::new());
     };
     let array = raw.as_array().ok_or_else(|| {
-        Error::Protocol(format!(
+        SchemaError::Protocol(format!(
             "profile {profile_id} field {field} must be an array"
         ))
     })?;
     let mut out = Vec::with_capacity(array.len());
     for item in array {
         let text = item.as_str().ok_or_else(|| {
-            Error::Protocol(format!(
+            SchemaError::Protocol(format!(
                 "profile {profile_id} field {field} contains a non-string"
             ))
         })?;
@@ -1128,7 +1132,7 @@ where
         return Ok(Vec::new());
     };
     serde_json::from_value(raw.clone()).map_err(|error| {
-        Error::Protocol(format!(
+        SchemaError::Protocol(format!(
             "profile {profile_id} field {field} has an invalid shape: {error}"
         ))
     })
@@ -1150,7 +1154,7 @@ fn profile_required_features(value: &Value, profile_id: &str) -> Result<Vec<Stri
     let mut out = optional_string_array(value, "required_features", profile_id)?;
     if let Some(feature_discovery) = value.get("feature_discovery") {
         if !feature_discovery.is_object() {
-            return Err(Error::Protocol(format!(
+            return Err(SchemaError::Protocol(format!(
                 "profile {profile_id} field feature_discovery must be an object"
             )));
         }
@@ -1241,10 +1245,12 @@ fn registry_entry_status<'a>(
 }
 
 fn read_json_artifact(path: &Path) -> Result<Value> {
-    let text = fs::read_to_string(path)
-        .map_err(|error| Error::Protocol(format!("failed to read {}: {error}", path.display())))?;
-    serde_json::from_str(&text)
-        .map_err(|error| Error::Protocol(format!("failed to parse {}: {error}", path.display())))
+    let text = fs::read_to_string(path).map_err(|error| {
+        SchemaError::Protocol(format!("failed to read {}: {error}", path.display()))
+    })?;
+    serde_json::from_str(&text).map_err(|error| {
+        SchemaError::Protocol(format!("failed to parse {}: {error}", path.display()))
+    })
 }
 
 fn embedded_spec_artifacts() -> Result<&'static BTreeMap<String, Value>> {
@@ -1253,7 +1259,7 @@ fn embedded_spec_artifacts() -> Result<&'static BTreeMap<String, Value>> {
             .map_err(|error| format!("failed to parse embedded spec artifacts: {error}"))
     }) {
         Ok(artifacts) => Ok(artifacts),
-        Err(error) => Err(Error::Protocol(error.clone())),
+        Err(error) => Err(SchemaError::Protocol(error.clone())),
     }
 }
 
@@ -1261,7 +1267,7 @@ pub(super) fn read_embedded_json_artifact(path: &str) -> Result<Value> {
     embedded_spec_artifacts()?
         .get(path)
         .cloned()
-        .ok_or_else(|| Error::Protocol(format!("embedded spec artifact {path} is missing")))
+        .ok_or_else(|| SchemaError::Protocol(format!("embedded spec artifact {path} is missing")))
 }
 
 pub fn embedded_json_artifact(path: &str) -> Result<Value> {
@@ -1281,7 +1287,7 @@ pub fn realm_bootstrap_genesis_head_eq_registered(profile: &str, condition: &str
         ))
         .and_then(Value::as_array)
         .ok_or_else(|| {
-            Error::Protocol(format!(
+            SchemaError::Protocol(format!(
                 "Realm bootstrap profile {profile} has no ordered_slots registry"
             ))
         })?;
@@ -1290,7 +1296,7 @@ pub fn realm_bootstrap_genesis_head_eq_registered(profile: &str, condition: &str
         .filter(|slot| slot.get("condition").and_then(Value::as_str) == Some(condition))
         .collect::<Vec<_>>();
     if matching.len() != 1 {
-        return Err(Error::Protocol(format!(
+        return Err(SchemaError::Protocol(format!(
             "Realm bootstrap condition {profile}/{condition} is not unique"
         )));
     }
@@ -1300,7 +1306,7 @@ pub fn realm_bootstrap_genesis_head_eq_registered(profile: &str, condition: &str
 /// Return the canonical OpenAPI YAML copied from the spec artifact pipeline.
 pub fn embedded_openapi_yaml() -> Result<&'static str> {
     if EMBEDDED_OPENAPI_YAML.is_empty() {
-        return Err(Error::Protocol(
+        return Err(SchemaError::Protocol(
             "embedded OpenAPI artifact is unavailable; enable the embedded-artifacts feature"
                 .to_owned(),
         ));
@@ -1321,7 +1327,9 @@ pub fn embedded_error_code_codes() -> Result<Vec<String>> {
         .get("codes")
         .and_then(Value::as_array)
         .ok_or_else(|| {
-            Error::Protocol("embedded error-code-registry.json missing codes array".to_owned())
+            SchemaError::Protocol(
+                "embedded error-code-registry.json missing codes array".to_owned(),
+            )
         })?;
     codes
         .iter()
@@ -1331,7 +1339,7 @@ pub fn embedded_error_code_codes() -> Result<Vec<String>> {
                 .and_then(Value::as_str)
                 .map(str::to_owned)
                 .ok_or_else(|| {
-                    Error::Protocol(
+                    SchemaError::Protocol(
                         "embedded error-code-registry.json code entry missing code".to_owned(),
                     )
                 })
@@ -1347,7 +1355,7 @@ pub fn embedded_error_code_reason_codes() -> Result<Vec<String>> {
         .get("reason_codes")
         .and_then(Value::as_array)
         .ok_or_else(|| {
-            Error::Protocol(
+            SchemaError::Protocol(
                 "embedded error-code-registry.json missing reason_codes array".to_owned(),
             )
         })?;
@@ -1359,7 +1367,7 @@ pub fn embedded_error_code_reason_codes() -> Result<Vec<String>> {
                 .and_then(Value::as_str)
                 .map(str::to_owned)
                 .ok_or_else(|| {
-                    Error::Protocol(
+                    SchemaError::Protocol(
                         "embedded error-code-registry.json reason entry missing code".to_owned(),
                     )
                 })
@@ -1392,7 +1400,7 @@ pub fn embedded_error_code_identifiers() -> Result<BTreeSet<String>> {
         }
     }
     if identifiers.is_empty() {
-        return Err(Error::Protocol(
+        return Err(SchemaError::Protocol(
             "embedded error-code-registry.json declared no codes or reason_codes".to_owned(),
         ));
     }

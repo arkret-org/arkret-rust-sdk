@@ -42,7 +42,7 @@ impl EventPayloadValidatorCatalog {
         payload: &Value,
     ) -> Result<Vec<String>> {
         let Some(rule) = self.rules.get(event_kind) else {
-            return Err(Error::Protocol(format!(
+            return Err(SchemaError::Protocol(format!(
                 "event kind '{event_kind}' has no payload validator"
             )));
         };
@@ -52,7 +52,7 @@ impl EventPayloadValidatorCatalog {
             self.registry
                 .validate_value_with_warnings(&rule.payload_schema_id, payload)
                 .map_err(|error| {
-                    Error::Protocol(format!(
+                    SchemaError::Protocol(format!(
                         "event kind '{event_kind}' payload violates {}: {error}",
                         rule.payload_schema_id
                     ))
@@ -79,13 +79,13 @@ fn validate_required_payload_fields(
     required_fields: &[String],
 ) -> Result<()> {
     let object = payload.as_object().ok_or_else(|| {
-        Error::Protocol(format!(
+        SchemaError::Protocol(format!(
             "event kind '{event_kind}' payload must be a JSON object"
         ))
     })?;
     for field in required_fields {
         if !object.contains_key(field) {
-            return Err(Error::Protocol(format!(
+            return Err(SchemaError::Protocol(format!(
                 "event kind '{event_kind}' payload requires field '{field}'"
             )));
         }
@@ -102,7 +102,7 @@ pub fn event_payload_validator_catalog() -> Result<EventPayloadValidatorCatalog>
         build_default_event_payload_validator_catalog().map_err(|err| err.to_string())
     }) {
         Ok(catalog) => Ok(catalog.clone()),
-        Err(error) => Err(Error::Protocol(error.clone())),
+        Err(error) => Err(SchemaError::Protocol(error.clone())),
     }
 }
 
@@ -138,7 +138,9 @@ fn event_payload_validator_catalog_from_bundle(
         .event_kind_registry
         .get("event_kinds")
         .and_then(Value::as_array)
-        .ok_or_else(|| Error::Protocol("event kind registry missing event_kinds".to_owned()))?;
+        .ok_or_else(|| {
+            SchemaError::Protocol("event kind registry missing event_kinds".to_owned())
+        })?;
 
     let mut rules = BTreeMap::new();
     for entry in entries {
@@ -153,13 +155,13 @@ fn event_payload_validator_catalog_from_bundle(
         }
         let payload_schema_id =
             payload_schema_ref_for_event_entry(entry, &bundle.schema_registry).ok_or_else(|| {
-                Error::Protocol(format!(
+                SchemaError::Protocol(format!(
                     "active standard event kind '{event_kind}' is missing a resolvable payload_schema_ref"
                 ))
             })?;
         let required_fields = required_fields_for_schema_ref(&registry, &payload_schema_id)
             .ok_or_else(|| {
-                Error::Protocol(format!(
+                SchemaError::Protocol(format!(
                     "event kind '{event_kind}' payload_schema_ref '{payload_schema_id}' does not resolve"
                 ))
             })?;

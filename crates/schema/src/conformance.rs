@@ -7,7 +7,7 @@ use arkret_wire::{BUILT_IN_CONFORMANCE_FIXTURES_VERSION, EventKind, SchemaId};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use crate::{Error, ProtocolSchemaRegistry, Result};
+use crate::{ProtocolSchemaRegistry, Result, SchemaError};
 
 /// Profile-specific protocol conformance domains.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -84,8 +84,8 @@ impl ConformanceFixtureSet {
 
     /// Decode a fixture set from JSON.
     pub fn from_json(value: Value) -> Result<Self> {
-        let fixtures: Self =
-            serde_json::from_value(value).map_err(|error| Error::Protocol(error.to_string()))?;
+        let fixtures: Self = serde_json::from_value(value)
+            .map_err(|error| SchemaError::Protocol(error.to_string()))?;
         fixtures.validate()?;
         Ok(fixtures)
     }
@@ -93,25 +93,25 @@ impl ConformanceFixtureSet {
     /// Validate fixture shape before execution.
     pub fn validate(&self) -> Result<()> {
         if self.fixture_version.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(SchemaError::Protocol(
                 "fixture_version must be non-empty".to_owned(),
             ));
         }
         if self.suites.is_empty() {
-            return Err(Error::Protocol(
+            return Err(SchemaError::Protocol(
                 "fixture set must contain at least one suite".to_owned(),
             ));
         }
         for suite in &self.suites {
             if suite.cases.is_empty() {
-                return Err(Error::Protocol(format!(
+                return Err(SchemaError::Protocol(format!(
                     "conformance suite {:?} must contain cases",
                     suite.profile
                 )));
             }
             for case in &suite.cases {
                 if case.case_id.trim().is_empty() {
-                    return Err(Error::Protocol(
+                    return Err(SchemaError::Protocol(
                         "conformance case id must be non-empty".to_owned(),
                     ));
                 }
@@ -317,20 +317,20 @@ fn validate_conformance_case(
     case: &ConformanceCase,
 ) -> Result<()> {
     if case.case_id.trim().is_empty() {
-        return Err(Error::Protocol(
+        return Err(SchemaError::Protocol(
             "conformance case id must be non-empty".to_owned(),
         ));
     }
     if case.vector.is_null() {
-        return Err(Error::Protocol(format!(
+        return Err(SchemaError::Protocol(format!(
             "conformance case '{}' must contain a vector payload",
             case.case_id
         )));
     }
     if let Some(schema_id) = &case.schema_id {
-        registry
-            .schema(schema_id)
-            .ok_or_else(|| Error::Protocol(format!("unknown conformance schema '{schema_id}'")))?;
+        registry.schema(schema_id).ok_or_else(|| {
+            SchemaError::Protocol(format!("unknown conformance schema '{schema_id}'"))
+        })?;
     }
     Ok(())
 }

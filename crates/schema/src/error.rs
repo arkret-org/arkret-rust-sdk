@@ -44,5 +44,3 @@ pub enum SchemaError {
     #[error("{0}")]
     Validation(SchemaValidationIssue),
 }
-
-pub type Error = SchemaError;

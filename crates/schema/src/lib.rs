@@ -15,7 +15,7 @@ mod prepared_event;
 pub mod protocol;
 
 pub use arkret_wire::events;
-pub use error::{Error, Result, SchemaError, SchemaValidationIssue, SchemaValidationReason};
+pub use error::{Result, SchemaError, SchemaValidationIssue, SchemaValidationReason};
 pub use event_cell_contract::{
     EventCellContractContext, EventCellContractError, FrozenPreState, batch_add_tag,
     derived_object_id, derived_object_id_for_kind, derived_object_ids, derived_object_ids_for_kind,

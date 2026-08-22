@@ -4,7 +4,7 @@
 use arkret_wire::EventKind;
 use serde_json::Value;
 
-use crate::{Error, Result};
+use crate::{Result, SchemaError};
 
 pub const JSON_SCHEMA_2020_12_DEFINITION_VALIDATOR_PROFILE: &str =
     "ak.validator.json_schema_2020_12_definition.v1";
@@ -19,8 +19,8 @@ pub fn payload_validator_profile_id(event_kind: &EventKind) -> Option<&'static s
     }
 }
 
-fn profile_violation(message: impl Into<String>) -> Error {
-    Error::Protocol(format!("schema_violation: {}", message.into()))
+fn profile_violation(message: impl Into<String>) -> SchemaError {
+    SchemaError::Protocol(format!("schema_violation: {}", message.into()))
 }
 
 /// Run the external payload validator, when the Event kind has one registered.
