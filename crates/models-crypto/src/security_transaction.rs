@@ -70,8 +70,6 @@ impl SecurityTransactionContinueRequest {
     }
 }
 
-pub type TypedSecurityTransactionContinueRequest = SecurityTransactionContinueRequest;
-
 #[cfg(test)]
 mod tests {
     use super::SecurityTransactionContinueRequest;

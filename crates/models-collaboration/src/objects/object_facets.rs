@@ -9,9 +9,8 @@ use serde_json::Value;
 
 use crate::events_payloads::ContentBlock;
 use crate::objects::productivity::{
-    BlindIndexQuery, EncryptedIndexManifest, PersonalProductivityValue, PinAddPayload,
-    PinRemovePayload, PinReorderPayload, ReminderValue, SavedItemValue, ScheduledSendValue,
-    SearchPolicy, SnoozeValue,
+    BlindIndexQuery, EncryptedIndexManifest, PinAddPayload, PinRemovePayload, PinReorderPayload,
+    SearchPolicy,
 };
 
 /// Counterpart for `spec/v1/artifacts/schemas/circle.schema.json#/$defs/display`.
@@ -73,25 +72,6 @@ pub struct MorphCustomerRisk {
 impl MorphCustomerRisk {
     pub const SCHEMA: &'static str = SchemaId::MORPH_CUSTOMER_RISK_V1;
 }
-
-/// Counterpart for `spec/v1/artifacts/schemas/morph.schema.json#/$defs/facet_config`.
-pub type FacetConfig = BTreeMap<String, Value>;
-
-/// Counterpart for `spec/v1/artifacts/schemas/personal-productivity.schema.json`.
-pub type PersonalProductivity = PersonalProductivityValue;
-
-/// Counterpart for `spec/v1/artifacts/schemas/personal-productivity.schema.json#/$defs/reminder`.
-pub type Reminder = ReminderValue;
-
-/// Counterpart for `spec/v1/artifacts/schemas/personal-productivity.schema.json#/$defs/saved_item`.
-pub type SavedItem = SavedItemValue;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/personal-productivity.schema.json#/$defs/scheduled_send`.
-pub type ScheduledSend = ScheduledSendValue;
-
-/// Counterpart for `spec/v1/artifacts/schemas/personal-productivity.schema.json#/$defs/snooze`.
-pub type Snooze = SnoozeValue;
 
 /// Counterpart for `spec/v1/artifacts/schemas/pin.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
