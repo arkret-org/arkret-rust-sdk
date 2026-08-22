@@ -188,6 +188,8 @@ event_payload_accessors! {
     event_spec::RealmPolicy => (as_realm_policy, RealmPolicyPayload),
     event_spec::RealmJoinRule => (as_realm_join_rule, RealmJoinRulePayload),
     event_spec::RealmHistoryAccess => (as_realm_history_access, HistoryAccessPayload, HistoryAccessPayload::validate),
+    event_spec::RealmOrganizationRecoveryKeyRegister => (as_realm_organization_recovery_key_register, OrganizationRecoveryKeyRegisterPayload, OrganizationRecoveryKeyRegisterPayload::validate),
+    event_spec::RealmOrganizationRecoveryKeyRotate => (as_realm_organization_recovery_key_rotate, OrganizationRecoveryKeyRotatePayload, OrganizationRecoveryKeyRotatePayload::validate),
     event_spec::RealmDiscovery => (as_realm_discovery, RealmDiscoveryPayload),
     event_spec::RealmPreviewPolicy => (as_realm_preview_policy, PreviewPolicyPayload),
     event_spec::RealmSearchPolicy => (as_realm_search_policy, RealmSearchPolicyPayload),
@@ -222,17 +224,17 @@ event_payload_accessors! {
     event_spec::ActorDiscovery => (as_actor_discovery, ResourceDiscoveryStatePayload),
     event_spec::AppletDiscovery => (as_applet_discovery, ResourceDiscoveryStatePayload),
     event_spec::HandleDiscovery => (as_handle_discovery, ResourceDiscoveryStatePayload),
-    event_spec::OrganizationModerationPolicy => (as_organization_moderation_policy, OrganizationModerationPolicyStatePayload),
-    event_spec::IdentityDisclosurePolicy => (as_identity_disclosure_policy, IdentityDisclosurePolicyStatePayload),
-    event_spec::IdentityDisclosureReceipt => (as_identity_disclosure_receipt, IdentityDisclosureReceiptStatePayload),
+    event_spec::OrganizationModerationPolicy => (as_organization_moderation_policy, OrganizationModerationPolicyStatePayload, OrganizationModerationPolicyStatePayload::validate),
+    event_spec::IdentityDisclosurePolicy => (as_identity_disclosure_policy, IdentityDisclosurePolicyStatePayload, IdentityDisclosurePolicyStatePayload::validate),
+    event_spec::IdentityDisclosureReceipt => (as_identity_disclosure_receipt, IdentityDisclosureReceiptStatePayload, IdentityDisclosureReceiptStatePayload::validate),
     event_spec::IdentityPresentationRequest => (as_identity_presentation_request, IdentityPresentationRequestStatePayload),
     event_spec::IdentityPresentationResponse => (as_identity_presentation_response, IdentityPresentationResponseStatePayload),
     event_spec::IdentityAccountabilityGrant => (as_identity_accountability_grant, AccountabilityGrantPayload),
-    event_spec::SchemaDefine => (as_schema_define, SchemaDefineStatePayload),
-    event_spec::SchemaUpdate => (as_schema_update, SchemaUpdateStatePayload),
-    event_spec::PolicySet => (as_policy_set, PolicySetStatePayload),
+    event_spec::SchemaDefine => (as_schema_define, SchemaDefineStatePayload, SchemaDefineStatePayload::validate),
+    event_spec::SchemaUpdate => (as_schema_update, SchemaUpdateStatePayload, SchemaUpdateStatePayload::validate),
+    event_spec::PolicySet => (as_policy_set, PolicySetStatePayload, PolicySetStatePayload::validate),
     event_spec::PolicyRule => (as_policy_rule, PolicyRuleStatePayload),
-    event_spec::PolicyAction => (as_policy_action, PolicyActionStatePayload),
+    event_spec::PolicyAction => (as_policy_action, PolicyActionStatePayload, PolicyActionStatePayload::validate),
     event_spec::ConflictRecovery => (as_state_conflict_recovery, StateConflictRecoveryPayload),
     event_spec::NotaryFaultEquivocation => (as_notary_fault_equivocation, NotaryFaultEquivocationPayload),
     event_spec::NotaryFaultCensorship => (as_notary_fault_censorship, NotaryFaultCensorshipPayload),
@@ -565,6 +567,162 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    fn generic_policy_value(policy_id: &str) -> Value {
+        json!({
+            "schema": "ak.schema.policy.v1",
+            "id": policy_id,
+            "policy_kind": "access",
+            "rules": [{
+                "rule_id": "allow_messages",
+                "kind": "action",
+                "effect": "allow",
+                "actions": ["ak.message.send"]
+            }],
+            "default_effect": "deny",
+            "created_by": alice(),
+            "created_at": "2026-04-26T00:00:00.000Z"
+        })
+    }
+
+    #[test]
+    fn policy_set_typed_adapter_enforces_selected_document_identity() {
+        let policy_id = "ak:policy:01970000-0000-7000-8000-000000000001";
+        let mut event = base_event();
+        event.kind = EventKind::PolicySet;
+        event.payload = serde_json::from_value(json!({
+            "policy_id": policy_id,
+            "value": generic_policy_value(policy_id)
+        }))
+        .unwrap();
+        assert!(event.as_policy_set().is_ok());
+
+        event.payload = serde_json::from_value(json!({
+            "policy_id": "ak:policy:01970000-0000-7000-8000-000000000002",
+            "value": generic_policy_value(policy_id)
+        }))
+        .unwrap();
+        assert!(matches!(
+            event.as_policy_set(),
+            Err(Error::PayloadInvalid {
+                kind: event_spec::PolicySet::KIND_STR,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn closed_state_payload_adapters_reject_removed_lifecycle_fields() {
+        let mut event = base_event();
+        event.kind = EventKind::PolicyAction;
+        event.payload = serde_json::from_value(json!({
+            "action_id": "approval-1",
+            "value": {
+                "action": "ak.policy.approve",
+                "approval_required": true,
+                "approval_quorum": 1,
+                "policy_scope": "ak:realm:example"
+            },
+            "state": "approved"
+        }))
+        .unwrap();
+        assert!(event.as_policy_action().is_err());
+
+        event.kind = EventKind::SchemaDefine;
+        event.payload = serde_json::from_value(json!({
+            "schema_id": "ak.schema.example.v1",
+            "value": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$id": "ak.schema.example.v1",
+                "type": "object"
+            },
+            "reason": "legacy"
+        }))
+        .unwrap();
+        assert!(event.as_schema_define().is_err());
+    }
+
+    #[test]
+    fn closed_state_payload_adapters_accept_final_v1_shapes() {
+        let mut event = base_event();
+
+        event.kind = EventKind::OrganizationModerationPolicy;
+        event.payload = serde_json::from_value(json!({
+            "organization_id": "organization-local-1",
+            "value": {
+                "policy_id": "ak:policy:0198f1a2-4c3d-7e56-8a90-1b2c3d4e5f60",
+                "policy_scope": {"applies_to_owned_realms": true},
+                "rules": [{
+                    "target": {"kind": "content_label", "label": "spam"},
+                    "action": "require_review"
+                }]
+            }
+        }))
+        .unwrap();
+        assert!(event.as_organization_moderation_policy().is_ok());
+
+        event.kind = EventKind::IdentityDisclosurePolicy;
+        event.payload = serde_json::from_value(json!({
+            "policy_id": "ak:policy:a1cb0019-0000-7000-8000-000000000000",
+            "value": {
+                "holder_principal_id": "ak:did_core:webvh:z6mkfixtureholder",
+                "audience": {
+                    "org_did": "did:webvh:z6mkfixtureorganization:organization.example",
+                    "verifier_service_ids": ["ak:did_core:webvh:z6mkfixtureverifier"]
+                },
+                "allowed_claims": [],
+                "denied_fields": ["credential_id"],
+                "user_consent_required": true,
+                "expires_at": "2026-07-26T00:00:00.000Z"
+            }
+        }))
+        .unwrap();
+        assert!(event.as_identity_disclosure_policy().is_ok());
+
+        event.kind = EventKind::IdentityDisclosureReceipt;
+        event.payload = serde_json::from_value(json!({
+            "holder_principal_id": "ak:did_core:key:z6Mkgpairwise",
+            "value": {
+                "receipt_id": "ak:receipt:a1cb0019-0000-7000-8000-000000000000",
+                "request_id": "ak:request:d8764019-0000-7000-8000-000000000000",
+                "verifier_service_id": "ak:did_core:webvh:z6mkfixtureverifier",
+                "represented_org": "did:webvh:z6mkfixtureorganization:organization.example",
+                "presentation_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "proof_profile": "vc_di_bbs_2023",
+                "transport": "tsp",
+                "disclosed_fields": ["credentialSubject.org"],
+                "withheld_fields": ["credentialSubject.handle"],
+                "created_at": "2026-04-26T00:00:00.000Z"
+            }
+        }))
+        .unwrap();
+        event.as_identity_disclosure_receipt().unwrap();
+
+        event.kind = EventKind::PolicyAction;
+        event.payload = serde_json::from_value(json!({
+            "action_id": "approval-realm-admin-001",
+            "value": {
+                "action": "ak.realm.admin",
+                "approval_required": true,
+                "approval_quorum": 2,
+                "policy_scope": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5"
+            }
+        }))
+        .unwrap();
+        assert!(event.as_policy_action().is_ok());
+
+        event.kind = EventKind::SchemaDefine;
+        event.payload = serde_json::from_value(json!({
+            "schema_id": "ak.schema.example.v1",
+            "value": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$id": "ak.schema.example.v1",
+                "$ref": "https://schemas.example.invalid/not-installed.json"
+            }
+        }))
+        .unwrap();
+        assert!(event.as_schema_define().is_ok());
     }
 
     #[test]
