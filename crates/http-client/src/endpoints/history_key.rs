@@ -4,7 +4,7 @@ use arkret_models_collaboration::history_key::{
     HistoryKeyRequest, HistoryKeyRequestCreateOutcome, HistoryKeyRequestListOutcome,
     HistoryKeyRequestListQuery, HistoryKeyRequestReplica, HistoryKeyRequestReplicaOutcome,
     HistoryKeyResponseAckOutcome, HistoryKeyResponseAckRequest, HistoryKeyResponseListOutcome,
-    HistoryKeyResponseListQuery, HistoryKeyResponseSendOutcome, HistoryKeyResponseSendRequest,
+    HistoryKeyResponseListQuery, HistoryKeyResponseSendReceipt, HistoryKeyResponseSendRequest,
     HistoryKeySourceRelay, OrganizationRecoveryArchiveListOutcome,
     OrganizationRecoveryArchiveListQuery, OrganizationRecoveryArchiveReplica,
     OrganizationRecoveryArchiveReplicaOutcome,
@@ -80,9 +80,9 @@ impl Client {
     pub async fn history_key_response_send(
         &self,
         request: &HistoryKeyResponseSendRequest,
-    ) -> Result<HistoryKeyResponseSendOutcome> {
+    ) -> Result<HistoryKeyResponseSendReceipt> {
         request.validate()?;
-        let outcome: HistoryKeyResponseSendOutcome = self
+        let outcome: HistoryKeyResponseSendReceipt = self
             .post_protocol_replay_safe(PATH_SELF_HISTORY_KEY_RESPONSES, request)
             .await?;
         outcome.validate()?;
@@ -168,9 +168,9 @@ impl Client {
     pub async fn peer_history_key_response_relay(
         &self,
         request: &HistoryKeySourceRelay,
-    ) -> Result<HistoryKeyResponseSendOutcome> {
+    ) -> Result<HistoryKeyResponseSendReceipt> {
         request.validate()?;
-        let outcome: HistoryKeyResponseSendOutcome = self
+        let outcome: HistoryKeyResponseSendReceipt = self
             .post_protocol_replay_safe(PATH_PEER_HISTORY_KEY_RESPONSES_RELAY, request)
             .await?;
         outcome.validate()?;

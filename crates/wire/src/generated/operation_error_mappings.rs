@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-21.2;
-//! sha256=921d3564bcce44f6e82a9d7d270950d27e3cb3b611373d9b2578e347fff20392 Input: registry/
+//! Input: registry/operation-registry.json; version=2026-08-23.1;
+//! sha256=d2740f962ce70b09d09729a1a7f5eaaabfd9cee6150cb303184bf01c42bf1f71 Input: registry/
 //! operations-error-mapping.json; version=2026-08-21.2;
 //! sha256=e38c93a94d4b2aa253607dd58cce7fca36208d92e96fa13efab30a7913a4f5aa Input: registry/
-//! error-code-registry.json; version=2026-08-21.1;
-//! sha256=363120b09cdc7e31888d0bb4412c61fa8c7d4a41fdd304f2397f0ada6a4ae360 Entries: operations=257
+//! error-code-registry.json; version=2026-08-23.1;
+//! sha256=81ab1fae1010227354496115d8279f8edc3bffea349f18d25c3dc92e0df0b743 Entries: operations=257
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 

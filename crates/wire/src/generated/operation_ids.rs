@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-21.2;
-//! sha256=921d3564bcce44f6e82a9d7d270950d27e3cb3b611373d9b2578e347fff20392 Entries: registered=257
+//! Input: registry/operation-registry.json; version=2026-08-23.1;
+//! sha256=d2740f962ce70b09d09729a1a7f5eaaabfd9cee6150cb303184bf01c42bf1f71 Entries: registered=257
 
 use serde::{Deserialize, Serialize};
 
@@ -3889,7 +3889,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: Some(true),
         request_schema_ref: Some("schemas/history-key.schema.json#/$defs/history_key_source_relay"),
         response_schema_ref: Some(
-            "schemas/history-key.schema.json#/$defs/history_key_response_send_outcome",
+            "schemas/history-key.schema.json#/$defs/history_key_response_send_receipt",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -6425,7 +6425,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/history-key.schema.json#/$defs/history_key_response_send_request",
         ),
         response_schema_ref: Some(
-            "schemas/history-key.schema.json#/$defs/history_key_response_send_outcome",
+            "schemas/history-key.schema.json#/$defs/history_key_response_send_receipt",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {

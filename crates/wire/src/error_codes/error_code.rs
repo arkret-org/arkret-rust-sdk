@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-21.1;
-//! sha256=363120b09cdc7e31888d0bb4412c61fa8c7d4a41fdd304f2397f0ada6a4ae360 Entries: error_codes=280
+//! Input: registry/error-code-registry.json; version=2026-08-23.1;
+//! sha256=81ab1fae1010227354496115d8279f8edc3bffea349f18d25c3dc92e0df0b743 Entries: error_codes=280
 
 use serde::{Deserialize, Serialize};
 
@@ -3364,7 +3364,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The supplied seal_ref, seal_basis, or frontier token is older than the freshness window required for this operation or policy tier.",
+        description: "The supplied seal_ref or seal_basis exceeds the operation or policy tier's verifiable historical Seal-distance grace (or a separately defined frontier token freshness rule). For Event revocation admission this is not age since signing, first delivery, receiver admission, or replay.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SealRefUnknown,

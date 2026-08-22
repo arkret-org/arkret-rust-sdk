@@ -1062,14 +1062,14 @@ pub enum HistoryKeyRequestAcceptedKind {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct HistoryKeyRequestAcceptedOutcome {
+pub struct HistoryKeyRequestCreateOutcome {
     pub kind: HistoryKeyRequestAcceptedKind,
     pub request: HistoryKeyRequest,
     pub request_receipt: HistoryKeyRequestReceipt,
     pub sealed_history_response_capability: SealedHistoryResponseCapability,
 }
 
-impl HistoryKeyRequestAcceptedOutcome {
+impl HistoryKeyRequestCreateOutcome {
     pub fn validate(&self) -> Result<()> {
         self.request.validate()?;
         self.request_receipt.validate()?;
@@ -1090,8 +1090,6 @@ impl HistoryKeyRequestAcceptedOutcome {
         Ok(())
     }
 }
-
-pub type HistoryKeyRequestCreateOutcome = HistoryKeyRequestAcceptedOutcome;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -2708,8 +2706,6 @@ impl HistoryKeyResponseAckRequest {
         Ok(())
     }
 }
-
-pub type HistoryKeyResponseSendOutcome = HistoryKeyResponseSendReceipt;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

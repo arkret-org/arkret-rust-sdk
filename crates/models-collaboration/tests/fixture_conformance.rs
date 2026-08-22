@@ -2,6 +2,10 @@ use std::collections::BTreeMap;
 
 use arkret_canonical::canonical;
 use arkret_models_collaboration::events_payloads::MorphSchemaMigratePayload;
+use arkret_models_collaboration::history_key::{
+    HistoryKeyResponseAckRequest, HistoryKeyResponseListOutcome, HistoryKeyResponseSendReceipt,
+    HistoryKeyResponseSendRequest,
+};
 use arkret_models_collaboration::http_bodies::{EventsSubscribeFrame, EventsSubscribeFrameKind};
 use arkret_models_collaboration::sync_frames::account_subscribe::AccountSubscribeFrame;
 use arkret_models_collaboration::sync_frames::stream_trace::{
@@ -10,6 +14,51 @@ use arkret_models_collaboration::sync_frames::stream_trace::{
 use arkret_schema::embedded_json_artifact;
 use arkret_wire::{Cursor, MorphId};
 use serde_json::{Value, json};
+
+#[test]
+fn history_response_stream_fixture_uses_production_wire_helpers() {
+    let fixture = embedded_json_artifact("fixtures/history-key-recovery-fixture.json").unwrap();
+    let kat = &fixture["response_stream_cases"];
+    let send: HistoryKeyResponseSendRequest =
+        serde_json::from_value(kat["wire_instances"]["manifest_send"].clone()).unwrap();
+    send.validate().unwrap();
+    let receipt: HistoryKeyResponseSendReceipt =
+        serde_json::from_value(kat["wire_instances"]["first_send_receipt"].clone()).unwrap();
+    receipt.validate().unwrap();
+    assert_eq!(
+        receipt.source_record_digest,
+        send.source_record_digest().unwrap()
+    );
+
+    let list: HistoryKeyResponseListOutcome =
+        serde_json::from_value(kat["wire_instances"]["sequence_ordered_list"].clone()).unwrap();
+    list.validate().unwrap();
+    let ack: HistoryKeyResponseAckRequest =
+        serde_json::from_value(kat["wire_instances"]["ack_request"].clone()).unwrap();
+    ack.validate().unwrap();
+    let out_of_order: HistoryKeyResponseAckRequest =
+        serde_json::from_value(kat["negative_cases"][2]["input"].clone()).unwrap();
+    assert!(out_of_order.validate().is_err());
+
+    let first = arkret_wire::base64url::base64url_decode(
+        kat["byte_exact"]["first_receipt_jcs_b64u"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    let retry = arkret_wire::base64url::base64url_decode(
+        kat["byte_exact"]["exact_retry_receipt_jcs_b64u"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        first,
+        arkret_wire::canonical::canonical_json_bytes(&serde_json::to_value(receipt).unwrap())
+            .unwrap()
+    );
+    assert_eq!(retry, first);
+}
 
 #[test]
 fn account_subscribe_fixture_cases_match_typed_wire_model() {

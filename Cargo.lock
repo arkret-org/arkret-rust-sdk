@@ -334,6 +334,7 @@ dependencies = [
  "arkret-egress-policy",
  "arkret-keystore",
  "arkret-models-identity",
+ "arkret-schema",
  "arkret-signatures",
  "arkret-wire",
  "chrono",
