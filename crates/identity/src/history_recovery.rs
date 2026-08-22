@@ -68,8 +68,8 @@ pub struct ResolvedRealmHistoryRecoveryKey {
 /// all fail-closed:
 ///
 /// 1. `did_document.id` MUST equal `recipient.principal_id`.
-/// 2. The exact VM frozen by the accepted register/rotate tuple MUST appear in
-///    `keyAgreement[]` (it is an encryption / key-agreement key).
+/// 2. The exact VM frozen by the accepted register/rotate tuple MUST appear in `keyAgreement[]` (it
+///    is an encryption / key-agreement key).
 /// 3. The VM MUST resolve to exactly one `verificationMethod[]` entry whose `controller` equals the
 ///    recipient principal and whose `type == "Multikey"` carries a `publicKeyMultibase` X25519 key.
 /// 4. The `publicKeyMultibase` MUST decode to the X25519-pub multicodec (`0xec 0x01`) + a 32-byte
