@@ -310,7 +310,7 @@ event_payload_accessors! {
     event_spec::DeviceReanchor => (as_device_reanchor, DeviceReanchorPayload, |payload: &DeviceReanchorPayload| payload.validate().map_err(|reason| Error::Protocol(reason.to_owned()))),
     event_spec::DeviceRevoke => (as_device_revoke, DeviceRevokePayload),
     event_spec::DeviceListUpdate => (as_device_list_update, DeviceListUpdatePayload),
-    event_spec::KeyBackupActiveSeries => (as_key_backup_active_series, KeyBackupActiveSeriesPayload),
+    event_spec::KeyBackupActiveSeries => (as_key_backup_active_series, KeyBackupActiveSeries),
     event_spec::DevicePushRoute => (as_device_push_route, DevicePushRoutePayload),
     event_spec::MlsProposal => (as_mls_proposal, MlsProposalPayload),
     event_spec::MlsGenesis => (as_mls_genesis, MlsGenesisPayload),

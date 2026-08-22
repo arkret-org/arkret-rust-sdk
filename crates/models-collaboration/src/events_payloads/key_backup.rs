@@ -475,8 +475,6 @@ fn valid_active_series_extension_key(key: &str) -> bool {
         })
 }
 
-pub type KeyBackupActiveSeriesPayload = KeyBackupActiveSeries;
-
 #[cfg(test)]
 mod tests {
     use super::*;
