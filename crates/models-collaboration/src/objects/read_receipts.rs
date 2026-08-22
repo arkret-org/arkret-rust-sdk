@@ -253,10 +253,6 @@ impl ReadReceiptVisibility {
 pub struct ReadReceiptComplianceOptIn {
     #[serde(default)]
     pub child_privacy_tightening_against_required: bool,
-    #[serde(default)]
-    pub public_receipts_on_world_readable: bool,
-    #[serde(default)]
-    pub forced_public_world_readable_receipts: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

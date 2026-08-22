@@ -5,18 +5,19 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_models_collaboration::events_payloads::mls::MlsGenesisPayload;
 use arkret_models_collaboration::governance_dependencies::GovernanceDependency;
 use arkret_models_collaboration::history_key::{
-    AuthorProfile, EpochRange, HistoryEffectiveScope, HistoryGovernanceTraversalIntent,
-    HistoryKeyRequestCreateOutcome, HistoryKeyResponseContent, HistoryKeyResponseLostRecord,
-    HistoryKeyResponseRecord, HistoryKeyResponseSendRequest, HistoryManifestAdmission,
-    HistoryResponseChunkDescriptor, HistoryResponseId, HistoryResponseManifest,
-    HistorySecretChunkSealContext, HistorySecretChunkSealPurpose,
-    MinimalMetadataMlsLeafSignerEvidence, SealedHistoryChunk,
+    AuthorProfile, EpochRange, HistoryGovernanceTraversalIntent, HistoryKeyRequestCreateOutcome,
+    HistoryKeyResponseContent, HistoryKeyResponseLostRecord, HistoryKeyResponseRecord,
+    HistoryKeyResponseSendRequest, HistoryManifestAdmission, HistoryResponseChunkDescriptor,
+    HistoryResponseId, HistoryResponseManifest, HistorySecretChunkSealContext,
+    HistorySecretChunkSealPurpose, MinimalMetadataMlsLeafSignerEvidence, SealedHistoryChunk,
 };
 use arkret_models_crypto::mls_payloads::MlsCommitPayload;
 use arkret_models_identity::AuthenticatedSignerResolutionEvidence;
 use arkret_signatures::proof::PublicKeyMaterial;
 use arkret_state::mls_governance_proof::MlsGovernanceVerificationCheckpoint;
-use arkret_wire::{ContentScheme, DidCoreId, Error, EventId, Hash, ScopeRef};
+use arkret_wire::{
+    ContentScheme, DidCoreId, Error, EventId, Hash, HistoryEffectiveScope, ScopeRef,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 

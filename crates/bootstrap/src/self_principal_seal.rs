@@ -3,7 +3,6 @@
 
 use std::collections::BTreeSet;
 
-use arkret_models_collaboration::event_sync::RealmSealFrontierView;
 use arkret_state::control_event_set_root;
 use arkret_wire::{
     DidCoreId, DidFullId, Error, Event, EventKind, Hash, Hlc, NotarySig, PayloadSigner, Result,
@@ -115,11 +114,16 @@ pub fn build_self_principal_bootstrap_seal<S: PayloadSigner + ?Sized>(
 /// be the exact bootstrap Seal and its notary sequence is necessarily one.
 /// The caller supplies the registered projector so the post-state root is
 /// byte-identical to receiver replay.
+///
+/// `predecessor` is the resolved bootstrap Seal itself. A frontier view is not
+/// accepted here: its roots are a service hint, and
+/// `event-auth-state-resolution.md` requires the consumer to resolve and verify
+/// every leaf Seal before citing it.
 pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
     create: &Event,
     authorize: &Event,
     successor: &Event,
-    predecessor: &RealmSealFrontierView,
+    predecessor: &Seal,
     hlc: Hlc,
     signer: &S,
     project: CellWriteProjector<'_>,
@@ -211,7 +215,7 @@ pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
     let mut seal = Seal {
         id: SealId::new(format!("ak:seal:sha256:{}", "00".repeat(32)))?,
         realm_id: create.realm_id.clone(),
-        predecessor_refs: vec![predecessor.seal_id.clone()],
+        predecessor_refs: vec![predecessor.id.clone()],
         delta: vec![successor_digest],
         control_event_set_root,
         state_root,
@@ -371,15 +375,13 @@ pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
     Ok(seal)
 }
 
-/// Build the next Seal for a linear self-principal control history when the
-/// server exposes only its accepted frontier view rather than the full
-/// predecessor Seal.
+/// Build the next Seal for a linear self-principal control history.
 ///
 /// The final Event is the only new delta. All preceding Events must reproduce
-/// the server frontier's cumulative control and state roots exactly.
+/// the resolved predecessor Seal's cumulative control and state roots exactly.
 pub fn build_self_principal_linear_successor_seal<S: PayloadSigner + ?Sized>(
     events: &[Event],
-    predecessor: &RealmSealFrontierView,
+    predecessor: &Seal,
     hlc: Hlc,
     signer: &S,
     project: CellWriteProjector<'_>,
@@ -432,32 +434,7 @@ pub fn build_self_principal_linear_successor_seal<S: PayloadSigner + ?Sized>(
         ));
     }
 
-    let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
-    let predecessor_seal = Seal {
-        id: predecessor.seal_id.clone(),
-        realm_id: predecessor.realm_id.clone(),
-        predecessor_refs: Vec::new(),
-        delta: Vec::new(),
-        control_event_set_root: predecessor.control_event_set_root.clone(),
-        state_root: predecessor.state_root.clone(),
-        completeness_root: predecessor.control_event_set_root.clone(),
-        notary_seq: u64::try_from(prior.len() - 2)
-            .map_err(|_| Error::Protocol("self principal notary sequence overflow".to_owned()))?,
-        data_view_root: None,
-        data_event_set_root: None,
-        availability_receipt_digests: Vec::new(),
-        covered_event_digests: prior_covered.into_iter().collect(),
-        previous_state_root: None,
-        previous_digest_algorithm: None,
-        notary_signature: NotarySig::Single(SealSignature {
-            verification_method: signer.verification_method_id().clone(),
-            payload_digest: zero_hash,
-            jws: String::new(),
-        }),
-        sealed_at: Utc::now(),
-        hlc: predecessor.hlc.clone().unwrap_or_else(|| hlc.clone()),
-    };
-    build_self_principal_event_seal(events, &predecessor_seal, hlc, signer, project)
+    build_self_principal_event_seal(events, predecessor, hlc, signer, project)
 }
 
 fn self_principal_bootstrap_state_root(

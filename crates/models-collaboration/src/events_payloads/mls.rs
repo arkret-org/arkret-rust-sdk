@@ -2,7 +2,7 @@
 
 use arkret_canonical::serde_helpers::{canonical_timestamp, serialize_canonical_timestamp};
 use arkret_models_crypto::PeerKeyPackageClaimReceipt;
-use arkret_wire::DidCoreId;
+use arkret_wire::{DeviceId, DidCoreId, OrganizationRecoveryArchive};
 
 use crate::history_key::AuthorizationIncarnation;
 use crate::internal_prelude::*;
@@ -15,7 +15,7 @@ pub enum MlsCommitFailureStage {
     GovernanceBinding,
     GroupStateUpdate,
     KeypackageClaim,
-    PolicyRootMismatch,
+    SecurityFrontierMismatch,
     UnsupportedCipherSuite,
     StorageFailure,
     UnknownEpoch,
@@ -168,6 +168,10 @@ impl MlsWelcomeCarrier {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsCommitFailedPayload {
+    /// Exact MLS scope of the failed Commit/Welcome. It MUST match the
+    /// referenced event governance binding and the canonical group-id
+    /// derivation.
+    pub effective_scope: ScopeRef,
     pub mls_group_id: MlsGroupId,
     pub commit_ref: EventId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -207,6 +211,7 @@ pub struct MlsGenesisPayload {
     pub ratchet_tree_digest: Hash,
     pub initial_keypackage_refs: Option<Vec<ObjectRef>>,
     pub governance_binding: MlsGovernanceBindingPayload,
+    pub organization_recovery_archive: Option<OrganizationRecoveryArchive>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -266,6 +271,8 @@ struct MlsGenesisPayloadWire {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     initial_keypackage_refs: Option<Vec<ObjectRef>>,
     governance_binding: MlsGovernanceBindingPayload,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    organization_recovery_archive: Option<OrganizationRecoveryArchive>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     created_at: DateTime<Utc>,
 }
@@ -296,16 +303,24 @@ impl MlsGenesisPayload {
                 ));
             }
         }
-        Ok(())
+        let transition_digest = self.transition_digest()?;
+        validate_transition_recovery_archive(
+            "mls_genesis_payload",
+            &self.governance_binding,
+            0,
+            &transition_digest,
+            self.organization_recovery_archive.as_ref(),
+        )
     }
-}
 
-impl Serialize for MlsGenesisPayload {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.validate().map_err(serde::ser::Error::custom)?;
+    /// Registered `ak.mls-genesis-transition-v1` digest over the closed Genesis
+    /// core: the embedded recovery archive, the outer `event_id` and every
+    /// proof are excluded.
+    pub fn transition_digest(&self) -> Result<Hash> {
+        mls_genesis_transition_digest(&serde_json::to_value(self.wire())?)
+    }
+
+    fn wire(&self) -> MlsGenesisPayloadWire {
         MlsGenesisPayloadWire {
             mls_group_id: self.mls_group_id.clone(),
             effective_scope: self.effective_scope.clone(),
@@ -319,9 +334,19 @@ impl Serialize for MlsGenesisPayload {
             ratchet_tree_digest: self.ratchet_tree_digest.clone(),
             initial_keypackage_refs: self.initial_keypackage_refs.clone(),
             governance_binding: self.governance_binding.clone(),
+            organization_recovery_archive: self.organization_recovery_archive.clone(),
             created_at: self.created_at,
         }
-        .serialize(serializer)
+    }
+}
+
+impl Serialize for MlsGenesisPayload {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.validate().map_err(serde::ser::Error::custom)?;
+        self.wire().serialize(serializer)
     }
 }
 
@@ -344,6 +369,7 @@ impl<'de> Deserialize<'de> for MlsGenesisPayload {
             ratchet_tree_digest: wire.ratchet_tree_digest,
             initial_keypackage_refs: wire.initial_keypackage_refs,
             governance_binding: wire.governance_binding,
+            organization_recovery_archive: wire.organization_recovery_archive,
             created_at: wire.created_at,
         };
         payload.validate().map_err(serde::de::Error::custom)?;

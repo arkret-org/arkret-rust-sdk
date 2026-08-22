@@ -10,7 +10,7 @@ use arkret_canonical::DigestSuite;
 use arkret_wire::SchemaId;
 use arkret_wire::{
     CbaProofBundle, ControlProposalAck, ControlProposalDecision, ControlProposalDecisionPolicy,
-    DidCoreId, Error, Event, EventFederationSubmission, EventId, Hash, Hlc, RealmId, Result, Seal,
+    DidCoreId, Error, Event, EventFederationSubmission, EventId, Hash, RealmId, Result, Seal,
     SealBasis, SealId,
 };
 use chrono::{DateTime, Utc};
@@ -587,48 +587,79 @@ impl ControlGovernanceHealth {
     }
 }
 
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/service-operation-dtos.schema.json#/$defs/RealmSealFrontierView`
+/// `observation_coordinate`.
+///
+/// `current` names this service's verified durable view at this coordinate; it
+/// is never a claim about a global wall-clock latest state.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmSealFrontierObservationCoordinate {
+    pub service_id: DidCoreId,
+    pub sequence: u64,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub observed_at: DateTime<Utc>,
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/service-operation-dtos.schema.json#/$defs/RealmSealFrontierView`.
+///
+/// `seal_basis.leaves[]` is the complete canonical non-quarantined accepted
+/// Seal leaf antichain: exactly one leaf under `single_signer` / `threshold`
+/// notary authority, every live leaf under `open_set`. No service-derived root
+/// hint is carried, because none of them is an authority: the consumer resolves
+/// and verifies every leaf Seal and recomputes the joined control view itself.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmSealFrontierView {
     pub kind: RealmSealFrontierKind,
     pub realm_id: RealmId,
-    pub seal_id: SealId,
-    pub control_event_set_root: Hash,
-    pub state_root: Hash,
+    pub seal_basis: SealBasis,
     pub governance_health: ControlGovernanceHealth,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hlc: Option<Hlc>,
+    pub observation_coordinate: RealmSealFrontierObservationCoordinate,
 }
 
 impl RealmSealFrontierView {
     pub fn new(
         realm_id: RealmId,
-        seal_id: SealId,
-        control_event_set_root: Hash,
-        state_root: Hash,
+        seal_basis: SealBasis,
         governance_health: ControlGovernanceHealth,
-        hlc: Option<Hlc>,
+        observation_coordinate: RealmSealFrontierObservationCoordinate,
     ) -> Self {
         Self {
             kind: RealmSealFrontierKind::RealmSeal,
             realm_id,
-            seal_id,
-            control_event_set_root,
-            state_root,
+            seal_basis,
             governance_health,
-            hlc,
+            observation_coordinate,
         }
     }
 
-    /// Single-leaf Control Move `seal_basis` under this view.
+    /// The complete accepted leaf antichain a newly authored Control Move may
+    /// cite once every leaf has been resolved and verified.
     pub fn seal_basis(&self) -> SealBasis {
-        SealBasis {
-            leaves: vec![self.seal_id.clone()],
+        self.seal_basis.clone()
+    }
+
+    /// The single accepted leaf of a `single_signer` / `threshold` authority.
+    ///
+    /// An `open_set` antichain that carries more than one live leaf has no
+    /// single-Seal citation; it is rejected here instead of being silently
+    /// narrowed to an arbitrary member.
+    pub fn sole_leaf(&self) -> Result<&SealId> {
+        match self.seal_basis.leaves.as_slice() {
+            [leaf] => Ok(leaf),
+            _ => Err(Error::Protocol(
+                "Realm Seal frontier is not a single-leaf accepted antichain".to_owned(),
+            )),
         }
     }
 
     pub fn validate_protocol_bounds(&self) -> Result<()> {
+        self.seal_basis.validate_protocol_bounds()?;
         self.governance_health.validate_protocol_bounds()
     }
 
@@ -1430,11 +1461,15 @@ mod tests {
         };
         let frontier = RealmSealFrontierView::new(
             event.realm_id,
-            SealId::new(format!("ak:seal:sha256:{}", "1".repeat(64))).unwrap(),
-            Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
-            Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
+            SealBasis {
+                leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "1".repeat(64))).unwrap()],
+            },
             health,
-            None,
+            RealmSealFrontierObservationCoordinate {
+                service_id: "ak:did_core:web:server.test".parse().unwrap(),
+                sequence: 7,
+                observed_at: received_at,
+            },
         );
 
         frontier
@@ -1502,7 +1537,7 @@ mod tests {
                 jws: "AAAA.BBBB.CCCC".to_owned(),
             }),
             sealed_at: "2026-07-21T08:00:00Z".parse().unwrap(),
-            hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
+            hlc: arkret_wire::Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
         };
         seal.id = seal
             .derive_id(arkret_canonical::DigestSuite::Sha256)

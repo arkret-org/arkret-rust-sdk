@@ -492,12 +492,23 @@ pub struct RealmDeliveryBindingPolicyPayload {
     pub unroutable_membership_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rebind_authorization: Option<RebindAuthorization>,
+    /// Window, in seconds, during which the previous `recipient_service_id`
+    /// keeps accepting late events that precede or are concurrent with the
+    /// rebind frontier. Absent means the registered `86400` default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub handover_grace_seconds: Option<u32>,
     /// `None` (absent) and a wire `null` both mean "no expiry"; only a
     /// positive value is a real cap, so the absent form is the only one this
     /// type emits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_after_seconds: Option<u64>,
 }
+
+/// Registered default of `handover_grace_seconds` when the field is absent.
+pub const DELIVERY_BINDING_HANDOVER_GRACE_SECONDS_DEFAULT: u32 = 86_400;
+
+/// Registered inclusive maximum of `handover_grace_seconds`.
+pub const DELIVERY_BINDING_HANDOVER_GRACE_SECONDS_MAX: u32 = 604_800;
 
 impl RealmDeliveryBindingPolicyPayload {
     pub fn validate(&self) -> Result<()> {
@@ -508,6 +519,7 @@ impl RealmDeliveryBindingPolicyPayload {
             && self.required_endorsers.is_none()
             && self.unroutable_membership_allowed.is_none()
             && self.rebind_authorization.is_none()
+            && self.handover_grace_seconds.is_none()
             && self.expires_after_seconds.is_none()
         {
             return Err(Error::Protocol(
@@ -519,6 +531,16 @@ impl RealmDeliveryBindingPolicyPayload {
         if self.expires_after_seconds == Some(0) {
             return Err(Error::Protocol(
                 "realm_delivery_binding_policy_payload.expires_after_seconds must be >= 1 \
+                 (schema_violation)"
+                    .to_owned(),
+            ));
+        }
+        if self
+            .handover_grace_seconds
+            .is_some_and(|seconds| seconds > DELIVERY_BINDING_HANDOVER_GRACE_SECONDS_MAX)
+        {
+            return Err(Error::Protocol(
+                "realm_delivery_binding_policy_payload.handover_grace_seconds must be <= 604800 \
                  (schema_violation)"
                     .to_owned(),
             ));

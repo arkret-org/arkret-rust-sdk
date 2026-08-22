@@ -1099,6 +1099,84 @@ impl ScopeRef {
     }
 }
 
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/history_effective_scope`.
+///
+/// The closed subset of [`ScopeRef`] admitted by the private history-key
+/// request/response, history-only backup and organization-recovery archive
+/// contracts. `RealmGenesis` has no executable MLS scope and Sidecar is
+/// deliberately excluded: its profile fixes `mls_rfc9420` and defines neither
+/// `history_access` nor a deliverable history secret.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum HistoryEffectiveScope {
+    Realm {
+        realm_id: RealmId,
+    },
+    Circle {
+        realm_id: RealmId,
+        circle_id: CircleId,
+    },
+}
+
+impl HistoryEffectiveScope {
+    /// The parent Realm of this scope.
+    pub fn realm_id(&self) -> &RealmId {
+        match self {
+            Self::Realm { realm_id } | Self::Circle { realm_id, .. } => realm_id,
+        }
+    }
+
+    /// The Circle id when this scope is a Circle, otherwise `None`.
+    pub fn circle_id(&self) -> Option<&CircleId> {
+        match self {
+            Self::Realm { .. } => None,
+            Self::Circle { circle_id, .. } => Some(circle_id),
+        }
+    }
+
+    /// Deterministic MLS `group_id` for this effective security scope.
+    pub fn canonical_mls_group_id(&self) -> Result<String> {
+        ScopeRef::from(self.clone()).canonical_mls_group_id()
+    }
+}
+
+impl From<HistoryEffectiveScope> for ScopeRef {
+    fn from(scope: HistoryEffectiveScope) -> Self {
+        match scope {
+            HistoryEffectiveScope::Realm { realm_id } => Self::Realm { realm_id },
+            HistoryEffectiveScope::Circle {
+                realm_id,
+                circle_id,
+            } => Self::Circle {
+                realm_id,
+                circle_id,
+            },
+        }
+    }
+}
+
+impl TryFrom<ScopeRef> for HistoryEffectiveScope {
+    type Error = Error;
+
+    fn try_from(scope: ScopeRef) -> Result<Self> {
+        match scope {
+            ScopeRef::Realm { realm_id } => Ok(Self::Realm { realm_id }),
+            ScopeRef::Circle {
+                realm_id,
+                circle_id,
+            } => Ok(Self::Circle {
+                realm_id,
+                circle_id,
+            }),
+            ScopeRef::RealmGenesis | ScopeRef::Sidecar { .. } => Err(Error::Protocol(
+                "scope is not an admitted history effective scope".to_owned(),
+            )),
+        }
+    }
+}
+
 #[cfg(test)]
 mod scope_mls_group_id_tests {
     use super::*;

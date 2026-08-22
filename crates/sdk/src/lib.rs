@@ -366,6 +366,9 @@ pub use arkret_wire::notary::{
     ForensicAttribution, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, NotaryValue,
 };
 pub use arkret_wire::object_address::*;
+pub use arkret_wire::organization_recovery::{
+    OrganizationRecoveryArchive, OrganizationRecoveryHpkeSuite,
+};
 pub use arkret_wire::patch::*;
 pub use arkret_wire::peer_operation_paths::*;
 pub use arkret_wire::plaintext::PlaintextDataClassKind;

@@ -6,8 +6,8 @@ use std::sync::OnceLock;
 use arkret_wire::base64url::{base64url_decode, base64url_encode};
 use arkret_wire::event_envelope::ScopeRef;
 use arkret_wire::{
-    CircleId, ContentScheme, DurabilityPolicy, Error, EventId, Hash, MlsGroupId, NonEmptyString,
-    RealmId, Result, SidecarId, canonical,
+    CircleId, ContentScheme, DurabilityPolicy, Error, EventId, Hash, HistoryEffectiveScope,
+    MlsGroupId, NonEmptyString, OrganizationRecoveryArchive, RealmId, Result, SidecarId, canonical,
 };
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -734,6 +734,64 @@ pub fn verify_mls_governance_binding_extension(
     Ok(payload)
 }
 
+/// `zh/governance/history-visibility.md` - a transition carries exactly one
+/// organization recovery archive iff its governance binding selects the
+/// exporter content scheme together with the `organization_recovery_key`
+/// durability policy. Every other combination forbids the field outright, so
+/// the closed Genesis/Commit schemas decide it mechanically.
+pub fn transition_requires_recovery_archive(binding: &MlsGovernanceBindingPayload) -> bool {
+    binding.content_scheme() == ContentScheme::MlsExporterAeadV1
+        && binding.durability_policy() == Some(DurabilityPolicy::OrganizationRecoveryKey)
+}
+
+/// Validate the archive presence rule plus the archive binding to
+/// `effective_scope + derived mls_group_id + epoch + mls_transition_digest`.
+pub fn validate_transition_recovery_archive(
+    carrier: &str,
+    binding: &MlsGovernanceBindingPayload,
+    epoch: u64,
+    transition_digest: &Hash,
+    archive: Option<&OrganizationRecoveryArchive>,
+) -> Result<()> {
+    let required = transition_requires_recovery_archive(binding);
+    let Some(archive) = archive else {
+        if required {
+            return Err(Error::Protocol(format!(
+                "{carrier} must carry organization_recovery_archive under the exporter recovery-key durability policy (schema_violation)"
+            )));
+        }
+        return Ok(());
+    };
+    if !required {
+        return Err(Error::Protocol(format!(
+            "{carrier} must not carry organization_recovery_archive outside the exporter recovery-key durability policy (schema_violation)"
+        )));
+    }
+    archive.validate()?;
+    let expected_scope = HistoryEffectiveScope::try_from(binding.effective_scope().clone())?;
+    if archive.effective_scope != expected_scope {
+        return Err(Error::Protocol(format!(
+            "{carrier}.organization_recovery_archive.effective_scope does not match the governance binding"
+        )));
+    }
+    if archive.mls_group_id != binding.mls_group_id() {
+        return Err(Error::Protocol(format!(
+            "{carrier}.organization_recovery_archive.mls_group_id does not match the governance binding"
+        )));
+    }
+    if archive.epoch != epoch {
+        return Err(Error::Protocol(format!(
+            "{carrier}.organization_recovery_archive.epoch does not match the transition epoch"
+        )));
+    }
+    if &archive.transition_digest != transition_digest {
+        return Err(Error::Protocol(format!(
+            "{carrier}.organization_recovery_archive.transition_digest is not the mls_transition_digest"
+        )));
+    }
+    Ok(())
+}
+
 /// `event-payload.schema.json#/$defs/mls_commit_payload`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -748,6 +806,8 @@ pub struct MlsCommitPayload {
     commit_message_ref: Option<String>,
     commit_digest: Hash,
     governance_binding: MlsGovernanceBindingPayload,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    organization_recovery_archive: Option<OrganizationRecoveryArchive>,
 }
 
 #[derive(Deserialize)]
@@ -763,6 +823,8 @@ struct MlsCommitPayloadWire {
     commit_message_ref: Option<String>,
     commit_digest: Hash,
     governance_binding: MlsGovernanceBindingPayload,
+    #[serde(default)]
+    organization_recovery_archive: Option<OrganizationRecoveryArchive>,
 }
 
 impl<'de> Deserialize<'de> for MlsCommitPayload {
@@ -781,6 +843,7 @@ impl<'de> Deserialize<'de> for MlsCommitPayload {
             commit_message_ref: wire.commit_message_ref,
             commit_digest: wire.commit_digest,
             governance_binding: wire.governance_binding,
+            organization_recovery_archive: wire.organization_recovery_archive,
         };
         payload.validate().map_err(serde::de::Error::custom)?;
         Ok(payload)
@@ -809,9 +872,21 @@ impl MlsCommitPayload {
             commit_message_ref: None,
             commit_digest: commit.commit_digest.clone(),
             governance_binding,
+            organization_recovery_archive: None,
         };
         payload.validate()?;
         Ok(payload)
+    }
+
+    /// Attach the single organization recovery archive this exporter
+    /// transition must carry.
+    pub fn with_organization_recovery_archive(
+        mut self,
+        organization_recovery_archive: OrganizationRecoveryArchive,
+    ) -> Result<Self> {
+        self.organization_recovery_archive = Some(organization_recovery_archive);
+        self.validate()?;
+        Ok(self)
     }
 
     pub fn with_commit_message_ref(
@@ -869,7 +944,18 @@ impl MlsCommitPayload {
                     .to_owned(),
             ));
         }
-        Ok(())
+        validate_transition_recovery_archive(
+            "mls_commit_payload",
+            &self.governance_binding,
+            self.next_epoch,
+            &self.commit_digest,
+            self.organization_recovery_archive.as_ref(),
+        )
+    }
+
+    /// The single organization recovery archive of this exporter transition.
+    pub fn organization_recovery_archive(&self) -> Option<&OrganizationRecoveryArchive> {
+        self.organization_recovery_archive.as_ref()
     }
 
     pub fn event_kind(&self) -> &'static str {

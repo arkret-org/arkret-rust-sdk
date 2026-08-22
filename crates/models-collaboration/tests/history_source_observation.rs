@@ -1,9 +1,9 @@
 use arkret_models_collaboration::history_key::{
-    EpochRange, HistoryEffectiveScope, HistoryKeyResponseContent, HistoryKeyResponseSendRequest,
+    EpochRange, HistoryKeyResponseContent, HistoryKeyResponseSendRequest,
     HistoryResponseChunkDescriptor, HistoryResponseId, HistoryResponseManifest,
     HistoryResponseManifestKind, HistorySourceAgentObservationInput,
 };
-use arkret_wire::{DidCoreId, DidUrl, Hash, RealmId, SignerEvidenceRef};
+use arkret_wire::{DidCoreId, DidUrl, Hash, HistoryEffectiveScope, RealmId, SignerEvidenceRef};
 use chrono::{DateTime, Utc};
 
 fn digest(byte: &str) -> Hash {

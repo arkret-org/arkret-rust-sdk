@@ -55,6 +55,7 @@ pub mod notary;
 pub mod object_address;
 pub mod offline_publication;
 pub mod operation_types;
+pub mod organization_recovery;
 pub mod patch;
 pub mod peer_operation_paths;
 pub mod plaintext;
@@ -169,6 +170,7 @@ pub use offline_publication::{
     distinct_issuer_count,
 };
 pub use operation_types::*;
+pub use organization_recovery::{OrganizationRecoveryArchive, OrganizationRecoveryHpkeSuite};
 pub use patch::*;
 pub use peer_operation_paths::*;
 pub use plaintext::PlaintextDataClassKind;

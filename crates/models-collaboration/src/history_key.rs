@@ -5,7 +5,8 @@ use std::fmt;
 use arkret_models_identity::{AgentLifecycleStatus, AgentSignerEvidence};
 use arkret_wire::{
     Base64UrlString, CircleId, DeviceId, DidCoreId, DidUrl, Error, EventId, Hash, HistoryAccess,
-    PayloadProof, RealmId, Result, SealBasis, SignerEvidenceRef,
+    HistoryEffectiveScope, OrganizationRecoveryArchive, PayloadProof, RealmId, Result, SealBasis,
+    SignerEvidenceRef,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
@@ -78,31 +79,6 @@ history_id!(HistoryRequestId, "ak:history_request:", |value: &str| {
 history_id!(HistoryResponseId, "ak:history_response:", |value: &str| {
     uuid_v7_suffix(value, "ak:history_response:")
 });
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum HistoryEffectiveScope {
-    Realm {
-        realm_id: RealmId,
-    },
-    Circle {
-        realm_id: RealmId,
-        circle_id: CircleId,
-    },
-}
-
-impl HistoryEffectiveScope {
-    pub fn canonical_mls_group_id(&self) -> Result<String> {
-        let canonical_id = match self {
-            Self::Realm { realm_id } => realm_id.as_str(),
-            Self::Circle { circle_id, .. } => circle_id.as_str(),
-        };
-        Ok(arkret_wire::base64url::base64url_encode(
-            canonical_id.as_bytes(),
-        ))
-    }
-}
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -2699,54 +2675,6 @@ impl HistoryKeyResponseAckOutcome {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum OrganizationRecoveryHpkeSuite {
-    #[serde(rename = "ak.hpke_x25519_aead_chacha20poly1305.v1")]
-    Value,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct OrganizationRecoveryArchive {
-    pub effective_scope: HistoryEffectiveScope,
-    pub mls_group_id: String,
-    pub epoch: u64,
-    pub transition_digest: Hash,
-    pub recovery_key_id: String,
-    pub holder_principal_id: DidCoreId,
-    pub holder_service_id: DidCoreId,
-    pub key_agreement_ref: DidUrl,
-    pub holder_signing_ref: DidUrl,
-    pub hpke_suite: OrganizationRecoveryHpkeSuite,
-    pub frozen_public_key_b64u: String,
-    pub accepted_key_evidence_ref: EventId,
-    pub holder_trusted_basis: SealBasis,
-    pub enc: String,
-    pub ciphertext: String,
-}
-
-impl OrganizationRecoveryArchive {
-    pub fn validate(&self) -> Result<()> {
-        validate_mls_group_id(&self.effective_scope, &self.mls_group_id)?;
-        validate_bounded_chars(&self.recovery_key_id, 1, 512, "recovery_key_id")?;
-        if self.frozen_public_key_b64u.len() != 43 || !is_base64url(&self.frozen_public_key_b64u) {
-            return Err(Error::Protocol(
-                "archive frozen public key is invalid".to_owned(),
-            ));
-        }
-        validate_base64url_bounded(&self.enc, 1, 2_048, "enc")?;
-        validate_base64url_bounded(&self.ciphertext, 1, 16_384, "ciphertext")?;
-        self.holder_trusted_basis.validate_protocol_bounds()
-    }
-
-    pub fn archive_digest(&self) -> Result<Hash> {
-        self.validate()?;
-        full_object_digest(self, "ak.organization-recovery-archive-v1")
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRecoveryArchiveListQuery {
@@ -3558,17 +3486,7 @@ fn validate_base64url_bounded(value: &str, min: usize, max: usize, field: &str) 
 }
 
 fn validate_mls_group_id(scope: &HistoryEffectiveScope, mls_group_id: &str) -> Result<()> {
-    if mls_group_id.is_empty() || !is_base64url(mls_group_id) {
-        return Err(Error::Protocol(
-            "mls_group_id is not canonical base64url".to_owned(),
-        ));
-    }
-    if scope.canonical_mls_group_id()? != mls_group_id {
-        return Err(Error::Protocol(
-            "mls_group_id does not match effective_scope".to_owned(),
-        ));
-    }
-    Ok(())
+    arkret_wire::organization_recovery::validate_canonical_mls_group_id(scope, mls_group_id)
 }
 
 fn framed_sha256(domain: &str, value: &impl Serialize) -> Result<Hash> {

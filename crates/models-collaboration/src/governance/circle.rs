@@ -21,7 +21,7 @@ pub use arkret_wire::CircleId;
 /// types from this module.
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    ContentScheme, DidCoreId, DurabilityPolicy, EncryptionProfile, EventId, EventInitialSubmission,
+    ContentScheme, DidCoreId, DurabilityPolicy, EncryptionProfile, EventInitialSubmission,
     HistoryAccess, RealmId, SchemaId,
 };
 use chrono::{DateTime, Utc};
@@ -231,29 +231,6 @@ pub struct Circle {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct CirclePendingMlsRemoval {
-    pub principal_id: DidCoreId,
-    /// Exact membership/device-trust frontier that caused this MLS-backed
-    /// Circle scope to require a Remove commit. For device revocation this
-    /// MUST name the accepted `ak.device.revoke` or the Realm governance
-    /// Control Move that imported that revocation.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub membership_frontier: Vec<EventId>,
-}
-
-impl CirclePendingMlsRemoval {
-    pub fn principal_id(&self) -> &DidCoreId {
-        &self.principal_id
-    }
-
-    pub fn membership_frontier(&self) -> &[EventId] {
-        &self.membership_frontier
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CircleView {
     pub circle_id: CircleId,
     pub realm_id: RealmId,
@@ -270,8 +247,6 @@ pub struct CircleView {
     pub content_encryption_floor: Option<EncryptionFloor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_encryption_floor: Option<EncryptionFloor>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub agent_participation: Option<AgentParticipationPolicy>,
     pub encryption_profile: EncryptionProfile,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_scheme: Option<ContentScheme>,
@@ -279,8 +254,6 @@ pub struct CircleView {
     pub mls_group_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub durability_policy: Option<DurabilityPolicy>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub pending_mls_removals: Vec<CirclePendingMlsRemoval>,
     pub state: CircleState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub member_count: Option<u32>,
@@ -1054,36 +1027,6 @@ mod tests {
         );
         let parsed: Circle = serde_json::from_value(value).unwrap();
         assert_eq!(parsed.agent_participation, circle.agent_participation);
-    }
-
-    #[test]
-    fn pending_mls_removal_carries_precise_membership_frontier() {
-        let value = serde_json::json!({
-            "principal_id": "ak:did_core:webvh:z6mkfixture",
-            "membership_frontier": [
-                "ak:event:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-"
-            ]
-        });
-        let parsed: CirclePendingMlsRemoval = serde_json::from_value(value).unwrap();
-
-        assert_eq!(
-            parsed.principal_id().as_str(),
-            "ak:did_core:webvh:z6mkfixture"
-        );
-        assert_eq!(
-            parsed.membership_frontier()[0].as_str(),
-            "ak:event:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-"
-        );
-    }
-
-    #[test]
-    fn pending_mls_removal_rejects_legacy_string() {
-        assert!(
-            serde_json::from_value::<CirclePendingMlsRemoval>(serde_json::json!(
-                "did:webvh:z6mkfixture:bob.example"
-            ))
-            .is_err()
-        );
     }
 
     #[test]
