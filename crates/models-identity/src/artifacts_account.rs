@@ -4,15 +4,11 @@
 //! (`models/artifacts/account_sync.rs`).
 
 use arkret_wire::{
-    DeviceId, DeviceRevocationGateRecord, Error, EventId, Hash, MAX_DEVICE_REVOCATION_GATE_RECORDS,
+    DeviceId, DeviceRevocationGateRecord, Error, EventId, MAX_DEVICE_REVOCATION_GATE_RECORDS,
     Result,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/device_summaries`.
-pub type DeviceSummaries = Vec<DeviceSummary>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -42,20 +38,20 @@ pub enum DeviceSummaryVerificationState {
 pub struct DeviceSummary {
     pub device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub display_name: Option<DisplayName>,
+    pub display_name: Option<String>,
     pub status: DeviceSummaryStatus,
     pub verification_state: DeviceSummaryVerificationState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorized_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub authorized_at: Option<Timestamp>,
+    pub authorized_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub last_seen_at: Option<Timestamp>,
+    pub last_seen_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub revoked_at: Option<Timestamp>,
+    pub revoked_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revocation_states: Option<Vec<DeviceRevocationGateRecord>>,
 }
@@ -105,20 +101,3 @@ pub fn validate_device_summary_state(
     }
     Ok(())
 }
-
-/// Counterpart for `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/display_name`.
-pub type DisplayName = String;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/handle_claim_digests`.
-pub type HandleClaimDigests = Vec<Hash>;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/handle_claim_ref`.
-pub type HandleClaimRef = String;
-
-/// Counterpart for `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/sha256_digest`.
-pub type Sha256Digest = Hash;
-
-/// Counterpart for `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/timestamp`.
-pub type Timestamp = DateTime<Utc>;
