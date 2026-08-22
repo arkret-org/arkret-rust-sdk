@@ -76,3 +76,74 @@ pub fn verify_frozen_notary_signature(
         )),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use arkret_canonical::base64url::base64url_encode;
+    use arkret_wire::{DidCoreId, DidUrl};
+    use ed25519_dalek::{Signer as _, SigningKey};
+    use serde_json::json;
+
+    use super::*;
+
+    fn descriptor(seed: [u8; 32], method: &DidUrl) -> NotarySignerDescriptor {
+        let public_key = SigningKey::from_bytes(&seed).verifying_key().to_bytes();
+        NotarySignerDescriptor {
+            actor_id: DidCoreId::new("ak:did_core:web:replay-kat.example").unwrap(),
+            verification_method: method.clone(),
+            key_kind: NotaryKeyKind::Ed25519Raw32,
+            jose_algorithm: NotaryJoseAlgorithm::Ed25519,
+            frozen_public_key_b64u: base64url_encode(&public_key),
+            frozen_public_key_digest: Hash::new(arkret_canonical::canonical::sha256_digest(
+                public_key,
+            ))
+            .unwrap(),
+        }
+    }
+
+    fn signature(seed: [u8; 32], method: &DidUrl, body: &[u8]) -> SealSignature {
+        let protected = arkret_canonical::canonical::canonical_json_bytes(&json!({
+            "alg": "Ed25519",
+            "kid": method,
+        }))
+        .unwrap();
+        let protected = base64url_encode(&protected);
+        let signing_input = format!("{protected}.{}", base64url_encode(body));
+        let signature = SigningKey::from_bytes(&seed).sign(signing_input.as_bytes());
+        SealSignature {
+            verification_method: method.clone(),
+            payload_digest: Hash::new(arkret_canonical::canonical::sha256_digest(body)).unwrap(),
+            jws: format!("{protected}..{}", base64url_encode(&signature.to_bytes())),
+        }
+    }
+
+    #[test]
+    fn same_method_current_key_cannot_replace_the_frozen_historical_key() {
+        let method = DidUrl::new("did:web:replay-kat.example#notary-key-1").unwrap();
+        let historical_seed = [0x11; 32];
+        let current_seed = [0x22; 32];
+        let historical = descriptor(historical_seed, &method);
+        let current = descriptor(current_seed, &method);
+        let body = br#"{"realm_id":"historical-replay"}"#;
+
+        verify_frozen_notary_signature(
+            &signature(historical_seed, &method, body),
+            &historical,
+            body,
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .expect("historical signature verifies under the frozen descriptor");
+        let error = verify_frozen_notary_signature(
+            &signature(current_seed, &method, body),
+            &historical,
+            body,
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .expect_err("same method id must not substitute current key bytes");
+        assert_ne!(
+            historical.frozen_public_key_b64u,
+            current.frozen_public_key_b64u
+        );
+        assert!(error.to_string().contains("signature verification failed"));
+    }
+}

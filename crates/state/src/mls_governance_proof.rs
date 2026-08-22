@@ -14,7 +14,7 @@ use arkret_models_collaboration::governance::membership_invite::{
 use arkret_models_collaboration::governance_dependencies::{
     GovernanceDependency, GovernanceDependencyResolveOutcome,
 };
-use arkret_models_collaboration::objects::realm::{Realm, RealmAvailabilityPolicy};
+use arkret_models_collaboration::objects::realm::RealmAvailabilityPolicy;
 pub use arkret_models_crypto::mls_governance_proof::*;
 use arkret_wire::cell::CellId;
 use arkret_wire::event_envelope::{Event, EventSubmitContext, ScopeRef};
@@ -2007,15 +2007,18 @@ fn seal_dependency_replay_context(
             if event.kind.as_str() != arkret_wire::event_kind_str::REALM_CREATE {
                 continue;
             }
-            let realm: Realm = serde_json::from_value(
-                event
-                    .payload
-                    .get("object")
-                    .cloned()
-                    .ok_or_else(|| Error::Protocol("Realm create omits object".to_owned()))?,
-            )?;
+            event
+                .payload
+                .get("object")
+                .ok_or_else(|| Error::Protocol("Realm create omits object".to_owned()))?;
+            // `ak.realm.create` carries the closed `RealmGenesis` object, not
+            // the later materialized `Realm` view. Availability policy is not
+            // a Genesis field in v1, so replay uses the protocol default. Do
+            // not deserialize the object as `Realm`: doing so makes historical
+            // replay depend on unrelated materialized-view fields and rejects
+            // otherwise valid retained Genesis bytes.
             if availability_policy
-                .replace(realm.availability_policy.unwrap_or_default())
+                .replace(RealmAvailabilityPolicy::default())
                 .is_some()
             {
                 return frontier_rejected("genesis unit has conflicting availability policies");
