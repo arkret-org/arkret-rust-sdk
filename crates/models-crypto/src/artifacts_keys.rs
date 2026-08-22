@@ -1,6 +1,8 @@
 //! Key management and recovery schema artifact counterparts.
 
 use std::collections::BTreeMap;
+use std::fmt;
+use std::ops::Deref;
 
 use arkret_wire::{
     AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, DeviceId,
@@ -858,7 +860,73 @@ pub struct Share {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/challenge`.
-pub type Challenge = String;
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[serde(transparent)]
+pub struct Challenge(Base64UrlString);
+
+impl Challenge {
+    /// Create a recovery challenge from the canonical 256-bit base64url form.
+    pub fn new(value: impl Into<String>) -> std::result::Result<Self, &'static str> {
+        let value = Base64UrlString::new(value)?;
+        if value.as_str().len() != 43 {
+            return Err("recovery challenge must be exactly 43 base64url characters");
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+
+    pub fn into_string(self) -> String {
+        self.0.into_string()
+    }
+}
+
+impl AsRef<str> for Challenge {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl Deref for Challenge {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_str()
+    }
+}
+
+impl fmt::Display for Challenge {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl TryFrom<String> for Challenge {
+    type Error = &'static str;
+
+    fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<Challenge> for String {
+    fn from(value: Challenge) -> Self {
+        value.into_string()
+    }
+}
+
+impl<'de> Deserialize<'de> for Challenge {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::new(value).map_err(serde::de::Error::custom)
+    }
+}
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1659,6 +1727,23 @@ pub enum KeyPackageOperations {
 #[cfg(test)]
 mod untagged_contract_tests {
     use super::*;
+
+    #[test]
+    fn recovery_challenge_enforces_the_exact_schema_shape() {
+        let valid = "A".repeat(43);
+        let challenge = Challenge::new(valid.clone()).unwrap();
+        assert_eq!(challenge.as_str(), valid);
+        assert_eq!(serde_json::to_value(&challenge).unwrap(), valid);
+
+        for invalid in [
+            "A".repeat(42),
+            "A".repeat(44),
+            format!("{}=", "A".repeat(42)),
+        ] {
+            assert!(Challenge::new(invalid.clone()).is_err());
+            assert!(serde_json::from_value::<Challenge>(Value::String(invalid)).is_err());
+        }
+    }
 
     #[test]
     fn recovery_session_proof_requires_a_registered_kind() {
