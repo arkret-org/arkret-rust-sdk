@@ -36,6 +36,7 @@ mod models {
 }
 
 pub mod consent;
+pub mod direct_traversal;
 pub mod lattice;
 pub mod mls_cells;
 pub mod mls_governance_proof;

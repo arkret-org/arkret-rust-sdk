@@ -95,6 +95,24 @@ pub struct MlsGovernanceVerificationCheckpoint {
 
 impl Eq for MlsGovernanceVerificationCheckpoint {}
 
+/// Lazy retrieval of the exact canonical Control Event bytes an accepted Seal
+/// pinned at acceptance time.
+///
+/// Replay never materializes the whole cut: the direct-traversal driver keeps
+/// only the Seal it is applying plus that Seal's own `delta[]` Events live, and
+/// resolves every older covered Event from the reducer's Control Event store.
+/// A fully materialized `BTreeMap<Hash, Event>` also implements this trait so
+/// the near-current frontier surface keeps its existing shape.
+pub trait ReplayEventLookup {
+    fn event(&self, digest: &Hash) -> arkret_wire::Result<Option<Event>>;
+}
+
+impl ReplayEventLookup for BTreeMap<Hash, Event> {
+    fn event(&self, digest: &Hash) -> arkret_wire::Result<Option<Event>> {
+        Ok(self.get(digest).cloned())
+    }
+}
+
 /// Reducer-derived predecessor facts required to evaluate one Seal's
 /// AvailabilityReceipt policy without consulting current Realm state.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1586,7 +1604,7 @@ where
 #[allow(clippy::too_many_arguments)]
 fn replay_seal_set<VerifySealSignature, VerifyEventProofs, VerifySealDependencies, ProjectWrites>(
     seals: &[Seal],
-    all_events: &BTreeMap<Hash, Event>,
+    all_events: &dyn ReplayEventLookup,
     event_store: &MemoryControlEventStore,
     seal_store: &MemorySealStore,
     cell_store: &MemoryCellStore,
@@ -1639,111 +1657,165 @@ where
             let seal = pending
                 .remove(&id)
                 .expect("ready Seal remains in the pending map");
-            let digest_suites = digest_suites_for_replay_seal(&seal, all_events, live_suites)?;
-            for digest in &seal.delta {
-                let event = all_events.get(digest).ok_or_else(|| {
-                    Error::Protocol("replay Seal delta Event is unresolved".to_owned())
-                })?;
-                let event_digest_suite = if seal.predecessor_refs.is_empty()
-                    && event.kind == arkret_wire::EventKind::RealmCreate
-                {
-                    DigestSuite::Sha256
-                } else {
-                    digest_suites.event_digest_suite
-                };
-                let inserted = event_store
-                    .insert_verified_replay_event_with_digest_suite(event, event_digest_suite)
-                    .map_err(replay_store_error)?;
-                if &inserted != digest {
-                    return frontier_rejected(
-                        "replay Seal delta does not match the Event's verified historical suite",
-                    );
-                }
-            }
-            let (notary, predecessor_state) =
-                predecessor_notary_and_state(&seal, all_events, seal_store, cell_store, registry)?;
-            verify_notary_authority(
+            replay_one_seal(
                 &seal,
-                &notary,
-                digest_suites.seal_digest_suite,
-                verify_seal_signature,
-            )?;
-            let dependency_context = seal_dependency_replay_context(
-                &seal,
-                &predecessor_state,
                 all_events,
-                seal_store,
-                cell_store,
-                digest_suites,
-            )?;
-            verify_seal_dependencies(&seal, &notary, &dependency_context, dependencies)?;
-
-            apply_replayed_seal_in_context(
-                &seal,
                 event_store,
                 seal_store,
                 cell_store,
+                dependencies,
                 registry,
-                digest_suites,
-                |event, digest_suite| {
-                    verify_event_proofs(event, digest_suite, dependencies)
-                        .map_err(|error| error.to_string())
-                },
+                verify_seal_signature,
+                verify_event_proofs,
+                verify_seal_dependencies,
                 project_writes,
-                if seal.predecessor_refs.is_empty() {
-                    EventSubmitContext::AnchorUnit
-                } else {
-                    EventSubmitContext::Standard
-                },
-            )
-            .map_err(replay_reject_error)?;
-            let mut covered = union_predecessor_covered_events(&seal.predecessor_refs, seal_store)
-                .map_err(replay_reject_error)?;
-            covered.extend(seal.delta.iter().cloned());
-            let covered_events = covered
-                .iter()
-                .map(|digest| {
-                    let event = all_events.get(digest).cloned().ok_or_else(|| {
-                        Error::Protocol(
-                            "Seal completeness Event is absent from the replay closure".to_owned(),
-                        )
-                    })?;
-                    let event_digest_suite = event_store
-                        .digest_suite(digest)
-                        .map_err(replay_store_error)?
-                        .ok_or_else(|| {
-                            Error::Protocol(
-                                "Seal completeness Event has no frozen digest suite".to_owned(),
-                            )
-                        })?;
-                    Ok((event, event_digest_suite))
-                })
-                .collect::<arkret_wire::Result<Vec<_>>>()?;
-            let completeness = control_event_completeness_root(
-                &covered_events,
-                &covered,
-                digest_suites.seal_digest_suite,
-            )
-            .map_err(replay_reject_error)?;
-            if completeness != seal.completeness_root {
-                return frontier_rejected("Seal completeness_root does not match replayed Events");
-            }
-            live_suites.insert(seal.id.clone(), digest_suites.seal_digest_suite);
+                live_suites,
+            )?;
             ordered.push(seal);
         }
     }
     Ok(ordered)
 }
 
+/// Apply exactly one already-discovered Seal through the standard `apply_seal`
+/// path. Every caller of the reducer — near-current frontier replay and
+/// disk-backed direct traversal alike — funnels through this function so there
+/// is only one implementation of notary selection, delta admission, root
+/// recomputation and Bottom/recovery.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn replay_one_seal<
+    VerifySealSignature,
+    VerifyEventProofs,
+    VerifySealDependencies,
+    ProjectWrites,
+>(
+    seal: &Seal,
+    all_events: &dyn ReplayEventLookup,
+    event_store: &MemoryControlEventStore,
+    seal_store: &MemorySealStore,
+    cell_store: &MemoryCellStore,
+    dependencies: &[GovernanceDependency],
+    registry: &dyn CellRegistry,
+    verify_seal_signature: VerifySealSignature,
+    verify_event_proofs: VerifyEventProofs,
+    verify_seal_dependencies: VerifySealDependencies,
+    project_writes: ProjectWrites,
+    live_suites: &mut BTreeMap<SealId, DigestSuite>,
+) -> arkret_wire::Result<()>
+where
+    VerifySealSignature: Fn(&SealSignature, &NotarySignerDescriptor, &[u8], DigestSuite) -> arkret_wire::Result<()>
+        + Copy,
+    VerifyEventProofs:
+        Fn(&Event, DigestSuite, &[GovernanceDependency]) -> arkret_wire::Result<()> + Copy,
+    VerifySealDependencies: Fn(
+            &Seal,
+            &NotaryValue,
+            &SealDependencyReplayContext,
+            &[GovernanceDependency],
+        ) -> arkret_wire::Result<()>
+        + Copy,
+    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+{
+    let digest_suites = digest_suites_for_replay_seal(seal, all_events, live_suites)?;
+    for digest in &seal.delta {
+        let event = all_events
+            .event(digest)?
+            .ok_or_else(|| Error::Protocol("replay Seal delta Event is unresolved".to_owned()))?;
+        let event_digest_suite = if seal.predecessor_refs.is_empty()
+            && event.kind == arkret_wire::EventKind::RealmCreate
+        {
+            DigestSuite::Sha256
+        } else {
+            digest_suites.event_digest_suite
+        };
+        let inserted = event_store
+            .insert_verified_replay_event_with_digest_suite(&event, event_digest_suite)
+            .map_err(replay_store_error)?;
+        if &inserted != digest {
+            return frontier_rejected(
+                "replay Seal delta does not match the Event's verified historical suite",
+            );
+        }
+    }
+    let (notary, predecessor_state) =
+        predecessor_notary_and_state(seal, all_events, seal_store, cell_store, registry)?;
+    verify_notary_authority(
+        seal,
+        &notary,
+        digest_suites.seal_digest_suite,
+        verify_seal_signature,
+    )?;
+    let dependency_context = seal_dependency_replay_context(
+        seal,
+        &predecessor_state,
+        all_events,
+        seal_store,
+        cell_store,
+        digest_suites,
+    )?;
+    verify_seal_dependencies(seal, &notary, &dependency_context, dependencies)?;
+
+    apply_replayed_seal_in_context(
+        seal,
+        event_store,
+        seal_store,
+        cell_store,
+        registry,
+        digest_suites,
+        |event, digest_suite| {
+            verify_event_proofs(event, digest_suite, dependencies)
+                .map_err(|error| error.to_string())
+        },
+        project_writes,
+        if seal.predecessor_refs.is_empty() {
+            EventSubmitContext::AnchorUnit
+        } else {
+            EventSubmitContext::Standard
+        },
+    )
+    .map_err(replay_reject_error)?;
+    let mut covered = union_predecessor_covered_events(&seal.predecessor_refs, seal_store)
+        .map_err(replay_reject_error)?;
+    covered.extend(seal.delta.iter().cloned());
+    let covered_events = covered
+        .iter()
+        .map(|digest| {
+            let event = event_store
+                .get(digest)
+                .map_err(replay_store_error)?
+                .ok_or_else(|| {
+                    Error::Protocol(
+                        "Seal completeness Event is absent from the replay closure".to_owned(),
+                    )
+                })?;
+            let event_digest_suite = event_store
+                .digest_suite(digest)
+                .map_err(replay_store_error)?
+                .ok_or_else(|| {
+                    Error::Protocol("Seal completeness Event has no frozen digest suite".to_owned())
+                })?;
+            Ok((event, event_digest_suite))
+        })
+        .collect::<arkret_wire::Result<Vec<_>>>()?;
+    let completeness =
+        control_event_completeness_root(&covered_events, &covered, digest_suites.seal_digest_suite)
+            .map_err(replay_reject_error)?;
+    if completeness != seal.completeness_root {
+        return frontier_rejected("Seal completeness_root does not match replayed Events");
+    }
+    live_suites.insert(seal.id.clone(), digest_suites.seal_digest_suite);
+    Ok(())
+}
+
 fn digest_suites_for_replay_seal(
     seal: &Seal,
-    all_events: &BTreeMap<Hash, Event>,
+    all_events: &dyn ReplayEventLookup,
     live_suites: &BTreeMap<SealId, DigestSuite>,
 ) -> arkret_wire::Result<SealDigestSuites> {
     if seal.predecessor_refs.is_empty() {
         let mut declared = None;
         for digest in &seal.delta {
-            let event = all_events.get(digest).ok_or_else(|| {
+            let event = all_events.event(digest)?.ok_or_else(|| {
                 Error::Protocol("genesis Seal delta Event is unresolved".to_owned())
             })?;
             if event.kind != arkret_wire::EventKind::RealmCreate {
@@ -1781,12 +1853,14 @@ fn digest_suites_for_replay_seal(
         predecessor_suite = Some(suite);
     }
     let from = predecessor_suite.expect("non-genesis Seal has at least one predecessor");
-    let transitions = seal
-        .delta
-        .iter()
-        .filter_map(|digest| all_events.get(digest))
-        .filter(|event| event.kind == arkret_wire::EventKind::RealmDigestSuiteTransition)
-        .collect::<Vec<_>>();
+    let mut transitions = Vec::new();
+    for digest in &seal.delta {
+        if let Some(event) = all_events.event(digest)?
+            && event.kind == arkret_wire::EventKind::RealmDigestSuiteTransition
+        {
+            transitions.push(event);
+        }
+    }
     match transitions.as_slice() {
         [] => Ok(SealDigestSuites::standard(from)),
         [event] => {
@@ -1823,7 +1897,7 @@ fn digest_suites_for_replay_seal(
     }
 }
 
-fn live_digest_suite_at_basis(
+pub(crate) fn live_digest_suite_at_basis(
     basis: &SealBasis,
     live_suites: &BTreeMap<SealId, DigestSuite>,
 ) -> arkret_wire::Result<DigestSuite> {
@@ -1843,7 +1917,7 @@ fn live_digest_suite_at_basis(
 
 fn predecessor_notary_and_state(
     seal: &Seal,
-    all_events: &BTreeMap<Hash, Event>,
+    all_events: &dyn ReplayEventLookup,
     seal_store: &MemorySealStore,
     cell_store: &MemoryCellStore,
     registry: &dyn CellRegistry,
@@ -1851,7 +1925,7 @@ fn predecessor_notary_and_state(
     if seal.predecessor_refs.is_empty() {
         let mut create_notary = None;
         for digest in &seal.delta {
-            let Some(event) = all_events.get(digest) else {
+            let Some(event) = all_events.event(digest)? else {
                 continue;
             };
             if event.kind.as_str() == arkret_wire::event_kind_str::REALM_CREATE {
@@ -1903,7 +1977,7 @@ fn predecessor_notary_and_state(
 fn seal_dependency_replay_context(
     seal: &Seal,
     predecessor_state: &BTreeMap<CellRef, CellState>,
-    all_events: &BTreeMap<Hash, Event>,
+    all_events: &dyn ReplayEventLookup,
     seal_store: &MemorySealStore,
     cell_store: &MemoryCellStore,
     digest_suites: SealDigestSuites,
@@ -1927,7 +2001,7 @@ fn seal_dependency_replay_context(
     }
     if seal.predecessor_refs.is_empty() {
         for digest in &seal.delta {
-            let Some(event) = all_events.get(digest) else {
+            let Some(event) = all_events.event(digest)? else {
                 continue;
             };
             if event.kind.as_str() != arkret_wire::event_kind_str::REALM_CREATE {
@@ -1953,7 +2027,7 @@ fn seal_dependency_replay_context(
             .delta
             .iter()
             .map(|digest| {
-                let event = all_events.get(digest).ok_or_else(|| {
+                let event = all_events.event(digest)?.ok_or_else(|| {
                     Error::Protocol("Seal dependency Event is unresolved".to_owned())
                 })?;
                 let suite = if seal.predecessor_refs.is_empty()
@@ -1979,10 +2053,10 @@ fn seal_dependency_replay_context(
     };
     if seal.predecessor_refs.is_empty() {
         for digest in &seal.delta {
-            let Some(event) = all_events.get(digest) else {
+            let Some(event) = all_events.event(digest)? else {
                 continue;
             };
-            add_joined_holder_from_event(event, &mut context)?;
+            add_joined_holder_from_event(&event, &mut context)?;
         }
     } else {
         for (cell, state) in predecessor_state {
@@ -1999,10 +2073,10 @@ fn seal_dependency_replay_context(
                 .filter(|issued| covered.contains(&issued.op.move_id))
                 .collect::<Vec<_>>();
             let winning_join = winning_membership_join(&covered_ops)?;
-            let event = all_events.get(&winning_join).ok_or_else(|| {
+            let event = all_events.event(&winning_join)?.ok_or_else(|| {
                 Error::Protocol("winning membership Event is unresolved".to_owned())
             })?;
-            add_joined_holder_from_event(event, &mut context)?;
+            add_joined_holder_from_event(&event, &mut context)?;
         }
     }
     Ok(context)
