@@ -51,15 +51,3 @@ pub struct DashboardConfigWidgetsItem {
 pub struct DashboardConfig {
     pub widgets: Vec<DashboardConfigWidgetsItem>,
 }
-
-/// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/document_config`.
-pub type DocumentConfig = BTreeMap<String, Value>;
-
-/// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/field_path`.
-pub type FieldPath = String;
-
-/// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/graph_config`.
-pub type GraphConfig = BTreeMap<String, Value>;
-
-/// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/timeline_config`.
-pub type TimelineConfig = BTreeMap<String, Value>;
