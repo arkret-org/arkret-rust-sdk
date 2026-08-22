@@ -9,9 +9,8 @@ use serde_json::Value;
 
 use crate::events_payloads::ContentBlock;
 use crate::objects::productivity::{
-    BlindIndexQuery, EncryptedIndexManifest, PersonalProductivityValue, PinAddPayload,
-    PinRemovePayload, PinReorderPayload, ReminderValue, RsvpSetPayload, SavedItemValue,
-    ScheduledSendValue, SearchPolicy, SnoozeValue,
+    BlindIndexQuery, EncryptedIndexManifest, PinAddPayload, PinRemovePayload, PinReorderPayload,
+    SearchPolicy,
 };
 
 /// Counterpart for `spec/v1/artifacts/schemas/circle.schema.json#/$defs/display`.
@@ -111,22 +110,6 @@ impl MorphCustomerRiskExt {
 /// Counterpart for `spec/v1/artifacts/schemas/morph.schema.json#/$defs/facet_config`.
 pub type FacetConfig = BTreeMap<String, Value>;
 
-/// Counterpart for `spec/v1/artifacts/schemas/personal-productivity.schema.json`.
-pub type PersonalProductivity = PersonalProductivityValue;
-
-/// Counterpart for `spec/v1/artifacts/schemas/personal-productivity.schema.json#/$defs/reminder`.
-pub type Reminder = ReminderValue;
-
-/// Counterpart for `spec/v1/artifacts/schemas/personal-productivity.schema.json#/$defs/saved_item`.
-pub type SavedItem = SavedItemValue;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/personal-productivity.schema.json#/$defs/scheduled_send`.
-pub type ScheduledSend = ScheduledSendValue;
-
-/// Counterpart for `spec/v1/artifacts/schemas/personal-productivity.schema.json#/$defs/snooze`.
-pub type Snooze = SnoozeValue;
-
 /// Counterpart for `spec/v1/artifacts/schemas/pin.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -145,9 +128,6 @@ pub type Query = BTreeMap<String, Value>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/relation.schema.json#/$defs/ref`.
 pub type Ref = String;
-
-/// Counterpart for `spec/v1/artifacts/schemas/rsvp.schema.json`.
-pub type Rsvp = RsvpSetPayload;
 
 /// Counterpart for `spec/v1/artifacts/schemas/search-service.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

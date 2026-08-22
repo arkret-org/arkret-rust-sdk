@@ -23,7 +23,6 @@ pub(crate) use crate::events_payloads::signature::*;
 pub(crate) use crate::governance::circle::*;
 pub(crate) use crate::governance::grant_constraint::*;
 pub(crate) use crate::governance::handle_claim::*;
-pub(crate) use crate::governance::moderation_appeal::*;
 pub(crate) use crate::objects::direct_conversation::*;
 pub(crate) use crate::objects::profiles::*;
 pub(crate) use crate::objects::realm::*;
