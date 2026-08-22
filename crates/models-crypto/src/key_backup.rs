@@ -1500,15 +1500,6 @@ pub struct KeyBackupDomainSeparationAad {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ManagedFrontierRef {
-    pub frontier_digest: Hash,
-    pub seal_ref: String,
-    pub mls_epoch: u64,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum KeyBackupKdfName {

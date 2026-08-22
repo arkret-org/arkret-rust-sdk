@@ -3,8 +3,8 @@
 //!
 //! The `AgentOperations` aggregation enum and `KeyState` stay in
 //! the `arkret` umbrella because they bind the agent lifecycle/scope enums
-//! (`AgentLifecycleState`, `AgentRuntimeState`, `AgentPcrRecoveryState`,
-//! `AgentPairingMode`) that remain core-resident.
+//! (`AgentLifecycleState`, `AgentRuntimeState`, `AgentPairingMode`) that
+//! remain core-resident.
 
 use arkret_wire::{
     Base64UrlString, DidCoreId, DidUrl, EventId, GrantId, Hash, NonEmptyString, RealmId,

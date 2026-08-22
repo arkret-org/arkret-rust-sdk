@@ -531,70 +531,6 @@ pub struct AgentRenewPairingRequestBody {
     pub pairing_ttl_ms: Option<u64>,
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AgentPcrRecoveryStatus {
-    Pending,
-    Ready,
-    Stale,
-}
-
-/// Recovery coverage for a managed Agent Principal Control Realm. The tagged
-/// representation preserves the schema invariant that only ready/stale states
-/// carry an accepted backup reference.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum AgentPcrRecoveryState {
-    Pending,
-    Ready {
-        backup_id: BackupId,
-        series_id: BackupSeriesId,
-        series_seq: u64,
-        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-        managed_frontier_ref: ManagedFrontierRef,
-    },
-    Stale {
-        backup_id: BackupId,
-        series_id: BackupSeriesId,
-        series_seq: u64,
-        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-        managed_frontier_ref: ManagedFrontierRef,
-    },
-}
-
-impl AgentPcrRecoveryState {
-    pub const fn status(&self) -> AgentPcrRecoveryStatus {
-        match self {
-            Self::Pending => AgentPcrRecoveryStatus::Pending,
-            Self::Ready { .. } => AgentPcrRecoveryStatus::Ready,
-            Self::Stale { .. } => AgentPcrRecoveryStatus::Stale,
-        }
-    }
-
-    pub const fn is_ready(&self) -> bool {
-        matches!(self, Self::Ready { .. })
-    }
-}
-
-/// Provisioning is the raw allocation stage, so its recovery projection is
-/// constrained to pending and carries no backup reference.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentProvisionPcrRecovery {
-    pub status: AgentProvisionPcrRecoveryStatus,
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum AgentProvisionPcrRecoveryStatus {
-    #[default]
-    Pending,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -650,7 +586,6 @@ pub struct AgentProvisionComplete {
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: DidUrl,
     pub requested_scope_digest: Hash,
-    pub pcr_recovery: AgentProvisionPcrRecovery,
     pub pairing_request_id: OpaqueLocalId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pairing_code: Option<String>,
@@ -666,7 +601,6 @@ pub struct AgentRenewPairingOutcome {
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: DidUrl,
     pub requested_scope_digest: Hash,
-    pub pcr_recovery: AgentPcrRecoveryState,
     pub pairing_mode: AgentPairingMode,
     pub pairing_request_id: OpaqueLocalId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2304,7 +2238,6 @@ pub struct KeyState {
     pub controller_id: DidCoreId,
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: DidUrl,
-    pub pcr_recovery: AgentPcrRecoveryState,
     /// Immutable global Agent ceiling captured by provisioning.
     pub requested_scope: AgentKeyScope,
     /// Digest of the immutable ceiling committed by the accepted Agent DID.
@@ -2508,7 +2441,6 @@ mod tests {
             "controller_id": "ak:did_core:webvh:z6mkcontroller",
             "principal_control_realm_id": "ak:realm:AUf0Zz23_ZBqZYNvzHTY6qhhx-2YyO94WTorNCFnnvvN",
             "controller_authorization_ref": "did:webvh:z6mkcontroller:controller.example#authorize-1",
-            "pcr_recovery": {"status": "pending"},
             "requested_scope": {"actions": [], "resources": []},
             "requested_scope_digest": format!("sha256:{}", "0".repeat(64)),
             "active_authorizations": []
