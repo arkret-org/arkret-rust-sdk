@@ -1,7 +1,7 @@
 //! Typed client artifacts carried by terminal security-transaction steps.
 
 use arkret_wire::{
-    DeviceId, Error, Hash, Result, SchemaId, SecurityTransactionContinueRequest,
+    ClientStepAttestation, DeviceId, Error, Hash, Result, SchemaId, SecurityTransaction,
     SecurityTransactionStep, TransactionId,
 };
 use chrono::{DateTime, Utc};
@@ -64,5 +64,46 @@ impl ClientStepAttestationArtifact {
     }
 }
 
-pub type TypedSecurityTransactionContinueRequest =
-    SecurityTransactionContinueRequest<ClientStepAttestationArtifact>;
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SecurityTransactionContinueRequest {
+    pub request_digest: Hash,
+    pub prepared_plan_digest: Hash,
+    pub expected_next_step: SecurityTransactionStep,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_attestation: Option<ClientStepAttestation<ClientStepAttestationArtifact>>,
+}
+
+impl SecurityTransactionContinueRequest {
+    pub fn validate_for_transaction(&self, transaction: &SecurityTransaction) -> Result<()> {
+        transaction.validate_continue(
+            &self.request_digest,
+            &self.prepared_plan_digest,
+            self.expected_next_step,
+            self.client_attestation.as_ref(),
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SecurityTransactionContinueRequest;
+
+    #[test]
+    fn continue_request_uses_the_closed_canonical_shape() {
+        let value = serde_json::json!({
+            "request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "prepared_plan_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "expected_next_step": "publish_did_entry"
+        });
+        let request: SecurityTransactionContinueRequest =
+            serde_json::from_value(value.clone()).unwrap();
+        assert!(request.client_attestation.is_none());
+        assert_eq!(serde_json::to_value(request).unwrap(), value);
+
+        let mut unknown = value;
+        unknown["legacy_step"] = serde_json::json!(true);
+        assert!(serde_json::from_value::<SecurityTransactionContinueRequest>(unknown).is_err());
+    }
+}

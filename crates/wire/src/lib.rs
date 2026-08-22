@@ -210,11 +210,11 @@ pub use security_transaction::{
     RecoveryIdentityModel, RecoveryPreparedPlan, RecoveryTransactionCreateRequest,
     RootAnchoredRecoveryBinding, RootAnchoredRecoveryPlan, SECURITY_ROTATION_STEP_ORDER,
     SecurityRotationBinding, SecurityRotationPlan, SecurityRotationTransactionCreateRequest,
-    SecurityTransaction, SecurityTransactionBinding, SecurityTransactionContinueRequest,
-    SecurityTransactionCreateRequest, SecurityTransactionKind, SecurityTransactionPreparedPlan,
-    SecurityTransactionResultKind, SecurityTransactionState, SecurityTransactionStep,
-    SecurityTransactionTerminalResult, UnsignedClientStepAttestation,
-    security_rotation_erase_confirmation_digest, security_rotation_local_commit_digest,
+    SecurityTransaction, SecurityTransactionBinding, SecurityTransactionCreateRequest,
+    SecurityTransactionKind, SecurityTransactionPreparedPlan, SecurityTransactionResultKind,
+    SecurityTransactionState, SecurityTransactionStep, SecurityTransactionTerminalResult,
+    UnsignedClientStepAttestation, security_rotation_erase_confirmation_digest,
+    security_rotation_local_commit_digest,
 };
 pub use self_contact_paths::*;
 pub use service_kind::{EvaluationClass, ServiceKind};

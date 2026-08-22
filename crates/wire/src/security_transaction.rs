@@ -795,24 +795,6 @@ pub struct ClientStepAttestation<A = Value> {
     pub auth_data: ClientStepAttestationAuthData,
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[cfg_attr(
-    feature = "openapi",
-    salvo(schema(bound = "A: salvo_oapi::ToSchema + salvo_oapi::ComposeSchema + 'static"))
-)]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(
-    deny_unknown_fields,
-    bound(serialize = "A: Serialize", deserialize = "A: Deserialize<'de>")
-)]
-pub struct SecurityTransactionContinueRequest<A = Value> {
-    pub request_digest: Hash,
-    pub prepared_plan_digest: Hash,
-    pub expected_next_step: SecurityTransactionStep,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub client_attestation: Option<ClientStepAttestation<A>>,
-}
-
 impl<A: Serialize> ClientStepAttestation<A> {
     pub fn validate_structural(&self) -> Result<()> {
         if self.auth_data.signature_algorithm != "Ed25519"
@@ -1451,30 +1433,32 @@ impl SecurityTransaction {
 
     pub fn validate_continue<A: Serialize>(
         &self,
-        request: &SecurityTransactionContinueRequest<A>,
+        request_digest: &Hash,
+        prepared_plan_digest: &Hash,
+        expected_next_step: SecurityTransactionStep,
+        client_attestation: Option<&ClientStepAttestation<A>>,
     ) -> Result<()> {
-        if request.request_digest != self.request_digest
-            || request.prepared_plan_digest != self.prepared_plan_digest
+        if request_digest != &self.request_digest
+            || prepared_plan_digest != &self.prepared_plan_digest
         {
             return Err(Error::Protocol(
                 crate::error_codes::ReasonCode::DUPLICATE_CONFLICT.to_owned(),
             ));
         }
-        if Some(request.expected_next_step) != self.next_required_step {
+        if Some(expected_next_step) != self.next_required_step {
             return Err(Error::Protocol(
                 "continue expected_next_step does not equal the resource's next action".to_owned(),
             ));
         }
-        let requires_attestation =
-            Self::step_requires_client_attestation(request.expected_next_step);
-        if requires_attestation != request.client_attestation.is_some() {
+        let requires_attestation = Self::step_requires_client_attestation(expected_next_step);
+        if requires_attestation != client_attestation.is_some() {
             return Err(Error::Protocol(
                 "terminal client-attested steps require exactly one client_attestation".to_owned(),
             ));
         }
-        if let Some(attestation) = &request.client_attestation {
+        if let Some(attestation) = client_attestation {
             attestation.validate_structural()?;
-            if attestation.step != request.expected_next_step
+            if attestation.step != expected_next_step
                 || attestation.transaction_id != self.transaction_id
                 || attestation.transaction_request_digest != self.request_digest
                 || attestation.prepared_plan_digest != self.prepared_plan_digest

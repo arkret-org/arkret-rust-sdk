@@ -1,6 +1,6 @@
 //! Durable security transaction and recovery-authority endpoint methods.
 
-use arkret_models_crypto::TypedSecurityTransactionContinueRequest;
+use arkret_models_crypto::SecurityTransactionContinueRequest;
 use arkret_wire::{
     IssueRecoveryCompletionGrantOutcome, IssueRecoveryCompletionGrantRequest, SecurityTransaction,
     SecurityTransactionCreateRequest, TransactionId,
@@ -56,7 +56,7 @@ impl Client {
     pub async fn continue_security_transaction(
         &self,
         transaction_id: &TransactionId,
-        request: &TypedSecurityTransactionContinueRequest,
+        request: &SecurityTransactionContinueRequest,
     ) -> Result<SecurityTransaction> {
         reject_path_segment(transaction_id.as_str())?;
         let path = format!(
