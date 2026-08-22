@@ -77,8 +77,8 @@ pub struct ResolvedRealmHistoryRecoveryKey {
 ///    `serviceEndpoint.verificationMethod == recipient.verification_method`, and
 ///    `serviceEndpoint.domain == "mls_history"`.
 /// 3. The designated VM MUST appear in `keyAgreement[]` (it is an encryption / key-agreement key)
-///    and MUST resolve to a `verificationMethod[]` entry of `type == "Multikey"` carrying a
-///    `publicKeyMultibase` X25519 key.
+///    and MUST resolve to exactly one `verificationMethod[]` entry whose `controller` equals the
+///    recipient principal and whose `type == "Multikey"` carries a `publicKeyMultibase` X25519 key.
 /// 4. The `publicKeyMultibase` MUST decode to the X25519-pub multicodec (`0xec 0x01`) + a 32-byte
 ///    key.
 ///
@@ -155,16 +155,28 @@ pub fn resolve_realm_history_recovery_key(
         .get("verificationMethod")
         .and_then(Value::as_array)
         .ok_or_else(|| unverified("DID Document has no `verificationMethod` array"))?;
-    let method = verification_methods
+    let mut methods = verification_methods
         .iter()
         .filter_map(Value::as_object)
-        .find(|method| method.get("id").and_then(Value::as_str) == Some(verification_method))
-        .ok_or_else(|| {
-            unverified(format!(
-                "RRK verification method {} not present in verificationMethod",
-                verification_method
-            ))
-        })?;
+        .filter(|method| method.get("id").and_then(Value::as_str) == Some(verification_method));
+    let method = methods.next().ok_or_else(|| {
+        unverified(format!(
+            "RRK verification method {} not present in verificationMethod",
+            verification_method
+        ))
+    })?;
+    if methods.next().is_some() {
+        return Err(unverified(format!(
+            "RRK verification method {} is not unique in verificationMethod",
+            verification_method
+        )));
+    }
+    if method.get("controller").and_then(Value::as_str) != Some(principal_id.as_str()) {
+        return Err(unverified(format!(
+            "RRK verification method {} is not controlled by {}",
+            verification_method, principal_id
+        )));
+    }
     if method.get("type").and_then(Value::as_str) != Some("Multikey") {
         return Err(unverified(format!(
             "RRK verification method {} is not a Multikey",
@@ -353,6 +365,31 @@ mod tests {
 
         let err = resolve(&recipient, &document).unwrap_err();
         assert!(!err.detail().is_empty());
+    }
+
+    #[test]
+    fn rejects_verification_method_controlled_by_another_principal() {
+        let recipient = recipient();
+        let mut document = did_document(&recipient, &[5u8; 32]);
+        document["verificationMethod"][0]["controller"] =
+            serde_json::json!("did:webvh:z6mkfixture:evil.example");
+
+        let err = resolve(&recipient, &document).unwrap_err();
+        assert!(err.detail().contains("not controlled by"));
+    }
+
+    #[test]
+    fn rejects_duplicate_exact_verification_method_entries() {
+        let recipient = recipient();
+        let mut document = did_document(&recipient, &[5u8; 32]);
+        let duplicate = document["verificationMethod"][0].clone();
+        document["verificationMethod"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
+
+        let err = resolve(&recipient, &document).unwrap_err();
+        assert!(err.detail().contains("is not unique"));
     }
 
     #[test]
