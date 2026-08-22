@@ -5,9 +5,6 @@ use serde::de::DeserializeOwned;
 
 use crate::internal_prelude::*;
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json`.
-pub type EventPayload = GenericStandardPayload;
-
 /// Decode payload bytes only after the enclosing model has proved the Event's
 /// exact kind. This crate-private boundary exists because the payload model
 /// crate cannot depend on the higher-level `arkret-event-draft` binding crate.
@@ -17,10 +14,6 @@ pub(crate) fn decode_payload_after_kind_validation<T: DeserializeOwned>(
     serde_json::from_value(Value::Object(event.payload.clone().into_iter().collect()))
         .map_err(Into::into)
 }
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/generic_standard_payload`.
-pub type GenericStandardPayload = BTreeMap<String, Value>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/nullable_timestamp`.
 pub type NullableTimestamp = Option<DateTime<Utc>>;
