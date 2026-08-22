@@ -1056,12 +1056,6 @@ pub type PushKey = String;
 /// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/push_target_id`.
 pub type PushTargetId = String;
 
-/// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/registration_id`.
-pub type RegistrationId = String;
-
-/// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/url`.
-pub type Url = String;
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
