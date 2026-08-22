@@ -24,9 +24,11 @@
 //! The two verifier phases are separately callable because they consume
 //! different evidence: discovery needs only signed `(seal_ref,
 //! predecessor_refs)` descriptors, while replay needs complete Seal and Event
-//! bytes. The closed-cut KAT vectors in
+//! bytes. The closed-cut vectors in
 //! `fixtures/history-key-recovery-fixture.json#/direct_traversal_kat` exercise
-//! the discovery phase directly.
+//! discovery directly; sibling `direct_traversal_replay_kat` constructs a
+//! deterministic Genesis + successor cut and exercises full replay, including
+//! ambiguous material admission and predecessor-frozen notary keys.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -326,7 +328,10 @@ pub trait DirectCutGraphSource {
 ///
 /// `control_event` MUST return the exact canonical Event bytes the Seal pinned
 /// when it was accepted. Returning a different variant that hashes to another
-/// digest is rejected by the replay; returning a variant chosen by a current
+/// digest is rejected by the replay. A resolver response that maps one claimed
+/// digest to multiple distinct Event values MUST be rejected before this
+/// single-value source is constructed; [`DirectCutMaterial::new`] is the
+/// reference admission boundary. Returning a variant chosen by a current
 /// resolver rather than by the accepted Seal is what
 /// `history-visibility.md` §5 forbids.
 pub trait DirectCutObjectSource: DirectCutGraphSource {
@@ -401,7 +406,7 @@ impl DirectCutMaterial {
                 && previous != event
             {
                 return Err(Error::Protocol(
-                    "direct traversal material carries two Event variants for one digest"
+                    "ambiguous direct traversal material carries two Event variants for one claimed digest"
                         .to_owned(),
                 ));
             }
@@ -1183,6 +1188,30 @@ mod tests {
             .expect_err("a repeated seal_ref is not a cut descriptor set");
         assert!(
             error.to_string().contains("duplicate_descriptor"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn ambiguous_event_variants_are_refused_before_replay_material_exists() {
+        let claimed = Hash::new(format!("sha256:{}", "a7".repeat(32))).expect("claimed digest");
+        let variant_a = event(
+            arkret_wire::EventKind::PolicySet.as_str(),
+            7,
+            json!({"variant": "a"}),
+            "ak:event:AWYr1ucW0vOccjnC8XMFGQK8PjKzaha_YpYb8B0uDY_y",
+        );
+        let mut variant_b = variant_a.clone();
+        variant_b.payload.insert("variant".to_owned(), json!("b"));
+        let error = DirectCutMaterial::new(
+            Vec::<Seal>::new(),
+            [(claimed.clone(), variant_a), (claimed, variant_b)],
+        )
+        .expect_err("one claimed digest cannot select between two Event preimages");
+        assert!(
+            error
+                .to_string()
+                .contains("ambiguous direct traversal material"),
             "{error}"
         );
     }
