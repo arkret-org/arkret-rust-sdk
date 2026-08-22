@@ -626,11 +626,6 @@ impl ReadReceipt {
         Ok(receipt)
     }
 
-    pub fn with_hlc(mut self, hlc: Hlc) -> Self {
-        self.hlc = Some(hlc);
-        self
-    }
-
     /// Deserialize an inbound read receipt after canonical JSON ingress checks.
     ///
     /// Prefer [`open_signal_plaintext`], which dispatches on `kind` instead of
@@ -716,24 +711,6 @@ mod tests {
         assert_eq!(opened.kind(), SignalPlaintextKind::ReadReceipt);
         assert_eq!(opened.payload_sequence(), 7);
         assert_eq!(opened, SignalPlaintext::ReadReceipt(receipt));
-    }
-
-    #[test]
-    fn the_retired_durable_read_receipt_fields_are_rejected() {
-        let base = json!({
-            "kind": "ak.receipt.read",
-            "payload_sequence": 1,
-            "actor_id": actor(),
-            "event_id": event_id(),
-            "read_scope": {"kind": "realm"}
-        });
-        serde_json::from_value::<ReadReceipt>(base.clone()).expect("closed shape decodes");
-        for retired in ["receipt_kind", "schema", "realm_id", "created_at"] {
-            let mut legacy = base.clone();
-            legacy[retired] = json!("x");
-            serde_json::from_value::<ReadReceipt>(legacy)
-                .expect_err("a durable-object leftover must not deserialize");
-        }
     }
 
     #[test]

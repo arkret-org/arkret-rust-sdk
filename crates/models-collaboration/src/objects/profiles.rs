@@ -1,6 +1,5 @@
 //! Strand track profiles, Morph object, identity-link binding, and
-//! federation actor validation wire shapes (split from the former
-//! the `arkret` umbrella `models::profiles` module).
+//! federation actor validation wire shapes.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -63,31 +62,6 @@ impl StrandTrack {
     pub fn with_profile(mut self, profile: impl Into<String>) -> Self {
         self.profile = Some(profile.into());
         self
-    }
-
-    /// Merge a sparse patch value into the existing track projection.
-    pub fn merge_from(&mut self, patch: Self) {
-        if patch.enabled.is_some() {
-            self.enabled = patch.enabled;
-        }
-        if patch.is_primary.is_some() {
-            self.is_primary = patch.is_primary;
-        }
-        if patch.profile.is_some() {
-            self.profile = patch.profile;
-        }
-        if patch.template.is_some() {
-            self.template = patch.template;
-        }
-        self.metadata.extend(patch.metadata);
-        if let Some(content) = patch.content {
-            self.content = Some(content);
-            self.encrypted_content = None;
-        }
-        if let Some(encrypted_content) = patch.encrypted_content {
-            self.encrypted_content = Some(encrypted_content);
-            self.content = None;
-        }
     }
 
     /// Add one track-local UI metadata field.
@@ -191,21 +165,6 @@ pub fn validate_primary_track_transition(
         }
     }
     Ok(())
-}
-
-pub fn select_primary_track<'a>(
-    tracks: &'a BTreeMap<String, StrandTrack>,
-    track_name: &str,
-) -> Result<(&'a String, &'a StrandTrack)> {
-    let selected = tracks.get_key_value(track_name).ok_or_else(|| {
-        Error::Protocol("primary_track_required: selected track does not exist".to_owned())
-    })?;
-    if selected.1.enabled == Some(false) {
-        return Err(Error::Protocol(
-            "track_disabled: selected primary track is disabled".to_owned(),
-        ));
-    }
-    Ok(selected)
 }
 
 const MORPH_METADATA_FORBIDDEN_KEYS: &[&str] = &[
@@ -361,10 +320,9 @@ pub struct Morph {
     /// `scope_circle_id`, `schema_refs`, …
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope_circle_id: Option<CircleId>,
-    /// Round C47 (spec e10b6ad): authoritative schema set for Morph fields and
-    /// transition validation. Reducers MUST validate Morph fields against
-    /// exactly these refs (set-equal compare on `ak.morph.schema_migrate`);
-    /// `morph_kind` / `facets` are not a replacement.
+    /// Authoritative, create-locked schema set for Morph fields. Reducers MUST
+    /// validate Morph fields against exactly these refs; `morph_kind` / `facets`
+    /// are not a replacement.
     #[serde(
         serialize_with = "serialize_non_empty_schema_refs",
         deserialize_with = "deserialize_non_empty_schema_refs"
@@ -632,14 +590,4 @@ impl IdentityLink {
             Error::Protocol(format!("identity_link payload hash invalid: {error}"))
         })
     }
-}
-
-/// Verification class returned by federation `verify_actor` (M-19).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FederationActorValidationClass {
-    Valid,
-    Stale,
-    Unknown,
-    Invalid,
 }

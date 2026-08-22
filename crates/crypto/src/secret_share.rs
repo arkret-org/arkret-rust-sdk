@@ -128,12 +128,6 @@ type HpkeKdf = HkdfSha256;
 /// DHKEM(X25519) encapsulated-key length (RFC 9180 `Npk`); fixed at 32 bytes.
 const HPKE_ENC_LEN: usize = 32;
 
-pub const HISTORY_RESPONSE_CAPABILITY_HPKE_PROFILE: &str =
-    "ak.hpke_surface.history_response_capability.v1";
-pub const HISTORY_SECRET_CHUNK_HPKE_PROFILE: &str = "ak.hpke_surface.history_secret_chunk.v1";
-pub const ORGANIZATION_RECOVERY_ARCHIVE_HPKE_PROFILE: &str =
-    OrganizationRecoveryArchiveSealContext::PROFILE_ID;
-
 /// Minimal CSPRNG adapter over `getrandom` for the `hpke` crate's rand_core 0.9
 /// RNG interface. Only used to mint the per-seal ephemeral DHKEM keypair.
 struct OsCsRng;

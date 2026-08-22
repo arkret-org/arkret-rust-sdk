@@ -17,25 +17,7 @@ use crate::governance::agent_participation::AgentParticipationPolicy;
 use crate::governance::circle::EncryptionFloor;
 use crate::objects::relation::RelationProfile;
 
-/// Principal Control Realm genesis discriminator
-/// (`models/realm-and-space.md` §2.8.1).
-pub const PRINCIPAL_CONTROL_PURPOSE_FIELD: &str = "purpose";
 pub const PRINCIPAL_CONTROL_PURPOSE: &str = "principal_control";
-pub const MANAGED_AGENT_CONTROL_PURPOSE: &str = "managed_agent_control";
-
-/// Whether an `ak.realm.create` genesis object selects the PCR profile.
-/// Realm identifiers remain event-derived for every purpose.
-pub fn realm_object_is_principal_control(object: &Value) -> bool {
-    object
-        .get(PRINCIPAL_CONTROL_PURPOSE_FIELD)
-        .and_then(Value::as_str)
-        .is_some_and(|purpose| {
-            matches!(
-                purpose,
-                PRINCIPAL_CONTROL_PURPOSE | MANAGED_AGENT_CONTROL_PURPOSE
-            )
-        })
-}
 
 // Realm carries the security-boundary fields (`trust_domain` /
 // `security_class` / `federation_policy` / `history_access`; spec
@@ -547,31 +529,5 @@ mod tests {
         let serialized = serde_json::to_value(&realm).unwrap();
         let decoded: Realm = serde_json::from_value(serialized).unwrap();
         assert!(decoded.control_proposal_decision_policy().is_err());
-    }
-
-    #[test]
-    fn principal_control_role_uses_genesis_purpose_discriminator() {
-        assert!(realm_object_is_principal_control(&serde_json::json!({
-            "purpose": PRINCIPAL_CONTROL_PURPOSE,
-            "schema_refs": ["ak.schema.realm.v1", arkret_wire::ProfileId::PRINCIPAL_CONTROL_REALM_V1]
-        })));
-        assert!(realm_object_is_principal_control(&serde_json::json!({
-            "purpose": PRINCIPAL_CONTROL_PURPOSE,
-            "schema_refs": ["ak.schema.realm.v1"]
-        })));
-        assert!(realm_object_is_principal_control(&serde_json::json!({
-            "purpose": MANAGED_AGENT_CONTROL_PURPOSE,
-            "schema_refs": ["ak.schema.realm.v1", arkret_wire::ProfileId::PRINCIPAL_CONTROL_REALM_V1]
-        })));
-        assert!(!realm_object_is_principal_control(&serde_json::json!({
-            "schema_refs": ["ak.schema.realm.v1", arkret_wire::ProfileId::PRINCIPAL_CONTROL_REALM_V1]
-        })));
-        assert!(!realm_object_is_principal_control(&serde_json::json!({
-            "purpose": "direct_conversation",
-            "schema_refs": [
-                "ak.schema.realm.v1",
-                "ak.profile.direct_conversation_realm.v1"
-            ]
-        })));
     }
 }

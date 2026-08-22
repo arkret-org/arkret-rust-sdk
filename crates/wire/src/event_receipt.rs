@@ -114,28 +114,6 @@ impl DeviceReanchorReceiptScope {
         }
         Ok(())
     }
-
-    /// Compare the scope against the covered `ak.device.reanchor` payload
-    /// selection. Callers pass the payload's own authority fields; any
-    /// difference is a substitution and MUST fail closed.
-    pub fn matches_payload_authority(
-        &self,
-        payload_authority: &PrincipalAuthorityKey,
-        payload_previous_device_generation: u64,
-        payload_new_device_generation: u64,
-    ) -> Result<()> {
-        self.validate_authority()?;
-        if &self.authority != payload_authority
-            || self.previous_device_generation != payload_previous_device_generation
-            || self.new_device_generation != payload_new_device_generation
-        {
-            return Err(Error::Protocol(
-                "device reanchor receipt scope does not match the covered payload authority"
-                    .to_owned(),
-            ));
-        }
-        Ok(())
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -561,41 +539,6 @@ mod event_batch_receipt_tests {
             .proof_binding_bytes(&roundtripped.proofs[0])
             .unwrap();
         assert_eq!(before, after);
-    }
-
-    #[test]
-    fn reanchor_scope_rejects_same_core_authority_substitution() {
-        let authority = fixture_authority();
-        let scope = DeviceReanchorReceiptScope {
-            kind: DeviceReanchorReceiptScopeKind::DeviceReanchorUnit,
-            principal_id: authority.principal_id.clone(),
-            realm_id: RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
-                .unwrap(),
-            authority: authority.clone(),
-            previous_device_generation: 1,
-            new_device_generation: 2,
-            reanchor_digest: hash(0xbb),
-            replacement_authorize_digest: hash(0xaa),
-        };
-        scope.validate_authority().unwrap();
-        scope
-            .matches_payload_authority(&authority, 1, 2)
-            .expect("identical selection must match");
-
-        // Same principal core, different Principal Server: a different PCR.
-        let substituted = PrincipalAuthorityKey::new(
-            authority.principal_id.clone(),
-            DidCoreId::new("ak:did_core:web:other-ps.example").unwrap(),
-        );
-        let error = scope
-            .matches_payload_authority(&substituted, 1, 2)
-            .unwrap_err();
-        assert!(error.to_string().contains("covered payload authority"));
-
-        let error = scope
-            .matches_payload_authority(&authority, 1, 3)
-            .unwrap_err();
-        assert!(error.to_string().contains("covered payload authority"));
     }
 
     #[test]

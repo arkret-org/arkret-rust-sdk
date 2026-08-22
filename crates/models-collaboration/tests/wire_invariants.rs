@@ -132,25 +132,7 @@ fn applet_transaction_signal_lane_requires_the_sending_device_and_rejects_unknow
 }
 
 #[test]
-fn applet_transaction_signal_lane_rejects_a_plaintext_ephemeral_envelope() {
-    // The removed rail put `kind` and a cleartext `payload` on the wire. Both
-    // are now inside `encrypted_payload`, so the legacy shape must not parse
-    // and must not be reconstructible from the outer header.
-    let legacy = json!({
-        "source_service_id": "ak:did_core:webvh:z6mkfixture",
-        "events": [],
-        "signals": [{
-            "kind": "ak.presence",
-            "realm_id": realm().as_str(),
-            "actor_id": did().as_str(),
-            "device_id": device_id().as_str(),
-            "sent_at": "2026-07-28T12:00:00.000Z",
-            "expires_at": "2026-07-28T12:00:30.000Z",
-            "payload": {"status": "online"}
-        }]
-    });
-    assert!(serde_json::from_value::<AppletTransactionRequestBody>(legacy).is_err());
-
+fn applet_transaction_signal_lane_keeps_plaintext_out_of_the_outer_header() {
     let encrypted = serde_json::to_value(signal_envelope(SignalClass::Session, 30)).unwrap();
     for leaked in ["kind", "signal_kind", "payload", "call_id", "strand_id"] {
         assert!(
@@ -195,10 +177,6 @@ fn moderation_appeal_submit_omits_event_derived_appeal_id() {
             .appeal_id()
             .is_none()
     );
-
-    let mut legacy = value;
-    legacy["appeal_id"] = json!("ak:appeal:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19");
-    assert!(serde_json::from_value::<AppealSubmitPayload>(legacy).is_err());
 }
 
 #[test]

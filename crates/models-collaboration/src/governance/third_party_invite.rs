@@ -132,17 +132,3 @@ impl ThirdPartyInvite {
 const fn single_claim() -> u32 {
     1
 }
-/// Round 4 — terminal states for a 3PID invite (auth server side).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ThirdPartyInviteTerminalState {
-    Claimed,
-
-    SendFailed,
-
-    RevokedByCapabilityLoss,
-
-    RevokedByInviterLeft,
-
-    InvalidatedByRateLimit,
-}

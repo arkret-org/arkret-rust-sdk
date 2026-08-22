@@ -40,7 +40,7 @@ def main() -> int:
         }:
             for pattern in (r"\bcursor\.t\b", r"\bcursor\.x\b", r"\bpub\s+[tx]\s*:"):
                 if re.search(pattern, text):
-                    errors.append(f"{relative}: retired cursor t/x representation remains")
+                    errors.append(f"{relative}: forbidden cursor t/x representation remains")
 
     for path in sorted(CRATES.rglob("*.rs")):
         lines = path.read_text(encoding="utf-8").splitlines()

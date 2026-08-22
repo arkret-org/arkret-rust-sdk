@@ -145,12 +145,6 @@ impl CellId {
             format!("{CELL_PREFIX}{}:{}", self.component, self.subject)
         }
     }
-
-    /// Construct a typed [`CellRef`] from this id.
-    pub fn to_cell_ref(&self) -> Result<CellRef> {
-        CellRef::new(self.to_wire())
-            .map_err(|err| Error::Protocol(format!("invalid cell ref: {err}")))
-    }
 }
 
 /// Canonical composite cell subject: `base64url_nopad(sha256(canonical_json([...])))`.
@@ -458,19 +452,6 @@ mod tests {
         .unwrap();
         let id = CellId::from_ref(&cref).unwrap();
         assert_eq!(id.component(), crate::CellFamilyId::CONSENT_GRANT_V1);
-    }
-
-    #[test]
-    fn to_cell_ref_round_trips_through_ref_validator() {
-        let id = CellId {
-            component: crate::CellFamilyId::MEMBER_STATE_V1.to_owned(),
-            subject: "did.web.alice.example".to_owned(),
-        };
-        let cref = id.to_cell_ref().unwrap();
-        assert_eq!(
-            cref.as_str(),
-            "ak:cell:ak.component.member.state.v1:did.web.alice.example"
-        );
     }
 }
 

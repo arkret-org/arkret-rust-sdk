@@ -1156,20 +1156,6 @@ fn effect_set_error(kind: &str, message: &str) -> EventCellContractError {
     }
 }
 
-/// Recompute a registry-declared `op.value` projection from the signed payload.
-#[cfg(test)]
-fn derive_value_projection(
-    event: &Event,
-    rule: EventCellRule,
-    digest_suite: arkret_canonical::DigestSuite,
-) -> Result<Value, EventCellContractError> {
-    derive_value_projection_value(
-        &ProjectedEventInput::from(event),
-        &rule.to_json_value(),
-        digest_suite,
-    )
-}
-
 fn derive_value_projection_value(
     event: &ProjectedEventInput,
     rule: &Value,
@@ -1891,12 +1877,6 @@ mod tests {
         sole_write(event).cell_subject_rule
     }
 
-    fn value_rule(event: &Event) -> EventCellRule {
-        sole_write(event)
-            .value_projection_rule
-            .expect("test fixture write must declare a value projection")
-    }
-
     fn write(cell: &str, op: ProjectedOp) -> ProjectedCellWrite {
         ProjectedCellWrite {
             cell: CellRef::new(cell).unwrap(),
@@ -2163,7 +2143,17 @@ mod tests {
 
     fn registered_subject(kind: &str, payload: Value) -> String {
         let event = subject_event(kind, payload);
-        derive_subject(&event, subject_rule(&event)).unwrap()
+        let descriptor = event
+            .kind
+            .descriptor()
+            .unwrap_or_else(|| panic!("{kind} must have a generated descriptor"));
+        assert_eq!(
+            descriptor.cell_writes.len(),
+            1,
+            "{kind} must have exactly one registered write"
+        );
+        derive_subject(&event, descriptor.cell_writes[0].cell_subject_rule)
+            .unwrap_or_else(|error| panic!("{kind} subject derivation failed: {error}"))
     }
 
     #[test]
@@ -2211,11 +2201,6 @@ mod tests {
             ),
             (
                 "ak.schema.define",
-                json!({"schema_id": "ak.schema.fixture.v1"}),
-                "ak.schema.fixture.v1",
-            ),
-            (
-                "ak.schema.update",
                 json!({"schema_id": "ak.schema.fixture.v1"}),
                 "ak.schema.fixture.v1",
             ),
@@ -2444,7 +2429,7 @@ mod tests {
     }
 
     /// Realm history-access initialization facet.
-    fn delivery_share_event() -> Event {
+    fn history_access_event() -> Event {
         realm_facet(
             EventKind::RealmHistoryAccess,
             json!({"from": null, "to": "since_join"}),
@@ -2452,27 +2437,26 @@ mod tests {
     }
 
     /// The history-access cell derived by the registry.
-    const DELIVERY_CELL: &str = "ak:cell:ak.component.realm.history_access.v1:null";
+    const HISTORY_ACCESS_CELL: &str = "ak:cell:ak.component.realm.history_access.v1:null";
 
     #[test]
-    fn validates_delivery_append_from_registry() {
+    fn validates_history_access_transition_from_registry() {
         validate_registered_cell_writes(
-            &delivery_share_event(),
+            &history_access_event(),
             arkret_canonical::DigestSuite::Sha256,
         )
         .unwrap();
     }
 
     #[test]
-    fn projects_delivery_append_from_registry() {
-        // Was `materializes_delivery_append_from_registry`: nothing is stamped
-        // onto the Event any more, so the assertion is on the derived append —
-        // registry-projected value, envelope `actor_seq` as `issuer_seq`.
-        let event = delivery_share_event();
-        let rule = value_rule(&event);
-        let value =
-            derive_value_projection(&event, rule, arkret_canonical::DigestSuite::Sha256).unwrap();
-        assert_eq!(project(&event), vec![write(DELIVERY_CELL, set_op(value))]);
+    fn projects_history_access_transition_from_registry() {
+        assert_eq!(
+            project(&history_access_event()),
+            vec![write(
+                HISTORY_ACCESS_CELL,
+                transition_op(Value::Null, json!("since_join")),
+            )]
+        );
     }
 
     fn invite_create_event(invitee: Option<&str>) -> Event {
@@ -3100,247 +3084,10 @@ mod tests {
     }
 
     #[test]
-    fn delivery_subject_selects_the_share_kind_branch() {
-        let event = delivery_share_event();
-        let rule = subject_rule(&event);
-        let member_subject = derive_subject(&event, rule).unwrap();
-
-        // The RRK branch derives from a different target field, so the same
-        // recipient and scope MUST NOT collapse onto one delivery cell.
-        let mut rrk = event;
-        rrk.payload.remove("recipient_device_id");
-        rrk.payload
-            .insert("share_kind".to_owned(), json!("realm_recovery_key"));
-        rrk.payload.insert(
-            "recipient_verification_method".to_owned(),
-            json!("did:webvh:z6mkfixture:acme.example#realm-history-recovery-1"),
-        );
-        rrk.payload.insert(
-            "recovery_recipient_id".to_owned(),
-            // Deliberately spelled like a device id: without `share_kind` in
-            // the components an RRK share could target a member device's cell.
-            json!("ak:device:019f9000-0000-7000-8000-000000000003"),
-        );
-        let rrk_subject = derive_subject(&rrk, rule).unwrap();
-        assert_ne!(member_subject, rrk_subject);
-    }
-
-    #[test]
-    fn delivery_supports_circle_scope_which_also_carries_realm_id() {
-        // `effective_scope.kind="circle"` is required by schema to carry
-        // `realm_id` too — the `realm` branch's value field. A blanket
-        // "unselected branch field present => ambiguous" rule would reject
-        // every legitimate Circle key share.
-        let mut event = delivery_share_event();
-        event.payload.insert(
-            "key_scope".to_owned(),
-            json!({
-                "effective_scope": {
-                    "kind": "circle",
-                    "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
-                    "circle_id": "ak:circle:AXy9G1HY-05VpUDBKqm77h_Vu7DiFOJ3sduNSXuFewp_"
-                },
-                "policy_digest": format!("sha256:{}", "aa".repeat(32))
-            }),
-        );
-        let subject = derive_subject(&event, subject_rule(&event)).unwrap();
-        let value = derive_value_projection(
-            &event,
-            value_rule(&event),
-            arkret_canonical::DigestSuite::Sha256,
-        )
-        .unwrap();
-        assert_eq!(
-            value["effective_scope_id"],
-            json!("ak:circle:AXy9G1HY-05VpUDBKqm77h_Vu7DiFOJ3sduNSXuFewp_"),
-            "circle branch must project the circle id"
-        );
-        validate_registered_cell_writes(&event, arkret_canonical::DigestSuite::Sha256).unwrap();
-
-        // And a Realm-scoped share must still land on a different cell.
-        assert_ne!(
-            subject,
-            derive_subject(
-                &delivery_share_event(),
-                subject_rule(&delivery_share_event())
-            )
-            .unwrap()
-        );
-    }
-
-    #[test]
-    fn delivery_subject_rejects_cross_carried_branch_field() {
-        let mut event = delivery_share_event();
-        event
-            .payload
-            .insert("recovery_recipient_id".to_owned(), json!("rr-1"));
-        let rule = subject_rule(&event);
-        let error = derive_subject(&event, rule).unwrap_err();
-        assert!(
-            format!("{error}").contains("forbidden field payload.recovery_recipient_id"),
-            "got {error}"
-        );
-    }
-
-    #[test]
-    fn delivery_subject_rejects_unknown_discriminator() {
-        let mut event = delivery_share_event();
-        event
-            .payload
-            .insert("share_kind".to_owned(), json!("member-device"));
-        let rule = subject_rule(&event);
-        let error = derive_subject(&event, rule).unwrap_err();
-        assert!(
-            format!("{error}").contains("no registered branch"),
-            "byte-for-byte branch match only; got {error}"
-        );
-    }
-
-    #[test]
-    fn delivery_append_outcome_is_a_registry_literal() {
-        // Was `delivery_append_rejects_producer_chosen_value`: a producer can no
-        // longer smuggle `delivery_outcome: "withheld"` past the contract,
-        // because the member is a registry literal rather than a payload field.
-        let event = delivery_share_event();
-        let projected = project(&event);
-        let effect = projected[0]
-            .as_direct()
-            .expect("an append needs no pre-state");
-        assert_eq!(
-            effect.op.value.as_ref().unwrap()["delivery_outcome"],
-            json!("shared")
-        );
-    }
-
-    #[test]
-    fn delivery_append_commits_to_every_signed_field() {
-        // Regression: a projection that only committed to the ciphertext let
-        // semantically different deliveries collapse into one idempotent
-        // duplicate. Each of these differs only in a field that is signed and
-        // changes delivery meaning.
-        let base = delivery_share_event();
-        let rule = value_rule(&base);
-        let suite = arkret_canonical::DigestSuite::Sha256;
-        let baseline = derive_value_projection(&base, rule, suite).unwrap();
-
-        /// A named single-field mutation applied to an otherwise identical Event.
-        type NamedMutation = (&'static str, fn(&mut Event));
-
-        let mutations: [NamedMutation; 4] = [
-            ("expires_at", |event: &mut Event| {
-                event
-                    .payload
-                    .insert("expires_at".to_owned(), json!("2026-08-01T00:00:00.000Z"));
-            }),
-            ("aad_digest", |event: &mut Event| {
-                event.payload.insert(
-                    "aad_digest".to_owned(),
-                    json!(format!("sha256:{}", "cc".repeat(32))),
-                );
-            }),
-            (
-                "key_scope.membership_frontier_digest",
-                |event: &mut Event| {
-                    event
-                        .payload
-                        .get_mut("key_scope")
-                        .unwrap()
-                        .as_object_mut()
-                        .unwrap()
-                        .insert(
-                            "membership_frontier_digest".to_owned(),
-                            json!(format!("sha256:{}", "dd".repeat(32))),
-                        );
-                },
-            ),
-            ("ciphertext", |event: &mut Event| {
-                event
-                    .payload
-                    .insert("ciphertext".to_owned(), json!("b3RoZXI"));
-            }),
-        ];
-        for (label, mutate) in mutations {
-            let mut mutated = base.clone();
-            mutate(&mut mutated);
-            let value = derive_value_projection(&mutated, rule, suite).unwrap();
-            assert_ne!(
-                baseline, value,
-                "{label} is signed and changes delivery meaning; it must change op.value"
-            );
-        }
-    }
-
-    #[test]
-    fn delivery_append_commits_to_the_material_digest() {
-        // Two different sealed materials to the same recipient and scope must
-        // not project to the same entry, or §9.3.1 would dedupe one away.
-        let first = delivery_share_event();
-        let first_value = project(&first)[0]
-            .as_direct()
-            .expect("an append needs no pre-state")
-            .op
-            .value
-            .expect("an append projects a value");
-        let mut second = first.clone();
-        second
-            .payload
-            .insert("ciphertext".to_owned(), json!("b3RoZXI"));
-        let rule = value_rule(&second);
-        let second_value =
-            derive_value_projection(&second, rule, arkret_canonical::DigestSuite::Sha256).unwrap();
-        assert_ne!(first_value, second_value);
-
-        // The commitment is over the complete canonical signed payload.
-        let payload = Value::Object(first.payload.into_iter().collect());
-        let expected = arkret_canonical::sha256_digest(
-            arkret_canonical::canonical_json_bytes(&payload).unwrap(),
-        );
-        assert_eq!(first_value["payload_digest"], json!(expected));
-    }
-
-    #[test]
-    fn delivery_material_digest_follows_the_realm_digest_suite() {
-        // A blake3 Realm must project a blake3 material digest; hard-coding
-        // SHA-256 would diverge from every conformant implementation's state.
-        let event = delivery_share_event();
-        let rule = value_rule(&event);
-        let blake3 =
-            derive_value_projection(&event, rule, arkret_canonical::DigestSuite::Blake3).unwrap();
-        let payload = Value::Object(event.payload.clone().into_iter().collect());
-        assert_eq!(
-            blake3["payload_digest"],
-            json!(arkret_canonical::digest(
-                arkret_canonical::DigestSuite::Blake3,
-                arkret_canonical::canonical_json_bytes(&payload).unwrap()
-            ))
-        );
-        // And the suite reaches the projected write, not just the standalone
-        // value rule: the same Event on blake3 must not derive the sha256 op.
-        assert_ne!(
-            project_registered_cell_writes(&event, arkret_canonical::DigestSuite::Blake3).unwrap(),
-            project(&event)
-        );
-    }
-
-    #[test]
-    fn history_access_projection_preserves_closed_transition() {
-        let event = delivery_share_event();
-        let rule = value_rule(&event);
-        let value =
-            derive_value_projection(&event, rule, arkret_canonical::DigestSuite::Sha256).unwrap();
-        let object = value.as_object().unwrap();
-        assert_eq!(object.get("from"), Some(&Value::Null));
-        assert_eq!(object.get("to").and_then(Value::as_str), Some("since_join"));
-    }
-
-    #[test]
-    fn delivery_append_cell_is_derived_from_the_signed_payload() {
-        // Was `delivery_append_rejects_producer_chosen_cell`: there is no
-        // producer-named cell left to reject, so pin the one the composite
-        // subject rule derives from `share_kind`, recipient and key scope.
-        let projected = project(&delivery_share_event());
+    fn history_access_cell_is_registry_derived() {
+        let projected = project(&history_access_event());
         assert_eq!(projected.len(), 1);
-        assert_eq!(projected[0].cell.as_str(), DELIVERY_CELL);
+        assert_eq!(projected[0].cell.as_str(), HISTORY_ACCESS_CELL);
     }
 
     #[test]

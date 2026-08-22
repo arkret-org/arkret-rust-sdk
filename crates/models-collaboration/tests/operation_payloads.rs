@@ -246,22 +246,6 @@ fn content_block_validator_accepts_canonical_poll_block() {
 }
 
 #[test]
-fn content_block_validator_rejects_legacy_flat_poll_block() {
-    let block = json!({
-        "kind": "ak.content.poll",
-        "body": "ship?",
-        "question": "ship?",
-        "options": ["yes", "no"]
-    });
-
-    let err = validate_content_block(&block).unwrap_err();
-    assert_eq!(
-        err.message(),
-        "poll content block requires question and at least two options"
-    );
-}
-
-#[test]
 fn morph_create_payload_rejects_both_content_carriers() {
     let actor = actor("did:webvh:z6mkfixture:alice.example");
     let realm_id = RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();

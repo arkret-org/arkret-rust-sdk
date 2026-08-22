@@ -264,14 +264,6 @@ impl DidDocument {
         }
     }
 
-    pub fn to_wire_document(&self) -> BTreeMap<String, Value> {
-        serde_json::to_value(self)
-            .ok()
-            .and_then(|value| value.as_object().cloned())
-            .map(|object| object.into_iter().collect())
-            .unwrap_or_default()
-    }
-
     pub fn validate(&self) -> Result<()> {
         if self
             .raw_properties
@@ -344,7 +336,7 @@ mod tests {
             "@context": ["https://www.w3.org/ns/did/v1"],
             "id": "did:webvh:z6mkfixture:alice.example",
             "capabilityDelegation": [
-                "did:webvh:z6mkfixture:alice.example#legacy-device-authority"
+                "did:webvh:z6mkfixture:alice.example#invalid-device-authority"
             ],
             "service": [{
                 "id": "did:webvh:z6mkfixture:alice.example#principal-server",

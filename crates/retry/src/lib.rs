@@ -177,12 +177,6 @@ impl RetryPolicy {
     }
 
     #[must_use]
-    pub const fn with_retry_window(mut self, retry_window: Duration) -> Self {
-        self.retry_window = retry_window;
-        self
-    }
-
-    #[must_use]
     pub const fn initial_delay(&self) -> Duration {
         self.initial_delay
     }

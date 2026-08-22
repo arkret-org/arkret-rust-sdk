@@ -4,10 +4,8 @@
 //! opaque `ak:cursor:<base64url(canonical_json)>` tokens used for stream
 //! continuation and read-your-writes barriers.
 
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
-use web_time::{Duration, SystemTime, UNIX_EPOCH};
+use web_time::{SystemTime, UNIX_EPOCH};
 
 use crate::{Error, Result, SchemaId};
 
@@ -351,34 +349,9 @@ impl Cursor {
         Ok(())
     }
 
-    /// Create a cursor from sync positions.
-    pub fn from_positions(_positions: SyncPositions) -> Result<Self> {
-        // v1 core cursor bytes carry only an opaque server handle. Callers that
-        // need to preserve positions must store them server-side keyed by `h`.
-        Self::new()
-    }
-
-    /// Extract sync positions from the cursor.
-    pub fn to_positions(&self) -> Result<SyncPositions> {
-        self.validate_core_wire_shape()?;
-        Ok(SyncPositions::default())
-    }
-
     /// Check if the cursor is expired.
     pub fn is_expired(&self) -> bool {
         unix_time_millis().map_or(true, |now_ms| self.expires_at.timestamp_millis() < now_ms)
-    }
-
-    /// Get the remaining time before expiration.
-    pub fn time_until_expiration(&self) -> Option<Duration> {
-        let now_ms = unix_time_millis().ok()?;
-
-        let expires_at_ms = self.expires_at.timestamp_millis();
-        if expires_at_ms > now_ms {
-            Some(Duration::from_millis((expires_at_ms - now_ms) as u64))
-        } else {
-            None
-        }
     }
 }
 
@@ -387,26 +360,6 @@ fn unix_time_millis() -> Result<i64> {
         .duration_since(UNIX_EPOCH)
         .map_err(|error| Error::Protocol(format!("cursor_clock_before_unix_epoch: {error}")))?
         .as_millis() as i64)
-}
-
-/// Sync positions extracted from a cursor.
-#[derive(Clone, Debug, Default)]
-pub struct SyncPositions {
-    /// Realm positions by Realm ID.
-    pub realms: BTreeMap<String, RealmSyncPosition>,
-    /// Device positions by device ID.
-    pub devices: Option<BTreeMap<String, String>>,
-}
-
-/// Sync position for a single Realm.
-#[derive(Clone, Debug)]
-pub struct RealmSyncPosition {
-    /// Causal frontier (event IDs).
-    pub frontier: Vec<String>,
-    /// Timeline order HLC.
-    pub timeline_order: String,
-    /// State digest at this position.
-    pub state_digest: String,
 }
 
 #[cfg(test)]
@@ -569,34 +522,6 @@ mod tests {
         .unwrap();
 
         assert!(!cursor.is_expired());
-        assert!(cursor.time_until_expiration().is_some());
-    }
-
-    #[test]
-    fn sync_positions_are_server_side_for_core_cursor() {
-        let positions = SyncPositions {
-            realms: BTreeMap::from([(
-                "ak:realm:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j".to_owned(),
-                RealmSyncPosition {
-                    frontier: vec![
-                        "ak:event:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-".to_owned(),
-                    ],
-                    timeline_order: "01970e589d21-0004-a13f9c2e".to_owned(),
-                    state_digest:
-                        "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                            .to_owned(),
-                },
-            )]),
-            devices: Some(BTreeMap::from([(
-                "device-laptop".to_owned(),
-                "ak:device_message:019640da-0000-7000-8000-000000000000".to_owned(),
-            )])),
-        };
-
-        let cursor = Cursor::from_positions(positions).unwrap();
-
-        assert!(cursor.h.len() >= CURSOR_HANDLE_MIN_LEN);
-        assert!(cursor.to_positions().unwrap().realms.is_empty());
     }
 
     #[test]

@@ -279,20 +279,6 @@ impl NotaryValue {
         }
     }
 
-    pub fn primary_descriptor(
-        &self,
-        verification_method: &DidUrl,
-    ) -> Option<&NotarySignerDescriptor> {
-        match self {
-            Self::SingleSigner { signer, .. } | Self::Mixed { signer, .. } => {
-                (&signer.verification_method == verification_method).then_some(signer)
-            }
-            Self::Threshold { members, .. } | Self::OpenSet { members } => members
-                .iter()
-                .find(|member| &member.verification_method == verification_method),
-        }
-    }
-
     pub fn signer_descriptor(
         &self,
         verification_method: &DidUrl,

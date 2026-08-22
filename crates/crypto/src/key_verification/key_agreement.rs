@@ -277,10 +277,3 @@ pub fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
     mac.update(message);
     mac.finalize().into_bytes().into()
 }
-
-pub fn hkdf_expand_sha256(prk: &[u8; 32], info: &[u8], output: &mut [u8]) {
-    Hkdf::<Sha256>::from_prk(prk)
-        .expect("SHA-256 PRK has the required digest length")
-        .expand(info, output)
-        .expect("requested HKDF-SHA256 output is within the RFC 5869 limit");
-}

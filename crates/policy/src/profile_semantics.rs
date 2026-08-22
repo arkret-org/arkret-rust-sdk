@@ -23,23 +23,6 @@ pub struct ProfileSemanticSurface {
     pub constraint_kinds: Vec<String>,
 }
 
-impl ProfileSemanticSurface {
-    pub fn from_required_slices(
-        operations: &[&str],
-        event_kinds: &[&str],
-        schemas: &[&str],
-        capability_actions: &[&str],
-    ) -> Self {
-        Self {
-            operations: strings(operations),
-            event_kinds: strings(event_kinds),
-            schemas: strings(schemas),
-            capability_actions: strings(capability_actions),
-            ..Self::default()
-        }
-    }
-}
-
 /// Union of the requirements implied by claimed profiles plus their inherited
 /// profiles.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

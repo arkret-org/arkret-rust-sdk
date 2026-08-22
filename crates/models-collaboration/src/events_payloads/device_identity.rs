@@ -822,10 +822,6 @@ mod tests {
             json!("ak:recovery_session:01904100-0000-7000-8000-000000000003");
         serde_json::from_value::<DeviceAuthorizePayload>(recovery).unwrap();
 
-        let mut legacy = device_authorize_value();
-        legacy["authorization_binding_kind"] = json!("root_anchored");
-        assert!(serde_json::from_value::<DeviceAuthorizePayload>(legacy).is_err());
-
         let mut mismatch = device_authorize_value();
         mismatch["authorization_binding_kind"] = json!("accepted_device");
         assert!(serde_json::from_value::<DeviceAuthorizePayload>(mismatch).is_err());

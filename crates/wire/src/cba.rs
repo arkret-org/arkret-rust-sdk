@@ -458,7 +458,7 @@ mod tests {
     }
 
     #[test]
-    fn seal_basis_rejects_retired_root_copies_and_unknown_members() {
+    fn seal_basis_rejects_reducer_instruction_members() {
         let wire = json!({
             "leaves": ["ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
             "control_event_set_root": format!("sha256:{}", "b".repeat(64)),

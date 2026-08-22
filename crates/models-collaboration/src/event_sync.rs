@@ -1406,7 +1406,6 @@ mod tests {
             authority_set_ref: authority_set_digest.clone(),
             signature: PayloadSignature {
                 verification_method: DidUrl::new("did:web:authority.example#key-1").unwrap(),
-                extra: Default::default(),
                 payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 created_at: received_at,
                 jws: "a..b".to_owned(),

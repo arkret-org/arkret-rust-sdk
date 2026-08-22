@@ -82,8 +82,7 @@ pub use arkret_event_draft::{
     rank_exhausted,
 };
 pub use arkret_hlc::{
-    CURSOR_HANDLE_MIN_LEN, Cursor, CursorPurpose, HlcGenerator, RealmSyncPosition, SyncPositions,
-    generate_cursor_handle,
+    CURSOR_HANDLE_MIN_LEN, Cursor, CursorPurpose, HlcGenerator, generate_cursor_handle,
 };
 #[cfg(feature = "client")]
 pub use arkret_http_client as http_client;

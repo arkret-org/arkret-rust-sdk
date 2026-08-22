@@ -4,7 +4,7 @@
 //! `SignalEnvelope` with `signal_class=session`. They are not durable Events or
 //! Content Blocks.
 
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::VecDeque;
 
 use arkret_wire::signal::MAX_SIGNAL_PLAINTEXT_BYTES;
 use arkret_wire::{Error, EventId, MessageId, MessageStreamId, Result, StrandId, canonical};
@@ -565,48 +565,6 @@ impl MessageStreamProducer {
     }
 }
 
-/// Per-device producer registry enforcing the protocol's concurrency ceiling.
-#[derive(Clone, Debug, Default)]
-pub struct MessageStreamProducerRegistry {
-    streams: BTreeMap<String, MessageStreamProducer>,
-}
-
-impl MessageStreamProducerRegistry {
-    pub fn insert(&mut self, producer: MessageStreamProducer) -> Result<()> {
-        self.retain_active();
-        let key = producer.stream_id().as_str().to_owned();
-        if self.streams.contains_key(&key) {
-            return Err(Error::Protocol(
-                "message stream_id is already active on this device".to_owned(),
-            ));
-        }
-        if self.streams.len() >= MAX_MESSAGE_STREAMS_PER_DEVICE {
-            return Err(Error::Protocol(
-                "device already has 8 active message streams".to_owned(),
-            ));
-        }
-        self.streams.insert(key, producer);
-        Ok(())
-    }
-
-    pub fn get_mut(&mut self, stream_id: &MessageStreamId) -> Option<&mut MessageStreamProducer> {
-        self.streams.get_mut(stream_id.as_str())
-    }
-
-    pub fn remove(&mut self, stream_id: &MessageStreamId) -> Option<MessageStreamProducer> {
-        self.streams.remove(stream_id.as_str())
-    }
-
-    pub fn active_len(&mut self) -> usize {
-        self.retain_active();
-        self.streams.len()
-    }
-
-    fn retain_active(&mut self) {
-        self.streams.retain(|_, producer| !producer.is_finished());
-    }
-}
-
 fn append_utf8_prefix(target: &mut String, append: &str, max_bytes: usize) {
     let remaining = max_bytes.saturating_sub(target.len());
     if append.len() <= remaining {
@@ -845,45 +803,5 @@ mod tests {
         assert!(producer.tick(32, 14_999).unwrap().is_none());
         let repeated = producer.tick(33, 15_001).unwrap().unwrap();
         assert!(matches!(repeated, MessageStreamFrame::Keyframe(_)));
-    }
-
-    #[test]
-    fn registry_enforces_eight_active_streams() {
-        let mut registry = MessageStreamProducerRegistry::default();
-        for index in 0..MAX_MESSAGE_STREAMS_PER_DEVICE {
-            let event_id = EventId::from_event_digest(
-                &arkret_wire::Hash::new(arkret_canonical::sha256_digest(index.to_be_bytes()))
-                    .unwrap(),
-            )
-            .unwrap();
-            let stream_id = MessageStreamId::new(format!(
-                "ak:message_stream:01904100-0000-7000-8000-{index:012}"
-            ))
-            .unwrap();
-            let (producer, _) = MessageStreamProducer::start(
-                index as u64,
-                event_id,
-                strand_id(),
-                0,
-                stream_id,
-                MessageStreamFormat::Plain,
-                0,
-            )
-            .unwrap();
-            registry.insert(producer).unwrap();
-        }
-        assert_eq!(registry.active_len(), MAX_MESSAGE_STREAMS_PER_DEVICE);
-
-        let (overflow, _) = MessageStreamProducer::start(
-            99,
-            EventId::new("ak:event:AXBcp13trH3bPXvj0eHppCpGqJZWL9yqE3cf2Tl43vyk").unwrap(),
-            strand_id(),
-            0,
-            MessageStreamId::new("ak:message_stream:01904100-0000-7000-8000-000000000099").unwrap(),
-            MessageStreamFormat::Plain,
-            0,
-        )
-        .unwrap();
-        assert!(registry.insert(overflow).is_err());
     }
 }

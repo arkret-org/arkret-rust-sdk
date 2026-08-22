@@ -16,9 +16,6 @@ use serde::{Deserialize, Serialize};
 use crate::event_sync::FederationServiceBindingRef;
 use crate::governance::membership_invite::{MembershipPayload, MembershipPayloadState};
 
-pub const AGENT_MEMBERSHIP_CASCADE_UNIT_KIND: &str = "agent_membership_cascade";
-pub const AGENT_MEMBERSHIP_CASCADE_SCHEMA: &str =
-    arkret_wire::SchemaId::AGENT_MEMBERSHIP_CASCADE_V1;
 pub const MAX_AGENT_MEMBERSHIP_CASCADE_TRANSITIONS: usize = 256;
 pub const MAX_AGENT_MEMBERSHIP_CASCADE_CBA_BUNDLES: usize = 64;
 

@@ -47,7 +47,7 @@ pub use ordered_log::OrderedLog;
 use serde_json::Value;
 pub use traits::{Lattice, LatticeKind, OpError};
 
-use crate::{Bottom, BottomKind, CellRef, Hash, LatticeOp};
+use crate::{Bottom, Hash, LatticeOp};
 
 /// A single sealed op input to [`Lattice::join`].
 ///
@@ -97,13 +97,6 @@ pub enum CellState {
 }
 
 impl CellState {
-    pub fn into_bottom(self) -> Option<Bottom> {
-        match self {
-            Self::Bottom(b) => Some(b),
-            _ => None,
-        }
-    }
-
     pub fn into_value(self) -> Option<Value> {
         match self {
             Self::Value(v) => Some(v),
@@ -113,9 +106,5 @@ impl CellState {
 
     pub fn is_bottom(&self) -> bool {
         matches!(self, Self::Bottom(_))
-    }
-
-    pub fn make_bottom(kind: BottomKind, cells: Vec<CellRef>) -> Self {
-        Self::Bottom(Bottom::new(kind, cells))
     }
 }

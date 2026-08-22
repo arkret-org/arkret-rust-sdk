@@ -1,15 +1,9 @@
-use crate::{CapabilityActionId, DomainSeparationId, ReducerProfileId, ServiceOperationId};
-
-/// Service operations for which this SDK ships generated route and metadata support.
-pub const SUPPORTED_OPERATION_IDS: &[ServiceOperationId] = ServiceOperationId::ALL;
+use crate::{CapabilityActionId, DomainSeparationId, ReducerProfileId};
 
 pub const PROTOCOL_VERSION: &str = "1.0";
 /// Canonical Realm reducer profile implemented by this SDK.
 pub const CORE_REDUCER_PROFILE: &str = ReducerProfileId::CORE_V1;
 pub const BUILT_IN_CONFORMANCE_FIXTURES_VERSION: &str = "arkret-sdk-builtin-v1";
-
-/// `receipt_kind` const value of `read-receipt.schema.json`.
-pub const READ_RECEIPT_KIND: &str = "read";
 
 /// AEAD profile id used by every Arkret payload envelope that seals with
 /// XChaCha20-Poly1305 (account data, key vaults, file transfer).
@@ -33,9 +27,6 @@ pub const REALM_MEDIA_SERVICE_CELL_FAMILY: &str = crate::CellFamilyId::REALM_MED
 /// `signature.type` of a signed identity recovery policy.
 pub const RECOVERY_POLICY_SIGNATURE_TYPE: &str =
     DomainSeparationId::IDENTITY_RECOVERY_POLICY_SIGNATURE_V1;
-
-/// Capability constraint shorthand from `capability-action-registry.json`.
-pub const CAP_CONSTRAINT_ALLOWED_WRITE_FIELDS: &str = "allowed_write_fields";
 
 /// Profile-private HTTP receipt carrier of `governance/join-policy.md` §7.1.1.
 /// One token doing double duty: it is both the `profile_bindings[…].carrier`
@@ -62,63 +53,11 @@ pub const CIRCLE_CAPABILITY_ACTIONS: &[&str] = &[
     CapabilityActionId::CIRCLE_AUDIT,
 ];
 
-/// AKP-0010 — full call/media capability-action list. These actions gate the
-/// join, screen-share, recording, transcription, moderation, and signal-send
-/// surfaces of the `ak.call.*` feature.
-pub const CALL_CAPABILITY_ACTIONS: &[&str] = &[
-    CapabilityActionId::CALL_JOIN,
-    CapabilityActionId::CALL_SCREEN_SHARE,
-    CapabilityActionId::CALL_RECORD,
-    CapabilityActionId::CALL_TRANSCRIBE,
-    CapabilityActionId::CALL_MODERATE,
-    CapabilityActionId::CALL_SIGNAL_SEND,
-];
-
 /// AKP-0010 — maximum TTL bound for media tokens (600 seconds). Tokens
 /// MUST be rejected when `expires_at - now > 600s`. SHOULD floor: 300s.
 pub const MEDIA_TOKEN_TTL_MAX_SECS: u64 = 600;
 /// AKP-0010 — SHOULD-bound (recommended) TTL for media tokens.
 pub const MEDIA_TOKEN_TTL_SHOULD_SECS: u64 = 300;
-
-pub const PERSONAL_AGENT_RUNTIME_EVENT_SERVICE_SCOPES: &[&str] = &[
-    ServiceOperationId::SELF_EVENTS_READ_DESCRIBE,
-    ServiceOperationId::SELF_EVENTS_READ_SCAN,
-    ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE,
-    ServiceOperationId::SELF_EVENTS_READ_FRONTIER,
-    ServiceOperationId::SELF_EVENTS_RESOURCE_GET,
-    ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT,
-];
-
-pub fn is_personal_agent_runtime_event_service_scope(scope: &str) -> bool {
-    matches!(
-        scope,
-        ServiceOperationId::SELF_EVENTS_READ_DESCRIBE
-            | ServiceOperationId::SELF_EVENTS_READ_SCAN
-            | ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE
-            | ServiceOperationId::SELF_EVENTS_READ_FRONTIER
-            | ServiceOperationId::SELF_EVENTS_RESOURCE_GET
-            | ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT
-    )
-}
-
-/// AKP-0008 / AKP-0009 (R3 spec-sync 2026-05-27) — agent_runtime
-/// surface tier: list of operations that live under the
-/// `ak.profile.agent_runtime.v1` server-profile surface.
-pub const AGENT_RUNTIME_SURFACE_OPERATIONS: &[&str] = &[
-    ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY,
-    ServiceOperationId::SELF_AGENT_COMMAND_PROVISION,
-    ServiceOperationId::SELF_AGENT_COMMAND_RENEW_PAIRING,
-    ServiceOperationId::SELF_AGENT_READ_LIST,
-    ServiceOperationId::SELF_AGENT_RESOURCE_GET,
-    ServiceOperationId::SELF_AGENT_COMMAND_PAUSE,
-    ServiceOperationId::SELF_AGENT_COMMAND_RESUME,
-    ServiceOperationId::SELF_AGENT_COMMAND_DEACTIVATE,
-    ServiceOperationId::SELF_AGENT_GRANT_COMMAND_ATTACH,
-    ServiceOperationId::SELF_AGENT_GRANT_RESOURCE_DELETE,
-    ServiceOperationId::SELF_AGENT_SIDECAR_COMMAND_ENSURE,
-    ServiceOperationId::SELF_AGENT_SIDECAR_READ_LIST,
-    ServiceOperationId::SELF_AGENT_SIDECAR_RESOURCE_GET,
-];
 
 /// Round 4 (2026-05-20) — federation S2S HTTP message-signature headers.
 /// MUST be present on every cross-trust-domain federation request and

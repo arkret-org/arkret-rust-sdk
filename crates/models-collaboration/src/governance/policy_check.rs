@@ -12,10 +12,7 @@ use serde_json::Value;
 
 // ── Trust domain plumbing ───────────────────────────────────────────────
 
-/// Round 4 — compute the canonical `audit_policy_version_digest` 4-tuple
-/// digest. Wire-breaking: the pre-round-4 2-arg signature
-/// `(audit_disclosure, audit_assurance)` is deleted. Receipts issued
-/// against the old hash MUST be rejected.
+/// Compute the canonical `audit_policy_version_digest` 4-tuple digest.
 ///
 /// Canonical JSON over the object:
 /// ```text
@@ -40,9 +37,9 @@ pub fn compute_audit_policy_version_digest(
     Ok(canonical::sha256_bytes(&canonical_bytes))
 }
 
-// ── PolicyCheck v2 ──────────────────────────────────────────────────────
+// ── PolicyCheck ─────────────────────────────────────────────────────────
 
-/// Round 4 — `source` discriminator for [`PolicyCheckRequestBody`].
+/// `source` discriminator for [`PolicyCheckRequestBody`].
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PolicyCheckSource {
@@ -53,9 +50,7 @@ pub struct PolicyCheckSource {
     pub signed_transport: bool,
 }
 
-/// Round 4 (commit 7446832) — typed `/policy/check` request body.
-///
-/// Wire-breaking: replaces the pre-round-4 `PolicyCheckRequestBody`.
+/// Typed `/policy/check` request body.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PolicyCheckRequestBody {
@@ -73,7 +68,7 @@ pub struct PolicyCheckRequestBody {
     pub auth_context: Option<BTreeMap<String, Value>>,
 }
 
-/// Round 4 — `bound_to` binding inside [`PolicyCheckOutcome`].
+/// `bound_to` binding inside [`PolicyCheckOutcome`].
 ///
 /// MUST include all five fields so the response can be verified against
 /// the request transcript without trusting the policy server.
@@ -87,7 +82,7 @@ pub struct PolicyCheckBoundTo {
     pub policy_server_id: DidCoreId,
 }
 
-/// Round 4 — signature carrier for [`PolicyCheckOutcome`].
+/// Signature carrier for [`PolicyCheckOutcome`].
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PolicyCheckSignature {
@@ -97,8 +92,7 @@ pub struct PolicyCheckSignature {
     pub sig: String,
 }
 
-/// Round 4 (commit 7446832) — `/policy/check` response with full
-/// binding transcript.
+/// `/policy/check` response with full binding transcript.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PolicyCheckOutcome {

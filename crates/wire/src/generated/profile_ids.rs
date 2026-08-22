@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: profiles/conformance-profiles.json; version=2026-08-21.2;
-//! sha256=d7a896109fa86d87f353939f3465785bf6747fafc48ab029e1554961cd966e52 Entries: profile_ids=100
+//! Input: profiles/conformance-profiles.json; version=2026-08-23.1;
+//! sha256=212f09d38141b7327bcd966962afb234881e70f4d1a8bb6f7cc1e0bcb4492205 Entries: profile_ids=99
 
 use serde::{Deserialize, Serialize};
 
@@ -76,7 +76,6 @@ pub enum ProfileId {
     MlsCiphersuiteChacha20poly1305V1,
     MlsCiphersuitePqAuthV1,
     MlsGovernanceBindingFullV1,
-    MorphSchemaMigrationTransformationsV1,
     NotaryMixedRecoveryV1,
     NotaryOpenSetV1,
     NotarySingleSignerV1,
@@ -219,7 +218,6 @@ impl ProfileId {
         Self::MlsCiphersuiteChacha20poly1305V1,
         Self::MlsCiphersuitePqAuthV1,
         Self::MlsGovernanceBindingFullV1,
-        Self::MorphSchemaMigrationTransformationsV1,
         Self::NotaryMixedRecoveryV1,
         Self::NotaryOpenSetV1,
         Self::NotarySingleSignerV1,
@@ -341,8 +339,6 @@ impl ProfileId {
     pub const MLS_CIPHERSUITE_PQ_AUTH_V1: &'static str = "ak.profile.mls_ciphersuite.pq_auth.v1";
     pub const MLS_GOVERNANCE_BINDING_FULL_V1: &'static str =
         "ak.profile.mls_governance_binding.full.v1";
-    pub const MORPH_SCHEMA_MIGRATION_TRANSFORMATIONS_V1: &'static str =
-        "ak.profile.morph.schema_migration_transformations.v1";
     pub const NOTARY_MIXED_RECOVERY_V1: &'static str = "ak.profile.notary.mixed_recovery.v1";
     pub const NOTARY_OPEN_SET_V1: &'static str = "ak.profile.notary.open_set.v1";
     pub const NOTARY_SINGLE_SIGNER_V1: &'static str = "ak.profile.notary.single_signer.v1";
@@ -453,9 +449,6 @@ impl ProfileId {
             Self::MlsCiphersuiteChacha20poly1305V1 => Self::MLS_CIPHERSUITE_CHACHA20POLY1305_V1,
             Self::MlsCiphersuitePqAuthV1 => Self::MLS_CIPHERSUITE_PQ_AUTH_V1,
             Self::MlsGovernanceBindingFullV1 => Self::MLS_GOVERNANCE_BINDING_FULL_V1,
-            Self::MorphSchemaMigrationTransformationsV1 => {
-                Self::MORPH_SCHEMA_MIGRATION_TRANSFORMATIONS_V1
-            }
             Self::NotaryMixedRecoveryV1 => Self::NOTARY_MIXED_RECOVERY_V1,
             Self::NotaryOpenSetV1 => Self::NOTARY_OPEN_SET_V1,
             Self::NotarySingleSignerV1 => Self::NOTARY_SINGLE_SIGNER_V1,
@@ -562,7 +555,6 @@ impl ProfileId {
             Self::MlsCiphersuiteChacha20poly1305V1 => ProfileRole::Interop,
             Self::MlsCiphersuitePqAuthV1 => ProfileRole::Interop,
             Self::MlsGovernanceBindingFullV1 => ProfileRole::Admin,
-            Self::MorphSchemaMigrationTransformationsV1 => ProfileRole::Server,
             Self::NotaryMixedRecoveryV1 => ProfileRole::Admin,
             Self::NotaryOpenSetV1 => ProfileRole::Admin,
             Self::NotarySingleSignerV1 => ProfileRole::Admin,
@@ -681,9 +673,6 @@ impl ProfileId {
             }
             Self::MLS_CIPHERSUITE_PQ_AUTH_V1 => Some(Self::MlsCiphersuitePqAuthV1),
             Self::MLS_GOVERNANCE_BINDING_FULL_V1 => Some(Self::MlsGovernanceBindingFullV1),
-            Self::MORPH_SCHEMA_MIGRATION_TRANSFORMATIONS_V1 => {
-                Some(Self::MorphSchemaMigrationTransformationsV1)
-            }
             Self::NOTARY_MIXED_RECOVERY_V1 => Some(Self::NotaryMixedRecoveryV1),
             Self::NOTARY_OPEN_SET_V1 => Some(Self::NotaryOpenSetV1),
             Self::NOTARY_SINGLE_SIGNER_V1 => Some(Self::NotarySingleSignerV1),

@@ -28,7 +28,7 @@ fn cursor_negative_fixture_cases_all_reject() {
     assert_eq!(vector["vector_id"].as_str(), Some(VECTOR_ID));
 
     let cases = vector["cases"].as_array().expect("vector cases");
-    assert_eq!(cases.len(), 16, "case inventory pinned to the spec fixture");
+    assert_eq!(cases.len(), 15, "case inventory pinned to the spec fixture");
 
     for case in cases {
         let name = case["name"].as_str().expect("case name");
@@ -87,7 +87,6 @@ fn cursor_negative_fixture_case_inventory_is_pinned() {
             "barrier_ttl_exceeds_cap",
             "expired",
             "missing_millisecond_fraction",
-            "retired_t_x_fields_rejected",
         ]
     );
 }

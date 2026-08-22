@@ -1294,14 +1294,6 @@ impl ArkretMlsGroup {
         self.remove_leaves(&[LeafNodeIndex::new(leaf_index)], None)
     }
 
-    pub fn remove_member_by_leaf_with_governance_binding(
-        &mut self,
-        leaf_index: u32,
-        governance_binding: &MlsGovernanceBindingPayload,
-    ) -> Result<MlsRemoveMemberResult> {
-        self.remove_leaves(&[LeafNodeIndex::new(leaf_index)], Some(governance_binding))
-    }
-
     fn remove_leaves(
         &mut self,
         leaves: &[LeafNodeIndex],

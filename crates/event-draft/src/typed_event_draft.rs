@@ -210,15 +210,6 @@ impl<K: EventSpec> TypedEventDraft<K> {
         self.into_intent(created_at)?
             .author_with_digest_suite(actor_seq, hlc, digest_suite)
     }
-
-    pub fn author_now_with_digest_suite(
-        self,
-        actor_seq: u64,
-        hlc: Hlc,
-        digest_suite: DigestSuite,
-    ) -> Result<AuthoredEvent> {
-        self.author_with_digest_suite(actor_seq, hlc, Utc::now(), digest_suite)
-    }
 }
 
 /// Runtime validator used by extension authoring after manifest loading.

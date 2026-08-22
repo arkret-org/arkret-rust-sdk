@@ -26,7 +26,7 @@
 //! ```text
 //! history_secret[N] = MLS-Exporter("ak.history-v1", realm_id, KDF.Nh)
 //! K_signal[N,D]     = ExpandWithLabel(history_secret[N], "ak.signal-v1",
-//!                                     JCS({sender_device_id:D}), AEAD.Nk)
+//!                                     sender_domain, AEAD.Nk)
 //! nonce             = I2OSP(durable_sender_counter, AEAD.Nn)
 //! AAD               = JCS(pre-encryption immutable header)   // §10.2
 //! ```
@@ -48,9 +48,8 @@ use crate::group::{ArkretMlsGroup, ExporterAeadSuite};
 use crate::{MlsError as Error, Result};
 
 /// `ExpandWithLabel` label deriving the per-epoch, per-sender Signal key from
-/// the `history_secret`.  The sender device is in the KDF context so a 32-bit
-/// AES-GCM nonce-prefix collision across two valid devices can never become a
-/// nonce reuse under one AEAD key.
+/// the `history_secret`. The verified MLS sender domain is the raw KDF context,
+/// so distinct active senders do not share an AEAD key.
 #[cfg(test)]
 const SIGNAL_KEY_LABEL: &str = arkret_wire::ExporterLabelId::SIGNAL_V1;
 
@@ -102,19 +101,17 @@ impl ArkretMlsGroup {
             )));
         }
         let suite = self.signal_suite_for(binding)?;
-        // §10.1 cross-device domain separation is only meaningful if the
-        // declared sender is the device that actually derives the prefix. A
-        // caller sealing under someone else's device id would mint a nonce in
-        // that device's domain.
-        if binding.sender_device_id != &self.identity.device_id {
-            return Err(Error::Protocol(format!(
-                "{}: signal sender_device_id does not match this device",
-                ReasonCode::AEAD_NONCE_SENDER_DOMAIN_COLLISION
-            )));
+        if binding.sender_actor_id != &self.identity.principal_id
+            || binding.sender_device_id != &self.identity.device_id
+        {
+            return Err(Error::Protocol(
+                "signal sender does not match this MLS identity".to_owned(),
+            ));
         }
+        let sender_domain = self.local_content_sender_domain()?.into_bytes();
 
         let counter = self.signal_nonce_counter;
-        let nonce = self.signal_nonce(binding, suite, counter)?;
+        let nonce = self.signal_nonce(binding, &sender_domain, suite, counter)?;
         // Advance before encrypting, not after. Once the nonce is composed it
         // is spent: if anything below fails and the caller retries, it must get
         // a fresh counter. Skipped counter values are harmless; a repeated one
@@ -126,7 +123,7 @@ impl ArkretMlsGroup {
 
         let nonce_b64 = base64url_encode(&nonce);
         let aad = binding.aad_bytes(&nonce_b64)?;
-        let key = self.derive_signal_key(binding, suite)?;
+        let key = self.derive_signal_key(binding, &sender_domain, suite)?;
         let ciphertext = suite.seal(&key, &nonce, &aad, plaintext)?;
 
         Ok(SignalSeal {
@@ -153,10 +150,9 @@ impl ArkretMlsGroup {
     /// aead_profile)`, and an optional tracker is a check that gets skipped.
     /// The tracker keys on exactly that tuple.
     ///
-    /// Performs, in order, the three receiver duties §10.1 names: recompute the
-    /// sender prefix for the *declared* sender and reject a mismatch
-    /// (`aead_nonce_sender_domain_collision`), reject a repeated counter
-    /// (`aead_nonce_counter_replay`), then open under the recomputed AAD.
+    /// Resolves the declared sender to an active MLS leaf, rejects a repeated
+    /// counter (`aead_nonce_counter_replay`), then opens under the verified
+    /// sender-domain key and recomputed AAD.
     pub fn open_signal_payload(
         &self,
         binding: &SignalAeadBinding<'_>,
@@ -166,6 +162,7 @@ impl ArkretMlsGroup {
     ) -> Result<Vec<u8>> {
         binding.validate()?;
         let suite = self.signal_suite_for(binding)?;
+        let sender_domain = self.verified_signal_sender_domain(binding)?;
 
         let nonce_bytes = base64url_decode(nonce)?;
         if nonce_bytes.len() != suite.nonce_len() {
@@ -187,14 +184,14 @@ impl ArkretMlsGroup {
         let mut counter_bytes = [0u8; size_of::<u64>()];
         counter_bytes.copy_from_slice(&nonce_bytes[counter_offset..]);
         replay.accept_counter(
-            &signal_nonce_context(binding)?,
+            &signal_nonce_context(binding, &sender_domain)?,
             u64::from_be_bytes(counter_bytes),
         )?;
 
         // Recomputed from the header we just validated — never the sender's
         // self-reported `aad_digest` (§10.2).
         let aad = binding.aad_bytes(nonce)?;
-        let key = self.derive_signal_key(binding, suite)?;
+        let key = self.derive_signal_key(binding, &sender_domain, suite)?;
         suite.open(&key, &nonce_bytes, &aad, &base64url_decode(ciphertext)?)
     }
 
@@ -251,19 +248,20 @@ impl ArkretMlsGroup {
     }
 
     /// `K_signal[N,D] = ExpandWithLabel(history_secret[N], "ak.signal-v1",
-    /// JCS({sender_device_id:D}), AEAD.Nk)`.
+    /// sender_domain, AEAD.Nk)`.
     ///
     /// The `history_secret` is derived without retaining it: a Signal is
     /// ephemeral and must not make its epoch shareable history.
     fn derive_signal_key(
         &self,
         binding: &SignalAeadBinding<'_>,
+        verified_sender_domain: &[u8],
         suite: ExporterAeadSuite,
     ) -> Result<Zeroizing<Vec<u8>>> {
         let history_secret = self.derive_history_secret(binding.realm_id.as_str())?;
         derive_signal_key_from_history_secret(
             &history_secret,
-            binding.sender_device_id,
+            verified_sender_domain,
             suite.key_len(),
         )
     }
@@ -272,26 +270,52 @@ impl ArkretMlsGroup {
     fn signal_nonce(
         &self,
         binding: &SignalAeadBinding<'_>,
+        verified_sender_domain: &[u8],
         suite: ExporterAeadSuite,
         counter: u64,
     ) -> Result<Vec<u8>> {
-        signal_nonce_context(binding)?;
+        signal_nonce_context(binding, verified_sender_domain)?;
         compose_aead_nonce(counter, suite.nonce_len()).map_err(Into::into)
+    }
+
+    fn verified_signal_sender_domain(&self, binding: &SignalAeadBinding<'_>) -> Result<Vec<u8>> {
+        let expected_identity = format!(
+            "{}#{}",
+            binding.sender_actor_id.as_str(),
+            binding.sender_device_id.as_str()
+        );
+        let matching_leaves = self
+            .group
+            .members()
+            .filter(|member| member.credential.serialized_content() == expected_identity.as_bytes())
+            .count();
+        if matching_leaves != 1 {
+            return Err(Error::Protocol(
+                "signal sender does not resolve to exactly one active MLS leaf".to_owned(),
+            ));
+        }
+        Ok(binding.sender_device_id.as_str().as_bytes().to_vec())
     }
 }
 
 /// The §10.1 exporter Context for this domain, built from the header the AAD
 /// also authenticates — so a receiver reconstructs it from what it verified.
-fn signal_nonce_context(binding: &SignalAeadBinding<'_>) -> Result<AeadNonceContext> {
+fn signal_nonce_context(
+    binding: &SignalAeadBinding<'_>,
+    verified_sender_domain: &[u8],
+) -> Result<AeadNonceContext> {
+    let sender_domain = std::str::from_utf8(verified_sender_domain).map_err(|_| {
+        Error::Protocol("verified signal sender domain must be canonical UTF-8".to_owned())
+    })?;
     Ok(AeadNonceContext {
         mls_group_id: binding.scope_ref.canonical_mls_group_id()?,
         epoch: binding.epoch,
-        sender_domain: binding.sender_device_id.as_str().to_owned(),
+        sender_domain: sender_domain.to_owned(),
     })
 }
 
 /// `ExpandWithLabel(history_secret, "ak.signal-v1",
-/// JCS({sender_device_id}), AEAD.Nk)`.
+/// sender_domain, AEAD.Nk)`.
 ///
 /// Expand-only, no Extract: the `history_secret` is an MLS exporter output and
 /// already has full entropy, which is what `ExpandWithLabel` assumes of its
@@ -314,7 +338,7 @@ mod tests {
     const TYPING: &[u8] = br#"{"kind":"typing"}"#;
     /// `derive_signal_key(history_secret_of_the_content_key_vector,
     /// ALICE_DEVICE, 16)`.
-    const SIGNAL_KEY_ANCHOR_HEX: &str = "29152db2983e95748e835fbfb9311d89";
+    const SIGNAL_KEY_ANCHOR_HEX: &str = "b54fe4e8d4f389edb2d02028983dfb43";
     /// Canonical §10.2 AAD for the fixture header at `epoch=7`, all-zero nonce.
     const SIGNAL_AAD_ANCHOR: &str = concat!(
         "{\"aead_profile\":\"MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519\",",
@@ -416,7 +440,7 @@ mod tests {
     /// Every wire-breaking parameter of the `ak.signal-v1` key derivation,
     /// checked against the registry rows rather than against this module.
     ///
-    /// `exporter-label-registry.json` fixes the label and sender-device
+    /// `exporter-label-registry.json` fixes the label and verified-sender
     /// `context_fields`; `mls-ciphersuite-registry.json`'s only active row is
     /// AES-128-GCM, which fixes `AEAD.Nk` = 16 and `N_AEAD` = 12 — and 12 is
     /// what `signal-envelope.schema.json` independently pins by requiring a
@@ -429,7 +453,7 @@ mod tests {
             .find(|row| row.label == SIGNAL_KEY_LABEL)
             .unwrap();
         assert_eq!(descriptor.primitive, Some("ExpandWithLabel"));
-        assert_eq!(descriptor.context_fields, ["sender_device_id"]);
+        assert_eq!(descriptor.context_fields, ["sender_domain"]);
 
         let suite = ExporterAeadSuite::resolve(ARKRET_MLS_CIPHERSUITE_CANONICAL_ID).unwrap();
         assert_eq!(suite.key_len(), 16);
@@ -448,8 +472,8 @@ mod tests {
         let mut expected = 16u16.to_be_bytes().to_vec();
         expected.push(u8::try_from(full_label.len()).unwrap());
         expected.extend_from_slice(full_label.as_bytes());
-        let context = format!("{{\"sender_device_id\":\"{ALICE_DEVICE}\"}}");
-        expected.extend_from_slice(&(u16::try_from(context.len()).unwrap() | 0x4000).to_be_bytes());
+        let context = ALICE_DEVICE;
+        expected.push(u8::try_from(context.len()).unwrap());
         expected.extend_from_slice(context.as_bytes());
         assert_eq!(
             mls_kdf_label(suite.key_len(), SIGNAL_KEY_LABEL, context.as_bytes()).unwrap(),
@@ -472,17 +496,17 @@ mod tests {
             hex::decode(case["expected"]["history_secret_hex"].as_str().unwrap()).unwrap();
         let content_key_hex = case["expected"]["content_key_hex"].as_str().unwrap();
 
-        let alice_device = DeviceId::new(ALICE_DEVICE).unwrap();
-        let bob_device = DeviceId::new(BOB_DEVICE).unwrap();
         let signal_key =
-            derive_signal_key_from_history_secret(&history_secret, &alice_device, 16).unwrap();
+            derive_signal_key_from_history_secret(&history_secret, ALICE_DEVICE.as_bytes(), 16)
+                .unwrap();
         let other_sender_key =
-            derive_signal_key_from_history_secret(&history_secret, &bob_device, 16).unwrap();
+            derive_signal_key_from_history_secret(&history_secret, BOB_DEVICE.as_bytes(), 16)
+                .unwrap();
         assert_eq!(signal_key.len(), 16);
         assert_ne!(
             signal_key.as_slice(),
             other_sender_key.as_slice(),
-            "valid sender devices MUST use distinct Signal AEAD keys even if their nonce prefixes collide"
+            "valid sender domains MUST use distinct Signal AEAD keys even under the same counter nonce"
         );
         assert!(
             !content_key_hex.starts_with(&hex(&signal_key)),
@@ -534,7 +558,12 @@ mod tests {
         let suite = ExporterAeadSuite::resolve(ARKRET_MLS_CIPHERSUITE_CANONICAL_ID).unwrap();
 
         let nonce = alice_group
-            .signal_nonce(&alice_parts.binding(epoch), suite, 0x0102_0304_0506_0708)
+            .signal_nonce(
+                &alice_parts.binding(epoch),
+                ALICE_DEVICE.as_bytes(),
+                suite,
+                0x0102_0304_0506_0708,
+            )
             .unwrap();
         assert_eq!(nonce.len(), 12);
         assert_eq!(&nonce[..4], &[0; 4]);
@@ -595,11 +624,10 @@ mod tests {
         assert!(error.contains("aead_nonce_counter_replay"), "{error}");
     }
 
-    /// A ciphertext whose nonce prefix is not the declared sender's MUST fail
-    /// closed, and a sender MUST NOT be able to mint a nonce inside another
-    /// device's domain in the first place.
+    /// A sender cannot seal under another active identity, and a receiver
+    /// derives the key from the sender identity named by the envelope.
     #[test]
-    fn sender_nonce_domain_is_enforced_in_both_directions() {
+    fn sender_identity_is_enforced_in_both_directions() {
         let (mut alice_group, bob_group) = alice_and_bob();
         let epoch = alice_group.epoch();
         let alice_parts = BindingParts::new("ak:did_core:webvh:z6mkfixturealice", ALICE_DEVICE);
@@ -610,27 +638,25 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(
-            error.contains("aead_nonce_sender_domain_collision"),
+            error.contains("signal sender does not match this MLS identity"),
             "{error}"
         );
 
         let seal = alice_group
             .seal_signal_payload(&alice_parts.binding(epoch), TYPING)
             .unwrap();
-        // Re-declare Alice's ciphertext as Bob's: the prefix no longer matches
-        // the sender the AAD names.
-        let error = bob_group
-            .open_signal_payload(
-                &bob_parts.binding(epoch),
-                &seal.encrypted_payload.nonce,
-                &seal.encrypted_payload.ciphertext,
-                &mut AeadNonceReplayTracker::new(),
-            )
-            .unwrap_err()
-            .to_string();
+        // Re-declare Alice's ciphertext as Bob's: both the KDF context and AAD
+        // change, so the ciphertext cannot authenticate.
         assert!(
-            error.contains("aead_nonce_sender_domain_collision"),
-            "{error}"
+            bob_group
+                .open_signal_payload(
+                    &bob_parts.binding(epoch),
+                    &seal.encrypted_payload.nonce,
+                    &seal.encrypted_payload.ciphertext,
+                    &mut AeadNonceReplayTracker::new(),
+                )
+                .is_err(),
+            "ciphertext accepted under a different verified sender domain"
         );
     }
 

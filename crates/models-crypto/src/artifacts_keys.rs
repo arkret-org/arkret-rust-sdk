@@ -247,20 +247,6 @@ impl KeyBackupPlaintext {
         }
         Ok(())
     }
-
-    /// Enforce the fixed-width packing rule of every history secret range once
-    /// `KDF.Nh` has been resolved from the exact winning group transition.
-    pub fn validate_history_packing(&self, kdf_nh: usize) -> Result<()> {
-        let KeyBackupKeybag::MlsHistory { items, .. } = &self.keybag else {
-            return Err(Error::Protocol(
-                "history secret packing applies only to mls_history keybags".to_owned(),
-            ));
-        };
-        for item in items {
-            item.validate_packed_length(kdf_nh)?;
-        }
-        Ok(())
-    }
 }
 
 /// Counterpart for

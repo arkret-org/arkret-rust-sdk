@@ -29,7 +29,7 @@ these gates pass:
   Codecov without a hard threshold.
 - README and crate docs clearly state the local security-review packet and
   current interoperability evidence status.
-- Local encryption helpers use authenticated encryption and no obsolete placeholder encryption remains.
+- Local encryption helpers use authenticated encryption and no insecure placeholder encryption remains.
 - Mobile bindings stay unpublished until the runtime-facing FFI and callback
   contracts have real downstream consumers and release commitments.
 - Basic interoperability smoke is recorded under `docs/` for `soland`,

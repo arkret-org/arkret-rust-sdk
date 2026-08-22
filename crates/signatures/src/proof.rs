@@ -9,9 +9,6 @@
 //! Arkret Event proofs are signed through [`crate::sign_event`], which constructs
 //! the mandatory domain-separated proof binding object.
 //!
-//! Migration is staged across T5.2 / T5.3; downstream services replace
-//! their bespoke implementations with calls into this module.
-//!
 //! ```
 //! use arkret_signatures::proof::{EventProofBuilder, EventSigner};
 //! use serde_json::json;
@@ -45,8 +42,8 @@ use crate::{Error, Result};
 ///
 /// Each variant declares the on-the-wire encoding so a verifier can
 /// reject keys it does not understand. Production deployments today
-/// only need `Ed25519Raw`; the multibase / JWK variants are accepted
-/// for forward-compatibility with DID document resolution.
+/// only need `Ed25519Raw`; the multibase / JWK variants support DID document
+/// resolution.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "encoding", rename_all = "snake_case")]
 pub enum PublicKeyMaterial {

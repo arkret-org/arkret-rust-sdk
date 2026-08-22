@@ -35,7 +35,6 @@ use crate::governance::agent_artifacts::{DeviceMetadata, GrantSnapshot, PublicKe
 use crate::governance::agent_membership_cascade::{
     AgentMembershipCascadeOutcome, AgentMembershipCascadeSubmission,
 };
-use crate::governance::authorization::GrantList;
 use crate::history_key::{PeerHistoryTraversalAccess, SelfHistoryTraversalAccess};
 use crate::objects::blob::BlobUploadMetadata;
 use crate::objects::mimi::{
@@ -43,8 +42,6 @@ use crate::objects::mimi::{
     MimiGroupInfo, MimiIdentifier, MimiIdentifierMatch, MimiKeyPackage, MimiNotification,
     MimiNotificationRouting, MimiOhttpContext, MimiOpaquePayload, MimiRoomUpdate,
 };
-use crate::session_grant_bodies::SessionGrantOutcome;
-use crate::sync_frames::client_sync::SyncRequestBody;
 use crate::sync_frames::snapshot::SnapshotBootstrap;
 use crate::sync_frames::stream_trace::{StreamTraceFrame, StreamTraceFrameKind};
 
@@ -338,25 +335,6 @@ pub struct EventsSubmitRejectedRow {
     pub missing_seal_refs: Vec<SealId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub missing_event_digests: Vec<Hash>,
-}
-
-impl EventsSubmitRejectedRow {
-    pub fn validate_dependency_details(&self) -> Result<()> {
-        let has_missing = !self.missing_event_ids.is_empty()
-            || !self.missing_event_digests.is_empty()
-            || !self.missing_seal_refs.is_empty();
-        if (self.reason_code == ReasonCode::DependencyMissing) != has_missing {
-            return Err(Error::Protocol(
-                "dependency_missing requires typed missing details and other reasons forbid them"
-                    .to_owned(),
-            ));
-        }
-        validate_typed_missing_order(
-            &self.missing_event_ids,
-            &self.missing_event_digests,
-            &self.missing_seal_refs,
-        )
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1173,11 +1151,6 @@ impl EventsSubscribeFrame {
     }
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct EventsSubscribeFrameOutcome(pub EventsSubscribeFrame);
-
 impl StreamTraceFrame for EventsSubscribeFrame {
     fn trace_kind(&self) -> StreamTraceFrameKind {
         match self.kind {
@@ -1196,29 +1169,6 @@ impl StreamTraceFrame for EventsSubscribeFrame {
         self.cursor.as_ref().map(|cursor| cursor.as_str())
     }
 }
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct BlobHeadOutcome {
-    #[serde(skip_serializing_if = "Option::is_none", rename = "Content-Length")]
-    pub content_length: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "Digest")]
-    pub digest: Option<Hash>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "Cache-Control")]
-    pub cache_control: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "Content-Type")]
-    pub content_type: Option<String>,
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        rename = "Content-Disposition"
-    )]
-    pub content_disposition: Option<String>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct BlobGetOutcome(pub Vec<u8>);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -2151,17 +2101,6 @@ impl ContactListRow {
     }
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ContactListQuery {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state: Option<ContactState>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cursor: Option<arkret_wire::cursor::Cursor>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub limit: Option<u32>,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -2171,23 +2110,6 @@ pub struct ContactList {
     pub next_cursor: Option<arkret_wire::cursor::Cursor>,
     pub has_more: bool,
 }
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AccountOidcCallbackOutcome {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub principal_id: Option<DidCoreId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub recovery_session_state: Option<SessionGrantOutcome>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub redirect_url: Option<String>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-pub struct AccountSubscribeRequestBody(pub SyncRequestBody);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -2928,11 +2850,6 @@ pub struct DevicePairingStatusOutcome {
 #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
 pub struct BlobUploadRequestBody(pub BlobUploadMetadata);
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct GrantListOutcome(pub GrantList);
-
 #[cfg(test)]
 mod federation_dependency_tests {
     use super::*;
@@ -2967,25 +2884,6 @@ mod federation_dependency_tests {
         let mut unsorted = valid;
         unsorted.event_ids.reverse();
         assert!(unsorted.validate().is_err());
-    }
-
-    #[test]
-    fn dependency_missing_details_are_closed_and_non_empty() {
-        let mut rejected = EventsSubmitRejectedRow {
-            index: None,
-            id: event_id("1").to_string(),
-            reason_code: ReasonCode::DependencyMissing,
-            detail: None,
-            missing_event_ids: vec![event_id("2")],
-            missing_seal_refs: Vec::new(),
-            missing_event_digests: Vec::new(),
-        };
-        assert!(rejected.validate_dependency_details().is_ok());
-        rejected.missing_event_ids.clear();
-        assert!(rejected.validate_dependency_details().is_err());
-        rejected.reason_code = ReasonCode::UnknownField;
-        rejected.missing_event_ids.push(event_id("2"));
-        assert!(rejected.validate_dependency_details().is_err());
     }
 }
 
@@ -3373,9 +3271,8 @@ mod event_delivery_status_tests {
 mod events_submit_status_tests {
     use super::*;
 
-    /// `as_str` is a second spelling of the serde projection, so pin them to
-    /// each other: a renamed variant must not leave the diagnostic token
-    /// pointing at the old wire word.
+    /// `as_str` is a second spelling of the serde projection, so pin both
+    /// representations to the same diagnostic token.
     #[test]
     fn as_str_matches_the_serde_wire_token() {
         for status in [

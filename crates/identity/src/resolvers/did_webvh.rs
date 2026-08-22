@@ -544,19 +544,6 @@ pub fn parse_did_webvh_witness_policy(
     }))
 }
 
-/// Build the canonical did:webvh v1.0 `parameters.witness` value.
-pub fn did_webvh_witness_parameter(
-    threshold: usize,
-    witnesses: &[String],
-) -> std::result::Result<Value, DidWebvhWitnessValidationError> {
-    DidWebvhWitnessPolicy {
-        threshold,
-        witnesses: witnesses.to_vec(),
-    }
-    .parameter_value()
-    .map_err(|error| DidWebvhWitnessValidationError::ParameterMalformed(error.to_string()))
-}
-
 /// Verify one `did-witness.json` record against an already parsed policy.
 pub fn verify_did_webvh_witness_record(
     version_id: &str,

@@ -6,9 +6,7 @@
 //! (`AgentLifecycleState`, `AgentRuntimeState`, `AgentPairingMode`) that
 //! remain core-resident.
 
-use arkret_wire::{
-    Base64UrlString, DidCoreId, DidUrl, EventId, GrantId, Hash, NonEmptyString, RealmId,
-};
+use arkret_wire::{Base64UrlString, DidUrl, EventId, GrantId, Hash, NonEmptyString, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -54,16 +52,6 @@ pub struct AgentKeyAuthorizationState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/
-/// pending_member_reconciliation_item`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PendingMemberReconciliationItem {
-    pub agent_id: DidCoreId,
-    pub reason: NonEmptyString,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/public_key`.

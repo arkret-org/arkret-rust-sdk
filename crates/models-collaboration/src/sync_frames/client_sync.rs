@@ -388,33 +388,6 @@ impl SyncTokenBinding {
             expires_at,
         })
     }
-
-    /// Validate that the token is being resumed by the same principal/device/service/filter.
-    pub fn validate_context(
-        &self,
-        principal_id: &DidCoreId,
-        device_id: &DeviceId,
-        service_id: &DidCoreId,
-        filter_digest: &str,
-        now: DateTime<Utc>,
-    ) -> Result<()> {
-        if self.expires_at <= now {
-            return Err(Error::Protocol("sync token has expired".to_owned()));
-        }
-        if &self.principal_id != principal_id
-            || &self.device_id != device_id
-            || &self.service_id != service_id
-            || self.filter_digest != filter_digest
-        {
-            return Err(Error::Protocol("sync token binding mismatch".to_owned()));
-        }
-        Ok(())
-    }
-
-    /// Whether the token has expired at `now`.
-    pub fn is_expired_at(&self, now: DateTime<Utc>) -> bool {
-        self.expires_at <= now
-    }
 }
 
 /// Whether a request starts from scratch or resumes an existing token.
@@ -537,30 +510,6 @@ impl LimitedTimelineState {
             gap,
         }
     }
-
-    /// Convert this limited section into a backfill request, if one is needed.
-    pub fn backfill_request(&self, limit: u32) -> Option<BackfillRequestBody> {
-        let gap = self.gap.as_ref()?;
-        Some(BackfillRequestBody {
-            realm_id: self.realm_id.clone(),
-            from: gap
-                .prev_cursor
-                .as_ref()
-                .map(|cursor| BackfillFrom::Cursor {
-                    cursor: cursor.clone(),
-                })
-                .or_else(|| {
-                    gap.prev_event_id
-                        .as_ref()
-                        .map(|event_id| BackfillFrom::EventId {
-                            event_id: event_id.clone(),
-                        })
-                })
-                .unwrap_or(BackfillFrom::Beginning),
-            direction: BackfillDirection::Backward,
-            limit: Some(limit),
-        })
-    }
 }
 
 /// `X-Arkret-Wait-For` frontier wait request.
@@ -571,15 +520,6 @@ pub struct WaitForFrontier {
     pub positions: Vec<SyncStreamPosition>,
     /// Maximum wait time in milliseconds.
     pub timeout_ms: u64,
-}
-
-impl WaitForFrontier {
-    /// Return true when the current positions satisfy every requested frontier.
-    pub fn is_satisfied_by(&self, current: &[SyncStreamPosition]) -> bool {
-        self.positions
-            .iter()
-            .all(|required| current.iter().any(|position| position.covers(required)))
-    }
 }
 
 /// To-device delivery acknowledgement state.
@@ -682,20 +622,6 @@ mod tests {
     }
 
     #[test]
-    fn sync_request_rejects_the_retired_wait_for_member() {
-        let accepted: SyncRequestBody =
-            serde_json::from_value(serde_json::json!({"after": "ak:cursor:abc"})).unwrap();
-        assert_eq!(accepted.after.as_deref(), Some("ak:cursor:abc"));
-
-        let error = serde_json::from_value::<SyncRequestBody>(serde_json::json!({
-            "after": "ak:cursor:abc",
-            "wait_for": {"target": {"event_id": "ak:event:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"}}
-        }))
-        .expect_err("a body-level wait_for must be rejected, not silently dropped");
-        assert!(error.to_string().contains("wait_for"), "{error}");
-    }
-
-    #[test]
     fn backfill_request_serializes_correctly() {
         let request = BackfillRequestBody {
             realm_id: RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs")
@@ -730,51 +656,6 @@ mod tests {
         assert_eq!(incremental.mode, SyncMode::Incremental);
         assert!(!incremental.expects_full_state);
         assert!(incremental.requires_token_binding);
-    }
-
-    #[test]
-    fn token_binding_checks_principal_device_service_filter_and_expiry() {
-        let principal = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap();
-        let device = DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap();
-        let service = DidCoreId::new("ak:did_core:webvh:z6mkfixturesync").unwrap();
-        let filter = SyncFilter {
-            realms: vec![
-                RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap(),
-            ],
-            timeline_limit: Some(20),
-            lazy_load_members: true,
-            include_redundant_members: false,
-            event_types: vec!["ak.message.create".to_owned()],
-            not_event_types: Vec::new(),
-            extra: BTreeMap::new(),
-        };
-        let filter_digest = sync_filter_digest(Some(&filter), None).unwrap();
-        let binding = SyncTokenBinding::for_request(
-            "token123".to_owned(),
-            principal.clone(),
-            device.clone(),
-            service.clone(),
-            Some(&filter),
-            None,
-            Vec::new(),
-            Utc::now() + chrono::Duration::minutes(5),
-        )
-        .unwrap();
-
-        binding
-            .validate_context(&principal, &device, &service, &filter_digest, Utc::now())
-            .unwrap();
-        assert!(
-            binding
-                .validate_context(
-                    &principal,
-                    &device,
-                    &service,
-                    "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-                    Utc::now(),
-                )
-                .is_err()
-        );
     }
 
     #[test]
@@ -903,66 +784,5 @@ mod tests {
 
         assert_eq!(keys[0].event_id, newer_hlc.event_id);
         assert_eq!(keys[1].event_id, deeper.event_id);
-    }
-
-    #[test]
-    fn wait_for_frontier_requires_covering_positions() {
-        let realm_id =
-            RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap();
-        let event_id =
-            EventId::new("ak:event:AXGvEEJkv6YPQvGdReHV-eLM-8ukvH7r9m8dCu3KWw36").unwrap();
-        let required = SyncStreamPosition {
-            realm_id: realm_id.clone(),
-            frontier: vec![event_id.clone()],
-            timeline_order: Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
-            state_digest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                .to_owned(),
-        };
-        let wait_for = WaitForFrontier {
-            positions: vec![required],
-            timeout_ms: 1500,
-        };
-        let current = SyncStreamPosition {
-            realm_id,
-            frontier: vec![event_id],
-            timeline_order: Hlc::new("01970e589d22-0000-a13f9c2e").unwrap(),
-            state_digest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                .to_owned(),
-        };
-
-        assert!(wait_for.is_satisfied_by(&[current]));
-    }
-
-    #[test]
-    fn limited_timeline_creates_backfill_gap_and_request() {
-        let realm_id =
-            RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap();
-        let event = test_support::raw_event(
-            "ak.message.create",
-            ScopeRef::Realm {
-                realm_id: realm_id.clone(),
-            },
-            actor("did:webvh:z6mkfixture:alice.example"),
-            actor("did:webvh:z6mkfixture:principal.example"),
-            1,
-            Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
-            serde_json::json!({"body":"hello"}),
-        )
-        .unwrap();
-        let timeline = Timeline {
-            events: vec![event],
-            limited: true,
-            prev_cursor: Some("backfill-token".to_owned()),
-            preview_only: None,
-            ordered_log_siblings: Vec::new(),
-            extra: BTreeMap::new(),
-        };
-
-        let state = LimitedTimelineState::from_timeline(realm_id, &timeline);
-        let request = state.backfill_request(25).unwrap();
-
-        assert!(state.gap.is_some());
-        assert!(matches!(request.from, BackfillFrom::Cursor { .. }));
-        assert_eq!(request.limit, Some(25));
     }
 }

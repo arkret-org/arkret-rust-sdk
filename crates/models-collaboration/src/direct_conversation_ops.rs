@@ -25,7 +25,6 @@ use crate::contact_operations::{ContactPeer, ContactRoundEvidenceBundle};
 use crate::events_payloads::RealmCreatePayload;
 use crate::events_payloads::event_wire::decode_payload_after_kind_validation;
 
-pub const DIRECT_CONVERSATION_FOUNDING_UNIT_KIND: &str = "direct_conversation_founding";
 pub const DIRECT_CONVERSATION_FOUNDING_UNIT_DOMAIN: &[u8] =
     b"ak.direct-conversation.founding-unit.v1\n";
 pub const DIRECT_CONVERSATION_FOUNDING_RECEIPT_DOMAIN: &[u8] =
@@ -617,14 +616,6 @@ impl DirectConversationClientLocalBlocker {
             Self::HistoryKeyUnavailable => "history_key_unavailable",
         }
     }
-
-    pub fn from_profile_value(value: &str) -> Option<Self> {
-        match value {
-            "personal_blocked" => Some(Self::PersonalBlocked),
-            "history_key_unavailable" => Some(Self::HistoryKeyUnavailable),
-            _ => None,
-        }
-    }
 }
 
 /// Closed tagged outcome of `ak.self.direct_conversation.read.resolve`.
@@ -694,12 +685,6 @@ impl DirectConversationResolveOutcome {
             | Self::Suspended { coordinates, .. } => Some(coordinates),
             _ => None,
         }
-    }
-
-    /// Whether the caller may author the founding unit for this pair.
-    #[must_use]
-    pub fn is_founder_creation_point(&self) -> bool {
-        matches!(self, Self::CreationRequired { .. })
     }
 
     /// Validate the exact current group-state Event reference and digest pair.
@@ -969,29 +954,5 @@ mod tests {
             .unwrap()
             .with_timezone(&Utc);
         assert!(receipt.validate_shape().is_err());
-    }
-
-    #[test]
-    fn client_local_blockers_match_profile_values_but_are_not_server_blockers() {
-        assert_eq!(
-            DirectConversationClientLocalBlocker::ALL
-                .map(DirectConversationClientLocalBlocker::as_str),
-            ["personal_blocked", "history_key_unavailable"]
-        );
-        for blocker in DirectConversationClientLocalBlocker::ALL {
-            assert_eq!(
-                DirectConversationClientLocalBlocker::from_profile_value(blocker.as_str()),
-                Some(blocker)
-            );
-            assert!(
-                serde_json::from_value::<DirectConversationSendBlocker>(json!(blocker.as_str()))
-                    .is_err(),
-                "holder-local blockers must not deserialize into a server DTO"
-            );
-        }
-        assert!(
-            DirectConversationClientLocalBlocker::from_profile_value("peer_presence_hidden")
-                .is_none()
-        );
     }
 }

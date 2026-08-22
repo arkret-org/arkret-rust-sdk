@@ -1345,10 +1345,6 @@ mod tests {
             value["message_id"],
             "ak:message:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
         );
-        // The retired alternative spellings are not members of the closed payload.
-        for retired in ["target_ref", "event_id", "target_event_id"] {
-            assert!(value.get(retired).is_none());
-        }
     }
 
     #[test]

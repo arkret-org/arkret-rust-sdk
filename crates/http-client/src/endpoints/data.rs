@@ -78,12 +78,6 @@ impl BlobResumableUploadOptions {
         self.chunk_bytes = chunk_bytes;
         self
     }
-
-    #[must_use]
-    pub fn max_chunk_retries(mut self, max_chunk_retries: usize) -> Self {
-        self.max_chunk_retries = max_chunk_retries;
-        self
-    }
 }
 
 pub fn blob_resumable_upload_base_url(description: &ServiceDescribe) -> Option<Url> {

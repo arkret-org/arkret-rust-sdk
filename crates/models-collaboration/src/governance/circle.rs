@@ -791,56 +791,6 @@ pub enum CircleScopeError {
 impl Circle {
     pub const SCHEMA: &'static str = SchemaId::CIRCLE_V1;
 
-    pub fn validate_protocol_shape(&self) -> Result<(), CircleScopeError> {
-        match self.encryption_profile {
-            EncryptionProfile::None
-                if self.content_scheme.is_none()
-                    && self.mls_group_id.is_none()
-                    && self.durability_policy.is_none() => {}
-            EncryptionProfile::MlsRfc9420 => {
-                let scheme =
-                    self.content_scheme
-                        .ok_or(CircleScopeError::InvalidMlsConfiguration(
-                            "MLS Circle requires content_scheme",
-                        ))?;
-                if let Some(circle_id) = &self.id {
-                    let group_id = self.mls_group_id.as_deref().ok_or(
-                        CircleScopeError::InvalidMlsConfiguration(
-                            "materialized MLS Circle requires mls_group_id",
-                        ),
-                    )?;
-                    let expected =
-                        arkret_wire::base64url::base64url_encode(circle_id.as_str().as_bytes());
-                    if group_id != expected {
-                        return Err(CircleScopeError::InvalidMlsConfiguration(
-                            "mls_group_id does not match canonical CircleId",
-                        ));
-                    }
-                } else if self.mls_group_id.is_some() {
-                    return Err(CircleScopeError::InvalidMlsConfiguration(
-                        "Circle create payload must omit reducer-derived mls_group_id",
-                    ));
-                }
-                match scheme {
-                    ContentScheme::MlsRfc9420
-                        if self.history_access == HistoryAccess::SinceJoin
-                            && self.durability_policy.is_none() => {}
-                    ContentScheme::MlsExporterAeadV1 if self.durability_policy.is_some() => {}
-                    _ => {
-                        return Err(CircleScopeError::InvalidMlsConfiguration(
-                            "content_scheme, history_access, and durability_policy mismatch",
-                        ));
-                    }
-                }
-            }
-            _ => {
-                return Err(CircleScopeError::InvalidMlsConfiguration(
-                    "Circle encryption_profile is unsupported",
-                ));
-            }
-        }
-        Ok(())
-    }
     /// Create a Circle struct with required defaults filled in.
     ///
     /// Reducer-derived fields (`mls_group_id`, `state_changed_at`,

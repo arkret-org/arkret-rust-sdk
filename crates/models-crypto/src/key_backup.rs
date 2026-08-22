@@ -70,12 +70,6 @@ impl TryFrom<&str> for BackupKind {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct KeyBackupPath {
-    pub backup_id: BackupId,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyBackupsListQuery {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub series_id: Option<BackupSeriesId>,
@@ -1170,13 +1164,6 @@ impl KeyBackup {
         Ok(arkret_canonical::canonical_json_bytes(&unsigned)?)
     }
 
-    /// Digest used by a successor envelope's `supersedes_digest`.
-    pub fn signature_independent_digest(&self) -> Result<String> {
-        Ok(arkret_canonical::sha256_digest(
-            self.signature_independent_payload_bytes()?,
-        ))
-    }
-
     /// Compute a predecessor digest from its exact wire shape after validating
     /// that it is a key-backup envelope.
     pub fn signature_independent_digest_from_wire(wire: &Value) -> Result<String> {
@@ -1782,13 +1769,6 @@ impl KeyBackupContentItem {
         match self {
             Self::SecretStorage(index) => Some(index),
             Self::HistorySecretRanges(_) => None,
-        }
-    }
-
-    pub const fn history_ranges(&self) -> Option<&HistorySecretRangeIndex> {
-        match self {
-            Self::SecretStorage(_) => None,
-            Self::HistorySecretRanges(index) => Some(index),
         }
     }
 }

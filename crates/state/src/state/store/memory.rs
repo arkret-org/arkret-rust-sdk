@@ -1271,7 +1271,6 @@ mod tests {
             absolute_due_at: received_at + chrono::Duration::seconds(90),
             authority_set_ref: authority_set_ref.clone(),
             signature: PayloadSignature {
-                extra: Default::default(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#k1")
                     .unwrap(),
                 payload_digest: hash(0),
@@ -1306,7 +1305,6 @@ mod tests {
             reason_code: arkret_wire::ControlProposalRejectReason::PolicyDenied,
             authority_set_ref: ack.authority_set_ref.clone(),
             proofs: vec![PayloadSignature {
-                extra: Default::default(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#k1")
                     .unwrap(),
                 payload_digest: hash(0),

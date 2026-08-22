@@ -85,10 +85,6 @@ impl HistoryAccess {
             Self::AllHistoryForCurrentMembers => "all_history_for_current_members",
         }
     }
-
-    pub fn admits_pre_join_history(&self) -> bool {
-        matches!(self, Self::AllHistoryForCurrentMembers)
-    }
 }
 
 impl FromStr for HistoryAccess {
@@ -163,12 +159,6 @@ impl ContentScheme {
             Self::MlsRfc9420 => "mls_rfc9420",
             Self::MlsExporterAeadV1 => "mls_exporter_aead_v1",
         }
-    }
-
-    /// Whether this scheme derives a per-epoch `history_secret` that can be
-    /// delivered to an endpoint that joined later.
-    pub const fn delivers_history_secret(self) -> bool {
-        matches!(self, Self::MlsExporterAeadV1)
     }
 }
 
@@ -1697,19 +1687,6 @@ impl ProducerEventProof {
         }
         Ok(())
     }
-
-    /// Validate that the proof's event_digest matches the canonical digest of a payload.
-    pub fn validate_payload_digest(&self, payload: &impl Serialize) -> Result<()> {
-        let computed = canonical::canonical_sha256(payload)?;
-        let expected = Hash::new(computed)?;
-        if self.event_digest != expected {
-            return Err(Error::Protocol(format!(
-                "proof event_digest '{}' does not match computed digest '{}'",
-                self.event_digest, expected
-            )));
-        }
-        Ok(())
-    }
 }
 
 fn is_compact_jws(value: &str) -> bool {
@@ -1723,64 +1700,6 @@ fn is_compact_jws(value: &str) -> bool {
         && value
             .bytes()
             .all(|byte| byte == b'.' || byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-}
-
-/// Server-verified fact-chain echo returned to clients after write admission.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct FactChainEcho {
-    pub echo_id: String,
-    pub subject_ref: String,
-    pub server_did: DidFullId,
-    pub operation_hash: Hash,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub commit_digest: Option<Hash>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub previous_echo_hash: Option<Hash>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub observed_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<ProducerEventProof>,
-}
-
-impl FactChainEcho {
-    /// Build the canonical payload signed by a server.
-    pub fn digest_payload(&self) -> Result<Value> {
-        let mut value = serde_json::to_value(self)?;
-        if let Value::Object(map) = &mut value {
-            map.remove("proofs");
-        }
-        Ok(value)
-    }
-
-    /// Compute the canonical digest for this echo.
-    pub fn echo_digest(&self) -> Result<String> {
-        Ok(canonical::canonical_sha256(&self.digest_payload()?)?)
-    }
-
-    /// Precheck server proof structure and echo digest binding.
-    ///
-    /// This does not verify detached JWS signatures because the wire layer
-    /// deliberately has no DID/public-key resolver. Callers that need a
-    /// trusted fact-chain echo must verify every proof with the signatures
-    /// crate after this structural precheck.
-    pub fn precheck_server_proofs(&self) -> Result<()> {
-        if self.proofs.is_empty() {
-            return Err(Error::Protocol(
-                "fact-chain echo has no server proof".to_owned(),
-            ));
-        }
-        let expected = Hash::new(self.echo_digest()?)?;
-        for proof in &self.proofs {
-            proof.validate_production()?;
-            if proof.event_digest != expected {
-                return Err(Error::Protocol(format!(
-                    "fact-chain proof event_digest '{}' does not match echo digest '{}'",
-                    proof.event_digest, expected
-                )));
-            }
-        }
-        Ok(())
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1801,7 +1720,6 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
-    use crate::test_support::DETACHED_JWS_FIXTURE;
 
     #[test]
     fn discoverability_tokens_are_closed_and_round_trip() {
@@ -1819,37 +1737,5 @@ mod tests {
             assert_eq!(serde_json::to_value(value).unwrap(), token);
         }
         assert!(Discoverability::from_str("private").is_err());
-    }
-
-    #[test]
-    fn fact_chain_echo_validates_server_proof_binding() {
-        let mut echo = FactChainEcho {
-            echo_id: "echo1".to_owned(),
-            subject_ref: "ak:event:AUqXOT9Lj7xeL7HUnhfi7zyJzW1Z59QIVz7exmpHN2N6".to_owned(),
-            server_did: DidFullId::new("did:webvh:z6mkfixture:server.example").unwrap(),
-            operation_hash: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
-            commit_digest: Some(Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap()),
-            previous_echo_hash: None,
-            observed_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
-            proofs: Vec::new(),
-        };
-        let digest = Hash::new(echo.echo_digest().unwrap()).unwrap();
-        echo.proofs.push(ProducerEventProof {
-            kind: "detached_jws".to_owned(),
-            verification_method: DidUrl::new("did:webvh:z6mkfixture:server.example#key-1").unwrap(),
-            event_digest: digest,
-            signer_resolution_evidence_ref: None,
-            signer_resolution_evidence_digest: None,
-            created_at: echo.observed_at,
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: DETACHED_JWS_FIXTURE.to_owned(),
-        });
-
-        echo.precheck_server_proofs().unwrap();
-
-        echo.proofs[0].event_digest = Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap();
-        assert!(echo.precheck_server_proofs().is_err());
     }
 }

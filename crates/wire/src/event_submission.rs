@@ -761,7 +761,10 @@ mod tests {
 
     fn federated_event() -> Event {
         let mut event = online_event();
-        let producer = event.proofs[0].as_producer().unwrap().clone();
+        let mut producer = event.proofs[0].as_producer().unwrap().clone();
+        producer.signer_resolution_evidence_ref = None;
+        producer.signer_resolution_evidence_digest = None;
+        event.proofs[0] = producer.clone().into();
         event.proofs.push(EventProof::PrincipalServerAdmission(
             PrincipalServerAdmissionProof {
                 kind: PrincipalServerAdmissionProofKind::PrincipalServerAdmission,

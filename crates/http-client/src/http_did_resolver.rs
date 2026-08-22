@@ -779,13 +779,9 @@ mod tests {
         );
     }
 
-    // Regression for the SDK-ASYNC-05 deadlock: the sync `resolve_did`
-    // called from async context on a multi-thread runtime with a single
-    // worker. The old shape (external thread + `Handle::block_on`) parked
-    // the only worker in `join()` while the helper waited on IO/timer
-    // drivers nobody was driving — permanent deadlock. `block_in_place`
-    // hands the worker core off, so this now completes (with an error for
-    // the unreachable host).
+    // The sync `resolve_did` may be called from async context on a multi-thread
+    // runtime with a single worker. `block_in_place` hands the worker core off,
+    // so the request completes without starving the runtime drivers.
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn sync_resolve_on_single_worker_multi_thread_runtime_does_not_deadlock() {
         let resolver = Arc::new(HttpDidResolver::new().unwrap());

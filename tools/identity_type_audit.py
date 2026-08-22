@@ -5,7 +5,7 @@ The protocol has three deliberately disjoint identity shapes: stable identity
 cores, bare full DIDs used for resolution, and DID URLs used for keys. This
 audit resolves public Rust struct fields to their schema owner (an explicit
 rustdoc pointer wins, otherwise the schema definition name is inferred) and
-rejects shape substitutions or legacy role-ID wrappers.
+rejects shape substitutions or unsupported role-ID wrappers.
 """
 
 from __future__ import annotations
@@ -185,10 +185,10 @@ def validate(fields: Iterable[RustField], resolver: SchemaResolver) -> list[str]
     for field in fields:
         actual = identity_type(field.rust_type)
         if actual in {"Did", "CoreId", "FullId"}:
-            errors.append(f"legacy identity alias {actual}: {field.display}")
+            errors.append(f"unsupported identity alias {actual}: {field.display}")
             continue
         if actual in {"PrincipalId", "ActorId", "ServiceId"}:
-            errors.append(f"legacy role-ID wrapper {actual}: {field.display}")
+            errors.append(f"unsupported role-ID wrapper {actual}: {field.display}")
             continue
         expected_kind, pointer = schema_kind_for_field(resolver, field)
         if expected_kind is None:

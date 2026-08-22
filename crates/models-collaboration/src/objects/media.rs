@@ -4,8 +4,6 @@ use arkret_wire::{CallId, DeviceId, DidCoreId, DidUrl, GrantId, Hash, RealmId, X
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::events_payloads::call::ParticipantBinding;
-
 /// Domain separator for the canonical ICE configuration signature transcript.
 pub const MEDIA_ICE_CONFIG_SIGNING_LABEL: &str = "ak.media.ice_config.v1";
 
@@ -244,10 +242,6 @@ pub struct CallMediaParticipantBinding {
     pub expires_at: DateTime<Utc>,
     pub issuer_kid: DidUrl,
     pub sig: String,
-}
-
-impl CallMediaParticipantBinding {
-    pub const SCHEME: &'static str = ParticipantBinding::SCHEMA;
 }
 
 /// Closed media backend registry used by both focus selection and token exchange.

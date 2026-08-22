@@ -398,8 +398,7 @@ impl PartialSignature {
 /// a canonical [`MultiSignature`] once the threshold `k` is met.
 ///
 /// This struct is scheme-agnostic: it does NOT know how to combine partials
-/// (BLS / FROST / Schnorr-musig all differ). Callers MUST supply a
-/// per-partial verifier via [`Self::add_partial_verified`] or call
+/// (BLS / FROST / Schnorr-musig all differ). Callers MUST call
 /// [`Self::add_partial`] only after externally verifying the partial. The
 /// final [`Self::aggregate`] step concatenates the per-partial signatures
 /// into a multi-shape `NotarySig::Multi` whose individual members the
@@ -474,18 +473,6 @@ impl ThresholdAggregator {
         // enforced by the type at construction time; no string re-check here.
         self.partials.push(partial);
         Ok(())
-    }
-
-    /// Append a partial after running `verify` on it. `verify` MUST return
-    /// `Ok(())` if the partial signature is individually valid against the
-    /// signer's published key for the canonical bytes the threshold body
-    /// commits to.
-    pub fn add_partial_verified<F>(&mut self, partial: PartialSignature, verify: F) -> Result<()>
-    where
-        F: FnOnce(&PartialSignature) -> Result<()>,
-    {
-        verify(&partial)?;
-        self.add_partial(partial)
     }
 
     /// Produce an aggregated [`MultiSignature`] from the collected partials.
@@ -628,7 +615,6 @@ mod tests {
                 payload_digest,
                 created_at: Utc.with_ymd_and_hms(2026, 5, 9, 0, 0, 0).unwrap(),
                 jws: "AAAA.BBBB.CCCC".to_owned(),
-                extra: Default::default(),
             })
         }
     }
@@ -781,19 +767,6 @@ mod tests {
             })
             .unwrap_err();
         assert!(format!("{err}").contains("bad partial"));
-    }
-
-    #[test]
-    fn threshold_aggregator_add_partial_verified_runs_check() {
-        let mut agg = ThresholdAggregator::new(1).unwrap();
-        let err = agg
-            .add_partial_verified(
-                PartialSignature::new(alice(), vec![1u8; 64], alice_kid()),
-                |_p| Err(Error::Protocol("scheme verifier said no".to_owned())),
-            )
-            .unwrap_err();
-        assert!(format!("{err}").contains("scheme verifier said no"));
-        assert_eq!(agg.collected(), 0);
     }
 
     #[test]

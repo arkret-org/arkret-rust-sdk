@@ -38,23 +38,6 @@ impl Client {
             .await
     }
 
-    /// Replay a caller-persisted canonical JSON body without serializing it
-    /// again. This is intended for immutable signed-envelope transport retry.
-    pub async fn post_canonical_bytes_with_options<R: DeserializeOwned>(
-        &self,
-        path: &str,
-        body: &[u8],
-        options: &ClientRequestOptions,
-    ) -> Result<R> {
-        let builder = self.apply_request_options(self.request(Method::POST, path)?, options)?;
-        self.send_json(
-            builder
-                .header(CONTENT_TYPE, "application/json")
-                .body(body.to_vec()),
-        )
-        .await
-    }
-
     /// Serialize a protocol-replay-safe operation exactly once, then reuse
     /// those canonical bytes for every transport attempt. Eligibility is kept
     /// crate-private and is limited to endpoints whose operation contracts

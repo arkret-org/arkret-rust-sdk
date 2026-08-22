@@ -14,13 +14,6 @@ use crate::service_description::ServiceDescribe;
 #[serde(transparent)]
 pub struct ServerDescribeOutcome(pub ServiceDescribe);
 
-/// Transparent wrapper over `ServiceDescribe` for
-/// `ak.find.directory.read.describe` (directory service) Salvo OpenAPI bindings.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct DirectoryDescribeOutcome(pub ServiceDescribe);
-
 /// Two-round RFC 9497 VOPRF request for
 /// `ak.find.directory.read.private_contact_discovery`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -109,21 +102,5 @@ mod private_contact_discovery_tests {
             request,
             DirectoryPrivateContactDiscoveryRequestBody::Blind { key_epoch: 14, .. }
         ));
-    }
-
-    #[test]
-    fn private_contact_request_rejects_legacy_requester_shape() {
-        let error = serde_json::from_value::<DirectoryPrivateContactDiscoveryRequestBody>(json!({
-            "profile": "ak.private_contact_discovery.v1",
-            "phase": "blind",
-            "batch_id": "ak:batch:01964137-0000-7000-8000-000000000777",
-            "ciphersuite": "OPRF-ristretto255-SHA512",
-            "key_epoch": 14,
-            "blinded_elements": ["dGVzdA"],
-            "requester": "did:web:alice.example"
-        }))
-        .expect_err("legacy requester must not remain on the PSI wire");
-
-        assert!(error.to_string().contains("unknown field"));
     }
 }

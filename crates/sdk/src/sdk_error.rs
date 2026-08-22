@@ -111,20 +111,6 @@ impl Error {
             .iter()
             .any(|marker| message.contains(marker))
     }
-
-    pub fn as_key_store_error(&self) -> Option<&arkret_keystore::KeyStoreError> {
-        match self {
-            Self::KeyStore(error) => Some(error),
-            _ => None,
-        }
-    }
-
-    pub fn is_key_store_not_found(&self) -> bool {
-        matches!(
-            self.as_key_store_error(),
-            Some(arkret_keystore::KeyStoreError::NotFound { .. })
-        )
-    }
 }
 
 impl From<arkret_keystore::KeyStoreError> for Error {

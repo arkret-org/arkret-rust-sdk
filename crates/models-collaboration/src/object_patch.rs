@@ -49,15 +49,6 @@ impl ObjectPatchPayload {
         Ok(payload)
     }
 
-    /// Build an object-patch payload using the schema's `object_ref`
-    /// alias.
-    pub fn for_object(object_ref: impl Into<String>, patch: Patch) -> Result<Self> {
-        let _ = (object_ref.into(), patch);
-        Err(Error::Protocol(
-            "object_patch_payload.object_ref is not canonical; use target_ref".to_owned(),
-        ))
-    }
-
     /// Attach an expected-state hash for CAS-style object updates.
     pub fn with_expected_state_digest(mut self, expected_state_digest: Hash) -> Self {
         self.expected_state_digest = Some(expected_state_digest);

@@ -209,12 +209,6 @@ impl HttpMessageSigner {
     }
 
     #[must_use]
-    pub fn with_validity(mut self, validity: Duration) -> Self {
-        self.validity = validity;
-        self
-    }
-
-    #[must_use]
     pub fn key_id(&self) -> &str {
         &self.key_id
     }
@@ -1137,12 +1131,11 @@ mod tests {
                 proof_target_basis: basis,
                 byte_limit: 1_048_576,
                 frontier_purpose: MlsGovernanceFrontierPurpose::GroupBinding,
-                base_group_state_ref: Some(EventId::new(
-                    "ak:event:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-                )
-                .unwrap()),
+                base_group_state_ref: Some(
+                    EventId::new("ak:event:AbnHJt4q4qY18zqvLiy3Emmqy7weTAuApx42RmRgPr2h").unwrap(),
+                ),
                 previous_epoch: 0,
-                next_epoch: 0,
+                next_epoch: 1,
                 binding_profile: MlsGovernanceBindingProfile::AkSecurityFrontierV1,
             };
 
@@ -1159,7 +1152,7 @@ mod tests {
             assert_eq!(parsed["effective_scope"]["kind"], "realm");
             assert_eq!(parsed["mls_group_id"], group_id);
             assert_eq!(parsed["previous_epoch"], 0);
-            assert_eq!(parsed["next_epoch"], 0);
+            assert_eq!(parsed["next_epoch"], 1);
             assert_eq!(parsed["binding_profile"], "ak.security_frontier.v1");
         }
 

@@ -5,8 +5,6 @@
 //! accepted by this Seal. Cumulative coverage is derived recursively from
 //! `predecessor_refs[]`.
 
-use std::collections::BTreeMap;
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -41,17 +39,13 @@ pub fn compute_seal_id(
 /// and was removed so the `$defs` cannot deserialize two different ways.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PayloadSignature {
     pub verification_method: DidUrl,
     pub payload_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub jws: String,
-    /// `seal.schema.json#/$defs/signature` declares `additionalProperties: true`;
-    /// unknown members are preserved so canonical re-serialization is lossless.
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub extra: BTreeMap<String, Value>,
 }
 
 /// Closed signature shape used only by a Seal.
@@ -501,7 +495,6 @@ mod tests {
             payload_digest: hash(0xaa),
             created_at: Utc.with_ymd_and_hms(2026, 6, 11, 0, 0, 0).unwrap(),
             jws: "AAAA.BBBB.CCCC".to_owned(),
-            extra: BTreeMap::new(),
         }
     }
 
@@ -645,15 +638,6 @@ mod tests {
         let mut widened = threshold;
         widened["future_member"] = json!(true);
         assert!(serde_json::from_value::<NotarySig>(widened).is_err());
-    }
-
-    #[test]
-    fn removed_coverage_scope_rejects_explicit_null() {
-        let mut value = serde_json::to_value(sample()).unwrap();
-        value["coverage_scope"] = Value::Null;
-
-        let error = serde_json::from_value::<Seal>(value).unwrap_err();
-        assert!(error.to_string().contains("map"));
     }
 
     #[test]

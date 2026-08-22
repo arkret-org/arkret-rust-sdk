@@ -22,8 +22,6 @@
 //! );
 //! ```
 
-use std::collections::BTreeMap;
-
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical;
 use arkret_wire::{
@@ -105,7 +103,6 @@ impl PayloadSigner for Ed25519PayloadSigner {
             payload_digest,
             created_at: Utc::now(),
             jws,
-            extra: BTreeMap::new(),
         })
     }
 }
@@ -297,7 +294,6 @@ mod tests {
                         payload_digest: sig.payload_digest.clone(),
                         created_at: a.sealed_at,
                         jws: sig.jws.clone(),
-                        extra: BTreeMap::new(),
                     },
                     &signer.verifying_key(),
                 )

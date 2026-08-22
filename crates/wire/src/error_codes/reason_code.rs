@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-23.1;
-//! sha256=81ab1fae1010227354496115d8279f8edc3bffea349f18d25c3dc92e0df0b743
-//! Entries: reason_codes=474
+//! Input: registry/error-code-registry.json; version=2026-08-23.3;
+//! sha256=e6803d3fe6c0ad3da3133cc3c4baaac76b066c85c428fbe6c85afa9a506bd9a2
+//! Entries: reason_codes=469
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -22,7 +22,6 @@ pub enum ReasonCode {
     ActorSignatureRevoked,
     AeadNonceCounterReplay,
     AeadNonceDerivationInvalid,
-    AeadNonceSenderDomainCollision,
     AgentDeactivated,
     AgentGrantConstraintMissing,
     AgentGrantExceedsRequestedScope,
@@ -277,10 +276,6 @@ pub enum ReasonCode {
     MorphAlreadyTerminal,
     MorphNotActive,
     MorphNotArchived,
-    MorphSchemaRefsEvolutionUnauthorized,
-    MorphSchemaRefsPreconditionMismatch,
-    MorphSchemaRefsTransformationUnsupported,
-    MorphSchemaVersionBindingMissing,
     NamingConventionViolation,
     NoStrandTrackMessageGrant,
     NotProvisioned,
@@ -508,8 +503,6 @@ impl ReasonCode {
     pub const ACTOR_SIGNATURE_REVOKED: &'static str = "actor_signature_revoked";
     pub const AEAD_NONCE_COUNTER_REPLAY: &'static str = "aead_nonce_counter_replay";
     pub const AEAD_NONCE_DERIVATION_INVALID: &'static str = "aead_nonce_derivation_invalid";
-    pub const AEAD_NONCE_SENDER_DOMAIN_COLLISION: &'static str =
-        "aead_nonce_sender_domain_collision";
     pub const AGENT_DEACTIVATED: &'static str = "agent_deactivated";
     pub const AGENT_GRANT_CONSTRAINT_MISSING: &'static str = "agent_grant_constraint_missing";
     pub const AGENT_GRANT_EXCEEDS_REQUESTED_SCOPE: &'static str =
@@ -829,14 +822,6 @@ impl ReasonCode {
     pub const MORPH_ALREADY_TERMINAL: &'static str = "morph_already_terminal";
     pub const MORPH_NOT_ACTIVE: &'static str = "morph_not_active";
     pub const MORPH_NOT_ARCHIVED: &'static str = "morph_not_archived";
-    pub const MORPH_SCHEMA_REFS_EVOLUTION_UNAUTHORIZED: &'static str =
-        "morph_schema_refs_evolution_unauthorized";
-    pub const MORPH_SCHEMA_REFS_PRECONDITION_MISMATCH: &'static str =
-        "morph_schema_refs_precondition_mismatch";
-    pub const MORPH_SCHEMA_REFS_TRANSFORMATION_UNSUPPORTED: &'static str =
-        "morph_schema_refs_transformation_unsupported";
-    pub const MORPH_SCHEMA_VERSION_BINDING_MISSING: &'static str =
-        "morph_schema_version_binding_missing";
     pub const NAMING_CONVENTION_VIOLATION: &'static str = "naming_convention_violation";
     pub const NO_STRAND_TRACK_MESSAGE_GRANT: &'static str = "no_strand_track_message_grant";
     pub const NOT_PROVISIONED: &'static str = "not_provisioned";
@@ -1078,7 +1063,6 @@ impl ReasonCode {
             Self::ActorSignatureRevoked => Self::ACTOR_SIGNATURE_REVOKED,
             Self::AeadNonceCounterReplay => Self::AEAD_NONCE_COUNTER_REPLAY,
             Self::AeadNonceDerivationInvalid => Self::AEAD_NONCE_DERIVATION_INVALID,
-            Self::AeadNonceSenderDomainCollision => Self::AEAD_NONCE_SENDER_DOMAIN_COLLISION,
             Self::AgentDeactivated => Self::AGENT_DEACTIVATED,
             Self::AgentGrantConstraintMissing => Self::AGENT_GRANT_CONSTRAINT_MISSING,
             Self::AgentGrantExceedsRequestedScope => Self::AGENT_GRANT_EXCEEDS_REQUESTED_SCOPE,
@@ -1397,16 +1381,6 @@ impl ReasonCode {
             Self::MorphAlreadyTerminal => Self::MORPH_ALREADY_TERMINAL,
             Self::MorphNotActive => Self::MORPH_NOT_ACTIVE,
             Self::MorphNotArchived => Self::MORPH_NOT_ARCHIVED,
-            Self::MorphSchemaRefsEvolutionUnauthorized => {
-                Self::MORPH_SCHEMA_REFS_EVOLUTION_UNAUTHORIZED
-            }
-            Self::MorphSchemaRefsPreconditionMismatch => {
-                Self::MORPH_SCHEMA_REFS_PRECONDITION_MISMATCH
-            }
-            Self::MorphSchemaRefsTransformationUnsupported => {
-                Self::MORPH_SCHEMA_REFS_TRANSFORMATION_UNSUPPORTED
-            }
-            Self::MorphSchemaVersionBindingMissing => Self::MORPH_SCHEMA_VERSION_BINDING_MISSING,
             Self::NamingConventionViolation => Self::NAMING_CONVENTION_VIOLATION,
             Self::NoStrandTrackMessageGrant => Self::NO_STRAND_TRACK_MESSAGE_GRANT,
             Self::NotProvisioned => Self::NOT_PROVISIONED,
@@ -1648,7 +1622,6 @@ impl ReasonCode {
             Self::ACTOR_SIGNATURE_REVOKED => Self::ActorSignatureRevoked,
             Self::AEAD_NONCE_COUNTER_REPLAY => Self::AeadNonceCounterReplay,
             Self::AEAD_NONCE_DERIVATION_INVALID => Self::AeadNonceDerivationInvalid,
-            Self::AEAD_NONCE_SENDER_DOMAIN_COLLISION => Self::AeadNonceSenderDomainCollision,
             Self::AGENT_DEACTIVATED => Self::AgentDeactivated,
             Self::AGENT_GRANT_CONSTRAINT_MISSING => Self::AgentGrantConstraintMissing,
             Self::AGENT_GRANT_EXCEEDS_REQUESTED_SCOPE => Self::AgentGrantExceedsRequestedScope,
@@ -1967,16 +1940,6 @@ impl ReasonCode {
             Self::MORPH_ALREADY_TERMINAL => Self::MorphAlreadyTerminal,
             Self::MORPH_NOT_ACTIVE => Self::MorphNotActive,
             Self::MORPH_NOT_ARCHIVED => Self::MorphNotArchived,
-            Self::MORPH_SCHEMA_REFS_EVOLUTION_UNAUTHORIZED => {
-                Self::MorphSchemaRefsEvolutionUnauthorized
-            }
-            Self::MORPH_SCHEMA_REFS_PRECONDITION_MISMATCH => {
-                Self::MorphSchemaRefsPreconditionMismatch
-            }
-            Self::MORPH_SCHEMA_REFS_TRANSFORMATION_UNSUPPORTED => {
-                Self::MorphSchemaRefsTransformationUnsupported
-            }
-            Self::MORPH_SCHEMA_VERSION_BINDING_MISSING => Self::MorphSchemaVersionBindingMissing,
             Self::NAMING_CONVENTION_VIOLATION => Self::NamingConventionViolation,
             Self::NO_STRAND_TRACK_MESSAGE_GRANT => Self::NoStrandTrackMessageGrant,
             Self::NOT_PROVISIONED => Self::NotProvisioned,
@@ -2333,11 +2296,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "An AEAD nonce on the wire does not match the deterministic derivation from MLS-Exporter context {key_ref, epoch, purpose} plus (device_id, monotonic counter) mandated by zh/crypto-media/media-and-blob.md §3.1. Producers MUST NOT emit naive random nonces under shared MLS application keys; receivers MUST reject such payloads to enforce the cross-implementation nonce-uniqueness contract.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::AEAD_NONCE_SENDER_DOMAIN_COLLISION,
-        applies_to: &["event_envelope", "encoding"],
-        description: "Two active senders share an AEAD nonce sender-domain prefix (device_id-derived), so their derived nonces can collide under the same (key_ref, epoch). The receiver MUST fail closed before AEAD decryption to prevent nonce reuse compromising the epoch key. See zh/crypto-media/media-and-blob.md §3.1.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::AGENT_DEACTIVATED,
         applies_to: &["auth_decision", "service_call", "event_envelope"],
         description: "A request targeted an Agent principal whose current `ak.component.agent.status.v1` cell is `deactivated` (terminal). The endpoint MUST fail closed and no resume path exists. The accepted parent lifecycle witness is sufficient to make all subordinate authorization ineffective; asynchronous cleanup need not synthesize key/grant revoke Events and cannot restore authority. Callers MUST NOT treat this as transient. See zh/identity/key-management.md §3.6 §4.11.",
@@ -2650,7 +2608,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CAPABILITY_REGISTRY_BASIS_UNAVAILABLE,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "An aggregate capability grant pins a capability-action registry digest whose canonical snapshot is unavailable or whose JCS digest does not match. Receiver MUST fail closed and MUST NOT expand the grant against the current registry.",
+        description: "An aggregate capability grant pins a capability-action registry digest that does not match the current embedded registry's JCS digest. Receiver MUST fail closed.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CARDINALITY_VIOLATION,
@@ -3614,26 +3572,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::MORPH_NOT_ARCHIVED,
         applies_to: &["event_envelope", "auth_decision"],
         description: "`ak.morph.restore` rejected because the target Morph is not in `archived` state.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::MORPH_SCHEMA_REFS_EVOLUTION_UNAUTHORIZED,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "ak.morph.update attempted to modify schema_refs[] without going through the Realm's declared schema-evolution policy (high-tier capability such as ak.morph.schema_migrate, or equivalent) and an explicit audit-grade authorization_ref. See zh/models/morph.md §4.1 S2.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::MORPH_SCHEMA_REFS_PRECONDITION_MISMATCH,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "Sub-reason for failed_precondition when a `ak.morph.schema_migrate` / `ak.morph.update` declares `from_schema_refs[]` (or the writer's expected current `schema_refs[]`) that is not set-equal to the Morph's actual current state — an optimistic-concurrency (CAS) miss distinct from the other morph_schema_* authorization/transformation failures. See zh/models/morph.md §4.1.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::MORPH_SCHEMA_REFS_TRANSFORMATION_UNSUPPORTED,
-        applies_to: &["event_envelope"],
-        description: "ak.morph.update attempted a non-additive schema_refs[] transformation (breaking or transformation-class change). Such transformations MUST be expressed as a ak.morph.schema_migrate event and require the Realm to declare the ak.profile.morph.schema_migration_transformations.v1 opt-in profile. See zh/models/morph.md §4.1 S3.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::MORPH_SCHEMA_VERSION_BINDING_MISSING,
-        applies_to: &["event_envelope"],
-        description: "A reducer-input event targeting an evolvable-schema object (typically a Morph) did not include the active schema profile id(s) in requirements.schema[]. Reader cannot resolve which schema version to validate the event against. See zh/models/morph.md §4.1 S1 and zh/models/event-and-patch.md §2.7.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::NAMING_CONVENTION_VIOLATION,

@@ -48,22 +48,6 @@ pub enum ClientStepAttestationArtifact {
     SecurityRotationLocalCommit(SecurityRotationLocalCommit),
 }
 
-impl ClientStepAttestationArtifact {
-    pub fn validate_for_step(&self, step: SecurityTransactionStep) -> Result<()> {
-        match (step, self) {
-            (SecurityTransactionStep::IssueTerminalReceipt, Self::RecoveryReceipt(receipt)) => {
-                receipt.validate()
-            }
-            (SecurityTransactionStep::LocalCommit, Self::SecurityRotationLocalCommit(commit)) => {
-                commit.validate()
-            }
-            _ => Err(Error::Protocol(
-                "client step and typed attestation artifact disagree".to_owned(),
-            )),
-        }
-    }
-}
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -85,6 +69,8 @@ impl SecurityTransactionContinueRequest {
         )
     }
 }
+
+pub type TypedSecurityTransactionContinueRequest = SecurityTransactionContinueRequest;
 
 #[cfg(test)]
 mod tests {

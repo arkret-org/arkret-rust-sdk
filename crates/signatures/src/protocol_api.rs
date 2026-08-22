@@ -133,8 +133,6 @@ pub use crate::device_authorization::{
 /// so this constant is the single place to flip an entry into
 /// [`PRODUCTION_ALGORITHMS`] once implemented.
 pub const FUTURE_ALGORITHMS: &[&str] = &["ES256", "ML-DSA-65"];
-pub const HTTP_MESSAGE_SIGNATURE_PROFILE: &str =
-    arkret_wire::DomainSeparationId::HTTP_MESSAGE_SIGNATURE_V1;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DetachedSignatureBinding {
@@ -192,18 +190,6 @@ pub struct DetachedSignature {
 }
 
 impl DetachedSignature {
-    pub fn from_proof(proof: ProducerEventProof) -> Self {
-        Self {
-            kind: proof.kind,
-            verification_method: proof.verification_method,
-            payload_digest: proof.event_digest,
-            created_at: proof.created_at,
-            domain: proof.domain,
-            audience: proof.audience,
-            jws: proof.jws,
-        }
-    }
-
     pub fn into_proof(self) -> ProducerEventProof {
         ProducerEventProof {
             kind: self.kind,
@@ -225,10 +211,6 @@ impl DetachedSignature {
             .into_proof()
             .validate_binding(&binding.proof_binding_payload())?)
     }
-}
-
-pub trait DetachedSigner {
-    fn sign_detached(&self, binding: &DetachedSignatureBinding) -> Result<DetachedSignature>;
 }
 
 pub trait DetachedVerifier {
@@ -406,10 +388,6 @@ pub struct SignatureVerification {
 
 pub fn canonical_payload_digest<T: Serialize>(payload: &T) -> Result<Hash> {
     Hash::new(canonical::canonical_sha256(payload)?).map_err(Into::into)
-}
-
-pub fn validate_production_proof(proof: &ProducerEventProof) -> Result<()> {
-    Ok(proof.validate_production()?)
 }
 
 /// Wire-form HTTP Message Signature container.

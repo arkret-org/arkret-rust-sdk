@@ -88,22 +88,6 @@ fn event_draft_kind_registry_accepts_only_canonical_kinds() {
 }
 
 #[test]
-fn event_draft_kind_registry_rejects_removed_strand_alias_kinds() {
-    let registry = EventDraftKindRegistry::default();
-    for kind in [
-        "ak.subject.create",
-        "ak.subject.update",
-        "ak.subject.archive",
-        "ak.subject.restore",
-        "ak.subject.link_surface",
-        "ak.subject.unlink_surface",
-        "ak.subject.set_primary_surface",
-    ] {
-        assert!(registry.canonicalize(kind).is_err(), "removed kind: {kind}");
-    }
-}
-
-#[test]
 fn event_draft_kind_registry_validates_kind_and_payload_container() {
     let registry = EventDraftKindRegistry::default();
     let envelope: OperationEnvelope = serde_json::from_value(json!({

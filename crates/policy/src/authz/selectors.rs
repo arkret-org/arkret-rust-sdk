@@ -1308,7 +1308,7 @@ fn validate_spec_selector_object(object: &serde_json::Map<String, Value>) -> Res
     }
     if object.contains_key("schema_id") {
         return Err(Error::Protocol(
-            "resource selector forbids legacy 'schema_id'; use 'schema_ref'".to_owned(),
+            "resource selector forbids 'schema_id'; use 'schema_ref'".to_owned(),
         ));
     }
     let unknown_fields = object
@@ -1594,7 +1594,7 @@ mod spec_selector_tests {
             }),
         ] {
             let err = ResourceSelector::from_spec_value(&spec).unwrap_err();
-            assert!(format!("{err}").contains("forbids legacy 'schema_id'"));
+            assert!(format!("{err}").contains("forbids 'schema_id'"));
         }
     }
 

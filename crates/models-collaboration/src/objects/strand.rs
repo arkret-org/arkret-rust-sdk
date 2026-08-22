@@ -319,19 +319,6 @@ impl Strand {
         strand
     }
 
-    /// Activates a profile subtree: adds `schema_id` to `schema_refs` while the
-    /// caller writes the matching `metadata.fields` namespace. The two MUST be
-    /// added and removed together; a lone ref is `calendar_activation_mismatch`.
-    pub fn with_schema_ref(mut self, schema_id: impl Into<String>) -> Self {
-        let schema_id = schema_id.into();
-        let refs = self.schema_refs.get_or_insert_with(Vec::new);
-        if !refs.contains(&schema_id) {
-            refs.push(schema_id);
-            refs.sort();
-        }
-        self
-    }
-
     pub fn has_schema_ref(&self, schema_id: &str) -> bool {
         self.schema_refs
             .as_ref()

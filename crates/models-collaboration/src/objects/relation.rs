@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub const RELATION_KIND_CONTAINS: &str = "contains";
-pub const RELATION_KIND_BELONGS_TO: &str = "belongs_to";
 pub const RELATION_KIND_WATCHES: &str = "watches";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -188,15 +187,6 @@ pub fn validate_relation_profile_cardinality_consistency(
     }
 }
 
-/// Convenience: `(from, relation_kind, to)` triple identifying a
-/// candidate Relation row. Used by [`enforce_relation_cardinality`].
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct RelationEdgeRef<'a> {
-    pub from: &'a str,
-    pub relation_kind: &'a str,
-    pub to: &'a str,
-}
-
 pub fn relation_kind_is_structural(relation_kind: &str) -> bool {
     RelationKind::from_wire(relation_kind)
         .descriptor()
@@ -251,74 +241,6 @@ where
     } else {
         Ok(())
     }
-}
-
-/// Enforce the cardinality declared by the matching `RelationProfile`.
-///
-/// `existing` is the set of currently-active edges with the same
-/// `relation_kind`. The function returns `Err(Error::Protocol("relation_cardinality_violation"))`
-/// when the candidate edge would breach the cardinality rule.
-///
-/// Cardinality rules:
-/// - `OneToOne` — a Space MAY contain at most one edge per `from` and per `to` for the given
-///   `relation_kind`.
-/// - `OneToMany` — many `to` per `from` are fine, but each `to` MUST have at most one `from`.
-/// - `ManyToOne` — many `from` per `to` are fine, but each `from` MUST have at most one `to`.
-/// - `ManyToMany` — always permitted.
-///
-/// Explicit `max_to_per_from` and `max_from_per_to` bounds further tighten
-/// these base rules. Callers must resolve `relation_scope` before selecting
-/// the `existing` slice.
-pub fn enforce_relation_cardinality(
-    profile: &RelationProfile,
-    candidate: RelationEdgeRef<'_>,
-    existing: &[RelationEdgeRef<'_>],
-) -> Result<()> {
-    if candidate.relation_kind != profile.relation_kind {
-        return Ok(());
-    }
-    if let Err(reason) = profile.validate_cardinality_consistency() {
-        return Err(Error::Protocol(reason.as_str().to_owned()));
-    }
-
-    let cardinality_max_to_per_from = match profile.cardinality {
-        RelationCardinality::OneToOne | RelationCardinality::ManyToOne => Some(1),
-        RelationCardinality::OneToMany | RelationCardinality::ManyToMany => None,
-    };
-    let cardinality_max_from_per_to = match profile.cardinality {
-        RelationCardinality::OneToOne | RelationCardinality::OneToMany => Some(1),
-        RelationCardinality::ManyToOne | RelationCardinality::ManyToMany => None,
-    };
-    let max_to_per_from = profile.max_to_per_from.or(cardinality_max_to_per_from);
-    let max_from_per_to = profile.max_from_per_to.or(cardinality_max_from_per_to);
-
-    if max_to_per_from.is_some_and(|limit| {
-        existing
-            .iter()
-            .filter(|edge| {
-                edge.relation_kind == candidate.relation_kind && edge.from == candidate.from
-            })
-            .count() as u64
-            >= limit
-    }) {
-        return Err(Error::Protocol(format!(
-            "relation_cardinality_violation: '{}' reached max_to_per_from for '{}'",
-            candidate.relation_kind, candidate.from
-        )));
-    }
-    if max_from_per_to.is_some_and(|limit| {
-        existing
-            .iter()
-            .filter(|edge| edge.relation_kind == candidate.relation_kind && edge.to == candidate.to)
-            .count() as u64
-            >= limit
-    }) {
-        return Err(Error::Protocol(format!(
-            "relation_cardinality_violation: '{}' reached max_from_per_to for '{}'",
-            candidate.relation_kind, candidate.to
-        )));
-    }
-    Ok(())
 }
 
 impl Relation {
@@ -483,40 +405,6 @@ mod tests {
     }
 
     #[test]
-    fn relation_cardinality_enforces_many_to_one_and_explicit_limits() {
-        let existing = [RelationEdgeRef {
-            from: "ak:strand:a",
-            relation_kind: "assigned_to",
-            to: "did:example:alice",
-        }];
-        let same_source = RelationEdgeRef {
-            from: "ak:strand:a",
-            relation_kind: "assigned_to",
-            to: "did:example:bob",
-        };
-        let different_source = RelationEdgeRef {
-            from: "ak:strand:b",
-            relation_kind: "assigned_to",
-            to: "did:example:alice",
-        };
-
-        let many_to_one = profile(RelationCardinality::ManyToOne);
-        assert!(
-            enforce_relation_cardinality(&many_to_one, same_source.clone(), &existing).is_err()
-        );
-        assert!(
-            enforce_relation_cardinality(&many_to_one, different_source.clone(), &existing).is_ok()
-        );
-
-        let mut limited_many_to_many = profile(RelationCardinality::ManyToMany);
-        limited_many_to_many.max_from_per_to = Some(1);
-        assert!(
-            enforce_relation_cardinality(&limited_many_to_many, different_source, &existing)
-                .is_err()
-        );
-    }
-
-    #[test]
     fn relation_cardinality_parses_registry_defaults_without_guessing_special_classes() {
         assert_eq!(
             RelationCardinality::from_registry_value(
@@ -557,42 +445,6 @@ mod tests {
         );
         assert!(validate_relation_direct_write("references", Some("ak:space:a")).is_ok());
         assert!(validate_relation_direct_write("vendor_custom", Some("ak:space:a")).is_ok());
-    }
-
-    #[test]
-    fn structural_relation_helper_rejects_cross_realm_endpoints() {
-        assert_eq!(
-            validate_structural_relation_same_realm(
-                RELATION_KIND_CONTAINS,
-                "ak:realm:a",
-                ["ak:realm:a", "ak:realm:b"],
-            ),
-            Err(ReasonCode::CROSS_REALM_STRUCTURAL_RELATION)
-        );
-        assert!(
-            validate_structural_relation_same_realm(
-                RELATION_KIND_BELONGS_TO,
-                "ak:realm:a",
-                ["ak:realm:a", "ak:realm:a"],
-            )
-            .is_ok()
-        );
-        assert!(
-            validate_structural_relation_same_realm("references", "ak:realm:a", ["ak:realm:b"],)
-                .is_ok()
-        );
-        assert_eq!(
-            validate_structural_relation_same_realm(
-                RELATION_KIND_WATCHES,
-                "ak:realm:a",
-                ["ak:realm:a", "ak:realm:b"],
-            ),
-            Err(ReasonCode::CROSS_REALM_STRUCTURAL_RELATION)
-        );
-        assert!(
-            validate_structural_relation_same_realm("vendor_custom", "ak:realm:a", ["ak:realm:b"],)
-                .is_ok()
-        );
     }
 
     #[test]

@@ -127,7 +127,7 @@ try {
                 return
             }
             # A `@generated` file the manifest no longer declares is a leftover
-            # of a retired generator entry. Synchronizing removes it in the same
+            # of a removed generator entry. Synchronizing removes it in the same
             # pass that writes the current outputs, so a generation run leaves
             # exactly the declared set behind. `-Check` must not mutate the
             # tracked tree, so there it stays a hard CI failure.

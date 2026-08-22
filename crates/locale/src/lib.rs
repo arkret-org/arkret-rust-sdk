@@ -178,25 +178,6 @@ impl TextDirection {
     }
 }
 
-/// Which tier of [`LocaleSources`] produced the resolved locale.
-///
-/// Returned by [`resolve_with_source`] so a surface can explain *why* it is in
-/// a given language — the diagnostic that was impossible while six independent
-/// implementations each held part of the answer.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LocaleSource {
-    /// The signed-in account's stored preference.
-    Account,
-    /// An explicit request carried with the navigation (OIDC `ui_locales`).
-    Requested,
-    /// This device's last explicit choice, made before sign-in.
-    DeviceCache,
-    /// The operating system or browser preference.
-    Platform,
-    /// Nothing supported was offered.
-    Default,
-}
-
 /// The tiers a caller can observe, in precedence order.
 ///
 /// Leave a field `None` when the surface cannot see it — a server request has
@@ -230,24 +211,18 @@ pub struct LocaleSources<'a> {
 /// Falls back to [`UiLocale::En`] when no tier offers a supported language.
 #[must_use]
 pub fn resolve(sources: &LocaleSources<'_>) -> UiLocale {
-    resolve_with_source(sources).0
-}
-
-/// [`resolve`], plus which tier answered.
-#[must_use]
-pub fn resolve_with_source(sources: &LocaleSources<'_>) -> (UiLocale, LocaleSource) {
     let tiers = [
-        (sources.account, LocaleSource::Account),
-        (sources.requested, LocaleSource::Requested),
-        (sources.device_cache, LocaleSource::DeviceCache),
-        (sources.platform, LocaleSource::Platform),
+        sources.account,
+        sources.requested,
+        sources.device_cache,
+        sources.platform,
     ];
-    for (raw, source) in tiers {
+    for raw in tiers {
         if let Some(locale) = raw.and_then(UiLocale::from_tag_list) {
-            return (locale, source);
+            return locale;
         }
     }
-    (UiLocale::default(), LocaleSource::Default)
+    UiLocale::default()
 }
 
 #[cfg(test)]
@@ -319,62 +294,57 @@ mod tests {
 
     #[test]
     fn account_preference_outranks_every_other_tier() {
-        let (locale, source) = resolve_with_source(&LocaleSources {
+        let locale = resolve(&LocaleSources {
             account: Some("zh"),
             requested: Some("en"),
             device_cache: Some("en"),
             platform: Some("en-US"),
         });
         assert_eq!(locale, UiLocale::Zh);
-        assert_eq!(source, LocaleSource::Account);
     }
 
     #[test]
     fn an_explicit_request_outranks_a_stale_device_cache() {
-        let (locale, source) = resolve_with_source(&LocaleSources {
+        let locale = resolve(&LocaleSources {
             account: None,
             requested: Some("zh-CN"),
             device_cache: Some("en"),
             platform: Some("en-US"),
         });
         assert_eq!(locale, UiLocale::Zh);
-        assert_eq!(source, LocaleSource::Requested);
     }
 
     #[test]
     fn the_device_cache_seeds_a_signed_out_surface() {
-        let (locale, source) = resolve_with_source(&LocaleSources {
+        let locale = resolve(&LocaleSources {
             device_cache: Some("zh"),
             platform: Some("en-US"),
             ..Default::default()
         });
         assert_eq!(locale, UiLocale::Zh);
-        assert_eq!(source, LocaleSource::DeviceCache);
     }
 
     #[test]
     fn an_unsupported_tier_falls_through_rather_than_terminating() {
         // A French account preference must not pin the UI to the default while
         // a supported Chinese request is sitting in the next tier.
-        let (locale, source) = resolve_with_source(&LocaleSources {
+        let locale = resolve(&LocaleSources {
             account: Some("fr"),
             requested: Some("zh"),
             ..Default::default()
         });
         assert_eq!(locale, UiLocale::Zh);
-        assert_eq!(source, LocaleSource::Requested);
     }
 
     #[test]
     fn nothing_supported_anywhere_yields_english() {
-        let (locale, source) = resolve_with_source(&LocaleSources {
+        let locale = resolve(&LocaleSources {
             account: Some("fr"),
             requested: Some(""),
             device_cache: None,
             platform: Some("ja-JP, ar"),
         });
         assert_eq!(locale, UiLocale::En);
-        assert_eq!(source, LocaleSource::Default);
     }
 
     #[test]

@@ -66,10 +66,6 @@ macro_rules! semantic_opaque_id {
             pub fn as_str(&self) -> &str {
                 self.0.as_str()
             }
-
-            pub fn into_opaque(self) -> ProtocolOpaqueId {
-                self.0
-            }
         }
 
         impl fmt::Display for $name {

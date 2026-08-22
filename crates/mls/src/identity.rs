@@ -365,17 +365,6 @@ impl ArkretMlsIdentity {
         })
     }
 
-    pub fn publish_key_package_step(&self, group_id: Option<String>) -> MlsDeviceWorkflowStep {
-        MlsDeviceWorkflowStep {
-            action: MlsDeviceWorkflowAction::PublishKeyPackage,
-            principal_id: self.principal_id.clone(),
-            device_id: self.device_id.clone(),
-            group_id,
-            from_epoch: None,
-            to_epoch: None,
-        }
-    }
-
     pub fn create_group(self, group_id: impl AsRef<[u8]>) -> Result<ArkretMlsGroup> {
         let config = MlsGroupCreateConfig::builder()
             .ciphersuite(ARKRET_MLS_CIPHERSUITE)

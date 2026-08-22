@@ -179,17 +179,6 @@ pub struct RealmAccountDeactivationPolicy {
     pub member_action: AccountDeactivationMemberAction,
 }
 
-impl RealmAccountDeactivationPolicy {
-    /// Disposition for a Realm that declared the component, or the
-    /// `leave_self_initiated` default when it did not.
-    pub fn member_action_or_default(component: Option<Self>) -> AccountDeactivationMemberAction {
-        component.map_or(
-            AccountDeactivationMemberAction::LeaveSelfInitiated,
-            |policy| policy.member_action,
-        )
-    }
-}
-
 /// `preauth` component of [`RealmPolicyBundlePayload`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -509,9 +498,6 @@ pub struct RealmDeliveryBindingPolicyPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_after_seconds: Option<u64>,
 }
-
-/// Registered default of `handover_grace_seconds` when the field is absent.
-pub const DELIVERY_BINDING_HANDOVER_GRACE_SECONDS_DEFAULT: u32 = 86_400;
 
 /// Registered inclusive maximum of `handover_grace_seconds`.
 pub const DELIVERY_BINDING_HANDOVER_GRACE_SECONDS_MAX: u32 = 604_800;
@@ -929,9 +915,7 @@ impl RealmDigestSuiteTransitionPayload {
     }
 }
 
-// `realm_destroy_payload` now has a strong type:
-// `models::operation_payloads::RealmDestroyPayload` (replaces the former
-// `= Value` alias as part of the wire strong-type migration).
+// `realm_destroy_payload` uses `models::operation_payloads::RealmDestroyPayload`.
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_freeze_payload`.
@@ -1163,11 +1147,6 @@ impl RealmOrganizationPayload {
         matches!(self.status, RealmOrganizationStatus::Active)
     }
 
-    /// `true` when the statement revokes the relationship.
-    pub fn is_revoked_status(&self) -> bool {
-        matches!(self.status, RealmOrganizationStatus::Revoked)
-    }
-
     /// `true` when `not_before` is set and lies strictly after `now` (the
     /// statement is not yet within its validity window).
     pub fn is_not_yet_valid(&self, now: DateTime<Utc>) -> bool {
@@ -1204,13 +1183,9 @@ pub struct RealmSearchPolicyPayload {
     pub token_rotation_cadence_ms: Option<u64>,
 }
 
-// `realm_tombstone_payload` now has a strong type:
-// `models::operation_payloads::RealmTombstonePayload` (replaces the former
-// `= Value` alias as part of the wire strong-type migration).
+// `realm_tombstone_payload` uses `models::operation_payloads::RealmTombstonePayload`.
 
-// `relation_create_payload` now has a strong type:
-// `models::operation_payloads::RelationCreatePayload` (replaces the former
-// `= Value` alias as part of the wire strong-type migration).
+// `relation_create_payload` uses `models::operation_payloads::RelationCreatePayload`.
 
 /// Transcript discriminator for the bytes an organization-side proof signs over.
 pub const ORGANIZATION_STATEMENT_TRANSCRIPT_KIND: &str =
@@ -1441,14 +1416,6 @@ mod realm_organization_tests {
         assert!(RealmOrganizationIssuerRole::AccountAuthority.requires_delegation_ref());
         assert!(!RealmOrganizationIssuerRole::OrganizationPrincipalId.requires_delegation_ref());
         assert!(!RealmOrganizationIssuerRole::ThresholdQuorum.requires_delegation_ref());
-    }
-
-    #[test]
-    fn legacy_organization_ref_shape_fails_to_deserialize() {
-        // The pre-migration singleton shape `{ "organization_ref": ... }` must
-        // not deserialize into the relationship-statement strong type.
-        let legacy = json!({ "organization_ref": "did:webvh:z6mkfixture:org.example" });
-        assert!(serde_json::from_value::<RealmOrganizationPayload>(legacy).is_err());
     }
 }
 

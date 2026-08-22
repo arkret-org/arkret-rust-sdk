@@ -5,7 +5,7 @@
 //! decisions, but only inclusion in an accepted Seal provides control-plane
 //! finality.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -589,7 +589,6 @@ impl ControlProposalAuthorityAck {
             payload_digest: placeholder_digest.clone(),
             created_at: received_at,
             jws: String::new(),
-            extra: BTreeMap::new(),
         };
         if signer_controller(&signer_binding)? != signer.signer_did().as_str() {
             return Err(Error::Protocol(
@@ -608,7 +607,6 @@ impl ControlProposalAuthorityAck {
                 payload_digest: placeholder_digest,
                 created_at: received_at,
                 jws: String::new(),
-                extra: BTreeMap::new(),
             },
         };
         member.signature.payload_digest = member.authority_ack_digest()?;
@@ -1020,23 +1018,6 @@ impl ControlProposalDecision {
         )
     }
 
-    /// Validate every canonical proof binding, then delegate cryptographic
-    /// and signing-time DID method-state verification to the caller.
-    pub fn verify_proofs_with<F>(&self, mut verify: F) -> Result<()>
-    where
-        F: FnMut(&PayloadSignature, &[u8]) -> Result<()>,
-    {
-        self.validate_standalone_protocol_bounds()?;
-        let proofs = match self {
-            Self::SignedReject { proofs, .. } | Self::SignedDefer { proofs, .. } => proofs,
-        };
-        for proof in proofs {
-            let binding = self.proof_binding_bytes(proof)?;
-            verify(proof, &binding)?;
-        }
-        Ok(())
-    }
-
     pub fn decision_digest(&self) -> Result<Hash> {
         digest_without_field(self, "proofs")
     }
@@ -1273,7 +1254,6 @@ mod tests {
                 payload_digest: Hash::new(canonical::sha256_digest(canonical_bytes))?,
                 created_at: at(999),
                 jws: "e30..c2ln".to_owned(),
-                extra: BTreeMap::new(),
             })
         }
     }
@@ -1293,7 +1273,6 @@ mod tests {
             payload_digest,
             created_at,
             jws: "e30..c2ln".to_owned(),
-            extra: BTreeMap::new(),
         }
     }
 
@@ -1437,7 +1416,7 @@ mod tests {
     #[test]
     fn canonical_ack_assembly_requires_current_threshold_quorum() {
         fn descriptor(actor_suffix: &str, domain: &str) -> NotarySignerDescriptor {
-            let public_key = [0_u8; 32];
+            let public_key = [*actor_suffix.as_bytes().last().unwrap(); 32];
             NotarySignerDescriptor {
                 actor_id: DidCoreId::new(format!("ak:did_core:webvh:{actor_suffix}")).unwrap(),
                 verification_method: DidUrl::new(format!(
@@ -1600,17 +1579,6 @@ mod tests {
             unreachable!("constructed a signed defer");
         };
         proofs.push(second);
-        let mut verified_methods = Vec::new();
-        decision
-            .verify_proofs_with(|proof, binding| {
-                assert!(
-                    String::from_utf8_lossy(binding).contains(proof.verification_method.as_str())
-                );
-                verified_methods.push(proof.verification_method.clone());
-                Ok(())
-            })
-            .unwrap();
-        assert_eq!(verified_methods.len(), 2);
         let request = ControlProposalDecisionSubmitRequestBody {
             decision: decision.clone(),
         };

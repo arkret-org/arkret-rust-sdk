@@ -159,18 +159,6 @@ fn patch_event_family_maps_to_canonical_payloads() {
     assert!(
         catalog
             .validate_payload(
-                "ak.strand.tracks.update",
-                &json!({
-                    "strand_id": "ak:strand:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
-                    "tracks": { "main": { "title": "Main", "rank": "a0" } }
-                }),
-            )
-            .is_err(),
-        "ak.strand.tracks.update must reject the retired track-table payload"
-    );
-    assert!(
-        catalog
-            .validate_payload(
                 "ak.strand.update",
                 &json!({
                     "target_ref": "ak:morph:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",

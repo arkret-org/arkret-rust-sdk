@@ -3,9 +3,9 @@
 //! Home of the protocol values whose *construction* needs a wall clock or
 //! an OS RNG while their *wire form* stays a plain validated string:
 //!
-//! - [`HlcGenerator`] — the monotonic Hybrid Logical Clock generator with future-drift tiers and
-//!   Realm-scoped pseudonymous node ids. The stateless HLC value helpers (parse/compare/validate)
-//!   live next to the validated `Hlc` newtype in `arkret_identifiers::hlc`.
+//! - [`HlcGenerator`] — the monotonic Hybrid Logical Clock generator with Realm-scoped pseudonymous
+//!   node ids. The stateless HLC value helpers (parse/compare/validate, including future-drift
+//!   tiers) live next to the validated `Hlc` newtype in `arkret_identifiers::hlc`.
 //! - [`Cursor`] — the issuing-service mint/validate surface for `ak:cursor:` tokens (fresh ≥128-bit
 //!   handles, TTL caps, clock-skew checks). The value type itself is a wire shape owned by
 //!   `arkret_wire::cursor`.
@@ -13,8 +13,7 @@
 pub mod generator;
 
 pub use arkret_wire::cursor::{
-    CURSOR_HANDLE_MIN_LEN, Cursor, CursorPurpose, RealmSyncPosition, SyncPositions,
-    generate_cursor_handle,
+    CURSOR_HANDLE_MIN_LEN, Cursor, CursorPurpose, generate_cursor_handle,
 };
 pub use generator::HlcGenerator;
 

@@ -609,12 +609,6 @@ fn is_valid_directory_did_method(value: &str) -> bool {
     })
 }
 
-impl ServiceDescribe {
-    pub fn supports_arkret_v1(&self) -> bool {
-        self.protocol_version == PROTOCOL_VERSION
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -774,22 +768,6 @@ mod tests {
             .map(ToOwned::to_owned),
         );
         assert!(description.validate().is_ok());
-
-        description.supported_operations.retain(|operation| {
-            operation != ServiceOperationId::SELF_REALM_JOIN_APPLICATION_READ_LIST
-                && operation != ServiceOperationId::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST
-        });
-        description.supported_operations.extend(
-            [
-                "ak.self.realm.join_application.query.list",
-                "ak.self.realm.join_application.audit.query.list",
-            ]
-            .map(ToOwned::to_owned),
-        );
-        assert!(
-            description.validate().is_err(),
-            "legacy query aliases must not satisfy the canonical read.list profile surface"
-        );
     }
 
     #[test]
@@ -816,15 +794,6 @@ mod tests {
     #[test]
     fn directory_service_overlay_validates() {
         directory_description().validate().unwrap();
-    }
-
-    #[test]
-    fn service_description_checks_protocol_version() {
-        let mut description = directory_description();
-        assert!(description.supports_arkret_v1());
-
-        description.protocol_version = "2.0".to_owned();
-        assert!(!description.supports_arkret_v1());
     }
 
     #[test]

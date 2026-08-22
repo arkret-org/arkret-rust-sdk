@@ -161,11 +161,6 @@ impl AuthoredEvent {
         self.event.unsigned.insert(key.into(), value);
     }
 
-    /// Remove a holder-local `unsigned` member.
-    pub fn remove_unsigned(&mut self, key: &str) -> Option<Value> {
-        self.event.unsigned.remove(key)
-    }
-
     /// Test-only constructor that skips the identity proof.
     ///
     /// Production code cannot reach it: `test-support` is a dev-dependency

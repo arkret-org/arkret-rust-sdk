@@ -48,11 +48,6 @@ impl<T: ProtocolCreateObject> ObjectCreatePayload<T> {
         }
     }
 
-    pub fn with_initial_relation(mut self, relation: BTreeMap<String, Value>) -> Self {
-        self.initial_relations.push(relation);
-        self
-    }
-
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
             .map_err(|err| Error::Protocol(format!("object create payload serialize: {err}")))

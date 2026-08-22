@@ -113,11 +113,6 @@ pub const VAULT_NONCE_LEN: usize = 24;
 /// this gives the user a memorable, copy-pasteable string.
 pub const RECOVERY_KEY_BYTES: usize = 32;
 
-/// Backup version tag used by [`build_key_backup_envelope`] when the
-/// caller has no preference. Matches the JSON-schema pattern
-/// `kb_[A-Za-z0-9_-]+` so future codec evolution stays explicit.
-pub const DEFAULT_BACKUP_VERSION: &str = "kb_1";
-
 /// Outcome of [`derive_vault_kek`]: the **root unlock key** plus the
 /// parameters that generated it. The parameters round-trip into the
 /// backup envelope so any future device can reproduce the KDF given just
@@ -685,41 +680,6 @@ pub fn fingerprint_recovery_key(recovery_key: &str) -> String {
     sha256_digest(recovery_key.as_bytes())
 }
 
-/// Heuristic passphrase strength on a 0..=5 scale. Pure function so a
-/// UI can call it on every keystroke without touching state.
-pub fn estimate_passphrase_strength(passphrase: &str) -> u8 {
-    if passphrase.is_empty() {
-        return 0;
-    }
-    let mut score = 0i32;
-    let len = passphrase.chars().count();
-    score += match len {
-        0..=7 => 0,
-        8..=11 => 1,
-        12..=15 => 2,
-        16..=23 => 3,
-        _ => 4,
-    };
-    let mut classes = 0;
-    if passphrase.chars().any(|c| c.is_ascii_lowercase()) {
-        classes += 1;
-    }
-    if passphrase.chars().any(|c| c.is_ascii_uppercase()) {
-        classes += 1;
-    }
-    if passphrase.chars().any(|c| c.is_ascii_digit()) {
-        classes += 1;
-    }
-    if passphrase.chars().any(|c| !c.is_ascii_alphanumeric()) {
-        classes += 1;
-    }
-    score += match classes {
-        4 | 3 => 1,
-        _ => 0,
-    };
-    score.clamp(0, 5) as u8
-}
-
 /// Build a typed `ak.schema.key_backup.v1` genesis envelope from closed
 /// plaintext items. The SDK constructs the canonical
 /// `ak.schema.key_backup_plaintext.v1` keybag and its public `contents` index
@@ -1032,50 +992,12 @@ pub fn commitment_digest(root: &[u8; VAULT_KDF_OUTPUT_LEN], backup_kind: BackupK
     digest
 }
 
-// ── key-backup subdomain KDF + commitment + AAD (key-management.md §7.2) ──────
+// ── key-backup AEAD associated data (key-management.md §7.1) ─────────────────
 //
-// These small pure helpers were previously in the SDK `devices::backup` module.
-// They construct the recommended `key_commitment`, derive HKDF subdomain keys,
-// and build the canonical AEAD associated-data blob a key-backup envelope binds
-// to its origin. They live here so the whole key-backup crypto surface is in one
+// This small pure helper was previously in the SDK `devices::backup` module. It
+// builds the canonical AEAD associated-data blob a key-backup envelope binds to
+// its origin. It lives here so the whole key-backup crypto surface is in one
 // place, reachable without the umbrella client runtime.
-
-fn hkdf_sha256_32(input_key_material: &[u8], info: &[u8]) -> [u8; 32] {
-    let mut output = [0u8; 32];
-    Hkdf::<Sha256>::new(None, input_key_material)
-        .expand(info, &mut output)
-        .expect("32-byte HKDF-SHA256 output is always valid");
-    output
-}
-
-/// Recommended `key_commitment` construction
-/// (`key-management.md` §7.2):
-///
-/// ```text
-/// commitment_key = HKDF(derived_key, info="arkret-key-backup-commitment-v1")
-/// key_commitment = SHA256(commitment_key)
-/// ```
-///
-/// Used by callers to fail-fast when the user types a wrong passphrase.
-/// The server MUST NOT use this field for authentication.
-pub fn key_backup_commitment(derived_key: &[u8]) -> String {
-    let commitment_key = hkdf_sha256_32(derived_key, b"arkret-key-backup-commitment-v1");
-    sha256_digest(commitment_key)
-}
-
-/// HKDF subdomain key derivation per `key-management.md` §7.2.
-///
-/// Returns 32 bytes of a domain-isolated subkey suitable for AEAD or
-/// further key wrapping. Derives via HKDF-SHA256 over `derived_key`
-/// using `info = backup_kind.hkdf_info(subdomain)`.
-pub fn key_backup_subdomain_key(
-    derived_key: &[u8],
-    backup_kind: BackupKind,
-    subdomain: &str,
-) -> [u8; 32] {
-    let info = backup_kind.hkdf_info(subdomain);
-    hkdf_sha256_32(derived_key, info.as_bytes())
-}
 
 /// Build the AEAD associated-data (AAD) blob that MUST bind a key-backup
 /// envelope to its origin per `key-management.md` §7.1.

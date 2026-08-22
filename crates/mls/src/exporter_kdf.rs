@@ -1,6 +1,6 @@
 //! Byte-exact RFC 9420 exporter helpers shared by clients and conformance KATs.
 
-use arkret_wire::{DeviceId, RealmId, canonical};
+use arkret_wire::RealmId;
 use zeroize::Zeroizing;
 
 use crate::{MlsError as Error, Result};
@@ -39,7 +39,7 @@ pub fn mls_exporter_from_secret(
 pub fn derive_signal_exporter_key(
     exporter_secret: &[u8],
     realm_id: &RealmId,
-    sender_device_id: &DeviceId,
+    verified_sender_domain: &[u8],
     key_len: usize,
 ) -> Result<Zeroizing<Vec<u8>>> {
     let history_secret = mls_exporter_from_secret(
@@ -48,21 +48,23 @@ pub fn derive_signal_exporter_key(
         realm_id.as_str().as_bytes(),
         MLS_HASH_LEN,
     )?;
-    derive_signal_key_from_history_secret(&history_secret, sender_device_id, key_len)
+    derive_signal_key_from_history_secret(&history_secret, verified_sender_domain, key_len)
 }
 
 pub(crate) fn derive_signal_key_from_history_secret(
     history_secret: &[u8],
-    sender_device_id: &DeviceId,
+    verified_sender_domain: &[u8],
     key_len: usize,
 ) -> Result<Zeroizing<Vec<u8>>> {
-    let context = canonical::canonical_json_bytes(&serde_json::json!({
-        "sender_device_id": sender_device_id,
-    }))?;
+    if verified_sender_domain.is_empty() {
+        return Err(Error::Protocol(
+            "signal sender domain must not be empty".to_owned(),
+        ));
+    }
     expand_with_label(
         history_secret,
         arkret_wire::ExporterLabelId::SIGNAL_V1,
-        &context,
+        verified_sender_domain,
         key_len,
     )
 }
@@ -104,12 +106,14 @@ mod tests {
         let case = fixture_case("signal_exporter_key_sha256_aes128gcm");
         let secret = case_exporter_secret(&case);
         let realm_id = RealmId::new(case["input"]["realm_id_utf8"].as_str().unwrap()).unwrap();
-        let sender_device_id =
-            DeviceId::new(case["input"]["sender_device_id"].as_str().unwrap()).unwrap();
+        let sender_domain = case["input"]["verified_sender_domain_utf8"]
+            .as_str()
+            .unwrap()
+            .as_bytes();
         let key_len = usize::try_from(case["input"]["aead_nk"].as_u64().unwrap()).unwrap();
 
         let signal =
-            derive_signal_exporter_key(&secret, &realm_id, &sender_device_id, key_len).unwrap();
+            derive_signal_exporter_key(&secret, &realm_id, sender_domain, key_len).unwrap();
 
         assert_eq!(
             hex(&signal),

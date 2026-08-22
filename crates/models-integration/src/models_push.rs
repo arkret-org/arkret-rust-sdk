@@ -509,16 +509,6 @@ pub const AGENT_ACTOR_PRIVATE_KINDS: &[&str] = &[
     arkret_wire::event_kind_str::AGENT_ACTION_REJECT,
 ];
 
-pub const PHASE_P2_AGENT_TYPED_ID_PREFIXES: &[&str] = &[
-    "ak:agent_session:",
-    "ak:agent_key:",
-    "ak:agent_draft:",
-    "ak:accountability_grant:",
-    "ak:sidecar_circle:",
-    "ak:backup_series:",
-    "ak:recovery_session:",
-];
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AgentEventRouting {
     DurableLifecycle,
@@ -533,12 +523,6 @@ pub fn classify_agent_event_kind(event_kind: &str) -> Option<AgentEventRouting> 
         return Some(AgentEventRouting::ActorPrivateDrop);
     }
     None
-}
-
-pub fn is_phase_p2_agent_typed_id(value: &str) -> bool {
-    PHASE_P2_AGENT_TYPED_ID_PREFIXES
-        .iter()
-        .any(|prefix| value.starts_with(prefix))
 }
 
 pub fn validate_push_notify_contract_shape(request: &PushNotifyRequestBody) -> Result<(), String> {

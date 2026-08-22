@@ -685,16 +685,6 @@ impl<'a> MlsGovernanceBindingValidationContext<'a> {
         }
     }
 
-    pub fn with_content_scheme(
-        mut self,
-        content_scheme: ContentScheme,
-        durability_policy: Option<DurabilityPolicy>,
-    ) -> Self {
-        self.content_scheme = Some(content_scheme);
-        self.durability_policy = Some(durability_policy);
-        self
-    }
-
     pub fn with_sidecar_binding(mut self, binding: &'a SidecarMlsBinding) -> Self {
         self.sidecar_binding = Some(binding);
         self.forbid_sidecar_binding = false;
@@ -876,26 +866,6 @@ impl MlsCommitPayload {
         };
         payload.validate()?;
         Ok(payload)
-    }
-
-    /// Attach the single organization recovery archive this exporter
-    /// transition must carry.
-    pub fn with_organization_recovery_archive(
-        mut self,
-        organization_recovery_archive: OrganizationRecoveryArchive,
-    ) -> Result<Self> {
-        self.organization_recovery_archive = Some(organization_recovery_archive);
-        self.validate()?;
-        Ok(self)
-    }
-
-    pub fn with_commit_message_ref(
-        mut self,
-        commit_message_ref: impl Into<String>,
-    ) -> Result<Self> {
-        self.commit_message_ref = Some(commit_message_ref.into());
-        self.validate()?;
-        Ok(self)
     }
 
     pub fn validate(&self) -> Result<()> {
@@ -1603,19 +1573,6 @@ mod tests {
 
         let value = serde_json::to_value(&binding).unwrap();
         assert_eq!(value["security_frontier_digest"], hash('2').as_str());
-        for retired in [
-            "membership_frontier",
-            "covered_seal_refs",
-            "policy_root",
-            "capability_root",
-            "discussion_metadata_digest",
-        ] {
-            assert!(
-                value.get(retired).is_none(),
-                "retired field {retired} leaked"
-            );
-        }
-
         let error = serde_json::from_value::<MlsGovernanceBindingPayload>(json!({
             "binding_version": MLS_GOVERNANCE_BINDING_VERSION,
             "encoding_profile": MLS_GOVERNANCE_BINDING_ENCODING_PROFILE,
@@ -1773,7 +1730,7 @@ mod tests {
         assert_rfc8949_key_order(&bytes);
         assert_eq!(
             canonical::sha256_digest(&bytes),
-            "sha256:db2bf81a807cea601b6209807320e864f6c6b65216ef3303aa6a8b235f709cfa"
+            "sha256:a429ee45785f919fde2b132a4ec943b64969fce32bc7e52fbe1419965f6aae61"
         );
         let decoded = MlsGovernanceBindingPayload::from_deterministic_cbor(&bytes).unwrap();
         assert_eq!(decoded.sidecar_binding(), Some(&sidecar_binding));

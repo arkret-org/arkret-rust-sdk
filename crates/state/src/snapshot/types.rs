@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use super::constants::DETACHED_JWS_PROOF_KIND;
 use super::merkle::sha256_digest;
-use crate::{BlobRef, Error, EventId, Hash, Hlc, RealmId, Result, SnapshotId};
+use crate::{BlobRef, EventId, Hash, Hlc, RealmId, Result, SnapshotId};
 
 /// Object-family context of `authority_binding.witness_attestations[]`. It is
 /// deliberately not the manifest's `ak.snapshot-proof-v1`: a witness signature
@@ -96,10 +96,6 @@ impl SnapshotManifest {
 
     pub fn unsigned_canonical_bytes(&self) -> Result<Vec<u8>> {
         self.unsigned_view().canonical_bytes()
-    }
-
-    pub fn signature_payload_value(&self) -> Result<Value> {
-        serde_json::to_value(self.unsigned_view()).map_err(Error::from)
     }
 
     pub fn signature_payload_bytes(&self) -> Result<Vec<u8>> {

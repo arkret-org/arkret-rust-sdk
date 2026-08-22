@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-08-23.1;
-//! sha256=496b9174e7ef16ed0c8e22d8e45b7add5341d1c33036453bcbf2d7f588ac3434 Entries: registered=170
+//! Input: registry/capability-action-registry.json; version=2026-08-23.2;
+//! sha256=8ba1e1c724ca4a01a67af47de5bff0915b637a913f90d4c6aafcad22828ac706 Entries: registered=169
 
 use serde::{Deserialize, Serialize};
 
@@ -83,7 +83,6 @@ pub enum CapabilityActionId {
     MorphCreate,
     MorphRead,
     MorphRestore,
-    MorphSchemaMigrate,
     MorphStageSet,
     MorphUpdate,
     NotificationAck,
@@ -257,7 +256,6 @@ impl CapabilityActionId {
         Self::MorphCreate,
         Self::MorphRead,
         Self::MorphRestore,
-        Self::MorphSchemaMigrate,
         Self::MorphStageSet,
         Self::MorphUpdate,
         Self::NotificationAck,
@@ -429,7 +427,6 @@ impl CapabilityActionId {
     pub const MORPH_CREATE: &'static str = "ak.morph.create";
     pub const MORPH_READ: &'static str = "ak.morph.read";
     pub const MORPH_RESTORE: &'static str = "ak.morph.restore";
-    pub const MORPH_SCHEMA_MIGRATE: &'static str = "ak.morph.schema_migrate";
     pub const MORPH_STAGE_SET: &'static str = "ak.morph.stage.set";
     pub const MORPH_UPDATE: &'static str = "ak.morph.update";
     pub const NOTIFICATION_ACK: &'static str = "ak.notification.ack";
@@ -611,7 +608,6 @@ impl CapabilityActionId {
             Self::MorphCreate => Self::MORPH_CREATE,
             Self::MorphRead => Self::MORPH_READ,
             Self::MorphRestore => Self::MORPH_RESTORE,
-            Self::MorphSchemaMigrate => Self::MORPH_SCHEMA_MIGRATE,
             Self::MorphStageSet => Self::MORPH_STAGE_SET,
             Self::MorphUpdate => Self::MORPH_UPDATE,
             Self::NotificationAck => Self::NOTIFICATION_ACK,
@@ -792,7 +788,6 @@ impl CapabilityActionId {
             Self::MORPH_CREATE => Some(Self::MorphCreate),
             Self::MORPH_READ => Some(Self::MorphRead),
             Self::MORPH_RESTORE => Some(Self::MorphRestore),
-            Self::MORPH_SCHEMA_MIGRATE => Some(Self::MorphSchemaMigrate),
             Self::MORPH_STAGE_SET => Some(Self::MorphStageSet),
             Self::MORPH_UPDATE => Some(Self::MorphUpdate),
             Self::NOTIFICATION_ACK => Some(Self::NotificationAck),

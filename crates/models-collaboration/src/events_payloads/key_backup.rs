@@ -250,23 +250,6 @@ impl KeyBackupActiveSeries {
             CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1
         ))?)
     }
-
-    /// Whole-value CAS guard required before replacing this accepted record.
-    ///
-    /// The registered projector copies this `head_eq` value into the next
-    /// `cas_register` op's predecessor. Omitting it would author a concurrent
-    /// initial head and force the security-barrier cell into Bottom.
-    pub fn replacement_precondition(&self) -> Result<Precondition> {
-        Ok(Precondition {
-            cell: self.cell_ref()?,
-            predicate: Predicate {
-                op: PredicateOp::HeadEq,
-                value: Some(serde_json::to_value(self)?),
-                values: None,
-                predicate_id: None,
-            },
-        })
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

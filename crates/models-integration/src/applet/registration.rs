@@ -237,9 +237,9 @@ pub struct AppletEndpointEntry {
 }
 
 /// Supported Applet API endpoints and their auth requirements
-/// (`applet-package.schema.json#/$defs/endpoint_policy`). Replaces the former
-/// untyped `Value` so the manifest's endpoint surface is checked at compile
-/// time. The spec requires `endpoints` `minItems: 1`; that cardinality is
+/// (`applet-package.schema.json#/$defs/endpoint_policy`). The manifest's
+/// endpoint surface is checked at compile time. The spec requires `endpoints`
+/// `minItems: 1`; that cardinality is
 /// enforced at schema-validation time, while the type permits an empty list
 /// during registration assembly (consistent with the rest of the wire models).
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

@@ -172,7 +172,7 @@ mod tests {
         let mut encoded = serde_json::to_value(record).unwrap();
         encoded.as_object_mut().unwrap().insert(
             "authority_ref".to_owned(),
-            serde_json::json!("did:web:authority.example#obsolete-delegation"),
+            serde_json::json!("did:web:authority.example#invalid-delegation"),
         );
 
         assert!(serde_json::from_value::<AccountStatusRecord>(encoded).is_err());

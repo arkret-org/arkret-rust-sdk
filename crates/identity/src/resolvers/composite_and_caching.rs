@@ -485,11 +485,6 @@ impl<R: DidResolver> CachingDidResolver<R> {
         self.cache.clear();
     }
 
-    /// Return a deep snapshot of the reusable cache owner.
-    pub fn cache_snapshot(&self) -> DidResolutionCache {
-        self.cache.clone()
-    }
-
     /// Resolve a DID and return the document together with its [`Freshness`].
     ///
     /// Fresh cache hits return `(doc, Fresh)`. Misses and expired entries query

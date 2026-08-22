@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/reducer-managed-path-registry.json; version=2026-08-21.1;
-//! sha256=b460206038e7e948563890302f8ee1f0e006b71cf5011ccce8bee9f1372e44fe
-//! Entries: universal_paths=9, object_kinds=7, any_object_paths=16
+//! Input: registry/reducer-managed-path-registry.json; version=2026-08-23.1;
+//! sha256=75297988c57dad283781a3d477d68341375d448a3f7f12c3c6937b2e4b32f457
+//! Entries: universal_paths=9, object_kinds=7, any_object_paths=17
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ReducerManagedPathDescriptor {
@@ -118,6 +118,12 @@ pub const REDUCER_MANAGED_OBJECTS: &[ReducerManagedObjectDescriptor] = &[
                 schema_enforced: true,
             },
             ReducerManagedObjectPathDescriptor {
+                path: "schema_refs",
+                basis: "create_locked",
+                reason_code: "patch_path_reducer_managed",
+                schema_enforced: true,
+            },
+            ReducerManagedObjectPathDescriptor {
                 path: "stage",
                 basis: "dedicated_event_owned",
                 reason_code: "patch_path_reducer_managed",
@@ -188,6 +194,7 @@ pub const REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS: &[&str] = &[
     "realm_id",
     "resolution",
     "schema",
+    "schema_refs",
     "stage",
     "stage_changed_at",
     "state",

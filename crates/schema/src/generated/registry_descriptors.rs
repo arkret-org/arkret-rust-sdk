@@ -2,13 +2,13 @@
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-08-21.2;
 //! sha256=3f0616d8f27ed5e1325c9dbbae376ddcb3cdb9970eb9b5057aa9eaa7f15ff6b1 Input: registry/
-//! capability-action-registry.json; version=2026-08-23.1;
-//! sha256=496b9174e7ef16ed0c8e22d8e45b7add5341d1c33036453bcbf2d7f588ac3434 Input: registry/
-//! schema-registry.json; version=2026-08-21.4;
-//! sha256=85d552c51ca335c53128720dbd7ed506315a1f529d1218e2fd85a82a02cb6802 Input: registry/
+//! capability-action-registry.json; version=2026-08-23.2;
+//! sha256=8ba1e1c724ca4a01a67af47de5bff0915b637a913f90d4c6aafcad22828ac706 Input: registry/
+//! schema-registry.json; version=2026-08-23.1;
+//! sha256=1ac1ed4b5ee8629e51003953faac4008fa548c1cc73bcf6ba86a6f11d3f0f7ae Input: registry/
 //! account-data-key-registry.json; version=2026-08-21.1;
 //! sha256=07b1fff8931e4405b3dfae6c3b852acc836f270e982a6772eb00fd966d8eadc1 Entries: id_kinds=60,
-//! special_forms=14, actions=170, schemas=193, account_data_patterns=24
+//! special_forms=14, actions=169, schemas=192, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -1460,19 +1460,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::MorphSchemaMigrate,
-        category: "morph",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        target_event_kinds: &[event_kind_str::MORPH_SCHEMA_MIGRATE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
         action: CapabilityActionId::MorphStageSet,
         category: "morph",
         risk_tier: CapabilityRiskTier::Low,
@@ -2050,7 +2037,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::MORPH_ARCHIVE,
             event_kind_str::MORPH_CREATE,
             event_kind_str::MORPH_RESTORE,
-            event_kind_str::MORPH_SCHEMA_MIGRATE,
             event_kind_str::MORPH_STAGE_SET,
             event_kind_str::MORPH_UPDATE,
             event_kind_str::ORGANIZATION_MODERATION_POLICY,
@@ -2166,7 +2152,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.morph.create",
             "ak.morph.read",
             "ak.morph.restore",
-            "ak.morph.schema_migrate",
             "ak.morph.stage.set",
             "ak.morph.update",
             "ak.object.archive",
@@ -3449,10 +3434,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::MODERATION_REPORT_V1,
         file: "schemas/moderation-report.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::MORPH_CUSTOMER_RISK_EXT_V1,
-        file: "schemas/morph-customer-risk-ext.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::MORPH_CUSTOMER_RISK_V1,

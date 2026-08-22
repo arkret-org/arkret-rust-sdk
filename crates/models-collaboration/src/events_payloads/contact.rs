@@ -134,20 +134,6 @@ mod tests {
         })
     }
 
-    fn assert_obsolete_field_rejected<T: serde::de::DeserializeOwned>(
-        mut value: Value,
-        current: &str,
-        obsolete: &str,
-    ) {
-        let object = value.as_object_mut().unwrap();
-        let member = object.remove(current).unwrap();
-        object.insert(obsolete.to_owned(), member);
-        let error = serde_json::from_value::<T>(value)
-            .err()
-            .expect("obsolete Contact field name must fail closed");
-        assert!(error.to_string().contains("unknown field"));
-    }
-
     #[test]
     fn contact_accepted_uses_final_contact_round_field_names() {
         let payload: ContactAcceptedPayload = serde_json::from_value(accepted_value()).unwrap();
@@ -165,24 +151,7 @@ mod tests {
     }
 
     #[test]
-    fn contact_accepted_rejects_obsolete_basis_field_names() {
-        let mut value = accepted_value();
-        let object = value.as_object_mut().unwrap();
-        let contact_round_id = object.remove("contact_round_id").unwrap();
-        let previous_terminal_contact_round_id =
-            object.remove("previous_terminal_contact_round_id").unwrap();
-        object.insert("basis_id".to_owned(), contact_round_id);
-        object.insert(
-            "previous_terminal_basis_id".to_owned(),
-            previous_terminal_contact_round_id,
-        );
-        let error = serde_json::from_value::<ContactAcceptedPayload>(value)
-            .expect_err("obsolete Contact basis field names must fail closed");
-        assert!(error.to_string().contains("unknown field"));
-    }
-
-    #[test]
-    fn remaining_contact_event_payloads_use_final_contact_round_field_names() {
+    fn contact_event_payloads_use_canonical_contact_round_field_names() {
         let requested = json!({
             "peer": {"kind": "human", "principal_id": "ak:did_core:webvh:z6mkfixturepeer"},
             "granted_to_peer_scopes": ["direct_message"],
@@ -196,11 +165,6 @@ mod tests {
                 .previous_terminal_contact_round_id
                 .is_some()
         );
-        assert_obsolete_field_rejected::<ContactRequestedPayload>(
-            requested,
-            "previous_terminal_contact_round_id",
-            "previous_terminal_basis_id",
-        );
 
         let tombstoned = json!({
             "peer": {"kind": "human", "principal_id": "ak:did_core:webvh:z6mkfixturepeer"},
@@ -213,11 +177,6 @@ mod tests {
         assert_eq!(
             tombstoned_payload.contact_round_id.as_str(),
             format!("sha256:{}", "f".repeat(64))
-        );
-        assert_obsolete_field_rejected::<ContactTombstonedPayload>(
-            tombstoned,
-            "contact_round_id",
-            "basis_id",
         );
 
         let scope_update = json!({
@@ -233,11 +192,6 @@ mod tests {
         assert_eq!(
             scope_payload.contact_round_id.as_str(),
             format!("sha256:{}", "1".repeat(64))
-        );
-        assert_obsolete_field_rejected::<crate::contact_operations::ContactScopeUpdatePayload>(
-            scope_update,
-            "contact_round_id",
-            "basis_id",
         );
     }
 }

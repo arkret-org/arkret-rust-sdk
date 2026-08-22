@@ -138,11 +138,6 @@ macro_rules! uuid_id_type {
             /// The `ak:<kind>:` wire prefix this id-kind validates against.
             pub const KIND_PREFIX: &'static str = $prefix;
 
-            /// RFC 9562 version nibble this kind is fixed to. The form is
-            /// decided by the spec `id-kind-registry.json` `id_form` column,
-            /// never per call site.
-            pub const KIND_VERSION_NIBBLE: u8 = $version;
-
             /// Mint a canonical typed UUIDv7 identifier from an explicit
             /// observed Unix millisecond timestamp.
             ///
@@ -999,11 +994,6 @@ impl RealmId {
         decode_realm_token(&self.0).expect("validated Realm id carries a canonical token")
     }
 
-    pub fn derivation_class(&self) -> RealmDerivationClass {
-        RealmDerivationClass::try_from(self.token_bytes()[0] >> IDENTITY_HEADER_HIGH_NIBBLE_SHIFT)
-            .expect("validated Realm id carries a registered derivation class")
-    }
-
     pub fn digest_suite_code(&self) -> DigestSuiteCode {
         DigestSuiteCode::try_from(self.token_bytes()[0] & DIGEST_SUITE_LOW_NIBBLE_MASK)
             .expect("validated Realm id carries an active digest suite")
@@ -1124,11 +1114,6 @@ impl EventId {
 
     pub fn identity_key(&self) -> EventIdentityKey {
         EventIdentityKey::from_event_id(self)
-    }
-
-    /// Check the suite code and all 256 digest bits.
-    pub fn matches_identity(&self, identity: EventIdentityKey) -> bool {
-        self == &Self::from_identity(identity)
     }
 }
 
@@ -1680,10 +1665,6 @@ mod tests {
         let event_id = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x42; 32]);
         let realm_id = RealmId::from_event_id(&event_id);
         assert_eq!(realm_id.token_bytes()[0], 0x01);
-        assert_eq!(
-            realm_id.derivation_class(),
-            RealmDerivationClass::EventDerived
-        );
         assert_eq!(realm_id.digest_suite_code(), DigestSuiteCode::Sha256);
         assert_eq!(realm_id.event_id(), event_id);
 

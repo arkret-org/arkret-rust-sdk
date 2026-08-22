@@ -366,12 +366,6 @@ impl SignalEnvelope {
         }
     }
 
-    /// Canonical AEAD AAD bytes for this envelope — what a receiver MUST
-    /// recompute instead of trusting the carried `aad_digest`.
-    pub fn aead_aad_bytes(&self) -> Result<Vec<u8>> {
-        self.aead_binding().aad_bytes(&self.encrypted_payload.nonce)
-    }
-
     /// Recompute the AAD digest from the immutable server-visible header.
     ///
     /// Deliberately excludes `aad_digest` itself, the ciphertext and the

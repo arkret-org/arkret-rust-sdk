@@ -400,7 +400,7 @@ pub fn validate_realm_bootstrap_unit(
         }
         // Every member of the closed bootstrap follow-up set is an active
         // reducer input. Validate its complete `cell_writes[]` contract. The
-        // event-kind registry explicitly forbids the former flattened
+        // event-kind registry explicitly forbids the flattened
         // single-target aliases, so consulting descriptor.lattice here would
         // skip every migrated contract and turn bootstrap validation into a
         // no-op.
@@ -458,7 +458,7 @@ mod tests {
     use super::*;
 
     const REALM: &str = "ak:realm:AS_LTHQu5UtXbAIUOgUFzEY5nFJzI1cgPvxODB_NnHSR";
-    const ACTOR: &str = "ak:did_core:webvh:z6mkfixture:founder.example";
+    const ACTOR: &str = "ak:did_core:webvh:z6mkfixture";
     const DIGEST: &str = "sha256:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a";
 
     fn created_at() -> DateTime<Utc> {
@@ -612,21 +612,6 @@ mod tests {
         assert_eq!(
             validate_realm_bootstrap_unit(&[create]),
             Err(RealmBootstrapValidationError::RealmAuthorityRootConflict)
-        );
-    }
-
-    #[test]
-    fn rejects_legacy_founding_grant_slot() {
-        // The old genesis shape put a self ak.capability.grant right after
-        // create. It is not a bootstrap follow-up kind, so it now fails as an
-        // out-of-order unit rather than being recognised as an authority root.
-        let legacy = event(
-            EventKind::CapabilityGrant,
-            json!({"grant_id": "ak:grant:Afem1axK6Ho0B34c6nJmfQQSdTdBuUP71SImgXFgosPC"}),
-        );
-        assert_eq!(
-            validate_realm_bootstrap_unit(&[create(), legacy]),
-            Err(RealmBootstrapValidationError::OutOfOrderBootstrap)
         );
     }
 

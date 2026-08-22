@@ -10,7 +10,6 @@ use arkret_wire::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::events_payloads::device_identity::DirectConversationBoundPayload;
 use crate::events_payloads::{RealmCreatePayload, RealmGenesis, RealmPurpose, StrandCreatePayload};
 use crate::governance::delivery_binding::DeliveryStatus;
 use crate::governance::membership_invite::MembershipPayload;
@@ -19,13 +18,6 @@ use crate::objects::strand::Strand;
 
 pub const DIRECT_CONVERSATION_REALM_ROLE_FEATURE: &str =
     "ak.feature.direct_conversation_realm_role.v1";
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DirectConversationAuthoredBindingState {
-    Active,
-    Retired,
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -246,54 +238,6 @@ pub fn direct_conversation_main_strand_create_payload(
     }
 }
 
-pub fn validate_direct_conversation_binding(
-    payload: &DirectConversationBoundPayload,
-    trust_domain: TrustDomainId,
-    genesis: &RealmGenesis,
-    realm_id: &RealmId,
-    active_members: &BTreeSet<DidCoreId>,
-    main_strand: &Strand,
-) -> Result<()> {
-    payload.validate_pair_key(trust_domain)?;
-    DirectConversationRealmRole::validate(genesis)?;
-    if &payload.realm_id != realm_id || Some(&payload.main_strand_id) != main_strand.id.as_ref() {
-        return Err(Error::Protocol(
-            "direct conversation binding object reference mismatch (schema_violation)".to_owned(),
-        ));
-    }
-    let participants: BTreeSet<DidCoreId> =
-        payload.participants_unordered.iter().cloned().collect();
-    if participants.len() != 2 || &participants != active_members {
-        return Err(Error::Protocol(
-            "direct_conversation_member_count_invalid".to_owned(),
-        ));
-    }
-    if &main_strand.realm_id != realm_id
-        || main_strand.scope_circle_id.is_some()
-        || main_strand.state != Some(ObjectState::Active)
-    {
-        return Err(Error::Protocol(
-            "direct conversation main Strand boundary mismatch (schema_violation)".to_owned(),
-        ));
-    }
-    let discussion = main_strand
-        .tracks
-        .get(STRAND_TRACK_NAME_DISCUSSION)
-        .ok_or_else(|| {
-            Error::Protocol(
-                "direct conversation main Strand discussion track missing (schema_violation)"
-                    .to_owned(),
-            )
-        })?;
-    if discussion.enabled == Some(false) || discussion.is_primary != Some(true) {
-        return Err(Error::Protocol(
-            "direct conversation main Strand discussion track is not active primary (schema_violation)"
-                .to_owned(),
-        ));
-    }
-    Ok(())
-}
-
 /// Which participant of a pair is allowed to author the Direct Conversation founding unit.
 ///
 /// The founder is derived from the pair's **root** Contact round and never from the current one, so
@@ -389,7 +333,7 @@ pub fn direct_conversation_may_found(
 #[cfg(test)]
 mod tests {
     use arkret_wire::notary::{NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor};
-    use arkret_wire::{DidCoreId, DidFullId, DidUrl, StrandId};
+    use arkret_wire::{DidCoreId, DidFullId, DidUrl};
 
     use super::*;
 
@@ -552,110 +496,6 @@ mod tests {
                 event_id("313"),
             ])
             .validate_shape()
-            .is_err()
-        );
-    }
-
-    fn binding_payload() -> DirectConversationBoundPayload {
-        let alice = actor("did:webvh:z6mkfixturealice:alice.example");
-        let bob = actor("did:webvh:z6mkfixturebob:bob.example");
-        DirectConversationBoundPayload {
-            pair_key: direct_conversation_pair_key(
-                trust_domain(),
-                DirectConversationPairKeyParticipant::unmapped(alice.clone()),
-                DirectConversationPairKeyParticipant::unmapped(bob.clone()),
-            )
-            .unwrap(),
-            participants_unordered: vec![alice, bob],
-            realm_id: RealmId::new(
-                "ak:realm:AUftf_3k2fRKMG0NFlHe5iEMBOUpxMwYMRu-yhMJl-yz".to_owned(),
-            )
-            .unwrap(),
-            main_strand_id: StrandId::new(
-                "ak:strand:AVBgYTmzSkzTSd1dlFH4ZADaQRkVcx_iTAvXdxlTfxrg".to_owned(),
-            )
-            .unwrap(),
-            founding_unit_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
-            authorization_basis: DirectConversationAuthorizationBasis::accepted_contact(vec![
-                event_id("301"),
-                event_id("308"),
-            ]),
-            initial_exact_pair_generation_ref: event_id("309"),
-            created_at: DateTime::parse_from_rfc3339("2026-07-21T00:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-        }
-    }
-
-    #[test]
-    fn validator_rejects_third_member_and_circle_scoped_main_strand() {
-        let creator = full_id("did:webvh:z6mkfixturealice:alice.example");
-        let realm = direct_conversation_realm_create_payload(
-            GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap(),
-            trust_domain(),
-            notary(&creator),
-            Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
-            Utc::now(),
-        )
-        .unwrap()
-        .object;
-        let realm_id =
-            RealmId::new("ak:realm:AUftf_3k2fRKMG0NFlHe5iEMBOUpxMwYMRu-yhMJl-yz").unwrap();
-        let payload = binding_payload();
-        let mut strand = direct_conversation_main_strand_create_payload(
-            realm_id,
-            actor(creator.as_str()),
-            Utc::now(),
-        )
-        .object;
-        assert!(
-            strand.id.is_none(),
-            "create payload must omit the derived id"
-        );
-        // The binding validator consumes the materialized projection, where the
-        // reducer has retyped the accepted create Event id.
-        strand.id = Some(payload.main_strand_id.clone());
-        let mut members: BTreeSet<_> = payload.participants_unordered.iter().cloned().collect();
-        assert!(
-            validate_direct_conversation_binding(
-                &payload,
-                trust_domain(),
-                &realm,
-                &payload.realm_id,
-                &members,
-                &strand,
-            )
-            .is_ok()
-        );
-
-        members.insert(actor("did:webvh:z6mkfixture:carol.example"));
-        assert!(
-            validate_direct_conversation_binding(
-                &payload,
-                trust_domain(),
-                &realm,
-                &payload.realm_id,
-                &members,
-                &strand,
-            )
-            .is_err()
-        );
-        members.remove(&actor("did:webvh:z6mkfixture:carol.example"));
-        strand.scope_circle_id = Some(
-            arkret_wire::CircleId::new(
-                "ak:circle:AQaY-AgUKie8pbyjuUgx-yC0rr0hNo4pI80rr9GC6eAd".to_owned(),
-            )
-            .unwrap(),
-        );
-        assert!(
-            validate_direct_conversation_binding(
-                &payload,
-                trust_domain(),
-                &realm,
-                &payload.realm_id,
-                &members,
-                &strand,
-            )
             .is_err()
         );
     }

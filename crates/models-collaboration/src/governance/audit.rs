@@ -92,14 +92,6 @@ impl AuditAssurance {
         }
     }
 
-    pub fn from_profile_id(profile: &str) -> Option<Self> {
-        match profile {
-            ProfileId::ATTESTED_AUDIT_E2EE_V1 => Some(AuditAssurance::AttestedHardware),
-            ProfileId::DISCLOSED_AUDIT_E2EE_V1 => Some(AuditAssurance::DisclosedPolicy),
-            _ => None,
-        }
-    }
-
     /// Words that MUST NOT appear in user-facing materials in disclosed
     /// audit mode (encryption-and-audit.md §3.1).
     pub fn forbidden_marketing_terms(self) -> &'static [&'static str] {
@@ -188,17 +180,4 @@ pub struct AuditRywReceipt {
 
 impl AuditRywReceipt {
     pub const SCHEMA: &'static str = SchemaId::AUDIT_RYW_RECEIPT_V1;
-    /// Validate independence vs the declared assurance class. Returns
-    /// `Err` when an attested-mode receipt is single-source (which fails
-    /// closed per `encryption-and-audit.md` §3.3.1).
-    pub fn validate_independence(&self) -> Result<()> {
-        if matches!(self.audit_assurance_class, AuditAssurance::AttestedHardware)
-            && matches!(self.receipt_independence, ReceiptIndependence::SingleSource)
-        {
-            return Err(Error::Protocol(
-                "attested audit profile requires independent RYW receipts".to_owned(),
-            ));
-        }
-        Ok(())
-    }
 }

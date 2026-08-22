@@ -142,8 +142,7 @@ impl SnapshotMerkleTree {
 /// Build RFC 6962 levels from caller-supplied leaf data digests.
 ///
 /// The input hashes are leaf *data*, not already-domain-separated Merkle
-/// leaves. This distinction prevents callers from accidentally accepting the
-/// legacy unprefixed tree.
+/// leaves. This distinction keeps the RFC 6962 domain separation explicit.
 pub(crate) fn build_levels(leaf_data: &[Hash]) -> Result<Vec<Vec<Hash>>> {
     let leaves = leaf_data
         .iter()

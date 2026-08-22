@@ -339,7 +339,6 @@ fn merkle_verify_rejects_mismatched_leaf_count() {
 
 fn move_sig(payload_digest: Hash) -> PayloadSignature {
     PayloadSignature {
-        extra: Default::default(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:generator.example#k1").unwrap(),
         payload_digest,
         created_at: Utc::now(),
@@ -502,7 +501,7 @@ fn spec_merkle_rfc6962_fixed_vectors_reject_legacy_roots() {
 }
 
 #[test]
-fn merkle_verify_rejects_legacy_root_and_wrong_branch() {
+fn merkle_verify_rejects_wrong_branch() {
     let cs = [0x11, 0x22]
         .into_iter()
         .enumerate()
@@ -513,18 +512,6 @@ fn merkle_verify_rejects_legacy_root_and_wrong_branch() {
         })
         .collect::<Vec<_>>();
     let tree = SnapshotMerkleTree::build(&cs).unwrap();
-    let path = tree.audit_path(0).unwrap();
-    let legacy_root =
-        Hash::new("sha256:5189c77d29fe5d546a045ec46986852785fea5c13ac7da9c115ff5fb6edf817c")
-            .unwrap();
-    assert!(!SnapshotMerkleTree::verify(
-        &legacy_root,
-        &cs[0].digest,
-        0,
-        &path,
-        2
-    ));
-
     let wrong_path = vec![Hash::new(format!("sha256:{}", "ff".repeat(32))).unwrap()];
     assert!(!SnapshotMerkleTree::verify(
         tree.root(),

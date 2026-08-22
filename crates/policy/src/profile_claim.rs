@@ -289,10 +289,6 @@ impl ProfileValidator {
         &self.service_kind
     }
 
-    pub fn permitted_role_set(&self) -> &[ProfileRole] {
-        &self.permitted_roles
-    }
-
     /// Spec-derived allow-set:
     ///
     /// * `Interop` is always included (bridge profiles).

@@ -139,15 +139,6 @@ impl NotificationDelta {
             None | Some(NotificationData::AgentRuntimeApprovalRemoval(_)) => None,
         }
     }
-
-    pub fn agent_runtime_approval_removal(
-        &self,
-    ) -> Option<&AgentRuntimeApprovalNotificationRemovalData> {
-        match self.data.as_ref() {
-            Some(NotificationData::AgentRuntimeApprovalRemoval(data)) => Some(data),
-            None | Some(NotificationData::AgentRuntimeApproval(_)) => None,
-        }
-    }
 }
 
 #[derive(Deserialize)]
@@ -1047,7 +1038,7 @@ mod device_message_dto_tests {
         let scalar_content = json!({
             "device_message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
             "kind": "ak.key.verification.request",
-            "content": "legacy payload",
+            "content": "not an object",
             "expires_at": "2026-07-15T01:00:00.000Z"
         });
         assert!(serde_json::from_value::<DeviceMessageTarget>(scalar_content).is_err());
@@ -1283,11 +1274,11 @@ mod device_message_tests {
         assert!(serde_json::from_value::<DeviceMessageEnvelope>(expired).is_err());
 
         let mut scalar_content = envelope_value();
-        scalar_content["content"] = json!("legacy payload");
+        scalar_content["content"] = json!("not an object");
         assert!(serde_json::from_value::<DeviceMessageEnvelope>(scalar_content).is_err());
 
         let mut unknown_root_field = envelope_value();
-        unknown_root_field["legacy"] = json!(true);
+        unknown_root_field["unexpected"] = json!(true);
         assert!(serde_json::from_value::<DeviceMessageEnvelope>(unknown_root_field).is_err());
 
         let mut missing_device_message_id = envelope_value();

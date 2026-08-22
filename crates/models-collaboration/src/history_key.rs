@@ -1799,22 +1799,6 @@ impl HistoryKeySourceRelay {
         }
         Ok(())
     }
-
-    pub fn validate_rrk_authority_for_archive_tuple(
-        &self,
-        tuple: &ArchiveAuthorizationTuple,
-    ) -> Result<()> {
-        self.validate()?;
-        let SourceAuthorityLocator::OrganizationRecoveryHolder {
-            authority_observation,
-        } = &self.source_relay_attestation.source_authority_locator
-        else {
-            return Err(Error::Protocol(
-                "history source relay is not an RRK holder branch".to_owned(),
-            ));
-        };
-        authority_observation.validate_for_archive_tuple(tuple)
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -2199,13 +2183,6 @@ impl OrganizationRecoveryArchiveSetMember {
     pub fn from_replica(replica: &OrganizationRecoveryArchiveReplica) -> Result<Self> {
         replica.validate()?;
         Self::from_archive(&replica.archive, replica.container_event_ref.clone())
-    }
-
-    pub fn from_list_item(item: &OrganizationRecoveryArchiveListItem) -> Result<Self> {
-        item.archive.validate()?;
-        item.history_traversal_retention
-            .validate_for_archive(&item.archive, &item.container_event_ref)?;
-        Self::from_archive(&item.archive, item.container_event_ref.clone())
     }
 
     pub fn from_archive(
@@ -3484,16 +3461,6 @@ impl HistoryResponsePageEntry {
                 entry_digest: lost_record.lost_record_digest()?,
             }),
         }
-    }
-}
-
-impl HistoryKeyResponseListOutcome {
-    pub fn ack_token_entries(&self) -> Result<Vec<HistoryResponseAckTokenEntry>> {
-        self.validate()?;
-        self.ack_entries
-            .iter()
-            .map(HistoryResponsePageEntry::ack_token_entry)
-            .collect()
     }
 }
 

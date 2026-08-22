@@ -785,8 +785,8 @@ fn dual_plane_vector_inventory_is_pinned() {
                 || vector_id == "ak.vector.event_kind.realm_alias_single_carrier.v1",
             "unexpected vector id {vector_id}"
         );
-        // Expectations are carried either as a top-level `expected*` block or
-        // inside per-case `cases[]` entries (multi-step scenario vectors).
+        // Expectations are carried either as a top-level `expected*` block,
+        // inside per-case `cases[]`, or on the steps of a scenario vector.
         let has_top_level_expected = vector
             .as_object()
             .unwrap()
@@ -796,9 +796,13 @@ fn dual_plane_vector_inventory_is_pinned() {
             .get("cases")
             .and_then(Value::as_array)
             .is_some_and(|cases| !cases.is_empty());
+        let has_expected_steps = vector
+            .get("steps")
+            .and_then(Value::as_array)
+            .is_some_and(|steps| steps.iter().any(|step| step.get("expected").is_some()));
         assert!(
-            has_top_level_expected || has_cases,
-            "{vector_id} carries neither an expected block nor cases[]"
+            has_top_level_expected || has_cases || has_expected_steps,
+            "{vector_id} carries no executable expectation"
         );
         // Every embedded event must carry a plane marker consistent with the
         // CBA dual-plane notes (data / control) when present.

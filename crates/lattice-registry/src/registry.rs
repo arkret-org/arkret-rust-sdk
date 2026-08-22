@@ -74,10 +74,6 @@ impl LatticeRegistry {
             })
     }
 
-    pub fn event_kind_mappings(&self) -> usize {
-        self.event_kind_index.values().map(Vec::len).sum()
-    }
-
     pub fn len(&self) -> usize {
         self.families.len()
     }

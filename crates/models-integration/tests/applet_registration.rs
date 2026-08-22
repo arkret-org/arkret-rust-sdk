@@ -362,7 +362,6 @@ fn sign_registration_attaches_matching_payload_digest() {
                 payload_digest: payload_digest.clone(),
                 created_at: Utc::now(),
                 jws: stub_detached_jws(&payload_digest),
-                extra: Default::default(),
             })
         }
     }

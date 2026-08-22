@@ -269,7 +269,6 @@ event_payload_accessors! {
     event_spec::MorphUpdate => (as_morph_update, MorphUpdatePayload, MorphUpdatePayload::validate),
     event_spec::MorphArchive => (as_morph_archive, ObjectLifecyclePayload),
     event_spec::MorphRestore => (as_morph_restore, ObjectLifecyclePayload),
-    event_spec::MorphSchemaMigrate => (as_morph_schema_migrate, MorphSchemaMigratePayload),
     event_spec::MorphStageSet => (as_morph_stage_set, MorphStageSetPayload),
     event_spec::RelationCreate => (as_relation_create, RelationCreatePayload),
     event_spec::RelationUpdate => (as_relation_update, RelationUpdatePayload),
@@ -636,7 +635,7 @@ mod tests {
                 "$id": "ak.schema.example.v1",
                 "type": "object"
             },
-            "reason": "legacy"
+            "reason": "unexpected"
         }))
         .unwrap();
         assert!(event.as_schema_define().is_err());
@@ -667,7 +666,7 @@ mod tests {
             "value": {
                 "holder_principal_id": "ak:did_core:webvh:z6mkfixtureholder",
                 "audience": {
-                    "org_did": "did:webvh:z6mkfixtureorganization:organization.example",
+                    "represented_org": "ak:did_core:webvh:z6mkfixtureorganization",
                     "verifier_service_ids": ["ak:did_core:webvh:z6mkfixtureverifier"]
                 },
                 "allowed_claims": [],
@@ -685,8 +684,7 @@ mod tests {
             "value": {
                 "receipt_id": "ak:receipt:a1cb0019-0000-7000-8000-000000000000",
                 "request_id": "ak:request:d8764019-0000-7000-8000-000000000000",
-                "verifier_service_id": "ak:did_core:webvh:z6mkfixtureverifier",
-                "represented_org": "did:webvh:z6mkfixtureorganization:organization.example",
+                "request_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                 "presentation_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "proof_profile": "vc_di_bbs_2023",
                 "transport": "tsp",

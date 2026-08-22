@@ -153,13 +153,6 @@ impl MediaServiceAnchors {
         self.routes.values().any(|full_id| full_id.as_str() == did)
     }
 
-    /// True when the exact core/full route pair is present.
-    pub fn contains_route(&self, service_id: &DidCoreId, full_id: &DidFullId) -> bool {
-        self.routes
-            .get(service_id)
-            .is_some_and(|current| current == full_id)
-    }
-
     /// Look up the verifying key for a full `kid` (`did:...#fragment`).
     pub(crate) fn verifying_key(&self, kid: &str) -> Option<&VerifyingKey> {
         self.keys.get(kid)

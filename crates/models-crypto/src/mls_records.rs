@@ -76,13 +76,6 @@ impl MlsEndpointIdentity {
         }
     }
 
-    pub fn human_device_id(&self) -> Option<&DeviceId> {
-        match self {
-            Self::HumanDevice { device_id, .. } => Some(device_id),
-            Self::NativeAgentRuntime { .. } => None,
-        }
-    }
-
     pub fn validate(&self) -> arkret_wire::Result<()> {
         match self {
             Self::HumanDevice { .. } => Ok(()),

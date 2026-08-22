@@ -14,7 +14,7 @@
 use std::time::Duration;
 
 use arkret_identifiers::Hlc;
-use arkret_identifiers::hlc::{HLC_MAX_LOGICAL, HLC_MAX_PHYSICAL_MS, HlcFutureDrift};
+use arkret_identifiers::hlc::{HLC_MAX_LOGICAL, HLC_MAX_PHYSICAL_MS};
 use web_time::{SystemTime, UNIX_EPOCH};
 
 use crate::{HlcError, Result};
@@ -105,75 +105,6 @@ impl HlcGenerator {
         Ok(Hlc::new(self.format())?)
     }
 
-    /// Generate the next HLC for an explicit scope and caller-supplied clock.
-    ///
-    /// A single process clock can use this entry point for many Realms while
-    /// retaining one monotonic `(physical, logical)` sequence. The node id is
-    /// derived independently for every scope, preventing cross-Realm linkage.
-    pub fn try_generate_for_scope_at(
-        &mut self,
-        realm_id: &str,
-        device_id: &str,
-        local_node_secret: &[u8],
-        current_time_ms: u64,
-    ) -> Result<Hlc> {
-        self.advance_for_now_or_error(current_time_ms)?;
-        self.clamp_physical();
-        let node_id = Self::compute_node_id(realm_id, device_id, local_node_secret);
-        Ok(Hlc::new(self.format_with_node(&node_id))?)
-    }
-
-    /// Generate the next HLC value, adjusting for a received remote HLC.
-    ///
-    /// When receiving an event from another node, advance local HLC
-    /// to at least the remote HLC to maintain global monotonicity.
-    pub fn generate_with_remote(&mut self, remote_hlc: &Hlc) -> Result<Hlc> {
-        let remote_parts = remote_hlc.components();
-
-        let now = Self::current_time_ms();
-
-        // HLC = max(current_hlc, now_ms, remote_hlc)
-        let max_physical = self.physical.max(now).max(remote_parts.physical_ms);
-
-        if max_physical > self.physical {
-            self.physical = max_physical;
-            self.logical = 0;
-        } else if max_physical == self.physical {
-            self.advance_logical_or_error()?;
-        }
-
-        // If remote HLC has same physical time, ensure we're ahead
-        if remote_parts.physical_ms == self.physical && remote_parts.logical >= self.logical {
-            if remote_parts.logical >= HLC_MAX_LOGICAL {
-                return Err(HlcError::Protocol(
-                    "hlc_logical_overflow: remote HLC saturated the 4-hex logical counter"
-                        .to_owned(),
-                ));
-            }
-            self.logical = remote_parts.logical + 1;
-        }
-
-        Ok(Hlc::new(self.format())?)
-    }
-
-    /// Validate an incoming HLC value.
-    ///
-    /// Checks:
-    /// - Format is valid
-    /// - Physical time is not beyond the hard future-skew cap
-    pub fn validate_incoming(&self, hlc: &Hlc) -> Result<()> {
-        self.validate_incoming_future_drift(hlc).map(|_| ())
-    }
-
-    /// Validate an incoming HLC and return whether callers should soft-fail
-    /// or quarantine while waiting for causal closure / clock convergence.
-    pub fn validate_incoming_future_drift(&self, hlc: &Hlc) -> Result<HlcFutureDrift> {
-        Ok(arkret_identifiers::hlc::validate_hlc_future_drift(
-            hlc.as_str(),
-            Self::current_time_ms(),
-        )?)
-    }
-
     /// Get current HLC value without advancing.
     pub fn current(&self) -> Hlc {
         Hlc::new(self.format()).expect("HLC format is valid")
@@ -229,7 +160,6 @@ impl HlcGenerator {
         // Logical counter saturated. encoding.md's HLC overflow rule
         // forbids wrapping; the two permitted strategies are waiting for
         // a larger unix_ms or returning `hlc_logical_overflow`
-        // ([`Self::generate_with_remote`] takes the error path). This
         // sync API waits — spin briefly, then back off with 1 ms sleeps
         // so a clock rollback does not busy-burn a core. wasm32 has no
         // blocking sleep, so it stays on yield (single-threaded hosts
@@ -285,7 +215,7 @@ impl HlcGenerator {
 
 #[cfg(test)]
 mod tests {
-    use arkret_identifiers::hlc::{HARD_FUTURE_SKEW_MS, compare_hlc, parse_hlc};
+    use arkret_identifiers::hlc::{compare_hlc, parse_hlc};
 
     use super::*;
 
@@ -354,38 +284,6 @@ mod tests {
     }
 
     #[test]
-    fn hlc_generator_advances_with_remote() {
-        let mut hlc_gen = HlcGenerator::with_initial_time(
-            "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs",
-            "device-1",
-            b"test-secret",
-            0x01970e589d21,
-        );
-
-        let remote = Hlc::new("01970e589d22-0005-a13f9c2e").unwrap();
-        let hlc = hlc_gen.generate_with_remote(&remote).unwrap();
-
-        let hlc_parts = parse_hlc(hlc.as_str()).unwrap();
-        assert!(hlc_parts.physical_ms >= 0x01970e589d22);
-    }
-
-    #[test]
-    fn hlc_generator_rejects_future_hlc_beyond_skew() {
-        let hlc_gen = HlcGenerator::new(
-            "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs",
-            "device-1",
-            b"test-secret",
-        );
-
-        // Create HLC far in the future (> 5 minutes)
-        // MAX_SKEW_MS is 5 minutes in milliseconds, so we add more than that
-        let future_physical = HlcGenerator::current_time_ms() + HARD_FUTURE_SKEW_MS as u64 + 1000;
-        let future_hlc = Hlc::new(format!("{:012x}-0001-a13f9c2e", future_physical)).unwrap();
-
-        assert!(hlc_gen.validate_incoming(&future_hlc).is_err());
-    }
-
-    #[test]
     fn node_id_computation_is_deterministic_and_realm_scoped() {
         let realm_a = "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs";
         let realm_b = "ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI";
@@ -399,27 +297,6 @@ mod tests {
         assert_eq!(id1.len(), 8);
         assert_ne!(id1, id3);
         assert_ne!(id1, id4);
-    }
-
-    #[test]
-    fn scoped_generation_keeps_one_sequence_with_unlinkable_node_ids() {
-        let realm_a = "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs";
-        let realm_b = "ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI";
-        let secret = b"stable-local-secret";
-        let mut generator = HlcGenerator::with_initial_time(realm_a, "device-1", secret, 0);
-
-        let first = generator
-            .try_generate_for_scope_at(realm_a, "device-1", secret, 1_700_000_000_000)
-            .unwrap();
-        let second = generator
-            .try_generate_for_scope_at(realm_b, "device-1", secret, 1_700_000_000_000)
-            .unwrap();
-        let first = parse_hlc(first.as_str()).unwrap();
-        let second = parse_hlc(second.as_str()).unwrap();
-
-        assert_eq!(first.physical_ms, second.physical_ms);
-        assert_eq!(first.logical + 1, second.logical);
-        assert_ne!(first.node_id, second.node_id);
     }
 
     #[test]

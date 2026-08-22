@@ -66,9 +66,6 @@ pub const WEBSOCKET_MAX_BASE_URL_BYTES: usize = 2048;
 /// bound is 1: the token is opaque visible ASCII so `ASCII(...)` is unique.
 pub const WEBSOCKET_MAX_SESSION_GRANT_BYTES: usize = 16_384;
 
-/// Maximum UTF-8 length of a WebSocket close reason string (§8.1, RFC 6455).
-pub const WEBSOCKET_MAX_CLOSE_REASON_BYTES: usize = 123;
-
 /// The three operations the first version of this profile covers (§1).
 ///
 /// The set is closed and complete: a descriptor that lists a subset is not

@@ -65,23 +65,6 @@ pub struct SealTransparencyChecks {
     pub completeness_monotonic: SealTransparencyVerifiedCheck,
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/seal-transparency.schema.json#/$defs/auditor_attestation`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SealTransparencyAuditorAttestation {
-    pub log_id: String,
-    pub realm_id: RealmId,
-    pub from_index: u64,
-    pub to_index: u64,
-    pub head_entry_digest: Hash,
-    pub auditor_id: DidCoreId,
-    pub checks: SealTransparencyChecks,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub attested_at: DateTime<Utc>,
-    pub signature: PayloadProof,
-}
-
 /// Counterpart for `spec/v1/artifacts/schemas/seal-transparency.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

@@ -207,16 +207,6 @@ mod tests {
     }
 
     #[test]
-    fn cross_object_redaction_rejects_retired_event_target_spellings() {
-        for member in ["event_id", "target_event_id"] {
-            serde_json::from_value::<CrossObjectRedactionPayload>(json!({
-                member: "ak:event:ASwq0QFg8faJScGgZD2ETHGz8WhBMT09jmLQI16Q3Z-U"
-            }))
-            .expect_err("the only target carrier is target_ref");
-        }
-    }
-
-    #[test]
     fn tombstone_preserves_audit_metadata_and_strips_body() {
         let mut event = json!({
             "kind": "ak.message.create",

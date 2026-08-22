@@ -727,7 +727,7 @@ fn looks_like_uri(value: &str) -> bool {
         && !value.chars().any(char::is_whitespace)
 }
 
-/// Legacy flat schedule keys and activation impostors that MUST NOT appear at
+/// Flat schedule keys and activation impostors that MUST NOT appear at
 /// the `metadata.fields` root. `strand.schema.json` rejects them on the wire;
 /// this list lets reducers produce the same decision without re-running the
 /// full JSON Schema.
@@ -1426,13 +1426,6 @@ pub struct RealmRemark {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmRemarkAccountDataUpdate {
-    pub key: String,
-    pub remark: Option<RealmRemark>,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContactRemarkSubject {
@@ -1883,95 +1876,6 @@ pub fn parse_realm_remark_account_data_key(key: &str) -> Result<RealmId> {
     })
 }
 
-pub fn validate_realm_remark_account_data_value(key: &str, value: &Value) -> Result<()> {
-    parse_realm_remark_account_data_key(key)?;
-    if value.as_object().is_some_and(|object| object.is_empty()) {
-        return Ok(());
-    }
-    if value.as_object().is_some_and(|object| {
-        object.len() == 1 && object.get("tombstone").and_then(Value::as_bool) == Some(true)
-    }) {
-        return Ok(());
-    }
-    let remark: RealmRemark = serde_json::from_value(value.clone()).map_err(|error| {
-        Error::Protocol(format!(
-            "realm remark account-data value is invalid: {error}"
-        ))
-    })?;
-    remark.validate_for_account_data_key(key)
-}
-
-pub fn validate_no_realm_remark_private_fields_in_shared_payload(payload: &Value) -> Result<()> {
-    fn visit(path: &str, value: &Value) -> Result<()> {
-        match value {
-            Value::Object(object) => {
-                for key in object.keys() {
-                    if key.starts_with("ak.contacts.realm.") || key == "realm_remark" {
-                        return Err(Error::Protocol(format!(
-                            "shared payload must not contain private realm remark at {path}.{key}"
-                        )));
-                    }
-                }
-                let realm_subject = object
-                    .get("subject")
-                    .and_then(Value::as_object)
-                    .is_some_and(|subject| {
-                        subject.get("kind").and_then(Value::as_str) == Some("realm")
-                    });
-                if realm_subject
-                    && [
-                        "local_name",
-                        "note",
-                        "pinned",
-                        "verified_title_at_save",
-                        "verified_owning_organizations_at_save",
-                    ]
-                    .iter()
-                    .any(|field| object.contains_key(*field))
-                {
-                    return Err(Error::Protocol(format!(
-                        "shared payload must not contain private realm remark fields at {path}"
-                    )));
-                }
-                for (key, child) in object {
-                    visit(&format!("{path}.{key}"), child)?;
-                }
-            }
-            Value::Array(values) => {
-                for (index, child) in values.iter().enumerate() {
-                    visit(&format!("{path}[{index}]"), child)?;
-                }
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-
-    visit("$", payload)
-}
-
-pub fn set_realm_pinned(
-    realm_id: RealmId,
-    existing: Option<&RealmRemark>,
-    pinned: bool,
-    updated_at: DateTime<Utc>,
-) -> Result<RealmRemarkAccountDataUpdate> {
-    let key = realm_remark_account_data_key(&realm_id);
-    let remark = RealmRemark::with_pinned_preserving_fields(realm_id, existing, pinned, updated_at);
-    let value = if remark.is_empty() {
-        json!({})
-    } else {
-        serde_json::to_value(&remark).map_err(|error| {
-            Error::Protocol(format!("realm remark serialization failed: {error}"))
-        })?
-    };
-    validate_realm_remark_account_data_value(&key, &value)?;
-    Ok(RealmRemarkAccountDataUpdate {
-        key,
-        remark: (!remark.is_empty()).then_some(remark),
-    })
-}
-
 pub fn scheduled_send_message_payload_digest(
     message_payload: &MessageCreatePayload,
 ) -> Result<String> {
@@ -2043,30 +1947,6 @@ pub fn search_index_manifest_account_data_key(
     ))
 }
 
-pub fn search_index_shard_key(
-    index_key: &[u8],
-    realm_id: &RealmId,
-    index_generation: u64,
-    shard_seed: &[u8],
-) -> Result<String> {
-    validate_search_index_key(index_key)?;
-    if shard_seed.is_empty() {
-        return Err(Error::Protocol(
-            "search index shard_seed must not be empty".to_owned(),
-        ));
-    }
-    let material = json!({
-        "profile": ProfileId::SEARCH_CLIENT_INDEX_V1,
-        "realm_id": realm_id.as_str(),
-        "index_generation": index_generation,
-        "shard_seed_digest": canonical::sha256_digest(shard_seed),
-    });
-    Ok(base64url_encode(hmac_sha256(
-        index_key,
-        &canonical::canonical_json_bytes(&material)?,
-    )))
-}
-
 pub fn blind_index_token(
     index_key: &[u8],
     realm_id: &RealmId,
@@ -2094,42 +1974,6 @@ pub fn blind_index_token(
         index_key,
         &canonical::canonical_json_bytes(&material)?,
     )))
-}
-
-pub fn build_blind_index_query<I, S>(
-    index_key: &[u8],
-    realm_id: RealmId,
-    effective_scope: ScopeRef,
-    epoch: u64,
-    index_generation: u64,
-    terms: I,
-) -> Result<BlindIndexQuery>
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
-{
-    let blind_tokens = terms
-        .into_iter()
-        .map(|term| {
-            blind_index_token(
-                index_key,
-                &realm_id,
-                &effective_scope,
-                epoch,
-                index_generation,
-                term.as_ref(),
-            )
-        })
-        .collect::<Result<Vec<_>>>()?;
-    let query = BlindIndexQuery {
-        realm_id,
-        effective_scope,
-        epoch,
-        index_generation,
-        blind_tokens,
-    };
-    query.validate()?;
-    Ok(query)
 }
 
 pub fn file_transfer_account_data_key(namespace_key: &[u8], transfer_id: &str) -> Result<String> {
@@ -2672,10 +2516,6 @@ mod tests {
         )
     }
 
-    fn test_blob_id(seed: &str) -> BlobId {
-        BlobId::new(format!("ak:blob:01904100-0000-7000-8000-{seed}")).unwrap()
-    }
-
     fn test_time(second: u32) -> DateTime<Utc> {
         DateTime::parse_from_rfc3339(&format!("2026-06-06T10:00:{second:02}Z"))
             .unwrap()
@@ -3181,98 +3021,6 @@ mod tests {
     }
 
     #[test]
-    fn realm_remark_key_and_value_validate_against_spec_shape() {
-        let realm_id = test_realm_id("000000000101");
-        let key = realm_remark_account_data_key(&realm_id);
-        let remark = RealmRemark {
-            version: 1,
-            subject: RealmRemarkSubject {
-                kind: "realm".to_owned(),
-                id: realm_id.clone(),
-            },
-            local_name: "Acme Engineering".to_owned(),
-            note: "private reminder".to_owned(),
-            tags: vec!["work".to_owned(), "high_signal".to_owned()],
-            pinned: true,
-            verified_title_at_save: Some("Engineering".to_owned()),
-            verified_owning_organizations_at_save: vec![
-                DidCoreId::new("ak:did_core:webvh:z6mkfixtureacme").unwrap(),
-            ],
-            saved_at: test_time(0),
-            updated_at: Some(test_time(1)),
-        };
-        let value = serde_json::to_value(&remark).unwrap();
-
-        assert_eq!(parse_realm_remark_account_data_key(&key).unwrap(), realm_id);
-        validate_private_account_data_key(&key).unwrap();
-        validate_realm_remark_account_data_value(&key, &value).unwrap();
-        assert_eq!(value["pinned"], true);
-        assert!(value.get("encrypted_payload").is_none());
-    }
-
-    #[test]
-    fn realm_remark_validator_rejects_mismatch_namespace_and_shared_leak() {
-        let realm_id = test_realm_id("000000000201");
-        let other_realm_id = test_realm_id("000000000202");
-        let key = realm_remark_account_data_key(&realm_id);
-        let mut remark = RealmRemark::new(other_realm_id, test_time(0));
-        remark.pinned = true;
-        let value = serde_json::to_value(&remark).unwrap();
-
-        assert!(validate_realm_remark_account_data_value(&key, &value).is_err());
-        assert!(validate_realm_remark_account_data_value("ak.tags.realm.bad", &json!({})).is_err());
-        assert!(
-            validate_realm_remark_account_data_value(&key, &json!({"tombstone": true})).is_ok()
-        );
-
-        let leaked_shared_payload = json!({
-            "event_kind": "ak.realm.profile",
-            "realm_remark": {
-                "subject": {"kind": "realm", "id": realm_id.as_str()},
-                "pinned": true
-            }
-        });
-        assert!(
-            validate_no_realm_remark_private_fields_in_shared_payload(&leaked_shared_payload)
-                .is_err()
-        );
-    }
-
-    #[test]
-    fn set_realm_pinned_preserves_fields_and_tombstones_empty_remark() {
-        let realm_id = test_realm_id("000000000301");
-        let mut existing = RealmRemark::new(realm_id.clone(), test_time(0));
-        existing.local_name = "Ops private alias".to_owned();
-        existing.note = "keep me".to_owned();
-        existing.pinned = true;
-
-        let unpinned =
-            set_realm_pinned(realm_id.clone(), Some(&existing), false, test_time(2)).unwrap();
-        assert_eq!(unpinned.key, realm_remark_account_data_key(&realm_id));
-        let unpinned_remark = unpinned.remark.as_ref().unwrap();
-        assert!(!unpinned_remark.pinned);
-        assert_eq!(unpinned_remark.local_name, "Ops private alias");
-        assert_eq!(unpinned_remark.note, "keep me");
-        validate_realm_remark_account_data_value(
-            &unpinned.key,
-            &serde_json::to_value(unpinned_remark).unwrap(),
-        )
-        .unwrap();
-
-        let pinned = set_realm_pinned(realm_id.clone(), None, true, test_time(3)).unwrap();
-        assert!(pinned.remark.as_ref().unwrap().pinned);
-        validate_realm_remark_account_data_value(
-            &pinned.key,
-            &serde_json::to_value(pinned.remark.as_ref().unwrap()).unwrap(),
-        )
-        .unwrap();
-
-        let empty = set_realm_pinned(realm_id, None, false, test_time(4)).unwrap();
-        assert!(empty.remark.is_none());
-        validate_realm_remark_account_data_value(&empty.key, &json!({})).unwrap();
-    }
-
-    #[test]
     fn wire_field_names_match_current_spec() {
         let draft = DraftSyncValue::Message {
             target_ref: "ak:message:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19".to_owned(),
@@ -3354,65 +3102,5 @@ mod tests {
             blind_index_token(index_key, &realm_a, &circle_scope, 7, 11, "Release Plan").unwrap()
         );
         assert!(blind_index_token(index_key, &realm_b, &scope_a, 7, 11, "Release Plan").is_err());
-    }
-
-    #[test]
-    fn blind_index_query_uses_integer_epoch_and_unique_tokens() {
-        let realm_id = test_realm_id("000000000601");
-        let query = build_blind_index_query(
-            b"query search index key",
-            realm_id.clone(),
-            ScopeRef::Realm {
-                realm_id: realm_id.clone(),
-            },
-            42,
-            3,
-            ["alpha", "beta"],
-        )
-        .unwrap();
-        query.validate().unwrap();
-        let wire = serde_json::to_value(&query).unwrap();
-        assert_eq!(wire["epoch"].as_u64(), Some(42));
-        assert!(wire["epoch"].as_str().is_none());
-        assert_eq!(wire["blind_tokens"].as_array().unwrap().len(), 2);
-
-        let duplicate = build_blind_index_query(
-            b"query search index key",
-            realm_id.clone(),
-            ScopeRef::Realm { realm_id },
-            42,
-            3,
-            ["alpha", "alpha"],
-        );
-        assert!(duplicate.is_err());
-    }
-
-    #[test]
-    fn encrypted_search_shard_keys_are_opaque_and_realm_bound() {
-        let index_key = b"manifest search index key";
-        let realm_a = test_realm_id("000000000701");
-        let realm_b = test_realm_id("000000000702");
-        let shard_a = search_index_shard_key(index_key, &realm_a, 1, b"random shard seed").unwrap();
-        let shard_b = search_index_shard_key(index_key, &realm_b, 1, b"random shard seed").unwrap();
-        assert_ne!(shard_a, shard_b);
-        assert_ne!(
-            shard_a,
-            search_index_shard_key(index_key, &realm_a, 2, b"random shard seed").unwrap()
-        );
-        assert!(!shard_a.contains(realm_a.as_str()));
-
-        let manifest = EncryptedIndexManifest {
-            realm_id: realm_a,
-            index_generation: 1,
-            shards: vec![EncryptedShardRef {
-                shard_key: shard_a,
-                blob_ref: test_blob_id("000000000801"),
-                ciphertext_digest:
-                    "sha256:1111111111111111111111111111111111111111111111111111111111111111"
-                        .to_owned(),
-            }],
-            updated_hlc: "01970e589d21-0000-a13f9c2e".to_owned(),
-        };
-        manifest.validate().unwrap();
     }
 }

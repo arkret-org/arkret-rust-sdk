@@ -9,37 +9,8 @@ pub use crate::generated::event_kinds::{
 /// Object-only schema id; this is not an Event.kind.
 pub const RECEIPT_OBJECT_KINDS: &[&str] = &["ak.event_batch_receipt"];
 
-pub fn is_ephemeral_kind(kind: &str) -> bool {
-    EventKind::try_new(kind).is_some_and(|kind| kind.wire_scope() == EventWireScope::EphemeralEvent)
-}
-
 pub fn is_receipt_object_only(kind: &str) -> bool {
     RECEIPT_OBJECT_KINDS.contains(&kind)
-}
-
-pub fn event_payload_schema_ref(kind: &str) -> Option<&'static str> {
-    EventKind::try_new(kind).and_then(|kind| {
-        kind.descriptor()
-            .and_then(|descriptor| descriptor.payload_schema_ref)
-    })
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RealmLifecycleState {
-    Active,
-    Frozen,
-    Archived,
-    Tombstoned,
-    Destroyed,
-}
-
-pub fn is_terminal_realm_state(state: RealmLifecycleState) -> bool {
-    matches!(state, RealmLifecycleState::Destroyed)
-}
-
-pub fn is_reducer_input_event_kind(kind: &str) -> bool {
-    EventKind::try_new(kind).is_some_and(|kind| kind.is_reducer_input())
 }
 
 pub fn event_wire_scope(kind: &str) -> EventWireScope {
@@ -211,7 +182,6 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         EventKind::MorphArchive
         | EventKind::MorphCreate
         | EventKind::MorphRestore
-        | EventKind::MorphSchemaMigrate
         | EventKind::MorphStageSet
         | EventKind::MorphUpdate => EventProductClass::Morph,
         EventKind::OrganizationDiscovery | EventKind::OrganizationModerationPolicy => {
@@ -316,21 +286,6 @@ pub fn is_pin_kind(kind: &EventKind) -> bool {
     matches!(event_product_class(kind), EventProductClass::Pin)
 }
 
-pub fn is_space_lifecycle_kind(kind: &EventKind) -> bool {
-    matches!(
-        kind,
-        EventKind::SpaceArchive | EventKind::SpaceRestore | EventKind::SpaceTombstone
-    )
-}
-
-pub fn is_strand_lifecycle_kind(kind: &EventKind) -> bool {
-    matches!(kind, EventKind::StrandArchive | EventKind::StrandRestore)
-}
-
-pub fn is_morph_lifecycle_kind(kind: &EventKind) -> bool {
-    matches!(kind, EventKind::MorphArchive | EventKind::MorphRestore)
-}
-
 pub fn is_strand_tracks_kind(kind: &EventKind) -> bool {
     matches!(kind, EventKind::StrandTracksUpdate)
 }
@@ -360,9 +315,6 @@ mod tests {
         assert!(is_audit_kind(&EventKind::AuditRywReceipt));
         assert!(is_redaction_kind(&EventKind::Redaction));
         assert!(is_realm_lifecycle_kind(&EventKind::RealmTombstone));
-        assert!(is_space_lifecycle_kind(&EventKind::SpaceArchive));
-        assert!(is_strand_lifecycle_kind(&EventKind::StrandArchive));
-        assert!(is_morph_lifecycle_kind(&EventKind::MorphArchive));
         assert!(is_strand_tracks_kind(&EventKind::StrandTracksUpdate));
         assert_eq!(
             EventKind::CallState.product_class(),

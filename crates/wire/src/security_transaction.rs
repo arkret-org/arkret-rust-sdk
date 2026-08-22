@@ -20,7 +20,6 @@ use crate::{
 };
 
 pub const MAX_SECURITY_TRANSACTION_TTL: Duration = Duration::hours(24);
-pub const MAX_ACCEPTED_STEPS: usize = 5;
 pub const MAX_OPAQUE_REF_CHARS: usize = 2048;
 pub const CLIENT_STEP_ATTESTATION_SIGNED_FIELDS: [&str; 6] = [
     "step",
@@ -1036,11 +1035,6 @@ impl SecurityTransaction {
                     .to_owned(),
             )),
         }
-    }
-
-    pub fn remaining_steps(&self) -> Result<&'static [SecurityTransactionStep]> {
-        let order = self.step_order()?;
-        Ok(&order[self.accepted_steps.len().min(order.len())..])
     }
 
     pub fn validate_structural(&self) -> Result<()> {

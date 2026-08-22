@@ -91,9 +91,7 @@ pub enum PolicyRuleKind {
 /// A single typed policy rule (mirrors `policy.schema.json`
 /// `$defs.policy_rule`). `rule_id` / `kind` / `effect` are required; the
 /// kind-specific fields (e.g. `actions` for `kind=action`) ride in `extra`
-/// and are validated by [`PolicyRule::validate`]. This replaces the former
-/// untyped `Vec<Value>` so callers can no longer build a rule that is
-/// missing its required discriminators without the SDK noticing.
+/// and are validated by [`PolicyRule::validate`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PolicyRule {
     pub rule_id: String,

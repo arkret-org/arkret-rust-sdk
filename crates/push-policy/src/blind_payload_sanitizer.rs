@@ -449,8 +449,8 @@ pub fn is_forbidden_payload_key(key: &str) -> bool {
             // Device identity. Devices are not independent actors and no longer
             // have DID identifiers; they are identified by
             // `device_id = ak:device:<uuid>` under a principal DID verification
-            // method. Keep `device_did` forbidden for defense in depth so legacy
-            // or malicious clients cannot leak linkable identity.
+            // method. Keep `device_did` forbidden for defense in depth so
+            // malicious clients cannot leak linkable identity.
             | "device_did"
             | "device_url"
             | "device_id"

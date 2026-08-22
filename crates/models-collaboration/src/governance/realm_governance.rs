@@ -31,13 +31,8 @@ use crate::events_payloads::{
 };
 use crate::objects::realm_alias::RealmAlias;
 
-/// Wire field names used by effective moderation policy payloads.
-pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_REALM_ID: &str = "realm_id";
-pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_INHERITANCE_MODE: &str = "inheritance_mode";
-pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_INHERITANCE_CHAIN: &str = "inheritance_chain";
 pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_ORGANIZATION_POLICY_LAYERS: &str =
     "organization_policy_layers";
-pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_REALM_POLICY: &str = "realm_policy";
 pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_EFFECTIVE_RULES: &str = "effective_rules";
 pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_ORGANIZATION_EFFECTIVE_RULES: &str =
     "organization_effective_rules";
@@ -853,23 +848,6 @@ impl RealmAliasPayload {
         serde_json::to_value(self)
             .map_err(|err| Error::Protocol(format!("realm alias payload serialize: {err}")))
     }
-
-    /// The alias `<domain>` is the issuing authority; a Realm's own notary
-    /// signature is not evidence that a foreign domain authorized the claim.
-    /// Declarations under any other authority fail closed.
-    pub fn validate_issuing_authority(self, authority_domain: &str) -> Result<Self> {
-        let validated = self.validate()?;
-        if let Self::Declaration(declaration) = &validated
-            && declaration.alias.domain() != authority_domain
-        {
-            return Err(Error::Protocol(format!(
-                "{}: realm alias domain {} is not the issuing authority domain {authority_domain}",
-                ReasonCode::REALM_ALIAS_AUTHORITY_MISMATCH,
-                declaration.alias.domain(),
-            )));
-        }
-        Ok(validated)
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1423,29 +1401,6 @@ mod tests {
                 .unwrap()
                 .validate()
                 .is_err()
-        );
-    }
-
-    #[test]
-    fn realm_alias_declaration_binds_the_issuing_authority_domain() {
-        let declaration =
-            RealmAliasPayload::declaration(RealmAlias::parse("general:acme.example").unwrap());
-        assert!(
-            declaration
-                .clone()
-                .validate_issuing_authority("acme.example")
-                .is_ok()
-        );
-        let error = declaration
-            .validate_issuing_authority("other.example")
-            .unwrap_err()
-            .to_string();
-        assert!(error.contains(ReasonCode::REALM_ALIAS_AUTHORITY_MISMATCH));
-        // A tombstone releases the Realm's own alias and carries no authority.
-        assert!(
-            RealmAliasPayload::tombstone()
-                .validate_issuing_authority("other.example")
-                .is_ok()
         );
     }
 }

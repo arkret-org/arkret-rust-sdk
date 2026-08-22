@@ -14,11 +14,7 @@ pub struct StrandCreatePayload {
     pub initial_relations: Option<Vec<BTreeMap<String, Value>>>,
 }
 
-// `strand_move_payload` now has a strong type:
-// `models::operation_payloads::StrandMovePayload` (replaces the former
-// `= Value` alias as part of the wire strong-type migration; flat
-// board/target Space ids + rank with an optional `expected_position`
-// CAS guard, `additionalProperties:false`).
+// `strand_move_payload` uses `models::operation_payloads::StrandMovePayload`.
 
 // `strand_reorder_payload` now has a strong type:
 // `models::operation_payloads::StrandReorderPayload` (single List-Space

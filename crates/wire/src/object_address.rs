@@ -4,7 +4,7 @@
 //! A shareable address points at a Realm, a Strand inside a Realm, or a Message
 //! inside a Strand. Three envelopes share ONE grammar:
 //!
-//! * logical id `ak:<kind>:<id>` — opaque, never carries via/action/token.
+//! * logical id `ak:<kind>:<id>` — opaque, never carries action/token.
 //! * `web+arkret:` URI scheme: `web+arkret:realm/<realm>/strand/<strand>/m/<msg>?action=view`
 //! * HTTPS landing: `https://<landing>/#realm/.../strand/...?action=...` — everything AFTER the `#`
 //!   is the SAME grammar as the `web+arkret:` form (strip the `https://<host>/#` shell, then reuse
@@ -15,8 +15,7 @@
 //!   fixed `realm/<r>` ⊃ `strand/<f>` ⊃ `m/<msg>`. The message seal keyword is exactly `m/`.
 //! * The `<realm>` segment: a registered 44-character Realm token is a `realm_id`; otherwise it is
 //!   an ALIAS (domain-style). `<strand>` and `<msg>` segments accept ONLY a bare Event token.
-//! * Strand/Message addresses MUST carry `realm/<r>`. A global strand_id is never guessed. Retired
-//!   `via` query hints are ignored.
+//! * Strand/Message addresses MUST carry `realm/<r>`. A global strand_id is never guessed.
 //! * Unknown path keyword, wrong order, or a missing intermediate level fails closed. v1 legal
 //!   keywords are ONLY `realm` / `strand` / `m`; an unknown keyword is always fail-closed
 //!   (forward-compat, no fork).
@@ -342,9 +341,8 @@ fn parse_query(query: &str) -> (AddressAction, AddressLinkKind, Option<String>) 
             "action" => action_raw = Some(value),
             "lt" => lt_raw = Some(value),
             "tok" if !value.is_empty() => tok = Some(value),
-            // `via` is retired as a client-derived routing hint. Empty tok,
-            // unknown query keys (forward-compat for new hints), and
-            // never-identity-bearing extras are ignored.
+            // Empty tok, unknown query keys, and never-identity-bearing extras
+            // are ignored.
             _ => {}
         }
     }
@@ -513,10 +511,10 @@ impl TargetDescriptor {
 }
 
 /// `target_digest = "sha256:" + hex(sha256(JCS(target_descriptor)))`, computed
-/// via the shared canonicalizer [`crate::canonical::canonical_sha256`].
+/// through the shared canonicalizer [`crate::canonical::canonical_sha256`].
 ///
 /// The digest covers ONLY the identity tuple + `address_link_kind`. It MUST NOT include
-/// `via` / `action` / `tok` / `lt` or any query hint — those live outside the
+/// `action` / `tok` / `lt` or any query hint — those live outside the
 /// descriptor entirely, so refreshing routing hints or changing the UI action
 /// does NOT invalidate a token, while switching Strand/Message DOES.
 pub fn target_digest(descriptor: &TargetDescriptor) -> Result<String> {
@@ -565,7 +563,6 @@ mod tests {
     const F: &str = "AQ5uuUVXlrGqR79MEUmEPOIMYQIdRhgBIsTAtH3mgNpC";
     const F2: &str = "AeI0Z4D734iPt9RpF51PAg0CRjLSQmxPqv9NgUmBJiQi";
     const M: &str = "Ae7X76GvvRfNzRJ816sY6MNBQbaRxwkzKMLbQPQsG5sq";
-    const VIA: &str = "did:webvh:z6mkfixture:relay.example";
 
     fn realm_addr() -> ParsedAddress {
         ParsedAddress {
@@ -609,11 +606,9 @@ mod tests {
     }
 
     #[test]
-    fn retired_via_hint_is_ignored() {
-        let parsed = parse_address(&format!(
-            "web+arkret:realm/{R}/strand/{F}?via=did:webvh:z6mkfixture:a&via=did:webvh:z6mkfixture:b"
-        ))
-        .unwrap();
+    fn unknown_non_identity_hint_is_ignored() {
+        let parsed =
+            parse_address(&format!("web+arkret:realm/{R}/strand/{F}?ui_hint=compact")).unwrap();
         assert!(parsed.is_strand());
     }
 
@@ -671,11 +666,11 @@ mod tests {
     #[test]
     fn unknown_keyword_fails_closed() {
         assert!(parse_address(&format!("web+arkret:space/{R}")).is_err());
-        assert!(parse_address(&format!("web+arkret:realm/{R}/thread/{F}?via={VIA}")).is_err());
+        assert!(parse_address(&format!("web+arkret:realm/{R}/thread/{F}")).is_err());
     }
 
     #[test]
-    fn strand_or_message_without_via_is_valid() {
+    fn strand_or_message_address_is_valid() {
         assert!(parse_address(&format!("web+arkret:realm/{R}/strand/{F}")).is_ok());
         assert!(parse_address(&format!("web+arkret:realm/{R}/strand/{F}/m/{M}")).is_ok());
     }
@@ -683,19 +678,17 @@ mod tests {
     #[test]
     fn missing_intermediate_level_fails_closed() {
         // `m/` without a `strand/` level.
-        assert!(parse_address(&format!("web+arkret:realm/{R}/m/{M}?via={VIA}")).is_err());
+        assert!(parse_address(&format!("web+arkret:realm/{R}/m/{M}")).is_err());
     }
 
     #[test]
     fn wrong_order_fails_closed() {
-        assert!(parse_address(&format!("web+arkret:strand/{F}/realm/{R}?via={VIA}")).is_err());
+        assert!(parse_address(&format!("web+arkret:strand/{F}/realm/{R}")).is_err());
     }
 
     #[test]
     fn non_token_strand_segment_fails_closed() {
-        assert!(
-            parse_address(&format!("web+arkret:realm/{R}/strand/not-a-uuid?via={VIA}")).is_err()
-        );
+        assert!(parse_address(&format!("web+arkret:realm/{R}/strand/not-a-uuid")).is_err());
     }
 
     #[test]
@@ -733,15 +726,15 @@ mod tests {
     }
 
     #[test]
-    fn target_digest_ignores_via_action_tok_lt() {
+    fn target_digest_ignores_non_identity_hints() {
         let base = parse_address(&format!("web+arkret:realm/{R}/strand/{F}")).unwrap();
         let hinted = parse_address(&format!(
-            "web+arkret:realm/{R}/strand/{F}?via=did:webvh:z6mkfixture:a&via=did:webvh:z6mkfixture:b&action=join"
+            "web+arkret:realm/{R}/strand/{F}?ui_hint=compact&action=join"
         ))
         .unwrap();
         let d1 = target_digest(&TargetDescriptor::from_parsed(&base)).unwrap();
         let d2 = target_digest(&TargetDescriptor::from_parsed(&hinted)).unwrap();
-        assert_eq!(d1, d2, "hints (via/action) must not change the digest");
+        assert_eq!(d1, d2, "query hints must not change the digest");
         assert!(d1.starts_with("sha256:"));
     }
 

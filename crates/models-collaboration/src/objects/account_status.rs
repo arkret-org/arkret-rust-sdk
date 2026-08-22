@@ -56,10 +56,6 @@ impl AccountStatus {
         self.severity_rank() > other.severity_rank()
     }
 
-    pub fn is_less_strict_than(self, other: Self) -> bool {
-        self.severity_rank() < other.severity_rank()
-    }
-
     pub fn is_terminal(self) -> bool {
         matches!(self, AccountStatus::ErasurePending)
     }
@@ -95,16 +91,6 @@ impl AccountStatus {
         }
 
         Ok(())
-    }
-
-    /// Return whether new writes are allowed in this state.
-    pub fn allows_writes(self) -> bool {
-        matches!(self, AccountStatus::Active)
-    }
-
-    /// Return whether refresh / re-auth is the only allowed transition.
-    pub fn requires_reauth(self) -> bool {
-        matches!(self, AccountStatus::SoftLoggedOut | AccountStatus::Locked)
     }
 }
 

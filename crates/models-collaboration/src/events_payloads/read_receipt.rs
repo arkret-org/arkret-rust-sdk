@@ -18,6 +18,4 @@ pub struct ReadReceiptPolicyPayload {
         Option<crate::objects::read_receipts::ReadReceiptComplianceOptIn>,
 }
 
-// `realm_archive_payload` now has a strong type:
-// `models::operation_payloads::RealmArchivePayload` (replaces the former
-// `= Value` alias as part of the wire strong-type migration).
+// `realm_archive_payload` uses `models::operation_payloads::RealmArchivePayload`.

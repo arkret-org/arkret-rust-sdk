@@ -71,18 +71,7 @@ pub struct MembershipPayload {
     pub membership: MembershipPayloadState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delivery_status: Option<DeliveryStatus>,
-    /// `member_delivery_binding` carried opaquely as a `Value`.
-    ///
-    /// NOTE: we intentionally do NOT type this as the SDK
-    /// [`MemberDeliveryBinding`] struct: that struct models the `*_ref`
-    /// fields (e.g. `service_acceptance_ref`) as the rich `EventRef`
-    /// `{id, role, …}` object, whereas the spec
-    /// `member_delivery_binding.service_acceptance_ref` is a bare
-    /// `event_ref` string (`^ak:event:…$`). Routing a spec-correct binding
-    /// through that struct fails to deserialize. The binding wire shape is
-    /// validated by soland's `validate_payload` against the canonical schema;
-    /// see the "real wire divergence" note in the migration spec. Producers
-    /// build the binding `Value` directly.
+    /// Canonical member delivery binding.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delivery_binding: Option<MemberDeliveryBinding>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -168,28 +157,8 @@ impl MembershipPayload {
         self
     }
 
-    /// Pin this membership relation to one immutable human PCR authority
-    /// instance. Admission decides whether the actor is human and therefore
-    /// requires this field; this wire builder only enforces exact identity
-    /// binding when it is present.
-    pub fn with_principal_authority(
-        mut self,
-        authority: arkret_wire::PrincipalAuthorityKey,
-    ) -> Self {
-        self.principal_authority = Some(authority);
-        self
-    }
-
     pub fn with_invite_ref(mut self, invite_ref: MembershipInviteRef) -> Self {
         self.invite_ref = Some(invite_ref);
-        self
-    }
-
-    pub fn with_agent_controller_binding(
-        mut self,
-        binding: crate::governance::agent_membership_cascade::AgentControllerMembershipBinding,
-    ) -> Self {
-        self.agent_controller_binding = Some(binding);
         self
     }
 
@@ -643,21 +612,6 @@ pub fn invite_binding_proof_transcript_bytes(
     .canonical_bytes()
 }
 
-pub fn invite_binding_proof_transcript_digest(
-    binding_proof: &InviteClaimBindingProof,
-    invite_id: &str,
-    token_commitment: &str,
-    invite_digest: &str,
-) -> Result<Hash> {
-    InviteClaimBindingProofBody::from_wire_parts(
-        binding_proof,
-        invite_id,
-        token_commitment,
-        invite_digest,
-    )?
-    .transcript_digest()
-}
-
 /// Subject DID proof carried by `ak.invite.claim`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -979,16 +933,6 @@ mod tests {
         object.insert("sig".to_owned(), Value::String("c2ln".to_owned()));
 
         assert!(serde_json::from_value::<InviteClaimBindingProof>(value).is_err());
-    }
-
-    #[test]
-    fn invite_binding_proof_digest_matches_transcript_bytes() {
-        let proof = binding_proof();
-        let bytes = invite_binding_proof_transcript_bytes(&proof, INVITE, TOKEN, BINDING).unwrap();
-        let digest =
-            invite_binding_proof_transcript_digest(&proof, INVITE, TOKEN, BINDING).unwrap();
-
-        assert_eq!(digest.as_str(), canonical::sha256_digest(&bytes));
     }
 
     #[test]

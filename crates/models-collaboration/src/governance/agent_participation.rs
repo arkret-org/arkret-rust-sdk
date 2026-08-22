@@ -131,14 +131,6 @@ pub struct AgentParticipationPolicy {
     pub native_agent: Option<ParticipationBits>,
 }
 
-impl AgentParticipationPolicy {
-    /// Materialize the native-agent declaration against its parent ceiling.
-    #[must_use]
-    pub fn materialize_native_agent(self, parent: ParticipationBits) -> ParticipationBits {
-        self.native_agent.unwrap_or(parent)
-    }
-}
-
 /// Error surfaced by the reducer-pure participation validators.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
 pub enum AgentParticipationError {

@@ -172,10 +172,6 @@ fn percent_decode_utf8(value: &str) -> Result<String> {
         .map_err(|_| Error::Protocol("acct URI userpart is not valid UTF-8".to_owned()))
 }
 
-pub fn is_valid_domain(s: &str) -> bool {
-    validate_canonical_idna_domain(s).is_ok()
-}
-
 /// R3.2 — `ak.schema.handle_claim.v1.subject` validator.
 ///
 /// The handle claim subject MUST be a holder/principal `did_core_id`, not a

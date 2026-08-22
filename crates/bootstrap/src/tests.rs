@@ -81,7 +81,6 @@ impl PayloadSigner for FixtureSigner {
             payload_digest: Hash::new(arkret_canonical::canonical::sha256_digest(canonical_bytes))?,
             created_at: Utc::now(),
             jws: "eyJhbGciOiJFZERTQSJ9..AA".to_owned(),
-            extra: Default::default(),
         })
     }
 }

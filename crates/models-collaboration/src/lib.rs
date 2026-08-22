@@ -11,7 +11,6 @@
 pub mod account_lifecycle;
 pub mod agent_operations;
 pub use arkret_models_identity::agent_signer_evidence;
-pub mod applet_service;
 pub mod call_signal;
 pub mod contact_operations;
 pub mod direct_conversation_ops;

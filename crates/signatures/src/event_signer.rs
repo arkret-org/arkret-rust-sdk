@@ -293,7 +293,6 @@ mod tests {
                 payload_digest,
                 created_at: Utc::now(),
                 jws: stub_jws,
-                extra: BTreeMap::new(),
             })
         }
     }

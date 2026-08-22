@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-21.4;
-//! sha256=85d552c51ca335c53128720dbd7ed506315a1f529d1218e2fd85a82a02cb6802 Entries: schema_ids=193,
-//! active=193
+//! Input: registry/schema-registry.json; version=2026-08-23.1;
+//! sha256=1ac1ed4b5ee8629e51003953faac4008fa548c1cc73bcf6ba86a6f11d3f0f7ae Entries: schema_ids=192,
+//! active=192
 
 use serde::{Deserialize, Serialize};
 
@@ -129,7 +129,6 @@ pub enum SchemaId {
     ModerationEvidenceV1,
     ModerationQueueItemV1,
     ModerationReportV1,
-    MorphCustomerRiskExtV1,
     MorphCustomerRiskV1,
     MorphV1,
     NotificationV1,
@@ -326,7 +325,6 @@ impl SchemaId {
         Self::ModerationEvidenceV1,
         Self::ModerationQueueItemV1,
         Self::ModerationReportV1,
-        Self::MorphCustomerRiskExtV1,
         Self::MorphCustomerRiskV1,
         Self::MorphV1,
         Self::NotificationV1,
@@ -523,7 +521,6 @@ impl SchemaId {
         Self::ModerationEvidenceV1,
         Self::ModerationQueueItemV1,
         Self::ModerationReportV1,
-        Self::MorphCustomerRiskExtV1,
         Self::MorphCustomerRiskV1,
         Self::MorphV1,
         Self::NotificationV1,
@@ -936,12 +933,6 @@ impl SchemaId {
     pub const MODERATION_EVIDENCE_V1: &'static str = "ak.schema.moderation_evidence.v1";
     pub const MODERATION_QUEUE_ITEM_V1: &'static str = "ak.schema.moderation_queue_item.v1";
     pub const MODERATION_REPORT_V1: &'static str = "ak.schema.moderation_report.v1";
-    /// Reference additive extension business-field schema for the customer_risk example, used by
-    /// the ak.morph.schema_migrate transformation conformance vectors
-    /// (ak.vector.morph.transformation_*). Declares the optional renamed score / backfilled
-    /// priority fields a transformation migration introduces on top of
-    /// ak.schema.morph.customer_risk.v1.
-    pub const MORPH_CUSTOMER_RISK_EXT_V1: &'static str = "ak.schema.morph.customer_risk.ext.v1";
     /// Reference business-field schema used by the Morph type-system example. It validates the
     /// customer_risk fields.status / fields.severity payload carried inside ak.schema.morph.v1
     /// containers.
@@ -1263,7 +1254,6 @@ impl SchemaId {
             Self::ModerationEvidenceV1 => Self::MODERATION_EVIDENCE_V1,
             Self::ModerationQueueItemV1 => Self::MODERATION_QUEUE_ITEM_V1,
             Self::ModerationReportV1 => Self::MODERATION_REPORT_V1,
-            Self::MorphCustomerRiskExtV1 => Self::MORPH_CUSTOMER_RISK_EXT_V1,
             Self::MorphCustomerRiskV1 => Self::MORPH_CUSTOMER_RISK_V1,
             Self::MorphV1 => Self::MORPH_V1,
             Self::NotificationV1 => Self::NOTIFICATION_V1,
@@ -1493,7 +1483,6 @@ impl SchemaId {
             Self::ModerationEvidenceV1 => "schemas/moderation-evidence.schema.json",
             Self::ModerationQueueItemV1 => "schemas/moderation-queue-item.schema.json",
             Self::ModerationReportV1 => "schemas/moderation-report.schema.json",
-            Self::MorphCustomerRiskExtV1 => "schemas/morph-customer-risk-ext.schema.json",
             Self::MorphCustomerRiskV1 => "schemas/morph-customer-risk.schema.json",
             Self::MorphV1 => "schemas/morph.schema.json",
             Self::NotificationV1 => "schemas/notification.schema.json",
@@ -1723,7 +1712,6 @@ impl SchemaId {
             Self::MODERATION_EVIDENCE_V1 => Some(Self::ModerationEvidenceV1),
             Self::MODERATION_QUEUE_ITEM_V1 => Some(Self::ModerationQueueItemV1),
             Self::MODERATION_REPORT_V1 => Some(Self::ModerationReportV1),
-            Self::MORPH_CUSTOMER_RISK_EXT_V1 => Some(Self::MorphCustomerRiskExtV1),
             Self::MORPH_CUSTOMER_RISK_V1 => Some(Self::MorphCustomerRiskV1),
             Self::MORPH_V1 => Some(Self::MorphV1),
             Self::NOTIFICATION_V1 => Some(Self::NotificationV1),

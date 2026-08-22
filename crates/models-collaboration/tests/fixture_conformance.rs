@@ -1,7 +1,3 @@
-use std::collections::BTreeMap;
-
-use arkret_canonical::canonical;
-use arkret_models_collaboration::events_payloads::MorphSchemaMigratePayload;
 use arkret_models_collaboration::history_key::{
     HistoryKeyResponseAckRequest, HistoryKeyResponseListOutcome, HistoryKeyResponseSendReceipt,
     HistoryKeyResponseSendRequest,
@@ -12,7 +8,7 @@ use arkret_models_collaboration::sync_frames::stream_trace::{
     StreamTraceFrame, StreamTraceFrameKind, StreamTraceValidator,
 };
 use arkret_schema::embedded_json_artifact;
-use arkret_wire::{Cursor, MorphId};
+use arkret_wire::Cursor;
 use serde_json::{Value, json};
 
 #[test]
@@ -160,43 +156,6 @@ fn account_subscribe_fixture_cases_match_typed_wire_model() {
             case["expect_valid"].as_bool().unwrap(),
             "fixture case {} drifted",
             case["name"]
-        );
-    }
-}
-
-#[test]
-fn morph_transformation_fixture_executes_all_registered_rules() {
-    let fixture = embedded_json_artifact("fixtures/morph-schema-migration-fixture.json").unwrap();
-    for vector in fixture["vectors"].as_array().unwrap() {
-        let input = &vector["input"];
-        let payload = &input["payload"];
-        let migrate = MorphSchemaMigratePayload {
-            morph_id: MorphId::new("ak:morph:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
-                .unwrap(),
-            from_schema_refs: serde_json::from_value(payload["from_schema_refs"].clone()).unwrap(),
-            to_schema_refs: serde_json::from_value(payload["to_schema_refs"].clone()).unwrap(),
-            compatibility_class: payload["compatibility_class"].as_str().unwrap().to_owned(),
-            transformation_rules: Some(
-                serde_json::from_value(payload["transformation_rules"].clone()).unwrap(),
-            ),
-            migration_evidence: None,
-        };
-        let fields: BTreeMap<String, Value> =
-            serde_json::from_value(input["fields"].clone()).unwrap();
-        let output = migrate
-            .apply_transformation(&fields)
-            .unwrap_or_else(|error| panic!("{} failed: {error}", vector["vector_id"]));
-        assert_eq!(
-            serde_json::to_value(&output).unwrap(),
-            vector["expected_output"],
-            "{} output drifted",
-            vector["vector_id"]
-        );
-        assert_eq!(
-            canonical::canonical_sha256(&output).unwrap(),
-            vector["expected_output_digest"].as_str().unwrap(),
-            "{} digest drifted",
-            vector["vector_id"]
         );
     }
 }

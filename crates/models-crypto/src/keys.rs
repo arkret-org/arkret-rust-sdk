@@ -434,12 +434,8 @@ mod device_generation_tests {
         assert!(!stale.is_usable_in_generation(Some(&generation)));
     }
 
-    /// The old shape let a row carry nothing but `algorithms` and still claim to
-    /// satisfy §8.2. Every field the gate reads is required now, so a partial
-    /// row cannot be deserialized at all.
     #[test]
-    fn a_partial_device_row_no_longer_deserializes() {
-        assert!(serde_json::from_value::<QueryDeviceRecord>(json!({ "algorithms": {} })).is_err());
+    fn a_device_row_requires_its_projection_attestation() {
         let mut without_attestation = attested_row(7);
         without_attestation
             .as_object_mut()

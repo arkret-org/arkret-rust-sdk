@@ -217,60 +217,6 @@ fn required_fields_for_schema_ref(
     )
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SchemaBreakingChange {
-    RemovedSchema,
-    NewRequiredField,
-    TypeNarrowed,
-    AdditionalPropertiesClosed,
-    SecurityExtensionTrustWidened,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SchemaEvolutionPlan {
-    pub from_version: String,
-    pub to_version: String,
-    pub affected_schemas: Vec<String>,
-    pub breaking_changes: BTreeSet<SchemaBreakingChange>,
-}
-
-impl SchemaEvolutionPlan {
-    pub fn validate_release_candidate(&self) -> Result<()> {
-        if self.from_version.trim().is_empty() || self.to_version.trim().is_empty() {
-            return Err(Error::Protocol(
-                "schema evolution versions must be present".to_owned(),
-            ));
-        }
-        if self.affected_schemas.is_empty() {
-            return Err(Error::Protocol(
-                "schema evolution must name affected schemas".to_owned(),
-            ));
-        }
-        if !self.breaking_changes.is_empty() {
-            return Err(Error::Protocol(format!(
-                "schema evolution contains breaking changes: {:?}",
-                self.breaking_changes
-            )));
-        }
-        Ok(())
-    }
-}
-
-pub fn generated_object_shapes() -> Result<BTreeMap<String, GeneratedObjectShape>> {
-    let registry = schema_registry_from_default_spec_artifacts()?
-        .unwrap_or_else(ProtocolSchemaRegistry::default);
-    registry
-        .schema_ids()
-        .map(|schema_id| {
-            Ok((
-                schema_id.to_owned(),
-                registry.generated_object_shape(schema_id)?,
-            ))
-        })
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -567,19 +513,6 @@ mod tests {
                 schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
             )
         );
-        // The legacy `{service_id, namespace, capabilities}` short form is
-        // rejected by the strong validator (missing required fields).
-        let legacy = json!({
-            "service_id": "did:webvh:z6mkfixture:applet.example",
-            "namespace": "ns",
-            "capabilities": ["ak.message.create"]
-        });
-        assert!(
-            catalog
-                .validate_payload("ak.applet.registration", &legacy)
-                .is_err(),
-            "legacy short-form applet registration payload must be rejected"
-        );
         // Discovery state uses the dedicated closed state payload shared by
         // resource-discovery kinds.
         assert_eq!(
@@ -816,8 +749,7 @@ mod tests {
     }
 
     /// SDK-ORG-03: the strong catalog MUST resolve `ak.realm.organization` to
-    /// the `realm_organization_payload` def (exact dispatch, no fallback to a
-    /// generic / legacy shape) and derive the 8 top-level required fields.
+    /// the `realm_organization_payload` def and derive the 8 top-level required fields.
     #[test]
     fn strong_catalog_validates_realm_organization_relationship_statement() {
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
@@ -930,30 +862,5 @@ mod tests {
                 .is_err(),
             "invalid control_scopes item must fail"
         );
-
-        // legacy singleton shape must be rejected (required fields missing).
-        let legacy = json!({ "organization_ref": "did:webvh:z6mkfixture:org.example" });
-        assert!(
-            catalog
-                .validate_payload("ak.realm.organization", &legacy)
-                .is_err(),
-            "legacy {{ organization_ref }} shape must fail"
-        );
-    }
-
-    #[test]
-    fn evolution_plan_rejects_breaking_release_candidate() {
-        let mut breaking_changes = BTreeSet::new();
-        breaking_changes.insert(SchemaBreakingChange::NewRequiredField);
-        let plan = SchemaEvolutionPlan {
-            from_version: "0.1.0".to_owned(),
-            to_version: "0.2.0".to_owned(),
-            affected_schemas: vec![SchemaId::EVENT_V1.to_owned()],
-            breaking_changes,
-        };
-        assert!(matches!(
-            plan.validate_release_candidate(),
-            Err(SchemaError::Protocol(_))
-        ));
     }
 }

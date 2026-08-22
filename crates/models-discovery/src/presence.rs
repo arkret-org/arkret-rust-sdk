@@ -361,8 +361,7 @@ mod tests {
             PresenceStatus::parse_wire("offline"),
             Some(PresenceStatus::Offline)
         );
-        // Matrix-legacy and ad-hoc values fail closed instead of
-        // mapping to a nearby state.
+        // Unregistered values fail closed instead of mapping to a nearby state.
         assert_eq!(PresenceStatus::parse_wire("unavailable"), None);
         assert_eq!(PresenceStatus::parse_wire("busy"), None);
         assert_eq!(PresenceStatus::parse_wire("Online"), None);

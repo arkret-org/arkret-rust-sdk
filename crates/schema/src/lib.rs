@@ -4,9 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use arkret_wire::SchemaId;
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::Value;
 
 mod error;
 mod event_cell_contract;
@@ -37,33 +36,12 @@ pub use protocol::{
 };
 
 mod artifacts;
-mod catalog;
 pub mod conformance;
 mod payload_validator_profiles;
 mod payloads;
 pub mod sdk_conformance;
 
 pub use artifacts::*;
-pub use catalog::*;
 pub use conformance::*;
 pub use payload_validator_profiles::*;
 pub use payloads::*;
-
-pub const CORE_SCHEMA_IDS: &[&str] = &[
-    SchemaId::CURSOR_V1,
-    SchemaId::STRAND_V1,
-    SchemaId::SPACE_V1,
-    SchemaId::VIEW_V1,
-    SchemaId::EVENT_V1,
-    SchemaId::EVENT_PAYLOAD_V1,
-    SchemaId::SEAL_V1,
-    SchemaId::BOTTOM_V1,
-    SchemaId::SNAPSHOT_V1,
-    SchemaId::CAPABILITY_V1,
-    SchemaId::PERSONAL_PRODUCTIVITY_V1,
-    SchemaId::DRAFT_SYNC_V1,
-    SchemaId::CALENDAR_EVENT_V1,
-    SchemaId::SEARCH_SERVICE_V1,
-    SchemaId::ENCRYPTED_ENVELOPE_V1,
-    SchemaId::ACCOUNT_SUBSCRIBE_FRAME_V1,
-];

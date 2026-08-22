@@ -3,20 +3,6 @@ use arkret_state::lattice::LatticeKind as SdkLatticeKind;
 use arkret_state::state::BottomMode;
 use serde_json::Value;
 
-/// Cell-cardinality declared by a [`LatticeKind`] — corresponds to the
-/// arkret-spec event-kind-registry's `cell_subject` shape.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum StateCardinality {
-    /// One projection slot per `(space_id, cell_family)`. Subject empty.
-    Singleton,
-    /// One projection slot per `(space_id, cell_family, subject)`; subject
-    /// is derived from the typed effect-payload field declared in the spec
-    /// registry's `cell_subject`.
-    PerSubject,
-    /// Not a state-bearing event — no slot, no subject.
-    None,
-}
-
 /// Stable identification of the logical cell this [`LatticeKind`] drives.
 /// Multiple kinds operating on the same cell (paired kinds, e.g.
 /// `ak.capability.grant` + `ak.capability.revoke`) MUST share

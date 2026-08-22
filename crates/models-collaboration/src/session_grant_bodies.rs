@@ -586,8 +586,6 @@ impl AgentSessionGrantRefreshRequest {
     }
 }
 
-pub const AGENT_SESSION_REFRESH_PROOF_CONTEXT: &str = "ak.agent-session-refresh-proof-v1";
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentSessionRefreshProofContext {
@@ -1161,10 +1159,6 @@ mod session_grant_contract_tests {
 
         valid.as_object_mut().unwrap().remove("holder_binding");
         assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(valid).is_err());
-
-        let mut legacy = introspect_grant_base("temporary_recovery");
-        legacy["holder_binding"] = holder_binding();
-        assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(legacy).is_err());
     }
 
     #[test]

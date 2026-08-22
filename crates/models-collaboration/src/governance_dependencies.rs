@@ -1150,20 +1150,6 @@ impl GovernanceDependency {
         }
         Ok(())
     }
-
-    pub fn validate_availability_receipt_digest<F>(&self, digest: F) -> Result<()>
-    where
-        F: FnOnce(&[u8]) -> Result<Hash>,
-    {
-        let Self::AvailabilityReceipt {
-            availability_receipt,
-            ..
-        } = self
-        else {
-            return Ok(());
-        };
-        availability_receipt.validate_receipt_digest(digest)
-    }
 }
 
 macro_rules! governance_dependency_resolve_request {
@@ -1277,17 +1263,6 @@ impl GovernanceDependencyResolveOutcome {
                     "governance dependency selector is accounted for more than once".to_owned(),
                 ));
             }
-        }
-        Ok(())
-    }
-
-    pub fn validate_with_availability_receipt_digest<F>(&self, mut digest: F) -> Result<()>
-    where
-        F: FnMut(&[u8]) -> Result<Hash>,
-    {
-        self.validate()?;
-        for item in &self.items {
-            item.validate_availability_receipt_digest(|bytes| digest(bytes))?;
         }
         Ok(())
     }

@@ -177,8 +177,8 @@ impl GrantProjection {
     }
 }
 
-/// Return the JCS SHA-256 digest of the embedded complete capability-action
-/// registry snapshot.
+/// Return the JCS SHA-256 digest of the current embedded capability-action
+/// registry.
 pub fn current_capability_action_registry_digest() -> Result<Hash> {
     let registry = arkret_schema::embedded_json_artifact(
         "registry/capability-action-registry.json",
@@ -204,11 +204,8 @@ fn capability_action_registry_digest(registry: &Value) -> Result<Hash> {
     })
 }
 
-/// Resolve the exact immutable capability-action registry snapshot named by a
-/// signed digest. The live registry is only one possible snapshot: released
-/// predecessors remain embedded under the append-only snapshot archive so a
-/// newer receiver can evaluate an older Realm without reinterpreting it under
-/// today's action set.
+/// Resolve the current capability-action registry after verifying its signed
+/// digest basis.
 pub(crate) fn capability_action_registry_snapshot(basis: &Hash) -> Result<Value> {
     let current = arkret_schema::embedded_json_artifact("registry/capability-action-registry.json")
         .map_err(|_| {
@@ -216,28 +213,13 @@ pub(crate) fn capability_action_registry_snapshot(basis: &Hash) -> Result<Value>
                 "capability_registry_basis_unavailable: embedded registry missing".to_owned(),
             )
         })?;
-    if capability_action_registry_digest(&current)? == *basis {
-        return Ok(current);
-    }
-
-    let digest = basis.as_str().strip_prefix("sha256:").ok_or_else(|| {
-        Error::Protocol(
-            "capability_registry_basis_unavailable: registry digest is not sha256".to_owned(),
-        )
-    })?;
-    let path = format!("registry/snapshots/capability-action/sha256-{digest}.json");
-    let snapshot = arkret_schema::embedded_json_artifact(&path).map_err(|_| {
-        Error::Protocol(
-            "capability_registry_basis_unavailable: registry snapshot is unknown or unavailable"
-                .to_owned(),
-        )
-    })?;
-    if capability_action_registry_digest(&snapshot)? != *basis {
+    if capability_action_registry_digest(&current)? != *basis {
         return Err(Error::Protocol(
-            "capability_registry_basis_unavailable: archived registry digest mismatch".to_owned(),
+            "capability_registry_basis_unavailable: registry digest does not match current embedded registry"
+                .to_owned(),
         ));
     }
-    Ok(snapshot)
+    Ok(current)
 }
 
 pub(crate) fn capability_action_descriptor_in<'a>(
@@ -1667,17 +1649,6 @@ mod capability_grant_builder_tests {
     }
 
     #[test]
-    fn capability_grant_deserialization_rejects_legacy_inner_proofs() {
-        let mut value = serde_json::to_value(base_grant()).unwrap();
-        value["proofs"] = json!([]);
-        let error = serde_json::from_value::<
-            arkret_models_collaboration::governance::grant_constraint::CapabilityGrant,
-        >(value)
-        .expect_err("the obsolete inner proof carrier must fail closed");
-        assert!(error.to_string().contains("unknown field `proofs`"));
-    }
-
-    #[test]
     fn capability_grant_builder_rejects_missing_authority_refs() {
         let mut grant = base_grant();
         grant.issuer_authority_refs.clear();
@@ -1748,19 +1719,6 @@ mod capability_grant_builder_tests {
             .build(created_at())
             .expect_err("unknown registry basis must fail closed");
         assert!(format!("{err}").contains("capability_registry_basis_unavailable"));
-    }
-
-    #[test]
-    fn archived_capability_registry_predecessor_resolves_by_complete_jcs_digest() {
-        let basis =
-            Hash::new("sha256:9d8a6444e11860907a3e451aff19bf0b4da87bfd7481fa630bd0b00cd7ae2db9")
-                .unwrap();
-        let snapshot = capability_action_registry_snapshot(&basis).unwrap();
-
-        assert_eq!(snapshot["version"], "2026-08-21.5");
-        assert_eq!(capability_action_registry_digest(&snapshot).unwrap(), basis);
-        assert!(capability_action_descriptor_in(&snapshot, "ak.realm.admin").is_ok());
-        assert!(capability_action_descriptor_in(&snapshot, "ak.consent.grant").is_err());
     }
 
     #[test]

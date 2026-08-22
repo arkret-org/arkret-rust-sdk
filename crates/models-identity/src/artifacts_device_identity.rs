@@ -896,7 +896,7 @@ mod key_verification_tests {
         assert!(serde_json::from_value::<KeyVerificationContent>(duplicate_methods).is_err());
 
         let mut invalid_method = valid.clone();
-        invalid_method["methods"] = json!(["legacy.verification"]);
+        invalid_method["methods"] = json!(["invalid.verification"]);
         assert!(serde_json::from_value::<KeyVerificationContent>(invalid_method).is_err());
 
         let mut empty_mac = valid.clone();

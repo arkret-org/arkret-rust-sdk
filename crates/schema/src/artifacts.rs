@@ -493,9 +493,8 @@ impl SpecArtifactBundle {
         ) else {
             return Ok(None);
         };
-        // A single-write kind owns one component slot. Current registry rows
-        // carry that identity in `cell_writes[0]`; the top-level fields remain
-        // readable only for still-unmigrated single-write rows.
+        // A single-write kind owns one component slot. Registry rows carry
+        // that identity in `cell_writes[0]`.
         let (component_type, cell_subject) = component_cell_identity(entry).ok_or_else(|| {
             Error::Protocol(format!(
                 "event kind {event_kind} does not declare one unambiguous component slot"
@@ -772,18 +771,6 @@ pub fn default_spec_artifacts_dir() -> Option<PathBuf> {
         return Some(PathBuf::from(artifacts_dir));
     }
     None
-}
-
-fn default_spec_artifact_bundle() -> Result<SpecArtifactBundle> {
-    if let Some(artifacts_dir) = default_spec_artifacts_dir() {
-        SpecArtifactBundle::load(artifacts_dir)
-    } else {
-        SpecArtifactBundle::load_embedded()
-    }
-}
-
-pub fn artifact_drift_report_from_default_location() -> Result<Option<ArtifactDriftReport>> {
-    Ok(Some(default_spec_artifact_bundle()?.drift_report()))
 }
 
 pub fn schema_registry_from_spec_artifacts(
@@ -1472,9 +1459,6 @@ pub(super) fn registry_entry<'a>(
 }
 
 fn component_cell_identity(entry: &Value) -> Option<(&str, Option<&Value>)> {
-    if let Some(family) = entry.get("cell_family").and_then(Value::as_str) {
-        return Some((family, entry.get("cell_subject")));
-    }
     let writes = entry.get("cell_writes")?.as_array()?;
     if writes.len() != 1 {
         return None;

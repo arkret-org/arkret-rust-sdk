@@ -52,7 +52,7 @@ fn typed_authoring_matches_the_raw_canonical_chain_byte_for_byte() {
 
     assert_eq!(typed.event(), &raw);
     assert_eq!(
-        canonical_json_bytes(&typed).unwrap(),
+        canonical_json_bytes(typed.event()).unwrap(),
         canonical_json_bytes(&raw).unwrap()
     );
     typed.verify_identity().unwrap();

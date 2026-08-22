@@ -87,38 +87,11 @@ pub fn validate_event_envelope_byte_len(byte_len: usize) -> Result<()> {
     Ok(())
 }
 
-/// Reject a canonical non-streaming JSON operation body that exceeds the general 8 MiB bound, or
-/// the lower per-operation bound registered in `operation-registry.json`.
-pub fn validate_operation_canonical_body_len(
-    byte_len: usize,
-    operation_max: Option<usize>,
-) -> Result<()> {
-    let limit = operation_max
-        .unwrap_or(MAX_OPERATION_CANONICAL_BODY_BYTES)
-        .min(MAX_OPERATION_CANONICAL_BODY_BYTES);
-    if byte_len > limit {
-        return Err(Error::Protocol(format!(
-            "canonical operation body exceeds v1 maximum of {limit} bytes"
-        )));
-    }
-    Ok(())
-}
-
 /// Reject an HTTP message content length before the body is parsed or canonicalized.
 pub fn validate_http_message_content_len(byte_len: usize) -> Result<()> {
     if byte_len > MAX_HTTP_MESSAGE_CONTENT_BYTES {
         return Err(Error::Protocol(format!(
             "HTTP message content exceeds v1 maximum of {MAX_HTTP_MESSAGE_CONTENT_BYTES} bytes"
-        )));
-    }
-    Ok(())
-}
-
-/// Reject a service-added read-view `unsigned` object that exceeds its canonical bound.
-pub fn validate_read_view_unsigned_len(byte_len: usize) -> Result<()> {
-    if byte_len > MAX_READ_VIEW_UNSIGNED_CANONICAL_BYTES {
-        return Err(Error::Protocol(format!(
-            "read-view unsigned exceeds v1 maximum of {MAX_READ_VIEW_UNSIGNED_CANONICAL_BYTES} bytes"
         )));
     }
     Ok(())
@@ -164,15 +137,6 @@ pub fn validate_actor_seq_sibling_count(count: usize) -> Result<()> {
     if count > MAX_ACTOR_SEQ_SIBLINGS {
         return Err(Error::Protocol(format!(
             "actor_seq sibling fork count exceeds v1 maximum of {MAX_ACTOR_SEQ_SIBLINGS}"
-        )));
-    }
-    Ok(())
-}
-
-pub fn validate_actor_seq_total_sibling_count(count: usize) -> Result<()> {
-    if count > MAX_ACTOR_SEQ_TOTAL_SIBLINGS {
-        return Err(Error::Protocol(format!(
-            "actor_seq cumulative sibling count exceeds v1 maximum of {MAX_ACTOR_SEQ_TOTAL_SIBLINGS}"
         )));
     }
     Ok(())

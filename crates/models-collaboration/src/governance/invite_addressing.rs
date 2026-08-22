@@ -22,7 +22,6 @@ pub const INVITE_RECIPIENT_SERVICE_KIND_PRINCIPAL_SERVER: &str = "principal_serv
 pub const INVITE_LOCATOR_RESOLVE_PATH: &str = "_arkret/open/invite-locators/resolve";
 pub const INVITE_LOCATOR_ISSUE_PATH: &str = "_arkret/self/invite-locators";
 pub const INVITE_LOCATOR_ROTATE_PATH: &str = "_arkret/self/invite-locators/rotate";
-pub const INVITE_LOCATOR_REVOKE_PATH: &str = "_arkret/self/invite-locators/revoke";
 pub const INVITE_LOCATOR_DEFAULT_TTL_SECONDS: u32 = 900;
 pub const INVITE_LOCATOR_MIN_TTL_SECONDS: u32 = 60;
 pub const INVITE_LOCATOR_MAX_TTL_SECONDS: u32 = 3600;

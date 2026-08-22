@@ -108,7 +108,7 @@ mod container_order_tests {
     use super::*;
 
     #[test]
-    fn move_item_rejects_retired_shape_and_invalid_rank() {
+    fn move_item_accepts_current_shape_and_rejects_invalid_rank() {
         let current = json!({
             "item_ref": "ak:strand:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
             "container_ref": "ak:space:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1",
@@ -117,14 +117,6 @@ mod container_order_tests {
         });
         let payload: ContainerMoveItemPayload = serde_json::from_value(current).unwrap();
         payload.validate().unwrap();
-
-        let retired = json!({
-            "source_ref": "ak:space:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1",
-            "target_ref": "ak:strand:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            "container_ref": "ak:space:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1",
-            "rank": "A0"
-        });
-        assert!(serde_json::from_value::<ContainerMoveItemPayload>(retired).is_err());
 
         let mut invalid = payload;
         invalid.rank = "A-0".to_owned();

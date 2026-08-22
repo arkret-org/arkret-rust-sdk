@@ -509,9 +509,6 @@ pub enum AgentProvisionRequestBody {
 // defined in `models/artifacts/event_payload/agent.rs`
 // (`event-payload.schema.json#/$defs/agent_key_scope`, `$ref`'d by
 // `agent-operations.schema.json#/$defs/agent_provision_request_body.requested_scope`).
-// The former SDK-local `account/realm/applet/limited` enum was off-spec and
-// has been removed.
-
 /// Re-open pairing on any non-terminal agent. The service issues a fresh
 /// one-time pairing handle and every previously issued handle becomes
 /// permanently unresolvable. Agents without an active authorized key
@@ -1360,14 +1357,6 @@ pub enum AgentSidecarDisplayMode {
     #[default]
     ContextMerged,
     SidecarOnly,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AgentSidecarTrackMergePolicy {
-    TimelineInterleave,
-    SharedBasePrivateOverlay,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

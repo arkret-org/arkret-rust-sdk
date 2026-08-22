@@ -57,7 +57,7 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                     );
                 }
             }
-            "canonical_json_with_ciphertext_digest" => {
+            "canonical_minimal_encrypted_envelope_digest" => {
                 let metadata = vector
                     .get("payload_metadata")
                     .expect("vector missing payload_metadata");
@@ -84,11 +84,6 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                     arkret_canonical::sha256_digest(&digest_input),
                     vector["expected_digest"].as_str().unwrap(),
                     "{vector_id}: envelope digest drifted"
-                );
-                assert_eq!(
-                    arkret_canonical::canonical_sha256(&metadata["aad"]).unwrap(),
-                    vector["aad_digest"].as_str().unwrap(),
-                    "{vector_id}: aad digest drifted"
                 );
             }
             "canonical_json_reject" => {
@@ -647,12 +642,6 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                 for case in vector["negative_cases"].as_array().unwrap() {
                     let name = case["name"].as_str().unwrap();
                     match name {
-                        "old_direct_scalar_subject" => assert!(
-                            !subjects
-                                .values()
-                                .any(|subject| subject == case["cell_subject"].as_str().unwrap()),
-                            "{vector_id}: legacy direct-scalar subject remains valid"
-                        ),
                         "wrong_context" => {
                             let wrong = arkret_wire::string_set_digest_component(
                                 &["employment".to_owned()],
