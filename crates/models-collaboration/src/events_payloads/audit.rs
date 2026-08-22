@@ -11,7 +11,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::event_wire::NullableTimestamp;
 use super::mls::MlsEpochRange;
 use crate::ObjectRef;
 use crate::governance::audit::AuditAssurance;
@@ -133,7 +132,7 @@ pub struct AuditAppletBindingCreatePayload {
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub not_before: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<NullableTimestamp>,
+    pub expires_at: Option<Option<DateTime<Utc>>>,
 }
 
 /// Lifecycle-only counterpart for

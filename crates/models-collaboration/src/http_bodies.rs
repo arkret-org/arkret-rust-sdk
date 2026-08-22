@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::contact_operations::{
-    ContactContinuityEvidence, ContactNextPrepareInput, ContactPeer, ContactScopes,
+    ContactContinuityEvidence, ContactNextPrepareInput, ContactPeer, ContactScope,
     RequestAcceptanceReceipt,
 };
 use crate::direct_conversation_ops::{
@@ -2033,11 +2033,11 @@ pub struct ContactListRow {
     pub tombstone_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_prepare_input: Option<ContactNextPrepareInput>,
-    pub granted_to_peer_scopes: ContactScopes,
-    pub granted_by_peer_scopes: ContactScopes,
-    pub bidirectional_scopes: ContactScopes,
+    pub granted_to_peer_scopes: Vec<ContactScope>,
+    pub granted_by_peer_scopes: Vec<ContactScope>,
+    pub bidirectional_scopes: Vec<ContactScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub effective_scopes: Option<ContactScopes>,
+    pub effective_scopes: Option<Vec<ContactScope>>,
     /// Principal Server service DID hosting the peer, when known (e.g. learned
     /// from a cross-Principal-Server contact delivery). Lets the holder address
     /// responses/invites to the peer's home server. Omitted for
@@ -2073,11 +2073,11 @@ struct ContactListRowWire {
     tombstone_event_ref: Option<EventId>,
     #[serde(default)]
     next_prepare_input: Option<ContactNextPrepareInput>,
-    granted_to_peer_scopes: ContactScopes,
-    granted_by_peer_scopes: ContactScopes,
-    bidirectional_scopes: ContactScopes,
+    granted_to_peer_scopes: Vec<ContactScope>,
+    granted_by_peer_scopes: Vec<ContactScope>,
+    bidirectional_scopes: Vec<ContactScope>,
     #[serde(default)]
-    effective_scopes: Option<ContactScopes>,
+    effective_scopes: Option<Vec<ContactScope>>,
     #[serde(default)]
     peer_service_id: Option<DidCoreId>,
     #[serde(default)]

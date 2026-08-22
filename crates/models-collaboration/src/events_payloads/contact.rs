@@ -1,6 +1,6 @@
 //! Contact event payloads.
 
-use crate::contact_operations::{ContactPeer, ContactScopes};
+use crate::contact_operations::{ContactPeer, ContactScope};
 use crate::internal_prelude::*;
 
 /// Counterpart for
@@ -19,7 +19,7 @@ pub struct ContactAcceptedPayload {
     pub request_acceptance_receipt_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_terminal_contact_round_id: Option<Hash>,
-    pub granted_to_peer_scopes: ContactScopes,
+    pub granted_to_peer_scopes: Vec<ContactScope>,
 }
 
 /// Counterpart for
@@ -40,7 +40,7 @@ pub struct ContactRejectedPayload {
 #[serde(deny_unknown_fields)]
 pub struct ContactRequestedPayload {
     pub peer: ContactPeer,
-    pub granted_to_peer_scopes: ContactScopes,
+    pub granted_to_peer_scopes: Vec<ContactScope>,
     pub introduction_evidence_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_terminal_contact_round_id: Option<Hash>,

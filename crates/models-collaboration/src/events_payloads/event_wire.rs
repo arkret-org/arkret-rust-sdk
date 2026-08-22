@@ -15,9 +15,6 @@ pub(crate) fn decode_payload_after_kind_validation<T: DeserializeOwned>(
         .map_err(Into::into)
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/nullable_timestamp`.
-pub type NullableTimestamp = Option<DateTime<Utc>>;
-
 pub use arkret_models_crypto::encrypted_envelope::{
     EncryptedEnvelope, EncryptedEnvelopeEncryptionContext, EncryptedEnvelopeRoutingContext,
     EventContentPreEncryptionHeader, EventContentRoutingContext, base64url_token,
@@ -29,9 +26,6 @@ pub use arkret_wire::event_receipt::{
     EventBatchReceiptScope, EventProofAudience,
 };
 
-/// Counterpart for `spec/v1/artifacts/schemas/erasure-receipt.schema.json#/$defs/subject_ref`.
-pub type SubjectRef = String;
-
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/erasure-receipt.schema.json#/$defs/verification_stub`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -39,7 +33,7 @@ pub type SubjectRef = String;
 #[serde(deny_unknown_fields)]
 pub struct VerificationStubSubject {
     pub kind: String,
-    pub subject_ref: SubjectRef,
+    pub subject_ref: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -50,7 +44,7 @@ pub struct VerificationStubScope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_refs: Option<Vec<SubjectRef>>,
+    pub target_refs: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retention_policy_id: Option<PolicyId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -62,7 +56,7 @@ pub struct VerificationStubScope {
 #[serde(deny_unknown_fields)]
 pub struct VerificationStubSealInclusion {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub seal_ref: Option<SubjectRef>,
+    pub seal_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub frontier_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -96,7 +90,7 @@ pub struct VerificationStub {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seal_inclusion: Option<VerificationStubSealInclusion>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub redaction_authorization_ref: Option<SubjectRef>,
+    pub redaction_authorization_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub legal_hold_ref: Option<LegalHoldRef>,
     pub receipt_id: String,

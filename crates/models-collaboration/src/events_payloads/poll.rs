@@ -49,9 +49,6 @@ pub struct PollResponseBody {
     pub selections: Vec<String>,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/content-block-poll.schema.json#/$defs/reply_context`.
-pub type PollReplyContext = BTreeMap<String, Value>;
-
 /// Discriminator for `content-block-poll.schema.json#/$defs/poll_block.kind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PollBlockKind {
@@ -70,7 +67,7 @@ pub struct PollBlock {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub formatted_body: Option<FormattedBody>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reply_context: Option<PollReplyContext>,
+    pub reply_context: Option<BTreeMap<String, Value>>,
     pub poll: PollBody,
 }
 
@@ -94,7 +91,7 @@ pub struct PollResponseBlock {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub formatted_body: Option<FormattedBody>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reply_context: Option<PollReplyContext>,
+    pub reply_context: Option<BTreeMap<String, Value>>,
     pub poll_response: PollResponseBody,
 }
 

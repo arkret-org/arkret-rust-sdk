@@ -281,7 +281,7 @@ pub struct ModerationDecisionPayload {
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub effective_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<NullableTimestamp>,
+    pub expires_at: Option<Option<DateTime<Utc>>>,
 }
 
 /// Counterpart for

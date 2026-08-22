@@ -39,7 +39,7 @@ pub struct DeviceAuthorizePayload {
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     pub not_before: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<NullableTimestamp>,
+    pub expires_at: Option<Option<DateTime<Utc>>>,
     pub authorization_binding_kind: DeviceAuthorizationBindingKind,
     pub device_signature: SignatureMaterial,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -62,7 +62,7 @@ struct DeviceAuthorizePayloadWire {
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     not_before: DateTime<Utc>,
     #[serde(default)]
-    expires_at: Option<NullableTimestamp>,
+    expires_at: Option<Option<DateTime<Utc>>>,
     authorization_binding_kind: DeviceAuthorizationBindingKind,
     device_signature: SignatureMaterial,
     #[serde(default)]
@@ -134,7 +134,7 @@ pub struct UnsignedDeviceAuthorizePayload {
     authorized_by: DeviceOrPrincipalRef,
     scopes: Option<Vec<NonEmptyString>>,
     not_before: DateTime<Utc>,
-    expires_at: Option<NullableTimestamp>,
+    expires_at: Option<Option<DateTime<Utc>>>,
     authorization_binding_kind: DeviceAuthorizationBindingKind,
     recovery_session_id: Option<RecoverySessionId>,
 }
@@ -151,7 +151,7 @@ impl UnsignedDeviceAuthorizePayload {
         authorized_by: DeviceOrPrincipalRef,
         scopes: Option<Vec<NonEmptyString>>,
         not_before: DateTime<Utc>,
-        expires_at: Option<NullableTimestamp>,
+        expires_at: Option<Option<DateTime<Utc>>>,
         authorization_binding_kind: DeviceAuthorizationBindingKind,
         recovery_session_id: Option<RecoverySessionId>,
     ) -> Result<Self> {

@@ -15,7 +15,13 @@ use crate::internal_prelude::*;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/inheritance_policy_status`.
-pub type InheritancePolicyStatus = String;
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum InheritancePolicyStatus {
+    Active,
+    Tombstoned,
+}
 
 /// Patch carried by `ak.realm.owner.transfer`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1000,6 +1006,20 @@ pub struct RealmInheritancePolicyPayload {
     pub status: Option<InheritancePolicyStatus>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+}
+
+#[cfg(test)]
+mod inheritance_policy_status_tests {
+    use super::InheritancePolicyStatus;
+
+    #[test]
+    fn status_is_the_closed_schema_enum() {
+        assert_eq!(
+            serde_json::to_value(InheritancePolicyStatus::Active).unwrap(),
+            "active"
+        );
+        assert!(serde_json::from_str::<InheritancePolicyStatus>(r#""retired""#).is_err());
+    }
 }
 
 /// `relationship` discriminator for [`RealmOrganizationPayload`]

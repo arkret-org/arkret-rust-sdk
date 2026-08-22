@@ -61,8 +61,6 @@ pub enum ContactScope {
     Presence,
 }
 
-pub type ContactScopes = Vec<ContactScope>;
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -271,7 +269,7 @@ pub struct ContactLineage {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub predecessor_event_ref: Option<EventId>,
     pub event_ref: EventId,
-    pub granted_to_peer_scopes: ContactScopes,
+    pub granted_to_peer_scopes: Vec<ContactScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub terminal: Option<bool>,
     pub signature: ProtocolSignature,
@@ -304,7 +302,7 @@ pub struct ContactPrepareRequestBody {
     pub operation_id: ProtocolOperationId,
     pub idempotency_key: IdempotencyKey,
     pub peer: ContactPeer,
-    pub granted_to_peer_scopes: ContactScopes,
+    pub granted_to_peer_scopes: Vec<ContactScope>,
     pub introduction_evidence: ContactIntroductionEvidence,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_terminal_contact_round_id: Option<Hash>,
@@ -339,7 +337,7 @@ pub struct ContactScopeUpdatePrepareRequestBody {
     pub contact_round_id: Hash,
     pub version: u64,
     pub predecessor_event_ref: EventId,
-    pub granted_to_peer_scopes: ContactScopes,
+    pub granted_to_peer_scopes: Vec<ContactScope>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -741,7 +739,7 @@ pub struct ContactAcceptPrepareRequestBody {
     pub idempotency_key: IdempotencyKey,
     pub request_receipt: RequestAcceptanceReceipt,
     pub action: ContactAcceptAction,
-    pub granted_to_peer_scopes: ContactScopes,
+    pub granted_to_peer_scopes: Vec<ContactScope>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -826,7 +824,7 @@ pub struct ContactScopeUpdatePayload {
     pub contact_round_id: Hash,
     pub version: u64,
     pub predecessor_event_ref: EventId,
-    pub granted_to_peer_scopes: ContactScopes,
+    pub granted_to_peer_scopes: Vec<ContactScope>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
