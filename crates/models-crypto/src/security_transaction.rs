@@ -1,8 +1,8 @@
 //! Typed client artifacts carried by terminal security-transaction steps.
 
 use arkret_wire::{
-    ClientStepAttestation, DeviceId, Error, Hash, Result, SchemaId,
-    SecurityTransactionContinueRequest, SecurityTransactionStep, TransactionId,
+    DeviceId, Error, Hash, Result, SchemaId, SecurityTransactionContinueRequest,
+    SecurityTransactionStep, TransactionId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -64,6 +64,5 @@ impl ClientStepAttestationArtifact {
     }
 }
 
-pub type TypedClientStepAttestation = ClientStepAttestation<ClientStepAttestationArtifact>;
 pub type TypedSecurityTransactionContinueRequest =
     SecurityTransactionContinueRequest<ClientStepAttestationArtifact>;

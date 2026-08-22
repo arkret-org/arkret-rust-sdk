@@ -531,10 +531,6 @@ impl DeliveryBindingStale {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/delivery-binding-stale.schema.json#/$defs/event_id_list`.
-pub type EventIdList = Vec<EventId>;
-
-/// Counterpart for
 /// `spec/v1/artifacts/schemas/device-message.schema.json#/$defs/key_verification_content`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyVerificationContentNewDevicePubkey {

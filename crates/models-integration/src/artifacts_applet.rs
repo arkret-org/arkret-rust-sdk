@@ -9,8 +9,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    CircleId, DidCoreId, DidUrl, EventId, EventProofAudience, Hash, NonEmptyString, RealmId,
-    ReasonCode, SchemaId, WireResourceSelector, XExtensionMap,
+    CircleId, DidCoreId, DidUrl, EventId, EventProofAudience, Hash, RealmId, ReasonCode, SchemaId,
+    WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -111,10 +111,6 @@ pub struct ScopeGrant {
     pub circle_ids: Option<Vec<CircleId>>,
     pub constraints: Vec<BTreeMap<String, Value>>,
 }
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/applet-install-operations.schema.json#/$defs/typed_ref`.
-pub type TypedRef = String;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/capability_constraint`.
@@ -289,10 +285,6 @@ pub struct NamespaceEntry {
     pub exclusive: bool,
     pub pattern: String,
 }
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/non_empty_string_array`.
-pub type NonEmptyStringArray = Vec<NonEmptyString>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/profile_id`.
 pub type ProfileId = String;
