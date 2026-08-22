@@ -63,11 +63,11 @@ mod tests {
     }
 
     fn org_principal() -> DidCoreId {
-        DidCoreId::new("ak:did_core:webvh:example.test:orgs:org1").unwrap()
+        DidCoreId::new("ak:did_core:webvh:z6mkfixtureorg1").unwrap()
     }
 
     fn org_actor() -> DidCoreId {
-        DidCoreId::new("ak:did_core:webvh:example.test:orgs:org1").unwrap()
+        DidCoreId::new("ak:did_core:webvh:z6mkfixtureorg1").unwrap()
     }
 
     fn now() -> DateTime<Utc> {

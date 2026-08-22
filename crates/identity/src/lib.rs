@@ -35,9 +35,10 @@ pub mod verifier;
 pub(crate) use std::collections::BTreeMap;
 
 pub use arkret_models_identity::primary_handle::{
-    DidDocumentSnapshotResolver, MentionRender, NoHolderPreferenceResolver,
-    PrimaryHandleSelectInput, SubjectRender, claim_digest, render_mention, render_subject,
-    select_primary_handle, select_primary_handle_string,
+    DidDocumentSnapshotResolver, HandleIssuerAuthorityClass, HandleIssuerPolicyEntry,
+    MentionRender, NoHolderPreferenceResolver, PrimaryHandleSelectInput, SubjectRender,
+    claim_digest, render_mention, render_subject, select_primary_handle,
+    select_primary_handle_string,
 };
 pub use arkret_models_identity::{DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, HandleAttestation};
 pub(crate) use arkret_wire::{DidUrl, Event, Hash, Proof};

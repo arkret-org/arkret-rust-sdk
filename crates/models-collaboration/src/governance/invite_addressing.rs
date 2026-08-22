@@ -1077,6 +1077,7 @@ mod tests {
             handle_claim_max_behavior: Some(InviteReceiveAction::Quarantine),
             explicit_address_max_behavior: None,
             unknown_invites_max_behavior: Some(UnknownInviteAction::Drop),
+            disclosure_max: None,
             allowed_handle_domains: None,
             trusted_handle_issuers: None,
             trusted_directory_services: None,

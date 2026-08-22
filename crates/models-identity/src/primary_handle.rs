@@ -23,6 +23,34 @@ use chrono::{DateTime, Utc};
 
 use crate::{Handle, HandleBindingState, HandleClaim};
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HandleIssuerAuthorityClass {
+    DomainAuthority,
+    DelegatedIssuer,
+    DirectoryMirror,
+}
+
+impl HandleIssuerAuthorityClass {
+    fn priority(self) -> u8 {
+        match self {
+            Self::DomainAuthority => 0,
+            Self::DelegatedIssuer => 1,
+            Self::DirectoryMirror => 2,
+        }
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HandleIssuerPolicyEntry {
+    pub issuer: DidCoreId,
+    pub authorized_handle_domains: Vec<String>,
+    pub issuer_class: HandleIssuerAuthorityClass,
+}
+
 /// Hook that resolves the holder's preferred handle from the subject DID
 /// Document `metadata.primary_handle` at a given `as_of`. Implementations
 /// that resolve historical DID Document versions (e.g. `did:webvh`) MUST
@@ -68,10 +96,10 @@ pub struct PrimaryHandleSelectInput<'a> {
     /// constraint applies.
     pub context: Option<&'a str>,
     pub claim_set_snapshot: &'a [HandleClaim],
-    /// Realm policy `accepted_issuers` in trust order (earlier == more
-    /// trusted). Claims whose issuer is absent from this list are dropped
-    /// in Step 0.
-    pub accepted_issuers: &'a [DidCoreId],
+    /// Realm policy `handle_issuer_policy` in trust order. Claims whose issuer
+    /// is absent or whose handle domain is outside the entry's declared scope
+    /// are dropped in Step 0.
+    pub handle_issuer_policy: &'a [HandleIssuerPolicyEntry],
     /// `metadata.primary_handle` value at `resolution_as_of` (already
     /// materialised from the DID Document snapshot). `None` skips the
     /// holder-flagged layer.
@@ -119,7 +147,7 @@ pub fn select_primary_handle(input: &PrimaryHandleSelectInput<'_>) -> Option<Han
 
     // Step 2 — deterministic tie-breaker.
     let winner = layer.into_iter().reduce(|best, candidate| {
-        if tie_break_prefers(candidate, best, input.accepted_issuers) {
+        if tie_break_prefers(candidate, best, input.handle_issuer_policy) {
             candidate
         } else {
             best
@@ -150,12 +178,8 @@ fn candidate_passes_step0(c: &HandleClaim, input: &PrimaryHandleSelectInput<'_>)
         _ => return false,
     }
     // issuer trust filter (mandatory pre-filter).
-    match &c.issuer {
-        Some(issuer)
-            if input
-                .accepted_issuers
-                .iter()
-                .any(|candidate| candidate == issuer) => {}
+    match policy_entry(c, input.handle_issuer_policy) {
+        Some(_) => {}
         _ => return false,
     }
     // audience scope filter: present audience must equal context.
@@ -180,16 +204,23 @@ fn holder_flagged(c: &HandleClaim, holder_primary: Option<&str>) -> bool {
 }
 
 /// Returns `true` if `candidate` should win over `best` per the Step 2
-/// tie-breaker ordering: accepted_issuers position (earlier wins) →
+/// tie-breaker ordering: authority class → handle_issuer_policy position →
 /// created_at (later wins) → `claim_digest` (lexicographically smaller
 /// wins).
 fn tie_break_prefers(
     candidate: &HandleClaim,
     best: &HandleClaim,
-    accepted_issuers: &[DidCoreId],
+    handle_issuer_policy: &[HandleIssuerPolicyEntry],
 ) -> bool {
-    let cand_pos = issuer_position(candidate, accepted_issuers);
-    let best_pos = issuer_position(best, accepted_issuers);
+    let cand_entry = policy_entry(candidate, handle_issuer_policy);
+    let best_entry = policy_entry(best, handle_issuer_policy);
+    let cand_class = cand_entry.map_or(u8::MAX, |(_, entry)| entry.issuer_class.priority());
+    let best_class = best_entry.map_or(u8::MAX, |(_, entry)| entry.issuer_class.priority());
+    if cand_class != best_class {
+        return cand_class < best_class;
+    }
+    let cand_pos = cand_entry.map_or(usize::MAX, |(position, _)| position);
+    let best_pos = best_entry.map_or(usize::MAX, |(position, _)| position);
     if cand_pos != best_pos {
         return cand_pos < best_pos;
     }
@@ -204,14 +235,42 @@ fn tie_break_prefers(
     }
 }
 
-fn issuer_position(c: &HandleClaim, accepted_issuers: &[DidCoreId]) -> usize {
-    match &c.issuer {
-        Some(issuer) => accepted_issuers
+fn policy_entry<'a>(
+    claim: &HandleClaim,
+    policy: &'a [HandleIssuerPolicyEntry],
+) -> Option<(usize, &'a HandleIssuerPolicyEntry)> {
+    let issuer = claim.issuer.as_ref()?;
+    let handle = claim.handle.as_ref()?;
+    policy
+        .iter()
+        .enumerate()
+        .find(|(_, entry)| handle_issuer_policy_entry_authorizes(entry, issuer, handle))
+}
+
+/// Return whether one Realm handle-issuer policy entry authorizes this exact
+/// issuer and canonical handle domain.
+///
+/// Directory and UI implementations use this same helper as primary-handle
+/// selection so wildcard label-boundary handling cannot drift across layers.
+pub fn handle_issuer_policy_entry_authorizes(
+    entry: &HandleIssuerPolicyEntry,
+    issuer: &DidCoreId,
+    handle: &Handle,
+) -> bool {
+    entry.issuer == *issuer
+        && entry
+            .authorized_handle_domains
             .iter()
-            .position(|candidate| candidate == issuer)
-            .unwrap_or(usize::MAX),
-        None => usize::MAX,
+            .any(|pattern| domain_matches(pattern, handle.domain()))
+}
+
+fn domain_matches(pattern: &str, domain: &str) -> bool {
+    if let Some(suffix) = pattern.strip_prefix("*.") {
+        return domain.len() > suffix.len()
+            && domain.ends_with(suffix)
+            && domain.as_bytes()[domain.len() - suffix.len() - 1] == b'.';
     }
+    domain == pattern
 }
 
 /// §3.2.1 — `claim_digest(c) = sha256:hex(sha256(JCS(semantic_projection(c))))`.
@@ -353,6 +412,14 @@ mod tests {
         DidCoreId::new(s).unwrap()
     }
 
+    fn issuer_policy(issuer_did: &str, domain: &str) -> HandleIssuerPolicyEntry {
+        HandleIssuerPolicyEntry {
+            issuer: issuer(issuer_did),
+            authorized_handle_domains: vec![domain.to_owned()],
+            issuer_class: HandleIssuerAuthorityClass::DomainAuthority,
+        }
+    }
+
     fn verified_claim(
         handle: &str,
         issuer_did: &str,
@@ -407,7 +474,7 @@ mod tests {
             subject_id: s.as_str(),
             context: None,
             claim_set_snapshot: &[],
-            accepted_issuers: &[],
+            handle_issuer_policy: &[],
             holder_primary_handle_at_as_of: None,
             resolution_as_of: Utc::now(),
         };
@@ -421,8 +488,8 @@ mod tests {
         let later = now - chrono::Duration::hours(1);
         let expires = now + chrono::Duration::days(30);
         let acc = vec![
-            issuer("ak:did_core:webvh:z6mkfixtureacme"),
-            issuer("ak:did_core:webvh:z6mkfixtureother"),
+            issuer_policy("ak:did_core:webvh:z6mkfixtureacme", "acme.example"),
+            issuer_policy("ak:did_core:webvh:z6mkfixtureother", "other.example"),
         ];
         let s = subject();
         // older claim with matching audience vs newer claim without.
@@ -445,7 +512,7 @@ mod tests {
             subject_id: s.as_str(),
             context: Some("ak:realm:r1"),
             claim_set_snapshot: &snapshot,
-            accepted_issuers: &acc,
+            handle_issuer_policy: &acc,
             holder_primary_handle_at_as_of: None,
             resolution_as_of: now,
         };
@@ -470,11 +537,42 @@ mod tests {
             subject_id: s.as_str(),
             context: None,
             claim_set_snapshot: &snapshot,
-            accepted_issuers: &[issuer("ak:did_core:webvh:z6mkfixtureacme")],
+            handle_issuer_policy: &[issuer_policy(
+                "ak:did_core:webvh:z6mkfixtureacme",
+                "acme.example",
+            )],
             holder_primary_handle_at_as_of: None,
             resolution_as_of: now,
         };
         assert!(select_primary_handle(&input).is_none());
+    }
+
+    #[test]
+    fn issuer_is_not_authorized_outside_its_declared_handle_domain() {
+        let now = Utc::now();
+        let snapshot = vec![verified_claim(
+            "alice:rogue.example",
+            "ak:did_core:webvh:z6mkfixtureacme",
+            now - chrono::Duration::hours(1),
+            now + chrono::Duration::days(30),
+            None,
+        )];
+        let policy = vec![issuer_policy(
+            "ak:did_core:webvh:z6mkfixtureacme",
+            "acme.example",
+        )];
+        let s = subject();
+        assert!(
+            select_primary_handle(&PrimaryHandleSelectInput {
+                subject_id: s.as_str(),
+                context: None,
+                claim_set_snapshot: &snapshot,
+                handle_issuer_policy: &policy,
+                holder_primary_handle_at_as_of: None,
+                resolution_as_of: now,
+            })
+            .is_none()
+        );
     }
 
     #[test]
@@ -506,7 +604,7 @@ mod tests {
             subject_id: s.as_str(),
             context: None,
             claim_set_snapshot: &[],
-            accepted_issuers: &[],
+            handle_issuer_policy: &[],
             holder_primary_handle_at_as_of: None,
             resolution_as_of: Utc::now(),
         };
@@ -530,7 +628,7 @@ mod tests {
             subject_id: s.as_str(),
             context: None,
             claim_set_snapshot: &[],
-            accepted_issuers: &[],
+            handle_issuer_policy: &[],
             holder_primary_handle_at_as_of: None,
             resolution_as_of: Utc::now(),
         };

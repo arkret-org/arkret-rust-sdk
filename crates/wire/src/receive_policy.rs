@@ -26,6 +26,24 @@ pub enum ReceivePolicySurface {
     ContactRequest,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReceiveDisclosureLevel {
+    Opaque,
+    Outcome,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReceiveDisclosureMax {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub high_trust_max: Option<ReceiveDisclosureLevel>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub discovery_trust_max: Option<ReceiveDisclosureLevel>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub low_trust_max: Option<ReceiveDisclosureLevel>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReceivePolicyConstraints {
@@ -43,6 +61,8 @@ pub struct ReceivePolicyConstraints {
     pub explicit_address_max_behavior: Option<InviteReceiveAction>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unknown_invites_max_behavior: Option<UnknownInviteAction>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disclosure_max: Option<ReceiveDisclosureMax>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub allowed_handle_domains: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
