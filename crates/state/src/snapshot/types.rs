@@ -98,28 +98,10 @@ impl SnapshotManifest {
         self.unsigned_view().canonical_bytes()
     }
 
-    pub fn signature_payload_bytes(&self) -> Result<Vec<u8>> {
-        self.unsigned_canonical_bytes()
-    }
-
     pub fn expected_signature_digest(&self) -> Result<Hash> {
         self.unsigned_view().payload_digest()
     }
 
-    pub fn signature_as_proof(&self) -> crate::models::ProducerEventProof {
-        crate::models::ProducerEventProof {
-            kind: self.signature.kind.clone(),
-            verification_method: self.signature.verification_method.clone(),
-            event_digest: self.signature.payload_digest.clone(),
-            signer_resolution_evidence_ref: None,
-            signer_resolution_evidence_digest: None,
-            created_at: self.signature.created_at,
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: self.signature.jws.clone(),
-        }
-    }
 }
 
 impl UnsignedSnapshotManifest<'_> {
