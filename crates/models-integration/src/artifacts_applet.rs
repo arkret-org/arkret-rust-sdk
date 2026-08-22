@@ -24,7 +24,7 @@ use crate::applet_models::AppletIdentifier;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExternalRef {
-    pub protocol: Protocol,
+    pub protocol: String,
     pub external_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub instance_id: Option<String>,
@@ -48,9 +48,6 @@ pub struct FieldDefinition {
     pub description: Option<String>,
     pub value_kind: String,
 }
-
-/// Counterpart for `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/protocol`.
-pub type Protocol = String;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/protocol_instance`.
@@ -83,7 +80,7 @@ pub struct RejectedItem {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThirdPartyQuery {
-    pub protocol: Protocol,
+    pub protocol: String,
     pub external_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub instance_id: Option<String>,
@@ -285,9 +282,6 @@ pub struct NamespaceEntry {
     pub exclusive: bool,
     pub pattern: String,
 }
-
-/// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/profile_id`.
-pub type ProfileId = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet.schema.json`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
