@@ -35,8 +35,8 @@ use thiserror::Error;
 use super::store::{BottomMode, CellRegistry, StoreError};
 use crate::lattice::CellState;
 use crate::{
-    BottomKind, CellRef, Hash, LatticeOp, LatticeOpType, ObservedRemoveMatch, Predicate,
-    PredicateOp, ProjectedCellWrite, ProjectedOp, ProjectionEffect, RealmId,
+    BottomKind, CellRef, LatticeOp, LatticeOpType, ObservedRemoveMatch, Predicate, PredicateOp,
+    ProjectedCellWrite, ProjectedOp, ProjectionEffect, RealmId,
 };
 
 #[derive(Debug, Error)]
@@ -905,9 +905,6 @@ fn evaluate_predicate(
         }
     }
 }
-
-/// Convenience: collect a list of rejections keyed by `event_digest`.
-pub type ControlMoveRejectMap = BTreeMap<Hash, ControlMoveReject>;
 
 #[cfg(test)]
 mod tests {

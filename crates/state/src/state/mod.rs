@@ -48,6 +48,6 @@ pub use store::{
     StoreError, StoreResult, control_event_digest,
 };
 pub use verify::{
-    ControlMoveReject, ControlMoveRejectMap, reject_to_error_code, resolve_projected_write,
+    ControlMoveReject, reject_to_error_code, resolve_projected_write,
     verify_accepted_control_move_in_context, verify_control_move, verify_control_move_in_context,
 };
