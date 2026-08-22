@@ -51,23 +51,139 @@ pub struct OrganizationRecoveryArchive {
     pub ciphertext: String,
 }
 
-impl OrganizationRecoveryArchive {
-    pub const DOMAIN: &'static str = "ak.organization-recovery-archive-v1";
+/// Counterpart for the `info_and_aad` closed shape of the
+/// `ak.hpke_surface.organization_recovery_archive.v1` row in
+/// `spec/v1/artifacts/registry/hpke-suite-registry.json`: every public
+/// `organization_recovery_archive` field except `enc` and `ciphertext`.
+///
+/// The same RFC 8785 JCS bytes are used byte-for-byte as the RFC 9180 `info`
+/// and as the single-shot AEAD `aad`, exactly like the two history surfaces.
+/// `transition_digest` is the exact `mls_transition_digest` — for a Genesis it
+/// is the closed core digest that already excludes this archive, the outer
+/// `event_id` and every proof, so the binding carries no cycle.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OrganizationRecoveryArchiveSealContext {
+    pub effective_scope: HistoryEffectiveScope,
+    pub mls_group_id: String,
+    pub epoch: u64,
+    pub transition_digest: Hash,
+    pub recovery_key_id: String,
+    pub holder_principal_id: DidCoreId,
+    pub holder_service_id: DidCoreId,
+    pub key_agreement_ref: DidUrl,
+    pub holder_signing_ref: DidUrl,
+    pub hpke_suite: OrganizationRecoveryHpkeSuite,
+    pub frozen_public_key_b64u: String,
+    pub accepted_key_evidence_ref: EventId,
+    pub holder_trusted_basis: SealBasis,
+}
+
+impl OrganizationRecoveryArchiveSealContext {
+    /// Registry `surface_profiles[].profile_id` this context serves.
+    pub const PROFILE_ID: &'static str = "ak.hpke_surface.organization_recovery_archive.v1";
+
+    /// Registry `surface_profiles[].suite_id`; v1 fixes one suite.
+    pub const SUITE_ID: &'static str = "ak.hpke_x25519_aead_chacha20poly1305.v1";
 
     pub fn validate(&self) -> Result<()> {
         validate_canonical_mls_group_id(&self.effective_scope, &self.mls_group_id)?;
         validate_recovery_key_id(&self.recovery_key_id)?;
-        if self.frozen_public_key_b64u.len() != 43
-            || !is_base64url(&self.frozen_public_key_b64u)
-            || !matches!(
-                crate::base64url::base64url_decode(&self.frozen_public_key_b64u),
-                Ok(ref bytes) if bytes.len() == 32
-            )
-        {
-            return Err(Error::Protocol(
-                "archive frozen public key is invalid".to_owned(),
-            ));
+        validate_frozen_x25519_public_key(&self.frozen_public_key_b64u)?;
+        self.holder_trusted_basis.validate_protocol_bounds()
+    }
+
+    /// The exact RFC 8785 JCS bytes used as both HPKE `info` and AEAD `aad`.
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
+        self.validate()?;
+        Ok(crate::canonical::canonical_json_bytes(self)?)
+    }
+
+    /// The frozen recipient X25519 public key this archive is sealed to.
+    pub fn recipient_public_key(&self) -> Result<[u8; 32]> {
+        validate_frozen_x25519_public_key(&self.frozen_public_key_b64u)?;
+        let bytes = crate::base64url::base64url_decode(&self.frozen_public_key_b64u)
+            .map_err(|error| Error::Protocol(format!("archive frozen public key: {error}")))?;
+        let mut key = [0u8; 32];
+        key.copy_from_slice(&bytes);
+        Ok(key)
+    }
+
+    /// Assemble the public archive once the sealed bytes exist. The context
+    /// fields are moved in unchanged, so a sealed archive can never disagree
+    /// with the transcript its ciphertext was bound to.
+    pub fn into_archive(
+        self,
+        enc: String,
+        ciphertext: String,
+    ) -> Result<OrganizationRecoveryArchive> {
+        let archive = OrganizationRecoveryArchive {
+            effective_scope: self.effective_scope,
+            mls_group_id: self.mls_group_id,
+            epoch: self.epoch,
+            transition_digest: self.transition_digest,
+            recovery_key_id: self.recovery_key_id,
+            holder_principal_id: self.holder_principal_id,
+            holder_service_id: self.holder_service_id,
+            key_agreement_ref: self.key_agreement_ref,
+            holder_signing_ref: self.holder_signing_ref,
+            hpke_suite: self.hpke_suite,
+            frozen_public_key_b64u: self.frozen_public_key_b64u,
+            accepted_key_evidence_ref: self.accepted_key_evidence_ref,
+            holder_trusted_basis: self.holder_trusted_basis,
+            enc,
+            ciphertext,
+        };
+        archive.validate()?;
+        Ok(archive)
+    }
+}
+
+/// `frozen_public_key_b64u` is canonical unpadded base64url of exactly 32
+/// X25519 bytes (hpke-suite-registry.json `info_and_aad` note).
+fn validate_frozen_x25519_public_key(value: &str) -> Result<()> {
+    if value.len() != 43
+        || !is_base64url(value)
+        || !matches!(
+            crate::base64url::base64url_decode(value),
+            Ok(ref bytes) if bytes.len() == 32
+        )
+    {
+        return Err(Error::Protocol(
+            "archive frozen public key is invalid".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+impl OrganizationRecoveryArchive {
+    pub const DOMAIN: &'static str = "ak.organization-recovery-archive-v1";
+
+    /// The closed HPKE `info`/`aad` transcript this archive's ciphertext is
+    /// bound to: every public field except `enc` and `ciphertext`.
+    pub fn seal_context(&self) -> OrganizationRecoveryArchiveSealContext {
+        OrganizationRecoveryArchiveSealContext {
+            effective_scope: self.effective_scope.clone(),
+            mls_group_id: self.mls_group_id.clone(),
+            epoch: self.epoch,
+            transition_digest: self.transition_digest.clone(),
+            recovery_key_id: self.recovery_key_id.clone(),
+            holder_principal_id: self.holder_principal_id.clone(),
+            holder_service_id: self.holder_service_id.clone(),
+            key_agreement_ref: self.key_agreement_ref.clone(),
+            holder_signing_ref: self.holder_signing_ref.clone(),
+            hpke_suite: self.hpke_suite,
+            frozen_public_key_b64u: self.frozen_public_key_b64u.clone(),
+            accepted_key_evidence_ref: self.accepted_key_evidence_ref.clone(),
+            holder_trusted_basis: self.holder_trusted_basis.clone(),
         }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_canonical_mls_group_id(&self.effective_scope, &self.mls_group_id)?;
+        validate_recovery_key_id(&self.recovery_key_id)?;
+        validate_frozen_x25519_public_key(&self.frozen_public_key_b64u)?;
         validate_base64url_bounded(&self.enc, 1, 2_048, "enc")?;
         validate_base64url_bounded(&self.ciphertext, 1, 16_384, "ciphertext")?;
         self.holder_trusted_basis.validate_protocol_bounds()

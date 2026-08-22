@@ -513,12 +513,47 @@ pub enum OrganizationRecoveryArchivePlaintextKind {
     Value,
 }
 
+/// Counterpart for
+/// `history-key.schema.json#/$defs/organization_recovery_archive_plaintext`:
+/// the only RFC 9180 plaintext of
+/// `ak.hpke_surface.organization_recovery_archive.v1`. It carries exactly one
+/// epoch's `history_secret` and can never carry active MLS state, counters,
+/// policy snapshots, holder claims or a second epoch.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRecoveryArchivePlaintext {
     pub kind: OrganizationRecoveryArchivePlaintextKind,
     pub history_secret_b64u: String,
+}
+
+impl OrganizationRecoveryArchivePlaintext {
+    pub fn validate(&self) -> Result<()> {
+        validate_base64url_bounded(&self.history_secret_b64u, 1, 512, "history_secret_b64u")
+    }
+
+    /// The decoded `history_secret` length MUST equal `KDF.Nh` of the winning
+    /// group transition proven for `archive.epoch`
+    /// (`history-key.schema.json#/$defs/organization_recovery_archive_plaintext`).
+    pub fn validate_for_kdf_nh(&self, kdf_nh: usize) -> Result<()> {
+        self.validate()?;
+        if kdf_nh == 0 {
+            return Err(Error::Protocol(
+                "MLS ciphersuite KDF.Nh must be positive".to_owned(),
+            ));
+        }
+        let actual = arkret_wire::base64url::base64url_decode(&self.history_secret_b64u)
+            .map_err(|error| {
+                Error::Protocol(format!("archive history secret is not base64url: {error}"))
+            })?
+            .len();
+        if actual != kdf_nh {
+            return Err(Error::Protocol(format!(
+                "archive history secret contains {actual} bytes; expected {kdf_nh}"
+            )));
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

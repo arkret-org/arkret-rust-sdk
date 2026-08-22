@@ -21,12 +21,14 @@
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_models_collaboration::history_key::{
     HistoryChunkPlaintext, HistoryResponseCapabilityPlaintext,
-    HistoryResponseCapabilitySealContext, HistorySecretChunkSealContext, SealedHistoryChunk,
-    SealedHistoryChunkKind, SealedHistoryResponseCapability, response_capability_commitment,
+    HistoryResponseCapabilitySealContext, HistorySecretChunkSealContext,
+    OrganizationRecoveryArchivePlaintext, SealedHistoryChunk, SealedHistoryChunkKind,
+    SealedHistoryResponseCapability, response_capability_commitment,
 };
 pub use arkret_models_crypto::{SecretShareRequestContent, SecretShareSendContent};
 #[cfg(test)]
 use arkret_wire::{DeviceId, HPKE_SUITE_X25519_CHACHA20POLY1305_V1};
+use arkret_wire::{OrganizationRecoveryArchive, OrganizationRecoveryArchiveSealContext};
 use hpke::aead::ChaCha20Poly1305;
 use hpke::kdf::HkdfSha256;
 use hpke::kem::X25519HkdfSha256;
@@ -129,6 +131,8 @@ const HPKE_ENC_LEN: usize = 32;
 pub const HISTORY_RESPONSE_CAPABILITY_HPKE_PROFILE: &str =
     "ak.hpke_surface.history_response_capability.v1";
 pub const HISTORY_SECRET_CHUNK_HPKE_PROFILE: &str = "ak.hpke_surface.history_secret_chunk.v1";
+pub const ORGANIZATION_RECOVERY_ARCHIVE_HPKE_PROFILE: &str =
+    OrganizationRecoveryArchiveSealContext::PROFILE_ID;
 
 /// Minimal CSPRNG adapter over `getrandom` for the `hpke` crate's rand_core 0.9
 /// RNG interface. Only used to mint the per-seal ephemeral DHKEM keypair.
@@ -412,6 +416,52 @@ pub fn open_history_secret_chunk(
             "opened history chunk range does not match its HPKE context".to_owned(),
         ));
     }
+    Ok(plaintext)
+}
+
+/// Seal one epoch's `history_secret` into an organization recovery key (RRK)
+/// archive with the registered `ak.hpke_surface.organization_recovery_archive.v1`
+/// profile.
+///
+/// The recipient is the archive's own frozen X25519 public key, and the closed
+/// context JCS bytes are passed byte-for-byte as both RFC 9180 `info` and the
+/// single-shot AEAD `aad` — the same construction the two history surfaces use.
+/// The returned archive reuses the sealed context verbatim, so the public
+/// fields can never disagree with the transcript the ciphertext is bound to.
+pub fn seal_organization_recovery_archive(
+    context: &OrganizationRecoveryArchiveSealContext,
+    plaintext: &OrganizationRecoveryArchivePlaintext,
+) -> Result<OrganizationRecoveryArchive> {
+    context.validate()?;
+    plaintext.validate()?;
+    let recipient = context.recipient_public_key()?;
+    let binding = context.canonical_bytes()?;
+    let plaintext_bytes = arkret_canonical::canonical_json_bytes(plaintext)?;
+    let sealed = seal_base_mode_to_x25519_pubkey(&recipient, &plaintext_bytes, &binding, &binding)?;
+    let (enc, ciphertext) = split_hpke_seal(&sealed)?;
+    Ok(context.clone().into_archive(enc, ciphertext)?)
+}
+
+/// Open and fully validate an RRK archive with the holder's recovery private
+/// key. The transcript is recomputed from the archive's own public fields, so a
+/// tampered public field fails the AEAD rather than being silently accepted.
+pub fn open_organization_recovery_archive(
+    holder_private_key_b64u: &str,
+    archive: &OrganizationRecoveryArchive,
+) -> Result<OrganizationRecoveryArchivePlaintext> {
+    archive.validate()?;
+    let private = decode_x25519_key("holder_private_key_b64u", holder_private_key_b64u)?;
+    let binding = archive.seal_context().canonical_bytes()?;
+    let combined = combine_hpke_seal(&archive.enc, &archive.ciphertext)?;
+    let plaintext_bytes =
+        open_base_mode_with_x25519_privkey(&private, &combined, &binding, &binding)?;
+    let plaintext: OrganizationRecoveryArchivePlaintext = serde_json::from_slice(&plaintext_bytes)?;
+    if arkret_canonical::canonical_json_bytes(&plaintext)? != plaintext_bytes {
+        return Err(Error::Protocol(
+            "organization recovery archive plaintext is not canonical JSON".to_owned(),
+        ));
+    }
+    plaintext.validate()?;
     Ok(plaintext)
 }
 
@@ -702,5 +752,155 @@ mod tests {
         // Wrong recipient key fails.
         let (wrong_priv, _) = hpke_keypair();
         assert!(open_base_mode_with_x25519_privkey(&wrong_priv, &sealed, info, aad).is_err());
+    }
+}
+
+#[cfg(test)]
+mod organization_recovery_archive_tests {
+    use arkret_models_collaboration::history_key::OrganizationRecoveryArchivePlaintextKind;
+    use arkret_wire::{
+        DidCoreId, DidUrl, EventId, Hash, HistoryEffectiveScope, OrganizationRecoveryHpkeSuite,
+        RealmId, SealBasis, SealId,
+    };
+    use serde_json::json;
+
+    use super::*;
+
+    const REALM: &str = "ak:realm:AfjSiYTXJZS-0ifVfy1f_uzsmJIBjDyN11_-dxnne50e";
+
+    fn hpke_keypair() -> (Vec<u8>, Vec<u8>) {
+        let (sk, pk) = <HpkeKem as hpke::Kem>::gen_keypair(&mut OsCsRng);
+        (sk.to_bytes().to_vec(), pk.to_bytes().to_vec())
+    }
+
+    fn seal_context(frozen_public_key: &[u8]) -> OrganizationRecoveryArchiveSealContext {
+        let effective_scope = HistoryEffectiveScope::Realm {
+            realm_id: RealmId::new(REALM).unwrap(),
+        };
+        let mls_group_id = effective_scope.canonical_mls_group_id().unwrap();
+        OrganizationRecoveryArchiveSealContext {
+            effective_scope,
+            mls_group_id,
+            epoch: 7,
+            transition_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            recovery_key_id: "ak:recovery_key:01964137-0000-7000-8000-000000000001".to_owned(),
+            holder_principal_id: DidCoreId::new("ak:did_core:webvh:z6mkholder").unwrap(),
+            holder_service_id: DidCoreId::new("ak:did_core:webvh:z6mkservice").unwrap(),
+            key_agreement_ref: DidUrl::new("did:webvh:z6mkholder#recovery-kem").unwrap(),
+            holder_signing_ref: DidUrl::new("did:webvh:z6mkholder#recovery-sign").unwrap(),
+            hpke_suite: OrganizationRecoveryHpkeSuite::Value,
+            frozen_public_key_b64u: base64url_encode(frozen_public_key),
+            accepted_key_evidence_ref: EventId::new(
+                "ak:event:Adl8EVE0XuYmtOeRAa0WJVGy5DWansCGrXuwPONweuzs",
+            )
+            .unwrap(),
+            holder_trusted_basis: SealBasis {
+                leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "00".repeat(32))).unwrap()],
+            },
+        }
+    }
+
+    fn plaintext(kdf_nh: usize) -> OrganizationRecoveryArchivePlaintext {
+        OrganizationRecoveryArchivePlaintext {
+            kind: OrganizationRecoveryArchivePlaintextKind::Value,
+            history_secret_b64u: base64url_encode(vec![9u8; kdf_nh]),
+        }
+    }
+
+    #[test]
+    fn archive_round_trips_under_its_registered_context() {
+        let (private, public) = hpke_keypair();
+        let context = seal_context(&public);
+        let secret = plaintext(32);
+        let archive = seal_organization_recovery_archive(&context, &secret).unwrap();
+
+        assert_eq!(archive.seal_context(), context);
+        let opened =
+            open_organization_recovery_archive(&base64url_encode(&private), &archive).unwrap();
+        assert_eq!(opened, secret);
+        opened.validate_for_kdf_nh(32).unwrap();
+        assert!(opened.validate_for_kdf_nh(64).is_err());
+    }
+
+    #[test]
+    fn a_tampered_public_field_breaks_the_archive_transcript() {
+        let (private, public) = hpke_keypair();
+        let context = seal_context(&public);
+        let archive = seal_organization_recovery_archive(&context, &plaintext(32)).unwrap();
+
+        let mut tampered = archive.clone();
+        tampered.epoch += 1;
+        assert!(
+            open_organization_recovery_archive(&base64url_encode(&private), &tampered).is_err()
+        );
+
+        let mut tampered = archive;
+        tampered.transition_digest = Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap();
+        assert!(
+            open_organization_recovery_archive(&base64url_encode(&private), &tampered).is_err()
+        );
+    }
+
+    #[test]
+    fn a_foreign_recovery_key_cannot_open_the_archive() {
+        let (_private, public) = hpke_keypair();
+        let (other_private, _other_public) = hpke_keypair();
+        let archive =
+            seal_organization_recovery_archive(&seal_context(&public), &plaintext(32)).unwrap();
+        assert!(
+            open_organization_recovery_archive(&base64url_encode(&other_private), &archive)
+                .is_err()
+        );
+    }
+
+    /// The context's member set is the registry's closed `info_and_aad` shape,
+    /// field for field and in the same order as the row spells it.
+    #[test]
+    fn context_matches_the_registered_surface_profile() {
+        let registry =
+            arkret_schema::embedded_json_artifact("registry/hpke-suite-registry.json").unwrap();
+        let profile = registry["surface_profiles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| {
+                row["profile_id"].as_str()
+                    == Some(OrganizationRecoveryArchiveSealContext::PROFILE_ID)
+            })
+            .expect("the RRK archive surface profile must be registered");
+        assert_eq!(
+            profile["suite_id"].as_str(),
+            Some(OrganizationRecoveryArchiveSealContext::SUITE_ID)
+        );
+        assert_eq!(profile["mode"].as_str(), Some("base"));
+        assert_eq!(
+            profile["wire_fields"].as_array().unwrap(),
+            &vec![json!("enc"), json!("ciphertext")]
+        );
+        assert_eq!(
+            profile["plaintext_schema_ref"].as_str(),
+            Some("schemas/history-key.schema.json#/$defs/organization_recovery_archive_plaintext")
+        );
+
+        let info_and_aad = profile["info_and_aad"].as_str().unwrap();
+        let closed_shape = info_and_aad
+            .split_once('{')
+            .and_then(|(_, rest)| rest.split_once('}'))
+            .map(|(shape, _)| shape)
+            .expect("the row must spell its closed shape");
+        let registered = closed_shape.split(',').map(str::trim).collect::<Vec<_>>();
+
+        let (_private, public) = hpke_keypair();
+        let context = serde_json::to_value(seal_context(&public)).unwrap();
+        let mut declared = context
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+        let mut expected = registered.clone();
+        declared.sort_unstable();
+        expected.sort_unstable();
+        assert_eq!(declared, expected, "RRK archive HPKE context drifted");
     }
 }

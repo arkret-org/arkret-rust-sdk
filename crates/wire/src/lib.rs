@@ -172,7 +172,10 @@ pub use offline_publication::{
     distinct_issuer_count,
 };
 pub use operation_types::*;
-pub use organization_recovery::{OrganizationRecoveryArchive, OrganizationRecoveryHpkeSuite};
+pub use organization_recovery::{
+    OrganizationRecoveryArchive, OrganizationRecoveryArchiveSealContext,
+    OrganizationRecoveryHpkeSuite,
+};
 pub use patch::*;
 pub use peer_operation_paths::*;
 pub use plaintext::PlaintextDataClassKind;
