@@ -234,7 +234,7 @@ fn event_validate_proof_bindings_checks_digest_match() {
         domain: None,
         audience: None,
         proof_purpose: None,
-        jws: "sig".to_owned(),
+        jws: arkret_wire::test_support::DETACHED_JWS_FIXTURE.to_owned(),
     };
 
     let mut signed_event = event;
@@ -274,7 +274,7 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
         domain: None,
         audience: None,
         proof_purpose: None,
-        jws: "sig".to_owned(),
+        jws: arkret_wire::test_support::DETACHED_JWS_FIXTURE.to_owned(),
     };
 
     let mut signed_event = event;
@@ -316,7 +316,7 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
             "did:webvh:z6mkfixture:service.example".to_owned(),
         )),
         proof_purpose: None,
-        jws: "sig".to_owned(),
+        jws: arkret_wire::test_support::DETACHED_JWS_FIXTURE.to_owned(),
     };
     let mut signed_event = event;
     signed_event.proofs = vec![proof.into()];

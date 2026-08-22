@@ -1763,6 +1763,7 @@ pub struct SignatureBindingPayload {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::DETACHED_JWS_FIXTURE;
 
     #[test]
     fn fact_chain_echo_validates_server_proof_binding() {
@@ -1787,7 +1788,7 @@ mod tests {
             domain: None,
             audience: None,
             proof_purpose: None,
-            jws: "server.signature".to_owned(),
+            jws: DETACHED_JWS_FIXTURE.to_owned(),
         });
 
         echo.precheck_server_proofs().unwrap();

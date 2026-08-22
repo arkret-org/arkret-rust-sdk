@@ -472,13 +472,13 @@ mod tests {
         )
         .unwrap();
         let signature = DetachedSignature {
-            kind: "did".to_owned(),
+            kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
             verification_method: binding.verification_method.clone(),
             payload_digest: binding.payload_digest.clone(),
             created_at: binding.created_at,
             domain: None,
             audience: None,
-            jws: "sig".to_owned(),
+            jws: arkret_wire::test_support::DETACHED_JWS_FIXTURE.to_owned(),
         };
 
         signature.validate_against(&binding).unwrap();
@@ -507,7 +507,7 @@ mod tests {
             domain: Some("api.example".to_owned()),
             audience: Some(Audience::Single(actor("service").to_string())),
             proof_purpose: None,
-            jws: "sig".to_owned(),
+            jws: arkret_wire::test_support::DETACHED_JWS_FIXTURE.to_owned(),
         };
         let mut context = ProofVerificationContext::new(actor("alice"), payload_digest);
         context.domain = proof.domain.clone();
@@ -515,7 +515,8 @@ mod tests {
         context.service_id = Some(DidCoreId::new("ak:did_core:webvh:z6mkfixtureservice").unwrap());
 
         let verified = verify_proof_with_resolver(&proof, &context, &resolver, |method, proof| {
-            Ok(method.public_key_multibase == "zKey" && proof.jws == "sig")
+            Ok(method.public_key_multibase == "zKey"
+                && proof.jws == arkret_wire::test_support::DETACHED_JWS_FIXTURE)
         })
         .unwrap();
         assert!(verified.valid);
@@ -559,7 +560,7 @@ mod tests {
                 "did:webvh:z6mkfixture:service.example".to_owned(),
             )),
             proof_purpose: None,
-            jws: "sig".to_owned(),
+            jws: arkret_wire::test_support::DETACHED_JWS_FIXTURE.to_owned(),
         };
         let context = ProofVerificationContext::new(actor("alice"), payload_digest).cross_domain(
             "ak:trust_domain:example.net",

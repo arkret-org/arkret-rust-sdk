@@ -10,6 +10,17 @@ use serde_json::Value;
 
 use crate::{DidCoreId, Event, EventId, Hlc, Result, ScopeRef};
 
+/// Structurally valid detached compact JWS for fixtures that do not verify a
+/// signature.
+///
+/// `event-envelope.schema.json` pins `proof.jws` to
+/// `^[A-Za-z0-9_-]+\.(?:[A-Za-z0-9_-]+)?\.[A-Za-z0-9_-]+$`, so a fixture
+/// placeholder still needs the base64url protected header, the empty detached
+/// payload segment, and the signature segment. Single-token placeholders such
+/// as `"sig"` are wire-invalid and are rejected by `Proof::validate`.
+#[doc(hidden)]
+pub const DETACHED_JWS_FIXTURE: &str = "eyJhbGciOiJFZDI1NTE5In0..c2lnbmF0dXJl";
+
 /// Envelope metadata embedded in raw projection fixture payloads.
 ///
 /// Serde owns the split so fixture callers do not hand-edit an Event digest

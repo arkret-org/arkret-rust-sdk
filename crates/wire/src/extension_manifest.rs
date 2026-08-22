@@ -848,6 +848,7 @@ mod tests {
 
     use super::*;
     use crate::DidUrl;
+    use crate::test_support::DETACHED_JWS_FIXTURE;
 
     struct TestProofVerifier {
         calls: AtomicUsize,
@@ -868,7 +869,7 @@ mod tests {
                 verification_method,
                 "did:web:publisher.example#manifest-signing"
             );
-            assert_eq!(detached_jws, "detached-signature");
+            assert_eq!(detached_jws, DETACHED_JWS_FIXTURE);
             let value: Value = crate::canonical::from_canonical_json_slice(signing_bytes)?;
             assert_eq!(
                 value["context"],
@@ -945,7 +946,7 @@ mod tests {
                 domain: None,
                 audience: None,
                 proof_purpose: None,
-                jws: "detached-signature".to_owned(),
+                jws: DETACHED_JWS_FIXTURE.to_owned(),
             }],
         };
         manifest.manifest_digest = manifest

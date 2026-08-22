@@ -276,8 +276,17 @@ mod tests {
         fn sign_payload(&self, canonical_bytes: &[u8]) -> WireResult<PayloadSignature> {
             let payload_digest = Hash::new(canonical::sha256_digest(canonical_bytes))?;
             // Deterministic "signature" — sufficient for transcript
-            // coverage tests; no Ed25519 dep required.
-            let stub_jws = format!("stub..{}", payload_digest.as_str());
+            // coverage tests; no Ed25519 dep required. Only the digest hex
+            // goes into the signature segment: the wire form is a detached
+            // compact JWS and `sha256:` is not a base64url character.
+            let stub_jws = format!(
+                "eyJhbGciOiJFZDI1NTE5In0..{}",
+                payload_digest
+                    .as_str()
+                    .rsplit(':')
+                    .next()
+                    .unwrap_or_default()
+            );
             Ok(PayloadSignature {
                 verification_method: self.kid.clone(),
                 payload_digest,

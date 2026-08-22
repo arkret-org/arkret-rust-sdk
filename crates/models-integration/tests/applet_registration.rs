@@ -56,6 +56,20 @@ fn sample_epoch_evidence(service_id: &DidCoreId) -> AppletRegistrationEpochEvide
     .unwrap()
 }
 
+/// Deterministic detached compact JWS for the stub signer. Only the digest hex
+/// enters the signature segment because `sha256:` is not a base64url character
+/// and the wire pattern for `proof.jws` admits base64url segments only.
+fn stub_detached_jws(payload_digest: &Hash) -> String {
+    format!(
+        "eyJhbGciOiJFZDI1NTE5In0..{}",
+        payload_digest
+            .as_str()
+            .rsplit(':')
+            .next()
+            .unwrap_or_default()
+    )
+}
+
 fn sample_wire_registration() -> WireAppletRegistration {
     WireAppletRegistration::new(
         "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
@@ -347,7 +361,7 @@ fn sign_registration_attaches_matching_payload_digest() {
                 verification_method: self.verification_method.clone(),
                 payload_digest: payload_digest.clone(),
                 created_at: Utc::now(),
-                jws: format!("stub..{}", payload_digest.as_str()),
+                jws: stub_detached_jws(&payload_digest),
                 extra: Default::default(),
             })
         }
@@ -371,7 +385,7 @@ fn sign_registration_attaches_matching_payload_digest() {
     // header would only be testing the stub, and the stub never produces one.
     assert_eq!(
         proof.jws,
-        format!("stub..{}", registration.payload_digest().unwrap().as_str())
+        stub_detached_jws(&registration.payload_digest().unwrap())
     );
     assert_eq!(proof.event_digest, registration.payload_digest().unwrap());
 }
