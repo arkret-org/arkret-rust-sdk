@@ -1,5 +1,7 @@
+use std::collections::BTreeMap;
+
 use arkret_wire::serde_helpers::serialize_optional_canonical_timestamp;
-use arkret_wire::{CircleId, Error, HistoryAccess, RealmId, Result};
+use arkret_wire::{CircleId, DidCoreId, Error, HistoryAccess, PolicyId, RealmId, Result, SchemaId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -19,17 +21,25 @@ pub enum RealmJoinRuleValue {
 }
 
 /// Strong payload for `ak.realm.join_rule`, whose wire schema is
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/state_payload`.
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_join_rule_payload`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmJoinRulePayload {
     pub value: RealmJoinRuleValue,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 }
 
 impl RealmJoinRulePayload {
     pub fn new(value: RealmJoinRuleValue) -> Self {
-        Self { value }
+        Self {
+            value,
+            state: None,
+            reason: None,
+        }
     }
 
     pub fn to_value(&self) -> Result<Value> {
@@ -38,11 +48,11 @@ impl RealmJoinRulePayload {
     }
 }
 
-/// Closed v1 value set for `ak.realm.discovery`.
+/// Closed v1 discoverability set for `ak.realm.discovery`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum RealmDiscoveryValue {
+pub enum RealmDiscoverability {
     Public,
     Listed,
     Restricted,
@@ -51,24 +61,222 @@ pub enum RealmDiscoveryValue {
     Secret,
 }
 
-/// Strong payload for `ak.realm.discovery`, whose wire schema is
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/state_payload`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct RealmDirectoryVisibility {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub public_directory: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub organization_directory: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_realm_directory: Option<bool>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmAllowedDiscoverer {
+    pub selector_kind: RealmAllowedDiscovererKind,
+    pub claim_kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub organization: Option<DidCoreId>,
+    pub issuer: DidCoreId,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RealmAllowedDiscovererKind {
+    Claim,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MemberCountMode {
+    Exact,
+    Bucketed,
+    Omit,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MemberCountHysteresis {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub absolute: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ratio: Option<f64>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmAntiEnumerationPolicy {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unlisted_exact_alias_required: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub member_count_mode: Option<MemberCountMode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub not_found_blinding: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub member_count_hysteresis: Option<MemberCountHysteresis>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub member_count_min_residence_ms: Option<u64>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmDiscoveryValue {
+    pub discoverability: RealmDiscoverability,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub directory_visibility: Option<RealmDirectoryVisibility>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_discoverers: Vec<RealmAllowedDiscoverer>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub directory_services: Vec<DidCoreId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub anti_enumeration: Option<RealmAntiEnumerationPolicy>,
+}
+
+/// Strong payload for `ak.realm.discovery`, whose wire schema is
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_discovery_payload`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RealmDiscoveryPayload {
     pub value: RealmDiscoveryValue,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 }
 
 impl RealmDiscoveryPayload {
-    pub fn new(value: RealmDiscoveryValue) -> Self {
-        Self { value }
+    pub fn new(discoverability: RealmDiscoverability) -> Self {
+        Self {
+            value: RealmDiscoveryValue {
+                discoverability,
+                directory_visibility: None,
+                allowed_discoverers: Vec::new(),
+                directory_services: Vec::new(),
+                anti_enumeration: None,
+            },
+            state: None,
+            reason: None,
+        }
     }
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
             .map_err(|err| Error::Protocol(format!("realm discovery payload serialize: {err}")))
     }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmPolicyValue {
+    pub policy_id: PolicyId,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmPolicyPayload {
+    pub value: RealmPolicyValue,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AssetDownloadMode {
+    Direct,
+    ProviderProxy,
+    OhttpRelay,
+    ClientMirror,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AssetPlaintextMetadata {
+    SizeBucket,
+    MediaTypeFamily,
+    ContentHash,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmAssetPrivacyPolicyValue {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub download_mode: Option<AssetDownloadMode>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_modes: Vec<AssetDownloadMode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direct_download_allowed: Option<bool>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub upload_services: Vec<DidCoreId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub download_proxy_services: Vec<DidCoreId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ohttp_gateway_services: Vec<DidCoreId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub max_plaintext_metadata: Vec<AssetPlaintextMetadata>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_digest_check_required: Option<bool>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmAssetPrivacyPolicyPayload {
+    pub value: RealmAssetPrivacyPolicyValue,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MorphKindProfile {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_facets: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub writable_fields: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub required_schema_refs: Vec<SchemaId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub required_capability_actions: Vec<String>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmSchemaValue {
+    pub schema_refs: Vec<SchemaId>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub morph_kind_profiles: BTreeMap<String, MorphKindProfile>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmSchemaPayload {
+    pub value: RealmSchemaValue,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 }
 
 /// Strong type for `ak.realm.archive` payloads

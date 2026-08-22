@@ -31,7 +31,8 @@ use arkret_models_collaboration::governance::realm_governance::{
 };
 use arkret_models_collaboration::governance::realm_lifecycle::{
     CircleHistoryAccessPayload, HistoryAccessPayload, ObjectLifecyclePayload, RealmArchivePayload,
-    RealmDestroyPayload, RealmTombstonePayload,
+    RealmAssetPrivacyPolicyPayload, RealmDestroyPayload, RealmDiscoveryPayload,
+    RealmJoinRulePayload, RealmPolicyPayload, RealmSchemaPayload, RealmTombstonePayload,
 };
 use arkret_models_collaboration::governance_payloads::ConsentRevokePayload;
 use arkret_models_collaboration::object_lifecycle::{
@@ -184,10 +185,10 @@ event_payload_accessors! {
     event_spec::RealmUpgrade => (as_realm_upgrade, RealmUpgradeStatePayload),
     event_spec::RealmOrganization => (as_realm_organization, RealmOrganizationPayload),
     event_spec::RealmLink => (as_realm_link, RealmLinkPayload),
-    event_spec::RealmPolicy => (as_realm_policy, StatePayload),
-    event_spec::RealmJoinRule => (as_realm_join_rule, StatePayload),
+    event_spec::RealmPolicy => (as_realm_policy, RealmPolicyPayload),
+    event_spec::RealmJoinRule => (as_realm_join_rule, RealmJoinRulePayload),
     event_spec::RealmHistoryAccess => (as_realm_history_access, HistoryAccessPayload, HistoryAccessPayload::validate),
-    event_spec::RealmDiscovery => (as_realm_discovery, StatePayload),
+    event_spec::RealmDiscovery => (as_realm_discovery, RealmDiscoveryPayload),
     event_spec::RealmPreviewPolicy => (as_realm_preview_policy, PreviewPolicyPayload),
     event_spec::RealmSearchPolicy => (as_realm_search_policy, RealmSearchPolicyPayload),
     event_spec::RealmSetDefaultStrand => (as_realm_set_default_strand, RealmSetDefaultStrandPayload),
@@ -196,12 +197,12 @@ event_payload_accessors! {
     event_spec::RealmPolicyServer => (as_realm_policy_server, RealmPolicyServerPayload),
     event_spec::RealmPolicyBundle => (as_realm_policy_bundle, RealmPolicyBundlePayload),
     event_spec::RealmDeliveryBindingPolicy => (as_realm_delivery_binding_policy, RealmDeliveryBindingPolicyPayload),
-    event_spec::RealmAssetPrivacyPolicy => (as_realm_asset_privacy_policy, StatePayload),
+    event_spec::RealmAssetPrivacyPolicy => (as_realm_asset_privacy_policy, RealmAssetPrivacyPolicyPayload),
     event_spec::RealmReadReceiptPolicy => (as_realm_read_receipt_policy, ReadReceiptPolicyPayload),
     event_spec::RealmModerationPolicy => (as_realm_moderation_policy, StatePayload),
     event_spec::RealmPlaintextVisibleServices => (as_realm_plaintext_visible_services, PlaintextVisibleServicesPayload),
     event_spec::RealmMediaService => (as_realm_media_service, StatePayload),
-    event_spec::RealmSchema => (as_realm_schema, StatePayload),
+    event_spec::RealmSchema => (as_realm_schema, RealmSchemaPayload),
     event_spec::RealmInheritancePolicy => (as_realm_inheritance_policy, RealmInheritancePolicyPayload),
     event_spec::RealmArchive => (as_realm_archive, RealmArchivePayload),
     event_spec::RealmFreeze => (as_realm_freeze, RealmFreezePayload),
