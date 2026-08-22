@@ -442,7 +442,7 @@ fn standard_retry_statuses() -> Vec<u16> {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{ProfileId, SchemaId};
+    use arkret_wire::SchemaId;
     use reqwest::Method;
     use reqwest::header::{HeaderValue, USER_AGENT};
 
