@@ -263,7 +263,7 @@ impl<'de> Deserialize<'de> for VisibleCaptureNotice {
 /// Typed payload for `ak.call.recording.start`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RecordingStartPayload {
+pub struct CallRecordingStartPayload {
     pub call_id: CallId,
     pub recording_id: CallRecordingId,
     pub recording_agent: DidCoreId,
@@ -302,7 +302,7 @@ impl<'de> Deserialize<'de> for RecordingStartResult {
     }
 }
 
-impl RecordingStartPayload {
+impl CallRecordingStartPayload {
     pub fn validate(&self) -> std::result::Result<(), &'static str> {
         if self.result.retention.consent_confirmed != Some(true) {
             return Err(ReasonCode::RECORDING_CONSENT_REQUIRED);
@@ -310,8 +310,6 @@ impl RecordingStartPayload {
         Ok(())
     }
 }
-
-pub type CallRecordingStartPayload = RecordingStartPayload;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1067,21 +1065,21 @@ mod tests {
                 "retention": {"consent_confirmed": true}
             }
         });
-        let payload: RecordingStartPayload = serde_json::from_value(value.clone()).unwrap();
+        let payload: CallRecordingStartPayload = serde_json::from_value(value.clone()).unwrap();
         assert_eq!(payload.mode, RecordingMode::AudioVideo);
         payload.validate().unwrap();
 
         let mut missing_result = value.clone();
         missing_result.as_object_mut().unwrap().remove("result");
-        assert!(serde_json::from_value::<RecordingStartPayload>(missing_result).is_err());
+        assert!(serde_json::from_value::<CallRecordingStartPayload>(missing_result).is_err());
 
         let mut invalid_id = value.clone();
         invalid_id["recording_id"] = json!("capture id");
-        assert!(serde_json::from_value::<RecordingStartPayload>(invalid_id).is_err());
+        assert!(serde_json::from_value::<CallRecordingStartPayload>(invalid_id).is_err());
 
         let mut missing_consent = value;
         missing_consent["result"]["retention"]["consent_confirmed"] = json!(false);
-        assert!(serde_json::from_value::<RecordingStartPayload>(missing_consent).is_err());
+        assert!(serde_json::from_value::<CallRecordingStartPayload>(missing_consent).is_err());
 
         let cyclic_identity = json!({
             "call_id": "ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7",
@@ -1095,7 +1093,7 @@ mod tests {
                 "retention": {"consent_confirmed": true}
             }
         });
-        assert!(serde_json::from_value::<RecordingStartPayload>(cyclic_identity).is_err());
+        assert!(serde_json::from_value::<CallRecordingStartPayload>(cyclic_identity).is_err());
     }
 
     #[test]
