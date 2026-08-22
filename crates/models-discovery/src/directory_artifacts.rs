@@ -1,7 +1,7 @@
 //! Contact and directory schema artifact counterparts (pure `$defs`
 //! shapes shared by the directory operation DTOs).
 
-use arkret_wire::{EventId, MessageId, NonEmptyString, StrandId};
+use arkret_wire::{ConsentScope, EventId, MessageId, NonEmptyString, StrandId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -29,7 +29,7 @@ pub struct FreshnessFields {
 pub struct InviteConsentHandoffStub {
     pub kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub consent_scope: Option<String>,
+    pub consent_scope: Option<ConsentScope>,
     pub state: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state_digest: Option<NonEmptyString>,
