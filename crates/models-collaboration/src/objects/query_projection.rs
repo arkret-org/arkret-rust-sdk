@@ -3,14 +3,12 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    Cursor, DidCoreId, EventId, Facet, Hash, Hlc, MorphId, NonEmptyString, RealmId, RelationId,
-    ViewId, ViewRenderer,
+    Cursor, DidCoreId, EventId, Facet, Hash, Hlc, MorphId, NonEmptyString, ObjectRef, RealmId,
+    RelationId, ViewId, ViewRenderer,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::ObjectRef;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

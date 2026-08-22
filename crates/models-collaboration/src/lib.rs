@@ -46,9 +46,6 @@ pub use events_payloads::{
 pub use governance::audit::{AccessKind, AuditPolicyAccessPayload};
 pub use resolved_state::ResolvedStateEvent;
 
-/// Canonical object reference string (typed id / DID / content digest).
-pub type ObjectRef = String;
-
 macro_rules! string_marker {
     ($name:ident, $variant:ident, $wire:literal) => {
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

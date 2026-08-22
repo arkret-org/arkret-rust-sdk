@@ -29,5 +29,4 @@ pub mod plaintext_visibility;
 pub mod policy_check;
 pub mod realm_governance;
 pub mod realm_lifecycle;
-pub mod resource_selector;
 pub mod third_party_invite;

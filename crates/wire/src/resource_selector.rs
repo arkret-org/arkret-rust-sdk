@@ -1,9 +1,4 @@
 //! Closed selector used by capability and widget token scopes.
-//!
-//! Relocated from `arkret-models-collaboration` (`governance::resource_selector`)
-//! so both the collaboration governance surface and the integration applet
-//! surface can name it within the frozen layering. It is a cross-domain wire
-//! vocabulary of the same nature as `consent_scope`.
 
 use serde::{Deserialize, Serialize, de};
 

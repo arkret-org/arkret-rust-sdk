@@ -13,13 +13,12 @@
 //! a reader that reloads after a redaction renders a tombstone marker rather
 //! than the plaintext.
 
-use arkret_wire::{Error, MessageId, Result};
+use arkret_wire::{Error, MessageId, ObjectRef, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
 use super::message::ContentBlock;
-use crate::ObjectRef;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/cross_object_redaction_payload`.

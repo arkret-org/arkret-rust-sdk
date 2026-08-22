@@ -5,14 +5,13 @@ use std::ops::Deref;
 
 use arkret_wire::{
     AppletIdentifier, AuditBindingId, AuditReleaseId, AuditSessionId, CellRef, DidCoreId, DidUrl,
-    EventId, Hash, NonEmptyJsonObject, NonEmptyString, RealmId, ScopeRef,
+    EventId, Hash, NonEmptyJsonObject, NonEmptyString, ObjectRef, RealmId, ScopeRef,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::mls::MlsEpochRange;
-use crate::ObjectRef;
 use crate::governance::audit::AuditAssurance;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

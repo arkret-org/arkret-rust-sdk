@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::serde_helpers::serialize_optional_canonical_timestamp;
-use arkret_wire::{CircleId, DidCoreId, Error, HistoryAccess, PolicyId, RealmId, Result, SchemaId};
+use arkret_wire::{
+    CircleId, DidCoreId, Error, HistoryAccess, ObjectRef, PolicyId, RealmId, Result, SchemaId,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::ObjectRef;
 
 /// Closed v1 value set for `ak.realm.join_rule`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

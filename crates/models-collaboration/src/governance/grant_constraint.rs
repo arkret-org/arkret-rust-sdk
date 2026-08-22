@@ -7,13 +7,11 @@ use std::collections::BTreeMap;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
     AppletId, CircleId, DidCoreId, EncryptionProfile, Error, EvaluationClass, Facet, GrantId, Hash,
-    HistoryAccess, RealmId, Result, SchemaId, XExtensionMap,
+    HistoryAccess, RealmId, Result, SchemaId, WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::governance::resource_selector::WireResourceSelector;
 
 /// Approval workflow mode (`grant-constraint.schema.json` /
 /// `moderation.md`): when the approval gate runs relative to commit.

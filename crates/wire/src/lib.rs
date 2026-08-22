@@ -198,7 +198,9 @@ pub use recovery_authority::{
     RecoveryCompletionAttestation, RecoveryCompletionAttestationAuthData,
     UnsignedRecoveryCompletionAttestation, UnsignedRecoveryCompletionAttestationBody,
 };
-pub use resource_selector::{ResourceMatchScope, ResourceSelectorKind, WireResourceSelector};
+pub use resource_selector::{
+    ObjectRef, ResourceMatchScope, ResourceSelectorKind, WireResourceSelector,
+};
 pub use seal::{
     MultiSigKind, MultiSignature, NotarySig, PayloadSignature, Seal, SealKind, SealSignature,
     compute_seal_id, seal_canonical_bytes,

@@ -166,7 +166,6 @@ pub use arkret_models_collaboration::governance::plaintext_visibility::*;
 pub use arkret_models_collaboration::governance::policy_check::*;
 pub use arkret_models_collaboration::governance::realm_governance::*;
 pub use arkret_models_collaboration::governance::realm_lifecycle::*;
-pub use arkret_models_collaboration::governance::resource_selector::*;
 pub use arkret_models_collaboration::governance::third_party_invite::*;
 pub use arkret_models_collaboration::governance_dependencies::*;
 pub use arkret_models_collaboration::governance_payloads::*;
@@ -391,9 +390,11 @@ pub use arkret_wire::{
     KeyPackageClaimId, KeyPackageRef, MLS_CIPHERSUITES, MLS_EXTENSIONS, MlsCiphersuiteId,
     PROOF_CONTEXTS, ProfileId, ProfileRole, ProofContextId, ProtocolOpaqueId, ProtocolOperationId,
     ProtocolSignature, QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS, ReservationHandle,
-    SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId,
-    ServiceKind, ServiceOperationDescriptor, ServiceOperationId, SignerEvidenceRef, WireError,
-    XExtensionMap, contains_query_auth_material, error_codes, event_spec, is_query_auth_parameter,
+    ResourceMatchScope, ResourceSelectorKind, SERVICE_KIND_DESCRIPTORS,
+    SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId, ServiceKind,
+    ServiceOperationDescriptor, ServiceOperationId, SignerEvidenceRef, WireError,
+    WireResourceSelector, XExtensionMap, contains_query_auth_material, error_codes, event_spec,
+    is_query_auth_parameter,
 };
 pub use history_response::{
     HistorySourceProofExternalVerificationRequest, VerifiedHistoryChunk, VerifiedHistoryEpochSuite,
