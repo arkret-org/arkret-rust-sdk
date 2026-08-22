@@ -1059,6 +1059,23 @@ impl ScopeRef {
         ))
     }
 
+    /// The scope's own id, as selected by the registered composite
+    /// `cell_subject` of the MLS component cells.
+    ///
+    /// `event-kind-registry.json` selects on `effective_scope.kind` and takes
+    /// `realm_id` / `circle_id` / `sidecar_id` respectively - never the parent
+    /// Realm id of a Circle or Sidecar. `RealmGenesis` has no MLS scope.
+    pub fn cell_subject_scope_id(&self) -> Result<&str> {
+        match self {
+            Self::RealmGenesis => Err(Error::Protocol(
+                "RealmGenesis has no executable MLS security scope".to_owned(),
+            )),
+            Self::Realm { realm_id } => Ok(realm_id.as_str()),
+            Self::Circle { circle_id, .. } => Ok(circle_id.as_str()),
+            Self::Sidecar { sidecar_id, .. } => Ok(sidecar_id.as_str()),
+        }
+    }
+
     /// The parent Realm of this scope when the scope names one.
     ///
     /// `RealmGenesis` returns `None`: the Realm id is receiver-derived, not

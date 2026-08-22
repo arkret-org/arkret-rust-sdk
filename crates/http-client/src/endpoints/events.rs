@@ -930,11 +930,14 @@ impl Client {
         self.post("/_arkret/self/events", submission).await
     }
 
-    /// Submit a current-device-signed Seal through the registered self Events
-    /// surface. This is the finality step used by B-model principal bootstrap
-    /// and recovery; it is not the implementation-private peer Seal rail.
+    /// Submit a current-device-signed Seal (`ak.self.seals.command.submit`).
+    /// This is the finality step used by B-model principal bootstrap and
+    /// recovery; it is not the implementation-private peer Seal rail.
+    ///
+    /// A Seal is not an Event: the registered path is `/_arkret/self/seals`,
+    /// never a child of the Events surface.
     pub async fn events_submit_seal(&self, seal: &Seal) -> Result<EventSealSubmitOutcome> {
-        self.post("/_arkret/self/events/seals", seal).await
+        self.post("/_arkret/self/seals", seal).await
     }
 
     pub async fn snapshot_head(&self, realm_id: &str) -> Result<SnapshotManifest> {

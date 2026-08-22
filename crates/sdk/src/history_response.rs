@@ -676,6 +676,11 @@ fn member_history_intent(
     {
         return invalid("history traversal intent does not bind the accepted request");
     }
+    if intent.traversal_admission_registry_digest()
+        != &embedded_history_manifest_t0_registry_digest()?
+    {
+        return invalid("history traversal admission registry digest mismatch");
+    }
     Ok(intent)
 }
 
@@ -836,6 +841,16 @@ fn verify_release_attestation(
     Ok(())
 }
 
+/// Compute the only accepted manifest T0 traversal-admission registry digest
+/// from the SDK-embedded normative artifact. The registry forbids replacing it
+/// with a caller-supplied boolean or a service-local policy value.
+pub fn embedded_history_manifest_t0_registry_digest() -> Result<Hash, Error> {
+    let registry =
+        arkret_schema::embedded_json_artifact("registry/history-release-attestation-registry.json")
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+    arkret_models_collaboration::history_key::history_manifest_t0_registry_digest(&registry)
+}
+
 /// Compute the only accepted HistoryReleaseAttestation predicate-registry
 /// digest from the SDK-embedded normative artifact.
 pub fn embedded_history_release_predicate_registry_digest() -> Result<Hash, Error> {
@@ -927,7 +942,10 @@ pub fn winning_history_epoch_suites_from_verified_checkpoint(
     let registry = arkret_lattice_registry::try_build_sdk_cell_registry().map_err(|error| {
         Error::Protocol(format!("MLS history registry construction failed: {error}"))
     })?;
-    let cell = arkret_state::mls_cells::mls_epoch_cell_id(mls_group_id)?;
+    let cell = arkret_state::mls_cells::mls_epoch_cell_id(
+        &arkret_wire::ScopeRef::from(effective_scope.clone()),
+        mls_group_id,
+    )?;
     let target = arkret_state::mls_governance_proof::materialize_registered_cell_value_from_verified_checkpoint(
         checkpoint,
         &cell,

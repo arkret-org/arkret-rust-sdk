@@ -1,4 +1,4 @@
-use arkret_wire::DidCoreId;
+use arkret_wire::{DidCoreId, HistoryAccess};
 
 use super::*;
 
@@ -46,10 +46,9 @@ pub struct AuthzContext {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encryption_level: Option<String>,
     /// Effective `history_access` of the target scope at the current
-    /// causal frontier (`since_join` / `all_history_for_current_members`).
-    /// Used by `Constraint::VisibilityControl`.
+    /// causal frontier. Used by `Constraint::VisibilityControl`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub history_access: Option<String>,
+    pub history_access: Option<HistoryAccess>,
     /// Byte count of the blob being uploaded (single-call), if any.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blob_byte_count: Option<u64>,
@@ -953,22 +952,15 @@ impl AuthzEngine {
             }
             Constraint::VisibilityControl {
                 allowed_history_access_values,
-                denied_history_access_values,
                 ..
             } => {
-                if let Some(level) = ctx.history_access.as_deref() {
-                    if denied_history_access_values.iter().any(|v| v == level) {
-                        return EngineDecision::Deny {
-                            reason: format!("visibility level '{}' is denied", level),
-                        };
-                    }
-                    if !allowed_history_access_values.is_empty()
-                        && !allowed_history_access_values.iter().any(|v| v == level)
-                    {
-                        return EngineDecision::Deny {
-                            reason: format!("visibility level '{}' not in allow list", level),
-                        };
-                    }
+                if let Some(level) = ctx.history_access
+                    && !allowed_history_access_values.is_empty()
+                    && !allowed_history_access_values.contains(&level)
+                {
+                    return EngineDecision::Deny {
+                        reason: format!("history access '{}' not in allow list", level.as_str()),
+                    };
                 }
                 EngineDecision::Allow
             }
@@ -1763,7 +1755,7 @@ mod engine_wire_tests {
             "allowed_history_access_values": ["since_join"],
         }))]);
         let mut ctx = ctx();
-        ctx.history_access = Some("since_join".to_owned());
+        ctx.history_access = Some(HistoryAccess::SinceJoin);
         let decision = engine.check_authorization(&ctx, &[grant]);
         assert_eq!(decision, EngineDecision::Allow);
         assert!(

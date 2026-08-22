@@ -1143,12 +1143,7 @@ pub(crate) fn constraint_entries_from_spec(
             }
             Some(GrantConstraintSubkind::Visibility) => {
                 constraints.push(Constraint::VisibilityControl {
-                    allowed_history_access_values: constraint
-                        .allowed_history_access_values
-                        .iter()
-                        .map(|value| value.as_str().to_owned())
-                        .collect(),
-                    denied_history_access_values: Vec::new(),
+                    allowed_history_access_values: constraint.allowed_history_access_values.clone(),
                     redacted_history_allowed: constraint.redacted_history_allowed.unwrap_or(false),
                 });
             }

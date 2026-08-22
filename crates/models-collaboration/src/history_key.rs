@@ -661,6 +661,22 @@ pub enum HistoryGovernanceTraversalIntent {
 }
 
 impl HistoryGovernanceTraversalIntent {
+    /// Registry digest that pins the manifest T0 traversal-admission rules the
+    /// service used. It is not caller-supplied policy: verifiers MUST compare it
+    /// against the digest recomputed from the normative registry artifact.
+    pub fn traversal_admission_registry_digest(&self) -> &Hash {
+        match self {
+            Self::MemberHistoryDelivery {
+                traversal_admission_registry_digest,
+                ..
+            }
+            | Self::OrganizationRecoveryArchive {
+                traversal_admission_registry_digest,
+                ..
+            } => traversal_admission_registry_digest,
+        }
+    }
+
     pub fn validate(&self) -> Result<()> {
         let (
             effective_scope,
@@ -2716,6 +2732,23 @@ impl OrganizationRecoveryArchiveListQuery {
             ));
         }
         Ok(())
+    }
+
+    /// Semantic identity of this query.
+    ///
+    /// `history-key-canonical-binding-registry.json` fixes the preimage as the
+    /// complete closed query with `cursor` removed: a continuation cursor does
+    /// not change query identity, while `accepted_key_evidence_ref` and
+    /// `holder_trusted_basis` are both included.
+    pub fn archive_list_query_digest(&self) -> Result<Hash> {
+        let mut value = serde_json::to_value(self)?;
+        let serde_json::Value::Object(map) = &mut value else {
+            return Err(Error::Protocol(
+                "archive list query must be an object".to_owned(),
+            ));
+        };
+        map.remove("cursor");
+        framed_sha256("ak.organization-recovery-archive-list-query-v1", &value)
     }
 }
 
