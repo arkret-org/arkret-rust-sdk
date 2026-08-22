@@ -11,10 +11,10 @@ use arkret_models_collaboration::events_payloads::{
 use arkret_models_identity::ResolutionCommitment;
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
-    AuthorizationRef, CellRef, DeviceId, DidCoreId, DidFullId, DidKey, DidUrl, Event,
-    EventDigestSuiteCode, EventId, EventIdentityKey, EventKind, EventProof, EventRef, Hash, Hlc,
-    NonEmptyString, NotaryJoseAlgorithm, NotaryKeyKind, NotarySig, NotarySignerDescriptor,
-    NotaryValue, PayloadSignature, PayloadSigner, PrincipalServerAdmissionProof,
+    AuthorizationRef, CellRef, DeviceId, DidCoreId, DidFullId, DidKey, DidUrl, DigestSuiteCode,
+    Event, EventId, EventIdentityKey, EventKind, EventProof, EventRef, Hash, Hlc, NonEmptyString,
+    NotaryJoseAlgorithm, NotaryKeyKind, NotarySig, NotarySignerDescriptor, NotaryValue,
+    PayloadSignature, PayloadSigner, PrincipalServerAdmissionProof,
     PrincipalServerAdmissionProofKind, ProducerEventProof, ProjectedCellWrite, RealmId, ScopeRef,
     SealBasis, SealId, SemanticRefProof, SemanticRefProofKind, TrustDomainId, WireError,
     composite_subject, project_full_id_to_core_id, proof_kind,
@@ -50,7 +50,7 @@ fn registry_projection(event: &Event) -> Result<Vec<ProjectedCellWrite>, String>
 }
 
 fn fixture_event_id(seed: u8) -> EventId {
-    let identity = EventIdentityKey::new(EventDigestSuiteCode::Sha256, [seed; 32]);
+    let identity = EventIdentityKey::new(DigestSuiteCode::Sha256, [seed; 32]);
     identity.event_id()
 }
 

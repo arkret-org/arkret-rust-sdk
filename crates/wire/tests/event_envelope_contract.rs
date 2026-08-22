@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DidCoreId, Event, EventDigestSuiteCode, EventId, EventIdentityKey, EventRequirements, Hlc,
+    DidCoreId, DigestSuiteCode, Event, EventId, EventIdentityKey, EventRequirements, Hlc,
     MAX_ACTOR_SEQ_SIBLINGS, MAX_AUTHORITY_CHAIN_DEPTH, MAX_AUTHORITY_CONTROL_DEPTH,
     MAX_AUTHORIZED_BY_REFS, MAX_EVENT_ENVELOPE_BYTES, MAX_EVENT_PREV_REFS, MAX_EVENT_REFS,
     MAX_EVENT_RESOLVE, MAX_EVENT_SUBMIT_BATCH, RealmId, ScopeRef, prev_frontier_digest,
@@ -17,7 +17,7 @@ fn realm_id() -> RealmId {
 }
 
 fn strong_ref(seed: u8) -> EventId {
-    let identity = EventIdentityKey::new(EventDigestSuiteCode::Sha256, [seed; 32]);
+    let identity = EventIdentityKey::new(DigestSuiteCode::Sha256, [seed; 32]);
     identity.event_id()
 }
 

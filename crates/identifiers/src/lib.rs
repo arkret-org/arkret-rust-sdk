@@ -18,9 +18,6 @@ pub mod generated {
 }
 
 pub use generated::digest_suite_codes::DigestSuiteCode;
-/// Event identifiers use the generic registered digest-suite code on their
-/// Event-specific authority surface.
-pub type EventDigestSuiteCode = DigestSuiteCode;
 
 pub type Result<T> = std::result::Result<T, IdentifierError>;
 
@@ -184,14 +181,14 @@ pub const EVENT_RESERVED_HIGH_NIBBLE: u8 = 0x0;
 const IDENTITY_HEADER_HIGH_NIBBLE_SHIFT: u8 = 4;
 const DIGEST_SUITE_LOW_NIBBLE_MASK: u8 = 0x0F;
 
-fn event_digest_suite_from_header(header: u8) -> Result<EventDigestSuiteCode> {
+fn event_digest_suite_from_header(header: u8) -> Result<DigestSuiteCode> {
     let reserved = header >> IDENTITY_HEADER_HIGH_NIBBLE_SHIFT;
     if reserved != EVENT_RESERVED_HIGH_NIBBLE {
         return Err(IdentifierError::InvalidId(format!(
             "Event reserved header nibble must be zero, got 0x{reserved:x}"
         )));
     }
-    EventDigestSuiteCode::try_from(header & DIGEST_SUITE_LOW_NIBBLE_MASK)
+    DigestSuiteCode::try_from(header & DIGEST_SUITE_LOW_NIBBLE_MASK)
 }
 
 /// Parsed form of an [`EventId`]'s complete cryptographic identity.
@@ -200,7 +197,7 @@ fn event_digest_suite_from_header(header: u8) -> Result<EventDigestSuiteCode> {
 /// and does not define a stronger identity tier.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EventIdentityKey {
-    suite: EventDigestSuiteCode,
+    suite: DigestSuiteCode,
     digest: [u8; 32],
 }
 
@@ -209,11 +206,11 @@ impl EventIdentityKey {
         Self::new(value.digest_suite_code(), value.digest_bytes())
     }
 
-    pub const fn new(suite: EventDigestSuiteCode, digest: [u8; 32]) -> Self {
+    pub const fn new(suite: DigestSuiteCode, digest: [u8; 32]) -> Self {
         Self { suite, digest }
     }
 
-    pub const fn suite(self) -> EventDigestSuiteCode {
+    pub const fn suite(self) -> DigestSuiteCode {
         self.suite
     }
 
@@ -291,7 +288,7 @@ macro_rules! event_token_id_type {
                     .expect("validated Event-derived id carries a canonical token")
             }
 
-            pub fn digest_suite_code(&self) -> EventDigestSuiteCode {
+            pub fn digest_suite_code(&self) -> DigestSuiteCode {
                 event_digest_suite_from_header(self.token_bytes()[0])
                     .expect("validated Event-derived id carries an active suite code")
             }
@@ -970,8 +967,8 @@ fn decode_realm_token(value: &str) -> Option<[u8; 33]> {
         return None;
     }
     RealmDerivationClass::try_from(bytes[0] >> IDENTITY_HEADER_HIGH_NIBBLE_SHIFT).ok()?;
-    let suite = EventDigestSuiteCode::try_from(bytes[0] & DIGEST_SUITE_LOW_NIBBLE_MASK).ok()?;
-    if suite != EventDigestSuiteCode::Sha256 {
+    let suite = DigestSuiteCode::try_from(bytes[0] & DIGEST_SUITE_LOW_NIBBLE_MASK).ok()?;
+    if suite != DigestSuiteCode::Sha256 {
         return None;
     }
     Some(bytes)
@@ -989,7 +986,7 @@ impl RealmId {
     pub fn from_event_id(event_id: &EventId) -> Self {
         assert_eq!(
             event_id.digest_suite_code(),
-            EventDigestSuiteCode::Sha256,
+            DigestSuiteCode::Sha256,
             "v1 Realm identity is fixed to SHA-256"
         );
         Self(encode_event_token(
@@ -1007,8 +1004,8 @@ impl RealmId {
             .expect("validated Realm id carries a registered derivation class")
     }
 
-    pub fn digest_suite_code(&self) -> EventDigestSuiteCode {
-        EventDigestSuiteCode::try_from(self.token_bytes()[0] & DIGEST_SUITE_LOW_NIBBLE_MASK)
+    pub fn digest_suite_code(&self) -> DigestSuiteCode {
+        DigestSuiteCode::try_from(self.token_bytes()[0] & DIGEST_SUITE_LOW_NIBBLE_MASK)
             .expect("validated Realm id carries an active digest suite")
     }
 
@@ -1115,7 +1112,7 @@ impl EventId {
 
     pub fn from_digest(suite: arkret_canonical::DigestSuite, digest: [u8; 32]) -> Self {
         Self::from_identity(EventIdentityKey::new(
-            EventDigestSuiteCode::from_digest_suite(suite),
+            DigestSuiteCode::from_digest_suite(suite),
             digest,
         ))
     }
@@ -1192,8 +1189,8 @@ impl EventIdentityKey {
             .split_once(':')
             .ok_or_else(|| IdentifierError::InvalidId(value.as_str().to_owned()))?;
         let suite = match suite {
-            "sha256" => EventDigestSuiteCode::Sha256,
-            "blake3" => EventDigestSuiteCode::Blake3,
+            "sha256" => DigestSuiteCode::Sha256,
+            "blake3" => DigestSuiteCode::Blake3,
             _ => return Err(IdentifierError::InvalidId(value.as_str().to_owned())),
         };
         let mut digest = [0_u8; 32];
@@ -1646,7 +1643,7 @@ mod tests {
     fn strand_id_accepts_active_strand_prefix() {
         let event_id = EventId::from_digest(arkret_canonical::DigestSuite::Blake3, [0x23; 32]);
         let strand_id = StrandId::from_event_id(&event_id);
-        assert_eq!(strand_id.digest_suite_code(), EventDigestSuiteCode::Blake3);
+        assert_eq!(strand_id.digest_suite_code(), DigestSuiteCode::Blake3);
         assert!(StrandId::new(strand_id.as_str()).is_ok());
         assert!(StrandId::new(format!("ak:space:{}", &strand_id.as_str()[10..])).is_err());
         assert!(StrandId::new("ak:strand:01js0ke000000000000000000").is_err());
@@ -1687,7 +1684,7 @@ mod tests {
             realm_id.derivation_class(),
             RealmDerivationClass::EventDerived
         );
-        assert_eq!(realm_id.digest_suite_code(), EventDigestSuiteCode::Sha256);
+        assert_eq!(realm_id.digest_suite_code(), DigestSuiteCode::Sha256);
         assert_eq!(realm_id.event_id(), event_id);
 
         let mut reserved = realm_id.token_bytes();
@@ -1795,8 +1792,8 @@ mod tests {
         for (index, byte) in digest.iter_mut().enumerate() {
             *byte = index as u8;
         }
-        let sha = EventIdentityKey::new(EventDigestSuiteCode::Sha256, digest);
-        let blake = EventIdentityKey::new(EventDigestSuiteCode::Blake3, digest);
+        let sha = EventIdentityKey::new(DigestSuiteCode::Sha256, digest);
+        let blake = EventIdentityKey::new(DigestSuiteCode::Blake3, digest);
         assert_eq!(
             sha.event_id().as_str(),
             "ak:event:AQABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f"
