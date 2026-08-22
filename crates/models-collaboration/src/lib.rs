@@ -31,7 +31,6 @@ pub mod object_patch;
 pub mod objects;
 pub mod principal_operations;
 pub mod resolved_state;
-pub mod runtime_identity;
 pub mod seal_transparency;
 pub mod session_grant_bodies;
 pub mod sidecar_operations;

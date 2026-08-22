@@ -197,7 +197,6 @@ pub use arkret_models_collaboration::objects::relation::*;
 pub use arkret_models_collaboration::objects::space::*;
 pub use arkret_models_collaboration::objects::strand::*;
 pub use arkret_models_collaboration::objects::view::*;
-pub use arkret_models_collaboration::runtime_identity::*;
 pub use arkret_models_collaboration::seal_transparency::*;
 pub use arkret_models_collaboration::session_grant_bodies::*;
 pub use arkret_models_collaboration::signal_message_stream::*;

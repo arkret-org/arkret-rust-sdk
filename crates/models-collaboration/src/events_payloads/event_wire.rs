@@ -108,9 +108,6 @@ pub struct VerificationStub {
     pub completed_at: DateTime<Utc>,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/board_space_id`.
-pub type BoardSpaceId = SpaceId;
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(untagged)]
@@ -128,9 +125,6 @@ pub enum MessageLifecycleState {
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/grant_ref`.
 pub type GrantRef = String;
-
-/// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/list_space_id`.
-pub type ListSpaceId = SpaceId;
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/rank`.
 pub type Rank = String;
