@@ -60,7 +60,7 @@ fixed_artifact_id!(
 );
 fixed_artifact_id!(
     ReplaySchemaManifestArtifactId,
-    "schemas/governance-replay-schema-manifest.json"
+    "governance-replay-schema-manifest"
 );
 
 impl GovernanceRegistryArtifactDescriptor {
@@ -68,7 +68,7 @@ impl GovernanceRegistryArtifactDescriptor {
         match self {
             Self::ContractRegistry { .. } => "registry/contract-registry.json",
             Self::ProofContextRegistry { .. } => "registry/proof-context-registry.json",
-            Self::ReplaySchemaManifest { .. } => "schemas/governance-replay-schema-manifest.json",
+            Self::ReplaySchemaManifest { .. } => "governance-replay-schema-manifest",
             Self::ReplayJsonSchema { artifact_id, .. } => artifact_id,
         }
     }

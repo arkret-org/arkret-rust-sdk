@@ -61,6 +61,92 @@ fn history_response_stream_fixture_uses_production_wire_helpers() {
 }
 
 #[test]
+fn history_fresh_endpoint_fixture_executes_deterministic_model() {
+    let fixture = embedded_json_artifact("fixtures/history-key-recovery-fixture.json").unwrap();
+    let case = fixture["scope_and_endpoint_kats"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["name"] == "standard_fresh_endpoint_floor")
+        .unwrap();
+    let model = &case["deterministic_model"];
+    assert_eq!(model["algorithm"], "ak.standard-fresh-endpoint-model.v1");
+
+    let seed_hex = case["seed_hex"].as_str().unwrap();
+    assert_eq!(seed_hex.len() % 2, 0);
+    let seed = (0..seed_hex.len())
+        .step_by(2)
+        .map(|offset| u8::from_str_radix(&seed_hex[offset..offset + 2], 16).unwrap())
+        .collect::<Vec<_>>();
+
+    let mut admitted = false;
+    let mut current_epoch = None;
+    let mut decryptable_epochs = Vec::new();
+    let mut rejected_epochs = Vec::new();
+    for step in model["steps"].as_array().unwrap() {
+        let epoch = step["epoch"].as_u64().unwrap();
+        match step["operation"].as_str().unwrap() {
+            "application_before_admission" => {
+                assert!(!admitted);
+                assert_eq!(step["result"], "reject");
+                rejected_epochs.push(epoch);
+            }
+            "winning_add_welcome_admission" => {
+                assert!(!admitted);
+                assert_eq!(step["result"], "admit_and_decrypt");
+                admitted = true;
+                current_epoch = Some(epoch);
+                decryptable_epochs.push(epoch);
+            }
+            "sequential_commit" => {
+                assert!(admitted);
+                assert_eq!(step["requires_previous_epoch"].as_u64(), current_epoch);
+                assert_eq!(step["result"], "advance_and_decrypt");
+                current_epoch = Some(epoch);
+                decryptable_epochs.push(epoch);
+            }
+            operation => panic!("unknown fresh endpoint operation {operation}"),
+        }
+    }
+
+    let expected_epochs = |name: &str| {
+        case["expected"][name]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|epoch| epoch.as_u64().unwrap())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(decryptable_epochs, expected_epochs("decryptable_epochs"));
+    let expected_rejected_epochs = case["inputs"]["pre_admission_epochs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|epoch| epoch.as_u64().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(rejected_epochs, expected_rejected_epochs);
+    assert_eq!(
+        rejected_epochs.len() as u64,
+        case["expected"]["rejected_pre_admission_epochs"]
+            .as_u64()
+            .unwrap()
+    );
+
+    for tag in model["transition_tags"].as_array().unwrap() {
+        let operation = tag["operation"].as_str().unwrap();
+        let epoch = tag["epoch"].as_u64().unwrap();
+        let mut preimage = seed.clone();
+        preimage.push(0);
+        preimage.extend_from_slice(operation.as_bytes());
+        preimage.extend_from_slice(&epoch.to_be_bytes());
+        assert_eq!(
+            arkret_canonical::sha256_hex(preimage),
+            tag["sha256_hex"].as_str().unwrap()
+        );
+    }
+}
+
+#[test]
 fn account_subscribe_fixture_cases_match_typed_wire_model() {
     let fixture = embedded_json_artifact("fixtures/sync-fixture.json").unwrap();
     for case in fixture["account_subscribe_schema_cases"]
