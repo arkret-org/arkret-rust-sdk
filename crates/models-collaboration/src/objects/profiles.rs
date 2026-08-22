@@ -18,7 +18,6 @@ use serde_json::Value;
 
 use crate::events_payloads::ContentBlock;
 pub use crate::objects::object_facets::StrandTrack;
-use crate::objects::strand::ObjectMetadata;
 
 fn now_utc_canonical() -> DateTime<Utc> {
     arkret_canonical::normalize_timestamp_canonical(Utc::now())
@@ -209,11 +208,97 @@ pub fn select_primary_track<'a>(
     Ok(selected)
 }
 
-/// Morph `metadata` shape — shares [`ObjectMetadata`] with Strand. Morph carries
-/// its data in the top-level `Morph.fields`, so `metadata.fields` stays empty
-/// and is omitted from the wire (preserving the prior `MorphMetadata` shape of
-/// `{title?, summary?, ...extra}`).
-pub type MorphMetadata = ObjectMetadata;
+const MORPH_METADATA_FORBIDDEN_KEYS: &[&str] = &[
+    "id",
+    "schema",
+    "realm_id",
+    "scope_circle_id",
+    "schema_refs",
+    "morph_kind",
+    "facets",
+    "fields",
+    "stage",
+    "stage_changed_at",
+    "state",
+    "state_changed_at",
+    "created_by",
+    "created_at",
+    "updated_by",
+    "updated_at",
+    "content",
+    "encrypted_content",
+    "encrypted_payload",
+];
+
+/// Extensible user-readable Morph metadata. Business fields remain top-level.
+#[derive(Clone, Debug, Default)]
+pub struct MorphMetadata {
+    pub title: Option<String>,
+    pub summary: Option<String>,
+    pub extra: BTreeMap<String, Value>,
+}
+
+impl Serialize for MorphMetadata {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeMap as _;
+
+        for key in self.extra.keys() {
+            if matches!(key.as_str(), "title" | "summary")
+                || MORPH_METADATA_FORBIDDEN_KEYS.contains(&key.as_str())
+            {
+                return Err(serde::ser::Error::custom(format!(
+                    "Morph metadata forbids `{key}`"
+                )));
+            }
+        }
+        let mut map = serializer.serialize_map(None)?;
+        if let Some(title) = &self.title {
+            map.serialize_entry("title", title)?;
+        }
+        if let Some(summary) = &self.summary {
+            map.serialize_entry("summary", summary)?;
+        }
+        for (key, value) in &self.extra {
+            map.serialize_entry(key, value)?;
+        }
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for MorphMetadata {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let mut raw = BTreeMap::<String, Value>::deserialize(deserializer)?;
+        if let Some(key) = MORPH_METADATA_FORBIDDEN_KEYS
+            .iter()
+            .find(|key| raw.contains_key(**key))
+        {
+            return Err(serde::de::Error::custom(format!(
+                "Morph metadata forbids `{key}`"
+            )));
+        }
+        let title = raw
+            .remove("title")
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(serde::de::Error::custom)?;
+        let summary = raw
+            .remove("summary")
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(serde::de::Error::custom)?;
+        Ok(Self {
+            title,
+            summary,
+            extra: raw,
+        })
+    }
+}
 
 fn serialize_non_empty_schema_refs<S>(
     schema_refs: &[String],

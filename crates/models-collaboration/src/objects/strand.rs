@@ -7,6 +7,7 @@ use arkret_wire::{
     CircleId, DidCoreId, Error, ObjectStage, ObjectState, RealmId, Result, SchemaId, StrandId,
 };
 use chrono::{DateTime, Utc};
+use serde::ser::SerializeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -17,31 +18,110 @@ use crate::objects::profiles::{
     validate_strand_track_name,
 };
 
-/// Shared `metadata` shape for materialised objects that carry
-/// `metadata.title` / `metadata.summary` (Strand, Morph). Field set matches
-/// `strand.schema.json#/$defs/strand_metadata` (common-fields §3): `title`, `summary`,
-/// `fields`, plus a `#[serde(flatten)]` `extra` catch-all. Empty `fields` is
-/// omitted from the wire (`skip_serializing_if`), so objects that do not use
-/// `metadata.fields` (e.g. Morph, which carries top-level `fields`) serialise
-/// identically to a metadata object without a `fields` member.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct ObjectMetadata {
-    #[serde(skip_serializing_if = "Option::is_none")]
+const STRAND_METADATA_FORBIDDEN_KEYS: &[&str] = &[
+    "id",
+    "schema",
+    "realm_id",
+    "stage",
+    "stage_changed_at",
+    "state",
+    "state_changed_at",
+    "tracks",
+    "scope_circle_id",
+    "created_by",
+    "created_at",
+    "updated_by",
+    "updated_at",
+    "content",
+    "encrypted_content",
+    "encrypted_payload",
+];
+
+/// Extensible user-readable Strand metadata.
+#[derive(Clone, Debug, Default)]
+pub struct StrandMetadata {
     pub title: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
-    #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
 }
 
-impl ObjectMetadata {
+impl StrandMetadata {
     pub fn with_title(title: impl Into<String>) -> Self {
         Self {
             title: Some(title.into()),
             ..Self::default()
         }
+    }
+}
+
+impl Serialize for StrandMetadata {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        for key in self.extra.keys() {
+            if matches!(key.as_str(), "title" | "summary" | "fields")
+                || STRAND_METADATA_FORBIDDEN_KEYS.contains(&key.as_str())
+            {
+                return Err(serde::ser::Error::custom(format!(
+                    "Strand metadata forbids `{key}`"
+                )));
+            }
+        }
+        let mut map = serializer.serialize_map(None)?;
+        if let Some(title) = &self.title {
+            map.serialize_entry("title", title)?;
+        }
+        if let Some(summary) = &self.summary {
+            map.serialize_entry("summary", summary)?;
+        }
+        if !self.fields.is_empty() {
+            map.serialize_entry("fields", &self.fields)?;
+        }
+        for (key, value) in &self.extra {
+            map.serialize_entry(key, value)?;
+        }
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for StrandMetadata {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let mut raw = BTreeMap::<String, Value>::deserialize(deserializer)?;
+        if let Some(key) = STRAND_METADATA_FORBIDDEN_KEYS
+            .iter()
+            .find(|key| raw.contains_key(**key))
+        {
+            return Err(serde::de::Error::custom(format!(
+                "Strand metadata forbids `{key}`"
+            )));
+        }
+        let title = raw
+            .remove("title")
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(serde::de::Error::custom)?;
+        let summary = raw
+            .remove("summary")
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(serde::de::Error::custom)?;
+        let fields = raw
+            .remove("fields")
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(serde::de::Error::custom)?
+            .unwrap_or_default();
+        Ok(Self {
+            title,
+            summary,
+            fields,
+            extra: raw,
+        })
     }
 }
 
@@ -51,9 +131,6 @@ impl ObjectMetadata {
 /// `strand.schema.json` together, never in prose alone.
 pub const PROFILE_SUBTREE_ACTIVATION_PAIRS: &[(&str, &str)] =
     &[(SchemaId::CALENDAR_EVENT_V1, "calendar")];
-
-/// Strand `metadata` shape — see [`ObjectMetadata`].
-pub type StrandMetadata = ObjectMetadata;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct MessageMetadata {

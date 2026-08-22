@@ -1,8 +1,10 @@
+use std::any::TypeId;
+
 use arkret_canonical::canonical;
 use arkret_models_collaboration::events_payloads::{ObjectCreatePayload, *};
 use arkret_models_collaboration::objects::profiles::{Morph, MorphMetadata};
 use arkret_models_collaboration::objects::space::Space;
-use arkret_models_collaboration::objects::strand::MessageMetadata;
+use arkret_models_collaboration::objects::strand::{MessageMetadata, StrandMetadata};
 use arkret_models_crypto::{
     EncryptedEnvelope, MlsEncryptedPayload, PlainPayload, ProtectedPayload,
 };
@@ -77,6 +79,35 @@ fn morph_create_payload_uses_metadata_and_encrypted_content_names() {
     assert!(payload["object"].get("title").is_none());
     assert!(payload["object"].get("summary").is_none());
     assert!(payload["object"].get("encrypted_payload").is_none());
+}
+
+#[test]
+fn morph_and_strand_metadata_are_distinct_closed_shapes() {
+    assert_ne!(
+        TypeId::of::<MorphMetadata>(),
+        TypeId::of::<StrandMetadata>()
+    );
+
+    assert!(
+        serde_json::from_value::<MorphMetadata>(json!({
+            "title": "Morph",
+            "fields": {"status": "draft"}
+        }))
+        .is_err()
+    );
+    let strand = serde_json::from_value::<StrandMetadata>(json!({
+        "title": "Strand",
+        "fields": {"calendar": {"all_day": true}},
+        "x_display_hint": "compact"
+    }))
+    .unwrap();
+    assert!(strand.fields.contains_key("calendar"));
+    assert_eq!(strand.extra["x_display_hint"], "compact");
+
+    let mut morph = MorphMetadata::default();
+    morph.extra.insert("fields".to_owned(), json!({}));
+    assert!(serde_json::to_value(morph).is_err());
+    assert!(serde_json::from_value::<StrandMetadata>(json!({"created_by": "forbidden"})).is_err());
 }
 
 #[test]
