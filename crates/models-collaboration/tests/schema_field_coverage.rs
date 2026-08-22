@@ -192,6 +192,11 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
                 "gates": [{ "gate_id": "open", "kind": "allow_all" }],
                 "combinator": "all"
             },
+            "handle_issuer_policy": [{
+                "issuer": "ak:did_core:web:issuer.example",
+                "authorized_handle_domains": ["issuer.example"],
+                "issuer_class": "domain_authority"
+            }],
             "agent_participation": {
                 "native_agent": {
                     "reply_message": true,

@@ -462,13 +462,12 @@ mod tests {
 
     /// F-04 full-assertion guard (part 2): active standard kinds validated only
     /// against the generic `state_payload` state-transition shape.
-    const KINDS_USING_STATE_PAYLOAD: &[EventKind] = &[
-        EventKind::RealmAssetPrivacyPolicy,
-        EventKind::RealmDiscovery,
-        EventKind::RealmJoinRule,
-        EventKind::RealmPolicy,
-        EventKind::RealmSchema,
-    ];
+    /// Empty since arkret-spec `815a547d` closed the last five open-value
+    /// control payloads (`ak.realm.asset_privacy_policy` / `discovery` /
+    /// `join_rule` / `policy` / `schema`) onto dedicated
+    /// `event-payload.schema.json#/$defs/realm_*_payload` defs and deleted the
+    /// `state_payload` catch-all itself.
+    const KINDS_USING_STATE_PAYLOAD: &[EventKind] = &[];
 
     /// F-04 residual closed: beyond [`catalog_covers_every_active_standard_kind`]
     /// (which fails closed when a kind resolves to *no* validator), this test
@@ -686,19 +685,19 @@ mod tests {
 
     #[cfg(feature = "embedded-artifacts")]
     #[test]
-    fn realm_join_rule_and_discovery_share_the_closed_state_payload() {
+    fn realm_join_rule_and_discovery_each_close_their_own_whole_value() {
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
         assert_eq!(
             catalog.rules["ak.realm.join_rule"].payload_schema_id,
             format!(
-                "{schemaid_event_payload_v1}#/$defs/state_payload",
+                "{schemaid_event_payload_v1}#/$defs/realm_join_rule_payload",
                 schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
             )
         );
         assert_eq!(
             catalog.rules["ak.realm.discovery"].payload_schema_id,
             format!(
-                "{schemaid_event_payload_v1}#/$defs/state_payload",
+                "{schemaid_event_payload_v1}#/$defs/realm_discovery_payload",
                 schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
             )
         );
@@ -715,7 +714,7 @@ mod tests {
                 .validate_payload("ak.realm.join_rule", &json!({"value": value}))
                 .unwrap();
         }
-        for value in [
+        for discoverability in [
             "public",
             "listed",
             "restricted",
@@ -724,28 +723,42 @@ mod tests {
             "secret",
         ] {
             catalog
-                .validate_payload("ak.realm.discovery", &json!({"value": value}))
+                .validate_payload(
+                    "ak.realm.discovery",
+                    &json!({"value": {"discoverability": discoverability}}),
+                )
                 .unwrap();
         }
-        // The registry intentionally binds both kinds to the shared state
-        // envelope. Kind-specific enum closure belongs to the typed payload
-        // model; the catalog validates only this referenced wire shape.
-        catalog
-            .validate_payload("ak.realm.join_rule", &json!({"value": "open"}))
-            .unwrap();
-        catalog
-            .validate_payload("ak.realm.discovery", &json!({"value": 1}))
-            .unwrap();
-        for (kind, payload) in [
-            ("ak.realm.join_rule", json!({})),
+
+        // The point of the dedicated defs: the wire shape itself now closes the
+        // value space, so enum closure no longer depends on the typed model
+        // downstream of the catalog.
+        for (kind, payload, why) in [
+            (
+                "ak.realm.join_rule",
+                json!({"value": "open"}),
+                "join_rule value outside the closed enum",
+            ),
             (
                 "ak.realm.discovery",
-                json!({"value": "listed", "unexpected": true}),
+                json!({"value": 1}),
+                "discovery value that is not the closed object",
             ),
+            (
+                "ak.realm.discovery",
+                json!({"value": "listed"}),
+                "discovery bare string instead of {discoverability}",
+            ),
+            (
+                "ak.realm.discovery",
+                json!({"value": {"discoverability": "listed"}, "unexpected": true}),
+                "unknown sibling member",
+            ),
+            ("ak.realm.join_rule", json!({}), "missing value"),
         ] {
             assert!(
                 catalog.validate_payload(kind, &payload).is_err(),
-                "{kind} unexpectedly accepted {payload}"
+                "{kind} unexpectedly accepted {payload} ({why})"
             );
         }
     }
