@@ -246,7 +246,45 @@ fn require_exact_rule_fields(
     Ok(())
 }
 
-pub type MorphSchemaFieldSet = BTreeMap<String, MorphSchemaFieldDescriptor>;
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct MorphSchemaFieldSet(BTreeMap<String, MorphSchemaFieldDescriptor>);
+
+impl MorphSchemaFieldSet {
+    #[must_use]
+    pub const fn new() -> Self {
+        Self(BTreeMap::new())
+    }
+}
+
+impl std::ops::Deref for MorphSchemaFieldSet {
+    type Target = BTreeMap<String, MorphSchemaFieldDescriptor>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for MorphSchemaFieldSet {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<'a> IntoIterator for &'a MorphSchemaFieldSet {
+    type Item = (&'a String, &'a MorphSchemaFieldDescriptor);
+    type IntoIter = std::collections::btree_map::Iter<'a, String, MorphSchemaFieldDescriptor>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl<const N: usize> From<[(String, MorphSchemaFieldDescriptor); N]> for MorphSchemaFieldSet {
+    fn from(entries: [(String, MorphSchemaFieldDescriptor); N]) -> Self {
+        Self(BTreeMap::from(entries))
+    }
+}
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -494,6 +532,17 @@ mod tests {
 
     fn refs(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| (*value).to_owned()).collect()
+    }
+
+    #[test]
+    fn morph_schema_field_set_preserves_the_map_wire_shape() {
+        let fields = MorphSchemaFieldSet::from([("fields.status".to_owned(), field("string"))]);
+        let encoded = serde_json::to_value(&fields).unwrap();
+        assert!(encoded.get("fields.status").is_some());
+        assert_eq!(
+            serde_json::from_value::<MorphSchemaFieldSet>(encoded).unwrap(),
+            fields
+        );
     }
 
     #[test]
