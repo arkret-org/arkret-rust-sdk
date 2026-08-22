@@ -533,11 +533,7 @@ impl Client {
             builder = builder.query(&[("series_id", series_id.as_str())]);
         }
         if let Some(class) = query.backup_kind {
-            let class_str = match class {
-                arkret_models_crypto::key_backup::BackupKind::SecretStorage => "secret_storage",
-                arkret_models_crypto::key_backup::BackupKind::MlsHistory => "mls_history",
-            };
-            builder = builder.query(&[("backup_kind", class_str)]);
+            builder = builder.query(&[("backup_kind", class.as_str())]);
         }
         if let Some(ref cursor) = query.cursor {
             builder = builder.query(&[("cursor", cursor.as_str())]);

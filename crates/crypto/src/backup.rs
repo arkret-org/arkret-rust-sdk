@@ -16,7 +16,7 @@
 //!
 //! ```no_run
 //! use arkret_crypto::backup::{build_key_backup_envelope, derive_vault_kek};
-//! use arkret_models_crypto::{BackupKind, PlaintextItem};
+//! use arkret_models_crypto::{BackupKind, SecretStorageItem, SecretStorageItemKind};
 //!
 //! let kek = derive_vault_kek(b"correct horse battery staple")?;
 //! let envelope = build_key_backup_envelope(
@@ -27,23 +27,11 @@
 //!     "kb_1",
 //!     "recovery_vault",
 //!     &kek,
-//!     vec![PlaintextItem {
-//!         item_kind: "private_account_state".to_owned(),
+//!     vec![SecretStorageItem {
+//!         item_kind: SecretStorageItemKind::PrivateAccountState,
 //!         secret_id: "account-state".to_owned(),
 //!         secret_b64u: "c2VjcmV0".to_owned(),
 //!         secret_generation: None,
-//!         realm_id: None,
-//!         managed_principal_binding: None,
-//!         mls_group_id: None,
-//!         effective_scope: None,
-//!         from_epoch: None,
-//!         to_epoch: None,
-//!         group_state_ref: None,
-//!         policy_digest: None,
-//!         membership_frontier_digest: None,
-//!         epoch: None,
-//!         first_event_id: None,
-//!         last_event_id: None,
 //!         extra: Default::default(),
 //!     }],
 //! )?;
@@ -61,7 +49,9 @@ use arkret_models_crypto::key_backup::{
     KeyBackupFrontierRef, KeyBackupKdf, KeyBackupKdfName, KeyBackupKdfParams,
     KeyBackupRecipientMethod,
 };
-use arkret_models_crypto::{KeyBackupPlaintext, PlaintextItem};
+use arkret_models_crypto::{
+    KeyBackupKeybag, KeyBackupPlaintext, SecretStorageContentIndex, SecretStorageItem,
+};
 use arkret_wire::{
     AEAD_PROFILE_XCHACHA20_POLY1305_V1, BackupId, Base64UrlString, DeviceId, DidCoreId, Hash,
 };
@@ -559,7 +549,7 @@ fn decrypt_key_backup_envelope_bytes(
     let item_kinds = envelope
         .contents
         .iter()
-        .map(|item| item.item_kind.as_str())
+        .map(|item| item.item_kind())
         .collect::<Vec<_>>();
     if aad.schema != VAULT_SCHEMA_ID
         || aad.actor_id != envelope.actor_id
@@ -749,7 +739,7 @@ pub fn build_key_backup_envelope(
     backup_version: &str,
     subdomain: &str,
     kek: &VaultKek,
-    items: Vec<PlaintextItem>,
+    items: Vec<SecretStorageItem>,
 ) -> Result<KeyBackup> {
     let series_id =
         arkret_wire::BackupSeriesId::new(arkret_wire::new_prefixed_uuid7("ak:backup_series:"))
@@ -782,7 +772,7 @@ fn build_key_backup_envelope_in_series(
     backup_version: &str,
     subdomain: &str,
     kek: &VaultKek,
-    items: Vec<PlaintextItem>,
+    items: Vec<SecretStorageItem>,
     series_id: arkret_wire::BackupSeriesId,
     series_seq: u64,
     supersedes: Option<BackupId>,
@@ -818,46 +808,27 @@ fn build_key_backup_envelope_in_series(
     let contents = items
         .iter()
         .map(|item| {
-            Ok(KeyBackupContentItem {
-                item_kind: item.item_kind.clone(),
-                realm_id: item.realm_id.clone(),
-                managed_principal_binding: item.managed_principal_binding.clone(),
-                mls_group_id: item.mls_group_id.clone(),
-                effective_scope: item.effective_scope.clone(),
-                from_epoch: item.from_epoch,
-                to_epoch: item.to_epoch,
-                group_state_ref: item.group_state_ref.clone(),
-                policy_digest: item.policy_digest.clone(),
-                membership_frontier_digest: item.membership_frontier_digest.clone(),
-                epoch: item.epoch,
-                first_event_id: item.first_event_id.clone(),
-                last_event_id: item.last_event_id.clone(),
-                secret_id: Some(item.secret_id.clone()),
-                secret_version: item
-                    .secret_version()
-                    .map_err(|error| KeyBackupError::InvalidInput(error.to_string()))?,
-                extra: Default::default(),
-            })
+            Ok(KeyBackupContentItem::SecretStorage(
+                SecretStorageContentIndex {
+                    item_kind: item.item_kind,
+                    realm_id: None,
+                    from_epoch: None,
+                    to_epoch: None,
+                    secret_id: Some(item.secret_id.clone()),
+                    secret_version: item
+                        .secret_version()
+                        .map_err(|error| KeyBackupError::InvalidInput(error.to_string()))?,
+                    extra: Default::default(),
+                },
+            ))
         })
         .collect::<Result<Vec<_>>>()?;
-    let managed_principal_bindings = contents
-        .iter()
-        .filter_map(|item| item.managed_principal_binding.clone())
-        .map(|binding| {
-            canonical_json_bytes(&binding)
-                .map(|canonical| (canonical, binding))
-                .map_err(|error| KeyBackupError::Canonical(error.to_string()))
-        })
-        .collect::<Result<std::collections::BTreeMap<_, _>>>()?
-        .into_values()
-        .collect::<Vec<_>>();
     let plaintext = KeyBackupPlaintext {
         schema: KeyBackupPlaintext::SCHEMA.to_owned(),
         backup_id: backup_id.clone(),
-        backup_kind,
         series_id: series_id.clone(),
         series_seq,
-        items,
+        keybag: KeyBackupKeybag::SecretStorage { items },
         extra: Default::default(),
     };
     let plaintext_bytes = canonical_json_bytes(&plaintext)
@@ -875,8 +846,10 @@ fn build_key_backup_envelope_in_series(
         backup_kind,
         backup_version: backup_version.to_owned(),
         created_at,
-        item_kinds: contents.iter().map(|item| item.item_kind.clone()).collect(),
-        managed_principal_bindings,
+        item_kinds: contents
+            .iter()
+            .map(|item| item.item_kind().to_owned())
+            .collect(),
         recipient_method: Some(KeyBackupRecipientMethod::PassphraseKdf),
         recipient_key_ref: None,
         extra: Default::default(),
@@ -981,7 +954,7 @@ pub fn build_key_backup_successor_envelope(
     predecessor: &KeyBackup,
     backup_version: &str,
     kek: &VaultKek,
-    items: Vec<PlaintextItem>,
+    items: Vec<SecretStorageItem>,
     frontier_ref: impl Into<String>,
     device_generation_ref: u64,
 ) -> Result<KeyBackup> {

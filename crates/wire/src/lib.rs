@@ -49,6 +49,7 @@ pub mod event_submission;
 pub mod events;
 pub mod extension_manifest;
 pub mod generated;
+pub mod history_secret;
 pub mod http_signature;
 pub mod ingress_budget;
 pub mod notary;
@@ -156,6 +157,7 @@ pub use generated::{
     operation_error_mapping, requirements_for,
 };
 pub use genesis_salt::GenesisSalt;
+pub use history_secret::{EpochRange, HistorySecretRange, validate_canonical_ranges};
 pub use http_signature::HttpMessageSignature;
 pub use ingress_budget::WireBodyClass;
 pub use notary::{

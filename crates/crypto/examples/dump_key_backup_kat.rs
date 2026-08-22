@@ -60,7 +60,6 @@ fn main() {
                     .iter()
                     .map(|value| value.as_str().unwrap().to_owned())
                     .collect(),
-                managed_principal_bindings: vec![],
                 recipient_method: None,
                 recipient_key_ref: None,
                 extra: Default::default(),

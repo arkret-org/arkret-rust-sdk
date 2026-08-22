@@ -8,6 +8,7 @@ use arkret_wire::{
     HistoryEffectiveScope, OrganizationRecoveryArchive, PayloadProof, RealmId, Result, SealBasis,
     SignerEvidenceRef,
 };
+pub use arkret_wire::{EpochRange, HistorySecretRange, validate_canonical_ranges};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
@@ -91,42 +92,6 @@ pub enum AuthorizationIncarnation {
         realm_membership_incarnation_ref: EventId,
         circle_membership_incarnation_ref: EventId,
     },
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EpochRange {
-    pub from_epoch: u64,
-    pub to_epoch: u64,
-}
-
-impl EpochRange {
-    pub fn validate(&self) -> Result<()> {
-        if self.from_epoch > self.to_epoch {
-            return Err(Error::Protocol("history epoch range is empty".to_owned()));
-        }
-        Ok(())
-    }
-}
-
-pub fn validate_canonical_ranges(ranges: &[EpochRange], maximum: usize) -> Result<()> {
-    if ranges.is_empty() || ranges.len() > maximum {
-        return Err(Error::Protocol(format!(
-            "history ranges must contain 1..={maximum} entries"
-        )));
-    }
-    for range in ranges {
-        range.validate()?;
-    }
-    for pair in ranges.windows(2) {
-        if pair[0].to_epoch == u64::MAX || pair[0].to_epoch + 1 >= pair[1].from_epoch {
-            return Err(Error::Protocol(
-                "history ranges must be sorted, disjoint, and non-adjacent".to_owned(),
-            ));
-        }
-    }
-    Ok(())
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -407,26 +372,6 @@ pub struct EventCandidateBinding {
     pub first_observed_at: DateTime<Utc>,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HistorySecretRange {
-    pub from_epoch: u64,
-    pub to_epoch: u64,
-    pub secrets_b64u: String,
-}
-
-impl HistorySecretRange {
-    pub fn validate(&self) -> Result<()> {
-        EpochRange {
-            from_epoch: self.from_epoch,
-            to_epoch: self.to_epoch,
-        }
-        .validate()?;
-        validate_base64url_bounded(&self.secrets_b64u, 1, usize::MAX, "secrets_b64u")
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

@@ -5,9 +5,9 @@ use std::collections::BTreeMap;
 use arkret_wire::{
     AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, DeviceId,
     DeviceReanchorPreFenceSealFrontier, DidCoreId, DidFullId, DidUrl, Error, EventId, Hash,
-    LeaseBasisRef, NonEmptyString, PolicyId, RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RealmId,
-    ReasonCode, RecoverySessionId, Result, SchemaId, ScopeRef, TransactionId, TrustDomainId,
-    XExtensionMap,
+    HistoryEffectiveScope, HistorySecretRange, LeaseBasisRef, NonEmptyString, PolicyId,
+    RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, ReasonCode, RecoverySessionId, Result, SchemaId,
+    ScopeRef, TransactionId, TrustDomainId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -15,14 +15,52 @@ use serde_json::Value;
 
 use crate::key_backup::{
     BackupKind, BackupSeriesEraseOutcome, BackupSeriesEraseRequestBody, KeyBackup,
-    KeyBackupSignatureAlgorithm, KeysBackupsDeleteChallenge, KeysBackupsDeleteOutcome,
-    KeysBackupsDeleteRequestBody, KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsList,
-    KeysBackupsReplaceOutcome, ManagedPrincipalBinding, RecoveryProofKind,
+    KeyBackupContentItem, KeyBackupSignatureAlgorithm, KeysBackupsDeleteChallenge,
+    KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody,
+    KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsList, KeysBackupsReplaceOutcome,
+    RecoveryProofKind, SecretStorageContentIndex, SecretStorageItemKind,
 };
 use crate::keys::{
     DeviceGenerationStatus, KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome,
     KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody,
 };
+
+/// The `backup_kind`-discriminated keybag body of
+/// `spec/v1/artifacts/schemas/key-backup-plaintext.schema.json` (`oneOf`).
+///
+/// `effective_scope` exists only on the `mls_history` branch, and only that
+/// branch packs [`HistorySecretRange`] items. key-management.md §7.1 forbids
+/// active MLS state, group-state refs, policy/membership digests, secret ids
+/// and versions in a history keybag; the closed union makes those shapes
+/// unrepresentable rather than merely rejected.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "backup_kind", rename_all = "snake_case")]
+pub enum KeyBackupKeybag {
+    SecretStorage {
+        items: Vec<SecretStorageItem>,
+    },
+    MlsHistory {
+        effective_scope: HistoryEffectiveScope,
+        items: Vec<HistorySecretRange>,
+    },
+}
+
+impl KeyBackupKeybag {
+    pub const fn backup_kind(&self) -> BackupKind {
+        match self {
+            Self::SecretStorage { .. } => BackupKind::SecretStorage,
+            Self::MlsHistory { .. } => BackupKind::MlsHistory,
+        }
+    }
+
+    pub fn item_count(&self) -> usize {
+        match self {
+            Self::SecretStorage { items } => items.len(),
+            Self::MlsHistory { items, .. } => items.len(),
+        }
+    }
+}
 
 /// Counterpart for `spec/v1/artifacts/schemas/key-backup-plaintext.schema.json`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -30,11 +68,11 @@ use crate::keys::{
 pub struct KeyBackupPlaintext {
     pub schema: String,
     pub backup_id: BackupId,
-    pub backup_kind: BackupKind,
     pub series_id: BackupSeriesId,
     pub series_seq: u64,
-    pub items: Vec<PlaintextItem>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    #[serde(flatten)]
+    pub keybag: KeyBackupKeybag,
+    #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
     pub extra: XExtensionMap,
 }
 
@@ -53,7 +91,7 @@ impl KeyBackupPlaintext {
             )));
         }
         if self.backup_id != envelope.backup_id
-            || self.backup_kind != envelope.backup_kind
+            || self.keybag.backup_kind() != envelope.backup_kind
             || self.series_id != envelope.series_id
             || self.series_seq != envelope.series_seq
         {
@@ -61,24 +99,43 @@ impl KeyBackupPlaintext {
                 "key backup plaintext envelope identity mismatch".to_owned(),
             ));
         }
-        if self.items.is_empty() || self.items.len() != envelope.contents.len() {
+        if self.keybag.item_count() == 0 {
             return Err(Error::Protocol(
-                "key backup public/plaintext item counts differ or are empty".to_owned(),
+                "key backup plaintext items must not be empty".to_owned(),
             ));
         }
-        for secret in &self.items {
+        match &self.keybag {
+            KeyBackupKeybag::SecretStorage { items } => Self::bind_secret_storage(items, envelope),
+            KeyBackupKeybag::MlsHistory {
+                effective_scope,
+                items,
+            } => Self::bind_mls_history(effective_scope, items, envelope),
+        }
+    }
+
+    fn bind_secret_storage(items: &[SecretStorageItem], envelope: &KeyBackup) -> Result<()> {
+        if items.len() != envelope.contents.len() {
+            return Err(Error::Protocol(
+                "key backup public/plaintext item counts differ".to_owned(),
+            ));
+        }
+        for secret in items {
             secret.validate()?;
             let _ = secret.secret_version()?;
         }
-        let mut matched_plaintext = vec![false; self.items.len()];
+        let mut matched_plaintext = vec![false; items.len()];
         for public in &envelope.contents {
-            let matches = self
-                .items
+            let Some(public) = public.secret_storage() else {
+                return Err(Error::Protocol(
+                    "secret_storage key backup must not index history secret ranges".to_owned(),
+                ));
+            };
+            let matches = items
                 .iter()
                 .enumerate()
                 .filter(|(index, secret)| {
                     !matched_plaintext[*index]
-                        && public_metadata_matches_plaintext(public, secret).unwrap_or(false)
+                        && secret_storage_metadata_matches(public, secret).unwrap_or(false)
                 })
                 .map(|(index, _)| index)
                 .collect::<Vec<_>>();
@@ -90,89 +147,71 @@ impl KeyBackupPlaintext {
             }
             matched_plaintext[matches[0]] = true;
         }
+        Ok(())
+    }
 
-        let canonical_set = |bindings: Vec<ManagedPrincipalBinding>| {
-            bindings
-                .into_iter()
-                .map(|binding| {
-                    arkret_canonical::canonical_json_bytes(&binding)
-                        .map(|bytes| (bytes, binding))
-                        .map_err(Error::from)
-                })
-                .collect::<Result<BTreeMap<_, _>>>()
-                .map(|bindings| bindings.into_values().collect::<Vec<_>>())
-        };
-        let public_bindings = canonical_set(
-            envelope
-                .contents
-                .iter()
-                .filter_map(|item| item.managed_principal_binding.clone())
-                .collect(),
-        )?;
-        let plaintext_bindings = canonical_set(
-            self.items
-                .iter()
-                .filter_map(|item| item.managed_principal_binding.clone())
-                .collect(),
-        )?;
-        let aad_bindings = canonical_set(
-            envelope
-                .domain_separation
-                .aead_aad
-                .managed_principal_bindings
-                .clone(),
-        )?;
-        if public_bindings != plaintext_bindings || public_bindings != aad_bindings {
+    fn bind_mls_history(
+        effective_scope: &HistoryEffectiveScope,
+        items: &[HistorySecretRange],
+        envelope: &KeyBackup,
+    ) -> Result<()> {
+        let [KeyBackupContentItem::HistorySecretRanges(index)] = envelope.contents.as_slice()
+        else {
             return Err(Error::Protocol(
-                "key backup public/plaintext/AAD managed binding sets differ".to_owned(),
+                "mls_history key backup contents must be exactly one history_secret_ranges index"
+                    .to_owned(),
             ));
+        };
+        if index.effective_scope != *effective_scope {
+            return Err(Error::Protocol(
+                "key backup public/plaintext effective_scope differ".to_owned(),
+            ));
+        }
+        for item in items {
+            item.validate()?;
+        }
+        let packed = items
+            .iter()
+            .map(HistorySecretRange::epoch_range)
+            .collect::<Vec<_>>();
+        if packed != index.ranges {
+            return Err(Error::Protocol(
+                "key backup packed history ranges do not equal the public range index".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Enforce the fixed-width packing rule of every history secret range once
+    /// `KDF.Nh` has been resolved from the exact winning group transition.
+    pub fn validate_history_packing(&self, kdf_nh: usize) -> Result<()> {
+        let KeyBackupKeybag::MlsHistory { items, .. } = &self.keybag else {
+            return Err(Error::Protocol(
+                "history secret packing applies only to mls_history keybags".to_owned(),
+            ));
+        };
+        for item in items {
+            item.validate_packed_length(kdf_nh)?;
         }
         Ok(())
     }
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/key-backup-plaintext.schema.json#/$defs/item_kind`.
-pub type ItemKind = String;
-
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/key-backup-plaintext.schema.json#/$defs/plaintext_item`.
+/// `spec/v1/artifacts/schemas/key-backup-plaintext.schema.json#/$defs/secret_storage_item`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PlaintextItem {
-    pub item_kind: ItemKind,
+pub struct SecretStorageItem {
+    pub item_kind: SecretStorageItemKind,
     pub secret_id: String,
     pub secret_b64u: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub secret_generation: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<RealmId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub managed_principal_binding: Option<ManagedPrincipalBinding>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mls_group_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub effective_scope: Option<ScopeRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub from_epoch: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub to_epoch: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub group_state_ref: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub membership_frontier_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub epoch: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub first_event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub last_event_id: Option<EventId>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
     pub extra: XExtensionMap,
 }
 
-impl PlaintextItem {
+impl SecretStorageItem {
     pub fn validate(&self) -> Result<()> {
         if self.secret_id.is_empty()
             || !self
@@ -196,113 +235,6 @@ impl PlaintextItem {
                     .to_owned(),
             ));
         }
-        if self.managed_principal_binding.is_some()
-            && (self.realm_id.is_none()
-                || !matches!(
-                    self.item_kind.as_str(),
-                    "mls_group_state" | "mls_epoch_secret" | "pending_welcome"
-                ))
-        {
-            return Err(Error::Protocol(
-                "managed key backup plaintext requires realm_id and an MLS item_kind".to_owned(),
-            ));
-        }
-        if matches!(
-            self.item_kind.as_str(),
-            "mls_group_state" | "mls_epoch_secret" | "pending_welcome"
-        ) && self.managed_principal_binding.is_none()
-        {
-            return Err(Error::Protocol(
-                "device-bound MLS backup plaintext requires managed_principal_binding".to_owned(),
-            ));
-        }
-        if self.item_kind == "history_secret_segment" {
-            let (
-                Some(effective_scope),
-                Some(mls_group_id),
-                Some(from_epoch),
-                Some(to_epoch),
-                Some(_group_state_ref),
-                Some(_policy_digest),
-                Some(_membership_frontier_digest),
-            ) = (
-                self.effective_scope.as_ref(),
-                self.mls_group_id.as_ref(),
-                self.from_epoch,
-                self.to_epoch,
-                self.group_state_ref.as_ref(),
-                self.policy_digest.as_ref(),
-                self.membership_frontier_digest.as_ref(),
-            )
-            else {
-                return Err(Error::Protocol(
-                    "history_secret_segment plaintext requires complete scope, epoch, group-state and authorization basis"
-                        .to_owned(),
-                ));
-            };
-            if self.managed_principal_binding.is_some() {
-                return Err(Error::Protocol(
-                    "portable history_secret_segment plaintext forbids managed_principal_binding"
-                        .to_owned(),
-                ));
-            }
-            if !matches!(
-                effective_scope,
-                ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
-            ) {
-                return Err(Error::Protocol(
-                    "history_secret_segment plaintext supports only Realm and Circle history scopes"
-                        .to_owned(),
-                ));
-            }
-            if from_epoch > to_epoch || effective_scope.canonical_mls_group_id()? != *mls_group_id {
-                return Err(Error::Protocol(
-                    "history_secret_segment plaintext range or scope-derived group id is invalid"
-                        .to_owned(),
-                ));
-            }
-        }
-        Ok(())
-    }
-
-    /// Validate the fixed-width concatenation of history secrets after the
-    /// referenced MLS group ciphersuite has been resolved.
-    pub fn validate_history_secret_segment_length(&self, kdf_nh: usize) -> Result<()> {
-        self.validate()?;
-        if self.item_kind != "history_secret_segment" {
-            return Err(Error::Protocol(
-                "history secret length validation requires history_secret_segment".to_owned(),
-            ));
-        }
-        if kdf_nh == 0 {
-            return Err(Error::Protocol(
-                "MLS ciphersuite KDF.Nh must be positive".to_owned(),
-            ));
-        }
-        let from_epoch = self
-            .from_epoch
-            .expect("history segment validation requires from_epoch");
-        let to_epoch = self
-            .to_epoch
-            .expect("history segment validation requires to_epoch");
-        let epoch_count = to_epoch
-            .checked_sub(from_epoch)
-            .and_then(|distance| distance.checked_add(1))
-            .and_then(|count| usize::try_from(count).ok())
-            .ok_or_else(|| {
-                Error::Protocol("history secret segment epoch count overflows usize".to_owned())
-            })?;
-        let expected_len = epoch_count.checked_mul(kdf_nh).ok_or_else(|| {
-            Error::Protocol("history secret segment byte length overflows usize".to_owned())
-        })?;
-        let actual_len = arkret_canonical::base64url::base64url_decode(&self.secret_b64u)
-            .map_err(|error| Error::Protocol(format!("invalid history secret bytes: {error}")))?
-            .len();
-        if actual_len != expected_len {
-            return Err(Error::Protocol(format!(
-                "history_secret_segment contains {actual_len} bytes; expected {expected_len}"
-            )));
-        }
         Ok(())
     }
 
@@ -322,29 +254,12 @@ impl PlaintextItem {
     }
 }
 
-fn public_metadata_matches_plaintext(
-    public: &crate::key_backup::KeyBackupContentItem,
-    secret: &PlaintextItem,
+fn secret_storage_metadata_matches(
+    public: &SecretStorageContentIndex,
+    secret: &SecretStorageItem,
 ) -> Result<bool> {
-    if public.item_kind == "history_secret_segment" || secret.item_kind == "history_secret_segment"
-    {
-        return Ok(public.item_kind == secret.item_kind
-            && public.effective_scope == secret.effective_scope
-            && public.mls_group_id == secret.mls_group_id
-            && public.from_epoch == secret.from_epoch
-            && public.to_epoch == secret.to_epoch
-            && public.group_state_ref == secret.group_state_ref
-            && public.policy_digest == secret.policy_digest
-            && public.membership_frontier_digest == secret.membership_frontier_digest);
-    }
     Ok(public.item_kind == secret.item_kind
         && public.secret_id.as_deref() == Some(secret.secret_id.as_str())
-        && public.realm_id == secret.realm_id
-        && public.managed_principal_binding == secret.managed_principal_binding
-        && public.mls_group_id == secret.mls_group_id
-        && public.epoch == secret.epoch
-        && public.first_event_id == secret.first_event_id
-        && public.last_event_id == secret.last_event_id
         && public.secret_version == secret.secret_version()?)
 }
 
@@ -1696,47 +1611,76 @@ mod untagged_contract_tests {
     }
 
     #[test]
-    fn portable_history_secret_rejects_sidecar_scope() {
-        let scope = ScopeRef::Sidecar {
-            realm_id: RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5")
-                .unwrap(),
-            sidecar_id: arkret_wire::SidecarId::new(
-                "ak:sidecar:Ae0kN-KHls3vjqQ9FHo4P_2uAhcMVu8dI8qHcFsqGn5d",
-            )
-            .unwrap(),
-        };
-        let item = PlaintextItem {
-            item_kind: "history_secret_segment".to_owned(),
-            secret_id: "segment".to_owned(),
-            secret_b64u: "AA".to_owned(),
-            secret_generation: None,
-            realm_id: None,
-            managed_principal_binding: None,
-            mls_group_id: Some(scope.canonical_mls_group_id().unwrap()),
-            effective_scope: Some(scope),
-            from_epoch: Some(1),
-            to_epoch: Some(1),
-            group_state_ref: Some(
-                EventId::new("ak:event:Adl8EVE0XuYmtOeRAa0WJVGy5DWansCGrXuwPONweuzs").unwrap(),
-            ),
-            policy_digest: Some(
-                Hash::new(
-                    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                )
-                .unwrap(),
-            ),
-            membership_frontier_digest: Some(
-                Hash::new(
-                    "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-                )
-                .unwrap(),
-            ),
-            epoch: None,
-            first_event_id: None,
-            last_event_id: None,
-            extra: XExtensionMap::default(),
-        };
+    fn portable_history_keybag_rejects_a_sidecar_effective_scope() {
+        let keybag = serde_json::json!({
+            "schema": KeyBackupPlaintext::SCHEMA,
+            "backup_id": "ak:backup:01964137-0000-7000-8000-000000000000",
+            "backup_kind": "mls_history",
+            "series_id": "ak:backup_series:01964137-0000-7000-8000-000000000001",
+            "series_seq": 0,
+            "effective_scope": {
+                "kind": "sidecar",
+                "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
+                "sidecar_id": "ak:sidecar:Ae0kN-KHls3vjqQ9FHo4P_2uAhcMVu8dI8qHcFsqGn5d",
+            },
+            "items": [{"from_epoch": 1, "to_epoch": 1, "secrets_b64u": "AA"}],
+        });
+        assert!(serde_json::from_value::<KeyBackupPlaintext>(keybag).is_err());
+    }
 
-        assert!(item.validate().is_err());
+    #[test]
+    fn portable_history_keybag_rejects_active_mls_state_items() {
+        let keybag = serde_json::json!({
+            "schema": KeyBackupPlaintext::SCHEMA,
+            "backup_id": "ak:backup:01964137-0000-7000-8000-000000000000",
+            "backup_kind": "mls_history",
+            "series_id": "ak:backup_series:01964137-0000-7000-8000-000000000001",
+            "series_seq": 0,
+            "effective_scope": {
+                "kind": "realm",
+                "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
+            },
+            "items": [{
+                "item_kind": "mls_group_state",
+                "secret_id": "group-state",
+                "secret_b64u": "AA",
+            }],
+        });
+        assert!(serde_json::from_value::<KeyBackupPlaintext>(keybag).is_err());
+    }
+
+    #[test]
+    fn secret_storage_keybag_rejects_an_effective_scope() {
+        let keybag = serde_json::json!({
+            "schema": KeyBackupPlaintext::SCHEMA,
+            "backup_id": "ak:backup:01964137-0000-7000-8000-000000000000",
+            "backup_kind": "secret_storage",
+            "series_id": "ak:backup_series:01964137-0000-7000-8000-000000000001",
+            "series_seq": 0,
+            "effective_scope": {
+                "kind": "realm",
+                "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
+            },
+            "items": [{
+                "item_kind": "private_account_state",
+                "secret_id": "account-state",
+                "secret_b64u": "AA",
+            }],
+        });
+        assert!(serde_json::from_value::<KeyBackupPlaintext>(keybag).is_err());
+    }
+
+    #[test]
+    fn a_history_range_index_rejects_secret_storage_only_fields() {
+        let index = serde_json::json!({
+            "item_kind": "history_secret_ranges",
+            "effective_scope": {
+                "kind": "realm",
+                "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
+            },
+            "ranges": [{"from_epoch": 0, "to_epoch": 3}],
+            "secret_id": "segment",
+        });
+        assert!(serde_json::from_value::<KeyBackupContentItem>(index).is_err());
     }
 }

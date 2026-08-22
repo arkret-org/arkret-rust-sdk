@@ -8,11 +8,12 @@ use arkret_canonical::{
 use arkret_wire::{
     AttestationId, AuthoritySetIssuer, AuthoritySetIssuerRole, AuthorizationLease, BackupId,
     BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupSeriesId, Base64UrlString,
-    CbaProofBundle, ControlProposalAck, Cursor, DeviceId, DidCoreId, DidUrl, Error, Event, EventId,
-    EventInitialSubmission, EventKind, HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES, Hash,
-    LeaseBasisRef, NonEmptyString, PayloadProof, PolicyId, ProofContextId,
-    RECOVERY_POLICY_SIGNATURE_TYPE, RealmId, ReasonCode, ReceiptId, RecoverySessionId, Result,
-    SchemaId, ScopeRef, ServiceOperationId, TransactionId, TrustDomainId, XExtensionMap,
+    CbaProofBundle, ControlProposalAck, Cursor, DeviceId, DidCoreId, DidUrl, EpochRange, Error,
+    Event, EventId, EventInitialSubmission, EventKind, HPKE_SUITE_X25519_CHACHA20POLY1305_V1,
+    HPKE_SUITES, Hash, HistoryEffectiveScope, LeaseBasisRef, NonEmptyString, PayloadProof,
+    PolicyId, ProofContextId, RECOVERY_POLICY_SIGNATURE_TYPE, RealmId, ReasonCode, ReceiptId,
+    RecoverySessionId, Result, SchemaId, ServiceOperationId, TransactionId, TrustDomainId,
+    XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -909,87 +910,31 @@ impl KeyBackup {
                 "key backup contents must not be empty".to_owned(),
             ));
         }
-        for item in &self.contents {
-            if !key_backup_item_kind_allowed(self.backup_kind, &item.item_kind) {
-                return Err(Error::Protocol(format!(
-                    "key backup item_kind '{}' is not allowed for {}",
-                    item.item_kind,
-                    self.backup_kind.as_str()
-                )));
+        match self.backup_kind {
+            BackupKind::SecretStorage => {
+                for item in &self.contents {
+                    let Some(index) = item.secret_storage() else {
+                        return Err(Error::Protocol(
+                            "secret_storage key backup must not index history secret ranges"
+                                .to_owned(),
+                        ));
+                    };
+                    if index.secret_version == Some(0) {
+                        return Err(Error::Protocol(
+                            "key backup content secret_version must be at least 1".to_owned(),
+                        ));
+                    }
+                }
             }
-            if item.secret_version == Some(0) {
-                return Err(Error::Protocol(
-                    "key backup content secret_version must be at least 1".to_owned(),
-                ));
-            }
-            if item.managed_principal_binding.is_some()
-                && (item.realm_id.is_none()
-                    || !matches!(
-                        item.item_kind.as_str(),
-                        "mls_group_state" | "mls_epoch_secret" | "pending_welcome"
-                    ))
-            {
-                return Err(Error::Protocol(
-                    "managed key backup content requires realm_id and an MLS item_kind".to_owned(),
-                ));
-            }
-            if matches!(
-                item.item_kind.as_str(),
-                "mls_group_state" | "mls_epoch_secret" | "pending_welcome"
-            ) && item.managed_principal_binding.is_none()
-            {
-                return Err(Error::Protocol(
-                    "device-bound MLS backup material is allowed only with managed_principal_binding"
-                        .to_owned(),
-                ));
-            }
-            if item.item_kind == "history_secret_segment" {
-                let (
-                    Some(effective_scope),
-                    Some(mls_group_id),
-                    Some(from_epoch),
-                    Some(to_epoch),
-                    Some(_group_state_ref),
-                    Some(_policy_digest),
-                    Some(_membership_frontier_digest),
-                ) = (
-                    item.effective_scope.as_ref(),
-                    item.mls_group_id.as_ref(),
-                    item.from_epoch,
-                    item.to_epoch,
-                    item.group_state_ref.as_ref(),
-                    item.policy_digest.as_ref(),
-                    item.membership_frontier_digest.as_ref(),
-                )
+            BackupKind::MlsHistory => {
+                let [KeyBackupContentItem::HistorySecretRanges(index)] = self.contents.as_slice()
                 else {
                     return Err(Error::Protocol(
-                        "history_secret_segment requires complete scope, epoch, group-state and authorization basis"
+                        "mls_history key backup contents must be exactly one history_secret_ranges index"
                             .to_owned(),
                     ));
                 };
-                if item.managed_principal_binding.is_some() {
-                    return Err(Error::Protocol(
-                        "portable history_secret_segment forbids managed_principal_binding"
-                            .to_owned(),
-                    ));
-                }
-                if !matches!(
-                    effective_scope,
-                    ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
-                ) {
-                    return Err(Error::Protocol(
-                        "history_secret_segment supports only Realm and Circle history scopes"
-                            .to_owned(),
-                    ));
-                }
-                if from_epoch > to_epoch
-                    || effective_scope.canonical_mls_group_id()? != *mls_group_id
-                {
-                    return Err(Error::Protocol(
-                        "history_secret_segment range or scope-derived group id is invalid"
-                            .to_owned(),
-                    ));
-                }
+                index.validate()?;
             }
         }
         if self.ciphertext.trim().is_empty() {
@@ -1065,9 +1010,6 @@ impl KeyBackup {
         }
 
         self.validate_encryption_profile()?;
-        if self.backup_kind == BackupKind::MlsHistory {
-            self.validate_mls_history_opaque_only()?;
-        }
 
         let domain = &self.domain_separation;
         let aad = &domain.aead_aad;
@@ -1082,29 +1024,8 @@ impl KeyBackup {
         let item_kinds = self
             .contents
             .iter()
-            .map(|item| item.item_kind.clone())
+            .map(|item| item.item_kind().to_owned())
             .collect::<Vec<_>>();
-        let managed_principal_bindings = self
-            .contents
-            .iter()
-            .filter_map(|item| item.managed_principal_binding.clone())
-            .map(|binding| {
-                arkret_canonical::canonical_json_bytes(&binding)
-                    .map(|canonical| (canonical, binding))
-                    .map_err(Error::from)
-            })
-            .collect::<Result<BTreeMap<_, _>>>()?
-            .into_values()
-            .collect::<Vec<_>>();
-        let authenticated_managed_principal_bindings = aad
-            .managed_principal_bindings
-            .iter()
-            .map(|binding| {
-                arkret_canonical::canonical_json_bytes(&binding)
-                    .map(|canonical| (canonical, binding))
-                    .map_err(Error::from)
-            })
-            .collect::<Result<BTreeMap<_, _>>>()?;
         if aad.schema != Self::SCHEMA
             || aad.actor_id != self.actor_id
             || aad.device_id.as_deref() != device_id
@@ -1112,11 +1033,6 @@ impl KeyBackup {
             || aad.backup_version != self.backup_version
             || aad.created_at != self.created_at
             || aad.item_kinds != item_kinds
-            || authenticated_managed_principal_bindings.len()
-                != aad.managed_principal_bindings.len()
-            || !authenticated_managed_principal_bindings
-                .into_values()
-                .eq(managed_principal_bindings.iter())
             || aad.recipient_method != Some(self.encryption.recipient_method)
             || aad.recipient_key_ref != self.encryption.recipient_key_ref
         {
@@ -1204,46 +1120,6 @@ impl KeyBackup {
             }
         }
         Ok(())
-    }
-
-    fn validate_mls_history_opaque_only(&self) -> Result<()> {
-        fn scan(value: &Value, path: &str) -> Result<()> {
-            match value {
-                Value::Object(map) => {
-                    for (key, child) in map {
-                        if matches!(
-                            key.to_ascii_lowercase().as_str(),
-                            "plaintext"
-                                | "plain_text"
-                                | "serialized_state"
-                                | "state_bytes"
-                                | "group_state"
-                                | "passphrase"
-                                | "mls_passphrase"
-                                | "snapshot_secret"
-                        ) {
-                            return Err(Error::Protocol(format!(
-                                "mls_history backup contains forbidden plaintext field {path}/{key}"
-                            )));
-                        }
-                        scan(child, &format!("{path}/{key}"))?;
-                    }
-                    Ok(())
-                }
-                Value::Array(values) => {
-                    for (index, child) in values.iter().enumerate() {
-                        scan(child, &format!("{path}/{index}"))?;
-                    }
-                    Ok(())
-                }
-                _ => Ok(()),
-            }
-        }
-
-        let value = serde_json::to_value(self).map_err(|error| {
-            Error::Protocol(format!("failed to inspect mls_history key backup: {error}"))
-        })?;
-        scan(&value, "")
     }
 
     fn expected_signed_fields(&self) -> Vec<String> {
@@ -1365,24 +1241,6 @@ fn validate_key_backup_signature_algorithm(algorithm: KeyBackupSignatureAlgorith
         ));
     }
     Ok(())
-}
-
-fn key_backup_item_kind_allowed(backup_kind: BackupKind, item_kind: &str) -> bool {
-    match backup_kind {
-        BackupKind::SecretStorage => matches!(
-            item_kind,
-            "recovery_key_share"
-                | "account_data_namespace_key"
-                | "mls_account_secret"
-                | "mls_private_plaintext"
-                | "mls_group_secrets_backup_key"
-                | "private_account_state"
-        ),
-        BackupKind::MlsHistory => matches!(
-            item_kind,
-            "mls_group_state" | "mls_epoch_secret" | "history_secret_segment" | "pending_welcome"
-        ),
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1625,10 +1483,6 @@ pub struct KeyBackupDomainSeparationAad {
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub item_kinds: Vec<String>,
-    /// Canonical sorted set of every managed Agent PCR binding represented by
-    /// the public content metadata and the encrypted plaintext keybag.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub managed_principal_bindings: Vec<ManagedPrincipalBinding>,
     /// SEC-04: the envelope's `encryption.recipient_method` bound into the AEAD
     /// AAD (key-backup.schema.json `domain_separation.aead_aad.recipient_method`)
     /// so a ciphertext can never be cross-opened under the wrong recipient
@@ -1652,17 +1506,6 @@ pub struct ManagedFrontierRef {
     pub frontier_digest: Hash,
     pub seal_ref: String,
     pub mls_epoch: u64,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ManagedPrincipalBinding {
-    pub managed_principal_id: DidCoreId,
-    pub controller_id: DidCoreId,
-    pub principal_control_realm_id: RealmId,
-    pub authorization_ref: String,
-    pub managed_frontier_ref: ManagedFrontierRef,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1825,44 +1668,138 @@ pub struct KeyBackupAead {
     pub extra: XExtensionMap,
 }
 
+/// Counterpart for the six non-history `item_kind` values shared by
+/// `key-backup.schema.json#/properties/contents/items` and
+/// `key-backup-plaintext.schema.json#/$defs/secret_storage_item`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct KeyBackupContentItem {
-    pub item_kind: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SecretStorageItemKind {
+    RecoveryKeyShare,
+    AccountDataNamespaceKey,
+    MlsAccountSecret,
+    MlsPrivatePlaintext,
+    MlsGroupSecretsBackupKey,
+    PrivateAccountState,
+}
+
+impl SecretStorageItemKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::RecoveryKeyShare => "recovery_key_share",
+            Self::AccountDataNamespaceKey => "account_data_namespace_key",
+            Self::MlsAccountSecret => "mls_account_secret",
+            Self::MlsPrivatePlaintext => "mls_private_plaintext",
+            Self::MlsGroupSecretsBackupKey => "mls_group_secrets_backup_key",
+            Self::PrivateAccountState => "private_account_state",
+        }
+    }
+}
+
+/// The `history_secret_ranges` discriminator of
+/// `key-backup.schema.json#/properties/contents/items`. It is the only
+/// `item_kind` a `backup_kind=mls_history` envelope may index
+/// (key-management.md §7.1).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum HistorySecretRangesItemKind {
+    #[serde(rename = "history_secret_ranges")]
+    Value,
+}
+
+/// The public index of one secret-storage keybag item. `additionalProperties`
+/// is closed: the `history_secret_ranges` branch fields (`effective_scope`,
+/// `ranges`) cannot appear here, and neither can active MLS state.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SecretStorageContentIndex {
+    pub item_kind: SecretStorageItemKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub managed_principal_binding: Option<ManagedPrincipalBinding>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mls_group_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub effective_scope: Option<ScopeRef>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from_epoch: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub to_epoch: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub group_state_ref: Option<EventId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub policy_digest: Option<Hash>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub membership_frontier_digest: Option<Hash>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub epoch: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub first_event_id: Option<EventId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_event_id: Option<EventId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub secret_id: Option<String>,
     /// Monotonic version of the backed-up secret (e.g. `mls_account_secret`),
     /// used for deterministic preferred-backup selection and anti-rollback
     /// ordering (key-management.md §9.1). Present on versioned secret items;
     /// absent on share-style items (e.g. `recovery_key_share`).
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub secret_version: Option<u32>,
-    #[serde(default, flatten)]
+    #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
     pub extra: XExtensionMap,
+}
+
+/// The public range index of a `backup_kind=mls_history` envelope: exact
+/// effective scope plus the canonical epoch ranges whose packed secrets live
+/// in the encrypted keybag. Secret bytes never appear here.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HistorySecretRangeIndex {
+    pub item_kind: HistorySecretRangesItemKind,
+    pub effective_scope: HistoryEffectiveScope,
+    pub ranges: Vec<EpochRange>,
+    #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
+    pub extra: XExtensionMap,
+}
+
+/// Maximum `ranges` entries per `key-backup.schema.json` (`maxItems: 64`).
+pub const KEY_BACKUP_MAX_HISTORY_RANGES: usize = 64;
+
+impl HistorySecretRangeIndex {
+    pub fn validate(&self) -> Result<()> {
+        arkret_wire::validate_canonical_ranges(&self.ranges, KEY_BACKUP_MAX_HISTORY_RANGES)
+    }
+}
+
+/// Counterpart for `key-backup.schema.json#/properties/contents/items`: the
+/// closed union its `allOf` if/then imposes on `item_kind`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum KeyBackupContentItem {
+    SecretStorage(SecretStorageContentIndex),
+    HistorySecretRanges(HistorySecretRangeIndex),
+}
+
+impl KeyBackupContentItem {
+    /// The wire `item_kind` string this index carries.
+    pub const fn item_kind(&self) -> &'static str {
+        match self {
+            Self::SecretStorage(index) => index.item_kind.as_str(),
+            Self::HistorySecretRanges(_) => "history_secret_ranges",
+        }
+    }
+
+    pub fn secret_id(&self) -> Option<&str> {
+        match self {
+            Self::SecretStorage(index) => index.secret_id.as_deref(),
+            Self::HistorySecretRanges(_) => None,
+        }
+    }
+
+    pub const fn secret_version(&self) -> Option<u32> {
+        match self {
+            Self::SecretStorage(index) => index.secret_version,
+            Self::HistorySecretRanges(_) => None,
+        }
+    }
+
+    pub const fn secret_storage(&self) -> Option<&SecretStorageContentIndex> {
+        match self {
+            Self::SecretStorage(index) => Some(index),
+            Self::HistorySecretRanges(_) => None,
+        }
+    }
+
+    pub const fn history_ranges(&self) -> Option<&HistorySecretRangeIndex> {
+        match self {
+            Self::SecretStorage(_) => None,
+            Self::HistorySecretRanges(index) => Some(index),
+        }
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
