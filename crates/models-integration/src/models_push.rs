@@ -1,4 +1,6 @@
 use std::collections::HashSet;
+use std::fmt;
+use std::ops::Deref;
 
 use arkret_wire::{
     DeviceId, DidCoreId, EventId, MessageId, NonEmptyString, OpaqueLocalId, RealmId, ReasonCode,
@@ -12,13 +14,150 @@ fn is_false(value: &bool) -> bool {
     !*value
 }
 
+/// Opaque service-generated routing token.
+///
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/push_route_token`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[serde(transparent)]
+pub struct PushRouteToken(String);
+
+impl PushRouteToken {
+    pub fn new(value: impl Into<String>) -> Result<Self, &'static str> {
+        let value = value.into();
+        if !(22..=512).contains(&value.len())
+            || !value.bytes().all(|byte| {
+                byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'~' | b'-')
+            })
+        {
+            return Err("push route token must match ^[A-Za-z0-9._~-]{22,512}$");
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl AsRef<str> for PushRouteToken {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl Deref for PushRouteToken {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_str()
+    }
+}
+
+impl fmt::Display for PushRouteToken {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl TryFrom<String> for PushRouteToken {
+    type Error = &'static str;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<PushRouteToken> for String {
+    fn from(value: PushRouteToken) -> Self {
+        value.into_string()
+    }
+}
+
+impl<'de> Deserialize<'de> for PushRouteToken {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
+
+/// Provider registration token bounded by the push operation contract.
+///
+/// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/push_key`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[serde(transparent)]
+pub struct PushKey(String);
+
+impl PushKey {
+    pub fn new(value: impl Into<String>) -> Result<Self, &'static str> {
+        let value = value.into();
+        if !(1..=4096).contains(&value.chars().count()) {
+            return Err("push key must contain between 1 and 4096 Unicode code points");
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl AsRef<str> for PushKey {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl Deref for PushKey {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_str()
+    }
+}
+
+impl fmt::Display for PushKey {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl TryFrom<String> for PushKey {
+    type Error = &'static str;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<PushKey> for String {
+    fn from(value: PushKey) -> Self {
+        value.into_string()
+    }
+}
+
+impl<'de> Deserialize<'de> for PushKey {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PushRegisterDeviceRequestBody {
     pub device_id: DeviceId,
     pub push_gateway: String,
-    pub push_key: String,
+    pub push_key: PushKey,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub platform: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -55,7 +194,7 @@ pub struct PushRegisterDeviceOutcome {
 pub struct PushUnregisterDeviceRequestBody {
     pub device_id: DeviceId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub push_key: Option<String>,
+    pub push_key: Option<PushKey>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub app_id: Option<String>,
 }
@@ -165,7 +304,7 @@ fn is_valid_push_count_bucket(value: &str) -> bool {
 pub struct PushDeviceRoute {
     pub device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub push_key: Option<String>,
+    pub push_key: Option<PushKey>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub app_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -175,8 +314,6 @@ pub struct PushDeviceRoute {
     #[serde(default, skip_serializing_if = "is_false")]
     pub visible_notification_opt_in: bool,
 }
-
-pub type PushRouteToken = String;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -548,31 +685,6 @@ pub fn validate_push_notify_contract_shape(request: &PushNotifyRequestBody) -> R
         }
     }
 
-    if let Some(route_tokens) = &notification.route_tokens {
-        validate_push_route_token(
-            route_tokens.realm_route_token.as_deref(),
-            "notification.route_tokens.realm_route_token",
-        )?;
-        validate_push_route_token(
-            route_tokens.scope_route_token.as_deref(),
-            "notification.route_tokens.scope_route_token",
-        )?;
-        validate_push_route_token(
-            route_tokens.delivery_binding_frontier_token.as_deref(),
-            "notification.route_tokens.delivery_binding_frontier_token",
-        )?;
-        for (index, item) in route_tokens
-            .mention_redirect_target_route_tokens
-            .iter()
-            .enumerate()
-        {
-            validate_push_route_token(
-                Some(item),
-                &format!("notification.route_tokens.mention_redirect_target_route_tokens[{index}]"),
-            )?;
-        }
-    }
-
     Ok(())
 }
 
@@ -691,22 +803,6 @@ fn validate_push_target_id(value: Option<&str>) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_push_route_token(value: Option<&str>, path: &str) -> Result<(), String> {
-    let Some(value) = value else {
-        return Ok(());
-    };
-    let value = value.trim();
-    if value.len() < 22
-        || value.len() > 512
-        || !value
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '~' | '-'))
-    {
-        return Err(format!("{path} must be an opaque route token"));
-    }
-    Ok(())
-}
-
 fn validate_wakeup_kind(value: Option<&str>) -> Result<(), String> {
     let Some(value) = value else {
         return Err("notification.wakeup_kind is required".to_owned());
@@ -747,7 +843,7 @@ mod tests {
                     PushDeviceRoute {
                         device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001")
                             .unwrap(),
-                        push_key: Some("token-1".to_owned()),
+                        push_key: Some(PushKey::new("token-1").unwrap()),
                         app_id: Some("com.example.app".to_owned()),
                         platform: None,
                         target_route_token: None,
@@ -756,7 +852,7 @@ mod tests {
                     PushDeviceRoute {
                         device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002")
                             .unwrap(),
-                        push_key: Some("token-2".to_owned()),
+                        push_key: Some(PushKey::new("token-2").unwrap()),
                         app_id: Some("com.example.app".to_owned()),
                         platform: None,
                         target_route_token: None,
@@ -944,6 +1040,39 @@ mod tests {
             PushCountIndicator::Bucket("6-20".to_owned())
         );
     }
+
+    #[test]
+    fn push_route_token_enforces_the_exact_schema_lexical_space() {
+        for valid in ["a".repeat(22), "A0._~-".repeat(85) + "ab"] {
+            let token = PushRouteToken::new(valid.clone()).unwrap();
+            assert_eq!(token.as_str(), valid);
+            assert_eq!(serde_json::to_value(&token).unwrap(), json!(valid));
+        }
+
+        for invalid in [
+            "a".repeat(21),
+            "a".repeat(513),
+            format!("{}:", "a".repeat(21)),
+            format!("{} ", "a".repeat(21)),
+        ] {
+            assert!(PushRouteToken::new(invalid.clone()).is_err());
+            assert!(serde_json::from_value::<PushRouteToken>(json!(invalid)).is_err());
+        }
+    }
+
+    #[test]
+    fn push_key_enforces_schema_length_in_unicode_code_points() {
+        for valid in ["令".to_owned(), "x".repeat(4096)] {
+            let key = PushKey::new(valid.clone()).unwrap();
+            assert_eq!(key.as_str(), valid);
+            assert_eq!(serde_json::to_value(&key).unwrap(), json!(valid));
+        }
+
+        for invalid in [String::new(), "密".repeat(4097)] {
+            assert!(PushKey::new(invalid.clone()).is_err());
+            assert!(serde_json::from_value::<PushKey>(json!(invalid)).is_err());
+        }
+    }
 }
 
 // ── Push schema artifact counterparts ────────────────────────────────────
@@ -1033,9 +1162,6 @@ pub struct DeviceRoute {
     #[serde(default, skip_serializing_if = "is_false")]
     pub visible_notification_opt_in: bool,
 }
-
-/// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/push_key`.
-pub type PushKey = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/push_target_id`.
 pub type PushTargetId = String;
