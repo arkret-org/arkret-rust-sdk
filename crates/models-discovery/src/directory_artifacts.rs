@@ -8,8 +8,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::directory::DirectoryIntent;
-
 /// Counterpart for `spec/v1/artifacts/schemas/calendar-event.schema.json`.
 /// Counterpart for `spec/v1/artifacts/schemas/calendar-event.schema.json#/$defs/attendee`.
 /// Counterpart for `spec/v1/artifacts/schemas/common-ids.schema.json`.
@@ -38,9 +36,6 @@ pub struct FreshnessFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub divergent: Option<bool>,
 }
-
-/// Counterpart for `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/intent`.
-pub type Intent = DirectoryIntent;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/invite_consent_handoff_stub`.
