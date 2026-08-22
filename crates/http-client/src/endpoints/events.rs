@@ -823,7 +823,7 @@ impl Client {
         let outcome: GovernanceDependencyResolveOutcome = self
             .post("/_arkret/self/seals/governance-dependencies", request)
             .await?;
-        outcome.validate_for_request(request)?;
+        outcome.validate_for_self_request(request)?;
         if !outcome.missing_selectors.is_empty() {
             return Err(Error::Protocol(
                 "governance dependency resolution is incomplete".to_owned(),

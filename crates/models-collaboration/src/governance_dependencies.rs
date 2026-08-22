@@ -1166,49 +1166,61 @@ impl GovernanceDependency {
     }
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(
-    deny_unknown_fields,
-    bound(serialize = "A: Serialize", deserialize = "A: Deserialize<'de>")
-)]
-pub struct GovernanceDependencyResolveRequest<A> {
-    pub realm_id: RealmId,
-    pub selectors: Vec<GovernanceDependencySelector>,
-    pub byte_limit: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub history_traversal_access: Option<A>,
-}
+macro_rules! governance_dependency_resolve_request {
+    ($name:ident, $history_access:ty) => {
+        #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+        #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+        #[serde(deny_unknown_fields)]
+        pub struct $name {
+            pub realm_id: RealmId,
+            pub selectors: Vec<GovernanceDependencySelector>,
+            pub byte_limit: u64,
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            pub history_traversal_access: Option<$history_access>,
+        }
 
-pub type SelfGovernanceDependencyResolveRequest =
-    GovernanceDependencyResolveRequest<SelfHistoryTraversalAccess>;
-pub type PeerGovernanceDependencyResolveRequest =
-    GovernanceDependencyResolveRequest<PeerHistoryTraversalAccess>;
-
-impl<A> GovernanceDependencyResolveRequest<A> {
-    pub fn validate(&self) -> Result<()> {
-        if self.selectors.is_empty() || self.selectors.len() > MAX_GOVERNANCE_DEPENDENCY_SELECTORS {
-            return Err(Error::Protocol(
-                "governance dependency request must contain 1..=1024 selectors".to_owned(),
-            ));
-        }
-        if self.byte_limit == 0 || self.byte_limit > MAX_GOVERNANCE_DEPENDENCY_RESPONSE_BYTES {
-            return Err(Error::Protocol(
-                "governance dependency request byte_limit must be 1..=8388608".to_owned(),
-            ));
-        }
-        for selector in &self.selectors {
-            selector.validate()?;
-        }
-        for pair in self.selectors.windows(2) {
-            if pair[0].canonical_sort_key()? >= pair[1].canonical_sort_key()? {
-                return Err(Error::Protocol(
-                    "governance dependency selectors must be sorted and unique".to_owned(),
-                ));
+        impl $name {
+            pub fn validate(&self) -> Result<()> {
+                validate_governance_dependency_resolve_request(&self.selectors, self.byte_limit)
             }
         }
-        Ok(())
+    };
+}
+
+governance_dependency_resolve_request!(
+    SelfGovernanceDependencyResolveRequest,
+    SelfHistoryTraversalAccess
+);
+governance_dependency_resolve_request!(
+    PeerGovernanceDependencyResolveRequest,
+    PeerHistoryTraversalAccess
+);
+
+fn validate_governance_dependency_resolve_request(
+    selectors: &[GovernanceDependencySelector],
+    byte_limit: u64,
+) -> Result<()> {
+    if selectors.is_empty() || selectors.len() > MAX_GOVERNANCE_DEPENDENCY_SELECTORS {
+        return Err(Error::Protocol(
+            "governance dependency request must contain 1..=1024 selectors".to_owned(),
+        ));
     }
+    if byte_limit == 0 || byte_limit > MAX_GOVERNANCE_DEPENDENCY_RESPONSE_BYTES {
+        return Err(Error::Protocol(
+            "governance dependency request byte_limit must be 1..=8388608".to_owned(),
+        ));
+    }
+    for selector in selectors {
+        selector.validate()?;
+    }
+    for pair in selectors.windows(2) {
+        if pair[0].canonical_sort_key()? >= pair[1].canonical_sort_key()? {
+            return Err(Error::Protocol(
+                "governance dependency selectors must be sorted and unique".to_owned(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1280,11 +1292,27 @@ impl GovernanceDependencyResolveOutcome {
         Ok(())
     }
 
-    pub fn validate_for_request<A>(
+    pub fn validate_for_self_request(
         &self,
-        request: &GovernanceDependencyResolveRequest<A>,
+        request: &SelfGovernanceDependencyResolveRequest,
     ) -> Result<()> {
         request.validate()?;
+        self.validate_for_request_parts(&request.selectors, request.byte_limit)
+    }
+
+    pub fn validate_for_peer_request(
+        &self,
+        request: &PeerGovernanceDependencyResolveRequest,
+    ) -> Result<()> {
+        request.validate()?;
+        self.validate_for_request_parts(&request.selectors, request.byte_limit)
+    }
+
+    fn validate_for_request_parts(
+        &self,
+        selectors: &[GovernanceDependencySelector],
+        byte_limit: u64,
+    ) -> Result<()> {
         self.validate()?;
         let accounted = self
             .items
@@ -1293,19 +1321,18 @@ impl GovernanceDependencyResolveOutcome {
             .chain(self.missing_selectors.iter())
             .map(|selector| canonical::canonical_json_bytes(selector).map_err(Into::into))
             .collect::<Result<BTreeSet<_>>>()?;
-        let requested = request
-            .selectors
+        let requested = selectors
             .iter()
             .map(|selector| canonical::canonical_json_bytes(selector).map_err(Into::into))
             .collect::<Result<BTreeSet<_>>>()?;
-        if accounted != requested || accounted.len() != request.selectors.len() {
+        if accounted != requested || accounted.len() != selectors.len() {
             return Err(Error::Protocol(
                 "governance dependency outcome is not every-and-only the requested selectors"
                     .to_owned(),
             ));
         }
         let bytes = canonical::canonical_json_bytes(self)?;
-        if bytes.len() as u64 > request.byte_limit
+        if bytes.len() as u64 > byte_limit
             || bytes.len() as u64 > MAX_GOVERNANCE_DEPENDENCY_RESPONSE_BYTES
         {
             return Err(Error::Protocol(
@@ -1325,4 +1352,19 @@ pub fn snapshot_digest_preimage(snapshot: &GovernanceRegistrySnapshot) -> Result
     preimage.push(0);
     preimage.extend(canonical::canonical_json_bytes(&value)?);
     Ok(preimage)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::any::TypeId;
+
+    use super::{PeerGovernanceDependencyResolveRequest, SelfGovernanceDependencyResolveRequest};
+
+    #[test]
+    fn governance_dependency_requests_have_distinct_wire_types() {
+        assert_ne!(
+            TypeId::of::<SelfGovernanceDependencyResolveRequest>(),
+            TypeId::of::<PeerGovernanceDependencyResolveRequest>()
+        );
+    }
 }

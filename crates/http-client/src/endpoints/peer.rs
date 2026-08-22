@@ -193,7 +193,7 @@ impl Client {
         let outcome: GovernanceDependencyResolveOutcome = self
             .post("/_arkret/peer/seals/governance-dependencies", request)
             .await?;
-        outcome.validate_for_request(request)?;
+        outcome.validate_for_peer_request(request)?;
         if !outcome.missing_selectors.is_empty() {
             return Err(Error::Protocol(
                 "peer governance dependency resolution is incomplete".to_owned(),
