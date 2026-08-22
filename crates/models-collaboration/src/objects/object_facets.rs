@@ -117,12 +117,6 @@ impl Pin {
     pub const SCHEMA: &'static str = SchemaId::PIN_V1;
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/query.schema.json`.
-pub type Query = BTreeMap<String, Value>;
-
-/// Counterpart for `spec/v1/artifacts/schemas/relation.schema.json#/$defs/ref`.
-pub type Ref = String;
-
 /// Counterpart for `spec/v1/artifacts/schemas/search-service.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
