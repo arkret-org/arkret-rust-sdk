@@ -27,6 +27,8 @@
 //! namespace without collisions.
 
 use std::collections::BTreeMap;
+use std::fmt;
+use std::ops::Deref;
 use std::sync::{Mutex, PoisonError};
 
 use thiserror::Error;
@@ -40,7 +42,43 @@ pub type Result<T> = std::result::Result<T, KeyStoreError>;
 /// The backing allocation is zeroized when dropped so callers do not
 /// accidentally leave plaintext signing seeds in process memory longer
 /// than their lexical lifetime.
-pub type KeyBytes = Zeroizing<Vec<u8>>;
+#[derive(Clone)]
+pub struct KeyBytes(Zeroizing<Vec<u8>>);
+
+impl KeyBytes {
+    pub fn new(bytes: Vec<u8>) -> Self {
+        Self(Zeroizing::new(bytes))
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        self.0.as_slice()
+    }
+
+    #[cfg(all(target_os = "windows", feature = "keystore-windows"))]
+    pub(crate) fn as_mut_ptr(&mut self) -> *mut u8 {
+        self.0.as_mut_ptr()
+    }
+}
+
+impl AsRef<[u8]> for KeyBytes {
+    fn as_ref(&self) -> &[u8] {
+        self.as_slice()
+    }
+}
+
+impl Deref for KeyBytes {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
+
+impl fmt::Debug for KeyBytes {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("KeyBytes([REDACTED])")
+    }
+}
 
 /// Pluggable key storage interface.
 ///
@@ -215,6 +253,12 @@ mod tests {
         store.delete("arkret:signer:alice:key-1").unwrap();
         let err = store.load("arkret:signer:alice:key-1").unwrap_err();
         assert!(err.is_not_found());
+    }
+
+    #[test]
+    fn key_bytes_debug_output_is_redacted() {
+        let bytes = KeyBytes::new(b"must-not-appear".to_vec());
+        assert_eq!(format!("{bytes:?}"), "KeyBytes([REDACTED])");
     }
 
     #[test]
