@@ -21,7 +21,7 @@
 //! let kek = derive_vault_kek(b"correct horse battery staple")?;
 //! let envelope = build_key_backup_envelope(
 //!     "ak:backup:01964137-0000-7000-8000-000000000000".parse()?,
-//!     "did:webvh:alice.example".parse()?,
+//!     "ak:did_core:webvh:z6mkfixture".parse()?,
 //!     None,
 //!     BackupKind::SecretStorage,
 //!     "kb_1",
@@ -1102,4 +1102,54 @@ pub fn key_backup_aad(
         "created_at": format_timestamp_canonical(created_at),
     });
     Ok(canonical_json_bytes(&aad)?)
+}
+
+#[cfg(test)]
+mod key_backup_envelope_tests {
+    use arkret_models_crypto::SecretStorageItemKind;
+
+    use super::*;
+
+    /// The keybag is the only place the `backup_kind` branch, the branch-only
+    /// `effective_scope` and the `x_` extension namespace meet, so the seal path
+    /// is not proof that a receiver can read what it wrote. Cover the full
+    /// build → seal → open → bind round trip.
+    #[test]
+    fn a_secret_storage_envelope_round_trips_through_its_own_opener() {
+        let kek = derive_vault_kek(b"correct horse battery staple").unwrap();
+        let envelope = build_key_backup_envelope(
+            "ak:backup:01964137-0000-7000-8000-000000000000"
+                .parse()
+                .unwrap(),
+            "ak:did_core:webvh:z6mkfixture".parse().unwrap(),
+            None,
+            BackupKind::SecretStorage,
+            "kb_1",
+            "recovery_vault",
+            &kek,
+            vec![SecretStorageItem {
+                item_kind: SecretStorageItemKind::PrivateAccountState,
+                secret_id: "account-state".to_owned(),
+                secret_b64u: "c2VjcmV0".to_owned(),
+                secret_generation: Some(3),
+                extra: Default::default(),
+            }],
+        )
+        .unwrap();
+
+        let opened =
+            decrypt_key_backup_envelope(b"correct horse battery staple", &envelope).unwrap();
+        assert_eq!(opened.backup_id, envelope.backup_id);
+        assert_eq!(opened.keybag.backup_kind(), BackupKind::SecretStorage);
+        let KeyBackupKeybag::SecretStorage { items } = &opened.keybag else {
+            panic!("a secret_storage envelope must open as a secret_storage keybag");
+        };
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].secret_b64u, "c2VjcmV0");
+        assert_eq!(
+            items[0].item_kind,
+            SecretStorageItemKind::PrivateAccountState
+        );
+        assert_eq!(envelope.contents[0].secret_version(), Some(3));
+    }
 }

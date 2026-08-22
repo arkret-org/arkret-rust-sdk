@@ -63,8 +63,14 @@ impl KeyBackupKeybag {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/key-backup-plaintext.schema.json`.
+///
+/// `Deserialize` is written by hand rather than derived: the schema puts the
+/// branch discriminator (`backup_kind`), the branch-only `effective_scope` and
+/// the `x_` extension namespace on the same object, and two `#[serde(flatten)]`
+/// targets cannot share one map without the extension map seeing the keybag's
+/// own members.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct KeyBackupPlaintext {
     pub schema: String,
     pub backup_id: BackupId,
@@ -74,6 +80,64 @@ pub struct KeyBackupPlaintext {
     pub keybag: KeyBackupKeybag,
     #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
     pub extra: XExtensionMap,
+}
+
+#[derive(Deserialize)]
+struct KeyBackupPlaintextWire {
+    schema: String,
+    backup_id: BackupId,
+    backup_kind: BackupKind,
+    series_id: BackupSeriesId,
+    series_seq: u64,
+    #[serde(default)]
+    effective_scope: Option<HistoryEffectiveScope>,
+    items: Vec<Value>,
+    #[serde(default, flatten)]
+    extra: XExtensionMap,
+}
+
+impl<'de> Deserialize<'de> for KeyBackupPlaintext {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error as _;
+
+        let wire = KeyBackupPlaintextWire::deserialize(deserializer)?;
+        let keybag = match (wire.backup_kind, wire.effective_scope) {
+            (BackupKind::SecretStorage, None) => KeyBackupKeybag::SecretStorage {
+                items: decode_keybag_items(wire.items).map_err(D::Error::custom)?,
+            },
+            (BackupKind::SecretStorage, Some(_)) => {
+                return Err(D::Error::custom(
+                    "secret_storage key backup plaintext must not carry effective_scope",
+                ));
+            }
+            (BackupKind::MlsHistory, Some(effective_scope)) => KeyBackupKeybag::MlsHistory {
+                effective_scope,
+                items: decode_keybag_items(wire.items).map_err(D::Error::custom)?,
+            },
+            (BackupKind::MlsHistory, None) => {
+                return Err(D::Error::custom(
+                    "mls_history key backup plaintext requires effective_scope",
+                ));
+            }
+        };
+        Ok(Self {
+            schema: wire.schema,
+            backup_id: wire.backup_id,
+            series_id: wire.series_id,
+            series_seq: wire.series_seq,
+            keybag,
+            extra: wire.extra,
+        })
+    }
+}
+
+fn decode_keybag_items<T: serde::de::DeserializeOwned>(
+    items: Vec<Value>,
+) -> std::result::Result<Vec<T>, serde_json::Error> {
+    items.into_iter().map(serde_json::from_value).collect()
 }
 
 impl KeyBackupPlaintext {
