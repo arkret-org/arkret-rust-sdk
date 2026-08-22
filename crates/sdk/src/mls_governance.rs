@@ -458,6 +458,26 @@ where
         false
     };
     let event_digest = Hash::new(event.event_digest_with_digest_suite(event_digest_suite)?)?;
+    let origin_admission = event
+        .proofs
+        .iter()
+        .find_map(|proof| match proof {
+            EventProof::PrincipalServerAdmission(value) => Some(value),
+            EventProof::Producer(_) => None,
+        })
+        .ok_or_else(|| WireError::Protocol("Agent Event omitted origin admission".to_owned()))?;
+    let producer_evidence_ref = origin_admission
+        .producer_signer_resolution_evidence_ref
+        .as_ref()
+        .ok_or_else(|| {
+            WireError::Protocol("Agent Event omitted producer evidence ref".to_owned())
+        })?;
+    let producer_evidence_digest = origin_admission
+        .producer_signer_resolution_evidence_digest
+        .as_ref()
+        .ok_or_else(|| {
+            WireError::Protocol("Agent Event omitted producer evidence digest".to_owned())
+        })?;
     let resolve_receiver = |method: &arkret_wire::DidUrl, at| {
         (method == &receipt_method && at == event_admission_receipt.accepted_at)
             .then(|| receiver_public_key.clone())
@@ -483,12 +503,14 @@ where
                 verified_state: &verified_state,
                 require_transparency: transparency.is_some(),
                 transparency_verified,
-                now: event_admission_receipt.accepted_at,
+                now: chrono::Utc::now(),
             },
             event_id: &event.event_id,
             event_digest: &event_digest,
             realm_id: &event.realm_id,
-            event_admitted_seal_id: &event_admission_receipt.event_admitted_seal_id,
+            producer_accepted_at: origin_admission.accepted_at,
+            producer_signer_resolution_evidence_ref: producer_evidence_ref,
+            producer_signer_resolution_evidence_digest: producer_evidence_digest,
             receiver_service_id: &event_admission_receipt.receiver_service_id,
             resolve_receiver_historical_key: &resolve_receiver,
         },

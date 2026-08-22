@@ -11,16 +11,17 @@ use arkret_models_identity::agent_signer_evidence::{
     AGENT_KEY_COMPONENT, AGENT_SIGNING_KEY_BINDING_CONTEXT, AGENT_STATUS_COMPONENT,
     AgentAdmissionEvidence, AgentAuthorizationStatus, AgentControllerProof,
     AgentCurrentObservation, AgentDetachedJws, AgentEventAdmissionReceipt,
-    AgentEvidenceOuterAttestation, AgentLifecycleStatus, AgentLifecycleWitness,
-    AgentSignerEvidence, AgentSigningKeyBinding, AgentSigningKeyBindingCore, AgentSigningPublicKey,
-    ControllerAccountEligibility, ControllerAccountStatus,
+    AgentEvidenceOuterAttestation, AgentHistoricalEvidenceOuterAttestation, AgentLifecycleStatus,
+    AgentLifecycleWitness, AgentSignerEvidence, AgentSigningKeyBinding, AgentSigningKeyBindingCore,
+    AgentSigningPublicKey, ControllerAccountEligibility, ControllerAccountStatus,
 };
 use arkret_wire::{
     CellRef, DidCoreId, DidFullId, DidUrl, Event, EventId, Hash, NonEmptyString, ProfileId,
-    ProtocolOperationId, RealmId, SchemaId, Seal, SealId, project_full_id_to_core_id,
+    ProtocolOperationId, RealmId, SchemaId, Seal, SealId, SignerEvidenceRef,
+    project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
-use ed25519_dalek::SigningKey;
+use ed25519_dalek::{Signer, SigningKey};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -90,14 +91,65 @@ pub fn sign_agent_evidence_outer_attestation(
     let outer = match evidence {
         AgentSignerEvidence::CurrentAdmission {
             outer_attestation, ..
-        }
-        | AgentSignerEvidence::HistoricalEvent {
-            outer_attestation, ..
         } => outer_attestation,
+        AgentSignerEvidence::HistoricalEvent { .. } => {
+            return Err(AgentEvidenceRejectedReason::WrongVerificationMode);
+        }
     };
     outer.core_digest = digest;
     outer.proof.jws = domain_proof_jws(OUTER_ATTESTATION_DOMAIN, outer, signing_key)?;
     Ok(())
+}
+
+pub fn sign_agent_historical_evidence_outer_attestation(
+    evidence: &mut AgentSignerEvidence,
+    signing_key: &SigningKey,
+) -> Result<(), AgentEvidenceRejectedReason> {
+    let digest = outer_core_digest(evidence)?;
+    let AgentSignerEvidence::HistoricalEvent {
+        outer_attestation, ..
+    } = evidence
+    else {
+        return Err(AgentEvidenceRejectedReason::WrongVerificationMode);
+    };
+    outer_attestation.core_digest = digest;
+    outer_attestation.proof.jws =
+        domain_proof_jws(OUTER_ATTESTATION_DOMAIN, outer_attestation, signing_key)?;
+    Ok(())
+}
+
+pub fn sign_agent_event_admission_receipt(
+    receipt: &mut AgentEventAdmissionReceipt,
+    receiver_verification_method: &DidUrl,
+    signing_key: &SigningKey,
+) -> Result<(), AgentEvidenceRejectedReason> {
+    if receipt.receiver_service_id != did_url_controller_core_id(receiver_verification_method)? {
+        return Err(AgentEvidenceRejectedReason::HistoricalReceiptMismatch);
+    }
+    receipt.proof.jws = domain_proof_jws_with_kid(
+        EVENT_ADMISSION_RECEIPT_DOMAIN,
+        receipt,
+        receiver_verification_method.as_str(),
+        signing_key,
+    )?;
+    Ok(())
+}
+
+pub fn verify_agent_event_admission_receipt(
+    receipt: &AgentEventAdmissionReceipt,
+    receiver_public_key: &PublicKeyMaterial,
+) -> Result<(), AgentEvidenceRejectedReason> {
+    let method = historical_receipt_verification_method(receipt)?;
+    if did_url_controller_core_id(&method)? != receipt.receiver_service_id {
+        return Err(AgentEvidenceRejectedReason::HistoricalReceiptMismatch);
+    }
+    verify_domain_proof(
+        EVENT_ADMISSION_RECEIPT_DOMAIN,
+        receipt,
+        &receipt.proof,
+        receiver_public_key,
+    )
+    .map_err(|_| AgentEvidenceRejectedReason::HistoricalReceiptMismatch)
 }
 
 fn domain_proof_jws(
@@ -115,6 +167,29 @@ fn domain_proof_jws(
     bytes.push(b'\n');
     bytes.extend_from_slice(&canonical);
     let jws = sign_ed25519_detached_jws(signing_key, &bytes)
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    NonEmptyString::new(jws).map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
+}
+
+fn domain_proof_jws_with_kid(
+    domain: &str,
+    value: &impl Serialize,
+    kid: &str,
+    signing_key: &SigningKey,
+) -> Result<NonEmptyString, AgentEvidenceRejectedReason> {
+    let mut value =
+        serde_json::to_value(value).map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    remove_nested_jws(&mut value)?;
+    let canonical = canonical::canonical_json_bytes(&value)
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    let mut bytes = Vec::with_capacity(domain.len() + 1 + canonical.len());
+    bytes.extend_from_slice(domain.as_bytes());
+    bytes.push(b'\n');
+    bytes.extend_from_slice(&canonical);
+    let input = crate::proof::ed25519_detached_jws_signing_input(&bytes, Some(kid))
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    let signature = signing_key.sign(input.as_bytes());
+    let jws = crate::proof::ed25519_detached_jws_from_signature(&signature.to_bytes(), Some(kid))
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
     NonEmptyString::new(jws).map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
 }
@@ -308,7 +383,9 @@ pub struct HistoricalAgentSignerEvidenceValidationContext<'a> {
     pub event_id: &'a EventId,
     pub event_digest: &'a Hash,
     pub realm_id: &'a RealmId,
-    pub event_admitted_seal_id: &'a SealId,
+    pub producer_accepted_at: DateTime<Utc>,
+    pub producer_signer_resolution_evidence_ref: &'a SignerEvidenceRef,
+    pub producer_signer_resolution_evidence_digest: &'a Hash,
     pub receiver_service_id: &'a DidCoreId,
     /// Resolve the exact receiver assertion key identified by the detached
     /// JWS protected `kid` at the receipt acceptance time.
@@ -790,8 +867,9 @@ pub fn validate_current_agent_signer_evidence(
     match validate_common_evidence(
         evidence,
         admission_evidence,
-        outer_attestation,
+        OuterAttestationRef::Current(outer_attestation),
         transparency.is_some(),
+        context.common.now,
         context.common.now,
         &context.common,
     ) {
@@ -847,11 +925,8 @@ pub fn validate_historical_agent_signer_evidence(
     {
         return rejected(AgentEvidenceRejectedReason::HistoricalReceiptMismatch);
     }
-    let receipt_method = match historical_receipt_protected_method(event_admission_receipt) {
-        Ok(Some(method)) => method,
-        Ok(None) => {
-            return AgentSignerEvidenceVerdict::Unresolved(AgentEvidenceUnresolvedReason::Stale);
-        }
+    let receipt_method = match historical_receipt_verification_method(event_admission_receipt) {
+        Ok(method) => method,
         Err(reason) => return rejected(reason),
     };
     if !did_url_controller_core_id(&receipt_method)
@@ -875,27 +950,12 @@ pub fn validate_historical_agent_signer_evidence(
     {
         return rejected(AgentEvidenceRejectedReason::HistoricalReceiptMismatch);
     }
-    let snapshot = &admission_evidence.agent_authority_snapshot;
-    let gate_digest =
-        match canonical_digest(&admission_evidence.controller_account_gate_attestation) {
-            Ok(digest) => digest,
-            Err(reason) => return rejected(reason),
-        };
-    if event_admission_receipt.admission_evidence_digest
-        != admission_evidence.admission_evidence_digest
-        || event_admission_receipt.agent_snapshot_digest != snapshot.snapshot_digest
-        || event_admission_receipt.agent_key_seal_id != snapshot.core.key_state_witness.seal_id
-        || event_admission_receipt.agent_status_seal_id
-            != snapshot.core.agent_lifecycle_witness.seal_id
-        || event_admission_receipt.controller_gate_attestation_digest != gate_digest
-    {
-        return rejected(AgentEvidenceRejectedReason::HistoricalReceiptMismatch);
-    }
     match validate_common_evidence(
         evidence,
         admission_evidence,
-        outer_attestation,
+        OuterAttestationRef::Historical(outer_attestation),
         transparency.is_some(),
+        event_admission_receipt.producer_accepted_at,
         event_admission_receipt.accepted_at,
         &context.common,
     ) {
@@ -912,6 +972,12 @@ enum CommonEvidenceFailure {
     Rejected(AgentEvidenceRejectedReason),
 }
 
+#[derive(Clone, Copy)]
+enum OuterAttestationRef<'a> {
+    Current(&'a AgentEvidenceOuterAttestation),
+    Historical(&'a AgentHistoricalEvidenceOuterAttestation),
+}
+
 impl From<AgentEvidenceRejectedReason> for CommonEvidenceFailure {
     fn from(reason: AgentEvidenceRejectedReason) -> Self {
         Self::Rejected(reason)
@@ -921,9 +987,10 @@ impl From<AgentEvidenceRejectedReason> for CommonEvidenceFailure {
 fn validate_common_evidence(
     evidence: &AgentSignerEvidence,
     admission: &AgentAdmissionEvidence,
-    outer: &AgentEvidenceOuterAttestation,
+    outer: OuterAttestationRef<'_>,
     has_transparency: bool,
     basis_time: DateTime<Utc>,
+    outer_not_before: DateTime<Utc>,
     context: &AgentEvidenceCommonContext<'_>,
 ) -> Result<VerifiedAgentSigningKey, CommonEvidenceFailure> {
     let snapshot = &admission.agent_authority_snapshot;
@@ -947,9 +1014,47 @@ fn validate_common_evidence(
         controller_account_gate_attestation: gate,
     })?;
     let expected_outer_core_digest = outer_core_digest(evidence)?;
+    let (outer_domain, outer_core_digest_value, outer_source_service_id_value, outer_method) =
+        match outer {
+            OuterAttestationRef::Current(value) => (
+                &value.domain,
+                &value.core_digest,
+                &value.source_service_id,
+                &value.verification_method,
+            ),
+            OuterAttestationRef::Historical(value) => (
+                &value.domain,
+                &value.core_digest,
+                &value.source_service_id,
+                &value.verification_method,
+            ),
+        };
     let lease_authority_service_id =
         did_url_controller_core_id(&snapshot.lease.verification_method)?;
-    let outer_source_service_id = did_url_controller_core_id(&outer.verification_method)?;
+    let outer_source_service_id = did_url_controller_core_id(outer_method)?;
+    let outer_time_valid = match outer {
+        OuterAttestationRef::Current(value) => {
+            value.issued_at < value.expires_at && context.now >= value.issued_at
+        }
+        OuterAttestationRef::Historical(value) => {
+            value.attested_at >= outer_not_before && value.attested_at <= context.now
+        }
+    };
+    let outer_proof_valid = match outer {
+        OuterAttestationRef::Current(value) => verify_domain_proof(
+            OUTER_ATTESTATION_DOMAIN,
+            value,
+            &value.proof,
+            context.authority_public_key,
+        ),
+        OuterAttestationRef::Historical(value) => verify_domain_proof(
+            OUTER_ATTESTATION_DOMAIN,
+            value,
+            &value.proof,
+            context.authority_public_key,
+        ),
+    }
+    .is_ok();
     if snapshot.snapshot_digest != expected_snapshot_digest
         || admission.admission_evidence_digest != expected_admission_digest
         || snapshot.lease.authority_kind.as_str() != "agent_authority"
@@ -959,13 +1064,12 @@ fn validate_common_evidence(
         || snapshot.lease.snapshot_digest != snapshot.snapshot_digest
         || lease_authority_service_id != snapshot.lease.authority_service_id
         || snapshot.lease.issued_at >= snapshot.lease.expires_at
-        || outer.domain.as_str() != OUTER_ATTESTATION_DOMAIN
-        || outer.core_digest != expected_outer_core_digest
-        || outer.source_service_id != *context.expected_authority_service_id
-        || outer.verification_method != *context.expected_authority_verification_method
-        || outer_source_service_id != outer.source_service_id
-        || outer.issued_at >= outer.expires_at
-        || context.now < outer.issued_at
+        || outer_domain.as_str() != OUTER_ATTESTATION_DOMAIN
+        || *outer_core_digest_value != expected_outer_core_digest
+        || *outer_source_service_id_value != *context.expected_authority_service_id
+        || *outer_method != *context.expected_authority_verification_method
+        || outer_source_service_id != *outer_source_service_id_value
+        || !outer_time_valid
         || basis_time < snapshot.lease.issued_at
         || verify_domain_proof(
             SNAPSHOT_LEASE_DOMAIN,
@@ -974,19 +1078,17 @@ fn validate_common_evidence(
             context.authority_public_key,
         )
         .is_err()
-        || verify_domain_proof(
-            OUTER_ATTESTATION_DOMAIN,
-            outer,
-            &outer.proof,
-            context.authority_public_key,
-        )
-        .is_err()
+        || !outer_proof_valid
     {
         return Err(CommonEvidenceFailure::Rejected(
             AgentEvidenceRejectedReason::SigningKeyMismatch,
         ));
     }
-    if context.now >= outer.expires_at || basis_time >= snapshot.lease.expires_at {
+    let current_outer_stale = match outer {
+        OuterAttestationRef::Current(value) => context.now >= value.expires_at,
+        OuterAttestationRef::Historical(_) => false,
+    };
+    if current_outer_stale || basis_time >= snapshot.lease.expires_at {
         return Err(CommonEvidenceFailure::Unresolved(
             AgentEvidenceUnresolvedReason::Stale,
         ));
@@ -1158,10 +1260,13 @@ fn historical_receipt_matches(
         && receipt.event_id == *context.event_id
         && receipt.event_digest == *context.event_digest
         && receipt.realm_id == *context.realm_id
-        && receipt.event_admitted_seal_id == *context.event_admitted_seal_id
+        && receipt.producer_accepted_at == context.producer_accepted_at
         && receipt.agent_id == *context.common.signer_id
         && receipt.verification_method == *context.common.verification_method
-        && receipt.agent_key_authorize_event_id == *context.common.agent_key_authorize_event_id
+        && receipt.producer_signer_resolution_evidence_ref
+            == *context.producer_signer_resolution_evidence_ref
+        && receipt.producer_signer_resolution_evidence_digest
+            == *context.producer_signer_resolution_evidence_digest
         && receipt.receiver_service_id == *context.receiver_service_id
         && receipt.proof.kind.as_str() == DETACHED_JWS_KIND
 }

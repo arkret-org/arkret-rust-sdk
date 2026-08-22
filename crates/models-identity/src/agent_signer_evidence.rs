@@ -6,7 +6,7 @@
 
 use arkret_wire::{
     Base64UrlString, DidCoreId, DidUrl, Event, EventId, Hash, NonEmptyString, ProtocolOperationId,
-    RealmId, RequestId, SchemaId, Seal, SealId,
+    RealmId, RequestId, SchemaId, Seal, SealId, SignerEvidenceRef,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -419,17 +419,14 @@ pub struct AgentEventAdmissionReceipt {
     pub event_id: EventId,
     pub event_digest: Hash,
     pub realm_id: RealmId,
-    pub event_admitted_seal_id: SealId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub producer_accepted_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub agent_id: DidCoreId,
     pub verification_method: DidUrl,
-    pub agent_key_authorize_event_id: EventId,
-    pub admission_evidence_digest: Hash,
-    pub agent_snapshot_digest: Hash,
-    pub agent_key_seal_id: SealId,
-    pub agent_status_seal_id: SealId,
-    pub controller_gate_attestation_digest: Hash,
+    pub producer_signer_resolution_evidence_ref: SignerEvidenceRef,
+    pub producer_signer_resolution_evidence_digest: Hash,
     pub receiver_service_id: DidCoreId,
     pub proof: AgentDetachedJws,
 }
@@ -446,6 +443,19 @@ pub struct AgentEvidenceOuterAttestation {
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
+    pub proof: AgentDetachedJws,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AgentHistoricalEvidenceOuterAttestation {
+    pub domain: NonEmptyString,
+    pub core_digest: Hash,
+    pub source_service_id: DidCoreId,
+    pub verification_method: DidUrl,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub attested_at: DateTime<Utc>,
     pub proof: AgentDetachedJws,
 }
 
@@ -515,7 +525,7 @@ pub enum AgentSignerEvidence {
         schema: NonEmptyString,
         admission_evidence: AgentAdmissionEvidence,
         event_admission_receipt: AgentEventAdmissionReceipt,
-        outer_attestation: AgentEvidenceOuterAttestation,
+        outer_attestation: AgentHistoricalEvidenceOuterAttestation,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         transparency: Option<AgentEvidenceTransparency>,
     },

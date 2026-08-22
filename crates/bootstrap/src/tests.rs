@@ -123,6 +123,8 @@ fn attach_fixture_admission_proof(event: &mut Event) {
             .unwrap(),
         producer_verification_method: producer.verification_method.clone(),
         producer_signing_key: DidKey::new(founding_device_public_key()).unwrap(),
+        producer_signer_resolution_evidence_ref: None,
+        producer_signer_resolution_evidence_digest: None,
         signer_resolution_evidence_ref: arkret_wire::SignerEvidenceRef::new(format!(
             "ak:signer_evidence:sha256:{}",
             "11".repeat(32)
