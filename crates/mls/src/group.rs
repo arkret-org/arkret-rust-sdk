@@ -11,8 +11,10 @@ use arkret_models_crypto::{
     verify_mls_governance_binding_extension,
 };
 use arkret_wire::{
-    DeviceId, DidCoreId, EncryptedPayloadScheme, EventId, Hash, MLS_CIPHERSUITES, ReasonCode,
-    ScopeRef, canonical,
+    DeviceId, DidCoreId, EncryptedPayloadScheme, EventCandidateBinding, EventCandidateBindingKey,
+    EventCandidateBindingOutcome, EventId, Hash, HistoryCandidateMaterialRecord,
+    HistoryEffectiveScope, LocalAuthoritativeHistorySecret, MLS_CIPHERSUITES, ReasonCode, ScopeRef,
+    canonical,
 };
 use chrono::Utc;
 use hkdf::Hkdf;
@@ -645,6 +647,57 @@ impl ArkretMlsGroup {
             .range(from_epoch..=to_epoch)
             .map(|(epoch, secret)| (*epoch, secret.clone()))
             .collect()
+    }
+
+    /// Export one retained epoch secret as a `local_authoritative` record.
+    ///
+    /// This is the only constructor of that record class in the SDK, and it
+    /// takes the secret from **this** group rather than from an argument:
+    /// `key-management.md:864-866` admits a secret as `local_authoritative`
+    /// only when the endpoint exported it from an MLS state it fully verified
+    /// and actually applied, and holding an [`ArkretMlsGroup`] at that epoch is
+    /// exactly that evidence. Material from a history response, an
+    /// organization-recovery archive or a portable backup can never reach this
+    /// path, so it stays an `external_candidate` by construction.
+    ///
+    /// The caller supplies only the coordinates it alone knows: the durable
+    /// local post-state handle and the exact `ak.component.mls.epoch.v1` winner
+    /// tuple (`history-visibility.md:501-503`). All three transition fields are
+    /// required, because the record's whole purpose is to make the post-state
+    /// the secret came from checkable later.
+    pub fn export_local_authoritative_history_secret(
+        &self,
+        effective_scope: &HistoryEffectiveScope,
+        epoch: u64,
+        local_state_ref: &str,
+        transition_ref: &EventId,
+        transition_event_digest: &Hash,
+        mls_transition_digest: &Hash,
+    ) -> Result<LocalAuthoritativeHistorySecret> {
+        let mls_group_id = effective_scope.canonical_mls_group_id()?;
+        if mls_group_id != self.group_id() {
+            return Err(Error::Protocol(
+                "effective scope does not derive this MLS group id".to_owned(),
+            ));
+        }
+        let secret = self.history_secrets.get(&epoch).ok_or_else(|| {
+            Error::Protocol(format!(
+                "no locally derived history secret is retained for epoch {epoch}"
+            ))
+        })?;
+        let record = LocalAuthoritativeHistorySecret {
+            effective_scope: effective_scope.clone(),
+            mls_group_id,
+            epoch,
+            mls_ciphersuite: self.group_ciphersuite_canonical_id()?.to_owned(),
+            local_state_ref: local_state_ref.to_owned(),
+            transition_ref: transition_ref.clone(),
+            transition_event_digest: transition_event_digest.clone(),
+            mls_transition_digest: mls_transition_digest.clone(),
+            secret_b64u: base64url_encode(secret.as_slice()),
+        };
+        record.validate()?;
+        Ok(record)
     }
 
     /// The AEAD suite this group negotiated, resolved through
@@ -1782,6 +1835,91 @@ pub fn decrypt_content_exporter_aead_standalone(
     )?;
     let aead_aad = header.canonical_bytes()?;
     suite.open(&content_key, &nonce, &aead_aad, ciphertext)
+}
+
+/// What trying one exact received candidate against one exact accepted Event
+/// established.
+///
+/// The AEAD result has exactly two carriers and no third one: a single
+/// `EventCandidateBinding` row, and — only on success — the plaintext. Nothing
+/// here promotes the candidate or the epoch, and the type deliberately has no
+/// field that could
+/// (`history-visibility.md:140`, `:437-440`).
+#[derive(Clone, Debug)]
+#[must_use = "the binding must be recorded whether the attempt succeeded or failed"]
+pub struct EventCandidateAttempt {
+    pub binding: EventCandidateBinding,
+    pub plaintext: Option<Vec<u8>>,
+}
+
+/// Try one received history-secret candidate against one exact accepted Event
+/// and return the Event→candidate binding it establishes.
+///
+/// This is the only place the `mls_exporter_aead_v1` open result is turned into
+/// a store decision. `history-visibility.md:436-440` requires the caller to
+/// have verified the outer Event proof, the scope/group/epoch, the sender
+/// domain and the reconstructed AAD before a candidate is tried; the
+/// consistency half of that (candidate coordinates, binding key and
+/// pre-encryption header all naming the same scope/group/epoch/sender) is
+/// enforced here so no caller can bind a plaintext to the wrong Event.
+///
+/// `mls_ciphersuite` MUST come from the exact verified historical group state,
+/// not from the envelope: an unregistered suite is a hard error rather than a
+/// failure binding, because it would otherwise turn a configuration fault into
+/// "every candidate failed".
+pub fn bind_event_candidate(
+    candidate: &HistoryCandidateMaterialRecord,
+    event_binding_key: &EventCandidateBindingKey,
+    header: &EventContentPreEncryptionHeader,
+    mls_ciphersuite: &str,
+    ciphertext: &[u8],
+    first_observed_at: chrono::DateTime<Utc>,
+) -> Result<EventCandidateAttempt> {
+    candidate.validate()?;
+    event_binding_key.validate()?;
+    header.validate()?;
+    let _ = ExporterAeadSuite::resolve(mls_ciphersuite)?;
+    if candidate.material_key.effective_scope != event_binding_key.effective_scope
+        || candidate.material_key.mls_group_id != event_binding_key.mls_group_id
+        || candidate.material_key.epoch != event_binding_key.epoch
+    {
+        return Err(Error::Protocol(
+            "history candidate coordinates differ from the Event binding key".to_owned(),
+        ));
+    }
+    if header.mls_group_id != event_binding_key.mls_group_id
+        || header.epoch != event_binding_key.epoch
+        || header.sender_domain != event_binding_key.verified_sender_domain
+        || header.effective_scope != ScopeRef::from(event_binding_key.effective_scope.clone())
+    {
+        return Err(Error::Protocol(
+            "exporter content header differs from the Event binding key".to_owned(),
+        ));
+    }
+    let secret = base64url_decode(candidate.secret_b64u.as_bytes())
+        .map_err(|error| Error::Protocol(format!("invalid history candidate bytes: {error}")))?;
+    let plaintext = decrypt_content_exporter_aead_standalone(
+        &secret,
+        event_binding_key.verified_sender_domain.as_bytes(),
+        header,
+        mls_ciphersuite,
+        ciphertext,
+    )
+    .ok();
+    let outcome = if plaintext.is_some() {
+        EventCandidateBindingOutcome::Success
+    } else {
+        EventCandidateBindingOutcome::Failure
+    };
+    Ok(EventCandidateAttempt {
+        binding: EventCandidateBinding::new(
+            event_binding_key.clone(),
+            candidate.material_key.candidate_digest.clone(),
+            outcome,
+            first_observed_at,
+        )?,
+        plaintext,
+    })
 }
 
 /// `K_content[N,S] = ExpandWithLabel(history_secret[N], "ak.content-v1", S, AEAD.Nk)`

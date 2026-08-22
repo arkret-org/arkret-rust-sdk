@@ -238,6 +238,116 @@ pub enum HistoryCandidateOriginAttribution {
 }
 
 impl HistoryCandidateOriginAttribution {
+    /// The received-material instance this row attributes. Origin is
+    /// deliberately not part of material identity, so several rows share one
+    /// key (`history-visibility.md:409-412`).
+    pub fn material_key(&self) -> &HistoryCandidateMaterialKey {
+        match self {
+            Self::ResponseSender { material_key, .. }
+            | Self::RrkArchive { material_key, .. }
+            | Self::PortableBackup { material_key, .. } => material_key,
+        }
+    }
+
+    /// The closed `history_candidate_origin_domain` discriminator.
+    pub fn origin_domain(&self) -> HistoryCandidateOriginDomain {
+        match self {
+            Self::ResponseSender { .. } => HistoryCandidateOriginDomain::ResponseSender,
+            Self::RrkArchive { .. } => HistoryCandidateOriginDomain::RrkArchive,
+            Self::PortableBackup { .. } => HistoryCandidateOriginDomain::PortableBackup,
+        }
+    }
+
+    /// RFC 8785 canonical bytes of the stable `origin_quota_domain`. Every
+    /// per-domain quota is counted over exactly these bytes, never over the
+    /// retrieval-only `origin_ref`.
+    pub fn origin_quota_domain_bytes(&self) -> Result<Vec<u8>> {
+        Ok(match self {
+            Self::ResponseSender {
+                origin_quota_domain,
+                ..
+            } => arkret_wire::canonical::canonical_json_bytes(origin_quota_domain)?,
+            Self::RrkArchive {
+                origin_quota_domain,
+                ..
+            } => arkret_wire::canonical::canonical_json_bytes(origin_quota_domain)?,
+            Self::PortableBackup {
+                origin_quota_domain,
+                ..
+            } => arkret_wire::canonical::canonical_json_bytes(origin_quota_domain)?,
+        })
+    }
+
+    /// RFC 8785 canonical bytes of the retrieval-only `origin_ref`. It
+    /// completes the ledger row key and never selects quota identity.
+    pub fn origin_ref_bytes(&self) -> Result<Vec<u8>> {
+        Ok(match self {
+            Self::ResponseSender { origin_ref, .. } => {
+                arkret_wire::canonical::canonical_json_bytes(origin_ref)?
+            }
+            Self::RrkArchive { origin_ref, .. } => {
+                arkret_wire::canonical::canonical_json_bytes(origin_ref)?
+            }
+            Self::PortableBackup { origin_ref, .. } => {
+                arkret_wire::canonical::canonical_json_bytes(origin_ref)?
+            }
+        })
+    }
+
+    pub fn first_observed_at(&self) -> DateTime<Utc> {
+        match self {
+            Self::ResponseSender {
+                first_observed_at, ..
+            }
+            | Self::RrkArchive {
+                first_observed_at, ..
+            }
+            | Self::PortableBackup {
+                first_observed_at, ..
+            } => *first_observed_at,
+        }
+    }
+
+    pub fn expires_at(&self) -> DateTime<Utc> {
+        match self {
+            Self::ResponseSender { expires_at, .. }
+            | Self::RrkArchive { expires_at, .. }
+            | Self::PortableBackup { expires_at, .. } => *expires_at,
+        }
+    }
+
+    /// Exact ledger-row identity `(material_key, origin_domain, origin_ref)`.
+    /// An exact duplicate is a no-op and never refreshes `first_observed_at`.
+    pub fn is_same_row(&self, other: &Self) -> Result<bool> {
+        Ok(self.material_key() == other.material_key()
+            && self.origin_domain() == other.origin_domain()
+            && self.origin_ref_bytes()? == other.origin_ref_bytes()?)
+    }
+
+    /// Whether two rows share one exact
+    /// `(scope, group, epoch, origin_domain, origin_quota_domain)` quota bucket.
+    pub fn is_same_quota_bucket(&self, other: &Self) -> Result<bool> {
+        Ok(self
+            .material_key()
+            .is_same_scope_group_epoch(other.material_key())
+            && self.origin_domain() == other.origin_domain()
+            && self.origin_quota_domain_bytes()? == other.origin_quota_domain_bytes()?)
+    }
+
+    /// `(expires_at, candidate_digest, origin_domain, JCS(origin_quota_domain),
+    /// JCS(origin_ref))` — the canonical tuple an over-cap ledger keeps the
+    /// minimum of (`history-visibility.md:433-434`).
+    pub fn canonical_retention_key(&self) -> Result<Vec<u8>> {
+        arkret_wire::canonical::canonical_json_bytes(&serde_json::json!([
+            self.expires_at(),
+            self.material_key().candidate_digest,
+            self.origin_domain(),
+            serde_json::from_slice::<serde_json::Value>(&self.origin_quota_domain_bytes()?)?,
+            serde_json::from_slice::<serde_json::Value>(&self.origin_ref_bytes()?)?,
+        ]))
+        .map_err(Into::into)
+    }
+
     pub fn validate(&self) -> Result<()> {
         const IMMUTABLE_ORIGIN_LIFETIME_SECONDS: i64 = 2_592_000;
 
