@@ -179,14 +179,15 @@ pub fn verify_public_principal_resolution_history(
 
     let projection = &resolution.resolution_projection;
     if project_full_id_to_core_id(&projection.full_id)
-        .map_err(|error| Error::Protocol(error.to_string()))?
+        .map_err(|error| WireError::Protocol(error.to_string()))?
         != resolution.principal_id
         || principal_document.id != projection.full_id
         || projection.updated_at > resolution.projection_attestation.attestation.issued_at
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "principal resolution projection does not bind its identity document".to_owned(),
-        ));
+        )
+        .into());
     }
     let evidence = &resolution.method_history_evidence;
     evidence.validate_shape().map_err(wire)?;
@@ -196,16 +197,18 @@ pub fn verify_public_principal_resolution_history(
         || boundary.from_version_id != projection.version_id
         || boundary.to_version_id != projection.version_id
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "principal resolution method-history boundary differs from the projection".to_owned(),
-        ));
+        )
+        .into());
     }
     let document_digest = Hash::new(arkret_canonical::canonical_sha256(principal_document)?)
-        .map_err(|error| Error::Protocol(error.to_string()))?;
+        .map_err(|error| WireError::Protocol(error.to_string()))?;
     if evidence.evidence().document_digest != document_digest {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "principal resolution evidence binds a different DID document".to_owned(),
-        ));
+        )
+        .into());
     }
 
     match evidence {
@@ -216,7 +219,7 @@ pub fn verify_public_principal_resolution_history(
             ..
         } => {
             let first = log_entries.first().ok_or_else(|| {
-                Error::Protocol("principal WebVH resolution has no log entries".to_owned())
+                WireError::Protocol("principal WebVH resolution has no log entries".to_owned())
             })?;
             let complete_boundary = ResolutionMethodEvidenceBoundary {
                 from_method_history_head: history_head(first)?.to_owned(),
@@ -237,9 +240,10 @@ pub fn verify_public_principal_resolution_history(
         }
         ResolutionMethodHistoryEvidence::DidKeyExpansion { .. } => {
             if projection.full_id.method() != "key" {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "did:key evidence was supplied for another DID method".to_owned(),
-                ));
+                )
+                .into());
             }
             let expected = DidKeyResolver::new()
                 .resolve_did(&projection.full_id)?
@@ -250,15 +254,16 @@ pub fn verify_public_principal_resolution_history(
                 &Hash::new(arkret_canonical::sha256_digest(
                     projection.full_id.as_str().as_bytes(),
                 ))
-                .map_err(|error| Error::Protocol(error.to_string()))?,
+                .map_err(|error| WireError::Protocol(error.to_string()))?,
                 "synthetic-full-id-sha256:",
             )?;
         }
         ResolutionMethodHistoryEvidence::DidWebDocument { .. } => {
             if projection.full_id.method() != "web" {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "did:web evidence was supplied for another DID method".to_owned(),
-                ));
+                )
+                .into());
             }
             verify_synthetic_projection_coordinates(
                 projection,
@@ -293,15 +298,15 @@ pub fn verify_embedded_public_principal_resolution_history(
         } => {
             let log_bytes = json_lines(log_entries)?;
             let witness_bytes = arkret_canonical::canonical_json_bytes(witness_records)
-                .map_err(|error| Error::Protocol(error.to_string()))?;
+                .map_err(|error| WireError::Protocol(error.to_string()))?;
             let verified = verify_did_webvh_v1_chain_and_witness_bytes(
                 &projection.full_id,
                 &log_bytes,
                 (!witness_records.is_empty()).then_some(witness_bytes.as_slice()),
             )
-            .map_err(|error| Error::Protocol(error.to_string()))?;
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
             serde_json::from_value(verified.log.head_state).map_err(|error| {
-                Error::Protocol(format!("invalid principal WebVH head document: {error}"))
+                WireError::Protocol(format!("invalid principal WebVH head document: {error}"))
             })?
         }
         ResolutionMethodHistoryEvidence::DidKeyExpansion { .. } => {
@@ -310,10 +315,11 @@ pub fn verify_embedded_public_principal_resolution_history(
                 .document
         }
         ResolutionMethodHistoryEvidence::DidWebDocument { .. } => {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "did:web public resolution requires an independently fetched current document"
                     .to_owned(),
-            ));
+            )
+            .into());
         }
     };
     let projection = verify_public_principal_resolution_history(
@@ -331,15 +337,16 @@ fn verify_synthetic_projection_coordinates(
     version_prefix: &str,
 ) -> Result<()> {
     let digest_hex = digest.as_str().strip_prefix("sha256:").ok_or_else(|| {
-        Error::Protocol("principal resolution digest omits its suite prefix".to_owned())
+        WireError::Protocol("principal resolution digest omits its suite prefix".to_owned())
     })?;
     if projection.method_history_head != digest.as_str()
         || projection.version_id != format!("{version_prefix}{digest_hex}")
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "principal resolution synthetic coordinates do not match the DID method evidence"
                 .to_owned(),
-        ));
+        )
+        .into());
     }
     Ok(())
 }
