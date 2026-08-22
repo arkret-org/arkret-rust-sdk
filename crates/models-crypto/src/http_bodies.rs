@@ -322,41 +322,122 @@ impl PeerKeyPackagesClaimRequestBody {
     }
 
     pub fn validate_shape(&self) -> Result<(), PeerKeyPackageClaimShapeError> {
-        validate_peer_claim_fields(&self.unsigned_request())?;
-        match &self.requester_authorization {
-            PeerKeyPackageRequesterAuthorization::Device {
-                verification_method,
-                requester_device_id,
-                device_authorize_event_id,
-                signature,
-                ..
-            } => {
-                if signature.kid.as_str() != verification_method.as_str() {
-                    return Err(PeerKeyPackageClaimShapeError::VerificationMethodMismatch);
-                }
-                let _ = (requester_device_id, device_authorize_event_id);
-            }
-            PeerKeyPackageRequesterAuthorization::NativeAgent {
-                verification_method,
-                requester_agent_id,
-                agent_key_authorize_event_id,
-                signature,
-                ..
-            } => {
-                if signature.kid.as_str() != verification_method.as_str()
-                    || requester_agent_id != &self.requester
-                {
-                    return Err(PeerKeyPackageClaimShapeError::VerificationMethodMismatch);
-                }
-                let _ = agent_key_authorize_event_id;
-            }
-        }
-        Ok(())
+        validate_key_packages_claim_request_shape(
+            &self.unsigned_request(),
+            &self.requester,
+            &self.requester_authorization,
+        )
     }
 }
 
-/// Canonical KeyPackage claim request shared by self and peer operations.
-pub type KeyPackagesClaimRequestBody = PeerKeyPackagesClaimRequestBody;
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeyPackagesClaimRequestBody {
+    pub claim_request_id: Base64UrlString,
+    pub target_principal_id: DidCoreId,
+    pub requester: DidCoreId,
+    pub intended_realm_id: RealmId,
+    pub mls_group_id: NonEmptyString,
+    pub claim_purpose: PeerKeyPackageClaimPurpose,
+    pub required_capabilities: Vec<NonEmptyString>,
+    pub claim_nonce: Base64UrlString,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub target_device_ids: Vec<DeviceId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_keypackage_ref: Option<KeyPackageRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_agent_id: Option<DidCoreId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_agent_verification_method: Option<DidUrl>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_agent_key_authorize_event_id: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub minimal_metadata_allowed: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strand_id: Option<StrandId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pair_key: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_resort_allowed: Option<bool>,
+    pub service_binding: KeyPackagesClaimServiceBinding,
+    pub requester_authorization: PeerKeyPackageRequesterAuthorization,
+}
+
+impl KeyPackagesClaimRequestBody {
+    pub fn unsigned_request(&self) -> PeerKeyPackagesClaimUnsignedRequest {
+        PeerKeyPackagesClaimUnsignedRequest {
+            claim_request_id: self.claim_request_id.clone(),
+            target_principal_id: self.target_principal_id.clone(),
+            requester: self.requester.clone(),
+            intended_realm_id: self.intended_realm_id.clone(),
+            mls_group_id: self.mls_group_id.clone(),
+            claim_purpose: self.claim_purpose,
+            required_capabilities: self.required_capabilities.clone(),
+            claim_nonce: self.claim_nonce.clone(),
+            expires_at: self.expires_at,
+            target_device_ids: self.target_device_ids.clone(),
+            target_keypackage_ref: self.target_keypackage_ref.clone(),
+            target_agent_id: self.target_agent_id.clone(),
+            target_agent_verification_method: self.target_agent_verification_method.clone(),
+            target_agent_key_authorize_event_id: self.target_agent_key_authorize_event_id.clone(),
+            minimal_metadata_allowed: self.minimal_metadata_allowed,
+            timeout_ms: self.timeout_ms,
+            strand_id: self.strand_id.clone(),
+            pair_key: self.pair_key.clone(),
+            last_resort_allowed: self.last_resort_allowed,
+        }
+    }
+
+    pub fn validate_shape(&self) -> Result<(), PeerKeyPackageClaimShapeError> {
+        validate_key_packages_claim_request_shape(
+            &self.unsigned_request(),
+            &self.requester,
+            &self.requester_authorization,
+        )
+    }
+}
+
+fn validate_key_packages_claim_request_shape(
+    unsigned_request: &PeerKeyPackagesClaimUnsignedRequest,
+    requester: &DidCoreId,
+    requester_authorization: &PeerKeyPackageRequesterAuthorization,
+) -> Result<(), PeerKeyPackageClaimShapeError> {
+    validate_peer_claim_fields(unsigned_request)?;
+    match requester_authorization {
+        PeerKeyPackageRequesterAuthorization::Device {
+            verification_method,
+            requester_device_id,
+            device_authorize_event_id,
+            signature,
+            ..
+        } => {
+            if signature.kid.as_str() != verification_method.as_str() {
+                return Err(PeerKeyPackageClaimShapeError::VerificationMethodMismatch);
+            }
+            let _ = (requester_device_id, device_authorize_event_id);
+        }
+        PeerKeyPackageRequesterAuthorization::NativeAgent {
+            verification_method,
+            requester_agent_id,
+            agent_key_authorize_event_id,
+            signature,
+            ..
+        } => {
+            if signature.kid.as_str() != verification_method.as_str()
+                || requester_agent_id != requester
+            {
+                return Err(PeerKeyPackageClaimShapeError::VerificationMethodMismatch);
+            }
+            let _ = agent_key_authorize_event_id;
+        }
+    }
+    Ok(())
+}
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -384,36 +465,64 @@ pub struct PeerKeyPackagesClaimOutcome {
     pub claim_receipt: PeerKeyPackageClaimReceipt,
 }
 
-/// Canonical KeyPackage claim outcome shared by self and peer operations.
-pub type KeyPackagesClaimOutcome = PeerKeyPackagesClaimOutcome;
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeyPackagesClaimOutcome {
+    pub claim_request_id: Base64UrlString,
+    pub claims: Vec<KeyPackageClaimRecord>,
+    pub claim_receipt: PeerKeyPackageClaimReceipt,
+}
+
+impl KeyPackagesClaimOutcome {
+    /// Enforce the cross-field receipt/outcome bindings that JSON Schema
+    /// cannot express by itself.
+    pub fn validate_shape(&self) -> Result<(), PeerKeyPackageClaimShapeError> {
+        validate_key_packages_claim_outcome_shape(
+            &self.claim_request_id,
+            &self.claims,
+            &self.claim_receipt,
+        )
+    }
+}
 
 impl PeerKeyPackagesClaimOutcome {
     /// Enforce the cross-field receipt/outcome bindings that JSON Schema
     /// cannot express by itself.
     pub fn validate_shape(&self) -> Result<(), PeerKeyPackageClaimShapeError> {
-        let receipt = &self.claim_receipt;
-        if self.claims.is_empty()
-            || self.claim_request_id != receipt.claim_request_id
-            || receipt.claim_request_id != receipt.request.claim_request_id
-            || receipt.request.expires_at != receipt.expires_at
-            || receipt.claimed_at >= receipt.expires_at
-            || self
-                .claims
-                .iter()
-                .any(|claim| claim.expires_at < receipt.expires_at)
-        {
-            return Err(PeerKeyPackageClaimShapeError::InvalidClaimOutcome);
-        }
-        for claim in &self.claims {
-            validate_target_claim_evidence(claim, receipt)?;
-        }
-        let claims_digest = arkret_canonical::canonical_sha256(&self.claims)
-            .map_err(|_| PeerKeyPackageClaimShapeError::InvalidClaimOutcome)?;
-        if receipt.claims_digest.as_str() != claims_digest {
-            return Err(PeerKeyPackageClaimShapeError::InvalidClaimOutcome);
-        }
-        Ok(())
+        validate_key_packages_claim_outcome_shape(
+            &self.claim_request_id,
+            &self.claims,
+            &self.claim_receipt,
+        )
     }
+}
+
+fn validate_key_packages_claim_outcome_shape(
+    claim_request_id: &Base64UrlString,
+    claims: &[KeyPackageClaimRecord],
+    receipt: &PeerKeyPackageClaimReceipt,
+) -> Result<(), PeerKeyPackageClaimShapeError> {
+    if claims.is_empty()
+        || claim_request_id != &receipt.claim_request_id
+        || receipt.claim_request_id != receipt.request.claim_request_id
+        || receipt.request.expires_at != receipt.expires_at
+        || receipt.claimed_at >= receipt.expires_at
+        || claims
+            .iter()
+            .any(|claim| claim.expires_at < receipt.expires_at)
+    {
+        return Err(PeerKeyPackageClaimShapeError::InvalidClaimOutcome);
+    }
+    for claim in claims {
+        validate_target_claim_evidence(claim, receipt)?;
+    }
+    let claims_digest = arkret_canonical::canonical_sha256(&claims)
+        .map_err(|_| PeerKeyPackageClaimShapeError::InvalidClaimOutcome)?;
+    if receipt.claims_digest.as_str() != claims_digest {
+        return Err(PeerKeyPackageClaimShapeError::InvalidClaimOutcome);
+    }
+    Ok(())
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

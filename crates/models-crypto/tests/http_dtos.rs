@@ -1,9 +1,26 @@
-use arkret_models_crypto::http_bodies::KeyPackagesClaimOutcome;
+use std::any::TypeId;
+
+use arkret_models_crypto::http_bodies::{
+    KeyPackagesClaimOutcome, KeyPackagesClaimRequestBody, PeerKeyPackagesClaimOutcome,
+    PeerKeyPackagesClaimRequestBody,
+};
 use arkret_wire::DidCoreId;
 use serde_json::json;
 
 fn did(_name: &str) -> DidCoreId {
     DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
+}
+
+#[test]
+fn self_and_peer_keypackage_claim_dtos_have_distinct_schema_identities() {
+    assert_ne!(
+        TypeId::of::<KeyPackagesClaimRequestBody>(),
+        TypeId::of::<PeerKeyPackagesClaimRequestBody>()
+    );
+    assert_ne!(
+        TypeId::of::<KeyPackagesClaimOutcome>(),
+        TypeId::of::<PeerKeyPackagesClaimOutcome>()
+    );
 }
 
 #[test]
