@@ -98,7 +98,31 @@ impl EventCellContractError {
 /// Frozen cell values used while evaluating registry-declared pre-state
 /// requirements. A missing entry is a failed requirement, never an implicit
 /// bottom value.
-pub type FrozenPreState = BTreeMap<CellRef, Value>;
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct FrozenPreState(BTreeMap<CellRef, Value>);
+
+impl FrozenPreState {
+    /// Create an empty pre-state snapshot.
+    pub const fn new() -> Self {
+        Self(BTreeMap::new())
+    }
+
+    /// Add one frozen cell value while assembling the snapshot.
+    pub fn insert(&mut self, cell: CellRef, value: Value) -> Option<Value> {
+        self.0.insert(cell, value)
+    }
+
+    /// Read one value from the frozen snapshot.
+    pub fn get(&self, cell: &CellRef) -> Option<&Value> {
+        self.0.get(cell)
+    }
+}
+
+impl<const N: usize> From<[(CellRef, Value); N]> for FrozenPreState {
+    fn from(entries: [(CellRef, Value); N]) -> Self {
+        Self(BTreeMap::from(entries))
+    }
+}
 
 static EMBEDDED_EVENT_KIND_REGISTRY: OnceLock<Result<Value, String>> = OnceLock::new();
 
@@ -2610,7 +2634,7 @@ mod tests {
             expected
         );
 
-        pre_state.clear();
+        pre_state = FrozenPreState::new();
         let missing = project_registered_cell_writes_with_pre_state(
             &cancel,
             arkret_canonical::DigestSuite::Sha256,
