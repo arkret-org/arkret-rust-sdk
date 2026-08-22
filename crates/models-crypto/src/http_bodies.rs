@@ -14,8 +14,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::artifacts_keys::{
-    Failure, KeyOperationSignature, KeyPackageClaimRecord, KeyPackageRefArray,
-    KeyPackageUploadEntry,
+    Failure, KeyOperationSignature, KeyPackageClaimRecord, KeyPackageUploadEntry,
 };
 use crate::key_backup::KeyBackup;
 use crate::mls_records::MlsKeyPackageRecord;
@@ -178,7 +177,7 @@ pub struct KeyPackagesUploadOutcome {
         default,
         skip_serializing_if = "Vec::is_empty"
     )]
-    pub key_package_refs: KeyPackageRefArray,
+    pub key_package_refs: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub available_count: Option<u64>,
 }
@@ -615,7 +614,7 @@ pub struct KeyPackageClaimTerminalReceipt {
         default,
         skip_serializing_if = "Option::is_none"
     )]
-    pub key_package_refs: Option<KeyPackageRefArray>,
+    pub key_package_refs: Option<Vec<String>>,
     pub source_service_id: DidCoreId,
     pub destination_service_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1164,7 +1163,7 @@ pub enum KeyPackageConsumer {
 #[derive(Clone, Debug)]
 pub struct KeyPackagesConsumeRequestBody {
     pub owner_account_id: DidCoreId,
-    pub key_package_refs: KeyPackageRefArray,
+    pub key_package_refs: Vec<String>,
     pub consumer: KeyPackageConsumer,
     pub claim_ids: Vec<NonEmptyString>,
     pub welcome_ref: NonEmptyString,
@@ -1180,7 +1179,7 @@ pub struct KeyPackagesConsumeRequestBody {
 #[derive(Clone, Debug)]
 pub struct KeyPackagesConsumeUnsignedRequest {
     pub owner_account_id: DidCoreId,
-    pub key_package_refs: KeyPackageRefArray,
+    pub key_package_refs: Vec<String>,
     pub consumer: KeyPackageConsumer,
     pub claim_ids: Vec<NonEmptyString>,
     pub welcome_ref: NonEmptyString,
@@ -1196,7 +1195,7 @@ pub struct KeyPackagesConsumeUnsignedRequest {
 struct KeyPackagesConsumeRequestBodyWire {
     owner_account_id: DidCoreId,
     #[serde(rename = "keypackage_refs")]
-    key_package_refs: KeyPackageRefArray,
+    key_package_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     consumer_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1224,7 +1223,7 @@ struct KeyPackagesConsumeRequestBodyWire {
 struct KeyPackagesConsumeUnsignedRequestWire {
     owner_account_id: DidCoreId,
     #[serde(rename = "keypackage_refs")]
-    key_package_refs: KeyPackageRefArray,
+    key_package_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     consumer_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1529,7 +1528,7 @@ pub struct KeyPackageConsumeReceipt {
     pub claim_request_id: Base64UrlString,
     pub claim_ids: Vec<NonEmptyString>,
     #[serde(rename = "keypackage_refs")]
-    pub key_package_refs: KeyPackageRefArray,
+    pub key_package_refs: Vec<String>,
     pub recipient_durable_receipt: RecipientMlsDurableReceipt,
     pub welcome_ref: NonEmptyString,
     pub realm_id: RealmId,
@@ -1585,7 +1584,7 @@ fn signed_receipt_canonical_signing_bytes(
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesConsumeOutcome {
-    pub consumed: KeyPackageRefArray,
+    pub consumed: Vec<String>,
     pub consume_receipt: KeyPackageConsumeReceipt,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failures: Vec<Failure>,
@@ -1597,7 +1596,7 @@ pub struct KeyPackagesConsumeOutcome {
 pub struct KeyPackagesRevokeRequestBody {
     pub owner_account_id: DidCoreId,
     #[serde(rename = "keypackage_refs")]
-    pub key_package_refs: KeyPackageRefArray,
+    pub key_package_refs: Vec<String>,
     pub device_id: DeviceId,
     pub signature: KeyOperationSignature,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1610,7 +1609,7 @@ pub struct KeyPackagesRevokeRequestBody {
 pub struct KeyPackagesRevokeUnsignedRequest {
     pub owner_account_id: DidCoreId,
     #[serde(rename = "keypackage_refs")]
-    pub key_package_refs: KeyPackageRefArray,
+    pub key_package_refs: Vec<String>,
     pub device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<NonEmptyString>,
@@ -1651,7 +1650,7 @@ pub fn keypackages_revoke_signing_input(
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesRevokeOutcome {
-    pub revoked: KeyPackageRefArray,
+    pub revoked: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failures: Vec<Failure>,
 }

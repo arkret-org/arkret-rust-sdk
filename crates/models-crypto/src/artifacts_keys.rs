@@ -686,10 +686,6 @@ pub struct KeyPackageClaimRecord {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/keypackage-operations.schema.json#/$defs/keypackage_ref_array`.
-pub type KeyPackageRefArray = Vec<String>;
-
-/// Counterpart for
 /// `spec/v1/artifacts/schemas/keypackage-operations.schema.json#/$defs/keypackage_upload_entry`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
