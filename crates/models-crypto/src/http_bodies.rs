@@ -402,6 +402,34 @@ impl KeyPackagesClaimRequestBody {
     }
 }
 
+impl From<&KeyPackagesClaimRequestBody> for PeerKeyPackagesClaimRequestBody {
+    fn from(value: &KeyPackagesClaimRequestBody) -> Self {
+        Self {
+            claim_request_id: value.claim_request_id.clone(),
+            target_principal_id: value.target_principal_id.clone(),
+            requester: value.requester.clone(),
+            intended_realm_id: value.intended_realm_id.clone(),
+            mls_group_id: value.mls_group_id.clone(),
+            claim_purpose: value.claim_purpose,
+            required_capabilities: value.required_capabilities.clone(),
+            claim_nonce: value.claim_nonce.clone(),
+            expires_at: value.expires_at,
+            target_device_ids: value.target_device_ids.clone(),
+            target_keypackage_ref: value.target_keypackage_ref.clone(),
+            target_agent_id: value.target_agent_id.clone(),
+            target_agent_verification_method: value.target_agent_verification_method.clone(),
+            target_agent_key_authorize_event_id: value.target_agent_key_authorize_event_id.clone(),
+            minimal_metadata_allowed: value.minimal_metadata_allowed,
+            timeout_ms: value.timeout_ms,
+            strand_id: value.strand_id.clone(),
+            pair_key: value.pair_key.clone(),
+            last_resort_allowed: value.last_resort_allowed,
+            service_binding: value.service_binding.clone(),
+            requester_authorization: value.requester_authorization.clone(),
+        }
+    }
+}
+
 fn validate_key_packages_claim_request_shape(
     unsigned_request: &PeerKeyPackagesClaimUnsignedRequest,
     requester: &DidCoreId,
@@ -483,6 +511,16 @@ impl KeyPackagesClaimOutcome {
             &self.claims,
             &self.claim_receipt,
         )
+    }
+}
+
+impl From<PeerKeyPackagesClaimOutcome> for KeyPackagesClaimOutcome {
+    fn from(value: PeerKeyPackagesClaimOutcome) -> Self {
+        Self {
+            claim_request_id: value.claim_request_id,
+            claims: value.claims,
+            claim_receipt: value.claim_receipt,
+        }
     }
 }
 
