@@ -25,17 +25,43 @@ use crate::{CellRef, Hash, SchemaId, SealId};
 ///
 /// The spec defines `details` as a JSON object with stable kind-specific keys,
 /// not an arbitrary JSON scalar / array.
-pub type BottomDetails = BTreeMap<String, Value>;
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct BottomDetails(BTreeMap<String, Value>);
+
+impl BottomDetails {
+    #[must_use]
+    pub const fn new() -> Self {
+        Self(BTreeMap::new())
+    }
+}
+
+impl std::ops::Deref for BottomDetails {
+    type Target = BTreeMap<String, Value>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for BottomDetails {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 pub fn bottom_details<K, I>(pairs: I) -> BottomDetails
 where
     K: Into<String>,
     I: IntoIterator<Item = (K, Value)>,
 {
-    pairs
-        .into_iter()
-        .map(|(key, value)| (key.into(), value))
-        .collect()
+    BottomDetails(
+        pairs
+            .into_iter()
+            .map(|(key, value)| (key.into(), value))
+            .collect(),
+    )
 }
 
 /// Why the join produced bottom.
