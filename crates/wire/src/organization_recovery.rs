@@ -142,7 +142,7 @@ impl OrganizationRecoveryArchiveSealContext {
 
 /// `frozen_public_key_b64u` is canonical unpadded base64url of exactly 32
 /// X25519 bytes (hpke-suite-registry.json `info_and_aad` note).
-fn validate_frozen_x25519_public_key(value: &str) -> Result<()> {
+pub fn validate_frozen_x25519_public_key(value: &str) -> Result<()> {
     if value.len() != 43
         || !is_base64url(value)
         || !matches!(

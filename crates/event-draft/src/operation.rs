@@ -5,10 +5,11 @@ use arkret_models_crypto::mls_envelopes::{
     MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
 };
 use arkret_wire::{
-    Audience, AuthoredEvent, AuthorizationRef, CriticalExtension, DeviceMessageId, DidCoreId,
-    Event, EventId, EventKind, EventRef, EventRequirements, FeatureRef, GrantId, Hash, Hlc,
-    OperationId, OperationKind, Precondition, ProfileRef, Proof, ProofBindingRequirements, RealmId,
-    ScopeRef, SealBasis, SealId, SignatureBindingPayload, canonical,
+    Audience, AuthoredEvent, AuthorizationRef, CriticalExtension, DeviceId, DeviceMessageId,
+    DidCoreId, DidFullId, Event, EventId, EventKind, EventRef, EventRequirements, FeatureRef,
+    GrantId, Hash, Hlc, OperationId, OperationKind, Precondition, ProfileRef, Proof,
+    ProofBindingRequirements, RealmId, ScopeRef, SealBasis, SealId, SignatureBindingPayload,
+    canonical, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -26,6 +27,8 @@ use crate::{EventDraftError, EventSpec, Result, TypedDeviceMessageTarget, device
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectionContext {
     pub sender: DidCoreId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub producer_device_id: Option<DeviceId>,
     pub principal_server_id: DidCoreId,
     pub actor_seq: u64,
     pub event_id: EventId,
@@ -88,6 +91,7 @@ impl ProjectedEventOperation {
             created_at: event.created_at,
             context: ProjectionContext {
                 sender: event.actor_id.clone(),
+                producer_device_id: producer_device_id(event),
                 principal_server_id: event.principal_server_id.clone(),
                 actor_seq: event.actor_seq,
                 event_id: event.event_id.clone(),
@@ -168,6 +172,26 @@ impl ProjectedEventOperation {
         })?;
         Ok(payload)
     }
+}
+
+fn producer_device_id(event: &Event) -> Option<DeviceId> {
+    let mut producer_proofs = event.proofs.iter().filter_map(|proof| proof.as_producer());
+    let producer_proof = producer_proofs.next()?;
+    if producer_proofs.next().is_some() {
+        return None;
+    }
+
+    let (controller, fragment) = producer_proof
+        .verification_method
+        .as_str()
+        .split_once('#')?;
+    let controller = DidFullId::new(controller.to_owned()).ok()?;
+    let signer_id = event.executed_by.as_ref().unwrap_or(&event.actor_id);
+    if project_full_id_to_core_id(&controller).ok()?.as_str() != signer_id.as_str() {
+        return None;
+    }
+
+    DeviceId::new(fragment.to_owned()).ok()
 }
 
 mod local_operation_sealed {

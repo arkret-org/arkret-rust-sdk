@@ -2,6 +2,8 @@
 //! documents and invite objects (`policy.schema.json` /
 //! `invite.schema.json`).
 
+use std::collections::BTreeMap;
+
 use arkret_wire::{
     DidCoreId, Error, GrantId, Hash, InviteId, InviteState, PolicyEffect, PolicyId, PolicyKind,
     RealmId, Result, SchemaId, XExtensionMap,
@@ -45,10 +47,29 @@ pub struct Policy {
         with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub updated_at: Option<DateTime<Utc>>,
+    #[serde(default, flatten)]
+    pub extra: XExtensionMap,
 }
 
 impl Policy {
     pub const SCHEMA: &'static str = SchemaId::POLICY_V1;
+
+    pub fn validate(&self) -> Result<()> {
+        if self.schema != Self::SCHEMA {
+            return Err(Error::Protocol(
+                "policy schema must be ak.schema.policy.v1".to_owned(),
+            ));
+        }
+        if self.rules.is_empty() {
+            return Err(Error::Protocol(
+                "policy rules must contain at least one rule".to_owned(),
+            ));
+        }
+        for rule in &self.rules {
+            rule.validate()?;
+        }
+        Ok(())
+    }
 }
 
 /// Discriminator for a [`PolicyRule`] (mirrors `policy.schema.json`
@@ -81,7 +102,7 @@ pub struct PolicyRule {
     #[serde(default, skip_serializing_if = "is_zero_i64")]
     pub priority: i64,
     #[serde(flatten)]
-    pub extra: XExtensionMap,
+    pub extra: BTreeMap<String, Value>,
 }
 
 fn is_zero_i64(value: &i64) -> bool {
@@ -99,6 +120,24 @@ impl PolicyRule {
                 "policy rule rule_id must not be empty".to_owned(),
             ));
         }
+        const DECLARED_FIELDS: &[&str] = &[
+            "actions",
+            "resources",
+            "servers",
+            "conditions",
+            "schema_ref",
+            "profile_ref",
+            "params",
+        ];
+        if self
+            .extra
+            .keys()
+            .any(|field| !DECLARED_FIELDS.contains(&field.as_str()))
+        {
+            return Err(Error::Protocol(
+                "policy rule contains a field outside the closed schema".to_owned(),
+            ));
+        }
         let require = |field: &str| -> Result<()> {
             match self.extra.get(field) {
                 Some(Value::Array(items)) if !items.is_empty() => Ok(()),
@@ -112,10 +151,17 @@ impl PolicyRule {
         match self.kind {
             PolicyRuleKind::Action => require("actions"),
             PolicyRuleKind::Resource => require("resources"),
-            PolicyRuleKind::RateLimit => require("rate_limit"),
-            PolicyRuleKind::Temporal => require("temporal"),
-            // server / actor / crypto / moderation / extension have no
-            // additional unconditional required field beyond the base triple.
+            PolicyRuleKind::Server => require("servers"),
+            PolicyRuleKind::Extension => {
+                require("params")?;
+                if !self.extra.contains_key("schema_ref") && !self.extra.contains_key("profile_ref")
+                {
+                    return Err(Error::Protocol(
+                        "policy extension rule requires schema_ref or profile_ref".to_owned(),
+                    ));
+                }
+                Ok(())
+            }
             _ => Ok(()),
         }
     }
