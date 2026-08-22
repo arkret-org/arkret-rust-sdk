@@ -218,6 +218,17 @@
     {
       "generator": "registry-types",
       "outputs": [
+        "crates/wire/src/generated/history_store_limits.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "descriptor",
+      "artifacts": [
+        "registry/history-recovery-scalability-registry.json"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
         "crates/wire/src/generated/redactable_fields.rs"
       ],
       "owner": "arkret-wire",

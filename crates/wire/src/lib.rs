@@ -50,6 +50,7 @@ pub mod events;
 pub mod extension_manifest;
 pub mod generated;
 pub mod history_secret;
+pub mod history_store;
 pub mod http_signature;
 pub mod ingress_budget;
 pub mod notary;
@@ -146,18 +147,23 @@ pub use generated::{
     DidFreshnessRiskTier, DomainSeparationId, EVENT_KIND_COUNT, EVENT_KIND_DESCRIPTORS,
     EVENT_KIND_REGISTRY_SHA256, EXPORTER_LABELS, EventCellRule, EventCellRuleField,
     EventCellRuleKey, EventCellRuleOperator, EventKind, ExporterLabelDescriptor, ExporterLabelId,
-    HPKE_SUITES, HpkeSuiteId, MLS_CIPHERSUITES, MLS_EXTENSIONS, MlsExtensionDescriptor,
-    OPERATION_ERROR_MAPPINGS, OperationErrorMappingDescriptor, OperationSpecificError,
-    PROOF_CONTEXTS, ProfileId, ProfileRole, ProofContextDescriptor, ProofContextId,
-    REDUCER_PROFILE_UPGRADE_EDGES, REGISTERED_AUTHORITY_SOURCES, REGISTERED_DID_FRESHNESS_PROFILES,
-    RELATION_KIND_DESCRIPTORS, ReducerProfileId, SERVICE_KIND_DESCRIPTORS,
-    SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId, ServiceContractId,
-    ServiceKindDescriptor, ServiceOperationDescriptor, ServiceOperationId, TrackName,
-    can_upgrade_reducer_profile, event_kind_str, event_spec, is_reducer_profile_id,
-    operation_error_mapping, requirements_for,
+    HISTORY_STORE_LIMITS, HPKE_SUITES, HistoryStoreLimits, HpkeSuiteId, MLS_CIPHERSUITES,
+    MLS_EXTENSIONS, MlsExtensionDescriptor, OPERATION_ERROR_MAPPINGS,
+    OperationErrorMappingDescriptor, OperationSpecificError, PROOF_CONTEXTS, ProfileId,
+    ProfileRole, ProofContextDescriptor, ProofContextId, REDUCER_PROFILE_UPGRADE_EDGES,
+    REGISTERED_AUTHORITY_SOURCES, REGISTERED_DID_FRESHNESS_PROFILES, RELATION_KIND_DESCRIPTORS,
+    ReducerProfileId, SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS,
+    SIGNATURE_ALGORITHMS, SchemaId, ServiceContractId, ServiceKindDescriptor,
+    ServiceOperationDescriptor, ServiceOperationId, TrackName, can_upgrade_reducer_profile,
+    event_kind_str, event_spec, is_reducer_profile_id, operation_error_mapping, requirements_for,
 };
 pub use genesis_salt::GenesisSalt;
 pub use history_secret::{EpochRange, HistorySecretRange, validate_canonical_ranges};
+pub use history_store::{
+    EventCandidateBinding, EventCandidateBindingKey, EventCandidateBindingOutcome,
+    HistoryCandidateMaterialKey, HistoryCandidateMaterialRecord, LocalAuthoritativeHistorySecret,
+    MAX_HISTORY_SENDER_DOMAIN_CHARS, MAX_LOCAL_MLS_STATE_REF_CHARS,
+};
 pub use http_signature::HttpMessageSignature;
 pub use ingress_budget::WireBodyClass;
 pub use notary::{

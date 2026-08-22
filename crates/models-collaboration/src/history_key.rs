@@ -8,7 +8,11 @@ use arkret_wire::{
     HistoryEffectiveScope, OrganizationRecoveryArchive, PayloadProof, RealmId, Result, SealBasis,
     SignerEvidenceRef,
 };
-pub use arkret_wire::{EpochRange, HistorySecretRange, validate_canonical_ranges};
+pub use arkret_wire::{
+    EpochRange, EventCandidateBinding, EventCandidateBindingKey, EventCandidateBindingOutcome,
+    HistoryCandidateMaterialKey, HistoryCandidateMaterialRecord, HistorySecretRange,
+    LocalAuthoritativeHistorySecret, validate_canonical_ranges,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
@@ -140,38 +144,6 @@ impl RequesterEndpointAuthorization {
             ));
         }
         Ok(())
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HistoryCandidateMaterialKey {
-    pub effective_scope: HistoryEffectiveScope,
-    pub mls_group_id: String,
-    pub epoch: u64,
-    pub candidate_digest: Hash,
-}
-
-impl HistoryCandidateMaterialKey {
-    pub fn validate(&self) -> Result<()> {
-        validate_mls_group_id(&self.effective_scope, &self.mls_group_id)
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HistoryCandidateMaterialRecord {
-    pub material_key: HistoryCandidateMaterialKey,
-    pub secret_b64u: String,
-    pub material_received_sequence: u64,
-}
-
-impl HistoryCandidateMaterialRecord {
-    pub fn validate(&self) -> Result<()> {
-        self.material_key.validate()?;
-        validate_base64url_bounded(&self.secret_b64u, 1, usize::MAX, "secret_b64u")
     }
 }
 
@@ -339,39 +311,6 @@ impl HistoryCandidateOriginAttribution {
         }
         Ok(())
     }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EventCandidateBindingKey {
-    pub effective_scope: HistoryEffectiveScope,
-    pub mls_group_id: String,
-    pub epoch: u64,
-    pub event_id: EventId,
-    pub event_digest: Hash,
-    pub verified_sender_domain: String,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum EventCandidateBindingOutcome {
-    Success,
-    Failure,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EventCandidateBinding {
-    pub event_binding_key: EventCandidateBindingKey,
-    pub candidate_digest: Hash,
-    pub outcome: EventCandidateBindingOutcome,
-    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
-    pub first_observed_at: DateTime<Utc>,
-    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -3496,10 +3435,6 @@ fn validate_base64url_bounded(value: &str, min: usize, max: usize, field: &str) 
         )));
     }
     Ok(())
-}
-
-fn validate_mls_group_id(scope: &HistoryEffectiveScope, mls_group_id: &str) -> Result<()> {
-    arkret_wire::organization_recovery::validate_canonical_mls_group_id(scope, mls_group_id)
 }
 
 fn framed_sha256(domain: &str, value: &impl Serialize) -> Result<Hash> {

@@ -3161,6 +3161,48 @@ def generate_authority_set_ids(artifacts: Path) -> str:
     return "\n".join(lines) + "\n"
 
 
+def generate_history_store_limits(artifacts: Path) -> str:
+    relative = "registry/history-recovery-scalability-registry.json"
+    data, digest = load(artifacts / relative)
+    store = data["history_store"]
+    numeric = sorted(
+        (name, value)
+        for name, value in store.items()
+        if isinstance(value, int) and not isinstance(value, bool)
+    )
+    fields = [
+        (name, "i64" if name.endswith("_seconds") else "usize", value)
+        for name, value in numeric
+    ]
+    lines = header([(relative, data, digest)], f"history_store_limits={len(fields)}")
+    lines.extend([
+        "/// Machine-readable `history_store` section of",
+        "/// `registry/history-recovery-scalability-registry.json`, the single source",
+        "/// of truth for the device-local history-only store quotas.",
+        "///",
+        f"/// Material dedupe rule: {rustdoc_text(store['material_dedupe_rule'])}",
+        "///",
+        f"/// Material quota rule: {rustdoc_text(store['material_quota_rule'])}",
+        "///",
+        f"/// Material eviction rule: {rustdoc_text(store['material_eviction_rule'])}",
+        "///",
+        f"/// Origin attribution rule: {rustdoc_text(store['origin_attribution_rule'])}",
+        "///",
+        f"/// Event candidate binding rule: {rustdoc_text(store['event_candidate_binding_rule'])}",
+        "///",
+        f"/// `candidate_digest` preimage: {rustdoc_text(store['candidate_digest'])}.",
+        "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
+        "pub struct HistoryStoreLimits {",
+    ])
+    for name, rust_type, _ in fields:
+        lines.append(f"    pub {name}: {rust_type},")
+    lines.extend(["}", "", "/// The registered `history_store` limits.", "pub const HISTORY_STORE_LIMITS: HistoryStoreLimits = HistoryStoreLimits {"])
+    for name, _, value in fields:
+        lines.append(f"    {name}: {value},")
+    lines.extend(["};"])
+    return "\n".join(lines) + "\n"
+
+
 def generate_redactable_fields(artifacts: Path) -> str:
     relative = "registry/redactable-field-registry.json"
     artifact, digest = load(artifacts / relative)
@@ -3371,6 +3413,9 @@ GENERATORS = {
         generate_did_freshness_profiles
     ),
     "crates/wire/src/generated/authority_sources.rs": generate_authority_sources,
+    "crates/wire/src/generated/history_store_limits.rs": (
+        generate_history_store_limits
+    ),
     "crates/wire/src/generated/redactable_fields.rs": generate_redactable_fields,
     "crates/wire/src/generated/reducer_managed_paths.rs": (
         generate_reducer_managed_paths
