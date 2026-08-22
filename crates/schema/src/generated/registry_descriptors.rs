@@ -2,13 +2,13 @@
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-08-21.2;
 //! sha256=3f0616d8f27ed5e1325c9dbbae376ddcb3cdb9970eb9b5057aa9eaa7f15ff6b1 Input: registry/
-//! capability-action-registry.json; version=2026-08-22.1;
-//! sha256=13651c173603351dc5dcfe44190fba9bd1935b6ede9bf1218e7f7fc1cf4826b8 Input: registry/
+//! capability-action-registry.json; version=2026-08-22.2;
+//! sha256=2bfc6a2efa9e0500db6098be17dee11629cb4442177712b95b4bb135d0d264ec Input: registry/
 //! schema-registry.json; version=2026-08-21.4;
 //! sha256=85d552c51ca335c53128720dbd7ed506315a1f529d1218e2fd85a82a02cb6802 Input: registry/
 //! account-data-key-registry.json; version=2026-08-21.1;
 //! sha256=07b1fff8931e4405b3dfae6c3b852acc836f270e982a6772eb00fd966d8eadc1 Entries: id_kinds=60,
-//! special_forms=14, actions=171, schemas=193, account_data_patterns=24
+//! special_forms=14, actions=170, schemas=193, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -2092,7 +2092,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::RELATION_TOMBSTONE,
             event_kind_str::RELATION_UPDATE,
             event_kind_str::SCHEMA_DEFINE,
-            event_kind_str::SCHEMA_UPDATE,
             event_kind_str::SPACE_ARCHIVE,
             event_kind_str::SPACE_CREATE,
             event_kind_str::SPACE_PARENT,
@@ -2204,7 +2203,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.relation.tombstone",
             "ak.relation.update",
             "ak.schema.define",
-            "ak.schema.update",
             "ak.space.archive",
             "ak.space.create",
             "ak.space.parent",
@@ -2409,19 +2407,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
         target_event_kinds: &[event_kind_str::SCHEMA_DEFINE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::SchemaUpdate,
-        category: "management",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        target_event_kinds: &[event_kind_str::SCHEMA_UPDATE],
         grant_authority_actions: &[],
         profile: None,
         root_control_only: false,

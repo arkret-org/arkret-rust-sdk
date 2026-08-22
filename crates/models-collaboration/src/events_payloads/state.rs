@@ -1,6 +1,6 @@
 //! Generic state event payloads.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use arkret_wire::{DidCoreId, DidFullId, TrustDomainId, validate_canonical_idna_domain};
@@ -149,16 +149,72 @@ state_payload_with_subject!(
 );
 state_payload_with_subject!(ResourceDiscoveryStatePayload, resource_id, NonEmptyString);
 state_payload_with_subject!(DidProofStatePayload, did, DidFullId);
-state_payload_with_subject!(
-    IdentityPresentationRequestStatePayload,
-    request_id,
-    NonEmptyString
-);
 state_payload_with_subject!(PolicyRuleStatePayload, rule_id, PolicyRuleId);
 state_payload_with_subject!(SovereignDidPolicyStatePayload, trust_domain, TrustDomainId);
 
-/// The response and request kinds intentionally share one schema.
-pub type IdentityPresentationResponseStatePayload = IdentityPresentationRequestStatePayload;
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IdentityPresentationClaimRequest {
+    pub claim_kind: NonEmptyString,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub constraints: BTreeMap<String, Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fields: Vec<NonEmptyString>,
+    pub disclosure: IdentityDisclosureMode,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IdentityPresentationRequestDocument {
+    pub verifier_service_id: DidCoreId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub represented_org: Option<DidCoreId>,
+    pub domain: String,
+    pub challenge: NonEmptyString,
+    pub purpose: NonEmptyString,
+    pub accepted_issuers: Vec<DidCoreId>,
+    pub required_claims: Vec<IdentityPresentationClaimRequest>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub optional_claims: Vec<IdentityPresentationClaimRequest>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub denied_claims: Vec<NonEmptyString>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub transport_hints: Vec<IdentityDisclosureTransport>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IdentityPresentationRequestStatePayload {
+    pub request_id: RequestId,
+    pub value: IdentityPresentationRequestDocument,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IdentityPresentationResponseDocument {
+    pub holder_subject: DidCoreId,
+    pub proof_profile: IdentityDisclosureProofProfile,
+    pub presentation: BTreeMap<String, Value>,
+    pub disclosed_fields: Vec<NonEmptyString>,
+    pub presentation_digest: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IdentityPresentationResponseStatePayload {
+    pub request_id: RequestId,
+    pub request_digest: Hash,
+    pub value: IdentityPresentationResponseDocument,
+}
 
 fn values_are_unique<T: Ord>(values: &[T]) -> bool {
     let mut seen = BTreeSet::new();
@@ -441,7 +497,7 @@ impl IdentityDisclosurePolicyClaim {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityDisclosureAudience {
-    pub org_did: DidFullId,
+    pub represented_org: DidCoreId,
     pub verifier_service_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tsp_vids: Vec<DidFullId>,
@@ -543,8 +599,7 @@ pub enum IdentityDisclosureTransport {
 pub struct IdentityDisclosureReceiptDocument {
     pub receipt_id: ReceiptId,
     pub request_id: RequestId,
-    pub verifier_service_id: DidCoreId,
-    pub represented_org: DidFullId,
+    pub request_digest: Hash,
     pub presentation_digest: Hash,
     pub proof_profile: IdentityDisclosureProofProfile,
     pub transport: IdentityDisclosureTransport,
@@ -1186,10 +1241,6 @@ impl<'de> Deserialize<'de> for SchemaDefineStatePayload {
         Ok(payload)
     }
 }
-
-/// Define and update share their closed wire shape; only define is currently
-/// registered for the executable JSON Schema definition validator profile.
-pub type SchemaUpdateStatePayload = SchemaDefineStatePayload;
 
 /// Counterpart for `event-payload.schema.json#/$defs/state_conflict_recovery_payload`.
 #[derive(Clone, Debug, Serialize)]

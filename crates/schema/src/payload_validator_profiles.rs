@@ -112,12 +112,6 @@ mod tests {
     }
 
     #[test]
-    fn unregistered_event_kind_does_not_inherit_the_definition_profile() {
-        let payload = json!({"schema_id": "mismatch", "value": {"type": "invalid"}});
-        validate_payload_validator_profile(&EventKind::SchemaUpdate, &payload).unwrap();
-    }
-
-    #[test]
     fn executable_dispatch_matches_the_embedded_profile_registry() {
         let registry = crate::artifacts::read_embedded_json_artifact(
             "registry/payload-validator-profile-registry.json",
@@ -134,6 +128,5 @@ mod tests {
             payload_validator_profile_id(&EventKind::SchemaDefine),
             Some(JSON_SCHEMA_2020_12_DEFINITION_VALIDATOR_PROFILE)
         );
-        assert_eq!(payload_validator_profile_id(&EventKind::SchemaUpdate), None);
     }
 }

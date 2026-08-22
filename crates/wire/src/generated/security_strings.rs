@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-21.3;
-//! sha256=3231abd46c5aa3096e436dc868b5209f9314f2df5998ff0ae118086335648c5a Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-22.2;
+//! sha256=16812caff4522fd402196befc3b8167defe374a6017e11a94bf6f9afc89c218c Input: registry/
 //! exporter-label-registry.json; version=2026-08-21.1;
 //! sha256=6cb34e722ce41df3c91204d48f6cdf66b68640e9d86a379a9267cefce484bb02 Input: registry/
 //! digest-suite-registry.json; version=2026-08-18;
@@ -17,7 +17,7 @@
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
 //! Entries: proof_contexts=78, exporter_labels=9, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1, domain_separations=21, aead_profiles=2
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1, domain_separations=31, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -641,11 +641,15 @@ impl ProofContextId {
 #[repr(usize)]
 pub enum DomainSeparationId {
     AccountabilityScopeSetV1,
+    AgentAuthoritySnapshotV1,
+    AgentSignerAdmissionReceiptV1,
+    AgentSignerEvidenceV1,
     AppletDeliveryAuthenticationRecordDigestV1,
     ContactGlareUnconsumedSlotV1,
     ContactNoOutgoingSlotV1,
     ContactRequestAcceptanceCoreV1,
     ContactRequestSourceCheckpointV1,
+    ControllerAccountGateV1,
     EventsFrontierLeafV1,
     EventsFrontierNodeV1,
     EventsFrontierRootV1,
@@ -655,9 +659,15 @@ pub enum DomainSeparationId {
     IdentityRecoveryPolicySignatureV1,
     IdentityRecoveryReceiptSignatureV1,
     JoinedControlViewDigestV1,
+    KeypackageClaimTerminalReceiptV1,
+    KeypackageConsumeReceiptV1,
     MembershipCompensationSingleUseCasV1,
     MembershipCompensationTerminalCertificateV1,
+    MlsRecipientDurableReceiptV1,
+    PeerContactControlReceiptV1,
+    PeerContactMirrorReceiptV1,
     PeerEventsCommandSubmitServiceBindingV1,
+    PolicyCheckTranscriptV1,
     RealmOrganizationStatementV1,
     SnapshotAuthStateIssuerLocalV1,
     WebsocketAuthV1,
@@ -666,11 +676,15 @@ pub enum DomainSeparationId {
 impl DomainSeparationId {
     pub const ALL: &'static [Self] = &[
         Self::AccountabilityScopeSetV1,
+        Self::AgentAuthoritySnapshotV1,
+        Self::AgentSignerAdmissionReceiptV1,
+        Self::AgentSignerEvidenceV1,
         Self::AppletDeliveryAuthenticationRecordDigestV1,
         Self::ContactGlareUnconsumedSlotV1,
         Self::ContactNoOutgoingSlotV1,
         Self::ContactRequestAcceptanceCoreV1,
         Self::ContactRequestSourceCheckpointV1,
+        Self::ControllerAccountGateV1,
         Self::EventsFrontierLeafV1,
         Self::EventsFrontierNodeV1,
         Self::EventsFrontierRootV1,
@@ -680,15 +694,25 @@ impl DomainSeparationId {
         Self::IdentityRecoveryPolicySignatureV1,
         Self::IdentityRecoveryReceiptSignatureV1,
         Self::JoinedControlViewDigestV1,
+        Self::KeypackageClaimTerminalReceiptV1,
+        Self::KeypackageConsumeReceiptV1,
         Self::MembershipCompensationSingleUseCasV1,
         Self::MembershipCompensationTerminalCertificateV1,
+        Self::MlsRecipientDurableReceiptV1,
+        Self::PeerContactControlReceiptV1,
+        Self::PeerContactMirrorReceiptV1,
         Self::PeerEventsCommandSubmitServiceBindingV1,
+        Self::PolicyCheckTranscriptV1,
         Self::RealmOrganizationStatementV1,
         Self::SnapshotAuthStateIssuerLocalV1,
         Self::WebsocketAuthV1,
     ];
 
     pub const ACCOUNTABILITY_SCOPE_SET_V1: &'static str = "ak.accountability-scope-set-v1";
+    pub const AGENT_AUTHORITY_SNAPSHOT_V1: &'static str = "ak.agent-authority-snapshot-v1";
+    pub const AGENT_SIGNER_ADMISSION_RECEIPT_V1: &'static str =
+        "ak.agent-signer-admission-receipt-v1";
+    pub const AGENT_SIGNER_EVIDENCE_V1: &'static str = "ak.agent-signer-evidence.v1";
     pub const APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1: &'static str =
         "ak.applet.delivery_authentication_record_digest.v1";
     pub const CONTACT_GLARE_UNCONSUMED_SLOT_V1: &'static str =
@@ -698,6 +722,7 @@ impl DomainSeparationId {
         "ak.contact.request-acceptance-core.v1";
     pub const CONTACT_REQUEST_SOURCE_CHECKPOINT_V1: &'static str =
         "ak.contact.request-source-checkpoint.v1";
+    pub const CONTROLLER_ACCOUNT_GATE_V1: &'static str = "ak.controller-account-gate-v1";
     pub const EVENTS_FRONTIER_LEAF_V1: &'static str = "ak.events.frontier.leaf.v1";
     pub const EVENTS_FRONTIER_NODE_V1: &'static str = "ak.events.frontier.node.v1";
     pub const EVENTS_FRONTIER_ROOT_V1: &'static str = "ak.events.frontier.root.v1";
@@ -710,12 +735,20 @@ impl DomainSeparationId {
     pub const IDENTITY_RECOVERY_RECEIPT_SIGNATURE_V1: &'static str =
         "ak.identity.recovery_receipt.signature.v1";
     pub const JOINED_CONTROL_VIEW_DIGEST_V1: &'static str = "ak.joined-control-view-digest-v1";
+    pub const KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1: &'static str =
+        "ak.keypackage.claim-terminal-receipt.v1";
+    pub const KEYPACKAGE_CONSUME_RECEIPT_V1: &'static str = "ak.keypackage.consume-receipt.v1";
     pub const MEMBERSHIP_COMPENSATION_SINGLE_USE_CAS_V1: &'static str =
         "ak.membership-compensation.single-use-cas.v1";
     pub const MEMBERSHIP_COMPENSATION_TERMINAL_CERTIFICATE_V1: &'static str =
         "ak.membership-compensation.terminal-certificate.v1";
+    pub const MLS_RECIPIENT_DURABLE_RECEIPT_V1: &'static str =
+        "ak.mls.recipient-durable-receipt.v1";
+    pub const PEER_CONTACT_CONTROL_RECEIPT_V1: &'static str = "ak.peer-contact.control-receipt.v1";
+    pub const PEER_CONTACT_MIRROR_RECEIPT_V1: &'static str = "ak.peer-contact.mirror-receipt.v1";
     pub const PEER_EVENTS_COMMAND_SUBMIT_SERVICE_BINDING_V1: &'static str =
         "ak.peer.events.command.submit.service_binding.v1";
+    pub const POLICY_CHECK_TRANSCRIPT_V1: &'static str = "ak.policy.check.transcript.v1";
     pub const REALM_ORGANIZATION_STATEMENT_V1: &'static str = "ak.realm.organization.statement.v1";
     pub const SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1: &'static str =
         "ak.snapshot.auth_state.issuer_local.v1";
@@ -724,6 +757,9 @@ impl DomainSeparationId {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::AccountabilityScopeSetV1 => Self::ACCOUNTABILITY_SCOPE_SET_V1,
+            Self::AgentAuthoritySnapshotV1 => Self::AGENT_AUTHORITY_SNAPSHOT_V1,
+            Self::AgentSignerAdmissionReceiptV1 => Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1,
+            Self::AgentSignerEvidenceV1 => Self::AGENT_SIGNER_EVIDENCE_V1,
             Self::AppletDeliveryAuthenticationRecordDigestV1 => {
                 Self::APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1
             }
@@ -731,6 +767,7 @@ impl DomainSeparationId {
             Self::ContactNoOutgoingSlotV1 => Self::CONTACT_NO_OUTGOING_SLOT_V1,
             Self::ContactRequestAcceptanceCoreV1 => Self::CONTACT_REQUEST_ACCEPTANCE_CORE_V1,
             Self::ContactRequestSourceCheckpointV1 => Self::CONTACT_REQUEST_SOURCE_CHECKPOINT_V1,
+            Self::ControllerAccountGateV1 => Self::CONTROLLER_ACCOUNT_GATE_V1,
             Self::EventsFrontierLeafV1 => Self::EVENTS_FRONTIER_LEAF_V1,
             Self::EventsFrontierNodeV1 => Self::EVENTS_FRONTIER_NODE_V1,
             Self::EventsFrontierRootV1 => Self::EVENTS_FRONTIER_ROOT_V1,
@@ -742,15 +779,21 @@ impl DomainSeparationId {
                 Self::IDENTITY_RECOVERY_RECEIPT_SIGNATURE_V1
             }
             Self::JoinedControlViewDigestV1 => Self::JOINED_CONTROL_VIEW_DIGEST_V1,
+            Self::KeypackageClaimTerminalReceiptV1 => Self::KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1,
+            Self::KeypackageConsumeReceiptV1 => Self::KEYPACKAGE_CONSUME_RECEIPT_V1,
             Self::MembershipCompensationSingleUseCasV1 => {
                 Self::MEMBERSHIP_COMPENSATION_SINGLE_USE_CAS_V1
             }
             Self::MembershipCompensationTerminalCertificateV1 => {
                 Self::MEMBERSHIP_COMPENSATION_TERMINAL_CERTIFICATE_V1
             }
+            Self::MlsRecipientDurableReceiptV1 => Self::MLS_RECIPIENT_DURABLE_RECEIPT_V1,
+            Self::PeerContactControlReceiptV1 => Self::PEER_CONTACT_CONTROL_RECEIPT_V1,
+            Self::PeerContactMirrorReceiptV1 => Self::PEER_CONTACT_MIRROR_RECEIPT_V1,
             Self::PeerEventsCommandSubmitServiceBindingV1 => {
                 Self::PEER_EVENTS_COMMAND_SUBMIT_SERVICE_BINDING_V1
             }
+            Self::PolicyCheckTranscriptV1 => Self::POLICY_CHECK_TRANSCRIPT_V1,
             Self::RealmOrganizationStatementV1 => Self::REALM_ORGANIZATION_STATEMENT_V1,
             Self::SnapshotAuthStateIssuerLocalV1 => Self::SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1,
             Self::WebsocketAuthV1 => Self::WEBSOCKET_AUTH_V1,
@@ -760,6 +803,9 @@ impl DomainSeparationId {
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
             Self::ACCOUNTABILITY_SCOPE_SET_V1 => Some(Self::AccountabilityScopeSetV1),
+            Self::AGENT_AUTHORITY_SNAPSHOT_V1 => Some(Self::AgentAuthoritySnapshotV1),
+            Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1 => Some(Self::AgentSignerAdmissionReceiptV1),
+            Self::AGENT_SIGNER_EVIDENCE_V1 => Some(Self::AgentSignerEvidenceV1),
             Self::APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1 => {
                 Some(Self::AppletDeliveryAuthenticationRecordDigestV1)
             }
@@ -769,6 +815,7 @@ impl DomainSeparationId {
             Self::CONTACT_REQUEST_SOURCE_CHECKPOINT_V1 => {
                 Some(Self::ContactRequestSourceCheckpointV1)
             }
+            Self::CONTROLLER_ACCOUNT_GATE_V1 => Some(Self::ControllerAccountGateV1),
             Self::EVENTS_FRONTIER_LEAF_V1 => Some(Self::EventsFrontierLeafV1),
             Self::EVENTS_FRONTIER_NODE_V1 => Some(Self::EventsFrontierNodeV1),
             Self::EVENTS_FRONTIER_ROOT_V1 => Some(Self::EventsFrontierRootV1),
@@ -784,15 +831,23 @@ impl DomainSeparationId {
                 Some(Self::IdentityRecoveryReceiptSignatureV1)
             }
             Self::JOINED_CONTROL_VIEW_DIGEST_V1 => Some(Self::JoinedControlViewDigestV1),
+            Self::KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1 => {
+                Some(Self::KeypackageClaimTerminalReceiptV1)
+            }
+            Self::KEYPACKAGE_CONSUME_RECEIPT_V1 => Some(Self::KeypackageConsumeReceiptV1),
             Self::MEMBERSHIP_COMPENSATION_SINGLE_USE_CAS_V1 => {
                 Some(Self::MembershipCompensationSingleUseCasV1)
             }
             Self::MEMBERSHIP_COMPENSATION_TERMINAL_CERTIFICATE_V1 => {
                 Some(Self::MembershipCompensationTerminalCertificateV1)
             }
+            Self::MLS_RECIPIENT_DURABLE_RECEIPT_V1 => Some(Self::MlsRecipientDurableReceiptV1),
+            Self::PEER_CONTACT_CONTROL_RECEIPT_V1 => Some(Self::PeerContactControlReceiptV1),
+            Self::PEER_CONTACT_MIRROR_RECEIPT_V1 => Some(Self::PeerContactMirrorReceiptV1),
             Self::PEER_EVENTS_COMMAND_SUBMIT_SERVICE_BINDING_V1 => {
                 Some(Self::PeerEventsCommandSubmitServiceBindingV1)
             }
+            Self::POLICY_CHECK_TRANSCRIPT_V1 => Some(Self::PolicyCheckTranscriptV1),
             Self::REALM_ORGANIZATION_STATEMENT_V1 => Some(Self::RealmOrganizationStatementV1),
             Self::SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1 => Some(Self::SnapshotAuthStateIssuerLocalV1),
             Self::WEBSOCKET_AUTH_V1 => Some(Self::WebsocketAuthV1),

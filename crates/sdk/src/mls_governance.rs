@@ -123,15 +123,12 @@ pub(crate) fn authenticated_document_key(
             signer_id,
             authenticated_resolution,
             ..
-        } => {
-            arkret_identity::verify_authenticated_service_resolution_history(
-                authenticated_resolution,
-                signer_id,
-                at,
-            )
-            .map_err(|error| WireError::Protocol(error.to_string()))?;
-            &authenticated_resolution.normalized_did_document
-        }
+        } => arkret_identity::authenticated_service_document_at(
+            authenticated_resolution,
+            signer_id,
+            at,
+        )
+        .map_err(|error| WireError::Protocol(error.to_string()))?,
         AuthenticatedSignerResolutionEvidence::Principal {
             signer_id,
             public_resolution,
@@ -175,7 +172,7 @@ pub(crate) fn authenticated_document_key(
                 &authenticated_resolution.normalized_did_document,
                 at,
             )?;
-            normalized_did_document
+            normalized_did_document.clone()
         }
         AuthenticatedSignerResolutionEvidence::NativeAgent { .. } => {
             return Err(WireError::Protocol(
@@ -184,7 +181,7 @@ pub(crate) fn authenticated_document_key(
             ));
         }
     };
-    arkret_identity::public_key_material_from_document(document, evidence.verification_method())
+    arkret_identity::public_key_material_from_document(&document, evidence.verification_method())
         .map_err(|error| WireError::Protocol(error.to_string()))
 }
 
@@ -819,7 +816,7 @@ where
                     "Principal Server admission signer evidence binding mismatch".to_owned(),
                 ));
             }
-            arkret_identity::verify_authenticated_service_resolution_history(
+            let historical_document = arkret_identity::authenticated_service_document_at(
                 authenticated_resolution,
                 signer_id,
                 admission.accepted_at,
@@ -829,8 +826,8 @@ where
                 &admission.canonical_binding_bytes()?,
                 &admission.jws,
                 &admission.verification_method,
-                &authenticated_resolution.normalized_did_document.id,
-                &authenticated_resolution.normalized_did_document,
+                &historical_document.id,
+                &historical_document,
             )
             .map_err(|error| WireError::Protocol(error.to_string()))
         }
