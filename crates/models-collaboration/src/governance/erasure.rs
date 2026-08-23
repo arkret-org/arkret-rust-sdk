@@ -336,8 +336,6 @@ pub struct ErasureReceipt {
 }
 
 impl ErasureReceipt {
-    /// Reducer-input event kind that carries this receipt.
-    pub const EVENT_KIND: &'static str = arkret_wire::event_kind_str::AUDIT_ERASURE_RECEIPT;
     pub const SCHEMA: &'static str = SchemaId::ERASURE_RECEIPT_V1;
 
     pub fn validate_minimal(&self) -> Result<()> {

@@ -5,9 +5,9 @@ use std::marker::PhantomData;
 
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
-    AppletId, AuthContext, AuthoredEvent, AuthorizationRef, CriticalExtension, DidCoreId, EventId,
-    EventKind, EventRef, EventRequirements, ExtensionManifest, FeatureRef, Hash, Hlc, Precondition,
-    ProfileRef, RegistryContentRef, ScopeRef, SealBasis, SealId,
+    AppletId, AuthContext, AuthoredEvent, AuthorizationRef, DidCoreId, EventId, EventKind,
+    EventRef, EventRequirements, ExtensionManifest, Hash, Hlc, Precondition, ProfileRef,
+    RegistryContentRef, ScopeRef, SealBasis, SealId,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -130,16 +130,6 @@ impl<K: EventSpec> TypedEventDraft<K> {
         self
     }
 
-    pub fn with_required_feature(mut self, feature_ref: FeatureRef) -> Self {
-        self.requirements.required_features.push(feature_ref);
-        self
-    }
-
-    pub fn with_critical_extension(mut self, extension: CriticalExtension) -> Self {
-        self.requirements.critical_extensions.push(extension);
-        self
-    }
-
     pub fn with_executed_by(mut self, executed_by: DidCoreId) -> Self {
         self.executed_by = Some(executed_by);
         self
@@ -221,6 +211,18 @@ pub trait ExtensionPayloadValidator {
     ) -> arkret_wire::Result<()>;
 }
 
+/// Coordinates required to materialize a validated extension payload as an Event.
+#[derive(Clone, Debug)]
+pub struct EventAuthoringContext {
+    pub scope_ref: ScopeRef,
+    pub actor_id: DidCoreId,
+    pub principal_server_id: DidCoreId,
+    pub actor_seq: u64,
+    pub hlc: Hlc,
+    pub created_at: DateTime<Utc>,
+    pub digest_suite: DigestSuite,
+}
+
 impl<F> ExtensionPayloadValidator for F
 where
     F: Fn(&RegistryContentRef, &Value) -> arkret_wire::Result<()>,
@@ -297,25 +299,16 @@ impl ValidatedExtensionPayload {
         &self.manifest_id
     }
 
-    pub fn author(
-        self,
-        scope_ref: ScopeRef,
-        actor_id: DidCoreId,
-        principal_server_id: DidCoreId,
-        actor_seq: u64,
-        hlc: Hlc,
-        created_at: DateTime<Utc>,
-        digest_suite: DigestSuite,
-    ) -> Result<AuthoredEvent> {
+    pub fn author(self, context: EventAuthoringContext) -> Result<AuthoredEvent> {
         EventIntent::new(
             self.kind,
-            scope_ref,
-            actor_id,
-            principal_server_id,
-            created_at,
+            context.scope_ref,
+            context.actor_id,
+            context.principal_server_id,
+            context.created_at,
             self.payload,
         )
-        .author_with_digest_suite(actor_seq, hlc, digest_suite)
+        .author_with_digest_suite(context.actor_seq, context.hlc, context.digest_suite)
     }
 }
 

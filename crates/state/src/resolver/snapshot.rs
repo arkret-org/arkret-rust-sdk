@@ -71,33 +71,6 @@ pub struct SnapshotSignature {
     pub signature: String,
 }
 
-impl SnapshotSignature {
-    pub fn manifest_binding_payload(
-        &self,
-        manifest: &ReducerSnapshotManifest,
-    ) -> Result<SnapshotSignatureBindingPayload> {
-        Ok(SnapshotSignatureBindingPayload {
-            payload_digest: canonical_sha256(&manifest.signature_payload())?,
-            verification_method: self.verification_method.clone(),
-            created_at: self.created_at,
-            domain: self.domain.clone(),
-            audience: self.audience.clone(),
-        })
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SnapshotSignatureBindingPayload {
-    pub payload_digest: String,
-    pub verification_method: DidUrl,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub domain: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub audience: Option<Audience>,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SnapshotRestoreSource {
@@ -360,14 +333,6 @@ impl ReducerSnapshotManifest {
         }
         Ok(())
     }
-
-    pub fn signature_payload(&self) -> Value {
-        let mut value = serde_json::to_value(self).unwrap_or_else(|_| serde_json::json!({}));
-        if let Value::Object(map) = &mut value {
-            map.remove("signatures");
-        }
-        value
-    }
 }
 
 pub fn verify_snapshot_chunks<I, B>(manifest: &ReducerSnapshotManifest, chunks: I) -> Result<()>
@@ -376,49 +341,6 @@ where
     B: AsRef<[u8]>,
 {
     manifest.verify_chunks(chunks)
-}
-
-/// One step in a Merkle inclusion proof. `is_left == true` means the
-/// sibling hash is the **left** child (so the running hash is the
-/// right one for the next level).
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MerkleProofStep {
-    pub sibling: String,
-    pub is_left: bool,
-}
-
-/// Verify that `event_id`'s canonical leaf hash is a member of the
-/// Merkle tree rooted at `root` per `operations-sync.md` §11.
-///
-/// The proof is the bottom-up sibling chain from the leaf to the root.
-/// Leaves use `sha256(0x00 || leaf_data)` and each inner node uses
-/// `sha256(0x01 || left || right)`, matching [`merkle_root`].
-pub fn verify_snapshot_inclusion(
-    event_id: &str,
-    proof: &[MerkleProofStep],
-    root: &str,
-) -> Result<()> {
-    let leaf_digest = crate::Hash::new(canonical_sha256(&serde_json::json!({
-        "key": event_id,
-        "value": event_id,
-    }))?)?;
-    let mut running = crate::merkle_root_from_hashes(vec![leaf_digest])?;
-    for step in proof {
-        let sibling = crate::Hash::new(step.sibling.clone())?;
-        running = if step.is_left {
-            crate::snapshot::merkle::parent_hash(&sibling, &running)?
-        } else {
-            crate::snapshot::merkle::parent_hash(&running, &sibling)?
-        };
-    }
-    let root = crate::Hash::new(root.to_owned())?;
-    if running == root {
-        Ok(())
-    } else {
-        Err(WireError::Protocol(format!(
-            "snapshot inclusion proof for '{event_id}' does not match Merkle root '{root}'"
-        )))
-    }
 }
 
 pub fn state_merkle_root(payload: &Value) -> Result<String> {

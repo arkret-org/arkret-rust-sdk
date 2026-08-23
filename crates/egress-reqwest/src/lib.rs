@@ -187,11 +187,6 @@ impl EgressGuard {
         self.policy
     }
 
-    #[must_use]
-    pub fn loopback_host_scope(&self) -> &LoopbackHostScope {
-        &self.loopback_hosts
-    }
-
     /// Judge a URL's scheme and host before any lookup.
     pub fn validate_url(&self, url: &Url, purpose: &str) -> Result<(), EgressError> {
         self.check_url(url)
@@ -331,7 +326,6 @@ impl EgressGuard {
     }
 
     /// Install this guard's scheme restriction and connect-time resolver.
-    #[must_use]
     pub fn apply_to_client_builder(&self, builder: ClientBuilder) -> ClientBuilder {
         builder
             .https_only(!self.policy.allows_http())
@@ -471,7 +465,6 @@ impl LockedEgressUrl {
     }
 
     /// Pin the validated answer set so a second lookup cannot rebind the host.
-    #[must_use]
     pub fn apply_to_client_builder(&self, builder: ClientBuilder) -> ClientBuilder {
         match self.dns_override() {
             Some((host, addresses)) => builder.resolve_to_addrs(host, addresses),
@@ -728,7 +721,8 @@ mod tests {
     fn empty_trusted_list_is_the_default_scope() {
         let guard =
             EgressGuard::public_https().with_trusted_loopback_https_hosts(Vec::<String>::new());
-        assert_eq!(guard.loopback_host_scope(), &LoopbackHostScope::PolicyOnly);
+        let url = Url::parse("http://127.0.0.1:8080/").unwrap();
+        assert!(guard.validate_url(&url, "test").is_err());
     }
 
     #[test]

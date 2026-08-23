@@ -1960,7 +1960,7 @@ fn predecessor_notary_and_state(
     .map_err(replay_reject_error)?;
     let mut notary = None;
     for (cell, value) in &state {
-        let cell_id = CellId::from_ref(&cell)?;
+        let cell_id = CellId::from_ref(cell)?;
         if cell_id.component() != arkret_wire::CellFamilyId::NOTARY_V1 {
             continue;
         }

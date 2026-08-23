@@ -15,7 +15,7 @@ mod registry;
 #[cfg(test)]
 mod tests;
 
-pub use applet::{AppletHandler, AppletService, ServiceRoute, TransactionDispatch, service_routes};
+pub use applet::AppletHandler;
 pub use arkret_rate_limit::{FixedWindowConfig, MemoryFixedWindowRateLimiter, RateLimitRejection};
 pub use cursor_authority::{
     CursorAuthority, CursorAuthorityError, CursorBindingContext, CursorBindingRecord,

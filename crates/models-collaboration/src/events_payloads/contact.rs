@@ -158,8 +158,7 @@ mod tests {
             "introduction_evidence_digest": format!("sha256:{}", "d".repeat(64)),
             "previous_terminal_contact_round_id": format!("sha256:{}", "e".repeat(64))
         });
-        let requested_payload: ContactRequestedPayload =
-            serde_json::from_value(requested.clone()).unwrap();
+        let requested_payload: ContactRequestedPayload = serde_json::from_value(requested).unwrap();
         assert!(
             requested_payload
                 .previous_terminal_contact_round_id
@@ -173,7 +172,7 @@ mod tests {
             "predecessor_event_ref": "ak:event:AV1bzsPGpTD74Cq12d9EOrCkieTddiSndS0kDtK1W2hM"
         });
         let tombstoned_payload: ContactTombstonedPayload =
-            serde_json::from_value(tombstoned.clone()).unwrap();
+            serde_json::from_value(tombstoned).unwrap();
         assert_eq!(
             tombstoned_payload.contact_round_id.as_str(),
             format!("sha256:{}", "f".repeat(64))
@@ -188,7 +187,7 @@ mod tests {
             "granted_to_peer_scopes": ["direct_message"]
         });
         let scope_payload: crate::contact_operations::ContactScopeUpdatePayload =
-            serde_json::from_value(scope_update.clone()).unwrap();
+            serde_json::from_value(scope_update).unwrap();
         assert_eq!(
             scope_payload.contact_round_id.as_str(),
             format!("sha256:{}", "1".repeat(64))

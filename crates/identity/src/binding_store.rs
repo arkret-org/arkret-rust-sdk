@@ -285,15 +285,6 @@ impl BindingInvalidation {
         }
     }
 
-    /// Selector constrained to one witness controlling organization (an
-    /// organization merge determination collapses several witnesses into one).
-    pub fn for_evidence_witness_organization(organization: DidFullId) -> Self {
-        Self {
-            evidence_witness_organization: Some(organization),
-            ..Self::default()
-        }
-    }
-
     /// Selector constrained to one policy digest (resolver / Realm policy change).
     pub fn for_policy_digest(policy_digest: Hash) -> Self {
         Self {

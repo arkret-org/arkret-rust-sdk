@@ -115,9 +115,7 @@ pub use realm_organization::realm_organization_statement_sign;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "collaboration")]
-pub use crate::device_authorization::{
-    VerifiedPrincipalDevice, verify_device_authorize_possession,
-};
+pub use crate::device_authorization::verify_device_authorize_possession;
 
 /// Wire-reserved proof algorithms: registered `active` rows of the
 /// signature-alg-registry whose wire `jose_algorithm` value this SDK can parse and

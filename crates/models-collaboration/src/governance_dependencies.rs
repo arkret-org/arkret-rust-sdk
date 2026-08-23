@@ -711,11 +711,15 @@ fn resolve_schema_artifact_id(base: &str, reference: &str) -> Result<String> {
 /// Discover the next signer-evidence layer referenced by already resolved
 /// principal or Native Agent evidence. Repeat until this returns an empty set;
 /// service evidence is the self-authenticating terminal branch.
-pub fn governance_attester_evidence_selectors(
-    evidence: &[AuthenticatedSignerResolutionEvidence],
-) -> Result<Vec<GovernanceDependencySelector>> {
+pub fn governance_attester_evidence_selectors<'a, E>(
+    evidence: impl IntoIterator<Item = &'a E>,
+) -> Result<Vec<GovernanceDependencySelector>>
+where
+    E: std::borrow::Borrow<AuthenticatedSignerResolutionEvidence> + ?Sized + 'a,
+{
     let mut selectors = Vec::new();
     for item in evidence {
+        let item = std::borrow::Borrow::borrow(item);
         item.validate_attester_binding()?;
         match item {
             AuthenticatedSignerResolutionEvidence::Service { .. } => {}
@@ -765,11 +769,11 @@ pub fn governance_transitive_signer_evidence_selectors(
             GovernanceDependency::AuthenticatedSignerResolutionEvidence {
                 authenticated_signer_resolution_evidence,
                 ..
-            } => Some(authenticated_signer_resolution_evidence.clone()),
+            } => Some(authenticated_signer_resolution_evidence.as_ref()),
             _ => None,
         })
         .collect::<Vec<_>>();
-    let mut selectors = governance_attester_evidence_selectors(&authenticated)?;
+    let mut selectors = governance_attester_evidence_selectors(authenticated)?;
     selectors.extend(dependencies.iter().filter_map(|dependency| {
         match dependency {
             GovernanceDependency::MinimalMetadataMlsLeafSignerEvidence {
@@ -813,7 +817,7 @@ pub fn validate_history_source_signer_dependency_closure(
                     || authenticated
                         .insert(
                             content_digest.clone(),
-                            authenticated_signer_resolution_evidence,
+                            authenticated_signer_resolution_evidence.as_ref(),
                         )
                         .is_some()
                 {
@@ -873,7 +877,7 @@ pub fn validate_history_source_signer_dependency_closure(
             || signer.signer_id() != &identity_link.principal_id
             || signer.verification_method() != &identity_link.proof.verification_method
             || !matches!(
-                signer,
+                *signer,
                 AuthenticatedSignerResolutionEvidence::Principal { .. }
             )
         {
@@ -894,7 +898,7 @@ pub fn validate_history_source_signer_dependency_closure(
     if !minimal.is_empty()
         || root_evidence.evidence_ref()? != source.source_signer_evidence_ref
         || matches!(
-            root_evidence,
+            *root_evidence,
             AuthenticatedSignerResolutionEvidence::Service { .. }
         )
     {
@@ -1045,7 +1049,7 @@ pub fn history_source_signer_dependency_closure(
             else {
                 unreachable!("authenticated dependency map contains only authenticated evidence")
             };
-            match evidence {
+            match evidence.as_ref() {
                 AuthenticatedSignerResolutionEvidence::Service { .. } => {}
                 AuthenticatedSignerResolutionEvidence::Principal {
                     attester_signer_evidence_digest,
@@ -1079,7 +1083,7 @@ pub fn history_source_signer_dependency_closure(
             else {
                 unreachable!("authenticated dependency map contains only authenticated evidence")
             };
-            match evidence {
+            match evidence.as_ref() {
                 AuthenticatedSignerResolutionEvidence::Service { .. } => {}
                 AuthenticatedSignerResolutionEvidence::Principal {
                     attester_signer_evidence_digest,
@@ -1231,7 +1235,7 @@ fn release_service_signer_dependency_closure(
             || authenticated_signer_resolution_evidence.evidence_ref()? != *evidence_ref
             || authenticated_signer_resolution_evidence.verification_method() != verification_method
             || !matches!(
-                authenticated_signer_resolution_evidence,
+                authenticated_signer_resolution_evidence.as_ref(),
                 AuthenticatedSignerResolutionEvidence::Service { .. }
             )
             || selected.replace(dependency.clone()).is_some()
@@ -1275,7 +1279,7 @@ pub enum GovernanceDependency {
     },
     AuthenticatedSignerResolutionEvidence {
         selector: GovernanceDependencySelector,
-        authenticated_signer_resolution_evidence: AuthenticatedSignerResolutionEvidence,
+        authenticated_signer_resolution_evidence: Box<AuthenticatedSignerResolutionEvidence>,
     },
     MinimalMetadataMlsLeafSignerEvidence {
         selector: GovernanceDependencySelector,

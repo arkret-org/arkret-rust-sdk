@@ -1,10 +1,9 @@
 //! Agent lifecycle schema artifact leaf shapes (public keys, grant
 //! snapshots, device metadata, key-authorization state, seal signatures).
 //!
-//! The `AgentOperations` aggregation enum and `KeyState` stay in
-//! the `arkret` umbrella because they bind the agent lifecycle/scope enums
-//! (`AgentLifecycleState`, `AgentRuntimeState`, `AgentPairingMode`) that
-//! remain core-resident.
+//! `KeyState` stays in the `arkret` umbrella because it binds the agent
+//! lifecycle/scope enums (`AgentLifecycleState`, `AgentRuntimeState`,
+//! `AgentPairingMode`) that remain core-resident.
 
 use arkret_wire::{Base64UrlString, DidUrl, EventId, GrantId, Hash, NonEmptyString, RealmId};
 use chrono::{DateTime, Utc};

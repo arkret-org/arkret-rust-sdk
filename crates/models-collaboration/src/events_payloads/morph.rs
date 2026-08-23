@@ -28,11 +28,6 @@ impl MorphUpdatePayload {
         })
     }
 
-    pub fn with_expected_state_digest(mut self, expected_state_digest: Hash) -> Self {
-        self.expected_state_digest = Some(expected_state_digest);
-        self
-    }
-
     pub fn validate(&self) -> Result<()> {
         validate_morph_update_patch(&self.patch)
     }

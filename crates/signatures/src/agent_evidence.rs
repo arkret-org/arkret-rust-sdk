@@ -16,7 +16,7 @@ use arkret_models_identity::agent_signer_evidence::{
     AgentSigningPublicKey, ControllerAccountEligibility, ControllerAccountStatus,
 };
 use arkret_wire::{
-    CellRef, DidCoreId, DidFullId, DidUrl, Event, EventId, Hash, NonEmptyString, ProfileId,
+    CellRef, DidCoreId, DidFullId, DidUrl, EventId, Hash, NonEmptyString, ProfileId,
     ProtocolOperationId, RealmId, SchemaId, Seal, SealId, SignerEvidenceRef,
     project_full_id_to_core_id,
 };
@@ -411,22 +411,6 @@ pub enum SignerRegime {
     AppletOrService,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct EventSignerBinding {
-    pub binding_actor_id: DidCoreId,
-    pub signer_id: DidCoreId,
-}
-
-pub fn event_signer_binding(event: &Event) -> EventSignerBinding {
-    EventSignerBinding {
-        binding_actor_id: event.actor_id.clone(),
-        signer_id: event
-            .executed_by
-            .clone()
-            .unwrap_or_else(|| event.actor_id.clone()),
-    }
-}
-
 pub fn dispatch_signer_regime(
     minimal_metadata_realm: bool,
     principal_kind: SignerPrincipalKind,
@@ -442,22 +426,6 @@ pub fn dispatch_signer_regime(
         | SignerPrincipalKind::Integration => Ok(SignerRegime::AppletOrService),
         SignerPrincipalKind::Unknown => Err(AgentEvidenceRejectedReason::SigningKeyMismatch),
     }
-}
-
-pub fn verify_event_signer_controller(
-    event: &Event,
-    verification_method: &DidUrl,
-) -> Result<EventSignerBinding, AgentEvidenceRejectedReason> {
-    let binding = event_signer_binding(event);
-    let controller = DidFullId::new(did_url_controller(verification_method).to_owned())
-        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    if project_full_id_to_core_id(&controller)
-        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?
-        != binding.signer_id
-    {
-        return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
-    }
-    Ok(binding)
 }
 
 fn agent_signing_key_binding_transcript_bytes(

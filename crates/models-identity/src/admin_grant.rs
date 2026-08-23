@@ -5,11 +5,6 @@
 //! DID, the granted admin scopes, the expiry). Principal servers receive this
 //! as an HTTP response from coauth (or another upstream IdP) and use it to bind
 //! a signed admin operation to the operator's identity.
-//!
-//! This is the pure introspection **data** half of the per-admin signing model;
-//! the KeyStore-backed `arkret_keystore`-consuming behavior (addressing signing
-//! keys by `(application_id, admin_did)`) lives in `arkret-auth` as
-//! `AdminKeyStore`.
 
 use arkret_wire::{DidCoreId, Result, WireError};
 use chrono::{DateTime, Utc};
@@ -22,8 +17,6 @@ use serde::{Deserialize, Serialize};
 pub mod admin_scopes {
     /// Submit a Move that reconfigures a Space's notary cell.
     pub const NOTARY_RECONFIGURE: &str = "notary.reconfigure";
-    /// Rotate the notary signing key for a Space.
-    pub const NOTARY_ROTATE_SIGNING_KEY: &str = "notary.rotate_signing_key";
     /// Trigger a compaction seal (MAL-11).
     pub const SEAL_COMPACT: &str = "seal.compact";
     /// Submit a manual repair Move for a bottom cell.

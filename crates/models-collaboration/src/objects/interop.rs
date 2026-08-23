@@ -3,39 +3,11 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DidCoreId, EventId, Hash, MimiRoomUri, MimiUri, PayloadProof, ProofContextId, RealmId,
-    SchemaId, StrandId,
+    DidCoreId, EventId, Hash, MimiRoomUri, MimiUri, PayloadProof, ProofContextId, RealmId, StrandId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::objects::media::MediaIceConfigRequestBody;
-
-/// Counterpart for `spec/v1/artifacts/schemas/media-operations.schema.json`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum MediaOperations {
-    MediaIceConfigRequestBody(MediaIceConfigRequestBody),
-}
-
-impl MediaOperations {
-    pub const SCHEMA: &'static str = SchemaId::MEDIA_OPERATIONS_V1;
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/mimi-interop.schema.json`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum MimiInterop {
-    ProviderDirectory(ProviderDirectory),
-    RoomBinding(RoomBinding),
-    ContentMappingReceipt(ContentMappingReceipt),
-}
-
-impl MimiInterop {
-    pub const SCHEMA: &'static str = SchemaId::MIMI_INTEROP_V1;
-}
-
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/mimi-interop.schema.json#/$defs/content_mapping_receipt`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

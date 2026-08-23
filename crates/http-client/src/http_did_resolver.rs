@@ -251,13 +251,6 @@ impl HttpDidResolver {
             .unwrap_or(HttpDidResolverHealthSignal::Untrusted)
     }
 
-    /// Drop every cached entry.
-    pub fn invalidate_all(&self) {
-        if let Ok(mut cache) = self.cache.lock() {
-            cache.clear();
-        }
-    }
-
     /// Drop a single cached entry.
     pub fn invalidate(&self, did: &DidFullId) {
         if let Ok(mut cache) = self.cache.lock() {
@@ -664,7 +657,6 @@ mod tests {
         // path is exercised; we only check cache invalidation API works.
         let did = DidFullId::new("did:web:nonexistent.invalid").unwrap();
         resolver.invalidate(&did);
-        resolver.invalidate_all();
     }
 
     #[tokio::test]

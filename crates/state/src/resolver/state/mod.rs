@@ -34,16 +34,6 @@ pub struct RealmState {
     pub frontier: Vec<EventId>,
     /// Realm state events.
     pub state_events: Vec<Event>,
-    /// True when one or more events were marked `soft_failed` because
-    /// their authorization refs were not yet materialized at apply time.
-    /// Per `event-auth-state-resolution.md` §6.2, the projection MUST be
-    /// treated as `read_only` while this is set: callers MUST NOT submit
-    /// new writes that depend on unverified auth state.
-    pub auth_incomplete: bool,
-    /// Event IDs that landed but could not be auth-validated due to a
-    /// missing `refs[role=authorized_by]` chain link. They live here, not in
-    /// `state_events`, until the missing dependency is materialized.
-    pub soft_failed: Vec<EventId>,
     pub(super) processed_events: BTreeMap<EventId, Event>,
     pub(super) redacted_events: BTreeSet<EventId>,
     pub(super) tombstone_event_id: Option<EventId>,
@@ -65,41 +55,9 @@ impl RealmState {
             conflict_records: Vec::new(),
             frontier: Vec::new(),
             state_events: Vec::new(),
-            auth_incomplete: false,
-            soft_failed: Vec::new(),
             processed_events: BTreeMap::new(),
             redacted_events: BTreeSet::new(),
             tombstone_event_id: None,
-        }
-    }
-
-    /// Returns `true` when the projection MUST refuse new writes because at
-    /// least one applied event is `soft_failed` due to missing authorization refs.
-    pub fn is_read_only(&self) -> bool {
-        self.auth_incomplete
-    }
-
-    /// Mark an event as `soft_failed` and flip the projection into the
-    /// read-only `auth_incomplete` mode (event-auth-state-resolution.md §6.2).
-    ///
-    /// Callers SHOULD invoke this when an inbound event references
-    /// `refs[role=authorized_by]` that have not yet been pulled. Once the missing
-    /// dependency materialises, callers may invoke
-    /// [`RealmState::clear_soft_failed`] to retry reduction.
-    pub fn mark_soft_failed(&mut self, event_id: EventId) {
-        if !self.soft_failed.iter().any(|id| id == &event_id) {
-            self.soft_failed.push(event_id);
-        }
-        self.auth_incomplete = true;
-    }
-
-    /// Drop a soft-failed event marker once its authorization refs have been
-    /// resolved. Clears `auth_incomplete` only when the soft-failed list
-    /// becomes empty.
-    pub fn clear_soft_failed(&mut self, event_id: &EventId) {
-        self.soft_failed.retain(|id| id != event_id);
-        if self.soft_failed.is_empty() {
-            self.auth_incomplete = false;
         }
     }
 
@@ -416,8 +374,6 @@ impl RealmState {
             conflict_records: Vec::new(),
             frontier: snapshot.frontier,
             state_events: Vec::new(),
-            auth_incomplete: false,
-            soft_failed: Vec::new(),
             processed_events: BTreeMap::new(),
             redacted_events: BTreeSet::new(),
             tombstone_event_id: snapshot.tombstone_event_id,

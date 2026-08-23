@@ -864,20 +864,19 @@ pub fn derive_history_join_epoch(
                     commits.push((event.event_id.clone(), commit));
                 }
             }
-            event_kind_str::MLS_GENESIS => {
+            event_kind_str::MLS_GENESIS
                 if event
                     .payload
                     .get("mls_group_id")
                     .and_then(Value::as_str)
                     .is_some_and(|group| group == subject.mls_group_id.as_str())
-                    && event.payload.get("epoch").and_then(Value::as_u64) == Some(0)
-                {
-                    // The creator coordinate is not a payload field: the
-                    // closed mls_genesis_payload schema does not declare one,
-                    // and encryption-and-audit.md fixes creator principal as
-                    // the accepted Event's own actor_id.
-                    genesis.push((event.event_id.clone(), event.actor_id.clone()));
-                }
+                    && event.payload.get("epoch").and_then(Value::as_u64) == Some(0) =>
+            {
+                // The creator coordinate is not a payload field: the
+                // closed mls_genesis_payload schema does not declare one,
+                // and encryption-and-audit.md fixes creator principal as
+                // the accepted Event's own actor_id.
+                genesis.push((event.event_id.clone(), event.actor_id.clone()));
             }
             _ => {}
         }

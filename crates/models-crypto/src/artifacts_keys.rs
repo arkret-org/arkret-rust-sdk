@@ -16,16 +16,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::key_backup::{
-    BackupKind, BackupSeriesEraseOutcome, BackupSeriesEraseRequestBody, KeyBackup,
-    KeyBackupContentItem, KeyBackupSignatureAlgorithm, KeysBackupsDeleteChallenge,
-    KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody,
-    KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsList, KeysBackupsReplaceOutcome,
-    RecoveryProofKind, SecretStorageContentIndex, SecretStorageItemKind,
+    BackupKind, KeyBackup, KeyBackupContentItem, KeyBackupSignatureAlgorithm, RecoveryProofKind,
+    SecretStorageContentIndex, SecretStorageItemKind,
 };
-use crate::keys::{
-    DeviceGenerationStatus, KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome,
-    KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody,
-};
+use crate::keys::DeviceGenerationStatus;
 
 /// The `backup_kind`-discriminated keybag body of
 /// `spec/v1/artifacts/schemas/key-backup-plaintext.schema.json` (`oneOf`).
@@ -695,34 +689,6 @@ pub struct KeyPackageUploadEntry {
     pub device_signature: Option<KeyOperationSignature>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_resort: Option<bool>,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/keys-operations.schema.json`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-// Untagged wire union; boxing a variant changes the public constructor shape
-// without changing the JSON.
-#[allow(clippy::large_enum_variant)]
-pub enum KeysOperations {
-    KeysUploadRequestBody(KeysUploadRequestBody),
-    KeysUploadOutcome(KeysUploadOutcome),
-    KeysQueryRequestBody(KeysQueryRequestBody),
-    KeysQueryOutcome(KeysQueryOutcome),
-    KeysClaimRequestBody(KeysClaimRequestBody),
-    KeysClaimOutcome(KeysClaimOutcome),
-    KeysBackupsReplaceOutcome(KeysBackupsReplaceOutcome),
-    KeysBackupsList(KeysBackupsList),
-    KeysBackupsIssueDeleteChallengeRequestBody(KeysBackupsIssueDeleteChallengeRequestBody),
-    KeysBackupsDeleteChallenge(KeysBackupsDeleteChallenge),
-    KeysBackupsDeleteRequestBody(KeysBackupsDeleteRequestBody),
-    KeysBackupsDeleteOutcome(KeysBackupsDeleteOutcome),
-    BackupSeriesEraseRequestBody(BackupSeriesEraseRequestBody),
-    BackupSeriesEraseOutcome(BackupSeriesEraseOutcome),
-}
-
-impl KeysOperations {
-    pub const SCHEMA: &'static str = SchemaId::KEYS_OPERATIONS_V1;
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/algorithm_counts`.

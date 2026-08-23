@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use arkret_wire::{AppletId, AuthorizationRef, DidCoreId, Event, RealmId, Result, SchemaId};
+use arkret_wire::{AppletId, AuthorizationRef, DidCoreId, Event, RealmId, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -98,19 +98,6 @@ pub struct GhostActorProvisionOutcome {
     pub authorization_ref: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/applet-ghost-operations.schema.json`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AppletGhostOperations {
-    GhostActorProvisionRequestBody(Box<GhostActorProvisionRequestBody>),
-    GhostActorProvisionOutcome(GhostActorProvisionOutcome),
-}
-
-impl AppletGhostOperations {
-    pub const SCHEMA: &'static str = SchemaId::APPLET_GHOST_OPERATIONS_V1;
 }
 
 /// Applet delegation fields required when an applet or delegated agent signs

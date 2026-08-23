@@ -205,14 +205,6 @@ pub fn hash_leaf(leaf_data: &[u8]) -> [u8; 32] {
     crate::canonical::sha256_bytes_from_slices(&[&[0x00], leaf_data])
 }
 
-pub(crate) fn parent_hash(left: &Hash, right: &Hash) -> Result<Hash> {
-    let left = parse_sha256(left)
-        .ok_or_else(|| WireError::Protocol(format!("Merkle node not sha256: {left}")))?;
-    let right = parse_sha256(right)
-        .ok_or_else(|| WireError::Protocol(format!("Merkle node not sha256: {right}")))?;
-    Ok(format_hash(&hash_node(&left, &right)))
-}
-
 pub fn hash_node(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
     crate::canonical::sha256_bytes_from_slices(&[&[0x01], &left[..], &right[..]])
 }

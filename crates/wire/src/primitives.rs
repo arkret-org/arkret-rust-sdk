@@ -274,24 +274,6 @@ pub enum Facet {
     Renderable,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FacetSelector {
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub all: Vec<Facet>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub any: Vec<Facet>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub none: Vec<Facet>,
-}
-
-impl FacetSelector {
-    pub fn matches(&self, facets: &[Facet]) -> bool {
-        self.all.iter().all(|facet| facets.contains(facet))
-            && (self.any.is_empty() || self.any.iter().any(|facet| facets.contains(facet)))
-            && self.none.iter().all(|facet| !facets.contains(facet))
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Facets {
@@ -829,18 +811,6 @@ fn validate_read_scope_track(track: &str) -> Result<()> {
         )));
     }
     Ok(())
-}
-
-/// Account lifecycle states.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AccountState {
-    Active,
-    SoftLoggedOut,
-    Locked,
-    Suspended,
-    Deactivated,
-    Erased,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

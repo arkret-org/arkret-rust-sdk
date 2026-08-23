@@ -984,10 +984,6 @@ impl MessageCreatePayload {
         self
     }
 
-    pub fn content_mut(&mut self) -> Option<&mut ContentBlock> {
-        self.content.as_mut()
-    }
-
     pub fn content_block(&self) -> Result<Option<ContentBlock>> {
         Ok(self.content.clone())
     }

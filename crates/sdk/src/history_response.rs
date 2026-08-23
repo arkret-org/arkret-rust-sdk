@@ -504,23 +504,23 @@ where
             {
                 return invalid("source signer evidence does not bind its actor and method");
             }
-            match evidence {
+            match evidence.as_ref() {
                 AuthenticatedSignerResolutionEvidence::NativeAgent { .. } => {
                     let verified = verify_external_source_key(
                         HistorySourceProofExternalVerificationRequest::NativeAgent {
                             source_record: source,
-                            signer_evidence: evidence,
+                            signer_evidence: evidence.as_ref(),
                             dependencies,
                         },
                     )?;
                     let AuthenticatedSignerResolutionEvidence::NativeAgent {
                         agent_signer_evidence,
                         ..
-                    } = evidence
+                    } = evidence.as_ref()
                     else {
                         unreachable!("matched NativeAgent evidence above")
                     };
-                    let binding = match agent_signer_evidence {
+                    let binding = match agent_signer_evidence.as_ref() {
                         arkret_models_identity::AgentSignerEvidence::CurrentAdmission {
                             admission_evidence,
                             ..
@@ -884,7 +884,7 @@ fn source_evidence_kind(
                     },
                 authenticated_signer_resolution_evidence,
             } if content_digest == &source.source_signer_evidence_digest => {
-                match authenticated_signer_resolution_evidence {
+                match authenticated_signer_resolution_evidence.as_ref() {
                     AuthenticatedSignerResolutionEvidence::Service { .. } => {
                         return invalid("service evidence cannot be a history response source root");
                     }

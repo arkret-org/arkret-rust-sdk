@@ -1102,7 +1102,7 @@ impl DirectoryGovernanceProof {
         );
         binding.insert(
             "proof_purpose".to_owned(),
-            serde_json::to_value(&self.proof_purpose)?,
+            serde_json::to_value(self.proof_purpose)?,
         );
         binding.insert("audience".to_owned(), serde_json::to_value(&self.audience)?);
         Ok(arkret_canonical::canonical::canonical_json_bytes(
@@ -1699,7 +1699,7 @@ mod directory_governance_proof_tests {
         serde_json::from_value::<DirectoryGovernanceProof>(full_did_audience)
             .expect_err("the full DID form is not an accepted audience shape");
 
-        let mut array_audience = base.clone();
+        let mut array_audience = base;
         array_audience["audience"] = json!([DIRECTORY_SERVICE_ID]);
         serde_json::from_value::<DirectoryGovernanceProof>(array_audience)
             .expect_err("audience MUST be single valued");

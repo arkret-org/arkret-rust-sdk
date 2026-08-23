@@ -72,11 +72,6 @@ impl GhostActorProfileRequest {
         self
     }
 
-    pub fn with_avatar_blob_ref(mut self, avatar_blob_ref: BlobRef) -> Self {
-        self.avatar_blob_ref = Some(avatar_blob_ref);
-        self
-    }
-
     pub fn with_accountable_principal_ids(
         mut self,
         accountable_principal_ids: Vec<DidCoreId>,
@@ -144,12 +139,6 @@ impl GhostActorProfileRequest {
             updated_by: self.updated_by.clone(),
             updated_at: self.updated_at,
         })
-    }
-
-    pub fn profile_create_payload(&self) -> Result<Value> {
-        Ok(serde_json::to_value(ActorProfileCreatePayload {
-            object: self.to_actor_profile()?,
-        })?)
     }
 
     pub fn profile_create_intent(

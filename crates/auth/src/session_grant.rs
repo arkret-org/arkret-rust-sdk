@@ -13,7 +13,6 @@ use arkret_models_collaboration::session_grant_bodies::{
 use arkret_wire::{DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, RequestId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AgentKeyProofSigningInput {
@@ -36,26 +35,6 @@ impl AgentKeyProofSigningInput {
             self.canonical_bytes()?,
         ))?)
     }
-}
-
-pub fn agent_key_proof_request_binding_digest(
-    body: &SessionGrantRequestBody,
-) -> crate::Result<Hash> {
-    let SessionGrantRequestBody::Agent(body) = body else {
-        return Err(crate::AuthError::Protocol(
-            "agent proof binding digest requires an Agent session request".to_owned(),
-        ));
-    };
-    let mut value = serde_json::to_value(body)?;
-    let proof = value
-        .get_mut("proof")
-        .and_then(Value::as_object_mut)
-        .ok_or_else(|| crate::AuthError::Protocol("agent proof must be an object".to_owned()))?;
-    proof.remove("signature");
-    proof.remove("request_canonical_digest");
-    Ok(Hash::new(arkret_canonical::canonical::canonical_sha256(
-        &value,
-    )?)?)
 }
 
 pub fn human_session_grant_request(

@@ -391,26 +391,6 @@ impl RecurrenceZone {
             }
         }
     }
-
-    fn local_to_utc_candidates(&self, date: NaiveDate, time: NaiveTime) -> Vec<DateTime<Utc>> {
-        let local = date.and_time(time);
-        match self {
-            Self::Named(tz) => match tz.from_local_datetime(&local) {
-                LocalResult::Single(value) => vec![value.with_timezone(&Utc)],
-                LocalResult::Ambiguous(first, second) => {
-                    vec![first.with_timezone(&Utc), second.with_timezone(&Utc)]
-                }
-                LocalResult::None => Vec::new(),
-            },
-            Self::Fixed(offset) => match offset.from_local_datetime(&local) {
-                LocalResult::Single(value) => vec![value.with_timezone(&Utc)],
-                LocalResult::Ambiguous(first, second) => {
-                    vec![first.with_timezone(&Utc), second.with_timezone(&Utc)]
-                }
-                LocalResult::None => Vec::new(),
-            },
-        }
-    }
 }
 
 /// Structured failure modes for the recurrence parsing helpers.
@@ -506,50 +486,6 @@ pub fn recurrence_allows(
     }
 
     Ok(())
-}
-
-pub fn recurrence_next_transition_after(
-    now: DateTime<Utc>,
-    recurrence: &Recurrence,
-) -> std::result::Result<Option<DateTime<Utc>>, ConstraintParseError> {
-    let zone = parse_recurrence_zone(recurrence.timezone.as_deref())?;
-    let (local_date, ..) = zone.local_parts(now);
-    let window_start = recurrence
-        .window_start
-        .as_deref()
-        .map(parse_recurrence_time)
-        .transpose()?;
-    let window_end = recurrence
-        .window_end
-        .as_deref()
-        .map(parse_recurrence_time)
-        .transpose()?;
-    let has_window = window_start.is_some() || window_end.is_some();
-    let has_day_boundary = has_window || recurrence_uses_day_boundaries(recurrence);
-    let midnight =
-        NaiveTime::from_hms_opt(0, 0, 0).expect("00:00:00 must be a valid recurrence boundary");
-
-    let mut candidates = Vec::new();
-    for day_offset in 0..=8 {
-        let Some(date) = local_date.checked_add_signed(chrono::Duration::days(day_offset)) else {
-            continue;
-        };
-
-        if day_offset > 0 && has_day_boundary {
-            candidates.extend(zone.local_to_utc_candidates(date, midnight));
-        }
-        if let Some(start) = window_start {
-            candidates.extend(zone.local_to_utc_candidates(date, start));
-        }
-        if let Some(end) = window_end {
-            candidates.extend(zone.local_to_utc_candidates(date, end));
-        }
-    }
-
-    Ok(candidates
-        .into_iter()
-        .filter(|candidate| *candidate > now)
-        .min())
 }
 
 fn parse_recurrence_zone(
@@ -657,19 +593,6 @@ fn recurrence_frequency_allows(
     }
 }
 
-fn recurrence_uses_day_boundaries(recurrence: &Recurrence) -> bool {
-    recurrence
-        .days
-        .as_ref()
-        .is_some_and(|days| !days.is_empty())
-        || recurrence.frequency.as_deref().is_some_and(|frequency| {
-            matches!(
-                frequency.trim().to_ascii_lowercase().as_str(),
-                "weekdays" | "weekends"
-            )
-        })
-}
-
 fn recurrence_window_contains(
     time: NaiveTime,
     start: Option<NaiveTime>,
@@ -682,19 +605,6 @@ fn recurrence_window_contains(
         (Some(start), Some(end)) if start == end => true,
         (Some(start), Some(end)) if start < end => time >= start && time < end,
         (Some(start), Some(end)) => time >= start || time < end,
-    }
-}
-
-pub fn update_earliest_future(
-    earliest: &mut Option<DateTime<Utc>>,
-    now: DateTime<Utc>,
-    candidate: Option<DateTime<Utc>>,
-) {
-    if let Some(candidate) = candidate
-        && candidate > now
-        && earliest.is_none_or(|current| candidate < current)
-    {
-        *earliest = Some(candidate);
     }
 }
 
@@ -738,106 +648,6 @@ pub struct VerifiedClaim {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub refreshed_at: Option<DateTime<Utc>>,
-}
-
-/// Grant constraint with priority.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ConstraintEntry {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub constraint_id: Option<String>,
-    pub constraint: Constraint,
-    #[serde(default)]
-    pub priority: i32,
-}
-
-impl ConstraintEntry {
-    /// Create a new constraint entry.
-    pub fn new(constraint: Constraint) -> Self {
-        Self {
-            constraint_id: None,
-            constraint,
-            priority: 0,
-        }
-    }
-
-    /// Set the priority.
-    pub fn with_priority(mut self, priority: i32) -> Self {
-        self.priority = priority;
-        self
-    }
-
-    /// Get the effect of this constraint.
-    pub fn effect(&self) -> ConstraintEffect {
-        match &self.constraint {
-            Constraint::Temporal { .. } => ConstraintEffect::Allow,
-            Constraint::FieldAccess { effect, .. } => effect.clone(),
-            Constraint::KindRestriction { .. } => ConstraintEffect::Allow,
-            Constraint::AuthorityControl { .. } => ConstraintEffect::Allow,
-            Constraint::RateLimiting { .. } => ConstraintEffect::Allow,
-            Constraint::ApprovalWorkflow { .. } => ConstraintEffect::RequireReview,
-            Constraint::ClaimBased { .. } => ConstraintEffect::Allow,
-            Constraint::Accountability { .. } => ConstraintEffect::Allow,
-            Constraint::EncryptionRequirement { .. } => ConstraintEffect::Allow,
-            Constraint::VisibilityControl { .. } => ConstraintEffect::Allow,
-            Constraint::ResourceLimit { .. } => ConstraintEffect::Allow,
-            Constraint::EditWindow { .. } => ConstraintEffect::Allow,
-            Constraint::ContainerMove { .. } => ConstraintEffect::Allow,
-            Constraint::ScopeLimitation { .. } => ConstraintEffect::Allow,
-            Constraint::AllowedCircleIds { .. } => ConstraintEffect::Allow,
-            Constraint::AllowedSessionIds { .. } => ConstraintEffect::Allow,
-        }
-    }
-
-    /// Derive the canonical [`crate::EvaluationClass`] for this constraint per
-    /// `constraint-schema.md` §2.3. The class controls whether the
-    /// authorization engine may use a fast-path cache:
-    ///
-    /// - `Stateless` — pure inputs (clock, calendar). Safe to cache.
-    /// - `GrantLocal` — inputs from the grant itself. Safe to cache as long as the cache key binds
-    ///   the grant id and the constraint priority.
-    /// - `RealmState` — depends on Realm membership/policy/capability state. MUST be re-evaluated
-    ///   on every frontier change.
-    /// - `External` — depends on out-of-band signals (policy server, claim issuer, presentation).
-    ///   MUST NOT be cached without explicit TTL.
-    pub fn evaluation_class(&self) -> crate::EvaluationClass {
-        use crate::EvaluationClass;
-        match &self.constraint {
-            Constraint::Temporal { .. } => EvaluationClass::Stateless,
-            Constraint::FieldAccess { .. } => EvaluationClass::Stateless,
-            Constraint::KindRestriction { .. } => EvaluationClass::Stateless,
-            Constraint::AuthorityControl { .. } => EvaluationClass::GrantLocal,
-            Constraint::RateLimiting { .. } => EvaluationClass::External,
-            Constraint::ApprovalWorkflow { .. } => EvaluationClass::External,
-            Constraint::ClaimBased { .. } => EvaluationClass::External,
-            Constraint::Accountability { .. } => EvaluationClass::GrantLocal,
-            Constraint::EncryptionRequirement { .. } => EvaluationClass::Stateless,
-            Constraint::VisibilityControl { .. } => EvaluationClass::RealmState,
-            Constraint::ResourceLimit {
-                max_total_blob_bytes,
-                max_resources,
-                ..
-            } if max_total_blob_bytes.is_some() || max_resources.is_some() => {
-                EvaluationClass::External
-            }
-            Constraint::ResourceLimit { .. } => EvaluationClass::Stateless,
-            Constraint::EditWindow { .. } => EvaluationClass::Stateless,
-            Constraint::ContainerMove { .. } => EvaluationClass::RealmState,
-            Constraint::ScopeLimitation { .. } => EvaluationClass::Stateless,
-            Constraint::AllowedCircleIds { .. } => EvaluationClass::Stateless,
-            Constraint::AllowedSessionIds { .. } => EvaluationClass::Stateless,
-        }
-    }
-
-    /// Whether this constraint is eligible for the authorization fast-path
-    /// cache. `realm_state` and `external` constraints always force a full
-    /// evaluation because their inputs can change outside the local request
-    /// tuple.
-    pub fn is_fast_path_cacheable(&self) -> bool {
-        matches!(
-            self.evaluation_class(),
-            crate::EvaluationClass::Stateless | crate::EvaluationClass::GrantLocal
-        )
-    }
 }
 
 #[cfg(test)]

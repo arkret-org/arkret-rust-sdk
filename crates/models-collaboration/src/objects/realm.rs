@@ -406,13 +406,6 @@ impl Realm {
         self
     }
 
-    /// Look up the active [`RelationProfile`] for a given `relation_kind`.
-    pub fn relation_profile(&self, relation_kind: &str) -> Option<&RelationProfile> {
-        self.relation_profiles
-            .iter()
-            .find(|profile| profile.relation_kind == relation_kind)
-    }
-
     /// Validate spec-level Realm invariants.
     pub fn validate_kind_invariants(&self) -> Result<()> {
         if self.reducer_profile != CORE_REDUCER_PROFILE {

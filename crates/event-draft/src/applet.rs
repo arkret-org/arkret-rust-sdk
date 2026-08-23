@@ -54,11 +54,6 @@ impl AppletBridgeErrorBuilder {
         }
     }
 
-    pub fn with_message(mut self, message: impl Into<String>) -> Self {
-        self.message = Some(message.into());
-        self
-    }
-
     pub fn with_external_ref(mut self, external_ref: Value) -> Self {
         self.external_ref = Some(external_ref);
         self
@@ -129,7 +124,6 @@ mod tests {
             true,
             AppletBridgeVisibilityScope::RealmAdmins,
         )
-        .with_message("external network rejected the message")
         .with_external_ref(json!({"slack_response_code": 429}))
         .with_retry_after_ms(1000)
         .build("2026-05-26T10:30:00.000Z".parse().unwrap())

@@ -49,12 +49,6 @@ impl ObjectPatchPayload {
         Ok(payload)
     }
 
-    /// Attach an expected-state hash for CAS-style object updates.
-    pub fn with_expected_state_digest(mut self, expected_state_digest: Hash) -> Self {
-        self.expected_state_digest = Some(expected_state_digest);
-        self
-    }
-
     /// Validate the typed payload's wire-level invariants.
     pub fn validate(&self) -> Result<()> {
         validate_object_patch_ref("target_ref", &self.target_ref)?;

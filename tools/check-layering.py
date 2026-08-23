@@ -155,9 +155,6 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-egress-policy",
         "arkret-keystore",
     },
-    # The per-admin signing-key store (AdminKeyStore) is owned by arkret-auth. It wraps a `KeyStore` backend keyed
-    # by admin DID, so auth consumes the storage contract from arkret-keystore
-    # (a leaf crate, no arkret deps — the edge is cycle-free).
     "arkret-auth": _WIRE
     | {
         "arkret-models-identity",
@@ -166,7 +163,6 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-policy",
         "arkret-signatures",
         "arkret-crypto",
-        "arkret-keystore",
     },
     # R4 (frozen): no crypto -> state edge.
     "arkret-crypto": _WIRE | {"arkret-models-identity", "arkret-models-crypto", "arkret-signatures"},

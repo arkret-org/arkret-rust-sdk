@@ -2552,10 +2552,10 @@ impl HistoryKeyResponseLostRecord {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HistoryResponsePageEntry {
     Record {
-        record: HistoryKeyResponseRecord,
+        record: Box<HistoryKeyResponseRecord>,
     },
     Lost {
-        lost_record: HistoryKeyResponseLostRecord,
+        lost_record: Box<HistoryKeyResponseLostRecord>,
     },
 }
 

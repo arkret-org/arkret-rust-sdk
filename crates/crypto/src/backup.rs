@@ -57,7 +57,7 @@ use arkret_wire::{
 };
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use getrandom::fill;
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
@@ -163,99 +163,6 @@ pub struct VaultCiphertext {
     pub nonce_salt_b64: String,
     pub salt_b64: String,
     pub digest_sha256: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SecretStorageCiphertext {
-    pub ciphertext_b64: String,
-    pub nonce_b64: String,
-    pub digest_sha256: String,
-}
-
-/// Derive a named device-local secret-storage wrap key from recoverable root
-/// material. The key id is part of the HKDF info so sibling secret-storage
-/// purposes cannot reuse the same AEAD key.
-pub fn derive_secret_storage_key(root: &[u8], key_id: &str) -> Result<[u8; 32]> {
-    if root.is_empty() || key_id.trim().is_empty() {
-        return Err(KeyBackupError::InvalidInput(
-            "secret-storage root and key id must be non-empty".to_owned(),
-        ));
-    }
-    let hkdf = Hkdf::<Sha256>::new(None, root);
-    let mut key = [0u8; 32];
-    hkdf.expand(
-        format!("arkret-secret-storage/{key_id}/v1").as_bytes(),
-        &mut key,
-    )
-    .map_err(|error| KeyBackupError::Kdf(format!("secret-storage hkdf: {error}")))?;
-    Ok(key)
-}
-
-/// Encrypt a `secret_storage_key` recipient envelope with a fresh random
-/// XChaCha20-Poly1305 nonce and the canonical domain-separation AAD.
-pub fn encrypt_with_secret_storage_key(
-    wrap_key: &[u8; 32],
-    binding: &VaultBinding,
-    plaintext: &[u8],
-) -> Result<SecretStorageCiphertext> {
-    let mut nonce = [0u8; VAULT_NONCE_LEN];
-    fill(&mut nonce).map_err(|error| KeyBackupError::Rng(format!("nonce rng: {error}")))?;
-    let mut aead_key = binding.subkey(wrap_key, &binding.subdomain);
-    let cipher = XChaCha20Poly1305::new((&aead_key).into());
-    let ciphertext = cipher
-        .encrypt(
-            &XNonce::from(nonce),
-            Payload {
-                msg: plaintext,
-                aad: &binding.aad()?,
-            },
-        )
-        .map_err(|error| KeyBackupError::Aead(format!("secret-storage encrypt: {error}")))?;
-    aead_key.zeroize();
-    Ok(SecretStorageCiphertext {
-        ciphertext_b64: base64url_encode(&ciphertext),
-        nonce_b64: base64url_encode(nonce),
-        digest_sha256: sha256_digest(&ciphertext),
-    })
-}
-
-pub fn decrypt_with_secret_storage_key(
-    wrap_key: &[u8; 32],
-    binding: &VaultBinding,
-    nonce_b64: &str,
-    ciphertext_b64: &str,
-    ciphertext_digest: &str,
-) -> Result<Zeroizing<Vec<u8>>> {
-    let nonce = base64url_decode(nonce_b64.trim_end_matches('='))
-        .map_err(|error| KeyBackupError::Encoding(format!("nonce base64: {error}")))?;
-    let nonce: [u8; VAULT_NONCE_LEN] = nonce
-        .try_into()
-        .map_err(|_| KeyBackupError::Encoding("nonce must be 24 bytes".to_owned()))?;
-    let ciphertext = base64url_decode(ciphertext_b64.trim_end_matches('='))
-        .map_err(|error| KeyBackupError::Encoding(format!("ciphertext base64: {error}")))?;
-    if sha256_digest(&ciphertext) != ciphertext_digest {
-        return Err(KeyBackupError::InvalidInput(
-            "secret-storage ciphertext_digest mismatch".to_owned(),
-        ));
-    }
-    let mut aead_key = binding.subkey(wrap_key, &binding.subdomain);
-    let cipher = XChaCha20Poly1305::new((&aead_key).into());
-    let plaintext = cipher
-        .decrypt(
-            &XNonce::from(nonce),
-            Payload {
-                msg: &ciphertext,
-                aad: &binding.aad()?,
-            },
-        )
-        .map(Zeroizing::new)
-        .map_err(|_| {
-            KeyBackupError::Aead(
-                "secret-storage decrypt failed: wrong key or corrupt ciphertext".to_owned(),
-            )
-        });
-    aead_key.zeroize();
-    plaintext
 }
 
 /// Stretch a user passphrase into a 32-byte key under Argon2id with a
@@ -990,40 +897,6 @@ pub fn commitment_digest(root: &[u8; VAULT_KDF_OUTPUT_LEN], backup_kind: BackupK
     let digest = arkret_canonical::canonical::sha256_bytes(commitment_key).to_vec();
     commitment_key.zeroize();
     digest
-}
-
-// ── key-backup AEAD associated data (key-management.md §7.1) ─────────────────
-//
-// This small pure helper was previously in the SDK `devices::backup` module. It
-// builds the canonical AEAD associated-data blob a key-backup envelope binds to
-// its origin. It lives here so the whole key-backup crypto surface is in one
-// place, reachable without the umbrella client runtime.
-
-/// Build the AEAD associated-data (AAD) blob that MUST bind a key-backup
-/// envelope to its origin per `key-management.md` §7.1.
-///
-/// Returns canonical-JSON bytes covering:
-/// `actor_id`, `device_id`, `backup_kind`, `backup_version`,
-/// `item_kind`, `schema_id`, and `created_at`.
-pub fn key_backup_aad(
-    actor_id: &DidCoreId,
-    device_id: Option<&DeviceId>,
-    backup_kind: BackupKind,
-    backup_version: &str,
-    item_kind: &str,
-    schema_id: &str,
-    created_at: DateTime<Utc>,
-) -> crate::Result<Vec<u8>> {
-    let aad = json!({
-        "actor_id": actor_id.as_str(),
-        "device_id": device_id.map(|d| d.as_str()),
-        "backup_kind": backup_kind.as_str(),
-        "backup_version": backup_version,
-        "item_kind": item_kind,
-        "schema_id": schema_id,
-        "created_at": format_timestamp_canonical(created_at),
-    });
-    Ok(canonical_json_bytes(&aad)?)
 }
 
 #[cfg(test)]

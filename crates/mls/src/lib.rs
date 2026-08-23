@@ -360,7 +360,10 @@ mod tests {
         let remove_binding = governance_binding(&group_id, 1, 2, governance_hash('3'));
 
         let remove = alice_group
-            .remove_member_by_principal_with_governance_binding(&bob_did, &remove_binding)
+            .remove_members_by_principal_with_governance_binding(
+                std::slice::from_ref(&bob_did),
+                &remove_binding,
+            )
             .unwrap();
         for proposal in &remove.proposals {
             carol_group.apply_proposal(proposal).unwrap();
@@ -922,65 +925,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn multi_device_workflow_applies_missed_commits() {
-        let alice = ArkretMlsIdentity::new_basic(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
-        )
-        .unwrap();
-        let bob = ArkretMlsIdentity::new_basic(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
-        )
-        .unwrap();
-        let charlie = ArkretMlsIdentity::new_basic(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturecharlie").unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000f").unwrap(),
-        )
-        .unwrap();
-        let bob_key_package = bob.key_package_record().unwrap();
-        let charlie_key_package = charlie.key_package_record().unwrap();
-        let mut revoked_package = charlie_key_package.clone();
-        let revoke_step = revoke_key_package(&mut revoked_package).unwrap();
-        assert_eq!(
-            revoked_package.state,
-            arkret_models_crypto::MlsKeyPackageState::Revoked
-        );
-        assert_eq!(
-            revoke_step.action,
-            MlsDeviceWorkflowAction::RevokeKeyPackage
-        );
-
-        const REALM_ID: &str = "ak:realm:AVOY9ncc7XoaJc87Ez4c1KSkt6q1UBS4E5pJERKswtT-";
-        let mut alice_group = alice.create_group(REALM_ID.as_bytes()).unwrap();
-        let bob_add = alice_group.add_member(&bob_key_package).unwrap();
-        let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
-        let charlie_add = alice_group.add_member(&charlie_key_package).unwrap();
-        let workflow = late_device_join_steps(&charlie_add.welcome).unwrap();
-        assert_eq!(workflow[0].action, MlsDeviceWorkflowAction::ConsumeWelcome);
-
-        let mut wrong_group = charlie_add.commit.clone();
-        wrong_group.group_id = "wrong-group".to_owned();
-        assert!(bob_group.apply_commit(&wrong_group).is_err());
-        assert_ne!(bob_group.epoch(), alice_group.epoch());
-
-        bob_group
-            .apply_commits_and_retain_history_secrets(
-                std::slice::from_ref(&charlie_add.commit),
-                REALM_ID,
-            )
-            .unwrap();
-        assert_eq!(bob_group.epoch(), alice_group.epoch());
-        assert_eq!(
-            bob_group
-                .export_history_secret_range(bob_group.epoch(), bob_group.epoch())
-                .len(),
-            1,
-            "entering an exporter epoch must retain its history secret before catch-up continues"
-        );
-    }
-
     // NOTE: the "projects to repo operation + device-message target"
     // integration test moved to `arkret-event-draft` (tests/mls_projection.rs):
     // the envelope -> local operation / DeviceMessageTarget projection lives on the
@@ -1286,39 +1230,6 @@ mod tests {
         assert_eq!(rebuilt, payload);
     }
 
-    /// T31 — `remove_member_by_leaf` accepts a raw OpenMLS leaf index and
-    /// produces the same shape of commit envelope. Used when the caller
-    /// (inkson DeviceManager) tracks per-device leaf bookkeeping
-    /// out-of-band.
-    #[test]
-    fn remove_member_by_leaf_accepts_raw_index() {
-        let alice = ArkretMlsIdentity::new_basic(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
-        )
-        .unwrap();
-        let bob = ArkretMlsIdentity::new_basic(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
-        )
-        .unwrap();
-        let bob_kp = bob.key_package_record().unwrap();
-
-        let mut alice_group = alice
-            .create_group(b"ak:realm:AXZBJ1Qx4BQpewSdtLb-lpBWFik6yQrRkLn9ZSF21dBh")
-            .unwrap();
-        let add_bob = alice_group.add_member(&bob_kp).unwrap();
-        let _bob_group = ArkretMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
-
-        // Bob's leaf is at index 1 (Alice is index 0 as group creator).
-        let result = alice_group.remove_member_by_leaf(1).unwrap();
-        assert_eq!(result.removed_leaves, vec![1]);
-        assert_eq!(
-            result.removed_principals[0].as_str(),
-            "ak:did_core:webvh:z6mkfixturebob"
-        );
-    }
-
     // NOTE: the Remove-result `commit_operation` projection test also moved to
     // `arkret-event-draft` (tests/mls_projection.rs) — see the note above.
 
@@ -1435,7 +1346,9 @@ mod tests {
 
         let record = group.export_state_record().unwrap();
         let reloaded = ArkretMlsGroup::restore_from_state_record(&record).unwrap();
-        let range = reloaded.export_history_secret_range(epoch, epoch);
-        assert_eq!(range, vec![(epoch, secret)]);
+        assert_eq!(
+            reloaded.history_secrets.get(&epoch).map(|s| &**s),
+            Some(&*secret)
+        );
     }
 }

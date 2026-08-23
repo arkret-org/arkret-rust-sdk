@@ -15,7 +15,6 @@ mod accountability;
 mod agent;
 mod applet;
 mod calendar;
-mod device;
 mod device_message;
 mod event_intent;
 mod event_payload;
@@ -36,7 +35,6 @@ pub use agent::{
 };
 pub use applet::AppletBridgeErrorBuilder;
 pub use calendar::{RsvpAuthoring, RsvpResponseBranch};
-pub use device::build_device_authorize_event_at;
 pub use device_message::{
     DeviceMessageSpec, TypedDeviceMessageTarget, device_message_kind, device_message_spec,
 };
@@ -61,7 +59,7 @@ pub use registry::{
     EventDraftKindValidation, event_draft_kind_conformance_vectors,
 };
 pub use typed_event_draft::{
-    ExtensionPayloadValidator, TypedEventDraft, ValidatedExtensionPayload,
+    EventAuthoringContext, ExtensionPayloadValidator, TypedEventDraft, ValidatedExtensionPayload,
 };
 
 /// Result alias for this crate's fallible drafting operations.

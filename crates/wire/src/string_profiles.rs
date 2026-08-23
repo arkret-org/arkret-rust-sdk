@@ -3,7 +3,6 @@
 use precis_profiles::UsernameCaseMapped;
 use precis_profiles::precis_core::profile::Profile;
 use unicode_normalization::{UnicodeNormalization, is_nfc};
-use unicode_security::{RestrictionLevel, RestrictionLevelDetection};
 
 use crate::{Result, WireError};
 
@@ -174,17 +173,6 @@ pub fn validate_canonical_acct_uri(input: &str) -> Result<()> {
 pub fn human_identifier_skeleton(value: &str) -> Result<String> {
     validate_canonical_handle_localpart(value)?;
     Ok(unicode_security::skeleton(value).collect())
-}
-
-pub fn validate_highly_restrictive_registration_identifier(value: &str) -> Result<()> {
-    validate_canonical_handle_localpart(value)?;
-    if !value.check_restriction_level(RestrictionLevel::HighlyRestrictive) {
-        return Err(WireError::Protocol(
-            "human identifier exceeds the UTS #39 Highly Restrictive registration policy"
-                .to_owned(),
-        ));
-    }
-    Ok(())
 }
 
 pub fn validate_single_line_display_text(

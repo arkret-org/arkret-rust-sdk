@@ -194,10 +194,10 @@ impl ControlEventStore for MemoryControlEventStore {
             )));
         }
         let mut overdue = false;
-        if let Some(stored_seals) = inner.sealed.get(event_digest.as_str()) {
-            if stored_seals.contains(&seal.id) {
-                return Ok(());
-            }
+        if let Some(stored_seals) = inner.sealed.get(event_digest.as_str())
+            && stored_seals.contains(&seal.id)
+        {
+            return Ok(());
         }
         let decisions = inner
             .proposal_decisions
@@ -1434,11 +1434,7 @@ mod tests {
             )
             .unwrap();
         store
-            .put_pending_with_ingress(
-                &first,
-                &ControlProposalIngress::AckRequired(ack.clone()),
-                SUITE,
-            )
+            .put_pending_with_ingress(&first, &ControlProposalIngress::AckRequired(ack), SUITE)
             .unwrap(); // idempotent
         assert_eq!(
             store.get(&digest).unwrap().unwrap().event_id,

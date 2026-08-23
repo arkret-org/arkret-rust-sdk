@@ -22,9 +22,9 @@ use std::collections::BTreeMap;
 
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
-    AppletId, AuthContext, AuthoredEvent, AuthorizationRef, CriticalExtension, DidCoreId, EventId,
-    EventKind, EventRef, EventRequirements, FeatureRef, Hash, Hlc, Precondition, ProfileRef,
-    RealmId, ScopeRef, SealBasis, SealId,
+    AppletId, AuthContext, AuthoredEvent, AuthorizationRef, DidCoreId, EventId, EventKind,
+    EventRef, EventRequirements, Hash, Hlc, Precondition, ProfileRef, RealmId, ScopeRef, SealBasis,
+    SealId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -178,7 +178,7 @@ impl EventIntent {
     /// The kind and payload were paired once, before erasure, so this can only
     /// fail if the caller asks for a different marker.
     pub fn typed_payload<K: crate::EventSpec>(&self) -> Result<K::Payload> {
-        if &self.kind != &K::KIND {
+        if self.kind != K::KIND {
             return Err(crate::EventDraftError::Protocol(format!(
                 "intent kind {} does not match requested payload {}",
                 self.kind.as_str(),
@@ -360,16 +360,6 @@ impl EventIntent {
 
     pub fn with_schema_profile_ref(mut self, profile_ref: ProfileRef) -> Self {
         self.requirements.schema_profile_refs.push(profile_ref);
-        self
-    }
-
-    pub fn with_required_feature(mut self, feature_ref: FeatureRef) -> Self {
-        self.requirements.required_features.push(feature_ref);
-        self
-    }
-
-    pub fn with_critical_extension(mut self, extension: CriticalExtension) -> Self {
-        self.requirements.critical_extensions.push(extension);
         self
     }
 

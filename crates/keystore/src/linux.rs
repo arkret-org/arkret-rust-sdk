@@ -22,9 +22,6 @@ use crate::{KeyStore, KeyStoreError};
 /// Linux Secret Service-backed [`KeyStore`].
 pub struct LinuxSecretServiceKeyStore {
     service: String,
-    /// Optional collection alias override; `None` means "default
-    /// collection". Most desktop sessions only have one.
-    collection_alias: Option<String>,
 }
 
 impl LinuxSecretServiceKeyStore {
@@ -41,28 +38,12 @@ impl LinuxSecretServiceKeyStore {
         Self::connect()?;
         Ok(Self {
             service: service_name(application_id),
-            collection_alias: None,
         })
-    }
-
-    /// Construct with an explicit collection alias (`"login"`,
-    /// `"session"`, or any custom alias the desktop has set up).
-    pub fn with_collection(
-        application_id: &str,
-        collection_alias: impl Into<String>,
-    ) -> std::result::Result<Self, KeyStoreError> {
-        let mut store = Self::new(application_id)?;
-        store.collection_alias = Some(collection_alias.into());
-        Ok(store)
     }
 
     fn connect() -> std::result::Result<SecretService<'static>, KeyStoreError> {
         SecretService::connect(EncryptionType::Dh)
             .map_err(|err| KeyStoreError::backend(format!("secret-service: {err}")))
-    }
-
-    fn collection_path(&self) -> &str {
-        self.collection_alias.as_deref().unwrap_or("default")
     }
 
     fn attrs<'a>(&'a self, id: &'a str) -> std::collections::HashMap<&'a str, &'a str> {
@@ -78,7 +59,7 @@ impl KeyStore for LinuxSecretServiceKeyStore {
         validate_id(id)?;
         let ss = Self::connect()?;
         let collection = ss
-            .get_collection_by_alias(self.collection_path())
+            .get_collection_by_alias("default")
             .map_err(|err| KeyStoreError::backend(format!("get collection: {err}")))?;
         if collection.is_locked().unwrap_or(false) {
             collection
@@ -109,7 +90,7 @@ impl KeyStore for LinuxSecretServiceKeyStore {
         validate_id(id)?;
         let ss = Self::connect()?;
         let collection = ss
-            .get_collection_by_alias(self.collection_path())
+            .get_collection_by_alias("default")
             .map_err(|err| KeyStoreError::backend(format!("get collection: {err}")))?;
         if collection.is_locked().unwrap_or(false) {
             collection

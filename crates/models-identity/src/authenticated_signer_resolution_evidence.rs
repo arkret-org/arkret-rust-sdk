@@ -30,7 +30,7 @@ pub enum AuthenticatedSignerResolutionEvidence {
     NativeAgent {
         signer_id: DidCoreId,
         verification_method: DidUrl,
-        agent_signer_evidence: AgentSignerEvidence,
+        agent_signer_evidence: Box<AgentSignerEvidence>,
         attester_signer_evidence_ref: SignerEvidenceRef,
         attester_signer_evidence_digest: Hash,
         controller_signer_evidence_ref: SignerEvidenceRef,
@@ -132,7 +132,7 @@ impl AuthenticatedSignerResolutionEvidence {
                 agent_signer_evidence,
                 ..
             } => {
-                let matches_signer = match agent_signer_evidence {
+                let matches_signer = match agent_signer_evidence.as_ref() {
                     AgentSignerEvidence::HistoricalEvent {
                         event_admission_receipt,
                         ..
@@ -247,7 +247,7 @@ pub fn ed25519_notary_signer_descriptor_from_evidence(
             )
         })?;
     let public_key = decode_ed25519_material(material)?;
-    let frozen_public_key_b64u = arkret_wire::base64url::base64url_encode(&public_key);
+    let frozen_public_key_b64u = arkret_wire::base64url::base64url_encode(public_key);
     let descriptor = NotarySignerDescriptor {
         actor_id: evidence.signer_id().clone(),
         verification_method: verification_method.clone(),

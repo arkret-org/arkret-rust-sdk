@@ -453,16 +453,6 @@ pub struct OperationEventConversion {
 }
 
 impl OperationEventConversion {
-    pub fn with_prev_ref(mut self, event_id: EventId) -> Self {
-        self.prev_refs.push(event_id);
-        self
-    }
-
-    pub fn with_authorized_by_ref(mut self, grant_id: GrantId) -> Self {
-        self.refs.push(EventRef::authorized_by_grant(grant_id));
-        self
-    }
-
     pub fn with_proof(mut self, proof: ProducerEventProof) -> Self {
         self.proofs.push(proof);
         self
@@ -506,24 +496,6 @@ impl<K: EventSpec> OperationEnvelopeBuilder<K> {
             authz_ref: None,
             proofs: Vec::new(),
         }
-    }
-
-    /// Set a target reference.
-    pub fn with_target_ref(mut self, target_ref: impl Into<String>) -> Self {
-        self.target_ref = Some(target_ref.into());
-        self
-    }
-
-    /// Add a causal dependency.
-    pub fn with_dependency(mut self, dependency: OperationId) -> Self {
-        self.deps.push(dependency);
-        self
-    }
-
-    /// Attach an authorization reference.
-    pub fn with_authz_ref(mut self, authz_ref: GrantId) -> Self {
-        self.authz_ref = Some(authz_ref);
-        self
     }
 
     /// Attach a proof.

@@ -2424,7 +2424,7 @@ mod tests {
         let seal = signed_seal_with_coverage(
             Vec::new(),
             delta.clone(),
-            &[create.clone(), binding.clone()],
+            &[create, binding.clone()],
             &post_state,
             0,
         );

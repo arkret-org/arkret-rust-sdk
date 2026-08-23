@@ -104,9 +104,8 @@ fn default_push_rule_enabled() -> bool {
     true
 }
 
-/// B.5 #6 — spec revision chime was compiled against. Used by
-/// [`PushBridgeDescribeOutcome::warn_on_spec_version_mismatch`] to flag
-/// gateway responses pinned to a different revision.
+/// B.5 #6 — spec revision chime was compiled against. Push gateways
+/// advertise it in `PushBridgeDescribeOutcome::spec_version`.
 pub const EXPECTED_SPEC_VERSION: &str = "arkret-spec@2026-05-26";
 
 /// Response body for `GET /_floria/push/bridge/describe`.
@@ -140,28 +139,6 @@ pub struct PushBridgeDescribeOutcome {
 }
 
 impl PushBridgeDescribeOutcome {
-    /// Emit a warning when the gateway's advertised `spec_version` does not
-    /// match the SDK's compiled-in [`EXPECTED_SPEC_VERSION`].
-    ///
-    /// Returns `true` when the response carried a matching spec version,
-    /// `false` when it carried a mismatch or did not advertise the field.
-    pub fn warn_on_spec_version_mismatch(&self) -> bool {
-        match self.spec_version.as_deref() {
-            Some(advertised) if advertised == EXPECTED_SPEC_VERSION => true,
-            Some(advertised) => {
-                tracing::warn!(
-                    advertised_spec_version = advertised,
-                    expected_spec_version = EXPECTED_SPEC_VERSION,
-                    contract = %self.contract,
-                    version = %self.version,
-                    "push bridge spec_version mismatch; gateway/SDK may drift",
-                );
-                false
-            }
-            None => false,
-        }
-    }
-
     /// Look up a per-app provider capability descriptor by configured app
     /// name (case-insensitive).
     pub fn provider_capability(&self, name: &str) -> Option<&ProviderCapabilityDescriptor> {

@@ -3,7 +3,6 @@ use std::fmt;
 use arkret_wire::{
     DidCoreId, Result, WireError, human_identifier_skeleton, prepare_handle_localpart,
     prepare_idna_domain, validate_canonical_handle_localpart, validate_canonical_idna_domain,
-    validate_highly_restrictive_registration_identifier,
 };
 use serde::{Deserialize, Serialize};
 
@@ -106,11 +105,6 @@ impl Handle {
     /// UTS #39 skeleton for authority-local registration collision indexes.
     pub fn registration_skeleton(&self) -> Result<String> {
         human_identifier_skeleton(&self.localpart)
-    }
-
-    /// Apply the optional UTS #39 Highly Restrictive registration policy.
-    pub fn validate_registration_policy(&self) -> Result<()> {
-        validate_highly_restrictive_registration_identifier(&self.localpart)
     }
 }
 

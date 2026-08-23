@@ -529,8 +529,8 @@ pub struct CircleHistoryAccessPayload {
 impl CircleHistoryAccessPayload {
     pub fn validate(&self) -> Result<()> {
         HistoryAccessPayload {
-            from: self.from.clone(),
-            to: self.to.clone(),
+            from: self.from,
+            to: self.to,
             reason: self.reason.clone(),
         }
         .validate()

@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{DidCoreId, DidUrl, ProofContextId};
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -315,15 +315,6 @@ pub struct SnapshotFrontier {
 pub enum SnapshotSecurityClass {
     Standard,
     HighAssurance,
-}
-
-impl SnapshotSecurityClass {
-    pub fn max_acceptance_age(&self) -> Duration {
-        match self {
-            Self::Standard => Duration::days(30),
-            Self::HighAssurance => Duration::days(7),
-        }
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

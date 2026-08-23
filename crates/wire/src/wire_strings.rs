@@ -751,10 +751,6 @@ impl NonEmptyJsonObject {
     pub fn as_map(&self) -> &BTreeMap<String, Value> {
         &self.0
     }
-
-    pub fn into_map(self) -> BTreeMap<String, Value> {
-        self.0
-    }
 }
 
 impl<'de> Deserialize<'de> for NonEmptyJsonObject {

@@ -100,7 +100,10 @@ fn evidence_by_digest<'a>(
                 content_digest: digest.clone(),
             })
         {
-            if found.replace(authenticated_signer_resolution_evidence).is_some() {
+            if found
+                .replace(authenticated_signer_resolution_evidence.as_ref())
+                .is_some()
+            {
                 return Err(WireError::Protocol(
                     "duplicate signer-resolution evidence dependency".to_owned(),
                 ));
@@ -305,7 +308,7 @@ pub fn build_native_agent_signer_resolution_evidence(
     let result = AuthenticatedSignerResolutionEvidence::NativeAgent {
         signer_id,
         verification_method,
-        agent_signer_evidence,
+        agent_signer_evidence: Box::new(agent_signer_evidence),
         attester_signer_evidence_ref: authority_evidence.evidence_ref()?,
         attester_signer_evidence_digest: authority_evidence.canonical_sha256_digest()?,
         controller_signer_evidence_ref: controller_evidence.evidence_ref()?,
@@ -360,7 +363,7 @@ where
         event_admission_receipt,
         transparency,
         ..
-    } = agent_signer_evidence
+    } = agent_signer_evidence.as_ref()
     else {
         return Err(WireError::Protocol(
             "Native Agent signer evidence is not historical_event".to_owned(),
@@ -565,7 +568,7 @@ where
         current_observation,
         transparency,
         ..
-    } = agent_signer_evidence
+    } = agent_signer_evidence.as_ref()
     else {
         return Err(WireError::Protocol(
             "Native Agent history source evidence is not current_admission".to_owned(),
@@ -1292,9 +1295,9 @@ fn replay_dependency_closure(
             ..
         } = item
         {
-            pending.extend(governance_attester_evidence_selectors(&[
-                authenticated_signer_resolution_evidence.clone(),
-            ])?);
+            pending.extend(governance_attester_evidence_selectors(std::iter::once(
+                authenticated_signer_resolution_evidence.as_ref(),
+            ))?);
         }
         selected.insert(key, (*item).clone());
     }

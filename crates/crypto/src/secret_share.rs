@@ -21,14 +21,15 @@
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_models_collaboration::history_key::{
     HistoryChunkPlaintext, HistoryResponseCapabilityPlaintext,
-    HistoryResponseCapabilitySealContext, HistorySecretChunkSealContext,
-    OrganizationRecoveryArchivePlaintext, SealedHistoryChunk, SealedHistoryChunkKind,
+    HistoryResponseCapabilitySealContext, HistorySecretChunkSealContext, SealedHistoryChunk,
     SealedHistoryResponseCapability, response_capability_commitment,
 };
 pub use arkret_models_crypto::{SecretShareRequestContent, SecretShareSendContent};
+use arkret_wire::DeviceId;
 #[cfg(test)]
-use arkret_wire::{DeviceId, HPKE_SUITE_X25519_CHACHA20POLY1305_V1};
-use arkret_wire::{OrganizationRecoveryArchive, OrganizationRecoveryArchiveSealContext};
+use arkret_wire::HPKE_SUITE_X25519_CHACHA20POLY1305_V1;
+#[cfg(test)]
+use arkret_wire::OrganizationRecoveryArchiveSealContext;
 use hpke::aead::ChaCha20Poly1305;
 use hpke::kdf::HkdfSha256;
 use hpke::kem::X25519HkdfSha256;
@@ -64,9 +65,9 @@ pub struct SecretShareSendAad<'a> {
     /// ciphertext, the envelope and the durable queue row all carry one value.
     pub device_message_id: &'a arkret_wire::DeviceMessageId,
     pub sender_principal_id: &'a arkret_wire::DidCoreId,
-    pub sender_device_id: &'a arkret_wire::DeviceId,
+    pub sender_device_id: &'a DeviceId,
     pub recipient_principal_id: &'a arkret_wire::DidCoreId,
-    pub recipient_device_id: &'a arkret_wire::DeviceId,
+    pub recipient_device_id: &'a DeviceId,
     /// Content `request_id`, verbatim.
     pub request_id: &'a str,
     /// Content `secret_id`, verbatim.
@@ -273,24 +274,6 @@ fn combine_hpke_seal(enc: &str, ciphertext: &str) -> Result<String> {
     Ok(base64url_encode(blob))
 }
 
-/// Generate the service-owned 32-byte capability for one history response stream.
-///
-/// Collision detection belongs to the release-service commitment index and must
-/// happen before any durable write; this helper only guarantees the canonical
-/// CSPRNG preimage and closed plaintext shape.
-pub fn generate_history_response_capability() -> Result<HistoryResponseCapabilityPlaintext> {
-    let mut capability = [0u8; 32];
-    getrandom::fill(&mut capability)
-        .map_err(|error| Error::Protocol(format!("OS CSPRNG unavailable: {error}")))?;
-    let plaintext = HistoryResponseCapabilityPlaintext {
-        kind:
-            arkret_models_collaboration::history_key::HistoryResponseCapabilityPlaintextKind::Value,
-        response_capability_b64u: base64url_encode(capability),
-    };
-    plaintext.validate()?;
-    Ok(plaintext)
-}
-
 /// Seal a 32-byte history response stream capability with the registered
 /// RFC 9180 base-mode profile. The exact closed context JCS bytes are passed
 /// byte-for-byte as both `info` and single-shot AEAD `aad`.
@@ -349,40 +332,6 @@ pub fn open_history_response_capability(
     Ok(plaintext)
 }
 
-/// Seal one history-secret chunk with its exact registered context as both
-/// RFC 9180 `info` and single-shot AEAD `aad`.
-pub fn seal_history_secret_chunk(
-    recipient_public_key_b64u: &str,
-    context: &HistorySecretChunkSealContext,
-    plaintext: &HistoryChunkPlaintext,
-) -> Result<SealedHistoryChunk> {
-    context.validate()?;
-    plaintext.validate()?;
-    if plaintext.secret_range.from_epoch != context.covered_epoch_range.from_epoch
-        || plaintext.secret_range.to_epoch != context.covered_epoch_range.to_epoch
-    {
-        return Err(Error::Protocol(
-            "history chunk plaintext range does not match its HPKE context".to_owned(),
-        ));
-    }
-    let recipient = decode_x25519_key("recipient_public_key_b64u", recipient_public_key_b64u)?;
-    let binding = context.canonical_bytes()?;
-    let plaintext_bytes = arkret_canonical::canonical_json_bytes(plaintext)?;
-    let combined =
-        seal_base_mode_to_x25519_pubkey(&recipient, &plaintext_bytes, &binding, &binding)?;
-    let (enc, ciphertext) = split_hpke_seal(&combined)?;
-    let sealed = SealedHistoryChunk {
-        kind: SealedHistoryChunkKind::Value,
-        manifest_digest: context.manifest_digest.clone(),
-        manifest_admission_digest: context.manifest_admission_digest.clone(),
-        chunk_index: context.chunk_index,
-        enc,
-        ciphertext,
-    };
-    sealed.validate()?;
-    Ok(sealed)
-}
-
 /// Open and fully validate one registered history-secret chunk.
 pub fn open_history_secret_chunk(
     recipient_private_key_b64u: &str,
@@ -413,52 +362,6 @@ pub fn open_history_secret_chunk(
     Ok(plaintext)
 }
 
-/// Seal one epoch's `history_secret` into an organization recovery key (RRK)
-/// archive with the registered `ak.hpke_surface.organization_recovery_archive.v1`
-/// profile.
-///
-/// The recipient is the archive's own frozen X25519 public key, and the closed
-/// context JCS bytes are passed byte-for-byte as both RFC 9180 `info` and the
-/// single-shot AEAD `aad` — the same construction the two history surfaces use.
-/// The returned archive reuses the sealed context verbatim, so the public
-/// fields can never disagree with the transcript the ciphertext is bound to.
-pub fn seal_organization_recovery_archive(
-    context: &OrganizationRecoveryArchiveSealContext,
-    plaintext: &OrganizationRecoveryArchivePlaintext,
-) -> Result<OrganizationRecoveryArchive> {
-    context.validate()?;
-    plaintext.validate()?;
-    let recipient = context.recipient_public_key()?;
-    let binding = context.canonical_bytes()?;
-    let plaintext_bytes = arkret_canonical::canonical_json_bytes(plaintext)?;
-    let sealed = seal_base_mode_to_x25519_pubkey(&recipient, &plaintext_bytes, &binding, &binding)?;
-    let (enc, ciphertext) = split_hpke_seal(&sealed)?;
-    Ok(context.clone().into_archive(enc, ciphertext)?)
-}
-
-/// Open and fully validate an RRK archive with the holder's recovery private
-/// key. The transcript is recomputed from the archive's own public fields, so a
-/// tampered public field fails the AEAD rather than being silently accepted.
-pub fn open_organization_recovery_archive(
-    holder_private_key_b64u: &str,
-    archive: &OrganizationRecoveryArchive,
-) -> Result<OrganizationRecoveryArchivePlaintext> {
-    archive.validate()?;
-    let private = decode_x25519_key("holder_private_key_b64u", holder_private_key_b64u)?;
-    let binding = archive.seal_context().canonical_bytes()?;
-    let combined = combine_hpke_seal(&archive.enc, &archive.ciphertext)?;
-    let plaintext_bytes =
-        open_base_mode_with_x25519_privkey(&private, &combined, &binding, &binding)?;
-    let plaintext: OrganizationRecoveryArchivePlaintext = serde_json::from_slice(&plaintext_bytes)?;
-    if arkret_canonical::canonical_json_bytes(&plaintext)? != plaintext_bytes {
-        return Err(Error::Protocol(
-            "organization recovery archive plaintext is not canonical JSON".to_owned(),
-        ));
-    }
-    plaintext.validate()?;
-    Ok(plaintext)
-}
-
 #[cfg(test)]
 mod secret_share_send_aad_tests {
     use super::*;
@@ -474,9 +377,9 @@ mod secret_share_send_aad_tests {
     struct Members {
         device_message_id: arkret_wire::DeviceMessageId,
         sender_principal_id: arkret_wire::DidCoreId,
-        sender_device_id: arkret_wire::DeviceId,
+        sender_device_id: DeviceId,
         recipient_principal_id: arkret_wire::DidCoreId,
-        recipient_device_id: arkret_wire::DeviceId,
+        recipient_device_id: DeviceId,
         request_id: String,
         secret_id: String,
         expires_at: String,
@@ -488,10 +391,9 @@ mod secret_share_send_aad_tests {
                 device_message_id: arkret_wire::DeviceMessageId::new(MESSAGE_ID.to_owned())
                     .unwrap(),
                 sender_principal_id: arkret_wire::DidCoreId::new(SENDER.to_owned()).unwrap(),
-                sender_device_id: arkret_wire::DeviceId::new(SENDER_DEVICE.to_owned()).unwrap(),
+                sender_device_id: DeviceId::new(SENDER_DEVICE.to_owned()).unwrap(),
                 recipient_principal_id: arkret_wire::DidCoreId::new(RECIPIENT.to_owned()).unwrap(),
-                recipient_device_id: arkret_wire::DeviceId::new(RECIPIENT_DEVICE.to_owned())
-                    .unwrap(),
+                recipient_device_id: DeviceId::new(RECIPIENT_DEVICE.to_owned()).unwrap(),
                 request_id: REQUEST_ID.to_owned(),
                 secret_id: SECRET_ID_MLS_ACCOUNT.to_owned(),
                 expires_at: EXPIRES.to_owned(),
@@ -556,8 +458,7 @@ mod secret_share_send_aad_tests {
 
         let mut mutated = Members::golden();
         mutated.sender_device_id =
-            arkret_wire::DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000c".to_owned())
-                .unwrap();
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000c".to_owned()).unwrap();
         assert_ne!(mutated.bytes(), golden, "sender_device_id");
 
         let mut mutated = Members::golden();
@@ -567,8 +468,7 @@ mod secret_share_send_aad_tests {
 
         let mut mutated = Members::golden();
         mutated.recipient_device_id =
-            arkret_wire::DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000c".to_owned())
-                .unwrap();
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000c".to_owned()).unwrap();
         assert_ne!(mutated.bytes(), golden, "recipient_device_id");
 
         let mut mutated = Members::golden();
@@ -751,7 +651,6 @@ mod tests {
 
 #[cfg(test)]
 mod organization_recovery_archive_tests {
-    use arkret_models_collaboration::history_key::OrganizationRecoveryArchivePlaintextKind;
     use arkret_wire::{
         DidCoreId, DidUrl, EventId, Hash, HistoryEffectiveScope, OrganizationRecoveryHpkeSuite,
         RealmId, SealBasis, SealId,
@@ -792,59 +691,6 @@ mod organization_recovery_archive_tests {
                 leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "00".repeat(32))).unwrap()],
             },
         }
-    }
-
-    fn plaintext(kdf_nh: usize) -> OrganizationRecoveryArchivePlaintext {
-        OrganizationRecoveryArchivePlaintext {
-            kind: OrganizationRecoveryArchivePlaintextKind::Value,
-            history_secret_b64u: base64url_encode(vec![9u8; kdf_nh]),
-        }
-    }
-
-    #[test]
-    fn archive_round_trips_under_its_registered_context() {
-        let (private, public) = hpke_keypair();
-        let context = seal_context(&public);
-        let secret = plaintext(32);
-        let archive = seal_organization_recovery_archive(&context, &secret).unwrap();
-
-        assert_eq!(archive.seal_context(), context);
-        let opened =
-            open_organization_recovery_archive(&base64url_encode(&private), &archive).unwrap();
-        assert_eq!(opened, secret);
-        opened.validate_for_kdf_nh(32).unwrap();
-        assert!(opened.validate_for_kdf_nh(64).is_err());
-    }
-
-    #[test]
-    fn a_tampered_public_field_breaks_the_archive_transcript() {
-        let (private, public) = hpke_keypair();
-        let context = seal_context(&public);
-        let archive = seal_organization_recovery_archive(&context, &plaintext(32)).unwrap();
-
-        let mut tampered = archive.clone();
-        tampered.epoch += 1;
-        assert!(
-            open_organization_recovery_archive(&base64url_encode(&private), &tampered).is_err()
-        );
-
-        let mut tampered = archive;
-        tampered.transition_digest = Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap();
-        assert!(
-            open_organization_recovery_archive(&base64url_encode(&private), &tampered).is_err()
-        );
-    }
-
-    #[test]
-    fn a_foreign_recovery_key_cannot_open_the_archive() {
-        let (_private, public) = hpke_keypair();
-        let (other_private, _other_public) = hpke_keypair();
-        let archive =
-            seal_organization_recovery_archive(&seal_context(&public), &plaintext(32)).unwrap();
-        assert!(
-            open_organization_recovery_archive(&base64url_encode(&other_private), &archive)
-                .is_err()
-        );
     }
 
     /// The context's member set is the registry's closed `info_and_aad` shape,

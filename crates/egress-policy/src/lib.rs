@@ -1,8 +1,8 @@
 //! Arkret v1 outbound network target policy.
 //!
 //! The policy is deliberately independent of an HTTP client or async runtime.
-//! Callers validate a URL before DNS resolution, validate every A/AAAA answer,
-//! and then bind the returned [`ValidatedTarget`] addresses to the connector.
+//! Callers validate a URL before DNS resolution and validate every A/AAAA
+//! answer before connecting.
 //! Redirects and other target changes must repeat the complete sequence.
 
 use std::fmt;
@@ -173,46 +173,6 @@ impl OutboundPolicy {
         Ok(())
     }
 
-    /// Validate an address and any deployment-registered NAT64 prefix.
-    pub fn validate_ip_with_nat64_prefixes(
-        self,
-        ip: IpAddr,
-        nat64_prefixes: &[Nat64Prefix],
-    ) -> Result<(), PolicyError> {
-        if let IpAddr::V6(ipv6) = ip {
-            for prefix in nat64_prefixes {
-                if let Some(embedded) = prefix.embedded_ipv4(ipv6) {
-                    if let Some(class) = classify_ipv4(embedded)
-                        && !self.address_exceptions.permits(class)
-                    {
-                        return Err(PolicyError::AddressDenied { ip, class });
-                    }
-                    return Ok(());
-                }
-            }
-        }
-        self.validate_ip(ip)
-    }
-
-    /// Validate every DNS candidate and return a connector-binding token.
-    ///
-    /// No candidate is silently filtered: one denied answer rejects the
-    /// target, so a retry cannot hide a policy hit as ordinary DNS churn.
-    pub fn bind_resolved(
-        self,
-        url: Url,
-        addresses: Vec<SocketAddr>,
-    ) -> Result<ValidatedTarget, PolicyError> {
-        self.validate_url(&url)?;
-        if addresses.is_empty() {
-            return Err(PolicyError::NoAddresses);
-        }
-        for address in &addresses {
-            self.validate_ip(address.ip())?;
-        }
-        Ok(ValidatedTarget { url, addresses })
-    }
-
     /// Validate all addresses produced by a connect-time resolver.
     pub fn validate_resolved_addresses(self, addresses: &[SocketAddr]) -> Result<(), PolicyError> {
         if addresses.is_empty() {
@@ -222,94 +182,6 @@ impl OutboundPolicy {
             self.validate_ip(address.ip())?;
         }
         Ok(())
-    }
-
-    /// Validate every DNS candidate with deployment-registered NAT64 prefixes.
-    pub fn validate_resolved_addresses_with_nat64_prefixes(
-        self,
-        addresses: &[SocketAddr],
-        nat64_prefixes: &[Nat64Prefix],
-    ) -> Result<(), PolicyError> {
-        if addresses.is_empty() {
-            return Err(PolicyError::NoAddresses);
-        }
-        for address in addresses {
-            self.validate_ip_with_nat64_prefixes(address.ip(), nat64_prefixes)?;
-        }
-        Ok(())
-    }
-}
-
-/// A deployment-registered RFC 6052 NAT64 prefix.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Nat64Prefix {
-    network: Ipv6Addr,
-    prefix_len: u8,
-}
-
-impl Nat64Prefix {
-    /// Build a supported RFC 6052 prefix. Host bits must be zero.
-    pub fn new(network: Ipv6Addr, prefix_len: u8) -> Result<Self, InvalidNat64Prefix> {
-        if !matches!(prefix_len, 32 | 40 | 48 | 56 | 64 | 96) {
-            return Err(InvalidNat64Prefix);
-        }
-        let octets = network.octets();
-        let prefix_bytes = usize::from(prefix_len / 8);
-        if octets[prefix_bytes..].iter().any(|byte| *byte != 0) {
-            return Err(InvalidNat64Prefix);
-        }
-        Ok(Self {
-            network,
-            prefix_len,
-        })
-    }
-
-    fn embedded_ipv4(self, address: Ipv6Addr) -> Option<Ipv4Addr> {
-        let network = self.network.octets();
-        let address = address.octets();
-        let prefix_bytes = usize::from(self.prefix_len / 8);
-        if address[..prefix_bytes] != network[..prefix_bytes] {
-            return None;
-        }
-        let indices: [usize; 4] = match self.prefix_len {
-            32 => [4, 5, 6, 7],
-            40 => [5, 6, 7, 9],
-            48 => [6, 7, 9, 10],
-            56 => [7, 9, 10, 11],
-            64 => [9, 10, 11, 12],
-            96 => [12, 13, 14, 15],
-            _ => return None,
-        };
-        Some(Ipv4Addr::new(
-            address[indices[0]],
-            address[indices[1]],
-            address[indices[2]],
-            address[indices[3]],
-        ))
-    }
-}
-
-/// Invalid RFC 6052 NAT64 prefix or non-zero host bits.
-#[derive(Clone, Copy, Debug, Error, Eq, PartialEq)]
-#[error("invalid RFC 6052 NAT64 prefix")]
-pub struct InvalidNat64Prefix;
-
-/// A URL and the complete validated DNS answer set to bind to a connector.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ValidatedTarget {
-    url: Url,
-    addresses: Vec<SocketAddr>,
-}
-
-impl ValidatedTarget {
-    #[must_use]
-    pub fn url(&self) -> &Url {
-        &self.url
-    }
-
-    #[must_use]
-    pub fn addresses(&self) -> &[SocketAddr] {
-        &self.addresses
     }
 }
 
@@ -517,18 +389,18 @@ mod tests {
 
         let https = Url::parse("https://example.com/path").unwrap();
         let addrs = vec!["93.184.216.34:443".parse().unwrap()];
-        assert!(policy.bind_resolved(https, addrs).is_ok());
+        assert!(policy.validate_url(&https).is_ok());
+        assert!(policy.validate_resolved_addresses(&addrs).is_ok());
     }
 
     #[test]
     fn one_denied_dns_answer_rejects_the_whole_binding() {
-        let url = Url::parse("https://example.com/path").unwrap();
         let addrs = vec![
             "93.184.216.34:443".parse().unwrap(),
             "127.0.0.1:443".parse().unwrap(),
         ];
         assert!(matches!(
-            OutboundPolicy::public_https().bind_resolved(url, addrs),
+            OutboundPolicy::public_https().validate_resolved_addresses(&addrs),
             Err(PolicyError::AddressDenied { .. })
         ));
     }
@@ -539,23 +411,17 @@ mod tests {
         let addrs = vec!["127.0.0.1:8080".parse().unwrap()];
         assert!(
             OutboundPolicy::local_development()
-                .bind_resolved(url, addrs)
+                .validate_url(&url)
+                .is_ok()
+        );
+        assert!(
+            OutboundPolicy::local_development()
+                .validate_resolved_addresses(&addrs)
                 .is_ok()
         );
         assert!(
             OutboundPolicy::local_development()
                 .validate_ip("10.0.0.1".parse().unwrap())
-                .is_err()
-        );
-    }
-
-    #[test]
-    fn registered_nat64_prefix_reclassifies_embedded_ipv4() {
-        let prefix = Nat64Prefix::new("2001:db8:122::".parse().unwrap(), 48).unwrap();
-        let private = "2001:db8:122:a00:0:100::".parse::<IpAddr>().unwrap();
-        assert!(
-            OutboundPolicy::public_https()
-                .validate_ip_with_nat64_prefixes(private, &[prefix])
                 .is_err()
         );
     }

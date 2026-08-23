@@ -64,7 +64,9 @@
 //! it is an identity-anchor path and belongs on the ordinary API.
 
 use arkret_signatures::{Ed25519DetachedJwsVerifier, PublicKeyMaterial};
-use arkret_wire::{DidCoreId, DidFullId, DidUrl, Event, Hash, ProducerEventProof, TrustDomainId};
+#[cfg(test)]
+use arkret_wire::Event;
+use arkret_wire::{DidCoreId, DidFullId, DidUrl, Hash, ProducerEventProof, TrustDomainId};
 use chrono::{DateTime, Utc};
 
 use crate::binding::{
@@ -509,8 +511,9 @@ pub fn public_key_material_from_document(
 /// `actor_id` is the **Event envelope's** `actor_id` — the value folded into the
 /// canonical binding object — which may differ from the signing actor
 /// (`executed_by`). Callers that need the signer/actor relationship checked
-/// should use [`verify_event_proof_with_binding_for_event`], or check
-/// `executed_by` themselves.
+/// should derive the envelope bytes with
+/// [`arkret_signatures::EventProofBuilder::envelope_bytes`] and pass
+/// `event.actor_id`, or check `executed_by` themselves.
 pub fn verify_event_proof_with_binding(
     proof: &ProducerEventProof,
     envelope_bytes: &[u8],
@@ -563,24 +566,6 @@ pub fn verify_event_proof_with_binding(
         &public_key,
     )
     .map_err(|source| BindingVerifyError::Proof { source })
-}
-
-/// [`verify_event_proof_with_binding`] with the envelope bytes and binding
-/// `actor_id` derived from the Event itself.
-///
-/// The canonical bytes come from
-/// [`arkret_signatures::EventProofBuilder::envelope_bytes`] (the Event with
-/// `proofs` / `unsigned` stripped), and the binding object's `actor_id` is
-/// `event.actor_id` — **not** `event.executed_by`, per `encoding.md` §6.
-pub fn verify_event_proof_with_binding_for_event(
-    event: &Event,
-    proof: &ProducerEventProof,
-    accepted: &AcceptedDidBinding,
-) -> Result<(), BindingVerifyError> {
-    let envelope_bytes = arkret_signatures::EventProofBuilder::new()
-        .envelope_bytes(event)
-        .map_err(|error| BindingVerifyError::EventCanonicalization(error.to_string()))?;
-    verify_event_proof_with_binding(proof, &envelope_bytes, &event.actor_id, accepted)
 }
 
 /// Look up a verification method's key material inside a DID document.
@@ -1236,17 +1221,6 @@ mod tests {
                 &accepted,
             )
             .expect("an accepted binding verifies an Event proof");
-        }
-
-        #[test]
-        fn the_for_event_helper_derives_the_same_inputs() {
-            let document = document(&format!("{}#key-1", did()));
-            let accepted = accepted(&document);
-            let mut event = event();
-            let proof = signed_proof(&event);
-            event.proofs.push(proof.clone().into());
-            verify_event_proof_with_binding_for_event(&event, &proof, &accepted)
-                .expect("verify from the event itself");
         }
 
         #[test]

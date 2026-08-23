@@ -17,7 +17,6 @@ use arkret_wire::{
 use crate::agent_signer_evidence::AgentSigningKeyBinding;
 use crate::events_payloads::agent::{AgentKeyAuthorizePayloadRuntimeAttestation, AgentKeyScope};
 use crate::governance::agent_artifacts::{AgentKeyAuthorizationState, GrantSnapshot, PublicKey};
-use crate::http_bodies::{AccountDevicePairOutcome, AccountDevicePairRequestBody};
 use crate::internal_prelude::*;
 
 pub const AGENT_RUNTIME_KEY_POSSESSION_PROOF_CONTEXT: &str =
@@ -2183,48 +2182,6 @@ pub fn agent_requested_scope_digest(
         },
     )?)
     .map_err(WireError::from)
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-// A one-shot HTTP body/aggregate: it is built once per request, moved a
-// handful of times, then dropped. Boxing the large variant would trade a
-// free stack move for a heap allocation on every request and break the
-// constructor/pattern shape in every downstream repository, so the size
-// skew is accepted deliberately.
-#[allow(clippy::large_enum_variant)]
-pub enum AgentOperations {
-    AccountDevicePairRequestBody(AccountDevicePairRequestBody),
-    AccountDevicePairOutcome(AccountDevicePairOutcome),
-    AgentKeyPairRequestBody(Box<AgentKeyPairRequestBody>),
-    AgentKeyPairOutcome(AgentKeyPairOutcome),
-    AgentRuntimeApprovalRequestBody(AgentRuntimeApprovalRequestBody),
-    AgentRuntimeApprovalOutcome(AgentRuntimeApprovalOutcome),
-    AgentProvisionRequestBody(Box<AgentProvisionRequestBody>),
-    AgentProvisionOutcome(AgentProvisionOutcome),
-    AgentRenewPairingRequestBody(AgentRenewPairingRequestBody),
-    AgentRenewPairingOutcome(AgentRenewPairingOutcome),
-    AgentPairingBootstrap(AgentPairingBootstrap),
-    AgentList(AgentList),
-    AgentView(Box<AgentView>),
-    AgentPauseRequestBody(AgentPauseRequestBody),
-    AgentLifecycleState(AgentLifecycleOutcome),
-    AgentResumeRequestBody(AgentResumeRequestBody),
-    AgentDeactivateRequestBody(AgentDeactivateRequestBody),
-    AgentGrantAttachRequestBody(AgentGrantAttachRequestBody),
-    AgentGrantAttachOutcome(AgentGrantAttachOutcome),
-    AgentGrantDetachRequestBody(AgentGrantDetachRequestBody),
-    AgentGrantDetachOutcome(AgentGrantDetachOutcome),
-    AgentSidecarEnsureRequestBody(crate::sidecar_operations::SidecarEnsureRequestBody),
-    AgentSidecarEnsureOutcome(crate::sidecar_operations::SidecarEnsureOutcome),
-    AgentSidecarView(Box<AgentSidecarView>),
-    AgentSidecarList(AgentSidecarList),
-}
-
-impl AgentOperations {
-    pub const SCHEMA: &'static str = SchemaId::AGENT_OPERATIONS_V1;
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/key_state`.

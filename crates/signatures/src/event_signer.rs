@@ -74,16 +74,6 @@ impl SignEventOptions {
         self.created_at = Some(created_at);
         self
     }
-
-    pub fn with_signer_resolution_evidence(
-        mut self,
-        evidence_ref: SignerEvidenceRef,
-        evidence_digest: Hash,
-    ) -> Self {
-        self.signer_resolution_evidence_ref = Some(evidence_ref);
-        self.signer_resolution_evidence_digest = Some(evidence_digest);
-        self
-    }
 }
 
 /// Sign an [`AuthoredEvent`] in place: compute its canonical digest,

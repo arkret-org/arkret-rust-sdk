@@ -1314,67 +1314,6 @@ pub fn embedded_openapi_yaml() -> Result<&'static str> {
     Ok(EMBEDDED_OPENAPI_YAML)
 }
 
-#[doc(hidden)]
-pub fn embedded_spec_artifact_paths() -> Result<Vec<String>> {
-    Ok(embedded_spec_artifacts()?.keys().cloned().collect())
-}
-
-/// Canonical error code strings declared in the embedded
-/// `error-code-registry.json` snapshot, in registry order.
-pub fn embedded_error_code_codes() -> Result<Vec<String>> {
-    let registry = read_embedded_json_artifact("registry/error-code-registry.json")?;
-    let codes = registry
-        .get("codes")
-        .and_then(Value::as_array)
-        .ok_or_else(|| {
-            SchemaError::Protocol(
-                "embedded error-code-registry.json missing codes array".to_owned(),
-            )
-        })?;
-    codes
-        .iter()
-        .map(|entry| {
-            entry
-                .get("code")
-                .and_then(Value::as_str)
-                .map(str::to_owned)
-                .ok_or_else(|| {
-                    SchemaError::Protocol(
-                        "embedded error-code-registry.json code entry missing code".to_owned(),
-                    )
-                })
-        })
-        .collect()
-}
-
-/// Canonical subordinate reason-code strings declared in the embedded
-/// `error-code-registry.json` snapshot, in registry order.
-pub fn embedded_error_code_reason_codes() -> Result<Vec<String>> {
-    let registry = read_embedded_json_artifact("registry/error-code-registry.json")?;
-    let codes = registry
-        .get("reason_codes")
-        .and_then(Value::as_array)
-        .ok_or_else(|| {
-            SchemaError::Protocol(
-                "embedded error-code-registry.json missing reason_codes array".to_owned(),
-            )
-        })?;
-    codes
-        .iter()
-        .map(|entry| {
-            entry
-                .get("code")
-                .and_then(Value::as_str)
-                .map(str::to_owned)
-                .ok_or_else(|| {
-                    SchemaError::Protocol(
-                        "embedded error-code-registry.json reason entry missing code".to_owned(),
-                    )
-                })
-        })
-        .collect()
-}
-
 /// The union of every error identifier declared in the embedded
 /// `error-code-registry.json` snapshot — both the top-level `codes`
 /// (canonical error codes) and the `reason_codes` (sub-reasons).
@@ -1582,9 +1521,28 @@ mod tests {
     }
 
     #[cfg(feature = "embedded-artifacts")]
+    fn embedded_registry_codes(field: &str) -> Vec<String> {
+        let registry = read_embedded_json_artifact("registry/error-code-registry.json")
+            .expect("embedded error-code-registry must load");
+        registry
+            .get(field)
+            .and_then(Value::as_array)
+            .unwrap_or_else(|| panic!("embedded error-code-registry missing {field}"))
+            .iter()
+            .map(|entry| {
+                entry
+                    .get("code")
+                    .and_then(Value::as_str)
+                    .unwrap_or_else(|| panic!("embedded {field} entry missing code"))
+                    .to_owned()
+            })
+            .collect()
+    }
+
+    #[cfg(feature = "embedded-artifacts")]
     #[test]
     fn generated_error_codes_match_embedded_registry() {
-        let mut embedded = embedded_error_code_codes().expect("embedded error codes must load");
+        let mut embedded = embedded_registry_codes("codes");
         let mut generated = generated_error_codes();
         embedded.sort_unstable();
         generated.sort_unstable();
@@ -1668,8 +1626,7 @@ mod tests {
     #[cfg(feature = "embedded-artifacts")]
     #[test]
     fn generated_reason_codes_match_embedded_registry() {
-        let mut embedded =
-            embedded_error_code_reason_codes().expect("embedded reason codes must load");
+        let mut embedded = embedded_registry_codes("reason_codes");
         let mut generated: Vec<String> = REASON_CODE_DESCRIPTORS
             .iter()
             .map(|descriptor| descriptor.code.to_owned())
@@ -1704,9 +1661,10 @@ mod tests {
             }
             return;
         };
-        let embedded: BTreeSet<String> = embedded_spec_artifact_paths()
+        let embedded: BTreeSet<String> = embedded_spec_artifacts()
             .expect("embedded artifacts must load")
-            .into_iter()
+            .keys()
+            .cloned()
             .collect();
         let mut live = BTreeSet::new();
         collect_json_artifact_paths(&artifacts_dir, &artifacts_dir, &mut live);

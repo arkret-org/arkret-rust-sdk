@@ -316,21 +316,6 @@ pub struct FreshnessProfile {
 }
 
 impl FreshnessProfile {
-    /// The profile an unknown id, an unregistered action or a non-matching
-    /// method selector resolves to.
-    ///
-    /// §5.4: there is **no** path that defaults to "any cached binding will do".
-    /// The fallback is the strictest tier, with a one-hour window so a
-    /// misconfiguration degrades into extra resolutions rather than into
-    /// silently accepted stale authority.
-    pub fn fail_closed_default() -> Self {
-        Self::high_tier(
-            DidFreshnessProfileId::UnregisteredFailClosedV1,
-            Duration::hours(1),
-            Some(Duration::hours(1)),
-        )
-    }
-
     /// A `high` tier row for a registered profile id.
     ///
     /// The id comes from the generated registry surface, never from a string a
@@ -376,28 +361,6 @@ impl FreshnessProfile {
             ),
             stale_behavior: StaleBehavior::SynchronousRefreshOrFailClosed,
         }
-    }
-
-    /// The registered id this row declares, when it is one this build knows.
-    ///
-    /// `None` is the §5.4 "unknown id" case, which callers MUST treat as the
-    /// strictest tier.
-    pub fn registered_id(&self) -> Option<DidFreshnessProfileId> {
-        DidFreshnessProfileId::from_wire(&self.freshness_profile_id)
-    }
-
-    /// Whether this row applies to `method` (`did:<method>:` or `*`).
-    pub fn applies_to_method(&self, method: &str) -> bool {
-        let prefix = format!(
-            "did:{}:",
-            method
-                .trim()
-                .trim_start_matches("did:")
-                .trim_end_matches(':')
-        );
-        self.did_method_selector
-            .iter()
-            .any(|selector| selector == "*" || *selector == prefix)
     }
 
     /// The freshness this profile demands of a reusable binding.
@@ -867,14 +830,6 @@ impl VerifiedDidBinding {
     /// Whether `now` is past the hard-expiry point.
     pub fn is_hard_expired(&self, now: DateTime<Utc>) -> bool {
         self.inner.expires_at.is_some_and(|expires| now > expires)
-    }
-
-    /// Whether `now` is past the background-refresh point (but see
-    /// [`Self::is_hard_expired`] first).
-    pub fn is_past_refresh(&self, now: DateTime<Utc>) -> bool {
-        self.inner
-            .refresh_after
-            .is_some_and(|refresh| now > refresh)
     }
 
     /// The bare DID this binding was accepted for.

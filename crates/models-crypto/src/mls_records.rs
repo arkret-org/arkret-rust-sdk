@@ -207,38 +207,6 @@ impl RealmPairwiseAuthorState {
     }
 }
 
-impl RealmPairwiseKeyScopeLedger {
-    pub fn validate_and_bind(
-        &mut self,
-        state: &RealmPairwiseAuthorState,
-        snapshot: &RealmPairwiseAcceptedGroupState,
-    ) -> arkret_wire::Result<()> {
-        state.validate_against(snapshot)?;
-        let identities = [
-            format!("actor:{}", state.pairwise_actor_id),
-            format!("full:{}", state.pairwise_full_id),
-            format!("method:{}", state.verification_method),
-            format!("key-ref:{}", state.local_signing_key_ref),
-            format!("leaf-key:{}", hex::encode(&state.leaf_signature_key)),
-        ];
-        for identity in &identities {
-            if self
-                .bindings
-                .get(identity)
-                .is_some_and(|realm_id| realm_id != &state.realm_id)
-            {
-                return Err(arkret_wire::WireError::Protocol(
-                    "pairwise author key identity is already bound to another Realm".to_owned(),
-                ));
-            }
-        }
-        for identity in identities {
-            self.bindings.insert(identity, state.realm_id.clone());
-        }
-        Ok(())
-    }
-}
-
 /// Lifecycle of a published KeyPackage per `device-lifecycle.md` §2 /
 /// `encryption-and-audit.md` §2.6. Once a KeyPackage is `claimed` it
 /// MUST NOT be re-claimed; once `consumed` it MUST NOT return to

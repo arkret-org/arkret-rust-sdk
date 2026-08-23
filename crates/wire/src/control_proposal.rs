@@ -1426,8 +1426,7 @@ mod tests {
                 key_kind: crate::NotaryKeyKind::Ed25519Raw32,
                 jose_algorithm: crate::NotaryJoseAlgorithm::Ed25519,
                 frozen_public_key_b64u: crate::base64url::base64url_encode(public_key),
-                frozen_public_key_digest: Hash::new(crate::canonical::sha256_digest(public_key))
-                    .unwrap(),
+                frozen_public_key_digest: Hash::new(canonical::sha256_digest(public_key)).unwrap(),
             }
         }
 

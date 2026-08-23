@@ -1269,7 +1269,7 @@ mod tests {
         let issued_at: DateTime<Utc> = "2026-07-21T08:00:00.000Z".parse().unwrap();
         let event_digest = Hash::new(
             event
-                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .event_digest_with_digest_suite(DigestSuite::Sha256)
                 .unwrap(),
         )
         .unwrap();
@@ -1359,7 +1359,7 @@ mod tests {
             receipt_id: ReceiptId::new("ak:receipt:01904100-0000-7000-8000-cccccccccccc").unwrap(),
             event_digest: Hash::new(
                 event
-                    .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                    .event_digest_with_digest_suite(DigestSuite::Sha256)
                     .unwrap(),
             )
             .unwrap(),
@@ -1392,7 +1392,7 @@ mod tests {
     ) -> ControlProposalAck {
         let proposal_digest = Hash::new(
             event
-                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .event_digest_with_digest_suite(DigestSuite::Sha256)
                 .unwrap(),
         )
         .unwrap();
@@ -1535,9 +1535,7 @@ mod tests {
             sealed_at: "2026-07-21T08:00:00Z".parse().unwrap(),
             hlc: arkret_wire::Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
         };
-        seal.id = seal
-            .derive_id(arkret_canonical::DigestSuite::Sha256)
-            .unwrap();
+        seal.id = seal.derive_id(DigestSuite::Sha256).unwrap();
         seal
     }
 

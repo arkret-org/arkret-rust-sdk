@@ -8,7 +8,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{MessageId, SchemaId};
+use arkret_wire::MessageId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -100,17 +100,4 @@ pub struct PollResponseBlock {
 pub enum FormattedBody {
     Text(String),
     Structured(BTreeMap<String, Value>),
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/content-block-poll.schema.json`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-#[allow(clippy::large_enum_variant)]
-pub enum ContentBlockPoll {
-    PollBlock(PollBlock),
-    PollResponseBlock(PollResponseBlock),
-}
-
-impl ContentBlockPoll {
-    pub const SCHEMA: &'static str = SchemaId::CONTENT_BLOCK_POLL_V1;
 }

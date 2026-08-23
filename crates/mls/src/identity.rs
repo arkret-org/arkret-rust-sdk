@@ -2,12 +2,9 @@ use std::collections::BTreeMap;
 
 use arkret_canonical::base64url_encode;
 use arkret_models_crypto::{
-    KeyOperationSignature, KeyPackageConsumer, KeyPackageUploadEntry,
-    KeyPackagesConsumeRequestBody, KeyPackagesConsumeUnsignedRequest, KeyPackagesRevokeRequestBody,
-    KeyPackagesRevokeUnsignedRequest, KeyPackagesUploadRequestBody,
+    KeyOperationSignature, KeyPackageUploadEntry, KeyPackagesUploadRequestBody,
     KeyPackagesUploadUnsignedRequest, MlsEndpointIdentity, MlsGovernanceBindingPayload,
-    MlsKeyPackageRecord, keypackages_consume_signing_input, keypackages_revoke_signing_input,
-    keypackages_upload_signing_input, mls_key_package_record_upload_entry,
+    MlsKeyPackageRecord, keypackages_upload_signing_input, mls_key_package_record_upload_entry,
 };
 use arkret_wire::{DeviceId, DidCoreId, Hash, NonEmptyString, canonical};
 use chrono::{Duration, Utc};
@@ -24,10 +21,9 @@ use zeroize::Zeroize;
 
 use crate::group::{
     ArkretMlsGroup, decode, encode, governance_binding_group_context_extensions,
-    governance_binding_last_resort_openmls_capabilities, governance_binding_openmls_capabilities,
-    mls_error, restore_provider_storage, snapshot_provider_storage,
+    governance_binding_openmls_capabilities, mls_error, restore_provider_storage,
+    snapshot_provider_storage,
 };
-use crate::recovery::{MlsDeviceWorkflowAction, MlsDeviceWorkflowStep};
 use crate::{MlsError as Error, Result};
 
 pub const ARKRET_MLS_CIPHERSUITE: Ciphersuite =
@@ -132,14 +128,9 @@ impl ArkretMlsIdentity {
         })
     }
 
-    #[must_use]
-    pub fn signature_public_key(&self) -> &[u8] {
-        self.signer.public()
-    }
-
     /// Build a single-use KeyPackage record (consumed on claim).
     pub fn key_package_record(&self) -> Result<MlsKeyPackageRecord> {
-        self.key_package_record_inner(false)
+        self.key_package_record_inner()
     }
 
     /// Convert a locally generated MLS record into the canonical typed upload
@@ -191,53 +182,6 @@ impl ArkretMlsIdentity {
         Ok(unsigned.into_signed(signature))
     }
 
-    pub fn signed_key_packages_consume_request(
-        &self,
-        unsigned: KeyPackagesConsumeUnsignedRequest,
-        verification_method: &str,
-    ) -> Result<KeyPackagesConsumeRequestBody> {
-        match &unsigned.consumer {
-            KeyPackageConsumer::Device { consumer_device_id }
-                if consumer_device_id == &self.device_id => {}
-            KeyPackageConsumer::Device { .. } => {
-                return Err(Error::Protocol(
-                    "KeyPackage consume device differs from MLS identity".to_owned(),
-                ));
-            }
-            KeyPackageConsumer::NativeAgent { .. } => {
-                return Err(Error::Protocol(
-                    "device MLS identity cannot sign a Native Agent KeyPackage consume request"
-                        .to_owned(),
-                ));
-            }
-        }
-        unsigned
-            .validate_shape()
-            .map_err(|reason| Error::Protocol(reason.to_owned()))?;
-        let signature = self.sign_keypackage_input(
-            verification_method,
-            &keypackages_consume_signing_input(&unsigned)?,
-        )?;
-        Ok(unsigned.into_signed(signature))
-    }
-
-    pub fn signed_key_packages_revoke_request(
-        &self,
-        unsigned: KeyPackagesRevokeUnsignedRequest,
-        verification_method: &str,
-    ) -> Result<KeyPackagesRevokeRequestBody> {
-        if unsigned.device_id != self.device_id {
-            return Err(Error::Protocol(
-                "KeyPackage revoke device differs from MLS identity".to_owned(),
-            ));
-        }
-        let signature = self.sign_keypackage_input(
-            verification_method,
-            &keypackages_revoke_signing_input(&unsigned)?,
-        )?;
-        Ok(unsigned.into_signed(signature))
-    }
-
     fn sign_keypackage_input(
         &self,
         verification_method: &str,
@@ -251,33 +195,9 @@ impl ArkretMlsIdentity {
         .map_err(|error| Error::Protocol(error.to_string()))
     }
 
-    /// Build a reusable last-resort KeyPackage record. The KeyPackage carries
-    /// the OpenMLS `last_resort` extension (`mark_as_last_resort`), so the
-    /// holder keeps the init private key after processing a Welcome and can be
-    /// (re-)admitted repeatedly against the same KeyPackage. Pairs with the
-    /// server keeping last-resort KeyPackages claimable instead of consuming
-    /// them — together they prevent a member from becoming permanently
-    /// un-addable once its single-use KeyPackages are spent (e.g. a Welcome
-    /// that was consumed server-side but never applied client-side).
-    pub fn last_resort_key_package_record(&self) -> Result<MlsKeyPackageRecord> {
-        self.key_package_record_inner(true)
-    }
-
-    fn key_package_record_inner(&self, last_resort: bool) -> Result<MlsKeyPackageRecord> {
-        // A last-resort KeyPackage carries the OpenMLS `last_resort` extension,
-        // so its leaf-node capabilities MUST also declare `LastResort` or the
-        // KeyPackage is self-inconsistent and an `Add` of it is rejected with
-        // `UnsupportedExtension` (RFC 9420 §7.2) — the exact failure that stalls
-        // admin admission of a last-resort invitee.
-        let capabilities = if last_resort {
-            governance_binding_last_resort_openmls_capabilities()
-        } else {
-            governance_binding_openmls_capabilities()
-        };
-        let mut builder = KeyPackage::builder().leaf_node_capabilities(capabilities);
-        if last_resort {
-            builder = builder.mark_as_last_resort();
-        }
+    fn key_package_record_inner(&self) -> Result<MlsKeyPackageRecord> {
+        let capabilities = governance_binding_openmls_capabilities();
+        let builder = KeyPackage::builder().leaf_node_capabilities(capabilities);
         let keypackage = builder
             .build(
                 ARKRET_MLS_CIPHERSUITE,
@@ -309,7 +229,7 @@ impl ArkretMlsIdentity {
             created_at,
             expires_at: Some(created_at + Duration::days(7)),
             device_signature: None,
-            last_resort,
+            last_resort: false,
         })
     }
 
@@ -487,27 +407,6 @@ pub fn author_leaf_from_key_package_bytes(
     })
 }
 
-pub fn revoke_key_package(record: &mut MlsKeyPackageRecord) -> Result<MlsDeviceWorkflowStep> {
-    let MlsEndpointIdentity::HumanDevice {
-        principal_id,
-        device_id,
-    } = &record.endpoint
-    else {
-        return Err(Error::Protocol(
-            "device workflow cannot revoke a Native Agent KeyPackage".to_owned(),
-        ));
-    };
-    record.state = arkret_models_crypto::MlsKeyPackageState::Revoked;
-    Ok(MlsDeviceWorkflowStep {
-        action: MlsDeviceWorkflowAction::RevokeKeyPackage,
-        principal_id: principal_id.clone(),
-        device_id: device_id.clone(),
-        group_id: None,
-        from_epoch: None,
-        to_epoch: None,
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use serde_json::Value;
@@ -559,55 +458,10 @@ mod tests {
             seed,
         )
         .unwrap();
-        assert_eq!(identity.signature_public_key(), expected.as_slice());
 
         let record = identity.key_package_record().unwrap();
         let leaf =
             author_leaf_from_key_package_bytes(&decode(&record.keypackage).unwrap(), 0).unwrap();
         assert_eq!(leaf.signature_key, expected);
-    }
-
-    // Regression: a last-resort KeyPackage carries the OpenMLS `last_resort`
-    // extension, so its leaf MUST declare the `LastResort` capability. Without
-    // it, an admin's `Add` of the invitee fails with `UnsupportedExtension` and
-    // admission stalls ("waiting for a Welcome"). Adding it to a real group is
-    // the end-to-end check that the KeyPackage is self-consistent.
-    #[test]
-    fn last_resort_key_package_is_addable_to_a_group() {
-        let alice = ArkretMlsIdentity::new_basic(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
-            DeviceId::new("ak:device:01964137-0000-7000-8000-00000000000a".to_owned()).unwrap(),
-        )
-        .unwrap();
-        let mut group = alice
-            .create_group(b"mls-group-last-resort-add-test")
-            .unwrap();
-
-        let bob = ArkretMlsIdentity::new_basic(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob".to_owned()).unwrap(),
-            DeviceId::new("ak:device:01964137-0000-7000-8000-00000000000b".to_owned()).unwrap(),
-        )
-        .unwrap();
-        let bob_last_resort = bob.last_resort_key_package_record().unwrap();
-        assert!(bob_last_resort.last_resort);
-
-        let result = group.add_member(&bob_last_resort);
-        assert!(
-            result.is_ok(),
-            "adding a last-resort KeyPackage must not fail (UnsupportedExtension regression): {:?}",
-            result.err()
-        );
-
-        // Sanity: the single-use KeyPackage path still adds cleanly.
-        let carol = ArkretMlsIdentity::new_basic(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturecarol".to_owned()).unwrap(),
-            DeviceId::new("ak:device:01964137-0000-7000-8000-00000000000c".to_owned()).unwrap(),
-        )
-        .unwrap();
-        let carol_kp = carol.key_package_record().unwrap();
-        assert!(
-            group.add_member(&carol_kp).is_ok(),
-            "single-use KeyPackage add regressed"
-        );
     }
 }

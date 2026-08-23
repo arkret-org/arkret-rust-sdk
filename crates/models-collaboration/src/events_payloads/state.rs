@@ -1018,8 +1018,8 @@ impl<'de> Deserialize<'de> for OrganizationModerationPolicyStatePayload {
 
 #[derive(Clone, Debug)]
 pub enum PolicyDocument {
-    Policy(Policy),
-    RecoveryPolicy(RecoveryPolicy),
+    Policy(Box<Policy>),
+    RecoveryPolicy(Box<RecoveryPolicy>),
 }
 
 impl PolicyDocument {
@@ -1058,9 +1058,11 @@ impl<'de> Deserialize<'de> for PolicyDocument {
         let value = Value::deserialize(deserializer)?;
         match value.get("schema").and_then(Value::as_str) {
             Some(Policy::SCHEMA) => serde_json::from_value::<Policy>(value)
+                .map(Box::new)
                 .map(Self::Policy)
                 .map_err(serde::de::Error::custom),
             Some(RecoveryPolicy::SCHEMA) => serde_json::from_value::<RecoveryPolicy>(value)
+                .map(Box::new)
                 .map(Self::RecoveryPolicy)
                 .map_err(serde::de::Error::custom),
             _ => Err(serde::de::Error::custom(

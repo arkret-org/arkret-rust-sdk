@@ -231,10 +231,6 @@ impl DidCoreIdentityState {
         )
     }
 
-    pub fn permits_identity_mutation(&self) -> bool {
-        matches!(self, Self::Ready { .. })
-    }
-
     pub fn validate(&self) -> Result<()> {
         if let Some(identity) = self.identity() {
             identity.validate()?;
@@ -780,7 +776,6 @@ mod tests {
             last_error: "provider unavailable".to_owned(),
         };
         assert!(state.is_ready());
-        assert!(!state.permits_identity_mutation());
         state.validate().unwrap();
         assert_eq!(
             serde_json::to_value(&state).unwrap()["retry_at"],
@@ -802,7 +797,6 @@ mod tests {
         };
         assert!(state.identity().is_some());
         assert!(state.is_ready());
-        assert!(!state.permits_identity_mutation());
         state.validate().unwrap();
     }
 
@@ -814,7 +808,6 @@ mod tests {
         };
         assert!(state.identity().is_none());
         assert!(!state.is_ready());
-        assert!(!state.permits_identity_mutation());
         state.validate().unwrap();
         let serialized = serde_json::to_value(&state).unwrap();
         assert_eq!(

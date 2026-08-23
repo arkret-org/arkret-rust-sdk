@@ -5,7 +5,6 @@
 //! `arkret` crate re-exports this surface under `arkret::auth::*`.
 
 use arkret_wire::DidCoreId;
-pub mod admin_key;
 mod claims;
 mod error;
 mod grants;
@@ -18,9 +17,8 @@ mod tests;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt;
 
-pub use admin_key::AdminKeyStore;
 use arkret_models_identity::SignedSessionGrantClaims;
-use arkret_wire::{DeviceId, EventKind, RealmId};
+use arkret_wire::DeviceId;
 use chrono::{DateTime, Duration, Utc};
 pub use claims::*;
 use error::AuthError as Error;
@@ -106,37 +104,6 @@ pub struct SessionPrincipalBinding {
     pub created_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-}
-
-/// Returns `true` when `event_kind` MUST be pinned to a principal
-/// control Realm per `key-management.md` §4.1. Resolvers and federation
-/// peers MUST refuse these events in any other Realm.
-pub fn is_principal_control_event(event_kind: &EventKind) -> bool {
-    matches!(
-        event_kind,
-        EventKind::DeviceAuthorize | EventKind::DeviceRevoke
-    )
-}
-
-/// Validate that a control event is being submitted under the correct
-/// Realm. Returns `Err(Error::Protocol("principal_control_realm_mismatch"))` when
-/// `event_kind` MUST live in the principal control Realm but the
-/// `realm_id` does not match.
-pub fn assert_control_realm_pinning(
-    event_kind: &EventKind,
-    principal_control_realm_id: &RealmId,
-    realm_id: &str,
-) -> Result<()> {
-    if !is_principal_control_event(event_kind) {
-        return Ok(());
-    }
-    if realm_id == principal_control_realm_id.as_str() {
-        Ok(())
-    } else {
-        Err(Error::Protocol(format!(
-            "principal_control_realm_mismatch: '{event_kind}' must be pinned to '{principal_control_realm_id}', got '{realm_id}'"
-        )))
-    }
 }
 
 /// Canonical OAuth2 scope prefix for binding a Arkret client device to a session.

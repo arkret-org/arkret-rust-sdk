@@ -362,15 +362,6 @@ impl RetryLadder {
             _ => self.ceiling,
         }
     }
-
-    /// [`Self::step`] with a server `Retry-After` hint applied as a hard floor.
-    #[must_use]
-    pub fn step_with_hint(&self, retry: u32, retry_after: Option<Duration>) -> Option<Duration> {
-        match (self.step(retry), retry_after) {
-            (Some(step), Some(hint)) => Some(step.max(hint)),
-            (step, _) => step,
-        }
-    }
 }
 
 /// Deterministic, dependency-free jitter mixer (SplitMix64). Not cryptographic.
@@ -543,7 +534,6 @@ mod tests {
         assert_eq!(ladder.step(3), Some(S(10)));
         assert_eq!(ladder.step(4), Some(S(30)));
         assert_eq!(ladder.step(400), Some(S(30)));
-        assert_eq!(ladder.step_with_hint(0, Some(S(90))), Some(S(90)));
     }
 
     #[test]
@@ -552,6 +542,5 @@ mod tests {
         let ladder = RetryLadder::bounded(STEPS);
         assert_eq!(ladder.step(1), Some(S(120)));
         assert_eq!(ladder.step(2), None);
-        assert_eq!(ladder.step_with_hint(2, Some(S(5))), None);
     }
 }

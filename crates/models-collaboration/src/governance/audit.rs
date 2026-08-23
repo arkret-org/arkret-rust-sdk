@@ -91,20 +91,6 @@ impl AuditAssurance {
             AuditAssurance::DisclosedPolicy => ProfileId::DISCLOSED_AUDIT_E2EE_V1,
         }
     }
-
-    /// Words that MUST NOT appear in user-facing materials in disclosed
-    /// audit mode (encryption-and-audit.md §3.1).
-    pub fn forbidden_marketing_terms(self) -> &'static [&'static str] {
-        match self {
-            AuditAssurance::AttestedHardware => &[],
-            AuditAssurance::DisclosedPolicy => &[
-                "cryptographically enforced",
-                "tee-equivalent",
-                "attested",
-                "hardware-enforced",
-            ],
-        }
-    }
 }
 
 /// Issuer role for a Read-Your-Writes audit receipt

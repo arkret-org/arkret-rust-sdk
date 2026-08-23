@@ -125,16 +125,6 @@ impl AppletRegistrationPayload {
         self
     }
 
-    pub fn with_claimed_profiles(mut self, claimed_profiles: Vec<String>) -> Self {
-        self.claimed_profiles = claimed_profiles;
-        self
-    }
-
-    pub fn with_namespaces(mut self, namespaces: BTreeMap<String, Value>) -> Self {
-        self.namespaces = namespaces;
-        self
-    }
-
     pub fn with_requested_scopes(mut self, requested_scopes: Vec<String>) -> Self {
         self.requested_scopes = requested_scopes;
         self
@@ -142,21 +132,6 @@ impl AppletRegistrationPayload {
 
     pub fn with_receive_events(mut self, receive_events: bool) -> Self {
         self.receive_events = receive_events;
-        self
-    }
-
-    pub fn with_receive_signals(mut self, receive_signals: bool) -> Self {
-        self.receive_signals = receive_signals;
-        self
-    }
-
-    pub fn with_rate_limited(mut self, rate_limited: bool) -> Self {
-        self.rate_limited = rate_limited;
-        self
-    }
-
-    pub fn with_manifest(mut self, manifest: BTreeMap<String, Value>) -> Self {
-        self.manifest = Some(manifest);
         self
     }
 

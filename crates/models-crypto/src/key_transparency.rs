@@ -1,12 +1,8 @@
 //! Key-transparency evidence wire shapes (`ak.schema.key_transparency.v1`):
-//! log head, inclusion/consistency proofs, witness signatures, and their
-//! structural validation.
+//! log head, inclusion/consistency proofs, and witness signatures.
 
-use std::collections::BTreeSet;
-
-use arkret_wire::{DidUrl, SchemaId};
+use arkret_wire::DidUrl;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -51,42 +47,4 @@ pub struct TransparencyWitnessSignature {
     pub witness_did: String,
     pub verification_method: DidUrl,
     pub signature: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Error)]
-pub enum KeyTransparencyError {
-    #[error("key_transparency_proof_missing: schema id is not canonical")]
-    SchemaMismatch,
-    #[error("key_transparency_proof_missing: log proof tree sizes do not match")]
-    TreeSizeMismatch,
-    #[error("key_transparency_proof_missing: inclusion leaf is outside the tree")]
-    LeafOutsideTree,
-    #[error("key_transparency_proof_missing: at least two distinct witnesses are required")]
-    InsufficientDistinctWitnesses,
-}
-
-impl KeyTransparencyEvidence {
-    pub fn validate_structure(&self) -> Result<(), KeyTransparencyError> {
-        if self.schema != SchemaId::KEY_TRANSPARENCY_V1 {
-            return Err(KeyTransparencyError::SchemaMismatch);
-        }
-        if self.inclusion_proof.leaf_count != self.log_head.leaf_count
-            || self.consistency_proof.to_leaf_count != self.log_head.leaf_count
-            || self.consistency_proof.from_leaf_count > self.consistency_proof.to_leaf_count
-        {
-            return Err(KeyTransparencyError::TreeSizeMismatch);
-        }
-        if self.inclusion_proof.leaf_index >= self.inclusion_proof.leaf_count {
-            return Err(KeyTransparencyError::LeafOutsideTree);
-        }
-        let witnesses = self
-            .witness_signatures
-            .iter()
-            .map(|signature| signature.witness_did.as_str())
-            .collect::<BTreeSet<_>>();
-        if witnesses.len() < 2 {
-            return Err(KeyTransparencyError::InsufficientDistinctWitnesses);
-        }
-        Ok(())
-    }
 }

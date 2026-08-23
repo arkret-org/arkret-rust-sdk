@@ -63,9 +63,7 @@ fn typed_authoring_materializes_prev_refs_and_seal_basis() {
     let (scope, actor, payload) = fixture();
     let prev = EventId::new(format!("ak:event:A{}", "b".repeat(43))).unwrap();
     let seal = SealId::new(format!("ak:seal:sha256:{}", "c".repeat(64))).unwrap();
-    let basis = SealBasis {
-        leaves: vec![seal.clone()],
-    };
+    let basis = SealBasis { leaves: vec![seal] };
     let event =
         TypedEventDraft::<event_spec::MessageCreate>::new(scope, actor.clone(), actor, payload)
             .unwrap()

@@ -9,6 +9,7 @@
 //! Author a standard Event without supplying a separate runtime kind:
 //!
 //! ```rust
+//! use arkret::canonical::DigestSuite;
 //! use arkret::{
 //!     ContentBlock, DidCoreId, DidFullId, Hlc, MessageCreatePayload, RealmId, ScopeRef, StrandId,
 //!     TypedEventDraft, event_spec, project_full_id_to_core_id,
@@ -30,10 +31,11 @@
 //!     DidCoreId::new("ak:did_core:web:principal.example")?,
 //!     payload,
 //! )?
-//! .author(
+//! .author_with_digest_suite(
 //!     1,
 //!     Hlc::new("01970e589d21-0001-a13f9c2e")?,
 //!     "2026-08-09T00:00:00Z".parse().unwrap(),
+//!     DigestSuite::Sha256,
 //! )?;
 //! assert_eq!(event.payload["content"]["body"], "hello");
 //! # Ok(())
@@ -53,7 +55,7 @@ mod sdk_error;
 mod sidecar_recovery;
 
 pub use arkret_auth as auth;
-pub use arkret_auth::{AdminKeyStore, session_grant};
+pub use arkret_auth::session_grant;
 pub use arkret_bootstrap as bootstrap;
 pub use arkret_canonical as canonical;
 pub use arkret_canonical::DigestSuite;
@@ -229,8 +231,8 @@ pub use arkret_models_crypto::encrypted_envelope::{
 pub use arkret_models_crypto::http_bodies::*;
 pub use arkret_models_crypto::key_backup::*;
 pub use arkret_models_crypto::key_transparency::{
-    KeyTransparencyError, KeyTransparencyEvidence, TransparencyConsistencyProof,
-    TransparencyInclusionProof, TransparencyLogHead, TransparencyWitnessSignature,
+    KeyTransparencyEvidence, TransparencyConsistencyProof, TransparencyInclusionProof,
+    TransparencyLogHead, TransparencyWitnessSignature,
 };
 pub use arkret_models_crypto::keys::*;
 pub use arkret_models_crypto::mls_envelopes::{
@@ -267,7 +269,6 @@ pub use arkret_models_identity::admin_grant::{
 pub use arkret_models_identity::agent_signer_evidence::*;
 pub use arkret_models_identity::artifacts_account::*;
 pub use arkret_models_identity::artifacts_device_identity::*;
-pub use arkret_models_identity::attestation::*;
 pub use arkret_models_identity::claim_presentation::{
     AgentSelectorClaim, DIRECTORY_RESTRICTED_CLAIM_PRESENTATION_KIND, DirectoryPresentedClaim,
     DirectoryRestrictedClaimPresentation, validate_agent_slug,
@@ -478,9 +479,7 @@ pub use arkret_identifiers::hlc::{
 // umbrella independently of the heavier `mls` group-machine feature.
 pub use arkret_models_crypto::{MlsCommitSource, MlsGroupStateSink};
 #[cfg(feature = "server")]
-pub use arkret_server::{
-    AppletHandler, AppletService, ServiceRoute, TransactionDispatch, service_routes,
-};
+pub use arkret_server::AppletHandler;
 #[cfg(feature = "server")]
 pub use arkret_server::{
     CursorAuthority, CursorAuthorityError, CursorBindingContext, CursorBindingRecord,
@@ -533,8 +532,8 @@ pub use key_backup_client::KeyBackupClient;
 pub use mls::*;
 pub use resolver::{
     REDUCER_SNAPSHOT_SCHEMA, RealmState, ReducerSnapshotManifest, SnapshotChunkManifest,
-    SnapshotRestore, SnapshotRestoreSource, SnapshotSignature, SnapshotSignatureBindingPayload,
-    StateSnapshot, merkle_root, state_merkle_root, verify_snapshot_chunks,
+    SnapshotRestore, SnapshotRestoreSource, SnapshotSignature, StateSnapshot, merkle_root,
+    state_merkle_root, verify_snapshot_chunks,
 };
 #[cfg(feature = "server")]
 pub use server::reject_query_auth;

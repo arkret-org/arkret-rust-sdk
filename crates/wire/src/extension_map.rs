@@ -24,10 +24,6 @@ impl XExtensionMap {
         &self.0
     }
 
-    pub fn into_map(self) -> BTreeMap<String, Value> {
-        self.0
-    }
-
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }

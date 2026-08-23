@@ -478,7 +478,7 @@ mod tests {
             1,
             Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
             payload,
-            chrono::Utc::now(),
+            Utc::now(),
         )
         .unwrap()
     }

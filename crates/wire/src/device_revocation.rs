@@ -64,13 +64,6 @@ pub enum DeviceRevocationPendingStatus {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum DeviceRevocationRejectedStatus {
-    #[serde(rename = "revocation_rejected")]
-    RevocationRejected,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DeviceRevokedStatus {
     #[serde(rename = "revoked")]
     Revoked,
@@ -103,25 +96,6 @@ pub struct DeviceRevocationPendingState {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DeviceRevocationRejectedState {
-    pub schema: DeviceRevocationStateSchema,
-    pub principal_authority: PrincipalAuthorityKey,
-    pub device_id: DeviceId,
-    pub target_device_authorize_event_id: EventId,
-    pub target_device_generation_ref: u64,
-    pub proposal_event_id: EventId,
-    pub proposal_digest: Hash,
-    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-    pub accepted_at: DateTime<Utc>,
-    pub acceptance_seq: u64,
-    pub control_proposal_ack: ControlProposalAck,
-    pub status: DeviceRevocationRejectedStatus,
-    pub terminal_decision: ControlProposalDecision,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct DeviceRevokedState {
     pub schema: DeviceRevocationStateSchema,
     pub principal_authority: PrincipalAuthorityKey,
@@ -138,25 +112,6 @@ pub struct DeviceRevokedState {
     pub covering_seal_id: SealId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub sealed_at: DateTime<Utc>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeviceRevocationRecord {
-    Pending(DeviceRevocationPendingState),
-    Rejected(DeviceRevocationRejectedState),
-    Revoked(DeviceRevokedState),
-}
-
-impl DeviceRevocationRecord {
-    pub fn validate(&self) -> Result<()> {
-        match self {
-            Self::Pending(state) => state.validate(),
-            Self::Rejected(state) => state.validate(),
-            Self::Revoked(state) => state.validate(),
-        }
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -229,25 +184,6 @@ impl DeviceRevocationPendingState {
                 .validate_chain_protocol_bounds(&self.control_proposal_ack, &decisions[..index])?;
         }
         Ok(())
-    }
-}
-
-impl DeviceRevocationRejectedState {
-    pub fn validate(&self) -> Result<()> {
-        validate_record_common(
-            &self.principal_authority,
-            self.target_device_generation_ref,
-            &self.proposal_digest,
-            self.acceptance_seq,
-            &self.control_proposal_ack,
-        )?;
-        if !self.terminal_decision.is_reject() {
-            return Err(WireError::Protocol(
-                "device revocation terminal_decision must be signed_reject".to_owned(),
-            ));
-        }
-        self.terminal_decision
-            .validate_ack_binding_protocol_bounds(&self.control_proposal_ack)
     }
 }
 

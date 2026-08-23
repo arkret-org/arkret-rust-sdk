@@ -226,40 +226,6 @@ pub struct DetachedProof {
     pub extra: XExtensionMap,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/endpoint_entry`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct EndpointEntry {
-    pub method: String,
-    pub path: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub auth: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: XExtensionMap,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/endpoint_policy`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct EndpointPolicy {
-    pub endpoints: Vec<EndpointEntry>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: XExtensionMap,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/ghost_policy`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GhostPolicy {
-    pub enabled: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub accountability_template: Option<String>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: XExtensionMap,
-}
-
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/limits`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]

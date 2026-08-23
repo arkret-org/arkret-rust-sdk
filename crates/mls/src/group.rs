@@ -635,20 +635,6 @@ impl ArkretMlsGroup {
         )
     }
 
-    /// Return the retained `history_secret[from_epoch..=to_epoch]` subset a
-    /// provider seals into a history-key carrier. Epochs outside the retained
-    /// range (never derived, or pruned) are simply absent from the result.
-    pub fn export_history_secret_range(
-        &self,
-        from_epoch: u64,
-        to_epoch: u64,
-    ) -> Vec<(u64, Zeroizing<Vec<u8>>)> {
-        self.history_secrets
-            .range(from_epoch..=to_epoch)
-            .map(|(epoch, secret)| (*epoch, secret.clone()))
-            .collect()
-    }
-
     /// Export one retained epoch secret as a `local_authoritative` record.
     ///
     /// This is the only constructor of that record class in the SDK, and it
@@ -1181,9 +1167,7 @@ impl ArkretMlsGroup {
     /// In the current credential encoding (`mls.rs::ArkretMlsIdentity::new_basic`)
     /// the leaf identity bytes are `principal_id.as_str().as_bytes()` — they
     /// do NOT include the device id. Therefore matching by principal removes
-    /// **all leaves** owned by that principal in this group. To remove a
-    /// specific device, use [`Self::remove_member_by_leaf`] with a leaf
-    /// index resolved from out-of-band device → leaf bookkeeping.
+    /// **all leaves** owned by that principal in this group.
     ///
     /// Errors when the target principal has no leaf in this group.
     pub fn remove_member_by_principal(
@@ -1193,17 +1177,6 @@ impl ArkretMlsGroup {
         self.remove_members_by_principal_with_optional_governance_binding(
             std::slice::from_ref(target),
             None,
-        )
-    }
-
-    pub fn remove_member_by_principal_with_governance_binding(
-        &mut self,
-        target: &DidCoreId,
-        governance_binding: &MlsGovernanceBindingPayload,
-    ) -> Result<MlsRemoveMemberResult> {
-        self.remove_members_by_principal_with_optional_governance_binding(
-            std::slice::from_ref(target),
-            Some(governance_binding),
         )
     }
 
@@ -1284,14 +1257,6 @@ impl ArkretMlsGroup {
         }
 
         self.remove_leaves(&leaves, governance_binding)
-    }
-
-    /// Remove a single leaf by its raw OpenMLS leaf index. Use this when the
-    /// caller maintains an explicit (principal, device_id) → leaf_index map
-    /// (e.g. a inkson DeviceManager with leaf bookkeeping) and wants to
-    /// revoke just one device of a multi-device principal.
-    pub fn remove_member_by_leaf(&mut self, leaf_index: u32) -> Result<MlsRemoveMemberResult> {
-        self.remove_leaves(&[LeafNodeIndex::new(leaf_index)], None)
     }
 
     fn remove_leaves(
@@ -1678,22 +1643,6 @@ impl ArkretMlsGroup {
         self.derive_and_retain_history_secret(realm_id)?;
         Ok(epoch)
     }
-
-    /// Apply a contiguous Commit range, retaining history material on every
-    /// entered epoch instead of retaining only the final one.
-    pub fn apply_commits_and_retain_history_secrets(
-        &mut self,
-        envelopes: &[MlsCommitEnvelope],
-        realm_id: &str,
-    ) -> Result<u64> {
-        let mut sorted = envelopes.iter().collect::<Vec<_>>();
-        sorted.sort_by_key(|envelope| envelope.epoch);
-        let pending = validate_commit_backfill(&self.group_id(), self.epoch(), &sorted)?;
-        for envelope in pending {
-            self.apply_commit_and_retain_history_secret(envelope, realm_id)?;
-        }
-        Ok(self.epoch())
-    }
 }
 
 /// Derive the registered reaction routing tag from a replay-verified epoch
@@ -2020,24 +1969,6 @@ pub(super) fn governance_binding_openmls_capabilities() -> Capabilities {
         .extensions(vec![ExtensionType::Unknown(
             MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
         )])
-        .build()
-}
-
-/// Leaf-node capabilities for a *last-resort* KeyPackage. A KeyPackage marked
-/// `mark_as_last_resort()` carries the OpenMLS `last_resort` extension, and
-/// RFC 9420 §7.2 requires a leaf node to declare (in its `capabilities`) every
-/// extension present on it. Without `ExtensionType::LastResort` here the
-/// KeyPackage is self-inconsistent and an `Add` of it fails validation with
-/// `UnsupportedExtension` — which is exactly what stalls admin admission of a
-/// last-resort invitee. The governance-binding extension stays required for the
-/// group; `LastResort` is an extra capability the group never uses, so adding
-/// it imposes no requirement on existing members.
-pub(super) fn governance_binding_last_resort_openmls_capabilities() -> Capabilities {
-    Capabilities::builder()
-        .extensions(vec![
-            ExtensionType::Unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE),
-            ExtensionType::LastResort,
-        ])
         .build()
 }
 

@@ -1297,12 +1297,12 @@ fn pairwise_did_visibility_enum_roundtrips() {
 // dispatch); folding it into derivation once reported a legal loopback
 // authority as a malformed DID and sent an investigation down the wrong path.
 
-fn webvh_url_error(did: &str) -> crate::DidWebvhUrlError {
+fn webvh_url_error(did: &str) -> DidWebvhUrlError {
     let did = DidFullId::new(did.to_owned()).expect("DID syntax is accepted by the wire type");
     // The resolver flattens to IdentityError::Protocol for the wire, so assert both:
     // that the accessor still refuses, and how the helper classified it.
     DidWebvhResolver::log_url(&did).expect_err("this DID must not yield a URL");
-    crate::helpers::try_did_webvh_url(&did, "did.jsonl").expect_err("this DID must not yield a URL")
+    try_did_webvh_url(&did, "did.jsonl").expect_err("this DID must not yield a URL")
 }
 
 #[test]
@@ -1326,20 +1326,20 @@ fn malformed_and_unsupported_forms_stay_distinguishable() {
     // A bare host with no dot cannot host a did:webvh log.
     assert_eq!(
         webvh_url_error("did:webvh:QmVyZsGytuMfgNoLET2Uw2VakH5cgUrZP94AJMQhT316zV:example"),
-        crate::DidWebvhUrlError::InvalidAuthority
+        DidWebvhUrlError::InvalidAuthority
     );
     // A path segment escaping its directory is malformed syntax.
     assert_eq!(
         webvh_url_error(
             "did:webvh:QmVyZsGytuMfgNoLET2Uw2VakH5cgUrZP94AJMQhT316zV:example.com:..:service"
         ),
-        crate::DidWebvhUrlError::InvalidSyntax
+        DidWebvhUrlError::InvalidSyntax
     );
     // Another method is not malformed did:webvh syntax; it is simply not
     // this helper's method.
     assert_eq!(
         webvh_url_error("did:web:example.com"),
-        crate::DidWebvhUrlError::UnsupportedMethod
+        DidWebvhUrlError::UnsupportedMethod
     );
 }
 

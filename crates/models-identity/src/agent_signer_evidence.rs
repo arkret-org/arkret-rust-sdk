@@ -656,7 +656,7 @@ impl AgentSignerEvidenceQueryOutcome {
             else {
                 unreachable!("validate rejects non-agent query success roots")
             };
-            let selector = match agent_signer_evidence {
+            let selector = match agent_signer_evidence.as_ref() {
                 AgentSignerEvidence::CurrentAdmission {
                     current_observation,
                     ..

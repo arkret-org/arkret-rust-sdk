@@ -1,7 +1,7 @@
 //! Arkret v1 identity, account, device, and handle wire models.
 //!
 //! Owner of the identity-domain wire shapes: account lifecycle and
-//! handoff, actor profiles, attestation evidence, device verification,
+//! handoff, actor profiles, device verification,
 //! DID resolution and operations, handles, identity-link cache
 //! projections, and member identity segments. Behavior that needs
 //! signature verification, schema validation, or state reduction lives
@@ -15,7 +15,6 @@ pub mod admin_grant;
 pub mod agent_signer_evidence;
 pub mod artifacts_account;
 pub mod artifacts_device_identity;
-pub mod attestation;
 pub mod authenticated_signer_resolution_evidence;
 pub mod claim_presentation;
 pub mod delivery_binding;
@@ -45,7 +44,6 @@ pub use admin_grant::*;
 pub use agent_signer_evidence::*;
 pub use artifacts_account::*;
 pub use artifacts_device_identity::*;
-pub use attestation::*;
 pub use authenticated_signer_resolution_evidence::*;
 pub use claim_presentation::*;
 pub use delivery_binding::*;

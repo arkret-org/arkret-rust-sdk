@@ -231,7 +231,7 @@ fn document_canonical_hash(document: &DidDocument) -> Result<String> {
     Ok(arkret_canonical::canonical::sha256_digest(bytes))
 }
 
-/// Mutable state for `CachingDidResolver`, protected by a `Mutex`.
+/// Mutable state for [`DidResolutionCache`], protected by a `Mutex`.
 #[derive(Clone, Debug)]
 struct CacheState {
     entries: HashMap<String, CachedResolution>,
@@ -272,9 +272,9 @@ impl CacheState {
 
 /// Reusable TTL + LRU store for resolved DID documents.
 ///
-/// This is the cache owner used by [`CachingDidResolver`]. Client runtimes may
-/// also carry a deep-cloned snapshot through UI state and authority adapters
-/// without reimplementing expiry, eviction, or invalidation semantics.
+/// Client runtimes may carry a deep-cloned snapshot through UI state and
+/// authority adapters without reimplementing expiry, eviction, or invalidation
+/// semantics.
 #[derive(Debug)]
 pub struct DidResolutionCache {
     state: std::sync::Mutex<CacheState>,
@@ -429,135 +429,5 @@ impl DidResolutionCache {
 impl Default for DidResolutionCache {
     fn default() -> Self {
         Self::new(128)
-    }
-}
-
-/// TTL + LRU cache wrapper for any [`DidResolver`].
-///
-/// [`DidResolver::resolve_did`] returns fresh cache hits directly and resolves
-/// upstream only on miss or expiry. [`Self::resolve_with_freshness`] also
-/// reports whether data came from cache, and honors
-/// [`ResolverPolicy::fail_mode`] by falling back to stale data only for
-/// `ResolverFailMode::AllowCachedOnError`.
-pub struct CachingDidResolver<R: DidResolver> {
-    inner: R,
-    policy: ResolverPolicy,
-    cache: DidResolutionCache,
-}
-
-impl<R: DidResolver> CachingDidResolver<R> {
-    /// Build a cache wrapper with an explicit policy and capacity.
-    pub fn new(inner: R, policy: ResolverPolicy, max_entries: usize) -> Self {
-        Self {
-            inner,
-            policy,
-            cache: DidResolutionCache::new(max_entries),
-        }
-    }
-
-    /// Return the active resolver policy.
-    pub fn policy(&self) -> &ResolverPolicy {
-        &self.policy
-    }
-
-    /// Borrow the wrapped resolver.
-    pub fn inner(&self) -> &R {
-        &self.inner
-    }
-
-    /// Current cached entry count, excluding future lazy expiry.
-    pub fn len(&self) -> usize {
-        self.cache.len()
-    }
-
-    /// Whether the cache currently has no entries.
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    /// Drop the cached entry for a DID.
-    pub fn invalidate(&self, did: &DidFullId) {
-        self.cache.invalidate(did);
-    }
-
-    /// Drop every cached entry.
-    pub fn clear(&self) {
-        self.cache.clear();
-    }
-
-    /// Resolve a DID and return the document together with its [`Freshness`].
-    ///
-    /// Fresh cache hits return `(doc, Fresh)`. Misses and expired entries query
-    /// the upstream resolver. If that query fails, stale data is returned only
-    /// when the active policy is `AllowCachedOnError`.
-    pub fn resolve_with_freshness(
-        &self,
-        did: &DidFullId,
-        now: DateTime<Utc>,
-    ) -> Result<(ResolvedDid, Freshness)> {
-        // Keep expired entries around so an upstream failure can still fall back
-        // to stale data when policy permits it.
-        if let Some(entry) = self.cache.peek(did)
-            && matches!(entry.freshness_at(now), Freshness::Fresh)
-        {
-            return Ok((entry.resolved(), Freshness::Fresh));
-        }
-
-        // Miss or expired entry: resolve upstream.
-        match self.inner.resolve_did(did) {
-            Ok(resolved) => {
-                self.cache.insert(
-                    did.clone(),
-                    resolved.clone(),
-                    now,
-                    self.policy.ttl.unwrap_or_default(),
-                )?;
-                Ok((resolved, Freshness::Missing))
-            }
-            Err(err) => {
-                // Stale fallback is available only in AllowCachedOnError mode.
-                if self.policy.fail_mode == ResolverFailMode::AllowCachedOnError {
-                    let stale = self.cache.peek(did);
-                    if let Some(entry) = stale {
-                        let freshness = entry.freshness_at(now);
-                        return Ok((entry.resolved(), freshness));
-                    }
-                }
-                Err(err)
-            }
-        }
-    }
-}
-
-impl<R: DidResolver> DidResolver for CachingDidResolver<R> {
-    fn supports(&self, did: &DidFullId) -> bool {
-        self.inner.supports(did)
-    }
-
-    fn resolve_did(&self, did: &DidFullId) -> Result<ResolvedDid> {
-        let now = Utc::now();
-        if let Some(resolved) = self.cache.get(did, now) {
-            return Ok(resolved);
-        }
-
-        let resolved = self.inner.resolve_did(did)?;
-        self.cache.insert(
-            did.clone(),
-            resolved.clone(),
-            now,
-            self.policy.ttl.unwrap_or_default(),
-        )?;
-        Ok(resolved)
-    }
-}
-
-impl<R: DidResolver + std::fmt::Debug> std::fmt::Debug for CachingDidResolver<R> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let entry_count = self.cache.len();
-        f.debug_struct("CachingDidResolver")
-            .field("inner", &self.inner)
-            .field("policy", &self.policy)
-            .field("entries", &entry_count)
-            .finish()
     }
 }

@@ -1161,7 +1161,7 @@ fn redaction_with_event_target_ref_trims_event_and_keeps_object_active() {
     // The object spelling of the same token still drives the object into the
     // redacted terminal: the two cells are independent.
     let mut object_redact = redaction_event(3, strand_id);
-    object_redact.prev_refs.push(create_event_id.clone());
+    object_redact.prev_refs.push(create_event_id);
     state.apply_events(&[object_redact]).unwrap();
     let strand = state.subjects.get(strand_id).unwrap();
     assert_eq!(strand.state, Some(crate::ObjectState::Redacted));

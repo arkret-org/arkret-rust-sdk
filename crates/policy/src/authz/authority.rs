@@ -1,8 +1,9 @@
 //! Capability authority-chain checks — pure, in-memory predicates.
 //!
 //! This module hosts the runtime authority-chain helpers that soland's
-//! `AuthzEngine` (and any other consumer — inkson for client-side pre-validation,
-//! sodmin for admin feedback) needs to enforce capabilities.md §10:
+//! authorization engine (and any other consumer — inkson for client-side
+//! pre-validation, sodmin for admin feedback) needs to enforce
+//! capabilities.md §10:
 //!
 //! - Re-granting MUST NOT widen the action scope (`ActionsNotHeld`).
 //! - Re-granting MUST NOT widen the resource scope (`ResourceOutOfScope`).
@@ -28,7 +29,7 @@
 //! All functions in this module are **pure**: they take a slice of grants
 //! and a `now` instant and return a decision. No interior mutability, no
 //! I/O. That makes them safe to call from inkson (compile-to-wasm) and
-//! from sodmin admin UI as well as the server-side `AuthzEngine`.
+//! from sodmin admin UI as well as the server-side authorization engine.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -140,10 +141,9 @@ pub struct Grant {
 /// Typed enum mirroring the v1 spec's `grant-constraint.schema.json`
 /// `constraint_kind` discriminator plus runtime-only families used by
 /// soland's HTTP authz path (`Decision`, `AllowedObjectFacets`). The
-/// upstream typed validator in [`crate::authz::ConstraintEntry`] /
-/// [`crate::authz::Constraint`] remains the canonical schema-aligned
-/// representation; this enum is the in-memory runtime projection that
-/// soland threads through `AuthzEngine::check`.
+/// The upstream typed constraints module ([`crate::authz::Constraint`])
+/// remains the canonical schema-aligned representation; this enum is the in-memory runtime
+/// projection that soland threads through its authorization check.
 ///
 /// AKP-0007 P1.3.4: the previous `{ constraint_kind: String, value:
 /// serde_json::Value }` weakly-typed form has been removed (no backwards
@@ -506,7 +506,7 @@ pub fn authority_chain_intact(grants: &[Grant], grant_id: &str, now: DateTime<Ut
 }
 
 /// `BTreeMap`-keyed variant of [`authority_chain_intact`] for callers that
-/// already maintain an id → grant lookup (e.g. soland's `AuthzEngine`).
+/// already maintain an id → grant lookup (e.g. soland's authorization engine).
 pub fn authority_chain_intact_map<G>(
     snapshot: &BTreeMap<&str, G>,
     grant_id: &str,
@@ -744,8 +744,8 @@ pub fn create_authority_grant(
 ///
 /// Returns the IDs of every descendant grant that would need to be
 /// revoked, in BFS order (parents before children). Does **not** include
-/// `grant_id` itself, mirroring soland's `AuthzEngine::revoke_grant_with_cascade`
-/// return contract. Caller applies the actual `revoked = true` mutation.
+/// `grant_id` itself, mirroring soland's cascade-revoke return contract.
+/// Caller applies the actual `revoked = true` mutation.
 ///
 /// Idempotent on already-revoked descendants: they are excluded from the
 /// returned set (no state change to report).

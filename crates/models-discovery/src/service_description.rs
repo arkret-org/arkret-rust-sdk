@@ -423,14 +423,12 @@ impl ServiceDescribe {
         let claims_calendar = self.supported_profiles.iter().any(|profile| {
             matches!(
                 profile.as_str(),
-                arkret_wire::ProfileId::CALENDAR_EVENT_V1
-                    | arkret_wire::ProfileId::CALENDAR_NOTIFICATION_DISPATCH_V1
+                ProfileId::CALENDAR_EVENT_V1 | ProfileId::CALENDAR_NOTIFICATION_DISPATCH_V1
             )
         }) || self.claimed_profiles.iter().any(|claim| {
             matches!(
                 claim.profile_id.as_str(),
-                arkret_wire::ProfileId::CALENDAR_EVENT_V1
-                    | arkret_wire::ProfileId::CALENDAR_NOTIFICATION_DISPATCH_V1
+                ProfileId::CALENDAR_EVENT_V1 | ProfileId::CALENDAR_NOTIFICATION_DISPATCH_V1
             )
         });
         let valid_tzdb_version = |version: &str| {
@@ -542,7 +540,7 @@ impl ServiceDescribe {
             if !self
                 .supported_profiles
                 .iter()
-                .any(|profile| profile == arkret_wire::ProfileId::DIRECTORY_SERVICE_V1)
+                .any(|profile| profile == ProfileId::DIRECTORY_SERVICE_V1)
             {
                 return Err(WireError::Protocol(format!(
                     "ServiceDescribe: service_kind=directory_service requires \
