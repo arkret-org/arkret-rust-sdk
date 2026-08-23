@@ -16,7 +16,7 @@
 //!
 //! ## Allowed fields
 //!
-//! - `push_target_id` — opaque pseudonym token (see [`is_valid_push_target_id`]).
+//! - `push_target_id` — canonical typed pairwise pseudonym validated by [`PushTargetId`].
 //! - `wakeup_kind` — closed enum (`message`, `mention`, `assignment`, `schedule`, `reaction`,
 //!   `call_invite`, `reminder`, `scheduled_send`, `expiry_invalidation`).
 //! - `timing_profile_hint` — closed enum (`default`, `traffic_metadata_hardened`).
@@ -54,12 +54,13 @@
 //! In addition, any string value containing the literal substring `did:` or
 //! the typed-id prefix `ak:` is rejected as a sensitive correlation key,
 //! except inside `push_target_id` (which has its own opaque-pseudonym
-//! contract — see [`is_valid_push_target_id`]).
+//! contract — see [`PushTargetId`]).
 
+use arkret_identifiers::PushTargetId;
 pub use arkret_models_integration::push_vocab::{
     ALLOWED_PUSH_HINTS, ALLOWED_TIMING_PROFILE_HINTS, ALLOWED_WAKEUP_KINDS, MAX_COUNT_VALUE,
-    is_valid_custom_wakeup_kind, is_valid_push_hint, is_valid_push_target_id,
-    is_valid_timing_profile_hint, is_valid_wakeup_kind,
+    is_valid_custom_wakeup_kind, is_valid_push_hint, is_valid_timing_profile_hint,
+    is_valid_wakeup_kind,
 };
 use serde_json::Value;
 use thiserror::Error;
@@ -271,11 +272,10 @@ pub fn sanitize_blind_payload_with(
 fn validate_allowed_field(key: &str, value: &Value) -> Result<(), BlindPayloadError> {
     match key {
         "push_target_id" => match value.as_str() {
-            Some(raw) if is_valid_push_target_id(raw) => Ok(()),
+            Some(raw) if PushTargetId::new(raw).is_ok() => Ok(()),
             Some(_) => Err(BlindPayloadError::invalid(
                 key,
-                "push_target_id must be an opaque pseudonym (ak:pseudonym:push:<token> \
-                 or base64url ≥ 22 chars)",
+                "push_target_id must encode the complete canonical 32-octet HMAC-SHA256 tag",
             )),
             None => Err(BlindPayloadError::invalid(
                 key,
@@ -439,6 +439,7 @@ pub fn is_forbidden_payload_key(key: &str) -> bool {
             | "audience_mention"
             | "audience_mentions"
             | "audience_mention_policy"
+            | "audience_mention_routing_hint"
             | "audience_recipient_count"
             | "recipient_count"
             | "recipient_counts"
@@ -545,7 +546,7 @@ mod tests {
     fn ok_notification() -> Value {
         json!({
             "notification": {
-                "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
+                "push_target_id": "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
                 "wakeup_kind": "message",
                 "timing_profile_hint": "default",
                 "push_hint": "new_message",
@@ -563,7 +564,7 @@ mod tests {
     #[test]
     fn accepts_bare_notification_object() {
         sanitize_blind_payload(&json!({
-            "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
+            "push_target_id": "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
             "wakeup_kind": "call_invite",
             "timing_profile_hint": "traffic_metadata_hardened",
         }))
@@ -580,7 +581,7 @@ mod tests {
             "expiry_invalidation",
         ] {
             sanitize_blind_payload(&json!({
-                "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
+                "push_target_id": "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
                 "wakeup_kind": kind,
                 "timing_profile_hint": "default",
             }))
@@ -614,6 +615,7 @@ mod tests {
         for field in [
             "audience",
             "audience_mentions",
+            "audience_mention_routing_hint",
             "recipient_count",
             "expanded_recipients",
         ] {
@@ -657,7 +659,7 @@ mod tests {
         // catch it at the wrapper-scan stage.
         let payload = json!({
             "notification": {
-                "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
+                "push_target_id": "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
                 "wakeup_kind": "message",
             },
             "operation_id": "ak.edge.push.command.notify",
@@ -686,16 +688,14 @@ mod tests {
 
     #[test]
     fn rejects_did_target_id() {
-        assert!(!is_valid_push_target_id(
-            "did:webvh:z6mkfixture:alice.example"
-        ));
-        assert!(!is_valid_push_target_id("ak:device:01HYZ8Z000000000000000"));
-        assert!(is_valid_push_target_id(
-            "ak:pseudonym:push:01HYZ8Z000000000000000"
-        ));
-        // The schema pattern requires the typed prefix; a bare token is not a
-        // push_target_id.
-        assert!(!is_valid_push_target_id("01HYZ8Z000000000000000"));
+        assert!(PushTargetId::new("did:webvh:z6mkfixture:alice.example").is_err());
+        assert!(PushTargetId::new("ak:device:01HYZ8Z000000000000000").is_err());
+        assert!(
+            PushTargetId::new("ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8")
+                .is_ok()
+        );
+        assert!(PushTargetId::new("ak:pseudonym:push:ABCDEFGHIJKLMNOPQRSTUV").is_err());
+        assert!(PushTargetId::new("kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8").is_err());
     }
 
     #[test]

@@ -1,8 +1,8 @@
 use std::collections::BTreeSet;
 
-use arkret_wire::{DeviceId, DidCoreId, EventId, Hash, Result, WireError};
+use arkret_wire::{DeviceId, DidCoreId, EventId, Hash, PushTargetId, Result, WireError};
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
 use crate::ServiceResolutionCarrier;
 
@@ -163,28 +163,110 @@ pub struct PushRouteScope {
     pub push_route: String,
 }
 
-/// Per-device push route binding payload (`ak.device.push_route`).
+/// Closed active/revoked payload union for `ak.device.push_route`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DevicePushRoutePayload {
+#[serde(untagged)]
+pub enum DevicePushRoutePayload {
+    Active(DevicePushRouteActivePayload),
+    Revoked(DevicePushRouteRevokedPayload),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DevicePushRouteActivePayload {
     pub recipient_service_id: DidCoreId,
     pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub push_route: String,
-    pub push_target_id: String,
+    pub expected_revision: u64,
+    pub push_target_id: PushTargetId,
     pub push_gateway_service_id: DidCoreId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub encryption_key: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub encryption_key: String,
     pub capabilities: Vec<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DevicePushRouteRevokedPayload {
+    pub recipient_service_id: DidCoreId,
+    pub principal_id: DidCoreId,
+    pub device_id: DeviceId,
+    pub push_route: String,
+    pub expected_revision: u64,
+    pub revoked: PushRouteRevokedMarker,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PushRouteRevokedMarker;
+
+impl Serialize for PushRouteRevokedMarker {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> Deserialize<'de> for PushRouteRevokedMarker {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        if bool::deserialize(deserializer)? {
+            Ok(Self)
+        } else {
+            Err(de::Error::custom("revoked must be true"))
+        }
+    }
 }
 
 impl DevicePushRoutePayload {
     pub fn scope(&self) -> PushRouteScope {
+        let (recipient_service_id, principal_id, device_id, push_route) = match self {
+            Self::Active(value) => (
+                &value.recipient_service_id,
+                &value.principal_id,
+                &value.device_id,
+                &value.push_route,
+            ),
+            Self::Revoked(value) => (
+                &value.recipient_service_id,
+                &value.principal_id,
+                &value.device_id,
+                &value.push_route,
+            ),
+        };
         PushRouteScope {
-            recipient_service_id: self.recipient_service_id.clone(),
-            principal_id: self.principal_id.clone(),
-            device_id: self.device_id.clone(),
-            push_route: self.push_route.clone(),
+            recipient_service_id: recipient_service_id.clone(),
+            principal_id: principal_id.clone(),
+            device_id: device_id.clone(),
+            push_route: push_route.clone(),
+        }
+    }
+
+    pub const fn expected_revision(&self) -> u64 {
+        match self {
+            Self::Active(value) => value.expected_revision,
+            Self::Revoked(value) => value.expected_revision,
         }
     }
 }

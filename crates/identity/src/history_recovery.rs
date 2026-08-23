@@ -364,5 +364,95 @@ mod tests {
                 .unwrap()
                 .contains("service designation")
         );
+
+        use arkret_state::CellState;
+        use arkret_state::lattice::{CasRegister, Lattice, SealedOp};
+        use arkret_wire::{Event, Hash, ProjectedOp};
+
+        let register_event: Event =
+            serde_json::from_value(kat["events"]["register"].clone()).unwrap();
+        let rotate_event: Event = serde_json::from_value(kat["events"]["rotate"].clone()).unwrap();
+        let register_write = arkret_schema::project_registered_cell_writes(
+            &register_event,
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap()
+        .into_iter()
+        .next()
+        .unwrap();
+        let rotate_write = arkret_schema::project_registered_cell_writes(
+            &rotate_event,
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap()
+        .into_iter()
+        .next()
+        .unwrap();
+        let ProjectedOp::Direct(register_op) = register_write.op else {
+            panic!("RRK register must project a direct CAS set");
+        };
+        let ProjectedOp::Direct(rotate_op) = rotate_write.op else {
+            panic!("RRK rotate must project a direct CAS set");
+        };
+        assert_eq!(
+            rotate_op.from.as_ref(),
+            Some(&kat["projected_rotate_op"]["from"])
+        );
+        assert_eq!(
+            rotate_op.value.as_ref(),
+            Some(&kat["projected_rotate_op"]["to"])
+        );
+
+        let register_move_id = Hash::new(
+            register_event.proofs[0]
+                .as_producer()
+                .unwrap()
+                .event_digest
+                .as_str()
+                .to_owned(),
+        )
+        .unwrap();
+        let rotate_move_id = Hash::new(
+            rotate_event.proofs[0]
+                .as_producer()
+                .unwrap()
+                .event_digest
+                .as_str()
+                .to_owned(),
+        )
+        .unwrap();
+        let sealed = vec![
+            SealedOp::new(register_move_id.clone(), register_op.clone()),
+            SealedOp::new(rotate_move_id.clone(), rotate_op.clone()),
+        ];
+        assert_eq!(
+            CasRegister.join(&register_write.cell, &sealed),
+            CellState::Value(kat["projected_rotate_op"]["to"].clone())
+        );
+
+        let mut stale_event = rotate_event.clone();
+        stale_event.preconditions.clear();
+        let stale_write = arkret_schema::project_registered_cell_writes(
+            &stale_event,
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap()
+        .into_iter()
+        .next()
+        .unwrap();
+        let ProjectedOp::Direct(stale_op) = stale_write.op else {
+            panic!("RRK mutation must remain a direct CAS set");
+        };
+        assert!(stale_op.from.is_none());
+        assert!(matches!(
+            CasRegister.join(
+                &register_write.cell,
+                &[
+                    SealedOp::new(register_move_id, register_op),
+                    SealedOp::new(rotate_move_id, stale_op),
+                ],
+            ),
+            CellState::Bottom(_)
+        ));
     }
 }

@@ -1145,6 +1145,27 @@ fn is_device_message_transaction_id(value: &str) -> bool {
         })
 }
 
+fn is_push_target_id(value: &str) -> bool {
+    const PREFIX: &str = "ak:pseudonym:push:";
+    let Some(encoded) = value.strip_prefix(PREFIX) else {
+        return false;
+    };
+    if encoded.len() != 43 {
+        return false;
+    }
+    let Ok(decoded) = URL_SAFE_NO_PAD.decode(encoded) else {
+        return false;
+    };
+    decoded.len() == 32 && URL_SAFE_NO_PAD.encode(decoded) == encoded
+}
+
+id_type!(
+    /// Canonical pairwise push pseudonym derived as the complete 32-octet
+    /// HMAC-SHA256 output and encoded as an unpadded Base64URL typed ID.
+    PushTargetId,
+    is_push_target_id
+);
+
 // Bare `<algo>:<hex>` digest, e.g. an Event's `proof.event_digest`, a Seal
 // root, or a control-plane `Seal.delta[]` entry. `ak:seal:` prefixes the
 // content-addressed Seal identifier itself, which is a special form and is
@@ -1343,6 +1364,20 @@ mod tests {
     #[test]
     fn did_validation_accepts_uuid_method() {
         assert!(DidFullId::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").is_ok());
+    }
+
+    #[test]
+    fn push_target_id_requires_complete_canonical_hmac_output() {
+        let canonical = "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8";
+        assert_eq!(PushTargetId::new(canonical).unwrap().as_str(), canonical);
+        for invalid in [
+            "ak:pseudonym:push:ABCDEFGHIJKLMNOPQRSTUV",
+            "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm9",
+            "kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
+            "ak:device:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
+        ] {
+            assert!(PushTargetId::new(invalid).is_err(), "accepted {invalid}");
+        }
     }
 
     #[test]

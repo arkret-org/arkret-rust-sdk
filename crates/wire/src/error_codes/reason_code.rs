@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-23.4;
-//! sha256=c174b5d2b88fe53dd03ac8b30073a4e89f10fbde2eddf9bf1b51fd66e685a8d3
+//! Input: registry/error-code-registry.json; version=2026-08-23.5;
+//! sha256=a719f071e5442f47ec55715f4f170fca79b6c743663e6e6db641a053c1a5dd01
 //! Entries: reason_codes=469
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -4001,7 +4001,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_PROOF_KIND_UNKNOWN,
         applies_to: &["schema_validation", "device_recovery"],
-        description: "A recovery policy, receipt, or proof names a proof kind outside the ak.schema.recovery_policy.v1 allowed_proof_kinds enum. Producers MUST use one of principal_signing, recovery_unlock, device_quorum, trusted_recovery_service, or threshold_recovery.",
+        description: "A recovery policy, receipt, or proof names a proof kind outside the ak.schema.recovery_policy.v1 allowed_proof_kinds enum. Producers MUST use one of did_root, recovery_unlock, device_quorum, trusted_recovery_service, or threshold_recovery.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_REQUIRED,

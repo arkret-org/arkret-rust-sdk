@@ -377,12 +377,16 @@ mod tests {
         let private = build_actor_private_registry().unwrap();
         assert_eq!(private.event_writes().len(), 8);
         assert_eq!(private.families().len(), 5);
-        assert!(
-            private
-                .family("ak.private.device.push_route.v1")
-                .unwrap()
-                .bottom_reject
+        let push_route_family = private.family("ak.private.device.push_route.v1").unwrap();
+        assert_eq!(
+            push_route_family.merge,
+            ActorPrivateMergeKind::ServerRevisionCas
         );
+        assert_eq!(
+            push_route_family.tombstone,
+            Some(ActorPrivateTombstoneMode::VersionedTombstone)
+        );
+        assert!(!push_route_family.bottom_reject);
         assert!(
             private
                 .family("ak.component.device.push_route.v1")
@@ -452,11 +456,39 @@ mod tests {
             ActorPrivateMergeOutcome::Conflict
         );
 
-        let route_a = private_candidate(json!({"target": "a"}), None, None, None, None, None);
-        let route_b = private_candidate(json!({"target": "b"}), None, None, None, None, None);
+        let invalid_create =
+            private_candidate(json!({"target": "invalid"}), None, None, None, None, None);
         assert_eq!(
             private
-                .apply("ak.private.device.push_route.v1", Some(&route_a), route_b)
+                .apply("ak.private.device.push_route.v1", None, invalid_create)
+                .unwrap(),
+            ActorPrivateMergeOutcome::Conflict
+        );
+        let route_a = private_candidate(json!({"target": "a"}), Some(1), Some(0), None, None, None);
+        assert!(matches!(
+            private
+                .apply("ak.private.device.push_route.v1", None, route_a.clone())
+                .unwrap(),
+            ActorPrivateMergeOutcome::Accepted(candidate) if candidate == route_a
+        ));
+        let route_b = private_candidate(json!({"target": "b"}), Some(2), Some(1), None, None, None);
+        assert!(matches!(
+            private
+                .apply("ak.private.device.push_route.v1", Some(&route_a), route_b.clone())
+                .unwrap(),
+            ActorPrivateMergeOutcome::Accepted(candidate) if candidate == route_b
+        ));
+        let sibling = private_candidate(
+            json!({"target": "sibling"}),
+            Some(2),
+            Some(1),
+            None,
+            None,
+            None,
+        );
+        assert_eq!(
+            private
+                .apply("ak.private.device.push_route.v1", Some(&route_b), sibling)
                 .unwrap(),
             ActorPrivateMergeOutcome::Conflict
         );

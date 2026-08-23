@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-23.1;
-//! sha256=1ac1ed4b5ee8629e51003953faac4008fa548c1cc73bcf6ba86a6f11d3f0f7ae Entries: schema_ids=192,
+//! Input: registry/schema-registry.json; version=2026-08-23.2;
+//! sha256=4c5df182f604a55a279f9329491ad41551fc163d07c15280ef80e1607c310cd6 Entries: schema_ids=192,
 //! active=192
 
 use serde::{Deserialize, Serialize};
@@ -1014,9 +1014,9 @@ impl SchemaId {
     pub const RECOVERY_RECEIPT_V1: &'static str = "ak.schema.recovery_receipt.v1";
     /// Wire contract for the device recovery session state machine, including create/get session
     /// shape, proof submit request and response helpers, the closed publication-authority snapshot,
-    /// and principal_signing recovery proof transcript. Session completion is owned exclusively by
-    /// the bound RecoveryTransaction terminal commit. See identity/security-transactions.md §2 and
-    /// crypto-media/device-lifecycle.md §14.
+    /// and did_root plus generic recovery proof transcripts. Session completion is owned
+    /// exclusively by the bound RecoveryTransaction terminal commit. See
+    /// identity/security-transactions.md §2 and crypto-media/device-lifecycle.md §14.
     pub const RECOVERY_SESSION_V1: &'static str = "ak.schema.recovery_session.v1";
     /// Account-local registration DID evidence retained for onboarding and recovery audit.
     pub const REGISTRATION_DID_EVIDENCE_V1: &'static str = "ak.schema.registration_did_evidence.v1";

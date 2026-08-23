@@ -30,23 +30,6 @@ pub const ALLOWED_PUSH_HINTS: &[&str] = &["new_message", "incoming_call", "menti
 /// Closed enum of `timing_profile_hint` values accepted in blind wakeups.
 pub const ALLOWED_TIMING_PROFILE_HINTS: &[&str] = &["default", "traffic_metadata_hardened"];
 
-/// Return true if `value` is a valid `push_target_id` (opaque pseudonym).
-///
-/// Matches the spec pattern exactly:
-/// `push-operations.schema.json#/$defs/push_target_id` is
-/// `^ak:pseudonym:push:[A-Za-z0-9_-]{22,128}$` — the typed
-/// `ak:pseudonym:push:` prefix is mandatory; a bare base64url token, a DID, or
-/// any other `ak:` typed id is rejected.
-pub fn is_valid_push_target_id(value: &str) -> bool {
-    let Some(token) = value.strip_prefix("ak:pseudonym:push:") else {
-        return false;
-    };
-    (22..=128).contains(&token.len())
-        && token
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-'))
-}
-
 /// Return true if `value` is a valid `wakeup_kind` for blind wakeups.
 pub fn is_valid_wakeup_kind(value: &str) -> bool {
     ALLOWED_WAKEUP_KINDS.contains(&value)

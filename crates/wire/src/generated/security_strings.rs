@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-22.2;
-//! sha256=16812caff4522fd402196befc3b8167defe374a6017e11a94bf6f9afc89c218c Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-23.1;
+//! sha256=ec04ffbbda866ca35e95ce9fe03b292230abce254cf0f1d260e2553b665c1842 Input: registry/
 //! exporter-label-registry.json; version=2026-08-21.1;
-//! sha256=6cb34e722ce41df3c91204d48f6cdf66b68640e9d86a379a9267cefce484bb02 Input: registry/
+//! sha256=ce7f4a1c53b50f33ee71ba4a70e638819abfba103a3fa26560661fe516dc4d37 Input: registry/
 //! digest-suite-registry.json; version=2026-08-18;
 //! sha256=7b9f5368e30cebd43c509db7815b9a01681f8cf11147600f6be16bddcc74657f Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
@@ -17,7 +17,7 @@
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
 //! Entries: proof_contexts=78, exporter_labels=9, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1, domain_separations=31, aead_profiles=2
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1, domain_separations=32, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -657,6 +657,7 @@ pub enum DomainSeparationId {
     FederationVerifyActorSignatureV1,
     HttpMessageSignatureV1,
     IdentityRecoveryPolicySignatureV1,
+    IdentityRecoveryProofV1,
     IdentityRecoveryReceiptSignatureV1,
     JoinedControlViewDigestV1,
     KeypackageClaimTerminalReceiptV1,
@@ -692,6 +693,7 @@ impl DomainSeparationId {
         Self::FederationVerifyActorSignatureV1,
         Self::HttpMessageSignatureV1,
         Self::IdentityRecoveryPolicySignatureV1,
+        Self::IdentityRecoveryProofV1,
         Self::IdentityRecoveryReceiptSignatureV1,
         Self::JoinedControlViewDigestV1,
         Self::KeypackageClaimTerminalReceiptV1,
@@ -732,6 +734,7 @@ impl DomainSeparationId {
     pub const HTTP_MESSAGE_SIGNATURE_V1: &'static str = "ak.http-message-signature.v1";
     pub const IDENTITY_RECOVERY_POLICY_SIGNATURE_V1: &'static str =
         "ak.identity.recovery_policy.signature.v1";
+    pub const IDENTITY_RECOVERY_PROOF_V1: &'static str = "ak.identity.recovery_proof.v1";
     pub const IDENTITY_RECOVERY_RECEIPT_SIGNATURE_V1: &'static str =
         "ak.identity.recovery_receipt.signature.v1";
     pub const JOINED_CONTROL_VIEW_DIGEST_V1: &'static str = "ak.joined-control-view-digest-v1";
@@ -775,6 +778,7 @@ impl DomainSeparationId {
             Self::FederationVerifyActorSignatureV1 => Self::FEDERATION_VERIFY_ACTOR_SIGNATURE_V1,
             Self::HttpMessageSignatureV1 => Self::HTTP_MESSAGE_SIGNATURE_V1,
             Self::IdentityRecoveryPolicySignatureV1 => Self::IDENTITY_RECOVERY_POLICY_SIGNATURE_V1,
+            Self::IdentityRecoveryProofV1 => Self::IDENTITY_RECOVERY_PROOF_V1,
             Self::IdentityRecoveryReceiptSignatureV1 => {
                 Self::IDENTITY_RECOVERY_RECEIPT_SIGNATURE_V1
             }
@@ -827,6 +831,7 @@ impl DomainSeparationId {
             Self::IDENTITY_RECOVERY_POLICY_SIGNATURE_V1 => {
                 Some(Self::IdentityRecoveryPolicySignatureV1)
             }
+            Self::IDENTITY_RECOVERY_PROOF_V1 => Some(Self::IdentityRecoveryProofV1),
             Self::IDENTITY_RECOVERY_RECEIPT_SIGNATURE_V1 => {
                 Some(Self::IdentityRecoveryReceiptSignatureV1)
             }

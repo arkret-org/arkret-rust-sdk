@@ -3,7 +3,7 @@ use std::fmt;
 use std::ops::Deref;
 
 use arkret_wire::{
-    DeviceId, DidCoreId, EventId, MessageId, NonEmptyString, OpaqueLocalId, RealmId, ReasonCode,
+    DeviceId, DidCoreId, EventId, MessageId, OpaqueLocalId, PushTargetId, RealmId, ReasonCode,
     SchemaId, StrandId,
 };
 use chrono::{DateTime, Utc};
@@ -169,7 +169,7 @@ pub struct PushRegisterDeviceRequestBody {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PushRegisterDeviceOutcome {
     pub ok: bool,
@@ -356,7 +356,7 @@ impl PushTimingProfileHint {
 #[serde(deny_unknown_fields)]
 pub struct PushNotificationEnvelope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub push_target_id: Option<String>,
+    pub push_target_id: Option<PushTargetId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wakeup_kind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -507,7 +507,7 @@ pub struct PushNotifyRequestBody {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PushNotifyOutcome {
-    pub push_target_id: String,
+    pub push_target_id: PushTargetId,
     pub outcomes: Vec<PushNotifyDeviceOutcome>,
 }
 
@@ -668,7 +668,9 @@ pub fn validate_push_notify_contract_shape(request: &PushNotifyRequestBody) -> R
     reject_forbidden_plaintext_fields("", &raw)?;
 
     let notification = &request.notification;
-    validate_push_target_id(notification.push_target_id.as_deref())?;
+    if notification.push_target_id.is_none() {
+        return Err("notification.push_target_id is required".to_owned());
+    }
     validate_wakeup_kind(notification.wakeup_kind.as_deref())?;
     validate_timing_profile_hint(notification.timing_profile_hint)?;
 
@@ -695,9 +697,9 @@ pub fn validate_push_notify_outcome_conservation(
     let expected_push_target_id = request
         .notification
         .push_target_id
-        .as_deref()
+        .as_ref()
         .ok_or_else(|| "notification.push_target_id is required".to_owned())?;
-    if outcome.push_target_id != expected_push_target_id {
+    if &outcome.push_target_id != expected_push_target_id {
         return Err("push notify outcome push_target_id does not match the request".to_owned());
     }
 
@@ -779,30 +781,6 @@ fn reject_forbidden_plaintext_fields(path: &str, value: &Value) -> Result<(), St
     }
 }
 
-fn validate_push_target_id(value: Option<&str>) -> Result<(), String> {
-    const PREFIX: &str = "ak:pseudonym:push:";
-    let Some(value) = value else {
-        return Err("notification.push_target_id is required".to_owned());
-    };
-    let value = value.trim();
-    if value.is_empty() {
-        return Err("notification.push_target_id must not be empty".to_owned());
-    }
-    let Some(token) = value.strip_prefix(PREFIX) else {
-        return Err(format!(
-            "notification.push_target_id must use `{PREFIX}*` typed IDs"
-        ));
-    };
-    if !(22..=128).contains(&token.len())
-        || !token
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
-    {
-        return Err("notification.push_target_id must be an opaque base64url token".to_owned());
-    }
-    Ok(())
-}
-
 fn validate_wakeup_kind(value: Option<&str>) -> Result<(), String> {
     let Some(value) = value else {
         return Err("notification.wakeup_kind is required".to_owned());
@@ -836,7 +814,12 @@ mod tests {
     fn valid_request() -> PushNotifyRequestBody {
         PushNotifyRequestBody {
             notification: PushNotificationEnvelope {
-                push_target_id: Some("ak:pseudonym:push:01HYZ8Z000000000000000".to_owned()),
+                push_target_id: Some(
+                    PushTargetId::new(
+                        "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
+                    )
+                    .unwrap(),
+                ),
                 wakeup_kind: Some("message".to_owned()),
                 timing_profile_hint: Some(PushTimingProfileHint::Default),
                 devices: vec![
@@ -1094,113 +1077,4 @@ pub enum PushOperations {
 
 impl PushOperations {
     pub const SCHEMA: &'static str = SchemaId::PUSH_OPERATIONS_V1;
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/blind_notification`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RouteTokens {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_route_token: Option<PushRouteToken>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scope_route_token: Option<PushRouteToken>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mention_redirect_target_route_tokens: Option<Vec<PushRouteToken>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delivery_binding_frontier_token: Option<PushRouteToken>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BlindNotification {
-    pub push_target_id: PushTargetId,
-    pub wakeup_kind: String,
-    pub timing_profile_hint: PushTimingProfileHint,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub push_hint: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub push_hint_l10n_key: Option<NonEmptyString>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub evaluation_locus_unresolved: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub counts: Option<Counts>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub route_tokens: Option<RouteTokens>,
-    pub devices: Vec<DeviceRoute>,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/counts`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Counts {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub badge: Option<PushCountIndicator>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub unread_increment: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub missed_call: Option<PushCountIndicator>,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/device_route`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DeviceRoute {
-    pub device_id: DeviceId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub push_key: Option<PushKey>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub app_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub platform: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_route_token: Option<PushRouteToken>,
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub visible_notification_opt_in: bool,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/push_target_id`.
-pub type PushTargetId = String;
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct VisibleNotification {
-    pub push_target_id: PushTargetId,
-    pub wakeup_kind: String,
-    pub timing_profile_hint: PushTimingProfileHint,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub push_hint: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub push_hint_l10n_key: Option<NonEmptyString>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub evaluation_locus_unresolved: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub counts: Option<Counts>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub route_tokens: Option<RouteTokens>,
-    pub devices: Vec<DeviceRoute>,
-    pub event_id: EventId,
-    pub realm_id: RealmId,
-    pub sender_actor_id: DidCoreId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub strand_id: Option<StrandId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub message_id: Option<MessageId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sender_actor_display_name: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub strand_title: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_title: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub user_is_target: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub priority: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub membership: Option<String>,
 }

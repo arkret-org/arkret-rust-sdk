@@ -226,7 +226,7 @@ fn contains_sensitive_literal(path: &str, value: &Value) -> bool {
 /// Build a baseline notification object that passes the sanitizer.
 fn ok_notification() -> Value {
     json!({
-        "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
+        "push_target_id": "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
         "wakeup_kind": "message",
         "timing_profile_hint": "default",
     })
@@ -303,7 +303,7 @@ proptest! {
         if !drop_target {
             notif.insert(
                 "push_target_id".into(),
-                json!("ak:pseudonym:push:01HYZ8Z000000000000000"),
+                json!("ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8"),
             );
         }
         if !drop_kind {
@@ -430,7 +430,7 @@ proptest! {
     fn count_boundary_is_enforced(n in 0u64..(MAX_COUNT_VALUE * 3)) {
         let payload = json!({
             "notification": {
-                "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
+                "push_target_id": "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
                 "wakeup_kind": "message",
                 "counts": { "unread": n },
             }

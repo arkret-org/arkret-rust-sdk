@@ -199,10 +199,21 @@ impl ActorPrivateRegistry {
             {
                 return Ok(ActorPrivateMergeOutcome::Conflict);
             }
+            if matches!(
+                contract.merge,
+                ActorPrivateMergeKind::ServerRevisionCas | ActorPrivateMergeKind::FsmCas
+            ) && (incoming.expected_revision != Some(0) || incoming.revision != Some(1))
+            {
+                return Ok(ActorPrivateMergeOutcome::Conflict);
+            }
             return Ok(ActorPrivateMergeOutcome::Accepted(incoming));
         };
         if current == &incoming
-            || current.value == incoming.value && same_position(current, &incoming)
+            || !matches!(
+                contract.merge,
+                ActorPrivateMergeKind::ServerRevisionCas | ActorPrivateMergeKind::FsmCas
+            ) && current.value == incoming.value
+                && same_position(current, &incoming)
         {
             return Ok(ActorPrivateMergeOutcome::Unchanged(current.clone()));
         }
