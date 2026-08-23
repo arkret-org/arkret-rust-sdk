@@ -408,7 +408,7 @@ fn validate_contact_contact_round_evidence_shape(
     for receipt in &bundle.request_receipts {
         receipt.core.validate()?;
         let digest =
-            domain_separated_sha256(b"ak.contact.request-acceptance-core.v1\n", &receipt.core)?;
+            domain_separated_sha256(b"ak.contact.request_acceptance_core.v1\n", &receipt.core)?;
         if receipt.receipt_digest != digest {
             return Err(protocol_error("Contact request receipt digest is invalid"));
         }

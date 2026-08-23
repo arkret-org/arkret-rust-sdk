@@ -120,7 +120,7 @@ impl AgentSelectorClaim {
         .map_err(|reason| WireError::Protocol(reason.to_string()))
     }
 
-    /// Canonical `ak.agent-selector-claim-proof-v1` transcript shared by
+    /// Canonical `ak.agent_selector_claim_proof.v1` transcript shared by
     /// producers and verifiers.
     pub fn canonical_proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
         let payload_digest = self.payload_digest()?;

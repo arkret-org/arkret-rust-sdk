@@ -5,18 +5,18 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash, RequestId, Result, SessionGrantId,
-    WireError, canonical,
+    Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash, ProofContextId, RequestId, Result,
+    SessionGrantId, WireError, canonical,
 };
 
 pub const ACCEPTED_DEVICE_POSSESSION_PROOF_CONTEXT: &str =
-    "ak.session-grant-accepted-device-possession-proof-v1";
+    ProofContextId::SESSION_GRANT_ACCEPTED_DEVICE_POSSESSION_PROOF_V1;
 pub const MAX_ACCEPTED_DEVICE_POSSESSION_PROOF_LIFETIME_SECONDS: i64 = 300;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AcceptedDevicePossessionProofContext {
-    #[serde(rename = "ak.session-grant-accepted-device-possession-proof-v1")]
+    #[serde(rename = "ak.session_grant_accepted_device_possession_proof.v1")]
     V1,
 }
 

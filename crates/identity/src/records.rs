@@ -63,7 +63,7 @@ pub struct DidRegistryReceipt {
     /// Generic detached-JWS proof
     /// (`event-envelope.schema.json#/$defs/proof`) by the registry
     /// service key. `payload_digest = canonical_digest(receipt without
-    /// signature)`; the JWS signs the `ak.identity-receipt-proof-v1`
+    /// signature)`; the JWS signs the `ak.identity_receipt_proof.v1`
     /// binding object defined by identity-did.md section 4.3.
     pub signature: DetachedPayloadProof,
 }

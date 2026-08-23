@@ -269,10 +269,10 @@ impl AccountDeviceSummary {
 }
 
 pub const ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_DOMAIN: &str =
-    "ak.account-handoff-authentication-proof-v1\n";
-pub const IDENTITY_CREATION_CONTROL_PROOF_DOMAIN: &str = "ak.identity-creation-control-proof-v1\n";
+    "ak.account_handoff_authentication_proof.v1\n";
+pub const IDENTITY_CREATION_CONTROL_PROOF_DOMAIN: &str = "ak.identity_creation_control_proof.v1\n";
 pub const ACCOUNT_REGISTRATION_CONTROL_PROOF_DOMAIN: &str =
-    "ak.account-registration-control-proof-v1\n";
+    "ak.account_registration_control_proof.v1\n";
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]

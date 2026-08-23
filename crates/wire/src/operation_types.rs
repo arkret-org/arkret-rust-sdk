@@ -358,7 +358,7 @@ pub enum MembershipCompensationTerminalState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum MembershipCompensationTerminalDomain {
-    #[serde(rename = "ak.membership-compensation.terminal-certificate.v1")]
+    #[serde(rename = "ak.membership_compensation.terminal_certificate.v1")]
     V1,
 }
 
@@ -380,7 +380,7 @@ pub struct MembershipCompensationTerminalCertificate {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum MembershipCompensationCasDomain {
-    #[serde(rename = "ak.membership-compensation.single-use-cas.v1")]
+    #[serde(rename = "ak.membership_compensation.single_use_cas.v1")]
     V1,
 }
 

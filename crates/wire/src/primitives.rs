@@ -1503,7 +1503,7 @@ impl ProducerEventProof {
         }
         let mut obj = serde_json::Map::new();
         // Fixed signing-context domain tag (encoding.md §2): every Event proof
-        // binding MUST carry `context = "ak.event-proof-v1"` so an Event proof
+        // binding MUST carry `context = "ak.event_proof.v1"` so an Event proof
         // signature cannot be confused with another object family's binding
         // (receipts, snapshot witnesses, handle claims each use their own
         // context). Key order is irrelevant — canonical JSON re-sorts by JCS.

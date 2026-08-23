@@ -2382,7 +2382,7 @@ mod tests {
         let descriptor = json!({
             "kind": "string_set_digest",
             "field": "payload.accountability_scope",
-            "context": "ak.accountability-scope-set-v1-wrong"
+            "context": "ak.accountability_scope_set.v1-wrong"
         });
         let projected = ProjectedEventInput::from(&event);
         assert!(matches!(

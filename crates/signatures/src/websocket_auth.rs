@@ -300,6 +300,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::DomainSeparationId;
     use chrono::TimeZone;
 
     use super::*;
@@ -388,7 +389,7 @@ mod tests {
             [
                 "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
                 JTI,
-                "ak.websocket-auth.v1",
+                DomainSeparationId::WEBSOCKET_AUTH_V1,
             ]
         );
     }

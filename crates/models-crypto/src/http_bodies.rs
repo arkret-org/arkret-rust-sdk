@@ -7,8 +7,8 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    Base64UrlString, DeviceId, DidCoreId, DidUrl, EventId, Hash, KeyPackageRef, NonEmptyString,
-    RealmId, StrandId,
+    Base64UrlString, DeviceId, DidCoreId, DidUrl, DomainSeparationId, EventId, Hash, KeyPackageRef,
+    NonEmptyString, RealmId, StrandId,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -1117,7 +1117,7 @@ impl RecipientMlsDurableReceipt {
     }
 
     pub fn validate_shape(&self) -> Result<(), &'static str> {
-        if self.domain.as_str() != "ak.mls.recipient-durable-receipt.v1" {
+        if self.domain.as_str() != DomainSeparationId::MLS_RECIPIENT_DURABLE_RECEIPT_V1 {
             return Err("recipient durable receipt domain mismatch");
         }
         match &self.recipient {
@@ -1546,7 +1546,7 @@ impl KeyPackageConsumeReceipt {
     }
 
     pub fn validate_shape(&self) -> Result<(), &'static str> {
-        if self.domain.as_str() != "ak.keypackage.consume-receipt.v1" {
+        if self.domain.as_str() != DomainSeparationId::KEYPACKAGE_CONSUME_RECEIPT_V1 {
             return Err("KeyPackage consume receipt domain mismatch");
         }
         self.recipient_durable_receipt.validate_shape()?;

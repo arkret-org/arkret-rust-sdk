@@ -31,10 +31,10 @@ use crate::agent::{
 };
 use crate::{Ed25519DetachedJwsVerifier, PublicKeyMaterial, sign_ed25519_detached_jws};
 
-const SNAPSHOT_LEASE_DOMAIN: &str = "ak.agent-authority-snapshot-v1";
-const CONTROLLER_GATE_DOMAIN: &str = "ak.controller-account-gate-v1";
+const SNAPSHOT_LEASE_DOMAIN: &str = DomainSeparationId::AGENT_AUTHORITY_SNAPSHOT_V1;
+const CONTROLLER_GATE_DOMAIN: &str = DomainSeparationId::CONTROLLER_ACCOUNT_GATE_V1;
 const EVENT_ADMISSION_RECEIPT_DOMAIN: &str = DomainSeparationId::AGENT_SIGNER_ADMISSION_RECEIPT_V1;
-const OUTER_ATTESTATION_DOMAIN: &str = "ak.agent-signer-evidence.v1";
+const OUTER_ATTESTATION_DOMAIN: &str = DomainSeparationId::AGENT_SIGNER_EVIDENCE_V1;
 const DETACHED_JWS_KIND: &str = "detached_jws";
 const MAX_SEAL_LINEAGE: usize = 4096;
 

@@ -1465,7 +1465,7 @@ impl MimiUpdateConsentRequestBody {
         mimi_payload_digest(&self.unsigned_payload()?)
     }
 
-    /// Canonical `ak.mimi-update-consent-request-proof-v1` transcript shared by
+    /// Canonical `ak.mimi_update_consent_request_proof.v1` transcript shared by
     /// MIMI consent proof producers and verifiers.
     pub fn signature_binding_bytes(&self) -> Result<Vec<u8>> {
         mimi_proof_binding_bytes(
@@ -1833,7 +1833,7 @@ mod mimi_consent_tests {
             json!({
                 "audience": "did:webvh:z6mkservice:example.com",
                 "consent_id": "ak:consent:01964137-0000-7000-8000-000000000777",
-                "context": "ak.mimi-update-consent-request-proof-v1",
+                "context": "ak.mimi_update_consent_request_proof.v1",
                 "created_at": "2026-07-19T06:30:00.000Z",
                 "decision": "accept",
                 "domain": "ak:trust_domain:example.com",
@@ -1865,7 +1865,7 @@ mod mimi_consent_tests {
 
         assert_eq!(
             binding["context"],
-            json!("ak.mimi-identifier-query-request-proof-v1")
+            json!("ak.mimi_identifier_query_request_proof.v1")
         );
         assert!(binding.get("issuer").is_none());
     }
@@ -2628,7 +2628,7 @@ fn device_pairing_target_attestation_signing_input(
         hpke_key,
         pairing_challenge_transcript_digest,
     };
-    let mut bytes = b"ak.device-authorize-accepted-device-possession-proof-v1\n".to_vec();
+    let mut bytes = b"ak.device_authorize_accepted_device_possession_proof.v1\n".to_vec();
     bytes.extend(canonical::canonical_json_bytes(&object)?);
     Ok(bytes)
 }

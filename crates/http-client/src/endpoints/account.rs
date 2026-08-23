@@ -688,7 +688,7 @@ mod tests {
             "grant_jwt": "predecessor.jwt",
             "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
             "agent_session_refresh_proof": {
-                "context": "ak.agent-session-refresh-proof-v1",
+                "context": "ak.agent_session_refresh_proof.v1",
                 "request_canonical_digest": format!("sha256:{}", "11".repeat(32)),
                 "audience": "ak:did_core:web:service.example",
                 "issued_at": "2026-08-08T11:59:00.000Z",

@@ -850,12 +850,12 @@ mod tests {
         assert!(
             String::from_utf8(lease_bytes)
                 .unwrap()
-                .contains("ak.authorization-lease-proof-v1")
+                .contains(ProofContextId::AUTHORIZATION_LEASE_PROOF_V1)
         );
         assert!(
             String::from_utf8(receipt_bytes)
                 .unwrap()
-                .contains("ak.ingress-receipt-proof-v1")
+                .contains(ProofContextId::INGRESS_RECEIPT_PROOF_V1)
         );
     }
 }

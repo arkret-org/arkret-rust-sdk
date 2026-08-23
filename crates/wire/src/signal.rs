@@ -803,7 +803,7 @@ mod tests {
     fn proof_binding_uses_the_signal_context_and_names_the_device() {
         let envelope = envelope(SignalClass::Setup, 120);
         let bytes = String::from_utf8(envelope.proof_binding_bytes().unwrap()).unwrap();
-        assert!(bytes.contains("ak.signal-proof-v1"));
+        assert!(bytes.contains(ProofContextId::SIGNAL_PROOF_V1));
         assert!(bytes.contains("sender_device_id"));
     }
 

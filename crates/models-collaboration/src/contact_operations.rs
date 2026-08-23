@@ -106,7 +106,7 @@ pub struct RequestAcceptanceReceipt {
 impl RequestAcceptanceReceipt {
     /// Digest of the closed receipt core covered by `signature`.
     pub fn computed_core_digest(&self) -> arkret_wire::Result<Hash> {
-        let mut bytes = b"ak.contact.request-acceptance-core.v1\n".to_vec();
+        let mut bytes = b"ak.contact.request_acceptance_core.v1\n".to_vec();
         bytes.extend(arkret_canonical::canonical_json_bytes(&self.core)?);
         Hash::new(arkret_canonical::sha256_digest(bytes)).map_err(Into::into)
     }
@@ -1100,7 +1100,7 @@ impl GlareConcurrencyAttestation {
 string_marker!(
     PeerContactMirrorReceiptDomain,
     V1,
-    "ak.peer-contact.mirror-receipt.v1"
+    "ak.peer_contact.mirror_receipt.v1"
 );
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1150,7 +1150,7 @@ fn canonical_signing_bytes_without_signature(
 string_marker!(
     PeerContactControlReceiptDomain,
     V1,
-    "ak.peer-contact.control-receipt.v1"
+    "ak.peer_contact.control_receipt.v1"
 );
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

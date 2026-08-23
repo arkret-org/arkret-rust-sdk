@@ -5,7 +5,7 @@ use arkret_models_crypto::{
     RecoveryProofKind, RecoverySessionProof, RecoverySessionState, RecoverySessionUnlockProof,
     RecoverySessionUnlockProofKind, RecoveryUnlockProofBody, SessionState,
 };
-use arkret_wire::{Base64UrlString, DidUrl, Hash, NonEmptyString};
+use arkret_wire::{Base64UrlString, DidUrl, DomainSeparationId, Hash, NonEmptyString};
 use ed25519_dalek::{Signer as _, SigningKey};
 use hpke::{Kem, Serializable};
 use sha2::{Digest as _, Sha256};
@@ -227,7 +227,7 @@ pub fn recovery_unlock_transcript(
         signature_algorithm: RecoveryFactorSignatureAlgorithm::Ed25519,
     });
     let transcript = GenericRecoveryTranscript {
-        schema: "ak.identity.recovery_proof.v1".to_owned(),
+        schema: DomainSeparationId::IDENTITY_RECOVERY_PROOF_V1.to_owned(),
         kind: RecoveryProofKind::RecoveryUnlock,
         principal_authority: session.principal_authority.clone(),
         requesting_device_id: session.requesting_device_id.clone(),

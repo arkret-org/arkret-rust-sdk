@@ -10,7 +10,7 @@ use super::merkle::sha256_digest;
 use crate::{BlobRef, EventId, Hash, Hlc, RealmId, Result, SnapshotId};
 
 /// Object-family context of `authority_binding.witness_attestations[]`. It is
-/// deliberately not the manifest's `ak.snapshot-proof-v1`: a witness signature
+/// deliberately not the manifest's `ak.snapshot_proof.v1`: a witness signature
 /// produced under the manifest context is rejected even when the JWS verifies
 /// (`snapshot-schema.md` §5.1).
 pub const SNAPSHOT_WITNESS_ATTESTATION_PROOF_CONTEXT: &str =
@@ -387,8 +387,8 @@ pub struct AuthorityBinding {
 ///
 /// It is a separate object family from the manifest: the witness signs the
 /// canonical signature-free projection of `snapshot-schema.md` §5.1 under
-/// `ak.snapshot-witness-attestation-proof-v1`. Reusing the manifest-level
-/// `ak.snapshot-proof-v1` context here is rejected.
+/// `ak.snapshot_witness_attestation_proof.v1`. Reusing the manifest-level
+/// `ak.snapshot_proof.v1` context here is rejected.
 ///
 /// This is the **verification model** half of the snapshot model, alongside
 /// [`SnapshotManifest`] and [`AuthorityBinding`]: it carries the typed

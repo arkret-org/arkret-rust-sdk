@@ -6,8 +6,8 @@ use std::ops::Deref;
 
 use arkret_wire::{
     AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, DeviceId,
-    DeviceReanchorPreFenceSealFrontier, DidCoreId, DidFullId, DidUrl, EventId, Hash,
-    HistoryEffectiveScope, HistorySecretRange, LeaseBasisRef, NonEmptyString, PolicyId,
+    DeviceReanchorPreFenceSealFrontier, DidCoreId, DidFullId, DidUrl, DomainSeparationId, EventId,
+    Hash, HistoryEffectiveScope, HistorySecretRange, LeaseBasisRef, NonEmptyString, PolicyId,
     RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, ReasonCode, RecoverySessionId, Result, SchemaId,
     ScopeRef, TransactionId, TrustDomainId, WireError, XExtensionMap,
 };
@@ -956,7 +956,8 @@ impl TryFrom<GenericRecoveryTranscriptWire> for GenericRecoveryTranscript {
 
 impl GenericRecoveryTranscript {
     pub fn validate(&self) -> Result<()> {
-        if self.schema != "ak.identity.recovery_proof.v1" || self.policy_version < 1 {
+        if self.schema != DomainSeparationId::IDENTITY_RECOVERY_PROOF_V1 || self.policy_version < 1
+        {
             return Err(WireError::Protocol(
                 "generic recovery transcript has an invalid schema or policy_version".to_owned(),
             ));
@@ -1054,7 +1055,7 @@ impl TryFrom<DidRootTranscriptWire> for DidRootTranscript {
 
 impl DidRootTranscript {
     pub fn validate(&self) -> Result<()> {
-        if self.schema != "ak.identity.recovery_proof.v1"
+        if self.schema != DomainSeparationId::IDENTITY_RECOVERY_PROOF_V1
             || self.kind != RecoveryProofKind::DidRoot
             || self.policy_version < 1
         {

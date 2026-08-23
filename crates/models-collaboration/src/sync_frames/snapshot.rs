@@ -236,7 +236,7 @@ pub struct SnapshotChunksItem {
 ///
 /// A distinct object family from the manifest: the witness signs the canonical
 /// signature-free projection of `snapshot-schema.md` §5.1 under
-/// `ak.snapshot-witness-attestation-proof-v1`, never the manifest transcript.
+/// `ak.snapshot_witness_attestation_proof.v1`, never the manifest transcript.
 ///
 /// This is the **wire DTO** half of the snapshot model, alongside [`Snapshot`]
 /// and [`SnapshotAuthorityBinding`]; it mirrors the schema shape verbatim and

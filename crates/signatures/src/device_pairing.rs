@@ -429,7 +429,7 @@ mod tests {
         assert_eq!(
             String::from_utf8(unsigned.signing_input().unwrap()).unwrap(),
             format!(
-                "ak.device-authorize-accepted-device-possession-proof-v1\n\
+                "ak.device_authorize_accepted_device_possession_proof.v1\n\
                  {{\"algorithms\":[\"Ed25519\"],\"authorization_binding_kind\":\"accepted_device\",\
                  \"device_id\":\"ak:device:01904100-0000-7000-8000-000000000009\",\
                  \"device_key_algorithm\":\"Ed25519\",\"device_public_key\":\"{did_key}\",\

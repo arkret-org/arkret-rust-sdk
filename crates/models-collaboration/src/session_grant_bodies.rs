@@ -590,7 +590,7 @@ impl AgentSessionGrantRefreshRequest {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentSessionRefreshProofContext {
-    #[serde(rename = "ak.agent-session-refresh-proof-v1")]
+    #[serde(rename = "ak.agent_session_refresh_proof.v1")]
     V1,
 }
 
@@ -1050,7 +1050,7 @@ mod session_grant_contract_tests {
             "grant_jwt": "signed.jwt",
             "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
             "agent_session_refresh_proof": {
-                "context": "ak.agent-session-refresh-proof-v1",
+                "context": "ak.agent_session_refresh_proof.v1",
                 "request_canonical_digest": format!("sha256:{}", "00".repeat(32)),
                 "audience": "ak:did_core:web:service.example",
                 "issued_at": "2026-08-08T11:59:00.000Z",

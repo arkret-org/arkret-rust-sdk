@@ -276,6 +276,7 @@ pub fn composite_subject_pipe(parts: &[&str]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::DomainSeparationId;
 
     #[test]
     fn parse_simple_cell_id() {
@@ -419,18 +420,24 @@ mod tests {
         let left = vec!["employment".to_owned(), "agent_operator".to_owned()];
         let right = vec!["agent_operator".to_owned(), "employment".to_owned()];
         assert_eq!(
-            string_set_digest_component(&left, "ak.accountability-scope-set-v1").unwrap(),
+            string_set_digest_component(&left, DomainSeparationId::ACCOUNTABILITY_SCOPE_SET_V1,)
+                .unwrap(),
             "GuBGA6Mm1pfBN0XAk4CD0zuPPBxC5HzVNM-AIdFZRnc"
         );
         assert_eq!(
-            string_set_digest_component(&left, "ak.accountability-scope-set-v1").unwrap(),
-            string_set_digest_component(&right, "ak.accountability-scope-set-v1").unwrap()
+            string_set_digest_component(&left, DomainSeparationId::ACCOUNTABILITY_SCOPE_SET_V1,)
+                .unwrap(),
+            string_set_digest_component(&right, DomainSeparationId::ACCOUNTABILITY_SCOPE_SET_V1,)
+                .unwrap()
         );
-        assert!(string_set_digest_component(&[], "ak.accountability-scope-set-v1").is_err());
+        assert!(
+            string_set_digest_component(&[], DomainSeparationId::ACCOUNTABILITY_SCOPE_SET_V1,)
+                .is_err()
+        );
         assert!(
             string_set_digest_component(
                 &["employment".to_owned(), "employment".to_owned()],
-                "ak.accountability-scope-set-v1"
+                DomainSeparationId::ACCOUNTABILITY_SCOPE_SET_V1
             )
             .is_err()
         );

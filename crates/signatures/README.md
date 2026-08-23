@@ -9,7 +9,7 @@ This crate is the single source of truth for:
 - Generic Ed25519 detached-JWS primitives (`Ed25519DetachedJwsSigner` /
   `Ed25519DetachedJwsVerifier`) for protocol binding objects supplied by callers.
 - The `sign_event` / `verify_ed25519_detached_jws_proof` event-proof pipeline,
-  which constructs and signs the mandatory `ak.event-proof-v1` binding object.
+  which constructs and signs the mandatory `ak.event_proof.v1` binding object.
 - Wire-level proof-kind validation that refuses dev/test proof kinds.
 - HTTP message signature input construction and binding validators.
 

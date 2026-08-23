@@ -491,7 +491,7 @@ pub struct RegistrationControlSignature {
 }
 
 const REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_DOMAIN: &str =
-    "ak.registration-did-evidence-control-proof-v1\n";
+    "ak.registration_did_evidence_control_proof.v1\n";
 
 /// Client-authored registration evidence before the Account Authority assigns
 /// the registry acceptance time.
