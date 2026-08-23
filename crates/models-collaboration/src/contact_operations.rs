@@ -1,7 +1,7 @@
 use arkret_wire::{
-    Base64UrlString, ControlProposalAck, DeviceId, DidCoreId, DidFullId, Event, EventId, Hash,
-    IdempotencyKey, PrincipalAuthorityKey, ProtocolOpaqueId, ProtocolOperationId,
-    ProtocolSignature, ReservationHandle,
+    ControlProposalAck, DeviceId, DidCoreId, DidFullId, Event, EventId, Hash, IdempotencyKey,
+    PrincipalAuthorityKey, ProtocolOpaqueId, ProtocolOperationId, ProtocolSignature,
+    ReservationHandle,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -838,45 +838,7 @@ pub enum ContactOperationRejectReason {
     ContactScopeStale,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ContactPreparedEventDraft {
-    pub event_id: EventId,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub kind: arkret_wire::EventKind,
-    pub unsigned_event_bytes: Base64UrlString,
-    pub event_digest: Hash,
-}
-
-impl ContactPreparedEventDraft {
-    /// Reconstruct the prepared Event and prove it carries its own identity.
-    ///
-    /// The result is an [`AuthoredEvent`]: authoring finished on the preparing
-    /// side, so the holder's only remaining job is to sign it. Nothing here may
-    /// re-derive the id — that would silently accept a draft the preparer never
-    /// committed to.
-    pub fn unsigned_event(&self) -> arkret_wire::Result<arkret_wire::AuthoredEvent> {
-        let bytes =
-            arkret_canonical::base64url_decode(self.unsigned_event_bytes.as_str().as_bytes())?;
-        let digest_suite = self.event_digest.digest_suite().map_err(|error| {
-            arkret_wire::WireError::Protocol(format!(
-                "prepared Contact Event digest is invalid: {error}"
-            ))
-        })?;
-        let event = Event::from_digest_payload_bytes(&bytes, digest_suite)?;
-        if event.event_id != self.event_id
-            || event.kind != self.kind
-            || Hash::new(event.event_digest_with_digest_suite(digest_suite)?)? != self.event_digest
-        {
-            return Err(arkret_wire::WireError::Protocol(
-                "prepared Contact Event metadata does not match unsigned_event_bytes".to_owned(),
-            ));
-        }
-        event.validate_for_authoring_structural()?;
-        arkret_wire::AuthoredEvent::from_verified_with_digest_suite(event, digest_suite)
-    }
-}
+pub type ContactPreparedEventDraft = crate::prepared_event_draft::PreparedEventDraft;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

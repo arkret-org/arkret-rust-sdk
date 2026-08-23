@@ -209,12 +209,12 @@ pub use security_transaction::{
     AcceptedStep, BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupRotationPlan,
     CLIENT_STEP_ATTESTATION_SIGNED_FIELDS, ClientStepAttestation, ClientStepAttestationAuthData,
     PCR_POLICY_RECOVERY_STEP_ORDER, PcrPolicyRecoveryBinding, PcrPolicyRecoveryPlan,
-    PreparedEventUnit, RecoveryBinding, RecoveryIdentityModel, RecoveryPreparedPlan,
-    RecoveryTransactionCreateRequest, SECURITY_ROTATION_STEP_ORDER, SecurityRotationBinding,
-    SecurityRotationPlan, SecurityRotationTransactionCreateRequest, SecurityTransaction,
-    SecurityTransactionBinding, SecurityTransactionCreateRequest, SecurityTransactionKind,
-    SecurityTransactionPreparedPlan, SecurityTransactionResultKind, SecurityTransactionState,
-    SecurityTransactionStep, SecurityTransactionTerminalResult, UnsignedClientStepAttestation,
+    PreparedEventUnit, RecoveryIdentityModel, RecoveryPreparedPlan,
+    RecoveryTransactionCreateRequest, SECURITY_ROTATION_STEP_ORDER, SecurityRotationPlan,
+    SecurityRotationTransactionCreateRequest, SecurityTransaction,
+    SecurityTransactionCreateRequest, SecurityTransactionKind, SecurityTransactionPreparedPlan,
+    SecurityTransactionResultKind, SecurityTransactionState, SecurityTransactionStep,
+    SecurityTransactionTerminalResult, UnsignedClientStepAttestation,
     security_rotation_erase_confirmation_digest, security_rotation_local_commit_digest,
 };
 pub use self_contact_paths::*;

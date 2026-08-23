@@ -1,8 +1,8 @@
 //! Closed durable security transactions (`zh/identity/security-transactions.md`).
 //!
-//! The wire separates three states that implementations must never conflate:
-//! reserved identities in `binding`, canonical public bytes in
-//! `prepared_plan`, and externally accepted outputs in `accepted_steps`.
+//! The wire separates canonical public intent in `prepared_plan` from
+//! externally accepted outputs in `accepted_steps`. Reserved identities are
+//! owned by the plan and progress is the accepted-prefix length.
 //! Recovery is additionally discriminated by identity model. This is not a
 //! general Saga/Plan DSL.
 
@@ -110,7 +110,6 @@ pub enum SecurityTransactionStep {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AcceptedStep {
-    pub step: SecurityTransactionStep,
     pub prepared_material_digest: Hash,
     pub acceptor_id: String,
     pub output_ref: String,
@@ -133,51 +132,6 @@ pub struct PcrPolicyRecoveryBinding {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RecoveryBinding {
-    PcrPolicy(PcrPolicyRecoveryBinding),
-}
-
-impl RecoveryBinding {
-    pub fn identity_model(&self) -> RecoveryIdentityModel {
-        RecoveryIdentityModel::PcrPolicy
-    }
-
-    pub fn terminal_receipt_id(&self) -> &ReceiptId {
-        let Self::PcrPolicy(binding) = self;
-        &binding.terminal_receipt_id
-    }
-
-    pub fn recovery_session_id(&self) -> &RecoverySessionId {
-        let Self::PcrPolicy(binding) = self;
-        &binding.recovery_session_id
-    }
-
-    fn validate_discriminator(&self) -> Result<()> {
-        let Self::PcrPolicy(binding) = self;
-        let valid = binding.identity_model == RecoveryIdentityModel::PcrPolicy;
-        if !valid {
-            return Err(WireError::Protocol(
-                "recovery binding identity_model disagrees with its closed shape".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SecurityRotationBinding {
-    pub revoke_event_id: EventId,
-    pub new_secret_commitment: Hash,
-    pub backup_rotations: Vec<BackupRotationBinding>,
-    pub erase_confirmation_digest: Hash,
-    pub local_commit_digest: Hash,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BackupObjectRef {
     pub backup_id: BackupId,
@@ -194,39 +148,6 @@ pub struct BackupRotationBinding {
     pub new_backups: Vec<BackupObjectRef>,
     pub active_series_event_id: EventId,
     pub old_backups: Vec<BackupObjectRef>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[serde(untagged)]
-pub enum SecurityTransactionBinding {
-    Recovery(RecoveryBinding),
-    SecurityRotation(SecurityRotationBinding),
-}
-
-impl<'de> Deserialize<'de> for SecurityTransactionBinding {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = Value::deserialize(deserializer)?;
-        let recovery = value.get("identity_model").is_some();
-        let rotation = value.get("revoke_event_id").is_some();
-        match (recovery, rotation) {
-            (true, false) => serde_json::from_value(value)
-                .map(Self::Recovery)
-                .map_err(serde::de::Error::custom),
-            (false, true) => serde_json::from_value(value)
-                .map(Self::SecurityRotation)
-                .map_err(serde::de::Error::custom),
-            (true, true) => Err(serde::de::Error::custom(
-                "security transaction binding mixes recovery and rotation branch fields",
-            )),
-            (false, false) => Err(serde::de::Error::custom(
-                "security transaction binding is missing its branch discriminator field",
-            )),
-        }
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -375,7 +296,7 @@ impl PreparedDidPublication {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PcrPolicyRecoveryPlan {
-    pub identity_model: RecoveryIdentityModel,
+    pub binding: PcrPolicyRecoveryBinding,
     pub recovery_session_snapshot_digest: Hash,
     pub proof_digest: Hash,
     pub previous_model_generation_ref: u64,
@@ -395,12 +316,18 @@ pub enum RecoveryPreparedPlan {
 
 impl RecoveryPreparedPlan {
     pub fn identity_model(&self) -> RecoveryIdentityModel {
-        RecoveryIdentityModel::PcrPolicy
+        let Self::PcrPolicy(plan) = self;
+        plan.binding.identity_model
+    }
+
+    pub fn binding(&self) -> &PcrPolicyRecoveryBinding {
+        let Self::PcrPolicy(plan) = self;
+        &plan.binding
     }
 
     fn validate_discriminator(&self) -> Result<()> {
         let Self::PcrPolicy(plan) = self;
-        let valid = plan.identity_model == RecoveryIdentityModel::PcrPolicy
+        let valid = plan.binding.identity_model == RecoveryIdentityModel::PcrPolicy
             && plan.previous_model_generation_ref > 0
             && plan.result_model_generation_ref > plan.previous_model_generation_ref;
         if !valid {
@@ -472,12 +399,10 @@ pub struct SecurityTransaction {
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub request_digest: Hash,
-    pub binding: SecurityTransactionBinding,
     pub prepared_plan: SecurityTransactionPreparedPlan,
     pub prepared_plan_digest: Hash,
     pub state: SecurityTransactionState,
     pub accepted_steps: Vec<AcceptedStep>,
-    pub next_required_step: Option<SecurityTransactionStep>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub terminal_result: Option<SecurityTransactionTerminalResult>,
 }
@@ -491,9 +416,7 @@ pub struct RecoveryTransactionCreateRequest {
     pub principal_id: DidCoreId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub binding: RecoveryBinding,
     pub prepared_plan: RecoveryPreparedPlan,
-    pub prepared_plan_digest: Hash,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -505,9 +428,7 @@ pub struct SecurityRotationTransactionCreateRequest {
     pub principal_id: DidCoreId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub binding: SecurityRotationBinding,
     pub prepared_plan: SecurityRotationPlan,
-    pub prepared_plan_digest: Hash,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -526,27 +447,15 @@ impl RecoveryTransactionCreateRequest {
         transaction_id: TransactionId,
         principal_id: DidCoreId,
         expires_at: DateTime<Utc>,
-        binding: RecoveryBinding,
         prepared_plan: RecoveryPreparedPlan,
     ) -> Result<Self> {
-        binding.validate_discriminator()?;
         prepared_plan.validate_discriminator()?;
-        if binding.identity_model() != prepared_plan.identity_model() {
-            return Err(WireError::Protocol(
-                "recovery binding and prepared plan identity models disagree".to_owned(),
-            ));
-        }
-        let prepared_plan_digest = Hash::new(arkret_canonical::canonical::canonical_sha256(
-            &SecurityTransactionPreparedPlan::Recovery(prepared_plan.clone()),
-        )?)?;
         Ok(Self {
             transaction_id,
             kind: SecurityTransactionKind::Recovery,
             principal_id,
             expires_at,
-            binding,
             prepared_plan,
-            prepared_plan_digest,
         })
     }
 }
@@ -556,18 +465,14 @@ impl SecurityRotationTransactionCreateRequest {
         transaction_id: TransactionId,
         principal_id: DidCoreId,
         expires_at: DateTime<Utc>,
-        revoke_event_id: EventId,
         revoke_unit: PreparedEventUnit,
         new_secret_commitment: Hash,
         backup_rotations: Vec<BackupRotationPlan>,
     ) -> Result<Self> {
-        let bindings = backup_rotations
-            .iter()
-            .map(|rotation| rotation.binding.clone())
-            .collect::<Vec<_>>();
+        let bindings = backup_rotation_binding_refs(&backup_rotations);
         let erase_confirmation_digest =
-            security_rotation_erase_confirmation_digest(&transaction_id, &bindings)?;
-        let local_commit_digest = security_rotation_local_commit_digest(
+            security_rotation_erase_confirmation_digest_from(&transaction_id, &bindings)?;
+        let local_commit_digest = security_rotation_local_commit_digest_from(
             &transaction_id,
             &new_secret_commitment,
             &bindings,
@@ -576,13 +481,6 @@ impl SecurityRotationTransactionCreateRequest {
             transaction_id,
             principal_id,
             expires_at,
-            SecurityRotationBinding {
-                revoke_event_id,
-                new_secret_commitment: new_secret_commitment.clone(),
-                backup_rotations: bindings,
-                erase_confirmation_digest: erase_confirmation_digest.clone(),
-                local_commit_digest: local_commit_digest.clone(),
-            },
             SecurityRotationPlan {
                 revoke_unit,
                 new_secret_commitment,
@@ -597,20 +495,17 @@ impl SecurityRotationTransactionCreateRequest {
         transaction_id: TransactionId,
         principal_id: DidCoreId,
         expires_at: DateTime<Utc>,
-        binding: SecurityRotationBinding,
         prepared_plan: SecurityRotationPlan,
     ) -> Result<Self> {
-        validate_security_rotation_fixed_shape(&binding, &prepared_plan)?;
-        if binding.erase_confirmation_digest
-            != security_rotation_erase_confirmation_digest(
-                &transaction_id,
-                &binding.backup_rotations,
-            )?
-            || binding.local_commit_digest
-                != security_rotation_local_commit_digest(
+        validate_security_rotation_fixed_shape(&prepared_plan)?;
+        let bindings = backup_rotation_binding_refs(&prepared_plan.backup_rotations);
+        if prepared_plan.erase_confirmation_digest
+            != security_rotation_erase_confirmation_digest_from(&transaction_id, &bindings)?
+            || prepared_plan.local_commit_digest
+                != security_rotation_local_commit_digest_from(
                     &transaction_id,
-                    &binding.new_secret_commitment,
-                    &binding.backup_rotations,
+                    &prepared_plan.new_secret_commitment,
+                    &bindings,
                 )?
         {
             return Err(WireError::Protocol(
@@ -618,17 +513,12 @@ impl SecurityRotationTransactionCreateRequest {
                     .to_owned(),
             ));
         }
-        let prepared_plan_digest = Hash::new(arkret_canonical::canonical::canonical_sha256(
-            &SecurityTransactionPreparedPlan::SecurityRotation(prepared_plan.clone()),
-        )?)?;
         Ok(Self {
             transaction_id,
             kind: SecurityTransactionKind::SecurityRotation,
             principal_id,
             expires_at,
-            binding,
             prepared_plan,
-            prepared_plan_digest,
         })
     }
 }
@@ -636,6 +526,13 @@ impl SecurityRotationTransactionCreateRequest {
 pub fn security_rotation_erase_confirmation_digest(
     transaction_id: &TransactionId,
     backup_rotations: &[BackupRotationBinding],
+) -> Result<Hash> {
+    security_rotation_erase_confirmation_digest_from(transaction_id, backup_rotations)
+}
+
+fn security_rotation_erase_confirmation_digest_from<T: Serialize + ?Sized>(
+    transaction_id: &TransactionId,
+    backup_rotations: &T,
 ) -> Result<Hash> {
     Ok(Hash::new(arkret_canonical::canonical::canonical_sha256(
         &serde_json::json!({
@@ -651,6 +548,18 @@ pub fn security_rotation_local_commit_digest(
     new_secret_commitment: &Hash,
     backup_rotations: &[BackupRotationBinding],
 ) -> Result<Hash> {
+    security_rotation_local_commit_digest_from(
+        transaction_id,
+        new_secret_commitment,
+        backup_rotations,
+    )
+}
+
+fn security_rotation_local_commit_digest_from<T: Serialize + ?Sized>(
+    transaction_id: &TransactionId,
+    new_secret_commitment: &Hash,
+    backup_rotations: &T,
+) -> Result<Hash> {
     Ok(Hash::new(arkret_canonical::canonical::canonical_sha256(
         &serde_json::json!({
             "domain": "ak.security_rotation_local_commit_preimage.v1",
@@ -661,18 +570,14 @@ pub fn security_rotation_local_commit_digest(
     )?)?)
 }
 
-fn validate_security_rotation_fixed_shape(
-    binding: &SecurityRotationBinding,
-    plan: &SecurityRotationPlan,
-) -> Result<()> {
-    if binding.new_secret_commitment != plan.new_secret_commitment
-        || binding.backup_rotations.len() != 2
-        || plan.backup_rotations.len() != 2
-        || binding.erase_confirmation_digest != plan.erase_confirmation_digest
-        || binding.local_commit_digest != plan.local_commit_digest
-    {
+fn backup_rotation_binding_refs(rotations: &[BackupRotationPlan]) -> Vec<&BackupRotationBinding> {
+    rotations.iter().map(|rotation| &rotation.binding).collect()
+}
+
+fn validate_security_rotation_fixed_shape(plan: &SecurityRotationPlan) -> Result<()> {
+    if plan.backup_rotations.len() != 2 {
         return Err(WireError::Protocol(
-            "security-rotation binding and prepared plan artifacts disagree".to_owned(),
+            "security-rotation requires exact secret_storage and mls_history rotations".to_owned(),
         ));
     }
     for (index, expected_kind) in [
@@ -682,9 +587,8 @@ fn validate_security_rotation_fixed_shape(
     .into_iter()
     .enumerate()
     {
-        let rotation = &binding.backup_rotations[index];
+        let rotation = &plan.backup_rotations[index].binding;
         if rotation.backup_kind != expected_kind
-            || plan.backup_rotations[index].binding != *rotation
             || rotation.previous_series_id == rotation.new_series_id
             || rotation.new_backups.is_empty()
             || rotation.old_backups.is_empty()
@@ -711,40 +615,25 @@ impl SecurityTransactionCreateRequest {
         let request_digest = Hash::new(arkret_canonical::canonical::sha256_digest(
             &canonical_request,
         ))?;
-        let (
-            transaction_id,
-            kind,
-            principal_id,
-            expires_at,
-            binding,
-            prepared_plan,
-            prepared_plan_digest,
-            next_required_step,
-        ) = match self {
-            Self::Recovery(request) => {
-                let next = SecurityTransactionStep::SubmitReanchorUnit;
-                (
-                    request.transaction_id,
-                    request.kind,
-                    request.principal_id,
-                    request.expires_at,
-                    SecurityTransactionBinding::Recovery(request.binding),
-                    SecurityTransactionPreparedPlan::Recovery(request.prepared_plan),
-                    request.prepared_plan_digest,
-                    next,
-                )
-            }
+        let (transaction_id, kind, principal_id, expires_at, prepared_plan) = match self {
+            Self::Recovery(request) => (
+                request.transaction_id,
+                request.kind,
+                request.principal_id,
+                request.expires_at,
+                SecurityTransactionPreparedPlan::Recovery(request.prepared_plan),
+            ),
             Self::SecurityRotation(request) => (
                 request.transaction_id,
                 request.kind,
                 request.principal_id,
                 request.expires_at,
-                SecurityTransactionBinding::SecurityRotation(request.binding),
                 SecurityTransactionPreparedPlan::SecurityRotation(request.prepared_plan),
-                request.prepared_plan_digest,
-                SecurityTransactionStep::Revoke,
             ),
         };
+        let prepared_plan_digest = Hash::new(arkret_canonical::canonical::canonical_sha256(
+            &prepared_plan,
+        )?)?;
         let resource = SecurityTransaction {
             transaction_id,
             kind,
@@ -753,12 +642,10 @@ impl SecurityTransactionCreateRequest {
             expires_at,
             created_at,
             request_digest,
-            binding,
             prepared_plan,
             prepared_plan_digest,
             state: SecurityTransactionState::Pending,
             accepted_steps: Vec::new(),
-            next_required_step: Some(next_required_step),
             terminal_result: None,
         };
         resource.validate_structural()?;
@@ -1013,23 +900,49 @@ impl PreparedEventUnit {
 
 impl SecurityTransaction {
     pub fn step_order(&self) -> Result<&'static [SecurityTransactionStep]> {
-        match (&self.kind, &self.binding, &self.prepared_plan) {
+        match (&self.kind, &self.prepared_plan) {
             (
                 SecurityTransactionKind::Recovery,
-                SecurityTransactionBinding::Recovery(binding),
                 SecurityTransactionPreparedPlan::Recovery(plan),
-            ) if binding.identity_model() == plan.identity_model() => {
+            ) if plan.identity_model() == RecoveryIdentityModel::PcrPolicy => {
                 Ok(&PCR_POLICY_RECOVERY_STEP_ORDER)
             }
             (
                 SecurityTransactionKind::SecurityRotation,
-                SecurityTransactionBinding::SecurityRotation(_),
                 SecurityTransactionPreparedPlan::SecurityRotation(_),
             ) => Ok(&SECURITY_ROTATION_STEP_ORDER),
             _ => Err(WireError::Protocol(
-                "security transaction kind, binding and prepared plan discriminators disagree"
-                    .to_owned(),
+                "security transaction kind and prepared plan discriminators disagree".to_owned(),
             )),
+        }
+    }
+
+    pub fn next_required_step(&self) -> Result<Option<SecurityTransactionStep>> {
+        if self.state.is_terminal() {
+            return Ok(None);
+        }
+        Ok(self.step_order()?.get(self.accepted_steps.len()).copied())
+    }
+
+    pub fn accepted_step_kind(&self, index: usize) -> Result<SecurityTransactionStep> {
+        self.step_order()?.get(index).copied().ok_or_else(|| {
+            WireError::Protocol(
+                "accepted step index exceeds the fixed transaction order".to_owned(),
+            )
+        })
+    }
+
+    pub fn recovery_binding(&self) -> Option<&PcrPolicyRecoveryBinding> {
+        match &self.prepared_plan {
+            SecurityTransactionPreparedPlan::Recovery(plan) => Some(plan.binding()),
+            SecurityTransactionPreparedPlan::SecurityRotation(_) => None,
+        }
+    }
+
+    pub fn security_rotation_plan(&self) -> Option<&SecurityRotationPlan> {
+        match &self.prepared_plan {
+            SecurityTransactionPreparedPlan::Recovery(_) => None,
+            SecurityTransactionPreparedPlan::SecurityRotation(plan) => Some(plan),
         }
     }
 
@@ -1052,22 +965,13 @@ impl SecurityTransaction {
             &self.prepared_plan_digest,
         )?;
 
-        if let (
-            SecurityTransactionBinding::Recovery(binding),
-            SecurityTransactionPreparedPlan::Recovery(plan),
-        ) = (&self.binding, &self.prepared_plan)
-        {
-            binding.validate_discriminator()?;
+        if let SecurityTransactionPreparedPlan::Recovery(plan) = &self.prepared_plan {
             plan.validate_discriminator()?;
-            self.validate_recovery_binding_plan(binding, plan)?;
+            self.validate_recovery_plan(plan)?;
         }
 
-        if let (
-            SecurityTransactionBinding::SecurityRotation(binding),
-            SecurityTransactionPreparedPlan::SecurityRotation(plan),
-        ) = (&self.binding, &self.prepared_plan)
-        {
-            self.validate_security_rotation_binding_plan(binding, plan)?;
+        if let SecurityTransactionPreparedPlan::SecurityRotation(plan) = &self.prepared_plan {
+            self.validate_security_rotation_plan(plan)?;
         }
 
         let order = self.step_order()?;
@@ -1076,13 +980,7 @@ impl SecurityTransaction {
                 "security transaction recorded more steps than its closed order defines".to_owned(),
             ));
         }
-        for (index, accepted) in self.accepted_steps.iter().enumerate() {
-            if accepted.step != order[index] {
-                return Err(WireError::Protocol(format!(
-                    "security transaction step {index} is {:?}, expected {:?}",
-                    accepted.step, order[index]
-                )));
-            }
+        for accepted in &self.accepted_steps {
             validate_step_output_ref("accepted_steps[].output_ref", &accepted.output_ref)?;
             if DidFullId::new(accepted.acceptor_id.clone()).is_err()
                 && DeviceId::new(accepted.acceptor_id.clone()).is_err()
@@ -1094,12 +992,6 @@ impl SecurityTransaction {
         }
 
         if self.state.is_terminal() {
-            if self.next_required_step.is_some() {
-                return Err(WireError::Protocol(
-                    "terminal security transaction must not declare a next required action"
-                        .to_owned(),
-                ));
-            }
             let outcome = self.terminal_result.as_ref().ok_or_else(|| {
                 WireError::Protocol(
                     "terminal security transaction must record a terminal outcome".to_owned(),
@@ -1145,17 +1037,12 @@ impl SecurityTransaction {
                     Some(attestation),
                 ) => {
                     attestation.validate_structural()?;
-                    let (
-                        SecurityTransactionBinding::Recovery(binding),
-                        SecurityTransactionPreparedPlan::Recovery(plan),
-                    ) = (&self.binding, &self.prepared_plan)
+                    let SecurityTransactionPreparedPlan::Recovery(plan) = &self.prepared_plan
                     else {
-                        unreachable!("kind/binding/plan closure was validated above")
+                        unreachable!("kind/plan closure was validated above")
                     };
-                    let (
-                        RecoveryBinding::PcrPolicy(binding),
-                        RecoveryPreparedPlan::PcrPolicy(plan),
-                    ) = (binding, plan);
+                    let RecoveryPreparedPlan::PcrPolicy(plan) = plan;
+                    let binding = &plan.binding;
                     let replacement_device_id = &binding.replacement_device_id;
                     let authorize_event_id = &binding.authorize_event_id;
                     let result_generation = plan.result_model_generation_ref;
@@ -1206,17 +1093,11 @@ impl SecurityTransaction {
                 "non-terminal security transaction must not record a terminal outcome".to_owned(),
             ));
         }
-        let next = self.next_required_step.ok_or_else(|| {
+        let next = self.next_required_step()?.ok_or_else(|| {
             WireError::Protocol(
-                "non-terminal security transaction must declare a next required action".to_owned(),
+                "non-terminal security transaction has exhausted its fixed step order".to_owned(),
             )
         })?;
-        let expected = order.get(self.accepted_steps.len()).copied();
-        if Some(next) != expected {
-            return Err(WireError::Protocol(format!(
-                "security transaction next_required_step {next:?} is not the next closed step {expected:?}"
-            )));
-        }
         let awaiting_expected = self.accepted_steps.len() + 1 == order.len()
             && matches!(
                 next,
@@ -1233,13 +1114,9 @@ impl SecurityTransaction {
         Ok(())
     }
 
-    fn validate_recovery_binding_plan(
-        &self,
-        binding: &RecoveryBinding,
-        plan: &RecoveryPreparedPlan,
-    ) -> Result<()> {
-        let (RecoveryBinding::PcrPolicy(binding), RecoveryPreparedPlan::PcrPolicy(plan)) =
-            (binding, plan);
+    fn validate_recovery_plan(&self, plan: &RecoveryPreparedPlan) -> Result<()> {
+        let RecoveryPreparedPlan::PcrPolicy(plan) = plan;
+        let binding = &plan.binding;
         let reanchor_request = plan
             .reanchor_unit
             .events_submit_request(&self.coordinator_service_id)?;
@@ -1263,22 +1140,18 @@ impl SecurityTransaction {
                 })
         {
             return Err(WireError::Protocol(
-                "PCR-policy binding and prepared reanchor unit disagree".to_owned(),
+                "PCR-policy prepared plan binding and reanchor unit disagree".to_owned(),
             ));
         }
         Ok(())
     }
 
-    fn validate_security_rotation_binding_plan(
-        &self,
-        binding: &SecurityRotationBinding,
-        plan: &SecurityRotationPlan,
-    ) -> Result<()> {
+    fn validate_security_rotation_plan(&self, plan: &SecurityRotationPlan) -> Result<()> {
+        validate_security_rotation_fixed_shape(plan)?;
         let revoke_request = plan
             .revoke_unit
             .events_submit_request(&self.coordinator_service_id)?;
         if revoke_request.events.len() != 1
-            || revoke_request.events[0].event.event_id != binding.revoke_event_id
             || revoke_request.events[0].event.kind != crate::event_kind_str::DEVICE_REVOKE
         {
             return Err(WireError::Protocol(
@@ -1286,16 +1159,17 @@ impl SecurityTransaction {
                     .to_owned(),
             ));
         }
-        if binding.erase_confirmation_digest
-            != security_rotation_erase_confirmation_digest(
+        let binding_refs = backup_rotation_binding_refs(&plan.backup_rotations);
+        if plan.erase_confirmation_digest
+            != security_rotation_erase_confirmation_digest_from(
                 &self.transaction_id,
-                &binding.backup_rotations,
+                &binding_refs,
             )?
-            || binding.local_commit_digest
-                != security_rotation_local_commit_digest(
+            || plan.local_commit_digest
+                != security_rotation_local_commit_digest_from(
                     &self.transaction_id,
-                    &binding.new_secret_commitment,
-                    &binding.backup_rotations,
+                    &plan.new_secret_commitment,
+                    &binding_refs,
                 )?
         {
             return Err(WireError::Protocol(
@@ -1303,25 +1177,14 @@ impl SecurityTransaction {
                     .to_owned(),
             ));
         }
-        if binding.new_secret_commitment != plan.new_secret_commitment
-            || binding.backup_rotations.len() != 2
-            || plan.backup_rotations.len() != 2
-            || binding.erase_confirmation_digest != plan.erase_confirmation_digest
-            || binding.local_commit_digest != plan.local_commit_digest
-        {
-            return Err(WireError::Protocol(
-                "security-rotation binding and prepared plan artifacts disagree".to_owned(),
-            ));
-        }
         let expected_kinds = [
             BackupRotationKind::SecretStorage,
             BackupRotationKind::MlsHistory,
         ];
         for (index, expected_kind) in expected_kinds.into_iter().enumerate() {
-            let binding_rotation = &binding.backup_rotations[index];
             let plan_rotation = &plan.backup_rotations[index];
+            let binding_rotation = &plan_rotation.binding;
             if binding_rotation.backup_kind != expected_kind
-                || plan_rotation.binding != *binding_rotation
                 || binding_rotation.previous_series_id == binding_rotation.new_series_id
                 || binding_rotation.new_backups.is_empty()
                 || binding_rotation.new_backups.len() > 512
@@ -1417,7 +1280,7 @@ impl SecurityTransaction {
         &self,
         request_digest: &Hash,
         prepared_plan_digest: &Hash,
-        expected_next_step: SecurityTransactionStep,
+        expected_accepted_step_count: u8,
         client_attestation: Option<&ClientStepAttestation<A>>,
     ) -> Result<()> {
         if request_digest != &self.request_digest
@@ -1427,12 +1290,15 @@ impl SecurityTransaction {
                 crate::error_codes::ReasonCode::DUPLICATE_CONFLICT.to_owned(),
             ));
         }
-        if Some(expected_next_step) != self.next_required_step {
+        if usize::from(expected_accepted_step_count) != self.accepted_steps.len() {
             return Err(WireError::Protocol(
-                "continue expected_next_step does not equal the resource's next action".to_owned(),
+                "continue expected_accepted_step_count does not equal current progress".to_owned(),
             ));
         }
-        let requires_attestation = Self::step_requires_client_attestation(expected_next_step);
+        let next_step = self.next_required_step()?.ok_or_else(|| {
+            WireError::Protocol("terminal transaction cannot continue".to_owned())
+        })?;
+        let requires_attestation = Self::step_requires_client_attestation(next_step);
         if requires_attestation != client_attestation.is_some() {
             return Err(WireError::Protocol(
                 "terminal client-attested steps require exactly one client_attestation".to_owned(),
@@ -1440,7 +1306,7 @@ impl SecurityTransaction {
         }
         if let Some(attestation) = client_attestation {
             attestation.validate_structural()?;
-            if attestation.step != expected_next_step
+            if attestation.step != next_step
                 || attestation.transaction_id != self.transaction_id
                 || attestation.transaction_request_digest != self.request_digest
                 || attestation.prepared_plan_digest != self.prepared_plan_digest
@@ -1450,17 +1316,18 @@ impl SecurityTransaction {
                         .to_owned(),
                 ));
             }
-            let reserved = match &self.binding {
-                SecurityTransactionBinding::Recovery(binding) => {
-                    binding.terminal_receipt_id().as_str()
+            let reserved = match &self.prepared_plan {
+                SecurityTransactionPreparedPlan::Recovery(plan) => {
+                    plan.binding().terminal_receipt_id.as_str()
                 }
-                SecurityTransactionBinding::SecurityRotation(binding) => {
-                    binding.local_commit_digest.as_str()
+                SecurityTransactionPreparedPlan::SecurityRotation(plan) => {
+                    plan.local_commit_digest.as_str()
                 }
             };
             if attestation.output_ref != reserved {
                 return Err(WireError::Protocol(
-                    "client attestation ref does not equal the reserved binding id".to_owned(),
+                    "client attestation ref does not equal the prepared plan reservation"
+                        .to_owned(),
                 ));
             }
         }
@@ -1471,27 +1338,6 @@ impl SecurityTransaction {
 #[cfg(test)]
 mod untagged_contract_tests {
     use super::*;
-
-    #[test]
-    fn binding_rejects_mixed_branch_markers() {
-        let error = serde_json::from_value::<SecurityTransactionBinding>(serde_json::json!({
-            "identity_model": "pcr_policy",
-            "revoke_event_id": "ak:event:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM"
-        }))
-        .unwrap_err();
-        assert!(error.to_string().contains("mixes recovery and rotation"));
-    }
-
-    #[test]
-    fn binding_rejects_missing_branch_marker() {
-        let error = serde_json::from_value::<SecurityTransactionBinding>(serde_json::json!({}))
-            .unwrap_err();
-        assert!(
-            error
-                .to_string()
-                .contains("missing its branch discriminator")
-        );
-    }
 
     #[test]
     fn recovery_step_order_is_the_closed_pcr_policy_pair() {

@@ -2592,7 +2592,6 @@ impl DevicePairingTargetAttestation {
                 != Some("Ed25519")
             || payload.authorization_binding_kind != DeviceAuthorizationBindingKind::AcceptedDevice
             || payload.device_signature != self.device_signature
-            || request.device_signature != self.device_signature
         {
             return Err(WireError::Protocol(
                 "pairing target attestation does not match the exact pair request/Event".to_owned(),
@@ -2639,8 +2638,6 @@ fn device_pairing_target_attestation_signing_input(
 pub struct AccountDevicePairRequestBody {
     pub pairing_code: DevicePairingCode,
     pub new_device_pubkey: PublicKey,
-    pub hpke_key: NonEmptyString,
-    pub device_signature: SignatureMaterial,
     pub challenge_proof: DevicePairingChallengeProof,
     pub authorize_event: EventInitialSubmission,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2690,8 +2687,6 @@ impl AccountDevicePairRequestBody {
         })?;
         if payload.device_id.as_str() != self.new_device_pubkey.kid.as_str()
             || request_key.as_slice() != payload_key.as_slice()
-            || payload.hpke_key != self.hpke_key
-            || payload.device_signature != self.device_signature
             || payload.authorization_binding_kind != DeviceAuthorizationBindingKind::AcceptedDevice
             || payload
                 .device_key_algorithm
@@ -3031,8 +3026,6 @@ mod device_pairing_tests {
                     .unwrap(),
                 key_digest: None,
             },
-            hpke_key,
-            device_signature,
             challenge_proof: DevicePairingChallengeProof {
                 transcript: DevicePairingChallengeTranscriptKind::ServerMediated,
                 kid: target_device,
@@ -3063,7 +3056,10 @@ mod device_pairing_tests {
             .unwrap();
 
         let mut changed_request = request.clone();
-        changed_request.hpke_key = NonEmptyString::new("different-hpke-key").unwrap();
+        changed_request.authorize_event.event.payload.insert(
+            "hpke_key".to_owned(),
+            serde_json::json!("different-hpke-key"),
+        );
         assert!(
             attestation
                 .validate_against_pair_request(
@@ -3135,7 +3131,7 @@ mod contact_projection_tests {
                     "accepted_at": "2026-08-08T00:00:00.000Z",
                     "issuer": "ak:did_core:web:ps.example"
                 },
-                "receipt_digest": "sha256:6b30aac5868d04189decfaf7599b236bee89ebd2b5adb2c96b7438b4536ac08d",
+                "receipt_digest": "sha256:2fdfa19bf8985ffaef489341b31640af91d92a05b65a73e313f58e32821ebef5",
                 "signature": {
                     "verification_method": "did:web:ps.example#key-1",
                     "created_at": "2026-08-08T00:00:00.000Z",

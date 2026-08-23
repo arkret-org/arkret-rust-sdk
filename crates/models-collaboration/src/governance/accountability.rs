@@ -287,7 +287,7 @@ mod tests {
         assert_eq!(singleton, singleton_array);
         assert_eq!(
             singleton.scope_set_component().unwrap(),
-            "igkaAexYhN9e_4LvIFv7fkT5zisbmP8cTz82ES2TlIQ"
+            "CbgdIHArQNPwYmdaAOdv1G1B9LEmtBtgkYaG6tLR2Bg"
         );
 
         let reordered = AccountabilityScope::Multiple(vec![
@@ -301,7 +301,7 @@ mod tests {
         assert_eq!(reordered, canonical);
         assert_eq!(
             reordered.scope_set_component().unwrap(),
-            "GuBGA6Mm1pfBN0XAk4CD0zuPPBxC5HzVNM-AIdFZRnc"
+            "AWANhOFZ5FNgAQMK9mqCeI3ATOZR6o7qwshmpk3ij3U"
         );
 
         let all = AccountabilityScope::Multiple(vec![
@@ -311,7 +311,7 @@ mod tests {
         ]);
         assert_eq!(
             all.scope_set_component().unwrap(),
-            "Adhn2J3Ht1drmR7yf03sMl6AQIUxyDM4wzqSvlGOLDo"
+            "0sKY5mg--AeXwZefBw5FAjz9rpQ3NuCVm22vRPKJrLE"
         );
 
         let duplicated = AccountabilityScope::Multiple(vec![

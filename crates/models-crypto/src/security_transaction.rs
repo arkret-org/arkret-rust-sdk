@@ -1,8 +1,8 @@
 //! Typed client artifacts carried by terminal security-transaction steps.
 
 use arkret_wire::{
-    ClientStepAttestation, DeviceId, Hash, Result, SchemaId, SecurityTransaction,
-    SecurityTransactionStep, TransactionId, WireError,
+    ClientStepAttestation, DeviceId, Hash, Result, SchemaId, SecurityTransaction, TransactionId,
+    WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -54,7 +54,7 @@ pub enum ClientStepAttestationArtifact {
 pub struct SecurityTransactionContinueRequest {
     pub request_digest: Hash,
     pub prepared_plan_digest: Hash,
-    pub expected_next_step: SecurityTransactionStep,
+    pub expected_accepted_step_count: u8,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client_attestation: Option<ClientStepAttestation<ClientStepAttestationArtifact>>,
 }
@@ -64,7 +64,7 @@ impl SecurityTransactionContinueRequest {
         transaction.validate_continue(
             &self.request_digest,
             &self.prepared_plan_digest,
-            self.expected_next_step,
+            self.expected_accepted_step_count,
             self.client_attestation.as_ref(),
         )
     }
@@ -79,7 +79,7 @@ mod tests {
         let value = serde_json::json!({
             "request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "prepared_plan_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "expected_next_step": "submit_reanchor_unit"
+            "expected_accepted_step_count": 0
         });
         let request: SecurityTransactionContinueRequest =
             serde_json::from_value(value.clone()).unwrap();

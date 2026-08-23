@@ -1,6 +1,6 @@
 use arkret_wire::{
-    Base64UrlString, DidCoreId, Event, EventId, Hash, IdempotencyKey, ProtocolOperationId, RealmId,
-    RelationId, ReservationHandle, SidecarId, StrandId,
+    DidCoreId, Event, EventId, IdempotencyKey, ProtocolOperationId, RealmId, RelationId,
+    ReservationHandle, SidecarId, StrandId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -131,16 +131,7 @@ impl<'de> Deserialize<'de> for SidecarAcceptedOk {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct SidecarPreparedEventDraft {
-    pub event_id: EventId,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub kind: arkret_wire::EventKind,
-    pub unsigned_event_bytes: Base64UrlString,
-    pub event_digest: Hash,
-}
+pub type SidecarPreparedEventDraft = crate::prepared_event_draft::PreparedEventDraft;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "branch", rename_all = "snake_case", deny_unknown_fields)]
@@ -151,9 +142,6 @@ pub enum SidecarPreparedOutcome {
         reservation_handle: ReservationHandle,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
-        sidecar_id: SidecarId,
-        create_event_id: EventId,
-        context_attach_event_id: EventId,
         create_event_draft: SidecarPreparedEventDraft,
         context_attach_event_draft: SidecarPreparedEventDraft,
     },
@@ -163,7 +151,6 @@ pub enum SidecarPreparedOutcome {
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
         sidecar_id: SidecarId,
-        context_attach_event_id: EventId,
         context_attach_event_draft: SidecarPreparedEventDraft,
     },
 }
@@ -303,6 +290,7 @@ impl SidecarControlFrontier {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::Hash;
     use serde_json::json;
 
     use super::*;
@@ -323,10 +311,7 @@ mod tests {
             "reservation_handle": "reservation-1",
             "expires_at": "2026-08-03T00:00:00.000Z",
             "sidecar_id": "ak:sidecar:AaWlxNyGs0FzlOCJpyhjSRcmOcoYvk0qQ4X91NlGuKSZ",
-            "context_attach_event_id": "ak:event:AccmdyYVpXPIwfYApEijxTtwZFxD0AhR0lzOzQKyOC1-",
             "context_attach_event_draft": {
-                "event_id": "ak:event:AccmdyYVpXPIwfYApEijxTtwZFxD0AhR0lzOzQKyOC1-",
-                "kind": "ak.sidecar.context.attach",
                 "unsigned_event_bytes": "e30",
                 "event_digest": format!("sha256:{}", "00".repeat(32))
             }

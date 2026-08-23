@@ -28,6 +28,7 @@ pub mod mls_group_state_material;
 pub mod object_lifecycle;
 pub mod object_patch;
 pub mod objects;
+pub mod prepared_event_draft;
 pub mod principal_operations;
 pub mod resolved_state;
 pub mod seal_transparency;
