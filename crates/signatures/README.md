@@ -10,8 +10,7 @@ This crate is the single source of truth for:
   `Ed25519DetachedJwsVerifier`) for protocol binding objects supplied by callers.
 - The `sign_event` / `verify_ed25519_detached_jws_proof` event-proof pipeline,
   which constructs and signs the mandatory `ak.event-proof-v1` binding object.
-- A `ProofType` tag and `ProductionVerifier` adapter that refuse dev/test
-  proofs in production deployments.
+- Wire-level proof-kind validation that refuses dev/test proof kinds.
 - HTTP message signature input construction and binding validators.
 
 ## Migrating downstream services
@@ -23,10 +22,9 @@ consolidates them into one pipeline. Migration steps:
 1. Replace local `canonical_*` helpers with `EventProofBuilder::canonical_bytes`.
 2. Replace local Event proof signers with `sign_event` and verification with
    `verify_ed25519_detached_jws_proof`. Do not sign raw Event-envelope bytes.
-3. Wrap every verifier with `ProductionVerifier::wrap(...)` and pass the
-   incoming proof through `assert_production_proof` so any dev-kind
-   (`dev`, `test`, `mock`, `stub`, `dummy`) proof or `ProofType::Development`
-   is rejected at the edge.
+3. Validate incoming `ProducerEventProof` values with
+   `ProducerEventProof::validate_production` before cryptographic verification,
+   so dev kinds (`dev`, `test`, `mock`, `stub`, `dummy`) are rejected at the edge.
 4. Use the canonical / Ed25519 / dev-proof test vectors under
    `tests/vectors/` as the migration checkpoint — any drift in the bytes,
    the hash, the signature, or the JWS string is a breaking change.
@@ -34,7 +32,7 @@ consolidates them into one pipeline. Migration steps:
 ## Quick example
 
 ```rust,no_run
-use arkret_signatures::{EventProofBuilder, EventSigner, EventVerifier, ProductionVerifier, PublicKeyMaterial};
+use arkret_signatures::{EventProofBuilder, EventSigner, EventVerifier, PublicKeyMaterial};
 # #[cfg(feature = "signer")]
 # {
 use arkret_signatures::{Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier};
@@ -45,7 +43,7 @@ let builder = EventProofBuilder::new();
 let bytes = builder.canonical_bytes(&json!({"actor_id": "did:webvh:z6mkfixture:alice.example"})).unwrap();
 let signature = signer.sign(&bytes).unwrap();
 
-let verifier = ProductionVerifier::wrap(Ed25519DetachedJwsVerifier::new());
+let verifier = Ed25519DetachedJwsVerifier::new();
 let public = PublicKeyMaterial::Ed25519Raw { bytes: signer.verifying_key().to_bytes().to_vec() };
 verifier.verify(&bytes, &signature, &public).unwrap();
 # }

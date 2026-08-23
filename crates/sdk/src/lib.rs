@@ -491,19 +491,6 @@ pub use arkret_signatures::media::{
     call_media_token_exchange, participant_binding_signing_input, validate_token_ttl,
     verify_call_media_token_outcome, verify_ice_config_outcome,
 };
-pub use auth::{
-    ARKRET_DEVICE_SCOPE_PREFIX, AccountAuthState, AuthClaimKind, AuthManager, AuthSession,
-    ClaimDisclosurePolicy, ClaimDisclosureRequirement, DisclosureProofAdapterBoundary,
-    DisclosureProofFormat, MemorySessionGrantOutbox, PasswordUser, PresentationRequestBody,
-    PresentationValidation, PresentedClaim, PrincipalSessionGrantNotification,
-    PrincipalSessionGrantNotificationOutcome, PrincipalSessionGrantNotifier, RejectedClaim,
-    RenewalCredentialMetadata, SessionGrant, SessionGrantNotificationKind, SessionGrantOutboxEntry,
-    SessionGrantOutboxState, SessionGrantPayload, SessionGrantProjectionState, SessionGrantRecord,
-    SessionGrantRetryPolicy, SessionGrantSigner, SessionGrantVerification, SessionGrantVerifier,
-    SessionPrincipalBinding, SessionRevocation, arkret_device_scope, device_id_from_scope_token,
-    issue_session_grant_with_signer, primary_device_id_from_scopes, validate_presentation,
-    verify_presentation_with_adapter, verify_session_grant_with_verifier,
-};
 #[cfg(feature = "client")]
 pub use http_client::{
     AccountSubscribeFolder, Auth, Client, ClientBuilder, ClientRequestOptions, RetryConfig,
@@ -516,15 +503,13 @@ pub use identity::{
     AuthorityDidHistoryResolver, AuthorityHistoryUnavailable, AuthorityHistoryVerificationError,
     CompositeDidResolver, DID_WEB_MAX_DOCUMENT_BYTES, DidDocument,
     DidDocumentVerificationMethodResolver, DidKeriResolver, DidKeyResolver, DidRegistryReceipt,
-    DidResolver, DidVisibility, DidWebDocumentOutcome, DidWebResolver, ExternalHandleProof,
-    HandleAttestation, HandleClaimChallenge, HandleProofProfile, IdentityManager,
-    IdentityReceiptWitnessRole, PairwiseActorBinding, PairwiseActorResolutionProof,
-    PairwiseActorStore, ResolvedDid, ResolvedVerificationMethodKey, VerifiedAccountBindingReceipt,
-    event_proof_verification_context_with_digest_suite, handle_claim_proof, handle_dns_txt_name,
-    handle_well_known_url, pairwise_actor_resolution_proof, resolve_verification_method_key,
-    resolve_verification_method_key_from_document, verification_method_did,
-    verify_account_binding_receipt_at_issuance, verify_canonical_proof_with_did_resolver,
-    verify_event_proof_with_did_resolver, verify_event_proof_with_did_resolver_context,
+    DidResolver, DidWebDocumentOutcome, DidWebResolver, HandleAttestation,
+    IdentityReceiptWitnessRole, ResolvedDid, ResolvedVerificationMethodKey,
+    VerifiedAccountBindingReceipt, event_proof_verification_context_with_digest_suite,
+    resolve_verification_method_key, resolve_verification_method_key_from_document,
+    verification_method_did, verify_account_binding_receipt_at_issuance,
+    verify_canonical_proof_with_did_resolver, verify_event_proof_with_did_resolver,
+    verify_event_proof_with_did_resolver_context,
 };
 #[cfg(feature = "client")]
 pub use key_backup_client::KeyBackupClient;

@@ -65,8 +65,6 @@ pub mod jws;
 // stay separate, see `websocket_auth`'s module documentation.
 #[path = "websocket_auth.rs"]
 pub mod websocket_auth;
-use std::collections::BTreeMap;
-
 pub use websocket_auth::{
     VerifiedWebSocketAuth, WebSocketAuthError, WebSocketAuthProof, WebSocketAuthProofRequest,
     WebSocketAuthVerificationRequest, build_websocket_auth_proof, verify_websocket_auth_proof,
@@ -76,7 +74,6 @@ pub use websocket_auth::{
 #[path = "error.rs"]
 pub mod error;
 
-use arkret_canonical::canonical;
 /// Production-grade proof algorithms this SDK can actually produce and verify.
 ///
 /// Re-export of the single source of truth in `arkret-wire`
@@ -104,8 +101,8 @@ pub use jwt::{
 // feature unification.
 pub use proof::{
     Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier, EventProofBuilder, EventSigner,
-    EventVerifier, ProductionVerifier, ProofType, PublicKeyMaterial, SignedPayload, SignerError,
-    VerifierError, build_proof_envelope, detached_jws_kind, sign_ed25519_detached_jws,
+    EventVerifier, PublicKeyMaterial, SignedPayload, SignerError, VerifierError,
+    build_proof_envelope, detached_jws_kind, sign_ed25519_detached_jws,
     verify_detached_ed25519_signature, verify_ed25519_detached_jws_payload_proof,
     verify_ed25519_detached_jws_proof, verify_ed25519_detached_jws_proof_with_digest_suite,
     verify_ed25519_signal_proof,
@@ -132,93 +129,6 @@ pub use crate::device_authorization::verify_device_authorize_possession;
 /// [`PRODUCTION_ALGORITHMS`] once implemented.
 pub const FUTURE_ALGORITHMS: &[&str] = &["ES256", "ML-DSA-65"];
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct DetachedSignatureBinding {
-    pub payload_digest: Hash,
-    pub signer: DidCoreId,
-    pub verification_method: DidUrl,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub domain: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub audience: Option<Audience>,
-}
-
-impl DetachedSignatureBinding {
-    pub fn from_payload<T: Serialize>(
-        payload: &T,
-        signer: DidCoreId,
-        verification_method: DidUrl,
-    ) -> Result<Self> {
-        Ok(Self {
-            payload_digest: canonical_payload_digest(payload)?,
-            signer,
-            verification_method,
-            created_at: Utc::now(),
-            domain: None,
-            audience: None,
-        })
-    }
-
-    pub fn proof_binding_payload(&self) -> SignatureBindingPayload {
-        SignatureBindingPayload {
-            payload_digest: self.payload_digest.clone(),
-            actor_id: self.signer.clone(),
-            verification_method: self.verification_method.clone(),
-            created_at: self.created_at,
-            domain: self.domain.clone(),
-            audience: self.audience.clone(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct DetachedSignature {
-    pub kind: String,
-    pub verification_method: DidUrl,
-    pub payload_digest: Hash,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub domain: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub audience: Option<Audience>,
-    pub jws: String,
-}
-
-impl DetachedSignature {
-    pub fn into_proof(self) -> ProducerEventProof {
-        ProducerEventProof {
-            kind: self.kind,
-            verification_method: self.verification_method,
-            event_digest: self.payload_digest,
-            signer_resolution_evidence_ref: None,
-            signer_resolution_evidence_digest: None,
-            created_at: self.created_at,
-            domain: self.domain,
-            audience: self.audience,
-            proof_purpose: None,
-            jws: self.jws,
-        }
-    }
-
-    pub fn validate_against(&self, binding: &DetachedSignatureBinding) -> Result<()> {
-        Ok(self
-            .clone()
-            .into_proof()
-            .validate_binding(&binding.proof_binding_payload())?)
-    }
-}
-
-pub trait DetachedVerifier {
-    fn verify_detached(
-        &self,
-        binding: &DetachedSignatureBinding,
-        signature: &DetachedSignature,
-    ) -> Result<SignatureVerification>;
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerificationMethodDocument {
     pub did: DidFullId,
@@ -233,34 +143,6 @@ pub trait DidVerificationMethodResolver {
         &self,
         verification_method: &DidUrl,
     ) -> Result<VerificationMethodDocument>;
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct StaticDidVerificationMethodResolver {
-    methods: BTreeMap<String, VerificationMethodDocument>,
-}
-
-impl StaticDidVerificationMethodResolver {
-    pub fn insert(&mut self, document: VerificationMethodDocument) {
-        self.methods
-            .insert(document.verification_method.as_str().to_owned(), document);
-    }
-}
-
-impl DidVerificationMethodResolver for StaticDidVerificationMethodResolver {
-    fn resolve_verification_method(
-        &self,
-        verification_method: &DidUrl,
-    ) -> Result<VerificationMethodDocument> {
-        self.methods
-            .get(verification_method.as_str())
-            .cloned()
-            .ok_or_else(|| {
-                Error::Protocol(format!(
-                    "unknown verification method '{verification_method}'"
-                ))
-            })
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -384,10 +266,6 @@ pub struct SignatureVerification {
     pub warnings: Vec<String>,
 }
 
-pub fn canonical_payload_digest<T: Serialize>(payload: &T) -> Result<Hash> {
-    Hash::new(canonical::canonical_sha256(payload)?).map_err(Into::into)
-}
-
 /// Wire-form HTTP Message Signature container.
 ///
 /// The canonical struct now lives in `arkret-wire` (`arkret_wire::http_signature`)
@@ -398,10 +276,38 @@ pub use arkret_wire::HttpMessageSignature;
 
 #[cfg(test)]
 mod tests {
-    use chrono::Duration;
-    use serde_json::json;
+    use std::collections::BTreeMap;
 
     use super::*;
+    use chrono::Duration;
+
+    #[derive(Default)]
+    struct StaticDidVerificationMethodResolver {
+        methods: BTreeMap<String, VerificationMethodDocument>,
+    }
+
+    impl StaticDidVerificationMethodResolver {
+        fn insert(&mut self, document: VerificationMethodDocument) {
+            self.methods
+                .insert(document.verification_method.as_str().to_owned(), document);
+        }
+    }
+
+    impl DidVerificationMethodResolver for StaticDidVerificationMethodResolver {
+        fn resolve_verification_method(
+            &self,
+            verification_method: &DidUrl,
+        ) -> Result<VerificationMethodDocument> {
+            self.methods
+                .get(verification_method.as_str())
+                .cloned()
+                .ok_or_else(|| {
+                    Error::Protocol(format!(
+                        "unknown verification method '{verification_method}'"
+                    ))
+                })
+        }
+    }
 
     fn did(name: &str) -> DidFullId {
         DidFullId::new(format!("did:webvh:z6mkfixture{name}:{name}.example")).unwrap()
@@ -430,33 +336,6 @@ mod tests {
         // The production set is exactly the algorithms with a real
         // signer/verifier: Ed25519 only.
         assert_eq!(PRODUCTION_ALGORITHMS, &["Ed25519"]);
-    }
-
-    #[test]
-    fn canonical_payload_digest_matches_sha256_shape() {
-        let hash = canonical_payload_digest(&json!({"b": 2, "a": 1})).unwrap();
-        assert!(hash.as_str().starts_with("sha256:"));
-    }
-
-    #[test]
-    fn detached_signature_validates_core_proof_binding() {
-        let binding = DetachedSignatureBinding::from_payload(
-            &json!({"hello": "world"}),
-            actor("alice"),
-            DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
-        )
-        .unwrap();
-        let signature = DetachedSignature {
-            kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
-            verification_method: binding.verification_method.clone(),
-            payload_digest: binding.payload_digest.clone(),
-            created_at: binding.created_at,
-            domain: None,
-            audience: None,
-            jws: arkret_wire::test_support::DETACHED_JWS_FIXTURE.to_owned(),
-        };
-
-        signature.validate_against(&binding).unwrap();
     }
 
     #[test]

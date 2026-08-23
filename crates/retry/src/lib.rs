@@ -41,14 +41,6 @@
 //! ladder advances from its own base so a single long hint does not permanently
 //! inflate later steps.
 //!
-//! # Fixed ladders
-//!
-//! Two spec paths use an explicit step list rather than a doubling ladder:
-//! agent-pairing status polling (`identity/key-management.md:369`,
-//! `sync/service-http-binding.md:462`) uses 1s/2s/5s/10s and then at most 30s.
-//! [`RetryLadder`] carries those, and [`SPEC_PAIRING_STATUS_LADDER`] is the
-//! spec's list.
-//!
 //! # Jitter and wasm
 //!
 //! Jitter must not pull in `rand`, whose default entropy source panics on
@@ -78,18 +70,6 @@ pub const SPEC_MAX_RETRIES: u32 = 5;
 
 /// `api-conventions.md` §9 — the retry-budget window.
 pub const SPEC_RETRY_WINDOW: Duration = Duration::from_secs(300);
-
-/// `key-management.md:369` / `service-http-binding.md:462` — agent-pairing
-/// status polling steps, followed by [`SPEC_PAIRING_STATUS_MAX_DELAY`].
-pub const SPEC_PAIRING_STATUS_LADDER: &[Duration] = &[
-    Duration::from_secs(1),
-    Duration::from_secs(2),
-    Duration::from_secs(5),
-    Duration::from_secs(10),
-];
-
-/// The ceiling the agent-pairing status ladder settles at.
-pub const SPEC_PAIRING_STATUS_MAX_DELAY: Duration = Duration::from_secs(30);
 
 /// Highest ladder step computed by doubling, so a bogus retry counter cannot
 /// turn [`RetryPolicy::base_delay`] into a long loop.
@@ -347,12 +327,6 @@ impl RetryLadder {
         }
     }
 
-    /// The agent-pairing status polling ladder: 1s/2s/5s/10s, then 30s.
-    #[must_use]
-    pub const fn pairing_status() -> Self {
-        Self::repeating(SPEC_PAIRING_STATUS_LADDER, SPEC_PAIRING_STATUS_MAX_DELAY)
-    }
-
     /// The delay before retry number `retry`, counted from zero. `None` once a
     /// bounded ladder is spent.
     #[must_use]
@@ -522,18 +496,6 @@ mod tests {
         assert!(schedule.exhausted());
         let _ = schedule.next_delay();
         assert!(schedule.exhausted());
-    }
-
-    #[test]
-    fn pairing_status_ladder_matches_the_spec_steps() {
-        // key-management.md:369 / service-http-binding.md:462.
-        let ladder = RetryLadder::pairing_status();
-        assert_eq!(ladder.step(0), Some(S(1)));
-        assert_eq!(ladder.step(1), Some(S(2)));
-        assert_eq!(ladder.step(2), Some(S(5)));
-        assert_eq!(ladder.step(3), Some(S(10)));
-        assert_eq!(ladder.step(4), Some(S(30)));
-        assert_eq!(ladder.step(400), Some(S(30)));
     }
 
     #[test]

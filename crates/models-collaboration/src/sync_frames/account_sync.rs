@@ -636,39 +636,6 @@ pub struct DeviceMessageTarget {
     pub content: BTreeMap<String, Value>,
 }
 
-/// One queued to-device message body as a destination service persists it
-/// before delivery.
-///
-/// The fields are exactly the `device-message.schema.json` envelope members
-/// that the delivery queue record does not already carry as its own columns:
-/// the queue reader rebuilds [`DeviceMessageEnvelope`] from this body plus the
-/// stored sender, recipient, recipient device and creation time.
-///
-/// The sender branch travels with the body rather than being re-derived at
-/// read time: the queue row records who the sender principal is, not which
-/// endpoint authored the message, and a Native Agent principal is not
-/// distinguishable from a human one by inspection.
-///
-/// `C` is the closed content type selected by `kind`, so a producer can neither
-/// pair a kind with a foreign content shape nor hand-author the body as raw
-/// JSON.
-///
-/// No `deny_unknown_fields` here: serde does not support it alongside the
-/// flattened sender, and claiming it would be worse than not having it. The
-/// strictness that matters — exactly one complete sender endpoint branch — is
-/// enforced by [`DeviceMessageSender`]'s own deserializer, and the outward
-/// [`DeviceMessageEnvelope`] this body is rebuilt into is a closed object.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct QueuedDeviceMessageBody<C> {
-    pub device_message_id: DeviceMessageId,
-    pub kind: ProtocolKind,
-    #[serde(flatten)]
-    pub sender: DeviceMessageSender,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    pub content: C,
-}
-
 /// Closed operation set carried by actor-private account-data update messages.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

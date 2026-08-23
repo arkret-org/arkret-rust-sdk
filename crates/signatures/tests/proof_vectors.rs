@@ -45,9 +45,7 @@ struct Ed25519Vectors {
 #[derive(Debug, Deserialize)]
 struct DevProofVector {
     name: String,
-    proof_type: String,
     kind: String,
-    algorithm: String,
     /// Reason the verifier MUST reject this proof under production.
     expect_rejected: bool,
 }
@@ -191,11 +189,8 @@ fn ed25519_vectors_round_trip_through_signer_and_verifier() {
 }
 
 #[test]
-fn dev_proof_vectors_are_rejected_by_production_verifier() {
-    use arkret_signatures::proof::{
-        EventVerifier, ProductionVerifier, ProofType, PublicKeyMaterial, VerifierError,
-        build_proof_envelope,
-    };
+fn dev_proof_kind_vectors_match_wire_validation() {
+    use arkret_signatures::proof::build_proof_envelope;
     use arkret_wire::Hash;
 
     let suite: DevProofVectors = read_vectors("dev_proofs.json");
@@ -204,41 +199,11 @@ fn dev_proof_vectors_are_rejected_by_production_verifier() {
         "must ship at least 2 dev-proof rejection vectors"
     );
 
-    struct AlwaysOk;
-    impl EventVerifier for AlwaysOk {
-        fn verify(&self, _: &[u8], _: &[u8], _: &PublicKeyMaterial) -> Result<(), VerifierError> {
-            Ok(())
-        }
-        fn algorithm(&self) -> &str {
-            "Ed25519"
-        }
-    }
-
-    let verifier = ProductionVerifier::wrap(AlwaysOk);
     let dummy_hash =
         Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
             .unwrap();
-    let public = PublicKeyMaterial::Ed25519Raw {
-        bytes: vec![0u8; 32],
-    };
 
     for v in suite.vectors {
-        let proof_type = match v.proof_type.as_str() {
-            "production" => ProofType::production(v.kind.clone(), v.algorithm.clone()),
-            "development" => ProofType::development(v.name.clone()),
-            other => panic!("vector '{}' unknown proof_type tag: {other}", v.name),
-        };
-
-        let typed_result = verifier.verify_typed(&proof_type, b"bytes", b"sig", &public);
-        if v.expect_rejected && matches!(proof_type, ProofType::Development { .. }) {
-            assert!(
-                typed_result.is_err(),
-                "vector '{}' should be rejected by typed verifier",
-                v.name
-            );
-        }
-
-        // Also exercise the proof-envelope dev-kind gate.
         let proof = build_proof_envelope(
             v.kind.clone(),
             DidUrl::new("did:web:test.example#key-1").unwrap(),
@@ -247,7 +212,7 @@ fn dev_proof_vectors_are_rejected_by_production_verifier() {
             None,
             "header..signature",
         );
-        let envelope_result = verifier.assert_production_proof(&proof);
+        let envelope_result = proof.validate_production();
         if v.expect_rejected {
             assert!(
                 envelope_result.is_err(),

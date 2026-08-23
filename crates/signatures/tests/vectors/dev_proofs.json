@@ -1,25 +1,19 @@
 {
-  "_description": "Dev-proof rejection vectors. A ProductionVerifier MUST reject any proof whose `proof_type` is `development` (via verify_typed) or whose `Proof.kind` is in the canonical dev-kind allowlist {dev, test, mock, stub, dummy} (via assert_production_proof).",
+  "_description": "Proof-kind rejection vectors. ProducerEventProof validation rejects the canonical dev-kind denylist {dev, test, mock, stub, dummy}.",
   "vectors": [
     {
       "name": "rejects_dev_kind_proof_envelope",
-      "proof_type": "development",
       "kind": "dev",
-      "algorithm": "Ed25519",
       "expect_rejected": true
     },
     {
       "name": "rejects_mock_kind_proof_envelope",
-      "proof_type": "development",
       "kind": "mock",
-      "algorithm": "Ed25519",
       "expect_rejected": true
     },
     {
       "name": "accepts_detached_jws_production_proof",
-      "proof_type": "production",
       "kind": "detached_jws",
-      "algorithm": "Ed25519",
       "expect_rejected": false
     }
   ]

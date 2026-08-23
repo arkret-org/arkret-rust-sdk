@@ -258,14 +258,6 @@ impl HttpDidResolver {
         }
     }
 
-    /// Current verified-document cache size for health/metrics adapters.
-    pub fn cached_document_count(&self) -> usize {
-        self.cache
-            .lock()
-            .map(|cache| cache.len())
-            .unwrap_or_default()
-    }
-
     fn ttl_secs(&self) -> i64 {
         self.policy
             .ttl
@@ -673,7 +665,7 @@ mod tests {
         resolver.cache_put(&first, &ResolvedDid::proofless(document(first.clone())));
         resolver.cache_put(&second, &ResolvedDid::proofless(document(second.clone())));
         resolver.cache_put(&third, &ResolvedDid::proofless(document(third.clone())));
-        assert_eq!(resolver.cached_document_count(), 2);
+        assert_eq!(resolver.cache.lock().unwrap().len(), 2);
 
         let expired = resolver
             .cache
@@ -691,7 +683,7 @@ mod tests {
             .unwrap()
             .fetched_at = Utc::now() - chrono::TimeDelta::days(9);
         assert!(resolver.stale_within_outage(&expired).is_none());
-        assert_eq!(resolver.cached_document_count(), 1);
+        assert_eq!(resolver.cache.lock().unwrap().len(), 1);
     }
 
     #[test]

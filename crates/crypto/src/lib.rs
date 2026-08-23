@@ -32,7 +32,6 @@ mod errors;
 // Crate-root re-export preserved from the original module layout.
 #[cfg(feature = "aead")]
 pub use aead_nonce::*;
-pub use arkret_signatures::{DetachedSignature, DetachedSignatureBinding, DetachedVerifier};
 pub use errors::*;
 #[cfg(feature = "aead")]
 pub use mls_exporter::*;

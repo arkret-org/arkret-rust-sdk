@@ -549,18 +549,11 @@ pub fn verify_agent_evidence_state(
     context: &AgentEvidenceStateVerificationContext<'_>,
 ) -> Result<VerifiedAgentEvidenceState, AgentEvidenceRejectedReason> {
     let snapshot = &admission.agent_authority_snapshot;
-    #[derive(Serialize)]
-    struct AdmissionCore<'a> {
-        agent_authority_snapshot:
-            &'a arkret_models_identity::agent_signer_evidence::AgentAuthoritySnapshot,
-        controller_account_gate_attestation:
-            &'a arkret_models_identity::agent_signer_evidence::ControllerAccountGateAttestation,
-    }
     if canonical_digest(&snapshot.core)? != snapshot.snapshot_digest
-        || canonical_digest(&AdmissionCore {
-            agent_authority_snapshot: snapshot,
-            controller_account_gate_attestation: &admission.controller_account_gate_attestation,
-        })? != admission.admission_evidence_digest
+        || agent_admission_evidence_digest(
+            snapshot,
+            &admission.controller_account_gate_attestation,
+        )? != admission.admission_evidence_digest
         || !validate_state_witnesses(admission, context)?
         || !validate_seal_lineage(admission, context)?
     {
@@ -574,6 +567,29 @@ pub fn verify_agent_evidence_state(
         authorization_event_id: context.agent_key_authorize_event_id.clone(),
         key_seal_id: snapshot.core.key_state_witness.seal_id.clone(),
         lifecycle_seal_id: snapshot.core.agent_lifecycle_witness.seal_id.clone(),
+    })
+}
+
+/// Compute the canonical digest that binds an Agent authority snapshot to its
+/// controller-account gate attestation.
+///
+/// Producers and verifiers must share this exact two-field projection; local
+/// look-alike structs risk changing the signed evidence contract independently.
+pub fn agent_admission_evidence_digest(
+    snapshot: &arkret_models_identity::agent_signer_evidence::AgentAuthoritySnapshot,
+    gate: &arkret_models_identity::agent_signer_evidence::ControllerAccountGateAttestation,
+) -> Result<Hash, AgentEvidenceRejectedReason> {
+    #[derive(Serialize)]
+    struct AdmissionCore<'a> {
+        agent_authority_snapshot:
+            &'a arkret_models_identity::agent_signer_evidence::AgentAuthoritySnapshot,
+        controller_account_gate_attestation:
+            &'a arkret_models_identity::agent_signer_evidence::ControllerAccountGateAttestation,
+    }
+
+    canonical_digest(&AdmissionCore {
+        agent_authority_snapshot: snapshot,
+        controller_account_gate_attestation: gate,
     })
 }
 
@@ -970,17 +986,7 @@ fn validate_common_evidence(
     let gate = &admission.controller_account_gate_attestation;
 
     let expected_snapshot_digest = canonical_digest(&snapshot.core)?;
-    #[derive(Serialize)]
-    struct AdmissionCore<'a> {
-        agent_authority_snapshot:
-            &'a arkret_models_identity::agent_signer_evidence::AgentAuthoritySnapshot,
-        controller_account_gate_attestation:
-            &'a arkret_models_identity::agent_signer_evidence::ControllerAccountGateAttestation,
-    }
-    let expected_admission_digest = canonical_digest(&AdmissionCore {
-        agent_authority_snapshot: snapshot,
-        controller_account_gate_attestation: gate,
-    })?;
+    let expected_admission_digest = agent_admission_evidence_digest(snapshot, gate)?;
     let expected_outer_core_digest = outer_core_digest(evidence)?;
     let (outer_domain, outer_core_digest_value, outer_source_service_id_value, outer_method) =
         match outer {

@@ -28,8 +28,6 @@
 //! # }
 //! ```
 
-use std::fmt;
-
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical;
 use arkret_wire::{DidUrl, Hash, PayloadProof, ProducerEventProof, SignalEnvelope, proof_kind};
@@ -457,8 +455,6 @@ pub enum VerifierError {
     Encoding(String),
     #[error("verifier received unsupported public-key encoding: {0}")]
     UnsupportedKey(String),
-    #[error("dev-proof rejected in production verifier: {0}")]
-    DevProofRejected(String),
     #[error("proof binding mismatch: {0}")]
     Binding(String),
 }
@@ -466,9 +462,7 @@ pub enum VerifierError {
 impl From<VerifierError> for Error {
     fn from(err: VerifierError) -> Self {
         match err {
-            VerifierError::Binding(msg) | VerifierError::DevProofRejected(msg) => {
-                Error::Protocol(msg)
-            }
+            VerifierError::Binding(msg) => Error::Protocol(msg),
             other => Error::Crypto(other.to_string()),
         }
     }
@@ -572,108 +566,6 @@ pub trait EventVerifier {
     ) -> std::result::Result<(), VerifierError>;
     /// Algorithm understood by this verifier (e.g. `"Ed25519"`).
     fn algorithm(&self) -> &str;
-}
-
-/// Marker enum distinguishing real proofs from in-process / test
-/// shortcut proofs. Set on every emitted proof so receivers can
-/// reject dev-mode proofs in production.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "mode", rename_all = "snake_case")]
-pub enum ProofType {
-    /// Production proof carrying a real signature.
-    Production { kind: String, algorithm: String },
-    /// Dev/test shortcut proof. Must never round-trip past a
-    /// `ProductionVerifier`.
-    Development { reason: String },
-}
-
-impl ProofType {
-    pub fn production(kind: impl Into<String>, algorithm: impl Into<String>) -> Self {
-        Self::Production {
-            kind: kind.into(),
-            algorithm: algorithm.into(),
-        }
-    }
-
-    pub fn development(reason: impl Into<String>) -> Self {
-        Self::Development {
-            reason: reason.into(),
-        }
-    }
-
-    pub fn is_development(&self) -> bool {
-        matches!(self, Self::Development { .. })
-    }
-}
-
-impl fmt::Display for ProofType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Production { kind, algorithm } => write!(f, "production({kind}/{algorithm})"),
-            Self::Development { reason } => write!(f, "development({reason})"),
-        }
-    }
-}
-
-/// Adapter that wraps any [`EventVerifier`] and refuses signatures
-/// produced under a `Development` [`ProofType`].
-pub struct ProductionVerifier<V> {
-    inner: V,
-}
-
-impl<V> ProductionVerifier<V> {
-    /// Wrap a base verifier so it rejects dev-mode proofs.
-    pub fn wrap(inner: V) -> Self {
-        Self { inner }
-    }
-
-    pub fn inner(&self) -> &V {
-        &self.inner
-    }
-
-    /// Verify `bytes` / `signature` after asserting that `proof_type`
-    /// is `Production`.
-    pub fn verify_typed(
-        &self,
-        proof_type: &ProofType,
-        bytes: &[u8],
-        signature: &[u8],
-        public_key: &PublicKeyMaterial,
-    ) -> std::result::Result<(), VerifierError>
-    where
-        V: EventVerifier,
-    {
-        if proof_type.is_development() {
-            return Err(VerifierError::DevProofRejected(proof_type.to_string()));
-        }
-        self.inner.verify(bytes, signature, public_key)
-    }
-
-    /// Reject any `Proof` whose `kind` is in the canonical dev-kind
-    /// allowlist (`dev` / `test` / `mock` / `stub` / `dummy`).
-    pub fn assert_production_proof(
-        &self,
-        proof: &ProducerEventProof,
-    ) -> std::result::Result<(), VerifierError> {
-        proof
-            .validate_production()
-            .map_err(|err| VerifierError::DevProofRejected(err.to_string()))
-    }
-}
-
-impl<V: EventVerifier> EventVerifier for ProductionVerifier<V> {
-    fn verify(
-        &self,
-        bytes: &[u8],
-        signature: &[u8],
-        public_key: &PublicKeyMaterial,
-    ) -> std::result::Result<(), VerifierError> {
-        self.inner.verify(bytes, signature, public_key)
-    }
-
-    fn algorithm(&self) -> &str {
-        self.inner.algorithm()
-    }
 }
 
 mod ed25519_jws {
@@ -1038,16 +930,6 @@ mod tests {
     }
 
     #[test]
-    fn proof_type_distinguishes_dev_and_production() {
-        let prod = ProofType::production("detached_jws", "Ed25519");
-        let dev = ProofType::development("in-memory test fixture");
-        assert!(!prod.is_development());
-        assert!(dev.is_development());
-        assert_eq!(prod.to_string(), "production(detached_jws/Ed25519)");
-        assert_eq!(dev.to_string(), "development(in-memory test fixture)");
-    }
-
-    #[test]
     fn canonical_bytes_are_stable_across_key_order() {
         let builder = EventProofBuilder::new();
         let a = builder.canonical_bytes(&json!({"b": 2, "a": 1})).unwrap();
@@ -1071,74 +953,6 @@ mod tests {
             hash.as_str(),
             "sha256:015abd7f5cc57a2dd94b7590f04ad8084273905ee33ec5cebeae62276a97f862"
         );
-    }
-
-    #[test]
-    fn production_verifier_assert_rejects_dev_kind_proofs() {
-        struct NoopVerifier;
-        impl EventVerifier for NoopVerifier {
-            fn verify(
-                &self,
-                _: &[u8],
-                _: &[u8],
-                _: &PublicKeyMaterial,
-            ) -> std::result::Result<(), VerifierError> {
-                Ok(())
-            }
-            fn algorithm(&self) -> &str {
-                "Ed25519"
-            }
-        }
-        let verifier = ProductionVerifier::wrap(NoopVerifier);
-        let dev_proof = build_proof_envelope(
-            "dev",
-            DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
-            Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-                .unwrap(),
-            None,
-            None,
-            "junk",
-        );
-        let err = verifier.assert_production_proof(&dev_proof).unwrap_err();
-        assert!(matches!(err, VerifierError::DevProofRejected(_)));
-
-        let prod_proof = build_proof_envelope(
-            proof_kind::DETACHED_JWS,
-            DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
-            Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-                .unwrap(),
-            None,
-            None,
-            "header..sig",
-        );
-        verifier.assert_production_proof(&prod_proof).unwrap();
-    }
-
-    #[test]
-    fn production_verifier_typed_rejects_development_proof_type() {
-        struct AlwaysOk;
-        impl EventVerifier for AlwaysOk {
-            fn verify(
-                &self,
-                _: &[u8],
-                _: &[u8],
-                _: &PublicKeyMaterial,
-            ) -> std::result::Result<(), VerifierError> {
-                Ok(())
-            }
-            fn algorithm(&self) -> &str {
-                "Ed25519"
-            }
-        }
-        let verifier = ProductionVerifier::wrap(AlwaysOk);
-        let public = PublicKeyMaterial::Ed25519Raw {
-            bytes: vec![0u8; 32],
-        };
-        let dev = ProofType::development("unit test stub");
-        let err = verifier
-            .verify_typed(&dev, b"bytes", b"sig", &public)
-            .unwrap_err();
-        assert!(matches!(err, VerifierError::DevProofRejected(_)));
     }
 
     #[test]

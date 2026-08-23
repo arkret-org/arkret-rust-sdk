@@ -327,11 +327,6 @@ impl DidWebvhResolver {
         })
     }
 
-    /// Latest verified entry for a previously-ingested DID.
-    pub fn latest_entry(&self, did: &DidFullId) -> Option<&DidWebvhLogEntry> {
-        self.logs.get(did).and_then(|entries| entries.last())
-    }
-
     pub fn is_conflicted(&self, did: &DidFullId) -> bool {
         self.conflicted.contains(did)
     }

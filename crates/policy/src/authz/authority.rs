@@ -138,12 +138,11 @@ pub struct Grant {
 
 /// A constraint entry attached to a [`Grant`].
 ///
-/// Typed enum mirroring the v1 spec's `grant-constraint.schema.json`
-/// `constraint_kind` discriminator plus runtime-only families used by
-/// soland's HTTP authz path (`Decision`, `AllowedObjectFacets`). The
-/// The upstream typed constraints module ([`crate::authz::Constraint`])
-/// remains the canonical schema-aligned representation; this enum is the in-memory runtime
-/// projection that soland threads through its authorization check.
+/// In-memory runtime projection of the canonical v1
+/// `arkret_models_collaboration::governance::grant_constraint::GrantConstraint`
+/// shape, plus service-only evaluation families such as `Decision` and
+/// `AllowedObjectFacets`. Soland threads this compact projection through its
+/// authorization checks after validating the canonical event-boundary model.
 ///
 /// AKP-0007 P1.3.4: the previous `{ constraint_kind: String, value:
 /// serde_json::Value }` weakly-typed form has been removed (no backwards

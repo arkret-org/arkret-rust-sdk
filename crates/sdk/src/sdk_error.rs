@@ -257,12 +257,9 @@ impl From<arkret_auth::AuthError> for Error {
     fn from(error: arkret_auth::AuthError) -> Self {
         match error {
             arkret_auth::AuthError::Protocol(message) => Self::Protocol(message),
-            arkret_auth::AuthError::Crypto(message) => Self::Crypto(message),
             arkret_auth::AuthError::Wire(error) => error.into(),
             arkret_auth::AuthError::Canonical(error) => error.into(),
             arkret_auth::AuthError::Identifier(error) => error.into(),
-            arkret_auth::AuthError::Signature(error) => error.into(),
-            arkret_auth::AuthError::Json(error) => Self::CanonicalJson(error),
             _ => Self::Protocol(error.to_string()),
         }
     }

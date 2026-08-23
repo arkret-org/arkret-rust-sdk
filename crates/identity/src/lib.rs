@@ -8,7 +8,6 @@
 
 pub mod authority_history;
 mod error;
-mod handles;
 // DID-P0-B01/B02/B03: verified DID binding value object, its store contract and
 // the resolver-free / authority verifier split (`did-usage-and-verification.md`
 // §4–§6).
@@ -68,8 +67,6 @@ pub use binding_store::{
 };
 pub(crate) use chrono::{DateTime, Utc};
 pub use error::{IdentityError, Result};
-pub use handles::*;
-pub(crate) use helpers::*;
 /// Public re-export of the `did:webvh` splitter + outbound SSRF egress guard so
 /// downstream crates (e.g. starid) reuse the low-level classifier instead of
 /// re-implementing address tables (STA-05-001).

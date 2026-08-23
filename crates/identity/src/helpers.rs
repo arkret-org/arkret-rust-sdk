@@ -1,9 +1,6 @@
 use std::net::IpAddr;
 
-pub(super) use arkret_canonical::canonical::sha256_hex;
 use arkret_wire::DidFullId;
-
-use super::*;
 
 /// SSRF host classification shared by request-layer egress guards.
 ///
@@ -49,29 +46,6 @@ pub fn host_is_safe_for_outbound(host: &str) -> bool {
 /// [`host_is_safe_for_outbound`] and STA-05-001.
 pub fn ip_is_public(ip: IpAddr) -> bool {
     arkret_egress_policy::classify_ip(ip).is_none()
-}
-
-pub(super) fn split_domain_handle(handle: &str) -> Result<(String, String)> {
-    let normalized = normalize_handle(handle);
-    let Some((local, domain)) = normalized.split_once('@') else {
-        return Err(IdentityError::Protocol(
-            "handle proof requires local@domain form".to_owned(),
-        ));
-    };
-    if local.is_empty()
-        || domain.is_empty()
-        || !domain.contains('.')
-        || local.contains('/')
-        || domain.contains('/')
-        || domain.contains("..")
-    {
-        return Err(IdentityError::Protocol("invalid domain handle".to_owned()));
-    }
-    Ok((local.to_owned(), domain.to_owned()))
-}
-
-pub(super) fn normalize_handle(handle: &str) -> String {
-    handle.trim().trim_start_matches('@').to_lowercase()
 }
 
 pub(super) fn did_web_document_url(did: &DidFullId) -> Option<String> {
@@ -197,10 +171,7 @@ pub(super) fn did_webvh_url(did: &DidFullId, leaf: &str) -> Option<String> {
 /// addresses pinned into the client, applied immediately before dispatch —
 /// so deployments with operator-trusted authorities can resolve DIDs that a
 /// public-only posture cannot.
-pub(super) fn try_did_webvh_url(
-    did: &DidFullId,
-    leaf: &str,
-) -> std::result::Result<String, DidWebvhUrlError> {
+pub(super) fn try_did_webvh_url(did: &DidFullId, leaf: &str) -> Result<String, DidWebvhUrlError> {
     if !did.as_str().starts_with("did:webvh:") {
         return Err(DidWebvhUrlError::UnsupportedMethod);
     }

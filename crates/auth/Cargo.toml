@@ -1,6 +1,6 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
-description = "Arkret v1 authentication behavior: sessions, session grants, claims, and passwords."
+description = "Arkret v1 session-grant request construction."
 edition = "2024"
 homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "auth", "session", "did"]
@@ -14,16 +14,13 @@ version.workspace = true
 [dependencies]
 arkret-canonical = {workspace = true}
 arkret-models-collaboration = {workspace = true}
-arkret-models-identity = {workspace = true}
-arkret-signatures.workspace = true
 arkret-wire = {workspace = true}
-argon2 = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
-getrandom = {workspace = true}
 serde = {workspace = true}
-serde_json = {workspace = true}
 thiserror = {workspace = true}
-uuid = {workspace = true}
+
+[dev-dependencies]
+serde_json = {workspace = true}
 
 [lints]
 workspace = true

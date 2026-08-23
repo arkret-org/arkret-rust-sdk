@@ -199,8 +199,7 @@ Request/response DTO suffixes are unified workspace-wide (no removed aliases):
   typically `id, schema, …`); local non-schema fields trail the
   schema-ordered cluster.
 - Avoid reusing a core wire type name for an unrelated SDK-internal concept;
-  qualify the narrower type (e.g. `ClaimDisclosurePolicy`,
-  `MemberIdentityLattice`, `EngineDecision`).
+  qualify the narrower type (e.g. `MemberIdentityLattice`, `EngineDecision`).
 
 ## Commit Messages
 

@@ -30,16 +30,6 @@ to applications.
 
 ## Cross-Service Contracts
 
-The auth surface exposes `SessionGrantPayload`, `SessionGrantRecord` and
-`PrincipalSessionGrantNotification` as issuer-credential and freshness-bounded
-projection helpers; they do not replace the Account Authority issuer ledger
-and soland can consume grant-created / grant-revoked notifications without
-copying private key material into persistence. `SessionGrant` redacts the
-serialized grant token in `Debug`; durable stores should persist `grant_hash`.
-
-Device binding scopes must use `urn:arkret:client:device:{id}`. Non-Arkret
-scope prefixes are rejected by `device_id_from_scope_token(...)`.
-
 The identity surface is method-neutral: `DidResolver::resolve_did` yields a
 `ResolvedDid` (`document` plus `method_evidence`), and no DID method gets a
 bespoke public adapter. `did-usage-and-verification.md` §4 splits that surface

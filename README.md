@@ -83,7 +83,6 @@ cargo test
 
 - [Quick start](docs/quick-start.md)
 - [API and error handling](docs/api-and-errors.md)
-- [Authentication strands](docs/authentication.md)
 - [Sync best practices](docs/sync-best-practices.md)
 - [Deployment](docs/deployment.md)
 - [Feature matrix](docs/feature-matrix.md)

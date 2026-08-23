@@ -1,4 +1,6 @@
-use arkret_wire::{DidCoreId, DidFullId, Hlc, RealmId, project_full_id_to_core_id};
+use arkret_wire::{DidFullId, Hlc, RealmId, project_full_id_to_core_id};
+
+use crate::helpers::{encode_base58btc, try_did_webvh_url};
 
 use super::*;
 
@@ -11,14 +13,6 @@ fn did(name: &str) -> DidFullId {
 // under test is did:web here, so these MUST stay did:web.
 fn did_web(name: &str) -> DidFullId {
     DidFullId::new(format!("did:web:{name}.example")).unwrap()
-}
-
-fn principal(name: &str) -> DidCoreId {
-    project_full_id_to_core_id(&did(name)).unwrap()
-}
-
-fn pairwise_actor(name: &str) -> DidCoreId {
-    project_full_id_to_core_id(&DidFullId::new(format!("did:key:z{name}")).unwrap()).unwrap()
 }
 
 fn realm() -> RealmId {
@@ -269,13 +263,7 @@ fn webvh_accepts_valid_signed_log_with_key_rotation() {
         .ingest_log(&did, vector_log_response(&did, body))
         .unwrap();
     assert_eq!(log.len(), 2);
-    assert!(
-        resolver
-            .latest_entry(&did)
-            .unwrap()
-            .version_id
-            .starts_with("2-")
-    );
+    assert!(log.last().unwrap().version_id.starts_with("2-"));
 }
 
 #[test]
@@ -662,80 +650,6 @@ fn webvh_rejects_missing_proof() {
 }
 
 #[test]
-fn identity_resolves_validates_and_rotates_dids() {
-    let alice = did("alice");
-    let mut manager = IdentityManager::new();
-    manager
-        .upsert_document(DidDocument::new(alice.clone(), "key-1", "pubkey-1"))
-        .unwrap();
-
-    assert!(manager.resolve(&alice).unwrap().validate().is_ok());
-    manager.rotate_key(&alice, "key-2", "pubkey-2").unwrap();
-    assert!(
-        manager
-            .resolve(&alice)
-            .unwrap()
-            .verification_methods
-            .contains_key("key-2")
-    );
-}
-
-#[test]
-fn identity_binds_validates_and_attests_handles() {
-    let alice = principal("alice");
-    let issuer = principal("issuer");
-    let mut manager = IdentityManager::new();
-
-    let claim = manager.bind_handle("@Alice", alice.clone());
-    let proof = handle_claim_proof("alice", &alice, &claim.challenge);
-    manager.validate_handle_claim("alice", &proof).unwrap();
-    manager
-        .attest_handle("alice", issuer, "attestation")
-        .unwrap();
-
-    let claim = manager.handle_claim("@alice").unwrap();
-    assert!(claim.verified);
-    assert!(claim.attestation.is_some());
-}
-
-#[test]
-fn handle_external_proof_profiles_validate_dns_and_well_known_shapes() {
-    let alice = principal("alice");
-    let challenge = "challenge-1";
-    let handle = "alice@example.com";
-    let proof = handle_claim_proof(handle, &alice, challenge);
-
-    assert_eq!(
-        handle_dns_txt_name(handle).unwrap(),
-        "_arkret-handle.alice.example.com"
-    );
-    assert_eq!(
-        handle_well_known_url(handle).unwrap(),
-        "https://example.com/.well-known/arkret/handle/alice.json"
-    );
-    ExternalHandleProof {
-        profile: HandleProofProfile::DnsTxt,
-        handle: handle.to_owned(),
-        subject: alice.clone(),
-        challenge: challenge.to_owned(),
-        proof,
-    }
-    .validate()
-    .unwrap();
-    assert!(
-        ExternalHandleProof {
-            profile: HandleProofProfile::WellKnown,
-            handle: handle.to_owned(),
-            subject: alice,
-            challenge: challenge.to_owned(),
-            proof: "bad-proof".to_owned(),
-        }
-        .validate()
-        .is_err()
-    );
-}
-
-#[test]
 fn did_resolver_adapters_resolve_web_key_and_keri() {
     let web = DidFullId::new("did:web:alice.example").unwrap();
     let web_path = DidFullId::new("did:web:example.com:users:alice").unwrap();
@@ -1073,219 +987,6 @@ fn did_registry_receipt_binds_current_assertion_authority_and_explicit_controlle
     receipt
         .verify_with_document(&removed)
         .expect_err("a removed assertion method must fail closed");
-}
-
-#[test]
-fn handle_bidirectional_verification_succeeds_with_also_known_as() {
-    let alice_full_id = did("alice");
-    let alice = principal("alice");
-    let mut manager = IdentityManager::new();
-
-    // Create DID document with also_known_as listing the handle
-    let mut doc = DidDocument::new(alice_full_id, "key-1", "pubkey-1");
-    doc.also_known_as = vec!["@alice".to_owned()];
-    manager.upsert_document(doc).unwrap();
-
-    // Bind and verify handle
-    let claim = manager.bind_handle("@alice", alice.clone());
-    let proof = handle_claim_proof("alice", &alice, &claim.challenge);
-    manager.validate_handle_claim("alice", &proof).unwrap();
-
-    // Bidirectional verification should succeed
-    assert!(manager.verify_handle_bidirectional("alice", &alice).is_ok());
-}
-
-#[test]
-fn handle_bidirectional_verification_fails_without_also_known_as() {
-    let alice_full_id = did("alice");
-    let alice = principal("alice");
-    let mut manager = IdentityManager::new();
-
-    // DID document without also_known_as
-    manager
-        .upsert_document(DidDocument::new(alice_full_id, "key-1", "pubkey-1"))
-        .unwrap();
-
-    let claim = manager.bind_handle("@alice", alice.clone());
-    let proof = handle_claim_proof("alice", &alice, &claim.challenge);
-    manager.validate_handle_claim("alice", &proof).unwrap();
-
-    // Should fail because handle is not in also_known_as
-    assert!(
-        manager
-            .verify_handle_bidirectional("alice", &alice)
-            .is_err()
-    );
-}
-
-#[test]
-fn handle_bidirectional_verification_fails_when_claim_not_verified() {
-    let alice_full_id = did("alice");
-    let alice = principal("alice");
-    let mut manager = IdentityManager::new();
-
-    let mut doc = DidDocument::new(alice_full_id, "key-1", "pubkey-1");
-    doc.also_known_as = vec!["@alice".to_owned()];
-    manager.upsert_document(doc).unwrap();
-
-    // Bind handle but don't verify it
-    manager.bind_handle("@alice", alice.clone());
-
-    // Should fail because claim is not verified
-    assert!(
-        manager
-            .verify_handle_bidirectional("alice", &alice)
-            .is_err()
-    );
-}
-
-#[test]
-fn handle_bidirectional_verification_fails_for_wrong_did() {
-    let alice_full_id = did("alice");
-    let alice = principal("alice");
-    let bob = principal("bob");
-    let mut manager = IdentityManager::new();
-
-    let mut doc = DidDocument::new(alice_full_id, "key-1", "pubkey-1");
-    doc.also_known_as = vec!["@alice".to_owned()];
-    manager.upsert_document(doc).unwrap();
-
-    let claim = manager.bind_handle("@alice", alice.clone());
-    let proof = handle_claim_proof("alice", &alice, &claim.challenge);
-    manager.validate_handle_claim("alice", &proof).unwrap();
-
-    // Should fail because handle belongs to alice, not bob
-    assert!(manager.verify_handle_bidirectional("alice", &bob).is_err());
-}
-
-#[test]
-fn unclaimed_handles_for_did_returns_unlisted_handles() {
-    let alice_full_id = did("alice");
-    let alice = principal("alice");
-    let mut manager = IdentityManager::new();
-
-    let mut doc = DidDocument::new(alice_full_id.clone(), "key-1", "pubkey-1");
-    doc.also_known_as = vec!["@alice".to_owned(), "@alice_alt".to_owned()];
-    manager.upsert_document(doc).unwrap();
-
-    // Claim one handle
-    manager.bind_handle("@alice", alice);
-
-    // Should return the unclaimed one
-    let unclaimed = manager.unclaimed_handles_for_did(&alice_full_id);
-    assert_eq!(unclaimed.len(), 1);
-    assert_eq!(unclaimed[0], "@alice_alt");
-}
-
-#[test]
-fn unclaimed_handles_excludes_urls() {
-    let alice_full_id = did("alice");
-    let mut manager = IdentityManager::new();
-
-    let mut doc = DidDocument::new(alice_full_id.clone(), "key-1", "pubkey-1");
-    doc.also_known_as = vec!["@alice".to_owned(), "https://alice.example".to_owned()];
-    manager.upsert_document(doc).unwrap();
-
-    let unclaimed = manager.unclaimed_handles_for_did(&alice_full_id);
-    assert_eq!(unclaimed.len(), 1);
-    assert_eq!(unclaimed[0], "@alice");
-}
-
-#[test]
-fn handle_bidirectional_with_case_insensitive_matching() {
-    let alice_full_id = did("alice");
-    let alice = principal("alice");
-    let mut manager = IdentityManager::new();
-
-    let mut doc = DidDocument::new(alice_full_id, "key-1", "pubkey-1");
-    doc.also_known_as = vec!["@Alice".to_owned()];
-    manager.upsert_document(doc).unwrap();
-
-    let claim = manager.bind_handle("@alice", alice.clone());
-    let proof = handle_claim_proof("alice", &alice, &claim.challenge);
-    manager.validate_handle_claim("alice", &proof).unwrap();
-
-    // Should succeed despite case difference
-    assert!(
-        manager
-            .verify_handle_bidirectional("@Alice", &alice)
-            .is_ok()
-    );
-}
-
-#[test]
-fn pairwise_actor_store_insert_resolve_and_purge() {
-    let alice = principal("alice");
-    let bob = principal("bob");
-    let pairwise = pairwise_actor("pairwisealicebob");
-
-    let binding = PairwiseActorBinding::new(pairwise.clone(), alice.clone(), bob.clone(), None);
-    let mut store = PairwiseActorStore::new();
-    store.insert(binding).unwrap();
-
-    assert_eq!(store.resolve_principal(&pairwise), Some(&alice));
-    assert!(store.is_valid(&pairwise));
-    assert_eq!(store.pairwise_actor_ids_for(&alice).len(), 1);
-
-    // Expired binding is invalid
-    let pairwise2 = pairwise_actor("pairwisealicebobx");
-    let expired = PairwiseActorBinding::new(pairwise2.clone(), alice, bob, Some("x".to_owned()))
-        .with_expiry("2020-01-01T00:00:00.000Z".parse().unwrap());
-    store.insert(expired).unwrap();
-    assert!(!store.is_valid(&pairwise2));
-
-    store.purge_expired();
-    assert!(store.get(&pairwise2).is_none());
-    assert!(store.get(&pairwise).is_some());
-}
-
-#[test]
-fn pairwise_actor_resolution_requires_valid_proof() {
-    let alice = principal("alice");
-    let bob = principal("bob");
-    let mallory = principal("mallory");
-    let pairwise = pairwise_actor("pairwisealicebobspace01");
-    let binding = PairwiseActorBinding::new(
-        pairwise.clone(),
-        alice.clone(),
-        bob.clone(),
-        Some("space:01".to_owned()),
-    );
-    let proof = binding.resolution_proof(bob, "challenge-1");
-    let mut store = PairwiseActorStore::new();
-    store.insert(binding).unwrap();
-
-    assert_eq!(
-        store
-            .resolve_principal_with_proof(&pairwise, &proof)
-            .unwrap(),
-        &alice
-    );
-
-    let mut bad_proof = proof.clone();
-    bad_proof.requester = mallory;
-    assert!(
-        store
-            .resolve_principal_with_proof(&pairwise, &bad_proof)
-            .is_err()
-    );
-
-    let mut tampered = proof;
-    tampered.proof = "bad".to_owned();
-    assert!(
-        store
-            .resolve_principal_with_proof(&pairwise, &tampered)
-            .is_err()
-    );
-}
-
-#[test]
-fn pairwise_did_visibility_enum_roundtrips() {
-    let vis = DidVisibility::Pairwise;
-    let json = serde_json::to_string(&vis).unwrap();
-    assert_eq!(json, "\"pairwise\"");
-    let back: DidVisibility = serde_json::from_str(&json).unwrap();
-    assert_eq!(back, DidVisibility::Pairwise);
 }
 
 // ── did:webvh URL derivation reports why, not just "unsupported" ──

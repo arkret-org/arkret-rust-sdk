@@ -8,8 +8,7 @@ use arkret_models_collaboration::objects::productivity::{
 /// The single source of truth for standard non-Event device-message kinds.
 pub use arkret_models_collaboration::sync_frames::account_sync::device_message_kind;
 use arkret_models_collaboration::sync_frames::account_sync::{
-    DeviceMessageSender, DeviceMessageTarget, DeviceMessagesSendRequestBody,
-    QueuedDeviceMessageBody,
+    DeviceMessageTarget, DeviceMessagesSendRequestBody,
 };
 use arkret_models_crypto::MlsWelcomeEnvelope;
 use arkret_models_identity::artifacts_device_identity::KeyVerificationContent;
@@ -230,25 +229,6 @@ impl<K: DeviceMessageSpec> TypedDeviceMessageTarget<K> {
                 .map_err(|error| EventDraftError::Protocol(error.to_owned()))?,
             expires_at: self.expires_at,
             content: content.into_iter().collect::<BTreeMap<_, _>>(),
-        })
-    }
-
-    /// Build the queued body a destination service persists for one recipient.
-    ///
-    /// The sender arrives as the closed endpoint XOR the envelope carries, so a
-    /// Native Agent sender cannot be spelled as a device and a human sender
-    /// cannot lose its device id in transit.
-    pub fn queued_body(
-        self,
-        sender: DeviceMessageSender,
-    ) -> Result<QueuedDeviceMessageBody<K::Content>> {
-        Ok(QueuedDeviceMessageBody {
-            device_message_id: self.device_message_id,
-            kind: ProtocolKind::new(K::KIND)
-                .map_err(|error| EventDraftError::Protocol(error.to_owned()))?,
-            sender,
-            expires_at: self.expires_at,
-            content: self.content,
         })
     }
 

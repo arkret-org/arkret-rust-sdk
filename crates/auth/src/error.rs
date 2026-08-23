@@ -1,8 +1,8 @@
 //! Auth-layer error contract.
 //!
 //! This crate owns its boundary error. The enum stays thin: typed passthrough
-//! for the data / signature-layer errors this crate propagates, plus
-//! `Protocol` / `Crypto` for the violations it raises itself.
+//! for the wire and canonical errors this crate propagates, plus `Protocol`
+//! for the violations it raises itself.
 
 pub type Result<T> = std::result::Result<T, AuthError>;
 
@@ -14,11 +14,6 @@ pub enum AuthError {
     #[error("protocol error: {0}")]
     Protocol(String),
 
-    /// Cryptographic primitive failure (password hashing, signature or key
-    /// material breakage).
-    #[error("cryptographic operation failed: {0}")]
-    Crypto(String),
-
     #[error(transparent)]
     Wire(#[from] arkret_wire::WireError),
 
@@ -27,10 +22,4 @@ pub enum AuthError {
 
     #[error(transparent)]
     Identifier(#[from] arkret_wire::IdentifierError),
-
-    #[error(transparent)]
-    Signature(#[from] arkret_signatures::Error),
-
-    #[error(transparent)]
-    Json(#[from] serde_json::Error),
 }
