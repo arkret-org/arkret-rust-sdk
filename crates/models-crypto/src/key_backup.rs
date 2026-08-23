@@ -2141,13 +2141,13 @@ impl RecoveryPolicy {
                 .map(|issuer| issuer.verification_method.as_str())
                 .collect::<BTreeSet<_>>();
             match rule.proof_kind {
-                RecoveryProofKind::PrincipalSigning => {
+                RecoveryProofKind::DidRoot => {
                     if rule.threshold != 1
                         || issuer_methods.len() != 1
                         || !issuer_methods.contains(self.auth_data.verification_method.as_str())
                     {
                         return Err(WireError::Protocol(
-                            "principal_signing publication rule must use the policy authority method at threshold 1"
+                            "did_root publication rule must use the policy authority method at threshold 1"
                                 .to_owned(),
                         ));
                     }
@@ -2820,8 +2820,8 @@ pub struct RecoveryPolicyAuthData {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RecoveryProofKind {
-    /// Principal-key direct signature (sovereign deployments).
-    PrincipalSigning,
+    /// Current DID-root signature, only when the frozen PCR policy opts in.
+    DidRoot,
     /// Recovery passphrase / hardware-wrapped unlock evidence.
     RecoveryUnlock,
     /// Device-quorum signed reset (threshold of trusted devices).
@@ -2835,7 +2835,7 @@ pub enum RecoveryProofKind {
 impl RecoveryProofKind {
     /// All variants in `recovery-policy.schema.json` enum order.
     pub const ALL: &'static [Self] = &[
-        Self::PrincipalSigning,
+        Self::DidRoot,
         Self::RecoveryUnlock,
         Self::DeviceQuorum,
         Self::TrustedRecoveryService,
@@ -2844,7 +2844,7 @@ impl RecoveryProofKind {
 
     pub fn as_wire_str(self) -> &'static str {
         match self {
-            Self::PrincipalSigning => "principal_signing",
+            Self::DidRoot => "did_root",
             Self::RecoveryUnlock => "recovery_unlock",
             Self::DeviceQuorum => "device_quorum",
             Self::TrustedRecoveryService => "trusted_recovery_service",
@@ -2890,8 +2890,6 @@ pub struct RecoveryReceipt {
     pub reanchor_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reanchor_batch_receipt_id: Option<ReceiptId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub did_entry_ref: Option<String>,
     pub proof_summary: RecoveryProofSummary,
     pub backup_classes_unlocked: Vec<RecoveryBackupClassUnlocked>,
     /// MLS Welcomes successfully replayed for the recovering device.
@@ -2943,7 +2941,6 @@ impl RecoveryReceipt {
             self.device_list_update_event_id.is_some(),
             self.reanchor_event_id.is_some(),
             self.reanchor_batch_receipt_id.is_some(),
-            self.did_entry_ref.as_deref(),
             self.outcome,
             self.outcome_reason_code.as_deref(),
             self.started_at,
@@ -2993,11 +2990,7 @@ impl RecoveryReceipt {
             "started_at",
             "completed_at",
         ];
-        required.extend([
-            "reanchor_event_id",
-            "reanchor_batch_receipt_id",
-            "did_entry_ref",
-        ]);
+        required.extend(["reanchor_event_id", "reanchor_batch_receipt_id"]);
         if self.welcome_realm_summary.is_some() {
             required.push("welcome_realm_summary");
         }
@@ -3036,7 +3029,6 @@ pub struct UnsignedRecoveryReceiptBody {
     pub device_list_update_event_id: Option<EventId>,
     pub reanchor_event_id: Option<EventId>,
     pub reanchor_batch_receipt_id: Option<ReceiptId>,
-    pub did_entry_ref: Option<String>,
     pub proof_summary: RecoveryProofSummary,
     pub backup_classes_unlocked: Vec<RecoveryBackupClassUnlocked>,
     pub welcome_count: u64,
@@ -3066,7 +3058,6 @@ impl UnsignedRecoveryReceipt {
             body.device_list_update_event_id.is_some(),
             body.reanchor_event_id.is_some(),
             body.reanchor_batch_receipt_id.is_some(),
-            body.did_entry_ref.as_deref(),
             body.outcome,
             body.outcome_reason_code.as_deref(),
             body.started_at,
@@ -3106,7 +3097,6 @@ impl UnsignedRecoveryReceipt {
             device_list_update_event_id: body.device_list_update_event_id,
             reanchor_event_id: body.reanchor_event_id,
             reanchor_batch_receipt_id: body.reanchor_batch_receipt_id,
-            did_entry_ref: body.did_entry_ref,
             proof_summary: body.proof_summary,
             backup_classes_unlocked: body.backup_classes_unlocked,
             welcome_count: body.welcome_count,
@@ -3137,7 +3127,6 @@ fn validate_recovery_receipt_body(
     device_list_update_present: bool,
     reanchor_event_present: bool,
     reanchor_batch_receipt_present: bool,
-    did_entry_ref: Option<&str>,
     outcome: RecoveryReceiptOutcome,
     outcome_reason_code: Option<&str>,
     started_at: DateTime<Utc>,
@@ -3148,17 +3137,15 @@ fn validate_recovery_receipt_body(
             "recovery receipt policy_version must be positive".to_owned(),
         ));
     }
-    if identity_model != RecoveryIdentityModel::RootAnchored
+    if identity_model != RecoveryIdentityModel::PcrPolicy
         || *previous_model_generation_ref == 0
         || *result_model_generation_ref <= *previous_model_generation_ref
         || device_list_update_present
         || !reanchor_event_present
         || !reanchor_batch_receipt_present
-        || did_entry_ref.is_none_or(str::is_empty)
     {
         return Err(WireError::Protocol(
-            "root-anchored recovery receipt requires an advancing re-anchor artifact pair"
-                .to_owned(),
+            "PCR-policy recovery receipt requires an advancing re-anchor artifact pair".to_owned(),
         ));
     }
     if completed_at < started_at {
@@ -3199,7 +3186,6 @@ fn recovery_receipt_signed_fields(body: &UnsignedRecoveryReceiptBody) -> Vec<Str
         "authorization_event_id",
         "reanchor_event_id",
         "reanchor_batch_receipt_id",
-        "did_entry_ref",
         "proof_summary",
         "backup_classes_unlocked",
         "welcome_count",
@@ -3264,7 +3250,6 @@ fn recovery_receipt_unsigned_value(body: &UnsignedRecoveryReceiptBody) -> Value 
         "device_list_update_event_id": &body.device_list_update_event_id,
         "reanchor_event_id": &body.reanchor_event_id,
         "reanchor_batch_receipt_id": &body.reanchor_batch_receipt_id,
-        "did_entry_ref": &body.did_entry_ref,
         "proof_summary": &body.proof_summary,
         "backup_classes_unlocked": &body.backup_classes_unlocked,
         "welcome_count": body.welcome_count,

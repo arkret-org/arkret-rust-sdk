@@ -30,8 +30,7 @@ pub const CLIENT_STEP_ATTESTATION_SIGNED_FIELDS: [&str; 6] = [
     "attestation_digest",
 ];
 
-pub const ROOT_ANCHORED_RECOVERY_STEP_ORDER: [SecurityTransactionStep; 3] = [
-    SecurityTransactionStep::PublishDidEntry,
+pub const PCR_POLICY_RECOVERY_STEP_ORDER: [SecurityTransactionStep; 2] = [
     SecurityTransactionStep::SubmitReanchorUnit,
     SecurityTransactionStep::IssueTerminalReceipt,
 ];
@@ -56,7 +55,7 @@ pub enum SecurityTransactionKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RecoveryIdentityModel {
-    RootAnchored,
+    PcrPolicy,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -98,7 +97,6 @@ pub enum BackupRotationKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SecurityTransactionStep {
-    PublishDidEntry,
     SubmitReanchorUnit,
     IssueTerminalReceipt,
     Revoke,
@@ -124,11 +122,10 @@ pub struct AcceptedStep {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RootAnchoredRecoveryBinding {
+pub struct PcrPolicyRecoveryBinding {
     pub identity_model: RecoveryIdentityModel,
     pub recovery_session_id: RecoverySessionId,
     pub replacement_device_id: DeviceId,
-    pub did_entry_ref: String,
     pub reanchor_event_id: EventId,
     pub authorize_event_id: EventId,
     pub terminal_receipt_id: ReceiptId,
@@ -138,27 +135,27 @@ pub struct RootAnchoredRecoveryBinding {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum RecoveryBinding {
-    RootAnchored(RootAnchoredRecoveryBinding),
+    PcrPolicy(PcrPolicyRecoveryBinding),
 }
 
 impl RecoveryBinding {
     pub fn identity_model(&self) -> RecoveryIdentityModel {
-        RecoveryIdentityModel::RootAnchored
+        RecoveryIdentityModel::PcrPolicy
     }
 
     pub fn terminal_receipt_id(&self) -> &ReceiptId {
-        let Self::RootAnchored(binding) = self;
+        let Self::PcrPolicy(binding) = self;
         &binding.terminal_receipt_id
     }
 
     pub fn recovery_session_id(&self) -> &RecoverySessionId {
-        let Self::RootAnchored(binding) = self;
+        let Self::PcrPolicy(binding) = self;
         &binding.recovery_session_id
     }
 
     fn validate_discriminator(&self) -> Result<()> {
-        let Self::RootAnchored(binding) = self;
-        let valid = binding.identity_model == RecoveryIdentityModel::RootAnchored;
+        let Self::PcrPolicy(binding) = self;
+        let valid = binding.identity_model == RecoveryIdentityModel::PcrPolicy;
         if !valid {
             return Err(WireError::Protocol(
                 "recovery binding identity_model disagrees with its closed shape".to_owned(),
@@ -377,13 +374,12 @@ impl PreparedDidPublication {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RootAnchoredRecoveryPlan {
+pub struct PcrPolicyRecoveryPlan {
     pub identity_model: RecoveryIdentityModel,
     pub recovery_session_snapshot_digest: Hash,
     pub proof_digest: Hash,
     pub previous_model_generation_ref: u64,
     pub result_model_generation_ref: u64,
-    pub did_publication: PreparedDidPublication,
     pub reanchor_unit: PreparedEventUnit,
 }
 
@@ -394,17 +390,17 @@ pub struct RootAnchoredRecoveryPlan {
 // without changing the JSON.
 #[allow(clippy::large_enum_variant)]
 pub enum RecoveryPreparedPlan {
-    RootAnchored(RootAnchoredRecoveryPlan),
+    PcrPolicy(PcrPolicyRecoveryPlan),
 }
 
 impl RecoveryPreparedPlan {
     pub fn identity_model(&self) -> RecoveryIdentityModel {
-        RecoveryIdentityModel::RootAnchored
+        RecoveryIdentityModel::PcrPolicy
     }
 
     fn validate_discriminator(&self) -> Result<()> {
-        let Self::RootAnchored(plan) = self;
-        let valid = plan.identity_model == RecoveryIdentityModel::RootAnchored
+        let Self::PcrPolicy(plan) = self;
+        let valid = plan.identity_model == RecoveryIdentityModel::PcrPolicy
             && plan.previous_model_generation_ref > 0
             && plan.result_model_generation_ref > plan.previous_model_generation_ref;
         if !valid {
@@ -726,7 +722,7 @@ impl SecurityTransactionCreateRequest {
             next_required_step,
         ) = match self {
             Self::Recovery(request) => {
-                let next = SecurityTransactionStep::PublishDidEntry;
+                let next = SecurityTransactionStep::SubmitReanchorUnit;
                 (
                     request.transaction_id,
                     request.kind,
@@ -1023,7 +1019,7 @@ impl SecurityTransaction {
                 SecurityTransactionBinding::Recovery(binding),
                 SecurityTransactionPreparedPlan::Recovery(plan),
             ) if binding.identity_model() == plan.identity_model() => {
-                Ok(&ROOT_ANCHORED_RECOVERY_STEP_ORDER)
+                Ok(&PCR_POLICY_RECOVERY_STEP_ORDER)
             }
             (
                 SecurityTransactionKind::SecurityRotation,
@@ -1072,12 +1068,6 @@ impl SecurityTransaction {
         ) = (&self.binding, &self.prepared_plan)
         {
             self.validate_security_rotation_binding_plan(binding, plan)?;
-        }
-
-        if let SecurityTransactionBinding::Recovery(RecoveryBinding::RootAnchored(binding)) =
-            &self.binding
-        {
-            validate_opaque_ref("did_entry_ref", &binding.did_entry_ref)?;
         }
 
         let order = self.step_order()?;
@@ -1163,8 +1153,8 @@ impl SecurityTransaction {
                         unreachable!("kind/binding/plan closure was validated above")
                     };
                     let (
-                        RecoveryBinding::RootAnchored(binding),
-                        RecoveryPreparedPlan::RootAnchored(plan),
+                        RecoveryBinding::PcrPolicy(binding),
+                        RecoveryPreparedPlan::PcrPolicy(plan),
                     ) = (binding, plan);
                     let replacement_device_id = &binding.replacement_device_id;
                     let authorize_event_id = &binding.authorize_event_id;
@@ -1248,9 +1238,8 @@ impl SecurityTransaction {
         binding: &RecoveryBinding,
         plan: &RecoveryPreparedPlan,
     ) -> Result<()> {
-        let (RecoveryBinding::RootAnchored(binding), RecoveryPreparedPlan::RootAnchored(plan)) =
+        let (RecoveryBinding::PcrPolicy(binding), RecoveryPreparedPlan::PcrPolicy(plan)) =
             (binding, plan);
-        plan.did_publication.validate_structural()?;
         let reanchor_request = plan
             .reanchor_unit
             .events_submit_request(&self.coordinator_service_id)?;
@@ -1264,8 +1253,7 @@ impl SecurityTransaction {
                 crate::event_kind_str::DEVICE_AUTHORIZE,
             ),
         ];
-        if plan.did_publication.expected_entry_ref != binding.did_entry_ref
-            || reanchor_request.events.len() != expected.len()
+        if reanchor_request.events.len() != expected.len()
             || reanchor_request
                 .events
                 .iter()
@@ -1275,7 +1263,7 @@ impl SecurityTransaction {
                 })
         {
             return Err(WireError::Protocol(
-                "root-anchored binding and prepared reanchor unit disagree".to_owned(),
+                "PCR-policy binding and prepared reanchor unit disagree".to_owned(),
             ));
         }
         Ok(())
@@ -1487,7 +1475,7 @@ mod untagged_contract_tests {
     #[test]
     fn binding_rejects_mixed_branch_markers() {
         let error = serde_json::from_value::<SecurityTransactionBinding>(serde_json::json!({
-            "identity_model": "root_anchored",
+            "identity_model": "pcr_policy",
             "revoke_event_id": "ak:event:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM"
         }))
         .unwrap_err();
@@ -1502,6 +1490,15 @@ mod untagged_contract_tests {
             error
                 .to_string()
                 .contains("missing its branch discriminator")
+        );
+    }
+
+    #[test]
+    fn recovery_step_order_is_the_closed_pcr_policy_pair() {
+        let steps = serde_json::to_value(PCR_POLICY_RECOVERY_STEP_ORDER).unwrap();
+        assert_eq!(
+            steps,
+            serde_json::json!(["submit_reanchor_unit", "issue_terminal_receipt"])
         );
     }
 }

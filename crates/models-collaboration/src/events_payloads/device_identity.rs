@@ -368,7 +368,7 @@ pub fn validate_root_anchored_authorize_payload_digest(
     Ok(())
 }
 
-/// Closed root-anchored recovery payload for `ak.device.reanchor`.
+/// Closed PCR-policy recovery payload for `ak.device.reanchor`.
 ///
 /// The replacement binding commits to the authorize payload digest, never to
 /// that Event's id or envelope digest: the authorize envelope carries this

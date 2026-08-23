@@ -6,22 +6,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/freshness_fields`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct FreshnessFields {
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub as_of: DateTime<Utc>,
-    pub source_refs: Vec<EventId>,
-    pub policy_revision: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stale: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub divergent: Option<bool>,
-}
-
-/// Counterpart for
 /// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/invite_consent_handoff_stub`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]

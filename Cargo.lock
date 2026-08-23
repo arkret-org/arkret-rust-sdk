@@ -450,6 +450,7 @@ dependencies = [
  "arkret-schema",
  "arkret-wire",
  "chrono",
+ "ed25519-dalek",
  "hex",
  "regex",
  "salvo-oapi",

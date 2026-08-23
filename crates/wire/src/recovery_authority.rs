@@ -1,4 +1,4 @@
-//! Root-anchored recovery completion and direct Standard-grant DTOs.
+//! PCR-policy recovery completion and direct Standard-grant DTOs.
 //!
 //! Recovery publishes the next DID entry and submits one atomic re-anchor
 //! unit. No external enrollment authority, approval ticket, or service-signed

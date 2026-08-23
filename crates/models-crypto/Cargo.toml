@@ -33,6 +33,7 @@ thiserror = {workspace = true}
 
 [dev-dependencies]
 arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
+ed25519-dalek.workspace = true
 
 [lints]
 workspace = true

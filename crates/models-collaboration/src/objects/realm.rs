@@ -45,7 +45,7 @@ pub struct Realm {
     /// Captured at create time (`ak.realm.create`) and immutable; any
     /// later event whose `trust_domain` mismatches MUST be rejected with
     /// `cross_domain_replay_rejected`. Mixed into the canonical signing
-    /// transcript of high-risk proofs (root-anchored recovery,
+    /// transcript of high-risk proofs (PCR-policy recovery,
     /// audit_policy_version_digest). This field is `Realm`-scoped because
     /// `Realm` is the security-boundary type; the container surface is
     /// `Space`.

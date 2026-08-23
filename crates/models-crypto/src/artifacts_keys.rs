@@ -936,7 +936,7 @@ pub struct GenericRecoveryTranscript {
     pub expires_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
-    pub proof_body: BTreeMap<String, Value>,
+    pub proof_body: GenericRecoveryProofBody,
     pub schema: String,
 }
 
@@ -958,7 +958,7 @@ struct GenericRecoveryTranscriptWire {
     expires_at: DateTime<Utc>,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     created_at: DateTime<Utc>,
-    proof_body: BTreeMap<String, Value>,
+    proof_body: GenericRecoveryProofBody,
     schema: String,
 }
 
@@ -995,23 +995,32 @@ impl GenericRecoveryTranscript {
                 "generic recovery transcript has an invalid schema or policy_version".to_owned(),
             ));
         }
-        if self.identity_model != RecoveryIdentityModel::RootAnchored
-            || self.model_generation_ref == 0
+        if self.identity_model != RecoveryIdentityModel::PcrPolicy || self.model_generation_ref == 0
         {
             return Err(WireError::Protocol(
                 "recovery transcript generation must be a positive PCR generation".to_owned(),
             ));
         }
+        if self.kind == RecoveryProofKind::DidRoot
+            || self.kind != self.proof_body.kind()
+            || &self.challenge != self.proof_body.challenge()
+        {
+            return Err(WireError::Protocol(
+                "generic recovery transcript kind/challenge must match one closed non-did_root proof body"
+                    .to_owned(),
+            ));
+        }
+        self.proof_body.validate()?;
         Ok(())
     }
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/principal_signing_transcript`.
+/// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/did_root_transcript`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(try_from = "PrincipalSigningTranscriptWire")]
-pub struct PrincipalSigningTranscript {
+#[serde(try_from = "DidRootTranscriptWire")]
+pub struct DidRootTranscript {
     pub kind: RecoveryProofKind,
     pub principal_authority: arkret_wire::PrincipalAuthorityKey,
     pub requesting_device_id: DeviceId,
@@ -1033,7 +1042,7 @@ pub struct PrincipalSigningTranscript {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct PrincipalSigningTranscriptWire {
+struct DidRootTranscriptWire {
     kind: RecoveryProofKind,
     principal_authority: arkret_wire::PrincipalAuthorityKey,
     requesting_device_id: DeviceId,
@@ -1052,10 +1061,10 @@ struct PrincipalSigningTranscriptWire {
     schema: String,
 }
 
-impl TryFrom<PrincipalSigningTranscriptWire> for PrincipalSigningTranscript {
+impl TryFrom<DidRootTranscriptWire> for DidRootTranscript {
     type Error = String;
 
-    fn try_from(wire: PrincipalSigningTranscriptWire) -> std::result::Result<Self, Self::Error> {
+    fn try_from(wire: DidRootTranscriptWire) -> std::result::Result<Self, Self::Error> {
         let transcript = Self {
             schema: wire.schema,
             kind: wire.kind,
@@ -1077,21 +1086,20 @@ impl TryFrom<PrincipalSigningTranscriptWire> for PrincipalSigningTranscript {
     }
 }
 
-impl PrincipalSigningTranscript {
+impl DidRootTranscript {
     pub fn validate(&self) -> Result<()> {
         if self.schema != "ak.identity.recovery_proof.v1"
-            || self.kind != RecoveryProofKind::PrincipalSigning
+            || self.kind != RecoveryProofKind::DidRoot
             || self.policy_version < 1
         {
             return Err(WireError::Protocol(
-                "principal signing transcript has an invalid fixed field".to_owned(),
+                "did_root transcript has an invalid fixed field".to_owned(),
             ));
         }
-        if self.identity_model != RecoveryIdentityModel::RootAnchored
-            || self.model_generation_ref == 0
+        if self.identity_model != RecoveryIdentityModel::PcrPolicy || self.model_generation_ref == 0
         {
             return Err(WireError::Protocol(
-                "principal signing generation must be a positive PCR generation".to_owned(),
+                "did_root generation must be a positive PCR generation".to_owned(),
             ));
         }
         Ok(())
@@ -1123,7 +1131,7 @@ pub struct RecoveryPolicyRef {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RecoveryIdentityModel {
-    RootAnchored,
+    PcrPolicy,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1147,7 +1155,7 @@ pub struct RecoveryPublicationAuthorityContext {
 
 impl RecoveryPublicationAuthorityContext {
     pub fn validate_for(&self, identity_model: RecoveryIdentityModel) -> Result<()> {
-        let valid = identity_model == RecoveryIdentityModel::RootAnchored
+        let valid = identity_model == RecoveryIdentityModel::PcrPolicy
             && self.identity_model == identity_model
             && self.authority_set_ref.authority_set_id
                 == RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID
@@ -1258,16 +1266,16 @@ pub struct RecoverySessionProofSubmitRequestBody {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum RecoveryPrincipalSigningProofKind {
-    #[serde(rename = "principal_signing")]
-    PrincipalSigning,
+pub enum RecoveryDidRootProofKind {
+    #[serde(rename = "did_root")]
+    DidRoot,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RecoveryPrincipalSigningProof {
-    pub kind: RecoveryPrincipalSigningProofKind,
+pub struct RecoveryDidRootProof {
+    pub kind: RecoveryDidRootProofKind,
     pub challenge: Challenge,
     pub verification_method: DidUrl,
     pub signature_algorithm: NonEmptyString,
@@ -1294,19 +1302,53 @@ pub struct RecoverySessionUnlockProof {
     pub signature: Base64UrlString,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RecoveryFactorSignatureAlgorithm {
+    Ed25519,
+    #[serde(rename = "ML-DSA-65")]
+    MlDsa65,
+}
+
+impl TryFrom<&NonEmptyString> for RecoveryFactorSignatureAlgorithm {
+    type Error = WireError;
+
+    fn try_from(value: &NonEmptyString) -> Result<Self> {
+        match value.as_str() {
+            "Ed25519" => Ok(Self::Ed25519),
+            "ML-DSA-65" => Ok(Self::MlDsa65),
+            _ => Err(WireError::Protocol(
+                "recovery factor signature_algorithm must be Ed25519 or ML-DSA-65".to_owned(),
+            )),
+        }
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryUnlockProofBody {
+    pub kind: RecoverySessionUnlockProofKind,
+    pub challenge: Challenge,
+    pub recovery_secret_ref: NonEmptyString,
+    pub verification_method: DidUrl,
+    pub signature_algorithm: RecoveryFactorSignatureAlgorithm,
+}
+
 impl RecoverySessionUnlockProof {
     /// Exact `proof_body` embedded in the generic recovery transcript. Both
     /// the detached signature and `unlock_commitment` cover this body, so the
     /// two derived fields are omitted in one SDK-owned place.
-    pub fn signature_independent_proof_body(&self) -> Result<BTreeMap<String, Value>> {
-        let Value::Object(mut proof_body) = serde_json::to_value(self)? else {
-            return Err(WireError::Protocol(
-                "recovery unlock proof must serialize as an object".to_owned(),
-            ));
-        };
-        proof_body.remove("signature");
-        proof_body.remove("unlock_commitment");
-        Ok(proof_body.into_iter().collect())
+    pub fn signature_independent_proof_body(&self) -> Result<RecoveryUnlockProofBody> {
+        Ok(RecoveryUnlockProofBody {
+            kind: self.kind,
+            challenge: self.challenge.clone(),
+            recovery_secret_ref: self.recovery_secret_ref.clone(),
+            verification_method: self.verification_method.clone(),
+            signature_algorithm: RecoveryFactorSignatureAlgorithm::try_from(
+                &self.signature_algorithm,
+            )?,
+        })
     }
 }
 
@@ -1339,6 +1381,49 @@ pub struct RecoveryDeviceQuorumProof {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryDeviceQuorumSignatureBody {
+    pub device_id: DeviceId,
+    pub verification_method: DidUrl,
+    pub signature_algorithm: RecoveryFactorSignatureAlgorithm,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryDeviceQuorumProofBody {
+    pub kind: RecoveryDeviceQuorumProofKind,
+    pub challenge: Challenge,
+    #[serde(deserialize_with = "deserialize_minimum_two")]
+    pub threshold: u64,
+    pub signatures: Vec<RecoveryDeviceQuorumSignatureBody>,
+}
+
+impl RecoveryDeviceQuorumProof {
+    pub fn signature_independent_proof_body(&self) -> Result<RecoveryDeviceQuorumProofBody> {
+        Ok(RecoveryDeviceQuorumProofBody {
+            kind: self.kind,
+            challenge: self.challenge.clone(),
+            threshold: self.threshold,
+            signatures: self
+                .signatures
+                .iter()
+                .map(|signature| {
+                    Ok(RecoveryDeviceQuorumSignatureBody {
+                        device_id: signature.device_id.clone(),
+                        verification_method: signature.verification_method.clone(),
+                        signature_algorithm: RecoveryFactorSignatureAlgorithm::try_from(
+                            &signature.signature_algorithm,
+                        )?,
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?,
+        })
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TrustedRecoveryServiceSessionProofKind {
     #[serde(rename = "trusted_recovery_service")]
@@ -1361,10 +1446,40 @@ pub struct TrustedRecoveryServiceSessionProof {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TrustedRecoveryServiceProofBody {
+    pub kind: TrustedRecoveryServiceSessionProofKind,
+    pub challenge: Challenge,
+    pub service_id: DidCoreId,
+    pub audience: NonEmptyString,
+    pub verification_method: DidUrl,
+    pub signature_algorithm: RecoveryFactorSignatureAlgorithm,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attestation_ref: Option<NonEmptyString>,
+}
+
+impl TrustedRecoveryServiceSessionProof {
+    pub fn signature_independent_proof_body(&self) -> Result<TrustedRecoveryServiceProofBody> {
+        Ok(TrustedRecoveryServiceProofBody {
+            kind: self.kind,
+            challenge: self.challenge.clone(),
+            service_id: self.service_id.clone(),
+            audience: self.audience.clone(),
+            verification_method: self.verification_method.clone(),
+            signature_algorithm: RecoveryFactorSignatureAlgorithm::try_from(
+                &self.signature_algorithm,
+            )?,
+            attestation_ref: self.attestation_ref.clone(),
+        })
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum RecoverySessionProof {
-    PrincipalSigning(RecoveryPrincipalSigningProof),
+    DidRoot(RecoveryDidRootProof),
     RecoveryUnlock(RecoverySessionUnlockProof),
     DeviceQuorum(RecoveryDeviceQuorumProof),
     TrustedRecoveryService(TrustedRecoveryServiceSessionProof),
@@ -1378,8 +1493,8 @@ impl<'de> Deserialize<'de> for RecoverySessionProof {
     {
         let value = Value::deserialize(deserializer)?;
         match value.get("kind").and_then(Value::as_str) {
-            Some("principal_signing") => serde_json::from_value(value)
-                .map(Self::PrincipalSigning)
+            Some("did_root") => serde_json::from_value(value)
+                .map(Self::DidRoot)
                 .map_err(serde::de::Error::custom),
             Some("recovery_unlock") => serde_json::from_value(value)
                 .map(Self::RecoveryUnlock)
@@ -1399,6 +1514,32 @@ impl<'de> Deserialize<'de> for RecoverySessionProof {
             None => Err(serde::de::Error::custom(
                 "recovery session proof is missing kind discriminator",
             )),
+        }
+    }
+}
+
+impl RecoverySessionProof {
+    /// Reconstruct the schema-closed transcript projection. `did_root` is the
+    /// only factor without a proof_body; every signature carrier is deleted.
+    pub fn signature_independent_proof_body(&self) -> Result<Option<GenericRecoveryProofBody>> {
+        match self {
+            Self::DidRoot(_) => Ok(None),
+            Self::RecoveryUnlock(proof) => proof
+                .signature_independent_proof_body()
+                .map(GenericRecoveryProofBody::RecoveryUnlock)
+                .map(Some),
+            Self::DeviceQuorum(proof) => proof
+                .signature_independent_proof_body()
+                .map(GenericRecoveryProofBody::DeviceQuorum)
+                .map(Some),
+            Self::TrustedRecoveryService(proof) => proof
+                .signature_independent_proof_body()
+                .map(GenericRecoveryProofBody::TrustedRecoveryService)
+                .map(Some),
+            Self::ThresholdRecovery(proof) => proof
+                .signature_independent_proof_body()
+                .map(GenericRecoveryProofBody::ThresholdRecovery)
+                .map(Some),
         }
     }
 }
@@ -1539,7 +1680,7 @@ fn validate_recovery_session_state_shape(
     accepted_seal_frontier_present: bool,
 ) -> std::result::Result<(), &'static str> {
     let valid =
-        identity_model == RecoveryIdentityModel::RootAnchored && accepted_seal_frontier_present;
+        identity_model == RecoveryIdentityModel::PcrPolicy && accepted_seal_frontier_present;
     valid
         .then_some(())
         .ok_or("recovery session identity_model does not match its authoritative snapshot")
@@ -1686,6 +1827,99 @@ pub struct ThresholdRecoveryProof {
     pub share_releases: Vec<ThresholdRecoveryProofShareReleasesItem>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ThresholdRecoveryProofShareReleaseBody {
+    pub share_id: NonEmptyString,
+    pub holder: DidCoreId,
+    pub transcript_digest: Hash,
+    pub verification_method: DidUrl,
+    pub signature_algorithm: RecoveryFactorSignatureAlgorithm,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ThresholdRecoveryProofBody {
+    pub kind: ThresholdRecoveryProofKind,
+    pub challenge: Challenge,
+    #[serde(deserialize_with = "deserialize_minimum_two")]
+    pub threshold: u64,
+    pub share_releases: Vec<ThresholdRecoveryProofShareReleaseBody>,
+}
+
+impl ThresholdRecoveryProof {
+    pub fn signature_independent_proof_body(&self) -> Result<ThresholdRecoveryProofBody> {
+        Ok(ThresholdRecoveryProofBody {
+            kind: self.kind,
+            challenge: self.challenge.clone(),
+            threshold: self.threshold,
+            share_releases: self
+                .share_releases
+                .iter()
+                .map(|release| {
+                    Ok(ThresholdRecoveryProofShareReleaseBody {
+                        share_id: release.share_id.clone(),
+                        holder: release.holder.clone(),
+                        transcript_digest: release.transcript_digest.clone(),
+                        verification_method: release.verification_method.clone(),
+                        signature_algorithm: RecoveryFactorSignatureAlgorithm::try_from(
+                            &release.signature_algorithm,
+                        )?,
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?,
+        })
+    }
+}
+
+/// Closed signature-independent body of a non-`did_root` recovery transcript.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GenericRecoveryProofBody {
+    RecoveryUnlock(RecoveryUnlockProofBody),
+    DeviceQuorum(RecoveryDeviceQuorumProofBody),
+    TrustedRecoveryService(TrustedRecoveryServiceProofBody),
+    ThresholdRecovery(ThresholdRecoveryProofBody),
+}
+
+impl GenericRecoveryProofBody {
+    pub const fn kind(&self) -> RecoveryProofKind {
+        match self {
+            Self::RecoveryUnlock(_) => RecoveryProofKind::RecoveryUnlock,
+            Self::DeviceQuorum(_) => RecoveryProofKind::DeviceQuorum,
+            Self::TrustedRecoveryService(_) => RecoveryProofKind::TrustedRecoveryService,
+            Self::ThresholdRecovery(_) => RecoveryProofKind::ThresholdRecovery,
+        }
+    }
+
+    pub fn challenge(&self) -> &Challenge {
+        match self {
+            Self::RecoveryUnlock(body) => &body.challenge,
+            Self::DeviceQuorum(body) => &body.challenge,
+            Self::TrustedRecoveryService(body) => &body.challenge,
+            Self::ThresholdRecovery(body) => &body.challenge,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::RecoveryUnlock(_) | Self::TrustedRecoveryService(_) => Ok(()),
+            Self::DeviceQuorum(body) if body.signatures.len() >= 2 => Ok(()),
+            Self::ThresholdRecovery(body) if body.share_releases.len() >= 2 => Ok(()),
+            Self::DeviceQuorum(_) => Err(WireError::Protocol(
+                "device_quorum transcript proof_body requires at least two signatures".to_owned(),
+            )),
+            Self::ThresholdRecovery(_) => Err(WireError::Protocol(
+                "threshold_recovery transcript proof_body requires at least two share releases"
+                    .to_owned(),
+            )),
+        }
+    }
+}
+
 // ── Keypackage operations aggregate ──────────────────────────────────────
 // The `arkret` umbrella re-exports this owner-defined enum at its root.
 
@@ -1715,6 +1949,85 @@ pub enum KeyPackageOperations {
 #[cfg(test)]
 mod untagged_contract_tests {
     use super::*;
+
+    #[test]
+    fn embedded_recovery_transcript_kat_closes_all_five_factors() {
+        use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+
+        let fixture =
+            arkret_schema::embedded_json_artifact("fixtures/recovery-transcript-fixture.json")
+                .unwrap();
+        let public_key = arkret_canonical::base64url_decode(
+            fixture
+                .pointer("/test_key/public_key")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap();
+        let verifying_key =
+            VerifyingKey::from_bytes(public_key.as_slice().try_into().unwrap()).unwrap();
+        let cases = fixture.get("cases").unwrap().as_array().unwrap();
+        assert_eq!(cases.len(), RecoveryProofKind::ALL.len());
+
+        for (case, expected_kind) in cases.iter().zip(RecoveryProofKind::ALL) {
+            assert_eq!(
+                case.get("kind").unwrap().as_str().unwrap(),
+                expected_kind.as_wire_str()
+            );
+            let transcript = case.get("transcript").unwrap();
+            let canonical = arkret_canonical::canonical_json_bytes(transcript).unwrap();
+            assert_eq!(
+                std::str::from_utf8(&canonical).unwrap(),
+                case.get("transcript_jcs").unwrap().as_str().unwrap()
+            );
+            let signature = Signature::from_slice(
+                &arkret_canonical::base64url_decode(
+                    case.get("signature_b64u").unwrap().as_str().unwrap(),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+            verifying_key.verify(&canonical, &signature).unwrap();
+
+            if *expected_kind == RecoveryProofKind::DidRoot {
+                serde_json::from_value::<DidRootTranscript>(transcript.clone()).unwrap();
+            } else {
+                serde_json::from_value::<GenericRecoveryTranscript>(transcript.clone()).unwrap();
+            }
+
+            let proof: RecoverySessionProof =
+                serde_json::from_value(case.get("source_proof").unwrap().clone()).unwrap();
+            let projected = proof.signature_independent_proof_body().unwrap();
+            assert_eq!(
+                projected
+                    .as_ref()
+                    .map(|value| serde_json::to_value(value).unwrap()),
+                transcript.get("proof_body").cloned()
+            );
+
+            let replay = case.pointer("/cross_factor_replay/transcript").unwrap();
+            let replay_bytes = arkret_canonical::canonical_json_bytes(replay).unwrap();
+            assert!(verifying_key.verify(&replay_bytes, &signature).is_err());
+        }
+
+        let mut did_root_with_body = cases[0].get("transcript").unwrap().clone();
+        did_root_with_body["proof_body"] = serde_json::json!({});
+        assert!(serde_json::from_value::<DidRootTranscript>(did_root_with_body).is_err());
+
+        let recovery_unlock = cases[1].get("transcript").unwrap();
+        let mut wrong_kind = recovery_unlock.clone();
+        wrong_kind["kind"] = Value::String("device_quorum".to_owned());
+        assert!(serde_json::from_value::<GenericRecoveryTranscript>(wrong_kind).is_err());
+
+        let mut wrong_body_challenge = recovery_unlock.clone();
+        wrong_body_challenge["proof_body"]["challenge"] = Value::String("B".repeat(43));
+        assert!(serde_json::from_value::<GenericRecoveryTranscript>(wrong_body_challenge).is_err());
+
+        let mut unknown_algorithm = recovery_unlock.clone();
+        unknown_algorithm["proof_body"]["signature_algorithm"] = Value::String("ES256".to_owned());
+        assert!(serde_json::from_value::<GenericRecoveryTranscript>(unknown_algorithm).is_err());
+    }
 
     #[test]
     fn recovery_challenge_enforces_the_exact_schema_shape() {

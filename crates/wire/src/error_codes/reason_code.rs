@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-23.3;
-//! sha256=e6803d3fe6c0ad3da3133cc3c4baaac76b066c85c428fbe6c85afa9a506bd9a2
+//! Input: registry/error-code-registry.json; version=2026-08-23.4;
+//! sha256=c174b5d2b88fe53dd03ac8b30073a4e89f10fbde2eddf9bf1b51fd66e685a8d3
 //! Entries: reason_codes=469
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -3666,7 +3666,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PCR_GENESIS_NOT_FIRST,
         applies_to: &["pcr_genesis"],
-        description: "Genesis admission was attempted after the PCR frontier ceased to be empty, or after a PCR genesis receipt already existed. The caller must use device pairing or root-anchored re-anchor.",
+        description: "Genesis admission was attempted after the PCR frontier ceased to be empty, or after a PCR genesis receipt already existed. The caller must use device pairing or PCR-policy re-anchor.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PCR_GENESIS_UNIT_INVALID,

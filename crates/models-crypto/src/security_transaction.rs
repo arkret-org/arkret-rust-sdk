@@ -79,7 +79,7 @@ mod tests {
         let value = serde_json::json!({
             "request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "prepared_plan_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "expected_next_step": "publish_did_entry"
+            "expected_next_step": "submit_reanchor_unit"
         });
         let request: SecurityTransactionContinueRequest =
             serde_json::from_value(value.clone()).unwrap();

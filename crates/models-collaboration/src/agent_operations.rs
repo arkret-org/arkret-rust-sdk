@@ -1018,22 +1018,27 @@ pub struct AgentGrantDetachOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+/// Service/SDK-local projection recovered from accepted Sidecar context state.
+/// It is also reused by the account-private Sidecar view-state schema, but not
+/// by the removed native Sidecar operation wire shape.
 pub struct AgentSidecarStrandContextRef {
     pub realm_id: RealmId,
     pub strand_id: StrandId,
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+/// Service/SDK-local projection recovered from accepted Sidecar context state.
+/// This type is never serialized as an Arkret operation or Event wire field.
 pub struct AgentSidecarRelationContextRef {
     pub realm_id: RealmId,
     pub relation_id: RelationId,
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
+/// Local recovered locator; there is deliberately no standalone schema `$defs`
+/// or OpenAPI component for this enum.
 pub enum AgentSidecarContextRef {
     Strand(AgentSidecarStrandContextRef),
     Relation(AgentSidecarRelationContextRef),

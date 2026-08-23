@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    BackupRotationBinding, ROOT_ANCHORED_RECOVERY_STEP_ORDER, Result, SECURITY_ROTATION_STEP_ORDER,
+    BackupRotationBinding, PCR_POLICY_RECOVERY_STEP_ORDER, Result, SECURITY_ROTATION_STEP_ORDER,
     SecurityTransactionStep, WireError,
 };
 use serde::{Deserialize, Serialize};
@@ -87,7 +87,7 @@ fn step_name(step: SecurityTransactionStep) -> Result<String> {
 
 fn transaction_steps(kind: &str) -> Result<Vec<String>> {
     let steps: &[SecurityTransactionStep] = match kind {
-        "recovery_root_anchored" => &ROOT_ANCHORED_RECOVERY_STEP_ORDER,
+        "recovery_pcr_policy" => &PCR_POLICY_RECOVERY_STEP_ORDER,
         "security_rotation" => &SECURITY_ROTATION_STEP_ORDER,
         _ => {
             return Err(WireError::Protocol(format!(
@@ -100,7 +100,7 @@ fn transaction_steps(kind: &str) -> Result<Vec<String>> {
 
 fn transaction_id(kind: &str) -> Result<String> {
     let suffix = match kind {
-        "recovery_root_anchored" => "000000000001",
+        "recovery_pcr_policy" => "000000000001",
         "security_rotation" => "000000000003",
         _ => {
             return Err(WireError::Protocol(format!(

@@ -252,7 +252,7 @@ impl HistoryCandidateOriginAttribution {
         }
     }
 
-    /// The closed `history_candidate_origin_domain` discriminator.
+    /// The closed origin-domain discriminator derived from the enum variant.
     pub fn origin_domain(&self) -> HistoryCandidateOriginDomain {
         match self {
             Self::ResponseSender { .. } => HistoryCandidateOriginDomain::ResponseSender,

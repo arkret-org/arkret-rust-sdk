@@ -278,17 +278,6 @@ impl SidecarEnsureOutcome {
     }
 }
 
-string_marker!(SidecarScopeKind, Sidecar, "sidecar");
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct SidecarScopeRef {
-    pub kind: SidecarScopeKind,
-    pub realm_id: RealmId,
-    pub sidecar_id: SidecarId,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

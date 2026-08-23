@@ -1,15 +1,13 @@
 //! Recovery-secret key schedule and recovery-proof authoring for principal identity roots.
 
-use std::collections::BTreeMap;
-
 use arkret_models_crypto::{
-    GenericRecoveryTranscript, RecoveryProofKind, RecoverySessionProof, RecoverySessionState,
-    RecoverySessionUnlockProof, RecoverySessionUnlockProofKind, SessionState,
+    GenericRecoveryProofBody, GenericRecoveryTranscript, RecoveryFactorSignatureAlgorithm,
+    RecoveryProofKind, RecoverySessionProof, RecoverySessionState, RecoverySessionUnlockProof,
+    RecoverySessionUnlockProofKind, RecoveryUnlockProofBody, SessionState,
 };
 use arkret_wire::{Base64UrlString, DidUrl, Hash, NonEmptyString};
 use ed25519_dalek::{Signer as _, SigningKey};
 use hpke::{Kem, Serializable};
-use serde_json::Value;
 use sha2::{Digest as _, Sha256};
 use thiserror::Error;
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -220,29 +218,14 @@ pub fn recovery_unlock_transcript(
             RecoveryUnlockAuthoringError::InvalidRecoverySecretRef(error.to_owned())
         })?;
     let model_generation_ref = session.current_device_generation_ref;
-    let proof_body = BTreeMap::from([
-        (
-            "signature_algorithm".to_owned(),
-            Value::String("Ed25519".to_owned()),
-        ),
-        (
-            "challenge".to_owned(),
-            serde_json::to_value(&session.challenge)
-                .expect("challenge serialization is infallible"),
-        ),
-        (
-            "kind".to_owned(),
-            Value::String("recovery_unlock".to_owned()),
-        ),
-        (
-            "recovery_secret_ref".to_owned(),
-            Value::String(recovery_secret_ref.as_str().to_owned()),
-        ),
-        (
-            "verification_method".to_owned(),
-            Value::String(recovery_secret_ref.as_str().to_owned()),
-        ),
-    ]);
+    let proof_body = GenericRecoveryProofBody::RecoveryUnlock(RecoveryUnlockProofBody {
+        kind: RecoverySessionUnlockProofKind::RecoveryUnlock,
+        challenge: session.challenge.clone(),
+        recovery_secret_ref: NonEmptyString::new(recovery_secret_ref.as_str().to_owned())
+            .map_err(|error| RecoveryUnlockAuthoringError::InvalidProofField(error.to_owned()))?,
+        verification_method: recovery_secret_ref.clone(),
+        signature_algorithm: RecoveryFactorSignatureAlgorithm::Ed25519,
+    });
     let transcript = GenericRecoveryTranscript {
         schema: "ak.identity.recovery_proof.v1".to_owned(),
         kind: RecoveryProofKind::RecoveryUnlock,

@@ -101,7 +101,6 @@ impl SnapshotManifest {
     pub fn expected_signature_digest(&self) -> Result<Hash> {
         self.unsigned_view().payload_digest()
     }
-
 }
 
 impl UnsignedSnapshotManifest<'_> {
