@@ -79,6 +79,17 @@ impl From<StoreError> for ControlMoveReject {
     }
 }
 
+/// Frozen receiver state and protocol context shared by one Control Move
+/// verification pass.
+#[derive(Clone, Copy)]
+pub struct ControlMoveVerificationContext<'a> {
+    pub realm_id: &'a RealmId,
+    pub pre_state: &'a BTreeMap<CellRef, CellState>,
+    pub registry: &'a dyn CellRegistry,
+    pub digest_suite: arkret_canonical::DigestSuite,
+    pub submit_context: EventSubmitContext,
+}
+
 /// Map a [`ControlMoveReject`] variant to its wire-level `error_code`
 /// constant (from `arkret-spec` `error-code-registry.json`).
 pub fn reject_to_error_code(r: &ControlMoveReject) -> &'static str {
@@ -140,13 +151,15 @@ where
 {
     verify_control_move_in_context(
         event,
-        realm_id,
-        pre_state,
-        registry,
-        digest_suite,
+        ControlMoveVerificationContext {
+            realm_id,
+            pre_state,
+            registry,
+            digest_suite,
+            submit_context: EventSubmitContext::Standard,
+        },
         verify_proofs,
         project_writes,
-        EventSubmitContext::Standard,
     )
 }
 
@@ -158,13 +171,9 @@ where
 /// precondition, and reducer checks.
 pub fn verify_control_move_in_context<VerifyProofs, ProjectWrites>(
     event: &Event,
-    realm_id: &RealmId,
-    pre_state: &BTreeMap<CellRef, CellState>,
-    registry: &dyn CellRegistry,
-    digest_suite: arkret_canonical::DigestSuite,
+    verification: ControlMoveVerificationContext<'_>,
     verify_proofs: VerifyProofs,
     project_writes: ProjectWrites,
-    context: EventSubmitContext,
 ) -> Result<Vec<ProjectionEffect>, ControlMoveReject>
 where
     VerifyProofs: Fn(&Event) -> Result<(), String>,
@@ -172,13 +181,9 @@ where
 {
     verify_control_move_with_proof_set(
         event,
-        realm_id,
-        pre_state,
-        registry,
-        digest_suite,
+        verification,
         verify_proofs,
         project_writes,
-        context,
         StructuralProofRegime::ProducerSubmission,
     )
 }
@@ -188,13 +193,9 @@ where
 /// producer-submission path, but the closed proof set is Producer + Admission.
 pub fn verify_accepted_control_move_in_context<VerifyProofs, ProjectWrites>(
     event: &Event,
-    realm_id: &RealmId,
-    pre_state: &BTreeMap<CellRef, CellState>,
-    registry: &dyn CellRegistry,
-    digest_suite: arkret_canonical::DigestSuite,
+    verification: ControlMoveVerificationContext<'_>,
     verify_proofs: VerifyProofs,
     project_writes: ProjectWrites,
-    context: EventSubmitContext,
 ) -> Result<Vec<ProjectionEffect>, ControlMoveReject>
 where
     VerifyProofs: Fn(&Event) -> Result<(), String>,
@@ -202,13 +203,9 @@ where
 {
     verify_control_move_with_proof_set(
         event,
-        realm_id,
-        pre_state,
-        registry,
-        digest_suite,
+        verification,
         verify_proofs,
         project_writes,
-        context,
         StructuralProofRegime::FederationAccepted,
     )
 }
@@ -218,13 +215,9 @@ where
 /// Producer + PrincipalServerAdmission Events use the federation contract.
 pub fn verify_replayed_control_move_in_context<VerifyProofs, ProjectWrites>(
     event: &Event,
-    realm_id: &RealmId,
-    pre_state: &BTreeMap<CellRef, CellState>,
-    registry: &dyn CellRegistry,
-    digest_suite: arkret_canonical::DigestSuite,
+    verification: ControlMoveVerificationContext<'_>,
     verify_proofs: VerifyProofs,
     project_writes: ProjectWrites,
-    context: EventSubmitContext,
 ) -> Result<Vec<ProjectionEffect>, ControlMoveReject>
 where
     VerifyProofs: Fn(&Event) -> Result<(), String>,
@@ -232,13 +225,9 @@ where
 {
     verify_control_move_with_proof_set(
         event,
-        realm_id,
-        pre_state,
-        registry,
-        digest_suite,
+        verification,
         verify_proofs,
         project_writes,
-        context,
         StructuralProofRegime::RetainedReplay,
     )
 }
@@ -252,19 +241,22 @@ enum StructuralProofRegime {
 
 fn verify_control_move_with_proof_set<VerifyProofs, ProjectWrites>(
     event: &Event,
-    realm_id: &RealmId,
-    pre_state: &BTreeMap<CellRef, CellState>,
-    registry: &dyn CellRegistry,
-    digest_suite: arkret_canonical::DigestSuite,
+    verification: ControlMoveVerificationContext<'_>,
     verify_proofs: VerifyProofs,
     project_writes: ProjectWrites,
-    context: EventSubmitContext,
     proof_regime: StructuralProofRegime,
 ) -> Result<Vec<ProjectionEffect>, ControlMoveReject>
 where
     VerifyProofs: Fn(&Event) -> Result<(), String>,
     ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String>,
 {
+    let ControlMoveVerificationContext {
+        realm_id,
+        pre_state,
+        registry,
+        digest_suite,
+        submit_context: context,
+    } = verification;
     // Step 1: structural. `validate_for_submit_structural` also enforces the
     // CBA envelope shape, so a DataEvent (`seal_ref` + `auth_context`) or an
     // Event with neither basis cannot reach the control-plane reducer here.
@@ -947,7 +939,6 @@ mod tests {
         )
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn verify_accepted_control_move_in_context<VerifyProofs, ProjectWrites>(
         event: &Event,
         realm_id: &RealmId,
@@ -963,13 +954,15 @@ mod tests {
     {
         super::verify_accepted_control_move_in_context(
             event,
-            realm_id,
-            pre_state,
-            registry,
-            arkret_canonical::DigestSuite::Sha256,
+            ControlMoveVerificationContext {
+                realm_id,
+                pre_state,
+                registry,
+                digest_suite: arkret_canonical::DigestSuite::Sha256,
+                submit_context: context,
+            },
             verify_proofs,
             project_writes,
-            context,
         )
     }
 

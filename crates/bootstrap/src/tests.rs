@@ -226,7 +226,7 @@ fn fixture_notary(actor_id: &DidCoreId, actor_full_id: &DidFullId, fragment: &st
         verification_method: DidUrl::new(format!("{actor_full_id}#{fragment}")).unwrap(),
         key_kind: NotaryKeyKind::Ed25519Raw32,
         jose_algorithm: NotaryJoseAlgorithm::Ed25519,
-        frozen_public_key_b64u: arkret_wire::base64url::base64url_encode(&public_key),
+        frozen_public_key_b64u: arkret_wire::base64url::base64url_encode(public_key),
         frozen_public_key_digest: Hash::new(arkret_wire::canonical::sha256_digest(public_key))
             .unwrap(),
     })

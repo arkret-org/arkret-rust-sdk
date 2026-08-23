@@ -198,7 +198,7 @@ mod tests {
         let multibase = key_multibase(&key);
         let document = json!({
             "versionId": "1-QmFixture",
-            "parameters": {"updateKeys": [multibase.clone()]},
+            "parameters": {"updateKeys": [multibase]},
             "state": {"id": "did:webvh:QmFixture:example.test"},
         });
         let proof = build_eddsa_jcs_2022_proof(
@@ -213,7 +213,7 @@ mod tests {
 
         // Attaching the proof to the document does not change the document
         // half of the signing input.
-        let mut signed = document.clone();
+        let mut signed = document;
         signed["proof"] = Value::Array(vec![proof.clone()]);
         verify_eddsa_jcs_2022_proof(&signed, &proof, &multibase).unwrap();
     }

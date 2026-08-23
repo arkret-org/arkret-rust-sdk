@@ -95,7 +95,7 @@ mod tests {
             verification_method: method.clone(),
             key_kind: NotaryKeyKind::Ed25519Raw32,
             jose_algorithm: NotaryJoseAlgorithm::Ed25519,
-            frozen_public_key_b64u: base64url_encode(&public_key),
+            frozen_public_key_b64u: base64url_encode(public_key),
             frozen_public_key_digest: Hash::new(arkret_canonical::canonical::sha256_digest(
                 public_key,
             ))
@@ -115,7 +115,7 @@ mod tests {
         SealSignature {
             verification_method: method.clone(),
             payload_digest: Hash::new(arkret_canonical::canonical::sha256_digest(body)).unwrap(),
-            jws: format!("{protected}..{}", base64url_encode(&signature.to_bytes())),
+            jws: format!("{protected}..{}", base64url_encode(signature.to_bytes())),
         }
     }
 

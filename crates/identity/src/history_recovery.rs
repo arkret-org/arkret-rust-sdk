@@ -355,7 +355,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            arkret_wire::base64url::base64url_encode(&resolved.hpke_public_key),
+            arkret_wire::base64url::base64url_encode(resolved.hpke_public_key),
             key_tuple["frozen_public_key_b64u"].as_str().unwrap(),
         );
         assert!(
@@ -423,14 +423,14 @@ mod tests {
         .unwrap();
         let sealed = vec![
             SealedOp::new(register_move_id.clone(), register_op.clone()),
-            SealedOp::new(rotate_move_id.clone(), rotate_op.clone()),
+            SealedOp::new(rotate_move_id.clone(), rotate_op),
         ];
         assert_eq!(
             CasRegister.join(&register_write.cell, &sealed),
             CellState::Value(kat["projected_rotate_op"]["to"].clone())
         );
 
-        let mut stale_event = rotate_event.clone();
+        let mut stale_event = rotate_event;
         stale_event.preconditions.clear();
         let stale_write = arkret_schema::project_registered_cell_writes(
             &stale_event,

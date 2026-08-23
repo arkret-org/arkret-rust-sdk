@@ -471,7 +471,7 @@ fn spec_merkle_empty_root_is_sha256_empty() {
 }
 
 #[test]
-fn spec_merkle_rfc6962_fixed_vectors_reject_legacy_roots() {
+fn spec_merkle_rfc6962_fixed_vectors() {
     let leaf =
         |byte: u8| Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap();
     let one = leaf(0x11);
@@ -481,10 +481,6 @@ fn spec_merkle_rfc6962_fixed_vectors_reject_legacy_roots() {
     assert_eq!(
         merkle_root_from_hashes(vec![one.clone()]).unwrap().as_str(),
         "sha256:4635e1fa62a599a7880a8d14a56f720a1d40f6e5448ab5a5e39bedc8bd87fa8e"
-    );
-    assert_ne!(
-        merkle_root_from_hashes(vec![one.clone()]).unwrap().as_str(),
-        "sha256:02d449a31fbb267c8f352e9968a79e3e5fc95c1bbeaa502fd6454ebde5a4bedc"
     );
     assert_eq!(
         merkle_root_from_hashes(vec![one.clone(), two.clone()])

@@ -580,7 +580,7 @@ pub fn sign_registration_did_evidence_draft(
     )
     .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
     let verification_method = DidUrl::new(format!("{}#registration-root", request.did))
-        .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
+        .map_err(|error| WebvhInceptionError::InvalidDid(error.to_owned()))?;
     let mut draft = RegistrationDidEvidenceDraft {
         principal_id: validated.principal_id,
         full_id: request.did.clone(),
@@ -2598,7 +2598,6 @@ mod historical_verification_tests {
         assert!(serde_json::from_value::<RegistrationDidEvidenceDraft>(omitted).is_err());
         assert!(
             draft
-                .clone()
                 .accept(created_at - Duration::milliseconds(1))
                 .is_err()
         );

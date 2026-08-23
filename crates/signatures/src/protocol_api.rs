@@ -278,8 +278,9 @@ pub use arkret_wire::HttpMessageSignature;
 mod tests {
     use std::collections::BTreeMap;
 
-    use super::*;
     use chrono::Duration;
+
+    use super::*;
 
     #[derive(Default)]
     struct StaticDidVerificationMethodResolver {

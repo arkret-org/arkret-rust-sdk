@@ -99,15 +99,13 @@ fn evidence_by_digest<'a>(
             == &(arkret_models_collaboration::governance_dependencies::GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
                 content_digest: digest.clone(),
             })
-        {
-            if found
+            && found
                 .replace(authenticated_signer_resolution_evidence.as_ref())
                 .is_some()
-            {
+        {
                 return Err(WireError::Protocol(
                     "duplicate signer-resolution evidence dependency".to_owned(),
                 ));
-            }
         }
     }
     found.ok_or_else(|| {
@@ -1184,7 +1182,7 @@ where
         .map(|seal| (seal.id.clone(), seal))
         .collect::<BTreeMap<_, _>>();
     let mut selected_ids = BTreeSet::new();
-    let mut pending = requested_basis.leaves.iter().cloned().collect::<Vec<_>>();
+    let mut pending = requested_basis.leaves.to_vec();
     while let Some(seal_id) = pending.pop() {
         if !selected_ids.insert(seal_id.clone()) {
             continue;

@@ -1,8 +1,7 @@
 use arkret_wire::{DidFullId, Hlc, RealmId, project_full_id_to_core_id};
 
-use crate::helpers::{encode_base58btc, try_did_webvh_url};
-
 use super::*;
+use crate::helpers::{encode_base58btc, try_did_webvh_url};
 
 fn did(name: &str) -> DidFullId {
     DidFullId::new(format!("did:webvh:z6mkfixture{name}:{name}.example")).unwrap()

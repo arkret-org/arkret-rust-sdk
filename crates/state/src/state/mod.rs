@@ -7,7 +7,8 @@
 //!   with [`store::memory`] in-memory backends used by tests and the SDK harness.
 //! - [`verify`] — the Control Move verifier pipeline (structural → proofs → critical refs →
 //!   preconditions → receiver-derived writes).
-//! - [`seal`] — `apply_seal`, `verify_seal_basis` and `effective_seal_view` per spec §6.3 / §5.1.
+//! - [`seal`] — `apply_seal_in_context`, `verify_seal_basis` and `effective_seal_view` per spec
+//!   §6.3 / §5.1.
 //! - [`state_root`] — canonical Merkle compute per spec §6.2.1 normative.
 //!
 //! Architecture rationale + design tradeoffs live in
@@ -26,8 +27,8 @@ pub use range_completeness::{
     range_completeness_root_with_suite, verify_full_realm_range_completeness_with_suite,
 };
 pub use seal::{
-    EffectiveSealView, SealDigestSuites, SealEffect, SealLeafUnionProof, SealReject,
-    apply_accepted_seal_in_context, apply_replayed_seal_in_context, apply_seal,
+    EffectiveSealView, SealBasisVerificationContext, SealDigestSuites, SealEffect,
+    SealLeafUnionProof, SealReject, apply_accepted_seal_in_context, apply_replayed_seal_in_context,
     apply_seal_in_context, control_event_completeness_root, control_event_set_root,
     deterministic_order, effective_seal_view, effective_state_at, join_cell,
     join_cell_seal_batches, leaf_union_proof, live_digest_suite_from_state,
@@ -48,6 +49,7 @@ pub use store::{
     StoreError, StoreResult, control_event_digest,
 };
 pub use verify::{
-    ControlMoveReject, reject_to_error_code, resolve_projected_write,
-    verify_accepted_control_move_in_context, verify_control_move, verify_control_move_in_context,
+    ControlMoveReject, ControlMoveVerificationContext, reject_to_error_code,
+    resolve_projected_write, verify_accepted_control_move_in_context, verify_control_move,
+    verify_control_move_in_context,
 };

@@ -3,13 +3,12 @@
 //! Fuzz the detached-JWS proof verifier
 //! (`arkret_signatures::proof::verify_ed25519_detached_jws_proof`) and the
 //! public-key material decoder. Both consume attacker-controlled bytes (a
-//! wire `Proof` plus resolver-supplied key material) and MUST fail closed
+//! wire `ProducerEventProof` plus resolver-supplied key material) and MUST fail closed
 //! without panicking: a malformed proof or key is a rejection, never a crash
 //! and never a spurious "valid".
 
-use arkret_identifiers::DidCoreId;
 use arkret_signatures::proof::{PublicKeyMaterial, verify_ed25519_detached_jws_proof};
-use arkret_wire::Proof;
+use arkret_wire::{DidCoreId, ProducerEventProof};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
@@ -31,11 +30,11 @@ fuzz_target!(|data: &[u8]| {
     let Ok(text) = std::str::from_utf8(rest) else {
         return;
     };
-    let Ok(proof) = serde_json::from_str::<Proof>(text) else {
+    let Ok(proof) = serde_json::from_str::<ProducerEventProof>(text) else {
         return;
     };
 
-    let actor_id = DidFullId::new("did:web:fuzz.example").expect("static did");
+    let actor_id = DidCoreId::new("ak:did_core:web:fuzz.example").expect("static DID core ID");
     // Verifier must return Ok/Err, never panic, on arbitrary canonical bytes +
     // arbitrary (parsed) proof + arbitrary key.
     let _ =

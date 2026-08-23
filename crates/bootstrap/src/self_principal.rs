@@ -96,7 +96,7 @@ pub fn build_self_principal_pcr_create(
         // carries no realm_id. Every Realm id, including a PCR, is derived
         // from the authored create Event.
         ScopeRef::RealmGenesis,
-        actor_id.clone(),
+        actor_id,
         input.principal_server_id,
         payload,
     )

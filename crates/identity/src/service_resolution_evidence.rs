@@ -65,7 +65,7 @@ pub fn build_authenticated_webvh_service_resolution(
                 from_method_history_head: first_history_head,
                 from_version_id: first_version,
                 to_method_history_head: last_history_head.clone(),
-                to_version_id: last_version.clone(),
+                to_version_id: last_version,
             },
             evidence: ResolutionDidBindingEvidenceReceipt {
                 kind: ResolutionDidBindingEvidenceKind::AkDidBindingEvidenceV1,
@@ -222,8 +222,8 @@ pub fn verify_public_principal_resolution_history(
                 WireError::Protocol("principal WebVH resolution has no log entries".to_owned())
             })?;
             let complete_boundary = ResolutionMethodEvidenceBoundary {
-                from_method_history_head: history_head(first)?.to_owned(),
-                from_version_id: version_id(first)?.to_owned(),
+                from_method_history_head: history_head(first)?,
+                from_version_id: version_id(first)?,
                 to_method_history_head: projection.method_history_head.clone(),
                 to_version_id: projection.version_id.clone(),
             };

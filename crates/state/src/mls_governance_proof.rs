@@ -1120,10 +1120,12 @@ where
     Ok(bundle)
 }
 
+type ExactSealCut = (BTreeSet<SealId>, BTreeSet<(SealId, SealId)>);
+
 fn exact_seal_cut(
     request: &MlsGovernanceProofRequestBody,
     seals: &BTreeMap<SealId, &Seal>,
-) -> arkret_wire::Result<(BTreeSet<SealId>, BTreeSet<(SealId, SealId)>)> {
+) -> arkret_wire::Result<ExactSealCut> {
     let base = request
         .proof_base_basis
         .leaves
@@ -1411,6 +1413,14 @@ fn dependency_sort_key(item: &GovernanceDependency) -> arkret_wire::Result<(Stri
     ))
 }
 
+type ReplayedGovernanceCut = (
+    MemorySealStore,
+    MemoryCellStore,
+    Vec<Seal>,
+    Vec<Event>,
+    BTreeMap<SealId, DigestSuite>,
+);
+
 #[allow(clippy::too_many_arguments)]
 fn replay_checkpoint_and_cut<
     VerifySealSignature,
@@ -1428,13 +1438,7 @@ fn replay_checkpoint_and_cut<
     verify_event_proofs: VerifyEventProofs,
     verify_seal_dependencies: VerifySealDependencies,
     project_writes: ProjectWrites,
-) -> arkret_wire::Result<(
-    MemorySealStore,
-    MemoryCellStore,
-    Vec<Seal>,
-    Vec<Event>,
-    BTreeMap<SealId, DigestSuite>,
-)>
+) -> arkret_wire::Result<ReplayedGovernanceCut>
 where
     VerifySealSignature: Fn(&SealSignature, &NotarySignerDescriptor, &[u8], DigestSuite) -> arkret_wire::Result<()>
         + Copy,
@@ -1488,13 +1492,7 @@ fn replay_checkpoint_and_cut_to_basis<
     verify_event_proofs: VerifyEventProofs,
     verify_seal_dependencies: VerifySealDependencies,
     project_writes: ProjectWrites,
-) -> arkret_wire::Result<(
-    MemorySealStore,
-    MemoryCellStore,
-    Vec<Seal>,
-    Vec<Event>,
-    BTreeMap<SealId, DigestSuite>,
-)>
+) -> arkret_wire::Result<ReplayedGovernanceCut>
 where
     VerifySealSignature: Fn(&SealSignature, &NotarySignerDescriptor, &[u8], DigestSuite) -> arkret_wire::Result<()>
         + Copy,

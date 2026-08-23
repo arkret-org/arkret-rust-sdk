@@ -631,6 +631,10 @@ struct DeltaEventLookup<'a> {
     store: &'a MemoryControlEventStore,
 }
 
+/// Observer invoked after one Seal and its exact delta have been replayed.
+pub type DirectTraversalSealObserver<'a> =
+    dyn FnMut(&Seal, &BTreeMap<Hash, Event>) -> arkret_wire::Result<()> + 'a;
+
 impl ReplayEventLookup for DeltaEventLookup<'_> {
     fn event(&self, digest: &Hash) -> arkret_wire::Result<Option<Event>> {
         if let Some(event) = self.delta.get(digest) {
@@ -669,7 +673,7 @@ pub fn verify_direct_traversal_cut_with_registry<
     verify_event_proofs: VerifyEventProofs,
     verify_seal_dependencies: VerifySealDependencies,
     project_writes: ProjectWrites,
-    on_replayed_seal: &mut dyn FnMut(&Seal, &BTreeMap<Hash, Event>) -> arkret_wire::Result<()>,
+    on_replayed_seal: &mut DirectTraversalSealObserver<'_>,
 ) -> arkret_wire::Result<VerifiedDirectTraversalCut>
 where
     VerifySealSignature: Fn(&SealSignature, &NotarySignerDescriptor, &[u8], DigestSuite) -> arkret_wire::Result<()>

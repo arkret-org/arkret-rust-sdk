@@ -30,11 +30,11 @@ pub const SERVICE_RESOLUTION_FETCH_TIMEOUT: Duration = Duration::from_secs(5);
 #[derive(Clone, Debug)]
 pub enum MaterializedServiceResolution {
     InlineRecord {
-        record: ServiceResolutionRecord,
+        record: Box<ServiceResolutionRecord>,
         canonical_bytes: Vec<u8>,
     },
     AuthenticatedResolution {
-        resolution: AuthenticatedServiceResolution,
+        resolution: Box<AuthenticatedServiceResolution>,
         canonical_bytes: Vec<u8>,
     },
 }
@@ -111,7 +111,7 @@ impl ServiceResolutionFetcher {
                 let canonical_bytes = arkret_canonical::canonical::canonical_json_bytes(inline)
                     .map_err(|error| Error::Protocol(error.to_string()))?;
                 Ok(MaterializedServiceResolution::InlineRecord {
-                    record: inline.clone(),
+                    record: Box::new(inline.clone()),
                     canonical_bytes,
                 })
             }
@@ -223,7 +223,7 @@ impl ServiceResolutionFetcher {
             }
         }
         Ok(MaterializedServiceResolution::AuthenticatedResolution {
-            resolution,
+            resolution: Box::new(resolution),
             canonical_bytes,
         })
     }

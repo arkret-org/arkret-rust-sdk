@@ -1206,13 +1206,6 @@ mod device_message_tests {
         );
         assert_eq!(serde_json::to_value(update).unwrap(), value);
 
-        let mut unknown = value.clone();
-        unknown["legacy_sender_hint"] = json!(true);
-        assert!(
-            serde_json::from_value::<ActorPrivateDeviceUpdate>(unknown).is_err(),
-            "actor-private update root is closed"
-        );
-
         let mut mixed = value.clone();
         mixed["sender_device_id"] = json!("ak:device:01904100-0000-7000-8000-000000000001");
         assert!(

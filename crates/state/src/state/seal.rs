@@ -10,8 +10,9 @@ use thiserror::Error;
 use super::state_root::{compute_state_root, seal_merkle_root_from_leaf_data};
 use super::store::{CellRegistry, CellStore, ControlEventStore, SealStore};
 use super::verify::{
-    ControlMoveReject, recovery_capability_is_active, verify_accepted_control_move_in_context,
-    verify_control_move_in_context, verify_replayed_control_move_in_context,
+    ControlMoveReject, ControlMoveVerificationContext, recovery_capability_is_active,
+    verify_accepted_control_move_in_context, verify_control_move_in_context,
+    verify_replayed_control_move_in_context,
 };
 use crate::lattice::ordered_log::IssuedOp;
 use crate::lattice::{CellState, SealedOp};
@@ -43,6 +44,18 @@ pub struct SealDigestSuites {
     pub event_digest_suite: arkret_canonical::DigestSuite,
     pub seal_digest_suite: arkret_canonical::DigestSuite,
     pub previous_state_digest_suite: Option<arkret_canonical::DigestSuite>,
+}
+
+/// Seal-DAG and frozen-state dependencies required to verify one Event's
+/// declared Seal basis.
+#[derive(Clone, Copy)]
+pub struct SealBasisVerificationContext<'a> {
+    pub predecessor_closure: &'a BTreeSet<SealId>,
+    pub realm_id: &'a RealmId,
+    pub seals: &'a dyn SealStore,
+    pub cells: &'a dyn CellStore,
+    pub registry: &'a dyn CellRegistry,
+    pub digest_suite: arkret_canonical::DigestSuite,
 }
 
 impl SealDigestSuites {
@@ -147,42 +160,6 @@ impl From<super::store::StoreError> for SealReject {
     fn from(e: super::store::StoreError) -> Self {
         SealReject::Store(e.to_string())
     }
-}
-
-/// Apply one Seal per `event-auth-state-resolution.md` §6.3.
-///
-/// `verify_proofs` and `project_writes` are injected for the same reasons
-/// `verify_control_move` takes them: signature verification lives in
-/// `arkret-signatures`, and the registry-driven projection evaluator lives in
-/// `arkret-schema`, which this crate may not depend on. `project_writes` is
-/// the *only* source of cell targets and lattice operations — step 10's
-/// "atomically apply the reducer writes derived from kind + payload".
-pub fn apply_seal<VerifyProofs, ProjectWrites>(
-    seal: &Seal,
-    events: &dyn ControlEventStore,
-    seals: &dyn SealStore,
-    cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
-    digest_suites: SealDigestSuites,
-    verify_proofs: VerifyProofs,
-    project_writes: ProjectWrites,
-) -> Result<SealEffect, SealReject>
-where
-    VerifyProofs: Fn(&Event, arkret_canonical::DigestSuite) -> Result<(), String> + Copy,
-    ProjectWrites:
-        Fn(&Event, arkret_canonical::DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
-{
-    apply_seal_in_context(
-        seal,
-        events,
-        seals,
-        cells,
-        registry,
-        digest_suites,
-        verify_proofs,
-        project_writes,
-        EventSubmitContext::Standard,
-    )
 }
 
 /// Apply a Seal under an explicit CBA envelope context.
@@ -434,56 +411,64 @@ where
             verify_seal_basis(
                 &digest,
                 &event,
-                &pred_closure,
-                &seal.realm_id,
-                seals,
-                cells,
-                registry,
-                event_digest_suite,
+                SealBasisVerificationContext {
+                    predecessor_closure: &pred_closure,
+                    realm_id: &seal.realm_id,
+                    seals,
+                    cells,
+                    registry,
+                    digest_suite: event_digest_suite,
+                },
             )?;
         }
         let verification = match proof_regime {
             SealEventProofRegime::FederationAccepted => verify_accepted_control_move_in_context(
                 &event,
-                &seal.realm_id,
-                if context == EventSubmitContext::AnchorUnit {
-                    &staged_anchor_state
-                } else {
-                    &pre_state
+                ControlMoveVerificationContext {
+                    realm_id: &seal.realm_id,
+                    pre_state: if context == EventSubmitContext::AnchorUnit {
+                        &staged_anchor_state
+                    } else {
+                        &pre_state
+                    },
+                    registry,
+                    digest_suite: event_digest_suite,
+                    submit_context: context,
                 },
-                registry,
-                event_digest_suite,
                 |event| verify_proofs(event, event_digest_suite),
                 |event| project_writes(event, event_digest_suite),
-                context,
             ),
             SealEventProofRegime::RetainedReplay => verify_replayed_control_move_in_context(
                 &event,
-                &seal.realm_id,
-                if context == EventSubmitContext::AnchorUnit {
-                    &staged_anchor_state
-                } else {
-                    &pre_state
+                ControlMoveVerificationContext {
+                    realm_id: &seal.realm_id,
+                    pre_state: if context == EventSubmitContext::AnchorUnit {
+                        &staged_anchor_state
+                    } else {
+                        &pre_state
+                    },
+                    registry,
+                    digest_suite: event_digest_suite,
+                    submit_context: context,
                 },
-                registry,
-                event_digest_suite,
                 |event| verify_proofs(event, event_digest_suite),
                 |event| project_writes(event, event_digest_suite),
-                context,
             ),
             SealEventProofRegime::ProducerSubmission => verify_control_move_in_context(
                 &event,
-                &seal.realm_id,
-                if context == EventSubmitContext::AnchorUnit {
-                    &staged_anchor_state
-                } else {
-                    &pre_state
+                ControlMoveVerificationContext {
+                    realm_id: &seal.realm_id,
+                    pre_state: if context == EventSubmitContext::AnchorUnit {
+                        &staged_anchor_state
+                    } else {
+                        &pre_state
+                    },
+                    registry,
+                    digest_suite: event_digest_suite,
+                    submit_context: context,
                 },
-                registry,
-                event_digest_suite,
                 |event| verify_proofs(event, event_digest_suite),
                 |event| project_writes(event, event_digest_suite),
-                context,
             ),
         };
         match verification {
@@ -981,13 +966,16 @@ fn recovery_witness_freshness_window_ms(pre_state: &BTreeMap<CellRef, CellState>
 pub fn verify_seal_basis(
     event_digest: &Hash,
     event: &Event,
-    predecessor_closure: &BTreeSet<SealId>,
-    realm_id: &RealmId,
-    seals: &dyn SealStore,
-    cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
-    digest_suite: arkret_canonical::DigestSuite,
+    verification: SealBasisVerificationContext<'_>,
 ) -> Result<(), SealReject> {
+    let SealBasisVerificationContext {
+        predecessor_closure,
+        realm_id,
+        seals,
+        cells,
+        registry,
+        digest_suite,
+    } = verification;
     let basis = event
         .seal_basis
         .as_ref()
@@ -1632,7 +1620,6 @@ mod tests {
         )
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn apply_seal<VerifyProofs, ProjectWrites>(
         seal: &Seal,
         events: &dyn ControlEventStore,
@@ -1646,7 +1633,7 @@ mod tests {
         VerifyProofs: Fn(&Event) -> Result<(), String> + Copy,
         ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
     {
-        super::apply_seal(
+        super::apply_seal_in_context(
             seal,
             events,
             seals,
@@ -1655,6 +1642,7 @@ mod tests {
             SealDigestSuites::standard(SUITE),
             |event, _| verify_proofs(event),
             |event, _| project_writes(event),
+            EventSubmitContext::Standard,
         )
     }
 

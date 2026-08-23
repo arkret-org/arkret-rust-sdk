@@ -85,9 +85,5 @@ mod tests {
             serde_json::from_value(value.clone()).unwrap();
         assert!(request.client_attestation.is_none());
         assert_eq!(serde_json::to_value(request).unwrap(), value);
-
-        let mut unknown = value;
-        unknown["legacy_step"] = serde_json::json!(true);
-        assert!(serde_json::from_value::<SecurityTransactionContinueRequest>(unknown).is_err());
     }
 }

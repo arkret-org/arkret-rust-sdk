@@ -172,7 +172,7 @@ mod tests {
         verify_device_projection_attestation(&attestation, &signing_key.verifying_key(), now)
             .expect("valid attestation");
 
-        let mut tampered = attestation.clone();
+        let mut tampered = attestation;
         tampered.attestation.authorized_generation_ref = 8;
         assert!(
             verify_device_projection_attestation(&tampered, &signing_key.verifying_key(), now)

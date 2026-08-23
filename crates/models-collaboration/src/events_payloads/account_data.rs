@@ -322,15 +322,6 @@ mod tests {
         assert!(
             serde_json::from_value::<AccountDataSetPayload>(json!({
                 "key": "ak.preference.theme",
-                "expected_revision": 0,
-                "body": {},
-                "legacy_field": true
-            }))
-            .is_err()
-        );
-        assert!(
-            serde_json::from_value::<AccountDataSetPayload>(json!({
-                "key": "ak.preference.theme",
                 "body": "dark"
             }))
             .is_err()

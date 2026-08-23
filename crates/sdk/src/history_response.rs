@@ -242,7 +242,7 @@ pub enum VerifiedHistoryResponseRecord {
         sequence: u64,
         cursor: String,
         record_digest: Hash,
-        chunk: VerifiedHistoryChunk,
+        chunk: Box<VerifiedHistoryChunk>,
     },
 }
 
@@ -387,7 +387,7 @@ where
                 source_sender_domain: source.source_sender_domain.clone(),
                 requester_actor_id: accepted.request.requester_actor_id.clone(),
                 requester_sender_domain: accepted.request.requester_sender_domain.clone(),
-                covered_epoch_range: descriptor.covered_epoch_range.clone(),
+                covered_epoch_range: descriptor.covered_epoch_range,
                 expires_at: source.expires_at,
             };
             seal_context.validate()?;
@@ -395,14 +395,14 @@ where
                 sequence: record.sequence,
                 cursor: record.cursor.clone(),
                 record_digest: record.record_digest.clone(),
-                chunk: VerifiedHistoryChunk {
+                chunk: Box::new(VerifiedHistoryChunk {
                     response_id: source.response_id.clone(),
                     source_actor_id: source.source_actor_id.clone(),
                     source_sender_domain: source.source_sender_domain.clone(),
-                    covered_epoch_range: descriptor.covered_epoch_range.clone(),
+                    covered_epoch_range: descriptor.covered_epoch_range,
                     sealed_chunk: chunk.clone(),
                     seal_context,
-                },
+                }),
             })
         }
         _ => invalid("history response record branch is inconsistent"),
@@ -483,13 +483,12 @@ where
             GovernanceDependency::MinimalMetadataMlsLeafSignerEvidence {
                 selector,
                 minimal_metadata_mls_leaf_signer_evidence,
-            } if selector == &expected_minimal_selector => {
-                if minimal
+            } if selector == &expected_minimal_selector
+                && minimal
                     .replace(minimal_metadata_mls_leaf_signer_evidence)
-                    .is_some()
-                {
-                    return invalid("duplicate minimal-metadata source signer evidence dependency");
-                }
+                    .is_some() =>
+            {
+                return invalid("duplicate minimal-metadata source signer evidence dependency");
             }
             _ => {}
         }
@@ -795,13 +794,19 @@ fn verify_release_attestation(
         return invalid("history release attestation predicate registry digest mismatch");
     }
     let evidence_kind = source_evidence_kind(source, source_signer_dependencies)?;
-    let profile_matches = match (attestation.source_author_profile, evidence_kind) {
-        (Some(AuthorProfile::OrdinaryHuman), SourceEvidenceKind::Principal)
-        | (Some(AuthorProfile::NativeAgent), SourceEvidenceKind::NativeAgent)
-        | (Some(AuthorProfile::MinimalMetadata), SourceEvidenceKind::MinimalMetadata)
-        | (None, SourceEvidenceKind::Principal) => true,
-        _ => false,
-    };
+    let profile_matches = matches!(
+        (attestation.source_author_profile, evidence_kind),
+        (
+            Some(AuthorProfile::OrdinaryHuman),
+            SourceEvidenceKind::Principal
+        ) | (
+            Some(AuthorProfile::NativeAgent),
+            SourceEvidenceKind::NativeAgent
+        ) | (
+            Some(AuthorProfile::MinimalMetadata),
+            SourceEvidenceKind::MinimalMetadata
+        ) | (None, SourceEvidenceKind::Principal)
+    );
     if !profile_matches {
         return invalid("history release source profile does not match signer evidence kind");
     }
