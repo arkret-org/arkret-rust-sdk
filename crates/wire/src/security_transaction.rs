@@ -64,7 +64,6 @@ pub enum RecoveryIdentityModel {
 pub enum SecurityTransactionState {
     Pending,
     Running,
-    AwaitingDeviceAttestation,
     Completed,
     Aborted,
     Expired,
@@ -924,6 +923,12 @@ impl SecurityTransaction {
         Ok(self.step_order()?.get(self.accepted_steps.len()).copied())
     }
 
+    pub fn requires_device_attestation(&self) -> Result<bool> {
+        Ok(self
+            .next_required_step()?
+            .is_some_and(Self::step_requires_client_attestation))
+    }
+
     pub fn accepted_step_kind(&self, index: usize) -> Result<SecurityTransactionStep> {
         self.step_order()?.get(index).copied().ok_or_else(|| {
             WireError::Protocol(
@@ -1093,24 +1098,11 @@ impl SecurityTransaction {
                 "non-terminal security transaction must not record a terminal outcome".to_owned(),
             ));
         }
-        let next = self.next_required_step()?.ok_or_else(|| {
+        self.next_required_step()?.ok_or_else(|| {
             WireError::Protocol(
                 "non-terminal security transaction has exhausted its fixed step order".to_owned(),
             )
         })?;
-        let awaiting_expected = self.accepted_steps.len() + 1 == order.len()
-            && matches!(
-                next,
-                SecurityTransactionStep::IssueTerminalReceipt
-                    | SecurityTransactionStep::LocalCommit
-            );
-        if (self.state == SecurityTransactionState::AwaitingDeviceAttestation) != awaiting_expected
-        {
-            return Err(WireError::Protocol(
-                "awaiting_device_attestation must be used exactly at the terminal client-attestation boundary"
-                    .to_owned(),
-            ));
-        }
         Ok(())
     }
 

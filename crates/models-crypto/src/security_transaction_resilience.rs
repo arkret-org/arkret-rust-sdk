@@ -285,6 +285,7 @@ fn validate_fixture_contract(fixture: &Value) -> Result<()> {
     for required in [
         "exact_replay_returns_the_stored_outcome",
         "conflicting_replay_returns_duplicate_conflict",
+        "device_attestation_readiness_is_derived_from_canonical_next_step",
         "pointer_switch_precedes_every_old_series_erase",
         "erased_series_never_becomes_active_again",
         "public_store_log_telemetry_and_crash_artifact_contain_no_secret_material",
