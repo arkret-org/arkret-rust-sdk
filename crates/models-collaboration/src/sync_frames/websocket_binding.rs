@@ -103,7 +103,7 @@ impl WebSocketAccountFilter {
             ),
         ] {
             if len.is_some_and(|len| len > WEBSOCKET_MAX_SELECTOR_ITEMS) {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "WebSocket account filter {field} exceeds {WEBSOCKET_MAX_SELECTOR_ITEMS} items"
                 )));
             }
@@ -112,7 +112,7 @@ impl WebSocketAccountFilter {
             .timeline_limit
             .is_some_and(|limit| limit > WEBSOCKET_MAX_TIMELINE_LIMIT)
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "WebSocket account filter timeline_limit exceeds {WEBSOCKET_MAX_TIMELINE_LIMIT}"
             )));
         }
@@ -180,10 +180,10 @@ impl WebSocketOpenParameters {
             }
             WebSocketOperationId::SignalStreamSubscribe => {
                 let object = value.as_object().ok_or_else(|| {
-                    Error::Protocol("WebSocket open parameters must be an object".to_owned())
+                    WireError::Protocol("WebSocket open parameters must be an object".to_owned())
                 })?;
                 if !object.is_empty() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "the Signal channel takes no open parameters".to_owned(),
                     ));
                 }
@@ -213,14 +213,14 @@ impl WebSocketOpenParameters {
                 let realms = parameters.realms.as_deref().unwrap_or_default();
                 let actors = parameters.actors.as_deref().unwrap_or_default();
                 if realms.is_empty() && actors.is_empty() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "WebSocket events open parameters require realms or actors".to_owned(),
                     ));
                 }
                 if realms.len() > WEBSOCKET_MAX_SELECTOR_ITEMS
                     || actors.len() > WEBSOCKET_MAX_SELECTOR_ITEMS
                 {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "WebSocket events selector exceeds {WEBSOCKET_MAX_SELECTOR_ITEMS} items"
                     )));
                 }
@@ -282,7 +282,7 @@ impl WebSocketDataPayload {
         match self {
             Self::Account(frame) => {
                 if !matches!(frame.kind, AccountSubscribeFrameKind::Delta) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "a WebSocket data frame only carries the account delta kind".to_owned(),
                     ));
                 }
@@ -290,7 +290,7 @@ impl WebSocketDataPayload {
             }
             Self::Events(frame) => {
                 if !matches!(frame.kind, EventsSubscribeFrameKind::Event) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "a WebSocket data frame only carries the events event kind".to_owned(),
                     ));
                 }
@@ -298,7 +298,7 @@ impl WebSocketDataPayload {
             }
             Self::Signal(frame) => {
                 if !matches!(frame.as_ref(), SignalStreamFrame::Signal { .. }) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "a WebSocket data frame only carries the signal kind".to_owned(),
                     ));
                 }
@@ -356,7 +356,7 @@ impl WebSocketChannelControlPayload {
         match self {
             Self::Account(frame) => {
                 if matches!(frame.kind, AccountSubscribeFrameKind::Delta) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "the account delta kind belongs in a WebSocket data frame".to_owned(),
                     ));
                 }
@@ -364,7 +364,7 @@ impl WebSocketChannelControlPayload {
             }
             Self::Events(frame) => {
                 if matches!(frame.kind, EventsSubscribeFrameKind::Event) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "the events event kind belongs in a WebSocket data frame".to_owned(),
                     ));
                 }
@@ -372,7 +372,7 @@ impl WebSocketChannelControlPayload {
             }
             Self::Signal(frame) => {
                 if matches!(frame.as_ref(), SignalStreamFrame::Signal { .. }) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "the signal kind belongs in a WebSocket data frame".to_owned(),
                     ));
                 }
@@ -406,14 +406,14 @@ impl WebSocketConnectionControlPayload {
             ..
         } = self;
         if *reconnect_after_ms > WEBSOCKET_MAX_RETRY_AFTER_MS {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "WebSocket drain reconnect_after_ms exceeds {WEBSOCKET_MAX_RETRY_AFTER_MS}"
             )));
         }
         if reason.as_ref().is_some_and(|reason| {
             reason.is_empty() || reason.chars().count() > WEBSOCKET_MAX_DRAIN_REASON_CHARS
         }) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "WebSocket drain reason must be 1..={WEBSOCKET_MAX_DRAIN_REASON_CHARS} characters"
             )));
         }
@@ -479,7 +479,7 @@ impl WebSocketConnectionLimits {
         ];
         for (field, value, min, max) in ranges {
             if value < min || value > max {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "WebSocket welcome {field} must be {min}..={max}"
                 )));
             }
@@ -765,7 +765,7 @@ impl WebSocketClientFrame {
             ..
         } = self
         else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "open parameters are only carried by an open frame".to_owned(),
             ));
         };
@@ -808,7 +808,7 @@ fn validate_compact_jws(value: &str) -> Result<()> {
                     .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
         });
     if !shaped || !(WEBSOCKET_MIN_PROOF_CHARS..=WEBSOCKET_MAX_PROOF_CHARS).contains(&length) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "WebSocket dpop_proof must be a compact JWS of base64url segments".to_owned(),
         ));
     }
@@ -820,11 +820,11 @@ fn validate_frame_scope(scope: WebSocketFrameScope, channel_id: Option<&str>) ->
         (WebSocketFrameScope::Channel, Some(channel_id)) => {
             validate_websocket_channel_id(channel_id)
         }
-        (WebSocketFrameScope::Channel, None) => Err(Error::Protocol(
+        (WebSocketFrameScope::Channel, None) => Err(WireError::Protocol(
             "a channel-scoped WebSocket frame requires channel_id".to_owned(),
         )),
         (WebSocketFrameScope::Connection, None) => Ok(()),
-        (WebSocketFrameScope::Connection, Some(_)) => Err(Error::Protocol(
+        (WebSocketFrameScope::Connection, Some(_)) => Err(WireError::Protocol(
             "a connection-scoped WebSocket frame must not carry channel_id".to_owned(),
         )),
     }
@@ -834,7 +834,7 @@ fn require_object(value: &Value, what: &str) -> Result<()> {
     if value.is_object() {
         return Ok(());
     }
-    Err(Error::Protocol(format!(
+    Err(WireError::Protocol(format!(
         "WebSocket {what} must be a JSON object"
     )))
 }

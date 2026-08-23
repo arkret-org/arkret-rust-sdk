@@ -6,8 +6,8 @@ use std::collections::BTreeMap;
 
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    AppletId, CircleId, DidCoreId, EncryptionProfile, Error, EvaluationClass, Facet, GrantId, Hash,
-    HistoryAccess, RealmId, Result, SchemaId, WireResourceSelector, XExtensionMap,
+    AppletId, CircleId, DidCoreId, EncryptionProfile, EvaluationClass, Facet, GrantId, Hash,
+    HistoryAccess, RealmId, Result, SchemaId, WireError, WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -253,7 +253,7 @@ impl GrantConstraintExtensionKey {
         if grant_constraint_extension_key_is_valid(&value) {
             Ok(Self(value))
         } else {
-            Err(Error::Protocol(format!(
+            Err(WireError::Protocol(format!(
                 "invalid grant constraint extension key '{value}'"
             )))
         }

@@ -1,6 +1,6 @@
 //! Third-party invite wire payloads.
 
-use arkret_wire::{DidCoreId, Error, Hash, Result};
+use arkret_wire::{DidCoreId, Hash, Result, WireError};
 use serde::{Deserialize, Serialize};
 
 // ── ThirdPartyInvite (3PID) ─────────────────────────────────────────────
@@ -73,7 +73,7 @@ impl ThirdPartyInvite {
                 .is_some_and(|hint| hint.len() > 128)
             || self.verification_public_key.is_empty()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "third_party_invite requires max_claims=1, a non-empty verification key, and display_name_hint<=128 bytes"
                     .to_owned(),
             ));
@@ -84,21 +84,21 @@ impl ThirdPartyInvite {
                     || self.token_salt_id.is_none()
                     || self.token_entropy_bits.is_none()
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "third_party_invite offline_token mode requires token_commitment + token_salt_id + token_entropy_bits"
                             .to_owned(),
                     ));
                 }
 
                 if self.token_entropy_bits.is_some_and(|bits| bits < 128) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "third_party_invite offline_token token_entropy_bits MUST be >= 128"
                             .to_owned(),
                     ));
                 }
 
                 if self.lookup_table_ref.is_some() || self.pepper_id.is_some() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "third_party_invite offline_token mode must NOT set lookup fields"
                             .to_owned(),
                     ));
@@ -107,7 +107,7 @@ impl ThirdPartyInvite {
 
             ThirdPartyInviteOobKind::Lookup => {
                 if self.lookup_table_ref.is_none() || self.pepper_id.is_none() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "third_party_invite lookup mode requires lookup_table_ref + pepper_id"
                             .to_owned(),
                     ));
@@ -117,7 +117,7 @@ impl ThirdPartyInvite {
                     || self.token_salt_id.is_some()
                     || self.token_entropy_bits.is_some()
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "third_party_invite lookup mode must NOT set offline_token fields"
                             .to_owned(),
                     ));

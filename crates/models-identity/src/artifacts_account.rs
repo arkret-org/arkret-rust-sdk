@@ -4,8 +4,8 @@
 //! (`models/artifacts/account_sync.rs`).
 
 use arkret_wire::{
-    DeviceId, DeviceRevocationGateRecord, Error, EventId, MAX_DEVICE_REVOCATION_GATE_RECORDS,
-    Result,
+    DeviceId, DeviceRevocationGateRecord, EventId, MAX_DEVICE_REVOCATION_GATE_RECORDS, Result,
+    WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -68,7 +68,7 @@ pub fn validate_device_summary_state(
 ) -> Result<()> {
     let states = revocation_states.unwrap_or_default();
     if states.len() > MAX_DEVICE_REVOCATION_GATE_RECORDS {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "device summary exceeds the 128 revocation-state bound".to_owned(),
         ));
     }
@@ -79,7 +79,7 @@ pub fn validate_device_summary_state(
         (pair[0].acceptance_seq(), pair[0].proposal_digest().as_str())
             >= (pair[1].acceptance_seq(), pair[1].proposal_digest().as_str())
     }) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "device summary revocation_states must be sorted and duplicate-free".to_owned(),
         ));
     }
@@ -94,7 +94,7 @@ pub fn validate_device_summary_state(
         | DeviceSummaryStatus::Conflicted
             if revocation_states.is_none() => {}
         _ => {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device summary status is inconsistent with revocation_states".to_owned(),
             ));
         }

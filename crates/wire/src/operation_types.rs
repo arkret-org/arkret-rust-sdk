@@ -280,7 +280,7 @@ pub struct MembershipCompensationDelegationCore {
 impl MembershipCompensationDelegationCore {
     pub fn validate(&self) -> crate::Result<()> {
         if self.executed_by.is_some() != self.authorization_ref.is_some() {
-            return Err(crate::Error::Protocol(
+            return Err(crate::WireError::Protocol(
                 "membership compensation executed_by requires authorization_ref".to_owned(),
             ));
         }
@@ -292,7 +292,7 @@ impl MembershipCompensationDelegationCore {
             MembershipCompensationAction::Remove
         };
         if self.action != expected_action {
-            return Err(crate::Error::Protocol(
+            return Err(crate::WireError::Protocol(
                 "membership compensation action does not match join authorship".to_owned(),
             ));
         }
@@ -316,7 +316,7 @@ impl MembershipCompensationExecutorDelegation {
         let bytes = crate::canonical::canonical_json_bytes(&self.core)?;
         let digest = crate::canonical::sha256_digest(bytes);
         if digest != self.delegation_digest.as_str() {
-            return Err(crate::Error::Protocol(
+            return Err(crate::WireError::Protocol(
                 "membership compensation delegation digest mismatch".to_owned(),
             ));
         }
@@ -324,7 +324,7 @@ impl MembershipCompensationExecutorDelegation {
         if self.delegation_id.as_str()
             != format!("ak:membership_compensation_delegation:sha256:{suffix}")
         {
-            return Err(crate::Error::Protocol(
+            return Err(crate::WireError::Protocol(
                 "membership compensation delegation id mismatch".to_owned(),
             ));
         }
@@ -433,7 +433,7 @@ impl MembershipCompensationSubmissionEvidence {
             || self.single_use_cas_token.delegation_digest != *digest
             || self.single_use_cas_token.destination_service_id != core.executor_service_id
         {
-            return Err(crate::Error::Protocol(
+            return Err(crate::WireError::Protocol(
                 "membership compensation evidence cross-binding mismatch".to_owned(),
             ));
         }

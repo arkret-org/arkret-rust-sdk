@@ -4,9 +4,9 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use arkret_wire::{
-    BlobRef, DeviceId, DidCoreId, Error, EventId, Hlc, MessageId, MorphId, NotificationId,
+    BlobRef, DeviceId, DidCoreId, EventId, Hlc, MessageId, MorphId, NotificationId,
     NotificationKind, NotificationPriority, NotificationState, OpaqueLocalId, ReadCursorId,
-    ReadCursorScope, RealmId, RelationId, Result, SchemaId, StrandId, ViewId, canonical,
+    ReadCursorScope, RealmId, RelationId, Result, SchemaId, StrandId, ViewId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -68,7 +68,7 @@ pub fn merge_read_cursors<'a>(
         || current.realm_id != candidate.realm_id
         || current.read_scope != candidate.read_scope
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "read cursor merge requires identical actor_id, realm_id, and read_scope".to_owned(),
         ));
     }
@@ -390,11 +390,11 @@ impl NotificationBlobRef {
     pub fn new(value: impl Into<String>) -> Result<Self> {
         let value = value.into();
         if !value.starts_with("ak:blob:") {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "notification Blob reference must use the ak:blob: prefix".to_owned(),
             ));
         }
-        BlobRef::new(value).map(Self).map_err(Error::from)
+        BlobRef::new(value).map(Self).map_err(WireError::from)
     }
 
     pub fn as_str(&self) -> &str {
@@ -430,21 +430,25 @@ impl NotificationSourceRef {
         if value.starts_with("ak:message:") {
             MessageId::new(value)
                 .map(Self::Message)
-                .map_err(Error::from)
+                .map_err(WireError::from)
         } else if value.starts_with("ak:strand:") {
-            StrandId::new(value).map(Self::Strand).map_err(Error::from)
+            StrandId::new(value)
+                .map(Self::Strand)
+                .map_err(WireError::from)
         } else if value.starts_with("ak:morph:") {
-            MorphId::new(value).map(Self::Morph).map_err(Error::from)
+            MorphId::new(value)
+                .map(Self::Morph)
+                .map_err(WireError::from)
         } else if value.starts_with("ak:relation:") {
             RelationId::new(value)
                 .map(Self::Relation)
-                .map_err(Error::from)
+                .map_err(WireError::from)
         } else if value.starts_with("ak:view:") {
-            ViewId::new(value).map(Self::View).map_err(Error::from)
+            ViewId::new(value).map(Self::View).map_err(WireError::from)
         } else if value.starts_with("ak:blob:") {
             NotificationBlobRef::new(value).map(Self::Blob)
         } else {
-            Err(Error::Protocol(
+            Err(WireError::Protocol(
                 "notification source_ref has an unsupported object kind".to_owned(),
             ))
         }
@@ -545,7 +549,7 @@ struct NotificationWire {
 }
 
 impl TryFrom<NotificationWire> for Notification {
-    type Error = Error;
+    type Error = WireError;
 
     fn try_from(wire: NotificationWire) -> Result<Self> {
         let source = match (wire.source_event_id, wire.source_account_artifact) {
@@ -567,7 +571,7 @@ impl TryFrom<NotificationWire> for Notification {
                 })
             }
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "notification must contain exactly one valid source branch".to_owned(),
                 ));
             }
@@ -602,14 +606,14 @@ impl Notification {
                                 || index > 0 && (byte.is_ascii_digit() || byte == b'_')
                         })
                 }) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "notification track_name is invalid".to_owned(),
                     ));
                 }
             }
             NotificationSource::AccountArtifact(_) => {
                 if self.notification_kind != NotificationKind::Agent {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "notification account artifact source is invalid".to_owned(),
                     ));
                 }
@@ -667,15 +671,15 @@ impl NotificationInboxValue {
                 account_data_key,
             )
             .ok_or_else(|| {
-                Error::Protocol(
+                WireError::Protocol(
                     "notification inbox key must be ak.notifications.inbox.<notification_id>"
                         .to_owned(),
                 )
             })?;
         let decoded: Self = serde_json::from_value(value.clone())
-            .map_err(|error| Error::Protocol(format!("notification inbox value: {error}")))?;
+            .map_err(|error| WireError::Protocol(format!("notification inbox value: {error}")))?;
         if decoded.notification_id != notification_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "notification inbox value must bind its own account-data key".to_owned(),
             ));
         }
@@ -692,7 +696,7 @@ impl NotificationInboxValue {
     /// winner without further coordination.
     pub fn compare_precedence(&self, other: &Self) -> Result<std::cmp::Ordering> {
         if self.notification_id != other.notification_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "notification inbox merge requires the same notification_id".to_owned(),
             ));
         }

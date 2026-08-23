@@ -14,7 +14,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::error::{Error, Result};
+use crate::error::{Result, WireError};
 use crate::event_envelope::{Event, SemanticRefProof};
 use crate::seal::Seal;
 use crate::{
@@ -68,7 +68,7 @@ impl AvailabilityReceipt {
         F: FnOnce(&[u8]) -> Result<Hash>,
     {
         if digest(&self.canonical_receipt_bytes()?)? != self.receipt_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "availability receipt full canonical digest mismatch".to_owned(),
             ));
         }
@@ -90,7 +90,7 @@ impl AvailabilityReceipt {
         if digest(&self.canonical_signature_payload_bytes()?)?
             != self.receipt.signature.payload_digest
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "availability receipt signature payload digest mismatch".to_owned(),
             ));
         }
@@ -102,7 +102,7 @@ impl AvailabilityReceipt {
         let core_bytes = self.canonical_signature_payload_bytes()?;
         let core: Value = serde_json::from_slice(&core_bytes)?;
         let core = core.as_object().ok_or_else(|| {
-            Error::Protocol("availability receipt core must be an object".to_owned())
+            WireError::Protocol("availability receipt core must be an object".to_owned())
         })?;
         let mut binding = core.clone();
         binding.insert(
@@ -136,7 +136,7 @@ impl AvailabilityReceipt {
                 .as_ref()
                 .starts_with("sha256:")
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "availability receipt holder signer evidence ref and digest mismatch".to_owned(),
             ));
         }
@@ -146,7 +146,7 @@ impl AvailabilityReceipt {
     pub fn event_bytes_digest_preimage(event: &Event) -> Result<Vec<u8>> {
         let mut value = serde_json::to_value(event)?;
         let Value::Object(map) = &mut value else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "accepted Event must serialize as an object".to_owned(),
             ));
         };
@@ -162,12 +162,12 @@ impl AvailabilityReceipt {
         F: FnOnce(&[u8]) -> Result<Hash>,
     {
         if event.event_id != self.receipt.event_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "availability receipt Event id mismatch".to_owned(),
             ));
         }
         if digest(&Self::event_bytes_digest_preimage(event)?)? != self.receipt.bytes_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "availability receipt Event bytes digest mismatch".to_owned(),
             ));
         }
@@ -200,32 +200,32 @@ impl CbaProofBundle {
     /// against.
     pub fn validate_structural(&self) -> Result<()> {
         if canonical::canonical_json_bytes(self)?.len() > MAX_BUNDLE_CANONICAL_BYTES {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "CBA proof bundle exceeds {MAX_BUNDLE_CANONICAL_BYTES} canonical bytes"
             )));
         }
         if self.seals.is_empty() || self.seals.len() > MAX_BUNDLE_SEALS {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "CBA proof bundle requires 1..={MAX_BUNDLE_SEALS} seals"
             )));
         }
         if self.control_moves.len() > MAX_BUNDLE_CONTROL_MOVES {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "CBA proof bundle exceeds {MAX_BUNDLE_CONTROL_MOVES} control moves"
             )));
         }
         if self.inclusion_proofs.len() > MAX_BUNDLE_INCLUSION_PROOFS {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "CBA proof bundle exceeds {MAX_BUNDLE_INCLUSION_PROOFS} inclusion proofs"
             )));
         }
         if self.availability_proofs.len() > MAX_BUNDLE_AVAILABILITY_PROOFS {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "CBA proof bundle exceeds {MAX_BUNDLE_AVAILABILITY_PROOFS} availability proofs"
             )));
         }
         if self.inclusion_proofs.len() + self.availability_proofs.len() > MAX_BUNDLE_PROOFS {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "CBA proof bundle exceeds {MAX_BUNDLE_PROOFS} combined proofs"
             )));
         }
@@ -260,7 +260,7 @@ impl CbaProofBundle {
             .map(|seal| (seal.id.clone(), seal))
             .collect::<BTreeMap<_, _>>();
         let Some(target) = seals_by_id.get(&self.target_seal_ref) else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "CBA proof bundle must contain its target_seal_ref".to_owned(),
             ));
         };
@@ -268,7 +268,7 @@ impl CbaProofBundle {
         for seal in &self.seals {
             seal.validate_structural()?;
             if &seal.realm_id != target_realm {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "CBA proof bundle contains a cross-Realm Seal".to_owned(),
                 ));
             }
@@ -282,7 +282,7 @@ impl CbaProofBundle {
                     != Some("control")
                 || control_move.seal_basis.is_none()
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "CBA proof bundle control_moves must be same-Realm Control Events with seal_basis"
                         .to_owned(),
                 ));
@@ -292,7 +292,7 @@ impl CbaProofBundle {
         for receipt in &self.availability_proofs {
             receipt.validate_structural()?;
             if receipt.receipt.realm_id != *target_realm {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "CBA proof bundle contains a cross-Realm availability proof".to_owned(),
                 ));
             }
@@ -302,7 +302,7 @@ impl CbaProofBundle {
         let mut pending = vec![(self.target_seal_ref.clone(), 1usize)];
         while let Some((seal_id, depth)) = pending.pop() {
             if depth > MAX_BUNDLE_DEPENDENCY_DEPTH {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "CBA proof bundle dependency path exceeds {MAX_BUNDLE_DEPENDENCY_DEPTH}"
                 )));
             }
@@ -320,7 +320,7 @@ impl CbaProofBundle {
             }
         }
         if reachable.len() != self.seals.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "CBA proof bundle contains a Seal unreachable from target_seal_ref".to_owned(),
             ));
         }
@@ -346,7 +346,7 @@ impl CbaProofBundle {
                     == Some(expected)
             });
             if !reachable {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "CBA proof bundle contains a Control Move unreachable from target Seal coverage"
                         .to_owned(),
                 ));
@@ -364,7 +364,7 @@ where
     for value in values {
         let value = value?;
         if previous.as_ref().is_some_and(|previous| previous >= &value) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "{label} must be strictly canonical-bytewise sorted and unique"
             )));
         }

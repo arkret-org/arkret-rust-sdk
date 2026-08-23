@@ -7,8 +7,8 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    CbaProofBundle, DidCoreId, Error, Event, EventFederationSubmission, EventId,
-    EventInitialSubmission, Hash, PrincipalAuthorityKey, RealmId, Result,
+    CbaProofBundle, DidCoreId, Event, EventFederationSubmission, EventId, EventInitialSubmission,
+    Hash, PrincipalAuthorityKey, RealmId, Result, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -127,30 +127,30 @@ impl AgentCleanupPendingRecord {
         self.initiator_authority.validate()?;
         validate_sorted_unique_agent_ids(&self.expected_agent_ids)?;
         if self.cleanup_due_at <= self.accepted_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent cleanup deadline must follow canonical acceptance".to_owned(),
             ));
         }
         if self.cleanup_intent_digest != self.expected_cleanup_intent_digest()? {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent cleanup intent digest does not bind the frozen record".to_owned(),
             ));
         }
         match self.status {
             AgentCleanupStatus::AgentCleanupCompleted => {
                 let event_ids = self.agent_transition_event_ids.as_deref().ok_or_else(|| {
-                    Error::Protocol(
+                    WireError::Protocol(
                         "completed agent cleanup requires transition Event ids".to_owned(),
                     )
                 })?;
                 if self.completed_at.is_none() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "completed agent cleanup requires completed_at".to_owned(),
                     ));
                 }
                 validate_unique_event_ids(event_ids)?;
                 if event_ids.len() != self.expected_agent_ids.len() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "completed agent cleanup transition count must equal the frozen Agent set"
                             .to_owned(),
                     ));
@@ -158,7 +158,7 @@ impl AgentCleanupPendingRecord {
             }
             AgentCleanupStatus::AgentCleanupPending | AgentCleanupStatus::AgentCleanupOverdue => {
                 if self.completed_at.is_some() || self.agent_transition_event_ids.is_some() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "pending or overdue agent cleanup forbids completion fields".to_owned(),
                     ));
                 }
@@ -220,7 +220,7 @@ pub struct AgentMembershipCascadeFederationSubmission {
 impl AgentMembershipCascadeFederationSubmission {
     pub fn validate(&self) -> Result<()> {
         if self.cba_proof_bundles.len() > MAX_AGENT_MEMBERSHIP_CASCADE_CBA_BUNDLES {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent membership cascade exceeds 64 CBA proof bundles".to_owned(),
             ));
         }
@@ -233,7 +233,7 @@ impl AgentMembershipCascadeFederationSubmission {
                 .iter()
                 .any(|submission| submission.event.realm_id != self.service_binding_ref.realm_id)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "federated agent membership cascade must bind one Realm".to_owned(),
             ));
         }
@@ -275,7 +275,7 @@ impl AgentMembershipCascadeOutcome {
                 if !self.agent_transition_event_ids.is_empty()
                     || self.cleanup_intent_digest.is_none()
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "terminal-applied cleanup-pending outcome requires an intent digest and no Agent Event ids"
                             .to_owned(),
                     ));
@@ -285,7 +285,7 @@ impl AgentMembershipCascadeOutcome {
                 if self.agent_transition_event_ids.is_empty()
                     || self.cleanup_intent_digest.is_some()
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "completed agent cleanup requires Agent Event ids and forbids an intent digest"
                             .to_owned(),
                     ));
@@ -303,13 +303,13 @@ fn validate_cascade<'a>(
     cleanup_intent_digest: Option<&Hash>,
 ) -> Result<()> {
     if controller.kind.as_str() != arkret_wire::event_kind_str::MEMBER_STATE {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "agent membership cascade controller transition must be ak.member.state".to_owned(),
         ));
     }
     let controller_payload = decode_membership_payload(controller)?;
     if controller_payload.actor_id.as_ref() != Some(&controller.actor_id) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "agent membership cascade controller payload actor mismatch".to_owned(),
         ));
     }
@@ -317,7 +317,7 @@ fn validate_cascade<'a>(
         controller_payload.membership,
         MembershipPayloadState::Leave | MembershipPayloadState::Ban
     ) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "agent membership cascade controller transition must be terminal".to_owned(),
         ));
     }
@@ -331,7 +331,7 @@ fn validate_cascade<'a>(
                 || controller_payload.membership != MembershipPayloadState::Leave
                 || cleanup_intent_digest.is_some()
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "atomic self leave requires a self-authored leave and forbids cleanup_intent_digest"
                         .to_owned(),
                 ));
@@ -340,7 +340,7 @@ fn validate_cascade<'a>(
         AgentMembershipCascadeMode::EmergencyTerminal
         | AgentMembershipCascadeMode::EmergencyCleanup => {
             if initiator == &controller.actor_id {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "emergency agent membership cascade requires a third-party initiator"
                         .to_owned(),
                 ));
@@ -350,14 +350,14 @@ fn validate_cascade<'a>(
 
     let agents = agents.into_iter().collect::<Vec<_>>();
     if agents.len() > MAX_AGENT_MEMBERSHIP_CASCADE_TRANSITIONS {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "agent membership cascade exceeds 256 Agent transitions".to_owned(),
         ));
     }
     match mode {
         AgentMembershipCascadeMode::EmergencyTerminal => {
             if !agents.is_empty() || cleanup_intent_digest.is_some() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "emergency terminal requires an empty Agent set and forbids cleanup_intent_digest"
                         .to_owned(),
                 ));
@@ -365,7 +365,7 @@ fn validate_cascade<'a>(
         }
         AgentMembershipCascadeMode::EmergencyCleanup => {
             if agents.is_empty() || cleanup_intent_digest.is_none() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "emergency cleanup requires Agent transitions and cleanup_intent_digest"
                         .to_owned(),
                 ));
@@ -373,7 +373,7 @@ fn validate_cascade<'a>(
         }
         AgentMembershipCascadeMode::AtomicSelfLeave => {
             if agents.is_empty() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "atomic self leave requires the non-empty frozen Agent set".to_owned(),
                 ));
             }
@@ -389,7 +389,7 @@ fn validate_cascade<'a>(
     let mut actor_ids = BTreeSet::new();
     for agent in agents {
         if !event_ids.insert(agent.event_id.clone()) || !actor_ids.insert(agent.actor_id.clone()) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent membership cascade contains a duplicate Agent transition".to_owned(),
             ));
         }
@@ -399,33 +399,33 @@ fn validate_cascade<'a>(
             || agent.executed_by.as_ref() != Some(initiator)
             || agent.principal_server_id != controller.principal_server_id
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent membership cascade Event authority or Realm binding mismatch".to_owned(),
             ));
         }
         let payload = decode_membership_payload(agent)?;
         let binding = payload.agent_controller_binding.as_ref().ok_or_else(|| {
-            Error::Protocol("agent cleanup membership is missing controller binding".to_owned())
+            WireError::Protocol("agent cleanup membership is missing controller binding".to_owned())
         })?;
         if payload.membership != MembershipPayloadState::Leave
             || payload.membership_cause != Some(MembershipLifecycleCause::ControllerMembershipEnded)
             || payload.actor_id.as_ref() != Some(&agent.actor_id)
             || binding.controller_terminal_event_ref.as_ref() != Some(&controller.event_id)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent cleanup membership payload does not bind the terminal controller Event"
                     .to_owned(),
             ));
         }
         binding.validate()?;
         if binding.controller_authority != controller_authority {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent cleanup membership controller authority mismatch".to_owned(),
             ));
         }
         match &controller_generation {
             Some(generation) if generation != &binding.controller_membership_generation_ref => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "agent cleanup membership controller generation mismatch".to_owned(),
                 ));
             }
@@ -440,16 +440,16 @@ fn validate_cascade<'a>(
 
 fn decode_membership_payload(event: &Event) -> Result<MembershipPayload> {
     serde_json::from_value(serde_json::to_value(&event.payload).map_err(|error| {
-        Error::Protocol(format!("membership payload conversion failed: {error}"))
+        WireError::Protocol(format!("membership payload conversion failed: {error}"))
     })?)
-    .map_err(|error| Error::Protocol(format!("membership payload decode failed: {error}")))
+    .map_err(|error| WireError::Protocol(format!("membership payload decode failed: {error}")))
 }
 
 fn validate_sorted_unique_agent_ids(agent_ids: &[DidCoreId]) -> Result<()> {
     if agent_ids.len() > MAX_AGENT_MEMBERSHIP_CASCADE_TRANSITIONS
         || agent_ids.windows(2).any(|pair| pair[0] >= pair[1])
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "expected Agent ids must be strictly sorted, unique and bounded to 256".to_owned(),
         ));
     }
@@ -460,7 +460,7 @@ fn validate_unique_event_ids(event_ids: &[EventId]) -> Result<()> {
     if event_ids.len() > MAX_AGENT_MEMBERSHIP_CASCADE_TRANSITIONS
         || event_ids.iter().collect::<BTreeSet<_>>().len() != event_ids.len()
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "Agent transition Event ids must be unique and bounded to 256".to_owned(),
         ));
     }

@@ -107,7 +107,7 @@ impl AccountSubscribeFrame {
             || self.partial.is_some()
             || self.priority.is_some();
         if self.reconnect_after_ms == Some(0) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "reconnect_after_ms must be greater than zero".to_owned(),
             ));
         }
@@ -118,7 +118,7 @@ impl AccountSubscribeFrame {
             && (bundle.schema.as_str() != SchemaId::AGENT_SIGNER_EVIDENCE_BUNDLE_V1
                 || bundle.evidence.len() > 256)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent_signer_evidence_bundle is invalid".to_owned(),
             ));
         }
@@ -136,7 +136,7 @@ impl AccountSubscribeFrame {
             AccountSubscribeFrameKind::ResyncRequired => self.cursor.is_none() && !has_data,
         };
         if !valid {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "account subscribe fields are invalid for {:?}",
                 self.kind
             )));
@@ -168,7 +168,7 @@ impl AccountSubscribeFrame {
         Ok(match self.kind {
             AccountSubscribeFrameKind::Dropped => Some(AccountStreamInterrupt::Dropped {
                 cursor: self.cursor.clone().ok_or_else(|| {
-                    Error::Protocol("stream trace dropped_missing_cursor".to_owned())
+                    WireError::Protocol("stream trace dropped_missing_cursor".to_owned())
                 })?,
                 reconnect_after_ms: self.reconnect_after_ms,
             }),

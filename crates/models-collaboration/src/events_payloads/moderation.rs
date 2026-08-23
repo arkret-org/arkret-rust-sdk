@@ -32,7 +32,7 @@ impl ModerationEvidencePackage {
             || self.reporter_signature.trim().is_empty()
             || self.recipient_public_key_ref != self.encrypted_to
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "moderation evidence package does not bind the exact target and recipient key"
                     .to_owned(),
             ));
@@ -106,27 +106,27 @@ impl FrankingProof {
 
     pub fn validate_event_time_anchor(&self, anchor: &FrankingProofEventTimeAnchor) -> Result<()> {
         if self.kind != event_kind_str::MODERATION_FRANKING_PROOF {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "franking proof kind must be ak.moderation.franking_proof".to_owned(),
             ));
         }
         if self.event_id != anchor.event_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "franking proof event_id does not match accepted event anchor".to_owned(),
             ));
         }
         if self.realm_id != anchor.realm_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "franking proof realm_id does not match accepted event anchor".to_owned(),
             ));
         }
         if self.received_by != anchor.received_by {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "franking proof received_by does not match time anchor issuer".to_owned(),
             ));
         }
         if self.ciphertext_digest != anchor.ciphertext_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "franking proof ciphertext_digest does not match accepted encrypted event"
                     .to_owned(),
             ));
@@ -137,11 +137,11 @@ impl FrankingProof {
             .split_once('#')
             .map(|(controller, _)| controller)
             .ok_or_else(|| {
-                Error::Protocol("franking proof verification_method has no fragment".to_owned())
+                WireError::Protocol("franking proof verification_method has no fragment".to_owned())
             })?;
         if project_full_id_to_core_id(&DidFullId::new(controller.to_owned())?)? != self.received_by
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "franking proof verification_method does not belong to received_by".to_owned(),
             ));
         }
@@ -151,7 +151,7 @@ impl FrankingProof {
             .num_seconds()
             .abs();
         if skew_secs > Self::TIME_ANCHOR_MAX_SKEW_SECS {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "franking proof received_at is not constrained by the accepted event time anchor: skew {skew_secs}s"
             )));
         }

@@ -52,7 +52,7 @@ impl PeerContactAddress {
         if self.principal_authority.principal_id != self.subject_id
             || self.principal_authority.principal_server_id != self.recipient_service_id
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "Contact address principal authority pair does not bind subject and recipient service"
                     .to_owned(),
             ));
@@ -62,7 +62,7 @@ impl PeerContactAddress {
             if projected != self.recipient_service_id
                 || inline.record.service_kind != Self::RECIPIENT_SERVICE_KIND
             {
-                return Err(arkret_wire::Error::Protocol(
+                return Err(arkret_wire::WireError::Protocol(
                     "Contact inline service resolution does not bind the recipient Principal Server"
                         .to_owned(),
                 ));
@@ -76,7 +76,7 @@ impl PeerContactAddress {
             .as_deref()
             .is_some_and(|kind| kind != Self::RECIPIENT_SERVICE_KIND)
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "contact_address.recipient_service_kind MUST be principal_server".to_owned(),
             ));
         }

@@ -49,7 +49,7 @@ impl RealmState {
         if let Some(morph) = self.morphs.get(&morph_id_str)
             && morph.state != Some(crate::ObjectState::Active)
         {
-            return Err(Error::Protocol("morph_not_active".to_owned()));
+            return Err(WireError::Protocol("morph_not_active".to_owned()));
         }
         let patch = Some(patch_to_value_map(&payload.patch)?);
         let title = patch_metadata_string(&patch, "title");
@@ -59,14 +59,14 @@ impl RealmState {
             .and_then(|patch| patch.get("content").cloned())
             .map(serde_json::from_value)
             .transpose()
-            .map_err(|error| Error::Protocol(format!("invalid Morph content: {error}")))?;
+            .map_err(|error| WireError::Protocol(format!("invalid Morph content: {error}")))?;
         let encrypted_content = patch
             .as_ref()
             .and_then(|patch| patch.get("encrypted_content").cloned())
             .map(serde_json::from_value)
             .transpose()
             .map_err(|error| {
-                Error::Protocol(format!("invalid Morph encrypted_content: {error}"))
+                WireError::Protocol(format!("invalid Morph encrypted_content: {error}"))
             })?;
         let fields = patch_fields(&patch);
         let facets = patch.as_ref().and_then(|patch| {
@@ -79,7 +79,7 @@ impl RealmState {
         let morph = self
             .morphs
             .get_mut(&morph_id_str)
-            .ok_or_else(|| Error::Protocol(format!("morph not found: {}", morph_id_str)))?;
+            .ok_or_else(|| WireError::Protocol(format!("morph not found: {}", morph_id_str)))?;
         if let Some(title) = title {
             morph
                 .metadata
@@ -138,7 +138,7 @@ impl RealmState {
             return Ok(());
         };
         if morph.state != Some(crate::ObjectState::Active) {
-            return Err(Error::Protocol("morph_not_active".to_owned()));
+            return Err(WireError::Protocol("morph_not_active".to_owned()));
         }
         self.set_morph_state(event, crate::ObjectState::Archived)
     }
@@ -155,7 +155,7 @@ impl RealmState {
             return Ok(());
         };
         if morph.state != Some(crate::ObjectState::Archived) {
-            return Err(Error::Protocol("morph_not_archived".to_owned()));
+            return Err(WireError::Protocol("morph_not_archived".to_owned()));
         }
         self.set_morph_state(event, crate::ObjectState::Active)
     }
@@ -219,7 +219,7 @@ impl RealmState {
         if let Some(space) = self.spaces.get(&space_id)
             && space.state != Some(crate::models::SpaceState::Active)
         {
-            return Err(Error::Protocol("space_not_active".to_owned()));
+            return Err(WireError::Protocol("space_not_active".to_owned()));
         }
         let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.payload, "patch");
 
@@ -277,7 +277,7 @@ impl RealmState {
         let space = self
             .spaces
             .get_mut(&space_id)
-            .ok_or_else(|| Error::Protocol(format!("space not found: {}", space_id)))?;
+            .ok_or_else(|| WireError::Protocol(format!("space not found: {}", space_id)))?;
         if let Some(title) = title {
             space.title = title;
         }
@@ -317,13 +317,13 @@ impl RealmState {
         let parent_space_id_str = self
             .extract_optional_field::<String>(&event.payload, "parent_space_id")
             .ok_or_else(|| {
-                Error::Protocol("space parent event requires parent_space_id".to_owned())
+                WireError::Protocol("space parent event requires parent_space_id".to_owned())
             })?;
         let parent_space_id = SpaceId::new(parent_space_id_str)?;
         let space = self
             .spaces
             .get_mut(&space_id)
-            .ok_or_else(|| Error::Protocol(format!("space not found: {}", space_id)))?;
+            .ok_or_else(|| WireError::Protocol(format!("space not found: {}", space_id)))?;
         space.parent_space_id = Some(parent_space_id);
         space.updated_by = Some(event.actor_id.clone());
         space.updated_at = Some(event.created_at);
@@ -356,7 +356,7 @@ impl RealmState {
             return Ok(());
         };
         if space.state != Some(crate::models::SpaceState::Active) {
-            return Err(Error::Protocol("space_not_active".to_owned()));
+            return Err(WireError::Protocol("space_not_active".to_owned()));
         }
         self.set_space_state(event, crate::models::SpaceState::Archived)
     }
@@ -373,7 +373,7 @@ impl RealmState {
         match space.state {
             Some(crate::models::SpaceState::Active) | Some(crate::models::SpaceState::Archived) => {
             }
-            _ => return Err(Error::Protocol("space_already_terminal".to_owned())),
+            _ => return Err(WireError::Protocol("space_already_terminal".to_owned())),
         }
         self.set_space_state(event, crate::models::SpaceState::Tombstoned)
     }
@@ -388,7 +388,7 @@ impl RealmState {
             return Ok(());
         };
         if space.state != Some(crate::models::SpaceState::Archived) {
-            return Err(Error::Protocol("space_not_archived".to_owned()));
+            return Err(WireError::Protocol("space_not_archived".to_owned()));
         }
         space.state = Some(crate::models::SpaceState::Active);
         space.state_changed_at = Some(event.created_at);
@@ -411,7 +411,7 @@ impl RealmState {
             .extract_optional_field(object, "relation_kind")
             .or_else(|| self.extract_optional_field(object, "kind"))
             .ok_or_else(|| {
-                Error::Protocol("relation create requires kind or relation_kind".to_owned())
+                WireError::Protocol("relation create requires kind or relation_kind".to_owned())
             })?;
         let from_ref = self.extract_field(object, "from_ref")?;
         let to_ref = self.extract_field(object, "to_ref")?;
@@ -511,12 +511,12 @@ impl RealmState {
         if let Some(subject) = self.subjects.get(&strand_id_str)
             && subject.state != Some(crate::ObjectState::Active)
         {
-            return Err(Error::Protocol("strand_not_active".to_owned()));
+            return Err(WireError::Protocol("strand_not_active".to_owned()));
         }
         let subject = self
             .subjects
             .get_mut(&strand_id_str)
-            .ok_or_else(|| Error::Protocol(format!("strand not found: {}", strand_id_str)))?;
+            .ok_or_else(|| WireError::Protocol(format!("strand not found: {}", strand_id_str)))?;
 
         // Apply the canonical dotted patch to the complete pre-state. The old
         // reducer inspected only a parent `tracks` value and silently missed
@@ -529,7 +529,7 @@ impl RealmState {
         let mut post_value = payload.patch.apply(&serde_json::to_value(&*subject)?)?;
         normalize_strand_content_pair_writes(&payload.patch, &mut post_value)?;
         let mut post: Strand = serde_json::from_value(post_value).map_err(|error| {
-            Error::Protocol(format!("invalid Strand post-patch object: {error}"))
+            WireError::Protocol(format!("invalid Strand post-patch object: {error}"))
         })?;
 
         let post_synthesis = post.tracks.get(crate::STRAND_TRACK_NAME_SYNTHESIS).cloned();
@@ -547,7 +547,7 @@ impl RealmState {
                     .as_ref()
                     .is_some_and(|track| track.enabled != Some(false)))
         {
-            return Err(Error::Protocol("track_disabled".to_owned()));
+            return Err(WireError::Protocol("track_disabled".to_owned()));
         }
 
         post.validate_content_surfaces()?;
@@ -573,7 +573,7 @@ impl RealmState {
             return Ok(());
         };
         if subject.state != Some(crate::ObjectState::Active) {
-            return Err(Error::Protocol("strand_not_active".to_owned()));
+            return Err(WireError::Protocol("strand_not_active".to_owned()));
         }
         self.set_strand_state(event, crate::ObjectState::Archived)
     }
@@ -590,7 +590,7 @@ impl RealmState {
             return Ok(());
         };
         if subject.state != Some(crate::ObjectState::Archived) {
-            return Err(Error::Protocol("strand_not_archived".to_owned()));
+            return Err(WireError::Protocol("strand_not_archived".to_owned()));
         }
         self.set_strand_state(event, crate::ObjectState::Active)
     }
@@ -643,14 +643,14 @@ impl RealmState {
 
 fn validate_morph_schema_refs(schema_refs: &[String]) -> Result<()> {
     if schema_refs.is_empty() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "morph object requires non-empty schema_refs".to_owned(),
         ));
     }
     let mut seen = BTreeSet::new();
     for schema_ref in schema_refs {
         if !seen.insert(schema_ref) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "morph object schema_refs contains duplicate schema ref `{schema_ref}`"
             )));
         }
@@ -665,7 +665,7 @@ fn normalize_strand_content_pair_writes(
     let writes_description = patch.iter().any(|(path, _)| path == "content");
     let writes_encrypted_description = patch.iter().any(|(path, _)| path == "encrypted_content");
     if writes_description && writes_encrypted_description {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "Strand Description patch must write only one of content or encrypted_content"
                 .to_owned(),
         ));
@@ -677,7 +677,7 @@ fn normalize_strand_content_pair_writes(
         .iter()
         .any(|(path, _)| path == "tracks.synthesis.encrypted_content");
     if writes_synthesis && writes_encrypted_synthesis {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "Synthesis patch must write only one of tracks.synthesis.content or tracks.synthesis.encrypted_content"
                 .to_owned(),
         ));
@@ -685,7 +685,7 @@ fn normalize_strand_content_pair_writes(
 
     let post = post_state
         .as_object_mut()
-        .ok_or_else(|| Error::Protocol("Strand post-state must be an object".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("Strand post-state must be an object".to_owned()))?;
     if writes_description {
         post.remove("encrypted_content");
     } else if writes_encrypted_description {
@@ -698,7 +698,7 @@ fn normalize_strand_content_pair_writes(
             .and_then(Value::as_object_mut)
             .and_then(|tracks| tracks.get_mut(crate::STRAND_TRACK_NAME_SYNTHESIS))
             .and_then(Value::as_object_mut)
-            .ok_or_else(|| Error::Protocol("track_disabled".to_owned()))?;
+            .ok_or_else(|| WireError::Protocol("track_disabled".to_owned()))?;
         if writes_synthesis {
             synthesis.remove("encrypted_content");
         } else {

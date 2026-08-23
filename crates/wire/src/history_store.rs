@@ -25,7 +25,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::error::{Error, Result};
+use crate::error::{Result, WireError};
 use crate::event_envelope::HistoryEffectiveScope;
 use crate::generated::{HISTORY_STORE_LIMITS, MLS_CIPHERSUITES};
 use crate::organization_recovery::{validate_base64url_bounded, validate_canonical_mls_group_id};
@@ -140,13 +140,13 @@ impl LocalAuthoritativeHistorySecret {
             .iter()
             .any(|suite| suite.canonical_id == self.mls_ciphersuite)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "local-authoritative history secret names an unregistered MLS ciphersuite"
                     .to_owned(),
             ));
         }
         if !(1..=MAX_LOCAL_MLS_STATE_REF_CHARS).contains(&self.local_state_ref.chars().count()) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "local-authoritative history secret local_state_ref must contain 1..={MAX_LOCAL_MLS_STATE_REF_CHARS} characters"
             )));
         }
@@ -187,7 +187,7 @@ impl EventCandidateBindingKey {
         if !(1..=MAX_HISTORY_SENDER_DOMAIN_CHARS)
             .contains(&self.verified_sender_domain.chars().count())
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "history verified_sender_domain must contain 1..={MAX_HISTORY_SENDER_DOMAIN_CHARS} characters"
             )));
         }
@@ -248,7 +248,7 @@ impl EventCandidateBinding {
                 HISTORY_STORE_LIMITS.event_candidate_binding_ttl_seconds,
             ))
             .ok_or_else(|| {
-                Error::Protocol("history Event candidate binding expiry overflows".to_owned())
+                WireError::Protocol("history Event candidate binding expiry overflows".to_owned())
             })?;
         let binding = Self {
             event_binding_key,
@@ -268,7 +268,7 @@ impl EventCandidateBinding {
             .signed_duration_since(self.first_observed_at)
             != chrono::Duration::seconds(HISTORY_STORE_LIMITS.event_candidate_binding_ttl_seconds)
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "history Event candidate binding expiry must equal first_observed_at plus {} seconds",
                 HISTORY_STORE_LIMITS.event_candidate_binding_ttl_seconds
             )));

@@ -268,7 +268,7 @@ pub struct UnsignedAccountStatusRecord {
 impl UnsignedAccountStatusRecord {
     pub fn validate(&self) -> Result<()> {
         if self.schema != SchemaId::ACCOUNT_STATUS_RECORD_V1 {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account status record schema mismatch".to_owned(),
             ));
         }
@@ -276,7 +276,7 @@ impl UnsignedAccountStatusRecord {
             || self.binding_version == 0
             || self.status_seq == 0
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account status record bounds are invalid".to_owned(),
             ));
         }
@@ -284,12 +284,12 @@ impl UnsignedAccountStatusRecord {
             if self.previous_account_status_record_id.is_some()
                 || self.status != AccountStatus::Active
             {
-                return Err(arkret_wire::Error::Protocol(
+                return Err(arkret_wire::WireError::Protocol(
                     "account status genesis must be active without a predecessor".to_owned(),
                 ));
             }
         } else if self.previous_account_status_record_id.is_none() {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account status successor requires previous_account_status_record_id".to_owned(),
             ));
         }
@@ -303,7 +303,7 @@ impl UnsignedAccountStatusRecord {
                     .bytes()
                     .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_');
             if !valid {
-                return Err(arkret_wire::Error::Protocol(
+                return Err(arkret_wire::WireError::Protocol(
                     "account status reason_code is invalid".to_owned(),
                 ));
             }
@@ -313,7 +313,7 @@ impl UnsignedAccountStatusRecord {
             .as_ref()
             .is_some_and(|reason| reason.as_str().chars().count() > 1024)
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account status reason exceeds 1024 characters".to_owned(),
             ));
         }
@@ -356,7 +356,7 @@ impl UnsignedAccountStatusRecord {
             || proof.audience.is_some()
             || proof.proof_purpose.is_some()
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account status record proof metadata does not match its unsigned core".to_owned(),
             ));
         }
@@ -466,12 +466,12 @@ impl AccountStatusRecord {
     pub fn validate_shape(&self) -> Result<()> {
         self.unsigned().validate()?;
         if self.account_status_record_id != self.unsigned().record_id()? {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account status account_status_record_id mismatch".to_owned(),
             ));
         }
         if self.verification_method != self.proof.verification_method {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account status verification_method mismatch".to_owned(),
             ));
         }
@@ -479,7 +479,7 @@ impl AccountStatusRecord {
         self.unsigned()
             .canonical_proof_binding_bytes(&self.proof.unsigned())?;
         if self.proof.payload_digest != self.payload_digest()? {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account status record proof digest mismatch".to_owned(),
             ));
         }
@@ -492,7 +492,7 @@ impl AccountStatusRecord {
             .and_then(|controller| DidFullId::new(controller.to_owned()).ok())
             .and_then(|controller| project_full_id_to_core_id(&controller).ok());
         if proof_controller.as_ref() != Some(&self.account_authority_id) {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account status record proof controller mismatch".to_owned(),
             ));
         }
@@ -521,7 +521,7 @@ impl AccountStatusResolveRequestBody {
             || self.from_status_seq == 0
             || !(1..=128).contains(&self.limit)
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account status resolve bounds are invalid".to_owned(),
             ));
         }
@@ -548,7 +548,7 @@ impl AccountStatusResolveOutcome {
             || self.account_id != request.account_id
             || self.records.len() > usize::from(request.limit)
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account status resolve binding mismatch".to_owned(),
             ));
         }
@@ -558,7 +558,7 @@ impl AccountStatusResolveOutcome {
                 || record.account_id != self.account_id
                 || record.status_seq != request.from_status_seq + offset as u64
             {
-                return Err(arkret_wire::Error::Protocol(
+                return Err(arkret_wire::WireError::Protocol(
                     "account status resolve range is not contiguous".to_owned(),
                 ));
             }
@@ -569,7 +569,7 @@ impl AccountStatusResolveOutcome {
                 .next_status_seq
                 .is_some_and(|next| Some(next) != expected_next)
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account status resolve continuation is invalid".to_owned(),
             ));
         }
@@ -642,7 +642,7 @@ impl UnsignedAccountStatusReceipt {
             || proof.audience.is_some()
             || proof.proof_purpose.is_some()
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account status receipt proof metadata does not match its unsigned core".to_owned(),
             ));
         }
@@ -685,13 +685,13 @@ impl AccountStatusReceipt {
 
     pub fn validate_shape(&self) -> Result<()> {
         if self.account_id.as_str().chars().count() > 255 || self.status_seq == 0 {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account status receipt account_id exceeds 255 characters".to_owned(),
             ));
         }
         self.proof.validate_production()?;
         if self.proof.payload_digest != self.payload_digest()? {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account status receipt proof digest mismatch".to_owned(),
             ));
         }
@@ -704,7 +704,7 @@ impl AccountStatusReceipt {
             .and_then(|controller| DidFullId::new(controller.to_owned()).ok())
             .and_then(|controller| project_full_id_to_core_id(&controller).ok());
         if proof_controller.as_ref() != Some(&self.receiver_service_id) {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account status receipt proof controller mismatch".to_owned(),
             ));
         }
@@ -735,7 +735,7 @@ impl AccountStatusReceipt {
             || self.account_id != record.account_id
             || self.status_seq != record.status_seq
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account status receipt binding mismatch".to_owned(),
             ));
         }
@@ -891,20 +891,20 @@ pub struct AccountRegisterRequestBody {
 impl AccountRegisterRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.proof.is_some() == self.identity_creation.is_some() {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account register requires exactly one proof or identity_creation branch"
                     .to_owned(),
             ));
         }
         if project_full_id_to_core_id(&self.full_id)? != *self.principal_id.as_core_id() {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account register full_id does not project to principal_id".to_owned(),
             ));
         }
         if let Some(proof) = &self.proof {
             proof.validate_shape()?;
             if proof.principal_id != self.principal_id || proof.full_id != self.full_id {
-                return Err(arkret_wire::Error::Protocol(
+                return Err(arkret_wire::WireError::Protocol(
                     "account register published-DID proof binding mismatch".to_owned(),
                 ));
             }
@@ -912,17 +912,17 @@ impl AccountRegisterRequestBody {
         if let Some(identity_creation) = &self.identity_creation {
             identity_creation.validate()?;
             if self.device_id.is_some() {
-                return Err(arkret_wire::Error::Protocol(
+                return Err(arkret_wire::WireError::Protocol(
                     "top-level device_id is not used by identity creation".to_owned(),
                 ));
             }
             if identity_creation.control_proof.principal_id != self.principal_id {
-                return Err(arkret_wire::Error::Protocol(
+                return Err(arkret_wire::WireError::Protocol(
                     "account register identity creation does not match principal".to_owned(),
                 ));
             }
             if identity_creation.full_id != self.full_id {
-                return Err(arkret_wire::Error::Protocol(
+                return Err(arkret_wire::WireError::Protocol(
                     "account register identity creation full_id mismatch".to_owned(),
                 ));
             }
@@ -967,7 +967,7 @@ impl AccountRegisterOutcome {
     pub fn validate_against_request(&self, request: &AccountRegisterRequestBody) -> Result<()> {
         request.validate()?;
         if self.principal_id != request.principal_id {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account register outcome principal_id mismatch".to_owned(),
             ));
         }
@@ -975,14 +975,14 @@ impl AccountRegisterOutcome {
             let binding_receipt = &self.binding_receipt;
             binding_receipt.validate_shape()?;
             let receipt = self.pcr_genesis_receipt.as_ref().ok_or_else(|| {
-                arkret_wire::Error::Protocol(
+                arkret_wire::WireError::Protocol(
                     "identity creation outcome omits pcr_genesis_receipt".to_owned(),
                 )
             })?;
             receipt.validate()?;
             let receipt_scope = receipt.pcr_genesis_scope()?;
             let grant = self.session_grant_outcome.as_ref().ok_or_else(|| {
-                arkret_wire::Error::Protocol(
+                arkret_wire::WireError::Protocol(
                     "identity creation outcome omits session_grant_outcome".to_owned(),
                 )
             })?;
@@ -1043,7 +1043,7 @@ impl AccountRegisterOutcome {
                 ),
             ];
             if let Some((constraint, _)) = constraints.iter().find(|(_, valid)| !valid) {
-                return Err(arkret_wire::Error::Protocol(format!(
+                return Err(arkret_wire::WireError::Protocol(format!(
                     "initial session grant outcome does not match its registration request: \
                          {constraint}"
                 )));
@@ -1053,7 +1053,7 @@ impl AccountRegisterOutcome {
         if self.binding_receipt.principal_id != self.principal_id
             || self.binding_receipt.full_id != request.full_id
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account register outcome binding receipt mismatch".to_owned(),
             ));
         }
@@ -1094,12 +1094,12 @@ impl AccountUpdateProfileRequestBody {
             || event.applet_id.is_some()
             || event.external_ref.is_some()
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account profile self-service requires a direct holder-authored Event".to_owned(),
             ));
         }
         if !event.preconditions.is_empty() {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account profile self-service does not accept extra Event preconditions".to_owned(),
             ));
         }
@@ -1118,7 +1118,7 @@ impl AccountUpdateProfileRequestBody {
                     )?;
                 payload.validate_for_account_self_service()
             }
-            _ => Err(arkret_wire::Error::Protocol(
+            _ => Err(arkret_wire::WireError::Protocol(
                 "account profile self-service requires ak.profile.create or ak.profile.update"
                     .to_owned(),
             )),
@@ -1143,7 +1143,7 @@ impl AccountUpdateProfileRequestBody {
                     realm_id: principal_control_realm_id.clone(),
                 })
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "account profile Event does not match the authenticated principal's exact PCR"
                     .to_owned(),
             ));
@@ -1151,7 +1151,7 @@ impl AccountUpdateProfileRequestBody {
         match &event.kind {
             EventKind::ProfileCreate => {
                 if accepted_basis.is_some() {
-                    return Err(arkret_wire::Error::Protocol(
+                    return Err(arkret_wire::WireError::Protocol(
                         "ak.profile.create is allowed only when no accepted profile exists"
                             .to_owned(),
                     ));
@@ -1167,7 +1167,7 @@ impl AccountUpdateProfileRequestBody {
                         .as_ref()
                         .is_some_and(|realm_id| realm_id != principal_control_realm_id)
                 {
-                    return Err(arkret_wire::Error::Protocol(
+                    return Err(arkret_wire::WireError::Protocol(
                         "ak.profile.create payload does not match the authenticated principal's exact PCR"
                             .to_owned(),
                     ));
@@ -1175,7 +1175,7 @@ impl AccountUpdateProfileRequestBody {
             }
             EventKind::ProfileUpdate => {
                 let basis = accepted_basis.ok_or_else(|| {
-                    arkret_wire::Error::Protocol(
+                    arkret_wire::WireError::Protocol(
                         "ak.profile.update requires an accepted create-derived profile basis"
                             .to_owned(),
                     )
@@ -1183,7 +1183,7 @@ impl AccountUpdateProfileRequestBody {
                 if &basis.principal_id != session_principal_id
                     || &basis.principal_control_realm_id != principal_control_realm_id
                 {
-                    return Err(arkret_wire::Error::Protocol(
+                    return Err(arkret_wire::WireError::Protocol(
                         "accepted profile basis does not match the authenticated principal's exact PCR"
                             .to_owned(),
                     ));
@@ -1193,7 +1193,7 @@ impl AccountUpdateProfileRequestBody {
                         event,
                     )?;
                 if payload.target_ref != basis.profile_id {
-                    return Err(arkret_wire::Error::Protocol(
+                    return Err(arkret_wire::WireError::Protocol(
                         "ak.profile.update target_ref does not match the accepted create-derived profile id"
                             .to_owned(),
                     ));
@@ -1241,7 +1241,7 @@ fn validate_account_profile_create_payload(
         || object.updated_by.is_some()
         || object.updated_at.is_some()
     {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "account self-service ak.profile.create contains non-authorable profile fields"
                 .to_owned(),
         ));

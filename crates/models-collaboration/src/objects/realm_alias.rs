@@ -20,7 +20,7 @@
 use std::fmt;
 
 use arkret_wire::{
-    Error, Result, prepare_handle_localpart, prepare_idna_domain,
+    Result, WireError, prepare_handle_localpart, prepare_idna_domain,
     validate_canonical_handle_localpart, validate_canonical_idna_domain,
 };
 use serde::{Deserialize, Serialize};
@@ -49,13 +49,13 @@ impl RealmAlias {
         let mut parts = input.split(':');
         let local = parts
             .next()
-            .ok_or_else(|| Error::Protocol(format!("realm alias is empty: {input}")))?;
-        let domain_part = parts
-            .next()
-            .ok_or_else(|| Error::Protocol(format!("realm alias missing ':<domain>': {input}")))?;
+            .ok_or_else(|| WireError::Protocol(format!("realm alias is empty: {input}")))?;
+        let domain_part = parts.next().ok_or_else(|| {
+            WireError::Protocol(format!("realm alias missing ':<domain>': {input}"))
+        })?;
         if parts.next().is_some() {
             // Exactly one ':'; canonical human addresses never carry a port.
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "realm alias has too many ':' separators (no port form): {input}"
             )));
         }
@@ -85,7 +85,7 @@ impl RealmAlias {
             Self::prepare(&format!("{body}:{authority}"))?
         };
         if alias.domain() != authority {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "realm alias domain {} is not the issuing authority domain {authority}",
                 alias.domain()
             )));
@@ -97,9 +97,9 @@ impl RealmAlias {
     pub fn prepare(input: &str) -> Result<Self> {
         let trimmed = input.trim();
         let body = trimmed.strip_prefix('#').unwrap_or(trimmed);
-        let (local, domain) = body
-            .split_once(':')
-            .ok_or_else(|| Error::Protocol(format!("realm alias missing ':<domain>': {input}")))?;
+        let (local, domain) = body.split_once(':').ok_or_else(|| {
+            WireError::Protocol(format!("realm alias missing ':<domain>': {input}"))
+        })?;
         let localpart = prepare_handle_localpart(local)?;
         let domain = prepare_idna_domain(domain)?;
         Self::parse(&format!("{localpart}:{domain}"))
@@ -140,7 +140,7 @@ impl RealmAlias {
     pub fn authority_domain_for_service(service_id: &str) -> Result<String> {
         let mut segments = service_id.split(':');
         if segments.next() != Some("did") {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "realm alias authority is not a DID: {service_id}"
             )));
         }
@@ -148,7 +148,7 @@ impl RealmAlias {
             .next()
             .filter(|method| !method.is_empty())
             .ok_or_else(|| {
-                Error::Protocol(format!(
+                WireError::Protocol(format!(
                     "realm alias authority DID has no method: {service_id}"
                 ))
             })?;
@@ -157,14 +157,14 @@ impl RealmAlias {
             // The SCID is method-specific data preceding the host.
             "webvh" => segments.nth(1),
             _ => {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "realm alias authority DID method {method} declares no host: {service_id}"
                 )));
             }
         }
         .filter(|host| !host.is_empty())
         .ok_or_else(|| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "realm alias authority DID has no host: {service_id}"
             ))
         })?;
@@ -189,7 +189,7 @@ impl fmt::Display for RealmAlias {
 }
 
 impl TryFrom<String> for RealmAlias {
-    type Error = Error;
+    type Error = WireError;
     fn try_from(value: String) -> Result<Self> {
         RealmAlias::parse(&value)
     }

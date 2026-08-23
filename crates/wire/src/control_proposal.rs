@@ -11,7 +11,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::error::{Error, Result};
+use crate::error::{Result, WireError};
 use crate::notary::NotaryValue;
 use crate::{
     AuthorizationLease, CbaProofBundle, DidFullId, Event, EventSubmitContext, Hash,
@@ -234,7 +234,7 @@ impl ControlProposalAckIssueRequest {
         self.event
             .validate_for_submit_structural_in_context(EventSubmitContext::Standard)?;
         if self.event.seal_basis.is_none() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Control Proposal Ack issuance accepts only non-genesis Control Moves".to_owned(),
             ));
         }
@@ -242,12 +242,12 @@ impl ControlProposalAckIssueRequest {
         if self.authorization_lease.actor_id != self.event.actor_id
             || self.authorization_lease.scope_ref != self.event.scope_ref
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Control Proposal Ack authorization lease does not bind the Event".to_owned(),
             ));
         }
         if self.cba_proof_bundles.len() > 64 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Control Proposal Ack issuance exceeds 64 CBA proof bundles".to_owned(),
             ));
         }
@@ -284,7 +284,7 @@ impl ControlProposalDecisionSubmitOutcome {
             || self.decision_kind != expected_kind
             || self.proposal_state != expected_state
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "control proposal decision outcome does not bind the submitted decision".to_owned(),
             ));
         }
@@ -298,7 +298,7 @@ impl ControlProposalDecisionReadOutcome {
         request: &ControlProposalDecisionReadRequestBody,
     ) -> Result<()> {
         if self.realm_id != request.realm_id || self.proposal_digest != request.proposal_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "control proposal decision read outcome does not bind the request".to_owned(),
             ));
         }
@@ -310,7 +310,7 @@ impl ControlProposalDecisionReadOutcome {
                     && !matches!(byte, b'.' | b'_' | b'-')
             })
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "control proposal event kind is not a registered-token shape".to_owned(),
             ));
         }
@@ -322,7 +322,7 @@ impl ControlProposalDecisionReadOutcome {
                 .as_ref()
                 .is_some_and(|decision| !decision.is_reject())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "control proposal read decision variants are inconsistent".to_owned(),
             ));
         }
@@ -351,7 +351,7 @@ impl ControlProposalDecisionReadOutcome {
                     && self.terminal_reject.is_none()
                     && self.fault_reason.is_none() => {}
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "control proposal read state fields are inconsistent".to_owned(),
                 ));
             }
@@ -359,11 +359,11 @@ impl ControlProposalDecisionReadOutcome {
         match self.proposal_authority_kind {
             ControlProposalAuthorityKind::ControlProposalAck => {
                 let ack = self.control_proposal_ack.as_ref().ok_or_else(|| {
-                    Error::Protocol("Ack-governed proposal read omits its Ack".to_owned())
+                    WireError::Protocol("Ack-governed proposal read omits its Ack".to_owned())
                 })?;
                 ack.validate_protocol_bounds()?;
                 if ack.realm_id != self.realm_id || ack.proposal_digest != self.proposal_digest {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "control proposal read Ack does not bind the proposal".to_owned(),
                     ));
                 }
@@ -383,7 +383,7 @@ impl ControlProposalDecisionReadOutcome {
                         ControlProposalState::Pending | ControlProposalState::Sealed
                     )
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "Ack-less proposal read carries Ack-governed decision state".to_owned(),
                     ));
                 }
@@ -392,7 +392,7 @@ impl ControlProposalDecisionReadOutcome {
         if self.proposal_event_kind == crate::event_kind_str::DEVICE_REVOKE
             && self.proposal_authority_kind != ControlProposalAuthorityKind::ControlProposalAck
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "ak.device.revoke cannot use Ack-less proposal authority".to_owned(),
             ));
         }
@@ -454,12 +454,12 @@ fn validate_signature(
     expected_created_at: DateTime<Utc>,
 ) -> Result<()> {
     if signature.payload_digest != *expected_digest {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "control proposal signature does not cover the canonical payload".to_owned(),
         ));
     }
     if signature.created_at != expected_created_at {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "control proposal signature created_at does not match the signed decision time"
                 .to_owned(),
         ));
@@ -488,7 +488,7 @@ fn validate_proofs(
     expected_created_at: DateTime<Utc>,
 ) -> Result<()> {
     if proofs.is_empty() || proofs.len() > MAX_PROPOSAL_AUTHORITY_PROOFS {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "control proposal proof set requires 1..={MAX_PROPOSAL_AUTHORITY_PROOFS} members"
         )));
     }
@@ -496,14 +496,14 @@ fn validate_proofs(
     let mut controllers = BTreeSet::new();
     for proof in proofs {
         if previous_method.is_some_and(|previous| previous >= proof.verification_method.as_str()) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "control proposal proofs must use distinct verification methods in canonical ascending order"
                     .to_owned(),
             ));
         }
         validate_signature(proof, expected_digest, expected_created_at)?;
         if !controllers.insert(signer_controller(proof)?) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "control proposal proofs contain a duplicate authority member".to_owned(),
             ));
         }
@@ -526,38 +526,38 @@ impl ControlProposalDecisionPolicy {
         if self.proposal_intake_sla < Duration::zero()
             || self.proposal_intake_sla > MAX_PROPOSAL_INTAKE_SLA
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Control Proposal Ack SLA must be within 0ms..=24h".to_owned(),
             ));
         }
         if self.decision_window <= Duration::zero()
             || self.decision_window > MAX_PROPOSAL_DECISION_WINDOW
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "proposal decision window must be within 1ms..=24h".to_owned(),
             ));
         }
         if self.absolute_horizon < self.decision_window
             || self.absolute_horizon > MAX_PROPOSAL_ABSOLUTE_HORIZON
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "proposal absolute horizon must cover the first decision window and be <=72h"
                     .to_owned(),
             ));
         }
         if self.max_defers > 0 && self.absolute_horizon == self.decision_window {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "proposal absolute horizon must exceed the decision window when defers are enabled"
                     .to_owned(),
             ));
         }
         if self.max_defers > MAX_PROPOSAL_DEFERS {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "proposal max_defers exceeds the protocol ceiling of 2".to_owned(),
             ));
         }
         if self.max_defers > 0 && self.decision_window == self.absolute_horizon {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "proposal decision window must be shorter than the absolute horizon when defers are enabled"
                     .to_owned(),
             ));
@@ -591,7 +591,7 @@ impl ControlProposalAuthorityAck {
             jws: String::new(),
         };
         if signer_controller(&signer_binding)? != signer.signer_did().as_str() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "proposal member signer DID does not control its verification method".to_owned(),
             ));
         }
@@ -612,7 +612,7 @@ impl ControlProposalAuthorityAck {
         member.signature.payload_digest = member.authority_ack_digest()?;
         let signed = signer.sign_payload(&member.canonical_bytes_for_signature()?)?;
         if signed.verification_method != member.signature.verification_method {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "proposal member signer changed verification method while signing".to_owned(),
             ));
         }
@@ -639,7 +639,7 @@ impl ControlProposalAuthorityAck {
         self.validate_protocol_bounds()?;
         if self.received_at.checked_add_signed(policy.decision_window) != Some(self.decision_due_at)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "proposal authority Ack decision_due_at must equal the effective decision window"
                     .to_owned(),
             ));
@@ -647,7 +647,7 @@ impl ControlProposalAuthorityAck {
         if self.received_at.checked_add_signed(policy.absolute_horizon)
             != Some(self.absolute_due_at)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "proposal authority Ack absolute_due_at must equal the effective absolute horizon"
                     .to_owned(),
             ));
@@ -663,7 +663,7 @@ impl ControlProposalAuthorityAck {
             || absolute_horizon < decision_window
             || absolute_horizon > MAX_PROPOSAL_ABSOLUTE_HORIZON
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "proposal authority Ack deadlines exceed protocol bounds".to_owned(),
             ));
         }
@@ -698,7 +698,7 @@ impl ControlProposalAck {
         policy: Option<ControlProposalDecisionPolicy>,
     ) -> Result<Self> {
         if authority_acks.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Control Proposal Ack requires at least one authority Ack".to_owned(),
             ));
         }
@@ -761,23 +761,23 @@ impl ControlProposalAck {
                 .verification_method
                 .rsplit_once('#')
                 .ok_or_else(|| {
-                    Error::Protocol(
+                    WireError::Protocol(
                         "proposal member verification_method must be a DID URL".to_owned(),
                     )
                 })?;
             if fragment.is_empty() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "proposal member verification_method fragment is empty".to_owned(),
                 ));
             }
             if !signers.insert(member.signature.verification_method.clone()) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "Control Proposal Ack repeats an authority verification method".to_owned(),
                 ));
             }
         }
         if !notary.proposal_quorum_met(&signers) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Control Proposal Ack authority quorum is unreachable".to_owned(),
             ));
         }
@@ -805,14 +805,14 @@ impl ControlProposalAck {
         policy: Option<ControlProposalDecisionPolicy>,
     ) -> Result<()> {
         if self.defer_count != 0 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Control Proposal Ack defer_count must be zero".to_owned(),
             ));
         }
         if self.authority_acks.is_empty()
             || self.authority_acks.len() > MAX_PROPOSAL_AUTHORITY_PROOFS
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "Control Proposal Ack requires 1..={MAX_PROPOSAL_AUTHORITY_PROOFS} authority Acks"
             )));
         }
@@ -847,7 +847,7 @@ impl ControlProposalAck {
             || self.received_at > self.decision_due_at
             || self.decision_due_at > self.absolute_due_at
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Control Proposal Ack aggregate timestamps do not match the canonical member window"
                     .to_owned(),
             ));
@@ -858,7 +858,7 @@ impl ControlProposalAck {
                 || member.proposal_digest != self.proposal_digest
                 || member.authority_set_ref != self.authority_set_ref
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "proposal authority Ack does not preserve the aggregate Control Proposal Ack \
                      binding"
                         .to_owned(),
@@ -867,7 +867,7 @@ impl ControlProposalAck {
             if previous_method
                 .is_some_and(|previous| previous >= member.signature.verification_method.as_str())
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "proposal authority Acks must use distinct verification methods in canonical ascending order"
                         .to_owned(),
                 ));
@@ -914,7 +914,7 @@ impl ControlProposalDecision {
                 ..
             } => {
                 if *defer_count > MAX_PROPOSAL_DEFERS {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "signed_reject exceeds the protocol defer bound".to_owned(),
                     ));
                 }
@@ -928,7 +928,7 @@ impl ControlProposalDecision {
                 ..
             } => {
                 if *defer_count == 0 || *defer_count > MAX_PROPOSAL_DEFERS {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "signed_defer defer_count must be within 1..=2".to_owned(),
                     ));
                 }
@@ -936,7 +936,7 @@ impl ControlProposalDecision {
             }
         };
         if self.decided_at() > *decision_due_at || *decision_due_at > *absolute_due_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "control proposal decision timestamps are out of order".to_owned(),
             ));
         }
@@ -979,7 +979,7 @@ impl ControlProposalDecision {
             || absolute_due_at != &ack.absolute_due_at
             || authority_set_ref != &ack.authority_set_ref
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "proposal decision does not preserve its Control Proposal Ack binding".to_owned(),
             ));
         }
@@ -990,7 +990,7 @@ impl ControlProposalDecision {
         let proof = match self {
             Self::SignedReject { proofs, .. } | Self::SignedDefer { proofs, .. } => {
                 proofs.first().ok_or_else(|| {
-                    Error::Protocol("control proposal decision has no proof".to_owned())
+                    WireError::Protocol("control proposal decision has no proof".to_owned())
                 })?
             }
         };
@@ -1006,7 +1006,7 @@ impl ControlProposalDecision {
         let digest = self.decision_digest()?;
         validate_proofs(proofs, &digest, self.decided_at())?;
         if !proofs.iter().any(|candidate| candidate == proof) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "control proposal proof is not a member of this decision".to_owned(),
             ));
         }
@@ -1065,7 +1065,7 @@ impl ControlProposalDecision {
             .map(|proof| proof.verification_method.clone())
             .collect::<BTreeSet<_>>();
         if !notary.proposal_quorum_met(&signers) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "control proposal decision proof set does not satisfy the current notary quorum"
                     .to_owned(),
             ));
@@ -1124,13 +1124,13 @@ impl ControlProposalDecision {
             MAX_PROPOSAL_DEFERS
         };
         if previous_defers.len() > usize::from(max_defers) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "proposal decision chain exceeds max_defers".to_owned(),
             ));
         }
         let proposal_ack_digest = ack.proposal_ack_digest()?;
         let expected_count = u8::try_from(previous_defers.len())
-            .map_err(|_| Error::Protocol("proposal defer count overflow".to_owned()))?;
+            .map_err(|_| WireError::Protocol("proposal defer count overflow".to_owned()))?;
         let previous_due_at = previous_defers
             .last()
             .map(Self::decision_due_at)
@@ -1138,7 +1138,7 @@ impl ControlProposalDecision {
 
         for (index, decision) in previous_defers.iter().enumerate() {
             if !matches!(decision, Self::SignedDefer { .. }) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "only signed_defer may precede another proposal decision".to_owned(),
                 ));
             }
@@ -1185,7 +1185,7 @@ impl ControlProposalDecision {
             || absolute_due_at != &ack.absolute_due_at
             || authority_set_ref != &ack.authority_set_ref
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "proposal decision does not preserve its Control Proposal Ack binding".to_owned(),
             ));
         }
@@ -1197,7 +1197,7 @@ impl ControlProposalDecision {
                 ..
             } => {
                 if *defer_count != expected_count || *decision_due_at != previous_due_at {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "signed_reject must bind the current decision window".to_owned(),
                     ));
                 }
@@ -1208,12 +1208,12 @@ impl ControlProposalDecision {
                 ..
             } => {
                 if expected_count >= max_defers || *defer_count != expected_count + 1 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "signed_defer exceeds max_defers or skips defer_count".to_owned(),
                     ));
                 }
                 if *decision_due_at <= previous_due_at || *decision_due_at > ack.absolute_due_at {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "signed_defer must strictly advance within absolute_due_at".to_owned(),
                     ));
                 }

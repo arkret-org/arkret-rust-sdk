@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    CircleId, DidCoreId, Error, RealmId, ReasonCode, RelationId, RelationKind, RelationState,
-    RelationTruthSourceClass, Result, SchemaId, ScopeRef,
+    CircleId, DidCoreId, RealmId, ReasonCode, RelationId, RelationKind, RelationState,
+    RelationTruthSourceClass, Result, SchemaId, ScopeRef, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -247,7 +247,7 @@ impl Relation {
     pub const SCHEMA: &'static str = SchemaId::RELATION_V1;
     pub fn validate_endpoints(&self) -> Result<()> {
         if self.from_ref.trim().is_empty() || self.to_ref.trim().is_empty() {
-            Err(Error::Protocol(
+            Err(WireError::Protocol(
                 "relation requires non-empty from_ref and to_ref".to_owned(),
             ))
         } else {

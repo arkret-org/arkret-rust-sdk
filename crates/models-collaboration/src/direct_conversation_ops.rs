@@ -241,7 +241,7 @@ impl DirectConversationFoundingPlan {
 impl DirectConversationFoundingAuthorityEvidence {
     pub fn participants_and_founder(&self) -> arkret_wire::Result<([DidCoreId; 2], DidCoreId)> {
         match self {
-            Self::ControllerAgent { .. } => Err(arkret_wire::Error::Protocol(
+            Self::ControllerAgent { .. } => Err(arkret_wire::WireError::Protocol(
                 "controller_agent founding evidence requires the accepted provision projection"
                     .to_owned(),
             )),
@@ -251,7 +251,7 @@ impl DirectConversationFoundingAuthorityEvidence {
             } => {
                 validate_contact_contact_round_evidence_shape(contact_round_evidence)?;
                 if contact_round_continuity_chain.len() > 64 {
-                    return Err(arkret_wire::Error::Protocol(
+                    return Err(arkret_wire::WireError::Protocol(
                         "direct conversation root contact_round continuity chain exceeds 64 entries"
                             .to_owned(),
                     ));
@@ -285,7 +285,7 @@ impl DirectConversationFoundingAuthorityEvidence {
                     } => (sorted_pair_members.clone(), &requests[0].request_event_ref),
                 };
                 if participants[0].as_str() >= participants[1].as_str() {
-                    return Err(arkret_wire::Error::Protocol(
+                    return Err(arkret_wire::WireError::Protocol(
                         "direct conversation contact_round pair is not canonical and distinct"
                             .to_owned(),
                     ));
@@ -296,7 +296,7 @@ impl DirectConversationFoundingAuthorityEvidence {
                     .find(|receipt| &receipt.core.request_event_ref == request_ref)
                     .map(|receipt| receipt.core.holder.contact_actor_id())
                     .ok_or_else(|| {
-                        arkret_wire::Error::Protocol(
+                        arkret_wire::WireError::Protocol(
                             "direct conversation root contact_round request receipt is missing"
                                 .to_owned(),
                         )
@@ -308,7 +308,7 @@ impl DirectConversationFoundingAuthorityEvidence {
                         } else if request_issuer == participants[1] {
                             participants[0].clone()
                         } else {
-                            return Err(arkret_wire::Error::Protocol(
+                            return Err(arkret_wire::WireError::Protocol(
                                 "direct conversation request issuer is outside the pair".to_owned(),
                             ));
                         }
@@ -329,7 +329,7 @@ impl DirectConversationFoundingAuthorityEvidence {
             contact_round_continuity_chain,
         } = self
         else {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "human Direct Conversation founding evidence is required".to_owned(),
             ));
         };
@@ -510,12 +510,12 @@ fn contact_round_id(
     domain_separated_sha256(CONTACT_ROUND_DOMAIN, contact_round)
 }
 
-fn protocol_error(error: impl std::fmt::Display) -> arkret_wire::Error {
-    arkret_wire::Error::Protocol(error.to_string())
+fn protocol_error(error: impl std::fmt::Display) -> arkret_wire::WireError {
+    arkret_wire::WireError::Protocol(error.to_string())
 }
 
-fn founding_unit_invalid(detail: &str) -> arkret_wire::Error {
-    arkret_wire::Error::Protocol(format!(
+fn founding_unit_invalid(detail: &str) -> arkret_wire::WireError {
+    arkret_wire::WireError::Protocol(format!(
         "direct_conversation_founding_unit_invalid: {detail}"
     ))
 }
@@ -703,7 +703,7 @@ impl DirectConversationResolveOutcome {
             _ => None,
         };
         if pair.is_some_and(|(event_ref, value_digest)| event_ref != value_digest) {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "group state Event ref and digest must be paired".to_owned(),
             ));
         }
@@ -761,13 +761,13 @@ impl DirectConversationFoundingAcceptanceReceipt {
     /// receipt does not attest that the founder's unique slot was closed.
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
         if !self.slot_committed {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "direct conversation founding acceptance receipt must set slot_committed"
                     .to_owned(),
             ));
         }
         if self.proof.created_at != self.accepted_at {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "direct conversation founding receipt proof.created_at must equal accepted_at"
                     .to_owned(),
             ));

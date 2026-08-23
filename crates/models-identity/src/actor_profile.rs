@@ -67,7 +67,7 @@ pub struct AccountMaterializedProfile(ActorProfile);
 impl AccountMaterializedProfile {
     pub fn new(profile: ActorProfile) -> arkret_wire::Result<Self> {
         if profile.id.is_none() || profile.realm_id.is_none() {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "materialized account profile requires id and realm_id".to_owned(),
             ));
         }
@@ -88,7 +88,7 @@ impl Deref for AccountMaterializedProfile {
 }
 
 impl TryFrom<ActorProfile> for AccountMaterializedProfile {
-    type Error = arkret_wire::Error;
+    type Error = arkret_wire::WireError;
 
     fn try_from(profile: ActorProfile) -> Result<Self, Self::Error> {
         Self::new(profile)

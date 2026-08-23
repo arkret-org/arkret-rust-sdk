@@ -5,8 +5,8 @@ use std::collections::BTreeSet;
 
 use arkret_state::control_event_set_root;
 use arkret_wire::{
-    DidCoreId, DidFullId, Error, Event, EventKind, Hash, Hlc, NotarySig, PayloadSigner, Result,
-    Seal, SealId, SealSignature, project_full_id_to_core_id,
+    DidCoreId, DidFullId, Event, EventKind, Hash, Hlc, NotarySig, PayloadSigner, Result, Seal,
+    SealId, SealSignature, WireError, project_full_id_to_core_id,
 };
 use chrono::Utc;
 use serde_json::Value;
@@ -42,7 +42,7 @@ pub fn build_self_principal_bootstrap_seal<S: PayloadSigner + ?Sized>(
 ) -> Result<Seal> {
     validate_self_principal_pcr_genesis_unit(create, authorize, project)?;
     if !signer_projects_to_actor(signer.signer_did(), &create.actor_id)? {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "bootstrap Seal signer DID must equal the principal DID".to_owned(),
         ));
     }
@@ -55,20 +55,20 @@ pub fn build_self_principal_bootstrap_seal<S: PayloadSigner + ?Sized>(
         .into_iter()
         .collect::<BTreeSet<_>>();
     if covered.len() != 2 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "bootstrap Event digests must be distinct".to_owned(),
         ));
     }
     let delta = covered.iter().cloned().collect::<Vec<_>>();
     let state_root = self_principal_bootstrap_state_root(create, authorize, project)?;
     let control_root = control_event_set_root(&covered, SELF_PRINCIPAL_PCR_DIGEST_SUITE)
-        .map_err(|error| Error::Protocol(format!("bootstrap Seal coverage root: {error}")))?;
+        .map_err(|error| WireError::Protocol(format!("bootstrap Seal coverage root: {error}")))?;
     let completeness_root = arkret_state::control_event_completeness_root(
         &completeness_events(&[create.clone(), authorize.clone()]),
         &covered,
         SELF_PRINCIPAL_PCR_DIGEST_SUITE,
     )
-    .map_err(|error| Error::Protocol(format!("bootstrap Seal completeness root: {error}")))?;
+    .map_err(|error| WireError::Protocol(format!("bootstrap Seal completeness root: {error}")))?;
     let sealed_at = Utc::now();
     let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
     let mut seal = Seal {
@@ -135,13 +135,13 @@ pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
         || successor.prev_refs != vec![authorize.event_id.clone()]
         || successor.kind != EventKind::PolicySet
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "self principal first successor must be the actor_seq=2 recovery policy Event"
                 .to_owned(),
         ));
     }
     if !signer_projects_to_actor(signer.signer_did(), &create.actor_id)? {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "self principal successor Seal signer DID must equal the principal DID".to_owned(),
         ));
     }
@@ -156,14 +156,15 @@ pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
         .into_iter()
         .collect::<BTreeSet<_>>();
     let bootstrap_control_root =
-        control_event_set_root(&bootstrap_covered, SELF_PRINCIPAL_PCR_DIGEST_SUITE)
-            .map_err(|error| Error::Protocol(format!("bootstrap Seal coverage root: {error}")))?;
+        control_event_set_root(&bootstrap_covered, SELF_PRINCIPAL_PCR_DIGEST_SUITE).map_err(
+            |error| WireError::Protocol(format!("bootstrap Seal coverage root: {error}")),
+        )?;
     let bootstrap_state_root = self_principal_bootstrap_state_root(create, authorize, project)?;
     if predecessor.realm_id != create.realm_id
         || predecessor.control_event_set_root != bootstrap_control_root
         || predecessor.state_root != bootstrap_state_root
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "self principal first successor predecessor is not the accepted bootstrap Seal"
                 .to_owned(),
         ));
@@ -173,7 +174,7 @@ pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
         .into_iter()
         .collect::<BTreeSet<_>>();
     if covered.len() != 3 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "self principal first successor Event digests must be distinct".to_owned(),
         ));
     }
@@ -197,7 +198,7 @@ pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
     )?;
     let control_event_set_root = control_event_set_root(&covered, SELF_PRINCIPAL_PCR_DIGEST_SUITE)
         .map_err(|error| {
-            Error::Protocol(format!("self principal successor coverage root: {error}"))
+            WireError::Protocol(format!("self principal successor coverage root: {error}"))
         })?;
     let events = [create.clone(), authorize.clone(), successor.clone()];
     let completeness_root = arkret_state::control_event_completeness_root(
@@ -206,7 +207,7 @@ pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
         SELF_PRINCIPAL_PCR_DIGEST_SUITE,
     )
     .map_err(|error| {
-        Error::Protocol(format!(
+        WireError::Protocol(format!(
             "self principal successor completeness root: {error}"
         ))
     })?;
@@ -261,12 +262,12 @@ pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
 ) -> Result<Seal> {
     let first = events
         .first()
-        .ok_or_else(|| Error::Protocol("self principal Seal history is empty".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("self principal Seal history is empty".to_owned()))?;
     if events
         .iter()
         .any(|event| event.realm_id != first.realm_id || event.actor_id != first.actor_id)
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "self principal Seal Events must share one Realm and actor".to_owned(),
         ));
     }
@@ -274,18 +275,18 @@ pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
         .iter()
         .any(|event| event.kind == EventKind::RealmDigestSuiteTransition)
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "self principal ordinary Seal builder does not accept digest-suite transition Seals"
                 .to_owned(),
         ));
     }
     if !signer_projects_to_actor(signer.signer_did(), &first.actor_id)? {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "self principal Seal signer DID must equal the principal DID".to_owned(),
         ));
     }
     if predecessor.realm_id != first.realm_id || predecessor.covered_event_digests.is_empty() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "self principal predecessor has incompatible Realm or coverage".to_owned(),
         ));
     }
@@ -309,20 +310,21 @@ pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
         .cloned()
         .collect::<BTreeSet<_>>();
     if !current.is_subset(&target) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "self principal predecessor coverage is not a subset of the target".to_owned(),
         ));
     }
     let delta = target.difference(&current).cloned().collect::<Vec<_>>();
     if delta.is_empty() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "self principal Seal has no new Event delta".to_owned(),
         ));
     }
 
-    let control_event_set_root =
-        control_event_set_root(&target, SELF_PRINCIPAL_PCR_DIGEST_SUITE)
-            .map_err(|error| Error::Protocol(format!("self principal control root: {error}")))?;
+    let control_event_set_root = control_event_set_root(&target, SELF_PRINCIPAL_PCR_DIGEST_SUITE)
+        .map_err(|error| {
+        WireError::Protocol(format!("self principal control root: {error}"))
+    })?;
     let state_root = state_root_from_projection(
         &first.realm_id,
         &covered,
@@ -334,7 +336,7 @@ pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
         &target,
         SELF_PRINCIPAL_PCR_DIGEST_SUITE,
     )
-    .map_err(|error| Error::Protocol(format!("self principal completeness root: {error}")))?;
+    .map_err(|error| WireError::Protocol(format!("self principal completeness root: {error}")))?;
     let sealed_at = Utc::now();
     let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
     let mut seal = Seal {
@@ -345,10 +347,9 @@ pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
         control_event_set_root,
         state_root,
         completeness_root,
-        notary_seq: predecessor
-            .notary_seq
-            .checked_add(1)
-            .ok_or_else(|| Error::Protocol("self principal notary sequence overflow".to_owned()))?,
+        notary_seq: predecessor.notary_seq.checked_add(1).ok_or_else(|| {
+            WireError::Protocol("self principal notary sequence overflow".to_owned())
+        })?,
         data_view_root: None,
         data_event_set_root: None,
         availability_receipt_digests: Vec::new(),
@@ -387,7 +388,7 @@ pub fn build_self_principal_linear_successor_seal<S: PayloadSigner + ?Sized>(
     project: CellWriteProjector<'_>,
 ) -> Result<Seal> {
     if events.len() < 3 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "self principal linear successor requires preserved history and one new Event"
                 .to_owned(),
         ));
@@ -399,7 +400,7 @@ pub fn build_self_principal_linear_successor_seal<S: PayloadSigner + ?Sized>(
             || event.actor_id != first.actor_id
             || event.actor_seq != index as u64
     }) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "self principal linear history must have one actor and contiguous actor_seq".to_owned(),
         ));
     }
@@ -417,8 +418,9 @@ pub fn build_self_principal_linear_successor_seal<S: PayloadSigner + ?Sized>(
         .map(|(_, digest)| digest.clone())
         .collect::<BTreeSet<_>>();
     let prior_control_root =
-        control_event_set_root(&prior_covered, SELF_PRINCIPAL_PCR_DIGEST_SUITE)
-            .map_err(|error| Error::Protocol(format!("self principal control root: {error}")))?;
+        control_event_set_root(&prior_covered, SELF_PRINCIPAL_PCR_DIGEST_SUITE).map_err(
+            |error| WireError::Protocol(format!("self principal control root: {error}")),
+        )?;
     let prior_state_root = state_root_from_projection(
         &first.realm_id,
         &prior_with_digests,
@@ -429,7 +431,7 @@ pub fn build_self_principal_linear_successor_seal<S: PayloadSigner + ?Sized>(
         || predecessor.control_event_set_root != prior_control_root
         || predecessor.state_root != prior_state_root
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "self principal preserved history does not reproduce the accepted frontier".to_owned(),
         ));
     }
@@ -447,7 +449,7 @@ fn self_principal_bootstrap_state_root(
     let authorize_digest =
         Hash::new(authorize.event_digest_with_digest_suite(SELF_PRINCIPAL_PCR_DIGEST_SUITE)?)?;
     if create_digest == authorize_digest {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "bootstrap Event digests must be distinct".to_owned(),
         ));
     }
@@ -455,13 +457,13 @@ fn self_principal_bootstrap_state_root(
         .payload
         .get("object")
         .and_then(Value::as_object)
-        .ok_or_else(|| Error::Protocol("bootstrap Realm object is missing".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("bootstrap Realm object is missing".to_owned()))?;
     // `created_by` is reducer-derived from the signed create envelope's
     // `actor_id`; it is not repeated in the closed Realm genesis payload.
     // Requiring a payload echo here would make the seal builder reject the
     // canonical wire shape (and would reintroduce two competing authorities).
     if !object.contains_key("notary") {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "bootstrap Realm notary is missing".to_owned(),
         ));
     }

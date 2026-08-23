@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DidCoreId, Error, EventId, Hash, ProducerEventProof, ProfileId, RealmId, ReasonCode, Result,
-    SchemaId, TrustDomainId,
+    DidCoreId, EventId, Hash, ProducerEventProof, ProfileId, RealmId, ReasonCode, Result, SchemaId,
+    TrustDomainId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -32,9 +32,9 @@ pub struct AuditPolicyAccessPayload {
 impl AuditPolicyAccessPayload {
     pub fn validate_minimal(&self) -> Result<()> {
         match (self.access_kind, &self.late_recovery_original_event_id) {
-            (AccessKind::E2EELateRecovery, None) => Err(Error::Protocol("ak.audit.policy_access access_kind=e2ee_late_recovery requires late_recovery_original_event_id (schema_violation)".to_owned())),
+            (AccessKind::E2EELateRecovery, None) => Err(WireError::Protocol("ak.audit.policy_access access_kind=e2ee_late_recovery requires late_recovery_original_event_id (schema_violation)".to_owned())),
             (kind, Some(_)) if !matches!(kind, AccessKind::E2EELateRecovery) => {
-                Err(Error::Protocol("ak.audit.policy_access late_recovery_original_event_id is only valid for access_kind=e2ee_late_recovery (schema_violation)".to_owned()))
+                Err(WireError::Protocol("ak.audit.policy_access late_recovery_original_event_id is only valid for access_kind=e2ee_late_recovery (schema_violation)".to_owned()))
             }
             _ => Ok(()),
         }

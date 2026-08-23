@@ -2,7 +2,7 @@ use arkret_wire::DidFullId;
 use serde::{Deserialize, Serialize};
 
 use super::merkle::sha256_digest;
-use crate::{Error, Hash, PayloadSignature, RealmId, Result};
+use crate::{Hash, PayloadSignature, RealmId, Result, WireError};
 
 /// Signed commitment from the snapshot generator. Receivers verify this
 /// proof against the generator DID before trusting any chunks. Once
@@ -108,7 +108,7 @@ impl GeneratorProof {
             self.chunk_bytes,
         )?;
         if derived != self.signature.payload_digest {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "GeneratorProof payload_digest mismatch: declared {} but body hashes to {}",
                 self.signature.payload_digest, derived
             )));

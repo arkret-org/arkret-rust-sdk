@@ -6,7 +6,7 @@
 
 use arkret_canonical::canonical;
 use arkret_wire::{
-    EncryptedPayloadScheme, Error, EventId, Hash, Result, SchemaId, ScopeRef, event_kind_str,
+    EncryptedPayloadScheme, EventId, Hash, Result, SchemaId, ScopeRef, WireError, event_kind_str,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -97,23 +97,23 @@ impl EventContentPreEncryptionHeader {
 
     pub fn validate(&self) -> Result<()> {
         if self.purpose != EVENT_CONTENT_ENCRYPTION_PURPOSE {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "event-content pre-encryption purpose mismatch".to_owned(),
             ));
         }
         if self.envelope_version != "1.0" || !content_type_token(&self.content_type) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "event-content pre-encryption envelope metadata is invalid".to_owned(),
             ));
         }
         if self.mls_group_id != self.effective_scope.canonical_mls_group_id()? {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "event-content pre-encryption mls_group_id does not match effective_scope"
                     .to_owned(),
             ));
         }
         if self.event_kind.trim().is_empty() || self.sender_domain.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "event-content pre-encryption Event kind and sender domain are required".to_owned(),
             ));
         }
@@ -121,7 +121,7 @@ impl EventContentPreEncryptionHeader {
             EncryptedPayloadScheme::MlsRfc9420 if self.counter.is_none() => {}
             EncryptedPayloadScheme::MlsExporterAeadV1 if self.counter.is_some() => {}
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "event-content pre-encryption counter does not match the content scheme"
                         .to_owned(),
                 ));
@@ -136,7 +136,7 @@ impl EventContentPreEncryptionHeader {
             (EventContentRoutingContext::Reaction { routing_tag, .. }, true)
                 if fixed_base64url_token(routing_tag, 43) => {}
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "event-content routing context does not match the outer Event kind".to_owned(),
                 ));
             }
@@ -243,24 +243,24 @@ impl EncryptedEnvelope {
     pub const SCHEMA: &'static str = SchemaId::ENCRYPTED_ENVELOPE_V1;
     pub fn validate(&self) -> Result<()> {
         if self.version != "1.0" {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "encrypted envelope version must equal 1.0".to_owned(),
             ));
         }
         if !content_type_token(&self.content_type) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "encrypted envelope content_type is invalid".to_owned(),
             ));
         }
         if !base64url_token(&self.ciphertext) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "encrypted envelope ciphertext is invalid".to_owned(),
             ));
         }
         if let Some(routing) = self.encryption_context.routing_context()
             && !fixed_base64url_token(&routing.routing_tag, 43)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "encrypted envelope routing_tag must be 43 base64url characters".to_owned(),
             ));
         }
@@ -289,7 +289,7 @@ impl EncryptedEnvelope {
                 routing_tag: wire.routing_tag.clone(),
             },
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "encrypted envelope routing context is incomplete or unexpected".to_owned(),
                 ));
             }
@@ -325,7 +325,7 @@ impl EncryptedEnvelope {
             encryption_context: &self.encryption_context,
         })?;
         let ciphertext = arkret_canonical::base64url::base64url_decode(&self.ciphertext)
-            .map_err(|error| Error::Protocol(error.to_string()))?;
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
         preimage.extend_from_slice(&ciphertext);
         Ok(Hash::new(canonical::sha256_digest(&preimage))?)
     }
@@ -334,7 +334,7 @@ impl EncryptedEnvelope {
 /// Decode and validate an encrypted envelope without initializing an MLS group machine.
 pub fn parse_and_validate_encrypted_envelope(value: Value) -> Result<EncryptedEnvelope> {
     let envelope: EncryptedEnvelope = serde_json::from_value(value)
-        .map_err(|error| Error::Protocol(format!("encrypted envelope schema: {error}")))?;
+        .map_err(|error| WireError::Protocol(format!("encrypted envelope schema: {error}")))?;
     envelope.validate()?;
     Ok(envelope)
 }
@@ -428,7 +428,7 @@ impl EncryptedPayload {
                     epoch: header.epoch,
                     group_state_ref: header.group_state_ref.clone(),
                     counter: header.counter.ok_or_else(|| {
-                        Error::Protocol("exporter payload requires a counter".to_owned())
+                        WireError::Protocol("exporter payload requires a counter".to_owned())
                     })?,
                     routing_context,
                 }
@@ -451,7 +451,7 @@ impl EncryptedPayload {
             || self.content_type != self.pre_encryption_header.content_type
             || self.counter != self.pre_encryption_header.counter
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "internal encrypted payload does not match its pre-encryption header".to_owned(),
             ));
         }
@@ -470,7 +470,7 @@ impl EncryptedPayload {
         if expected == self.payload_digest {
             Ok(())
         } else {
-            Err(Error::Protocol(
+            Err(WireError::Protocol(
                 "encrypted payload digest mismatch".to_owned(),
             ))
         }

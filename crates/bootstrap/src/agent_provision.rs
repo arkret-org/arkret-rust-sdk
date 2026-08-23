@@ -6,7 +6,7 @@ use arkret_models_collaboration::events_payloads::agent::{
 };
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
-    DidCoreId, DidUrl, Error, Hash, ProfileRef, RealmId, Result, SchemaId, ScopeRef, SealBasis,
+    DidCoreId, DidUrl, Hash, ProfileRef, RealmId, Result, SchemaId, ScopeRef, SealBasis, WireError,
     event_spec,
 };
 use chrono::{DateTime, Utc};
@@ -66,12 +66,12 @@ pub fn build_agent_provision_intent(
         options.controller_principal_server_id,
         payload,
     )
-    .map_err(|error| Error::Protocol(error.to_string()))?
+    .map_err(|error| WireError::Protocol(error.to_string()))?
     .with_schema_profile_ref(ProfileRef::new(SchemaId::AGENT_PROVISION_V1).unwrap());
     if let Some(seal_basis) = options.seal_basis {
         draft = draft.with_seal_basis(seal_basis);
     }
     draft
         .into_intent(created_at)
-        .map_err(|error| Error::Protocol(error.to_string()))
+        .map_err(|error| WireError::Protocol(error.to_string()))
 }

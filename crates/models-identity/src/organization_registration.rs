@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    DidCoreId, DidFullId, Error, Hash, PayloadProof, ProofContextId, Result, TrustDomainId,
+    DidCoreId, DidFullId, Hash, PayloadProof, ProofContextId, Result, TrustDomainId, WireError,
     project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -48,7 +48,7 @@ pub struct OrganizationControlProof {
 impl OrganizationControlProof {
     pub fn validate(&self) -> Result<()> {
         if self.proofs.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "organization control proof requires at least one proof".to_owned(),
             ));
         }
@@ -61,7 +61,7 @@ impl OrganizationControlProof {
             .map(|proof| proof.verification_method.as_str())
             .collect::<BTreeSet<_>>();
         if unique_methods.len() != self.proofs.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "organization control proofs must use distinct verification methods".to_owned(),
             ));
         }
@@ -71,22 +71,24 @@ impl OrganizationControlProof {
             {
                 Ok(())
             }
-            (OrganizationControlProofKind::ResolvedVerificationMethod, None) => Err(
-                Error::Protocol("resolved control proof must contain exactly one proof".to_owned()),
-            ),
+            (OrganizationControlProofKind::ResolvedVerificationMethod, None) => {
+                Err(WireError::Protocol(
+                    "resolved control proof must contain exactly one proof".to_owned(),
+                ))
+            }
             (OrganizationControlProofKind::GovernanceQuorum, Some(threshold))
                 if threshold >= 2 && unique_methods.len() >= threshold as usize =>
             {
                 Ok(())
             }
-            (OrganizationControlProofKind::GovernanceQuorum, Some(_)) => Err(Error::Protocol(
+            (OrganizationControlProofKind::GovernanceQuorum, Some(_)) => Err(WireError::Protocol(
                 "governance control proof does not meet quorum_threshold".to_owned(),
             )),
-            (OrganizationControlProofKind::GovernanceQuorum, None) => Err(Error::Protocol(
+            (OrganizationControlProofKind::GovernanceQuorum, None) => Err(WireError::Protocol(
                 "governance control proof requires quorum_threshold".to_owned(),
             )),
             (OrganizationControlProofKind::ResolvedVerificationMethod, Some(_)) => Err(
-                Error::Protocol("resolved control proof forbids quorum_threshold".to_owned()),
+                WireError::Protocol("resolved control proof forbids quorum_threshold".to_owned()),
             ),
         }
     }
@@ -121,7 +123,7 @@ impl OrganizationControlProof {
             });
             let expected = Hash::new(arkret_canonical::canonical::canonical_sha256(&transcript)?)?;
             if proof.payload_digest != expected {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "organization control proof payload_digest does not match its bound transcript"
                         .to_owned(),
                 ));
@@ -133,7 +135,7 @@ impl OrganizationControlProof {
 
 fn validate_scopes(scopes: &[OrganizationRegistrationScope]) -> Result<()> {
     if scopes.is_empty() || scopes.iter().collect::<BTreeSet<_>>().len() != scopes.len() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "organization registration scopes must be non-empty and unique".to_owned(),
         ));
     }
@@ -154,7 +156,7 @@ impl OrganizationRegistrationChallengeRequestBody {
     pub fn validate(&self) -> Result<()> {
         validate_scopes(&self.requested_scopes)?;
         if project_full_id_to_core_id(&self.full_id)?.as_str() != self.organization_id.as_str() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "organization registration full_id does not project to organization_id".to_owned(),
             ));
         }
@@ -205,7 +207,7 @@ impl OrganizationRegistrationChallenge {
             || self.requested_scopes != request.requested_scopes
             || self.purpose != ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "organization registration challenge binding mismatch".to_owned(),
             ));
         }
@@ -221,12 +223,13 @@ impl OrganizationRegistrationChallenge {
                 .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
             || project_full_id_to_core_id(&self.full_id)?.as_str() != self.organization_id.as_str()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "organization registration challenge contains an invalid id or binding".to_owned(),
             ));
         }
-        let origin = url::Url::parse(&self.origin)
-            .map_err(|_| Error::Protocol("organization challenge origin is invalid".to_owned()))?;
+        let origin = url::Url::parse(&self.origin).map_err(|_| {
+            WireError::Protocol("organization challenge origin is invalid".to_owned())
+        })?;
         if !matches!(origin.scheme(), "http" | "https")
             || origin.query().is_some()
             || origin.fragment().is_some()
@@ -235,7 +238,7 @@ impl OrganizationRegistrationChallenge {
             || self.expires_at <= now
             || self.expires_at - self.created_at > chrono::Duration::seconds(300)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "organization registration challenge has invalid origin or lifetime".to_owned(),
             ));
         }
@@ -291,7 +294,7 @@ impl OrganizationRegistrationEnsureRequestBody {
                 .strip_prefix("ak:organization_registration_challenge:")
                 .is_some_and(is_lower_hex_sha256)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "organization registration ensure has an invalid challenge or version".to_owned(),
             ));
         }
@@ -300,7 +303,7 @@ impl OrganizationRegistrationEnsureRequestBody {
                 || attestation.handle.is_empty()
                 || attestation.audience.is_empty())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "organization handle attestation binding is invalid".to_owned(),
             ));
         }
@@ -321,7 +324,7 @@ impl OrganizationRegistrationEnsureRequestBody {
         };
         challenge.validate_for_at(&challenge_request, now)?;
         if self.challenge_id != challenge.challenge_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "organization registration ensure challenge_id mismatch".to_owned(),
             ));
         }
@@ -336,7 +339,7 @@ impl OrganizationRegistrationEnsureRequestBody {
         if self.control_proof.proofs.iter().any(|proof| {
             proof.created_at < challenge.created_at || proof.created_at >= challenge.expires_at
         }) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "organization control proof was not created during the challenge lifetime"
                     .to_owned(),
             ));
@@ -374,7 +377,7 @@ impl OrganizationRegistrationRefreshRequestBody {
                 .strip_prefix("ak:organization_registration_challenge:")
                 .is_some_and(is_lower_hex_sha256)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "organization registration refresh has an invalid challenge or version".to_owned(),
             ));
         }
@@ -397,7 +400,7 @@ impl OrganizationRegistrationRefreshRequestBody {
         };
         challenge.validate_for_at(&challenge_request, now)?;
         if self.challenge_id != challenge.challenge_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "organization registration refresh challenge_id mismatch".to_owned(),
             ));
         }
@@ -412,7 +415,7 @@ impl OrganizationRegistrationRefreshRequestBody {
         if self.control_proof.proofs.iter().any(|proof| {
             proof.created_at < challenge.created_at || proof.created_at >= challenge.expires_at
         }) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "organization control proof was not created during the challenge lifetime"
                     .to_owned(),
             ));
@@ -481,7 +484,7 @@ impl OrganizationRegistrationReceipt {
     pub fn expected_receipt_id(&self) -> Result<String> {
         let mut claims = serde_json::to_value(self)?;
         let object = claims.as_object_mut().ok_or_else(|| {
-            Error::Protocol("organization registration receipt must be an object".to_owned())
+            WireError::Protocol("organization registration receipt must be an object".to_owned())
         })?;
         object.remove("registration_receipt_id");
         object.remove("proof");
@@ -495,7 +498,7 @@ impl OrganizationRegistrationReceipt {
     pub fn expected_payload_digest(&self) -> Result<Hash> {
         let mut document = serde_json::to_value(self)?;
         let object = document.as_object_mut().ok_or_else(|| {
-            Error::Protocol("organization registration receipt must be an object".to_owned())
+            WireError::Protocol("organization registration receipt must be an object".to_owned())
         })?;
         object.remove("proof");
         Ok(Hash::new(arkret_canonical::canonical::canonical_sha256(
@@ -542,7 +545,7 @@ impl OrganizationRegistrationReceipt {
             || project_verification_method_to_core(&self.proof.verification_method)?
                 != self.issuer_service_id
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "organization registration receipt binding is invalid".to_owned(),
             ));
         }
@@ -570,7 +573,7 @@ impl OrganizationRegistrationOutcome {
             || self.registration_generation != self.registration_receipt.registration_generation
             || self.version_id != self.registration_receipt.version_id
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "organization registration outcome and receipt do not match".to_owned(),
             ));
         }
@@ -587,7 +590,7 @@ pub fn organization_registration_replay_outcome(
     successful_outcome: &OrganizationRegistrationOutcome,
 ) -> Result<OrganizationRegistrationOutcome> {
     if successful_request_digest != submitted_request_digest {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "organization registration challenge was consumed by a different request".to_owned(),
         ));
     }
@@ -609,7 +612,7 @@ pub fn validate_organization_registration_authorization_at(
     if receipt.registration_generation != current_generation
         || current_status == OrganizationRegistrationStatus::Revoked
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "organization registration receipt is revoked or superseded".to_owned(),
         ));
     }
@@ -617,7 +620,7 @@ pub fn validate_organization_registration_authorization_at(
         || receipt.status != OrganizationRegistrationStatus::Active
         || receipt.expires_at <= now
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "organization registration receipt is stale".to_owned(),
         ));
     }
@@ -629,11 +632,11 @@ pub fn validate_organization_registration_authorization_at(
 pub fn next_organization_registration_generation(current_generation: Option<u64>) -> Result<u64> {
     match current_generation {
         None => Ok(1),
-        Some(0) => Err(Error::Protocol(
+        Some(0) => Err(WireError::Protocol(
             "organization registration generation must start at one".to_owned(),
         )),
         Some(generation) => generation.checked_add(1).ok_or_else(|| {
-            Error::Protocol("organization registration generation overflow".to_owned())
+            WireError::Protocol("organization registration generation overflow".to_owned())
         }),
     }
 }
@@ -653,7 +656,7 @@ fn project_verification_method_to_core(
         .split_once('#')
         .map(|(controller, _)| controller)
         .ok_or_else(|| {
-            Error::Protocol(
+            WireError::Protocol(
                 "organization receipt verification_method requires a fragment".to_owned(),
             )
         })?;

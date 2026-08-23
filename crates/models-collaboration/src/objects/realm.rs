@@ -5,9 +5,9 @@ use std::collections::BTreeMap;
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
     BlobRef, CORE_REDUCER_PROFILE, ContentScheme, ControlProposalDecisionPolicy, DidCoreId,
-    Discoverability, DurabilityPolicy, EncryptionProfile, Error, FederationPolicy, Hash,
-    HistoryAccess, JoinRule, PolicyId, RealmId, Result, SchemaId, SecurityClass, StrandId,
-    TrustDomainId, canonical,
+    Discoverability, DurabilityPolicy, EncryptionProfile, FederationPolicy, Hash, HistoryAccess,
+    JoinRule, PolicyId, RealmId, Result, SchemaId, SecurityClass, StrandId, TrustDomainId,
+    WireError, canonical,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -244,7 +244,7 @@ impl RealmAvailabilityPolicy {
                 .len()
                 != self.applies_to.len()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Realm availability_policy violates its bounded unique-set contract".to_owned(),
             ));
         }
@@ -367,7 +367,9 @@ impl Realm {
         let duration_from_ms = |value: u64, field: &str| {
             i64::try_from(value)
                 .map(Duration::milliseconds)
-                .map_err(|_| Error::Protocol(format!("{field} exceeds the signed duration range")))
+                .map_err(|_| {
+                    WireError::Protocol(format!("{field} exceeds the signed duration range"))
+                })
         };
         let policy = ControlProposalDecisionPolicy {
             proposal_intake_sla: duration_from_ms(
@@ -414,12 +416,12 @@ impl Realm {
     /// Validate spec-level Realm invariants.
     pub fn validate_kind_invariants(&self) -> Result<()> {
         if self.reducer_profile != CORE_REDUCER_PROFILE {
-            return Err(Error::Protocol("unsupported_profile".to_owned()));
+            return Err(WireError::Protocol("unsupported_profile".to_owned()));
         }
         if matches!(self.security_class, Some(SecurityClass::HighAssurance))
             && matches!(self.federation_policy, Some(FederationPolicy::Open))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "realm.security_class=high_assurance forbids federation_policy=open".to_owned(),
             ));
         }
@@ -429,7 +431,7 @@ impl Realm {
             .recovery_witness_freshness_window_ms
             .is_some_and(|value| value > 604_800_000)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery_witness_freshness_window_ms exceeds 7 days".to_owned(),
             ));
         }
@@ -437,7 +439,7 @@ impl Realm {
             .seal_compaction_max_interval_ms
             .is_some_and(|value| !(300_000..=604_800_000).contains(&value))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "seal_compaction_max_interval_ms must be within 5 minutes..=7 days".to_owned(),
             ));
         }
@@ -456,7 +458,7 @@ impl Realm {
                     .len()
                     != witness_count
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "Realm audit_policy violates its bounded witness contract".to_owned(),
                 ));
             }

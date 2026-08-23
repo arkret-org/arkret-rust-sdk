@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AcceptedDevicePossessionProof, AcceptedDevicePossessionVerification, ControlProposalAck,
-    ControlProposalDecision, DeviceId, DidFullId, DidUrl, Error, EventId, Hash, PayloadProof,
-    PrincipalAuthorityKey, ProofContextId, Result, SealId, UnsignedPayloadProof, canonical,
-    project_full_id_to_core_id,
+    ControlProposalDecision, DeviceId, DidFullId, DidUrl, EventId, Hash, PayloadProof,
+    PrincipalAuthorityKey, ProofContextId, Result, SealId, UnsignedPayloadProof, WireError,
+    canonical, project_full_id_to_core_id,
 };
 
 pub const MAX_DEVICE_REVOCATION_GATE_RECORDS: usize = 128;
@@ -176,13 +176,13 @@ fn validate_record_common(
 ) -> Result<()> {
     principal_authority.validate()?;
     if target_device_generation_ref == 0 || acceptance_seq == 0 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "device revocation generation and acceptance_seq must be positive".to_owned(),
         ));
     }
     ack.validate_protocol_bounds()?;
     if &ack.proposal_digest != proposal_digest {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "device revocation record proposal digest does not match its Ack".to_owned(),
         ));
     }
@@ -199,14 +199,14 @@ impl DeviceRevocationPendingState {
             &self.control_proposal_ack,
         )?;
         if self.denied_actions != DEVICE_REVOCATION_DENIED_ACTIONS {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device revocation denied_actions must equal the canonical five-action list"
                     .to_owned(),
             ));
         }
         let decisions = self.decisions.as_deref().unwrap_or_default();
         if decisions.len() > 2 || decisions.iter().any(ControlProposalDecision::is_reject) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "pending revocation decisions must contain at most two signed defers".to_owned(),
             ));
         }
@@ -219,7 +219,7 @@ impl DeviceRevocationPendingState {
                 if self.fault_reason
                     == Some(DeviceRevocationFaultReason::ControlProposalDecisionOverdue) => {}
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "device revocation pending decision_state fields are inconsistent".to_owned(),
                 ));
             }
@@ -242,7 +242,7 @@ impl DeviceRevocationRejectedState {
             &self.control_proposal_ack,
         )?;
         if !self.terminal_decision.is_reject() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device revocation terminal_decision must be signed_reject".to_owned(),
             ));
         }
@@ -261,7 +261,7 @@ impl DeviceRevokedState {
             &self.control_proposal_ack,
         )?;
         if self.sealed_at < self.accepted_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device revocation sealed_at precedes accepted_at".to_owned(),
             ));
         }
@@ -361,14 +361,14 @@ impl DeviceRevocationGateCheckRequestBody {
                 | DeviceRevocationGateActionClass::SessionGrantRefresh,
                 _,
             ) => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "session grant gate action requires its matching accepted-device proof"
                         .to_owned(),
                 ));
             }
             (_, None) => {}
             (_, Some(_)) => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "accepted-device proof is forbidden for this gate action".to_owned(),
                 ));
             }
@@ -378,7 +378,7 @@ impl DeviceRevocationGateCheckRequestBody {
                 || proof.device_id() != &self.device_id
                 || proof.session_intent_digest() != &self.intent_digest)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "accepted-device proof does not bind the gate principal, device and intent"
                     .to_owned(),
             ));
@@ -389,7 +389,7 @@ impl DeviceRevocationGateCheckRequestBody {
         ) {
             (Some(_), Some(generation)) => {
                 if generation == 0 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "device revocation gate generation must be positive".to_owned(),
                     ));
                 }
@@ -400,14 +400,14 @@ impl DeviceRevocationGateCheckRequestBody {
                     DeviceRevocationGateActionClass::SessionGrantIssue
                         | DeviceRevocationGateActionClass::ReturningSessionGrantIssue
                 ) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "device revocation gate expected binding is required outside initial or returning session issue"
                             .to_owned(),
                     ));
                 }
             }
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "device revocation gate expected binding must carry both the authorization Event and the generation"
                         .to_owned(),
                 ));
@@ -505,14 +505,14 @@ fn validate_gate_decision_witness(
         (Some(_), Some(generation)) if generation > 0 => true,
         (None, None) => false,
         _ => {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device revocation gate receipt derived binding must carry both the authorization Event and a positive generation"
                     .to_owned(),
             ));
         }
     };
     if derived_binding != matches!(decision, DeviceRevocationGateDecision::Allow) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "device revocation gate receipt discloses the derived binding for exactly the allow decision"
                 .to_owned(),
         ));
@@ -527,7 +527,7 @@ fn validate_gate_decision_witness(
         | DeviceRevocationGateDecision::GenerationMismatch
             if blocking_proposal_digest.is_none() && covering_seal_id.is_none() => {}
         _ => {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device revocation gate receipt decision witness is inconsistent".to_owned(),
             ));
         }
@@ -546,7 +546,7 @@ impl UnsignedDeviceRevocationGateDecisionReceipt {
             || self.expires_at <= self.linearized_at
             || self.expires_at - self.linearized_at > MAX_DEVICE_REVOCATION_RECEIPT_LIFETIME
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device revocation gate receipt has invalid selector or linearization lifetime"
                     .to_owned(),
             ));
@@ -584,7 +584,7 @@ impl UnsignedDeviceRevocationGateDecisionReceipt {
             || proof.verification_method != self.verification_method
             || proof.created_at != self.linearized_at
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device revocation gate proof binding fields do not match the receipt".to_owned(),
             ));
         }
@@ -593,10 +593,12 @@ impl UnsignedDeviceRevocationGateDecisionReceipt {
             .as_str()
             .split_once('#')
             .map(|(controller, _)| controller)
-            .ok_or_else(|| Error::Protocol("verification method has no controller".to_owned()))?;
+            .ok_or_else(|| {
+                WireError::Protocol("verification method has no controller".to_owned())
+            })?;
         let controller = project_full_id_to_core_id(&DidFullId::new(controller)?)?;
         if controller != self.principal_authority.principal_server_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device revocation gate proof controller is not the origin Principal Server"
                     .to_owned(),
             ));
@@ -674,7 +676,7 @@ impl DeviceRevocationGateDecisionReceipt {
             || self.proof.verification_method != self.verification_method
             || self.proof.created_at != self.linearized_at
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device revocation gate proof binding fields do not match the receipt".to_owned(),
             ));
         }
@@ -683,10 +685,12 @@ impl DeviceRevocationGateDecisionReceipt {
             .as_str()
             .split_once('#')
             .map(|(controller, _)| controller)
-            .ok_or_else(|| Error::Protocol("verification method has no controller".to_owned()))?;
+            .ok_or_else(|| {
+                WireError::Protocol("verification method has no controller".to_owned())
+            })?;
         let controller = project_full_id_to_core_id(&DidFullId::new(controller)?)?;
         if controller != self.principal_authority.principal_server_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device revocation gate proof controller is not the origin Principal Server"
                     .to_owned(),
             ));
@@ -738,7 +742,7 @@ impl DeviceRevocationGateDecisionReceipt {
             || self.action_class != request.action_class
             || self.intent_digest != request.intent_digest
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device revocation gate receipt does not bind the request".to_owned(),
             ));
         }
@@ -751,7 +755,7 @@ impl DeviceRevocationGateDecisionReceipt {
                 None => None,
             };
         if self.accepted_device_possession_verification != expected_possession_verification {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device revocation gate receipt does not attest the request's device proof"
                     .to_owned(),
             ));
@@ -760,7 +764,7 @@ impl DeviceRevocationGateDecisionReceipt {
             || self.expires_at <= self.linearized_at
             || self.expires_at - self.linearized_at > MAX_DEVICE_REVOCATION_RECEIPT_LIFETIME
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device revocation gate receipt has invalid linearization lifetime".to_owned(),
             ));
         }
@@ -778,7 +782,7 @@ impl DeviceRevocationGateDecisionReceipt {
             && (self.target_device_authorize_event_id != request.expected_device_authorize_event_id
                 || self.target_device_generation_ref != request.expected_device_generation_ref)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device revocation gate allow does not match the expected binding it answered"
                     .to_owned(),
             ));
@@ -797,7 +801,7 @@ fn validate_possession_verification_presence(
             | DeviceRevocationGateActionClass::SessionGrantRefresh
     );
     if required != verification.is_some() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "gate receipt device-possession verification does not match its action class"
                 .to_owned(),
         ));
@@ -832,7 +836,7 @@ impl DeviceRevocationGateCheckOutcome {
     ) -> Result<SessionGrantGateAdmission<'_>> {
         self.validate_for_request(request)?;
         if now >= self.decision_receipt.expires_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device revocation gate receipt is no longer fresh".to_owned(),
             ));
         }
@@ -847,7 +851,7 @@ impl DeviceRevocationGateCheckOutcome {
                     }
                 })
                 .ok_or_else(|| {
-                    Error::Protocol(
+                    WireError::Protocol(
                         "device revocation gate allow carries no derived binding".to_owned(),
                     )
                 })?,

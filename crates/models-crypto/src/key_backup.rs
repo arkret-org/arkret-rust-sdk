@@ -8,12 +8,12 @@ use arkret_canonical::{
 use arkret_wire::{
     AttestationId, AuthoritySetIssuer, AuthoritySetIssuerRole, AuthorizationLease, BackupId,
     BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupSeriesId, Base64UrlString,
-    CbaProofBundle, ControlProposalAck, Cursor, DeviceId, DidCoreId, DidUrl, EpochRange, Error,
-    Event, EventId, EventInitialSubmission, EventKind, HPKE_SUITE_X25519_CHACHA20POLY1305_V1,
-    HPKE_SUITES, Hash, HistoryEffectiveScope, LeaseBasisRef, NonEmptyString, PayloadProof,
-    PolicyId, ProofContextId, RECOVERY_POLICY_SIGNATURE_TYPE, RealmId, ReasonCode, ReceiptId,
+    CbaProofBundle, ControlProposalAck, Cursor, DeviceId, DidCoreId, DidUrl, EpochRange, Event,
+    EventId, EventInitialSubmission, EventKind, HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES,
+    Hash, HistoryEffectiveScope, LeaseBasisRef, NonEmptyString, PayloadProof, PolicyId,
+    ProofContextId, RECOVERY_POLICY_SIGNATURE_TYPE, RealmId, ReasonCode, ReceiptId,
     RecoverySessionId, Result, SchemaId, ServiceOperationId, TransactionId, TrustDomainId,
-    XExtensionMap,
+    WireError, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -226,9 +226,9 @@ impl KeysBackupsDeleteChallenge {
         let bytes = arkret_canonical::canonical::canonical_json_bytes(
             &self.delete_intent_transcript(reason),
         )
-        .map_err(|error| Error::Protocol(error.to_string()))?;
+        .map_err(|error| WireError::Protocol(error.to_string()))?;
         Hash::new(arkret_canonical::canonical::sha256_digest(bytes))
-            .map_err(|error| Error::Protocol(error.to_string()))
+            .map_err(|error| WireError::Protocol(error.to_string()))
     }
 }
 
@@ -322,7 +322,7 @@ pub struct BackupSeriesEraseOutcome {
 
 fn validate_backup_object_refs(refs: &[BackupObjectRef], label: &str) -> Result<()> {
     if refs.len() > 512 {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "{label} exceeds 512 backup object references"
         )));
     }
@@ -331,7 +331,7 @@ fn validate_backup_object_refs(refs: &[BackupObjectRef], label: &str) -> Result<
         .iter()
         .any(|object| !backup_ids.insert(object.backup_id.clone()))
     {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "{label} backup object references must be unique"
         )));
     }
@@ -344,7 +344,7 @@ fn validate_canonical_backup_object_refs(refs: &[BackupObjectRef], label: &str) 
         .windows(2)
         .any(|pair| pair[0].backup_id.as_str() >= pair[1].backup_id.as_str())
     {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "{label} must be canonical backup-id sorted"
         )));
     }
@@ -362,7 +362,7 @@ fn validate_rotation_bindings(series: &[BackupRotationBinding]) -> Result<()> {
             .map(|binding| binding.backup_kind)
             .ne(expected_kinds)
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "backup-series erase requires exactly secret_storage then mls_history".to_owned(),
         ));
     }
@@ -371,7 +371,7 @@ fn validate_rotation_bindings(series: &[BackupRotationBinding]) -> Result<()> {
             || binding.new_backups.is_empty()
             || binding.old_backups.is_empty()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "backup-series erase bindings require distinct series and non-empty backup sets"
                     .to_owned(),
             ));
@@ -391,7 +391,7 @@ impl BackupSeriesEraseRequestBody {
                 &self.series,
             )?
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "backup-series erase confirmation digest changed its fixed projection".to_owned(),
             ));
         }
@@ -399,12 +399,12 @@ impl BackupSeriesEraseRequestBody {
         if self.authorization_lease.action
             != arkret_wire::CapabilityActionId::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "backup-series erase requires the exact erase authorization action".to_owned(),
             ));
         }
         if self.cba_proof_bundles.len() > 64 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "backup-series erase exceeds 64 CBA proof bundles".to_owned(),
             ));
         }
@@ -418,7 +418,7 @@ impl BackupSeriesEraseRequestBody {
 impl BackupSeriesEraseConfirmation {
     pub fn validate_structural(&self) -> Result<()> {
         if self.schema != SchemaId::BackupSeriesEraseConfirmationV1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "backup-series erase confirmation schema is invalid".to_owned(),
             ));
         }
@@ -439,7 +439,7 @@ impl BackupSeriesEraseOutcome {
                 .map(|result| result.backup_kind)
                 .ne(expected_kinds)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "backup-series erase outcome requires exactly secret_storage then mls_history"
                     .to_owned(),
             ));
@@ -448,7 +448,7 @@ impl BackupSeriesEraseOutcome {
         let mut has_incomplete = false;
         for result in &self.series_results {
             if result.previous_series_id == result.new_series_id {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "backup-series erase result must change the active series".to_owned(),
                 ));
             }
@@ -456,22 +456,22 @@ impl BackupSeriesEraseOutcome {
             validate_canonical_backup_object_refs(&result.remaining_backups, "remaining_backups")?;
             match result.status {
                 BackupSeriesEraseResultStatus::Erased if !result.remaining_backups.is_empty() => {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "erased backup series cannot retain remaining backups".to_owned(),
                     ));
                 }
                 BackupSeriesEraseResultStatus::Erased if result.reason_code.is_some() => {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "erased backup series cannot carry a reason code".to_owned(),
                     ));
                 }
                 BackupSeriesEraseResultStatus::Pending if result.reason_code.is_some() => {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "pending backup series cannot carry a reason code".to_owned(),
                     ));
                 }
                 BackupSeriesEraseResultStatus::FailedRetryable if result.reason_code.is_none() => {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "failed-retryable backup series requires a reason code".to_owned(),
                     ));
                 }
@@ -483,7 +483,7 @@ impl BackupSeriesEraseOutcome {
             }
         }
         if (self.status == BackupSeriesEraseStatus::Partial) != has_incomplete {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "backup-series erase status does not match its per-series states".to_owned(),
             ));
         }
@@ -493,7 +493,7 @@ impl BackupSeriesEraseOutcome {
             }
             (BackupSeriesEraseStatus::Partial, None) => {}
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "only a complete erase outcome carries one confirmation".to_owned(),
                 ));
             }
@@ -527,7 +527,7 @@ impl BackupSeriesEraseOutcome {
                         || reported_backups != planned_backups
                 })
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "backup-series erase outcome changed the transaction, request, or target binding"
                     .to_owned(),
             ));
@@ -538,7 +538,7 @@ impl BackupSeriesEraseOutcome {
                 || confirmation.prepared_plan_digest != request.prepared_plan_digest
                 || confirmation.series != request.series
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "backup-series erase confirmation changed the reserved transaction plan"
                         .to_owned(),
                 ));
@@ -549,7 +549,7 @@ impl BackupSeriesEraseOutcome {
                     &confirmation.series,
                 )?
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "backup-series erase confirmation does not match its reserved digest"
                         .to_owned(),
                 ));
@@ -756,7 +756,7 @@ impl UnsignedKeyBackup {
     /// invariant that participates in the signature or AEAD domain.
     pub fn new(envelope: KeyBackup, auth_data: UnsignedKeyBackupAuthData) -> Result<Self> {
         if envelope.auth_data.is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "unsigned key backup must not already carry auth_data".to_owned(),
             ));
         }
@@ -767,7 +767,7 @@ impl UnsignedKeyBackup {
             .as_ref()
             .is_some_and(|device_id| device_id != &auth_data.device_id)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup auth_data.device_id does not match envelope device_id".to_owned(),
             ));
         }
@@ -807,10 +807,10 @@ impl UnsignedKeyBackup {
 
     fn unsigned_wire_value(&self) -> Result<Value> {
         let mut value = serde_json::to_value(&self.envelope).map_err(|error| {
-            Error::Protocol(format!("failed to serialize unsigned key backup: {error}"))
+            WireError::Protocol(format!("failed to serialize unsigned key backup: {error}"))
         })?;
         let object = value.as_object_mut().ok_or_else(|| {
-            Error::Protocol("key backup envelope must serialize as an object".to_owned())
+            WireError::Protocol("key backup envelope must serialize as an object".to_owned())
         })?;
         let mut auth_data = serde_json::Map::new();
         auth_data.insert(
@@ -847,17 +847,16 @@ impl KeyBackup {
     /// Validate a fully signed key-backup envelope at the typed wire boundary.
     pub fn validate(&self) -> Result<()> {
         self.validate_envelope_fields()?;
-        let auth_data = self
-            .auth_data
-            .as_ref()
-            .ok_or_else(|| Error::Protocol("signed key backup auth_data is required".to_owned()))?;
+        let auth_data = self.auth_data.as_ref().ok_or_else(|| {
+            WireError::Protocol("signed key backup auth_data is required".to_owned())
+        })?;
         validate_key_backup_signature_algorithm(auth_data.signature_algorithm)?;
         if self
             .device_id
             .as_ref()
             .is_some_and(|device_id| device_id != &auth_data.device_id)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup auth_data.device_id does not match envelope device_id".to_owned(),
             ));
         }
@@ -872,7 +871,7 @@ impl KeyBackup {
                 .iter()
                 .any(|field| !actual_signed_fields.contains(field.as_str()))
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "key backup auth_data.signed_fields must be unique and cover {:?}",
                 expected_signed_fields
             )));
@@ -895,12 +894,12 @@ impl KeyBackup {
                         .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
             })
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup backup_version must match ^kb_[A-Za-z0-9_-]+$".to_owned(),
             ));
         }
         if self.contents.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup contents must not be empty".to_owned(),
             ));
         }
@@ -908,13 +907,13 @@ impl KeyBackup {
             BackupKind::SecretStorage => {
                 for item in &self.contents {
                     let Some(index) = item.secret_storage() else {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "secret_storage key backup must not index history secret ranges"
                                 .to_owned(),
                         ));
                     };
                     if index.secret_version == Some(0) {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "key backup content secret_version must be at least 1".to_owned(),
                         ));
                     }
@@ -923,7 +922,7 @@ impl KeyBackup {
             BackupKind::MlsHistory => {
                 let [KeyBackupContentItem::HistorySecretRanges(index)] = self.contents.as_slice()
                 else {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "mls_history key backup contents must be exactly one history_secret_ranges index"
                             .to_owned(),
                     ));
@@ -932,55 +931,57 @@ impl KeyBackup {
             }
         }
         if self.ciphertext.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup ciphertext must not be empty".to_owned(),
             ));
         }
         let ciphertext = arkret_canonical::base64url_decode(&self.ciphertext).map_err(|error| {
-            Error::Protocol(format!("invalid key backup ciphertext base64url: {error}"))
+            WireError::Protocol(format!("invalid key backup ciphertext base64url: {error}"))
         })?;
         let ciphertext_digest = Hash::new(self.ciphertext_digest.clone()).map_err(|error| {
-            Error::Protocol(format!("invalid key backup ciphertext_digest: {error}"))
+            WireError::Protocol(format!("invalid key backup ciphertext_digest: {error}"))
         })?;
         let digest_suite = self
             .ciphertext_digest
             .split_once(':')
             .and_then(|(suite, _)| arkret_canonical::digest_suite(suite).ok())
             .ok_or_else(|| {
-                Error::Protocol("unsupported key backup ciphertext digest suite".to_owned())
+                WireError::Protocol("unsupported key backup ciphertext digest suite".to_owned())
             })?;
         if arkret_canonical::digest(digest_suite, &ciphertext) != ciphertext_digest.as_str() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup ciphertext_digest does not match ciphertext".to_owned(),
             ));
         }
         if let Some(plaintext_commitment) = &self.plaintext_commitment {
             Hash::new(plaintext_commitment.clone()).map_err(|error| {
-                Error::Protocol(format!("invalid key backup plaintext_commitment: {error}"))
+                WireError::Protocol(format!("invalid key backup plaintext_commitment: {error}"))
             })?;
         }
 
         match self.series_seq {
             0 if self.supersedes.is_some() || self.supersedes_digest.is_some() => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "key backup genesis forbids supersedes and supersedes_digest".to_owned(),
                 ));
             }
             0 => {}
             _ if self.supersedes.is_none() || self.supersedes_digest.is_none() => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "key backup successor requires supersedes and supersedes_digest".to_owned(),
                 ));
             }
             _ => {
                 if self.supersedes.as_ref() == Some(&self.backup_id) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "key backup successor cannot supersede itself".to_owned(),
                     ));
                 }
                 if let Some(supersedes_digest) = &self.supersedes_digest {
                     Hash::new(supersedes_digest.clone()).map_err(|error| {
-                        Error::Protocol(format!("invalid key backup supersedes_digest: {error}"))
+                        WireError::Protocol(format!(
+                            "invalid key backup supersedes_digest: {error}"
+                        ))
                     })?;
                 }
             }
@@ -989,7 +990,7 @@ impl KeyBackup {
         if self.encryption.recipient_method == KeyBackupRecipientMethod::RecoveryPublicKey
             && self.recovery_policy_ref.is_none()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery-public-key key backup requires recovery_policy_ref".to_owned(),
             ));
         }
@@ -998,7 +999,7 @@ impl KeyBackup {
             .as_ref()
             .is_some_and(|frontier| frontier.device_generation_ref == 0)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup device_generation_ref must be positive".to_owned(),
             ));
         }
@@ -1010,7 +1011,7 @@ impl KeyBackup {
         if domain.subdomain.trim().is_empty()
             || domain.hkdf_info != self.backup_kind.hkdf_info(&domain.subdomain)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup domain separation mismatch".to_owned(),
             ));
         }
@@ -1030,7 +1031,7 @@ impl KeyBackup {
             || aad.recipient_method != Some(self.encryption.recipient_method)
             || aad.recipient_key_ref != self.encryption.recipient_key_ref
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup authenticated domain metadata mismatch".to_owned(),
             ));
         }
@@ -1043,32 +1044,34 @@ impl KeyBackup {
         match encryption.recipient_method {
             KeyBackupRecipientMethod::PassphraseKdf => {
                 if self.backup_kind == BackupKind::MlsHistory {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "passphrase_kdf is valid only for secret_storage backups".to_owned(),
                     ));
                 }
                 if aead.enc.is_some() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "passphrase_kdf forbids encryption.aead.enc".to_owned(),
                     ));
                 }
                 let nonce_salt = aead.nonce_salt.as_ref().ok_or_else(|| {
-                    Error::Protocol("passphrase_kdf requires encryption.aead.nonce_salt".to_owned())
+                    WireError::Protocol(
+                        "passphrase_kdf requires encryption.aead.nonce_salt".to_owned(),
+                    )
                 })?;
                 if !(16..=128).contains(&nonce_salt.as_str().len()) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "passphrase_kdf nonce_salt must contain 16 to 128 base64url characters"
                             .to_owned(),
                     ));
                 }
                 let key_commitment = encryption.key_commitment.as_ref().ok_or_else(|| {
-                    Error::Protocol("passphrase_kdf requires key_commitment".to_owned())
+                    WireError::Protocol("passphrase_kdf requires key_commitment".to_owned())
                 })?;
                 Hash::new(key_commitment.clone()).map_err(|error| {
-                    Error::Protocol(format!("invalid key backup key_commitment: {error}"))
+                    WireError::Protocol(format!("invalid key backup key_commitment: {error}"))
                 })?;
                 let kdf = encryption.kdf.as_ref().ok_or_else(|| {
-                    Error::Protocol("passphrase_kdf requires encryption.kdf".to_owned())
+                    WireError::Protocol("passphrase_kdf requires encryption.kdf".to_owned())
                 })?;
                 if self.mixed_secret_storage
                     && (kdf.name != KeyBackupKdfName::Argon2id
@@ -1076,7 +1079,7 @@ impl KeyBackup {
                         || kdf.params.iterations.is_none_or(|value| value < 4)
                         || kdf.params.parallelism.is_none_or(|value| value < 1))
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "mixed secret-storage backups require the strengthened Argon2id profile"
                             .to_owned(),
                     ));
@@ -1087,7 +1090,7 @@ impl KeyBackup {
                     self.backup_kind,
                     BackupKind::SecretStorage | BackupKind::MlsHistory
                 ) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "secret_storage_key is valid only for secret_storage or mls_history backups"
                             .to_owned(),
                     ));
@@ -1096,7 +1099,7 @@ impl KeyBackup {
                     || aead.enc.is_some()
                     || encryption.key_commitment.is_some()
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "secret_storage_key forbids nonce_salt, enc, and key_commitment".to_owned(),
                     ));
                 }
@@ -1106,7 +1109,7 @@ impl KeyBackup {
                     || aead.nonce_salt.is_some()
                     || encryption.key_commitment.is_some()
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "recovery_public_key forbids nonce, nonce_salt, and key_commitment"
                             .to_owned(),
                     ));
@@ -1144,7 +1147,7 @@ impl KeyBackup {
     /// reserialize round trip.
     pub fn signing_payload_bytes_from_wire(wire: &Value) -> Result<Vec<u8>> {
         let envelope = serde_json::from_value::<Self>(wire.clone()).map_err(|error| {
-            Error::Protocol(format!("invalid signed key backup envelope: {error}"))
+            WireError::Protocol(format!("invalid signed key backup envelope: {error}"))
         })?;
         envelope.validate()?;
         key_backup_signature_independent_wire_bytes(wire, true)
@@ -1156,7 +1159,7 @@ impl KeyBackup {
     pub fn signature_independent_payload_bytes(&self) -> Result<Vec<u8>> {
         self.validate_envelope_fields()?;
         let mut unsigned = serde_json::to_value(self).map_err(|error| {
-            Error::Protocol(format!("failed to serialize key backup envelope: {error}"))
+            WireError::Protocol(format!("failed to serialize key backup envelope: {error}"))
         })?;
         if let Some(auth_data) = unsigned.get_mut("auth_data").and_then(Value::as_object_mut) {
             auth_data.remove("signature");
@@ -1168,7 +1171,7 @@ impl KeyBackup {
     /// that it is a key-backup envelope.
     pub fn signature_independent_digest_from_wire(wire: &Value) -> Result<String> {
         let envelope = serde_json::from_value::<Self>(wire.clone()).map_err(|error| {
-            Error::Protocol(format!("invalid key backup predecessor envelope: {error}"))
+            WireError::Protocol(format!("invalid key backup predecessor envelope: {error}"))
         })?;
         envelope.validate_envelope_fields()?;
         Ok(arkret_canonical::sha256_digest(
@@ -1206,14 +1209,14 @@ fn key_backup_signature_independent_wire_bytes(
     let mut unsigned = wire.clone();
     let auth_data = unsigned.get_mut("auth_data").and_then(Value::as_object_mut);
     if require_signature && auth_data.is_none() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "key backup auth_data is required".to_owned(),
         ));
     }
     if let Some(auth_data) = auth_data {
         let signature = auth_data.remove("signature");
         if require_signature && signature.is_none() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup auth_data signature is required".to_owned(),
             ));
         }
@@ -1223,7 +1226,7 @@ fn key_backup_signature_independent_wire_bytes(
 
 fn validate_key_backup_signature_algorithm(algorithm: KeyBackupSignatureAlgorithm) -> Result<()> {
     if algorithm == KeyBackupSignatureAlgorithm::Es256 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "key backup auth_data.signature_algorithm must be Ed25519 or ML-DSA-65".to_owned(),
         ));
     }
@@ -1322,25 +1325,25 @@ impl KeyBackupEncryption {
                 // `if recipient_method==passphrase_kdf then required kdf; aead
                 // requires nonce + nonce_salt`.
                 let Some(kdf) = self.kdf.as_ref() else {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "key backup encryption: passphrase_kdf requires `kdf`".to_owned(),
                     ));
                 };
-                kdf.validate().map_err(Error::Protocol)?;
+                kdf.validate().map_err(WireError::Protocol)?;
                 if self.aead.nonce.is_none() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "key backup encryption: passphrase_kdf requires `aead.nonce`".to_owned(),
                     ));
                 }
                 if self.aead.nonce_salt.is_none() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "key backup encryption: passphrase_kdf requires `aead.nonce_salt`"
                             .to_owned(),
                     ));
                 }
                 // hpke_suite applies only to recovery_public_key.
                 if self.hpke_suite.is_some() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "key backup encryption: hpke_suite applies only to recovery_public_key"
                             .to_owned(),
                     ));
@@ -1349,24 +1352,24 @@ impl KeyBackupEncryption {
             KeyBackupRecipientMethod::SecretStorageKey => {
                 // `then not kdf; required recipient_key_ref; aead requires nonce`.
                 if self.kdf.is_some() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "key backup encryption: secret_storage_key forbids `kdf`".to_owned(),
                     ));
                 }
                 if self.recipient_key_ref.as_deref().is_none_or(str::is_empty) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "key backup encryption: secret_storage_key requires `recipient_key_ref`"
                             .to_owned(),
                     ));
                 }
                 if self.aead.nonce.is_none() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "key backup encryption: secret_storage_key requires `aead.nonce`"
                             .to_owned(),
                     ));
                 }
                 if self.hpke_suite.is_some() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "key backup encryption: hpke_suite applies only to recovery_public_key"
                             .to_owned(),
                     ));
@@ -1375,18 +1378,18 @@ impl KeyBackupEncryption {
             KeyBackupRecipientMethod::RecoveryPublicKey => {
                 // `then not kdf; required recipient_key_ref; aead requires enc`.
                 if self.kdf.is_some() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "key backup encryption: recovery_public_key forbids `kdf`".to_owned(),
                     ));
                 }
                 if self.recipient_key_ref.as_deref().is_none_or(str::is_empty) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "key backup encryption: recovery_public_key requires `recipient_key_ref`"
                             .to_owned(),
                     ));
                 }
                 if self.aead.enc.is_none() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "key backup encryption: recovery_public_key requires `aead.enc`".to_owned(),
                     ));
                 }
@@ -1398,13 +1401,13 @@ impl KeyBackupEncryption {
                     .as_deref()
                     .unwrap_or(HPKE_SUITE_X25519_CHACHA20POLY1305_V1);
                 let suite_aead = active_hpke_suite_aead(suite_id)?.ok_or_else(|| {
-                    Error::Protocol(format!(
+                    WireError::Protocol(format!(
                         "key backup encryption: hpke_suite `{suite_id}` is not an active \
                          hpke-suite-registry row (unsupported_hpke_suite)"
                     ))
                 })?;
                 if self.aead.name.as_str() != suite_aead {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "key backup encryption: aead.name `{}` does not equal hpke_suite \
                          `{suite_id}` aead `{suite_aead}` (schema_violation)",
                         self.aead.name.as_str()
@@ -1434,7 +1437,7 @@ fn active_hpke_suite_aead(suite_id: &str) -> Result<Option<String>> {
         | arkret_wire::HpkeSuiteId::X25519_AEAD_AES256GCM_V1 => "aes_256_gcm",
         arkret_wire::HpkeSuiteId::X25519_AEAD_CHACHA20POLY1305_V1 => "chacha20_poly1305",
         other => {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "key backup encryption: active hpke_suite `{other}` has no known aead binding \
                  (unsupported_hpke_suite)"
             )));
@@ -1901,14 +1904,14 @@ impl RecoveryPolicy {
     pub fn signature_transcript_bytes(&self) -> Result<Vec<u8>> {
         self.validate()?;
         let policy = serde_json::to_value(self).map_err(|error| {
-            Error::Protocol(format!("failed to serialize recovery policy: {error}"))
+            WireError::Protocol(format!("failed to serialize recovery policy: {error}"))
         })?;
         recovery_policy_signature_transcript_bytes(&policy, &self.auth_data.signed_fields)
     }
 
     pub fn validate(&self) -> Result<()> {
         if self.schema != SchemaId::RECOVERY_POLICY_V1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery policy schema must be ak.schema.recovery_policy.v1".to_owned(),
             ));
         }
@@ -1917,7 +1920,7 @@ impl RecoveryPolicy {
             "Ed25519" | "ML-DSA-65"
         ) || Base64UrlString::new(self.auth_data.signature.clone()).is_err()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery policy auth_data must carry an Ed25519 or ML-DSA-65 base64url signature"
                     .to_owned(),
             ));
@@ -1926,7 +1929,7 @@ impl RecoveryPolicy {
             || (self.version == 1) != self.supersedes.is_none()
             || (self.version >= 2 && self.supersedes.is_none())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery policy version and supersedes do not form a valid chain".to_owned(),
             ));
         }
@@ -1936,12 +1939,12 @@ impl RecoveryPolicy {
             .copied()
             .collect::<BTreeSet<_>>();
         if unique_proof_kinds.len() != self.allowed_proof_kinds.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery policy allowed_proof_kinds must be unique".to_owned(),
             ));
         }
         if self.allowed_proof_kinds.is_empty() && self.expires_at.is_none() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "revoked recovery policy requires expires_at".to_owned(),
             ));
         }
@@ -1973,12 +1976,12 @@ impl RecoveryPolicy {
         let recovery_keys = self.recovery_keys.as_deref().unwrap_or_default();
         let agreements = self.recovery_key_agreements.as_deref().unwrap_or_default();
         if recovery_signing_key_enabled && (recovery_keys.is_empty() || agreements.is_empty()) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery_unlock and threshold_recovery require recovery_keys and recovery_key_agreements".to_owned(),
             ));
         }
         if !recovery_keys.is_empty() && agreements.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery_keys require recovery_key_agreements".to_owned(),
             ));
         }
@@ -1988,7 +1991,7 @@ impl RecoveryPolicy {
             .map(|entry| entry.key_agreement_ref.as_str())
             .collect::<BTreeSet<_>>();
         if agreement_refs.len() != agreements.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery_key_agreements key_agreement_ref values must be unique".to_owned(),
             ));
         }
@@ -2001,14 +2004,14 @@ impl RecoveryPolicy {
             .map(|entry| entry.verification_method.as_str())
             .collect::<BTreeSet<_>>();
         if verification_methods.len() != recovery_keys.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery_keys verification_method values must be unique".to_owned(),
             ));
         }
         for entry in recovery_keys {
             entry.validate()?;
             if !agreement_refs.contains(entry.key_agreement_ref.as_str()) {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "recovery key {} references an unknown key agreement",
                     entry.verification_method
                 )));
@@ -2022,7 +2025,7 @@ impl RecoveryPolicy {
             .map(String::as_str)
             .collect::<BTreeSet<_>>();
         if signed_fields.len() != self.auth_data.signed_fields.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery policy auth_data signed_fields must be unique".to_owned(),
             ));
         }
@@ -2041,7 +2044,7 @@ impl RecoveryPolicy {
             .iter()
             .any(|field| !signed_fields.contains(field))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery policy auth_data omits a required signed field".to_owned(),
             ));
         }
@@ -2063,7 +2066,7 @@ impl RecoveryPolicy {
             (self.expires_at.is_some(), "expires_at"),
         ] {
             if present && !signed_fields.contains(field) {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "recovery policy auth_data must sign {field}"
                 )));
             }
@@ -2076,7 +2079,7 @@ impl RecoveryPolicy {
         allowed_proof_kinds: &BTreeSet<RecoveryProofKind>,
     ) -> Result<()> {
         if self.publication_authorization_rules.len() != allowed_proof_kinds.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery policy requires exactly one publication authorization rule per proof kind"
                     .to_owned(),
             ));
@@ -2108,7 +2111,7 @@ impl RecoveryPolicy {
         let mut seen_proof_kinds = BTreeSet::new();
         for rule in &self.publication_authorization_rules {
             if previous_rule_id.is_some_and(|previous| previous >= rule.rule_id.as_str()) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "recovery publication authorization rules must be ordered by rule_id"
                         .to_owned(),
                 ));
@@ -2127,7 +2130,7 @@ impl RecoveryPolicy {
                     pair[0].verification_method.as_str() >= pair[1].verification_method.as_str()
                 })
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "recovery publication authorization rule is not canonical".to_owned(),
                 ));
             }
@@ -2143,7 +2146,7 @@ impl RecoveryPolicy {
                         || issuer_methods.len() != 1
                         || !issuer_methods.contains(self.auth_data.verification_method.as_str())
                     {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "principal_signing publication rule must use the policy authority method at threshold 1"
                                 .to_owned(),
                         ));
@@ -2151,7 +2154,7 @@ impl RecoveryPolicy {
                 }
                 RecoveryProofKind::RecoveryUnlock | RecoveryProofKind::ThresholdRecovery => {
                     if rule.threshold != 1 || issuer_methods != active_recovery_methods {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "recovery signing publication rule must use the active recovery key set at threshold 1"
                                 .to_owned(),
                         ));
@@ -2159,7 +2162,7 @@ impl RecoveryPolicy {
                 }
                 RecoveryProofKind::DeviceQuorum => {
                     let quorum = self.device_quorum.as_ref().ok_or_else(|| {
-                        Error::Protocol(
+                        WireError::Protocol(
                             "device_quorum publication rule requires device_quorum".to_owned(),
                         )
                     })?;
@@ -2170,7 +2173,7 @@ impl RecoveryPolicy {
                         || rule.threshold != quorum.k
                         || rule.issuers.len() != quorum.members.len()
                     {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "device_quorum publication rule does not match the device quorum"
                                 .to_owned(),
                         ));
@@ -2190,7 +2193,7 @@ impl RecoveryPolicy {
                     }) || rule.threshold != 1
                         || issuer_methods != trusted_service_methods
                     {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "trusted recovery service publication rule does not match the declared service methods"
                                 .to_owned(),
                         ));
@@ -2208,7 +2211,7 @@ impl RecoveryPolicy {
         field: &str,
     ) -> Result<()> {
         if self.allowed_proof_kinds.contains(&proof_kind) && !present {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "recovery policy proof kind {proof_kind:?} requires {field}"
             )));
         }
@@ -2462,7 +2465,7 @@ pub struct RecoveryPolicySetPayload {
 impl RecoveryPolicySetPayload {
     pub fn validate(&self) -> Result<()> {
         if self.policy_id != self.value.policy_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery policy payload policy_id must equal value.policy_id".to_owned(),
             ));
         }
@@ -2491,15 +2494,17 @@ pub struct RecoveryPolicyPublishRequest {
 impl RecoveryPolicyPublishRequest {
     pub fn policy_payload(&self) -> Result<RecoveryPolicySetPayload> {
         if self.event.kind != EventKind::PolicySet {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery policy publication Event kind must be ak.policy.set".to_owned(),
             ));
         }
         let payload = serde_json::from_value(
             serde_json::to_value(&self.event.payload)
-                .map_err(|error| Error::Protocol(error.to_string()))?,
+                .map_err(|error| WireError::Protocol(error.to_string()))?,
         )
-        .map_err(|error| Error::Protocol(format!("invalid recovery policy payload: {error}")))?;
+        .map_err(|error| {
+            WireError::Protocol(format!("invalid recovery policy payload: {error}"))
+        })?;
         RecoveryPolicySetPayload::validate(&payload)?;
         Ok(payload)
     }
@@ -2663,7 +2668,7 @@ impl RecoveryKeyEntry {
     pub fn validate(&self) -> Result<()> {
         validate_canonical_multibase(self.public_key_multibase.as_str())?;
         if self.not_before >= self.expires_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery key expires_at must be after not_before".to_owned(),
             ));
         }
@@ -2671,7 +2676,7 @@ impl RecoveryKeyEntry {
             .revoked_at
             .is_some_and(|revoked_at| revoked_at < self.not_before)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery key revoked_at must not precede not_before".to_owned(),
             ));
         }
@@ -2734,21 +2739,21 @@ impl RecoveryKeyAgreementEntry {
     pub fn validate(&self) -> Result<()> {
         let decoded = validate_canonical_multibase(self.public_key_multibase.as_str())?;
         let (codec, header_len) = decode_multicodec_varint(&decoded).ok_or_else(|| {
-            Error::Protocol("recovery key agreement has an invalid multicodec".to_owned())
+            WireError::Protocol("recovery key agreement has an invalid multicodec".to_owned())
         })?;
         if codec != 0xec || decoded.len().saturating_sub(header_len) != 32 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery key agreement must carry a 32-byte x25519-pub multikey".to_owned(),
             ));
         }
         let suites = self.hpke_suites.iter().copied().collect::<BTreeSet<_>>();
         if suites.is_empty() || suites.len() != self.hpke_suites.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery key agreement hpke_suites must be non-empty and unique".to_owned(),
             ));
         }
         if self.not_before >= self.expires_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery key agreement expires_at must be after not_before".to_owned(),
             ));
         }
@@ -2756,7 +2761,7 @@ impl RecoveryKeyAgreementEntry {
             .revoked_at
             .is_some_and(|revoked_at| revoked_at < self.not_before)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery key agreement revoked_at must not precede not_before".to_owned(),
             ));
         }
@@ -2767,7 +2772,7 @@ impl RecoveryKeyAgreementEntry {
 fn validate_canonical_multibase(value: &str) -> Result<Vec<u8>> {
     let decoded = decode_multibase_base58btc(value)?;
     if decoded.is_empty() || encode_multibase_base58btc(&decoded) != value {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "public_key_multibase must use canonical non-empty base58btc".to_owned(),
         ));
     }
@@ -2919,14 +2924,14 @@ impl RecoveryReceipt {
     pub fn signature_transcript_bytes(&self) -> Result<Vec<u8>> {
         self.validate()?;
         let payload = serde_json::to_value(self).map_err(|error| {
-            Error::Protocol(format!("failed to serialize recovery receipt: {error}"))
+            WireError::Protocol(format!("failed to serialize recovery receipt: {error}"))
         })?;
         recovery_receipt_signature_transcript_bytes(&payload, &self.auth_data.signed_fields)
     }
 
     pub fn validate(&self) -> Result<()> {
         if self.schema != SchemaId::RECOVERY_RECEIPT_V1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery receipt schema must be ak.schema.recovery_receipt.v1".to_owned(),
             ));
         }
@@ -2945,12 +2950,12 @@ impl RecoveryReceipt {
             self.completed_at,
         )?;
         if self.auth_data.signature_algorithm != "Ed25519" {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery receipt signature_algorithm must be Ed25519".to_owned(),
             ));
         }
         if Base64UrlString::new(self.auth_data.signature.clone()).is_err() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery receipt signature must be non-empty base64url".to_owned(),
             ));
         }
@@ -2961,7 +2966,7 @@ impl RecoveryReceipt {
             .map(String::as_str)
             .collect::<BTreeSet<_>>();
         if signed.len() != self.auth_data.signed_fields.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery receipt signed_fields must be unique".to_owned(),
             ));
         }
@@ -3003,7 +3008,7 @@ impl RecoveryReceipt {
             .into_iter()
             .find(|required_field| !signed.contains(required_field))
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "recovery receipt signed_fields omits {missing}"
             )));
         }
@@ -3139,7 +3144,7 @@ fn validate_recovery_receipt_body(
     completed_at: DateTime<Utc>,
 ) -> Result<()> {
     if policy_version == 0 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "recovery receipt policy_version must be positive".to_owned(),
         ));
     }
@@ -3151,24 +3156,24 @@ fn validate_recovery_receipt_body(
         || !reanchor_batch_receipt_present
         || did_entry_ref.is_none_or(str::is_empty)
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "root-anchored recovery receipt requires an advancing re-anchor artifact pair"
                 .to_owned(),
         ));
     }
     if completed_at < started_at {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "recovery receipt completed_at precedes started_at".to_owned(),
         ));
     }
     if outcome == RecoveryReceiptOutcome::Completed && outcome_reason_code.is_some() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "completed recovery receipt must omit outcome_reason_code".to_owned(),
         ));
     }
     if outcome != RecoveryReceiptOutcome::Completed && outcome_reason_code.is_none_or(str::is_empty)
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "non-completed recovery receipt requires outcome_reason_code".to_owned(),
         ));
     }
@@ -3221,7 +3226,7 @@ fn recovery_receipt_signature_transcript_bytes(
     let mut signed_payload = serde_json::Map::new();
     for field in signed_fields {
         let value = receipt.get(field).cloned().ok_or_else(|| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "recovery receipt signed field {field} is absent from the authoring body"
             ))
         })?;
@@ -3233,7 +3238,7 @@ fn recovery_receipt_signature_transcript_bytes(
         "payload": signed_payload,
     });
     arkret_canonical::canonical_json_bytes(&transcript).map_err(|error| {
-        Error::Protocol(format!(
+        WireError::Protocol(format!(
             "failed to canonicalize recovery receipt signature transcript: {error}"
         ))
     })

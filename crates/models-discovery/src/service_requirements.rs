@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DeviceId, DidCoreId, Error, OperationId, PROTOCOL_VERSION, RealmId, Result, ServiceKind,
+    DeviceId, DidCoreId, OperationId, PROTOCOL_VERSION, RealmId, Result, ServiceKind, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -61,13 +61,13 @@ impl DidCoreIdAllowlist {
 
     pub fn verify_description(&self, description: &ServiceDescribe) -> Result<()> {
         let binding = self.services.get(&description.service_id).ok_or_else(|| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "service DID {} is not allowlisted",
                 description.service_id
             ))
         })?;
         if description.service_kind != binding.service_kind {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "service DID {} is allowlisted as {}, not {}",
                 description.service_id,
                 binding.service_kind.as_str(),
@@ -80,7 +80,7 @@ impl DidCoreIdAllowlist {
                 .iter()
                 .any(|actual| actual == operation)
             {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "allowlisted service {} does not advertise operation {operation}",
                     description.service_id
                 )));
@@ -208,7 +208,7 @@ impl ServiceRequirements {
 
     pub fn verify(&self, description: &ServiceDescribe) -> Result<()> {
         if description.protocol_version != PROTOCOL_VERSION {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "service protocol_version {} does not match Arkret {PROTOCOL_VERSION}",
                 description.protocol_version
             )));
@@ -216,7 +216,7 @@ impl ServiceRequirements {
 
         if let Some(service_kind) = &self.service_kind {
             if description.service_kind != *service_kind {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "service_kind {} does not match expected {}",
                     description.service_kind, service_kind
                 )));
@@ -226,7 +226,7 @@ impl ServiceRequirements {
             // for its declared `service_kind`.
             for op in &description.supported_operations {
                 if !service_kind.permits_operation(op) {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "service_kind {} must not advertise operation {op}",
                         service_kind
                     )));
@@ -240,7 +240,7 @@ impl ServiceRequirements {
                 .iter()
                 .any(|actual| actual == profile)
             {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "service does not support profile {profile}"
                 )));
             }
@@ -252,7 +252,7 @@ impl ServiceRequirements {
                 .iter()
                 .any(|actual| actual == profile)
             {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "service does not support reducer profile {profile}"
                 )));
             }
@@ -264,7 +264,7 @@ impl ServiceRequirements {
                 .iter()
                 .any(|actual| actual == operation)
             {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "service does not support operation {operation}"
                 )));
             }

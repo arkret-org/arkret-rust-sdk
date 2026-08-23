@@ -16,7 +16,7 @@
 
 use arkret_wire::{CapabilityActionId, Hash};
 
-use crate::{Error, Result};
+use crate::{Result, WireError};
 
 /// Resolve the registry basis an expansion is anchored to.
 ///
@@ -26,7 +26,7 @@ use crate::{Error, Result};
 /// receiver's own registry.
 pub fn require_registry_basis(basis: Option<&Hash>) -> Result<()> {
     let Some(basis) = basis else {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "capability_registry_basis_unavailable: aggregate expansion requires a registry basis"
                 .to_owned(),
         ));
@@ -83,7 +83,7 @@ pub fn owner_may_grant(
     active_profiles: &[String],
 ) -> Result<bool> {
     let basis = registry_basis.ok_or_else(|| {
-        Error::Protocol(
+        WireError::Protocol(
             "capability_registry_basis_unavailable: aggregate expansion requires a registry basis"
                 .to_owned(),
         )
@@ -114,7 +114,7 @@ pub fn owner_may_author_event_kind(
     registry_basis: Option<&Hash>,
 ) -> Result<bool> {
     let basis = registry_basis.ok_or_else(|| {
-        Error::Protocol(
+        WireError::Protocol(
             "capability_registry_basis_unavailable: aggregate expansion requires a registry basis"
                 .to_owned(),
         )
@@ -138,7 +138,7 @@ pub fn owner_may_author_event_kind(
 /// vacuously.
 pub fn owner_may_author_action(child_action: &str, registry_basis: Option<&Hash>) -> Result<bool> {
     let basis = registry_basis.ok_or_else(|| {
-        Error::Protocol(
+        WireError::Protocol(
             "capability_registry_basis_unavailable: aggregate expansion requires a registry basis"
                 .to_owned(),
         )
@@ -149,7 +149,7 @@ pub fn owner_may_author_action(child_action: &str, registry_basis: Option<&Hash>
         .get("target_event_kinds")
         .and_then(serde_json::Value::as_array)
         .ok_or_else(|| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "schema_violation: capability action '{child_action}' has no target_event_kinds"
             ))
         })?;
@@ -161,7 +161,9 @@ pub fn owner_may_author_action(child_action: &str, registry_basis: Option<&Hash>
         .get("target_event_kinds")
         .and_then(serde_json::Value::as_array)
         .ok_or_else(|| {
-            Error::Protocol("schema_violation: ak.realm.owner has no target_event_kinds".to_owned())
+            WireError::Protocol(
+                "schema_violation: ak.realm.owner has no target_event_kinds".to_owned(),
+            )
         })?;
     Ok(child_event_kinds
         .iter()
@@ -190,7 +192,7 @@ fn snapshot_action_contains(
 
 fn descriptor(action: &str) -> Result<&'static arkret_schema::CapabilityActionDescriptor> {
     arkret_schema::capability_action(action).ok_or_else(|| {
-        Error::Protocol(format!(
+        WireError::Protocol(format!(
             "schema_violation: capability action '{action}' is not registered"
         ))
     })

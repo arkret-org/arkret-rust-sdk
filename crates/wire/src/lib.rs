@@ -119,7 +119,7 @@ pub use control_proposal::{
     MAX_PROPOSAL_DECISION_WINDOW, MAX_PROPOSAL_DEFERS, MAX_PROPOSAL_INTAKE_SLA,
 };
 pub use device_revocation::*;
-pub use error::{Error, Result, WireError};
+pub use error::{Result, WireError};
 pub use error_codes::*;
 pub use event_envelope::*;
 pub use event_receipt::*;

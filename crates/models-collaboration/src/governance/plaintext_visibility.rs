@@ -1,5 +1,5 @@
 use arkret_wire::serde_helpers::serialize_optional_canonical_timestamp;
-use arkret_wire::{DidCoreId, Error, PlaintextDataClassKind, Result};
+use arkret_wire::{DidCoreId, PlaintextDataClassKind, Result, WireError};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -76,7 +76,7 @@ impl PlaintextVisibleServicesPayload {
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self).map_err(|err| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "plaintext visible services payload serialize: {err}"
             ))
         })

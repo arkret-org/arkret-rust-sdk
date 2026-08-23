@@ -52,7 +52,7 @@ use arkret_models_identity::member_identity::MemberIdentityUpdatePayload;
 use arkret_models_integration::applet_audit_payload::{
     AppletBridgeErrorPayload, AppletRegistrationPayload,
 };
-use arkret_wire::{Error, Event, Result, event_spec};
+use arkret_wire::{Event, Result, WireError, event_spec};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -135,7 +135,7 @@ macro_rules! event_payload_accessors {
         impl EventPayloadExt for Event {
             fn typed_payload<K: EventSpec>(&self) -> Result<K::Payload> {
                 if self.kind != K::KIND {
-                    return Err(Error::PayloadKindMismatch {
+                    return Err(WireError::PayloadKindMismatch {
                         expected: K::KIND_STR,
                         actual: self.kind.as_str().to_owned(),
                     });
@@ -143,11 +143,11 @@ macro_rules! event_payload_accessors {
                 let payload = serde_json::from_value(Value::Object(
                     self.payload.clone().into_iter().collect(),
                 ))
-                .map_err(|source| Error::PayloadInvalid {
+                .map_err(|source| WireError::PayloadInvalid {
                     kind: K::KIND_STR,
                     reason: source.to_string(),
                 })?;
-                K::validate_payload(&payload).map_err(|error| Error::PayloadInvalid {
+                K::validate_payload(&payload).map_err(|error| WireError::PayloadInvalid {
                     kind: K::KIND_STR,
                     reason: error.to_string(),
                 })?;
@@ -167,7 +167,7 @@ macro_rules! event_payload_accessors {
                     arkret_wire::EventKind::MessageRedact => Ok(MessageEventPayload::Redact(self.as_message_redact()?)),
                     arkret_wire::EventKind::ReactionAdd => Ok(MessageEventPayload::ReactionAdd(self.as_reaction_add()?)),
                     arkret_wire::EventKind::ReactionRemove => Ok(MessageEventPayload::ReactionRemove(self.as_reaction_remove()?)),
-                    _ => Err(Error::Protocol(format!(
+                    _ => Err(WireError::Protocol(format!(
                         "event is not a message timeline payload: {}",
                         self.kind.as_str()
                     ))),
@@ -305,8 +305,8 @@ event_payload_accessors! {
     event_spec::ProfileCreate => (as_profile_create, ActorProfileCreatePayload),
     event_spec::ProfileUpdate => (as_profile_update, ActorProfileUpdatePayload),
     event_spec::ProfileRealmOverride => (as_profile_realm_override, ProfileRealmOverridePayload),
-    event_spec::DeviceAuthorize => (as_device_authorize, DeviceAuthorizePayload, |payload: &DeviceAuthorizePayload| payload.validate_wire_constraints().map_err(|reason| Error::Protocol(reason.to_owned()))),
-    event_spec::DeviceReanchor => (as_device_reanchor, DeviceReanchorPayload, |payload: &DeviceReanchorPayload| payload.validate().map_err(|reason| Error::Protocol(reason.to_owned()))),
+    event_spec::DeviceAuthorize => (as_device_authorize, DeviceAuthorizePayload, |payload: &DeviceAuthorizePayload| payload.validate_wire_constraints().map_err(|reason| WireError::Protocol(reason.to_owned()))),
+    event_spec::DeviceReanchor => (as_device_reanchor, DeviceReanchorPayload, |payload: &DeviceReanchorPayload| payload.validate().map_err(|reason| WireError::Protocol(reason.to_owned()))),
     event_spec::DeviceRevoke => (as_device_revoke, DeviceRevokePayload),
     event_spec::DeviceListUpdate => (as_device_list_update, DeviceListUpdatePayload),
     event_spec::KeyBackupActiveSeries => (as_key_backup_active_series, KeyBackupActiveSeries),
@@ -368,18 +368,18 @@ pub trait ResolvedStateEventPayloadExt {
 impl ResolvedStateEventPayloadExt for arkret_models_collaboration::ResolvedStateEvent {
     fn typed_payload<K: EventSpec>(&self) -> Result<K::Payload> {
         if self.kind != K::KIND {
-            return Err(Error::PayloadKindMismatch {
+            return Err(WireError::PayloadKindMismatch {
                 expected: K::KIND_STR,
                 actual: self.kind.as_str().to_owned(),
             });
         }
         let payload = serde_json::from_value(self.content.clone()).map_err(|source| {
-            Error::PayloadInvalid {
+            WireError::PayloadInvalid {
                 kind: K::KIND_STR,
                 reason: source.to_string(),
             }
         })?;
-        K::validate_payload(&payload).map_err(|error| Error::PayloadInvalid {
+        K::validate_payload(&payload).map_err(|error| WireError::PayloadInvalid {
             kind: K::KIND_STR,
             reason: error.to_string(),
         })?;
@@ -538,7 +538,7 @@ mod tests {
 
         assert!(matches!(
             error,
-            Error::PayloadKindMismatch {
+            WireError::PayloadKindMismatch {
                 expected: event_spec::StrandCreate::KIND_STR,
                 actual,
             } if actual == event_spec::MessageCreate::KIND_STR
@@ -560,7 +560,7 @@ mod tests {
             .unwrap_err();
         assert!(matches!(
             error,
-            Error::PayloadInvalid {
+            WireError::PayloadInvalid {
                 kind: event_spec::MessageCreate::KIND_STR,
                 ..
             }
@@ -603,7 +603,7 @@ mod tests {
         .unwrap();
         assert!(matches!(
             event.as_policy_set(),
-            Err(Error::PayloadInvalid {
+            Err(WireError::PayloadInvalid {
                 kind: event_spec::PolicySet::KIND_STR,
                 ..
             })

@@ -18,8 +18,8 @@ use serde_json::Value;
 
 use crate::canonical::{canonical_json_bytes, canonical_sha256, sha256_digest};
 use crate::{
-    Audience, Error, Event, EventId, Morph, RealmId, Relation, RelationId, Result, Space, SpaceId,
-    Strand,
+    Audience, Event, EventId, Morph, RealmId, Relation, RelationId, Result, Space, SpaceId, Strand,
+    WireError,
 };
 
 pub const REDUCER_SNAPSHOT_SCHEMA: &str = "org.arkret.sdk.reducer_snapshot.v1";

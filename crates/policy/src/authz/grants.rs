@@ -62,29 +62,29 @@ impl GrantProjection {
         grant: &arkret_models_collaboration::governance::grant_constraint::CapabilityGrant,
     ) -> Result<Self> {
         if grant.schema != SchemaId::CAPABILITY_V1 {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "schema_violation: capability grant schema must be '{}', got '{}'",
                 SchemaId::CAPABILITY_V1,
                 grant.schema
             )));
         }
         if grant.actions.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "schema_violation: capability grant requires actions".to_owned(),
             ));
         }
         if grant.resources.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "schema_violation: capability grant requires resources".to_owned(),
             ));
         }
         if grant.issuer_authority_refs.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "schema_violation: capability grant requires issuer_authority_refs".to_owned(),
             ));
         }
         if grant.issuer_authority_refs.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "schema_violation: capability grant requires issuer_authority_refs".to_owned(),
             ));
         }
@@ -100,12 +100,12 @@ impl GrantProjection {
                 ResourceSelector::from_spec_value(&value)
             })
             .collect::<Result<Vec<_>>>()
-            .map_err(|err| Error::Protocol(format!("schema_violation: {err}")))?;
+            .map_err(|err| WireError::Protocol(format!("schema_violation: {err}")))?;
         let mut constraints = Vec::new();
         for constraint in &grant.constraints {
             constraints.extend(
                 constraint_entries_from_spec(constraint)
-                    .map_err(|err| Error::Protocol(format!("schema_violation: {err}")))?,
+                    .map_err(|err| WireError::Protocol(format!("schema_violation: {err}")))?,
             );
         }
         Ok(Self {
@@ -184,7 +184,7 @@ pub fn current_capability_action_registry_digest() -> Result<Hash> {
         "registry/capability-action-registry.json",
     )
     .map_err(|_| {
-        Error::Protocol(
+        WireError::Protocol(
             "capability_registry_basis_unavailable: embedded registry missing".to_owned(),
         )
     })?;
@@ -193,12 +193,12 @@ pub fn current_capability_action_registry_digest() -> Result<Hash> {
 
 fn capability_action_registry_digest(registry: &Value) -> Result<Hash> {
     let bytes = arkret_canonical::canonical_json_bytes(registry).map_err(|error| {
-        Error::Protocol(format!(
+        WireError::Protocol(format!(
             "capability_registry_basis_unavailable: registry JCS failed: {error}"
         ))
     })?;
     Hash::new(arkret_canonical::sha256_digest(&bytes)).map_err(|error| {
-        Error::Protocol(format!(
+        WireError::Protocol(format!(
             "capability_registry_basis_unavailable: invalid registry digest: {error}"
         ))
     })
@@ -209,12 +209,12 @@ fn capability_action_registry_digest(registry: &Value) -> Result<Hash> {
 pub(crate) fn capability_action_registry_snapshot(basis: &Hash) -> Result<Value> {
     let current = arkret_schema::embedded_json_artifact("registry/capability-action-registry.json")
         .map_err(|_| {
-            Error::Protocol(
+            WireError::Protocol(
                 "capability_registry_basis_unavailable: embedded registry missing".to_owned(),
             )
         })?;
     if capability_action_registry_digest(&current)? != *basis {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "capability_registry_basis_unavailable: registry digest does not match current embedded registry"
                 .to_owned(),
         ));
@@ -235,7 +235,7 @@ pub(crate) fn capability_action_descriptor_in<'a>(
             })
         })
         .ok_or_else(|| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "schema_violation: capability action '{action}' is not registered in the bound snapshot"
             ))
         })
@@ -252,7 +252,7 @@ pub fn validate_capability_action_registry_binding(
         Some(digest) => capability_action_registry_snapshot(digest)?,
         None => arkret_schema::embedded_json_artifact("registry/capability-action-registry.json")
             .map_err(|_| {
-            Error::Protocol(
+            WireError::Protocol(
                 "capability_registry_basis_unavailable: embedded registry missing".to_owned(),
             )
         })?,
@@ -264,12 +264,12 @@ pub fn validate_capability_action_registry_binding(
             descriptor.get("event_mapping_kind").and_then(Value::as_str) == Some("aggregate_admin");
     }
     if digest.is_some_and(|value| !value.as_str().starts_with("sha256:")) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "schema_violation: capability_action_registry_digest must be sha256".to_owned(),
         ));
     }
     if requires_binding && digest.is_none() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "capability_registry_basis_unavailable: aggregate_admin grant is missing capability_action_registry_digest"
                 .to_owned(),
         ));
@@ -304,7 +304,7 @@ pub fn validate_capability_frontier(
     let mut by_id = HashMap::new();
     for projection in &projections {
         if by_id.insert(projection.id.clone(), projection).is_some() {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "duplicate capability grant id '{}'",
                 projection.id
             )));
@@ -355,12 +355,14 @@ pub fn reject_unknown_critical_constraints(value: &Value, supported: &[&str]) ->
                         .cloned()
                 })
             })
-            .ok_or_else(|| Error::Protocol("critical constraint is missing a type".to_owned()))?;
+            .ok_or_else(|| {
+                WireError::Protocol("critical constraint is missing a type".to_owned())
+            })?;
         if !supported
             .iter()
             .any(|supported| *supported == constraint_kind)
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "unknown critical constraint: {constraint_kind}"
             )));
         }
@@ -378,7 +380,7 @@ fn validate_authority_chain(
         return Ok(*depth);
     }
     if !visiting.insert(grant.id.clone()) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "capability authority cycle detected".to_owned(),
         ));
     }
@@ -386,7 +388,7 @@ fn validate_authority_chain(
     let result = (|| {
         if grant.issuer_authority_grant_refs.is_empty() {
             if !grant.has_realm_root_authority_ref {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "capability grant '{}' has no authority root",
                     grant.id
                 )));
@@ -398,7 +400,7 @@ fn validate_authority_chain(
         let mut max_parent_depth = 0;
         for parent_id in &grant.issuer_authority_grant_refs {
             let parent = by_id.get(parent_id).ok_or_else(|| {
-                Error::Protocol(format!(
+                WireError::Protocol(format!(
                     "capability grant '{}' references missing issuer authority '{}'",
                     grant.id, parent_id
                 ))
@@ -407,7 +409,7 @@ fn validate_authority_chain(
             max_parent_depth = max_parent_depth.max(parent_depth);
 
             let parent_subject = parent.subject_did().ok_or_else(|| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "capability parent '{}' has a condition subject and cannot anchor an authority chain",
                 parent.id
             ))
@@ -416,7 +418,7 @@ fn validate_authority_chain(
                 || parent.subject_principal_server_id.as_ref()
                     != Some(&grant.issuer_principal_server_id)
             {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "capability grant '{}' issuer authority does not match parent subject authority",
                     grant.id
                 )));
@@ -426,7 +428,7 @@ fn validate_authority_chain(
                 parent.capability_action_registry_digest.as_ref(),
             ) && child_basis != parent_basis
             {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "capability grant '{}' uses a different registry basis than parent '{}'",
                     grant.id, parent.id
                 )));
@@ -434,7 +436,7 @@ fn validate_authority_chain(
 
             let Some((parent_max_depth, parent_allows_further)) = parent.authority_control_policy()
             else {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "capability parent '{}' is not delegable",
                     parent.id
                 )));
@@ -451,13 +453,13 @@ fn validate_authority_chain(
                 && (parent_max_depth == 0
                     || child_depth_for_parent > parent_max_depth.saturating_sub(1))
             {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "capability grant '{}' exceeds parent '{}' max_authority_depth",
                     grant.id, parent.id
                 )));
             }
             if !parent_allows_further && child_max_depth.unwrap_or(0) != 0 {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "capability grant '{}' violates parent '{}' authority_regrant_allowed=false seal",
                     grant.id, parent.id
                 )));
@@ -471,7 +473,7 @@ fn validate_authority_chain(
                     actions_are_narrowed(std::slice::from_ref(action), &parent.actions)
                 })
             }) {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "capability grant '{}' widens authority-union actions",
                     grant.id
                 )));
@@ -481,7 +483,7 @@ fn validate_authority_chain(
                     resources_are_narrowed(std::slice::from_ref(resource), &parent.resources)
                 })
             }) {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "capability grant '{}' widens authority-union resources",
                     grant.id
                 )));
@@ -505,7 +507,7 @@ fn validate_authority_chain(
                     (grant.not_before, earliest_not_before)
                     && child_from < parent_from
                 {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "capability grant '{}' starts before its covering authorities",
                         grant.id
                     )));
@@ -517,7 +519,7 @@ fn validate_authority_chain(
                         (grant.expires_at, latest_expiry)
                     && child_until > parent_until
                 {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "capability grant '{}' expires after its covering authorities",
                         grant.id
                     )));
@@ -711,10 +713,10 @@ pub fn capability_grant_from_resolved_event(
 
     let payload = event
         .typed_payload::<arkret_wire::event_spec::CapabilityGrant>()
-        .map_err(|error| Error::Protocol(format!("schema_violation: {error}")))?;
+        .map_err(|error| WireError::Protocol(format!("schema_violation: {error}")))?;
     let grant = payload.grant;
     if grant.issuer != event.actor_id {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "schema_violation: capability grant issuer must equal the accepted Event actor"
                 .to_owned(),
         ));
@@ -781,7 +783,7 @@ pub(crate) fn constraint_entries_from_spec(
                         .map(|value| {
                             serde_json::from_value::<Recurrence>(serde_json::to_value(value)?)
                                 .map_err(|err| {
-                                    Error::Protocol(format!("invalid recurrence: {err}"))
+                                    WireError::Protocol(format!("invalid recurrence: {err}"))
                                 })
                         })
                         .transpose()?,
@@ -802,7 +804,7 @@ pub(crate) fn constraint_entries_from_spec(
                 });
             }
             Some(other) => {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "unsupported temporal constraint constraint_subkind '{other:?}'"
                 )));
             }
@@ -814,7 +816,7 @@ pub(crate) fn constraint_entries_from_spec(
                 || !constraint.sensitive_fields.is_empty()
                 || constraint.sensitive_handling.is_some()
             {
-                return Err(Error::Protocol("unsupported field_access condition/sensitive fields (cannot be enforced; failing closed)".to_owned()));
+                return Err(WireError::Protocol("unsupported field_access condition/sensitive fields (cannot be enforced; failing closed)".to_owned()));
             }
             let effect = constraint_effect(constraint.effect);
             let denied_effect = match effect {
@@ -858,7 +860,7 @@ pub(crate) fn constraint_entries_from_spec(
             if !constraint.allowed_space_kinds.is_empty()
                 || !constraint.denied_space_kinds.is_empty()
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "unsupported space kind restriction (cannot be enforced; failing closed)"
                         .to_owned(),
                 ));
@@ -880,7 +882,7 @@ pub(crate) fn constraint_entries_from_spec(
                 || !constraint.allowed_endpoints.is_empty()
                 || constraint.blob_presign_scope.is_some()
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "unsupported scope limitation field (cannot be enforced; failing closed)"
                         .to_owned(),
                 ));
@@ -953,7 +955,7 @@ pub(crate) fn constraint_entries_from_spec(
                     || constraint.executed_by.is_some()
                     || constraint.registration_epoch.is_some()
                 {
-                    return Err(Error::Protocol("authority_control without applet subkind cannot carry applet binding fields".to_owned()));
+                    return Err(WireError::Protocol("authority_control without applet subkind cannot carry applet binding fields".to_owned()));
                 }
                 constraints.push(Constraint::AuthorityControl {
                     max_authority_depth: constraint
@@ -970,18 +972,18 @@ pub(crate) fn constraint_entries_from_spec(
             }
             Some(GrantConstraintSubkind::AppletAuthority) => {
                 let applet_id = constraint.applet_id.clone().ok_or_else(|| {
-                    Error::Protocol(
+                    WireError::Protocol(
                         "authority_control.applet_authority requires applet_id".to_owned(),
                     )
                 })?;
                 let executed_by = constraint.executed_by.clone().ok_or_else(|| {
-                    Error::Protocol(
+                    WireError::Protocol(
                         "authority_control.applet_authority requires executed_by".to_owned(),
                     )
                 })?;
                 let registration_epoch =
                     constraint.registration_epoch.clone().ok_or_else(|| {
-                        Error::Protocol(
+                        WireError::Protocol(
                             "authority_control.applet_authority requires registration_epoch"
                                 .to_owned(),
                         )
@@ -1000,7 +1002,7 @@ pub(crate) fn constraint_entries_from_spec(
                 });
             }
             Some(other) => {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "unsupported authority_control constraint_subkind '{other:?}'"
                 )));
             }
@@ -1009,17 +1011,19 @@ pub(crate) fn constraint_entries_from_spec(
             Some(GrantConstraintSubkind::Rate) => {
                 constraints.push(Constraint::RateLimiting {
                     max_operations: constraint.max_operations.ok_or_else(|| {
-                        Error::Protocol("quota.rate constraint requires max_operations".to_owned())
+                        WireError::Protocol(
+                            "quota.rate constraint requires max_operations".to_owned(),
+                        )
                     })?,
                     period: optional_duration(constraint.period.as_deref())?.ok_or_else(|| {
-                        Error::Protocol("quota.rate constraint requires period".to_owned())
+                        WireError::Protocol("quota.rate constraint requires period".to_owned())
                     })?,
                     scope: rate_limit_scope_typed(constraint.constraint_scope, "quota.rate", true)?,
                 });
             }
             Some(GrantConstraintSubkind::Resource) => {
                 if constraint.max_artifact_bytes.is_some() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "unsupported quota.resource max_artifact_bytes".to_owned(),
                     ));
                 }
@@ -1039,7 +1043,7 @@ pub(crate) fn constraint_entries_from_spec(
                 });
             }
             other => {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "quota constraint requires constraint_subkind 'rate' or 'resource', got {other:?}"
                 )));
             }
@@ -1050,7 +1054,7 @@ pub(crate) fn constraint_entries_from_spec(
                 let mut required_claims = Vec::new();
                 for item in &constraint.required_claims {
                     if !item.value_constraints.is_empty() || !item.extra.is_empty() {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "unsupported required_claims value_constraints/extension field \
                              (cannot be enforced by this evaluator; failing closed)"
                                 .to_owned(),
@@ -1111,7 +1115,7 @@ pub(crate) fn constraint_entries_from_spec(
                 });
             }
             other => {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "unsupported claim_based constraint constraint_subkind {other:?}"
                 )));
             }
@@ -1130,7 +1134,7 @@ pub(crate) fn constraint_entries_from_spec(
                 });
             }
             other => {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "confidentiality constraint requires constraint_subkind 'encryption' or \
                      'visibility', got {other:?}"
                 )));
@@ -1170,7 +1174,7 @@ fn validate_declared_evaluation_class(
         return Ok(());
     };
     if declared != canonical {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "evaluation_class mismatch for {}{}: declared {}, canonical {}",
             constraint_kind.as_str(),
             constraint_subkind
@@ -1223,7 +1227,7 @@ fn rate_limit_scope_typed(
         Some(GrantConstraintScope::PerSpace) => Ok(GrantRateLimitScope::PerSpace),
         Some(GrantConstraintScope::PerRealm) => Ok(GrantRateLimitScope::PerRealm),
         Some(GrantConstraintScope::Global) => Ok(GrantRateLimitScope::Global),
-        None if required => Err(Error::Protocol(format!(
+        None if required => Err(WireError::Protocol(format!(
             "{constraint} constraint requires constraint_scope"
         ))),
         None => Ok(GrantRateLimitScope::Global),
@@ -1242,7 +1246,7 @@ fn nonempty_option<T: Clone>(values: &[T]) -> Option<Vec<T>> {
 /// the engine's [`ConstraintDuration`]. Calendar-ambiguous components
 /// (years, months) fail closed.
 fn parse_iso8601_duration(value: &str) -> Result<ConstraintDuration> {
-    let invalid = || Error::Protocol(format!("invalid ISO 8601 duration '{value}'"));
+    let invalid = || WireError::Protocol(format!("invalid ISO 8601 duration '{value}'"));
     let rest = value.strip_prefix('P').ok_or_else(invalid)?;
     let (date_part, time_part) = match rest.split_once('T') {
         Some((date, time)) => (date, Some(time)),
@@ -1269,7 +1273,7 @@ fn parse_iso8601_duration(value: &str) -> Result<ConstraintDuration> {
                 (true, 'M') => 60,
                 (true, 'S') => 1,
                 (false, 'Y') | (false, 'M') => {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "calendar-ambiguous duration component '{ch}' in '{value}' \
                          is not supported"
                     )));
@@ -1445,7 +1449,7 @@ impl CapabilityGrantBuilder {
     /// selectors / constraints) so a violating grant can never be encoded.
     pub fn build(self, created_at: DateTime<Utc>) -> Result<arkret_event_draft::EventIntent> {
         if self.grant.issuer != self.actor_id {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "CapabilityGrantBuilder: grant.issuer '{}' does not match actor_id '{}'",
                 self.grant.issuer, self.actor_id
             )));
@@ -1476,9 +1480,9 @@ impl CapabilityGrantBuilder {
             self.grant.issuer_principal_server_id,
             payload,
         )
-        .map_err(|error| Error::Protocol(error.to_string()))?
+        .map_err(|error| WireError::Protocol(error.to_string()))?
         .into_intent(created_at)
-        .map_err(|error| Error::Protocol(error.to_string()))
+        .map_err(|error| WireError::Protocol(error.to_string()))
     }
 }
 
@@ -1497,9 +1501,9 @@ pub fn build_capability_relinquish_intent(
         subject,
         payload,
     )
-    .map_err(|error| Error::Protocol(error.to_string()))?
+    .map_err(|error| WireError::Protocol(error.to_string()))?
     .into_intent(created_at)
-    .map_err(|error| Error::Protocol(error.to_string()))
+    .map_err(|error| WireError::Protocol(error.to_string()))
 }
 
 #[cfg(test)]

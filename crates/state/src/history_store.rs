@@ -22,8 +22,9 @@ use std::collections::BTreeSet;
 
 use arkret_models_collaboration::history_key::HistoryCandidateOriginAttribution;
 use arkret_wire::{
-    Error, EventCandidateBinding, EventCandidateBindingKey, EventCandidateBindingOutcome,
+    EventCandidateBinding, EventCandidateBindingKey, EventCandidateBindingOutcome,
     HISTORY_STORE_LIMITS, Hash, HistoryCandidateMaterialKey, HistoryEffectiveScope, Result,
+    WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -90,7 +91,7 @@ impl HistoryMaterialLedger {
     ) -> Result<ReceivedMaterialPlan> {
         attribution.validate()?;
         if attribution.expires_at() <= now {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history candidate origin attribution is already expired".to_owned(),
             ));
         }
@@ -127,7 +128,7 @@ impl HistoryMaterialLedger {
             }
             let sequence = self.next_material_received_sequence;
             self.next_material_received_sequence = sequence.checked_add(1).ok_or_else(|| {
-                Error::Protocol("history material received sequence is exhausted".to_owned())
+                WireError::Protocol("history material received sequence is exhausted".to_owned())
             })?;
             self.resident.push(ResidentHistoryMaterial {
                 material_key: material_key.clone(),
@@ -157,7 +158,7 @@ impl HistoryMaterialLedger {
                 && entry.candidate_digest == binding.candidate_digest
         }) {
             Some(existing) if existing.outcome != binding.outcome => {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "durable history Event candidate binding for {} contradicts the AEAD outcome",
                     binding.event_binding_key.event_id
                 )));

@@ -7,7 +7,7 @@ use arkret_models_identity::{
     ResolutionDidBindingMethodProofKind, ResolutionDidBindingWitness,
     ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence, ServiceResolutionRecord,
 };
-use arkret_wire::{DidCoreId, DidFullId, Error as WireError, Hash, project_full_id_to_core_id};
+use arkret_wire::{DidCoreId, DidFullId, Hash, WireError, project_full_id_to_core_id};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 

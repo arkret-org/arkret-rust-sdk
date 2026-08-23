@@ -50,7 +50,7 @@ impl ContainerRebalancePayload {
     pub fn validate(&self) -> Result<()> {
         validate_container_relation_kind(&self.relation_kind)?;
         if self.positions.is_empty() || self.positions.len() > Self::MAX_POSITIONS {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "container rebalance positions length must be 1..=10000 (schema_violation)"
                     .to_owned(),
             ));
@@ -60,13 +60,13 @@ impl ContainerRebalancePayload {
         for position in &self.positions {
             validate_container_rank(&position.rank)?;
             if !item_refs.insert(position.item_ref.as_str()) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "container rebalance item_ref values must be unique (schema_violation)"
                         .to_owned(),
                 ));
             }
             if !ranks.insert(position.rank.as_str()) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "container rebalance rank values must be unique (schema_violation)".to_owned(),
                 ));
             }
@@ -84,7 +84,7 @@ fn validate_container_relation_kind(value: &str) -> Result<()> {
     {
         Ok(())
     } else {
-        Err(Error::Protocol(
+        Err(WireError::Protocol(
             "container relation_kind must match ^[a-z][a-z0-9_]{0,63}$ (schema_violation)"
                 .to_owned(),
         ))
@@ -95,7 +95,7 @@ fn validate_container_rank(value: &str) -> Result<()> {
     if (1..=128).contains(&value.len()) && value.bytes().all(|byte| byte.is_ascii_alphanumeric()) {
         Ok(())
     } else {
-        Err(Error::Protocol(
+        Err(WireError::Protocol(
             "container rank must match ^[0-9A-Za-z]{1,128}$ (schema_violation)".to_owned(),
         ))
     }

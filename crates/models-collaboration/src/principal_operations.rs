@@ -2,8 +2,8 @@ use arkret_models_identity::{
     DidOperationSubmitRequestBody, IdentityCreationControlProof, PCR_GENESIS_UNIT_KINDS,
 };
 use arkret_wire::{
-    DeviceId, DidCoreId, DidFullId, Error, EventBatchReceipt, Hash, IdempotencyKey, PcrGenesisUnit,
-    RealmId, RegistrationDidEvidence, Result, canonical, project_full_id_to_core_id,
+    DeviceId, DidCoreId, DidFullId, EventBatchReceipt, Hash, IdempotencyKey, PcrGenesisUnit,
+    RealmId, RegistrationDidEvidence, Result, WireError, canonical, project_full_id_to_core_id,
 };
 use serde::{Deserialize, Serialize};
 
@@ -67,7 +67,7 @@ impl PcrGenesisSubmitRequestBody {
             || authorize.actor_id != self.principal_id.clone()
             || authorize.realm_id != self.pcr_realm_id
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "PCR genesis relay identity binding mismatch".to_owned(),
             ));
         }
@@ -82,7 +82,7 @@ impl PcrGenesisSubmitRequestBody {
         if create_payload_digest != proof.realm_create_payload_digest
             || authorize_payload_digest != proof.founding_authorize_payload_digest
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "PCR genesis relay payload digest does not match identity creation proof"
                     .to_owned(),
             ));
@@ -94,12 +94,12 @@ impl PcrGenesisSubmitRequestBody {
             .founding_device_descriptor
             .as_ref()
             .ok_or_else(|| {
-                Error::Protocol("PCR genesis omits founding device descriptor".to_owned())
+                WireError::Protocol("PCR genesis omits founding device descriptor".to_owned())
             })?;
         if create_payload.object.purpose != RealmPurpose::PrincipalControl
             || descriptor.founding_authorize_payload_digest != authorize_payload_digest
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "PCR genesis descriptor does not commit to the founding authorize payload"
                     .to_owned(),
             ));
@@ -134,7 +134,7 @@ impl PcrGenesisSubmitRequestBody {
                 proof.verification_method.as_str() != expected_authorize_verification_method
             })
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "PCR genesis descriptor and founding device authorization disagree".to_owned(),
             ));
         }
@@ -167,7 +167,7 @@ impl PcrGenesisSubmitOutcome {
             .object
             .founding_device_descriptor
             .ok_or_else(|| {
-                Error::Protocol("PCR genesis omits founding device descriptor".to_owned())
+                WireError::Protocol("PCR genesis omits founding device descriptor".to_owned())
             })?;
         let create_digest = Hash::new(
             request
@@ -198,7 +198,7 @@ impl PcrGenesisSubmitOutcome {
             || scope.create_digest != create_digest
             || scope.founding_authorize_digest != authorize_digest
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "PCR genesis accepted receipt does not match the submitted unit".to_owned(),
             ));
         }

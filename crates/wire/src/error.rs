@@ -56,5 +56,3 @@ impl WireError {
         }
     }
 }
-
-pub type Error = WireError;

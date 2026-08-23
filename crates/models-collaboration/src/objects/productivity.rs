@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::base64url::base64url_encode;
 use arkret_wire::{
-    AccountDataKey, BlobId, CallId, CircleId, DeviceId, DidCoreId, Error,
+    AccountDataKey, BlobId, CallId, CircleId, DeviceId, DidCoreId,
     HPKE_SUITE_X25519_CHACHA20POLY1305_V1, Hash, Hlc, ProfileId, RealmId, Result, ScheduledSendId,
-    SchemaId, ScopeRef, SpaceId, StrandId, canonical,
+    SchemaId, ScopeRef, SpaceId, StrandId, WireError, canonical,
 };
 use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use chrono_tz::Tz;
@@ -68,7 +68,7 @@ impl ScheduledSendValue {
     pub fn validate_digest(&self) -> Result<()> {
         let digest = scheduled_send_message_payload_digest(&self.message_payload)?;
         if digest != self.message_payload_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "scheduled_send.message_payload_digest does not match message_payload".to_owned(),
             ));
         }
@@ -292,12 +292,12 @@ impl RsvpResponse {
             return Ok(());
         };
         if comment.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "rsvp response comment must be omitted rather than empty".to_owned(),
             ));
         }
         if comment.chars().count() > MAX_RSVP_COMMENT_CODE_POINTS {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "rsvp response comment must be <= 2000 code points".to_owned(),
             ));
         }
@@ -330,30 +330,30 @@ impl RsvpEntry {
             (None, Some(envelope)) => {
                 envelope.validate()?;
                 if envelope.content_type != RSVP_RESPONSE_CONTENT_TYPE {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "rsvp encrypted_response content_type must be {RSVP_RESPONSE_CONTENT_TYPE}"
                     )));
                 }
             }
             (Some(_), Some(_)) => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "rsvp entry must carry exactly one of response or encrypted_response"
                         .to_owned(),
                 ));
             }
             (None, None) => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "rsvp entry must carry either response or encrypted_response".to_owned(),
                 ));
             }
         }
         if self.schedule_basis_refs.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "rsvp entry schedule_basis_refs must be non-empty".to_owned(),
             ));
         }
         if self.schedule_basis_refs.len() > MAX_RSVP_SCHEDULE_BASIS_REFS {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "rsvp entry schedule_basis_refs must contain <= 128 entries".to_owned(),
             ));
         }
@@ -365,7 +365,7 @@ impl RsvpEntry {
             .windows(2)
             .all(|pair| pair[0].as_str().as_bytes() < pair[1].as_str().as_bytes());
         if !ordered {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "rsvp entry schedule_basis_refs must be unique and sorted in ascending canonical byte order"
                     .to_owned(),
             ));
@@ -396,7 +396,7 @@ impl RsvpSetPayload {
 impl CalendarRecurrence {
     pub fn validate(&self) -> Result<()> {
         if self.count.is_some() && self.until.is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "calendar recurrence count and until are mutually exclusive".to_owned(),
             ));
         }
@@ -404,12 +404,12 @@ impl CalendarRecurrence {
             .count
             .is_some_and(|count| !(1..=MAX_CALENDAR_RECURRENCE_COUNT).contains(&count))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "calendar recurrence count must be in 1..=10000".to_owned(),
             ));
         }
         if self.interval == Some(0) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "calendar recurrence interval must be positive".to_owned(),
             ));
         }
@@ -424,7 +424,7 @@ impl CalendarRecurrence {
                     .nth_of_period
                     .is_some_and(|nth| !(-366..=366).contains(&nth))
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "calendar recurrence nth_of_period must be in -366..=-1 or 1..=366".to_owned(),
                 ));
             }
@@ -437,7 +437,7 @@ impl CalendarRecurrence {
                     })
                 })
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "calendar recurrence by_month must contain canonical month numbers 1..=12"
                         .to_owned(),
                 ));
@@ -450,7 +450,7 @@ impl CalendarRecurrence {
                     .iter()
                     .any(|day| *day == 0 || !(-31..=31).contains(day))
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "calendar recurrence by_month_day must contain non-zero values in -31..=31"
                         .to_owned(),
                 ));
@@ -463,7 +463,7 @@ impl CalendarRecurrence {
                     .iter()
                     .any(|position| *position == 0 || !(-366..=366).contains(position))
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "calendar recurrence by_set_position must contain non-zero values in -366..=366"
                         .to_owned(),
                 ));
@@ -482,13 +482,13 @@ impl CalendarRecurrence {
             RecurrenceFrequency::Daily | RecurrenceFrequency::Weekly
         );
         if daily_or_weekly && self.by_day.iter().any(|day| day.nth_of_period.is_some()) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "calendar recurrence nth_of_period is only allowed for monthly or yearly frequency"
                     .to_owned(),
             ));
         }
         if self.frequency == RecurrenceFrequency::Weekly && self.by_month_day.is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "calendar recurrence by_month_day must not be combined with weekly frequency"
                     .to_owned(),
             ));
@@ -498,7 +498,7 @@ impl CalendarRecurrence {
             && self.by_month.is_none()
             && self.by_month_day.is_none()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "calendar recurrence by_set_position requires at least one of by_day, by_month or by_month_day"
                     .to_owned(),
             ));
@@ -516,7 +516,7 @@ impl CalendarRecurrence {
             let until_date = parse_calendar_date(until, "calendar recurrence until")?;
             let start_date = parse_calendar_date(base_start, "calendar start")?;
             if until_date < start_date {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "calendar recurrence until must not precede the base start".to_owned(),
                 ));
             }
@@ -524,7 +524,7 @@ impl CalendarRecurrence {
             let until_local = parse_calendar_local_date_time(until, "calendar recurrence until")?;
             let start_local = parse_calendar_local_date_time(base_start, "calendar start")?;
             if until_local < start_local {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "calendar recurrence until must not precede the base start".to_owned(),
                 ));
             }
@@ -542,7 +542,7 @@ impl CalendarLocation {
             ("url", self.url.as_deref()),
         ];
         if fields.iter().all(|(_, value)| value.is_none()) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "calendar location must contain at least one field".to_owned(),
             ));
         }
@@ -552,17 +552,17 @@ impl CalendarLocation {
             };
             let trimmed = value.trim();
             if trimmed.is_empty() {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "calendar location {field} must not be empty"
                 )));
             }
             if field == "geo_uri" && !trimmed.starts_with("geo:") {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "calendar location geo_uri must start with geo:".to_owned(),
                 ));
             }
             if field == "url" && !looks_like_uri(trimmed) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "calendar location url must be a URI".to_owned(),
                 ));
             }
@@ -596,7 +596,7 @@ impl CalendarEventFields {
             let start = parse_calendar_date(&self.start, "calendar start")?;
             let end = parse_calendar_date(&self.end, "calendar end")?;
             if end <= start {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "calendar all_day end must be strictly later than start; a single-day event spells end as the following date"
                         .to_owned(),
                 ));
@@ -612,7 +612,7 @@ impl CalendarEventFields {
                 timezone,
             )?;
             if end <= start {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "calendar end instant must be later than start instant under the pinned timezone rules"
                         .to_owned(),
                 ));
@@ -626,7 +626,7 @@ impl CalendarEventFields {
             location.validate()?;
         }
         if self.attendees.len() > MAX_CALENDAR_ATTENDEES {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "calendar attendees must contain <= 1000 entries".to_owned(),
             ));
         }
@@ -636,7 +636,7 @@ impl CalendarEventFields {
             .filter(|attendee| attendee.role == Some(CalendarAttendeeRole::Organizer))
             .count();
         if organizers > 1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "calendar attendees must contain at most one organizer".to_owned(),
             ));
         }
@@ -665,7 +665,7 @@ impl CalendarEventFields {
         }
         let (local, zone) = split_bracketed_occurrence(occurrence)?;
         if zone != self.timezone {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "calendar occurrence zone must equal the signed calendar timezone".to_owned(),
             ));
         }
@@ -755,7 +755,7 @@ pub fn calendar_event_fields_from_metadata_fields(
 ) -> Result<Option<CalendarEventFields>> {
     for key in FORBIDDEN_CALENDAR_METADATA_FIELD_KEYS {
         if fields.contains_key(*key) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "metadata.fields.{key} is a forbidden calendar activation impostor; the canonical path is metadata.fields.{CALENDAR_METADATA_FIELDS_NAMESPACE}"
             )));
         }
@@ -764,7 +764,7 @@ pub fn calendar_event_fields_from_metadata_fields(
         return Ok(None);
     };
     let parsed = serde_json::from_value::<CalendarEventFields>(subtree.clone())
-        .map_err(|error| Error::Protocol(format!("calendar event fields invalid: {error}")))?;
+        .map_err(|error| WireError::Protocol(format!("calendar event fields invalid: {error}")))?;
     Ok(Some(parsed))
 }
 
@@ -785,7 +785,7 @@ pub fn canonical_calendar_rsvp_occurrence_key(
     occurrence: Option<&str>,
 ) -> Result<Option<String>> {
     let Some(calendar_fields) = calendar_event_fields_from_metadata_fields(fields)? else {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "rsvp event_ref must reference a calendar event".to_owned(),
         ));
     };
@@ -801,7 +801,7 @@ pub fn validate_canonical_occurrence_key(occurrence: &str) -> Result<()> {
     let (local, zone) = split_bracketed_occurrence(occurrence)?;
     let rendered = format!("{}[{}]", local.format("%Y-%m-%dT%H:%M:%S"), zone);
     if rendered != occurrence {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "calendar occurrence key is not canonical".to_owned(),
         ));
     }
@@ -902,7 +902,7 @@ impl SearchPolicy {
         require_unique("allowed_service_ids", &self.allowed_service_ids)?;
         require_unique("data_classes", &self.data_classes)?;
         if self.data_classes.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "search_policy.data_classes must not be empty".to_owned(),
             ));
         }
@@ -914,7 +914,7 @@ impl SearchPolicy {
                 .enabled_profile_refs
                 .contains(&SearchProfileRef::BlindIndex)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "search_policy forward_private profile requires the blind_index profile".to_owned(),
             ));
         }
@@ -922,25 +922,25 @@ impl SearchPolicy {
             .leakage_class
             .unwrap_or(SearchLeakageClass::DeterministicToken);
         if leakage_class == SearchLeakageClass::AccessHiding {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "search_policy.leakage_class access_hiding requires an explicit access-hiding profile"
                     .to_owned(),
             ));
         }
         if forward_private_enabled && leakage_class != SearchLeakageClass::ForwardPrivate {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "search_policy forward_private profile requires leakage_class forward_private"
                     .to_owned(),
             ));
         }
         if leakage_class == SearchLeakageClass::ForwardPrivate && !forward_private_enabled {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "search_policy leakage_class forward_private requires the forward_private profile"
                     .to_owned(),
             ));
         }
         if forward_private_enabled && self.token_rotation_cadence_ms.is_none() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "search_policy forward_private profile requires token_rotation_cadence_ms"
                     .to_owned(),
             ));
@@ -960,7 +960,7 @@ pub struct EncryptedShardRef {
 impl EncryptedShardRef {
     pub fn validate(&self) -> Result<()> {
         if !looks_derived_key(&self.shard_key) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "encrypted shard shard_key must be an opaque derived key".to_owned(),
             ));
         }
@@ -981,7 +981,7 @@ pub struct EncryptedIndexManifest {
 impl EncryptedIndexManifest {
     pub fn validate(&self) -> Result<()> {
         if self.shards.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "encrypted index manifest requires at least one shard".to_owned(),
             ));
         }
@@ -989,13 +989,13 @@ impl EncryptedIndexManifest {
         for shard in &self.shards {
             shard.validate()?;
             if !shard_keys.insert(&shard.shard_key) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "encrypted index manifest shard_key values must be unique".to_owned(),
                 ));
             }
         }
         if self.updated_hlc.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "encrypted index manifest updated_hlc must not be empty".to_owned(),
             ));
         }
@@ -1027,7 +1027,7 @@ pub struct FileTransferRecord {
 impl FileTransferRecord {
     pub fn validate(&self) -> Result<()> {
         if self.kind != "file_transfer" {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "file-transfer record kind must be file_transfer".to_owned(),
             ));
         }
@@ -1039,7 +1039,7 @@ impl FileTransferRecord {
         if let Some(filename) = &self.filename {
             let len = filename.chars().count();
             if filename.trim().is_empty() || len > 255 {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "file-transfer filename must be 1-255 non-blank chars".to_owned(),
                 ));
             }
@@ -1047,11 +1047,11 @@ impl FileTransferRecord {
         self.access.validate()?;
         self.encryption.validate()?;
         DeviceId::new(self.origin_device_id.clone()).map_err(|_| {
-            Error::Protocol("file-transfer origin_device_id must be a ak:device id".to_owned())
+            WireError::Protocol("file-transfer origin_device_id must be a ak:device id".to_owned())
         })?;
         canonical::validate_timestamp_canonical(&self.created_at)?;
         Hlc::new(self.updated_hlc.clone()).map_err(|_| {
-            Error::Protocol("file-transfer updated_hlc must be a canonical HLC".to_owned())
+            WireError::Protocol("file-transfer updated_hlc must be a canonical HLC".to_owned())
         })?;
         canonical::validate_timestamp_canonical(&self.retention_expires_at)?;
         self.validate_aad_binding()?;
@@ -1061,27 +1061,27 @@ impl FileTransferRecord {
     fn validate_aad_binding(&self) -> Result<()> {
         let aad = &self.encryption.aad;
         if aad.schema != SchemaId::FILE_TRANSFER_V1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "file-transfer AAD schema must be ak.schema.file_transfer.v1".to_owned(),
             ));
         }
         if aad.purpose != "file_transfer" {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "file-transfer AAD purpose must be file_transfer".to_owned(),
             ));
         }
         if aad.transfer_id != self.transfer_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "file-transfer AAD transfer_id must match record transfer_id".to_owned(),
             ));
         }
         if aad.origin_device_id != self.origin_device_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "file-transfer AAD origin_device_id must match record origin_device_id".to_owned(),
             ));
         }
         if aad.created_at != self.created_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "file-transfer AAD created_at must match record created_at".to_owned(),
             ));
         }
@@ -1092,7 +1092,7 @@ impl FileTransferRecord {
         match self.access.visibility {
             FileTransferAccessVisibility::ActorPrivate => {
                 if !self.access.recipient_device_ids.is_empty() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "actor_private file-transfer access must not list recipient devices"
                             .to_owned(),
                     ));
@@ -1101,14 +1101,14 @@ impl FileTransferRecord {
                     &self.encryption.key_delivery,
                     FileTransferKeyDelivery::AccountDataWrappedKey { .. }
                 ) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "actor_private file-transfer requires account_data_wrapped_key".to_owned(),
                     ));
                 }
             }
             FileTransferAccessVisibility::DeviceBound => {
                 if self.access.recipient_device_ids.is_empty() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "device_bound file-transfer access requires recipient_device_ids"
                             .to_owned(),
                     ));
@@ -1117,7 +1117,7 @@ impl FileTransferRecord {
                     &self.encryption.key_delivery,
                     FileTransferKeyDelivery::ToDeviceWrappedKey { .. }
                 ) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "device_bound file-transfer requires to_device_wrapped_key".to_owned(),
                     ));
                 }
@@ -1140,18 +1140,18 @@ impl FileTransferAccess {
         let mut seen = BTreeSet::new();
         for device_id in &self.recipient_device_ids {
             DeviceId::new(device_id.clone()).map_err(|_| {
-                Error::Protocol(
+                WireError::Protocol(
                     "file-transfer recipient_device_ids must contain ak:device ids".to_owned(),
                 )
             })?;
             if !seen.insert(device_id) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "file-transfer recipient_device_ids must be unique".to_owned(),
                 ));
             }
         }
         if self.recipient_device_ids.len() > 1_000 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "file-transfer recipient_device_ids must have at most 1000 entries".to_owned(),
             ));
         }
@@ -1179,12 +1179,12 @@ pub struct FileTransferEncryption {
 impl FileTransferEncryption {
     pub fn validate(&self) -> Result<()> {
         if self.scheme != arkret_wire::BLOB_SCHEME_WHOLE_FILE_AEAD_V1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "file-transfer encryption scheme mismatch".to_owned(),
             ));
         }
         if self.aead_profile != arkret_wire::AeadProfileId::XCHACHA20_POLY1305_V1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "file-transfer AEAD profile mismatch".to_owned(),
             ));
         }
@@ -1207,18 +1207,20 @@ pub struct FileTransferAad {
 impl FileTransferAad {
     pub fn validate(&self) -> Result<()> {
         if self.schema != SchemaId::FILE_TRANSFER_V1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "file-transfer AAD schema must be ak.schema.file_transfer.v1".to_owned(),
             ));
         }
         if self.purpose != "file_transfer" {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "file-transfer AAD purpose must be file_transfer".to_owned(),
             ));
         }
         validate_file_transfer_id(&self.transfer_id)?;
         DeviceId::new(self.origin_device_id.clone()).map_err(|_| {
-            Error::Protocol("file-transfer AAD origin_device_id must be a ak:device id".to_owned())
+            WireError::Protocol(
+                "file-transfer AAD origin_device_id must be a ak:device id".to_owned(),
+            )
         })?;
         Ok(canonical::validate_timestamp_canonical(&self.created_at)?)
     }
@@ -1241,7 +1243,7 @@ impl FileTransferKeyDelivery {
                 if key_message_kind == FILE_TRANSFER_KEY_MESSAGE_KIND {
                     Ok(())
                 } else {
-                    Err(Error::Protocol(
+                    Err(WireError::Protocol(
                         "to_device_wrapped_key key_message_kind must be ak.file_transfer.key.v1"
                             .to_owned(),
                     ))
@@ -1270,7 +1272,7 @@ impl FileTransferKeyMessage {
         Hash::new(self.content_digest.clone())?;
         validate_file_transfer_blob_digest_binding(&self.blob_ref, &self.content_digest)?;
         if self.aead_profile != arkret_wire::AeadProfileId::XCHACHA20_POLY1305_V1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "file-transfer key message AEAD profile mismatch".to_owned(),
             ));
         }
@@ -1282,32 +1284,32 @@ impl FileTransferKeyMessage {
     pub fn validate_record_binding(&self, record: &FileTransferRecord) -> Result<()> {
         self.validate()?;
         if self.transfer_id != record.transfer_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "file-transfer key message transfer_id mismatch".to_owned(),
             ));
         }
         if self.blob_ref != record.blob_ref {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "file-transfer key message blob_ref mismatch".to_owned(),
             ));
         }
         if self.aead_profile != record.encryption.aead_profile {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "file-transfer key message aead_profile mismatch".to_owned(),
             ));
         }
         if self.nonce != record.encryption.nonce {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "file-transfer key message nonce mismatch".to_owned(),
             ));
         }
         if self.content_digest != record.content_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "file-transfer key message content_digest mismatch".to_owned(),
             ));
         }
         if record.access.visibility != FileTransferAccessVisibility::DeviceBound {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "file-transfer key message requires device_bound record".to_owned(),
             ));
         }
@@ -1316,7 +1318,7 @@ impl FileTransferKeyMessage {
             FileTransferKeyDelivery::ToDeviceWrappedKey { key_message_kind }
                 if key_message_kind == FILE_TRANSFER_KEY_MESSAGE_KIND
         ) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device_bound file-transfer requires to_device_wrapped_key".to_owned(),
             ));
         }
@@ -1336,7 +1338,7 @@ pub struct FileTransferKeyEnvelope {
 impl FileTransferKeyEnvelope {
     pub fn validate(&self) -> Result<()> {
         if self.scheme != HPKE_SUITE_X25519_CHACHA20POLY1305_V1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "file-transfer key envelope scheme mismatch".to_owned(),
             ));
         }
@@ -1369,24 +1371,24 @@ pub struct BlindIndexQuery {
 impl BlindIndexQuery {
     pub fn validate(&self) -> Result<()> {
         if self.effective_scope.realm_id() != &self.realm_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "blind_index_query.effective_scope must be bound to realm_id".to_owned(),
             ));
         }
         if self.blind_tokens.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "blind_index_query.blind_tokens must not be empty".to_owned(),
             ));
         }
         let mut seen = BTreeSet::new();
         for token in &self.blind_tokens {
             if !looks_derived_key(token) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "blind_index_query.blind_tokens must be opaque derived tokens".to_owned(),
                 ));
             }
             if !seen.insert(token) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "blind_index_query.blind_tokens must be unique".to_owned(),
                 ));
             }
@@ -1518,19 +1520,19 @@ impl ContactRemark {
     pub fn validate_for_account_data_key(&self, namespace_key: &[u8], key: &str) -> Result<()> {
         parse_contact_remark_account_data_key(key)?;
         if self.version != 1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "contact remark version must be 1".to_owned(),
             ));
         }
         if self.subject.kind != "human" {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "contact remark subject.kind must be human".to_owned(),
             ));
         }
         let expected_key =
             contact_remark_account_data_key(namespace_key, &self.subject.principal_id)?;
         if key != expected_key {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "contact remark subject.principal_id does not recompute to its account-data key"
                     .to_owned(),
             ));
@@ -1542,7 +1544,7 @@ impl ContactRemark {
             arkret_wire::validate_single_line_display_text(display_name, 512, 2_048)?;
         }
         if self.note.chars().count() > 4_096 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "contact remark note exceeds 4096 characters".to_owned(),
             ));
         }
@@ -1571,9 +1573,9 @@ pub fn parse_contact_remark_account_data_key(key: &str) -> Result<String> {
             "{accountdatakey_contacts_actor}.",
             accountdatakey_contacts_actor = AccountDataKey::CONTACTS_ACTOR
         ))
-        .ok_or_else(|| Error::Protocol("invalid contact remark account-data key".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("invalid contact remark account-data key".to_owned()))?;
     if !looks_derived_key(principal_key) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "contact remark key must end with a 43-character opaque base64url principal_key"
                 .to_owned(),
         ));
@@ -1707,12 +1709,12 @@ pub enum AccountBlocklistTarget {
 impl AccountBlocklistPayload {
     pub fn validate(&self) -> Result<()> {
         if self.version == 0 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "account blocklist version must be at least 1".to_owned(),
             ));
         }
         if self.entries.len() > 4096 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "account blocklist entries exceed 4096".to_owned(),
             ));
         }
@@ -1723,14 +1725,14 @@ impl AccountBlocklistPayload {
             if let Some(entry_id) = &entry.entry_id
                 && !entry_ids.insert(entry_id.as_str())
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "account blocklist entry_id values must be unique".to_owned(),
                 ));
             }
             let target = canonical::canonical_json_bytes(&entry.target)?;
             for surface in &entry.applies_to {
                 if !target_surfaces.insert((target.clone(), *surface)) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "account blocklist target surfaces must not overlap".to_owned(),
                     ));
                 }
@@ -1743,20 +1745,20 @@ impl AccountBlocklistPayload {
 impl AccountBlocklistPayloadEntry {
     pub fn validate(&self) -> Result<()> {
         if self.applies_to.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "account blocklist applies_to must not be empty".to_owned(),
             ));
         }
         let unique_surfaces = self.applies_to.iter().copied().collect::<BTreeSet<_>>();
         if unique_surfaces.len() != self.applies_to.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "account blocklist applies_to must contain unique surfaces".to_owned(),
             ));
         }
         if let AccountBlocklistTarget::Value(target) = &self.target
             && target.value.as_str().chars().count() > 512
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "account blocklist target value exceeds 512 characters".to_owned(),
             ));
         }
@@ -1825,31 +1827,33 @@ impl RealmRemark {
 
     pub fn validate_for_realm(&self, realm_id: &RealmId) -> Result<()> {
         if self.version != 1 {
-            return Err(Error::Protocol("realm remark version must be 1".to_owned()));
+            return Err(WireError::Protocol(
+                "realm remark version must be 1".to_owned(),
+            ));
         }
         if self.subject.kind != "realm" {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "realm remark subject.kind must be realm".to_owned(),
             ));
         }
         if &self.subject.id != realm_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "realm remark subject.id must match account-data key realm_id".to_owned(),
             ));
         }
         if self.local_name.chars().count() > 128 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "realm remark local_name exceeds 128 chars".to_owned(),
             ));
         }
         if self.note.chars().count() > 4096 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "realm remark note exceeds 4096 chars".to_owned(),
             ));
         }
         for tag in &self.tags {
             if tag.trim().is_empty() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "realm remark tags must not be empty".to_owned(),
                 ));
             }
@@ -1872,7 +1876,7 @@ pub fn realm_id_from_realm_remark_account_data_key(key: &str) -> Option<RealmId>
 
 pub fn parse_realm_remark_account_data_key(key: &str) -> Result<RealmId> {
     realm_id_from_realm_remark_account_data_key(key).ok_or_else(|| {
-        Error::Protocol("realm remark key must be ak.contacts.realm.<realm_id>".to_owned())
+        WireError::Protocol("realm remark key must be ak.contacts.realm.<realm_id>".to_owned())
     })
 }
 
@@ -1957,7 +1961,7 @@ pub fn blind_index_token(
 ) -> Result<String> {
     validate_search_index_key(index_key)?;
     if effective_scope.realm_id() != realm_id {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "blind index token effective_scope must be bound to realm_id".to_owned(),
         ));
     }
@@ -2021,7 +2025,7 @@ pub fn saved_target_key(
 
 pub fn realm_key(namespace_key: &[u8], realm_id: &str) -> Result<String> {
     if !realm_id.starts_with("ak:realm:") {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "realm_key input must be ak:realm typed id".to_owned(),
         ));
     }
@@ -2034,7 +2038,7 @@ pub fn realm_key(namespace_key: &[u8], realm_id: &str) -> Result<String> {
 pub fn validate_private_account_data_key(key: &str) -> Result<()> {
     if let Some(realm_id) = strip_dotted_namespace(key, AccountDataKey::CONTACTS_REALM) {
         return RealmId::new(realm_id.to_owned()).map(|_| ()).map_err(|_| {
-            Error::Protocol("realm remark key must be ak.contacts.realm.<realm_id>".to_owned())
+            WireError::Protocol("realm remark key must be ak.contacts.realm.<realm_id>".to_owned())
         });
     }
     if strip_dotted_namespace(key, AccountDataKey::CONTACTS_ACTOR).is_some() {
@@ -2050,7 +2054,7 @@ pub fn validate_private_account_data_key(key: &str) -> Result<()> {
         return if private_view_account_data_key_view_id(key).is_some() {
             Ok(())
         } else {
-            Err(Error::Protocol(
+            Err(WireError::Protocol(
                 "private view key must be ak.views.private.<view_id>".to_owned(),
             ))
         };
@@ -2059,7 +2063,7 @@ pub fn validate_private_account_data_key(key: &str) -> Result<()> {
         return if notification_inbox_account_data_key_notification_id(key).is_some() {
             Ok(())
         } else {
-            Err(Error::Protocol(
+            Err(WireError::Protocol(
                 "notification inbox key must be ak.notifications.inbox.<notification_id>"
                     .to_owned(),
             ))
@@ -2076,7 +2080,7 @@ pub fn validate_private_account_data_key(key: &str) -> Result<()> {
         return ScheduledSendId::new(scheduled_send_id.to_owned())
             .map(|_| ())
             .map_err(|_| {
-                Error::Protocol("scheduled-send key must end with scheduled_send_id".to_owned())
+                WireError::Protocol("scheduled-send key must end with scheduled_send_id".to_owned())
             });
     }
     if let Some(target_key) = key.strip_prefix("ak.snooze.v1:") {
@@ -2130,7 +2134,7 @@ fn strip_dotted_namespace<'a>(key: &'a str, namespace: &str) -> Option<&'a str> 
 }
 
 fn private_key_error() -> Result<()> {
-    Err(Error::Protocol(
+    Err(WireError::Protocol(
         "account-data key must use the registered private key pattern and must not leak raw typed refs"
             .to_owned(),
     ))
@@ -2155,7 +2159,7 @@ fn contains_raw_object_ref(value: &str) -> bool {
 fn normalize_collection_title(collection_title: &str) -> Result<String> {
     let normalized = collection_title.trim().nfc().collect::<String>();
     if normalized.is_empty() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "collection_title must not be empty".to_owned(),
         ));
     }
@@ -2179,7 +2183,7 @@ fn validate_object_ref_string(field: &str, value: &str) -> Result<()> {
     if valid {
         Ok(())
     } else {
-        Err(Error::Protocol(format!(
+        Err(WireError::Protocol(format!(
             "{field} must be a canonical object_ref typed id"
         )))
     }
@@ -2187,7 +2191,7 @@ fn validate_object_ref_string(field: &str, value: &str) -> Result<()> {
 
 fn validate_key_segment(field: &str, value: &str) -> Result<()> {
     if value.is_empty() || value.contains(':') || value.contains('/') || value.contains('\\') {
-        Err(Error::Protocol(format!(
+        Err(WireError::Protocol(format!(
             "{field} must be an opaque key segment"
         )))
     } else {
@@ -2203,7 +2207,7 @@ pub fn validate_file_transfer_id(value: &str) -> Result<()> {
     if valid {
         Ok(())
     } else {
-        Err(Error::Protocol(
+        Err(WireError::Protocol(
             "transfer_id must be 22-128 chars from the ak.file_transfer.v1 alphabet".to_owned(),
         ))
     }
@@ -2222,7 +2226,7 @@ fn validate_blob_ref(value: &str) -> Result<()> {
     if valid_uuid || valid_digest {
         Ok(())
     } else {
-        Err(Error::Protocol(
+        Err(WireError::Protocol(
             "file-transfer blob_ref must be ak:blob:<uuidv7|digest>".to_owned(),
         ))
     }
@@ -2236,7 +2240,7 @@ fn validate_file_transfer_blob_digest_binding(blob_ref: &str, content_digest: &s
         if let Some(hex) = blob_ref.strip_prefix(prefix) {
             let expected = format!("{digest_prefix}{hex}");
             if content_digest != expected {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "file-transfer blob_ref digest must match content_digest".to_owned(),
                 ));
             }
@@ -2247,7 +2251,7 @@ fn validate_file_transfer_blob_digest_binding(blob_ref: &str, content_digest: &s
 
 fn validate_media_type(value: &str) -> Result<()> {
     let Some((top, sub)) = value.split_once('/') else {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "file-transfer media_type must be type/constraint_subkind".to_owned(),
         ));
     };
@@ -2262,7 +2266,7 @@ fn validate_media_type(value: &str) -> Result<()> {
     if valid_part(top) && valid_part(sub) {
         Ok(())
     } else {
-        Err(Error::Protocol(
+        Err(WireError::Protocol(
             "file-transfer media_type must match the v1 media type grammar".to_owned(),
         ))
     }
@@ -2276,7 +2280,7 @@ fn validate_base64url(field: &str, value: &str) -> Result<()> {
     {
         Ok(())
     } else {
-        Err(Error::Protocol(format!("{field} must be base64url")))
+        Err(WireError::Protocol(format!("{field} must be base64url")))
     }
 }
 
@@ -2300,7 +2304,7 @@ fn is_uuid_v7(value: &str) -> bool {
 
 fn validate_search_index_key(index_key: &[u8]) -> Result<()> {
     if index_key.is_empty() {
-        Err(Error::Protocol(
+        Err(WireError::Protocol(
             "search index key material must not be empty".to_owned(),
         ))
     } else {
@@ -2311,7 +2315,7 @@ fn validate_search_index_key(index_key: &[u8]) -> Result<()> {
 fn normalize_search_term(term: &str) -> Result<String> {
     let normalized = term.trim().nfc().collect::<String>();
     if normalized.is_empty() {
-        Err(Error::Protocol(
+        Err(WireError::Protocol(
             "blind index search term must not be empty".to_owned(),
         ))
     } else {
@@ -2327,14 +2331,14 @@ fn looks_derived_key(value: &str) -> bool {
 }
 
 pub(crate) fn parse_calendar_timezone(value: &str) -> Result<Tz> {
-    value
-        .parse::<Tz>()
-        .map_err(|_| Error::Protocol("calendar timezone must be an IANA timezone name".to_owned()))
+    value.parse::<Tz>().map_err(|_| {
+        WireError::Protocol("calendar timezone must be an IANA timezone name".to_owned())
+    })
 }
 
 pub(crate) fn parse_calendar_date(value: &str, field: &str) -> Result<NaiveDate> {
     NaiveDate::parse_from_str(value, "%Y-%m-%d")
-        .map_err(|_| Error::Protocol(format!("{field} must be YYYY-MM-DD")))
+        .map_err(|_| WireError::Protocol(format!("{field} must be YYYY-MM-DD")))
 }
 
 /// Strict RFC 8984 `LocalDateTime` narrowed to whole seconds.
@@ -2345,17 +2349,17 @@ pub(crate) fn parse_calendar_date(value: &str, field: &str) -> Result<NaiveDate>
 /// wall-clock time.
 pub(crate) fn parse_calendar_local_date_time(value: &str, field: &str) -> Result<NaiveDateTime> {
     if value.len() != 19 || value.as_bytes()[10] != b'T' {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "{field} must be a whole-second local date-time YYYY-MM-DDTHH:mm:ss"
         )));
     }
     let parsed = NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S").map_err(|_| {
-        Error::Protocol(format!(
+        WireError::Protocol(format!(
             "{field} must be a whole-second local date-time YYYY-MM-DDTHH:mm:ss"
         ))
     })?;
     if parsed.format("%Y-%m-%dT%H:%M:%S").to_string() != value {
-        return Err(Error::Protocol(format!("{field} is not canonical")));
+        return Err(WireError::Protocol(format!("{field} is not canonical")));
     }
     Ok(parsed)
 }
@@ -2366,7 +2370,7 @@ fn validate_tzdb_version(value: &str) -> Result<()> {
         && bytes[..4].iter().all(u8::is_ascii_digit)
         && bytes[4].is_ascii_lowercase();
     if !well_formed {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "calendar tzdb_version must be an IANA release tag such as 2026a".to_owned(),
         ));
     }
@@ -2376,12 +2380,12 @@ fn validate_tzdb_version(value: &str) -> Result<()> {
 /// Splits a canonical timed occurrence key `YYYY-MM-DDTHH:mm:ss[Zone]`.
 fn split_bracketed_occurrence(value: &str) -> Result<(NaiveDateTime, String)> {
     let Some(zone_start) = value.find('[') else {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "timed calendar occurrence must be YYYY-MM-DDTHH:mm:ss[Zone]".to_owned(),
         ));
     };
     if !value.ends_with(']') || zone_start == 0 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "timed calendar occurrence must end with [Zone]".to_owned(),
         ));
     }
@@ -2415,7 +2419,7 @@ pub(crate) fn resolve_local_to_instant(
                 .from_local_datetime(&probe)
                 .earliest()
                 .ok_or_else(|| {
-                    Error::Protocol(
+                    WireError::Protocol(
                         "calendar local time could not be resolved in the event timezone"
                             .to_owned(),
                     )
@@ -2434,7 +2438,7 @@ fn require_unique<T: Ord>(field: &str, values: &[T]) -> Result<()> {
     let mut seen = BTreeSet::new();
     for value in values {
         if !seen.insert(value) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "{field} must not contain duplicates"
             )));
         }

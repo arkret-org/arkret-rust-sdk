@@ -3,8 +3,8 @@
 use serde::{Deserialize, Serialize, de};
 
 use crate::{
-    BlobRef, CircleId, DidCoreId, Error, EventId, InviteId, MessageId, MorphId, PolicyId, RealmId,
-    RelationId, Result, SpaceId, StrandId, ViewId,
+    BlobRef, CircleId, DidCoreId, EventId, InviteId, MessageId, MorphId, PolicyId, RealmId,
+    RelationId, Result, SpaceId, StrandId, ViewId, WireError,
 };
 
 /// Opaque object reference wire scalar (`ak:object:...` and friends).
@@ -155,12 +155,12 @@ impl WireResourceSelector {
                 | ResourceSelectorKind::ReadCursor
         );
         if realm_scoped && self.realm_id.is_none() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "realm-scoped resource selector requires realm_id".to_owned(),
             ));
         }
         if self.kind == ResourceSelectorKind::Actor && self.actor_id.is_none() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "actor resource selector requires actor_id".to_owned(),
             ));
         }

@@ -25,8 +25,7 @@
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical;
 use arkret_wire::{
-    DidFullId, DidUrl, Error as WireError, Hash, PayloadSignature, PayloadSigner,
-    Result as WireResult,
+    DidFullId, DidUrl, Hash, PayloadSignature, PayloadSigner, Result as WireResult, WireError,
 };
 use chrono::Utc;
 use ed25519_dalek::{Signer as _, SigningKey};

@@ -1,6 +1,8 @@
 //! Moderation appeal event payloads.
 
-use arkret_wire::{DidCoreId, Error, EventId, EventKind, RealmId, Result, SchemaId, TypedAppealId};
+use arkret_wire::{
+    DidCoreId, EventId, EventKind, RealmId, Result, SchemaId, TypedAppealId, WireError,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 /// Verdict on a moderation appeal (decision payload).
@@ -133,14 +135,14 @@ impl ModerationAppealPayload {
         if let ModerationAppealPayload::Decision(p) = self {
             match (p.decision, &p.modify_decision_ref) {
                 (AppealDecision::Modify, None) => {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "moderation appeal decision decision=modify requires modify_decision_ref \
                          (schema_violation)"
                             .to_owned(),
                     ));
                 }
                 (AppealDecision::Uphold | AppealDecision::Overturn, Some(_)) => {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "moderation appeal decision decision={:?} MUST NOT include \
                          modify_decision_ref (schema_violation)",
                         p.decision

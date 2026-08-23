@@ -42,9 +42,9 @@ pub const EMPTY_STATE_ROOT: &str =
 /// Compute the empty state root under an explicit Realm digest suite.
 pub fn empty_state_root_with_digest_suite(
     digest_suite: arkret_canonical::DigestSuite,
-) -> Result<Hash, crate::Error> {
+) -> Result<Hash, crate::WireError> {
     Hash::new(canonical::digest(digest_suite, []))
-        .map_err(|error| crate::Error::Protocol(format!("invalid empty-state hash: {error}")))
+        .map_err(|error| crate::WireError::Protocol(format!("invalid empty-state hash: {error}")))
 }
 
 /// Portable RFC 6962 branch for one non-bottom state cell.
@@ -68,7 +68,7 @@ pub struct StateInclusionProof {
 pub fn compute_state_root(
     cells: &BTreeMap<CellRef, CellState>,
     digest_suite: arkret_canonical::DigestSuite,
-) -> Result<Hash, crate::Error> {
+) -> Result<Hash, crate::WireError> {
     let mut leaves: Vec<(String, [u8; 32])> = Vec::with_capacity(cells.len());
     for (cell, state) in cells {
         if matches!(state, CellState::Bottom(_)) {
@@ -94,7 +94,7 @@ pub fn state_inclusion_proof(
     cells: &BTreeMap<CellRef, CellState>,
     target_cell: &CellRef,
     digest_suite: arkret_canonical::DigestSuite,
-) -> Result<StateInclusionProof, crate::Error> {
+) -> Result<StateInclusionProof, crate::WireError> {
     let mut leaves: Vec<(String, [u8; 32])> = Vec::with_capacity(cells.len());
     for (cell, state) in cells {
         if matches!(state, CellState::Bottom(_)) {
@@ -110,15 +110,15 @@ pub fn state_inclusion_proof(
         .iter()
         .position(|(cell, _)| cell == target_cell.as_str())
         .ok_or_else(|| {
-            crate::Error::Protocol(format!(
+            crate::WireError::Protocol(format!(
                 "state inclusion target {} is absent or bottom",
                 target_cell.as_str()
             ))
         })?;
     let leaf_count = u64::try_from(leaves.len())
-        .map_err(|_| crate::Error::Protocol("state leaf count exceeds u64".to_owned()))?;
+        .map_err(|_| crate::WireError::Protocol("state leaf count exceeds u64".to_owned()))?;
     let leaf_index = u64::try_from(index)
-        .map_err(|_| crate::Error::Protocol("state leaf index exceeds u64".to_owned()))?;
+        .map_err(|_| crate::WireError::Protocol("state leaf index exceeds u64".to_owned()))?;
     let leaf_digest = hash_from_raw(leaves[index].1, digest_suite)?;
     let mut layer = leaves.into_iter().map(|(_, hash)| hash).collect::<Vec<_>>();
     let mut branch = Vec::new();
@@ -149,7 +149,7 @@ pub fn verify_state_inclusion_proof(
     inclusion_proof: &[Hash],
     expected_root: &Hash,
     digest_suite: arkret_canonical::DigestSuite,
-) -> Result<bool, crate::Error> {
+) -> Result<bool, crate::WireError> {
     if leaf_count == 0 || leaf_index >= leaf_count {
         return Ok(false);
     }
@@ -193,7 +193,7 @@ pub fn state_value_leaf_digest(
     cell: &CellRef,
     value: &serde_json::Value,
     digest_suite: arkret_canonical::DigestSuite,
-) -> Result<Hash, crate::Error> {
+) -> Result<Hash, crate::WireError> {
     hash_from_raw(
         leaf_hash(cell, &CellState::Value(value.clone()), digest_suite)?,
         digest_suite,
@@ -207,7 +207,7 @@ pub fn state_value_leaf_digest(
 pub(crate) fn seal_merkle_root_from_leaf_data(
     leaf_data: &[Vec<u8>],
     digest_suite: arkret_canonical::DigestSuite,
-) -> Result<Hash, crate::Error> {
+) -> Result<Hash, crate::WireError> {
     let leaves = leaf_data
         .iter()
         .map(|data| {
@@ -223,7 +223,7 @@ pub(crate) fn seal_merkle_root_from_leaf_data(
 fn seal_merkle_root_from_leaf_hashes(
     mut layer: Vec<[u8; 32]>,
     digest_suite: arkret_canonical::DigestSuite,
-) -> Result<Hash, crate::Error> {
+) -> Result<Hash, crate::WireError> {
     if layer.is_empty() {
         return empty_state_root_with_digest_suite(digest_suite);
     }
@@ -232,7 +232,7 @@ fn seal_merkle_root_from_leaf_hashes(
     }
     let root = layer[0];
     Hash::new(format!("{}:{}", digest_suite.as_str(), hex::encode(root)))
-        .map_err(|e| crate::Error::Protocol(format!("invalid state root: {e}")))
+        .map_err(|e| crate::WireError::Protocol(format!("invalid state root: {e}")))
 }
 
 fn next_seal_merkle_layer(
@@ -262,28 +262,29 @@ fn node_hash(
 fn hash_from_raw(
     raw: [u8; 32],
     digest_suite: arkret_canonical::DigestSuite,
-) -> Result<Hash, crate::Error> {
+) -> Result<Hash, crate::WireError> {
     Hash::new(format!("{}:{}", digest_suite.as_str(), hex::encode(raw)))
-        .map_err(|error| crate::Error::Protocol(format!("invalid state proof hash: {error}")))
+        .map_err(|error| crate::WireError::Protocol(format!("invalid state proof hash: {error}")))
 }
 
 fn raw_from_hash(
     hash: &Hash,
     digest_suite: arkret_canonical::DigestSuite,
-) -> Result<[u8; 32], crate::Error> {
+) -> Result<[u8; 32], crate::WireError> {
     let encoded = hash
         .as_str()
         .strip_prefix(&format!("{}:", digest_suite.as_str()))
         .ok_or_else(|| {
-            crate::Error::Protocol(format!(
+            crate::WireError::Protocol(format!(
                 "state proof hash must use {}",
                 digest_suite.as_str()
             ))
         })?;
-    let raw = hex::decode(encoded)
-        .map_err(|error| crate::Error::Protocol(format!("invalid state proof hash: {error}")))?;
+    let raw = hex::decode(encoded).map_err(|error| {
+        crate::WireError::Protocol(format!("invalid state proof hash: {error}"))
+    })?;
     raw.try_into()
-        .map_err(|_| crate::Error::Protocol("state proof hash must be 32 bytes".to_owned()))
+        .map_err(|_| crate::WireError::Protocol("state proof hash must be 32 bytes".to_owned()))
 }
 
 /// Compute the leaf hash for a single cell.
@@ -294,11 +295,11 @@ pub fn leaf_hash(
     cell: &CellRef,
     state: &CellState,
     digest_suite: arkret_canonical::DigestSuite,
-) -> Result<[u8; 32], crate::Error> {
+) -> Result<[u8; 32], crate::WireError> {
     let state_object = match state {
         CellState::Value(v) => json!({ "value": v }),
         CellState::Bottom(_) => {
-            return Err(crate::Error::Protocol(
+            return Err(crate::WireError::Protocol(
                 "bottom control cells do not have state_root leaves".to_owned(),
             ));
         }

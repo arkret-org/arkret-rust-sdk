@@ -608,7 +608,7 @@ pub fn pre_authoring_cell_writes(
 pub mod calendar {
     use arkret_event_draft::{EventIntent, RsvpAuthoring};
     use arkret_models_collaboration::objects::productivity::CalendarEventFields;
-    use arkret_wire::{DidCoreId, Error, Hash, Result, ScopeRef};
+    use arkret_wire::{DidCoreId, Hash, Result, ScopeRef, WireError};
 
     /// Builds a complete, self-verified `ak.rsvp.set` Event.
     ///
@@ -630,7 +630,7 @@ pub mod calendar {
                 .iter()
                 .any(|value| value.as_str() == basis.as_str())
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "rsvp schedule_basis_refs must be a subset of the envelope causal_refs"
                         .to_owned(),
                 ));
@@ -642,10 +642,10 @@ pub mod calendar {
             actor_id,
             payload,
         )
-        .map_err(|error| Error::Protocol(error.to_string()))?
+        .map_err(|error| WireError::Protocol(error.to_string()))?
         .with_causal_refs(causal_refs)
         .into_intent(created_at)
-        .map_err(|error| Error::Protocol(error.to_string()))?;
+        .map_err(|error| WireError::Protocol(error.to_string()))?;
         // No materialization step: v1 has no producer-written effect array, so
         // there is nothing for the builder to stamp. The check below is the
         // producer running the same registry projection a receiver will run,
@@ -653,7 +653,7 @@ pub mod calendar {
         // the wire. It runs on the intent because an RSVP cell is keyed by the
         // Strand its payload names, not by the Event's own identity.
         super::pre_authoring_cell_writes(&intent, arkret_canonical::DigestSuite::Sha256)
-            .map_err(|error| Error::Protocol(format!("rsvp cell contract failed: {error}")))?;
+            .map_err(|error| WireError::Protocol(format!("rsvp cell contract failed: {error}")))?;
         Ok(intent)
     }
 }

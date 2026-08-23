@@ -75,7 +75,7 @@ impl ModerationReportRequestBody {
         self.report_event.validate_structural(digest_suite)?;
         let event = &self.report_event.event;
         if event.kind != EventKind::SelfModerationReport {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "moderation report request requires ak.self.moderation.report".to_owned(),
             ));
         }
@@ -83,12 +83,12 @@ impl ModerationReportRequestBody {
             || event.authorization_ref.is_some()
             || event.applet_id.is_some()
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "self moderation report requires a direct holder-authored Event".to_owned(),
             ));
         }
         if event.seal_basis.is_some() || !event.preconditions.is_empty() {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "self moderation report must be a DataEvent without seal_basis or preconditions"
                     .to_owned(),
             ));
@@ -98,9 +98,9 @@ impl ModerationReportRequestBody {
             crate::events_payloads::event_wire::decode_payload_after_kind_validation(event)?;
         payload
             .validate_self_endpoint(&event.actor_id)
-            .map_err(|reason| arkret_wire::Error::Protocol(reason.to_owned()))?;
+            .map_err(|reason| arkret_wire::WireError::Protocol(reason.to_owned()))?;
         if payload.realm_id != event.realm_id {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "moderation report payload realm_id does not match the Event realm_id".to_owned(),
             ));
         }
@@ -117,13 +117,13 @@ impl ModerationReportRequestBody {
                 ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
             )
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "moderation report signed scope does not match its effective scope".to_owned(),
             ));
         }
 
         let auth_context = event.auth_context.as_ref().ok_or_else(|| {
-            arkret_wire::Error::Protocol(
+            arkret_wire::WireError::Protocol(
                 "moderation report DataEvent requires auth_context".to_owned(),
             )
         })?;
@@ -143,7 +143,7 @@ impl ModerationReportRequestBody {
                 })
             })
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "moderation report proof and auth_context must bind the holder actor".to_owned(),
             ));
         }
@@ -167,7 +167,7 @@ impl ModerationReportRequestBody {
             || payload.target_ref != accepted_target.target_ref
             || event.scope_ref != accepted_target.effective_scope
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "moderation report does not match its authenticated authoring context".to_owned(),
             ));
         }
@@ -187,7 +187,7 @@ fn proof_controller_matches_actor(verification_method: &str, actor_id: &DidCoreI
         .split_once('#')
         .map(|(did, _)| did)
         .ok_or_else(|| {
-            arkret_wire::Error::Protocol(
+            arkret_wire::WireError::Protocol(
                 "moderation report proof verification_method has no fragment".to_owned(),
             )
         })?;

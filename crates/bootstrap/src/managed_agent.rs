@@ -12,9 +12,9 @@ use arkret_state::{
     join_cell_seal_batches, resolve_projected_write,
 };
 use arkret_wire::{
-    AuthorizationRef, CellRef, DidCoreId, EncryptionProfile, Error, Event, EventKind, GenesisSalt,
-    Hash, Hlc, NotarySig, NotaryValue, PayloadSigner, ProfileId, RealmId, Result, SchemaId, Seal,
-    SealId, SealSignature, SecurityClass, TrustDomainId, event_spec, project_full_id_to_core_id,
+    AuthorizationRef, CellRef, DidCoreId, EncryptionProfile, Event, EventKind, GenesisSalt, Hash,
+    Hlc, NotarySig, NotaryValue, PayloadSigner, ProfileId, RealmId, Result, SchemaId, Seal, SealId,
+    SealSignature, SecurityClass, TrustDomainId, WireError, event_spec, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 
@@ -45,13 +45,13 @@ pub fn build_managed_agent_pcr_create_payload(
     input: ManagedAgentPcrCreatePayloadInput,
 ) -> Result<RealmCreatePayload> {
     if project_full_id_to_core_id(&input.initial_resolution.full_id)? != input.agent_id {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "managed Agent initial_resolution full_id does not project to agent_id".to_owned(),
         ));
     }
     input.notary.validate()?;
     if !notary_primary_projects_to_actor(&input.notary, &input.agent_id)? {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "managed Agent notary primary does not match agent_id".to_owned(),
         ));
     }
@@ -122,7 +122,7 @@ pub fn materialize_managed_agent_pcr_control(
         .iter()
         .any(|event| event.kind == EventKind::RealmDigestSuiteTransition)
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "managed Agent PCR bootstrap materializer does not accept digest-suite transition Seals"
                 .to_owned(),
         ));
@@ -141,7 +141,7 @@ pub fn materialize_managed_agent_pcr_control(
         }
     }
     if creates.len() != 1 {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "managed Agent PCR material requires exactly one canonical create Event (found {})",
             creates.len()
         )));
@@ -153,29 +153,29 @@ pub fn materialize_managed_agent_pcr_control(
     // create a content-hash fixed point, so admission resolves the accepted
     // provision by that declared Realm id instead.
     if !create.refs.is_empty() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "managed Agent PCR create must not carry semantic references".to_owned(),
         ));
     }
     let controller_id = create.executed_by.clone().ok_or_else(|| {
-        Error::Protocol("managed Agent PCR create Event omits executed_by".to_owned())
+        WireError::Protocol("managed Agent PCR create Event omits executed_by".to_owned())
     })?;
     let authorization_ref = create.authorization_ref.clone().ok_or_else(|| {
-        Error::Protocol("managed Agent PCR create Event omits authorization_ref".to_owned())
+        WireError::Protocol("managed Agent PCR create Event omits authorization_ref".to_owned())
     })?;
     let payload: RealmCreatePayload = create.typed_payload::<event_spec::RealmCreate>()?;
     let object = payload.object;
     if object.purpose
         != arkret_models_collaboration::events_payloads::RealmPurpose::ManagedAgentControl
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "managed Agent PCR create purpose is inconsistent".to_owned(),
         ));
     }
     let notary_value = object.notary;
     notary_value.validate()?;
     if !notary_primary_projects_to_actor(&notary_value, &create.actor_id)? {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "managed Agent PCR notary must be the Agent DID".to_owned(),
         ));
     }
@@ -193,7 +193,7 @@ pub fn materialize_managed_agent_pcr_control(
             || event.executed_by.as_ref() != Some(&controller_id)
             || event.authorization_ref.as_deref() != Some(authorization_ref.as_str())
     }) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "managed Agent PCR Event authority or Realm differs from its genesis".to_owned(),
         ));
     }
@@ -216,7 +216,7 @@ pub fn materialize_managed_agent_pcr_control(
         .windows(2)
         .any(|pair| pair[0].0.actor_seq == pair[1].0.actor_seq)
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "managed Agent PCR Event history contains duplicate actor_seq".to_owned(),
         ));
     }
@@ -235,7 +235,7 @@ pub fn materialize_managed_agent_pcr_control(
             .iter()
             .any(|(event, _)| event.seal_basis.is_none())
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "managed Agent PCR basis-less Events must form one leading anchor unit".to_owned(),
         ));
     }
@@ -260,7 +260,7 @@ pub fn materialize_managed_agent_pcr_control(
     let mut cursor = anchor_len;
     while cursor < ordered.len() {
         let basis = ordered[cursor].0.seal_basis.as_ref().ok_or_else(|| {
-            Error::Protocol("managed Agent PCR successor Event omits seal_basis".to_owned())
+            WireError::Protocol("managed Agent PCR successor Event omits seal_basis".to_owned())
         })?;
         let mut end = cursor + 1;
         while end < ordered.len() && ordered[end].0.seal_basis.as_ref() == Some(basis) {
@@ -281,7 +281,7 @@ pub fn materialize_managed_agent_pcr_control(
     }
 
     let state_root = compute_state_root(&joined, MANAGED_AGENT_PCR_DIGEST_SUITE)
-        .map_err(|error| Error::Protocol(format!("managed Agent PCR state root: {error}")))?;
+        .map_err(|error| WireError::Protocol(format!("managed Agent PCR state root: {error}")))?;
     Ok(ManagedAgentPcrControlMaterial {
         realm_id: create.realm_id.clone(),
         agent_id: create.actor_id.clone(),
@@ -311,7 +311,7 @@ fn apply_managed_agent_batch(
     let mut batch_ops = BTreeMap::<CellRef, Vec<IssuedOp>>::new();
     for (event, move_id) in batch {
         if !covered.insert(move_id.clone()) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "managed Agent PCR Event material contains duplicate digests".to_owned(),
             ));
         }
@@ -323,7 +323,7 @@ fn apply_managed_agent_batch(
             direct_projection(event, project)?
         } else {
             let projected = project(event).map_err(|error| {
-                Error::Protocol(format!(
+                WireError::Protocol(format!(
                     "managed Agent PCR cell write projection failed for {}: {error}",
                     event.kind.as_str()
                 ))
@@ -333,7 +333,7 @@ fn apply_managed_agent_batch(
                 effects.extend(
                     resolve_projected_write(write, &create.realm_id, &frozen_pre_state, registry)
                         .map_err(|error| {
-                        Error::Protocol(format!(
+                        WireError::Protocol(format!(
                             "managed Agent PCR frozen-pre-state projection failed for {}: {error}",
                             event.kind.as_str()
                         ))
@@ -345,7 +345,7 @@ fn apply_managed_agent_batch(
         // One Event may project at most one ordered-log entry into one cell;
         // Event identity is the grow-only set key.
         if let Err(conflict) = ensure_unique_ordered_log_slots(&effects) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "managed Agent PCR Event claims ordered-log slot {}#{} twice",
                 conflict.cell, conflict.issuer_seq
             )));
@@ -369,7 +369,7 @@ fn apply_managed_agent_batch(
         {
             let report = OrderedLog.join_with_issuer_report(&issued);
             if !report.identity_collisions.is_empty() {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "managed Agent PCR cell {cell} contains an Event identity collision"
                 )));
             }
@@ -380,11 +380,11 @@ fn apply_managed_agent_batch(
     joined.clear();
     for (cell, batches) in batches_by_cell {
         let binding = registry.resolve(&create.realm_id, cell).map_err(|error| {
-            Error::Protocol(format!("managed Agent PCR cell registry: {error}"))
+            WireError::Protocol(format!("managed Agent PCR cell registry: {error}"))
         })?;
         let state = join_cell_seal_batches(binding.lattice.as_ref(), cell, batches);
         if let CellState::Bottom(bottom) = &state {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "managed Agent PCR cell {cell} resolved to Bottom: {bottom:?}"
             )));
         }
@@ -421,7 +421,7 @@ impl ManagedAgentPcrGenesisAuthority {
     /// caller must establish the appropriate protocol context.
     pub fn from_delegated_create(create: &Event, project: CellWriteProjector<'_>) -> Result<Self> {
         if create.kind != EventKind::RealmCreate {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "managed Agent PCR genesis authority requires ak.realm.create".to_owned(),
             ));
         }
@@ -487,7 +487,7 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
 ) -> Result<Seal> {
     let material = materialize_managed_agent_pcr_control(events, project)?;
     if project_full_id_to_core_id(signer.signer_did())? != material.controller_id {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "managed Agent PCR Seal signer must be the delegated controller".to_owned(),
         ));
     }
@@ -499,7 +499,7 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
     let (predecessor_refs, current, notary_seq) = match predecessor {
         Some(seal) => {
             if seal.realm_id != material.realm_id || seal.covered_event_digests.is_empty() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "managed Agent PCR predecessor has incompatible Realm or coverage".to_owned(),
                 ));
             }
@@ -509,7 +509,7 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
                 .cloned()
                 .collect::<BTreeSet<_>>();
             if !current.is_subset(&target) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "managed Agent PCR predecessor coverage is not a subset of the target"
                         .to_owned(),
                 ));
@@ -518,7 +518,7 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
                 vec![seal.id.clone()],
                 current,
                 seal.notary_seq.checked_add(1).ok_or_else(|| {
-                    Error::Protocol("managed Agent PCR notary sequence overflow".to_owned())
+                    WireError::Protocol("managed Agent PCR notary sequence overflow".to_owned())
                 })?,
             )
         }
@@ -526,12 +526,12 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
     };
     let delta = target.difference(&current).cloned().collect::<Vec<_>>();
     if delta.is_empty() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "managed Agent PCR Seal has no new Event delta".to_owned(),
         ));
     }
     let control_root = control_event_set_root(&target, MANAGED_AGENT_PCR_DIGEST_SUITE)
-        .map_err(|error| Error::Protocol(format!("managed Agent PCR control root: {error}")))?;
+        .map_err(|error| WireError::Protocol(format!("managed Agent PCR control root: {error}")))?;
     let completeness_root = arkret_state::control_event_completeness_root(
         &events
             .iter()
@@ -541,7 +541,9 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
         &target,
         MANAGED_AGENT_PCR_DIGEST_SUITE,
     )
-    .map_err(|error| Error::Protocol(format!("managed Agent PCR completeness root: {error}")))?;
+    .map_err(|error| {
+        WireError::Protocol(format!("managed Agent PCR completeness root: {error}"))
+    })?;
     let sealed_at = Utc::now();
     let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
     let mut seal = Seal {

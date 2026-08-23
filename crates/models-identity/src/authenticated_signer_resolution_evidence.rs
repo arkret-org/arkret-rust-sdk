@@ -1,8 +1,8 @@
 //! Content-addressed historical signer-resolution evidence.
 
 use arkret_wire::{
-    DidCoreId, DidUrl, Error, Hash, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor,
-    Result, SignerEvidenceRef,
+    DidCoreId, DidUrl, Hash, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, Result,
+    SignerEvidenceRef, WireError,
 };
 use serde::{Deserialize, Serialize};
 
@@ -81,7 +81,7 @@ impl AuthenticatedSignerResolutionEvidence {
 
     pub fn validate_attester_binding(&self) -> Result<()> {
         if arkret_canonical::canonical_json_bytes(self)?.len() > 1024 * 1024 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "authenticated signer resolution evidence exceeds 1 MiB".to_owned(),
             ));
         }
@@ -101,7 +101,7 @@ impl AuthenticatedSignerResolutionEvidence {
                         || record.full_id.as_str().starts_with("did:webvh:"))
                     || method_controller != Some(record.full_id.as_str())
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "service signer evidence does not authorize its signer or method"
                             .to_owned(),
                     ));
@@ -119,7 +119,7 @@ impl AuthenticatedSignerResolutionEvidence {
                         .verification_methods
                         .contains_key(verification_method.as_str())
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "principal signer evidence does not authorize its signer or method"
                             .to_owned(),
                     ));
@@ -152,7 +152,7 @@ impl AuthenticatedSignerResolutionEvidence {
                     }
                 };
                 if !matches_signer {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "native-agent signer evidence does not authorize its signer or method"
                             .to_owned(),
                     ));
@@ -201,7 +201,7 @@ impl AuthenticatedSignerResolutionEvidence {
         for (evidence_ref, digest) in pairs {
             if evidence_ref.content_digest()? != *digest || !digest.as_ref().starts_with("sha256:")
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "signer evidence ref and digest do not match".to_owned(),
                 ));
             }
@@ -230,7 +230,7 @@ pub fn ed25519_notary_signer_descriptor_from_evidence(
             ..
         } => normalized_did_document,
         AuthenticatedSignerResolutionEvidence::NativeAgent { .. } => {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "native-agent signer evidence does not carry a normalized DID document for Realm notary bootstrap"
                     .to_owned(),
             ));
@@ -241,7 +241,7 @@ pub fn ed25519_notary_signer_descriptor_from_evidence(
         .verification_methods
         .get(verification_method.as_str())
         .ok_or_else(|| {
-            Error::Protocol(
+            WireError::Protocol(
                 "authenticated signer evidence omits the selected notary verification method"
                     .to_owned(),
             )
@@ -266,7 +266,7 @@ fn decode_ed25519_material(material: &str) -> Result<[u8; 32]> {
         return arkret_canonical::decode_ed25519_multibase(material).map_err(Into::into);
     }
     let value: serde_json::Value = serde_json::from_str(material).map_err(|error| {
-        Error::Protocol(format!(
+        WireError::Protocol(format!(
             "invalid authenticated notary key material: {error}"
         ))
     })?;
@@ -274,27 +274,28 @@ fn decode_ed25519_material(material: &str) -> Result<[u8; 32]> {
         return decode_ed25519_material(&inner);
     }
     let object = value.as_object().ok_or_else(|| {
-        Error::Protocol("authenticated notary key material must be multibase or JWK".to_owned())
+        WireError::Protocol("authenticated notary key material must be multibase or JWK".to_owned())
     })?;
     if object.get("kty").and_then(serde_json::Value::as_str) != Some("OKP")
         || object.get("crv").and_then(serde_json::Value::as_str) != Some("Ed25519")
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "authenticated notary JWK must be an Ed25519 OKP key".to_owned(),
         ));
     }
     let encoded = object
         .get("x")
         .and_then(serde_json::Value::as_str)
-        .ok_or_else(|| Error::Protocol("authenticated notary JWK omits x".to_owned()))?;
-    let decoded = arkret_wire::base64url::base64url_decode(encoded)
-        .map_err(|error| Error::Protocol(format!("invalid authenticated notary JWK x: {error}")))?;
+        .ok_or_else(|| WireError::Protocol("authenticated notary JWK omits x".to_owned()))?;
+    let decoded = arkret_wire::base64url::base64url_decode(encoded).map_err(|error| {
+        WireError::Protocol(format!("invalid authenticated notary JWK x: {error}"))
+    })?;
     if decoded.len() != 32 || arkret_wire::base64url::base64url_encode(&decoded) != encoded {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "authenticated notary JWK x is not canonical Ed25519 key material".to_owned(),
         ));
     }
     decoded
         .try_into()
-        .map_err(|_| Error::Protocol("authenticated notary key length mismatch".to_owned()))
+        .map_err(|_| WireError::Protocol("authenticated notary key length mismatch".to_owned()))
 }

@@ -1,8 +1,8 @@
 //! Typed client artifacts carried by terminal security-transaction steps.
 
 use arkret_wire::{
-    ClientStepAttestation, DeviceId, Error, Hash, Result, SchemaId, SecurityTransaction,
-    SecurityTransactionStep, TransactionId,
+    ClientStepAttestation, DeviceId, Hash, Result, SchemaId, SecurityTransaction,
+    SecurityTransactionStep, TransactionId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -27,7 +27,7 @@ pub struct SecurityRotationLocalCommit {
 impl SecurityRotationLocalCommit {
     pub fn validate(&self) -> Result<()> {
         if self.schema != SchemaId::SECURITY_ROTATION_LOCAL_COMMIT_V1 {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "security rotation local commit schema must be {schemaid_security_rotation_local_commit_v1}",
                 schemaid_security_rotation_local_commit_v1 =
                     SchemaId::SECURITY_ROTATION_LOCAL_COMMIT_V1

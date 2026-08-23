@@ -18,7 +18,7 @@
 //! mirroring the algorithm by hand.
 
 use arkret_canonical::canonical;
-use arkret_wire::{DidCoreId, Error, Result};
+use arkret_wire::{DidCoreId, Result, WireError};
 use chrono::{DateTime, Utc};
 
 use crate::{Handle, HandleBindingState, HandleClaim};
@@ -282,7 +282,7 @@ fn domain_matches(pattern: &str, domain: &str) -> bool {
 /// canonicalization; `claims` keeps issuer order (order is semantic).
 pub fn claim_digest(claim: &HandleClaim) -> Result<String> {
     let mut value = serde_json::to_value(claim)
-        .map_err(|e| Error::Protocol(format!("claim_digest serialize: {e}")))?;
+        .map_err(|e| WireError::Protocol(format!("claim_digest serialize: {e}")))?;
     if let Some(obj) = value.as_object_mut() {
         // Exclude non-semantic / hint fields.
         obj.remove("proofs");
@@ -299,7 +299,7 @@ pub fn claim_digest(claim: &HandleClaim) -> Result<String> {
         }
     }
     let bytes = canonical::canonical_json_bytes(&value)
-        .map_err(|e| Error::Protocol(format!("claim_digest canonicalize: {e}")))?;
+        .map_err(|e| WireError::Protocol(format!("claim_digest canonicalize: {e}")))?;
     Ok(canonical::sha256_digest(bytes))
 }
 

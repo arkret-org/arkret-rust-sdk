@@ -162,7 +162,7 @@ pub(super) fn object_state_from_str(state: &str) -> Result<crate::ObjectState> {
         "active" => Ok(crate::ObjectState::Active),
         "archived" => Ok(crate::ObjectState::Archived),
         "redacted" => Ok(crate::ObjectState::Redacted),
-        _ => Err(Error::Protocol(format!("invalid state: {}", state))),
+        _ => Err(WireError::Protocol(format!("invalid state: {}", state))),
     }
 }
 
@@ -171,7 +171,10 @@ pub(super) fn space_state_from_str(state: &str) -> Result<crate::models::SpaceSt
         "active" => Ok(crate::models::SpaceState::Active),
         "archived" => Ok(crate::models::SpaceState::Archived),
         "tombstoned" => Ok(crate::models::SpaceState::Tombstoned),
-        _ => Err(Error::Protocol(format!("invalid space state: {}", state))),
+        _ => Err(WireError::Protocol(format!(
+            "invalid space state: {}",
+            state
+        ))),
     }
 }
 
@@ -200,7 +203,9 @@ impl StateSnapshot {
     /// the outcome cannot be silently discarded or misread as a boolean.
     pub fn verify_hash(&self) -> Result<()> {
         if self.compute_state_digest()? != self.state_digest {
-            return Err(Error::Protocol("snapshot state hash mismatch".to_owned()));
+            return Err(WireError::Protocol(
+                "snapshot state hash mismatch".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -219,7 +224,7 @@ impl StateSnapshot {
 
     pub fn chunk_manifest(&self, chunk_size: usize) -> Result<Vec<SnapshotChunkManifest>> {
         if chunk_size == 0 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "snapshot chunk size must be greater than zero".to_owned(),
             ));
         }
@@ -295,12 +300,12 @@ impl ReducerSnapshotManifest {
         actual_merkle_root: &str,
     ) -> Result<()> {
         if self.schema != REDUCER_SNAPSHOT_SCHEMA {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "snapshot manifest schema mismatch".to_owned(),
             ));
         }
         if self.reducer_profile != CORE_REDUCER_PROFILE {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "snapshot manifest reducer profile mismatch".to_owned(),
             ));
         }
@@ -309,17 +314,17 @@ impl ReducerSnapshotManifest {
             || self.frontier != snapshot.frontier
             || self.state_digest != snapshot.state_digest
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "snapshot manifest does not match snapshot".to_owned(),
             ));
         }
         if self.merkle_root != actual_merkle_root {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "snapshot manifest merkle root mismatch".to_owned(),
             ));
         }
         if self.chunk_count as usize != self.chunks.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "snapshot manifest chunk count mismatch".to_owned(),
             ));
         }
@@ -333,19 +338,21 @@ impl ReducerSnapshotManifest {
     {
         let chunks: Vec<B> = chunks.into_iter().collect();
         if chunks.len() != self.chunks.len() {
-            return Err(Error::Protocol("snapshot chunk count mismatch".to_owned()));
+            return Err(WireError::Protocol(
+                "snapshot chunk count mismatch".to_owned(),
+            ));
         }
         for (expected, chunk) in self.chunks.iter().zip(chunks.iter()) {
             let chunk = chunk.as_ref();
             if expected.byte_len != chunk.len() {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "snapshot chunk {} length mismatch",
                     expected.index
                 )));
             }
             let actual = sha256_digest(chunk);
             if expected.digest != actual {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "snapshot chunk {} digest mismatch",
                     expected.index
                 )));
@@ -408,7 +415,7 @@ pub fn verify_snapshot_inclusion(
     if running == root {
         Ok(())
     } else {
-        Err(Error::Protocol(format!(
+        Err(WireError::Protocol(format!(
             "snapshot inclusion proof for '{event_id}' does not match Merkle root '{root}'"
         )))
     }
@@ -416,7 +423,7 @@ pub fn verify_snapshot_inclusion(
 
 pub fn state_merkle_root(payload: &Value) -> Result<String> {
     let Value::Object(map) = payload else {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "state merkle payload must be an object".to_owned(),
         ));
     };

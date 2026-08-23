@@ -21,7 +21,7 @@
 
 use arkret_wire::signal::MAX_SIGNAL_PLAINTEXT_BYTES;
 use arkret_wire::{
-    DidCoreId, Error, ErrorCode, EventId, Hlc, ReadReceiptScope, Result, SchemaId, StrandId,
+    DidCoreId, ErrorCode, EventId, Hlc, ReadReceiptScope, Result, SchemaId, StrandId, WireError,
     canonical,
 };
 use chrono::{DateTime, Utc};
@@ -212,8 +212,8 @@ pub trait SignalPlaintextProfile: Serialize + DeserializeOwned {
     }
 }
 
-fn schema_violation(message: impl AsRef<str>) -> Error {
-    Error::Protocol(format!(
+fn schema_violation(message: impl AsRef<str>) -> WireError {
+    WireError::Protocol(format!(
         "{}: {}",
         ErrorCode::SCHEMA_VIOLATION,
         message.as_ref()
@@ -230,7 +230,7 @@ pub fn seal_signal_plaintext<P: SignalPlaintextProfile>(payload: &P) -> Result<V
     validate_signal_plaintext(payload)?;
     let bytes = canonical::canonical_json_bytes(payload)?;
     if bytes.len() > MAX_SIGNAL_PLAINTEXT_BYTES {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "{} Signal plaintext exceeds {MAX_SIGNAL_PLAINTEXT_BYTES} bytes",
             P::KIND.as_str()
         )));

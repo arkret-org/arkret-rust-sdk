@@ -7,7 +7,7 @@
 use std::collections::VecDeque;
 
 use arkret_wire::signal::MAX_SIGNAL_PLAINTEXT_BYTES;
-use arkret_wire::{Error, EventId, MessageId, MessageStreamId, Result, StrandId, canonical};
+use arkret_wire::{EventId, MessageId, MessageStreamId, Result, StrandId, WireError, canonical};
 use serde::{Deserialize, Serialize};
 
 pub const MESSAGE_STREAM_KIND: &str = "ak.message.stream";
@@ -173,7 +173,7 @@ impl MessageStreamDelta {
 
     pub fn validate(&self) -> Result<()> {
         if self.seq == 0 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "message stream delta seq must be greater than zero".to_owned(),
             ));
         }
@@ -226,7 +226,7 @@ impl MessageStreamAbort {
 
     pub fn validate(&self) -> Result<()> {
         if self.seq == 0 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "message stream abort seq must be greater than zero".to_owned(),
             ));
         }
@@ -246,7 +246,7 @@ pub enum MessageStreamFrame {
 impl MessageStreamFrame {
     pub fn from_plaintext(bytes: &[u8]) -> Result<Self> {
         if bytes.len() > MAX_SIGNAL_PLAINTEXT_BYTES {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "message stream Signal plaintext exceeds 48 KiB".to_owned(),
             ));
         }
@@ -259,7 +259,7 @@ impl MessageStreamFrame {
         self.validate()?;
         let bytes = canonical::canonical_json_bytes(self)?;
         if bytes.len() > MAX_SIGNAL_PLAINTEXT_BYTES {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "message stream Signal plaintext exceeds 48 KiB".to_owned(),
             ));
         }
@@ -532,7 +532,7 @@ impl MessageStreamProducer {
 
     fn ensure_active(&mut self, now_ms: u64) -> Result<()> {
         if self.finished {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "message stream producer is already finished".to_owned(),
             ));
         }
@@ -540,7 +540,7 @@ impl MessageStreamProducer {
             >= MAX_MESSAGE_STREAM_LIFETIME_SECONDS * MILLIS_PER_SECOND
         {
             self.finished = true;
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "message stream producer exceeded its 10 minute lifetime".to_owned(),
             ));
         }
@@ -580,12 +580,12 @@ fn append_utf8_prefix(target: &mut String, append: &str, max_bytes: usize) {
 
 fn validate_preview_text(text: &str, empty_allowed: bool) -> Result<()> {
     if !empty_allowed && text.is_empty() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "message stream delta text_append must not be empty".to_owned(),
         ));
     }
     if text.len() > MAX_MESSAGE_STREAM_PREVIEW_BYTES {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "message stream preview exceeds 16 KiB UTF-8".to_owned(),
         ));
     }
@@ -597,7 +597,7 @@ fn validate_text_controls(text: &str) -> Result<()> {
         (character <= '\u{001f}' && !matches!(character, '\n' | '\r' | '\t'))
             || character == '\u{007f}'
     }) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "message stream preview contains a forbidden control character".to_owned(),
         ));
     }

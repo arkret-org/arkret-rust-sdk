@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    BlobRef, CircleId, DidCoreId, Error, RealmId, Result, SchemaId, SpaceId, SpaceState,
+    BlobRef, CircleId, DidCoreId, RealmId, Result, SchemaId, SpaceId, SpaceState, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -166,23 +166,27 @@ impl Space {
 
     pub fn validate(&self) -> Result<()> {
         if self.kind.trim().is_empty() {
-            return Err(Error::Protocol("space kind must not be empty".to_owned()));
+            return Err(WireError::Protocol(
+                "space kind must not be empty".to_owned(),
+            ));
         }
         if self.title.trim().is_empty() {
-            return Err(Error::Protocol("space title must not be empty".to_owned()));
+            return Err(WireError::Protocol(
+                "space title must not be empty".to_owned(),
+            ));
         }
         if self.labels.len() > 64
             || self.labels.iter().any(|label| label.chars().count() > 128)
             || self.labels.iter().collect::<BTreeSet<_>>().len() != self.labels.len()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "space labels must contain at most 64 entries of at most 128 bytes".to_owned(),
             ));
         }
         let wip_limit = self.fields.get("wip_limit");
         let enforcement = self.fields.get("wip_limit_enforcement");
         if self.kind != "list" && (wip_limit.is_some() || enforcement.is_some()) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "space WIP policy is only valid for kind=list".to_owned(),
             ));
         }
@@ -191,7 +195,7 @@ impl Space {
                 .as_u64()
                 .is_some_and(|limit| (1..=100_000).contains(&limit));
             if !valid || enforcement.is_none() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "list space wip_limit requires 1..=100000 and wip_limit_enforcement".to_owned(),
                 ));
             }
@@ -203,7 +207,7 @@ impl Space {
                     Some("warn" | "reject" | "require_review")
                 ))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "space wip_limit_enforcement requires a registered value and wip_limit".to_owned(),
             ));
         }

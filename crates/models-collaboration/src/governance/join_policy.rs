@@ -7,9 +7,8 @@
 use arkret_canonical as canonical;
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
-    DeviceId, DidCoreId, DidFullId, Error, EventId, GrantId, Hash, JoinPolicyGateId,
-    JoinPolicyQuestionId, PayloadProof, ProofContextId, RealmId, Result,
-    project_full_id_to_core_id,
+    DeviceId, DidCoreId, DidFullId, EventId, GrantId, Hash, JoinPolicyGateId, JoinPolicyQuestionId,
+    PayloadProof, ProofContextId, RealmId, Result, WireError, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -702,7 +701,7 @@ fn validate_receipt_proof(
         .split_once('#')
         .map(|(controller, _)| controller)
         .ok_or_else(|| {
-            Error::Protocol("join application proof signer is not a DID URL".to_owned())
+            WireError::Protocol("join application proof signer is not a DID URL".to_owned())
         })?;
     let controller = DidFullId::new(controller.to_owned())?;
     if project_full_id_to_core_id(&controller)? != *actor {
@@ -712,7 +711,7 @@ fn validate_receipt_proof(
 }
 
 fn protocol_error<T>(message: impl Into<String>) -> Result<T> {
-    Err(Error::Protocol(message.into()))
+    Err(WireError::Protocol(message.into()))
 }
 
 #[cfg(test)]

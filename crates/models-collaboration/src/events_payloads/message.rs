@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use arkret_models_crypto::{
     EncryptedEnvelope, MlsEncryptedPayload, MlsPayloadType, PlainPayload, ProtectedPayload,
 };
-use arkret_wire::{DidCoreId, Error, Result, StrandId};
+use arkret_wire::{DidCoreId, Result, StrandId, WireError};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -193,17 +193,17 @@ impl ContentBlock {
     /// Attach the structured rich-text representation for a non-plain text block.
     pub fn with_formatted_body(mut self, formatted_body: Value) -> Result<Self> {
         let Some(format) = self.text_format() else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "formatted_body requires ak.content.text with an explicit format".to_owned(),
             ));
         };
         if format == TextFormat::Plain {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "format=plain must not carry formatted_body".to_owned(),
             ));
         }
         if !formatted_body.is_string() && !formatted_body.is_object() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "formatted_body must be a string or object".to_owned(),
             ));
         }
@@ -214,7 +214,7 @@ impl ContentBlock {
 
     pub fn from_value(value: Value) -> Result<Self> {
         serde_json::from_value(value)
-            .map_err(|err| Error::Protocol(format!("content block decode: {err}")))
+            .map_err(|err| WireError::Protocol(format!("content block decode: {err}")))
     }
 
     pub fn with_field(mut self, key: impl Into<String>, value: Value) -> Self {
@@ -224,7 +224,7 @@ impl ContentBlock {
 
     pub fn with_mentions(mut self, mentions: Vec<Mention>) -> Result<Self> {
         let value = serde_json::to_value(mentions)
-            .map_err(|err| Error::Protocol(format!("content mentions serialize: {err}")))?;
+            .map_err(|err| WireError::Protocol(format!("content mentions serialize: {err}")))?;
         self.extra.insert("mentions".to_owned(), value);
         Ok(self)
     }
@@ -234,7 +234,7 @@ impl ContentBlock {
         audience_mentions: Vec<AudienceMention>,
     ) -> Result<Self> {
         let value = serde_json::to_value(audience_mentions).map_err(|err| {
-            Error::Protocol(format!("content audience_mentions serialize: {err}"))
+            WireError::Protocol(format!("content audience_mentions serialize: {err}"))
         })?;
         self.extra.insert("audience_mentions".to_owned(), value);
         Ok(self)
@@ -247,7 +247,7 @@ impl ContentBlock {
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("content block serialize: {err}")))
+            .map_err(|err| WireError::Protocol(format!("content block serialize: {err}")))
     }
 
     pub fn parsed_kind(&self) -> ContentBlockKind {
@@ -476,7 +476,7 @@ impl LongTextFormat {
 /// prefix or a summary.
 pub fn normalize_long_text(input: &str) -> Result<String> {
     if input.starts_with('\u{feff}') {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "long_text body must not start with a BOM".to_owned(),
         ));
     }
@@ -492,7 +492,7 @@ pub fn normalize_long_text(input: &str) -> Result<String> {
             }
             '\n' | '\t' => out.push(ch),
             '\u{0}'..='\u{1f}' | '\u{7f}' => {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "long_text body must not contain control character U+{:04X}",
                     ch as u32
                 )));
@@ -563,13 +563,13 @@ impl ContentBlock {
             LongTextBodyKind::Prefix => long_text_prefix(&normalized).to_owned(),
             LongTextBodyKind::Summary => {
                 let summary = summary.ok_or_else(|| {
-                    Error::Protocol(
+                    WireError::Protocol(
                         "long_text body_kind=summary requires an explicit summary".to_owned(),
                     )
                 })?;
                 let summary = normalize_long_text(summary)?;
                 if summary.len() > LONG_TEXT_FALLBACK_MAX_BYTES {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "long_text summary is {} UTF-8 bytes, limit is \
                          {LONG_TEXT_FALLBACK_MAX_BYTES}",
                         summary.len()
@@ -599,13 +599,13 @@ impl ContentBlock {
     /// validator can prove that exception.
     pub fn validate_long_text(&self) -> Result<()> {
         if self.kind != ContentBlockKind::LongText {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "expected {CONTENT_KIND_LONG_TEXT}, got {}",
                 self.kind.as_str()
             )));
         }
         if !self.parts.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "long_text must not carry composite parts".to_owned(),
             ));
         }
@@ -614,22 +614,22 @@ impl ContentBlock {
             .extra_str("format")
             .and_then(LongTextFormat::parse)
             .ok_or_else(|| {
-                Error::Protocol("long_text requires format = plain | markdown".to_owned())
+                WireError::Protocol("long_text requires format = plain | markdown".to_owned())
             })?;
         self.extra_str("body_kind")
             .and_then(LongTextBodyKind::parse)
             .ok_or_else(|| {
-                Error::Protocol("long_text requires body_kind = prefix | summary".to_owned())
+                WireError::Protocol("long_text requires body_kind = prefix | summary".to_owned())
             })?;
 
         if normalize_long_text(&self.body)? != self.body {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "long_text fallback body is not normalized (BOM, CR or forbidden control character)"
                     .to_owned(),
             ));
         }
         if self.body.len() > LONG_TEXT_FALLBACK_MAX_BYTES {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "long_text fallback body is {} UTF-8 bytes, limit is {LONG_TEXT_FALLBACK_MAX_BYTES}",
                 self.body.len()
             )));
@@ -638,7 +638,7 @@ impl ContentBlock {
         let plaintext_branch = self.extra.contains_key("blob_ref");
         let e2ee_branch = self.extra.contains_key("attachment");
         if plaintext_branch == e2ee_branch {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "long_text requires exactly one of blob_ref (plaintext) and attachment (E2EE)"
                     .to_owned(),
             ));
@@ -662,7 +662,7 @@ impl ContentBlock {
             .keys()
             .find(|key| !allowed.contains(&key.as_str()))
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "long_text does not allow field {unknown:?}"
             )));
         }
@@ -670,19 +670,19 @@ impl ContentBlock {
         if plaintext_branch {
             let blob_ref = self.extra_str("blob_ref").unwrap_or_default();
             if hash_blob_ref_suite_and_hex(blob_ref).is_none() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "long_text blob_ref must be hash-addressed ak:blob:(sha256|blake3):<64 hex>"
                         .to_owned(),
                 ));
             }
             if self.extra_u64("size_bytes").is_none() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "plaintext long_text requires size_bytes".to_owned(),
                 ));
             }
             let media_type = self.extra_str("media_type").unwrap_or_default();
             if media_type != format.media_type() {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "long_text media_type {media_type:?} does not match format {}",
                     format.as_str()
                 )));
@@ -693,7 +693,7 @@ impl ContentBlock {
                 .get("attachment")
                 .and_then(Value::as_object)
                 .ok_or_else(|| {
-                    Error::Protocol("E2EE long_text attachment must be an object".to_owned())
+                    WireError::Protocol("E2EE long_text attachment must be an object".to_owned())
                 })?;
             let field = |key: &str| {
                 attachment
@@ -702,30 +702,30 @@ impl ContentBlock {
                     .unwrap_or_default()
             };
             if field("scheme") != "ak.blob.stream_aead.v1" {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "E2EE long_text attachment must use ak.blob.stream_aead.v1".to_owned(),
                 ));
             }
             if !field("encryption_algorithm").ends_with("_stream") {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "E2EE long_text attachment must use the matching _stream AEAD algorithm"
                         .to_owned(),
                 ));
             }
             if field("media_type") != format.media_type() {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "E2EE long_text attachment media_type does not match format {}",
                     format.as_str()
                 )));
             }
             let blob_ref = field("blob_ref");
             let Some((suite, hex)) = hash_blob_ref_suite_and_hex(blob_ref) else {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "E2EE long_text attachment blob_ref must be hash-addressed".to_owned(),
                 ));
             };
             if field("ciphertext_digest") != format!("{suite}:{hex}") {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "E2EE long_text attachment ciphertext_digest must equal the blob_ref digest"
                         .to_owned(),
                 ));
@@ -737,7 +737,7 @@ impl ContentBlock {
                 "size_bytes",
             ] {
                 if !attachment.contains_key(key) {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "E2EE long_text attachment requires {key}"
                     )));
                 }
@@ -749,13 +749,13 @@ impl ContentBlock {
                 (plaintext_size, segment_bytes, segment_count)
             {
                 if seg == 0 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "E2EE long_text attachment segment_bytes must be positive".to_owned(),
                     ));
                 }
                 let expected = if size == 0 { 1 } else { size.div_ceil(seg) };
                 if expected != count {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "E2EE long_text attachment segment_count {count} does not equal                          ceil(size_bytes / segment_bytes) = {expected}"
                     )));
                 }
@@ -766,7 +766,7 @@ impl ContentBlock {
             && declared == 0
             && !self.body.is_empty()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "long_text line_count of 0 requires an empty body".to_owned(),
             ));
         }
@@ -777,13 +777,13 @@ impl ContentBlock {
     /// Validate that an `ak.content.text` block stays inside the inline boundary.
     pub fn validate_inline_text(&self) -> Result<()> {
         if self.kind != ContentBlockKind::Text {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "expected {CONTENT_KIND_TEXT}, got {}",
                 self.kind.as_str()
             )));
         }
         if self.body.len() > CONTENT_TEXT_INLINE_MAX_BYTES {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "ak.content.text body is {} UTF-8 bytes, limit is {CONTENT_TEXT_INLINE_MAX_BYTES}; \
                  use {CONTENT_KIND_LONG_TEXT}",
                 self.body.len()
@@ -792,12 +792,12 @@ impl ContentBlock {
         if let Some(raw_format) = self.extra_str("format")
             && TextFormat::parse(raw_format).is_none()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "ak.content.text format must be plain | markdown | prosemirror_json".to_owned(),
             ));
         }
         if self.text_format() == Some(TextFormat::Plain) && self.formatted_body().is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "ak.content.text format=plain must not carry formatted_body".to_owned(),
             ));
         }
@@ -805,7 +805,7 @@ impl ContentBlock {
             .formatted_body()
             .is_some_and(|value| !value.is_string() && !value.is_object())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "ak.content.text formatted_body must be a string or object".to_owned(),
             ));
         }
@@ -933,10 +933,10 @@ impl MessageCreatePayload {
         match (&self.content, &self.encrypted_content) {
             (Some(content), None) => Ok(PlainPayload::new(content.clone()).into()),
             (None, Some(content)) => Ok(MlsEncryptedPayload::new(content.clone())?.into()),
-            (None, None) => Err(Error::Protocol(
+            (None, None) => Err(WireError::Protocol(
                 "message create payload requires content or encrypted_content".to_owned(),
             )),
-            (Some(_), Some(_)) => Err(Error::Protocol(
+            (Some(_), Some(_)) => Err(WireError::Protocol(
                 "message create payload must not carry both content and encrypted_content"
                     .to_owned(),
             )),
@@ -972,7 +972,7 @@ impl MessageCreatePayload {
             (Some(metadata), None) => Ok(Some(PlainPayload::new(metadata.clone()).into())),
             (None, Some(metadata)) => Ok(Some(MlsEncryptedPayload::new(metadata.clone())?.into())),
             (None, None) => Ok(None),
-            (Some(_), Some(_)) => Err(Error::Protocol(
+            (Some(_), Some(_)) => Err(WireError::Protocol(
                 "message create payload must not carry both metadata and encrypted_metadata"
                     .to_owned(),
             )),
@@ -1035,18 +1035,19 @@ impl MessageCreatePayload {
 
     pub fn to_value(&self) -> Result<Value> {
         if self.metadata.is_some() && self.encrypted_metadata.is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "message create payload must not carry both metadata and encrypted_metadata"
                     .to_owned(),
             ));
         }
         match (self.content.is_some(), self.encrypted_content.is_some()) {
-            (true, false) | (false, true) => serde_json::to_value(self)
-                .map_err(|err| Error::Protocol(format!("message create payload serialize: {err}"))),
-            (false, false) => Err(Error::Protocol(
+            (true, false) | (false, true) => serde_json::to_value(self).map_err(|err| {
+                WireError::Protocol(format!("message create payload serialize: {err}"))
+            }),
+            (false, false) => Err(WireError::Protocol(
                 "message create payload requires content or encrypted_content".to_owned(),
             )),
-            (true, true) => Err(Error::Protocol(
+            (true, true) => Err(WireError::Protocol(
                 "message create payload must not carry both content and encrypted_content"
                     .to_owned(),
             )),

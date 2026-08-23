@@ -25,8 +25,8 @@ use arkret_models_crypto::{KeyBackupKeybag, KeyBackupPlaintext};
 use arkret_wire::base64url::{base64url_decode, base64url_encode};
 use arkret_wire::canonical::sha256_digest;
 use arkret_wire::{
-    DidCoreId, Error, HISTORY_STORE_LIMITS, Hash, HistoryCandidateMaterialKey,
-    HistoryEffectiveScope, HistorySecretRange, LocalAuthoritativeHistorySecret, Result,
+    DidCoreId, HISTORY_STORE_LIMITS, Hash, HistoryCandidateMaterialKey, HistoryEffectiveScope,
+    HistorySecretRange, LocalAuthoritativeHistorySecret, Result, WireError,
 };
 use chrono::{DateTime, Utc};
 
@@ -63,12 +63,12 @@ pub fn pack_local_authoritative_history_backup(
     kdf_nh: usize,
 ) -> Result<KeyBackupKeybag> {
     if secrets.is_empty() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "mls_history key backup must pack at least one local-authoritative secret".to_owned(),
         ));
     }
     if kdf_nh == 0 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "MLS ciphersuite KDF.Nh must be positive".to_owned(),
         ));
     }
@@ -77,19 +77,19 @@ pub fn pack_local_authoritative_history_backup(
     for secret in secrets {
         secret.validate()?;
         if &secret.effective_scope != effective_scope {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_history key backup object must belong to one exporter effective scope"
                     .to_owned(),
             ));
         }
         if &secret.mls_ciphersuite != mls_ciphersuite {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_history key backup object must not mix MLS ciphersuites".to_owned(),
             ));
         }
         let bytes = base64url_decode(&secret.secret_b64u)?;
         if bytes.len() != kdf_nh {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "local-authoritative history secret for epoch {} is {} bytes; expected KDF.Nh {kdf_nh}",
                 secret.epoch,
                 bytes.len()
@@ -97,7 +97,7 @@ pub fn pack_local_authoritative_history_backup(
         }
         match by_epoch.insert(secret.epoch, bytes) {
             Some(previous) if previous != by_epoch[&secret.epoch] => {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "two different local-authoritative secrets are retained for epoch {}",
                     secret.epoch
                 )));
@@ -154,7 +154,7 @@ pub fn restore_history_backup_candidates(
         items,
     } = &plaintext.keybag
     else {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "history restore applies only to mls_history keybags".to_owned(),
         ));
     };
@@ -163,7 +163,9 @@ pub fn restore_history_backup_candidates(
         .checked_add_signed(chrono::Duration::seconds(
             HISTORY_STORE_LIMITS.origin_attribution_ttl_seconds,
         ))
-        .ok_or_else(|| Error::Protocol("history candidate origin expiry overflows".to_owned()))?;
+        .ok_or_else(|| {
+            WireError::Protocol("history candidate origin expiry overflows".to_owned())
+        })?;
     let origin_quota_domain = PortableBackupQuotaDomain {
         backup_series_id: plaintext.series_id.to_string(),
         producer_actor_id: producer_actor_id.clone(),
@@ -180,7 +182,9 @@ pub fn restore_history_backup_candidates(
             let epoch = u64::try_from(index)
                 .ok()
                 .and_then(|offset| item.from_epoch.checked_add(offset))
-                .ok_or_else(|| Error::Protocol("restored history epoch overflows".to_owned()))?;
+                .ok_or_else(|| {
+                    WireError::Protocol("restored history epoch overflows".to_owned())
+                })?;
             let attribution = HistoryCandidateOriginAttribution::PortableBackup {
                 material_key: HistoryCandidateMaterialKey {
                     effective_scope: effective_scope.clone(),

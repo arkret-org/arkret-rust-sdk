@@ -36,7 +36,7 @@
 use arkret_identifiers::{MessageId, RealmId, StrandId};
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, Result, canonical};
+use crate::{Result, WireError, canonical};
 
 /// `web+arkret:` URI scheme prefix.
 pub const WEB_ARKRET_SCHEME: &str = "web+arkret:";
@@ -164,8 +164,8 @@ impl ParsedAddress {
     }
 }
 
-fn protocol_err(reason: &str) -> Error {
-    Error::Protocol(format!("object_address: {reason}"))
+fn protocol_err(reason: &str) -> WireError {
+    WireError::Protocol(format!("object_address: {reason}"))
 }
 
 /// Split an address string into its `(path, query)` halves after stripping the

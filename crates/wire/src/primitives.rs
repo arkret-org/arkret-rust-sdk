@@ -663,19 +663,19 @@ impl ReadCursorScope {
 
     pub fn validate(&self) -> Result<()> {
         if !self.kind.valid_for_read_cursor() {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "read_scope kind '{}' is not valid for read cursors",
                 self.kind.as_str()
             )));
         }
         if self.kind == ReadScopeKind::Realm {
             if self.container_ref.is_some() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "read_scope.container_ref must be omitted when kind is realm".to_owned(),
                 ));
             }
             if self.track.is_some() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "read_scope.track_name must be omitted when kind is realm".to_owned(),
                 ));
             }
@@ -686,7 +686,7 @@ impl ReadCursorScope {
             .trim()
             .is_empty()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "read_scope.container_ref is required when kind is not realm".to_owned(),
             ));
         }
@@ -698,7 +698,7 @@ impl ReadCursorScope {
                 }
             }
             _ if self.track.is_some() => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "read_scope.track_name is only valid when kind is strand".to_owned(),
                 ));
             }
@@ -770,24 +770,24 @@ impl ReadReceiptScope {
 
     pub fn validate(&self) -> Result<()> {
         if !self.kind.valid_for_read_receipt() {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "read_scope kind '{}' is not valid for read receipts",
                 self.kind.as_str()
             )));
         }
         if self.kind == ReadScopeKind::Realm {
             if self.object_ref.is_some() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "read_scope.object_ref must be omitted when kind is realm".to_owned(),
                 ));
             }
             if self.track.is_some() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "read_scope.track_name must be omitted when kind is realm".to_owned(),
                 ));
             }
         } else if self.object_ref.as_deref().unwrap_or("").trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "read_scope.object_ref is required when kind is not realm".to_owned(),
             ));
         }
@@ -799,7 +799,7 @@ impl ReadReceiptScope {
                 }
             }
             _ if self.track.is_some() => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "read_scope.track_name is only valid when kind is strand".to_owned(),
                 ));
             }
@@ -812,19 +812,19 @@ impl ReadReceiptScope {
 fn validate_read_scope_track(track: &str) -> Result<()> {
     let mut bytes = track.bytes();
     let Some(first) = bytes.next() else {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "read_scope.track_name must not be empty".to_owned(),
         ));
     };
     if !first.is_ascii_lowercase() {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "invalid read_scope.track_name '{track}'"
         )));
     }
     if track.len() > 64
         || !bytes.all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
     {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "invalid read_scope.track_name '{track}'"
         )));
     }
@@ -953,26 +953,26 @@ impl Audience {
         match self {
             Self::Single(value) => {
                 if value.trim().is_empty() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "proof audience must not be empty".to_owned(),
                     ));
                 }
             }
             Self::Multiple(values) => {
                 if values.is_empty() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "proof audience list must not be empty".to_owned(),
                     ));
                 }
                 let mut seen = BTreeSet::new();
                 for value in values {
                     if value.trim().is_empty() {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "proof audience entries must not be empty".to_owned(),
                         ));
                     }
                     if !seen.insert(value) {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "proof audience entries must be unique".to_owned(),
                         ));
                     }
@@ -1005,8 +1005,8 @@ impl ProofBindingRequirements {
     }
 }
 
-fn proof_binding_missing(field: &str) -> Error {
-    Error::Protocol(format!(
+fn proof_binding_missing(field: &str) -> WireError {
+    WireError::Protocol(format!(
         "{}: proof {field} is required",
         ReasonCode::PROOF_BINDING_MISSING
     ))
@@ -1017,7 +1017,7 @@ fn require_proof_domain(proof: Option<&str>, expected: Option<&str>) -> Result<(
         return Err(proof_binding_missing("domain"));
     }
     if expected.map(str::trim).map(str::is_empty).unwrap_or(true) {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "{}: expected domain is required",
             ReasonCode::PROOF_BINDING_MISSING
         )));
@@ -1030,7 +1030,7 @@ fn require_proof_audience(proof: Option<&Audience>, expected: Option<&Audience>)
         return Err(proof_binding_missing("audience"));
     }
     if expected.is_none() {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "{}: expected audience is required",
             ReasonCode::PROOF_BINDING_MISSING
         )));
@@ -1099,7 +1099,7 @@ pub struct UnsignedPayloadProof {
 impl UnsignedPayloadProof {
     pub fn validate_production(&self) -> Result<()> {
         if self.kind != proof_kind::DETACHED_JWS {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "unsupported production proof kind: {}",
                 self.kind
             )));
@@ -1109,7 +1109,9 @@ impl UnsignedPayloadProof {
             .as_deref()
             .is_some_and(|domain| domain.trim().is_empty())
         {
-            return Err(Error::Protocol("proof domain must not be empty".to_owned()));
+            return Err(WireError::Protocol(
+                "proof domain must not be empty".to_owned(),
+            ));
         }
         if let Some(audience) = &self.audience {
             audience.validate_binding_value()?;
@@ -1167,17 +1169,23 @@ impl PayloadProof {
 
     pub fn validate(&self) -> Result<()> {
         if self.kind.is_empty() {
-            return Err(Error::Protocol("proof kind must not be empty".to_owned()));
+            return Err(WireError::Protocol(
+                "proof kind must not be empty".to_owned(),
+            ));
         }
         if self.jws.is_empty() {
-            return Err(Error::Protocol("proof JWS must not be empty".to_owned()));
+            return Err(WireError::Protocol(
+                "proof JWS must not be empty".to_owned(),
+            ));
         }
         if self
             .domain
             .as_deref()
             .is_some_and(|domain| domain.trim().is_empty())
         {
-            return Err(Error::Protocol("proof domain must not be empty".to_owned()));
+            return Err(WireError::Protocol(
+                "proof domain must not be empty".to_owned(),
+            ));
         }
         if let Some(audience) = &self.audience {
             audience.validate_binding_value()?;
@@ -1188,7 +1196,7 @@ impl PayloadProof {
     pub fn validate_production(&self) -> Result<()> {
         self.validate()?;
         if self.kind != proof_kind::DETACHED_JWS {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "unsupported production proof kind: {}",
                 self.kind
             )));
@@ -1288,7 +1296,7 @@ impl PrincipalServerAdmissionProof {
             .as_str()
             .split_once('#')
             .ok_or_else(|| {
-                Error::Protocol("admission verification method has no fragment".to_owned())
+                WireError::Protocol("admission verification method has no fragment".to_owned())
             })?;
         let controller = DidFullId::new(controller.to_owned())?;
         let producer_evidence_pair_valid = match (
@@ -1318,7 +1326,7 @@ impl PrincipalServerAdmissionProof {
                 .starts_with("sha256:")
             || !is_compact_jws(&self.jws)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "principal server admission proof binding mismatch".to_owned(),
             ));
         }
@@ -1449,7 +1457,7 @@ impl ProducerEventProof {
             {
                 Ok(())
             }
-            _ => Err(Error::Protocol(
+            _ => Err(WireError::Protocol(
                 "producer signer resolution evidence ref and digest must be absent together or match"
                     .to_owned(),
             )),
@@ -1459,7 +1467,7 @@ impl ProducerEventProof {
     pub fn validate_direct_signer_resolution_evidence(&self) -> Result<()> {
         self.validate_signer_resolution_evidence_pair()?;
         if self.signer_resolution_evidence_ref.is_none() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "direct producer proof requires signer resolution evidence".to_owned(),
             ));
         }
@@ -1519,7 +1527,7 @@ impl ProducerEventProof {
 
     fn binding_object_with_context(&self, actor_id: &DidCoreId, context: &str) -> Result<Value> {
         if context.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "proof binding context must not be empty".to_owned(),
             ));
         }
@@ -1576,10 +1584,12 @@ impl ProducerEventProof {
     /// protected JOSE `alg`; the Arkret wrapper deliberately does not repeat it.
     pub fn validate(&self) -> Result<()> {
         if !is_compact_jws(&self.jws) {
-            return Err(Error::Protocol("proof JWS is not compact JWS".to_owned()));
+            return Err(WireError::Protocol(
+                "proof JWS is not compact JWS".to_owned(),
+            ));
         }
         if self.kind != proof_kind::DETACHED_JWS {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "producer proof kind must equal detached_jws".to_owned(),
             ));
         }
@@ -1588,13 +1598,15 @@ impl ProducerEventProof {
             .as_deref()
             .is_some_and(|domain| domain.trim().is_empty())
         {
-            return Err(Error::Protocol("proof domain must not be empty".to_owned()));
+            return Err(WireError::Protocol(
+                "proof domain must not be empty".to_owned(),
+            ));
         }
         if let Some(audience) = &self.audience {
             audience.validate_binding_value()?;
         }
         if self.proof_purpose == Some(PayloadProofPurpose::GovernanceAuthorization) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "producer proof purpose is not registered for Event proofs".to_owned(),
             ));
         }
@@ -1612,7 +1624,7 @@ impl ProducerEventProof {
             .iter()
             .any(|k| self.kind.eq_ignore_ascii_case(k))
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "production proofs must not use dev/test kind: {}",
                 self.kind
             )));
@@ -1639,13 +1651,13 @@ impl ProducerEventProof {
     ) -> Result<()> {
         self.validate()?;
         if self.verification_method != expected.verification_method {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "proof verification_method '{}' does not match expected '{}'",
                 self.verification_method, expected.verification_method
             )));
         }
         if self.event_digest != expected.payload_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "proof event_digest does not match expected digest".to_owned(),
             ));
         }
@@ -1655,7 +1667,7 @@ impl ProducerEventProof {
             expected.created_at - self.created_at
         };
         if diff > chrono::Duration::minutes(PROOF_CREATED_AT_HARD_SKEW_MINUTES) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "proof created_at differs from expected by {} seconds (max {} seconds)",
                 diff.num_seconds(),
                 PROOF_CREATED_AT_HARD_SKEW_MINUTES
@@ -1674,13 +1686,13 @@ impl ProducerEventProof {
             return Err(proof_binding_missing("audience"));
         }
         if expected.domain.is_some() && self.domain != expected.domain {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "proof domain {:?} does not match expected {:?}",
                 self.domain, expected.domain
             )));
         }
         if !proof_audience_covers_expected(self.audience.as_ref(), expected.audience.as_ref()) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "proof audience {:?} does not match expected {:?}",
                 self.audience, expected.audience
             )));

@@ -1,6 +1,6 @@
 //! Typed content carried by the standard `ak.secret.*` device messages.
 
-use arkret_wire::{DeviceId, Error, HPKE_SUITE_X25519_CHACHA20POLY1305_V1, Result};
+use arkret_wire::{DeviceId, HPKE_SUITE_X25519_CHACHA20POLY1305_V1, Result, WireError};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -15,17 +15,17 @@ pub struct SecretShareRequestContent {
 impl SecretShareRequestContent {
     pub fn validate(&self) -> Result<()> {
         if self.request_id.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "ak.secret.request.request_id must not be empty".to_owned(),
             ));
         }
         if self.secret_id.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "ak.secret.request.secret_id must not be empty".to_owned(),
             ));
         }
         if self.recipient_hpke_public_key.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "ak.secret.request.recipient_hpke_public_key must not be empty".to_owned(),
             ));
         }
@@ -47,23 +47,23 @@ pub struct SecretShareSendContent {
 impl SecretShareSendContent {
     pub fn validate(&self) -> Result<()> {
         if self.request_id.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "ak.secret.send.request_id must not be empty".to_owned(),
             ));
         }
         if self.secret_id.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "ak.secret.send.secret_id must not be empty".to_owned(),
             ));
         }
         if self.scheme != HPKE_SUITE_X25519_CHACHA20POLY1305_V1 {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "ak.secret.send.scheme must be {HPKE_SUITE_X25519_CHACHA20POLY1305_V1}, got {}",
                 self.scheme
             )));
         }
         if self.enc.trim().is_empty() || self.ciphertext.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "ak.secret.send.enc and ciphertext must not be empty".to_owned(),
             ));
         }

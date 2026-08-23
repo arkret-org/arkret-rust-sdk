@@ -16,7 +16,7 @@ use arkret_models_identity::AuthenticatedSignerResolutionEvidence;
 use arkret_signatures::proof::PublicKeyMaterial;
 use arkret_state::mls_governance_proof::MlsGovernanceVerificationCheckpoint;
 use arkret_wire::{
-    ContentScheme, DidCoreId, Error, EventId, Hash, HistoryEffectiveScope, ScopeRef,
+    ContentScheme, DidCoreId, EventId, Hash, HistoryEffectiveScope, ScopeRef, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -43,7 +43,7 @@ pub enum HistorySourceProofExternalVerificationRequest<'a> {
 pub fn verify_minimal_metadata_identity_link_signature(
     signer_evidence: &MinimalMetadataMlsLeafSignerEvidence,
     dependencies: &[GovernanceDependency],
-) -> Result<arkret_models_collaboration::objects::profiles::IdentityLink, Error> {
+) -> Result<arkret_models_collaboration::objects::profiles::IdentityLink, WireError> {
     signer_evidence.validate()?;
     let identity_link = signer_evidence.validate_identity_link_binding()?;
     let identity_link_signer = super::mls_governance::bound_evidence_by_digest(
@@ -73,7 +73,7 @@ pub fn verify_minimal_metadata_identity_link_signature(
         &identity_link_key,
     )
     .map_err(|error| {
-        Error::Protocol(format!(
+        WireError::Protocol(format!(
             "minimal-metadata IdentityLink proof is invalid: {error}"
         ))
     })?;
@@ -92,7 +92,7 @@ pub fn verify_minimal_metadata_history_source_local_state(
     received_identity_link: &arkret_models_collaboration::objects::profiles::IdentityLink,
     received_identity_link_canonical_bytes: &[u8],
     winning_group_state: &arkret_policy::minimal_metadata_author::AuthorGroupStateView,
-) -> Result<PublicKeyMaterial, Error> {
+) -> Result<PublicKeyMaterial, WireError> {
     source.validate()?;
     signer_evidence.validate()?;
     verified_checkpoint.validate_checkpoint()?;
@@ -133,7 +133,7 @@ pub fn verify_minimal_metadata_history_source_local_state(
         .iter()
         .find(|event| event.event_id == signer_evidence.winning_group_state_transition_ref)
         .ok_or_else(|| {
-            Error::Protocol(
+            WireError::Protocol(
                 "minimal-metadata winning transition is absent from the verified checkpoint"
                     .to_owned(),
             )
@@ -141,9 +141,9 @@ pub fn verify_minimal_metadata_history_source_local_state(
     let transition_digest = match transition.kind.as_str() {
         arkret_wire::event_kind_str::MLS_GENESIS => {
             let value = serde_json::to_value(&transition.payload)
-                .map_err(|error| Error::Protocol(error.to_string()))?;
+                .map_err(|error| WireError::Protocol(error.to_string()))?;
             let payload: MlsGenesisPayload = serde_json::from_value(value.clone())
-                .map_err(|error| Error::Protocol(error.to_string()))?;
+                .map_err(|error| WireError::Protocol(error.to_string()))?;
             payload.validate()?;
             if payload.mls_group_id.as_str() != signer_evidence.mls_group_id
                 || signer_evidence.epoch != 0
@@ -157,9 +157,9 @@ pub fn verify_minimal_metadata_history_source_local_state(
         arkret_wire::event_kind_str::MLS_COMMIT => {
             let payload: MlsCommitPayload = serde_json::from_value(
                 serde_json::to_value(&transition.payload)
-                    .map_err(|error| Error::Protocol(error.to_string()))?,
+                    .map_err(|error| WireError::Protocol(error.to_string()))?,
             )
-            .map_err(|error| Error::Protocol(error.to_string()))?;
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
             if payload.mls_group_id() != signer_evidence.mls_group_id
                 || payload.next_epoch() != signer_evidence.epoch
             {
@@ -173,7 +173,7 @@ pub fn verify_minimal_metadata_history_source_local_state(
         return invalid("minimal-metadata MLS transition digest mismatch");
     }
     let leaf_index = u32::try_from(signer_evidence.leaf_index).map_err(|_| {
-        Error::Protocol("minimal-metadata leaf index exceeds RFC 9420 bounds".to_owned())
+        WireError::Protocol("minimal-metadata leaf index exceeds RFC 9420 bounds".to_owned())
     })?;
     let mut matching = winning_group_state.active_leaves.iter().filter(|leaf| {
         leaf.leaf_index == leaf_index
@@ -184,7 +184,7 @@ pub fn verify_minimal_metadata_history_source_local_state(
             )
     });
     let leaf = matching.next().ok_or_else(|| {
-        Error::Protocol("minimal-metadata source has no exact active local LeafNode".to_owned())
+        WireError::Protocol("minimal-metadata source has no exact active local LeafNode".to_owned())
     })?;
     if matching.next().is_some()
         || leaf.leaf_node_canonical_bytes.is_empty()
@@ -271,10 +271,11 @@ pub fn verify_history_response_record<VerifyExternalSourceKey>(
     signer_dependencies: &[GovernanceDependency],
     now: DateTime<Utc>,
     verify_external_source_key: VerifyExternalSourceKey,
-) -> Result<VerifiedHistoryResponseRecord, Error>
+) -> Result<VerifiedHistoryResponseRecord, WireError>
 where
-    VerifyExternalSourceKey:
-        Fn(HistorySourceProofExternalVerificationRequest<'_>) -> Result<PublicKeyMaterial, Error>,
+    VerifyExternalSourceKey: Fn(
+        HistorySourceProofExternalVerificationRequest<'_>,
+    ) -> Result<PublicKeyMaterial, WireError>,
 {
     accepted.validate()?;
     record.validate()?;
@@ -347,14 +348,14 @@ where
         }
         (HistoryKeyResponseContent::Chunk(chunk), None, Some(attestation)) => {
             let manifest = verified_manifest.ok_or_else(|| {
-                Error::Protocol("history chunk arrived before its verified manifest".to_owned())
+                WireError::Protocol("history chunk arrived before its verified manifest".to_owned())
             })?;
             let descriptor = manifest
                 .chunks
                 .iter()
                 .find(|descriptor| descriptor.chunk_response_id == source.response_id)
                 .ok_or_else(|| {
-                    Error::Protocol(
+                    WireError::Protocol(
                         "history chunk response id is absent from the verified manifest".to_owned(),
                     )
                 })?;
@@ -419,10 +420,11 @@ pub fn verify_history_source_proof<VerifyExternalSourceKey>(
     verified_checkpoint: &MlsGovernanceVerificationCheckpoint,
     source_signer_dependencies: &[GovernanceDependency],
     verify_external_source_key: VerifyExternalSourceKey,
-) -> Result<(), Error>
+) -> Result<(), WireError>
 where
-    VerifyExternalSourceKey:
-        Fn(HistorySourceProofExternalVerificationRequest<'_>) -> Result<PublicKeyMaterial, Error>,
+    VerifyExternalSourceKey: Fn(
+        HistorySourceProofExternalVerificationRequest<'_>,
+    ) -> Result<PublicKeyMaterial, WireError>,
 {
     source.validate()?;
     verified_checkpoint.validate_checkpoint()?;
@@ -441,7 +443,7 @@ where
         &source.proof_binding_bytes()?,
         &source_key,
     )
-    .map_err(|error| Error::Protocol(format!("history source proof is invalid: {error}")))
+    .map_err(|error| WireError::Protocol(format!("history source proof is invalid: {error}")))
 }
 
 fn resolve_source_proof_key<VerifyExternalSourceKey>(
@@ -449,10 +451,11 @@ fn resolve_source_proof_key<VerifyExternalSourceKey>(
     verified_checkpoint: &MlsGovernanceVerificationCheckpoint,
     dependencies: &[GovernanceDependency],
     verify_external_source_key: VerifyExternalSourceKey,
-) -> Result<PublicKeyMaterial, Error>
+) -> Result<PublicKeyMaterial, WireError>
 where
-    VerifyExternalSourceKey:
-        Fn(HistorySourceProofExternalVerificationRequest<'_>) -> Result<PublicKeyMaterial, Error>,
+    VerifyExternalSourceKey: Fn(
+        HistorySourceProofExternalVerificationRequest<'_>,
+    ) -> Result<PublicKeyMaterial, WireError>,
 {
     let expected_selector =
         arkret_models_collaboration::governance_dependencies::GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
@@ -590,7 +593,7 @@ pub fn verify_history_response_lost_record(
     accepted: &HistoryKeyRequestCreateOutcome,
     lost_record: &HistoryKeyResponseLostRecord,
     signer_dependencies: &[GovernanceDependency],
-) -> Result<(), Error> {
+) -> Result<(), WireError> {
     accepted.validate()?;
     lost_record.validate()?;
     if lost_record.lost_at > accepted.request.expires_at {
@@ -615,7 +618,7 @@ fn verify_release_service_proof(
     evidence_ref: &arkret_wire::SignerEvidenceRef,
     evidence_digest: &Hash,
     dependencies: &[GovernanceDependency],
-) -> Result<(), Error> {
+) -> Result<(), WireError> {
     let receipt = &accepted.request_receipt;
     if proof.created_at > signed_at {
         return invalid("history release service proof method or timestamp mismatch");
@@ -640,13 +643,13 @@ fn verify_release_service_proof(
     )?;
     arkret_signatures::verify_ed25519_detached_jws_payload_proof(proof, binding_bytes, &key)
         .map_err(|error| {
-            Error::Protocol(format!("history release service proof is invalid: {error}"))
+            WireError::Protocol(format!("history release service proof is invalid: {error}"))
         })
 }
 
 fn member_history_intent(
     accepted: &HistoryKeyRequestCreateOutcome,
-) -> Result<&HistoryGovernanceTraversalIntent, Error> {
+) -> Result<&HistoryGovernanceTraversalIntent, WireError> {
     let retention = &accepted.request_receipt.history_traversal_retention;
     retention.validate_digest()?;
     let intent = &retention.traversal_intent;
@@ -687,7 +690,7 @@ fn member_history_intent(
 fn verify_checkpoint_binding(
     checkpoint: &MlsGovernanceVerificationCheckpoint,
     intent: &HistoryGovernanceTraversalIntent,
-) -> Result<(), Error> {
+) -> Result<(), WireError> {
     let HistoryGovernanceTraversalIntent::MemberHistoryDelivery {
         effective_scope,
         trusted_history_base_basis,
@@ -727,7 +730,7 @@ fn verify_manifest(
     manifest: &HistoryResponseManifest,
     admission: &HistoryManifestAdmission,
     intent: &HistoryGovernanceTraversalIntent,
-) -> Result<(), Error> {
+) -> Result<(), WireError> {
     let digest = source.manifest_digest()?;
     if admission.manifest_digest != digest
         || admission.request_digest != source.request_digest
@@ -759,7 +762,7 @@ fn verify_release_attestation(
     attestation: &arkret_models_collaboration::history_key::HistoryReleaseAttestation,
     manifest: &VerifiedHistoryManifest,
     source_signer_dependencies: &[GovernanceDependency],
-) -> Result<(), Error> {
+) -> Result<(), WireError> {
     let source_digest = source.source_record_digest()?;
     let request = &accepted.request;
     let receipt = &accepted.request_receipt;
@@ -844,19 +847,19 @@ fn verify_release_attestation(
 /// Compute the only accepted manifest T0 traversal-admission registry digest
 /// from the SDK-embedded normative artifact. The registry forbids replacing it
 /// with a caller-supplied boolean or a service-local policy value.
-pub fn embedded_history_manifest_t0_registry_digest() -> Result<Hash, Error> {
+pub fn embedded_history_manifest_t0_registry_digest() -> Result<Hash, WireError> {
     let registry =
         arkret_schema::embedded_json_artifact("registry/history-release-attestation-registry.json")
-            .map_err(|error| Error::Protocol(error.to_string()))?;
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
     arkret_models_collaboration::history_key::history_manifest_t0_registry_digest(&registry)
 }
 
 /// Compute the only accepted HistoryReleaseAttestation predicate-registry
 /// digest from the SDK-embedded normative artifact.
-pub fn embedded_history_release_predicate_registry_digest() -> Result<Hash, Error> {
+pub fn embedded_history_release_predicate_registry_digest() -> Result<Hash, WireError> {
     let registry =
         arkret_schema::embedded_json_artifact("registry/history-release-attestation-registry.json")
-            .map_err(|error| Error::Protocol(error.to_string()))?;
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
     arkret_models_collaboration::history_key::history_release_predicate_registry_digest(&registry)
 }
 
@@ -870,7 +873,7 @@ enum SourceEvidenceKind {
 fn source_evidence_kind(
     source: &HistoryKeyResponseSendRequest,
     dependencies: &[GovernanceDependency],
-) -> Result<SourceEvidenceKind, Error> {
+) -> Result<SourceEvidenceKind, WireError> {
     let mut found = None;
     for dependency in dependencies {
         let kind = match dependency {
@@ -908,8 +911,9 @@ fn source_evidence_kind(
             return invalid("history source signer evidence root is ambiguous");
         }
     }
-    found
-        .ok_or_else(|| Error::Protocol("history source signer evidence root is missing".to_owned()))
+    found.ok_or_else(|| {
+        WireError::Protocol("history source signer evidence root is missing".to_owned())
+    })
 }
 
 fn range_is_authorized(candidate: &EpochRange, authorized: &[EpochRange]) -> bool {
@@ -933,14 +937,14 @@ pub fn winning_history_epoch_suites_from_verified_checkpoint(
     effective_scope: &HistoryEffectiveScope,
     mls_group_id: &str,
     requested_ranges: &[EpochRange],
-) -> Result<Vec<VerifiedHistoryEpochSuite>, Error> {
+) -> Result<Vec<VerifiedHistoryEpochSuite>, WireError> {
     checkpoint.validate_checkpoint()?;
     arkret_models_collaboration::history_key::validate_canonical_ranges(requested_ranges, 64)?;
     if effective_scope.canonical_mls_group_id()? != mls_group_id {
         return invalid("history suite query group id is not canonical for its scope");
     }
     let registry = arkret_lattice_registry::try_build_sdk_cell_registry().map_err(|error| {
-        Error::Protocol(format!("MLS history registry construction failed: {error}"))
+        WireError::Protocol(format!("MLS history registry construction failed: {error}"))
     })?;
     let cell = arkret_state::mls_cells::mls_epoch_cell_id(
         &ScopeRef::from(effective_scope.clone()),
@@ -958,7 +962,9 @@ pub fn winning_history_epoch_suites_from_verified_checkpoint(
     let target_ref = target
         .get("transition_ref")
         .and_then(serde_json::Value::as_str)
-        .ok_or_else(|| Error::Protocol("winning MLS epoch cell lacks transition_ref".to_owned()))?;
+        .ok_or_else(|| {
+            WireError::Protocol("winning MLS epoch cell lacks transition_ref".to_owned())
+        })?;
     if target
         .get("mls_group_id")
         .and_then(serde_json::Value::as_str)
@@ -986,15 +992,19 @@ pub fn winning_history_epoch_suites_from_verified_checkpoint(
             return invalid("winning MLS transition lineage contains a cycle");
         }
         let event = events.remove(&current).ok_or_else(|| {
-            Error::Protocol("winning MLS transition is absent from the verified closure".to_owned())
+            WireError::Protocol(
+                "winning MLS transition is absent from the verified closure".to_owned(),
+            )
         })?;
         match event.kind.as_str() {
             arkret_wire::event_kind_str::MLS_COMMIT => {
                 let payload: MlsCommitPayload = serde_json::from_value(
                     serde_json::to_value(&event.payload)
-                        .map_err(|error| Error::Protocol(error.to_string()))?,
+                        .map_err(|error| WireError::Protocol(error.to_string()))?,
                 )
-                .map_err(|error| Error::Protocol(format!("invalid winning MLS Commit: {error}")))?;
+                .map_err(|error| {
+                    WireError::Protocol(format!("invalid winning MLS Commit: {error}"))
+                })?;
                 if payload.mls_group_id() != mls_group_id
                     || !scope_matches(
                         effective_scope,
@@ -1014,10 +1024,10 @@ pub fn winning_history_epoch_suites_from_verified_checkpoint(
             arkret_wire::event_kind_str::MLS_GENESIS => {
                 let payload: MlsGenesisPayload = serde_json::from_value(
                     serde_json::to_value(&event.payload)
-                        .map_err(|error| Error::Protocol(error.to_string()))?,
+                        .map_err(|error| WireError::Protocol(error.to_string()))?,
                 )
                 .map_err(|error| {
-                    Error::Protocol(format!("invalid winning MLS Genesis: {error}"))
+                    WireError::Protocol(format!("invalid winning MLS Genesis: {error}"))
                 })?;
                 payload.validate()?;
                 if payload.mls_group_id.as_str() != mls_group_id
@@ -1041,7 +1051,7 @@ pub fn winning_history_epoch_suites_from_verified_checkpoint(
         .to_epoch;
     for epoch in 1..=maximum_epoch {
         let commit = winning_commits.get(&epoch).ok_or_else(|| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "verified MLS history has no winning transition for epoch {epoch}"
             ))
         })?;
@@ -1062,7 +1072,7 @@ pub fn winning_history_epoch_suites_from_verified_checkpoint(
     Ok(result)
 }
 
-fn registered_kdf_nh(cipher_suite: &str) -> Result<u16, Error> {
+fn registered_kdf_nh(cipher_suite: &str) -> Result<u16, WireError> {
     if !arkret_wire::MLS_CIPHERSUITES
         .iter()
         .any(|row| row.canonical_id == cipher_suite)
@@ -1097,6 +1107,6 @@ fn scope_matches(history: &HistoryEffectiveScope, scope: &ScopeRef) -> bool {
     }
 }
 
-fn invalid<T>(message: &str) -> Result<T, Error> {
-    Err(Error::Protocol(message.to_owned()))
+fn invalid<T>(message: &str) -> Result<T, WireError> {
+    Err(WireError::Protocol(message.to_owned()))
 }

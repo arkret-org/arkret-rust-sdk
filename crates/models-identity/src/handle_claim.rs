@@ -9,7 +9,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_wire::{DidCoreId, Error, PayloadProof, Result, SchemaId};
+use arkret_wire::{DidCoreId, PayloadProof, Result, SchemaId, WireError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -104,12 +104,12 @@ impl HandleClaim {
     pub fn validate(&self) -> Result<()> {
         if matches!(self.binding_state, Some(HandleBindingState::Verified)) {
             if self.handle.is_none() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "binding_state=verified requires handle".to_owned(),
                 ));
             }
             if self.expires_at.is_none() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "binding_state=verified requires expires_at".to_owned(),
                 ));
             }
@@ -117,7 +117,7 @@ impl HandleClaim {
         if self.member_delivery_binding.is_some()
             && (self.handle.is_none() || self.audience.is_none() || self.expires_at.is_none())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "member_delivery_binding present requires handle, audience, expires_at".to_owned(),
             ));
         }
@@ -137,34 +137,48 @@ impl HandleClaim {
     ) -> Result<()> {
         self.validate()?;
         if self.schema != SchemaId::HANDLE_CLAIM_V1 {
-            return Err(Error::Protocol("handle claim schema mismatch".to_owned()));
+            return Err(WireError::Protocol(
+                "handle claim schema mismatch".to_owned(),
+            ));
         }
         if self.handle.is_none() {
-            return Err(Error::Protocol("handle claim requires handle".to_owned()));
+            return Err(WireError::Protocol(
+                "handle claim requires handle".to_owned(),
+            ));
         }
         if self.subject.is_none() {
-            return Err(Error::Protocol("handle claim requires subject".to_owned()));
+            return Err(WireError::Protocol(
+                "handle claim requires subject".to_owned(),
+            ));
         }
         if self.issuer.is_none() {
-            return Err(Error::Protocol("handle claim requires issuer".to_owned()));
+            return Err(WireError::Protocol(
+                "handle claim requires issuer".to_owned(),
+            ));
         }
         if self.binding_state != Some(HandleBindingState::Verified) {
-            return Err(Error::Protocol("handle claim must be verified".to_owned()));
+            return Err(WireError::Protocol(
+                "handle claim must be verified".to_owned(),
+            ));
         }
         let expires_at = self
             .expires_at
-            .ok_or_else(|| Error::Protocol("handle claim requires expires_at".to_owned()))?;
+            .ok_or_else(|| WireError::Protocol("handle claim requires expires_at".to_owned()))?;
         if expires_at <= now {
-            return Err(Error::Protocol("handle claim expired".to_owned()));
+            return Err(WireError::Protocol("handle claim expired".to_owned()));
         }
         if self.proofs.is_empty() {
-            return Err(Error::Protocol("handle claim requires proof".to_owned()));
+            return Err(WireError::Protocol(
+                "handle claim requires proof".to_owned(),
+            ));
         }
         if let Some(expected_audience) = expected_audience {
             match self.audience.as_deref() {
                 Some(audience) if audience == expected_audience => {}
                 _ => {
-                    return Err(Error::Protocol("handle claim audience mismatch".to_owned()));
+                    return Err(WireError::Protocol(
+                        "handle claim audience mismatch".to_owned(),
+                    ));
                 }
             }
         }
@@ -173,12 +187,12 @@ impl HandleClaim {
                 Some(binding) if &binding.recipient_service_id == expected_recipient_service_id => {
                 }
                 Some(_) => {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "handle claim delivery binding mismatch".to_owned(),
                     ));
                 }
                 None => {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "handle claim requires member_delivery_binding".to_owned(),
                     ));
                 }

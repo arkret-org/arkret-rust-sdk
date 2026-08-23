@@ -202,7 +202,7 @@ impl WebSocketFrameCodec {
     {
         let encoded = serde_json::to_string(frame)?;
         if !self.accepts_accumulated(encoded.len()) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "a WebSocket frame may not be emitted over the effective frame limit".to_owned(),
             ));
         }
@@ -377,7 +377,7 @@ impl WebSocketConnectionState {
             ..
         } = frame
         else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "admit_open requires an open frame".to_owned(),
             ));
         };
@@ -435,7 +435,7 @@ impl WebSocketConnectionState {
         validate_websocket_channel_id(channel_id)?;
         if let Some(existing) = self.channels.get(channel_id) {
             if existing.operation != operation || !existing.open {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "a channel_id is never reused on one connection".to_owned(),
                 ));
             }
@@ -667,7 +667,7 @@ impl WebSocketConnectionState {
 
     /// §6 — a payload that does not match the channel's operation kills that
     /// channel (`error` then `closed`) and leaves the connection open.
-    fn channel_payload_rejection(channel_id: &str, error: &Error) -> WebSocketRejection {
+    fn channel_payload_rejection(channel_id: &str, error: &WireError) -> WebSocketRejection {
         WebSocketRejection::channel(channel_id, ErrorCode::ParamInvalid, &error.to_string())
     }
 }
@@ -829,7 +829,7 @@ impl WebSocketConsumerHandoff {
     /// Start the first owner. Fails if one is already running.
     pub fn start(&mut self, owner: WebSocketConsumerOwner) -> Result<()> {
         if !matches!(self.owner, WebSocketConsumerOwner::None) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "a second stream consumer may not start while one is running".to_owned(),
             ));
         }
@@ -854,12 +854,12 @@ impl WebSocketConsumerHandoff {
     /// Hand ownership to the other transport.
     pub fn switch_to(&mut self, owner: WebSocketConsumerOwner) -> Result<()> {
         if !self.old_owner_stopped {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "the previous stream owner must be terminated before the switch".to_owned(),
             ));
         }
         if !self.cursors_persisted {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "durable cursors must be persisted before the switch".to_owned(),
             ));
         }

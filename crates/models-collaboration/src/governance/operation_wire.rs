@@ -5,8 +5,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DidCoreId, Error, GrantId, Hash, InviteId, InviteState, PolicyEffect, PolicyId, PolicyKind,
-    RealmId, Result, SchemaId, XExtensionMap,
+    DidCoreId, GrantId, Hash, InviteId, InviteState, PolicyEffect, PolicyId, PolicyKind, RealmId,
+    Result, SchemaId, WireError, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -56,12 +56,12 @@ impl Policy {
 
     pub fn validate(&self) -> Result<()> {
         if self.schema != Self::SCHEMA {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "policy schema must be ak.schema.policy.v1".to_owned(),
             ));
         }
         if self.rules.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "policy rules must contain at least one rule".to_owned(),
             ));
         }
@@ -110,11 +110,11 @@ fn is_zero_i64(value: &i64) -> bool {
 impl PolicyRule {
     /// Validate the kind-conditional required fields that
     /// `policy.schema.json` enforces (e.g. `kind=action` MUST carry a
-    /// non-empty `actions` array). Returns `Err(Error::Protocol(...))` on
+    /// non-empty `actions` array). Returns `Err(WireError::Protocol(...))` on
     /// violation.
     pub fn validate(&self) -> Result<()> {
         if self.rule_id.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "policy rule rule_id must not be empty".to_owned(),
             ));
         }
@@ -132,7 +132,7 @@ impl PolicyRule {
             .keys()
             .any(|field| !DECLARED_FIELDS.contains(&field.as_str()))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "policy rule contains a field outside the closed schema".to_owned(),
             ));
         }
@@ -140,7 +140,7 @@ impl PolicyRule {
             match self.extra.get(field) {
                 Some(Value::Array(items)) if !items.is_empty() => Ok(()),
                 Some(value) if !value.is_null() => Ok(()),
-                _ => Err(Error::Protocol(format!(
+                _ => Err(WireError::Protocol(format!(
                     "policy rule kind={:?} requires field '{field}'",
                     self.kind
                 ))),
@@ -154,7 +154,7 @@ impl PolicyRule {
                 require("params")?;
                 if !self.extra.contains_key("schema_ref") && !self.extra.contains_key("profile_ref")
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "policy extension rule requires schema_ref or profile_ref".to_owned(),
                     ));
                 }

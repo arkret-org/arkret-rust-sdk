@@ -4,9 +4,9 @@ use std::fmt;
 
 use arkret_models_identity::{AgentLifecycleStatus, AgentSignerEvidence};
 use arkret_wire::{
-    Base64UrlString, CircleId, DeviceId, DidCoreId, DidUrl, Error, EventId, Hash, HistoryAccess,
+    Base64UrlString, CircleId, DeviceId, DidCoreId, DidUrl, EventId, Hash, HistoryAccess,
     HistoryEffectiveScope, OrganizationRecoveryArchive, PayloadProof, RealmId, Result, SealBasis,
-    SignerEvidenceRef,
+    SignerEvidenceRef, WireError,
 };
 pub use arkret_wire::{
     EpochRange, EventCandidateBinding, EventCandidateBindingKey, EventCandidateBindingOutcome,
@@ -26,7 +26,10 @@ macro_rules! history_id {
             pub fn new(value: impl Into<String>) -> Result<Self> {
                 let value = value.into();
                 if !$validate(&value) {
-                    return Err(Error::Protocol(format!("invalid {}", stringify!($name))));
+                    return Err(WireError::Protocol(format!(
+                        "invalid {}",
+                        stringify!($name)
+                    )));
                 }
                 Ok(Self(value))
             }
@@ -138,7 +141,7 @@ impl RequesterEndpointAuthorization {
                 | (AuthorProfile::MinimalMetadata, Self::MinimalMetadata)
         );
         if !matches {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "requester endpoint authorization does not match requester_author_profile"
                     .to_owned(),
             ));
@@ -390,7 +393,7 @@ impl HistoryCandidateOriginAttribution {
                 expires_at,
             } => {
                 if !uuid_v7_suffix(&origin_quota_domain.backup_series_id, "ak:backup_series:") {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "history backup series id is invalid".to_owned(),
                     ));
                 }
@@ -398,7 +401,7 @@ impl HistoryCandidateOriginAttribution {
                     .backup_origin_id
                     .strip_prefix("backup:")
                     .ok_or_else(|| {
-                        Error::Protocol("history backup origin id is invalid".to_owned())
+                        WireError::Protocol("history backup origin id is invalid".to_owned())
                     })?;
                 if !(uuid_v7_suffix(backup_id, "ak:backup:")
                     || backup_id.strip_prefix("sha256:").is_some_and(|hex| {
@@ -408,7 +411,7 @@ impl HistoryCandidateOriginAttribution {
                                 .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
                     }))
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "history backup origin id is invalid".to_owned(),
                     ));
                 }
@@ -419,7 +422,7 @@ impl HistoryCandidateOriginAttribution {
         if expires_at.signed_duration_since(*first_observed_at)
             != chrono::Duration::seconds(IMMUTABLE_ORIGIN_LIFETIME_SECONDS)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history candidate origin expiry must equal first_observed_at plus 2592000 seconds"
                     .to_owned(),
             ));
@@ -470,7 +473,7 @@ impl HistoryResponseCapabilityPlaintext {
         if decoded.len() != 32
             || arkret_wire::base64url::base64url_encode(&decoded) != self.response_capability_b64u
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history response capability plaintext is invalid".to_owned(),
             ));
         }
@@ -592,17 +595,17 @@ impl OrganizationRecoveryArchivePlaintext {
     pub fn validate_for_kdf_nh(&self, kdf_nh: usize) -> Result<()> {
         self.validate()?;
         if kdf_nh == 0 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "MLS ciphersuite KDF.Nh must be positive".to_owned(),
             ));
         }
         let actual = arkret_wire::base64url::base64url_decode(&self.history_secret_b64u)
             .map_err(|error| {
-                Error::Protocol(format!("archive history secret is not base64url: {error}"))
+                WireError::Protocol(format!("archive history secret is not base64url: {error}"))
             })?
             .len();
         if actual != kdf_nh {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "archive history secret contains {actual} bytes; expected {kdf_nh}"
             )));
         }
@@ -755,7 +758,7 @@ impl HistoryGovernanceTraversalIntent {
                 let recovery_key_id_len =
                     archive_authorization_tuple.recovery_key_id.chars().count();
                 if !(1..=512).contains(&recovery_key_id_len) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "archive recovery_key_id must contain 1..=512 characters".to_owned(),
                     ));
                 }
@@ -773,12 +776,12 @@ impl HistoryGovernanceTraversalIntent {
             }
         };
         if mls_group_id.is_empty() || !is_base64url(mls_group_id) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history traversal mls_group_id is not canonical base64url".to_owned(),
             ));
         }
         if &effective_scope.canonical_mls_group_id()? != mls_group_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history traversal mls_group_id does not match effective_scope".to_owned(),
             ));
         }
@@ -820,7 +823,7 @@ impl HistoryGovernanceTraversalRetention {
         )?);
         let expected = Hash::new(arkret_wire::canonical::sha256_digest(preimage))?;
         if expected != self.traversal_intent_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history traversal intent digest mismatch".to_owned(),
             ));
         }
@@ -842,7 +845,7 @@ impl HistoryGovernanceTraversalRetention {
             ..
         } = &self.traversal_intent
         else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "organization recovery archive requires archive-lifetime traversal intent"
                     .to_owned(),
             ));
@@ -862,7 +865,7 @@ impl HistoryGovernanceTraversalRetention {
                 != archive.accepted_key_evidence_ref
             || archive_authorization_tuple.holder_trusted_basis != archive.holder_trusted_basis
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "archive traversal retention does not bind the exact archive tuple".to_owned(),
             ));
         }
@@ -925,7 +928,7 @@ impl HistoryKeyRequestSigningInput {
         if self.recipient_hpke_public_key.len() != 43
             || !is_base64url(&self.recipient_hpke_public_key)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history request recipient HPKE public key is invalid".to_owned(),
             ));
         }
@@ -965,13 +968,13 @@ impl HistoryKeyRequest {
         if self.recipient_hpke_public_key.len() != 43
             || !is_base64url(&self.recipient_hpke_public_key)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history request recipient HPKE public key is invalid".to_owned(),
             ));
         }
         self.validate_proof_binding()?;
         if arkret_wire::canonical::canonical_json_bytes(self)?.len() > 65_536 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history key request exceeds 65536 canonical bytes".to_owned(),
             ));
         }
@@ -1019,7 +1022,7 @@ impl HistoryKeyRequestReceipt {
         self.trusted_history_base_basis.validate_protocol_bounds()?;
         self.trusted_current_basis.validate_protocol_bounds()?;
         if self.accepted_at > self.expires_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history request receipt is already expired".to_owned(),
             ));
         }
@@ -1044,7 +1047,7 @@ impl SealedHistoryResponseCapability {
             || !is_base64url(&self.enc)
             || !is_base64url(&self.ciphertext)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "sealed history response capability is not canonical base64url".to_owned(),
             ));
         }
@@ -1083,7 +1086,7 @@ impl HistoryKeyRequestCreateOutcome {
             || self.request.trusted_current_basis != self.request_receipt.trusted_current_basis
             || self.request.expires_at != self.request_receipt.expires_at
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history key request receipt does not bind the accepted request".to_owned(),
             ));
         }
@@ -1111,7 +1114,7 @@ impl HistoryKeyRequestRecord {
                 != self.request_receipt.trusted_history_base_basis
             || self.request.trusted_current_basis != self.request_receipt.trusted_current_basis
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history request record receipt binding mismatch".to_owned(),
             ));
         }
@@ -1155,7 +1158,7 @@ impl HistoryKeyRequestListQuery {
     pub fn validate(&self) -> Result<()> {
         validate_non_empty_optional(&self.cursor, "cursor")?;
         if self.limit.is_some_and(|limit| limit == 0 || limit > 100) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history request list limit must be 1..=100".to_owned(),
             ));
         }
@@ -1209,7 +1212,7 @@ impl HistoryKeyRequestReplica {
         }
         .validate()?;
         if self.expires_at != self.request.expires_at || self.replicated_at > self.expires_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history request replica expiry mismatch".to_owned(),
             ));
         }
@@ -1219,7 +1222,7 @@ impl HistoryKeyRequestReplica {
         } = &self.destination_authorization
             && holder_service_id != &self.destination_service_id
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history request replica destination holder service mismatch".to_owned(),
             ));
         }
@@ -1276,7 +1279,7 @@ impl RrkHolderAuthorityObservation {
             "archive_authorization_tuple_digest",
         )?;
         if self.observed_at > self.expires_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "RRK holder authority observation has an invalid validity window".to_owned(),
             ));
         }
@@ -1290,7 +1293,7 @@ impl RrkHolderAuthorityObservation {
             || self.archive_authorization_tuple_digest
                 != tuple.archive_authorization_tuple_digest()?
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "RRK holder authority observation does not match its archive tuple".to_owned(),
             ));
         }
@@ -1381,13 +1384,13 @@ impl SourceRelayAttestation {
                 authority_observation.validate()?;
             }
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "history source relay authority branch mismatch".to_owned(),
                 ));
             }
         }
         if self.relayed_at > self.expires_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history source relay is already expired".to_owned(),
             ));
         }
@@ -1430,7 +1433,7 @@ pub struct HistoryResponseManifest {
 impl HistoryResponseManifest {
     pub fn validate(&self) -> Result<()> {
         if self.chunks.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history response manifest requires at least one chunk".to_owned(),
             ));
         }
@@ -1439,7 +1442,7 @@ impl HistoryResponseManifest {
         }
         for pair in self.chunks.windows(2) {
             if pair[0].chunk_index >= pair[1].chunk_index {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "history response chunks must be sorted and unique by chunk_index".to_owned(),
                 ));
             }
@@ -1476,7 +1479,7 @@ impl SealedHistoryChunk {
             || !is_base64url(&self.enc)
             || !is_base64url(&self.ciphertext)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "sealed history chunk is invalid".to_owned(),
             ));
         }
@@ -1536,7 +1539,7 @@ impl MinimalMetadataMlsLeafSignerEvidence {
 
     pub fn validate(&self) -> Result<()> {
         if self.mls_group_id != self.effective_scope.canonical_mls_group_id()? {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "minimal-metadata signer evidence MLS group does not match its scope".to_owned(),
             ));
         }
@@ -1545,12 +1548,14 @@ impl MinimalMetadataMlsLeafSignerEvidence {
             .as_str()
             .split_once('#')
             .map(|(full_id, _)| full_id)
-            .ok_or_else(|| Error::Protocol("history source method lacks fragment".to_owned()))?;
+            .ok_or_else(|| {
+                WireError::Protocol("history source method lacks fragment".to_owned())
+            })?;
         let method_full_id = arkret_wire::DidFullId::new(method_full_id.to_owned())?;
         if self.pairwise_actor_id != self.source_actor_id
             || arkret_wire::project_full_id_to_core_id(&method_full_id)? != self.source_actor_id
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "minimal-metadata signer evidence actor or method mismatch".to_owned(),
             ));
         }
@@ -1578,7 +1583,7 @@ impl MinimalMetadataMlsLeafSignerEvidence {
                 .as_ref()
                 .starts_with("sha256:")
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "minimal-metadata signer evidence has invalid LeafNode or transition digests"
                     .to_owned(),
             ));
@@ -1598,12 +1603,12 @@ impl MinimalMetadataMlsLeafSignerEvidence {
                 .trim()
                 .is_empty()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "minimal-metadata IdentityLink signer-evidence binding is invalid".to_owned(),
             ));
         }
         if arkret_canonical::canonical_json_bytes(self)?.len() > 1024 * 1024 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "minimal-metadata signer evidence exceeds 1 MiB".to_owned(),
             ));
         }
@@ -1621,7 +1626,7 @@ impl MinimalMetadataMlsLeafSignerEvidence {
             serde_json::from_slice(&identity_link_bytes)?;
         identity_link.validate_minimal()?;
         if arkret_canonical::canonical_json_bytes(&identity_link)? != identity_link_bytes {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "minimal-metadata signer IdentityLink bytes are not canonical".to_owned(),
             ));
         }
@@ -1641,7 +1646,7 @@ impl MinimalMetadataMlsLeafSignerEvidence {
             || identity_link.response_signing_public_key_digest
                 != self.response_signing_public_key_digest
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "minimal-metadata signer evidence differs from its signed IdentityLink".to_owned(),
             ));
         }
@@ -1700,7 +1705,7 @@ impl HistoryKeyResponseSigningInput {
     pub fn validate(&self) -> Result<()> {
         validate_sender_domain(&self.source_sender_domain)?;
         if self.source_signer_evidence_ref.content_digest()? != self.source_signer_evidence_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history source signer evidence ref and digest do not match".to_owned(),
             ));
         }
@@ -1793,7 +1798,7 @@ impl HistoryKeySourceRelay {
             || self.response.request_receipt_digest != attestation.request_receipt_digest
             || self.response.expires_at != attestation.expires_at
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history source relay response binding mismatch".to_owned(),
             ));
         }
@@ -1822,7 +1827,7 @@ impl HistoryKeyResponseSendReceipt {
         self.validate_proof_binding()?;
         let mut value = serde_json::to_value(self)?;
         let serde_json::Value::Object(map) = &mut value else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history response send receipt must be an object".to_owned(),
             ));
         };
@@ -1833,7 +1838,7 @@ impl HistoryKeyResponseSendReceipt {
         preimage.extend(arkret_wire::canonical::canonical_json_bytes(&value)?);
         let expected = Hash::new(arkret_wire::canonical::sha256_digest(preimage))?;
         if expected != self.receipt_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history response send receipt digest mismatch".to_owned(),
             ));
         }
@@ -1874,7 +1879,7 @@ impl HistoryManifestAdmission {
         validate_canonical_ranges(&self.authorized_ranges, 1_024)?;
         let mut value = serde_json::to_value(self)?;
         let serde_json::Value::Object(map) = &mut value else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history manifest admission must be an object".to_owned(),
             ));
         };
@@ -1884,7 +1889,7 @@ impl HistoryManifestAdmission {
         preimage.extend(arkret_wire::canonical::canonical_json_bytes(&value)?);
         let expected = Hash::new(arkret_wire::canonical::sha256_digest(preimage))?;
         if expected != self.manifest_admission_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history manifest admission digest mismatch".to_owned(),
             ));
         }
@@ -1894,7 +1899,7 @@ impl HistoryManifestAdmission {
     pub fn canonical_digest_without_field(&self) -> Result<Hash> {
         let mut value = serde_json::to_value(self)?;
         let serde_json::Value::Object(map) = &mut value else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history manifest admission must be an object".to_owned(),
             ));
         };
@@ -1911,10 +1916,10 @@ impl HistoryManifestAdmission {
 
 pub fn history_manifest_t0_registry_digest(registry: &serde_json::Value) -> Result<Hash> {
     let manifest = registry.get("manifest_t0_registry").ok_or_else(|| {
-        Error::Protocol("history release registry lacks manifest_t0_registry".to_owned())
+        WireError::Protocol("history release registry lacks manifest_t0_registry".to_owned())
     })?;
     if !manifest.is_object() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "history release manifest_t0_registry must be an object".to_owned(),
         ));
     }
@@ -1923,12 +1928,12 @@ pub fn history_manifest_t0_registry_digest(registry: &serde_json::Value) -> Resu
 
 pub fn history_release_predicate_registry_digest(registry: &serde_json::Value) -> Result<Hash> {
     let serde_json::Value::Object(mut object) = registry.clone() else {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "history release predicate registry must be an object".to_owned(),
         ));
     };
     if object.remove("wire_registry_binding").is_none() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "history release predicate registry lacks wire_registry_binding".to_owned(),
         ));
     }
@@ -2064,7 +2069,7 @@ impl PcrDeviceViewLocator {
     pub fn validate(&self) -> Result<()> {
         self.pcr_seal_basis.validate_protocol_bounds()?;
         if self.device_generation_ref == 0 || self.observed_at > self.expires_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "PCR device view locator has an invalid generation or validity window".to_owned(),
             ));
         }
@@ -2096,7 +2101,7 @@ impl AgentEvidenceViewLocator {
             "agent_signer_evidence_digest",
         )?;
         if self.observed_at > self.expires_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Agent evidence view locator has an invalid validity window".to_owned(),
             ));
         }
@@ -2111,7 +2116,7 @@ impl AgentEvidenceViewLocator {
             ..
         } = evidence
         else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Agent evidence view locator requires current signer evidence".to_owned(),
             ));
         };
@@ -2131,7 +2136,7 @@ impl AgentEvidenceViewLocator {
             || self.expires_at != current_observation.expires_at
             || self.agent_signer_evidence_digest != agent_signer_evidence_digest(evidence)?
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Agent evidence view locator does not match current signer evidence".to_owned(),
             ));
         }
@@ -2141,7 +2146,7 @@ impl AgentEvidenceViewLocator {
 
 pub fn agent_signer_evidence_digest(evidence: &AgentSignerEvidence) -> Result<Hash> {
     if !matches!(evidence, AgentSignerEvidence::CurrentAdmission { .. }) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "Agent evidence view digest requires current signer evidence".to_owned(),
         ));
     }
@@ -2219,7 +2224,7 @@ pub fn organization_recovery_archive_coverage(
 ) -> Result<ArchiveCoverageViewLocator> {
     covered_range.validate()?;
     if members.is_empty() || members.len() > 65_536 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "organization recovery archive set must contain 1..=65536 members".to_owned(),
         ));
     }
@@ -2228,10 +2233,10 @@ pub fn organization_recovery_archive_coverage(
         .checked_sub(covered_range.from_epoch)
         .and_then(|width| width.checked_add(1))
         .ok_or_else(|| {
-            Error::Protocol("organization recovery archive coverage range overflow".to_owned())
+            WireError::Protocol("organization recovery archive coverage range overflow".to_owned())
         })?;
     if expected_count != members.len() as u64 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "organization recovery archive set does not continuously cover the requested range"
                 .to_owned(),
         ));
@@ -2242,7 +2247,7 @@ pub fn organization_recovery_archive_coverage(
         .iter()
         .any(|member| member.archive_authorization_tuple_digest != tuple_digest)
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "organization recovery archive set mixes authorization tuples".to_owned(),
         ));
     }
@@ -2271,15 +2276,17 @@ pub fn organization_recovery_archive_coverage(
             .from_epoch
             .checked_add(offset as u64)
             .ok_or_else(|| {
-                Error::Protocol("organization recovery archive coverage epoch overflow".to_owned())
+                WireError::Protocol(
+                    "organization recovery archive coverage epoch overflow".to_owned(),
+                )
             })?;
         if row.epoch != expected_epoch {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "organization recovery archive set has a gap or duplicate epoch".to_owned(),
             ));
         }
         if offset > 0 && rows[offset - 1] == *row {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "organization recovery archive set contains a duplicate row".to_owned(),
             ));
         }
@@ -2380,7 +2387,7 @@ impl HistoryReleaseAttestation {
         validate_sender_domain(&self.source_sender_domain)?;
         self.released_range.validate()?;
         if self.accepted_at > self.expires_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history release attestation is expired".to_owned(),
             ));
         }
@@ -2398,7 +2405,7 @@ impl HistoryReleaseAttestation {
                     || circle.current_gate_projection.membership_reconcile_required
             })
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history current gate projection is not active".to_owned(),
             ));
         }
@@ -2416,7 +2423,7 @@ impl HistoryReleaseAttestation {
                     && views.recipient_pcr_device.is_none()
                     && views.recipient_agent_control_evidence.is_none() => {}
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "history recipient authority view mismatch".to_owned(),
                 ));
             }
@@ -2433,7 +2440,7 @@ impl HistoryReleaseAttestation {
                     && views.archive_tuple.is_some()
                     && views.archive_coverage.is_some() => {}
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "history source authority view mismatch".to_owned(),
                 ));
             }
@@ -2441,7 +2448,7 @@ impl HistoryReleaseAttestation {
         match self.effective_scope {
             HistoryEffectiveScope::Realm { .. } if views.scope_circle.is_none() => Ok(()),
             HistoryEffectiveScope::Circle { .. } if views.scope_circle.is_some() => Ok(()),
-            _ => Err(Error::Protocol(
+            _ => Err(WireError::Protocol(
                 "history scope authority view mismatch".to_owned(),
             )),
         }
@@ -2473,7 +2480,7 @@ impl HistoryKeyResponseRecord {
         if self.release_service_signer_evidence_ref.content_digest()?
             != self.release_service_signer_evidence_digest
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history response record release-service signer evidence mismatch".to_owned(),
             ));
         }
@@ -2490,7 +2497,7 @@ impl HistoryKeyResponseRecord {
                 attestation.validate()?
             }
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "history response record branch mismatch".to_owned(),
                 ));
             }
@@ -2503,7 +2510,7 @@ impl HistoryKeyResponseRecord {
         map.remove("service_proof");
         let expected = framed_sha256("ak.history-response-record-v1", &value)?;
         if expected != self.record_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history response record digest mismatch".to_owned(),
             ));
         }
@@ -2532,7 +2539,7 @@ impl HistoryKeyResponseLostRecord {
         if self.release_service_signer_evidence_ref.content_digest()?
             != self.release_service_signer_evidence_digest
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history lost record release-service signer evidence mismatch".to_owned(),
             ));
         }
@@ -2584,7 +2591,7 @@ impl HistoryKeyResponseListOutcome {
         }
         for pair in self.ack_entries.windows(2) {
             if pair[0].sequence() >= pair[1].sequence() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "history response entries must be strictly sequence ascending".to_owned(),
                 ));
             }
@@ -2607,7 +2614,7 @@ impl HistoryKeyResponseListQuery {
     pub fn validate(&self) -> Result<()> {
         validate_non_empty_optional(&self.after, "after")?;
         if self.limit.is_some_and(|limit| !(1..=100).contains(&limit)) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history response list limit must be within 1..=100".to_owned(),
             ));
         }
@@ -2671,11 +2678,13 @@ impl HistoryKeyResponseAckRequest {
         validate_non_empty(&self.ack_token, "ack_token")?;
         validate_non_empty(&self.high_water_cursor, "high_water_cursor")?;
         if self.ack_entries.is_empty() {
-            return Err(Error::Protocol("history ack requires entries".to_owned()));
+            return Err(WireError::Protocol(
+                "history ack requires entries".to_owned(),
+            ));
         }
         for pair in self.ack_entries.windows(2) {
             if pair[0].sequence() >= pair[1].sequence() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "history ack entries must be strictly sequence ascending".to_owned(),
                 ));
             }
@@ -2724,7 +2733,7 @@ impl OrganizationRecoveryArchiveListQuery {
             (None, None) => {}
             (Some(from), Some(to)) if from <= to => {}
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "archive list epoch range is invalid".to_owned(),
                 ));
             }
@@ -2734,7 +2743,7 @@ impl OrganizationRecoveryArchiveListQuery {
             .byte_limit
             .is_some_and(|limit| !(65_536..=1_048_576).contains(&limit))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "archive list byte_limit is invalid".to_owned(),
             ));
         }
@@ -2750,7 +2759,7 @@ impl OrganizationRecoveryArchiveListQuery {
     pub fn archive_list_query_digest(&self) -> Result<Hash> {
         let mut value = serde_json::to_value(self)?;
         let serde_json::Value::Object(map) = &mut value else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "archive list query must be an object".to_owned(),
             ));
         };
@@ -2789,7 +2798,7 @@ impl OrganizationRecoveryArchiveListOutcome {
         }
         for pair in self.items.windows(2) {
             if pair[0].archive_sequence >= pair[1].archive_sequence {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "archive items are not sequence ascending".to_owned(),
                 ));
             }
@@ -2826,7 +2835,7 @@ impl OrganizationRecoveryArchiveReplica {
         self.history_traversal_retention
             .validate_for_archive(&self.archive, &self.container_event_ref)?;
         if self.holder_service_id != self.archive.holder_service_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "archive replica holder service mismatch".to_owned(),
             ));
         }
@@ -2898,7 +2907,7 @@ impl OrganizationRecoveryArchiveReplica {
             || self.service_proof.audience.is_some()
             || self.service_proof.proof_purpose.is_some()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "archive replica service proof binding mismatch".to_owned(),
             ));
         }
@@ -2997,7 +3006,7 @@ impl OrganizationRecoveryArchiveReplicaOutcome {
             || self.service_proof.audience.is_some()
             || self.service_proof.proof_purpose.is_some()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "archive replica receipt service proof binding mismatch".to_owned(),
             ));
         }
@@ -3033,23 +3042,23 @@ fn proof_payload_and_binding_bytes(
 ) -> Result<(Hash, Vec<u8>)> {
     proof.validate_production()?;
     if proof.domain.is_some() || proof.audience.is_some() || proof.proof_purpose.is_some() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "history proof contains fields outside its registered transcript".to_owned(),
         ));
     }
     let serde_json::Value::Object(mut payload) = serde_json::to_value(value)? else {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "history proof carrier must be a closed object".to_owned(),
         ));
     };
     if payload.remove(proof_field).is_none() {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "history proof carrier is missing {proof_field}"
         )));
     }
     let payload_digest = Hash::new(arkret_wire::canonical::canonical_sha256(&payload)?)?;
     if proof.payload_digest != payload_digest {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "history proof payload digest mismatch".to_owned(),
         ));
     }
@@ -3102,12 +3111,12 @@ where
     };
     let draft = build(placeholder);
     let serde_json::Value::Object(mut payload) = serde_json::to_value(&draft)? else {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "history proof carrier must be a closed object".to_owned(),
         ));
     };
     if payload.remove(proof_field).is_none() {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "history proof carrier is missing {proof_field}"
         )));
     }
@@ -3138,12 +3147,12 @@ fn full_object_digest(value: &impl Serialize, domain: &str) -> Result<Hash> {
 
 fn object_digest_without_field(value: &impl Serialize, field: &str, domain: &str) -> Result<Hash> {
     let serde_json::Value::Object(mut object) = serde_json::to_value(value)? else {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "history digest carrier must be a closed object".to_owned(),
         ));
     };
     if object.remove(field).is_none() {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "history digest carrier is missing {field}"
         )));
     }
@@ -3267,7 +3276,7 @@ pub fn response_capability_commitment(capability_b64u: &str) -> Result<Hash> {
     let decoded = arkret_wire::base64url::base64url_decode(capability_b64u)?;
     if decoded.len() != 32 || arkret_wire::base64url::base64url_encode(&decoded) != capability_b64u
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "history response capability must be canonical base64url for 32 bytes".to_owned(),
         ));
     }
@@ -3305,7 +3314,7 @@ impl HistoryKeyResponseSendRequest {
                 },
                 "ak.history-response-manifest-v1",
             ),
-            HistoryKeyResponseContent::Chunk(_) => Err(Error::Protocol(
+            HistoryKeyResponseContent::Chunk(_) => Err(WireError::Protocol(
                 "a history response chunk has no manifest digest of its own".to_owned(),
             )),
         }
@@ -3422,13 +3431,13 @@ impl HistoryResponseAckTokenClaims {
     pub fn validate(&self) -> Result<()> {
         validate_non_empty(&self.high_water_cursor, "high_water_cursor")?;
         if self.ordered_ack_entries.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history ack token must bind at least one entry".to_owned(),
             ));
         }
         for pair in self.ordered_ack_entries.windows(2) {
             if pair[0].sequence >= pair[1].sequence {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "history ack token entries must be strictly sequence ascending".to_owned(),
                 ));
             }
@@ -3466,7 +3475,7 @@ impl HistoryResponsePageEntry {
 
 fn validate_sender_domain(value: &str) -> Result<()> {
     if !(1..=512).contains(&value.chars().count()) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "history sender domain must contain 1..=512 characters".to_owned(),
         ));
     }
@@ -3475,7 +3484,7 @@ fn validate_sender_domain(value: &str) -> Result<()> {
 
 fn validate_non_empty(value: &str, field: &str) -> Result<()> {
     if value.is_empty() {
-        return Err(Error::Protocol(format!("{field} must not be empty")));
+        return Err(WireError::Protocol(format!("{field} must not be empty")));
     }
     Ok(())
 }
@@ -3491,7 +3500,7 @@ fn validate_pagination(limited: bool, cursor: Option<&str>) -> Result<()> {
     match (limited, cursor) {
         (true, Some(cursor)) => validate_non_empty(cursor, "cursor"),
         (false, None) => Ok(()),
-        _ => Err(Error::Protocol(
+        _ => Err(WireError::Protocol(
             "cursor must be present exactly when limited is true".to_owned(),
         )),
     }
@@ -3499,7 +3508,7 @@ fn validate_pagination(limited: bool, cursor: Option<&str>) -> Result<()> {
 
 fn validate_bounded_chars(value: &str, min: usize, max: usize, field: &str) -> Result<()> {
     if !(min..=max).contains(&value.chars().count()) {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "{field} must contain {min}..={max} characters"
         )));
     }
@@ -3508,7 +3517,7 @@ fn validate_bounded_chars(value: &str, min: usize, max: usize, field: &str) -> R
 
 fn validate_base64url_bounded(value: &str, min: usize, max: usize, field: &str) -> Result<()> {
     if !(min..=max).contains(&value.len()) || !is_base64url(value) {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "{field} is not canonical base64url"
         )));
     }
@@ -3530,7 +3539,7 @@ fn is_base64url(value: &str) -> bool {
 
 fn require_sha256(value: &Hash, field: &str) -> Result<()> {
     if !value.as_ref().starts_with("sha256:") {
-        return Err(Error::Protocol(format!("{field} must use sha256")));
+        return Err(WireError::Protocol(format!("{field} must use sha256")));
     }
     Ok(())
 }

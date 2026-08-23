@@ -10,9 +10,9 @@ use std::collections::BTreeMap;
 use arkret_models_identity::agent_signer_evidence::AgentEventAdmissionReceipt;
 use arkret_wire::{
     Base64UrlString, BlobRef, ConsentId, ControlProposalAck, Cursor, DeviceId, DidCoreId, DidKey,
-    Error, Event, EventId, EventInitialSubmission, Hash, IngressReceipt, MimiRoomUri, MlsGroupId,
-    MorphId, NonEmptyString, PayloadProof, ProofContextId, RealmId, ReasonCode, RelationId,
-    ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId, StrandId,
+    Event, EventId, EventInitialSubmission, Hash, IngressReceipt, MimiRoomUri, MlsGroupId, MorphId,
+    NonEmptyString, PayloadProof, ProofContextId, RealmId, ReasonCode, RelationId, ReportId,
+    Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId, StrandId, WireError,
     canonical,
 };
 use chrono::{DateTime, Utc};
@@ -59,7 +59,7 @@ impl DevicePairingRequestId {
             .expect("device pairing request id regex")
         });
         if !PATTERN.is_match(&value) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device pairing request id must contain a canonical UUIDv7".to_owned(),
             ));
         }
@@ -72,7 +72,7 @@ impl DevicePairingRequestId {
 }
 
 impl TryFrom<String> for DevicePairingRequestId {
-    type Error = Error;
+    type Error = WireError;
 
     fn try_from(value: String) -> Result<Self> {
         Self::new(value)
@@ -103,7 +103,7 @@ impl DevicePairingCode {
                 .bytes()
                 .all(|byte| b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789".contains(&byte))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device pairing code must be 8 Crockford-style characters".to_owned(),
             ));
         }
@@ -116,7 +116,7 @@ impl DevicePairingCode {
 }
 
 impl TryFrom<String> for DevicePairingCode {
-    type Error = Error;
+    type Error = WireError;
 
     fn try_from(value: String) -> Result<Self> {
         Self::new(value)
@@ -209,7 +209,7 @@ impl EventDeliveryTargetStatus {
                 .iter()
                 .all(|byte| byte.is_ascii_alphanumeric() || matches!(*byte, b'_' | b'-'))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "event delivery target_id must be an opaque 16..128 byte base64url-style token"
                     .to_owned(),
             ));
@@ -238,7 +238,7 @@ pub struct EventDeliveryStatusOutcome {
 impl EventDeliveryStatusOutcome {
     pub fn validate_for_request(&self, request: &EventDeliveryStatusRequestBody) -> Result<()> {
         if self.event_id != request.event_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "event delivery status response event_id does not match the request".to_owned(),
             ));
         }
@@ -247,7 +247,7 @@ impl EventDeliveryStatusOutcome {
 
     pub fn validate(&self) -> Result<()> {
         if self.targets.len() > 1000 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "event delivery status exceeds the 1000-target bound".to_owned(),
             ));
         }
@@ -256,7 +256,7 @@ impl EventDeliveryStatusOutcome {
         for target in &self.targets {
             target.validate()?;
             if previous.is_some_and(|previous| previous >= target.target_id.as_str()) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "event delivery targets must be strictly sorted by unique target_id".to_owned(),
                 ));
             }
@@ -264,7 +264,7 @@ impl EventDeliveryStatusOutcome {
             pending += u32::from(target.status.is_pending());
         }
         if pending != self.pending_delivery_count {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "pending_delivery_count does not equal the pending target count".to_owned(),
             ));
         }
@@ -274,7 +274,7 @@ impl EventDeliveryStatusOutcome {
             EventDeliveryState::Pending
         };
         if self.delivery_state != expected {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "event delivery_state does not match pending_delivery_count".to_owned(),
             ));
         }
@@ -356,7 +356,7 @@ impl EventsDependencyMissingProblem {
             && self.missing_event_digests.is_empty()
             && self.missing_seal_refs.is_empty()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "EventsDependencyMissingProblem requires dependency_missing and a non-empty typed missing set"
                     .to_owned(),
             ));
@@ -426,7 +426,7 @@ impl EventsSubmitOutcome {
             EventDeliveryState::Pending
         };
         if self.delivery_state != expected {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Event submit delivery_state does not match pending_delivery_count".to_owned(),
             ));
         }
@@ -435,18 +435,18 @@ impl EventsSubmitOutcome {
                 || self.delivery_state != EventDeliveryState::Complete
                 || self.pending_delivery_count != 0
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "historical_only submit outcomes require accepted=[] and delivery complete/0"
                         .to_owned(),
                 ));
             }
             let original = self.original_outcome.as_ref().ok_or_else(|| {
-                Error::Protocol(
+                WireError::Protocol(
                     "historical_only submit outcome requires original_outcome".to_owned(),
                 )
             })?;
             if original.status == EventsSubmitStatus::HistoricalOnly {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "historical_only original_outcome cannot be historical_only".to_owned(),
                 ));
             }
@@ -460,7 +460,7 @@ impl EventsSubmitOutcome {
         let mut receipt_keys = std::collections::BTreeSet::new();
         for receipt in &self.agent_event_admission_receipts {
             if !accepted_or_duplicate.contains(&receipt.event_id) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "Agent Event admission receipt does not match an accepted or duplicate Event"
                         .to_owned(),
                 ));
@@ -471,7 +471,7 @@ impl EventsSubmitOutcome {
                 &receipt.receiver_service_id,
             );
             if !receipt_keys.insert(key) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "Agent Event admission receipts contain a duplicate selector".to_owned(),
                 ));
             }
@@ -540,14 +540,14 @@ pub struct EventsResolveRequestBody {
 impl EventsResolveRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.event_ids.is_empty() && self.event_digests.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "events resolve requires at least one selector".to_owned(),
             ));
         }
         if self.event_ids.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
             || self.event_digests.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "events resolve selector limit exceeded".to_owned(),
             ));
         }
@@ -555,14 +555,14 @@ impl EventsResolveRequestBody {
             .max_response_bytes
             .is_some_and(|bytes| !(1024..=MAX_PEER_RESOLVE_RESPONSE_BYTES).contains(&bytes))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "events resolve max_response_bytes is outside 1024..=8388608".to_owned(),
             ));
         }
         if !unique_strings(self.event_ids.iter().map(EventId::as_str))
             || !unique_strings(self.event_digests.iter().map(Hash::as_str))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "events resolve selectors must be duplicate-free".to_owned(),
             ));
         }
@@ -650,7 +650,7 @@ impl SealResolveOutcome {
                     .any(|missing| missing == &seal.id)
             })
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Seal resolve outcome must be sorted and duplicate-free".to_owned(),
             ));
         }
@@ -682,7 +682,7 @@ impl SealResolveOutcome {
                 .collect::<std::collections::BTreeSet<_>>()
                 != requested
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "peer Seal resolve outcome does not account for every-and-only selector".to_owned(),
             ));
         }
@@ -695,7 +695,7 @@ fn validate_seal_resolve_selectors(seal_refs: &[SealId]) -> Result<()> {
         || seal_refs.len() > MAX_SEAL_RESOLVE_SELECTORS
         || !unique_strings(seal_refs.iter().map(SealId::as_str))
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "Seal resolve requires 1..=256 duplicate-free seal_refs".to_owned(),
         ));
     }
@@ -730,14 +730,14 @@ pub struct PeerEventsResolveRequestBody {
 impl PeerEventsResolveRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.event_ids.is_empty() && self.event_digests.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "peer dependency resolve requires at least one selector".to_owned(),
             ));
         }
         if self.event_ids.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
             || self.event_digests.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "peer dependency resolve selector limit exceeded".to_owned(),
             ));
         }
@@ -745,7 +745,7 @@ impl PeerEventsResolveRequestBody {
             .max_response_bytes
             .is_some_and(|bytes| !(1024..=MAX_PEER_RESOLVE_RESPONSE_BYTES).contains(&bytes))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "peer dependency resolve max_response_bytes is outside 1024..=8388608".to_owned(),
             ));
         }
@@ -769,7 +769,7 @@ impl PeerEventsResolveOutcome {
             || self.missing_event_ids.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
             || self.missing_event_digests.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "peer dependency resolve outcome limit exceeded".to_owned(),
             ));
         }
@@ -779,7 +779,7 @@ impl PeerEventsResolveOutcome {
             .iter()
             .any(|event| !event_ids.insert(event.event_id.clone()))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "peer dependency resolve events must be duplicate-free".to_owned(),
             ));
         }
@@ -806,7 +806,7 @@ impl PeerEventsResolveOutcome {
                 .collect::<Vec<_>>();
             let selected_by_digest = !matching_digests.is_empty();
             if !selected_by_id && !selected_by_digest {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "peer Event resolve returned an unrequested Event".to_owned(),
                 ));
             }
@@ -825,14 +825,14 @@ impl PeerEventsResolveOutcome {
             .collect::<std::collections::BTreeSet<_>>();
         for event_id in &request.event_ids {
             if returned_ids.contains(event_id) == missing_ids.contains(event_id) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "peer Event resolve does not account for every Event id selector".to_owned(),
                 ));
             }
         }
         for digest in &request.event_digests {
             if returned_digests.contains(digest) == missing_digests.contains(digest) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "peer Event resolve does not account for every Event digest selector"
                         .to_owned(),
                 ));
@@ -845,7 +845,7 @@ impl PeerEventsResolveOutcome {
                 .iter()
                 .any(|digest| !request.event_digests.contains(digest))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "peer Event resolve reports an unrequested missing selector".to_owned(),
             ));
         }
@@ -853,7 +853,7 @@ impl PeerEventsResolveOutcome {
             .max_response_bytes
             .unwrap_or(MAX_PEER_RESOLVE_RESPONSE_BYTES) as usize;
         if canonical::canonical_json_bytes(self)?.len() > byte_limit {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "peer Event resolve outcome exceeds the requested byte limit".to_owned(),
             ));
         }
@@ -880,7 +880,7 @@ fn validate_typed_missing_order(
         || !sorted_unique(event_digests.iter().map(ToString::to_string))
         || !sorted_unique(seal_refs.iter().map(ToString::to_string))
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "typed missing/selectors must be strictly canonical-bytewise sorted and unique"
                 .to_owned(),
         ));
@@ -1441,13 +1441,13 @@ impl MimiUpdateConsentRequestBody {
         };
         let event = &self.consent_event.event;
         if event.kind.as_str() != expected_kind || event.actor_id != self.actor_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "MIMI consent decision, event kind, and actor binding mismatch".to_owned(),
             ));
         }
         let payload_consent_id = event.payload.get("consent_id").and_then(Value::as_str);
         if payload_consent_id != Some(self.consent_id.as_str()) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "MIMI consent event payload.consent_id mismatch".to_owned(),
             ));
         }
@@ -1501,7 +1501,7 @@ fn mimi_unsigned_body_without_signature<T: Serialize>(body: &T) -> Result<Value>
 
 fn mimi_body_object_mut(value: &mut Value) -> Result<&mut serde_json::Map<String, Value>> {
     value.as_object_mut().ok_or_else(|| {
-        Error::Protocol("MIMI operation body must serialize as an object".to_owned())
+        WireError::Protocol("MIMI operation body must serialize as an object".to_owned())
     })
 }
 
@@ -1527,12 +1527,12 @@ fn mimi_proof_binding_bytes(
 ) -> Result<Vec<u8>> {
     proof.validate_production()?;
     if proof.proof_purpose.is_some() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "MIMI operation proof must not carry proof_purpose".to_owned(),
         ));
     }
     if &proof.payload_digest != payload_digest {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "MIMI operation proof payload_digest mismatch".to_owned(),
         ));
     }
@@ -1540,11 +1540,11 @@ fn mimi_proof_binding_bytes(
         .domain
         .as_ref()
         .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| Error::Protocol("MIMI operation proof requires domain".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("MIMI operation proof requires domain".to_owned()))?;
     let audience = proof
         .audience
         .as_ref()
-        .ok_or_else(|| Error::Protocol("MIMI operation proof requires audience".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("MIMI operation proof requires audience".to_owned()))?;
     let mut binding = serde_json::Map::new();
     binding.insert("context".to_owned(), Value::String(context.to_owned()));
     binding.insert(
@@ -2039,7 +2039,7 @@ struct ContactListRowWire {
 }
 
 impl TryFrom<ContactListRowWire> for ContactListRow {
-    type Error = Error;
+    type Error = WireError;
 
     fn try_from(wire: ContactListRowWire) -> Result<Self> {
         let row = Self {
@@ -2067,7 +2067,7 @@ impl TryFrom<ContactListRowWire> for ContactListRow {
 impl ContactListRow {
     pub fn validate_shape(&self) -> Result<()> {
         if (self.state == ContactState::PendingIncoming) != self.request_receipt.is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "request_receipt must be present exactly for pending_incoming Contact rows"
                     .to_owned(),
             ));
@@ -2075,13 +2075,13 @@ impl ContactListRow {
         if let Some(receipt) = &self.request_receipt {
             receipt.validate_shape()?;
             if self.request_event_ref.as_ref() != Some(&receipt.core.request_event_ref) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "Contact row request_event_ref does not match request_receipt".to_owned(),
                 ));
             }
         }
         if (self.state == ContactState::Accepted) != self.next_prepare_input.is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "next_prepare_input must be present exactly for accepted Contact rows".to_owned(),
             ));
         }
@@ -2093,7 +2093,7 @@ impl ContactListRow {
             .as_ref()
             .is_some_and(|scopes| scopes != &self.bidirectional_scopes)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "effective_scopes must equal bidirectional_scopes when present".to_owned(),
             ));
         }
@@ -2181,7 +2181,7 @@ impl HiddenEventField {
                     })
             });
         if !valid {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "hidden event field must be payload, payload.<field path>, proofs, or unsigned"
                     .to_owned(),
             ));
@@ -2195,7 +2195,7 @@ impl HiddenEventField {
 }
 
 impl TryFrom<String> for HiddenEventField {
-    type Error = Error;
+    type Error = WireError;
 
     fn try_from(value: String) -> Result<Self> {
         Self::new(value)
@@ -2217,7 +2217,7 @@ impl HiddenEventFields {
     pub fn new(fields: Vec<HiddenEventField>) -> Result<Self> {
         let unique = fields.iter().collect::<std::collections::BTreeSet<_>>();
         if unique.len() != fields.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "hidden_fields must not contain duplicates".to_owned(),
             ));
         }
@@ -2234,7 +2234,7 @@ impl HiddenEventFields {
 }
 
 impl TryFrom<Vec<HiddenEventField>> for HiddenEventFields {
-    type Error = Error;
+    type Error = WireError;
 
     fn try_from(fields: Vec<HiddenEventField>) -> Result<Self> {
         Self::new(fields)
@@ -2375,12 +2375,12 @@ impl DevicePairingNonce {
     pub fn new(value: impl Into<String>) -> Result<Self> {
         let value = value.into();
         if !(22..=86).contains(&value.len()) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device pairing nonce must contain 22..=86 base64url characters".to_owned(),
             ));
         }
         Ok(Self(
-            Base64UrlString::new(value).map_err(|error| Error::Protocol(error.to_owned()))?,
+            Base64UrlString::new(value).map_err(|error| WireError::Protocol(error.to_owned()))?,
         ))
     }
 
@@ -2390,7 +2390,7 @@ impl DevicePairingNonce {
 }
 
 impl TryFrom<String> for DevicePairingNonce {
-    type Error = Error;
+    type Error = WireError;
 
     fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
         Self::new(value)
@@ -2500,7 +2500,7 @@ impl UnsignedDevicePairingTargetAttestation {
                 .windows(2)
                 .any(|pair| pair[0].as_bytes() >= pair[1].as_bytes())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "pairing target algorithms must be non-empty, sorted and unique".to_owned(),
             ));
         }
@@ -2543,7 +2543,7 @@ impl UnsignedDevicePairingTargetAttestation {
 impl DevicePairingTargetAttestation {
     pub fn signing_input(&self) -> Result<Vec<u8>> {
         if self.authorization_binding_kind != DeviceAuthorizationBindingKind::AcceptedDevice {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "pairing target attestation must use accepted_device binding".to_owned(),
             ));
         }
@@ -2567,16 +2567,17 @@ impl DevicePairingTargetAttestation {
         request.validate_authorize_event_binding(digest_suite)?;
         let payload: DeviceAuthorizePayload =
             decode_payload_after_kind_validation(&request.authorize_event.event)?;
-        let public_key_bytes =
-            arkret_canonical::base64url_decode(request.new_device_pubkey.key.as_str())
-                .map_err(|error| Error::Protocol(format!("invalid pairing public key: {error}")))?;
+        let public_key_bytes = arkret_canonical::base64url_decode(
+            request.new_device_pubkey.key.as_str(),
+        )
+        .map_err(|error| WireError::Protocol(format!("invalid pairing public key: {error}")))?;
         let attested_key_bytes = arkret_canonical::decode_ed25519_multibase(
             self.device_public_key
                 .as_str()
                 .strip_prefix("did:key:")
                 .expect("DidKey enforces the did:key prefix"),
         )
-        .map_err(|error| Error::Protocol(format!("invalid attested did:key: {error}")))?;
+        .map_err(|error| WireError::Protocol(format!("invalid attested did:key: {error}")))?;
         if self.device_id.as_str() != request.new_device_pubkey.kid.as_str()
             || public_key_bytes.as_slice() != attested_key_bytes.as_slice()
             || self.pairing_challenge_transcript_digest != request.challenge_proof.transcript_digest
@@ -2593,7 +2594,7 @@ impl DevicePairingTargetAttestation {
             || payload.device_signature != self.device_signature
             || request.device_signature != self.device_signature
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "pairing target attestation does not match the exact pair request/Event".to_owned(),
             ));
         }
@@ -2666,7 +2667,7 @@ impl AccountDevicePairRequestBody {
     ) -> Result<()> {
         self.authorize_event.validate_structural(digest_suite)?;
         if arkret_wire::EventKind::DeviceAuthorize != self.authorize_event.event.kind {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device-pair authorize_event is not ak.device.authorize".to_owned(),
             ));
         }
@@ -2677,15 +2678,16 @@ impl AccountDevicePairRequestBody {
             .as_str()
             .strip_prefix("did:key:")
             .ok_or_else(|| {
-                Error::Protocol("device-pair authorize Event key is not did:key".to_owned())
+                WireError::Protocol("device-pair authorize Event key is not did:key".to_owned())
             })?;
         let payload_key =
             arkret_canonical::decode_ed25519_multibase(payload_key).map_err(|error| {
-                Error::Protocol(format!("invalid authorize Event did:key: {error}"))
+                WireError::Protocol(format!("invalid authorize Event did:key: {error}"))
             })?;
-        let request_key =
-            arkret_canonical::base64url_decode(self.new_device_pubkey.key.as_str())
-                .map_err(|error| Error::Protocol(format!("invalid request public key: {error}")))?;
+        let request_key = arkret_canonical::base64url_decode(self.new_device_pubkey.key.as_str())
+            .map_err(|error| {
+            WireError::Protocol(format!("invalid request public key: {error}"))
+        })?;
         if payload.device_id.as_str() != self.new_device_pubkey.kid.as_str()
             || request_key.as_slice() != payload_key.as_slice()
             || payload.hpke_key != self.hpke_key
@@ -2697,7 +2699,7 @@ impl AccountDevicePairRequestBody {
                 .map(NonEmptyString::as_str)
                 != Some("Ed25519")
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device-pair request fields do not match the exact authorize Event payload"
                     .to_owned(),
             ));

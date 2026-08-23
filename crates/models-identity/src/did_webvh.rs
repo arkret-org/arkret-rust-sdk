@@ -1,6 +1,6 @@
 //! Shared did:webvh method-native wire values.
 
-use arkret_wire::{Error, Result};
+use arkret_wire::{Result, WireError};
 use serde_json::{Value, json};
 
 /// The closed did:webvh v1.0 witness policy carried by
@@ -14,7 +14,7 @@ pub struct DidWebvhWitnessPolicy {
 impl DidWebvhWitnessPolicy {
     pub fn validate(&self) -> Result<()> {
         if self.threshold == 0 || self.threshold > self.witnesses.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "witness threshold must be within 1..=witnesses.length".to_owned(),
             ));
         }
@@ -22,19 +22,19 @@ impl DidWebvhWitnessPolicy {
         for witness in &self.witnesses {
             let key = witness
                 .strip_prefix("did:key:")
-                .ok_or_else(|| Error::Protocol("witness id must be a did:key".to_owned()))?;
+                .ok_or_else(|| WireError::Protocol("witness id must be a did:key".to_owned()))?;
             if key.is_empty() || key.contains('#') || key.contains(':') {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "witness id must be a canonical did:key without a fragment".to_owned(),
                 ));
             }
             arkret_canonical::decode_ed25519_multibase(key).map_err(|error| {
-                Error::Protocol(format!(
+                WireError::Protocol(format!(
                     "witness did:key is not a decodable Ed25519 key: {error}"
                 ))
             })?;
             if !unique.insert(witness) {
-                return Err(Error::Protocol("witness ids must be unique".to_owned()));
+                return Err(WireError::Protocol("witness ids must be unique".to_owned()));
             }
         }
         Ok(())

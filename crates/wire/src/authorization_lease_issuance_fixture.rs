@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{Error, Result, canonical};
+use crate::{Result, WireError, canonical};
 
 const SUITE: &str = "authorization_lease_issuance";
 const ENTRYPOINT: &str = "ak.suite.authz.authorization_lease_issuance.v1";
@@ -55,13 +55,13 @@ impl Issuer {
             if stored_request == &request_bytes {
                 return Ok(stored_outcome.clone());
             }
-            return Err(Error::Protocol("duplicate_conflict".to_owned()));
+            return Err(WireError::Protocol("duplicate_conflict".to_owned()));
         }
         if !request.basis_current || !request.authority_quorum_satisfied {
-            return Err(Error::Protocol("failed_precondition".to_owned()));
+            return Err(WireError::Protocol("failed_precondition".to_owned()));
         }
         if request.targets.is_empty() || request.targets.len() > 500 {
-            return Err(Error::Protocol("invalid_request".to_owned()));
+            return Err(WireError::Protocol("invalid_request".to_owned()));
         }
         if request.basis_kind == "anchor_unit"
             && request
@@ -71,7 +71,7 @@ impl Issuer {
                 .collect::<Vec<_>>()
                 != ORDINARY_REALM_ANCHOR
         {
-            return Err(Error::Protocol("failed_precondition".to_owned()));
+            return Err(WireError::Protocol("failed_precondition".to_owned()));
         }
         let outcome_bytes = canonical::canonical_json_bytes(&SimulatedOutcome {
             lease_order: &request.targets,
@@ -89,7 +89,7 @@ fn required_bool(case: &Value, pointer: &str) -> Result<bool> {
     case.pointer(pointer)
         .and_then(Value::as_bool)
         .ok_or_else(|| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "authorization lease fixture field {pointer} must be a boolean"
             ))
         })
@@ -99,7 +99,7 @@ fn required_str<'a>(case: &'a Value, pointer: &str) -> Result<&'a str> {
     case.pointer(pointer)
         .and_then(Value::as_str)
         .ok_or_else(|| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "authorization lease fixture field {pointer} must be text"
             ))
         })
@@ -108,13 +108,13 @@ fn required_str<'a>(case: &'a Value, pointer: &str) -> Result<&'a str> {
 fn string_array(case: &Value, pointer: &str) -> Result<Vec<String>> {
     case.pointer(pointer)
         .and_then(Value::as_array)
-        .ok_or_else(|| Error::Protocol(format!("{pointer} must be an array")))?
+        .ok_or_else(|| WireError::Protocol(format!("{pointer} must be an array")))?
         .iter()
         .map(|value| {
             value
                 .as_str()
                 .map(str::to_owned)
-                .ok_or_else(|| Error::Protocol(format!("{pointer} must contain text")))
+                .ok_or_else(|| WireError::Protocol(format!("{pointer} must contain text")))
         })
         .collect()
 }
@@ -123,7 +123,7 @@ fn issue_projection(case: &Value) -> Result<AuthorizationLeaseIssuanceProjection
     let count = case
         .get("request_event_count")
         .and_then(Value::as_u64)
-        .ok_or_else(|| Error::Protocol("request_event_count must be an integer".to_owned()))?
+        .ok_or_else(|| WireError::Protocol("request_event_count must be an integer".to_owned()))?
         as usize;
     let request = SimulatedRequest {
         targets: (0..count).map(|index| format!("event-{index}")).collect(),
@@ -141,7 +141,7 @@ fn issue_projection(case: &Value) -> Result<AuthorizationLeaseIssuanceProjection
         || !required_bool(case, "/expected/retry_bytes_identical")?
         || required_bool(case, "/expected/expiry_extended_by_retry")?
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "accepted issuance fixture contract changed".to_owned(),
         ));
     }
@@ -176,7 +176,7 @@ fn conflict_projection(case: &Value) -> Result<AuthorizationLeaseIssuanceProject
         || required_str(case, "/expected/reason")? != "duplicate_conflict"
         || !reason.contains("duplicate_conflict")
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "idempotency conflict fixture contract changed".to_owned(),
         ));
     }
@@ -212,7 +212,7 @@ fn anchor_projection(
         if required_str(case, "/expected/decision")? != "issue"
             || required_str(case, "/expected/basis_kind")? != "anchor_unit"
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "accepted anchor fixture contract changed".to_owned(),
             ));
         }
@@ -222,7 +222,7 @@ fn anchor_projection(
             || required_str(case, "/expected/reason")? != "failed_precondition"
             || !error.to_string().contains("failed_precondition")
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "reordered anchor fixture contract changed".to_owned(),
             ));
         }
@@ -254,7 +254,7 @@ fn stale_projection(case: &Value) -> Result<AuthorizationLeaseIssuanceProjection
     if required_str(case, "/expected/decision")? != decision
         || required_bool(case, "/expected/network_submit_attempted")? != network_submit_attempted
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "stale basis fixture contract changed".to_owned(),
         ));
     }
@@ -285,7 +285,7 @@ fn cache_projection(case: &Value) -> Result<AuthorizationLeaseIssuanceProjection
         || !required_bool(case, "/expected/all_partitioned_leases_removed")?
         || required_bool(case, "/expected/signed_event_rewritten")?
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "authorization lease cache fixture contract changed".to_owned(),
         ));
     }
@@ -337,20 +337,22 @@ pub fn run_authorization_lease_issuance_fixture(
             .and_then(Value::as_u64)
             != Some(2)
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "authorization lease issuance fixture metadata changed".to_owned(),
         ));
     }
     let cases = fixture
         .get("cases")
         .and_then(Value::as_array)
-        .ok_or_else(|| Error::Protocol("authorization lease cases must be an array".to_owned()))?;
+        .ok_or_else(|| {
+            WireError::Protocol("authorization lease cases must be an array".to_owned())
+        })?;
     let mut seen = BTreeSet::new();
     let mut projections = Vec::with_capacity(cases.len());
     for case in cases {
         let name = required_str(case, "/name")?;
         if !seen.insert(name) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "duplicate authorization lease fixture case {name}"
             )));
         }
@@ -362,14 +364,14 @@ pub fn run_authorization_lease_issuance_fixture(
             "stale_basis_and_quorum_failure_fail_closed" => stale_projection(case)?,
             "account_switch_and_authority_rotation_clear_cache" => cache_projection(case)?,
             _ => {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "unknown authorization lease fixture case {name}"
                 )));
             }
         });
     }
     if projections.len() != 6 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "authorization lease issuance fixture must contain six cases".to_owned(),
         ));
     }

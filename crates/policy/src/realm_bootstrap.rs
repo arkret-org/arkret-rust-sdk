@@ -19,8 +19,8 @@ use arkret_models_collaboration::governance::membership_invite::{
     MembershipPayload, MembershipPayloadState,
 };
 use arkret_wire::{
-    AuthorizationRef, CellRef, DidCoreId, Error, Event, EventId, EventKind, Hash, PredicateOp,
-    REALM_AUTHORITY_ROOT_CELL, Result, ScopeRef, event_spec,
+    AuthorizationRef, CellRef, DidCoreId, Event, EventId, EventKind, Hash, PredicateOp,
+    REALM_AUTHORITY_ROOT_CELL, Result, ScopeRef, WireError, event_spec,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -91,13 +91,13 @@ fn build_realm_authority_intent<K: EventSpec>(
     payload: K::Payload,
 ) -> Result<EventIntent> {
     TypedEventDraft::<K>::new(scope_ref, actor_id.clone(), actor_id, payload)
-        .map_err(|error| Error::Protocol(error.to_string()))?
+        .map_err(|error| WireError::Protocol(error.to_string()))?
         .with_authorization_ref(
             AuthorizationRef::new(REALM_AUTHORITY_ROOT_CELL)
                 .expect("realm authority-root constant must be a valid authorization reference"),
         )
         .into_intent(created_at)
-        .map_err(|error| Error::Protocol(error.to_string()))
+        .map_err(|error| WireError::Protocol(error.to_string()))
 }
 
 /// Build an unsigned `ak.realm.owner.transfer` Event with the mandatory root
@@ -115,7 +115,7 @@ pub fn build_realm_owner_transfer_intent(
             .as_str()
             .starts_with("sha256:")
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "schema_violation: invalid Realm owner transfer payload".to_owned(),
         ));
     }
@@ -125,7 +125,7 @@ pub fn build_realm_owner_transfer_intent(
         serde_json::Value::Object(value) => value.is_empty(),
         _ => true,
     } {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "schema_violation: successor_acceptance must be non-empty".to_owned(),
         ));
     }
@@ -149,7 +149,7 @@ pub fn build_realm_authority_reset_intent(
             .as_str()
             .starts_with("sha256:")
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "schema_violation: invalid Realm authority reset payload".to_owned(),
         ));
     }
@@ -172,7 +172,7 @@ pub fn build_realm_authority_basis_update_intent(
             .as_str()
             .starts_with("sha256:")
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "schema_violation: invalid Realm authority basis update payload".to_owned(),
         ));
     }
@@ -216,7 +216,7 @@ impl RealmAuthorityRootProof {
 /// from inventing their own binding.
 pub fn staged_root_authorization(create: &Event) -> Result<RealmAuthorityRootProof> {
     if create.kind != EventKind::RealmCreate {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "staged Realm authority-root proof must bind an ak.realm.create Event".to_owned(),
         ));
     }

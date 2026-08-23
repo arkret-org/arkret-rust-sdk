@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{Error, Hash, MorphId, Patch, Result};
+use arkret_wire::{Hash, MorphId, Patch, Result, WireError};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -40,7 +40,7 @@ impl MorphUpdatePayload {
     pub fn to_value(&self) -> Result<Value> {
         self.validate()?;
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("morph update payload serialize: {err}")))
+            .map_err(|err| WireError::Protocol(format!("morph update payload serialize: {err}")))
     }
 }
 
@@ -51,7 +51,7 @@ fn validate_morph_update_patch(patch: &Patch) -> Result<()> {
             path.as_str(),
             "morph_kind" | "schema_refs" | "stage" | "stage_changed_at"
         ) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "morph update patch targets create-locked or single-sourced field".to_owned(),
             ));
         }

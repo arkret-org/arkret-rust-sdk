@@ -88,7 +88,7 @@ impl PrincipalResolutionProjectionAttestation {
             "verification_method": self.proof.verification_method,
             "created_at": arkret_canonical::format_timestamp_canonical(self.proof.created_at),
         }))
-        .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))
     }
 }
 
@@ -125,17 +125,17 @@ impl PublicPrincipalResolution {
         if core.principal_id != self.principal_id
             || core.principal_server_id != self.principal_server_id
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "public principal resolution attestation pair mismatch".to_owned(),
             ));
         }
         if core.resolution_projection != self.resolution_projection {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "public principal resolution attestation projection mismatch".to_owned(),
             ));
         }
         if core.issued_at >= core.expires_at {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "public principal resolution attestation is not a positive validity window"
                     .to_owned(),
             ));
@@ -180,12 +180,12 @@ impl PrincipalResolutionAuditRequest {
     pub fn validate(&self) -> arkret_wire::Result<()> {
         let depth = self.history_depth.unwrap_or(0);
         if depth > PRINCIPAL_RESOLUTION_AUDIT_MAX_HISTORY_DEPTH {
-            return Err(arkret_wire::Error::Protocol(format!(
+            return Err(arkret_wire::WireError::Protocol(format!(
                 "principal resolution history_depth exceeds {PRINCIPAL_RESOLUTION_AUDIT_MAX_HISTORY_DEPTH}"
             )));
         }
         if self.after_resolution_event_ref.is_some() && depth == 0 {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "after_resolution_event_ref requires history_depth of at least 1".to_owned(),
             ));
         }
@@ -230,10 +230,10 @@ impl PrincipalResolutionAuditEvidence {
     /// cursor would silently read as a complete one.
     pub fn validate_history_continuation(&self) -> arkret_wire::Result<()> {
         match (self.history_complete, self.next_audit_cursor.is_some()) {
-            (false, false) => Err(arkret_wire::Error::Protocol(
+            (false, false) => Err(arkret_wire::WireError::Protocol(
                 "truncated resolution audit history must carry next_audit_cursor".to_owned(),
             )),
-            (true, true) => Err(arkret_wire::Error::Protocol(
+            (true, true) => Err(arkret_wire::WireError::Protocol(
                 "complete resolution audit history must not carry next_audit_cursor".to_owned(),
             )),
             _ => Ok(()),
@@ -394,7 +394,7 @@ impl ResolutionMethodHistoryEvidence {
             || self.boundary().to_method_history_head.is_empty()
             || self.boundary().to_version_id.is_empty()
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "invalid method-history evidence shape".to_owned(),
             ));
         }
@@ -475,12 +475,12 @@ pub fn validate_service_current_record_url(
     expected_service_id: &DidCoreId,
 ) -> arkret_wire::Result<()> {
     if value.is_empty() || value.len() > MAX_SERVICE_CURRENT_RECORD_URL_BYTES {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "service current-record URL length is out of bounds".to_owned(),
         ));
     }
     let parsed = Url::parse(value).map_err(|error| {
-        arkret_wire::Error::Protocol(format!("service current-record URL is invalid: {error}"))
+        arkret_wire::WireError::Protocol(format!("service current-record URL is invalid: {error}"))
     })?;
     if parsed.scheme() != "https"
         || parsed.host_str().is_none()
@@ -491,7 +491,7 @@ pub fn validate_service_current_record_url(
         || parsed.path() != canonical_service_current_record_path(expected_service_id)
         || parsed.as_str() != value
     {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "service current-record URL is not the canonical HTTPS locator for the expected service"
                 .to_owned(),
         ));
@@ -507,7 +507,7 @@ impl ServiceResolutionCarrier {
         match self {
             Self::Inline { inline } => {
                 if &inline.record.service_id != expected_service_id {
-                    return Err(arkret_wire::Error::Protocol(
+                    return Err(arkret_wire::WireError::Protocol(
                         "inline service resolution targets a different service".to_owned(),
                     ));
                 }
@@ -579,7 +579,7 @@ impl ServiceResolutionRecord {
             verification_method: &self.proof.verification_method,
             created_at: self.proof.created_at,
         })
-        .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))
     }
 }
 
@@ -599,7 +599,7 @@ impl AuthenticatedServiceResolution {
         now: DateTime<Utc>,
     ) -> arkret_wire::Result<()> {
         if arkret_canonical::canonical_json_bytes(self)?.len() > 1024 * 1024 {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "authenticated service resolution exceeds 1 MiB".to_owned(),
             ));
         }
@@ -629,7 +629,7 @@ impl AuthenticatedServiceResolution {
             || self.service_resolution_record.proof.created_at != record.issued_at
             || proof_controller != Some(record.full_id.as_str())
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "invalid or stale authenticated service resolution".to_owned(),
             ));
         }
@@ -688,7 +688,7 @@ impl ServiceRouteHandoverNoticeCore {
                     .zip(self.grace_until)
                     .map(|((a, b), c)| (a, b, c))
                 else {
-                    return Err(arkret_wire::Error::Protocol(
+                    return Err(arkret_wire::WireError::Protocol(
                         "scheduled handover notice omits its time window".to_owned(),
                     ));
                 };
@@ -710,7 +710,7 @@ impl ServiceRouteHandoverNoticeCore {
             }
         };
         if !valid_chain || !valid_state {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "invalid service route handover notice shape".to_owned(),
             ));
         }
@@ -755,7 +755,7 @@ impl ServiceRouteHandoverNotice {
             )),
         );
         arkret_canonical::canonical_json_bytes(&transcript)
-            .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))
+            .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))
     }
 }
 
@@ -816,13 +816,13 @@ impl ServiceResolutionPublishRequest {
                 )
             }
             _ => {
-                return Err(arkret_wire::Error::Protocol(
+                return Err(arkret_wire::WireError::Protocol(
                     "publish request must carry exactly one resolution artifact".to_owned(),
                 ));
             }
         };
         if actual_digest != self.artifact_digest {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "publish artifact_digest mismatch".to_owned(),
             ));
         }
@@ -875,7 +875,7 @@ impl ServiceResolutionPublishAck {
             "verification_method": self.proof.verification_method,
             "created_at": arkret_canonical::format_timestamp_canonical(self.proof.created_at),
         }))
-        .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))
     }
 
     pub fn validate_request_binding(
@@ -892,7 +892,7 @@ impl ServiceResolutionPublishAck {
             || self.ack.artifact_digest != request.artifact_digest
             || self.proof.created_at != self.ack.accepted_at
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "publish ack does not cross-bind transport and artifact idempotency".to_owned(),
             ));
         }
@@ -933,7 +933,7 @@ impl ServiceResolutionResolveRequest {
                 .max_response_bytes
                 .is_some_and(|value| !(4096..=262_144).contains(&value))
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "service resolution query exceeds hard bounds".to_owned(),
             ));
         }
@@ -959,7 +959,7 @@ impl ServiceResolutionResolveOutcome {
         request.validate_bounds()?;
         if self.successor_records.len() > 32 || (self.has_more && self.successor_records.is_empty())
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "invalid bounded service resolution response".to_owned(),
             ));
         }
@@ -971,7 +971,7 @@ impl ServiceResolutionResolveOutcome {
                 || record.record.record_sequence != sequence + 1
                 || record.record.previous_record_digest.as_ref() != Some(&digest)
             {
-                return Err(arkret_wire::Error::Protocol(
+                return Err(arkret_wire::WireError::Protocol(
                     "service resolution response contains a gap or fork".to_owned(),
                 ));
             }
@@ -1072,7 +1072,7 @@ impl RouteAssistance {
         if (self.handover_notice.is_none() && self.mirror_hints.is_empty())
             || self.mirror_hints.len() > 4
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "route assistance must contain a notice or at most four mirror hints".to_owned(),
             ));
         }

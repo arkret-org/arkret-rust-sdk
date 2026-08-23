@@ -4,7 +4,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    DidCoreId, DidUrl, Error, Hash, PayloadProof, ProofContextId, Result, SchemaId, canonical,
+    DidCoreId, DidUrl, Hash, PayloadProof, ProofContextId, Result, SchemaId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -117,7 +117,7 @@ impl AgentSelectorClaim {
         Hash::new(canonical::sha256_digest(
             &self.canonical_payload_without_proofs()?,
         ))
-        .map_err(|reason| Error::Protocol(reason.to_string()))
+        .map_err(|reason| WireError::Protocol(reason.to_string()))
     }
 
     /// Canonical `ak.agent-selector-claim-proof-v1` transcript shared by
@@ -125,7 +125,7 @@ impl AgentSelectorClaim {
     pub fn canonical_proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
         let payload_digest = self.payload_digest()?;
         if proof.payload_digest != payload_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent_selector_claim proof payload_digest mismatch".to_owned(),
             ));
         }
@@ -167,14 +167,14 @@ impl AgentSelectorClaim {
 
     pub fn validate(&self) -> Result<()> {
         if self.schema != SchemaId::AGENT_SELECTOR_CLAIM_V1 {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "agent_selector_claim schema must be {schemaid_agent_selector_claim_v1}",
                 schemaid_agent_selector_claim_v1 = SchemaId::AGENT_SELECTOR_CLAIM_V1
             )));
         }
         validate_agent_slug(&self.agent_slug)?;
         if matches!(self.binding_state, HandleBindingState::Verified) && self.proofs.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "verified agent_selector_claim requires proofs".to_owned(),
             ));
         }

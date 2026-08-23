@@ -10,7 +10,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::{Error, Result};
+use crate::error::{Result, WireError};
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/history-key.schema.json#/$defs/epoch_range`.
@@ -25,7 +25,9 @@ pub struct EpochRange {
 impl EpochRange {
     pub fn validate(&self) -> Result<()> {
         if self.from_epoch > self.to_epoch {
-            return Err(Error::Protocol("history epoch range is empty".to_owned()));
+            return Err(WireError::Protocol(
+                "history epoch range is empty".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -36,7 +38,9 @@ impl EpochRange {
             .checked_sub(self.from_epoch)
             .and_then(|distance| distance.checked_add(1))
             .and_then(|count| usize::try_from(count).ok())
-            .ok_or_else(|| Error::Protocol("history epoch range count overflows usize".to_owned()))
+            .ok_or_else(|| {
+                WireError::Protocol("history epoch range count overflows usize".to_owned())
+            })
     }
 }
 
@@ -44,7 +48,7 @@ impl EpochRange {
 /// request/receipt surface and the portable backup range index.
 pub fn validate_canonical_ranges(ranges: &[EpochRange], maximum: usize) -> Result<()> {
     if ranges.is_empty() || ranges.len() > maximum {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "history ranges must contain 1..={maximum} entries"
         )));
     }
@@ -53,7 +57,7 @@ pub fn validate_canonical_ranges(ranges: &[EpochRange], maximum: usize) -> Resul
     }
     for pair in ranges.windows(2) {
         if pair[0].to_epoch == u64::MAX || pair[0].to_epoch + 1 >= pair[1].from_epoch {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "history ranges must be sorted, disjoint, and non-adjacent".to_owned(),
             ));
         }
@@ -98,7 +102,7 @@ impl HistorySecretRange {
     pub fn validate_packed_length(&self, kdf_nh: usize) -> Result<()> {
         self.validate()?;
         if kdf_nh == 0 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "MLS ciphersuite KDF.Nh must be positive".to_owned(),
             ));
         }
@@ -107,13 +111,13 @@ impl HistorySecretRange {
             .epoch_count()?
             .checked_mul(kdf_nh)
             .ok_or_else(|| {
-                Error::Protocol("history secret range byte length overflows usize".to_owned())
+                WireError::Protocol("history secret range byte length overflows usize".to_owned())
             })?;
         let actual = crate::base64url::base64url_decode(&self.secrets_b64u)
-            .map_err(|error| Error::Protocol(format!("invalid history secret bytes: {error}")))?
+            .map_err(|error| WireError::Protocol(format!("invalid history secret bytes: {error}")))?
             .len();
         if actual != expected {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "history secret range contains {actual} bytes; expected {expected}"
             )));
         }
@@ -127,7 +131,7 @@ pub(crate) fn validate_unpadded_base64url(value: &str, field: &str) -> Result<()
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
     {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "{field} is not canonical unpadded base64url"
         )));
     }

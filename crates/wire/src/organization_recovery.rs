@@ -10,7 +10,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::cba::SealBasis;
-use crate::error::{Error, Result};
+use crate::error::{Result, WireError};
 use crate::event_envelope::HistoryEffectiveScope;
 use crate::{DidCoreId, DidUrl, EventId, Hash};
 
@@ -104,7 +104,7 @@ impl OrganizationRecoveryArchiveSealContext {
     pub fn recipient_public_key(&self) -> Result<[u8; 32]> {
         validate_frozen_x25519_public_key(&self.frozen_public_key_b64u)?;
         let bytes = crate::base64url::base64url_decode(&self.frozen_public_key_b64u)
-            .map_err(|error| Error::Protocol(format!("archive frozen public key: {error}")))?;
+            .map_err(|error| WireError::Protocol(format!("archive frozen public key: {error}")))?;
         let mut key = [0u8; 32];
         key.copy_from_slice(&bytes);
         Ok(key)
@@ -150,7 +150,7 @@ pub fn validate_frozen_x25519_public_key(value: &str) -> Result<()> {
             Ok(ref bytes) if bytes.len() == 32
         )
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "archive frozen public key is invalid".to_owned(),
         ));
     }
@@ -202,7 +202,7 @@ impl OrganizationRecoveryArchive {
 pub fn validate_recovery_key_id(value: &str) -> Result<()> {
     const PREFIX: &str = "ak:recovery_key:";
     let Some(uuid) = value.strip_prefix(PREFIX) else {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "recovery_key_id must start with ak:recovery_key:".to_owned(),
         ));
     };
@@ -217,7 +217,7 @@ pub fn validate_recovery_key_id(value: &str) -> Result<()> {
                 || (b'a'..=b'f').contains(byte)
         });
     if !shaped {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "recovery_key_id must carry a canonical lowercase UUIDv7".to_owned(),
         ));
     }
@@ -230,12 +230,12 @@ pub fn validate_canonical_mls_group_id(
     mls_group_id: &str,
 ) -> Result<()> {
     if mls_group_id.is_empty() || !is_base64url(mls_group_id) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "mls_group_id is not canonical base64url".to_owned(),
         ));
     }
     if scope.canonical_mls_group_id()? != mls_group_id {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "mls_group_id does not match effective_scope".to_owned(),
         ));
     }
@@ -250,7 +250,7 @@ pub fn is_base64url(value: &str) -> bool {
 
 pub fn validate_base64url_bounded(value: &str, min: usize, max: usize, field: &str) -> Result<()> {
     if !(min..=max).contains(&value.len()) || !is_base64url(value) {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "{field} is not canonical base64url"
         )));
     }

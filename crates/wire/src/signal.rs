@@ -20,7 +20,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::error::{Error, Result};
+use crate::error::{Result, WireError};
 use crate::error_codes::ErrorCode;
 use crate::event_envelope::ScopeRef;
 use crate::generated::ProofContextId;
@@ -184,34 +184,34 @@ impl SignalAeadBinding<'_> {
     /// under a header an ingress would then reject.
     pub fn validate(&self) -> Result<()> {
         if self.scope_ref.realm_id() != self.realm_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "signal scope_ref.realm_id must equal the envelope realm_id".to_owned(),
             ));
         }
         if self.scheme != SIGNAL_AEAD_SCHEME {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "signal payload scheme must be {SIGNAL_AEAD_SCHEME}"
             )));
         }
         if self.purpose != SIGNAL_AEAD_PURPOSE {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "signal payload purpose must be {SIGNAL_AEAD_PURPOSE}"
             )));
         }
         if self.aead_profile.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "signal payload aead_profile must name an active MLS ciphersuite".to_owned(),
             ));
         }
         if self.expires_at <= self.sent_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "signal expires_at must be strictly after sent_at".to_owned(),
             ));
         }
         let ttl = self.expires_at - self.sent_at;
         let ceiling = self.signal_class.max_ttl();
         if ttl > ceiling || ttl > MAX_SIGNAL_TTL {
-            return Err(Error::ProtocolCode {
+            return Err(WireError::ProtocolCode {
                 code: ErrorCode::SignalTtlOutOfRange,
                 message: format!(
                     "signal TTL {}s exceeds the {:?} class ceiling of {}s",
@@ -427,7 +427,7 @@ impl SignalEnvelope {
         // identical set.
         self.aead_binding().validate()?;
         if self.encrypted_payload.ciphertext.len() > MAX_SIGNAL_CIPHERTEXT_CHARS {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "signal ciphertext exceeds {MAX_SIGNAL_CIPHERTEXT_CHARS} characters"
             )));
         }
@@ -441,7 +441,7 @@ impl SignalEnvelope {
             .as_str()
             .split_once('#')
             .ok_or_else(|| {
-                Error::Protocol(
+                WireError::Protocol(
                     "signal proof verification_method requires a DID URL fragment".to_owned(),
                 )
             })?;
@@ -449,29 +449,29 @@ impl SignalEnvelope {
         if proof_controller != self.sender_actor_id
             || proof_fragment != self.sender_device_id.as_str()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "signal proof verification_method controller or fragment does not match the sender directory key"
                     .to_owned(),
             ));
         }
         if self.proof.created_at != self.sent_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "signal proof created_at must equal sent_at".to_owned(),
             ));
         }
         if self.proof.envelope_digest != self.envelope_digest()? {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "signal proof envelope_digest does not match the envelope".to_owned(),
             ));
         }
         if self.encrypted_payload.aad_digest != self.expected_aad_digest()? {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "signal aad_digest does not match the immutable outer header".to_owned(),
             ));
         }
         let canonical_len = canonical::canonical_json_bytes(self)?.len();
         if canonical_len > MAX_SIGNAL_ENVELOPE_BYTES {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "signal envelope exceeds {MAX_SIGNAL_ENVELOPE_BYTES} canonical bytes"
             )));
         }
@@ -521,7 +521,7 @@ impl SignalStreamFrame {
                 if reconnect_after_ms
                     .is_some_and(|value| value > MAX_SIGNAL_STREAM_RECONNECT_AFTER_MS)
                 {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "Signal drain reconnect_after_ms exceeds \
                          {MAX_SIGNAL_STREAM_RECONNECT_AFTER_MS}"
                     )));
@@ -535,7 +535,7 @@ impl SignalStreamFrame {
 
 fn validate_signal_stream_reason(reason: Option<&str>) -> Result<()> {
     if reason.is_some_and(|value| value.chars().count() > MAX_SIGNAL_STREAM_REASON_CHARS) {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "Signal stream reason exceeds {MAX_SIGNAL_STREAM_REASON_CHARS} characters"
         )));
     }
@@ -555,13 +555,13 @@ impl SignalRelayRequest {
     /// Validate request-level invariants before any local fanout.
     pub fn validate(&self) -> Result<()> {
         if self.signals.is_empty() || self.signals.len() > MAX_SIGNAL_RELAY_ITEMS {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "signal relay requires 1..={MAX_SIGNAL_RELAY_ITEMS} signals"
             )));
         }
         for signal in &self.signals {
             if signal.realm_id != self.realm_id || signal.scope_ref.realm_id() != &self.realm_id {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "signal relay request and every envelope must use one realm_id".to_owned(),
                 ));
             }
@@ -569,7 +569,7 @@ impl SignalRelayRequest {
         }
         let canonical_len = canonical::canonical_json_bytes(self)?.len();
         if canonical_len > MAX_SIGNAL_RELAY_CANONICAL_BODY_BYTES {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "signal relay request exceeds {MAX_SIGNAL_RELAY_CANONICAL_BODY_BYTES} canonical bytes"
             )));
         }
@@ -590,7 +590,7 @@ impl SignalRelayOutcome {
 
     pub fn validate(self) -> Result<()> {
         if !self.accepted {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "signal relay outcome accepted must be true".to_owned(),
             ));
         }

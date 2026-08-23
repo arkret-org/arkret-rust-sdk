@@ -109,7 +109,7 @@ impl NotificationDelta {
 
     pub fn validate_shape(&self) -> Result<()> {
         if self.notification_kind != NotificationKind::Agent {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "account notification delta notification_kind must be agent".to_owned(),
             ));
         }
@@ -123,11 +123,11 @@ impl NotificationDelta {
                 None | Some(NotificationData::AgentRuntimeApprovalRemoval(_)),
             ) => Ok(()),
             (NotificationDeltaAction::Add | NotificationDeltaAction::Update, _) => {
-                Err(Error::Protocol(
+                Err(WireError::Protocol(
                     "notification add/update requires agent_runtime_approval data".to_owned(),
                 ))
             }
-            (NotificationDeltaAction::Remove, _) => Err(Error::Protocol(
+            (NotificationDeltaAction::Remove, _) => Err(WireError::Protocol(
                 "notification remove data must contain only a terminal reason".to_owned(),
             )),
         }
@@ -444,7 +444,7 @@ pub struct DeviceMessageContainer {
 impl DeviceMessageContainer {
     pub fn validate(&self) -> Result<()> {
         if !self.messages.is_empty() && self.ack_token.is_none() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "non-empty to_device messages require ack_token".to_owned(),
             ));
         }
@@ -453,12 +453,12 @@ impl DeviceMessageContainer {
             .as_ref()
             .is_some_and(|token| token.is_empty() || token.len() > 1024)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "to_device ack_token must contain 1..=1024 bytes".to_owned(),
             ));
         }
         if self.limited == Some(true) && self.next_cursor.is_none() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "limited to_device batches require next_cursor".to_owned(),
             ));
         }
@@ -1362,7 +1362,7 @@ impl MemberRosterEntry {
             || self.handle_claims.is_some()
             || self.handle_claims_limited.is_some();
         if gated_present && self.subject_id.is_none() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "member_roster_entry: identity_events / handle_claim_digests / handle_claims / \
                  handle_claims_limited require subject_id disclosure"
                     .to_owned(),
@@ -1373,7 +1373,7 @@ impl MemberRosterEntry {
                 match &claim.subject {
                     Some(s) if s == subject => {}
                     _ => {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "member_roster_entry: handle_claims[].subject must equal subject_id"
                                 .to_owned(),
                         ));

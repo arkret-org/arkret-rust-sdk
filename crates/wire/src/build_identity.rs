@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::EVENT_KIND_REGISTRY_SHA256;
 #[cfg(any(debug_assertions, test))]
-use crate::{Error, Result};
+use crate::{Result, WireError};
 
 /// Vendor extension key carrying the exact shared SDK identity in a service
 /// description. This is a development build guard, not a compatibility range.
@@ -36,7 +36,7 @@ impl ArkretBuildIdentity {
         if self == &current {
             return Ok(());
         }
-        Err(Error::Protocol(format!(
+        Err(WireError::Protocol(format!(
             "Arkret SDK build identity mismatch: local registry={}, local SDK={}, remote registry={}, remote SDK={}",
             current.event_kind_registry_sha256,
             current.sdk_source_sha256,

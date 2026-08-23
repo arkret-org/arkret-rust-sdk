@@ -37,12 +37,12 @@ impl ActorProfileResolveRequest {
     /// Reject the locally decidable selector shapes before a round trip.
     pub fn validate(&self) -> arkret_wire::Result<()> {
         if self.actor_ids.is_empty() {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "actor profile resolve requires at least one actor".to_owned(),
             ));
         }
         if self.actor_ids.len() > ACTOR_PROFILE_RESOLVE_MAX_ACTORS {
-            return Err(arkret_wire::Error::Protocol(format!(
+            return Err(arkret_wire::WireError::Protocol(format!(
                 "actor profile resolve exceeds {ACTOR_PROFILE_RESOLVE_MAX_ACTORS} actors"
             )));
         }
@@ -50,7 +50,7 @@ impl ActorProfileResolveRequest {
         sorted.sort();
         sorted.dedup();
         if sorted.len() != self.actor_ids.len() {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "actor profile resolve actor_ids must be unique".to_owned(),
             ));
         }
@@ -123,14 +123,14 @@ impl ActorProfileResolveOutcome {
         let before = seen.len();
         seen.dedup();
         if seen.len() != before {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "actor profile resolve outcome reports an actor twice".to_owned(),
             ));
         }
         let mut expected: Vec<&DidCoreId> = requested.iter().collect();
         expected.sort();
         if seen != expected {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "actor profile resolve outcome does not account for every requested actor"
                     .to_owned(),
             ));

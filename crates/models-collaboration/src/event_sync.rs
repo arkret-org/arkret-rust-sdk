@@ -10,8 +10,8 @@ use arkret_canonical::DigestSuite;
 use arkret_wire::SchemaId;
 use arkret_wire::{
     CbaProofBundle, ControlProposalAck, ControlProposalDecision, ControlProposalDecisionPolicy,
-    DidCoreId, Error, Event, EventFederationSubmission, EventId, Hash,
-    MAX_ACTOR_SEQ_TOTAL_SIBLINGS, RealmId, Result, Seal, SealBasis, SealId,
+    DidCoreId, Event, EventFederationSubmission, EventId, Hash, MAX_ACTOR_SEQ_TOTAL_SIBLINGS,
+    RealmId, Result, Seal, SealBasis, SealId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -146,7 +146,7 @@ impl EventsFrontierSelector {
             {
                 frontier.validate()
             }
-            _ => Err(Error::Protocol(
+            _ => Err(WireError::Protocol(
                 "events frontier response does not match the requested selector".to_owned(),
             )),
         }
@@ -227,7 +227,7 @@ impl RealmActorFrontierView {
             frontier_event_ids,
         };
         let canonical = arkret_canonical::canonical_json_bytes(&transcript)
-            .map_err(|error| Error::Protocol(format!("frontier transcript: {error}")))?;
+            .map_err(|error| WireError::Protocol(format!("frontier transcript: {error}")))?;
         let mut bytes =
             Vec::with_capacity(REALM_ACTOR_FRONTIER_DIGEST_DOMAIN.len() + canonical.len());
         bytes.extend_from_slice(REALM_ACTOR_FRONTIER_DIGEST_DOMAIN);
@@ -241,24 +241,24 @@ impl RealmActorFrontierView {
             .as_str()
             .split_once(':')
             .map(|(suite, _)| suite)
-            .ok_or_else(|| Error::Protocol("frontier_digest has no suite prefix".to_owned()))?;
+            .ok_or_else(|| WireError::Protocol("frontier_digest has no suite prefix".to_owned()))?;
         let suite = arkret_canonical::digest_suite(suite_name)?;
         self.validate_with_suite(suite)
     }
 
     pub fn validate_with_suite(&self, digest_suite: DigestSuite) -> Result<()> {
         if self.frontier_event_ids.len() > MAX_ACTOR_SEQ_TOTAL_SIBLINGS {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "realm actor frontier exceeds the v1 sibling limit".to_owned(),
             ));
         }
         if self.next_actor_seq == 0 && !self.frontier_event_ids.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "empty realm actor frontier must not contain event ids".to_owned(),
             ));
         }
         if self.next_actor_seq > 0 && self.frontier_event_ids.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "non-empty realm actor frontier must contain event ids".to_owned(),
             ));
         }
@@ -267,7 +267,7 @@ impl RealmActorFrontierView {
             .windows(2)
             .any(|pair| pair[0].as_str() >= pair[1].as_str())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "frontier_event_ids must be bytewise sorted and unique".to_owned(),
             ));
         }
@@ -279,7 +279,7 @@ impl RealmActorFrontierView {
             digest_suite,
         )?;
         if expected != self.frontier_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "realm actor frontier digest mismatch".to_owned(),
             ));
         }
@@ -309,7 +309,7 @@ pub struct EventsActorCasConflictProblem {
 impl EventsActorCasConflictProblem {
     pub fn validate(&self) -> Result<()> {
         if self.accepted {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "actor CAS conflict details must assert accepted=false".to_owned(),
             ));
         }
@@ -321,7 +321,7 @@ impl ActorAggregateFrontierView {
     pub fn validate(&self) -> Result<()> {
         for frontier in &self.realms {
             if frontier.actor_id != self.actor_id {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "actor aggregate contains a different actor_id".to_owned(),
                 ));
             }
@@ -332,7 +332,7 @@ impl ActorAggregateFrontierView {
             .windows(2)
             .any(|pair| pair[0].realm_id.as_str() >= pair[1].realm_id.as_str())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "actor aggregate realms must be sorted and unique".to_owned(),
             ));
         }
@@ -428,12 +428,12 @@ impl ControlGovernanceHealth {
 
     fn validate_common(&self, policy: Option<ControlProposalDecisionPolicy>) -> Result<()> {
         if self.pending_proposals.len() > Self::MAX_PENDING_PROPOSALS {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "control governance health exceeds 128 pending proposals".to_owned(),
             ));
         }
         if self.retained_faults.len() > Self::MAX_PENDING_PROPOSALS {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "control governance health exceeds 128 retained faults".to_owned(),
             ));
         }
@@ -449,7 +449,7 @@ impl ControlGovernanceHealth {
                 || pending.absolute_due_at != pending.control_proposal_ack.absolute_due_at
                 || usize::from(pending.defer_count) != pending.decisions.len()
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "pending control proposal does not preserve Control Proposal Ack / decision binding"
                         .to_owned(),
                 ));
@@ -457,7 +457,7 @@ impl ControlGovernanceHealth {
             let mut verified_defers = Vec::with_capacity(pending.decisions.len());
             for decision in &pending.decisions {
                 if decision.is_reject() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "terminal signed_reject cannot remain pending".to_owned(),
                     ));
                 }
@@ -480,7 +480,7 @@ impl ControlGovernanceHealth {
                 .map(ControlProposalDecision::decision_due_at)
                 .unwrap_or(pending.control_proposal_ack.decision_due_at);
             if pending.current_decision_due_at != expected_due_at {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "pending proposal current_decision_due_at does not match its decision chain"
                         .to_owned(),
                 ));
@@ -490,7 +490,7 @@ impl ControlGovernanceHealth {
                 != (pending.fault_reason
                     == Some(ControlProposalFaultReason::ControlProposalDecisionOverdue))
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "overdue proposal must carry the stable overdue fault reason".to_owned(),
                 ));
             }
@@ -500,14 +500,14 @@ impl ControlGovernanceHealth {
                 ControlProposalDecisionState::Deferred
             };
             if !overdue && pending.decision_state != expected_non_fault_state {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "pending proposal decision_state does not match its decision chain".to_owned(),
                 ));
             }
             has_overdue |= overdue;
             let key = (pending.absolute_due_at, pending.proposal_digest.as_str());
             if previous_key.is_some_and(|previous| previous >= key) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "pending proposals are not in canonical deadline/digest order".to_owned(),
                 ));
             }
@@ -523,7 +523,7 @@ impl ControlGovernanceHealth {
             if fault.proposal_digest != fault.control_proposal_ack.proposal_digest
                 || fault.fault_reason != ControlProposalFaultReason::ControlProposalDecisionOverdue
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "retained control proposal fault does not preserve its Control Proposal Ack binding"
                         .to_owned(),
                 ));
@@ -533,7 +533,7 @@ impl ControlGovernanceHealth {
             let mut missed_deadline = false;
             for decision in &fault.decisions {
                 if decision.is_reject() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "signed_reject cannot precede an accepted Seal".to_owned(),
                     ));
                 }
@@ -555,13 +555,13 @@ impl ControlGovernanceHealth {
             }
             missed_deadline |= fault.accepted_at > previous_due_at;
             if !missed_deadline {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "retained proposal fault has no missed signed deadline".to_owned(),
                 ));
             }
             let key = (fault.accepted_at, fault.proposal_digest.as_str());
             if previous_fault_key.is_some_and(|previous| previous >= key) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "retained proposal faults are not in canonical accepted-at/digest order"
                         .to_owned(),
                 ));
@@ -574,7 +574,7 @@ impl ControlGovernanceHealth {
             ControlGovernanceHealthStatus::Healthy
         };
         if self.status != expected_status {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "control governance status does not match pending proposal faults".to_owned(),
             ));
         }
@@ -647,7 +647,7 @@ impl RealmSealFrontierView {
     pub fn sole_leaf(&self) -> Result<&SealId> {
         match self.seal_basis.leaves.as_slice() {
             [leaf] => Ok(leaf),
-            _ => Err(Error::Protocol(
+            _ => Err(WireError::Protocol(
                 "Realm Seal frontier is not a single-leaf accepted antichain".to_owned(),
             )),
         }
@@ -802,7 +802,7 @@ impl EventsSubmitFederationBatchRequestBody {
     /// already accepted locally before it projects a transported Seal.
     pub fn validate_federation_transport(&self, digest_suites: &[DigestSuite]) -> Result<()> {
         if self.events.is_empty() || self.events.len() > MAX_FEDERATED_EVENTS {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "federation events must contain between 1 and 500 items".to_owned(),
             ));
         }
@@ -812,7 +812,7 @@ impl EventsSubmitFederationBatchRequestBody {
             .map(|submission| submission.event.clone())
             .collect::<Vec<_>>();
         if events.len() != digest_suites.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "federation Event and digest-suite cardinality must match".to_owned(),
             ));
         }
@@ -826,7 +826,7 @@ impl EventsSubmitFederationBatchRequestBody {
                 .collect::<Vec<_>>();
             if !leases.is_empty() {
                 if leases.len() != self.events.len() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "an anchor unit cannot mix online and delayed submissions".to_owned(),
                     ));
                 }
@@ -838,7 +838,7 @@ impl EventsSubmitFederationBatchRequestBody {
         }
         if self.cba_proof_bundles.len() > arkret_wire::event_submission::MAX_SUBMISSION_CBA_BUNDLES
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "federation request exceeds {} CBA proof bundles",
                 arkret_wire::event_submission::MAX_SUBMISSION_CBA_BUNDLES
             )));
@@ -859,14 +859,14 @@ impl EventsSubmitFederationBatchRequestBody {
         for bundle in &self.cba_proof_bundles {
             bundle.validate_structural()?;
             if previous_target.is_some_and(|previous| previous >= bundle.target_seal_ref.as_str()) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "federation CBA proof bundles must be strictly sorted by target_seal_ref"
                         .to_owned(),
                 ));
             }
             previous_target = Some(bundle.target_seal_ref.as_str());
             if !required_targets.contains(&bundle.target_seal_ref) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "federation CBA proof bundle target is unrelated to transported Events"
                         .to_owned(),
                 ));
@@ -876,7 +876,7 @@ impl EventsSubmitFederationBatchRequestBody {
         let mut saw_data_event = false;
         for event in self.transported_events() {
             if event.realm_id != self.service_binding_ref.realm_id {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "federation Event belongs to another Realm".to_owned(),
                 ));
             }
@@ -887,14 +887,14 @@ impl EventsSubmitFederationBatchRequestBody {
             {
                 Some("control") => {
                     if saw_data_event {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "federation Control Events must precede DataEvents".to_owned(),
                         ));
                     }
                 }
                 Some("data") => saw_data_event = true,
                 _ => {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "federation Event kind has no registered CBA plane".to_owned(),
                     ));
                 }
@@ -904,13 +904,13 @@ impl EventsSubmitFederationBatchRequestBody {
         let mut seal_ids = BTreeSet::new();
         for seal in &seals {
             if !seal_ids.insert(seal.id.clone()) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "federation CBA proof bundles contain a duplicate Seal id".to_owned(),
                 ));
             }
             seal.validate_structural()?;
             if seal.realm_id != self.service_binding_ref.realm_id {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "federation Seal prerequisite belongs to another Realm".to_owned(),
                 ));
             }
@@ -955,7 +955,7 @@ impl EventsSubmitFederationBatchRequestBody {
             }
         }
         if reachable.len() != seals.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "federation CBA proof bundles contain Seals unrelated to transported Events"
                     .to_owned(),
             ));
@@ -999,13 +999,13 @@ impl EventsSubmitFederationBatchRequestBody {
                         (actual == **expected).then_some(actual)
                     });
                     let Some(digest) = matches.next() else {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "federation Control Move is not bound by transported Seal coverage"
                                 .to_owned(),
                         ));
                     };
                     if matches.next().is_some() {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "federation Control Move has ambiguous digest-suite coverage"
                                 .to_owned(),
                         ));
@@ -1082,7 +1082,7 @@ impl EventsSubmitFederationBatchRequestBody {
             }
         }
         if resolved != dependencies.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "federation Event/Seal prerequisite graph contains a cycle".to_owned(),
             ));
         }

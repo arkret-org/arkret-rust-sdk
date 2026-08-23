@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::cba::SealBasis;
-use crate::error::{Error, Result};
+use crate::error::{Result, WireError};
 use crate::event_envelope::ScopeRef;
 use crate::generated::ProofContextId;
 pub use crate::generated::{AuthoritySetPolicyKind, AuthoritySetSourceKind};
@@ -136,7 +136,7 @@ impl AuthoritySetPolicy {
             || self.authorization_rules.is_empty()
             || self.authorization_rules.len() > MAX_PUBLICATION_PROOFS
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "authority-set policy contains an invalid required value".to_owned(),
             ));
         }
@@ -148,12 +148,12 @@ impl AuthoritySetPolicy {
                 || rule.threshold == 0
                 || usize::try_from(rule.threshold).unwrap_or(usize::MAX) > rule.issuers.len()
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "authority-set authorization rule is invalid".to_owned(),
                 ));
             }
             if previous_rule_id.is_some_and(|previous| previous >= rule.rule_id.as_str()) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "authority-set authorization rules are not strictly ordered".to_owned(),
                 ));
             }
@@ -165,7 +165,7 @@ impl AuthoritySetPolicy {
                         .map(|issuer| issuer.verification_method.as_str()),
                 )
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "authority-set rule actions or issuers are not strictly ordered".to_owned(),
                 ));
             }
@@ -185,7 +185,7 @@ impl AuthoritySetPolicy {
             || self.digest()? != authority_set_ref.authority_set_digest
             || self.scope_ref != *scope_ref
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "authority-set policy ref, digest, or scope mismatch".to_owned(),
             ));
         }
@@ -194,7 +194,7 @@ impl AuthoritySetPolicy {
             .iter()
             .find(|rule| rule.rule_id == authorization_rule_id)
             .ok_or_else(|| {
-                Error::Protocol(
+                WireError::Protocol(
                     "authority-set policy does not contain the selected authorization rule"
                         .to_owned(),
                 )
@@ -204,7 +204,7 @@ impl AuthoritySetPolicy {
             .iter()
             .any(|candidate| candidate == action)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "selected authority-set rule does not allow the requested action".to_owned(),
             ));
         }
@@ -359,14 +359,14 @@ fn publication_binding_bytes(
 
 fn validate_proof_set(proofs: &[PayloadProof], expected_digest: &Hash) -> Result<()> {
     if proofs.is_empty() || proofs.len() > MAX_PUBLICATION_PROOFS {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "publication evidence requires 1..={MAX_PUBLICATION_PROOFS} proofs"
         )));
     }
     for proof in proofs {
         proof.validate()?;
         if proof.payload_digest != *expected_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "publication proof does not cover the object's canonical digest".to_owned(),
             ));
         }
@@ -417,20 +417,20 @@ impl AuthorizationLease {
             if let Some(scope_realm_id) = self.scope_ref.realm_id_opt()
                 && scope_realm_id != &reference.anchor_unit.realm_id
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "anchor-unit lease basis realm_id does not match lease scope_ref".to_owned(),
                 ));
             }
         }
         if self.expires_at <= self.issued_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "lease expires_at must be strictly after issued_at".to_owned(),
             ));
         }
         let ttl = self.expires_at - self.issued_at;
         let ceiling = self.risk_tier.max_lease_ttl();
         if ttl > ceiling {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "lease TTL {} exceeds the {:?} risk-tier ceiling of {} minutes",
                 ttl.num_minutes(),
                 self.risk_tier,
@@ -441,7 +441,7 @@ impl AuthorizationLease {
         validate_proof_set(&self.proofs, &digest)?;
         for proof in &self.proofs {
             if proof.created_at != self.issued_at {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "lease proof created_at must equal issued_at".to_owned(),
                 ));
             }
@@ -465,7 +465,7 @@ impl AuthorizationLease {
         if !proof_issuers.is_subset(&accepted_issuers)
             || proof_issuers.len() < usize::try_from(rule.threshold).unwrap_or(usize::MAX)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "lease proofs do not satisfy the selected authority-set rule".to_owned(),
             ));
         }
@@ -491,7 +491,7 @@ impl AnchorUnitLeaseBasis {
 
     pub fn validate_structural(&self) -> Result<()> {
         if self.event_digests.is_empty() || self.event_digests.len() > 500 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "anchor-unit lease basis requires 1..=500 event digests".to_owned(),
             ));
         }
@@ -502,12 +502,12 @@ impl AnchorUnitLeaseBasis {
             .len()
             != self.event_digests.len()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "anchor-unit lease basis event_digests must be unique".to_owned(),
             ));
         }
         if self.unit_digest != self.expected_unit_digest()? {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "anchor-unit lease basis unit_digest mismatch".to_owned(),
             ));
         }
@@ -540,7 +540,7 @@ impl IngressReceipt {
         validate_proof_set(&self.proofs, &digest)?;
         for proof in &self.proofs {
             if proof.created_at != self.received_at {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "ingress receipt proof created_at must equal received_at".to_owned(),
                 ));
             }
@@ -560,18 +560,18 @@ impl IngressReceipt {
         event_digest: &Hash,
     ) -> Result<()> {
         if self.authorization_lease_id != lease.authorization_lease_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "ingress receipt authorization_lease_id does not match the submitted lease"
                     .to_owned(),
             ));
         }
         if self.event_digest != *event_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "ingress receipt event_digest does not match the submitted Event".to_owned(),
             ));
         }
         if !lease.covers_instant(self.received_at) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "ingress receipt received_at is outside the lease validity window".to_owned(),
             ));
         }

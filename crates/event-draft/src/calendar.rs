@@ -14,7 +14,7 @@ use arkret_models_collaboration::objects::calendar_projection::CalendarScheduleP
 use arkret_models_collaboration::objects::productivity::{
     CalendarEventFields, CalendarStatus, RsvpEntry, RsvpResponse, RsvpSetPayload,
 };
-use arkret_wire::{Error, Hash, Result, StrandId};
+use arkret_wire::{Hash, Result, StrandId, WireError};
 
 /// Schedule revision frontier the responder observed, plus the response itself.
 ///
@@ -54,31 +54,31 @@ impl RsvpAuthoring {
     ) -> Result<RsvpSetPayload> {
         calendar.validate()?;
         if calendar.status == CalendarStatus::Cancelled {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "calendar_event_cancelled: cannot author a new RSVP for a cancelled event"
                     .to_owned(),
             ));
         }
         if !schedule.is_settled() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "calendar_schedule_unsettled: cannot author an RSVP against conflicting or unreadable schedule heads"
                     .to_owned(),
             ));
         }
         if schedule.schedule_revision_heads.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "calendar_schedule_unsettled: the observed schedule frontier is empty".to_owned(),
             ));
         }
         if schedule.schedule_revision_heads.len() > 128 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "schedule_frontier_too_large: resolve the schedule frontier before responding"
                     .to_owned(),
             ));
         }
         let occurrence = calendar.canonical_occurrence_key(self.occurrence.as_deref())?;
         if occurrence.is_some() && calendar.recurrence.is_none() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "a non-recurring calendar event only accepts a series RSVP with occurrence=null"
                     .to_owned(),
             ));
@@ -87,7 +87,7 @@ impl RsvpAuthoring {
         schedule_basis_refs.sort_by(|left, right| left.as_str().cmp(right.as_str()));
         schedule_basis_refs.dedup_by(|left, right| left.as_str() == right.as_str());
         if schedule_basis_refs != schedule.schedule_revision_heads {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "rsvp schedule_basis_refs must equal the complete observed schedule frontier"
                     .to_owned(),
             ));

@@ -11,7 +11,7 @@
 //! keys by `(application_id, admin_did)`) lives in `arkret-auth` as
 //! `AdminKeyStore`.
 
-use arkret_wire::{DidCoreId, Error, Result};
+use arkret_wire::{DidCoreId, Result, WireError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -121,7 +121,7 @@ impl SessionGrantIntrospection {
         if self.has_admin_scope(scope) {
             Ok(())
         } else {
-            Err(Error::Protocol(format!(
+            Err(WireError::Protocol(format!(
                 "session grant lacks admin scope {scope}"
             )))
         }

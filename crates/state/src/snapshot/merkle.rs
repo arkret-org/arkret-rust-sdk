@@ -1,5 +1,5 @@
 use super::types::SnapshotChunk;
-use crate::{Error, Hash, Result};
+use crate::{Hash, Result, WireError};
 
 /// RFC 6962 binary Merkle tree over snapshot chunk digests.
 ///
@@ -26,7 +26,7 @@ impl SnapshotMerkleTree {
     /// order isn't already ascending.
     pub fn build(chunks: &[SnapshotChunk]) -> Result<Self> {
         if chunks.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "SnapshotMerkleTree requires at least one chunk".to_owned(),
             ));
         }
@@ -34,7 +34,7 @@ impl SnapshotMerkleTree {
         // tree that won't match the receiver's tree.
         for (i, chunk) in chunks.iter().enumerate() {
             if chunk.chunk_id as usize != i {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "SnapshotMerkleTree chunk {i} has chunk_id={} (expected {i})",
                     chunk.chunk_id
                 )));
@@ -150,7 +150,9 @@ pub(crate) fn build_levels(leaf_data: &[Hash]) -> Result<Vec<Vec<Hash>>> {
         .map(|(index, leaf)| {
             parse_sha256(leaf)
                 .map(|bytes| format_hash(&hash_leaf(&bytes)))
-                .ok_or_else(|| Error::Protocol(format!("Merkle leaf {index} not sha256: {leaf}")))
+                .ok_or_else(|| {
+                    WireError::Protocol(format!("Merkle leaf {index} not sha256: {leaf}"))
+                })
         })
         .collect::<Result<Vec<_>>>()?;
     let mut levels: Vec<Vec<Hash>> = vec![leaves];
@@ -161,10 +163,10 @@ pub(crate) fn build_levels(leaf_data: &[Hash]) -> Result<Vec<Vec<Hash>>> {
         while i < current.len() {
             if i + 1 < current.len() {
                 let left = parse_sha256(&current[i]).ok_or_else(|| {
-                    Error::Protocol(format!("Merkle leaf {i} not sha256: {}", current[i]))
+                    WireError::Protocol(format!("Merkle leaf {i} not sha256: {}", current[i]))
                 })?;
                 let right = parse_sha256(&current[i + 1]).ok_or_else(|| {
-                    Error::Protocol(format!(
+                    WireError::Protocol(format!(
                         "Merkle leaf {} not sha256: {}",
                         i + 1,
                         current[i + 1]
@@ -205,9 +207,9 @@ pub fn hash_leaf(leaf_data: &[u8]) -> [u8; 32] {
 
 pub(crate) fn parent_hash(left: &Hash, right: &Hash) -> Result<Hash> {
     let left = parse_sha256(left)
-        .ok_or_else(|| Error::Protocol(format!("Merkle node not sha256: {left}")))?;
+        .ok_or_else(|| WireError::Protocol(format!("Merkle node not sha256: {left}")))?;
     let right = parse_sha256(right)
-        .ok_or_else(|| Error::Protocol(format!("Merkle node not sha256: {right}")))?;
+        .ok_or_else(|| WireError::Protocol(format!("Merkle node not sha256: {right}")))?;
     Ok(format_hash(&hash_node(&left, &right)))
 }
 

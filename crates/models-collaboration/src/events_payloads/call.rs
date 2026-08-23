@@ -964,7 +964,7 @@ fn validate_recording_deletion_audit(
     if retention.audit_lock == Some(true)
         && audit.outcome == CallRecordingDeletionOutcome::Completed
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "legal_hold_active: recording deletion cannot complete under audit_lock".to_owned(),
         ));
     }
@@ -987,7 +987,7 @@ fn validate_recording_deletion_audit(
     if audit.outcome == CallRecordingDeletionOutcome::BlockedByLegalHold
         && audit.legal_hold_ref.as_deref().is_none_or(str::is_empty)
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "legal_hold_active: blocked recording deletion requires legal_hold_ref".to_owned(),
         ));
     }
@@ -1033,14 +1033,14 @@ fn contains_backend_direct_recording_ref(value: &str) -> bool {
 }
 
 fn schema_violation<T>(message: impl Into<String>) -> Result<T> {
-    Err(Error::Protocol(format!(
+    Err(WireError::Protocol(format!(
         "schema_violation: {}",
         message.into()
     )))
 }
 
 fn recording_artifact_pipeline_bypassed(message: impl Into<String>) -> Result<()> {
-    Err(Error::Protocol(format!(
+    Err(WireError::Protocol(format!(
         "recording_artifact_pipeline_bypassed: {}",
         message.into()
     )))

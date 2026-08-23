@@ -9,7 +9,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{DidUrl, Error, Hash, Hlc, NotarySignerDescriptor, RealmId, Result, SealId, canonical};
+use crate::{
+    DidUrl, Hash, Hlc, NotarySignerDescriptor, RealmId, Result, SealId, WireError, canonical,
+};
 
 pub const MAX_SEAL_PREDECESSOR_REFS: usize = 128;
 pub const MAX_SEAL_DELTA: usize = 4_096;
@@ -72,7 +74,7 @@ impl SealSignature {
     pub fn validate_descriptor_binding(&self, descriptor: &NotarySignerDescriptor) -> Result<()> {
         descriptor.validate()?;
         if self.verification_method != descriptor.verification_method {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Seal signature verification_method does not match frozen descriptor".to_owned(),
             ));
         }
@@ -81,25 +83,25 @@ impl SealSignature {
         let payload = segments.next().unwrap_or_default();
         let signature_b64u = segments.next().unwrap_or_default();
         if segments.next().is_some() || !payload.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Seal signature must use compact detached JWS".to_owned(),
             ));
         }
         let protected = crate::base64url::base64url_decode(protected_b64u)
-            .map_err(|error| Error::Protocol(format!("invalid Seal JWS header: {error}")))?;
+            .map_err(|error| WireError::Protocol(format!("invalid Seal JWS header: {error}")))?;
         if crate::base64url::base64url_encode(&protected) != protected_b64u {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Seal JWS protected header is not canonical base64url".to_owned(),
             ));
         }
         let header: Value = serde_json::from_slice(&protected)?;
         if canonical::canonical_json_bytes(&header)? != protected {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Seal JWS protected header is not canonical JSON".to_owned(),
             ));
         }
         let Some(header) = header.as_object() else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Seal JWS protected header must be an object".to_owned(),
             ));
         };
@@ -108,15 +110,15 @@ impl SealSignature {
                 != Some(descriptor.verification_method.as_str())
             || header.contains_key("crit")
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Seal JWS protected header does not match frozen descriptor".to_owned(),
             ));
         }
         let signature = crate::base64url::base64url_decode(signature_b64u)
-            .map_err(|error| Error::Protocol(format!("invalid Seal JWS signature: {error}")))?;
+            .map_err(|error| WireError::Protocol(format!("invalid Seal JWS signature: {error}")))?;
         if signature.len() != 64 || crate::base64url::base64url_encode(&signature) != signature_b64u
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Seal JWS signature is not a canonical 64-byte encoding".to_owned(),
             ));
         }
@@ -258,7 +260,7 @@ impl Seal {
     ) -> Result<Self> {
         let body: CanonicalSealBody = serde_json::from_slice(canonical_body)?;
         if canonical::canonical_json_bytes(&body)? != canonical_body {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Seal body bytes are not canonical JSON".to_owned(),
             ));
         }
@@ -333,14 +335,14 @@ impl Seal {
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<SealId> {
         let id = format!("ak:seal:{}", canonical::digest(digest_suite, bytes));
-        SealId::new(id).map_err(|err| Error::Protocol(format!("invalid Seal id: {err}")))
+        SealId::new(id).map_err(|err| WireError::Protocol(format!("invalid Seal id: {err}")))
     }
 
     /// Validate the Seal identity under the Realm's verified digest suite.
     pub fn validate_id(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<()> {
         let derived = self.derive_id(digest_suite)?;
         if derived != self.id {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "Seal id mismatch: declared {} but canonical bytes hash to {}",
                 self.id, derived
             )));
@@ -350,22 +352,22 @@ impl Seal {
 
     pub fn validate_structural(&self) -> Result<()> {
         if self.predecessor_refs.len() > MAX_SEAL_PREDECESSOR_REFS {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "Seal.predecessor_refs exceeds maximum item count {MAX_SEAL_PREDECESSOR_REFS}"
             )));
         }
         if self.delta.len() > MAX_SEAL_DELTA {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "Seal.delta exceeds maximum item count {MAX_SEAL_DELTA}"
             )));
         }
         if self.availability_receipt_digests.len() > MAX_SEAL_AVAILABILITY_RECEIPT_DIGESTS {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "Seal.availability_receipt_digests exceeds maximum item count {MAX_SEAL_AVAILABILITY_RECEIPT_DIGESTS}"
             )));
         }
         if self.covered_event_digests.len() > MAX_SEAL_COVERED_EVENT_DIGESTS {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "Seal.covered_event_digests exceeds maximum item count {MAX_SEAL_COVERED_EVENT_DIGESTS}"
             )));
         }
@@ -377,7 +379,7 @@ impl Seal {
         )?;
         validate_sorted_unique("Seal.covered_event_digests", &self.covered_event_digests)?;
         if self.previous_state_root.is_some() != self.previous_digest_algorithm.is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Seal previous_state_root and previous_digest_algorithm must be present together"
                     .to_owned(),
             ));
@@ -386,7 +388,7 @@ impl Seal {
             NotarySig::Single(signature) => validate_seal_signature(signature)?,
             NotarySig::Multi(multi) => {
                 if multi.signatures.is_empty() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "Seal multi_sig must have at least one signature".to_owned(),
                     ));
                 }
@@ -395,7 +397,7 @@ impl Seal {
                 }
                 for pair in multi.signatures.windows(2) {
                     if pair[0].verification_method >= pair[1].verification_method {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "Seal multi_sig signatures must be sorted and unique by verification_method"
                                 .to_owned(),
                         ));
@@ -419,7 +421,7 @@ impl Seal {
                 .all(|signature| signature.payload_digest == expected),
         };
         if !matches {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Seal signature payload_digest does not match canonical Seal bytes".to_owned(),
             ));
         }
@@ -437,7 +439,9 @@ fn validate_seal_signature(signature: &SealSignature) -> Result<()> {
             byte == b'.' || byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-')
         });
     if !valid {
-        return Err(Error::Protocol("Seal signature JWS is invalid".to_owned()));
+        return Err(WireError::Protocol(
+            "Seal signature JWS is invalid".to_owned(),
+        ));
     }
     Ok(())
 }
@@ -450,7 +454,7 @@ where
         let left = pair[0].as_ref();
         let right = pair[1].as_ref();
         if left >= right {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "{field} must be canonical sorted and duplicate-free"
             )));
         }

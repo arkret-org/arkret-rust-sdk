@@ -10,8 +10,9 @@ use arkret_models_identity::{
 };
 pub use arkret_wire::{AcceptedDeviceIssuePossessionProof, AcceptedDeviceRefreshPossessionProof};
 use arkret_wire::{
-    AcceptedDevicePossessionProof, Base64UrlString, DeviceId, DidCoreId, DidUrl, Error, Hash,
-    NonEmptyString, RealmId, RequestId, Result, ScopeRef, SessionGrantId, StrandId, canonical,
+    AcceptedDevicePossessionProof, Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash,
+    NonEmptyString, RealmId, RequestId, Result, ScopeRef, SessionGrantId, StrandId, WireError,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -90,7 +91,7 @@ impl HumanSessionGrantRequest {
             || proof.device_id != self.device_id
             || proof.audience != self.audience
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "accepted-device issue proof does not bind the session request".to_owned(),
             ));
         }
@@ -102,7 +103,7 @@ impl HumanSessionGrantRequest {
             &proof.holder_jkt,
         )?;
         if proof.session_intent_digest != expected_intent {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "accepted-device issue proof has the wrong session intent digest".to_owned(),
             ));
         }
@@ -137,12 +138,12 @@ impl AgentSessionGrantRequest {
                 .iter()
                 .any(|scope| scope.trim().is_empty())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent session grant requested_scope must be non-empty".to_owned(),
             ));
         }
         if self.agent_key_authorization_ref.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent session grant authorization ref must not be empty".to_owned(),
             ));
         }
@@ -269,18 +270,18 @@ impl UnsignedAgentSessionGrantRequest {
         proof: UnsignedAgentSessionGrantProof,
     ) -> Result<Self> {
         if proof.challenge.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent session grant proof challenge must not be empty".to_owned(),
             ));
         }
         if requested_scope.is_empty() || requested_scope.iter().any(|scope| scope.trim().is_empty())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent session grant requested_scope must be non-empty".to_owned(),
             ));
         }
         if agent_key_authorization_ref.trim().is_empty() || proof.nonce.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent session grant authorization ref and nonce must not be empty".to_owned(),
             ));
         }
@@ -422,12 +423,12 @@ pub fn validate_session_device_key_separation(
     device_public_key_fingerprint: &str,
 ) -> Result<()> {
     if session_public_key_fingerprint.is_empty() || device_public_key_fingerprint.is_empty() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "session and device key fingerprints must not be empty".to_owned(),
         ));
     }
     if session_public_key_fingerprint == device_public_key_fingerprint {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "session and device identity key material must be distinct".to_owned(),
         ));
     }
@@ -534,7 +535,7 @@ pub struct HumanSessionGrantRefreshRequest {
 impl HumanSessionGrantRefreshRequest {
     pub fn validate(&self) -> Result<()> {
         if self.grant_jwt.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "human session refresh grant_jwt must not be empty".to_owned(),
             ));
         }
@@ -546,7 +547,7 @@ impl HumanSessionGrantRefreshRequest {
                 .as_ref()
                 .is_some_and(|audience| audience != &proof.audience)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "accepted-device refresh proof does not bind the refresh request".to_owned(),
             ));
         }
@@ -568,7 +569,7 @@ pub struct AgentSessionGrantRefreshRequest {
 impl AgentSessionGrantRefreshRequest {
     pub fn validate(&self) -> Result<()> {
         if self.grant_jwt.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent session refresh grant_jwt must not be empty".to_owned(),
             ));
         }
@@ -578,7 +579,7 @@ impl AgentSessionGrantRefreshRequest {
             .as_ref()
             .is_some_and(|audience| audience != &self.agent_session_refresh_proof.audience)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent session refresh proof audience mismatch".to_owned(),
             ));
         }
@@ -665,9 +666,9 @@ fn validate_agent_session_refresh_proof(
 ) -> Result<()> {
     validate_agent_session_refresh_window(issued_at, expires_at)?;
     let signature_bytes = arkret_wire::base64url::base64url_decode(signature.as_str())
-        .map_err(|_| Error::Protocol("agent refresh proof signature is invalid".to_owned()))?;
+        .map_err(|_| WireError::Protocol("agent refresh proof signature is invalid".to_owned()))?;
     if signature_bytes.len() != 64 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "agent refresh proof signature must encode 64 Ed25519 bytes".to_owned(),
         ));
     }
@@ -679,7 +680,7 @@ fn validate_agent_session_refresh_window(
     expires_at: DateTime<Utc>,
 ) -> Result<()> {
     if expires_at <= issued_at || (expires_at - issued_at).num_seconds() > 300 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "agent refresh proof validity window must be positive and at most 300 seconds"
                 .to_owned(),
         ));
@@ -886,10 +887,10 @@ impl SessionGrantIntrospectGrant {
     pub fn human_device_authorization_selector(&self) -> Result<&SessionGrantDeviceBinding> {
         match (&self.holder_binding, self.device_binding.as_ref()) {
             (SessionGrantHolderBinding::HumanDevice { .. }, Some(binding)) => Ok(binding),
-            (SessionGrantHolderBinding::HumanDevice { .. }, None) => Err(Error::Protocol(
+            (SessionGrantHolderBinding::HumanDevice { .. }, None) => Err(WireError::Protocol(
                 "online human request context is missing device authorization selector".to_owned(),
             )),
-            (SessionGrantHolderBinding::AgentRuntime { .. }, _) => Err(Error::Protocol(
+            (SessionGrantHolderBinding::AgentRuntime { .. }, _) => Err(WireError::Protocol(
                 "managed Agent request context must use delegated runtime authority".to_owned(),
             )),
         }
@@ -903,26 +904,26 @@ impl SessionGrantIntrospectGrant {
                 Some(device_binding),
             ) => {
                 if device_binding.device_id != *device_id {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "session grant introspection device_binding.device_id must match device_id"
                             .to_owned(),
                     ));
                 }
                 if device_binding.model_generation_ref == 0 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "session grant introspection device generation must be positive".to_owned(),
                     ));
                 }
             }
             (SessionGrantHolderBinding::HumanDevice { .. }, ..) => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "human session grant introspection requires device_id and device_binding"
                         .to_owned(),
                 ));
             }
             (SessionGrantHolderBinding::AgentRuntime { .. }, None, None) => {}
             (SessionGrantHolderBinding::AgentRuntime { .. }, ..) => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "agent session grant introspection must not contain human device binding"
                         .to_owned(),
                 ));

@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use arkret_wire::serde_helpers::serialize_optional_canonical_timestamp;
 use arkret_wire::{
-    CircleId, DidCoreId, Error, HistoryAccess, ObjectRef, PolicyId, RealmId, Result, SchemaId,
+    CircleId, DidCoreId, HistoryAccess, ObjectRef, PolicyId, RealmId, Result, SchemaId, WireError,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -44,7 +44,7 @@ impl RealmJoinRulePayload {
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("realm join-rule payload serialize: {err}")))
+            .map_err(|err| WireError::Protocol(format!("realm join-rule payload serialize: {err}")))
     }
 }
 
@@ -171,7 +171,7 @@ impl RealmDiscoveryPayload {
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("realm discovery payload serialize: {err}")))
+            .map_err(|err| WireError::Protocol(format!("realm discovery payload serialize: {err}")))
     }
 }
 
@@ -319,7 +319,7 @@ impl RealmArchivePayload {
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("realm archive payload serialize: {err}")))
+            .map_err(|err| WireError::Protocol(format!("realm archive payload serialize: {err}")))
     }
 }
 
@@ -359,7 +359,7 @@ impl RealmTombstonePayload {
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("realm tombstone payload serialize: {err}")))
+            .map_err(|err| WireError::Protocol(format!("realm tombstone payload serialize: {err}")))
     }
 }
 
@@ -399,7 +399,7 @@ impl RealmDestroyPayload {
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("realm destroy payload serialize: {err}")))
+            .map_err(|err| WireError::Protocol(format!("realm destroy payload serialize: {err}")))
     }
 }
 
@@ -450,8 +450,9 @@ impl ObjectLifecyclePayload {
     }
 
     pub fn to_value(&self) -> Result<Value> {
-        serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("object lifecycle payload serialize: {err}")))
+        serde_json::to_value(self).map_err(|err| {
+            WireError::Protocol(format!("object lifecycle payload serialize: {err}"))
+        })
     }
 }
 
@@ -497,7 +498,7 @@ impl HistoryAccessPayload {
                 Some(HistoryAccess::AllHistoryForCurrentMembers),
                 HistoryAccess::SinceJoin,
             ) => Ok(()),
-            _ => Err(Error::Protocol(
+            _ => Err(WireError::Protocol(
                 "history_access permits only initialization or all_history_for_current_members to since_join"
                     .to_owned(),
             )),
@@ -507,7 +508,7 @@ impl HistoryAccessPayload {
     pub fn to_value(&self) -> Result<Value> {
         self.validate()?;
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("history access payload serialize: {err}")))
+            .map_err(|err| WireError::Protocol(format!("history access payload serialize: {err}")))
     }
 }
 

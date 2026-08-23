@@ -9,7 +9,7 @@ use arkret_identifiers::{DidCoreId, EventId, Hash, RealmId, ReceiptId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::error::{Error, Result};
+use crate::error::{Result, WireError};
 use crate::event_envelope::PrincipalAuthorityKey;
 use crate::primitives::{PayloadProof, UnsignedPayloadProof};
 use crate::wire_strings::NonEmptyString;
@@ -100,14 +100,14 @@ impl DeviceReanchorReceiptScope {
     /// Principal Server, PCR Realm or genesis receipt is a different PCR.
     pub fn validate_authority(&self) -> Result<()> {
         if self.authority.principal_id != self.principal_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device reanchor receipt scope authority does not bind its principal".to_owned(),
             ));
         }
         if self.previous_device_generation == 0
             || self.new_device_generation != self.previous_device_generation.saturating_add(1)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device reanchor receipt scope generations must be positive immediate successors"
                     .to_owned(),
             ));
@@ -196,7 +196,7 @@ impl EventBatchReceipt {
         proof.validate_production()?;
         let payload_digest = self.payload_digest()?;
         if proof.payload_digest != payload_digest || proof.created_at != self.created_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "event batch receipt proof digest or created_at mismatch".to_owned(),
             ));
         }
@@ -240,12 +240,12 @@ impl EventBatchReceipt {
 
     pub fn validate(&self) -> Result<()> {
         if self.schema != SchemaId::EVENT_BATCH_RECEIPT_V1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "event batch receipt schema must be ak.schema.event_batch_receipt.v1".to_owned(),
             ));
         }
         if self.events.is_empty() || self.proofs.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "event batch receipt requires events and proofs".to_owned(),
             ));
         }
@@ -258,7 +258,7 @@ impl EventBatchReceipt {
             .map(EventBatchReceiptEvent::canonical_json_bytes)
             .collect::<Result<Vec<_>>>()?;
         if canonical_events.windows(2).any(|pair| pair[0] >= pair[1]) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "event batch receipt events must be canonical sorted and duplicate-free".to_owned(),
             ));
         }
@@ -267,7 +267,7 @@ impl EventBatchReceipt {
             && self.frontier.event_digest.is_none()
             && self.frontier.hlc.is_none()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "event batch receipt frontier must not be empty".to_owned(),
             ));
         }
@@ -277,7 +277,7 @@ impl EventBatchReceipt {
                     && scope.realm_id.is_none()
                     && scope.query_digest.is_none()
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "event batch receipt ordinary scope must not be empty".to_owned(),
                     ));
                 }
@@ -290,7 +290,7 @@ impl EventBatchReceipt {
                         .iter()
                         .any(|event| !matches!(event, EventBatchReceiptEvent::Item(_)))
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "device reanchor receipt must contain exactly two typed event items"
                             .to_owned(),
                     ));
@@ -315,7 +315,7 @@ impl EventBatchReceipt {
                     || authorize.map(|item| &item.event_digest)
                         != Some(&scope.replacement_authorize_digest)
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "device reanchor receipt event binding mismatch".to_owned(),
                     ));
                 }
@@ -327,7 +327,7 @@ impl EventBatchReceipt {
                         .iter()
                         .any(|event| !matches!(event, EventBatchReceiptEvent::Item(_)))
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "PCR genesis receipt must contain exactly two typed event items".to_owned(),
                     ));
                 }
@@ -351,7 +351,7 @@ impl EventBatchReceipt {
                     || authorize.map(|item| &item.event_digest)
                         != Some(&scope.founding_authorize_digest)
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "PCR genesis receipt event binding mismatch".to_owned(),
                     ));
                 }
@@ -364,7 +364,7 @@ impl EventBatchReceipt {
         self.validate()?;
         match &self.scope {
             EventBatchReceiptScope::PcrGenesis(scope) => Ok(scope),
-            _ => Err(Error::Protocol(
+            _ => Err(WireError::Protocol(
                 "event batch receipt scope is not pcr_genesis_unit".to_owned(),
             )),
         }

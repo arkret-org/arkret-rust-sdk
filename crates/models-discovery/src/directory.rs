@@ -12,9 +12,9 @@ use arkret_models_identity::handle::Handle;
 use arkret_models_identity::handle_claim::{DeliveryBindingHint, HandleClaim};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    Audience, BlobRef, DidCoreId, DidUrl, EncryptionProfile, Error, EventId, Hash, JoinRule,
+    Audience, BlobRef, DidCoreId, DidUrl, EncryptionProfile, EventId, Hash, JoinRule,
     NonEmptyString, PayloadProof, ProofContextId, RealmId, Result, SchemaId, SealBasis,
-    ServiceOperationId, proof_kind,
+    ServiceOperationId, WireError, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -223,7 +223,7 @@ impl RealmJoinCandidate {
             || self.join_methods.is_empty()
             || self.expires_at <= self.as_of
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Realm join candidate has invalid operations, methods, basis, or lifetime"
                     .to_owned(),
             ));
@@ -232,18 +232,18 @@ impl RealmJoinCandidate {
         operations.sort();
         operations.dedup();
         if operations.len() != self.operations.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Realm join candidate operations contain duplicates".to_owned(),
             ));
         }
         let methods = self.join_methods.iter().copied().collect::<BTreeSet<_>>();
         if methods.len() != self.join_methods.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Realm join candidate methods contain duplicates".to_owned(),
             ));
         }
         if self.source == RealmJoinCandidateSource::InviteHint && self.proofs.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite-derived Realm join candidate requires a proof".to_owned(),
             ));
         }
@@ -571,7 +571,7 @@ impl fmt::Display for DirectoryIntent {
 }
 
 impl std::str::FromStr for DirectoryIntent {
-    type Err = Error;
+    type Err = WireError;
 
     fn from_str(value: &str) -> Result<Self> {
         match value.trim() {
@@ -580,7 +580,7 @@ impl std::str::FromStr for DirectoryIntent {
             "invite" => Ok(Self::Invite),
             "member_add" => Ok(Self::MemberAdd),
             "contact_request" => Ok(Self::ContactRequest),
-            other => Err(Error::Protocol(format!(
+            other => Err(WireError::Protocol(format!(
                 "unsupported directory intent: {other}"
             ))),
         }
@@ -734,25 +734,25 @@ pub struct DirectoryAgentSelectorResolutionOutcome {
 impl DirectoryAgentSelectorResolutionOutcome {
     pub fn validate(&self) -> Result<()> {
         if !self.verified {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "directory_agent_selector_resolution_outcome.verified must be true".to_owned(),
             ));
         }
         validate_agent_slug(&self.agent_slug)?;
         self.selector_claim.validate()?;
         if self.selector_claim.controller_subject != self.controller_subject {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "selector_claim.controller_subject must match response.controller_subject"
                     .to_owned(),
             ));
         }
         if self.selector_claim.subject != self.subject {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "selector_claim.subject must match response.subject".to_owned(),
             ));
         }
         if self.selector_claim.agent_slug != self.agent_slug {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "selector_claim.agent_slug must match response.agent_slug".to_owned(),
             ));
         }
@@ -817,7 +817,7 @@ fn directory_unsigned_request<T: Serialize>(request: &T) -> Result<Value> {
     value
         .as_object_mut()
         .ok_or_else(|| {
-            Error::Protocol("directory request body must serialize as an object".to_owned())
+            WireError::Protocol("directory request body must serialize as an object".to_owned())
         })?
         .remove("proofs");
     Ok(value)
@@ -832,7 +832,7 @@ fn directory_payload_digest(unsigned_request: &Value) -> Result<Hash> {
 
 fn directory_required_issuer(requester: Option<&DidCoreId>) -> Result<Value> {
     let requester = requester.ok_or_else(|| {
-        Error::Protocol(
+        WireError::Protocol(
             "directory requester proof requires the object family's originator field".to_owned(),
         )
     })?;
@@ -858,26 +858,25 @@ fn directory_proof_binding_bytes(
 ) -> Result<Vec<u8>> {
     proof.validate_production()?;
     if proof.proof_purpose.is_some() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "directory requester proof must not carry proof_purpose".to_owned(),
         ));
     }
     if proof.domain.is_some() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "directory requester proof must not carry domain".to_owned(),
         ));
     }
     if &proof.payload_digest != payload_digest {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "directory requester proof payload_digest mismatch".to_owned(),
         ));
     }
-    let audience = proof
-        .audience
-        .as_ref()
-        .ok_or_else(|| Error::Protocol("directory requester proof requires audience".to_owned()))?;
+    let audience = proof.audience.as_ref().ok_or_else(|| {
+        WireError::Protocol("directory requester proof requires audience".to_owned())
+    })?;
     let Audience::Single(audience_value) = audience else {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "directory requester proof audience must be the single target Directory service DID"
                 .to_owned(),
         ));
@@ -888,7 +887,7 @@ fn directory_proof_binding_bytes(
     // would produce different signed bytes and the mismatch is swallowed by the
     // section 9.2 indistinguishable rejection, so it fails closed here instead.
     DidCoreId::new(audience_value.as_str()).map_err(|_| {
-        Error::Protocol(
+        WireError::Protocol(
             "directory requester proof audience must be the target Directory service_id in \
              did_core_id form"
                 .to_owned(),
@@ -1059,18 +1058,18 @@ impl DirectoryGovernanceProof {
         payload_digest: &Hash,
     ) -> Result<Vec<u8>> {
         if self.kind != proof_kind::DETACHED_JWS {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "directory governance proof kind must be detached_jws, got {}",
                 self.kind
             )));
         }
         if self.jws.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "directory governance proof jws must not be empty".to_owned(),
             ));
         }
         if &self.payload_digest != payload_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "directory governance proof payload_digest mismatch".to_owned(),
             ));
         }
@@ -1121,7 +1120,7 @@ fn directory_governance_unsigned_request<T: Serialize>(request: &T) -> Result<Va
     value
         .as_object_mut()
         .ok_or_else(|| {
-            Error::Protocol(
+            WireError::Protocol(
                 "directory governance request body must serialize as an object".to_owned(),
             )
         })?
@@ -1354,7 +1353,7 @@ impl DirectorySubjectHandleList {
             match &claim.subject {
                 Some(s) if *s == self.subject => {}
                 _ => {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "list_handles_for_subject: claims[].subject must equal response.subject"
                             .to_owned(),
                     ));

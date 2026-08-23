@@ -6,10 +6,10 @@ use std::ops::Deref;
 
 use arkret_wire::{
     AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, DeviceId,
-    DeviceReanchorPreFenceSealFrontier, DidCoreId, DidFullId, DidUrl, Error, EventId, Hash,
+    DeviceReanchorPreFenceSealFrontier, DidCoreId, DidFullId, DidUrl, EventId, Hash,
     HistoryEffectiveScope, HistorySecretRange, LeaseBasisRef, NonEmptyString, PolicyId,
     RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, ReasonCode, RecoverySessionId, Result, SchemaId,
-    ScopeRef, TransactionId, TrustDomainId, XExtensionMap,
+    ScopeRef, TransactionId, TrustDomainId, WireError, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -151,7 +151,7 @@ impl KeyBackupPlaintext {
     pub fn validate_for_envelope(&self, envelope: &KeyBackup) -> Result<()> {
         envelope.validate_envelope_fields()?;
         if self.schema != Self::SCHEMA {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "key backup plaintext schema must be {}",
                 Self::SCHEMA
             )));
@@ -161,12 +161,12 @@ impl KeyBackupPlaintext {
             || self.series_id != envelope.series_id
             || self.series_seq != envelope.series_seq
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup plaintext envelope identity mismatch".to_owned(),
             ));
         }
         if self.keybag.item_count() == 0 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup plaintext items must not be empty".to_owned(),
             ));
         }
@@ -181,7 +181,7 @@ impl KeyBackupPlaintext {
 
     fn bind_secret_storage(items: &[SecretStorageItem], envelope: &KeyBackup) -> Result<()> {
         if items.len() != envelope.contents.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup public/plaintext item counts differ".to_owned(),
             ));
         }
@@ -192,7 +192,7 @@ impl KeyBackupPlaintext {
         let mut matched_plaintext = vec![false; items.len()];
         for public in &envelope.contents {
             let Some(public) = public.secret_storage() else {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "secret_storage key backup must not index history secret ranges".to_owned(),
                 ));
             };
@@ -206,7 +206,7 @@ impl KeyBackupPlaintext {
                 .map(|(index, _)| index)
                 .collect::<Vec<_>>();
             if matches.len() != 1 {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "key backup public/plaintext items do not have a unique metadata match"
                         .to_owned(),
                 ));
@@ -223,13 +223,13 @@ impl KeyBackupPlaintext {
     ) -> Result<()> {
         let [KeyBackupContentItem::HistorySecretRanges(index)] = envelope.contents.as_slice()
         else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_history key backup contents must be exactly one history_secret_ranges index"
                     .to_owned(),
             ));
         };
         if index.effective_scope != *effective_scope {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup public/plaintext effective_scope differ".to_owned(),
             ));
         }
@@ -241,7 +241,7 @@ impl KeyBackupPlaintext {
             .map(HistorySecretRange::epoch_range)
             .collect::<Vec<_>>();
         if packed != index.ranges {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup packed history ranges do not equal the public range index".to_owned(),
             ));
         }
@@ -271,18 +271,18 @@ impl SecretStorageItem {
                 .bytes()
                 .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.' | b'-'))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup plaintext secret_id must match ^[A-Za-z0-9_.-]+$".to_owned(),
             ));
         }
         let secret =
             arkret_canonical::base64url::base64url_decode(&self.secret_b64u).map_err(|error| {
-                Error::Protocol(format!(
+                WireError::Protocol(format!(
                     "key backup plaintext secret_b64u must be unpadded base64url: {error}"
                 ))
             })?;
         if secret.is_empty() || self.secret_b64u.contains('=') {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup plaintext secret_b64u must encode non-empty bytes without padding"
                     .to_owned(),
             ));
@@ -296,7 +296,7 @@ impl SecretStorageItem {
         self.secret_generation
             .map(|generation| {
                 u32::try_from(generation).map_err(|_| {
-                    Error::Protocol(
+                    WireError::Protocol(
                         "key backup plaintext secret_generation exceeds public secret_version"
                             .to_owned(),
                     )
@@ -355,7 +355,7 @@ impl KeyBackupUnlockProof {
     /// Validate the signed wire shape and the SDK-owned signature coverage.
     pub fn validate(&self) -> Result<()> {
         if self.schema != Self::SCHEMA {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "key backup unlock proof schema must be {}",
                 Self::SCHEMA
             )));
@@ -367,7 +367,7 @@ impl KeyBackupUnlockProof {
                     character.is_ascii_alphanumeric() || matches!(character, '-' | '_')
                 })
         }) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup unlock proof challenge must be 43 base64url characters".to_owned(),
             ));
         }
@@ -382,7 +382,7 @@ impl KeyBackupUnlockProof {
                 .iter()
                 .any(|field| !actual.contains(field))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup unlock proof signed_fields must be unique and cover the canonical field set"
                     .to_owned(),
             ));
@@ -398,7 +398,9 @@ impl KeyBackupUnlockProof {
             .get_mut("auth_data")
             .and_then(Value::as_object_mut)
             .ok_or_else(|| {
-                Error::Protocol("key backup unlock proof auth_data must be an object".to_owned())
+                WireError::Protocol(
+                    "key backup unlock proof auth_data must be an object".to_owned(),
+                )
             })?
             .remove("signature");
         key_backup_unlock_proof_signing_payload_bytes(&unsigned)
@@ -479,7 +481,7 @@ impl UnsignedKeyBackupUnlockProof {
             .as_ref()
             .is_some_and(|challenge| challenge.as_str().len() != 43)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key backup unlock proof challenge must be 43 base64url characters".to_owned(),
             ));
         }
@@ -583,13 +585,13 @@ impl UnsignedKeyBackupUnlockProof {
             },
             extra: &self.extra,
         })
-        .map_err(Error::from)
+        .map_err(WireError::from)
     }
 }
 
 fn validate_unlock_proof_signature_algorithm(algorithm: KeyBackupSignatureAlgorithm) -> Result<()> {
     if algorithm == KeyBackupSignatureAlgorithm::Es256 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "key backup unlock proof signature_algorithm must be Ed25519 or ML-DSA-65".to_owned(),
         ));
     }
@@ -989,14 +991,14 @@ impl TryFrom<GenericRecoveryTranscriptWire> for GenericRecoveryTranscript {
 impl GenericRecoveryTranscript {
     pub fn validate(&self) -> Result<()> {
         if self.schema != "ak.identity.recovery_proof.v1" || self.policy_version < 1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "generic recovery transcript has an invalid schema or policy_version".to_owned(),
             ));
         }
         if self.identity_model != RecoveryIdentityModel::RootAnchored
             || self.model_generation_ref == 0
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery transcript generation must be a positive PCR generation".to_owned(),
             ));
         }
@@ -1081,14 +1083,14 @@ impl PrincipalSigningTranscript {
             || self.kind != RecoveryProofKind::PrincipalSigning
             || self.policy_version < 1
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "principal signing transcript has an invalid fixed field".to_owned(),
             ));
         }
         if self.identity_model != RecoveryIdentityModel::RootAnchored
             || self.model_generation_ref == 0
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "principal signing generation must be a positive PCR generation".to_owned(),
             ));
         }
@@ -1151,7 +1153,7 @@ impl RecoveryPublicationAuthorityContext {
                 == RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID
             && self.allowed_actions == [RecoveryPublicationAction::DeviceReanchor];
         if !valid {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery publication authority context does not match the closed identity-model authority"
                     .to_owned(),
             ));
@@ -1172,7 +1174,7 @@ impl RecoveryPublicationAuthorityContext {
             .flat_map(|rule| rule.allowed_actions.iter())
             .any(|action| !allowed_action_names.contains(action.as_str()))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery publication authority context policy exceeds its allowed actions"
                     .to_owned(),
             ));
@@ -1194,7 +1196,7 @@ impl RecoveryPublicationAuthorityContext {
                 })
                 .collect::<Vec<_>>();
             if matching_rules.is_empty() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "recovery publication authority context does not cover an allowed action"
                         .to_owned(),
                 ));
@@ -1298,7 +1300,7 @@ impl RecoverySessionUnlockProof {
     /// two derived fields are omitted in one SDK-owned place.
     pub fn signature_independent_proof_body(&self) -> Result<BTreeMap<String, Value>> {
         let Value::Object(mut proof_body) = serde_json::to_value(self)? else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery unlock proof must serialize as an object".to_owned(),
             ));
         };
@@ -1600,39 +1602,39 @@ impl<'de> Deserialize<'de> for RecoverySessionState {
 impl RecoverySessionState {
     pub fn validate(&self) -> Result<()> {
         if self.schema != SchemaId::RECOVERY_SESSION_V1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery session schema must be ak.schema.recovery_session.v1".to_owned(),
             ));
         }
         if self.policy_version < 1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery session policy_version must be at least one".to_owned(),
             ));
         }
         if self.current_device_generation_ref == 0 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "current_device_generation_ref must be positive".to_owned(),
             ));
         }
         validate_recovery_session_state_shape(self.identity_model, true)
-            .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+            .map_err(|reason| WireError::Protocol(reason.to_owned()))?;
         self.publication_authority_context
             .validate_for(self.identity_model)?;
         if self.publication_authority_context.digest()? != self.publication_authority_context_digest
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery publication authority context digest is invalid".to_owned(),
             ));
         }
         if matches!(self.state, SessionState::Verified | SessionState::Completed)
             && self.proof_summary.is_none()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "verified or completed recovery session requires proof_summary".to_owned(),
             ));
         }
         if self.state == SessionState::Rejected && self.rejection_reason_code.is_none() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "rejected recovery session requires rejection_reason_code".to_owned(),
             ));
         }

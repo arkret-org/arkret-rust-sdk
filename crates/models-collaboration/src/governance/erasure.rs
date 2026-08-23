@@ -7,8 +7,8 @@ use std::collections::BTreeMap;
 
 use arkret_canonical::canonical;
 use arkret_wire::{
-    AccountStatusRecordId, DidCoreId, DidUrl, Error, Hash, PolicyId, ProtocolSignature, RealmId,
-    Result, SchemaId,
+    AccountStatusRecordId, DidCoreId, DidUrl, Hash, PolicyId, ProtocolSignature, RealmId, Result,
+    SchemaId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -65,7 +65,7 @@ impl ErasureReceiptPackage {
     pub fn validate_bindings(&self) -> Result<()> {
         self.receipt.validate_minimal()?;
         if self.computed_receipt_digest()? != self.receipt_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "erasure receipt digest mismatch".to_owned(),
             ));
         }
@@ -109,7 +109,7 @@ impl ErasureReceiptAcceptance {
         value
             .as_object_mut()
             .ok_or_else(|| {
-                Error::Protocol("erasure receipt acceptance must be an object".to_owned())
+                WireError::Protocol("erasure receipt acceptance must be an object".to_owned())
             })?
             .remove("proof");
         let bytes = canonical::canonical_json_bytes(&value)?;
@@ -342,19 +342,19 @@ impl ErasureReceipt {
 
     pub fn validate_minimal(&self) -> Result<()> {
         if self.schema != SchemaId::ERASURE_RECEIPT_V1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "erasure receipt schema mismatch".to_owned(),
             ));
         }
         if self.proofs.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "erasure receipt proofs must not be empty".to_owned(),
             ));
         }
         if matches!(self.outcome, ErasureOutcome::BlockedByLegalHold)
             && self.legal_hold_ref.is_none()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "blocked erasure receipt requires legal_hold_ref".to_owned(),
             ));
         }
@@ -367,7 +367,7 @@ impl ErasureReceipt {
     pub fn canonical_proof_input(&self) -> Result<Vec<u8>> {
         let mut value = serde_json::to_value(self)?;
         let object = value.as_object_mut().ok_or_else(|| {
-            Error::Protocol("erasure receipt must serialize as an object".to_owned())
+            WireError::Protocol("erasure receipt must serialize as an object".to_owned())
         })?;
         object.remove("proofs");
         Ok(canonical::canonical_json_bytes(&value)?)
@@ -383,7 +383,7 @@ impl ErasureReceipt {
         let expected = self.canonical_payload_digest()?;
         for proof in &self.proofs {
             if proof.payload_digest != expected {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "erasure receipt proof payload_digest mismatch".to_owned(),
                 ));
             }
@@ -396,7 +396,7 @@ impl ErasureReceipt {
         self.validate_minimal()?;
         let retained_stub_digest = Hash::new(canonical::canonical_sha256(retained_stub)?)?;
         if retained_stub_digest != self.retained_stub_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "erasure_receipt_stub_digest_mismatch".to_owned(),
             ));
         }
@@ -431,7 +431,7 @@ impl ErasureReceipt {
                 .and_then(Value::as_str)
                 != self.legal_hold_ref.as_deref()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "erasure_receipt_stub_binding_mismatch".to_owned(),
             ));
         }
@@ -442,7 +442,7 @@ impl ErasureReceipt {
     /// Validate a receipt that carries its verification stub inline.
     pub fn validate_with_inline_retained_stub(&self) -> Result<()> {
         let retained_stub = self.retained_stub.as_ref().ok_or_else(|| {
-            Error::Protocol("erasure receipt retained_stub is required".to_owned())
+            WireError::Protocol("erasure receipt retained_stub is required".to_owned())
         })?;
         self.validate_with_retained_stub(retained_stub)?;
         Ok(())

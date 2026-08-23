@@ -26,7 +26,7 @@ impl ActorProfileUpdatePayload {
         self.patch.validate()?;
         for (path, _) in self.patch.iter() {
             if !account_profile_patch_path_allowed(path.as_str()) {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "account profile update patch path `{path}` is not writable"
                 )));
             }

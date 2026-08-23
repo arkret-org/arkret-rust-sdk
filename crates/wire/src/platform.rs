@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, Result};
+use crate::{Result, WireError};
 
 /// Browser HTTP request body shape for WASM transports.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,12 +21,12 @@ pub struct WasmHttpRequestBody {
 impl WasmHttpRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.method.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "WASM HTTP method must not be empty".to_owned(),
             ));
         }
         if !(self.url.starts_with("https://") || self.url.starts_with("http://localhost")) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "WASM HTTP URL must be HTTPS or localhost".to_owned(),
             ));
         }

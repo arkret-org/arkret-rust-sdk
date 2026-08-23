@@ -6,7 +6,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_state::lattice::ordered_log::{IssuedOp, OrderedLog, ensure_unique_ordered_log_slots};
 use arkret_state::{CellRegistry, CellState, LatticeKind, SealedOp, compute_state_root};
 use arkret_wire::{
-    CellRef, Error, Event, EventKind, Hash, ProjectedCellWrite, ProjectionEffect, RealmId, Result,
+    CellRef, Event, EventKind, Hash, ProjectedCellWrite, ProjectionEffect, RealmId, Result,
+    WireError,
 };
 
 use crate::{
@@ -89,7 +90,7 @@ pub(crate) fn direct_projection(
 ) -> Result<Vec<ProjectionEffect>> {
     project(event)
         .map_err(|error| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "bootstrap cell write projection failed for {}: {error}",
                 event.kind.as_str()
             ))
@@ -97,7 +98,7 @@ pub(crate) fn direct_projection(
         .iter()
         .map(|write| {
             write.as_direct().ok_or_else(|| {
-                Error::Protocol(format!(
+                WireError::Protocol(format!(
                     "bootstrap cell {} needs a frozen pre-state this path cannot supply",
                     write.cell
                 ))
@@ -122,7 +123,7 @@ pub(crate) fn validate_realm_create_projection(
     effects: &[ProjectionEffect],
 ) -> Result<()> {
     if event.kind != EventKind::RealmCreate {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "realm create projection requires ak.realm.create".to_owned(),
         ));
     }
@@ -132,7 +133,7 @@ pub(crate) fn validate_realm_create_projection(
         .map(|effect| effect.cell.as_str().to_owned())
         .collect::<BTreeSet<_>>();
     if effects.len() != expected.len() || derived != expected {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "Realm create does not derive its canonical registered genesis cells: expected {expected:?}, derived {derived:?}"
         )));
     }
@@ -159,7 +160,7 @@ pub(crate) fn state_root_from_projection(
         // One Event may project at most one ordered-log entry into one cell;
         // Event identity is the grow-only set key.
         if let Err(conflict) = ensure_unique_ordered_log_slots(&effects) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "bootstrap Event claims ordered-log slot {}#{} twice",
                 conflict.cell, conflict.issuer_seq
             )));
@@ -184,25 +185,25 @@ pub(crate) fn state_root_from_projection(
         // forbids (the suite prefix would outrank the digest content).
         let binding = registry
             .resolve(realm_id, &cell)
-            .map_err(|error| Error::Protocol(format!("bootstrap cell registry: {error}")))?;
+            .map_err(|error| WireError::Protocol(format!("bootstrap cell registry: {error}")))?;
         if binding.lattice.kind() == LatticeKind::OrderedLog {
             let report = OrderedLog.join_with_issuer_report(&issued);
             if !report.identity_collisions.is_empty() {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "bootstrap cell {cell} contains an Event identity collision"
                 )));
             }
         }
         let state = arkret_state::join_cell(binding.lattice.as_ref(), &cell, &issued);
         if matches!(state, CellState::Bottom(_)) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "bootstrap cell {cell} resolved to Bottom"
             )));
         }
         joined.insert(cell, state);
     }
     compute_state_root(&joined, digest_suite)
-        .map_err(|error| Error::Protocol(format!("bootstrap state root: {error}")))
+        .map_err(|error| WireError::Protocol(format!("bootstrap state root: {error}")))
 }
 
 #[cfg(test)]

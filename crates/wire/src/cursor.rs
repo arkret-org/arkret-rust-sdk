@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 use web_time::{SystemTime, UNIX_EPOCH};
 
-use crate::{Error, Result, SchemaId};
+use crate::{Result, SchemaId, WireError};
 
 /// Round R2/R3 (2026-05-20) — minimum length of a stateful cursor handle's
 /// base64url alphabet representation. Schema `cursor.schema.json` raises
@@ -23,7 +23,7 @@ pub const CURSOR_HANDLE_MIN_LEN: usize = 22;
 pub fn generate_cursor_handle() -> Result<String> {
     let mut handle = [0u8; 16];
     getrandom::fill(&mut handle)
-        .map_err(|error| Error::Protocol(format!("cursor_handle_rng_unavailable: {error}")))?;
+        .map_err(|error| WireError::Protocol(format!("cursor_handle_rng_unavailable: {error}")))?;
     // Take 16 bytes — 128 bits — and base64url-encode (no pad).
     let encoded = arkret_canonical::base64url::base64url_encode(handle);
     debug_assert!(encoded.len() >= CURSOR_HANDLE_MIN_LEN);
@@ -123,7 +123,7 @@ impl Cursor {
     /// Create a stream cursor at an explicit instant and TTL.
     pub fn new_at(now: chrono::DateTime<chrono::Utc>, ttl_ms: i64) -> Result<Self> {
         if !(1..=Self::STREAM_TTL_MAX_MS).contains(&ttl_ms) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "stream cursor TTL must be between 1 and {} ms",
                 Self::STREAM_TTL_MAX_MS
             )));
@@ -134,11 +134,11 @@ impl Cursor {
                 .timestamp_millis()
                 .checked_add(ttl_ms)
                 .ok_or_else(|| {
-                    Error::Protocol("cursor expiry overflows i64 milliseconds".to_owned())
+                    WireError::Protocol("cursor expiry overflows i64 milliseconds".to_owned())
                 })?,
         )
         .ok_or_else(|| {
-            Error::Protocol("cursor expiry is outside the supported UTC range".to_owned())
+            WireError::Protocol("cursor expiry is outside the supported UTC range".to_owned())
         })?;
 
         Ok(Self {
@@ -187,7 +187,7 @@ impl Cursor {
         let json = arkret_canonical::canonical::canonical_json_bytes(self)?;
 
         if json.len() > Self::MAX_ENCODED_SIZE {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "cursor too large: {} bytes (max {})",
                 json.len(),
                 Self::MAX_ENCODED_SIZE
@@ -228,9 +228,9 @@ impl Cursor {
 
     /// Decode and validate a cursor against an explicit receiver clock.
     pub fn decode_at(encoded: &str, now_ms: i64) -> Result<Self> {
-        let encoded = encoded
-            .strip_prefix("ak:cursor:")
-            .ok_or_else(|| Error::Protocol("cursor token must start with ak:cursor:".to_owned()))?;
+        let encoded = encoded.strip_prefix("ak:cursor:").ok_or_else(|| {
+            WireError::Protocol("cursor token must start with ak:cursor:".to_owned())
+        })?;
 
         // Receivers MUST enforce the same 4KB body cap that `encode`
         // enforces — reject oversized tokens before spending any base64 /
@@ -238,7 +238,7 @@ impl Cursor {
         // ceil(4n/3) characters for n payload bytes.
         let max_token_len = Self::MAX_ENCODED_SIZE.div_ceil(3) * 4;
         if encoded.len() > max_token_len {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "cursor token too large: {} chars (max {max_token_len})",
                 encoded.len()
             )));
@@ -246,12 +246,12 @@ impl Cursor {
 
         // Decode from unpadded Base64URL, the only v1 cursor transport form.
         let json = arkret_canonical::base64url::base64url_decode(encoded)
-            .map_err(|_| Error::Protocol("invalid Base64URL encoding".to_owned()))?;
+            .map_err(|_| WireError::Protocol("invalid Base64URL encoding".to_owned()))?;
 
         // Exact symmetric bound: the pre-decode character check is a
         // ceiling, this is the byte-precise cap `encode` enforces.
         if json.len() > Self::MAX_ENCODED_SIZE {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "cursor too large: {} bytes (max {})",
                 json.len(),
                 Self::MAX_ENCODED_SIZE
@@ -259,7 +259,7 @@ impl Cursor {
         }
 
         let cursor: Cursor = arkret_canonical::canonical::from_canonical_json_slice(&json)
-            .map_err(|_| Error::Protocol("invalid cursor JSON".to_owned()))?;
+            .map_err(|_| WireError::Protocol("invalid cursor JSON".to_owned()))?;
 
         cursor.validate_at(now_ms)?;
 
@@ -269,7 +269,7 @@ impl Cursor {
     fn validate_at(&self, now_ms: i64) -> Result<()> {
         // Check version
         if self.v != "1" {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "unsupported cursor version: {}",
                 self.v
             )));
@@ -278,7 +278,7 @@ impl Cursor {
         self.validate_core_wire_shape()?;
 
         if self.expires_at.timestamp_millis() < now_ms {
-            return Err(Error::Protocol("cursor has expired".to_owned()));
+            return Err(WireError::Protocol("cursor has expired".to_owned()));
         }
 
         self.validate_ttl_bound(now_ms)?;
@@ -295,12 +295,12 @@ impl Cursor {
         let issued_at_ms = self.issued_at.timestamp_millis();
         let expires_at_ms = self.expires_at.timestamp_millis();
         if issued_at_ms > expires_at_ms {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "cursor `issued_at` is after `expires_at`; param_invalid".to_owned(),
             ));
         }
         if issued_at_ms > now_ms + Self::CLOCK_SKEW_TOLERANCE_MS {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "cursor `issued_at` is in the future beyond clock-skew tolerance; param_invalid"
                     .to_owned(),
             ));
@@ -312,7 +312,7 @@ impl Cursor {
             CursorPurpose::Stream => Self::STREAM_TTL_MAX_MS,
         };
         if ttl > cap {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "cursor TTL {ttl} ms exceeds the {:?} hard upper bound {cap} ms; param_invalid",
                 self.purpose
             )));
@@ -329,7 +329,7 @@ impl Cursor {
                 .bytes()
                 .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
         {
-            return Err(Error::Protocol("invalid cursor handle".to_owned()));
+            return Err(WireError::Protocol("invalid cursor handle".to_owned()));
         }
         Ok(())
     }
@@ -341,7 +341,7 @@ impl Cursor {
             ("expires_at", self.expires_at),
         ] {
             if arkret_canonical::canonical::normalize_timestamp_canonical(value) != value {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "cursor `{name}` contains sub-millisecond precision"
                 )));
             }
@@ -358,7 +358,7 @@ impl Cursor {
 fn unix_time_millis() -> Result<i64> {
     Ok(SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map_err(|error| Error::Protocol(format!("cursor_clock_before_unix_epoch: {error}")))?
+        .map_err(|error| WireError::Protocol(format!("cursor_clock_before_unix_epoch: {error}")))?
         .as_millis() as i64)
 }
 
@@ -406,7 +406,7 @@ mod tests {
 
         assert!(matches!(
             Cursor::decode_at(&encoded, 1_753_011_296_000),
-            Err(Error::Protocol(_))
+            Err(WireError::Protocol(_))
         ));
     }
 
@@ -431,7 +431,10 @@ mod tests {
             "ak:cursor:{}",
             arkret_canonical::base64url::base64url_encode(json.as_bytes())
         );
-        assert!(matches!(Cursor::decode(&encoded), Err(Error::Protocol(_))));
+        assert!(matches!(
+            Cursor::decode(&encoded),
+            Err(WireError::Protocol(_))
+        ));
     }
 
     #[test]
@@ -462,7 +465,7 @@ mod tests {
         assert_eq!(short_handle.len(), 21);
         let err = Cursor::decode_at(&encode_with_handle(&short_handle), now_ms).unwrap_err();
         assert!(
-            matches!(&err, Error::Protocol(message) if message.contains("invalid cursor handle")),
+            matches!(&err, WireError::Protocol(message) if message.contains("invalid cursor handle")),
             "{err}"
         );
 
@@ -478,7 +481,7 @@ mod tests {
         let oversized = format!("ak:cursor:{}", "A".repeat(6000));
         assert!(matches!(
             Cursor::decode(&oversized),
-            Err(Error::Protocol(_))
+            Err(WireError::Protocol(_))
         ));
     }
 
@@ -489,7 +492,10 @@ mod tests {
             "ak:cursor:{}",
             arkret_canonical::base64url::base64url_encode(json)
         );
-        assert!(matches!(Cursor::decode(&encoded), Err(Error::Protocol(_))));
+        assert!(matches!(
+            Cursor::decode(&encoded),
+            Err(WireError::Protocol(_))
+        ));
     }
 
     #[test]
@@ -499,7 +505,10 @@ mod tests {
             "ak:cursor:{}",
             arkret_canonical::base64url::base64url_encode(json)
         );
-        assert!(matches!(Cursor::decode(&encoded), Err(Error::Protocol(_))));
+        assert!(matches!(
+            Cursor::decode(&encoded),
+            Err(WireError::Protocol(_))
+        ));
     }
 
     #[test]
@@ -509,7 +518,10 @@ mod tests {
             "ak:cursor:{}",
             arkret_canonical::base64url::base64url_encode(json)
         );
-        assert!(matches!(Cursor::decode(&encoded), Err(Error::Protocol(_))));
+        assert!(matches!(
+            Cursor::decode(&encoded),
+            Err(WireError::Protocol(_))
+        ));
     }
 
     #[test]

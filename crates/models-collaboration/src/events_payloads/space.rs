@@ -25,7 +25,7 @@ impl SpaceCreatePayload {
     pub fn to_value(&self) -> Result<Value> {
         self.object.validate()?;
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("space create payload serialize: {err}")))
+            .map_err(|err| WireError::Protocol(format!("space create payload serialize: {err}")))
     }
 }
 

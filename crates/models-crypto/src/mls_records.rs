@@ -47,18 +47,18 @@ impl MlsEndpointIdentity {
                 .as_str()
                 .split_once('#')
                 .ok_or_else(|| {
-                    arkret_wire::Error::Protocol(
+                    arkret_wire::WireError::Protocol(
                         "Native Agent MLS verification method has no fragment".to_owned(),
                     )
                 })?;
         if fragment.is_empty() {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "Native Agent MLS verification method has an empty fragment".to_owned(),
             ));
         }
         let controller = DidFullId::new(controller.to_owned())?;
         if project_full_id_to_core_id(&controller)?.as_str() != agent_id.as_str() {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "Native Agent MLS verification method controller mismatch".to_owned(),
             ));
         }
@@ -144,12 +144,12 @@ impl RealmPairwiseAuthorState {
         snapshot: &RealmPairwiseAcceptedGroupState,
     ) -> arkret_wire::Result<()> {
         if !self.pairwise_full_id.as_str().starts_with("did:key:") {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "pairwise author DidFullId must use did:key".to_owned(),
             ));
         }
         if project_full_id_to_core_id(&self.pairwise_full_id)? != self.pairwise_actor_id {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "pairwise DidFullId does not project to pairwise_actor_id".to_owned(),
             ));
         }
@@ -158,24 +158,24 @@ impl RealmPairwiseAuthorState {
             .as_str()
             .split_once('#')
             .ok_or_else(|| {
-                arkret_wire::Error::Protocol(
+                arkret_wire::WireError::Protocol(
                     "pairwise verification method has no fragment".to_owned(),
                 )
             })?;
         if method_base != self.pairwise_full_id.as_str() {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "pairwise verification method base differs from pairwise_full_id".to_owned(),
             ));
         }
         let decoded = arkret_canonical::decode_multibase_base58btc(method_fragment)
-            .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))?;
+            .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
         let Some((codec, prefix_len)) = arkret_canonical::decode_multicodec_varint(&decoded) else {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "pairwise verification method has invalid multicodec prefix".to_owned(),
             ));
         };
         if codec != 0xed || decoded.get(prefix_len..) != Some(self.leaf_signature_key.as_slice()) {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "pairwise verification method key differs from LeafNode signature_key".to_owned(),
             ));
         }
@@ -184,7 +184,7 @@ impl RealmPairwiseAuthorState {
             || self.epoch != snapshot.epoch
             || self.accepted_group_state_ref != snapshot.accepted_group_state_ref
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "pairwise author state does not name the exact accepted Realm MLS snapshot"
                     .to_owned(),
             ));
@@ -199,7 +199,7 @@ impl RealmPairwiseAuthorState {
                 != self.pairwise_actor_id.as_str().as_bytes()
             || matching[0].signature_key != self.leaf_signature_key
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "pairwise author is not the exact active BasicCredential leaf".to_owned(),
             ));
         }
@@ -227,7 +227,7 @@ impl RealmPairwiseKeyScopeLedger {
                 .get(identity)
                 .is_some_and(|realm_id| realm_id != &state.realm_id)
             {
-                return Err(arkret_wire::Error::Protocol(
+                return Err(arkret_wire::WireError::Protocol(
                     "pairwise author key identity is already bound to another Realm".to_owned(),
                 ));
             }

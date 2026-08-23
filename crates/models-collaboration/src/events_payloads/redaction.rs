@@ -13,7 +13,7 @@
 //! a reader that reloads after a redaction renders a tombstone marker rather
 //! than the plaintext.
 
-use arkret_wire::{Error, MessageId, ObjectRef, Result};
+use arkret_wire::{MessageId, ObjectRef, Result, WireError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
@@ -59,7 +59,7 @@ impl CrossObjectRedactionPayload {
     /// Reject a Message target: it belongs to `ak.message.redact`.
     pub fn validate(&self) -> Result<()> {
         if MessageId::new(self.target_ref.as_str()).is_ok() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "cross_object_redaction_payload target_ref MUST NOT name a Message".to_owned(),
             ));
         }

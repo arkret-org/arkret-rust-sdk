@@ -492,7 +492,7 @@ impl ResourceSelector {
     pub fn from_spec_value(value: &Value) -> Result<Self> {
         let object = value
             .as_object()
-            .ok_or_else(|| Error::Protocol("resource selector must be an object".to_owned()))?;
+            .ok_or_else(|| WireError::Protocol("resource selector must be an object".to_owned()))?;
         validate_spec_selector_object(object)?;
         let field = |name: &str| -> Option<String> {
             object
@@ -502,7 +502,7 @@ impl ResourceSelector {
         };
         let realm_or_wildcard = || field("realm_id").unwrap_or_else(|| "*".to_owned());
         let kind = field("kind")
-            .ok_or_else(|| Error::Protocol("resource selector requires 'kind'".to_owned()))?;
+            .ok_or_else(|| WireError::Protocol("resource selector requires 'kind'".to_owned()))?;
         let match_scope = parse_match_scope(object)?;
         validate_match_scope(&kind, match_scope, object.contains_key("realm_id"))?;
         match kind.as_str() {
@@ -511,7 +511,7 @@ impl ResourceSelector {
             }),
             "space" => Ok(Self::Space {
                 realm_id: field("realm_id").ok_or_else(|| {
-                    Error::Protocol("space selector requires realm_id".to_owned())
+                    WireError::Protocol("space selector requires realm_id".to_owned())
                 })?,
                 space_id: field("space_id"),
                 match_scope,
@@ -520,10 +520,12 @@ impl ResourceSelector {
                 let circle_id = field("circle_id")
                     .map(crate::CircleId::new)
                     .transpose()
-                    .map_err(|err| Error::Protocol(format!("invalid circle selector: {err}")))?;
+                    .map_err(|err| {
+                        WireError::Protocol(format!("invalid circle selector: {err}"))
+                    })?;
                 Ok(Self::Circle {
                     realm_id: field("realm_id").ok_or_else(|| {
-                        Error::Protocol("circle selector requires realm_id".to_owned())
+                        WireError::Protocol("circle selector requires realm_id".to_owned())
                     })?,
                     circle_id,
                     match_scope,
@@ -552,7 +554,7 @@ impl ResourceSelector {
             "relation" => Ok(Self::Relation {
                 realm_id: realm_or_wildcard(),
                 relation_kind: field("relation_kind").ok_or_else(|| {
-                    Error::Protocol("relation selector requires relation_kind".to_owned())
+                    WireError::Protocol("relation selector requires relation_kind".to_owned())
                 })?,
             }),
             "view" => Ok(Self::View {
@@ -569,10 +571,10 @@ impl ResourceSelector {
             }),
             "actor" => {
                 let actor_id = field("actor_id").ok_or_else(|| {
-                    Error::Protocol("actor selector requires actor_id".to_owned())
+                    WireError::Protocol("actor selector requires actor_id".to_owned())
                 })?;
                 if actor_id == "*" {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "selector_actor_wildcard_forbidden".to_owned(),
                     ));
                 }
@@ -595,14 +597,14 @@ impl ResourceSelector {
             // actor; absent actor_id means any actor in scope.
             "notification" => Ok(Self::Notification {
                 realm_id: field("realm_id").ok_or_else(|| {
-                    Error::Protocol("notification selector requires realm_id".to_owned())
+                    WireError::Protocol("notification selector requires realm_id".to_owned())
                 })?,
                 actor_id: field("actor_id").unwrap_or_else(|| "*".to_owned()),
                 notification_id: None,
             }),
             "read_cursor" => Ok(Self::ReadCursor {
                 realm_id: field("realm_id").ok_or_else(|| {
-                    Error::Protocol("read_cursor selector requires realm_id".to_owned())
+                    WireError::Protocol("read_cursor selector requires realm_id".to_owned())
                 })?,
             }),
             "blob" => Ok(Self::Blob {
@@ -610,7 +612,7 @@ impl ResourceSelector {
                 blob_id: field("blob_ref"),
             }),
             "*" => Ok(Self::Wildcard),
-            other => Err(Error::Protocol(format!(
+            other => Err(WireError::Protocol(format!(
                 "unknown resource selector kind: {other}"
             ))),
         }
@@ -827,7 +829,10 @@ impl ResourceSelector {
         let parts: Vec<&str> = selector.splitn(2, ':').collect();
 
         if parts.len() != 2 {
-            return Err(Error::Protocol(format!("invalid selector: {}", selector)));
+            return Err(WireError::Protocol(format!(
+                "invalid selector: {}",
+                selector
+            )));
         }
 
         let selector_type = parts[0];
@@ -837,7 +842,7 @@ impl ResourceSelector {
             "realm" => Ok(Self::Realm {
                 realm_id: remainder.to_owned(),
             }),
-            "space" => Err(Error::Protocol(
+            "space" => Err(WireError::Protocol(
                 "space shorthand cannot carry required realm_id; use a spec selector object"
                     .to_owned(),
             )),
@@ -875,7 +880,7 @@ impl ResourceSelector {
             "relation" => {
                 let (realm_id, relation_kind) = split_realm_tail(remainder, selector)?;
                 let Some(relation_kind) = relation_kind else {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "invalid relation selector: {}",
                         selector
                     )));
@@ -913,12 +918,12 @@ impl ResourceSelector {
             "read_cursor" => Ok(Self::ReadCursor {
                 realm_id: realm_part(remainder, selector)?,
             }),
-            "circle" => Err(Error::Protocol(
+            "circle" => Err(WireError::Protocol(
                 "circle shorthand cannot carry required realm_id; use a spec selector object"
                     .to_owned(),
             )),
             "*" => Ok(Self::Wildcard),
-            _ => Err(Error::Protocol(format!(
+            _ => Err(WireError::Protocol(format!(
                 "unknown selector type: {}",
                 selector
             ))),
@@ -1302,12 +1307,12 @@ impl ProtocolResourceSelector {
 
 fn validate_spec_selector_object(object: &serde_json::Map<String, Value>) -> Result<()> {
     let encoded = serde_json::to_vec(object)
-        .map_err(|_| Error::Protocol("selector_too_complex".to_owned()))?;
+        .map_err(|_| WireError::Protocol("selector_too_complex".to_owned()))?;
     if encoded.len() > SELECTOR_JSON_MAX_BYTES {
-        return Err(Error::Protocol("selector_too_complex".to_owned()));
+        return Err(WireError::Protocol("selector_too_complex".to_owned()));
     }
     if object.contains_key("schema_id") {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "resource selector forbids 'schema_id'; use 'schema_ref'".to_owned(),
         ));
     }
@@ -1316,18 +1321,18 @@ fn validate_spec_selector_object(object: &serde_json::Map<String, Value>) -> Res
         .filter(|key| !RESOURCE_SELECTOR_KNOWN_FIELDS.contains(&key.as_str()))
         .count();
     if unknown_fields > SELECTOR_UNKNOWN_FIELDS_MAX {
-        return Err(Error::Protocol("selector_too_complex".to_owned()));
+        return Err(WireError::Protocol("selector_too_complex".to_owned()));
     }
     for value in object.values() {
         validate_spec_selector_field_value(value)?;
     }
     if object.get("actor_id").and_then(Value::as_str) == Some("*") {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "selector_actor_wildcard_forbidden".to_owned(),
         ));
     }
     if selector_uses_governance_wildcard(object) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "selector_governance_wildcard_forbidden".to_owned(),
         ));
     }
@@ -1349,12 +1354,12 @@ fn validate_spec_selector_object(object: &serde_json::Map<String, Value>) -> Res
                 | "read_cursor"
         );
         if realm_scoped && object.get("realm_id").and_then(Value::as_str).is_none() {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "{kind} selector requires realm_id"
             )));
         }
         if kind == "actor" && object.get("actor_id").and_then(Value::as_str).is_none() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "actor selector requires actor_id".to_owned(),
             ));
         }
@@ -1372,9 +1377,11 @@ fn parse_match_scope(
             "children" => Ok(ProtocolResourceSelectorScope::Children),
             "subtree" => Ok(ProtocolResourceSelectorScope::Subtree),
             "realm_wide" => Ok(ProtocolResourceSelectorScope::RealmWide),
-            _ => Err(Error::Protocol("unknown match_scope".to_owned())),
+            _ => Err(WireError::Protocol("unknown match_scope".to_owned())),
         },
-        Some(_) => Err(Error::Protocol("match_scope must be a string".to_owned())),
+        Some(_) => Err(WireError::Protocol(
+            "match_scope must be a string".to_owned(),
+        )),
     }
 }
 
@@ -1387,23 +1394,23 @@ fn validate_match_scope(
         ProtocolResourceSelectorScope::Exact => Ok(()),
         ProtocolResourceSelectorScope::Children | ProtocolResourceSelectorScope::Subtree => {
             if kind != "space" {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "children/subtree match_scope only valid for space".to_owned(),
                 ));
             }
-            Err(Error::Protocol(
+            Err(WireError::Protocol(
                 "space children/subtree matching requires a CBA-anchored parent resolver"
                     .to_owned(),
             ))
         }
         ProtocolResourceSelectorScope::RealmWide => {
             if !has_realm_id {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "realm_wide selector requires realm_id".to_owned(),
                 ));
             }
             if !matches!(kind, "space" | "circle" | "object" | "morph") {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "realm_wide match_scope only valid for space/circle/object/morph".to_owned(),
                 ));
             }
@@ -1415,7 +1422,7 @@ fn validate_match_scope(
 fn validate_spec_selector_field_value(value: &Value) -> Result<()> {
     match value {
         Value::String(value) if value.len() > SELECTOR_FIELD_MAX_BYTES => {
-            Err(Error::Protocol("selector_too_complex".to_owned()))
+            Err(WireError::Protocol("selector_too_complex".to_owned()))
         }
         Value::Array(values) => {
             for value in values {
@@ -1472,7 +1479,7 @@ fn selector_field_missing_or_wildcard(
 fn realm_part(remainder: &str, selector: &str) -> Result<String> {
     let (realm_id, tail) = split_realm_tail(remainder, selector)?;
     if tail.is_some() {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "invalid realm-only selector: {selector}"
         )));
     }
@@ -1496,7 +1503,7 @@ fn split_realm_tail(remainder: &str, selector: &str) -> Result<(String, Option<S
 
     let parts = remainder.split(':').collect::<Vec<_>>();
     if parts.len() < 3 || parts[0] != "ak" || parts[1] != "realm" || parts[2].is_empty() {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "invalid realm-scoped selector: {selector}"
         )));
     }

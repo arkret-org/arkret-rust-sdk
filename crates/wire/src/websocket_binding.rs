@@ -17,7 +17,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{BindingKind, DomainSeparationId, Error, ErrorCode, Result};
+use crate::{BindingKind, DomainSeparationId, ErrorCode, Result, WireError};
 
 /// `supported_bindings[].kind` of this profile, as registered in
 /// `binding-kind-registry.json`. A media / SFU WebSocket MUST NOT reuse it.
@@ -124,11 +124,11 @@ impl From<WebSocketOperationId> for String {
 }
 
 impl TryFrom<String> for WebSocketOperationId {
-    type Error = Error;
+    type Error = WireError;
 
     fn try_from(value: String) -> Result<Self> {
         Self::from_wire(&value).ok_or_else(|| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "{value} is not covered by ak.profile.binding.websocket.v1"
             ))
         })
@@ -203,11 +203,11 @@ impl From<WebSocketCloseCode> for u16 {
 }
 
 impl TryFrom<u16> for WebSocketCloseCode {
-    type Error = Error;
+    type Error = WireError;
 
     fn try_from(value: u16) -> Result<Self> {
         Self::from_u16(value).ok_or_else(|| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "WebSocket close code {value} is not registered by ak.profile.binding.websocket.v1"
             ))
         })
@@ -253,7 +253,7 @@ impl WebSocketTransportError {
         if self.message.is_empty()
             || self.message.chars().count() > WEBSOCKET_MAX_ERROR_MESSAGE_CHARS
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "WebSocket error message must be 1..={WEBSOCKET_MAX_ERROR_MESSAGE_CHARS} characters"
             )));
         }
@@ -261,7 +261,7 @@ impl WebSocketTransportError {
             .retry_after_ms
             .is_some_and(|value| value > WEBSOCKET_MAX_RETRY_AFTER_MS)
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "WebSocket error retry_after_ms exceeds {WEBSOCKET_MAX_RETRY_AFTER_MS}"
             )));
         }
@@ -287,7 +287,7 @@ fn is_base64url_char(ch: char) -> bool {
 fn validate_base64url_token(value: &str, min: usize, max: usize, field: &str) -> Result<()> {
     let length = value.chars().count();
     if length < min || length > max || !value.chars().all(is_base64url_char) {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "WebSocket {field} must be {min}..={max} base64url characters"
         )));
     }
@@ -322,7 +322,7 @@ pub fn validate_websocket_channel_id(value: &str) -> Result<()> {
         .chars()
         .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '~' | '-'));
     if length == 0 || length > WEBSOCKET_CHANNEL_ID_MAX_CHARS || !allowed {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "WebSocket channel_id must be 1..={WEBSOCKET_CHANNEL_ID_MAX_CHARS} unreserved characters"
         )));
     }
@@ -336,7 +336,7 @@ pub fn validate_websocket_session_grant(value: &str) -> Result<()> {
         || value.len() > WEBSOCKET_MAX_SESSION_GRANT_BYTES
         || !value.bytes().all(|byte| (0x21..=0x7E).contains(&byte))
     {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "WebSocket session_grant must be 1..={WEBSOCKET_MAX_SESSION_GRANT_BYTES} visible ASCII bytes"
         )));
     }
@@ -353,8 +353,8 @@ pub fn validate_websocket_session_grant(value: &str) -> Result<()> {
 /// already be canonical, so normalising first would accept exactly the inputs
 /// it exists to reject (`:443`, uppercase host, dot segments, query).
 pub fn validate_websocket_base_url(input: &str) -> Result<()> {
-    let reject = |reason: &str| -> Error {
-        Error::Protocol(format!(
+    let reject = |reason: &str| -> WireError {
+        WireError::Protocol(format!(
             "WebSocket base_url is not the canonical wss form: {reason}"
         ))
     };
@@ -477,8 +477,8 @@ const fn is_uri_unreserved(byte: u8) -> bool {
 /// carrying a path and a syntactically invalid value are all rejected: the
 /// profile defines no origin-less native bypass.
 pub fn canonical_http_origin(input: &str) -> Result<String> {
-    let reject = |reason: &str| -> Error {
-        Error::Protocol(format!("WebSocket Origin is not acceptable: {reason}"))
+    let reject = |reason: &str| -> WireError {
+        WireError::Protocol(format!("WebSocket Origin is not acceptable: {reason}"))
     };
     if input == "null" {
         return Err(reject("the null origin is rejected"));
@@ -644,13 +644,13 @@ impl WebSocketDpopClaims {
             "dpop_proof jti",
         )?;
         if self.htm != WEBSOCKET_AUTH_METHOD_TOKEN {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "WebSocket auth proof htm must be {WEBSOCKET_AUTH_METHOD_TOKEN}"
             )));
         }
         validate_websocket_base_url(&self.htu)?;
         if self.iat < 0 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "WebSocket auth proof iat must be a non-negative NumericDate".to_owned(),
             ));
         }
@@ -716,7 +716,7 @@ impl WebSocketChallengeRecord {
         if window <= chrono::Duration::zero()
             || window > chrono::Duration::milliseconds(WEBSOCKET_AUTHENTICATION_DEADLINE_MS as i64)
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "WebSocket challenge window must be 0..={WEBSOCKET_AUTHENTICATION_DEADLINE_MS}ms"
             )));
         }

@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use arkret_wire::{DidCoreId, DidFullId, Error, Hash, NonEmptyString, Result};
+use arkret_wire::{DidCoreId, DidFullId, Hash, NonEmptyString, Result, WireError};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -179,7 +179,7 @@ impl DidOperationSubmitRequestBody {
     /// verification remains entirely method-native.
     pub fn validate(&self) -> Result<()> {
         if self.did_method.as_str() != self.did.method() {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "DID operation did_method {:?} does not match DID method {:?}",
                 self.did_method,
                 self.did.method()

@@ -171,7 +171,7 @@ impl UnsignedDeviceAuthorizePayload {
         };
         payload
             .validate_wire_constraints()
-            .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+            .map_err(|reason| WireError::Protocol(reason.to_owned()))?;
         Ok(payload)
     }
 
@@ -231,12 +231,12 @@ impl UnsignedDeviceAuthorizePayload {
 
     pub fn device_possession_signature_input(&self) -> Result<Vec<u8>> {
         self.validate_wire_constraints()
-            .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+            .map_err(|reason| WireError::Protocol(reason.to_owned()))?;
         let device_key_algorithm = self.device_key_algorithm.as_deref().ok_or_else(|| {
-            Error::Protocol("device_authorize_device_key_algorithm_required".to_owned())
+            WireError::Protocol("device_authorize_device_key_algorithm_required".to_owned())
         })?;
         if device_key_algorithm != "Ed25519" {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "device_authorize_device_key_algorithm_unsupported".to_owned(),
             ));
         }
@@ -273,7 +273,7 @@ impl UnsignedDeviceAuthorizePayload {
                 binding_contexts::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PREFIX.to_vec()
             }
             DeviceAuthorizationBindingKind::AcceptedDevice => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "accepted_device possession uses the pairing challenge attestation transcript"
                         .to_owned(),
                 ));
@@ -285,7 +285,7 @@ impl UnsignedDeviceAuthorizePayload {
 
     pub fn attach_signature(self, signature: Base64UrlString) -> Result<DeviceAuthorizePayload> {
         let signature = NonEmptyString::new(signature.into_string())
-            .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+            .map_err(|reason| WireError::Protocol(reason.to_owned()))?;
         Ok(DeviceAuthorizePayload {
             principal_id: self.principal_id,
             device_id: self.device_id,
@@ -340,7 +340,7 @@ pub fn typed_device_authorize_payload_digest(
 ) -> Result<Hash> {
     payload
         .validate_wire_constraints()
-        .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+        .map_err(|reason| WireError::Protocol(reason.to_owned()))?;
     let bytes = canonical::canonical_json_bytes(payload)?;
     Ok(Hash::new(canonical::digest(digest_suite, &bytes))?)
 }
@@ -356,12 +356,12 @@ pub fn validate_root_anchored_authorize_payload_digest(
         DeviceAuthorizationBindingKind::RegistrationAnchor
             | DeviceAuthorizationBindingKind::PcrRecovery
     ) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "root-anchored unit requires a registration_anchor or pcr_recovery binding".to_owned(),
         ));
     }
     if device_authorize_payload_digest(payload, digest_suite)? != *committed_digest {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "root-anchored authorize payload digest mismatch".to_owned(),
         ));
     }
@@ -505,12 +505,12 @@ pub fn validate_device_reanchor_recovery_first_seal(
     replacement_authorize_digest: &Hash,
 ) -> Result<()> {
     if payload.pre_fence_seal_frontier.is_some() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "device reanchor recovery-first Seal requires pre_fence_seal_frontier=null".to_owned(),
         ));
     }
     if !predecessor_refs.is_empty() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "device reanchor recovery-first Seal must have predecessor_refs=[]".to_owned(),
         ));
     }
@@ -518,7 +518,7 @@ pub fn validate_device_reanchor_recovery_first_seal(
         .windows(2)
         .any(|pair| pair[0].as_str() >= pair[1].as_str())
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "device reanchor recovery-first Seal delta must be canonical sorted and duplicate-free"
                 .to_owned(),
         ));
@@ -530,7 +530,7 @@ pub fn validate_device_reanchor_recovery_first_seal(
             .iter()
             .any(|digest| digest.as_str() == replacement_authorize_digest.as_str())
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "device reanchor recovery-first Seal delta must cover reanchor and replacement authorize"
                 .to_owned(),
         ));
@@ -711,7 +711,7 @@ impl DirectConversationBoundPayload {
             .clone()
             .try_into()
             .map_err(|_| {
-                Error::Protocol("direct conversation requires two participants".to_owned())
+                WireError::Protocol("direct conversation requires two participants".to_owned())
             })?;
         let expected = direct_conversation_pair_key(
             trust_domain,
@@ -719,7 +719,7 @@ impl DirectConversationBoundPayload {
             DirectConversationPairKeyParticipant::unmapped(right),
         )?;
         if self.pair_key != expected {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "direct conversation pair_key mismatch (schema_violation)".to_owned(),
             ));
         }
@@ -735,7 +735,7 @@ impl DirectConversationBoundPayload {
     pub fn binding_digest(&self) -> Result<Hash> {
         self.authorization_basis.validate_shape()?;
         if self.participants_unordered.len() != 2 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "direct conversation requires two participants".to_owned(),
             ));
         }

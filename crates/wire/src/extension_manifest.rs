@@ -15,7 +15,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-use crate::error::{Error, Result};
+use crate::error::{Result, WireError};
 use crate::primitives::ProducerEventProof;
 use crate::{DidCoreId, Hash, ProofContextId};
 
@@ -217,7 +217,7 @@ pub struct LoadedExtensionManifests {
 
 fn validate_bound(name: &str, len: usize, max: usize) -> Result<()> {
     if len > max {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "extension manifest {name} exceeds {max} entries"
         )));
     }
@@ -229,7 +229,7 @@ fn validate_unique<T: Serialize>(name: &str, values: &[T]) -> Result<()> {
     for value in values {
         let bytes = crate::canonical::canonical_json_bytes(value)?;
         if !canonical_values.insert(bytes) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "extension manifest {name} contains duplicate entries"
             )));
         }
@@ -241,7 +241,7 @@ fn validate_unique_ids<'a>(name: &str, values: impl IntoIterator<Item = &'a str>
     let mut ids = BTreeSet::new();
     for value in values {
         if !ids.insert(value) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "extension manifest {name} contains duplicate registry identities"
             )));
         }
@@ -261,12 +261,12 @@ fn validate_versioned_symbol(name: &str, value: &str, prefix: &str) -> Result<()
         .strip_prefix(prefix)
         .and_then(|value| value.strip_suffix(".v1"))
     else {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "extension manifest {name} must use a versioned {prefix}*.v1 symbol"
         )));
     };
     if !body.split('.').all(valid_symbol_segment) {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "extension manifest {name} contains an invalid registry symbol"
         )));
     }
@@ -279,12 +279,12 @@ fn validate_registry_symbol(name: &str, value: &str) -> Result<()> {
 
 fn validate_ak_symbol(name: &str, value: &str) -> Result<()> {
     let Some(body) = value.strip_prefix("ak.") else {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "extension manifest {name} must start with ak."
         )));
     };
     if !body.split('.').all(valid_symbol_segment) {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "extension manifest {name} contains an invalid symbol"
         )));
     }
@@ -293,12 +293,12 @@ fn validate_ak_symbol(name: &str, value: &str) -> Result<()> {
 
 fn validate_namespace(namespace: &str) -> Result<()> {
     let Some(body) = namespace.strip_prefix("ak.") else {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "extension manifest namespace must start with ak.".to_owned(),
         ));
     };
     if !body.split('.').all(valid_symbol_segment) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "extension manifest namespace contains an invalid segment".to_owned(),
         ));
     }
@@ -309,7 +309,7 @@ fn validate_content_ref(name: &str, reference: &RegistryContentRef) -> Result<()
     validate_registry_symbol(name, &reference.registry_id)?;
     if let Some(url) = &reference.retrieval_url {
         url::Url::parse(url).map_err(|error| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "extension manifest {name} retrieval_url is invalid: {error}"
             ))
         })?;
@@ -321,7 +321,7 @@ fn validate_non_zero_limit(name: &str, value: Option<u32>, maximum: u32) -> Resu
     if let Some(value) = value
         && (value == 0 || value > maximum)
     {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "extension manifest resource limit {name} must be within 1..={maximum}"
         )));
     }
@@ -393,7 +393,7 @@ impl ExtensionManifest {
         validate_versioned_symbol("extension_id", &self.extension_id, "ak.extension.")?;
         validate_namespace(&self.namespace)?;
         if self.namespace != self.expected_namespace()? {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "extension manifest namespace is not bound to extension_id".to_owned(),
             ));
         }
@@ -491,17 +491,17 @@ impl ExtensionManifest {
             validate_versioned_symbol("federation_profile_ref", profile, "ak.profile.")?;
         }
         if self.conformance_vector_refs.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "extension manifest must declare at least one conformance vector".to_owned(),
             ));
         }
         if self.proofs.is_empty() || self.proofs.len() > MAX_MANIFEST_PROOFS {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "extension manifest requires 1..={MAX_MANIFEST_PROOFS} proofs"
             )));
         }
         if self.resource_limits.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "extension manifest must declare at least one resource limit".to_owned(),
             ));
         }
@@ -526,24 +526,24 @@ impl ExtensionManifest {
             MAX_MANIFEST_OPERATIONS_PER_MINUTE,
         )?;
         if self.manifest_digest != self.expected_manifest_digest()? {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "extension manifest_digest does not match its canonical content".to_owned(),
             ));
         }
         for proof in &self.proofs {
             proof.validate()?;
             if proof.event_digest != self.manifest_digest {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "extension manifest proof does not cover manifest_digest".to_owned(),
                 ));
             }
             if proof.created_at != self.published_at {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "extension manifest proof created_at must equal published_at".to_owned(),
                 ));
             }
             if proof.proof_purpose.is_some() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "extension manifest proof must not carry Event payload proof_purpose"
                         .to_owned(),
                 ));
@@ -559,13 +559,13 @@ fn require_content<'a>(
     expected_kind: ManifestRegistryContentKind,
 ) -> Result<&'a ManifestRegistryContent> {
     let content = catalog.content.get(&reference.registry_id).ok_or_else(|| {
-        Error::Protocol(format!(
+        WireError::Protocol(format!(
             "extension manifest reference {} is missing from the active registry catalog",
             reference.registry_id
         ))
     })?;
     if content.digest != reference.digest || content.kind != expected_kind {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "extension manifest reference {} has a digest or registry-kind mismatch",
             reference.registry_id
         )));
@@ -596,7 +596,7 @@ fn enforce_kernel_limits(
         ),
     ] {
         if declared.is_some_and(|value| value > maximum) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "extension manifest resource limit {name} exceeds the configured Kernel hard limit"
             )));
         }
@@ -616,13 +616,13 @@ pub fn load_extension_manifests(
     for manifest in manifests {
         manifest.validate_structural()?;
         if !extension_ids.insert(manifest.extension_id.clone()) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "extension id {} is declared more than once",
                 manifest.extension_id
             )));
         }
         if !namespaces.insert(manifest.namespace.clone()) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "extension namespace {} is not unique",
                 manifest.namespace
             )));
@@ -631,7 +631,7 @@ pub fn load_extension_manifests(
             .insert(manifest.manifest_id.clone(), manifest.clone())
             .is_some()
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "extension manifest id {} is declared more than once",
                 manifest.manifest_id
             )));
@@ -657,7 +657,7 @@ pub fn load_extension_manifests(
             if manifest.protocol_layer_kind == ProtocolLayerKind::CollaborationBase
                 && dependency_manifest.protocol_layer_kind == ProtocolLayerKind::Extension
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "Collaboration Base cannot depend on an Extension".to_owned(),
                 ));
             }
@@ -693,7 +693,7 @@ pub fn load_extension_manifests(
         }
     }
     if topological_manifest_ids.len() != by_id.len() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "extension manifest dependency graph contains a cycle".to_owned(),
         ));
     }
@@ -735,7 +735,7 @@ pub fn load_extension_manifests(
                 .lattice_profile_ids
                 .contains(&reference.lattice_profile_ref)
             {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "extension reducer {} references an unavailable lattice profile",
                     reference.reducer_contract_id
                 )));
@@ -743,14 +743,14 @@ pub fn load_extension_manifests(
         }
         for action in &manifest.required_actions {
             if !catalog.action_ids.contains(action) {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "extension manifest requires unavailable action {action}"
                 )));
             }
         }
         for rail in &manifest.transport_rail_ids {
             if !catalog.transport_rail_ids.contains(rail) {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "extension manifest references unavailable transport rail {rail}"
                 )));
             }
@@ -760,7 +760,7 @@ pub fn load_extension_manifests(
             .as_ref()
             .is_some_and(|profile| !catalog.recovery_profile_ids.contains(profile))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "extension manifest references an unavailable recovery profile".to_owned(),
             ));
         }
@@ -769,7 +769,7 @@ pub fn load_extension_manifests(
             .as_ref()
             .is_some_and(|profile| !catalog.federation_profile_ids.contains(profile))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "extension manifest references an unavailable federation profile".to_owned(),
             ));
         }
@@ -780,7 +780,7 @@ pub fn load_extension_manifests(
                 ManifestRegistryContentKind::ConformanceVector,
             )?;
             if !catalog.passing_vector_ids.contains(&reference.registry_id) {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "extension conformance vector {} has not passed",
                     reference.registry_id
                 )));
@@ -790,7 +790,7 @@ pub fn load_extension_manifests(
         for dependency in &manifest.dependency_refs {
             if let Some(dependency_manifest) = by_id.get(&dependency.registry_id) {
                 if dependency_manifest.manifest_digest != dependency.digest {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "extension manifest dependency {} has a digest mismatch",
                         dependency.registry_id
                     )));
@@ -798,7 +798,7 @@ pub fn load_extension_manifests(
                 if manifest.protocol_layer_kind == ProtocolLayerKind::CollaborationBase
                     && dependency_manifest.protocol_layer_kind == ProtocolLayerKind::Extension
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "Collaboration Base cannot depend on an Extension".to_owned(),
                     ));
                 }
@@ -809,19 +809,19 @@ pub fn load_extension_manifests(
                 .content
                 .get(&dependency.registry_id)
                 .ok_or_else(|| {
-                    Error::Protocol(format!(
+                    WireError::Protocol(format!(
                         "extension manifest dependency {} is missing",
                         dependency.registry_id
                     ))
                 })?;
             if content.digest != dependency.digest {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "extension manifest dependency {} has a digest mismatch",
                     dependency.registry_id
                 )));
             }
             let ManifestRegistryContentKind::Dependency(layer) = content.kind else {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "extension manifest dependency {} does not name a dependency package",
                     dependency.registry_id
                 )));
@@ -829,7 +829,7 @@ pub fn load_extension_manifests(
             if manifest.protocol_layer_kind == ProtocolLayerKind::CollaborationBase
                 && layer == ManifestDependencyLayer::Extension
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "Collaboration Base cannot depend on an Extension".to_owned(),
                 ));
             }
@@ -876,7 +876,7 @@ mod tests {
                 Value::String(ProofContextId::EXTENSION_MANIFEST_PROOF_V1.to_owned())
             );
             if self.reject {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "publisher signature verification failed".to_owned(),
                 ));
             }

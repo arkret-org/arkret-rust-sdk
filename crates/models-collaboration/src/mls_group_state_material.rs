@@ -4,7 +4,7 @@ use arkret_canonical::base64url::base64url_decode;
 use arkret_wire::{Base64UrlString, BlobRef, EventId, Hash, MlsGroupId, RealmId, ScopeRef};
 use serde::{Deserialize, Serialize};
 
-use crate::internal_prelude::{Error, Result};
+use crate::internal_prelude::{Result, WireError};
 
 pub const MLS_GROUP_STATE_MATERIAL_MAX_RESPONSE_BYTES: u32 = 8 * 1024 * 1024;
 pub const MLS_GROUP_STATE_MATERIAL_MIN_RESPONSE_BYTES: u32 = 1024;
@@ -29,7 +29,7 @@ pub struct MlsGroupStateMaterialRequestBody {
 impl MlsGroupStateMaterialRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.effective_scope.realm_id() != &self.realm_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "MLS group-state material scope does not match realm_id".to_owned(),
             ));
         }
@@ -40,7 +40,7 @@ impl MlsGroupStateMaterialRequestBody {
                 ..=MLS_GROUP_STATE_MATERIAL_MAX_RESPONSE_BYTES)
                 .contains(&limit)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "MLS group-state material max_response_bytes is outside protocol bounds".to_owned(),
             ));
         }
@@ -89,7 +89,7 @@ impl MlsGroupStateMaterialOutcome {
             || self.ratchet_tree_ref != request.ratchet_tree_ref
             || self.ratchet_tree_digest != request.ratchet_tree_digest
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "MLS group-state material response does not match request selectors".to_owned(),
             ));
         }
@@ -109,12 +109,14 @@ impl MlsGroupStateMaterialOutcome {
         let total = group_info_bytes
             .len()
             .checked_add(ratchet_tree_bytes.len())
-            .ok_or_else(|| Error::Protocol("MLS group-state material size overflow".to_owned()))?;
+            .ok_or_else(|| {
+                WireError::Protocol("MLS group-state material size overflow".to_owned())
+            })?;
         let limit = request
             .max_response_bytes
             .unwrap_or(MLS_GROUP_STATE_MATERIAL_MAX_RESPONSE_BYTES) as usize;
         if total > limit {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "MLS group-state material exceeds requested response bound".to_owned(),
             ));
         }
@@ -129,13 +131,15 @@ pub fn validate_content_address(blob_ref: &BlobRef, digest: &Hash) -> Result<()>
     let embedded = blob_ref
         .as_str()
         .strip_prefix("ak:blob:sha256:")
-        .ok_or_else(|| Error::Protocol("MLS material ref must use ak:blob:sha256".to_owned()))?;
+        .ok_or_else(|| {
+            WireError::Protocol("MLS material ref must use ak:blob:sha256".to_owned())
+        })?;
     let explicit = digest
         .as_str()
         .strip_prefix("sha256:")
-        .ok_or_else(|| Error::Protocol("MLS material digest must use sha256".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("MLS material digest must use sha256".to_owned()))?;
     if embedded != explicit {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "MLS material content-addressed ref does not match explicit digest".to_owned(),
         ));
     }
@@ -148,13 +152,13 @@ fn decode_and_validate_bytes(
     expected_digest: &Hash,
 ) -> Result<Vec<u8>> {
     let bytes = base64url_decode(encoded.as_str()).map_err(|error| {
-        Error::Protocol(format!(
+        WireError::Protocol(format!(
             "MLS {field} bytes are not unpadded base64url: {error}"
         ))
     })?;
     let actual = arkret_canonical::canonical::sha256_digest(&bytes);
     if actual != expected_digest.as_str() {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "MLS {field} raw-byte digest mismatch"
         )));
     }

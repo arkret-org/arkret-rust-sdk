@@ -19,8 +19,8 @@ use std::collections::BTreeSet;
 use chrono::Utc;
 
 use crate::{
-    DidFullId, DidUrl, Error, Hash, Hlc, MultiSigKind, MultiSignature, NotarySig, PayloadSignature,
-    RealmId, Result, Seal, SealId, SealSignature, canonical,
+    DidFullId, DidUrl, Hash, Hlc, MultiSigKind, MultiSignature, NotarySig, PayloadSignature,
+    RealmId, Result, Seal, SealId, SealSignature, WireError, canonical,
 };
 
 /// Trait implemented by Seal / notary signers (Ed25519 keypair, HSM,
@@ -107,7 +107,7 @@ impl Seal {
         signer: &S,
     ) -> Result<Seal> {
         if kind.is_compaction() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "compaction Seal requires an explicit covered_event_digests set".to_owned(),
             ));
         }
@@ -240,12 +240,12 @@ impl Seal {
         S: PayloadSigner + ?Sized,
     {
         if kind.is_compaction() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "compaction Seal requires an explicit covered_event_digests set".to_owned(),
             ));
         }
         if signers.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Seal::sign_multi requires at least one signer".to_owned(),
             ));
         }
@@ -317,18 +317,18 @@ fn delta_control_root(delta: &[Hash], digest_suite: arkret_canonical::DigestSuit
         .iter()
         .map(|event_digest| {
             let (suite, digest) = event_digest.as_str().split_once(':').ok_or_else(|| {
-                Error::Protocol("control-plane event_digest must carry a suite".to_owned())
+                WireError::Protocol("control-plane event_digest must carry a suite".to_owned())
             })?;
             canonical::digest_suite(suite)?;
             let mut bytes = [0_u8; 32];
             hex::decode_to_slice(digest, &mut bytes).map_err(|error| {
-                Error::Protocol(format!("invalid control-plane event_digest: {error}"))
+                WireError::Protocol(format!("invalid control-plane event_digest: {error}"))
             })?;
             Ok(bytes)
         })
         .collect::<Result<_>>()?;
     if leaves.is_empty() {
-        return Hash::new(canonical::digest(digest_suite, [])).map_err(Error::from);
+        return Hash::new(canonical::digest(digest_suite, [])).map_err(WireError::from);
     }
     for leaf in &mut leaves {
         *leaf = canonical::digest_bytes_from_slices(digest_suite, &[&[0x00], leaf]);
@@ -352,7 +352,7 @@ fn delta_control_root(delta: &[Hash], digest_suite: arkret_canonical::DigestSuit
         digest_suite.as_str(),
         hex::encode(leaves[0])
     ))
-    .map_err(Error::from)
+    .map_err(WireError::from)
 }
 
 fn seal_signature(signature: PayloadSignature) -> SealSignature {
@@ -420,7 +420,7 @@ impl ThresholdAggregator {
     /// trivially aggregate empty signer sets).
     pub fn new(threshold: usize) -> Result<Self> {
         if threshold == 0 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "ThresholdAggregator threshold must be at least 1".to_owned(),
             ));
         }
@@ -458,13 +458,13 @@ impl ThresholdAggregator {
             .iter()
             .any(|p| p.signer_did == partial.signer_did)
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "duplicate partial from signer {}",
                 partial.signer_did
             )));
         }
         if partial.signature.is_empty() {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "partial signature from {} is empty",
                 partial.signer_did
             )));
@@ -491,14 +491,14 @@ impl ThresholdAggregator {
         F: Fn(&PartialSignature, &[u8]) -> Result<()>,
     {
         if !self.threshold_met() {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "threshold not met: have {} partials, need {}",
                 self.partials.len(),
                 self.threshold
             )));
         }
         let payload_digest = Hash::new(canonical::sha256_digest(canonical_bytes))
-            .map_err(|err| Error::Protocol(format!("invalid canonical hash: {err}")))?;
+            .map_err(|err| WireError::Protocol(format!("invalid canonical hash: {err}")))?;
         let mut signatures = Vec::with_capacity(self.partials.len());
         for partial in &self.partials {
             verify(partial, canonical_bytes)?;
@@ -763,7 +763,7 @@ mod tests {
             .unwrap();
         let err = agg
             .aggregate(&fixture_canonical_bytes(), |_p, _bytes| {
-                Err(Error::Protocol("bad partial".to_owned()))
+                Err(WireError::Protocol("bad partial".to_owned()))
             })
             .unwrap_err();
         assert!(format!("{err}").contains("bad partial"));

@@ -32,7 +32,7 @@ pub struct SidecarContextAttachPayload {
 impl SidecarContextAttachPayload {
     pub fn validate(&self) -> arkret_wire::Result<()> {
         if self.version == 0 || (self.version == 1) == self.predecessor_event_ref.is_some() {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "Sidecar context attachment requires version>=1, no predecessor at version 1, and a predecessor after version 1".to_owned(),
             ));
         }
@@ -270,7 +270,7 @@ impl SidecarEnsureOutcome {
                         pending_access_reconciliations[index + 1..].contains(item)
                     }))
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "invalid accepted Sidecar readiness outcome".to_owned(),
             ));
         }
@@ -304,7 +304,7 @@ impl SidecarControlFrontier {
             .windows(2)
             .all(|pair| pair[0].as_str().as_bytes() < pair[1].as_str().as_bytes())
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "Sidecar authority frontier must be UTF-8 sorted and unique".to_owned(),
             ));
         }

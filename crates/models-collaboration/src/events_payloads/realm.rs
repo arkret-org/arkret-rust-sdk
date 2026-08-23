@@ -373,13 +373,13 @@ impl RealmPolicyBundlePayload {
     /// set" as the empty set would silently disable every component.
     pub fn validate(&self) -> Result<()> {
         if self.policy_revision == 0 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "realm_policy_bundle_payload.policy_revision must be >= 1 (schema_violation)"
                     .to_owned(),
             ));
         }
         if self.declared_component_count() == 0 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "realm_policy_bundle_payload must declare at least one component beside \
                  policy_revision (schema_violation)"
                     .to_owned(),
@@ -387,13 +387,13 @@ impl RealmPolicyBundlePayload {
         }
         if let Some(service_ids) = &self.allowed_third_party_invite_verification_service_ids {
             if service_ids.len() > 256 {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "realm policy third-party invite verification allowset exceeds 256 services"
                         .to_owned(),
                 ));
             }
             if service_ids.iter().collect::<BTreeSet<_>>().len() != service_ids.len() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "realm policy third-party invite verification allowset must be unique"
                         .to_owned(),
                 ));
@@ -412,7 +412,7 @@ impl RealmPolicyBundlePayload {
             |value: Option<u64>, fallback: chrono::Duration| -> Result<chrono::Duration> {
                 let millis = value.unwrap_or_else(|| fallback.num_milliseconds() as u64);
                 let millis = i64::try_from(millis).map_err(|_| {
-                    Error::Protocol(
+                    WireError::Protocol(
                     "Realm proposal decision duration exceeds i64 milliseconds (schema_violation)"
                         .to_owned(),
                 )
@@ -453,8 +453,9 @@ impl RealmPolicyBundlePayload {
 
     pub fn to_value(&self) -> Result<Value> {
         self.validate()?;
-        serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("realm policy bundle payload serialize: {err}")))
+        serde_json::to_value(self).map_err(|err| {
+            WireError::Protocol(format!("realm policy bundle payload serialize: {err}"))
+        })
     }
 }
 
@@ -514,14 +515,14 @@ impl RealmDeliveryBindingPolicyPayload {
             && self.handover_grace_seconds.is_none()
             && self.expires_after_seconds.is_none()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "realm_delivery_binding_policy_payload must declare at least one property \
                  (schema_violation)"
                     .to_owned(),
             ));
         }
         if self.expires_after_seconds == Some(0) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "realm_delivery_binding_policy_payload.expires_after_seconds must be >= 1 \
                  (schema_violation)"
                     .to_owned(),
@@ -531,7 +532,7 @@ impl RealmDeliveryBindingPolicyPayload {
             .handover_grace_seconds
             .is_some_and(|seconds| seconds > DELIVERY_BINDING_HANDOVER_GRACE_SECONDS_MAX)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "realm_delivery_binding_policy_payload.handover_grace_seconds must be <= 604800 \
                  (schema_violation)"
                     .to_owned(),
@@ -543,7 +544,7 @@ impl RealmDeliveryBindingPolicyPayload {
     pub fn to_value(&self) -> Result<Value> {
         self.validate()?;
         serde_json::to_value(self).map_err(|err| {
-            Error::Protocol(format!("delivery binding policy payload serialize: {err}"))
+            WireError::Protocol(format!("delivery binding policy payload serialize: {err}"))
         })
     }
 }
@@ -564,7 +565,7 @@ impl RealmCreatePayload {
     pub fn to_value(&self) -> Result<Value> {
         self.object.validate()?;
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("realm create payload serialize: {err}")))
+            .map_err(|err| WireError::Protocol(format!("realm create payload serialize: {err}")))
     }
 }
 
@@ -622,17 +623,17 @@ impl FoundingDeviceDescriptor {
         if payload.authorization_binding_kind != DeviceAuthorizationBindingKind::RegistrationAnchor
             || payload.recovery_session_id.is_some()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "founding device authorization must be root-anchored registration".to_owned(),
             ));
         }
         let device_public_key = DidKey::new(payload.device_public_key.as_str().to_owned())
-            .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+            .map_err(|reason| WireError::Protocol(reason.to_owned()))?;
         let descriptor = Self {
             descriptor_version: 1,
             device_id: payload.device_id.clone(),
             device_public_key: NonEmptyString::new(device_public_key.to_string())
-                .map_err(|reason| Error::Protocol(reason.to_owned()))?,
+                .map_err(|reason| WireError::Protocol(reason.to_owned()))?,
             device_key_digest: Hash::new(canonical::sha256_digest(device_public_key.as_bytes()))?,
             device_key_algorithm: FoundingDeviceKeyAlgorithm::Ed25519,
             device_key_purpose: FoundingDeviceKeyPurpose::EventSigningAndMlsIdentity,
@@ -658,7 +659,7 @@ impl FoundingDeviceDescriptor {
                 .windows(2)
                 .any(|pair| pair[0].as_bytes() >= pair[1].as_bytes())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "schema_violation: invalid founding device descriptor".to_owned(),
             ));
         }
@@ -804,7 +805,7 @@ impl RealmGenesis {
                 RealmPurpose::PrincipalControl | RealmPurpose::ManagedAgentControl
             ) != self.initial_resolution.is_some())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "schema_violation: invalid Realm genesis identity branch".to_owned(),
             ));
         }
@@ -816,7 +817,7 @@ impl RealmGenesis {
                 || resolution.version_id.is_empty()
                 || project_full_id_to_core_id(&resolution.full_id).is_err())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "schema_violation: invalid initial identity resolution".to_owned(),
             ));
         }
@@ -841,7 +842,7 @@ impl RealmProfile {
     pub fn new(title: impl Into<String>) -> Result<Self> {
         let title = title.into();
         if title.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "realm profile title must not be empty (schema_violation)".to_owned(),
             ));
         }
@@ -855,12 +856,12 @@ impl RealmProfile {
 
     pub fn to_value(&self) -> Result<Value> {
         if self.schema != SchemaId::REALM_PROFILE_V1 || self.title.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "schema_violation: invalid Realm profile".to_owned(),
             ));
         }
         serde_json::to_value(self)
-            .map_err(|error| Error::Protocol(format!("Realm profile serialize: {error}")))
+            .map_err(|error| WireError::Protocol(format!("Realm profile serialize: {error}")))
     }
 }
 
@@ -894,7 +895,7 @@ pub struct RealmDigestSuiteTransitionPayload {
 impl RealmDigestSuiteTransitionPayload {
     pub fn validate(&self) -> Result<()> {
         if self.from_digest_algorithm == self.to_digest_algorithm {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "realm digest suite transition must change digest_algorithm (schema_violation)"
                     .to_owned(),
             ));
@@ -906,7 +907,7 @@ impl RealmDigestSuiteTransitionPayload {
                 canonical::DigestSuite::Sha256
             )
         ) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "realm digest suite transition must not downgrade hash strength (schema_violation)"
                     .to_owned(),
             ));
@@ -959,7 +960,7 @@ impl RealmFreezePayload {
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("realm freeze payload serialize: {err}")))
+            .map_err(|err| WireError::Protocol(format!("realm freeze payload serialize: {err}")))
     }
 }
 

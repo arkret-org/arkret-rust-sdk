@@ -48,7 +48,7 @@ pub struct RawProjectionFixtureParts {
 pub fn split_raw_projection_fixture_payload(payload: Value) -> Result<RawProjectionFixtureParts> {
     let fixture: RawProjectionFixtureEnvelope =
         serde_json::from_value(payload).map_err(|error| {
-            crate::Error::Protocol(format!("invalid raw projection fixture: {error}"))
+            crate::WireError::Protocol(format!("invalid raw projection fixture: {error}"))
         })?;
     let actor_id = fixture.sender.map(DidCoreId::new).transpose()?;
     let event_id = fixture.event_id.map(EventId::new).transpose()?;

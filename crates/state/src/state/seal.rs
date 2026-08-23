@@ -1416,13 +1416,13 @@ fn joined_control_view_hash(
         .map_err(|e| SealReject::Structural(format!("invalid joined control view hash: {e}")))
 }
 
-pub fn view_hash(leaves: &[SealId]) -> Result<Hash, crate::Error> {
+pub fn view_hash(leaves: &[SealId]) -> Result<Hash, crate::WireError> {
     let mut sorted: Vec<&str> = leaves.iter().map(|a| a.as_str()).collect();
     sorted.sort();
     let json: Value = serde_json::to_value(&sorted)?;
     let bytes = canonical::canonical_json_bytes(&json)?;
     Hash::new(canonical::sha256_digest(&bytes))
-        .map_err(|e| crate::Error::Protocol(format!("invalid view_hash: {e}")))
+        .map_err(|e| crate::WireError::Protocol(format!("invalid view_hash: {e}")))
 }
 /// Join one cell's ops, routing `ordered_log` to its issuer-aware entry point.
 ///
@@ -1578,7 +1578,7 @@ mod tests {
         );
     }
 
-    fn compute_state_root(cells: &BTreeMap<CellRef, CellState>) -> Result<Hash, crate::Error> {
+    fn compute_state_root(cells: &BTreeMap<CellRef, CellState>) -> Result<Hash, crate::WireError> {
         super::compute_state_root(cells, SUITE)
     }
 

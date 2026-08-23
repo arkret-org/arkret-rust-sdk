@@ -19,9 +19,9 @@ pub use arkret_models_crypto::mls_governance_proof::*;
 use arkret_wire::cell::CellId;
 use arkret_wire::event_envelope::{Event, EventSubmitContext, ScopeRef};
 use arkret_wire::{
-    Base64UrlString, CellRef, ContentScheme, DidCoreId, DurabilityPolicy, Error, EventId, Hash,
-    NotarySig, NotarySignerDescriptor, NotaryValue, ProjectedCellWrite, RealmId, Seal, SealBasis,
-    SealId, SealSignature,
+    Base64UrlString, CellRef, ContentScheme, DidCoreId, DurabilityPolicy, EventId, Hash, NotarySig,
+    NotarySignerDescriptor, NotaryValue, ProjectedCellWrite, RealmId, Seal, SealBasis, SealId,
+    SealSignature, WireError,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
@@ -59,7 +59,7 @@ impl MlsGroupGenesisBinding {
                 ContentScheme::MlsExporterAeadV1,
                 Some(DurabilityPolicy::None | DurabilityPolicy::OrganizationRecoveryKey),
             ) => Ok(()),
-            _ => Err(Error::Protocol(
+            _ => Err(WireError::Protocol(
                 "MLS group genesis binding content scheme and durability policy mismatch"
                     .to_owned(),
             )),
@@ -154,7 +154,7 @@ impl MlsGovernanceVerificationCheckpoint {
                 continue;
             }
             let seal = seals.get(&id).ok_or_else(|| {
-                Error::Protocol("governance checkpoint Seal closure is incomplete".to_owned())
+                WireError::Protocol("governance checkpoint Seal closure is incomplete".to_owned())
             })?;
             pending.extend(seal.predecessor_refs.iter().cloned());
         }
@@ -378,9 +378,9 @@ fn event_digest_suites_for_verified_replay(
     for seal in &checkpoint.accepted_seals {
         let digest_suites = digest_suites_for_replay_seal(seal, &events, live_suites)?;
         for digest in &seal.delta {
-            let event = events
-                .get(digest)
-                .ok_or_else(|| Error::Protocol("verified replay Event is unresolved".to_owned()))?;
+            let event = events.get(digest).ok_or_else(|| {
+                WireError::Protocol("verified replay Event is unresolved".to_owned())
+            })?;
             let suite = if seal.predecessor_refs.is_empty()
                 && event.kind == arkret_wire::EventKind::RealmCreate
             {
@@ -731,13 +731,13 @@ where
     let mls_leaf_set_digest = canonical_hash(&canonical_leaves)?;
     for branch in &bundle.frontier_projection.branches {
         let seal = seals.get(&branch.target_seal_ref).ok_or_else(|| {
-            Error::Protocol("frontier branch target Seal is unresolved".to_owned())
+            WireError::Protocol("frontier branch target Seal is unresolved".to_owned())
         })?;
         let branch_digest_suite = live_suites
             .get(&branch.target_seal_ref)
             .copied()
             .ok_or_else(|| {
-                Error::Protocol(
+                WireError::Protocol(
                     "frontier branch target Seal has no verified digest suite".to_owned(),
                 )
             })?;
@@ -897,7 +897,7 @@ where
     let expected_realm = request
         .effective_scope
         .realm_id_opt()
-        .ok_or_else(|| Error::Protocol("MLS proof scope has no Realm".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("MLS proof scope has no Realm".to_owned()))?;
     if &target_checkpoint.realm_id != expected_realm
         || target_checkpoint.basis != request.proof_target_basis
     {
@@ -973,11 +973,11 @@ where
     let mut target_leaves = request.proof_target_basis.leaves.clone();
     target_leaves.sort();
     for target_seal_ref in target_leaves {
-        let seal = seal_map
-            .get(&target_seal_ref)
-            .ok_or_else(|| Error::Protocol("materializer target Seal is unresolved".to_owned()))?;
+        let seal = seal_map.get(&target_seal_ref).ok_or_else(|| {
+            WireError::Protocol("materializer target Seal is unresolved".to_owned())
+        })?;
         let branch_digest_suite = live_suites.get(&target_seal_ref).copied().ok_or_else(|| {
-            Error::Protocol("materializer target Seal has no verified digest suite".to_owned())
+            WireError::Protocol("materializer target Seal has no verified digest suite".to_owned())
         })?;
         let state = effective_state_at(
             std::slice::from_ref(&target_seal_ref),
@@ -1138,9 +1138,9 @@ fn exact_seal_cut(
         if !cut.insert(seal_id.clone()) {
             continue;
         }
-        let seal = seals
-            .get(&seal_id)
-            .ok_or_else(|| Error::Protocol("materializer Seal closure is incomplete".to_owned()))?;
+        let seal = seals.get(&seal_id).ok_or_else(|| {
+            WireError::Protocol("materializer Seal closure is incomplete".to_owned())
+        })?;
         if base.contains(&seal_id) {
             reached.insert(seal_id);
             continue;
@@ -1188,7 +1188,7 @@ fn materialize_frontier_entry(
     let mut provenance_event_refs = Vec::new();
     for digest in provenance_digests {
         let event = events.get(&digest).ok_or_else(|| {
-            Error::Protocol("materializer provenance Event is unresolved".to_owned())
+            WireError::Protocol("materializer provenance Event is unresolved".to_owned())
         })?;
         if let Some(previous) = event_descriptors.insert(event.event_id.clone(), digest.clone())
             && previous != digest
@@ -1210,7 +1210,7 @@ fn materialize_frontier_entry(
             leaf_canonical_preimage_b64u: Base64UrlString::new(arkret_canonical::base64url_encode(
                 &preimage,
             ))
-            .map_err(|error| Error::Protocol(error.to_owned()))?,
+            .map_err(|error| WireError::Protocol(error.to_owned()))?,
             leaf_digest: proof.leaf_digest,
             leaf_index: proof.leaf_index,
             leaf_count: proof.leaf_count,
@@ -1236,12 +1236,12 @@ fn verify_resolved_seals<'a>(
     let expected_realm = request
         .effective_scope
         .realm_id_opt()
-        .ok_or_else(|| Error::Protocol("MLS proof scope has no Realm".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("MLS proof scope has no Realm".to_owned()))?;
     let mut seals = BTreeMap::new();
     for seal in resolved {
         let expected_digest = descriptors
             .get(&seal.id)
-            .ok_or_else(|| Error::Protocol("resolved undescribed Seal".to_owned()))?;
+            .ok_or_else(|| WireError::Protocol("resolved undescribed Seal".to_owned()))?;
         seal.validate_structural()?;
         if &canonical_hash(seal)? != *expected_digest {
             return frontier_rejected("resolved Seal canonical digest mismatch");
@@ -1266,7 +1266,7 @@ fn verify_resolved_seals<'a>(
             continue;
         }
         let seal = seals.get(&seal_id).ok_or_else(|| {
-            Error::Protocol("Seal DAG descriptor closure is incomplete".to_owned())
+            WireError::Protocol("Seal DAG descriptor closure is incomplete".to_owned())
         })?;
         if base.contains(&seal_id) {
             reached_base.insert(seal_id);
@@ -1321,7 +1321,7 @@ fn verify_resolved_events<'a>(
     for event in resolved {
         let expected_digest = descriptors
             .get(&event.event_id)
-            .ok_or_else(|| Error::Protocol("resolved undescribed Event".to_owned()))?;
+            .ok_or_else(|| WireError::Protocol("resolved undescribed Event".to_owned()))?;
         if claimed_event_digest(event)? != **expected_digest
             || events.insert(event.event_id.clone(), event).is_some()
         {
@@ -1367,7 +1367,7 @@ fn claimed_event_digest(event: &Event) -> arkret_wire::Result<Hash> {
             claimed = Some(digest.clone());
         }
     }
-    claimed.ok_or_else(|| Error::Protocol("Event has no signed digest claim".to_owned()))
+    claimed.ok_or_else(|| WireError::Protocol("Event has no signed digest claim".to_owned()))
 }
 
 fn merge_dependencies(
@@ -1404,7 +1404,7 @@ fn dependency_sort_key(item: &GovernanceDependency) -> arkret_wire::Result<(Stri
     let kind = value
         .get("kind")
         .and_then(Value::as_str)
-        .ok_or_else(|| Error::Protocol("dependency selector has no kind".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("dependency selector has no kind".to_owned()))?;
     Ok((
         kind.to_owned(),
         arkret_canonical::canonical_json_bytes(item.selector())?,
@@ -1452,7 +1452,7 @@ where
     let expected_realm = request
         .effective_scope
         .realm_id_opt()
-        .ok_or_else(|| Error::Protocol("MLS proof scope has no Realm".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("MLS proof scope has no Realm".to_owned()))?;
     replay_checkpoint_and_cut_to_basis(
         expected_realm,
         &request.proof_base_basis,
@@ -1718,9 +1718,9 @@ where
 {
     let digest_suites = digest_suites_for_replay_seal(seal, all_events, live_suites)?;
     for digest in &seal.delta {
-        let event = all_events
-            .event(digest)?
-            .ok_or_else(|| Error::Protocol("replay Seal delta Event is unresolved".to_owned()))?;
+        let event = all_events.event(digest)?.ok_or_else(|| {
+            WireError::Protocol("replay Seal delta Event is unresolved".to_owned())
+        })?;
         let event_digest_suite = if seal.predecessor_refs.is_empty()
             && event.kind == arkret_wire::EventKind::RealmCreate
         {
@@ -1784,7 +1784,7 @@ where
                 .get(digest)
                 .map_err(replay_store_error)?
                 .ok_or_else(|| {
-                    Error::Protocol(
+                    WireError::Protocol(
                         "Seal completeness Event is absent from the replay closure".to_owned(),
                     )
                 })?;
@@ -1792,7 +1792,9 @@ where
                 .digest_suite(digest)
                 .map_err(replay_store_error)?
                 .ok_or_else(|| {
-                    Error::Protocol("Seal completeness Event has no frozen digest suite".to_owned())
+                    WireError::Protocol(
+                        "Seal completeness Event has no frozen digest suite".to_owned(),
+                    )
                 })?;
             Ok((event, event_digest_suite))
         })
@@ -1816,7 +1818,7 @@ fn digest_suites_for_replay_seal(
         let mut declared = None;
         for digest in &seal.delta {
             let event = all_events.event(digest)?.ok_or_else(|| {
-                Error::Protocol("genesis Seal delta Event is unresolved".to_owned())
+                WireError::Protocol("genesis Seal delta Event is unresolved".to_owned())
             })?;
             if event.kind != arkret_wire::EventKind::RealmCreate {
                 continue;
@@ -1828,7 +1830,7 @@ fn digest_suites_for_replay_seal(
                     .and_then(|object| object.get("digest_algorithm"))
                     .cloned()
                     .ok_or_else(|| {
-                        Error::Protocol(
+                        WireError::Protocol(
                             "Realm create Event omits object.digest_algorithm".to_owned(),
                         )
                     })?,
@@ -1838,14 +1840,14 @@ fn digest_suites_for_replay_seal(
             }
         }
         return declared.map(SealDigestSuites::standard).ok_or_else(|| {
-            Error::Protocol("genesis Seal contains no Realm create Event".to_owned())
+            WireError::Protocol("genesis Seal contains no Realm create Event".to_owned())
         });
     }
 
     let mut predecessor_suite = None;
     for predecessor in &seal.predecessor_refs {
         let suite = live_suites.get(predecessor).copied().ok_or_else(|| {
-            Error::Protocol("replay Seal predecessor has no verified digest suite".to_owned())
+            WireError::Protocol("replay Seal predecessor has no verified digest suite".to_owned())
         })?;
         if predecessor_suite.is_some_and(|previous| previous != suite) {
             return frontier_rejected("replay Seal predecessor digest-suite join is Bottom");
@@ -1870,7 +1872,7 @@ fn digest_suites_for_replay_seal(
                     .get("from_digest_algorithm")
                     .cloned()
                     .ok_or_else(|| {
-                        Error::Protocol(
+                        WireError::Protocol(
                             "digest-suite transition omits from_digest_algorithm".to_owned(),
                         )
                     })?,
@@ -1881,7 +1883,7 @@ fn digest_suites_for_replay_seal(
                     .get("to_digest_algorithm")
                     .cloned()
                     .ok_or_else(|| {
-                        Error::Protocol(
+                        WireError::Protocol(
                             "digest-suite transition omits to_digest_algorithm".to_owned(),
                         )
                     })?,
@@ -1903,16 +1905,15 @@ pub(crate) fn live_digest_suite_at_basis(
 ) -> arkret_wire::Result<DigestSuite> {
     let mut joined = None;
     for leaf in &basis.leaves {
-        let suite = live_suites
-            .get(leaf)
-            .copied()
-            .ok_or_else(|| Error::Protocol("basis leaf has no verified digest suite".to_owned()))?;
+        let suite = live_suites.get(leaf).copied().ok_or_else(|| {
+            WireError::Protocol("basis leaf has no verified digest suite".to_owned())
+        })?;
         if joined.is_some_and(|previous| previous != suite) {
             return frontier_rejected("basis live digest-suite join is Bottom");
         }
         joined = Some(suite);
     }
-    joined.ok_or_else(|| Error::Protocol("basis contains no leaves".to_owned()))
+    joined.ok_or_else(|| WireError::Protocol("basis contains no leaves".to_owned()))
 }
 
 fn predecessor_notary_and_state(
@@ -1934,7 +1935,7 @@ fn predecessor_notary_and_state(
                     .get("object")
                     .and_then(|object| object.get("notary"))
                     .ok_or_else(|| {
-                        Error::Protocol("Realm create payload omits notary".to_owned())
+                        WireError::Protocol("Realm create payload omits notary".to_owned())
                     })?;
                 let notary: NotaryValue = serde_json::from_value(value.clone())?;
                 if create_notary.replace(notary).is_some() {
@@ -1944,7 +1945,9 @@ fn predecessor_notary_and_state(
         }
         return create_notary
             .map(|notary| (notary, BTreeMap::new()))
-            .ok_or_else(|| Error::Protocol("genesis Seal has no Realm create Event".to_owned()));
+            .ok_or_else(|| {
+                WireError::Protocol("genesis Seal has no Realm create Event".to_owned())
+            });
     }
 
     let state = effective_state_at(
@@ -1971,7 +1974,7 @@ fn predecessor_notary_and_state(
     }
     notary
         .map(|notary| (notary, state))
-        .ok_or_else(|| Error::Protocol("predecessor view has no notary state".to_owned()))
+        .ok_or_else(|| WireError::Protocol("predecessor view has no notary state".to_owned()))
 }
 
 fn seal_dependency_replay_context(
@@ -2010,7 +2013,7 @@ fn seal_dependency_replay_context(
             event
                 .payload
                 .get("object")
-                .ok_or_else(|| Error::Protocol("Realm create omits object".to_owned()))?;
+                .ok_or_else(|| WireError::Protocol("Realm create omits object".to_owned()))?;
             // `ak.realm.create` carries the closed `RealmGenesis` object, not
             // the later materialized `Realm` view. Availability policy is not
             // a Genesis field in v1, so replay uses the protocol default. Do
@@ -2031,7 +2034,7 @@ fn seal_dependency_replay_context(
             .iter()
             .map(|digest| {
                 let event = all_events.event(digest)?.ok_or_else(|| {
-                    Error::Protocol("Seal dependency Event is unresolved".to_owned())
+                    WireError::Protocol("Seal dependency Event is unresolved".to_owned())
                 })?;
                 let suite = if seal.predecessor_refs.is_empty()
                     && event.kind == arkret_wire::EventKind::RealmCreate
@@ -2077,7 +2080,7 @@ fn seal_dependency_replay_context(
                 .collect::<Vec<_>>();
             let winning_join = winning_membership_join(&covered_ops)?;
             let event = all_events.event(&winning_join)?.ok_or_else(|| {
-                Error::Protocol("winning membership Event is unresolved".to_owned())
+                WireError::Protocol("winning membership Event is unresolved".to_owned())
             })?;
             add_joined_holder_from_event(&event, &mut context)?;
         }
@@ -2099,7 +2102,7 @@ fn winning_membership_join(
         let from = issued.op.op.from.as_ref().and_then(Value::as_str);
         let to = issued.op.op.to.as_ref().and_then(Value::as_str);
         let (Some(from), Some(to)) = (from, to) else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "membership cell contains a non-transition operation".to_owned(),
             ));
         };
@@ -2112,7 +2115,7 @@ fn winning_membership_join(
             .any(|(seen_from, seen_to)| seen_from == from && seen_to != to)
             || current.as_str() != Some(from)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "membership operation history does not resolve to the effective FSM value"
                     .to_owned(),
             ));
@@ -2121,8 +2124,9 @@ fn winning_membership_join(
         current = Value::String(to.to_owned());
         winning_join = (to == "join").then(|| issued.op.move_id.clone());
     }
-    winning_join
-        .ok_or_else(|| Error::Protocol("joined member cell has no effective join Event".to_owned()))
+    winning_join.ok_or_else(|| {
+        WireError::Protocol("joined member cell has no effective join Event".to_owned())
+    })
 }
 
 fn add_joined_holder_from_event(
@@ -2176,7 +2180,7 @@ where
         let descriptor = notary
             .signer_descriptor(&signature.verification_method)
             .ok_or_else(|| {
-                Error::Protocol("Seal signer is absent from predecessor notary".to_owned())
+                WireError::Protocol("Seal signer is absent from predecessor notary".to_owned())
             })?;
         signature.validate_descriptor_binding(descriptor)?;
         verify_signature(signature, descriptor, &body, digest_suite)?;
@@ -2188,12 +2192,12 @@ fn canonical_seal_set(values: &[SealId]) -> BTreeSet<SealId> {
     values.iter().cloned().collect()
 }
 
-fn replay_store_error(error: crate::StoreError) -> Error {
-    Error::Protocol(format!("MLS governance checkpoint store error: {error}"))
+fn replay_store_error(error: crate::StoreError) -> WireError {
+    WireError::Protocol(format!("MLS governance checkpoint store error: {error}"))
 }
 
-fn replay_reject_error(error: crate::SealReject) -> Error {
-    Error::Protocol(format!("MLS governance replay rejected: {error}"))
+fn replay_reject_error(error: crate::SealReject) -> WireError {
+    WireError::Protocol(format!("MLS governance replay rejected: {error}"))
 }
 
 fn verify_frontier_entry(
@@ -2209,9 +2213,9 @@ fn verify_frontier_entry(
     if witness.root_field != MlsGovernanceMerkleRootField::StateRoot {
         return frontier_rejected("frontier cell entry must use a state_root witness");
     }
-    let seal = seals
-        .get(&witness.root_seal_ref)
-        .ok_or_else(|| Error::Protocol("frontier witness names an unresolved Seal".to_owned()))?;
+    let seal = seals.get(&witness.root_seal_ref).ok_or_else(|| {
+        WireError::Protocol("frontier witness names an unresolved Seal".to_owned())
+    })?;
     let signed_root = match witness.root_field {
         MlsGovernanceMerkleRootField::StateRoot => &seal.state_root,
         MlsGovernanceMerkleRootField::ControlEventSetRoot => &seal.control_event_set_root,
@@ -2230,26 +2234,27 @@ fn verify_frontier_entry(
     }
     let preimage =
         arkret_canonical::base64url_decode(witness.leaf_canonical_preimage_b64u.as_str())?;
-    let preimage_value: Value = serde_json::from_slice(&preimage)
-        .map_err(|error| Error::Protocol(format!("invalid state leaf preimage JSON: {error}")))?;
+    let preimage_value: Value = serde_json::from_slice(&preimage).map_err(|error| {
+        WireError::Protocol(format!("invalid state leaf preimage JSON: {error}"))
+    })?;
     if arkret_canonical::canonical_json_bytes(&preimage_value)? != preimage {
         return frontier_rejected("state leaf preimage is not RFC 8785 canonical JSON");
     }
     let object = preimage_value
         .as_object()
-        .ok_or_else(|| Error::Protocol("state leaf preimage must be an object".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("state leaf preimage must be an object".to_owned()))?;
     if object.len() != 2 || object.get("cell") != Some(&json!(entry.cell)) {
         return frontier_rejected("state leaf preimage names a different cell");
     }
     let state = object
         .get("state")
         .and_then(Value::as_object)
-        .ok_or_else(|| Error::Protocol("state leaf preimage has no state object".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("state leaf preimage has no state object".to_owned()))?;
     if state.len() != 1 {
         return frontier_rejected("state leaf preimage state is not closed");
     }
     let value = state.get("value").ok_or_else(|| {
-        Error::Protocol("state leaf preimage is Bottom or missing value".to_owned())
+        WireError::Protocol("state leaf preimage is Bottom or missing value".to_owned())
     })?;
     if state_value_leaf_digest(&entry.cell, value, digest_suite)? != witness.leaf_digest
         || canonical_hash(value)? != entry.value_digest
@@ -2260,10 +2265,9 @@ fn verify_frontier_entry(
         .provenance_event_refs
         .iter()
         .map(|event_id| {
-            events
-                .get(event_id)
-                .copied()
-                .ok_or_else(|| Error::Protocol("unresolved frontier provenance Event".to_owned()))
+            events.get(event_id).copied().ok_or_else(|| {
+                WireError::Protocol("unresolved frontier provenance Event".to_owned())
+            })
         })
         .collect::<arkret_wire::Result<Vec<_>>>()?;
 
@@ -2623,13 +2627,15 @@ fn scalar_or_field(value: &Value, fields: &[&str]) -> arkret_wire::Result<Value>
         .iter()
         .find_map(|field| value.get(*field).cloned())
         .ok_or_else(|| {
-            Error::Protocol("security-frontier state omits its projected status field".to_owned())
+            WireError::Protocol(
+                "security-frontier state omits its projected status field".to_owned(),
+            )
         })
 }
 
 fn project_fields(value: &Value, fields: &[&str]) -> arkret_wire::Result<Value> {
     let object = value.as_object().ok_or_else(|| {
-        Error::Protocol("security-frontier projected state must be an object".to_owned())
+        WireError::Protocol("security-frontier projected state must be an object".to_owned())
     })?;
     let mut projected = Map::new();
     for field in fields {
@@ -2645,7 +2651,7 @@ fn project_plaintext_visible_services(value: &Value) -> arkret_wire::Result<Valu
         .as_array()
         .or_else(|| value.get("services").and_then(Value::as_array))
         .ok_or_else(|| {
-            Error::Protocol("plaintext-visible services state must be an array".to_owned())
+            WireError::Protocol("plaintext-visible services state must be an array".to_owned())
         })?;
     services
         .iter()
@@ -2665,7 +2671,9 @@ fn decoded_cell_subject(cell_id: &CellId) -> arkret_wire::Result<Value> {
 
 fn subject_single_string(subject: &Value) -> arkret_wire::Result<&str> {
     subject.as_str().ok_or_else(|| {
-        Error::Protocol("security-frontier cell subject must contain one principal id".to_owned())
+        WireError::Protocol(
+            "security-frontier cell subject must contain one principal id".to_owned(),
+        )
     })
 }
 
@@ -2696,7 +2704,7 @@ fn canonical_hash<T: Serialize>(value: &T) -> arkret_wire::Result<Hash> {
 }
 
 fn frontier_rejected<T>(message: &str) -> arkret_wire::Result<T> {
-    Err(Error::Protocol(format!(
+    Err(WireError::Protocol(format!(
         "MLS governance frontier rejected (state_mismatch): {message}"
     )))
 }
@@ -2711,7 +2719,7 @@ pub fn admit_event_derived_genesis_anchor<E, VerifyNotary>(
     verify_notary_signature: VerifyNotary,
 ) -> Result<SealId, E>
 where
-    E: From<Error>,
+    E: From<WireError>,
     VerifyNotary: Fn(&Seal, &Value) -> Result<(), E>,
 {
     let expected_create_id = realm_id.event_id();
@@ -2738,7 +2746,7 @@ where
     }
     let create_digest =
         Hash::new(create_event.event_digest_with_digest_suite(DigestSuite::Sha256)?)
-            .map_err(Error::from)?;
+            .map_err(WireError::from)?;
     if !candidate.delta.contains(&create_digest) {
         return Err(anchor_rejected(
             "candidate genesis Seal does not cover the Realm create Event",
@@ -2753,8 +2761,8 @@ where
     Ok(candidate.id.clone())
 }
 
-fn anchor_rejected<E: From<Error>>(message: &str) -> E {
-    E::from(Error::Protocol(format!(
+fn anchor_rejected<E: From<WireError>>(message: &str) -> E {
+    E::from(WireError::Protocol(format!(
         "MLS governance anchor rejected (state_mismatch): {message}"
     )))
 }

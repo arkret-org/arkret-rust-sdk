@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::{
-    CircleId, DidCoreId, Error, ObjectStage, ObjectState, RealmId, Result, SchemaId, StrandId,
+    CircleId, DidCoreId, ObjectStage, ObjectState, RealmId, Result, SchemaId, StrandId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::ser::SerializeMap;
@@ -176,7 +176,7 @@ impl MessageMetadata {
         self.extra.insert(
             MESSAGE_METADATA_SIDECAR_EXCHANGE_BINDING_KEY.to_owned(),
             serde_json::to_value(binding).map_err(|_| {
-                Error::Protocol("Sidecar exchange binding serialization failed".to_owned())
+                WireError::Protocol("Sidecar exchange binding serialization failed".to_owned())
             })?,
         );
         Ok(())
@@ -335,18 +335,18 @@ impl Strand {
     pub fn validate_profile_activation(&self) -> Result<()> {
         if let Some(refs) = &self.schema_refs {
             if refs.is_empty() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "strand schema_refs must be omitted rather than empty".to_owned(),
                 ));
             }
             if refs.iter().any(|value| value == SchemaId::STRAND_V1) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "strand schema_refs must not list the container self-schema".to_owned(),
                 ));
             }
             let unique = refs.iter().collect::<BTreeSet<_>>().len();
             if unique != refs.len() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "strand schema_refs must not contain duplicates".to_owned(),
                 ));
             }
@@ -360,7 +360,7 @@ impl Strand {
             let has_ref = self.has_schema_ref(schema_id);
             let has_subtree = fields.contains_key(*namespace);
             if has_ref != has_subtree {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "strand schema_refs {schema_id} and metadata.fields.{namespace} must co-occur in both directions"
                 )));
             }
@@ -424,10 +424,12 @@ impl Strand {
             .metadata_title()
             .is_none_or(|title| title.trim().is_empty())
         {
-            return Err(Error::Protocol("strand title must not be empty".to_owned()));
+            return Err(WireError::Protocol(
+                "strand title must not be empty".to_owned(),
+            ));
         }
         if self.tracks.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "strand tracks must not be empty".to_owned(),
             ));
         }
@@ -443,13 +445,13 @@ impl Strand {
     /// Message objects rather than by the track entry.
     pub fn validate_content_surfaces(&self) -> Result<()> {
         if self.content.is_some() && self.encrypted_content.is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Strand Description content and encrypted_content are mutually exclusive"
                     .to_owned(),
             ));
         }
         if self.tracks.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "strand tracks must not be empty".to_owned(),
             ));
         }
@@ -458,19 +460,19 @@ impl Strand {
             if track_name != STRAND_TRACK_NAME_SYNTHESIS
                 && track_name != STRAND_TRACK_NAME_DISCUSSION
             {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "unregistered Strand track name: {track_name}"
                 )));
             }
             if track.content.is_some() && track.encrypted_content.is_some() {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "tracks.{track_name}.content and encrypted_content are mutually exclusive"
                 )));
             }
             if track_name == STRAND_TRACK_NAME_DISCUSSION
                 && (track.content.is_some() || track.encrypted_content.is_some())
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "discussion track content must use Message objects".to_owned(),
                 ));
             }
@@ -485,7 +487,7 @@ impl Strand {
                         track.content.is_some() || track.encrypted_content.is_some()
                     }))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "redacted Strand must not retain Description or Synthesis content".to_owned(),
             ));
         }

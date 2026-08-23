@@ -85,7 +85,9 @@ impl RangeCompletenessAttestation {
     pub fn proof_payload_bytes(&self) -> Result<Vec<u8>> {
         let mut value = serde_json::to_value(self)?;
         let object = value.as_object_mut().ok_or_else(|| {
-            Error::Protocol("range completeness attestation must serialize as an object".to_owned())
+            WireError::Protocol(
+                "range completeness attestation must serialize as an object".to_owned(),
+            )
         })?;
         object.remove("proofs");
         Ok(canonical::canonical_json_bytes(&value)?)
@@ -105,7 +107,7 @@ impl RangeCompletenessAttestation {
         proof.validate_production()?;
         let payload_digest = self.payload_digest()?;
         if proof.payload_digest != payload_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "range completeness proof payload_digest mismatch".to_owned(),
             ));
         }

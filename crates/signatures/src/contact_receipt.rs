@@ -1,7 +1,7 @@
 //! Contact source-service receipt signing inputs and verification.
 
 use arkret_models_collaboration::contact_operations::RequestAcceptanceReceipt;
-use arkret_wire::{Error, EventId, Hash, Result};
+use arkret_wire::{EventId, Hash, Result, WireError};
 use ed25519_dalek::Signature;
 use serde::Serialize;
 
@@ -38,14 +38,16 @@ pub fn verify_contact_request_acceptance_receipt(
     if &receipt.core.request_event_ref != expected_request_event_ref
         || &receipt.core.request_digest != expected_request_digest
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "Contact request receipt does not bind the exact request Event".to_owned(),
         ));
     }
     let signature_bytes = arkret_canonical::base64url_decode(receipt.signature.jws.as_str())
-        .map_err(|error| Error::Protocol(format!("invalid Contact receipt signature: {error}")))?;
+        .map_err(|error| {
+            WireError::Protocol(format!("invalid Contact receipt signature: {error}"))
+        })?;
     let signature = Signature::from_slice(&signature_bytes).map_err(|_| {
-        Error::Protocol(
+        WireError::Protocol(
             "Contact receipt signature must contain exactly 64 Ed25519 bytes".to_owned(),
         )
     })?;
@@ -54,7 +56,7 @@ pub fn verify_contact_request_acceptance_receipt(
             &contact_request_acceptance_receipt_signing_bytes(receipt)?,
             &signature,
         )
-        .map_err(|_| Error::Protocol("Contact request receipt signature is invalid".to_owned()))
+        .map_err(|_| WireError::Protocol("Contact request receipt signature is invalid".to_owned()))
 }
 
 #[cfg(test)]

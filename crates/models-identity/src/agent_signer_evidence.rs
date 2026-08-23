@@ -568,14 +568,14 @@ pub struct AgentSignerEvidenceQueryRequestBody {
 impl AgentSignerEvidenceQueryRequestBody {
     pub fn validate(&self) -> arkret_wire::Result<()> {
         if self.queries.is_empty() || self.queries.len() > 64 {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "Agent signer evidence query requires 1..=64 selectors".to_owned(),
             ));
         }
         let mut selectors = std::collections::BTreeSet::new();
         for selector in &self.queries {
             if !selectors.insert(arkret_canonical::canonical_json_bytes(selector)?) {
-                return Err(arkret_wire::Error::Protocol(
+                return Err(arkret_wire::WireError::Protocol(
                     "Agent signer evidence query contains a duplicate selector".to_owned(),
                 ));
             }
@@ -615,7 +615,7 @@ impl AgentSignerEvidenceQueryOutcome {
     pub fn validate(&self) -> arkret_wire::Result<()> {
         if self.evidence.len() > 64 || self.failures.as_ref().is_some_and(|items| items.len() > 64)
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "Agent signer evidence query outcome exceeds 64 items".to_owned(),
             ));
         }
@@ -625,13 +625,13 @@ impl AgentSignerEvidenceQueryOutcome {
                 evidence,
                 crate::AuthenticatedSignerResolutionEvidence::NativeAgent { .. }
             ) {
-                return Err(arkret_wire::Error::Protocol(
+                return Err(arkret_wire::WireError::Protocol(
                     "Agent signer evidence query success is not a Native Agent root".to_owned(),
                 ));
             }
             evidence.validate_attester_binding()?;
             if !digests.insert(evidence.canonical_sha256_digest()?) {
-                return Err(arkret_wire::Error::Protocol(
+                return Err(arkret_wire::WireError::Protocol(
                     "Agent signer evidence query outcome contains a duplicate root".to_owned(),
                 ));
             }
@@ -682,7 +682,7 @@ impl AgentSignerEvidenceQueryOutcome {
             };
             let key = arkret_canonical::canonical_json_bytes(&selector)?;
             if accounted.insert(key, "success").is_some() {
-                return Err(arkret_wire::Error::Protocol(
+                return Err(arkret_wire::WireError::Protocol(
                     "Agent signer evidence query selector is accounted more than once".to_owned(),
                 ));
             }
@@ -690,7 +690,7 @@ impl AgentSignerEvidenceQueryOutcome {
         for failure in self.failures.as_deref().unwrap_or_default() {
             let key = arkret_canonical::canonical_json_bytes(&failure.selector)?;
             if accounted.insert(key, "failure").is_some() {
-                return Err(arkret_wire::Error::Protocol(
+                return Err(arkret_wire::WireError::Protocol(
                     "Agent signer evidence query selector is accounted more than once".to_owned(),
                 ));
             }
@@ -699,7 +699,8 @@ impl AgentSignerEvidenceQueryOutcome {
             .queries
             .iter()
             .map(|selector| {
-                arkret_canonical::canonical_json_bytes(selector).map_err(arkret_wire::Error::from)
+                arkret_canonical::canonical_json_bytes(selector)
+                    .map_err(arkret_wire::WireError::from)
             })
             .collect::<arkret_wire::Result<std::collections::BTreeSet<_>>>()?;
         if accounted
@@ -708,7 +709,7 @@ impl AgentSignerEvidenceQueryOutcome {
             .collect::<std::collections::BTreeSet<_>>()
             != requested
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "Agent signer evidence outcome does not account every-and-only requested selector"
                     .to_owned(),
             ));

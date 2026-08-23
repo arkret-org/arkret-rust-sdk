@@ -18,8 +18,8 @@ use std::collections::BTreeMap;
 
 use arkret_wire::event_envelope::EventRef;
 use arkret_wire::{
-    CapabilityId, DidCoreId, DidUrl, Error, ErrorCode, EventInitialSubmission, EventKind, Hash,
-    NonEmptyString, PredicateOp, ProtocolKind, RealmId, ReasonCode, Result, ScopeRef,
+    CapabilityId, DidCoreId, DidUrl, ErrorCode, EventInitialSubmission, EventKind, Hash,
+    NonEmptyString, PredicateOp, ProtocolKind, RealmId, ReasonCode, Result, ScopeRef, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -580,7 +580,7 @@ impl RealmModerationPolicyReplaceRequestBody {
             .validate_structural(digest_suite)?;
         let event = &self.moderation_policy_event.event;
         if event.kind != EventKind::RealmModerationPolicy {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Realm moderation-policy replacement requires an ak.realm.moderation_policy Event"
                     .to_owned(),
             ));
@@ -591,21 +591,21 @@ impl RealmModerationPolicyReplaceRequestBody {
                     realm_id: realm_id.clone(),
                 })
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Realm moderation-policy Event scope must equal the path Realm".to_owned(),
             ));
         }
         self.policy()?;
 
         let [precondition] = event.preconditions.as_slice() else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Realm moderation-policy replacement requires exactly one signed head_eq precondition"
                     .to_owned(),
             ));
         };
         let predicate = &precondition.predicate;
         let Some(expected_head) = predicate.value.as_ref() else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Realm moderation-policy head_eq must name the complete settled cell value or explicit null"
                     .to_owned(),
             ));
@@ -616,7 +616,7 @@ impl RealmModerationPolicyReplaceRequestBody {
             || predicate.predicate_id.is_some()
             || !moderation_policy_head_is_complete(expected_head)
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "Realm moderation-policy head_eq must exclusively guard {REALM_MODERATION_POLICY_CELL_REF} with the complete settled value or explicit null"
             )));
         }
@@ -627,7 +627,7 @@ impl RealmModerationPolicyReplaceRequestBody {
     /// `event.payload.value`.
     pub fn policy(&self) -> Result<BTreeMap<String, Value>> {
         if self.moderation_policy_event.event.kind != EventKind::RealmModerationPolicy {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Realm moderation-policy replacement requires an ak.realm.moderation_policy Event"
                     .to_owned(),
             ));
@@ -637,12 +637,12 @@ impl RealmModerationPolicyReplaceRequestBody {
                 &self.moderation_policy_event.event,
             )?;
         if payload.state.is_some() || payload.reason.is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Realm moderation-policy payload permits only value".to_owned(),
             ));
         }
         let Some(Value::Object(policy)) = payload.value else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Realm moderation-policy payload.value must be an object".to_owned(),
             ));
         };
@@ -756,7 +756,7 @@ impl RealmPolicyServerTombstonePayload {
         if self.tombstone {
             Ok(self)
         } else {
-            Err(Error::Protocol(
+            Err(WireError::Protocol(
                 "realm policy server tombstone MUST be true".to_owned(),
             ))
         }
@@ -804,7 +804,7 @@ impl RealmAliasTombstonePayload {
         if self.tombstone {
             Ok(self)
         } else {
-            Err(Error::Protocol(
+            Err(WireError::Protocol(
                 "realm alias tombstone MUST be true".to_owned(),
             ))
         }
@@ -846,7 +846,7 @@ impl RealmAliasPayload {
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("realm alias payload serialize: {err}")))
+            .map_err(|err| WireError::Protocol(format!("realm alias payload serialize: {err}")))
     }
 }
 
@@ -945,12 +945,12 @@ impl RealmInheritancePolicy {
 
     pub fn validate(&self) -> Result<()> {
         if self.max_depth == 0 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "realm.inheritance_policy.max_depth MUST be >= 1".to_owned(),
             ));
         }
         if self.max_depth > Self::MAX_DEPTH_CAP {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "realm.inheritance_policy.max_depth must be <= {} (current wire cap)",
                 Self::MAX_DEPTH_CAP
             )));

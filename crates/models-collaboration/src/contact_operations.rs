@@ -86,7 +86,7 @@ impl RequestAcceptanceReceiptCore {
             || (self.slot_version == 1) == self.slot_predecessor.is_some()
             || self.holder.contact_actor_id() == self.peer.contact_actor_id()
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "invalid Contact request acceptance receipt core".to_owned(),
             ));
         }
@@ -123,7 +123,7 @@ impl RequestAcceptanceReceipt {
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
         self.core.validate()?;
         if self.computed_core_digest()? != self.receipt_digest {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "Contact request acceptance receipt core digest mismatch".to_owned(),
             ));
         }
@@ -134,14 +134,14 @@ impl RequestAcceptanceReceipt {
             .split_once('#')
             .map(|(did, _)| did)
             .ok_or_else(|| {
-                arkret_wire::Error::Protocol(
+                arkret_wire::WireError::Protocol(
                     "Contact request acceptance receipt signer is not a DID URL".to_owned(),
                 )
             })?;
         let signer = DidFullId::new(signer)
             .and_then(|full_id| arkret_wire::project_full_id_to_core_id(&full_id))?;
         if signer != self.core.issuer {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "Contact request acceptance receipt signer is not its issuer".to_owned(),
             ));
         }
@@ -165,7 +165,7 @@ pub struct ContactNextPrepareInput {
 impl ContactNextPrepareInput {
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
         if self.version < 2 {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "Contact next_prepare_input.version must be at least 2".to_owned(),
             ));
         }
@@ -506,14 +506,14 @@ impl BilateralContinuityCheckpoint {
             || self.signatures[1].signer != self.core.participants[1]
             || self.recompute_digest()? != self.checkpoint_digest
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "continuity_invalid: bilateral checkpoint shape or digest mismatch".to_owned(),
             ));
         }
         let root = self.core.root_basis.as_ref().clone();
         let root_digest = Hash::new(arkret_canonical::sha256_digest(
             arkret_canonical::canonical_json_bytes(&root).map_err(|error| {
-                arkret_wire::Error::Protocol(format!(
+                arkret_wire::WireError::Protocol(format!(
                     "continuity_invalid: root basis canonicalization failed: {error}"
                 ))
             })?,
@@ -522,7 +522,7 @@ impl BilateralContinuityCheckpoint {
             || root.continuity_checkpoint.is_some()
             || root_digest != self.core.root_basis_digest
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "continuity_invalid: checkpoint root basis mismatch".to_owned(),
             ));
         }
@@ -545,14 +545,14 @@ impl BilateralContinuityCheckpointProposal {
                 && self.proposer_signature.signer != self.core.participants[1]
             || bilateral_checkpoint_digest(&self.core)? != self.checkpoint_digest
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "continuity_invalid: bilateral checkpoint proposal mismatch".to_owned(),
             ));
         }
         let root = self.core.root_basis.as_ref();
         let root_digest = Hash::new(arkret_canonical::sha256_digest(
             arkret_canonical::canonical_json_bytes(root).map_err(|error| {
-                arkret_wire::Error::Protocol(format!(
+                arkret_wire::WireError::Protocol(format!(
                     "continuity_invalid: root basis canonicalization failed: {error}"
                 ))
             })?,
@@ -561,7 +561,7 @@ impl BilateralContinuityCheckpointProposal {
             || root.continuity_checkpoint.is_some()
             || root_digest != self.core.root_basis_digest
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "continuity_invalid: checkpoint proposal root basis mismatch".to_owned(),
             ));
         }
@@ -584,7 +584,7 @@ pub fn bilateral_checkpoint_digest(
     core: &BilateralContinuityCheckpointCore,
 ) -> arkret_wire::Result<Hash> {
     let material = bilateral_checkpoint_signing_bytes(core)
-        .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))?;
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
     Ok(Hash::new(arkret_canonical::sha256_digest(material))?)
 }
 
@@ -610,7 +610,7 @@ pub fn bilateral_prefix_accumulator(
     covered_basis_digests: &[Hash],
 ) -> arkret_wire::Result<Hash> {
     if covered_basis_digests.is_empty() {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "continuity_invalid: accumulator extension is empty".to_owned(),
         ));
     }
@@ -623,7 +623,7 @@ pub fn bilateral_prefix_accumulator(
         previous,
         covered_basis_digests,
     })
-    .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))?;
+    .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
     let mut material =
         Vec::with_capacity(BILATERAL_CONTINUITY_ACCUMULATOR_DOMAIN.len() + canonical.len());
     material.extend_from_slice(BILATERAL_CONTINUITY_ACCUMULATOR_DOMAIN);
@@ -636,7 +636,7 @@ pub fn validate_recontact_continuity(
     predecessors: &[ContactRoundEvidenceBundle],
 ) -> arkret_wire::Result<()> {
     if predecessors.len() > 64 {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "Contact round continuity exceeds 64 predecessors".to_owned(),
         ));
     }
@@ -646,7 +646,7 @@ pub fn validate_recontact_continuity(
         .iter()
         .any(|receipt| receipt.core.previous_terminal_contact_round_id.as_ref() != expected)
     {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "current Contact request receipt continuity pointer mismatch".to_owned(),
         ));
     }
@@ -660,7 +660,7 @@ pub fn validate_recontact_continuity(
             })
             || !seen.insert(predecessor.contact_round_id.clone())
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "invalid Contact terminal contact_round continuity edge".to_owned(),
             ));
         }
@@ -668,7 +668,7 @@ pub fn validate_recontact_continuity(
             receipt.core.previous_terminal_contact_round_id
                 != predecessor.previous_terminal_contact_round_id
         }) {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "predecessor Contact request receipt continuity pointer mismatch".to_owned(),
             ));
         }
@@ -684,7 +684,7 @@ pub fn validate_recontact_continuity(
                     })
             })
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "continuity_invalid: tail checkpoint binding changed".to_owned(),
             ));
         }
@@ -702,14 +702,14 @@ pub fn validate_recontact_continuity(
             || root_pair != checkpoint_pair
             || expected != Some(&checkpoint.core.covered_through_contact_round_id)
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "continuity_invalid: checkpoint pair, root or tail terminator mismatch".to_owned(),
             ));
         }
     } else if expected.is_some()
         || (current.previous_terminal_contact_round_id.is_some() && predecessors.is_empty())
     {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "continuity_evidence_unavailable: Contact continuity does not reach its root"
                 .to_owned(),
         ));
@@ -860,7 +860,7 @@ impl ContactPreparedEventDraft {
         let bytes =
             arkret_canonical::base64url_decode(self.unsigned_event_bytes.as_str().as_bytes())?;
         let digest_suite = self.event_digest.digest_suite().map_err(|error| {
-            arkret_wire::Error::Protocol(format!(
+            arkret_wire::WireError::Protocol(format!(
                 "prepared Contact Event digest is invalid: {error}"
             ))
         })?;
@@ -869,7 +869,7 @@ impl ContactPreparedEventDraft {
             || event.kind != self.kind
             || Hash::new(event.event_digest_with_digest_suite(digest_suite)?)? != self.event_digest
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "prepared Contact Event metadata does not match unsigned_event_bytes".to_owned(),
             ));
         }
@@ -1255,7 +1255,7 @@ impl PeerContactSubmitOutcome {
         if valid {
             Ok(())
         } else {
-            Err(arkret_wire::Error::Protocol(
+            Err(arkret_wire::WireError::Protocol(
                 "peer Contact status does not match mirror receipt outcome".to_owned(),
             ))
         }

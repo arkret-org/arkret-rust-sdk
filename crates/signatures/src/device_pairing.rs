@@ -78,7 +78,7 @@ pub enum DevicePairingProofError {
     #[error("device pairing transcript could not be canonicalized: {0}")]
     Canonical(#[from] arkret_canonical::CanonicalError),
     #[error("device pairing wire value is invalid: {0}")]
-    Wire(#[from] arkret_wire::Error),
+    Wire(#[from] arkret_wire::WireError),
 }
 
 /// Sign the target-owned accepted-device possession attestation that travels
@@ -90,7 +90,7 @@ pub fn sign_device_pairing_target_attestation(
     let input = unsigned.signing_input()?;
     let signature =
         NonEmptyString::new(URL_SAFE_NO_PAD.encode(signing_key.sign(&input).to_bytes()))
-            .map_err(|error| arkret_wire::Error::Protocol(error.to_owned()))?;
+            .map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))?;
     let attestation = unsigned.attach_signature(SignatureMaterial::NonEmptyString(signature));
     verify_device_pairing_target_attestation(&attestation)?;
     Ok(attestation)
@@ -164,7 +164,7 @@ pub fn server_device_pairing_transcript(
     let mut bytes = format!("{SERVER_TRANSCRIPT}\n").into_bytes();
     bytes.extend(arkret_canonical::canonical_json_bytes(&body)?);
     let digest = Hash::new(format!("sha256:{}", arkret_canonical::sha256_hex(&bytes)))
-        .map_err(arkret_wire::Error::from)?;
+        .map_err(arkret_wire::WireError::from)?;
     Ok((bytes, digest))
 }
 
@@ -181,12 +181,12 @@ pub fn sign_server_device_pairing_challenge(
         transcript: DevicePairingChallengeTranscriptKind::ServerMediated,
         kid,
         signature_algorithm: NonEmptyString::new(public_key.algorithm.as_str().to_owned())
-            .map_err(|error| arkret_wire::Error::Protocol(error.to_owned()))?,
+            .map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))?,
         transcript_digest,
         signature: Base64UrlString::new(
             URL_SAFE_NO_PAD.encode(signing_key.sign(&bytes).to_bytes()),
         )
-        .map_err(|error| arkret_wire::Error::Protocol(error.to_owned()))?,
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))?,
     })
 }
 
@@ -249,7 +249,7 @@ pub fn to_device_pairing_transcript(
     let mut bytes = format!("{TO_DEVICE_TRANSCRIPT}\n").into_bytes();
     bytes.extend(arkret_canonical::canonical_json_bytes(&body)?);
     let digest = Hash::new(format!("sha256:{}", arkret_canonical::sha256_hex(&bytes)))
-        .map_err(arkret_wire::Error::from)?;
+        .map_err(arkret_wire::WireError::from)?;
     Ok((bytes, digest))
 }
 
@@ -269,12 +269,12 @@ pub fn sign_to_device_pairing_challenge(
         transcript: DevicePairingChallengeTranscriptKind::ToDevice,
         kid,
         signature_algorithm: NonEmptyString::new(public_key.algorithm.as_str().to_owned())
-            .map_err(|error| arkret_wire::Error::Protocol(error.to_owned()))?,
+            .map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))?,
         transcript_digest,
         signature: Base64UrlString::new(
             URL_SAFE_NO_PAD.encode(signing_key.sign(&bytes).to_bytes()),
         )
-        .map_err(|error| arkret_wire::Error::Protocol(error.to_owned()))?,
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))?,
     })
 }
 

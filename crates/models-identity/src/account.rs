@@ -1,6 +1,6 @@
 use arkret_wire::{
-    DeviceId, DidCoreId, DidFullId, DidUrl, Error, EventId, Hash, PayloadProof, RealmId,
-    ReasonCode, RequestId, Result, TrustDomainId, canonical, project_full_id_to_core_id,
+    DeviceId, DidCoreId, DidFullId, DidUrl, EventId, Hash, PayloadProof, RealmId, ReasonCode,
+    RequestId, Result, TrustDomainId, WireError, canonical, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -383,7 +383,7 @@ impl UnsignedAccountHandoffRequestBody {
             ("code_verifier", proof.code_verifier.as_str()),
         ] {
             if value.is_empty() {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "account handoff proof {name} must not be empty"
                 )));
             }
@@ -702,12 +702,12 @@ pub struct IdentityCreationLease {
 impl IdentityCreationLease {
     pub fn validate(&self) -> Result<()> {
         if self.identity_creation_lease_id.is_empty() || self.fence == 0 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "identity creation lease identity or fence is invalid".to_owned(),
             ));
         }
         if self.state.has_reserved_identity() != self.reserved_identity.is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "identity creation lease state contradicts its reserved identity".to_owned(),
             ));
         }
@@ -761,7 +761,7 @@ impl IdentityCreationLease {
             RegistrationCheckpoint,
         };
         if !self.allowed_goals().contains(&goal) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "identity creation goal is not allowed by the server state".to_owned(),
             ));
         }
@@ -829,7 +829,7 @@ pub struct AccountHandoffOutcome {
 impl AccountHandoffOutcome {
     pub fn validate(&self) -> Result<()> {
         if self.allowed_operations != ACCOUNT_HANDOFF_ALLOWED_OPERATIONS {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "account handoff allowed_operations does not match the canonical closed set"
                     .to_owned(),
             ));
@@ -870,7 +870,7 @@ impl AccountOnboardingSnapshot {
                     .allowed_goals()
                     .contains(&self.goal.kind())
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "account onboarding goal is not allowed by the server lease state"
                             .to_owned(),
                     ));
@@ -882,7 +882,7 @@ impl AccountOnboardingSnapshot {
                         .reserved_identity
                         .as_ref()
                         .ok_or_else(|| {
-                            Error::Protocol(
+                            WireError::Protocol(
                                 "account onboarding abandonment goal has no reserved identity"
                                     .to_owned(),
                             )
@@ -892,7 +892,7 @@ impl AccountOnboardingSnapshot {
                         || challenge.lease_fence != identity_creation_lease.fence
                         || challenge.principal_id != reserved.principal_id
                     {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "account onboarding abandonment challenge does not match the lease"
                                 .to_owned(),
                         ));
@@ -900,7 +900,7 @@ impl AccountOnboardingSnapshot {
                     if challenge.account_subject != self.account_subject
                         || challenge.expires_at <= self.observed_at
                     {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "account onboarding abandonment challenge is stale or belongs to another account"
                                 .to_owned(),
                         ));
@@ -912,20 +912,20 @@ impl AccountOnboardingSnapshot {
                 full_id,
             } => {
                 if project_full_id_to_core_id(full_id)?.as_str() != principal_id.as_str() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "bound account onboarding full_id does not project to principal_id"
                             .to_owned(),
                     ));
                 }
                 if !matches!(self.goal, AccountOnboardingGoal::CompleteIdentity) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "a bound account cannot have a provisional abandonment goal".to_owned(),
                     ));
                 }
             }
             AccountHandoffBinding::IdentityCreationBusy { .. } => {
                 if !matches!(self.goal, AccountOnboardingGoal::CompleteIdentity) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "a busy identity-creation lease cannot expose another holder's goal"
                             .to_owned(),
                     ));
@@ -971,7 +971,7 @@ impl IdentityAbandonmentChallengeRequestBody {
             || self.lease_fence == 0
             || self.did_version_id.is_empty()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "identity abandonment challenge request is incomplete".to_owned(),
             ));
         }
@@ -1028,7 +1028,7 @@ impl IdentityAbandonmentChallengeOutcome {
             || self.expires_at <= self.issued_at
             || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "identity abandonment challenge violates the closed transcript".to_owned(),
             ));
         }
@@ -1057,7 +1057,7 @@ impl IdentityAbandonmentRequestBody {
             || self.lease_fence == 0
             || self.did_version_id.is_empty()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "identity abandonment confirmation is incomplete".to_owned(),
             ));
         }
@@ -1153,7 +1153,7 @@ impl AccountRequestErasureOutcome {
             .withdrawal_window_ends_at
             .is_some_and(|ends_at| ends_at <= self.recorded_at)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "erasure acceptance withdrawal window must end after recorded_at".to_owned(),
             ));
         }
@@ -1182,7 +1182,7 @@ impl IdentityBindingChallengeRequestBody {
             || project_full_id_to_core_id(&self.full_id)?
                 != project_full_id_to_core_id(&self.did_operation.did)?
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "identity creation full_id does not project to did_operation core id".to_owned(),
             ));
         }
@@ -1210,7 +1210,7 @@ pub struct DidBindingChallengeRequestBody {
 impl DidBindingChallengeRequestBody {
     pub fn canonical_request_digest(&self) -> Result<Hash> {
         if project_full_id_to_core_id(&self.full_id)?.as_str() != self.principal_id.as_str() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "published DID full_id does not project to principal_id".to_owned(),
             ));
         }
@@ -1265,7 +1265,7 @@ impl DidBindingChallengeOutcome {
             || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
             || project_full_id_to_core_id(&self.full_id)?.as_str() != self.principal_id.as_str()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "published-DID binding challenge violates the closed transcript".to_owned(),
             ));
         }
@@ -1326,7 +1326,7 @@ impl AccountRegistrationControlProof {
             || project_full_id_to_core_id(&self.full_id)?.as_str() != self.principal_id.as_str()
             || controller != Some(self.full_id.as_str())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "published DID registration control proof violates its closed transcript"
                     .to_owned(),
             ));
@@ -1495,7 +1495,7 @@ impl IdentityCreationControlProof {
         validate_identity_creation_control_proof_body(&self.unsigned_body())?;
         arkret_wire::Base64UrlString::new(self.signature.clone())
             .map(|_| ())
-            .map_err(|error| Error::Protocol(error.to_owned()))
+            .map_err(|error| WireError::Protocol(error.to_owned()))
     }
 
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
@@ -1625,7 +1625,7 @@ fn validate_identity_creation_control_proof_body(
         || body.expires_at <= body.issued_at
         || project_full_id_to_core_id(&body.full_id)?.as_str() != body.principal_id.as_str()
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "identity creation control proof has an invalid PCR genesis binding".to_owned(),
         ));
     }
@@ -1719,7 +1719,7 @@ impl IdentityCreationRegistration {
                 &self.pcr_genesis_unit.founding_authorize().payload,
             )?)? != self.control_proof.founding_authorize_payload_digest
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "initial session does not match identity creation control proof".to_owned(),
             ));
         }
@@ -1734,7 +1734,7 @@ impl IdentityCreationRegistration {
             .and_then(|descriptor| descriptor.get("device_id"))
             .and_then(Value::as_str);
         if descriptor_device_id != Some(self.initial_session.device_id.as_str()) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "initial session device_id does not match founding device descriptor".to_owned(),
             ));
         }
@@ -1859,7 +1859,7 @@ impl AccountBindingReceipt {
             .split_once('#')
             .map(|(controller, _)| controller)
             .ok_or_else(|| {
-                Error::Protocol(
+                WireError::Protocol(
                     "account binding receipt verification_method requires a fragment".to_owned(),
                 )
             })?;
@@ -1883,7 +1883,7 @@ impl AccountBindingReceipt {
             || self.proof.payload_digest != self.canonical_payload_digest()?
             || proof_controller != self.account_authority_id
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "account binding receipt proof does not bind the complete receipt".to_owned(),
             ));
         }

@@ -6,7 +6,7 @@
 
 use std::marker::PhantomData;
 
-use arkret_wire::{Error, Result};
+use arkret_wire::{Result, WireError};
 
 use crate::EncryptedEnvelope;
 
@@ -51,7 +51,7 @@ impl<T: MlsPayloadType> MlsEncryptedPayload<T> {
     pub fn new(envelope: EncryptedEnvelope) -> Result<Self> {
         envelope.validate()?;
         if envelope.content_type != T::MLS_CONTENT_TYPE {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "MLS encrypted payload content_type must be {} for the selected payload type",
                 T::MLS_CONTENT_TYPE
             )));
@@ -74,7 +74,7 @@ impl<T: MlsPayloadType> MlsEncryptedPayload<T> {
 }
 
 impl<T: MlsPayloadType> TryFrom<EncryptedEnvelope> for MlsEncryptedPayload<T> {
-    type Error = Error;
+    type Error = WireError;
 
     fn try_from(envelope: EncryptedEnvelope) -> Result<Self> {
         Self::new(envelope)

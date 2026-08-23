@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    BackupRotationBinding, Error, ROOT_ANCHORED_RECOVERY_STEP_ORDER, Result,
-    SECURITY_ROTATION_STEP_ORDER, SecurityTransactionStep,
+    BackupRotationBinding, ROOT_ANCHORED_RECOVERY_STEP_ORDER, Result, SECURITY_ROTATION_STEP_ORDER,
+    SecurityTransactionStep, WireError,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -35,7 +35,7 @@ impl DurableStepLedger {
             if existing == request {
                 return Ok(());
             }
-            return Err(Error::Protocol("duplicate_conflict".to_owned()));
+            return Err(WireError::Protocol("duplicate_conflict".to_owned()));
         }
         self.remote_outcomes
             .insert(step.to_owned(), request.to_owned());
@@ -52,9 +52,9 @@ impl DurableStepLedger {
         }
         let expected = expected_order
             .get(self.accepted_steps.len())
-            .ok_or_else(|| Error::Protocol("post_terminal_step".to_owned()))?;
+            .ok_or_else(|| WireError::Protocol("post_terminal_step".to_owned()))?;
         if expected != step || !self.remote_outcomes.contains_key(step) {
-            return Err(Error::Protocol("step_precondition_failed".to_owned()));
+            return Err(WireError::Protocol("step_precondition_failed".to_owned()));
         }
         self.accepted_steps.push(step.to_owned());
         Ok(())
@@ -65,23 +65,23 @@ fn required_string_array<'a>(fixture: &'a Value, pointer: &str) -> Result<Vec<&'
     fixture
         .pointer(pointer)
         .and_then(Value::as_array)
-        .ok_or_else(|| Error::Protocol(format!("fixture field {pointer} must be an array")))?
+        .ok_or_else(|| WireError::Protocol(format!("fixture field {pointer} must be an array")))?
         .iter()
         .map(|value| {
-            value
-                .as_str()
-                .ok_or_else(|| Error::Protocol(format!("fixture field {pointer} must be strings")))
+            value.as_str().ok_or_else(|| {
+                WireError::Protocol(format!("fixture field {pointer} must be strings"))
+            })
         })
         .collect()
 }
 
 fn step_name(step: SecurityTransactionStep) -> Result<String> {
     serde_json::to_value(step)
-        .map_err(|error| Error::Protocol(error.to_string()))?
+        .map_err(|error| WireError::Protocol(error.to_string()))?
         .as_str()
         .map(str::to_owned)
         .ok_or_else(|| {
-            Error::Protocol("security transaction step must serialize as text".to_owned())
+            WireError::Protocol("security transaction step must serialize as text".to_owned())
         })
 }
 
@@ -90,7 +90,7 @@ fn transaction_steps(kind: &str) -> Result<Vec<String>> {
         "recovery_root_anchored" => &ROOT_ANCHORED_RECOVERY_STEP_ORDER,
         "security_rotation" => &SECURITY_ROTATION_STEP_ORDER,
         _ => {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "unknown resilience transaction kind {kind}"
             )));
         }
@@ -103,7 +103,7 @@ fn transaction_id(kind: &str) -> Result<String> {
         "recovery_root_anchored" => "000000000001",
         "security_rotation" => "000000000003",
         _ => {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "unknown resilience transaction kind {kind}"
             )));
         }
@@ -112,7 +112,8 @@ fn transaction_id(kind: &str) -> Result<String> {
 }
 
 fn digest(value: &Value) -> Result<String> {
-    arkret_canonical::canonical_sha256(value).map_err(|error| Error::Protocol(error.to_string()))
+    arkret_canonical::canonical_sha256(value)
+        .map_err(|error| WireError::Protocol(error.to_string()))
 }
 
 fn fixed_projection(
@@ -173,7 +174,7 @@ fn run_fault_scenario(
                 ledger.commit(&steps, step)?;
             }
             _ => {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "unknown resilience fault position {fault_position}"
                 )));
             }
@@ -190,7 +191,7 @@ fn run_fault_scenario(
                 .unwrap_err();
             if !error.to_string().contains("duplicate_conflict") || ledger.accepted_steps != before
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "conflicting replay changed the durable accepted prefix".to_owned(),
                 ));
             }
@@ -214,35 +215,35 @@ fn validate_schema_cases(fixture: &Value) -> Result<()> {
     let cases = fixture
         .get("schema_validation_cases")
         .and_then(Value::as_array)
-        .ok_or_else(|| Error::Protocol("schema_validation_cases must be an array".to_owned()))?;
+        .ok_or_else(|| {
+            WireError::Protocol("schema_validation_cases must be an array".to_owned())
+        })?;
     if cases.len() != 2 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "security transaction resilience fixture must contain two schema cases".to_owned(),
         ));
     }
     let binding: BackupRotationBinding =
         serde_json::from_value(cases[0].get("instance").cloned().ok_or_else(|| {
-            Error::Protocol("binding schema case is missing instance".to_owned())
+            WireError::Protocol("binding schema case is missing instance".to_owned())
         })?)
-        .map_err(|error| Error::Protocol(error.to_string()))?;
+        .map_err(|error| WireError::Protocol(error.to_string()))?;
     if binding.previous_series_id == binding.new_series_id
         || binding.new_backups.is_empty()
         || binding.old_backups.is_empty()
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "backup rotation binding schema case is not closed".to_owned(),
         ));
     }
-    let outcome: BackupSeriesEraseOutcome = serde_json::from_value(
-        cases[1]
-            .get("instance")
-            .cloned()
-            .ok_or_else(|| Error::Protocol("erase schema case is missing instance".to_owned()))?,
-    )
-    .map_err(|error| Error::Protocol(error.to_string()))?;
+    let outcome: BackupSeriesEraseOutcome =
+        serde_json::from_value(cases[1].get("instance").cloned().ok_or_else(|| {
+            WireError::Protocol("erase schema case is missing instance".to_owned())
+        })?)
+        .map_err(|error| WireError::Protocol(error.to_string()))?;
     outcome.validate_structural()?;
     if outcome.confirmation.is_some() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "partial erase schema case must not contain confirmation".to_owned(),
         ));
     }
@@ -260,7 +261,7 @@ fn validate_fixture_contract(fixture: &Value) -> Result<()> {
             .and_then(Value::as_u64)
             != Some(2)
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "security transaction resilience fixture metadata changed".to_owned(),
         ));
     }
@@ -274,7 +275,7 @@ fn validate_fixture_contract(fixture: &Value) -> Result<()> {
             "terminal_result",
         ]
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "security transaction equivalence output fields changed".to_owned(),
         ));
     }
@@ -289,7 +290,7 @@ fn validate_fixture_contract(fixture: &Value) -> Result<()> {
         "public_store_log_telemetry_and_crash_artifact_contain_no_secret_material",
     ] {
         if !assertions.contains(required) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "security transaction resilience assertion {required} is missing"
             )));
         }
@@ -301,9 +302,9 @@ fn run_rotation_cases(fixture: &Value) -> Result<Vec<SecurityTransactionResilien
     let cases = fixture
         .get("rotation_cases")
         .and_then(Value::as_array)
-        .ok_or_else(|| Error::Protocol("rotation_cases must be an array".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("rotation_cases must be an array".to_owned()))?;
     if cases.len() != 2 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "security transaction resilience fixture must contain two rotation cases".to_owned(),
         ));
     }
@@ -328,7 +329,7 @@ fn run_rotation_cases(fixture: &Value) -> Result<Vec<SecurityTransactionResilien
             .and_then(Value::as_u64)
             != Some(1)
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "partial rotation restart case changed its monotonic outcome".to_owned(),
         ));
     }
@@ -352,7 +353,7 @@ fn run_rotation_cases(fixture: &Value) -> Result<Vec<SecurityTransactionResilien
             .and_then(Value::as_bool)
             != Some(false)
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "rotation pointer precondition case changed its fail-closed outcome".to_owned(),
         ));
     }
@@ -376,7 +377,7 @@ pub fn run_security_transaction_resilience_fixture(
     let positions = required_string_array(fixture, "/fault_matrix/fault_positions")?;
     let faults = required_string_array(fixture, "/fault_matrix/faults")?;
     if kinds != ["security_rotation"] || positions.len() != 3 || faults.len() != 7 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "security transaction resilience fault matrix cardinality changed".to_owned(),
         ));
     }

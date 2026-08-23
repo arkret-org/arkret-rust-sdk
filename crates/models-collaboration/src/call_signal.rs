@@ -1,6 +1,6 @@
 //! Closed plaintext carried by encrypted `ak.call.signal` envelopes.
 
-use arkret_wire::{CallId, DeviceId, DidCoreId, Error, NonEmptyString, Result, canonical};
+use arkret_wire::{CallId, DeviceId, DidCoreId, NonEmptyString, Result, WireError, canonical};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -127,7 +127,7 @@ pub struct CallRenegotiateSignalData {
 impl CallRenegotiateSignalData {
     pub fn validate(&self) -> Result<()> {
         if self.offer.is_some() == self.answer.is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "renegotiate data requires exactly one of offer or answer".to_owned(),
             ));
         }
@@ -162,7 +162,7 @@ impl CallMuteStateSignalData {
     pub fn validate(&self) -> Result<()> {
         let has_target = self.target_actor_id.is_some() && self.target_device_id.is_some();
         if (self.changed_by == MuteChangedBy::Moderator) != has_target {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "moderator mute requires target_actor_id and target_device_id; self mute forbids them"
                     .to_owned(),
             ));
@@ -205,7 +205,7 @@ impl CallSpeakingSignalData {
             .audio_level
             .is_some_and(|level| !(0.0..=1.0).contains(&level))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "speaking audio_level must be within 0.0..=1.0".to_owned(),
             ));
         }
@@ -248,7 +248,7 @@ impl CallModerationSignalData {
         let has_target = self.target_actor_id.is_some()
             && (self.action == CallModerationAction::Ban || self.target_device_id.is_some());
         if needs_target != has_target {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "kick/ban moderation requires its target; end_for_all forbids a target".to_owned(),
             ));
         }
@@ -417,7 +417,7 @@ impl CallSignalPlaintext {
     pub fn canonical_plaintext(&self) -> Result<Vec<u8>> {
         self.signal.validate()?;
         canonical::canonical_json_bytes(self)
-            .map_err(|error| Error::Protocol(format!("call signal plaintext: {error}")))
+            .map_err(|error| WireError::Protocol(format!("call signal plaintext: {error}")))
     }
 
     pub const fn signal_kind(&self) -> CallSignalKind {

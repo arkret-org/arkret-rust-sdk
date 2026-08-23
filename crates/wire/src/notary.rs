@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DidCoreId, DidFullId, DidUrl, Error, Hash, Result};
+use crate::{DidCoreId, DidFullId, DidUrl, Hash, Result, WireError};
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -50,11 +50,11 @@ impl NotarySignerDescriptor {
             .split_once('#')
             .map(|(controller, _)| controller)
             .ok_or_else(|| {
-                Error::Protocol("notary verification_method has no fragment".to_owned())
+                WireError::Protocol("notary verification_method has no fragment".to_owned())
             })?;
         let controller = DidFullId::new(controller.to_owned())?;
         if crate::project_full_id_to_core_id(&controller)? != self.actor_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "notary verification_method controller does not match actor_id".to_owned(),
             ));
         }
@@ -63,7 +63,7 @@ impl NotarySignerDescriptor {
             NotaryKeyKind::P256Sec1Compressed33 => (NotaryJoseAlgorithm::ES256, 44),
         };
         if self.jose_algorithm != expected_algorithm {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "notary signer key_kind and jose_algorithm do not match".to_owned(),
             ));
         }
@@ -73,7 +73,7 @@ impl NotarySignerDescriptor {
                 .bytes()
                 .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "notary signer frozen_public_key_b64u has invalid canonical length or alphabet"
                     .to_owned(),
             ));
@@ -83,12 +83,12 @@ impl NotarySignerDescriptor {
             .as_ref()
             .starts_with("sha256:")
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "notary signer frozen_public_key_digest must use sha256".to_owned(),
             ));
         }
         let public_key = crate::base64url::base64url_decode(&self.frozen_public_key_b64u)
-            .map_err(|error| Error::Protocol(format!("invalid frozen notary key: {error}")))?;
+            .map_err(|error| WireError::Protocol(format!("invalid frozen notary key: {error}")))?;
         let expected_decoded_len = match self.key_kind {
             NotaryKeyKind::Ed25519Raw32 => 32,
             NotaryKeyKind::P256Sec1Compressed33 => 33,
@@ -100,13 +100,13 @@ impl NotarySignerDescriptor {
                     .first()
                     .is_some_and(|byte| matches!(*byte, 0x02 | 0x03)))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "notary signer frozen public key has invalid encoded key shape".to_owned(),
             ));
         }
         let expected_digest = Hash::new(crate::canonical::sha256_digest(public_key))?;
         if self.frozen_public_key_digest != expected_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "notary signer frozen_public_key_digest does not match frozen_public_key_b64u"
                     .to_owned(),
             ));
@@ -175,7 +175,7 @@ impl NotaryValue {
                 if controller_organization.is_some()
                     && (recovery_members.is_empty() || recovery_controller_organizations.is_empty())
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "organization-controlled single_signer requires recovery members and recovery controller organizations"
                             .to_owned(),
                     ));
@@ -189,7 +189,7 @@ impl NotaryValue {
                 forensic_attribution,
             } => {
                 if members.is_empty() || *threshold == 0 || *threshold as usize > members.len() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "threshold notary requires 1 <= threshold <= members.len()".to_owned(),
                     ));
                 }
@@ -200,7 +200,7 @@ impl NotaryValue {
                         ForensicAttribution::QuorumIntersection
                     )
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "threshold forensic_attribution does not match quorum arithmetic"
                             .to_owned(),
                     ));
@@ -209,7 +209,7 @@ impl NotaryValue {
             }
             Self::OpenSet { members } => {
                 if members.is_empty() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "open_set notary requires at least one member".to_owned(),
                     ));
                 }
@@ -222,13 +222,13 @@ impl NotaryValue {
                 recovery_controller_organizations,
             } => {
                 if recovery_members.is_empty() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "mixed notary requires at least one recovery member".to_owned(),
                     ));
                 }
                 if controller_organization.is_some() && recovery_controller_organizations.is_empty()
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "organization-controlled mixed notary requires recovery controller organizations"
                             .to_owned(),
                     ));
@@ -313,7 +313,7 @@ fn validate_unique_organizations(organizations: &[DidCoreId]) -> Result<()> {
         .iter()
         .any(|organization| !unique.insert(organization))
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "notary recovery controller organizations must be unique".to_owned(),
         ));
     }
@@ -333,7 +333,7 @@ fn validate_descriptor_set(
             || !methods.insert(descriptor.verification_method.clone())
             || !digests.insert(descriptor.frozen_public_key_digest.clone())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "notary signer descriptors must be unique by actor_id, verification_method, and frozen_public_key_digest"
                     .to_owned(),
             ));

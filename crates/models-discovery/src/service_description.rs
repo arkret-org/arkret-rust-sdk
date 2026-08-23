@@ -112,7 +112,7 @@ impl PushTargetPrivacyDerivation {
             || self.salt_epoch_id.chars().count() > 128
             || !(3_600..=2_592_000).contains(&self.salt_rotation_seconds)
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "ServiceDescribe: invalid push_target privacy derivation ({})",
                 ErrorCode::SCHEMA_VIOLATION
             )));
@@ -309,7 +309,7 @@ impl ServiceDescribe {
             .cloned()
             .map(serde_json::from_value)
             .transpose()
-            .map_err(Error::from)
+            .map_err(WireError::from)
     }
 
     /// Development/test-only assertion that this description comes from the
@@ -320,7 +320,7 @@ impl ServiceDescribe {
     #[cfg(any(debug_assertions, test))]
     pub fn validate_exact_development_build_identity(&self) -> Result<()> {
         let identity = self.arkret_build_identity()?.ok_or_else(|| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "ServiceDescribe: missing {ARKRET_BUILD_IDENTITY_EXTENSION}"
             ))
         })?;
@@ -394,13 +394,13 @@ impl ServiceDescribe {
             || self.service_resolution.method_history_head.is_empty()
             || self.service_resolution.version_id.is_empty()
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "ServiceDescribe: service_resolution does not project to service_id ({})",
                 ErrorCode::SCHEMA_VIOLATION
             )));
         }
         if !self.service_kind.valid_in("service_describe") {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "ServiceDescribe: service_kind={} is not valid in service_describe ({})",
                 self.service_kind.as_str(),
                 ErrorCode::SCHEMA_VIOLATION
@@ -414,7 +414,7 @@ impl ServiceDescribe {
             push_target.validate()?;
         }
         if self.development_mode && !self.verified_profiles.is_empty() {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "ServiceDescribe: development_mode=true forbids non-empty verified_profiles \
                  ({})",
                 ErrorCode::SCHEMA_VIOLATION
@@ -452,7 +452,7 @@ impl ServiceDescribe {
                 .iter()
                 .any(|version| !valid_tzdb_version(version))
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "ServiceDescribe: Calendar profile claims require a non-empty, unique \
                  calendar_tzdb_versions release set ({})",
                 ErrorCode::SCHEMA_VIOLATION
@@ -465,7 +465,7 @@ impl ServiceDescribe {
                     .iter()
                     .any(|supported| supported == profile)
         }) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "ServiceDescribe: profile_bindings must reference supported_profiles and \
                  carry a non-empty carrier ({})",
                 ErrorCode::SCHEMA_VIOLATION
@@ -481,7 +481,7 @@ impl ServiceDescribe {
                 .get(ProfileId::CANDIDATE_JOIN_POLICY_V1)
                 .map(|binding| binding.carrier.as_str());
             if carrier != Some(PROFILE_PRIVATE_HTTP_RECEIPT_V1) {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "ServiceDescribe: {profileid_candidate_join_policy_v1} requires \
                      profile_bindings carrier={PROFILE_PRIVATE_HTTP_RECEIPT_V1} ({})",
                     ErrorCode::SCHEMA_VIOLATION,
@@ -494,7 +494,7 @@ impl ServiceDescribe {
             // change reaches this gate without a hand-maintained copy.
             let requirements =
                 requirements_for(ProfileId::CANDIDATE_JOIN_POLICY_V1).ok_or_else(|| {
-                    Error::Protocol(format!(
+                    WireError::Protocol(format!(
                         "ServiceDescribe: generated profile table is missing \
                          {profileid_candidate_join_policy_v1} ({})",
                         ErrorCode::SCHEMA_VIOLATION,
@@ -512,7 +512,7 @@ impl ServiceDescribe {
                     .iter()
                     .any(|feature| feature == required)
             }) {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "ServiceDescribe: {profileid_candidate_join_policy_v1} requires its complete operation and \
                      feature surface ({})",
                     ErrorCode::SCHEMA_VIOLATION,
@@ -521,7 +521,7 @@ impl ServiceDescribe {
             }
         }
         if self.rate_limit_policy.is_none() && self.rate_limit_policy_id.is_none() {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "ServiceDescribe: one of rate_limit_policy or rate_limit_policy_id is required \
                  ({})",
                 ErrorCode::SCHEMA_VIOLATION
@@ -533,7 +533,7 @@ impl ServiceDescribe {
                 || !suffix
                     .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
         }) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "ServiceDescribe: extension keys must match ^x_[a-z][a-z0-9_]*$ ({})",
                 ErrorCode::SCHEMA_VIOLATION
             )));
@@ -544,7 +544,7 @@ impl ServiceDescribe {
                 .iter()
                 .any(|profile| profile == arkret_wire::ProfileId::DIRECTORY_SERVICE_V1)
             {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "ServiceDescribe: service_kind=directory_service requires \
                      supported_profiles to include ak.profile.directory_service.v1 ({})",
                     ErrorCode::SCHEMA_VIOLATION
@@ -561,7 +561,7 @@ impl ServiceDescribe {
                 || self.accepted_did_methods.is_empty()
                 || self.rate_limits.is_none()
             {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "ServiceDescribe: service_kind=directory_service requires the directory \
                      describe overlay fields ({})",
                     ErrorCode::SCHEMA_VIOLATION
@@ -570,7 +570,7 @@ impl ServiceDescribe {
             let default_ttl = self.default_ttl_seconds.unwrap_or_default();
             let max_ttl = self.max_ttl_seconds.unwrap_or_default();
             if max_ttl > 2_592_000 || default_ttl > max_ttl {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "ServiceDescribe: directory TTL fields must satisfy \
                      default_ttl_seconds <= max_ttl_seconds <= 2592000 ({})",
                     ErrorCode::SCHEMA_VIOLATION
@@ -581,7 +581,7 @@ impl ServiceDescribe {
                 .iter()
                 .any(|method| !is_valid_directory_did_method(method))
             {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "ServiceDescribe: directory accepted_did_methods entries must match \
                      did:<method> with lowercase alphanumeric method names ({})",
                     ErrorCode::SCHEMA_VIOLATION

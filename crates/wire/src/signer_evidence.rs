@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
-use crate::{Error, Hash, Result};
+use crate::{Hash, Result, WireError};
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -13,7 +13,7 @@ impl SignerEvidenceRef {
     pub fn new(value: impl Into<String>) -> Result<Self> {
         let value = value.into();
         let Some(digest) = value.strip_prefix("ak:signer_evidence:sha256:") else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invalid signer evidence reference".to_owned(),
             ));
         };
@@ -22,7 +22,7 @@ impl SignerEvidenceRef {
                 .bytes()
                 .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invalid signer evidence reference".to_owned(),
             ));
         }

@@ -6,8 +6,8 @@ use std::sync::OnceLock;
 use arkret_wire::base64url::{base64url_decode, base64url_encode};
 use arkret_wire::event_envelope::ScopeRef;
 use arkret_wire::{
-    CircleId, ContentScheme, DurabilityPolicy, Error, EventId, Hash, HistoryEffectiveScope,
-    MlsGroupId, NonEmptyString, OrganizationRecoveryArchive, RealmId, Result, SidecarId, canonical,
+    CircleId, ContentScheme, DurabilityPolicy, EventId, Hash, HistoryEffectiveScope, MlsGroupId,
+    NonEmptyString, OrganizationRecoveryArchive, RealmId, Result, SidecarId, WireError, canonical,
 };
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -44,7 +44,7 @@ pub struct SidecarMlsBinding {
 impl SidecarMlsBinding {
     pub fn validate(&self) -> Result<()> {
         if self.control_frontier.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_governance_binding.sidecar_binding.control_frontier must be non-empty (schema_violation)"
                     .to_owned(),
             ));
@@ -54,7 +54,7 @@ impl SidecarMlsBinding {
             .windows(2)
             .any(|pair| pair[0].as_str().as_bytes() >= pair[1].as_str().as_bytes())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_governance_binding.sidecar_binding.control_frontier must be UTF-8 byte-lexicographically sorted and unique (schema_violation)"
                     .to_owned(),
             ));
@@ -113,7 +113,7 @@ impl MlsGovernanceBindingPayload {
             sidecar_id: None,
             effective_scope: ScopeRef::Realm { realm_id },
             mls_group_id: MlsGroupId::new(mls_group_id.into()).map_err(|err| {
-                Error::Protocol(format!(
+                WireError::Protocol(format!(
                     "mls_governance_binding.mls_group_id is invalid: {err} (schema_violation)"
                 ))
             })?,
@@ -154,7 +154,7 @@ impl MlsGovernanceBindingPayload {
                 circle_id,
             },
             mls_group_id: MlsGroupId::new(mls_group_id.into()).map_err(|err| {
-                Error::Protocol(format!(
+                WireError::Protocol(format!(
                     "mls_governance_binding.mls_group_id is invalid: {err} (schema_violation)"
                 ))
             })?,
@@ -194,7 +194,7 @@ impl MlsGovernanceBindingPayload {
                 sidecar_id,
             },
             mls_group_id: MlsGroupId::new(mls_group_id.into()).map_err(|err| {
-                Error::Protocol(format!(
+                WireError::Protocol(format!(
                     "mls_governance_binding.mls_group_id is invalid: {err} (schema_violation)"
                 ))
             })?,
@@ -225,12 +225,12 @@ impl MlsGovernanceBindingPayload {
 
     pub fn validate(&self) -> Result<()> {
         if self.binding_version != MLS_GOVERNANCE_BINDING_VERSION {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "mls_governance_binding.binding_version must be {MLS_GOVERNANCE_BINDING_VERSION} (schema_violation)"
             )));
         }
         if self.encoding_profile != MLS_GOVERNANCE_BINDING_ENCODING_PROFILE {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "mls_governance_binding.encoding_profile must be {MLS_GOVERNANCE_BINDING_ENCODING_PROFILE} (schema_violation)"
             )));
         }
@@ -239,7 +239,7 @@ impl MlsGovernanceBindingPayload {
             &self.binding_profile,
         )?;
         if self.reducer_profile.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_governance_binding.reducer_profile must be non-empty (schema_violation)"
                     .to_owned(),
             ));
@@ -249,7 +249,7 @@ impl MlsGovernanceBindingPayload {
             ContentScheme::MlsExporterAeadV1 => self.durability_policy.is_some(),
         };
         if !valid_durability {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_governance_binding durability_policy presence does not match content_scheme (schema_violation)"
                     .to_owned(),
             ));
@@ -261,7 +261,7 @@ impl MlsGovernanceBindingPayload {
                     || self.sidecar_id.is_some()
                     || self.sidecar_binding.is_some()
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "mls_governance_binding realm effective_scope mismatch (schema_violation)"
                             .to_owned(),
                     ));
@@ -276,7 +276,7 @@ impl MlsGovernanceBindingPayload {
                     || self.sidecar_id.is_some()
                     || self.sidecar_binding.is_some()
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "mls_governance_binding circle effective_scope mismatch (schema_violation)"
                             .to_owned(),
                     ));
@@ -287,7 +287,7 @@ impl MlsGovernanceBindingPayload {
                 sidecar_id,
             } => {
                 let Some(binding) = &self.sidecar_binding else {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "mls_governance_binding Sidecar scope requires sidecar_binding (schema_violation)".to_owned(),
                     ));
                 };
@@ -296,7 +296,7 @@ impl MlsGovernanceBindingPayload {
                     || self.sidecar_id.as_ref() != Some(sidecar_id)
                     || &binding.sidecar_id != sidecar_id
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "mls_governance_binding Sidecar effective_scope mismatch (schema_violation)".to_owned(),
                     ));
                 }
@@ -304,7 +304,7 @@ impl MlsGovernanceBindingPayload {
             }
             // Fail closed on scope kinds this crate does not know about.
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "mls_governance_binding effective_scope kind is unsupported (schema_violation)"
                         .to_owned(),
                 ));
@@ -319,20 +319,20 @@ impl MlsGovernanceBindingPayload {
     ) -> Result<()> {
         self.validate()?;
         if self.mls_group_id.as_str() != expected.mls_group_id {
-            return Err(Error::Protocol("mls_governance_binding.mls_group_id does not match expected commit group (state_mismatch)".to_owned()));
+            return Err(WireError::Protocol("mls_governance_binding.mls_group_id does not match expected commit group (state_mismatch)".to_owned()));
         }
         if self.previous_epoch != expected.previous_epoch || self.next_epoch != expected.next_epoch
         {
-            return Err(Error::Protocol("mls_governance_binding epoch does not match expected commit epoch (state_mismatch)".to_owned()));
+            return Err(WireError::Protocol("mls_governance_binding epoch does not match expected commit epoch (state_mismatch)".to_owned()));
         }
         if self.binding_profile != expected.binding_profile {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "mls_governance_binding.binding_profile mismatch: expected {} got {} (unsupported_profile)",
                 expected.binding_profile, self.binding_profile
             )));
         }
         if self.reducer_profile != expected.reducer_profile {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "mls_governance_binding.reducer_profile does not match the CBA-resolved Realm profile: expected {} got {} (unsupported_profile)",
                 expected.reducer_profile, self.reducer_profile
             )));
@@ -340,39 +340,39 @@ impl MlsGovernanceBindingPayload {
         if let Some(scope) = expected.effective_scope
             && &self.effective_scope != scope
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_governance_binding.effective_scope mismatch (state_mismatch)".to_owned(),
             ));
         }
         if let Some(digest) = expected.security_frontier_digest
             && &self.security_frontier_digest != digest
         {
-            return Err(Error::Protocol("mls_governance_binding.security_frontier_digest is stale (mls_governance_binding_stale)".to_owned()));
+            return Err(WireError::Protocol("mls_governance_binding.security_frontier_digest is stale (mls_governance_binding_stale)".to_owned()));
         }
         if let Some(content_scheme) = expected.content_scheme
             && self.content_scheme != content_scheme
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_governance_binding.content_scheme mismatch (state_mismatch)".to_owned(),
             ));
         }
         if let Some(durability_policy) = expected.durability_policy
             && self.durability_policy != durability_policy
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_governance_binding.durability_policy mismatch (state_mismatch)".to_owned(),
             ));
         }
         if let Some(sidecar_binding) = expected.sidecar_binding
             && self.sidecar_binding.as_ref() != Some(sidecar_binding)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_governance_binding.sidecar_binding is stale (mls_governance_binding_stale)"
                     .to_owned(),
             ));
         }
         if expected.forbid_sidecar_binding && self.sidecar_binding.is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_governance_binding.sidecar_binding is forbidden for this scope (state_mismatch)"
                     .to_owned(),
             ));
@@ -404,7 +404,7 @@ impl MlsGovernanceBindingPayload {
         }
         cbor_put_tstr(&mut out, "mls_group_id");
         cbor_put_bstr(&mut out, &base64url_decode(self.mls_group_id.as_str()).map_err(|err| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "mls_governance_binding.mls_group_id must be base64url for CBOR bstr encoding: {err} (schema_violation)"
             ))
         })?);
@@ -447,7 +447,7 @@ impl MlsGovernanceBindingPayload {
         let payload = Self::from_cbor_fields(fields)?;
         let canonical = payload.to_deterministic_cbor()?;
         if canonical != bytes {
-            return Err(Error::Protocol("mls_governance_binding CBOR is not deterministic canonical encoding (schema_violation)".to_owned()));
+            return Err(WireError::Protocol("mls_governance_binding CBOR is not deterministic canonical encoding (schema_violation)".to_owned()));
         }
         Ok(payload)
     }
@@ -600,7 +600,7 @@ struct MlsGovernanceBindingPayloadWire {
 }
 
 impl TryFrom<MlsGovernanceBindingPayloadWire> for MlsGovernanceBindingPayload {
-    type Error = Error;
+    type Error = WireError;
 
     fn try_from(wire: MlsGovernanceBindingPayloadWire) -> Result<Self> {
         let payload = Self {
@@ -703,7 +703,7 @@ pub fn decode_mls_governance_binding_extension(
     extension_data: &[u8],
 ) -> Result<MlsGovernanceBindingPayload> {
     if extension_type != MLS_GOVERNANCE_BINDING_EXTENSION_TYPE {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "expected {MLS_GOVERNANCE_BINDING_EXTENSION_NAME} GroupContext extension codepoint 0x{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE:04X}, got 0x{extension_type:04X} (unsupported_profile)"
         )));
     }
@@ -715,7 +715,7 @@ pub fn verify_mls_governance_binding_extension(
     expected: &MlsGovernanceBindingValidationContext<'_>,
 ) -> Result<MlsGovernanceBindingPayload> {
     let extension = extension.ok_or_else(|| {
-        Error::Protocol(format!(
+        WireError::Protocol(format!(
             "missing {MLS_GOVERNANCE_BINDING_EXTENSION_NAME} GroupContext extension 0x{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE:04X} (unsupported_profile)"
         ))
     })?;
@@ -746,36 +746,36 @@ pub fn validate_transition_recovery_archive(
     let required = transition_requires_recovery_archive(binding);
     let Some(archive) = archive else {
         if required {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "{carrier} must carry organization_recovery_archive under the exporter recovery-key durability policy (schema_violation)"
             )));
         }
         return Ok(());
     };
     if !required {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "{carrier} must not carry organization_recovery_archive outside the exporter recovery-key durability policy (schema_violation)"
         )));
     }
     archive.validate()?;
     let expected_scope = HistoryEffectiveScope::try_from(binding.effective_scope().clone())?;
     if archive.effective_scope != expected_scope {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "{carrier}.organization_recovery_archive.effective_scope does not match the governance binding"
         )));
     }
     if archive.mls_group_id != binding.mls_group_id() {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "{carrier}.organization_recovery_archive.mls_group_id does not match the governance binding"
         )));
     }
     if archive.epoch != epoch {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "{carrier}.organization_recovery_archive.epoch does not match the transition epoch"
         )));
     }
     if &archive.transition_digest != transition_digest {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "{carrier}.organization_recovery_archive.transition_digest is not the mls_transition_digest"
         )));
     }
@@ -850,7 +850,7 @@ impl MlsCommitPayload {
     ) -> Result<Self> {
         let payload = Self {
             mls_group_id: MlsGroupId::new(commit.group_id.clone()).map_err(|err| {
-                Error::Protocol(format!(
+                WireError::Protocol(format!(
                     "mls_commit_payload.mls_group_id is invalid: {err} (schema_violation)"
                 ))
             })?,
@@ -870,19 +870,19 @@ impl MlsCommitPayload {
 
     pub fn validate(&self) -> Result<()> {
         if self.base_epoch.checked_add(1) != Some(self.next_epoch) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_commit_payload.next_epoch must equal base_epoch + 1 (schema_violation)"
                     .to_owned(),
             ));
         }
         let commit_bytes = base64url_decode(&self.commit_bytes_b64).map_err(|error| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "mls_commit_payload.commit_bytes_b64 is invalid base64url: {error} (schema_violation)"
             ))
         })?;
         let actual_digest = canonical::sha256_digest(&commit_bytes);
         if actual_digest != self.commit_digest.as_str() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_commit_payload.commit_digest does not match commit_bytes_b64 (schema_violation)"
                     .to_owned(),
             ));
@@ -894,14 +894,14 @@ impl MlsCommitPayload {
         let mut seen = BTreeSet::new();
         for proposal_ref in &self.proposal_refs {
             if !seen.insert(proposal_ref.to_string()) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "mls_commit_payload.proposal_refs must be unique (schema_violation)".to_owned(),
                 ));
             }
         }
         self.governance_binding.validate()?;
         if self.governance_binding.mls_group_id() != self.mls_group_id.as_str() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_commit_payload.governance_binding.mls_group_id mismatch (schema_violation)"
                     .to_owned(),
             ));
@@ -909,7 +909,7 @@ impl MlsCommitPayload {
         if self.governance_binding.previous_epoch() != self.base_epoch
             || self.governance_binding.next_epoch() != self.next_epoch
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_commit_payload.governance_binding epoch mismatch (schema_violation)"
                     .to_owned(),
             ));
@@ -1005,7 +1005,7 @@ fn validate_object_ref(field: &str, value: &str) -> Result<()> {
     if object_ref_regex().is_match(value) {
         Ok(())
     } else {
-        Err(Error::Protocol(format!(
+        Err(WireError::Protocol(format!(
             "{field} must match event-payload.schema.json#/$defs/object_ref (schema_violation)"
         )))
     }
@@ -1015,7 +1015,7 @@ fn validate_profile_id(field: &str, value: &str) -> Result<()> {
     if profile_id_regex().is_match(value) {
         Ok(())
     } else {
-        Err(Error::Protocol(format!(
+        Err(WireError::Protocol(format!(
             "{field} must match event-payload.schema.json#/$defs/mls_governance_binding.binding_profile (schema_violation)"
         )))
     }
@@ -1271,7 +1271,7 @@ fn encode_effective_scope(out: &mut Vec<u8>, scope: &ScopeRef) -> Result<()> {
         }
         // Fail closed on scope kinds this crate does not know about.
         _ => {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_governance_binding effective_scope kind is unsupported (schema_violation)"
                     .to_owned(),
             ));
@@ -1446,17 +1446,17 @@ fn take_optional_sidecar_binding(
 
 fn hash_digest_bytes(field: &str, hash: &Hash) -> Result<Vec<u8>> {
     let Some(hex_value) = hash.as_str().strip_prefix("sha256:") else {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "mls_governance_binding.{field} must be sha256:<hex> (schema_violation)"
         )));
     };
     let bytes = hex::decode(hex_value).map_err(|err| {
-        Error::Protocol(format!(
+        WireError::Protocol(format!(
             "mls_governance_binding.{field} hash is not hex: {err} (schema_violation)"
         ))
     })?;
     if bytes.len() != 32 {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "mls_governance_binding.{field} hash must be 32 bytes (schema_violation)"
         )));
     }
@@ -1476,12 +1476,12 @@ fn hash_from_digest_bytes(field: &str, bytes: &[u8]) -> Result<Hash> {
     })
 }
 
-fn cbor_error(message: &str) -> Error {
+fn cbor_error(message: &str) -> WireError {
     cbor_error_message(message.to_owned())
 }
 
-fn cbor_error_message(message: String) -> Error {
-    Error::Protocol(format!(
+fn cbor_error_message(message: String) -> WireError {
+    WireError::Protocol(format!(
         "mls_governance_binding CBOR decode failed: {message} (schema_violation)"
     ))
 }

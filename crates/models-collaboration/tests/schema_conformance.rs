@@ -136,7 +136,7 @@ fn membership_payload_strong_type_passes_spec_validator() {
     bad.delivery_status = None;
     assert!(matches!(
         bad.to_value(),
-        Err(arkret_wire::Error::Protocol(_))
+        Err(arkret_wire::WireError::Protocol(_))
     ));
 
     // Closed payload schemas reject unknown additive keys.

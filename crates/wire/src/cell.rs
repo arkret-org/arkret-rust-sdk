@@ -26,7 +26,7 @@
 
 use std::collections::BTreeSet;
 
-use crate::{CellRef, Error, Result, canonical};
+use crate::{CellRef, Result, WireError, canonical};
 
 const CELL_PREFIX: &str = "ak:cell:";
 
@@ -99,20 +99,20 @@ impl CellId {
     /// after the `ak:cell:` prefix to keep the component canonical.
     pub fn parse(value: &str) -> Result<Self> {
         let rest = value.strip_prefix(CELL_PREFIX).ok_or_else(|| {
-            Error::Protocol(format!("cell id missing 'ak:cell:' prefix: {value}"))
+            WireError::Protocol(format!("cell id missing 'ak:cell:' prefix: {value}"))
         })?;
         let (component, subject) = rest.split_once(':').ok_or_else(|| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "cell id missing component:subject separator: {value}"
             ))
         })?;
         if component.is_empty() {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "cell id has empty component: {value}"
             )));
         }
         if !arkret_identifiers::is_cell_family(component) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "cell id component is not a canonical ak.component.*.v<n> family: {value}"
             )));
         }
@@ -194,7 +194,7 @@ pub fn composite_subject<T: CompositeSubjectComponent>(parts: &[T]) -> Result<St
             serde_json::Value::Array(_) | serde_json::Value::Object(_) => false,
         };
         if !valid {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "composite subject components must be JSON string, integer, boolean, or null"
                     .to_owned(),
             ));
@@ -241,17 +241,17 @@ const HEX_UPPER: &[u8; 16] = b"0123456789ABCDEF";
 /// components.
 pub fn string_set_digest_component(values: &[String], context: &str) -> Result<String> {
     if context.is_empty() || !context.is_ascii() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "string-set digest context must be non-empty ASCII".to_owned(),
         ));
     }
     if values.is_empty() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "string-set digest input must not be empty".to_owned(),
         ));
     }
     if values.iter().collect::<BTreeSet<_>>().len() != values.len() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "string-set digest input must contain unique values".to_owned(),
         ));
     }

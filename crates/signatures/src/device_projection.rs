@@ -31,7 +31,7 @@ pub fn sign_device_projection_attestation(
     signing_key: &SigningKey,
 ) -> arkret_wire::Result<DeviceProjectionAttestation> {
     if core.attested_at >= core.expires_at {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "device projection attestation is not a positive validity window".to_owned(),
         ));
     }
@@ -40,7 +40,7 @@ pub fn sign_device_projection_attestation(
     // to sign anything else keeps the Rust type from being the one place that
     // could mint a row the wire contract forbids.
     if core.device_status != DeviceStatus::Active {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "device projection attestation may only attest an active device".to_owned(),
         ));
     }
@@ -77,34 +77,36 @@ pub fn verify_device_projection_attestation(
     let core = &attestation.attestation;
     let controller = proof_controller(&attestation.proof.verification_method)?;
     if controller != core.principal_server_id {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "device projection attestation proof controller is not the origin Principal Server"
                 .to_owned(),
         ));
     }
     if attestation.proof.created_at != core.attested_at {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "device projection attestation proof timestamp mismatch".to_owned(),
         ));
     }
     if core.attested_at >= core.expires_at {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "device projection attestation is not a positive validity window".to_owned(),
         ));
     }
     if now >= core.expires_at {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "device projection attestation is expired".to_owned(),
         ));
     }
     let signature_bytes = arkret_canonical::base64url_decode(attestation.proof.jws.as_str())
-        .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))?;
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
     let signature = Signature::from_slice(&signature_bytes)
-        .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))?;
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
     principal_server_key
         .verify(&attestation.proof_signing_bytes()?, &signature)
         .map_err(|_| {
-            arkret_wire::Error::Protocol("invalid device projection attestation proof".to_owned())
+            arkret_wire::WireError::Protocol(
+                "invalid device projection attestation proof".to_owned(),
+            )
         })
 }
 
@@ -113,18 +115,18 @@ fn proof_controller(verification_method: &DidUrl) -> arkret_wire::Result<DidCore
         .as_str()
         .rsplit_once('#')
         .ok_or_else(|| {
-            arkret_wire::Error::Protocol(
+            arkret_wire::WireError::Protocol(
                 "device projection attestation verification method has no fragment".to_owned(),
             )
         })?;
     let full_id = DidFullId::new(bare.to_owned())
-        .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))?;
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
     arkret_wire::project_full_id_to_core_id(&full_id)
-        .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))
 }
 
 fn base64_value(value: String) -> arkret_wire::Result<Base64UrlString> {
-    Base64UrlString::new(value).map_err(|error| arkret_wire::Error::Protocol(error.to_owned()))
+    Base64UrlString::new(value).map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))
 }
 
 #[cfg(test)]

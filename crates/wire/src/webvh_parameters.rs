@@ -1,6 +1,6 @@
 //! Closed `did:webvh:1.0` method-parameter registry.
 
-use crate::{Error, Result};
+use crate::{Result, WireError};
 
 /// The complete parameter-name allowlist defined by `did:webvh` v1.0.
 /// Arkret governance is carried by DID Document overlays and is intentionally
@@ -21,7 +21,7 @@ pub fn validate_did_webvh_v1_parameter_names<'a>(
 ) -> Result<()> {
     for name in names {
         if !DID_WEBVH_V1_PARAMETER_NAMES.contains(&name) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "param_invalid: unknown did:webvh:1.0 parameter {name:?}"
             )));
         }

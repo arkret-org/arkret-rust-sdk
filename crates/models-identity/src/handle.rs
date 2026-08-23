@@ -1,7 +1,7 @@
 use std::fmt;
 
 use arkret_wire::{
-    DidCoreId, Error, Result, human_identifier_skeleton, prepare_handle_localpart,
+    DidCoreId, Result, WireError, human_identifier_skeleton, prepare_handle_localpart,
     prepare_idna_domain, validate_canonical_handle_localpart, validate_canonical_idna_domain,
     validate_highly_restrictive_registration_identifier,
 };
@@ -29,9 +29,9 @@ impl Handle {
     pub fn parse(input: &str) -> Result<Self> {
         let (localpart, domain) = input
             .split_once(':')
-            .ok_or_else(|| Error::Protocol(format!("handle missing ':<domain>': {input}")))?;
+            .ok_or_else(|| WireError::Protocol(format!("handle missing ':<domain>': {input}")))?;
         if domain.contains(':') {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "handle has too many ':' separators: {input}"
             )));
         }
@@ -52,7 +52,7 @@ impl Handle {
             parts
         } else {
             body.split_once(':').ok_or_else(|| {
-                Error::Protocol(format!("handle input missing domain separator: {input}"))
+                WireError::Protocol(format!("handle input missing domain separator: {input}"))
             })?
         };
         let localpart = prepare_handle_localpart(local)?;
@@ -64,12 +64,12 @@ impl Handle {
     /// canonical handle; the original `acct:` string is intended to be
     /// carried separately as a handle alias.
     pub fn from_acct(acct: &str) -> Result<Self> {
-        let rest = acct
-            .strip_prefix("acct:")
-            .ok_or_else(|| Error::Protocol(format!("acct uri must start with acct:: {acct}")))?;
+        let rest = acct.strip_prefix("acct:").ok_or_else(|| {
+            WireError::Protocol(format!("acct uri must start with acct:: {acct}"))
+        })?;
         let (local, domain) = rest
             .rsplit_once('@')
-            .ok_or_else(|| Error::Protocol(format!("acct uri must contain @: {acct}")))?;
+            .ok_or_else(|| WireError::Protocol(format!("acct uri must contain @: {acct}")))?;
         let local = percent_decode_utf8(local)?;
         let localpart = prepare_handle_localpart(&local)?;
         let domain = prepare_idna_domain(domain)?;
@@ -121,7 +121,7 @@ impl fmt::Display for Handle {
 }
 
 impl TryFrom<String> for Handle {
-    type Error = Error;
+    type Error = WireError;
     fn try_from(value: String) -> Result<Self> {
         Handle::parse(&value)
     }
@@ -153,15 +153,14 @@ fn percent_decode_utf8(value: &str) -> Result<String> {
     while index < bytes.len() {
         if bytes[index] == b'%' {
             let hex = bytes.get(index + 1..index + 3).ok_or_else(|| {
-                Error::Protocol("acct URI contains truncated percent encoding".to_owned())
+                WireError::Protocol("acct URI contains truncated percent encoding".to_owned())
             })?;
-            let hex = std::str::from_utf8(hex)
-                .map_err(|_| Error::Protocol("acct URI percent encoding is invalid".to_owned()))?;
-            decoded.push(
-                u8::from_str_radix(hex, 16).map_err(|_| {
-                    Error::Protocol("acct URI percent encoding is invalid".to_owned())
-                })?,
-            );
+            let hex = std::str::from_utf8(hex).map_err(|_| {
+                WireError::Protocol("acct URI percent encoding is invalid".to_owned())
+            })?;
+            decoded.push(u8::from_str_radix(hex, 16).map_err(|_| {
+                WireError::Protocol("acct URI percent encoding is invalid".to_owned())
+            })?);
             index += 3;
         } else {
             decoded.push(bytes[index]);
@@ -169,7 +168,7 @@ fn percent_decode_utf8(value: &str) -> Result<String> {
         }
     }
     String::from_utf8(decoded)
-        .map_err(|_| Error::Protocol("acct URI userpart is not valid UTF-8".to_owned()))
+        .map_err(|_| WireError::Protocol("acct URI userpart is not valid UTF-8".to_owned()))
 }
 
 /// R3.2 — `ak.schema.handle_claim.v1.subject` validator.
@@ -179,12 +178,12 @@ fn percent_decode_utf8(value: &str) -> Result<String> {
 /// generic resource id. The type boundary rejects full DIDs and non-core
 /// identifiers; deployment-specific role admission remains the issuer's job.
 ///
-/// On rejection returns [`Error::Protocol`] carrying the
+/// On rejection returns [`WireError::Protocol`] carrying the
 /// `handle_claim_subject_not_principal_did` wire code prefix.
 pub fn validate_handle_claim_subject(subject: &DidCoreId) -> Result<()> {
     let s = subject.as_str();
     if !s.starts_with("ak:did_core:") {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "handle_claim_subject_not_principal_did: subject must be a DID core id ({s})"
         )));
     }

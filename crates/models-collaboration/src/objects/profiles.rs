@@ -7,8 +7,8 @@ use arkret_canonical::binding_contexts;
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_models_crypto::protected_payload::MlsPayloadType;
 use arkret_wire::{
-    Base64UrlString, CircleId, DeviceId, DidCoreId, DidFullId, DidUrl, Error, Hash, MorphId,
-    ObjectStage, ObjectState, PolicyId, RealmId, Result, SchemaId, StrandId, TrustDomainId,
+    Base64UrlString, CircleId, DeviceId, DidCoreId, DidFullId, DidUrl, Hash, MorphId, ObjectStage,
+    ObjectState, PolicyId, RealmId, Result, SchemaId, StrandId, TrustDomainId, WireError,
     canonical, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -74,22 +74,22 @@ impl StrandTrack {
 /// Validate a `StrandTrack` map key against `^[a-z][a-z0-9_]{0,63}$`.
 pub fn validate_strand_track_name(name: &str) -> Result<()> {
     if name.is_empty() || name.len() > 64 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "StrandTrack name must be 1..=64 chars".to_owned(),
         ));
     }
     let mut chars = name.chars();
     let first = chars
         .next()
-        .ok_or_else(|| Error::Protocol("StrandTrack name must not be empty".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("StrandTrack name must not be empty".to_owned()))?;
     if !first.is_ascii_lowercase() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "StrandTrack name must start with [a-z]".to_owned(),
         ));
     }
     for c in chars {
         if !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "StrandTrack name contains invalid character '{c}'"
             )));
         }
@@ -113,12 +113,12 @@ pub fn resolve_primary_track<'a>(
         0 => {}
         1 if explicit[0].1.enabled != Some(false) => return Ok(Some(explicit[0])),
         1 => {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "track_disabled: explicit primary track is disabled".to_owned(),
             ));
         }
         _ => {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Strand has more than one track with is_primary=true".to_owned(),
             ));
         }
@@ -141,7 +141,7 @@ pub fn resolve_primary_track<'a>(
     {
         return Ok(Some((k, v)));
     }
-    Err(Error::Protocol(
+    Err(WireError::Protocol(
         "primary_track_required: enabled tracks require one primary track".to_owned(),
     ))
 }
@@ -158,7 +158,7 @@ pub fn validate_primary_track_transition(
             .get(previous_name)
             .is_some_and(|config| config.enabled != Some(false));
         if !previous_still_enabled && next_primary.is_none() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "primary_track_required: disabling or deleting the primary track requires an atomic migration"
                     .to_owned(),
             ));
@@ -428,13 +428,15 @@ impl Morph {
         if self.morph_kind.starts_with("ak.")
             && !registered_ak_kinds.contains(&self.morph_kind.as_str())
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "morph_kind '{}' uses reserved ak. prefix without registration",
                 self.morph_kind
             )));
         }
         if self.morph_kind.trim().is_empty() {
-            return Err(Error::Protocol("morph_kind must not be empty".to_owned()));
+            return Err(WireError::Protocol(
+                "morph_kind must not be empty".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -514,12 +516,12 @@ impl IdentityLink {
     pub const SCHEMA: &'static str = SchemaId::IDENTITY_LINK_V1;
     pub fn validate_minimal(&self) -> Result<()> {
         if self.schema != SchemaId::IDENTITY_LINK_V1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "identity_link schema must be ak.schema.identity_link.v1".to_owned(),
             ));
         }
         if self.strand_id.is_some() && self.track.as_deref().is_none_or(str::is_empty) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "identity_link strand_id requires track_name".to_owned(),
             ));
         }
@@ -530,7 +532,7 @@ impl IdentityLink {
             || self.proof.signature_algorithm.trim().is_empty()
             || self.proof.signature.trim().is_empty()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "identity_link proof requires verification_method, signature_algorithm, and signature"
                     .to_owned(),
             ));
@@ -540,7 +542,7 @@ impl IdentityLink {
             .as_str()
             .split_once('#')
             .ok_or_else(|| {
-                Error::Protocol(
+                WireError::Protocol(
                     "identity_link response-signing verification method lacks fragment".to_owned(),
                 )
             })?;
@@ -553,13 +555,13 @@ impl IdentityLink {
             || self.response_signing_public_key_digest
                 != Hash::new(arkret_canonical::sha256_digest(&response_key))?
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "identity_link response-signing key binding mismatch".to_owned(),
             ));
         }
         let expected = self.canonical_payload_digest()?;
         if self.proof.payload_digest != expected {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "identity_link proof payload_digest mismatch".to_owned(),
             ));
         }
@@ -568,7 +570,7 @@ impl IdentityLink {
 
     pub fn canonical_proof_input(&self) -> Result<Vec<u8>> {
         let mut value = serde_json::to_value(self).map_err(|error| {
-            Error::Protocol(format!("identity_link serialization failed: {error}"))
+            WireError::Protocol(format!("identity_link serialization failed: {error}"))
         })?;
         if let Value::Object(object) = &mut value
             && let Some(Value::Object(proof)) = object.get_mut("proof")
@@ -587,7 +589,7 @@ impl IdentityLink {
     pub fn canonical_payload_digest(&self) -> Result<Hash> {
         let input = self.canonical_proof_input()?;
         Hash::new(canonical::sha256_digest(&input)).map_err(|error| {
-            Error::Protocol(format!("identity_link payload hash invalid: {error}"))
+            WireError::Protocol(format!("identity_link payload hash invalid: {error}"))
         })
     }
 }

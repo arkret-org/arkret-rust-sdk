@@ -11,9 +11,9 @@ use arkret_models_collaboration::events_payloads::{
 };
 use arkret_models_identity::ResolutionCommitment;
 use arkret_wire::{
-    CellRef, DidCoreId, DidFullId, EncryptionProfile, Error, Event, EventKind, EventRef,
-    GenesisSalt, Hash, Hlc, NotaryValue, PcrGenesisUnit, ProfileId, Result, SchemaId, ScopeRef,
-    SecurityClass, TrustDomainId, composite_subject, event_spec, project_full_id_to_core_id,
+    CellRef, DidCoreId, DidFullId, EncryptionProfile, Event, EventKind, EventRef, GenesisSalt,
+    Hash, Hlc, NotaryValue, PcrGenesisUnit, ProfileId, Result, SchemaId, ScopeRef, SecurityClass,
+    TrustDomainId, WireError, composite_subject, event_spec, project_full_id_to_core_id,
     proof_kind,
 };
 use chrono::{DateTime, Utc};
@@ -55,12 +55,12 @@ pub fn build_self_principal_pcr_create(
     let created_at = arkret_canonical::canonical::normalize_timestamp_canonical(input.created_at);
     let actor_id = input.principal_id.clone();
     if project_full_id_to_core_id(&input.principal_full_id)? != input.principal_id {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "self principal full DID does not project to principal_id".to_owned(),
         ));
     }
     if input.initial_resolution.full_id != input.principal_full_id {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "self principal initial_resolution does not match principal_full_id".to_owned(),
         ));
     }
@@ -68,7 +68,7 @@ pub fn build_self_principal_pcr_create(
         || !input.did_inception_ref.critical
         || input.did_inception_ref.proof.is_some()
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "self principal PCR requires one direct critical did_inception ref".to_owned(),
         ));
     }
@@ -100,7 +100,7 @@ pub fn build_self_principal_pcr_create(
         input.principal_server_id,
         payload,
     )
-    .map_err(|error| Error::Protocol(error.to_string()))?
+    .map_err(|error| WireError::Protocol(error.to_string()))?
     .with_ref(input.did_inception_ref)
     .author_with_digest_suite(
         0,
@@ -108,7 +108,7 @@ pub fn build_self_principal_pcr_create(
         created_at,
         arkret_canonical::DigestSuite::Sha256,
     )
-    .map_err(|error| Error::Protocol(error.to_string()))?;
+    .map_err(|error| WireError::Protocol(error.to_string()))?;
     validate_self_principal_pcr_create(&event, false, project)?;
     Ok(event)
 }
@@ -156,7 +156,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
             )
         })
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "second self principal bootstrap slot is not the closed device authorize shape"
                 .to_owned(),
         ));
@@ -168,7 +168,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
         || payload.authorization_binding_kind != DeviceAuthorizationBindingKind::RegistrationAnchor
         || payload.recovery_session_id.is_some()
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "founding device authorize must be root-anchored".to_owned(),
         ));
     }
@@ -180,7 +180,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
     };
     let create_payload: RealmCreatePayload = create.typed_payload::<event_spec::RealmCreate>()?;
     let NotaryValue::SingleSigner { signer, .. } = &create_payload.object.notary else {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "PCR genesis notary must identify the principal actor".to_owned(),
         ));
     };
@@ -189,13 +189,13 @@ pub fn validate_self_principal_pcr_genesis_unit(
         .founding_device_descriptor
         .as_ref()
         .ok_or_else(|| {
-            Error::Protocol("PCR genesis omits founding device descriptor".to_owned())
+            WireError::Protocol("PCR genesis omits founding device descriptor".to_owned())
         })?;
     let initial_resolution = create_payload
         .object
         .initial_resolution
         .as_ref()
-        .ok_or_else(|| Error::Protocol("PCR genesis omits initial resolution".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("PCR genesis omits initial resolution".to_owned()))?;
     validate_root_anchored_authorize_payload_digest(
         &descriptor.founding_authorize_payload_digest,
         &Value::Object(authorize.payload.clone().into_iter().collect()),
@@ -205,7 +205,9 @@ pub fn validate_self_principal_pcr_genesis_unit(
         .verification_method
         .as_str()
         .split_once('#')
-        .ok_or_else(|| Error::Protocol("founding device proof requires a DID URL".to_owned()))?;
+        .ok_or_else(|| {
+            WireError::Protocol("founding device proof requires a DID URL".to_owned())
+        })?;
     let verification_controller = DidFullId::new(verification_controller.to_owned())?;
     let verification_principal = project_full_id_to_core_id(&verification_controller)?;
     if !authorized_by_matches
@@ -218,7 +220,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
         || descriptor.hpke_key != payload.hpke_key
         || descriptor.algorithms != payload.algorithms
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "founding device authorize does not match its committed descriptor".to_owned(),
         ));
     }
@@ -233,7 +235,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
         composite_subject(&[payload.principal_id.as_str(), payload.device_id.as_str()])?
     ))?;
     if authorize_effects.len() != 1 || authorize_effects[0].cell != device_cell {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "bootstrap device authorize does not derive its single device authorization cell"
                 .to_owned(),
         ));
@@ -266,19 +268,19 @@ pub(crate) fn validate_self_principal_pcr_create(
         || event.actor_kind.is_some()
         || !event.unsigned.is_empty()
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "identity root may sign only the closed self principal PCR genesis shape".to_owned(),
         ));
     }
     if require_proof {
         let proof = validate_event_proof_digests(event)?;
         if !proof.verification_method.starts_with("did:key:") {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "self principal PCR genesis requires exactly one identity-root proof".to_owned(),
             ));
         }
     } else if !event.proofs.is_empty() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "unsigned self principal PCR builder output must not contain proofs".to_owned(),
         ));
     }
@@ -317,7 +319,7 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
         || !notary_matches
         || !resolution_matches
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "self principal PCR create payload violates create-locked profile".to_owned(),
         ));
     }
@@ -340,7 +342,7 @@ fn validate_event_proof_digests(event: &Event) -> Result<&arkret_wire::ProducerE
             producer
         }
         _ => {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "bootstrap event must carry exactly one producer proof and at most one bound principal server admission proof"
                     .to_owned(),
             ));
@@ -351,7 +353,7 @@ fn validate_event_proof_digests(event: &Event) -> Result<&arkret_wire::ProducerE
         || producer.event_digest.as_str() != digest
         || producer.jws.is_empty()
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "bootstrap event carries an invalid proof envelope".to_owned(),
         ));
     }

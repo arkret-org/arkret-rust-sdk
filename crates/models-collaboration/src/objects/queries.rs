@@ -3,9 +3,9 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    Cursor, DidCoreId, Error, Facet, FilterOp, NullsOrder, RealmId, RelationDirection,
-    RelationKind, Result, SchemaId, SortDirection, SpaceId, ViewId, ViewKind, ViewRenderer,
-    ViewVisibility,
+    Cursor, DidCoreId, Facet, FilterOp, NullsOrder, RealmId, RelationDirection, RelationKind,
+    Result, SchemaId, SortDirection, SpaceId, ViewId, ViewKind, ViewRenderer, ViewVisibility,
+    WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -171,7 +171,7 @@ impl View {
     /// at all; see [`View::validate_private_account_data`].
     pub fn validate(&self) -> Result<()> {
         if self.schema != Self::SCHEMA {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "view schema must be {}",
                 Self::SCHEMA
             )));
@@ -190,13 +190,13 @@ impl View {
         for (field, is_present, owning_kind) in present {
             match (is_present, owning_kind == self.kind) {
                 (true, false) => {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "view kind {:?} must not carry the {field} config",
                         self.kind
                     )));
                 }
                 (false, true) => {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "view kind {:?} requires the {field} config",
                         self.kind
                     )));
@@ -209,14 +209,14 @@ impl View {
             .as_ref()
             .is_some_and(|dashboard| dashboard.widgets.is_empty())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "composite view dashboard requires at least one widget".to_owned(),
             ));
         }
         if let Some(renderer) = self.renderer
             && !self.kind.allows_renderer(renderer)
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "view kind {:?} does not allow renderer {renderer:?}",
                 self.kind
             )));
@@ -233,7 +233,7 @@ impl View {
     pub fn validate_private_account_data(&self, account_data_key: &str) -> Result<()> {
         self.validate()?;
         if self.visibility != Some(ViewVisibility::Private) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "private account-data view requires visibility=private".to_owned(),
             ));
         }
@@ -242,12 +242,12 @@ impl View {
         // account-data key, and a published shared View can never be demoted
         // back to private, so neither may appear here.
         if self.state == ViewState::Tombstoned {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "private account-data view must not carry the shared tombstoned state".to_owned(),
             ));
         }
         if crate::events_payloads::private_view_account_data_key(&self.id) != account_data_key {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "private view must be stored under ak.views.private.<its own view_id>".to_owned(),
             ));
         }
@@ -257,10 +257,10 @@ impl View {
     pub fn validate_lifecycle(&self) -> Result<()> {
         match (self.state, self.state_changed_at) {
             (ViewState::Active, None) | (ViewState::Tombstoned, Some(_)) => Ok(()),
-            (ViewState::Active, Some(_)) => Err(Error::Protocol(
+            (ViewState::Active, Some(_)) => Err(WireError::Protocol(
                 "active view must not carry state_changed_at".to_owned(),
             )),
-            (ViewState::Tombstoned, None) => Err(Error::Protocol(
+            (ViewState::Tombstoned, None) => Err(WireError::Protocol(
                 "tombstoned view requires state_changed_at".to_owned(),
             )),
         }

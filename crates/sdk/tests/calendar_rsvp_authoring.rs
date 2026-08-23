@@ -77,7 +77,7 @@ fn build(
         Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
         arkret_canonical::DigestSuite::Sha256,
     )
-    .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))
+    .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))
 }
 
 #[test]

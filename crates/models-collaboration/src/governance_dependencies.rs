@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_identity::AuthenticatedSignerResolutionEvidence;
 use arkret_wire::{
-    AvailabilityReceipt, Error, Event, EventProof, Hash, RealmId, Result, Seal, canonical,
+    AvailabilityReceipt, Event, EventProof, Hash, RealmId, Result, Seal, WireError, canonical,
 };
 use serde::{Deserialize, Serialize};
 
@@ -84,7 +84,7 @@ impl GovernanceRegistryArtifactDescriptor {
 
     pub fn validate(&self) -> Result<()> {
         if !self.content_digest().as_ref().starts_with("sha256:") {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "governance registry artifact digest must use sha256".to_owned(),
             ));
         }
@@ -104,7 +104,7 @@ impl GovernanceRegistryArtifactDescriptor {
                         })
                 });
             if !valid {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "invalid replay JSON Schema artifact id".to_owned(),
                 ));
             }
@@ -130,12 +130,12 @@ impl GovernanceReplaySchemaManifest {
                 ReplayRootSchemaArtifactId::EventPayload,
             ]
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "governance replay manifest has invalid root schema order".to_owned(),
             ));
         }
         if !(2..=256).contains(&self.artifacts.len()) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "governance replay manifest must contain 2..=256 artifacts".to_owned(),
             ));
         }
@@ -144,14 +144,14 @@ impl GovernanceReplaySchemaManifest {
             let GovernanceRegistryArtifactDescriptor::ReplayJsonSchema { artifact_id, .. } =
                 descriptor
             else {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "governance replay manifest accepts replay_json_schema descriptors only"
                         .to_owned(),
                 ));
             };
             descriptor.validate()?;
             if previous.is_some_and(|value: &str| value >= artifact_id.as_str()) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "governance replay manifest artifacts must be sorted and unique".to_owned(),
                 ));
             }
@@ -166,7 +166,7 @@ impl GovernanceReplaySchemaManifest {
                 .iter()
                 .any(|descriptor| descriptor.artifact_id() == required)
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "governance replay manifest omits a root schema artifact".to_owned(),
                 ));
             }
@@ -212,7 +212,7 @@ impl GovernanceRegistrySnapshot {
             self.artifacts[2],
             GovernanceRegistryArtifactDescriptor::ReplaySchemaManifest { .. }
         ) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "governance registry snapshot has an invalid artifact kind or order".to_owned(),
             ));
         }
@@ -221,7 +221,7 @@ impl GovernanceRegistrySnapshot {
         }
         let expected = Hash::new(canonical::sha256_digest(snapshot_digest_preimage(self)?))?;
         if self.snapshot_digest != expected {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "governance registry snapshot digest mismatch".to_owned(),
             ));
         }
@@ -248,13 +248,13 @@ impl GovernanceRegistryArtifact {
     pub fn digest_preimage(&self) -> Result<Vec<u8>> {
         let decoded = arkret_canonical::base64url::base64url_decode(&self.canonical_bytes_b64u)?;
         if decoded.len() > MAX_GOVERNANCE_ARTIFACT_BYTES {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "governance registry artifact exceeds 1 MiB".to_owned(),
             ));
         }
         let value: serde_json::Value = serde_json::from_slice(&decoded)?;
         if canonical::canonical_json_bytes(&value)? != decoded {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "governance registry artifact bytes are not canonical JSON".to_owned(),
             ));
         }
@@ -268,7 +268,7 @@ impl GovernanceRegistryArtifact {
         self.descriptor.validate()?;
         let expected = Hash::new(canonical::sha256_digest(self.digest_preimage()?))?;
         if self.descriptor.content_digest() != &expected {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "governance registry artifact content digest mismatch".to_owned(),
             ));
         }
@@ -323,7 +323,7 @@ impl GovernanceDependencySelector {
             | Self::MinimalMetadataMlsLeafSignerEvidence { content_digest }
             | Self::GovernanceRegistrySnapshot { content_digest } => {
                 if !content_digest.as_ref().starts_with("sha256:") {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "{} selector content_digest must use sha256",
                         self.kind()
                     )));
@@ -361,7 +361,7 @@ pub fn governance_runtime_dependency_selectors_for_replay(
     event_digest_suites: &[arkret_canonical::DigestSuite],
 ) -> Result<Vec<GovernanceDependencySelector>> {
     if events.len() != event_digest_suites.len() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "replay Event and digest-suite cardinality must match".to_owned(),
         ));
     }
@@ -375,7 +375,7 @@ pub fn governance_runtime_dependency_selectors_for_replay(
                 event.validate_principal_server_admission_binding(digest_suite)?;
             }
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "replay dependency discovery requires a direct or admitted Event proof regime"
                         .to_owned(),
                 ));
@@ -416,7 +416,7 @@ pub fn governance_runtime_dependency_selector_coordinates_for_acquisition(
                 EventProof::PrincipalServerAdmission(_),
             ] => {}
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "dependency acquisition requires a direct or admitted Event proof regime"
                         .to_owned(),
                 ));
@@ -442,7 +442,7 @@ pub fn governance_runtime_dependency_selector_coordinates_for_acquisition(
                             .as_str()
                             .starts_with("sha256:")
                     {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "principal server admission signer evidence binding mismatch"
                                 .to_owned(),
                         ));
@@ -588,7 +588,7 @@ pub fn validate_history_source_signer_dependency_closure(
                         )
                         .is_some()
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "source signer dependency closure has an invalid duplicate".to_owned(),
                     ));
                 }
@@ -610,14 +610,14 @@ pub fn validate_history_source_signer_dependency_closure(
                         )
                         .is_some()
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "minimal-metadata signer dependency closure has an invalid duplicate"
                             .to_owned(),
                     ));
                 }
             }
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "source signer dependency closure contains a non-signer item".to_owned(),
                 ));
             }
@@ -626,7 +626,7 @@ pub fn validate_history_source_signer_dependency_closure(
     let root = &source.source_signer_evidence_digest;
     if let Some(evidence) = minimal.get(root) {
         if minimal.len() != 1 || evidence.evidence_ref()? != source.source_signer_evidence_ref {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "minimal-metadata source signer closure contains surplus or mismatched evidence"
                     .to_owned(),
             ));
@@ -635,7 +635,7 @@ pub fn validate_history_source_signer_dependency_closure(
         let signer = authenticated
             .get(&evidence.identity_link_signer_evidence_digest)
             .ok_or_else(|| {
-                Error::Protocol(
+                WireError::Protocol(
                     "minimal-metadata source signer closure omits IdentityLink signer evidence"
                         .to_owned(),
                 )
@@ -648,7 +648,7 @@ pub fn validate_history_source_signer_dependency_closure(
                 AuthenticatedSignerResolutionEvidence::Principal { .. }
             )
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "minimal-metadata IdentityLink signer evidence is mismatched or non-Principal"
                     .to_owned(),
             ));
@@ -660,7 +660,7 @@ pub fn validate_history_source_signer_dependency_closure(
         return Ok(());
     }
     let root_evidence = authenticated.get(root).ok_or_else(|| {
-        Error::Protocol("source signer dependency closure omits its root evidence".to_owned())
+        WireError::Protocol("source signer dependency closure omits its root evidence".to_owned())
     })?;
     if !minimal.is_empty()
         || root_evidence.evidence_ref()? != source.source_signer_evidence_ref
@@ -669,7 +669,7 @@ pub fn validate_history_source_signer_dependency_closure(
             AuthenticatedSignerResolutionEvidence::Service { .. }
         )
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "source signer dependency closure has an invalid root kind or coordinate".to_owned(),
         ));
     }
@@ -688,7 +688,7 @@ fn validate_authenticated_evidence_reachability(
             continue;
         }
         let evidence = authenticated.get(&digest).ok_or_else(|| {
-            Error::Protocol("source signer dependency closure is incomplete".to_owned())
+            WireError::Protocol("source signer dependency closure is incomplete".to_owned())
         })?;
         match evidence {
             AuthenticatedSignerResolutionEvidence::Service { .. } => {}
@@ -711,7 +711,7 @@ fn validate_authenticated_evidence_reachability(
         }
     }
     if reached.len() != authenticated.len() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "source signer dependency closure contains surplus evidence".to_owned(),
         ));
     }
@@ -740,7 +740,7 @@ pub fn history_source_signer_dependency_closure(
                     .insert(content_digest.clone(), "authenticated")
                     .is_some()
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "page signer dependency digest is duplicated or ambiguous".to_owned(),
                     ));
                 }
@@ -748,7 +748,7 @@ pub fn history_source_signer_dependency_closure(
                     .insert(content_digest.clone(), dependency)
                     .is_some()
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "page signer dependency set contains a duplicate digest".to_owned(),
                     ));
                 }
@@ -764,19 +764,19 @@ pub fn history_source_signer_dependency_closure(
                     .insert(content_digest.clone(), "minimal_metadata")
                     .is_some()
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "page signer dependency digest is duplicated or ambiguous".to_owned(),
                     ));
                 }
                 if minimal.insert(content_digest.clone(), dependency).is_some() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "page minimal-metadata signer dependency set contains a duplicate digest"
                             .to_owned(),
                     ));
                 }
             }
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "page source signer dependency set contains a non-signer item".to_owned(),
                 ));
             }
@@ -786,7 +786,7 @@ pub fn history_source_signer_dependency_closure(
     let mut selected = Vec::new();
     if let Some(dependency) = minimal.get(root) {
         if authenticated.contains_key(root) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "source signer evidence digest is ambiguous across kinds".to_owned(),
             ));
         }
@@ -805,7 +805,7 @@ pub fn history_source_signer_dependency_closure(
                 continue;
             }
             let dependency = authenticated.get(&digest).ok_or_else(|| {
-                Error::Protocol(
+                WireError::Protocol(
                     "page minimal-metadata IdentityLink signer closure is incomplete".to_owned(),
                 )
             })?;
@@ -823,7 +823,7 @@ pub fn history_source_signer_dependency_closure(
                     ..
                 } => pending.push(attester_signer_evidence_digest.clone()),
                 AuthenticatedSignerResolutionEvidence::NativeAgent { .. } => {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "minimal-metadata IdentityLink signer closure contains Native Agent evidence"
                             .to_owned(),
                     ));
@@ -839,7 +839,9 @@ pub fn history_source_signer_dependency_closure(
                 continue;
             }
             let dependency = authenticated.get(&digest).ok_or_else(|| {
-                Error::Protocol("page source signer dependency closure is incomplete".to_owned())
+                WireError::Protocol(
+                    "page source signer dependency closure is incomplete".to_owned(),
+                )
             })?;
             let GovernanceDependency::AuthenticatedSignerResolutionEvidence {
                 authenticated_signer_resolution_evidence: evidence,
@@ -963,7 +965,7 @@ fn validate_page_signer_digest_kinds(dependencies: &[GovernanceDependency]) -> R
             continue;
         };
         if kinds.insert(digest.clone(), kind).is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "page signer dependency digest is duplicated or ambiguous".to_owned(),
             ));
         }
@@ -978,7 +980,7 @@ fn release_service_signer_dependency_closure(
     dependencies: &[GovernanceDependency],
 ) -> Result<Vec<GovernanceDependency>> {
     if evidence_ref.content_digest()? != *evidence_digest {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "release-service signer evidence ref and digest mismatch".to_owned(),
         ));
     }
@@ -1005,15 +1007,15 @@ fn release_service_signer_dependency_closure(
             )
             || selected.replace(dependency.clone()).is_some()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "release-service signer dependency is duplicate or does not bind its proof"
                     .to_owned(),
             ));
         }
     }
-    selected
-        .map(|dependency| vec![dependency])
-        .ok_or_else(|| Error::Protocol("release-service signer dependency is missing".to_owned()))
+    selected.map(|dependency| vec![dependency]).ok_or_else(|| {
+        WireError::Protocol("release-service signer dependency is missing".to_owned())
+    })
 }
 
 fn canonicalize_selectors(
@@ -1027,7 +1029,7 @@ fn canonicalize_selectors(
             .or_insert(selector);
     }
     if keyed.len() > MAX_GOVERNANCE_DEPENDENCY_SELECTORS {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "governance dependency selector discovery exceeds 1024 entries".to_owned(),
         ));
     }
@@ -1081,7 +1083,7 @@ impl GovernanceDependency {
             } => {
                 availability_receipt.validate_structural()?;
                 if content_digest != &availability_receipt.receipt_digest {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "availability receipt dependency selector digest mismatch".to_owned(),
                     ));
                 }
@@ -1097,7 +1099,7 @@ impl GovernanceDependency {
                 if content_digest
                     != &authenticated_signer_resolution_evidence.canonical_sha256_digest()?
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "signer resolution evidence dependency selector digest mismatch".to_owned(),
                     ));
                 }
@@ -1113,7 +1115,7 @@ impl GovernanceDependency {
                 if content_digest
                     != &minimal_metadata_mls_leaf_signer_evidence.canonical_sha256_digest()?
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "minimal-metadata signer evidence dependency selector digest mismatch"
                             .to_owned(),
                     ));
@@ -1126,7 +1128,7 @@ impl GovernanceDependency {
             } => {
                 governance_registry_snapshot.validate()?;
                 if content_digest != &governance_registry_snapshot.snapshot_digest {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "governance registry snapshot selector digest mismatch".to_owned(),
                     ));
                 }
@@ -1137,13 +1139,13 @@ impl GovernanceDependency {
             } => {
                 governance_registry_artifact.validate()?;
                 if descriptor != &governance_registry_artifact.descriptor {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "governance registry artifact selector descriptor mismatch".to_owned(),
                     ));
                 }
             }
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "governance dependency item does not match its selector kind".to_owned(),
                 ));
             }
@@ -1187,12 +1189,12 @@ fn validate_governance_dependency_resolve_request(
     byte_limit: u64,
 ) -> Result<()> {
     if selectors.is_empty() || selectors.len() > MAX_GOVERNANCE_DEPENDENCY_SELECTORS {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "governance dependency request must contain 1..=1024 selectors".to_owned(),
         ));
     }
     if byte_limit == 0 || byte_limit > MAX_GOVERNANCE_DEPENDENCY_RESPONSE_BYTES {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "governance dependency request byte_limit must be 1..=8388608".to_owned(),
         ));
     }
@@ -1201,7 +1203,7 @@ fn validate_governance_dependency_resolve_request(
     }
     for pair in selectors.windows(2) {
         if pair[0].canonical_sort_key()? >= pair[1].canonical_sort_key()? {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "governance dependency selectors must be sorted and unique".to_owned(),
             ));
         }
@@ -1224,7 +1226,7 @@ impl GovernanceDependencyResolveOutcome {
         if self.items.len() > MAX_GOVERNANCE_DEPENDENCY_SELECTORS
             || self.missing_selectors.len() > MAX_GOVERNANCE_DEPENDENCY_SELECTORS
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "governance dependency outcome exceeds 1024 entries".to_owned(),
             ));
         }
@@ -1236,14 +1238,14 @@ impl GovernanceDependencyResolveOutcome {
             if pair[0].selector().canonical_sort_key()?
                 >= pair[1].selector().canonical_sort_key()?
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "governance dependency items must be sorted and unique".to_owned(),
                 ));
             }
         }
         for pair in self.missing_selectors.windows(2) {
             if pair[0].canonical_sort_key()? >= pair[1].canonical_sort_key()? {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "missing governance dependency selectors must be sorted and unique".to_owned(),
                 ));
             }
@@ -1259,7 +1261,7 @@ impl GovernanceDependencyResolveOutcome {
             .chain(self.missing_selectors.iter())
         {
             if !accounted.insert(selector.canonical_sort_key()?) {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "governance dependency selector is accounted for more than once".to_owned(),
                 ));
             }
@@ -1301,7 +1303,7 @@ impl GovernanceDependencyResolveOutcome {
             .map(|selector| canonical::canonical_json_bytes(selector).map_err(Into::into))
             .collect::<Result<BTreeSet<_>>>()?;
         if accounted != requested || accounted.len() != selectors.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "governance dependency outcome is not every-and-only the requested selectors"
                     .to_owned(),
             ));
@@ -1310,7 +1312,7 @@ impl GovernanceDependencyResolveOutcome {
         if bytes.len() as u64 > byte_limit
             || bytes.len() as u64 > MAX_GOVERNANCE_DEPENDENCY_RESPONSE_BYTES
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "governance dependency outcome exceeds request byte_limit".to_owned(),
             ));
         }

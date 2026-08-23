@@ -9,8 +9,8 @@ use arkret_models_identity::{RouteAssistance, ServiceResolutionCarrier};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    BlobRef, DidCoreId, Error, EventId, Hash, InviteId, InviteLocatorId, InviteReceiveAction,
-    RealmId, Result, SchemaId, UnknownInviteAction,
+    BlobRef, DidCoreId, EventId, Hash, InviteId, InviteLocatorId, InviteReceiveAction, RealmId,
+    Result, SchemaId, UnknownInviteAction, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -74,7 +74,7 @@ impl InviteLocatorResolveRequestBody {
 
     pub fn validate_minimal(&self) -> Result<()> {
         if !validate_locator_token_shape(self.locator_token.trim()) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite locator token must be base64url and carry at least 128-bit entropy"
                     .to_owned(),
             ));
@@ -116,7 +116,7 @@ impl InviteLocatorIssueRequestBody {
     pub fn validate_minimal(&self) -> Result<()> {
         let ttl = self.effective_ttl_seconds();
         if !(INVITE_LOCATOR_MIN_TTL_SECONDS..=INVITE_LOCATOR_MAX_TTL_SECONDS).contains(&ttl) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite locator ttl_seconds must be between 60 and 3600".to_owned(),
             ));
         }
@@ -157,7 +157,7 @@ impl InviteLocatorRotateRequestBody {
         if let Some(ttl) = self.ttl_seconds
             && !(INVITE_LOCATOR_MIN_TTL_SECONDS..=INVITE_LOCATOR_MAX_TTL_SECONDS).contains(&ttl)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite locator ttl_seconds must be between 60 and 3600".to_owned(),
             ));
         }
@@ -244,7 +244,7 @@ impl InviteAddress {
         if let Some(service_kind) = &self.recipient_service_kind
             && service_kind != INVITE_RECIPIENT_SERVICE_KIND_PRINCIPAL_SERVER
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite_address.recipient_service_kind MUST be principal_server".to_owned(),
             ));
         }
@@ -286,7 +286,7 @@ impl InviteDeliveryTarget {
         if let Some(service_kind) = &self.recipient_service_kind
             && service_kind != INVITE_RECIPIENT_SERVICE_KIND_PRINCIPAL_SERVER
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite_delivery_target.recipient_service_kind MUST be principal_server".to_owned(),
             ));
         }
@@ -340,7 +340,7 @@ impl PrincipalLocator {
 
     pub fn validate_minimal(&self) -> Result<()> {
         if self.schema != SchemaId::PRINCIPAL_LOCATOR_V1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "principal_locator.schema mismatch".to_owned(),
             ));
         }
@@ -351,19 +351,19 @@ impl PrincipalLocator {
         if let Some(service_kind) = &self.recipient_service_kind
             && service_kind != INVITE_RECIPIENT_SERVICE_KIND_PRINCIPAL_SERVER
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "principal_locator.recipient_service_kind MUST be principal_server".to_owned(),
             ));
         }
         if self.expires_at <= self.issued_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "principal_locator.expires_at MUST be after issued_at".to_owned(),
             ));
         }
         if !self.proofs.iter().any(|proof| {
             proof.proof_purpose == PrincipalLocatorProofPurpose::RecipientServiceAcceptance
         }) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "principal_locator.proofs MUST include recipient_service_acceptance".to_owned(),
             ));
         }
@@ -378,7 +378,7 @@ fn validate_service_resolution_carrier(
     if let ServiceResolutionCarrier::Inline { inline } = carrier
         && &inline.record.service_id != expected_service_id
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "service_resolution inline record does not match recipient_service_id".to_owned(),
         ));
     }
@@ -402,7 +402,7 @@ impl PrincipalLocatorDisplayHint {
             .as_ref()
             .is_some_and(|value| value.chars().count() > 128)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite locator display_name_hint must not exceed 128 characters".to_owned(),
             ));
         }
@@ -505,12 +505,12 @@ impl InviteDeliveryRequestBody {
 
     pub fn validate_minimal(&self) -> Result<()> {
         if self.schema != SchemaId::INVITE_DELIVERY_REQUEST_V1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite_delivery_request.schema mismatch".to_owned(),
             ));
         }
         if self.idempotency_key.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite_delivery_request.idempotency_key MUST NOT be empty".to_owned(),
             ));
         }
@@ -596,12 +596,12 @@ impl InviteDelivery {
 
     pub fn validate(&self) -> Result<()> {
         if self.schema != SchemaId::INVITE_DELIVERY_V1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite_delivery.schema mismatch".to_owned(),
             ));
         }
         if self.entries.len() > Self::MAX_ENTRIES {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "invite_delivery.entries exceeds {} entries",
                 Self::MAX_ENTRIES
             )));
@@ -612,7 +612,7 @@ impl InviteDelivery {
                 .iter()
                 .any(|prior| prior.invite_id == entry.invite_id)
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "invite_delivery.entries must carry at most one entry per invite_id".to_owned(),
                 ));
             }
@@ -651,7 +651,7 @@ impl InviteDeliveryEntry {
     pub fn validate(&self) -> Result<()> {
         let token_length = self.invite_token.chars().count();
         if token_length == 0 || token_length > InviteDelivery::INVITE_TOKEN_MAX_LENGTH {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite_delivery entry invite_token must be 1..=512 characters".to_owned(),
             ));
         }

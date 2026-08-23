@@ -6,7 +6,7 @@ use arkret_models_collaboration::agent_operations::{
     AgentSidecarView,
 };
 use arkret_models_collaboration::sidecar_operations::SidecarContextRef;
-use arkret_wire::{Error, Event, EventId, EventKind, Result, ScopeRef, SidecarId, event_spec};
+use arkret_wire::{Event, EventId, EventKind, Result, ScopeRef, SidecarId, WireError, event_spec};
 
 /// A controller-local source-context locator recovered from complete accepted
 /// native Sidecar history. It is not a wire projection and must never be uploaded.
@@ -43,7 +43,7 @@ pub fn recover_agent_sidecar_context_locators(
         if let Some(previous) = sidecars_by_id.insert(sidecar.id.clone(), sidecar.clone())
             && previous != *sidecar
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "conflicting views for the same native Sidecar id".to_owned(),
             ));
         }

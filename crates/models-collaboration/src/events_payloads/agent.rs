@@ -50,7 +50,7 @@ impl AgentProvisionPayload {
     pub fn validate(&self) -> Result<()> {
         let prepared = prepare_agent_slug(&self.agent_slug)?;
         if prepared != self.agent_slug {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent_slug must already use the canonical agent-slug profile".to_owned(),
             ));
         }
@@ -58,14 +58,14 @@ impl AgentProvisionPayload {
             (HandleVisibility::Restricted, Some(audience))
                 if !audience.is_empty() && audience.chars().count() <= 512 => {}
             (HandleVisibility::Restricted, _) => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "restricted selector visibility requires a 1..=512 character audience"
                         .to_owned(),
                 ));
             }
             (_, None) => {}
             (_, Some(_)) => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "selector_audience is only valid for restricted visibility".to_owned(),
                 ));
             }

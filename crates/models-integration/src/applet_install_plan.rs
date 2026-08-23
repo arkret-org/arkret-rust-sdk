@@ -1,7 +1,7 @@
 //! `ak.schema.applet_install_plan.v1` wire object.
 
 use arkret_wire::{
-    AppletId, DidCoreId, Error, Hash, PlanId, Result, SchemaId, ScopeRef, canonical,
+    AppletId, DidCoreId, Hash, PlanId, Result, SchemaId, ScopeRef, WireError, canonical,
 };
 use serde::{Deserialize, Serialize};
 
@@ -46,7 +46,7 @@ impl AppletInstallPlan {
     pub fn compute_plan_digest(&self) -> Result<Hash> {
         let mut value = serde_json::to_value(self)?;
         let object = value.as_object_mut().ok_or_else(|| {
-            Error::Protocol("applet install plan must serialize as an object".to_owned())
+            WireError::Protocol("applet install plan must serialize as an object".to_owned())
         })?;
         object.remove("plan_digest");
         Hash::new(canonical::canonical_sha256(&value)?).map_err(Into::into)

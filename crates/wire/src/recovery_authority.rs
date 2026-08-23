@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::error::{Error, Result};
+use crate::error::{Result, WireError};
 use crate::{
     DeviceId, DidCoreId, DidUrl, EventId, Hash, ReceiptId, RecoverySessionId, TransactionId,
 };
@@ -54,7 +54,7 @@ impl CanonicalPublicMaterial {
     pub fn canonical_json<T: Serialize>(value: T) -> Result<Self> {
         let value = serde_json::to_value(value)?;
         let Value::Object(value) = value else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "canonical public material value must be a JSON object".to_owned(),
             ));
         };
@@ -74,7 +74,7 @@ impl CanonicalPublicMaterial {
         if self.canonical_encoding == CanonicalEncoding::CanonicalJson
             && bytes != arkret_canonical::canonical::canonical_json_bytes(&self.value)?
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "canonical public material bytes do not equal canonical JSON of value".to_owned(),
             ));
         }
@@ -117,7 +117,7 @@ pub struct RecoveryCompletionAttestation {
 impl RecoveryCompletionAttestation {
     pub fn validate_structural(&self) -> Result<()> {
         if self.schema != crate::SchemaId::RECOVERY_COMPLETION_ATTESTATION_V1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery completion attestation schema is invalid".to_owned(),
             ));
         }
@@ -125,7 +125,7 @@ impl RecoveryCompletionAttestation {
             || self.auth_data.verification_method.is_empty()
             || self.auth_data.signature.is_empty()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery completion attestation requires a complete Ed25519 authorization"
                     .to_owned(),
             ));
@@ -137,13 +137,13 @@ impl RecoveryCompletionAttestation {
             .map(String::as_str)
             .ne(RECOVERY_COMPLETION_ATTESTATION_SIGNED_FIELDS)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery completion attestation signed_fields must equal the registered ordered set"
                     .to_owned(),
             ));
         }
         if self.result_model_generation_ref == 0 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery completion generation must be positive".to_owned(),
             ));
         }
@@ -251,7 +251,7 @@ fn validate_recovery_completion_attestation_body(
     body: &UnsignedRecoveryCompletionAttestationBody,
 ) -> Result<()> {
     if body.result_model_generation_ref == 0 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "recovery completion generation must be positive".to_owned(),
         ));
     }
@@ -284,7 +284,9 @@ fn recovery_completion_attestation_signing_bytes(
 fn request_digest_without_digest<T: Serialize>(request: &T) -> Result<Hash> {
     let mut value = serde_json::to_value(request)?;
     let object = value.as_object_mut().ok_or_else(|| {
-        Error::Protocol("recovery completion grant request must serialize as an object".to_owned())
+        WireError::Protocol(
+            "recovery completion grant request must serialize as an object".to_owned(),
+        )
     })?;
     object.remove("canonical_request_digest");
     let bytes = arkret_canonical::canonical::canonical_json_bytes(&value)?;
@@ -322,12 +324,12 @@ impl IssueRecoveryCompletionGrantRequest {
             || self.result_model_generation_ref
                 != self.completion_attestation.result_model_generation_ref
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery completion grant request and attestation binding disagree".to_owned(),
             ));
         }
         if self.expected_canonical_request_digest()? != self.canonical_request_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "canonical_request_digest does not equal the canonical request projection"
                     .to_owned(),
             ));

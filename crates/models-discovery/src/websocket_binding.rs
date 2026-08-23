@@ -12,7 +12,7 @@ use arkret_wire::websocket_binding::{
     WEBSOCKET_BINDING_KIND, WEBSOCKET_HARD_MAX_FRAME_BYTES, WebSocketOperationId,
     validate_websocket_base_url,
 };
-use arkret_wire::{Error, ProfileId, Result};
+use arkret_wire::{ProfileId, Result, WireError};
 use serde::{Deserialize, Serialize};
 
 use crate::service_description::{ServiceDescribe, SupportedBinding};
@@ -83,7 +83,7 @@ impl WebSocketBindingDescriptor {
         validate_websocket_base_url(&self.base_url)?;
         for expected in WebSocketOperationId::ALL {
             if !self.operations.contains(expected) {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "a websocket binding that omits {expected} is not \
                      {}",
                     ProfileId::BINDING_WEBSOCKET_V1
@@ -91,7 +91,7 @@ impl WebSocketBindingDescriptor {
             }
         }
         if self.operations.len() != WebSocketOperationId::ALL.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "the websocket binding operations list must be the three covered operations"
                     .to_owned(),
             ));
@@ -99,12 +99,12 @@ impl WebSocketBindingDescriptor {
         if self.max_frame_bytes < 1024
             || self.max_frame_bytes as usize > WEBSOCKET_HARD_MAX_FRAME_BYTES
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "websocket max_frame_bytes must be 1024..={WEBSOCKET_HARD_MAX_FRAME_BYTES}"
             )));
         }
         if self.max_channels == 0 || self.max_channels > 256 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "websocket max_channels must be 1..=256".to_owned(),
             ));
         }

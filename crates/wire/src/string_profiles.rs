@@ -5,7 +5,7 @@ use precis_profiles::precis_core::profile::Profile;
 use unicode_normalization::{UnicodeNormalization, is_nfc};
 use unicode_security::{RestrictionLevel, RestrictionLevelDetection};
 
-use crate::{Error, Result};
+use crate::{Result, WireError};
 
 pub const HANDLE_LOCALPART_MAX_CODE_POINTS: usize = 128;
 pub const HANDLE_LOCALPART_MAX_UTF8_OCTETS: usize = 512;
@@ -54,7 +54,9 @@ pub fn prepare_human_identifier(
 ) -> Result<String> {
     let prepared = UsernameCaseMapped::new()
         .enforce(input)
-        .map_err(|error| Error::Protocol(format!("human identifier PRECIS failure: {error:?}")))?
+        .map_err(|error| {
+            WireError::Protocol(format!("human identifier PRECIS failure: {error:?}"))
+        })?
         .into_owned();
     validate_human_identifier_shape(&prepared, max_code_points, max_utf8_octets)?;
     Ok(prepared)
@@ -67,7 +69,7 @@ pub fn validate_canonical_human_identifier(
 ) -> Result<()> {
     let prepared = prepare_human_identifier(input, max_code_points, max_utf8_octets)?;
     if prepared != input {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "human identifier is not in canonical prepared form".to_owned(),
         ));
     }
@@ -81,7 +83,7 @@ fn validate_human_identifier_shape(
 ) -> Result<()> {
     if value.is_empty() || value.chars().count() > max_code_points || value.len() > max_utf8_octets
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "human identifier length is outside the profile bounds".to_owned(),
         ));
     }
@@ -92,7 +94,7 @@ fn validate_human_identifier_shape(
             || is_bidi_format_control(character)
             || character == '\u{FEFF}'
     }) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "human identifier contains a forbidden structural or control character".to_owned(),
         ));
     }
@@ -101,24 +103,24 @@ fn validate_human_identifier_shape(
 
 pub fn prepare_idna_domain(input: &str) -> Result<String> {
     if input.is_empty() || input != input.trim() || input.ends_with('.') {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "domain is empty, padded, or has a trailing dot".to_owned(),
         ));
     }
     let ascii = idna::domain_to_ascii_strict(input)
-        .map_err(|_| Error::Protocol("domain fails the Arkret UTS #46 profile".to_owned()))?;
+        .map_err(|_| WireError::Protocol("domain fails the Arkret UTS #46 profile".to_owned()))?;
     if ascii.len() > DOMAIN_MAX_ASCII_OCTETS || ascii.split('.').count() < 2 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "domain must contain at least two labels within DNS length limits".to_owned(),
         ));
     }
     let (unicode, unicode_result) = idna::domain_to_unicode(&ascii);
     unicode_result
-        .map_err(|_| Error::Protocol("domain A-label cannot be decoded safely".to_owned()))?;
+        .map_err(|_| WireError::Protocol("domain A-label cannot be decoded safely".to_owned()))?;
     let roundtrip = idna::domain_to_ascii_strict(&unicode)
-        .map_err(|_| Error::Protocol("domain fails the U-label round trip".to_owned()))?;
+        .map_err(|_| WireError::Protocol("domain fails the U-label round trip".to_owned()))?;
     if roundtrip != ascii {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "domain A-label round trip mismatch".to_owned(),
         ));
     }
@@ -127,12 +129,12 @@ pub fn prepare_idna_domain(input: &str) -> Result<String> {
 
 pub fn validate_canonical_idna_domain(input: &str) -> Result<()> {
     if !input.is_ascii() || input.bytes().any(|byte| byte.is_ascii_uppercase()) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "canonical domain must be a lowercase ASCII A-label".to_owned(),
         ));
     }
     if prepare_idna_domain(input)? != input {
-        return Err(Error::Protocol("domain is not canonical".to_owned()));
+        return Err(WireError::Protocol("domain is not canonical".to_owned()));
     }
     Ok(())
 }
@@ -141,9 +143,9 @@ pub fn validate_canonical_idna_domain(input: &str) -> Result<()> {
 pub fn validate_canonical_handle(input: &str) -> Result<()> {
     let (localpart, domain) = input
         .split_once(':')
-        .ok_or_else(|| Error::Protocol("canonical handle must contain ':'".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("canonical handle must contain ':'".to_owned()))?;
     if domain.contains(':') {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "canonical handle contains more than one ':' separator".to_owned(),
         ));
     }
@@ -155,12 +157,12 @@ pub fn validate_canonical_handle(input: &str) -> Result<()> {
 pub fn validate_canonical_acct_uri(input: &str) -> Result<()> {
     let body = input
         .strip_prefix("acct:")
-        .ok_or_else(|| Error::Protocol("acct URI must start with 'acct:'".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("acct URI must start with 'acct:'".to_owned()))?;
     let (encoded_localpart, domain) = body
         .rsplit_once('@')
-        .ok_or_else(|| Error::Protocol("acct URI must contain '@'".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("acct URI must contain '@'".to_owned()))?;
     if encoded_localpart.is_empty() || domain.contains('@') {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "acct URI must contain one non-empty localpart and one host".to_owned(),
         ));
     }
@@ -177,7 +179,7 @@ pub fn human_identifier_skeleton(value: &str) -> Result<String> {
 pub fn validate_highly_restrictive_registration_identifier(value: &str) -> Result<()> {
     validate_canonical_handle_localpart(value)?;
     if !value.check_restriction_level(RestrictionLevel::HighlyRestrictive) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "human identifier exceeds the UTS #39 Highly Restrictive registration policy"
                 .to_owned(),
         ));
@@ -196,7 +198,7 @@ pub fn validate_single_line_display_text(
             character.is_control() || is_bidi_format_control(character) || character == '\u{FEFF}'
         })
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "single-line display text contains only whitespace or a forbidden control".to_owned(),
         ));
     }
@@ -255,7 +257,7 @@ pub fn validate_short_text(
             || is_bidi_embedding_or_override(character)
             || character == '\u{FEFF}'
     }) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "short text contains a forbidden control character".to_owned(),
         ));
     }
@@ -273,7 +275,7 @@ pub fn validate_content_text(value: &str) -> Result<()> {
                 || character == '\u{FEFF}'
         })
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "content text is non-NFC or contains a forbidden control character".to_owned(),
         ));
     }
@@ -291,7 +293,7 @@ fn decode_acct_localpart(value: &str) -> Result<String> {
             continue;
         }
         if index + 2 >= bytes.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "acct URI contains a truncated percent escape".to_owned(),
             ));
         }
@@ -301,14 +303,14 @@ fn decode_acct_localpart(value: &str) -> Result<String> {
         index += 3;
     }
     String::from_utf8(decoded)
-        .map_err(|_| Error::Protocol("acct URI localpart is not valid UTF-8".to_owned()))
+        .map_err(|_| WireError::Protocol("acct URI localpart is not valid UTF-8".to_owned()))
 }
 
 fn decode_upper_hex(value: u8) -> Result<u8> {
     match value {
         b'0'..=b'9' => Ok(value - b'0'),
         b'A'..=b'F' => Ok(value - b'A' + 10),
-        _ => Err(Error::Protocol(
+        _ => Err(WireError::Protocol(
             "acct URI percent escapes must use uppercase hexadecimal".to_owned(),
         )),
     }
@@ -324,7 +326,7 @@ fn validate_nfc_and_length(
         || value.chars().count() > max_code_points
         || value.len() > max_utf8_octets
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "text is empty, non-NFC, or outside the profile bounds".to_owned(),
         ));
     }

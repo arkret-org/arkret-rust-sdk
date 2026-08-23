@@ -5,8 +5,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Base64UrlString, DeviceId, DidCoreId, DidUrl, Error, Hash, RequestId, Result, SessionGrantId,
-    canonical,
+    Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash, RequestId, Result, SessionGrantId,
+    WireError, canonical,
 };
 
 pub const ACCEPTED_DEVICE_POSSESSION_PROOF_CONTEXT: &str =
@@ -279,10 +279,11 @@ fn validate_common(
     signature: &Base64UrlString,
 ) -> Result<()> {
     validate_unsigned_common(holder_jkt, issued_at, expires_at)?;
-    let signature_bytes = crate::base64url::base64url_decode(signature.as_str())
-        .map_err(|_| Error::Protocol("accepted-device proof signature is invalid".to_owned()))?;
+    let signature_bytes = crate::base64url::base64url_decode(signature.as_str()).map_err(|_| {
+        WireError::Protocol("accepted-device proof signature is invalid".to_owned())
+    })?;
     if signature_bytes.len() != 64 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "accepted-device proof signature must encode 64 Ed25519 bytes".to_owned(),
         ));
     }
@@ -299,7 +300,7 @@ fn validate_unsigned_common(
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "accepted-device proof holder_jkt must be a base64url SHA-256 thumbprint".to_owned(),
         ));
     }
@@ -307,7 +308,7 @@ fn validate_unsigned_common(
         || (expires_at - issued_at).num_seconds()
             > MAX_ACCEPTED_DEVICE_POSSESSION_PROOF_LIFETIME_SECONDS
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "accepted-device proof validity window must be positive and at most 300 seconds"
                 .to_owned(),
         ));

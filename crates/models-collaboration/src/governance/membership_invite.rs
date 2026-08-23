@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
-    DidCoreId, DidUrl, Error, EventId, Hash, InviteId, RealmId, Result, StrandId, XExtensionMap,
-    canonical,
+    DidCoreId, DidUrl, EventId, Hash, InviteId, RealmId, Result, StrandId, WireError,
+    XExtensionMap, canonical,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -180,21 +180,21 @@ impl MembershipPayload {
             .as_ref()
             .is_some_and(|reason| reason.chars().count() > 256)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "membership payload reason exceeds 256 characters".to_owned(),
             ));
         }
         if let Some(authority) = &self.principal_authority
             && self.actor_id.as_ref() != Some(&authority.principal_id)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "membership principal_authority does not bind actor_id".to_owned(),
             ));
         }
         if self.membership == MembershipPayloadState::Join {
             if self.realm_id.is_none() || self.actor_id.is_none() || self.delivery_status.is_none()
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "membership_payload{join} requires realm_id, actor_id, delivery_status"
                         .to_owned(),
                 ));
@@ -202,7 +202,7 @@ impl MembershipPayload {
             if self.delivery_status == Some(DeliveryStatus::Routable)
                 && self.delivery_binding.is_none()
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "membership_payload{join,routable} requires delivery_binding".to_owned(),
                 ));
             }
@@ -215,7 +215,7 @@ impl MembershipPayload {
                 binding.validate()?;
             }
             (Some(_), _) => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "controller-membership-ended cleanup requires leave and a terminal controller binding"
                         .to_owned(),
                 ));
@@ -224,7 +224,7 @@ impl MembershipPayload {
             (None, None) => {}
         }
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("membership payload serialize: {err}")))
+            .map_err(|err| WireError::Protocol(format!("membership payload serialize: {err}")))
     }
 }
 
@@ -272,14 +272,14 @@ impl InviteCreatePayload {
         };
         self.extensions
             .insert(wire_key, value)
-            .map_err(|error| Error::Protocol(error.to_owned()))?;
+            .map_err(|error| WireError::Protocol(error.to_owned()))?;
         Ok(self)
     }
 
     pub fn to_value(&self) -> Result<Value> {
         self.invite_delivery_target.validate()?;
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("invite create payload serialize: {err}")))
+            .map_err(|err| WireError::Protocol(format!("invite create payload serialize: {err}")))
     }
 }
 
@@ -289,7 +289,7 @@ impl InviteCreatePayload {
 /// their ingress boundary before decoding this model.
 pub fn validate_invite_create_wire_keys(value: &Value) -> Result<()> {
     let Some(object) = value.as_object() else {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "invite create payload must be an object".to_owned(),
         ));
     };
@@ -301,7 +301,7 @@ pub fn validate_invite_create_wire_keys(value: &Value) -> Result<()> {
         {
             continue;
         }
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "invite create payload unknown field `{key}`"
         )));
     }
@@ -363,7 +363,7 @@ impl InviteCancelPayload {
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("invite cancel payload serialize: {err}")))
+            .map_err(|err| WireError::Protocol(format!("invite cancel payload serialize: {err}")))
     }
 }
 
@@ -403,7 +403,7 @@ pub struct InviteAcceptPayload {
 impl InviteAcceptPayload {
     pub fn validate(&self) -> Result<()> {
         if (self.delivery_status == DeliveryStatus::Routable) != self.delivery_binding.is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite accept requires delivery_binding exactly when delivery_status=routable"
                     .to_owned(),
             ));
@@ -471,12 +471,12 @@ impl InviteClaimBindingProof {
 
     pub fn validate(&self) -> Result<()> {
         if self.audience != INVITE_CLAIM_AUDIENCE {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite binding proof audience must be arkret.invite.claim".to_owned(),
             ));
         }
         if self.claim_nonce.len() < 16 || self.claim_nonce.len() > 128 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite binding proof claim_nonce length must be 16..=128".to_owned(),
             ));
         }
@@ -486,7 +486,7 @@ impl InviteClaimBindingProof {
         // hand-written guard that used to live here is gone
         // (did-usage-and-verification.md §6).
         if self.signature.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite binding proof signature must not be empty".to_owned(),
             ));
         }
@@ -548,12 +548,12 @@ impl InviteClaimBindingProofBody {
     ) -> Result<Self> {
         binding_proof.validate()?;
         if !token_commitment.as_str().starts_with("sha256:") {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite binding proof token_commitment must be sha256".to_owned(),
             ));
         }
         if !invite_digest.as_str().starts_with("sha256:") {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite binding proof invite_digest must be sha256".to_owned(),
             ));
         }
@@ -638,22 +638,22 @@ impl InviteSubjectProof {
 
     pub fn validate(&self) -> Result<()> {
         if self.verification_method.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite subject proof verification_method must not be empty".to_owned(),
             ));
         }
         if !matches!(self.signature_algorithm.as_str(), "Ed25519" | "ML-DSA-65") {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite subject proof alg must be Ed25519 or ML-DSA-65".to_owned(),
             ));
         }
         if !self.transcript_digest.as_str().starts_with("sha256:") {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite subject proof transcript_digest must be sha256".to_owned(),
             ));
         }
         if self.signature.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite subject proof signature must not be empty".to_owned(),
             ));
         }
@@ -685,7 +685,7 @@ impl InviteClaimPayload {
             || self.claim_nonce != self.binding_proof.claim_nonce
             || !self.token_commitment.as_str().starts_with("sha256:")
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite claim payload does not match its binding evidence".to_owned(),
             ));
         }
@@ -751,22 +751,22 @@ impl InviteSubjectProofBody {
 
     pub fn validate(&self) -> Result<()> {
         if !self.token_commitment.as_str().starts_with("sha256:") {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite subject proof token_commitment must be sha256".to_owned(),
             ));
         }
         if self.claim_nonce.len() < 16 || self.claim_nonce.len() > 128 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite subject proof claim_nonce length must be 16..=128".to_owned(),
             ));
         }
         if self.audience != INVITE_CLAIM_AUDIENCE {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite subject proof audience must be arkret.invite.claim".to_owned(),
             ));
         }
         if !self.binding_proof_digest.as_str().starts_with("sha256:") {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "invite subject proof binding_proof_digest must be sha256".to_owned(),
             ));
         }
@@ -870,7 +870,7 @@ impl RelationCreatePayload {
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("relation create payload serialize: {err}")))
+            .map_err(|err| WireError::Protocol(format!("relation create payload serialize: {err}")))
     }
 }
 

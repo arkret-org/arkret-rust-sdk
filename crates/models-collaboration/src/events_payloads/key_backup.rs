@@ -30,7 +30,7 @@ pub struct KeyBackupActiveSeriesSignature(Base64UrlString);
 impl KeyBackupActiveSeriesSignature {
     pub fn new(signature: Base64UrlString) -> Result<Self> {
         if signature.as_str() == "pending" {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "active-series signature cannot be the pending sentinel".to_owned(),
             ));
         }
@@ -133,12 +133,12 @@ impl UnsignedKeyBackupActiveSeries {
         trust_anchor: ControllerBackupTrustAnchor,
     ) -> Result<Self> {
         if series_pointer_version == 0 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "active-series pointer version must be at least one".to_owned(),
             ));
         }
         if trust_anchor.generation_ref == 0 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "active-series device generation must be positive".to_owned(),
             ));
         }
@@ -146,7 +146,7 @@ impl UnsignedKeyBackupActiveSeries {
             .iter()
             .any(|series_id| series_id == &active_series_id)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "active series cannot also be a previous series".to_owned(),
             ));
         }
@@ -156,7 +156,7 @@ impl UnsignedKeyBackupActiveSeries {
             .len()
             != previous_series_ids.len()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "previous active-series ids must be unique".to_owned(),
             ));
         }

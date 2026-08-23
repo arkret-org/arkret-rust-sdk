@@ -24,7 +24,7 @@ use serde::ser::{SerializeMap, Serializer};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::error::{Error, Result};
+use crate::error::{Result, WireError};
 use crate::error_codes::ReasonCode;
 use crate::generated::{
     REDACTABLE_FIELD_PATHS, REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS, REDUCER_MANAGED_OBJECTS,
@@ -342,7 +342,7 @@ impl Patch {
         for (index, (path, segments, _)) in parsed.iter().enumerate() {
             for (other_path, other_segments, _) in &parsed[index + 1..] {
                 if segments_overlap(segments, other_segments) {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "{}: patch paths '{path}' and '{other_path}' write the same field or a \
                          parent/child pair; split them into separate Events",
                         ReasonCode::PATCH_ATOMIC_CONFLICT
@@ -362,7 +362,7 @@ impl Patch {
     /// constraints (`minProperties: 1` and path syntax).
     pub fn validate(&self) -> Result<()> {
         if self.entries.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "patch must contain at least one entry (minProperties: 1)".to_owned(),
             ));
         }
@@ -379,10 +379,12 @@ impl Patch {
 /// names explicitly.
 pub fn validate_path(path: &str) -> Result<()> {
     if path.is_empty() {
-        return Err(Error::Protocol("patch path must not be empty".to_owned()));
+        return Err(WireError::Protocol(
+            "patch path must not be empty".to_owned(),
+        ));
     }
     if path.len() > PATCH_PATH_MAX_BYTES {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "patch path exceeds {PATCH_PATH_MAX_BYTES} bytes ({} bytes)",
             path.len()
         )));
@@ -392,7 +394,7 @@ pub fn validate_path(path: &str) -> Result<()> {
     // the reducer's parser handle nested selectors.
     let segments = path.split('.').count();
     if segments > PATCH_PATH_MAX_SEGMENTS {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "patch path exceeds {PATCH_PATH_MAX_SEGMENTS} segments ({segments} segments)",
         )));
     }
@@ -624,22 +626,22 @@ fn required_value<'a>(path: &str, op: &'a PatchOp) -> Result<&'a Value> {
         .ok_or_else(|| patch_apply_failed(path, "op requires a `value` but carries none"))
 }
 
-fn not_an_object(path: &str, segment: &str) -> Error {
+fn not_an_object(path: &str, segment: &str) -> WireError {
     patch_apply_failed(
         path,
         &format!("the value enclosing '{segment}' is not a JSON object"),
     )
 }
 
-fn patch_path_invalid(path: &str, detail: &str) -> Error {
-    Error::Protocol(format!(
+fn patch_path_invalid(path: &str, detail: &str) -> WireError {
+    WireError::Protocol(format!(
         "{}: patch path '{path}' {detail}",
         ReasonCode::PATCH_PATH_INVALID
     ))
 }
 
-fn patch_apply_failed(path: &str, detail: &str) -> Error {
-    Error::Protocol(format!("patch path '{path}' cannot be applied: {detail}"))
+fn patch_apply_failed(path: &str, detail: &str) -> WireError {
+    WireError::Protocol(format!("patch path '{path}' cannot be applied: {detail}"))
 }
 
 /// Whether the patch guard may honour the per-object-kind carve-outs of
@@ -697,14 +699,14 @@ pub fn validate_patch_semantic_safety(patch: &Patch, target: PatchTargetKind<'_>
     patch.validate()?;
     for (path, op) in patch.iter() {
         if patch_path_targets_reducer_managed(path, target) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 ReasonCode::PATCH_PATH_REDUCER_MANAGED.to_owned(),
             ));
         }
         if matches!(op.op(), PatchOpKind::Unset | PatchOpKind::Remove)
             && patch_path_targets_redactable_unset(path)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 ReasonCode::PATCH_UNSET_REDACTABLE_FIELD.to_owned(),
             ));
         }

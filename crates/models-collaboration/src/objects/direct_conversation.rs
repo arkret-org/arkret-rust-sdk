@@ -4,8 +4,8 @@ use std::collections::BTreeSet;
 
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    DidCoreId, EncryptionProfile, Error, EventId, GenesisSalt, Hash, ObjectStage, ObjectState,
-    ProfileId, RealmId, Result, SchemaId, SecurityClass, TrustDomainId, canonical,
+    DidCoreId, EncryptionProfile, EventId, GenesisSalt, Hash, ObjectStage, ObjectState, ProfileId,
+    RealmId, Result, SchemaId, SecurityClass, TrustDomainId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -55,7 +55,7 @@ impl DirectConversationAuthorizationBasis {
             DirectConversationAuthorizationKind::ManagedAgentController => 2,
         };
         if self.event_refs.len() != expected_len || unique.len() != self.event_refs.len() {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "direct conversation authorization authority requires {expected_len} unique event_refs (schema_violation)"
             )));
         }
@@ -101,7 +101,7 @@ pub fn direct_conversation_pair_key(
     let mut participants = [left.stable_subject, right.stable_subject];
     participants.sort_by(|a, b| a.as_str().cmp(b.as_str()));
     if participants[0] == participants[1] {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "direct conversation participants must be distinct (schema_violation)".to_owned(),
         ));
     }
@@ -127,12 +127,12 @@ impl DirectConversationRealmRole {
             .iter()
             .any(|profile| profile == ProfileId::DIRECT_CONVERSATION_REALM_V1);
         if !has_profile || genesis.purpose != RealmPurpose::DirectConversation {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "direct conversation Realm purpose/profile mismatch (schema_violation)".to_owned(),
             ));
         }
         if genesis.encryption_profile != EncryptionProfile::MlsRfc9420 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "direct conversation Realm genesis mismatch (schema_violation)".to_owned(),
             ));
         }
@@ -179,7 +179,7 @@ pub fn direct_conversation_peer_membership_bootstrap(
     delivery_status: DeliveryStatus,
 ) -> Result<MembershipPayload> {
     if participants[0] == participants[1] {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "direct conversation participants must be distinct (schema_violation)".to_owned(),
         ));
     }
@@ -187,7 +187,7 @@ pub fn direct_conversation_peer_membership_bootstrap(
         .iter()
         .any(|participant| participant == founder)
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "direct conversation founder must be one of the two participants (schema_violation)"
                 .to_owned(),
         ));
@@ -275,7 +275,7 @@ pub fn direct_conversation_founder(
 ) -> Result<DidCoreId> {
     let [left, right] = participants;
     if left == right {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "direct conversation requires two distinct participants".to_owned(),
         ));
     }
@@ -286,7 +286,7 @@ pub fn direct_conversation_founder(
             } else if *request_issuer == right {
                 Ok(left)
             } else {
-                Err(Error::Protocol(
+                Err(WireError::Protocol(
                     "direct conversation normal authority request issuer is not a pair participant"
                         .to_owned(),
                 ))
@@ -298,7 +298,7 @@ pub fn direct_conversation_founder(
             if *first_request_issuer == left || *first_request_issuer == right {
                 Ok(first_request_issuer.clone())
             } else {
-                Err(Error::Protocol(
+                Err(WireError::Protocol(
                     "direct conversation glare authority requests[0] issuer is not a pair participant"
                         .to_owned(),
                 ))
@@ -309,7 +309,7 @@ pub fn direct_conversation_founder(
             if controller_actor == left || controller_actor == right {
                 Ok(controller_actor)
             } else {
-                Err(Error::Protocol(
+                Err(WireError::Protocol(
                     "direct conversation controller-owned-Agent authority controller is not a pair participant"
                         .to_owned(),
                 ))

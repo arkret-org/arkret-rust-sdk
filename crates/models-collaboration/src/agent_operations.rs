@@ -83,7 +83,7 @@ pub fn agent_runtime_key_binding_digest(
         || public_key.kid.as_str() != verification_method.as_str()
         || public_key.key_digest.is_some()
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "Agent runtime public key does not match the closed Ed25519 profile".to_owned(),
         ));
     }
@@ -91,18 +91,18 @@ pub fn agent_runtime_key_binding_digest(
     if raw_public_key.len() != 32
         || arkret_canonical::base64url_encode(&raw_public_key) != public_key.key.as_str()
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "Agent runtime public key is not canonical 32-byte Ed25519 material".to_owned(),
         ));
     }
     let public_key_digest = Hash::new(canonical::canonical_sha256(public_key)?)
-        .map_err(|error| Error::Protocol(error.to_string()))?;
+        .map_err(|error| WireError::Protocol(error.to_string()))?;
     let attestation = runtime_attestation
         .map(serde_json::to_value)
         .transpose()?
         .unwrap_or(Value::Null);
     let attestation_digest = Hash::new(canonical::canonical_sha256(&attestation)?)
-        .map_err(|error| Error::Protocol(error.to_string()))?;
+        .map_err(|error| WireError::Protocol(error.to_string()))?;
     let binding = AgentRuntimeKeyBinding {
         kind: AGENT_RUNTIME_KEY_BINDING_KIND,
         agent_id,
@@ -112,7 +112,7 @@ pub fn agent_runtime_key_binding_digest(
         attestation_digest,
     };
     Hash::new(canonical::canonical_sha256(&binding)?)
-        .map_err(|error| Error::Protocol(error.to_string()))
+        .map_err(|error| WireError::Protocol(error.to_string()))
 }
 
 impl AgentRuntimeKeyPossessionProof {
@@ -133,7 +133,7 @@ impl AgentRuntimeKeyPossessionProof {
 
     pub fn wire_digest(&self) -> Result<Hash> {
         Hash::new(canonical::canonical_sha256(self)?)
-            .map_err(|error| Error::Protocol(error.to_string()))
+            .map_err(|error| WireError::Protocol(error.to_string()))
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -156,7 +156,7 @@ impl AgentRuntimeKeyPossessionProof {
             || &self.challenge != pairing_request_id
             || self.runtime_key_binding_digest != *expected_binding_digest
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Agent runtime key proof/request binding mismatch".to_owned(),
             ));
         }
@@ -165,10 +165,10 @@ impl AgentRuntimeKeyPossessionProof {
             .split_once('#')
             .map(|(controller, _)| controller)
             .ok_or_else(|| {
-                Error::Protocol("Agent runtime verification method is not a DID URL".to_owned())
+                WireError::Protocol("Agent runtime verification method is not a DID URL".to_owned())
             })?;
         if project_full_id_to_core_id(&DidFullId::new(controller.to_owned())?)? != *agent_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Agent runtime verification method controller mismatch".to_owned(),
             ));
         }
@@ -179,7 +179,7 @@ impl AgentRuntimeKeyPossessionProof {
             || arkret_canonical::base64url_encode(&public_key_bytes) != public_key.key.as_str()
             || arkret_canonical::base64url_encode(&signature_bytes) != self.signature.as_str()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Agent runtime key or signature is not canonical Ed25519 material".to_owned(),
             ));
         }
@@ -189,15 +189,15 @@ impl AgentRuntimeKeyPossessionProof {
             || self.expires_at > pairing_expires_at
             || verifier_now >= self.expires_at
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Agent runtime key proof freshness window is invalid".to_owned(),
             ));
         }
         let transcript = self.canonical_transcript_bytes(pairing_code)?;
         let transcript_digest = Hash::new(canonical::sha256_digest(&transcript))
-            .map_err(|error| Error::Protocol(error.to_string()))?;
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
         if transcript_digest != self.transcript_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Agent runtime key proof transcript digest mismatch".to_owned(),
             ));
         }
@@ -233,7 +233,7 @@ pub fn agent_key_pairing_request_binding_digest(
         "proof_of_possession_digest": proof.wire_digest()?,
     });
     Hash::new(canonical::canonical_sha256(&value)?)
-        .map_err(|error| Error::Protocol(error.to_string()))
+        .map_err(|error| WireError::Protocol(error.to_string()))
 }
 
 /// Controller-signed, verifier-bound private disclosure of an Agent's
@@ -273,13 +273,13 @@ impl AgentRequestedScopeDisclosure {
         Hash::new(canonical::sha256_digest(
             &self.canonical_bytes_without_proofs()?,
         ))
-        .map_err(|reason| Error::Protocol(reason.to_string()))
+        .map_err(|reason| WireError::Protocol(reason.to_string()))
     }
 
     pub fn canonical_proof_binding_bytes(&self, proof: &ProducerEventProof) -> Result<Vec<u8>> {
         let payload_digest = self.payload_digest()?;
         if proof.event_digest != payload_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent requested-scope disclosure proof digest mismatch".to_owned(),
             ));
         }
@@ -298,25 +298,25 @@ impl AgentRequestedScopeDisclosure {
 
     pub fn validate(&self) -> Result<()> {
         if self.schema != SchemaId::AgentRequestedScopeDisclosureV1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent requested-scope disclosure schema is invalid".to_owned(),
             ));
         }
         if self.challenge.as_str().len() < 16 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent requested-scope disclosure challenge must contain at least 16 bytes"
                     .to_owned(),
             ));
         }
         let lifetime = self.expires_at.signed_duration_since(self.issued_at);
         if lifetime <= chrono::Duration::zero() || lifetime > chrono::Duration::seconds(300) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent requested-scope disclosure lifetime must be within 1..=300 seconds"
                     .to_owned(),
             ));
         }
         if self.proofs.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent requested-scope disclosure requires a controller proof".to_owned(),
             ));
         }
@@ -326,7 +326,7 @@ impl AgentRequestedScopeDisclosure {
             .iter()
             .any(|proof| proof.event_digest != payload_digest)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent requested-scope disclosure proof digest mismatch".to_owned(),
             ));
         }
@@ -336,7 +336,7 @@ impl AgentRequestedScopeDisclosure {
             &self.requested_scope,
         )?;
         if self.requested_scope_digest != expected {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent requested-scope disclosure digest does not match its scope".to_owned(),
             ));
         }
@@ -745,7 +745,7 @@ impl AgentReadiness {
             AgentReadinessState::NotReady => !self.blockers.is_empty(),
         };
         if unique.len() != self.blockers.len() || !valid_cardinality {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Agent readiness state and blockers are inconsistent".to_owned(),
             ));
         }
@@ -867,13 +867,13 @@ impl AgentDeactivateRequestBody {
     pub fn validate(&self) -> Result<()> {
         let event = &self.lifecycle_event.event;
         if event.kind != EventKind::SelfAgentDeactivate {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent deactivation lifecycle_event must be ak.self.agent.deactivate".to_owned(),
             ));
         }
         let payload_reason = event.payload.get("reason").and_then(Value::as_str);
         if payload_reason != self.reason.as_ref().map(NonEmptyString::as_str) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "agent deactivation request reason must equal lifecycle Event payload reason"
                     .to_owned(),
             ));
@@ -896,7 +896,7 @@ impl AgentGrantAttachRequestBody {
         self.requested_scope_disclosure.validate()?;
         let event = &self.grant_event.event;
         if event.kind != EventKind::CapabilityGrant {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Agent grant attach requires an ak.capability.grant Event".to_owned(),
             ));
         }
@@ -907,7 +907,7 @@ impl AgentGrantAttachRequestBody {
         let subject = match &grant.subject {
             CapabilitySubject::CoreDid(subject) => subject,
             CapabilitySubject::Condition(_) => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "Agent grant attach requires the path Agent as grant subject".to_owned(),
                 ));
             }
@@ -926,7 +926,7 @@ impl AgentGrantAttachRequestBody {
                     .contains(action)
             })
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Agent grant Event exceeds or does not match requested-scope disclosure".to_owned(),
             ));
         }
@@ -958,7 +958,7 @@ impl AgentGrantDetachRequestBody {
     pub fn validate(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<()> {
         let event = &self.revoke_event.event;
         if event.kind != EventKind::CapabilityRevoke {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Agent grant detach requires an ak.capability.revoke Event".to_owned(),
             ));
         }
@@ -970,7 +970,7 @@ impl AgentGrantDetachRequestBody {
             .as_ref()
             .is_some_and(|grant_ref| grant_ref != &payload.grant_id)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Agent grant detach payload grant_ref must equal grant_id".to_owned(),
             ));
         }
@@ -979,7 +979,7 @@ impl AgentGrantDetachRequestBody {
             payload.grant_id
         );
         let [precondition] = event.preconditions.as_slice() else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Agent grant detach requires exactly one signed head_eq precondition".to_owned(),
             ));
         };
@@ -994,7 +994,7 @@ impl AgentGrantDetachRequestBody {
             || predicate.values.is_some()
             || predicate.predicate_id.is_some()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Agent grant detach head_eq must name the complete target grant cell head"
                     .to_owned(),
             ));
@@ -1103,12 +1103,12 @@ impl PendingSidecarAccessReconciliationItem {
             {
                 Ok(())
             }
-            (PendingSidecarAccessReconciliationStage::MlsRemove, _) => Err(Error::Protocol(
+            (PendingSidecarAccessReconciliationStage::MlsRemove, _) => Err(WireError::Protocol(
                 "Sidecar MLS remove reconciliation requires a non-empty sorted unique membership_frontier"
                     .to_owned(),
             )),
             (_, None) => Ok(()),
-            (_, Some(_)) => Err(Error::Protocol(
+            (_, Some(_)) => Err(WireError::Protocol(
                 "Sidecar membership_frontier is only valid for MLS remove reconciliation"
                     .to_owned(),
             )),
@@ -1169,7 +1169,7 @@ impl AgentSidecarParticipantAuthorityTranscript {
                 .iter()
                 .any(|agent_id| agent_id.as_core_id() == controller_id.as_core_id())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Sidecar participant authority requires sorted unique desired Agent ids with the controller excluded"
                     .to_owned(),
             ));
@@ -1226,7 +1226,7 @@ impl AgentSidecarMlsContext {
                 .windows(2)
                 .any(|pair| pair[0].as_str().as_bytes() >= pair[1].as_str().as_bytes())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Sidecar MLS control_frontier must be non-empty, UTF-8 byte-lexicographically sorted, and unique"
                     .to_owned(),
             ));
@@ -1237,7 +1237,7 @@ impl AgentSidecarMlsContext {
             self.genesis_event_ref.is_some(),
         ];
         if present.iter().any(|value| *value) && !present.iter().all(|value| *value) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Sidecar MLS group, epoch, and genesis event reference must be all present or all absent"
                     .to_owned(),
             ));
@@ -1275,7 +1275,7 @@ pub struct AgentSidecar {
 impl AgentSidecar {
     pub fn validate(&self) -> Result<()> {
         if self.state != AgentSidecarState::Active && self.state_changed_at.is_none() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "non-active Sidecar requires state_changed_at".to_owned(),
             ));
         }
@@ -1310,7 +1310,7 @@ impl AgentSidecarView {
                 .iter()
                 .any(|agent_id| !desired.contains(agent_id))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Sidecar desired/effective Agent ids must be sorted and unique, with effective a subset of desired"
                     .to_owned(),
             ));
@@ -1322,7 +1322,7 @@ impl AgentSidecarView {
             &self.desired_agent_ids,
         )?;
         if self.mls_context.participant_authority_digest != expected_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Sidecar MLS participant_authority_digest does not match the canonical Realm-scoped desired roster transcript"
                     .to_owned(),
             ));
@@ -1332,7 +1332,7 @@ impl AgentSidecarView {
                 || self.effective_agent_ids.len() != self.desired_agent_ids.len()
                 || self.mls_context.mls_group_id.is_none())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "ready Sidecar requires a ready controller device, an accepted MLS group, and every desired Agent effective"
                     .to_owned(),
             ));
@@ -1404,7 +1404,7 @@ impl AgentSidecarViewState {
         if account_data_key == self.account_data_key() {
             Ok(())
         } else {
-            Err(Error::Protocol(
+            Err(WireError::Protocol(
                 "Sidecar view-state account-data key does not match plaintext".to_owned(),
             ))
         }
@@ -1424,7 +1424,9 @@ impl AgentSidecarExchangeId {
         {
             Ok(Self(value))
         } else {
-            Err(Error::Protocol("invalid Sidecar exchange id".to_owned()))
+            Err(WireError::Protocol(
+                "invalid Sidecar exchange id".to_owned(),
+            ))
         }
     }
 
@@ -1475,7 +1477,7 @@ impl AgentSidecarSourceTrackRef {
                 .iter()
                 .any(|byte| !(byte.is_ascii_lowercase() || byte.is_ascii_digit() || *byte == b'_'))
         {
-            return Err(Error::Protocol("invalid Sidecar Track name".to_owned()));
+            return Err(WireError::Protocol("invalid Sidecar Track name".to_owned()));
         }
         Ok(())
     }
@@ -1520,7 +1522,7 @@ fn validate_sidecar_order_key(value: &str, label: &str) -> Result<()> {
             .iter()
             .any(|byte| !(byte.is_ascii_alphanumeric() || b"._~=-".contains(byte)))
     {
-        return Err(Error::Protocol(format!("invalid Sidecar {label}")));
+        return Err(WireError::Protocol(format!("invalid Sidecar {label}")));
     }
     Ok(())
 }
@@ -1534,14 +1536,16 @@ fn validate_sidecar_failure_reason_code(value: &str) -> Result<()> {
             .iter()
             .any(|byte| !(byte.is_ascii_lowercase() || byte.is_ascii_digit() || *byte == b'_'))
     {
-        return Err(Error::Protocol("invalid Sidecar failure code".to_owned()));
+        return Err(WireError::Protocol(
+            "invalid Sidecar failure code".to_owned(),
+        ));
     }
     Ok(())
 }
 
 fn validate_unique_sorted_event_ids(values: &[EventId], label: &str) -> Result<()> {
     if values.is_empty() {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "Sidecar {label} must be non-empty"
         )));
     }
@@ -1549,7 +1553,7 @@ fn validate_unique_sorted_event_ids(values: &[EventId], label: &str) -> Result<(
         .windows(2)
         .any(|pair| pair[0].as_str().as_bytes() >= pair[1].as_str().as_bytes())
     {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "Sidecar {label} must be unique and UTF-8 byte-lexicographically sorted"
         )));
     }
@@ -1605,14 +1609,14 @@ impl AgentSidecarExchangeRequestContext {
                 .len()
                 != self.addressed_agent_ids.len()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Sidecar exchange addressed_agent_ids must be non-empty and unique".to_owned(),
             ));
         }
         match &self.coordinator_agent_id {
             Some(coordinator) => {
                 if !self.addressed_agent_ids.contains(coordinator) {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "Sidecar exchange coordinator must be one of addressed_agent_ids"
                             .to_owned(),
                     ));
@@ -1620,7 +1624,7 @@ impl AgentSidecarExchangeRequestContext {
             }
             None => {
                 if self.addressed_agent_ids.len() != 1 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "Sidecar exchange coordinator_agent_id is required when more than one Agent is addressed"
                             .to_owned(),
                     ));
@@ -1733,14 +1737,14 @@ impl AgentSidecarEventExchangeBinding {
         match self.role {
             AgentSidecarExchangeBindingRole::Request => {
                 if self.request_event_id.is_some() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "Sidecar request binding must not carry request_event_id".to_owned(),
                     ));
                 }
                 match &self.request_context {
                     Some(context) => context.validate()?,
                     None => {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "Sidecar request binding requires request_context".to_owned(),
                         ));
                     }
@@ -1749,12 +1753,12 @@ impl AgentSidecarEventExchangeBinding {
             AgentSidecarExchangeBindingRole::UserFacingResponse
             | AgentSidecarExchangeBindingRole::Internal => {
                 if self.request_event_id.is_none() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "Sidecar response/internal binding requires request_event_id".to_owned(),
                     ));
                 }
                 if self.request_context.is_some() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "request_context is forbidden outside role=request".to_owned(),
                     ));
                 }
@@ -1763,7 +1767,7 @@ impl AgentSidecarEventExchangeBinding {
         match self.completes_exchange {
             None => {
                 if self.coordinator_assignment_event_id.is_some() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "coordinator_assignment_event_id requires completes_exchange=true"
                             .to_owned(),
                     ));
@@ -1771,19 +1775,19 @@ impl AgentSidecarEventExchangeBinding {
             }
             Some(true) => {
                 if self.role != AgentSidecarExchangeBindingRole::UserFacingResponse {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "completes_exchange is legal only on role=user_facing_response".to_owned(),
                     ));
                 }
                 if self.coordinator_assignment_event_id.is_none() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "completes_exchange=true requires coordinator_assignment_event_id"
                             .to_owned(),
                     ));
                 }
             }
             Some(false) => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "completes_exchange only admits the literal true".to_owned(),
                 ));
             }
@@ -1847,24 +1851,24 @@ impl AgentSidecarExchangeControl {
         validate_unique_sorted_event_ids(&self.basis_event_ids, "control basis_event_ids")?;
         if self.action.is_terminal() {
             let responses = self.response_event_ids.as_ref().ok_or_else(|| {
-                Error::Protocol(
+                WireError::Protocol(
                     "terminal Sidecar exchange control requires response_event_ids".to_owned(),
                 )
             })?;
             if responses.iter().collect::<BTreeSet<_>>().len() != responses.len() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "Sidecar control response_event_ids must be unique".to_owned(),
                 ));
             }
             if self.expected_coordinator_agent_id.is_some() || self.coordinator_agent_id.is_some() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "coordinator fields are forbidden on terminal Sidecar exchange control"
                         .to_owned(),
                 ));
             }
         } else {
             if self.response_event_ids.is_some() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "response_event_ids is forbidden on reassign_coordinator".to_owned(),
                 ));
             }
@@ -1872,13 +1876,13 @@ impl AgentSidecarExchangeControl {
                 &self.expected_coordinator_agent_id,
                 &self.coordinator_agent_id,
             ) else {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "reassign_coordinator requires expected_coordinator_agent_id and coordinator_agent_id"
                         .to_owned(),
                 ));
             };
             if expected == next {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "reassign_coordinator must change the coordinator".to_owned(),
                 ));
             }
@@ -1888,12 +1892,12 @@ impl AgentSidecarExchangeControl {
                 validate_sidecar_failure_reason_code(code.as_str())?;
             }
             (None, AgentSidecarExchangeControlAction::Fail) => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "action=fail requires failure_reason_code".to_owned(),
                 ));
             }
             (Some(_), _) => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "failure_reason_code is legal only on action=fail".to_owned(),
                 ));
             }
@@ -1973,7 +1977,7 @@ pub fn agent_sidecar_exchange_event_set_digest(event_ids: &[EventId]) -> Result<
     let mut ids: Vec<&str> = event_ids.iter().map(EventId::as_str).collect();
     ids.sort_unstable();
     ids.dedup();
-    Hash::new(canonical::canonical_sha256(&ids)?).map_err(Error::from)
+    Hash::new(canonical::canonical_sha256(&ids)?).map_err(WireError::from)
 }
 
 /// Local cache coverage of one folded exchange: canonical sorted maximal
@@ -2051,7 +2055,7 @@ impl AgentSidecarExchangeProjection {
         self.source_track_ref.validate()?;
         validate_sidecar_order_key(self.client_order_key.as_str(), "client order key")?;
         if self.origin != AgentSidecarExchangeOrigin::SourceTrackRouted {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "sidecar-native Events must not create source echo projections".to_owned(),
             ));
         }
@@ -2063,7 +2067,7 @@ impl AgentSidecarExchangeProjection {
                 .len()
                 != self.addressed_agent_ids.len()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Sidecar exchange addressed_agent_ids must be non-empty and unique".to_owned(),
             ));
         }
@@ -2071,7 +2075,7 @@ impl AgentSidecarExchangeProjection {
             .addressed_agent_ids
             .contains(&self.coordinator_agent_id)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Sidecar exchange coordinator must be one of addressed_agent_ids".to_owned(),
             ));
         }
@@ -2082,7 +2086,7 @@ impl AgentSidecarExchangeProjection {
             .len()
             != self.participating_agent_ids.len()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Sidecar Agent id arrays must be unique".to_owned(),
             ));
         }
@@ -2093,7 +2097,7 @@ impl AgentSidecarExchangeProjection {
             .len()
             != self.user_facing_response_event_ids.len()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Sidecar response Event ids must be unique".to_owned(),
             ));
         }
@@ -2106,7 +2110,7 @@ impl AgentSidecarExchangeProjection {
                     || self.failure_reason_code.is_some()
                     || self.terminal_event_id.is_some()
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "delivered Sidecar exchange must carry no responses, failure code, or terminal Event"
                             .to_owned(),
                     ));
@@ -2117,7 +2121,7 @@ impl AgentSidecarExchangeProjection {
                     || self.failure_reason_code.is_some()
                     || self.terminal_event_id.is_some()
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "responding Sidecar exchange requires responses and no terminal fields"
                             .to_owned(),
                     ));
@@ -2128,7 +2132,7 @@ impl AgentSidecarExchangeProjection {
                     || self.failure_reason_code.is_some()
                     || self.terminal_event_id.is_none()
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "complete Sidecar exchange requires responses, a terminal Event, and no failure code"
                             .to_owned(),
                     ));
@@ -2139,7 +2143,7 @@ impl AgentSidecarExchangeProjection {
                     || self.failure_reason_code.is_none()
                     || self.terminal_event_id.is_none()
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "failed Sidecar exchange requires failure_reason_code and terminal Event and no responses"
                             .to_owned(),
                     ));
@@ -2173,7 +2177,7 @@ pub fn agent_requested_scope_digest(
             requested_scope,
         },
     )?)
-    .map_err(Error::from)
+    .map_err(WireError::from)
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json`.

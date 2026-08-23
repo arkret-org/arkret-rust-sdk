@@ -179,7 +179,7 @@ impl AccountDataSetPayload {
     /// any-of requirement for values constructed directly in Rust.
     pub fn validate(&self) -> Result<()> {
         if self.body.is_absent() && self.encrypted_payload.is_none() && !self.tombstone {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "account_data_set_payload requires body, encrypted_payload, or tombstone=true"
                     .to_owned(),
             ));

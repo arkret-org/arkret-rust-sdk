@@ -139,7 +139,7 @@ impl RealmState {
         // Check causal dependencies
         for prev_ref in &event.prev_refs {
             if !self.is_processed(prev_ref) {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "missing causal dependency: {}",
                     prev_ref
                 )));
@@ -147,7 +147,7 @@ impl RealmState {
         }
 
         if self.tombstone_event_id.is_some() && !Self::is_maintenance_event(event) {
-            return Err(Error::Protocol("realm is destroyed".to_owned()));
+            return Err(WireError::Protocol("realm is destroyed".to_owned()));
         }
 
         // Process event content

@@ -12,7 +12,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::error::{Error, Result};
+use crate::error::{Result, WireError};
 use crate::recovery_authority::{CanonicalPublicMaterial, RecoveryCompletionAttestation};
 use crate::{
     BackupId, BackupSeriesId, DeviceId, DidCoreId, DidFullId, DidUrl, EventId,
@@ -160,7 +160,7 @@ impl RecoveryBinding {
         let Self::RootAnchored(binding) = self;
         let valid = binding.identity_model == RecoveryIdentityModel::RootAnchored;
         if !valid {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery binding identity_model disagrees with its closed shape".to_owned(),
             ));
         }
@@ -249,7 +249,7 @@ impl PreparedEventUnit {
     pub fn new<T: Serialize>(destination_service_id: DidCoreId, request: T) -> Result<Self> {
         let request = serde_json::to_value(request)?;
         let Value::Object(request) = request else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "prepared Event unit request must be a JSON object".to_owned(),
             ));
         };
@@ -301,20 +301,20 @@ impl PreparedEventSubmissionBatch {
         if &self.destination_service_id != coordinator_service_id
             || self.audience != self.destination_service_id
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "prepared Event publication batch destination or audience is invalid".to_owned(),
             ));
         }
         let bytes = arkret_canonical::base64url_decode(&self.canonical_request_base64url)?;
         let canonical = arkret_canonical::canonical::canonical_json_bytes(&self.request)?;
         if bytes != canonical {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "prepared Event publication batch bytes do not equal the typed request".to_owned(),
             ));
         }
         arkret_canonical::canonical::verify_digest(&bytes, self.request_digest.as_str())?;
         if self.request.events.len() != digest_suites.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "prepared Event publication batch and digest-suite cardinality must match"
                     .to_owned(),
             ));
@@ -346,7 +346,7 @@ pub struct PreparedDidPublication {
 impl PreparedDidPublication {
     pub fn validate_structural(&self) -> Result<()> {
         let endpoint = url::Url::parse(&self.registry_endpoint).map_err(|error| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "prepared DID registry endpoint is invalid: {error}"
             ))
         })?;
@@ -364,7 +364,7 @@ impl PreparedDidPublication {
             || endpoint.fragment().is_some()
             || endpoint.path() != "/_arkret/root/identity/submit-did-operation"
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "prepared DID registry endpoint must be the exact standard HTTPS submit endpoint \
                  (HTTP is allowed only on loopback)"
                     .to_owned(),
@@ -408,7 +408,7 @@ impl RecoveryPreparedPlan {
             && plan.previous_model_generation_ref > 0
             && plan.result_model_generation_ref > plan.previous_model_generation_ref;
         if !valid {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery prepared plan requires its closed PCR model and advancing generations"
                     .to_owned(),
             ));
@@ -536,7 +536,7 @@ impl RecoveryTransactionCreateRequest {
         binding.validate_discriminator()?;
         prepared_plan.validate_discriminator()?;
         if binding.identity_model() != prepared_plan.identity_model() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "recovery binding and prepared plan identity models disagree".to_owned(),
             ));
         }
@@ -617,7 +617,7 @@ impl SecurityRotationTransactionCreateRequest {
                     &binding.backup_rotations,
                 )?
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "security-rotation reserved outcome digests do not match their non-circular projections"
                     .to_owned(),
             ));
@@ -675,7 +675,7 @@ fn validate_security_rotation_fixed_shape(
         || binding.erase_confirmation_digest != plan.erase_confirmation_digest
         || binding.local_commit_digest != plan.local_commit_digest
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "security-rotation binding and prepared plan artifacts disagree".to_owned(),
         ));
     }
@@ -693,7 +693,7 @@ fn validate_security_rotation_fixed_shape(
             || rotation.new_backups.is_empty()
             || rotation.old_backups.is_empty()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "security-rotation requires exact secret_storage and mls_history rotations"
                     .to_owned(),
             ));
@@ -806,7 +806,7 @@ impl<A: Serialize> ClientStepAttestation<A> {
                 .map(String::as_str)
                 .ne(CLIENT_STEP_ATTESTATION_SIGNED_FIELDS)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "client step attestation authorization is incomplete or has invalid signed_fields"
                     .to_owned(),
             ));
@@ -935,7 +935,7 @@ fn validate_opaque_ref(name: &str, value: &str) -> Result<()> {
         || value.chars().count() > MAX_OPAQUE_REF_CHARS
         || value.chars().any(char::is_whitespace)
     {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "{name} must be 1..={MAX_OPAQUE_REF_CHARS} non-whitespace characters"
         )));
     }
@@ -958,7 +958,7 @@ fn validate_step_output_ref(name: &str, value: &str) -> Result<()> {
     let did_or_url = value.starts_with("did:") && value.len() > 4;
     let digest = Hash::new(value).is_ok();
     if !(typed_id || did_or_url || digest) {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "{name} must be a typed ak: id, DID/DID URL, or registered digest"
         )));
     }
@@ -972,7 +972,7 @@ fn validate_canonical_digest<T: Serialize + ?Sized>(
 ) -> Result<()> {
     let bytes = arkret_canonical::canonical::canonical_json_bytes(value)?;
     arkret_canonical::canonical::verify_digest(&bytes, expected.as_str()).map_err(|_| {
-        Error::Protocol(format!(
+        WireError::Protocol(format!(
             "{name} does not equal the digest of the complete canonical value"
         ))
     })
@@ -986,7 +986,7 @@ impl PreparedEventUnit {
             || &self.destination_service_id != coordinator_service_id
             || self.audience != self.destination_service_id
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "prepared Event unit operation/schema/destination/audience binding is invalid"
                     .to_owned(),
             ));
@@ -994,7 +994,7 @@ impl PreparedEventUnit {
         let bytes =
             arkret_canonical::base64url::base64url_decode(&self.canonical_request_base64url)?;
         if bytes != arkret_canonical::canonical::canonical_json_bytes(&self.request)? {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "prepared Event unit bytes do not equal canonical request bytes".to_owned(),
             ));
         }
@@ -1008,7 +1008,7 @@ impl PreparedEventUnit {
     ) -> Result<EventsSubmitBatchRequestBody> {
         self.validate_structural(coordinator_service_id)?;
         serde_json::from_value(serde_json::to_value(&self.request)?).map_err(|error| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "prepared Event unit is not a typed EventsSubmitBatchRequestBody: {error}"
             ))
         })
@@ -1030,7 +1030,7 @@ impl SecurityTransaction {
                 SecurityTransactionBinding::SecurityRotation(_),
                 SecurityTransactionPreparedPlan::SecurityRotation(_),
             ) => Ok(&SECURITY_ROTATION_STEP_ORDER),
-            _ => Err(Error::Protocol(
+            _ => Err(WireError::Protocol(
                 "security transaction kind, binding and prepared plan discriminators disagree"
                     .to_owned(),
             )),
@@ -1039,12 +1039,12 @@ impl SecurityTransaction {
 
     pub fn validate_structural(&self) -> Result<()> {
         if self.expires_at <= self.created_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "security transaction expires_at must be after created_at".to_owned(),
             ));
         }
         if self.expires_at - self.created_at > MAX_SECURITY_TRANSACTION_TTL {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "security transaction TTL exceeds {} hours",
                 MAX_SECURITY_TRANSACTION_TTL.num_hours()
             )));
@@ -1082,13 +1082,13 @@ impl SecurityTransaction {
 
         let order = self.step_order()?;
         if self.accepted_steps.len() > order.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "security transaction recorded more steps than its closed order defines".to_owned(),
             ));
         }
         for (index, accepted) in self.accepted_steps.iter().enumerate() {
             if accepted.step != order[index] {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "security transaction step {index} is {:?}, expected {:?}",
                     accepted.step, order[index]
                 )));
@@ -1097,7 +1097,7 @@ impl SecurityTransaction {
             if DidFullId::new(accepted.acceptor_id.clone()).is_err()
                 && DeviceId::new(accepted.acceptor_id.clone()).is_err()
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "accepted_steps[].acceptor_id must be a DID or DeviceId".to_owned(),
                 ));
             }
@@ -1105,20 +1105,20 @@ impl SecurityTransaction {
 
         if self.state.is_terminal() {
             if self.next_required_step.is_some() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "terminal security transaction must not declare a next required action"
                         .to_owned(),
                 ));
             }
             let outcome = self.terminal_result.as_ref().ok_or_else(|| {
-                Error::Protocol(
+                WireError::Protocol(
                     "terminal security transaction must record a terminal outcome".to_owned(),
                 )
             })?;
             let expected = match self.state {
                 SecurityTransactionState::Completed => {
                     if self.accepted_steps.len() != order.len() {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "completed security transaction must contain its full closed step order"
                                 .to_owned(),
                         ));
@@ -1126,14 +1126,14 @@ impl SecurityTransaction {
                     if self.kind == SecurityTransactionKind::Recovery
                         && outcome.receipt_id.is_none()
                     {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "completed recovery transaction must carry a receipt_id".to_owned(),
                         ));
                     }
                     if self.kind == SecurityTransactionKind::SecurityRotation
                         && outcome.receipt_id.is_some()
                     {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "completed security rotation must not invent a receipt_id".to_owned(),
                         ));
                     }
@@ -1144,7 +1144,7 @@ impl SecurityTransaction {
                 _ => unreachable!("state was checked to be terminal"),
             };
             if outcome.result != expected {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "security transaction terminal outcome disagrees with its state".to_owned(),
                 ));
             }
@@ -1170,7 +1170,7 @@ impl SecurityTransaction {
                     let authorize_event_id = &binding.authorize_event_id;
                     let result_generation = plan.result_model_generation_ref;
                     let receipt_step = self.accepted_steps.last().ok_or_else(|| {
-                        Error::Protocol(
+                        WireError::Protocol(
                             "completed recovery transaction is missing its receipt step".to_owned(),
                         )
                     })?;
@@ -1188,20 +1188,20 @@ impl SecurityTransaction {
                         || attestation.result_model_generation_ref != result_generation
                         || attestation.completed_at != outcome.completed_at
                     {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "recovery completion attestation disagrees with the durable transaction"
                                 .to_owned(),
                         ));
                     }
                 }
                 (SecurityTransactionKind::Recovery, SecurityTransactionState::Completed, None) => {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "completed recovery transaction requires a completion attestation"
                             .to_owned(),
                     ));
                 }
                 (_, _, Some(_)) => {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "only a completed recovery transaction may carry a completion attestation"
                             .to_owned(),
                     ));
@@ -1212,18 +1212,18 @@ impl SecurityTransaction {
         }
 
         if self.terminal_result.is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "non-terminal security transaction must not record a terminal outcome".to_owned(),
             ));
         }
         let next = self.next_required_step.ok_or_else(|| {
-            Error::Protocol(
+            WireError::Protocol(
                 "non-terminal security transaction must declare a next required action".to_owned(),
             )
         })?;
         let expected = order.get(self.accepted_steps.len()).copied();
         if Some(next) != expected {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "security transaction next_required_step {next:?} is not the next closed step {expected:?}"
             )));
         }
@@ -1235,7 +1235,7 @@ impl SecurityTransaction {
             );
         if (self.state == SecurityTransactionState::AwaitingDeviceAttestation) != awaiting_expected
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "awaiting_device_attestation must be used exactly at the terminal client-attestation boundary"
                     .to_owned(),
             ));
@@ -1274,7 +1274,7 @@ impl SecurityTransaction {
                     submission.event.event_id.as_str() != id || submission.event.kind != kind
                 })
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "root-anchored binding and prepared reanchor unit disagree".to_owned(),
             ));
         }
@@ -1293,7 +1293,7 @@ impl SecurityTransaction {
             || revoke_request.events[0].event.event_id != binding.revoke_event_id
             || revoke_request.events[0].event.kind != crate::event_kind_str::DEVICE_REVOKE
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "security-rotation revoke unit must contain exactly the reserved ak.device.revoke Event"
                     .to_owned(),
             ));
@@ -1310,7 +1310,7 @@ impl SecurityTransaction {
                     &binding.backup_rotations,
                 )?
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "security-rotation reserved outcome digests do not match their non-circular projections"
                     .to_owned(),
             ));
@@ -1321,7 +1321,7 @@ impl SecurityTransaction {
             || binding.erase_confirmation_digest != plan.erase_confirmation_digest
             || binding.local_commit_digest != plan.local_commit_digest
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "security-rotation binding and prepared plan artifacts disagree".to_owned(),
             ));
         }
@@ -1340,7 +1340,7 @@ impl SecurityTransaction {
                 || binding_rotation.old_backups.is_empty()
                 || binding_rotation.old_backups.len() > 512
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "security-rotation backup entries must be the exact canonical secret_storage and mls_history bindings"
                         .to_owned(),
                 ));
@@ -1358,7 +1358,7 @@ impl SecurityTransaction {
                     .windows(2)
                     .any(|pair| pair[0].backup_id == pair[1].backup_id)
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "security-rotation backup object references must be unique".to_owned(),
                 ));
             }
@@ -1371,7 +1371,7 @@ impl SecurityTransaction {
                 || active_series_request.events[0].event.kind
                     != crate::event_kind_str::KEY_BACKUP_ACTIVE_SERIES
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "security-rotation active-series unit must contain exactly its reserved ak.key_backup.active_series Event"
                         .to_owned(),
                 ));
@@ -1385,7 +1385,7 @@ impl SecurityTransaction {
                 .get("backups")
                 .and_then(Value::as_array)
                 .ok_or_else(|| {
-                    Error::Protocol(
+                    WireError::Protocol(
                         "security-rotation public material must contain a backups array".to_owned(),
                     )
                 })?;
@@ -1409,7 +1409,7 @@ impl SecurityTransaction {
                     })
                 })
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "security-rotation encrypted backup material must exactly cover the reserved new backups"
                         .to_owned(),
                 ));
@@ -1435,18 +1435,18 @@ impl SecurityTransaction {
         if request_digest != &self.request_digest
             || prepared_plan_digest != &self.prepared_plan_digest
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 crate::error_codes::ReasonCode::DUPLICATE_CONFLICT.to_owned(),
             ));
         }
         if Some(expected_next_step) != self.next_required_step {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "continue expected_next_step does not equal the resource's next action".to_owned(),
             ));
         }
         let requires_attestation = Self::step_requires_client_attestation(expected_next_step);
         if requires_attestation != client_attestation.is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "terminal client-attested steps require exactly one client_attestation".to_owned(),
             ));
         }
@@ -1457,7 +1457,7 @@ impl SecurityTransaction {
                 || attestation.transaction_request_digest != self.request_digest
                 || attestation.prepared_plan_digest != self.prepared_plan_digest
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "client attestation does not bind the current transaction/request/plan/step"
                         .to_owned(),
                 ));
@@ -1471,7 +1471,7 @@ impl SecurityTransaction {
                 }
             };
             if attestation.output_ref != reserved {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "client attestation ref does not equal the reserved binding id".to_owned(),
                 ));
             }

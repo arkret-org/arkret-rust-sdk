@@ -42,8 +42,8 @@ use arkret_models_crypto::mls_payloads::MlsCommitPayload;
 use arkret_wire::error_codes::{ErrorCode, ReasonCode};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    CellRef, DidCoreId, Error, EventId, Hash, MlsGroupId, NotarySignerDescriptor, NotaryValue,
-    ProjectedCellWrite, RealmId, Seal, SealBasis, SealId, SealSignature, event_kind_str,
+    CellRef, DidCoreId, EventId, Hash, MlsGroupId, NotarySignerDescriptor, NotaryValue,
+    ProjectedCellWrite, RealmId, Seal, SealBasis, SealId, SealSignature, WireError, event_kind_str,
 };
 use serde_json::Value;
 
@@ -231,7 +231,7 @@ impl BoundedDirectTraversalJournal {
             || self.topological.len() as u64 > self.capacity
             || self.work.len() as u64 > self.capacity.saturating_mul(2)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "direct traversal journal exceeded its bounded capacity".to_owned(),
             ));
         }
@@ -405,7 +405,7 @@ impl DirectCutMaterial {
             if let Some(previous) = material.events.insert(digest, event.clone())
                 && previous != event
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "ambiguous direct traversal material carries two Event variants for one claimed digest"
                         .to_owned(),
                 ));
@@ -475,7 +475,7 @@ impl DirectCutOutcome {
     pub fn into_result(self) -> arkret_wire::Result<DirectCutDiscovery> {
         match self {
             Self::Closed(discovery) => Ok(discovery),
-            Self::Rejected(errors) => Err(Error::Protocol(format!(
+            Self::Rejected(errors) => Err(WireError::Protocol(format!(
                 "direct traversal cut is not closed: {}",
                 errors
                     .iter()
@@ -487,8 +487,8 @@ impl DirectCutOutcome {
     }
 }
 
-fn traversal_error(error: DirectTraversalError) -> Error {
-    Error::Protocol(format!("direct traversal rejected: {}", error.as_str()))
+fn traversal_error(error: DirectTraversalError) -> WireError {
+    WireError::Protocol(format!("direct traversal rejected: {}", error.as_str()))
 }
 
 /// Walk backwards from `target_basis` to `trusted_history_base_basis`.
@@ -638,7 +638,7 @@ impl ReplayEventLookup for DeltaEventLookup<'_> {
         }
         self.store
             .get(digest)
-            .map_err(|error| Error::Protocol(error.to_string()))
+            .map_err(|error| WireError::Protocol(error.to_string()))
     }
 }
 
@@ -687,7 +687,7 @@ where
 {
     let discovery = discover_direct_cut(request, source, journal)?.into_result()?;
     if discovery.topological_len != discovery.visited_seal_count {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "direct traversal topological log is not every-and-only the visited cut".to_owned(),
         ));
     }
@@ -708,12 +708,12 @@ where
             .seal(seal_ref)?
             .ok_or_else(|| traversal_error(DirectTraversalError::DependencyMissing))?;
         if seal.id != *seal_ref {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "direct traversal Seal does not match the requested seal_ref".to_owned(),
             ));
         }
         if seal.realm_id != request.realm_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "direct traversal cut contains a cross-Realm Seal".to_owned(),
             ));
         }
@@ -724,21 +724,21 @@ where
                 .control_event(digest)?
                 .ok_or_else(|| traversal_error(DirectTraversalError::DependencyMissing))?;
             if event.realm_id != request.realm_id {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "direct traversal delta Control Move is cross-Realm".to_owned(),
                 ));
             }
             if let Some(previous) = delta.insert(digest.clone(), event.clone())
                 && previous != event
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "direct traversal resolved two Event variants for one Seal delta digest"
                         .to_owned(),
                 ));
             }
         }
         if delta.len() != seal.delta.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "direct traversal Seal delta contains a duplicate Event digest".to_owned(),
             ));
         }
@@ -766,13 +766,13 @@ where
     })?;
 
     if replayed != discovery.visited_seal_count {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "direct traversal replay did not consume every discovered Seal".to_owned(),
         ));
     }
     let leaves = seal_store
         .list_leaves(&request.realm_id)
-        .map_err(|error| Error::Protocol(error.to_string()))?;
+        .map_err(|error| WireError::Protocol(error.to_string()))?;
     if leaves.iter().cloned().collect::<BTreeSet<_>>()
         != request
             .target_basis
@@ -781,7 +781,7 @@ where
             .cloned()
             .collect::<BTreeSet<_>>()
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "direct traversal replay does not end at the pinned target basis".to_owned(),
         ));
     }
@@ -792,7 +792,7 @@ where
         &cell_store,
         registry,
     )
-    .map_err(|error| Error::Protocol(error.to_string()))?;
+    .map_err(|error| WireError::Protocol(error.to_string()))?;
 
     Ok(VerifiedDirectTraversalCut {
         realm_id: request.realm_id.clone(),
@@ -897,13 +897,13 @@ pub fn derive_history_join_epoch(
     }
 
     if !realm_incarnation_proven || !circle_incarnation_proven {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "requested authorization incarnation is not a retained winning join transition"
                 .to_owned(),
         ));
     }
     let [(genesis_ref, genesis_creator)] = genesis.as_slice() else {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "retained history cut does not have exactly one winning MLS Genesis".to_owned(),
         ));
     };
@@ -924,7 +924,7 @@ pub fn derive_history_join_epoch(
             break;
         }
         if candidates.len() != 1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "retained MLS Commit frontier is contested".to_owned(),
             ));
         }
@@ -939,7 +939,7 @@ pub fn derive_history_join_epoch(
             })
             .count();
         if matching_adds > 1 || (matching_adds == 1 && join_epoch.is_some()) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "current authorization incarnation has multiple winning MLS Add transitions"
                     .to_owned(),
             ));
@@ -961,7 +961,7 @@ pub fn derive_history_join_epoch(
     if *genesis_creator == subject.requester_actor_id {
         return Ok(0);
     }
-    Err(Error::Protocol(
+    Err(WireError::Protocol(
         "current authorization incarnation has no winning MLS Add/Commit lineage and is not a proven Genesis initial leaf"
             .to_owned(),
     ))

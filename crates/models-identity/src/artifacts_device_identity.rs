@@ -3,9 +3,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    Audience, DeviceId, DeviceMessageTransactionId, DidCoreId, DidFullId, DidUrl, Error, EventId,
-    Hash, NonEmptyJsonObject, NonEmptyString, PayloadProof, ProofContextId, ProtocolKind,
-    ReceiptId, Result, SchemaId, TrustDomainId, XExtensionMap, canonical,
+    Audience, DeviceId, DeviceMessageTransactionId, DidCoreId, DidFullId, DidUrl, EventId, Hash,
+    NonEmptyJsonObject, NonEmptyString, PayloadProof, ProofContextId, ProtocolKind, ReceiptId,
+    Result, SchemaId, TrustDomainId, WireError, XExtensionMap, canonical,
     project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -21,7 +21,7 @@ fn verification_method_controller_core(verification_method: &DidUrl) -> Result<D
         .split_once('#')
         .map(|(controller, _)| controller)
         .ok_or_else(|| {
-            Error::Protocol("verification_method requires a DID URL fragment".to_owned())
+            WireError::Protocol("verification_method requires a DID URL fragment".to_owned())
         })?;
     project_full_id_to_core_id(&DidFullId::new(controller)?).map_err(Into::into)
 }
@@ -99,7 +99,7 @@ impl IdentityReceipt {
     /// verification with the registry service key.
     pub fn validate_proof_binding(&self) -> Result<()> {
         if self.schema != SchemaId::IDENTITY_RECEIPT_V1 {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "identity receipt schema '{}' is not {schemaid_identity_receipt_v1}",
                 self.schema,
                 schemaid_identity_receipt_v1 = SchemaId::IDENTITY_RECEIPT_V1
@@ -107,20 +107,20 @@ impl IdentityReceipt {
         }
         ReceiptId::new(self.receipt_id.clone())?;
         if !matches!(self.witness_role.as_str(), "writer" | "witness" | "replica") {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "identity receipt witness_role is not registered".to_owned(),
             ));
         }
         self.signature.validate()?;
         if self.signature.created_at != self.created_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "identity receipt proof created_at must equal receipt created_at".to_owned(),
             ));
         }
         if verification_method_controller_core(&self.signature.verification_method)?
             != self.registry_service_id
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "identity receipt verification_method must be controlled by registry_service_id"
                     .to_owned(),
             ));
@@ -129,13 +129,13 @@ impl IdentityReceipt {
             (None, None) => {}
             (Some(expected), Some(Audience::Single(actual))) if expected == actual => {}
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "identity receipt and proof audience must be the same single value".to_owned(),
                 ));
             }
         }
         if self.payload_digest()? != self.signature.payload_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "identity receipt payload_digest does not match canonical receipt bytes".to_owned(),
             ));
         }
@@ -238,7 +238,7 @@ impl DidWebvhWitnessReceipt {
 
     pub fn validate_proof_binding(&self) -> Result<()> {
         if self.schema != SchemaId::DID_WEBVH_WITNESS_RECEIPT_V1 {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "did:webvh witness receipt schema '{}' is not {schemaid_did_webvh_witness_receipt_v1}",
                 self.schema,
                 schemaid_did_webvh_witness_receipt_v1 = SchemaId::DID_WEBVH_WITNESS_RECEIPT_V1
@@ -246,17 +246,17 @@ impl DidWebvhWitnessReceipt {
         }
         ReceiptId::new(self.receipt_id.clone())?;
         if self.did.method() != "webvh" {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "did:webvh witness receipt subject must use did:webvh".to_owned(),
             ));
         }
         if self.version_id.trim().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "did:webvh witness receipt version_id must not be empty".to_owned(),
             ));
         }
         if self.witness_did.method() != "key" {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "did:webvh witness receipt witness_did must use did:key".to_owned(),
             ));
         }
@@ -266,31 +266,31 @@ impl DidWebvhWitnessReceipt {
             .strip_prefix("did:key:")
             .expect("did:key method was checked above");
         if self.witness_verification_method != format!("{}#{witness_key}", self.witness_did) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "did:webvh witness receipt witness_verification_method must be the canonical did:key verification method".to_owned(),
             ));
         }
         if self.observed_at > self.created_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "did:webvh witness receipt observed_at must not be later than created_at"
                     .to_owned(),
             ));
         }
         if let Some(source) = &self.source {
             url::Url::parse(source).map_err(|error| {
-                Error::Protocol(format!(
+                WireError::Protocol(format!(
                     "did:webvh witness receipt source must be an absolute URI: {error}"
                 ))
             })?;
         }
         if self.expires_at <= self.created_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "did:webvh witness receipt expires_at must be later than created_at".to_owned(),
             ));
         }
         self.signature.validate()?;
         if self.signature.created_at != self.created_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "did:webvh witness receipt proof created_at must equal receipt created_at"
                     .to_owned(),
             ));
@@ -298,7 +298,7 @@ impl DidWebvhWitnessReceipt {
         if verification_method_controller_core(&self.signature.verification_method)?
             != self.issuer_service_id
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "did:webvh witness receipt proof must be controlled by issuer_service_id"
                     .to_owned(),
             ));
@@ -307,14 +307,14 @@ impl DidWebvhWitnessReceipt {
             (None, None) => {}
             (Some(expected), Some(Audience::Single(actual))) if expected == actual => {}
             _ => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "did:webvh witness receipt and proof audience must be the same single value"
                         .to_owned(),
                 ));
             }
         }
         if self.payload_digest()? != self.signature.payload_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "did:webvh witness receipt payload_digest does not match canonical receipt bytes"
                     .to_owned(),
             ));
@@ -674,11 +674,13 @@ pub struct StringList(Vec<NonEmptyString>);
 impl StringList {
     pub fn new(values: Vec<NonEmptyString>) -> Result<Self> {
         if values.is_empty() {
-            return Err(Error::Protocol("string list must not be empty".to_owned()));
+            return Err(WireError::Protocol(
+                "string list must not be empty".to_owned(),
+            ));
         }
         let mut unique = BTreeSet::new();
         if values.iter().any(|value| !unique.insert(value.as_str())) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "string list values must be unique".to_owned(),
             ));
         }
@@ -712,13 +714,13 @@ pub struct ProtocolKindList(Vec<ProtocolKind>);
 impl ProtocolKindList {
     pub fn new(values: Vec<ProtocolKind>) -> Result<Self> {
         if values.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "protocol kind list must not be empty".to_owned(),
             ));
         }
         let mut unique = BTreeSet::new();
         if values.iter().any(|value| !unique.insert(value.as_str())) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "protocol kind list values must be unique".to_owned(),
             ));
         }
@@ -753,9 +755,9 @@ macro_rules! bounded_key_verification_string {
         impl $name {
             pub fn new(value: impl Into<String>) -> Result<Self> {
                 let value = NonEmptyString::new(value)
-                    .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+                    .map_err(|reason| WireError::Protocol(reason.to_owned()))?;
                 if value.chars().count() > $maximum {
-                    return Err(Error::Protocol($error.to_owned()));
+                    return Err(WireError::Protocol($error.to_owned()));
                 }
                 Ok(Self(value))
             }
@@ -791,7 +793,7 @@ impl KeyVerificationCancellationReason {
     pub fn new(value: impl Into<String>) -> Result<Self> {
         let value = value.into();
         if value.chars().count() > 256 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "key verification cancellation reason exceeds 256 characters".to_owned(),
             ));
         }

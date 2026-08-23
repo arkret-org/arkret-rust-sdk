@@ -9,8 +9,8 @@ use std::collections::BTreeSet;
 use arkret_wire::base64url::{base64url_decode, base64url_encode};
 use arkret_wire::event_envelope::ScopeRef;
 use arkret_wire::{
-    Base64UrlString, CellRef, DidCoreId, Error, EventId, Hash, NonEmptyString, Result, SealBasis,
-    SealId,
+    Base64UrlString, CellRef, DidCoreId, EventId, Hash, NonEmptyString, Result, SealBasis, SealId,
+    WireError,
 };
 use serde::{Deserialize, Serialize};
 
@@ -190,8 +190,10 @@ impl MlsGovernanceMerkleMembershipWitness {
         if !paired || self.leaf_count == 0 || self.leaf_index >= self.leaf_count {
             return schema("invalid MLS governance Merkle witness coordinates");
         }
-        let preimage = base64url_decode(self.leaf_canonical_preimage_b64u.as_str())
-            .map_err(|error| Error::Protocol(format!("invalid Merkle leaf preimage: {error}")))?;
+        let preimage =
+            base64url_decode(self.leaf_canonical_preimage_b64u.as_str()).map_err(|error| {
+                WireError::Protocol(format!("invalid Merkle leaf preimage: {error}"))
+            })?;
         if preimage.is_empty()
             || base64url_encode(&preimage) != self.leaf_canonical_preimage_b64u.as_str()
             || self.siblings.len() > MLS_GOVERNANCE_PROOF_MAX_SIBLINGS
@@ -574,9 +576,9 @@ fn digest_suite(digest: &Hash) -> Result<arkret_canonical::canonical::DigestSuit
     let (suite, _) = digest
         .as_ref()
         .split_once(':')
-        .ok_or_else(|| Error::Protocol("digest has no suite prefix".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("digest has no suite prefix".to_owned()))?;
     arkret_canonical::canonical::digest_suite(suite)
-        .map_err(|error| Error::Protocol(error.to_string()))
+        .map_err(|error| WireError::Protocol(error.to_string()))
 }
 
 fn is_cell_family(value: &str) -> bool {
@@ -604,15 +606,15 @@ fn is_sorted_unique_or_empty<T: Ord>(items: &[T]) -> bool {
 }
 
 fn schema<T>(message: &str) -> Result<T> {
-    Err(Error::Protocol(format!("{message} (schema_violation)")))
+    Err(WireError::Protocol(format!("{message} (schema_violation)")))
 }
 
 fn state<T>(message: &str) -> Result<T> {
-    Err(Error::Protocol(format!("{message} (state_mismatch)")))
+    Err(WireError::Protocol(format!("{message} (state_mismatch)")))
 }
 
 fn bounds<T>(message: &str) -> Result<T> {
-    Err(Error::Protocol(format!(
+    Err(WireError::Protocol(format!(
         "{message} (mls_governance_proof_bounds_exceeded)"
     )))
 }

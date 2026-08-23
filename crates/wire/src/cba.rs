@@ -58,13 +58,13 @@ impl SealBasis {
     /// Validate the closed v1 `seal_basis` collection constraints.
     pub fn validate_protocol_bounds(&self) -> crate::Result<()> {
         if self.leaves.is_empty() || self.leaves.len() > Self::MAX_LEAVES {
-            return Err(crate::Error::Protocol(format!(
+            return Err(crate::WireError::Protocol(format!(
                 "seal_basis.leaves must contain between 1 and {} Seal ids",
                 Self::MAX_LEAVES
             )));
         }
         if self.leaves.windows(2).any(|pair| pair[0] >= pair[1]) {
-            return Err(crate::Error::Protocol(
+            return Err(crate::WireError::Protocol(
                 "seal_basis.leaves must be unique and in canonical ascending order".to_owned(),
             ));
         }

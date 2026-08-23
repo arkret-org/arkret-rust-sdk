@@ -4,7 +4,7 @@
 
 use std::collections::BTreeSet;
 
-use arkret_wire::{ConsentId, Error, ErrorCode, EventId, Result};
+use arkret_wire::{ConsentId, ErrorCode, EventId, Result, WireError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -19,13 +19,15 @@ pub struct ConsentObservedDot(String);
 impl ConsentObservedDot {
     pub fn new(value: String) -> Result<Self> {
         let (event_ref, actor_seq) = value.rsplit_once(':').ok_or_else(|| {
-            Error::Protocol("consent observed dot must contain an actor sequence".to_owned())
+            WireError::Protocol("consent observed dot must contain an actor sequence".to_owned())
         })?;
         EventId::new(event_ref.to_owned()).map_err(|_| {
-            Error::Protocol("consent observed dot must start with a canonical event ref".to_owned())
+            WireError::Protocol(
+                "consent observed dot must start with a canonical event ref".to_owned(),
+            )
         })?;
         if actor_seq.is_empty() || !actor_seq.bytes().all(|byte| byte.is_ascii_digit()) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "consent observed dot actor sequence must contain decimal digits".to_owned(),
             ));
         }
@@ -38,7 +40,7 @@ impl ConsentObservedDot {
 }
 
 impl TryFrom<String> for ConsentObservedDot {
-    type Error = Error;
+    type Error = WireError;
 
     fn try_from(value: String) -> Result<Self> {
         Self::new(value)
@@ -71,7 +73,7 @@ pub struct ConsentRevokePayload {
 impl ConsentRevokePayload {
     pub fn validate_minimal(&self) -> Result<()> {
         if self.observed_dots.is_empty() {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "ak.consent.revoke MUST carry non-empty observed_dots ({})",
                 ErrorCode::SCHEMA_VIOLATION
             )));
@@ -82,7 +84,7 @@ impl ConsentRevokePayload {
             .map(ConsentObservedDot::as_str)
             .collect::<BTreeSet<_>>();
         if unique.len() != self.observed_dots.len() {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "ak.consent.revoke observed_dots MUST be unique ({})",
                 ErrorCode::SCHEMA_VIOLATION
             )));

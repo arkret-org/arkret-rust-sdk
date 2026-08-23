@@ -16,7 +16,7 @@ impl RealmState {
             .iter()
             .any(|(path, _)| path != "tracks" && !path.starts_with("tracks."))
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "ak.strand.tracks.update patch paths must stay under tracks".to_owned(),
             ));
         }
@@ -25,13 +25,13 @@ impl RealmState {
             return Ok(());
         };
         if subject.state != Some(crate::ObjectState::Active) {
-            return Err(Error::Protocol("strand_not_active".to_owned()));
+            return Err(WireError::Protocol("strand_not_active".to_owned()));
         }
         let previous_tracks = subject.tracks.clone();
         let previous_description = (subject.content.clone(), subject.encrypted_content.clone());
         let post_value = payload.patch.apply(&serde_json::to_value(&*subject)?)?;
         let mut post: Strand = serde_json::from_value(post_value).map_err(|error| {
-            Error::Protocol(format!("invalid Strand tracks post-state: {error}"))
+            WireError::Protocol(format!("invalid Strand tracks post-state: {error}"))
         })?;
 
         let description_unchanged =
@@ -49,7 +49,7 @@ impl RealmState {
             || !track_content_unchanged(crate::STRAND_TRACK_NAME_SYNTHESIS)
             || !track_content_unchanged(crate::STRAND_TRACK_NAME_DISCUSSION)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "ak.strand.tracks.update changes configuration only; Description and Synthesis content require field-scoped ak.strand.update"
                     .to_owned(),
             ));
@@ -91,12 +91,12 @@ impl RealmState {
                 .and_then(|object| object.get("reducer_profile"))
                 .and_then(Value::as_str)
                 .ok_or_else(|| {
-                    Error::Protocol(
+                    WireError::Protocol(
                         "ak.realm.create requires payload.object.reducer_profile".to_owned(),
                     )
                 })?;
             if !arkret_wire::is_reducer_profile_id(profile) {
-                return Err(Error::Protocol("unsupported_profile".to_owned()));
+                return Err(WireError::Protocol("unsupported_profile".to_owned()));
             }
             Some(profile.to_owned())
         } else {
@@ -192,7 +192,7 @@ impl RealmState {
         let message = self
             .messages
             .get_mut(&message_id)
-            .ok_or_else(|| Error::Protocol(format!("message not found: {}", message_id)))?;
+            .ok_or_else(|| WireError::Protocol(format!("message not found: {}", message_id)))?;
         if Self::message_candidate_wins(message, event) {
             message.latest_event_id = event.event_id.clone();
             message.latest_actor_id = event.actor_id.clone();
@@ -252,7 +252,7 @@ impl RealmState {
     pub(super) fn upgrade_realm(&mut self, event: &Event) -> Result<()> {
         let target = self.extract_field::<String>(&event.payload, "target_reducer_profile")?;
         if !arkret_wire::can_upgrade_reducer_profile(&self.reducer_profile, &target) {
-            return Err(Error::Protocol("unsupported_profile".to_owned()));
+            return Err(WireError::Protocol("unsupported_profile".to_owned()));
         }
         self.reduce_generic_state_event(event)?;
         self.reducer_profile = target;
@@ -304,7 +304,7 @@ impl RealmState {
         if let Some(subject) = self.subjects.get_mut(&target_ref) {
             match subject.state {
                 Some(crate::ObjectState::Active) | Some(crate::ObjectState::Archived) => {}
-                _ => return Err(Error::Protocol("strand_already_terminal".to_owned())),
+                _ => return Err(WireError::Protocol("strand_already_terminal".to_owned())),
             }
             subject.state = Some(crate::ObjectState::Redacted);
             subject.state_changed_at = Some(event.created_at);
@@ -321,7 +321,7 @@ impl RealmState {
         if let Some(morph) = self.morphs.get_mut(&target_ref) {
             match morph.state {
                 Some(crate::ObjectState::Active) | Some(crate::ObjectState::Archived) => {}
-                _ => return Err(Error::Protocol("morph_already_terminal".to_owned())),
+                _ => return Err(WireError::Protocol("morph_already_terminal".to_owned())),
             }
             morph.state = Some(crate::ObjectState::Redacted);
             morph.state_changed_at = Some(event.created_at);

@@ -3,7 +3,7 @@
 use crate::internal_prelude::*;
 
 fn schema_violation<T>(message: impl Into<String>) -> Result<T> {
-    Err(Error::Protocol(format!(
+    Err(WireError::Protocol(format!(
         "schema_violation: {}",
         message.into()
     )))

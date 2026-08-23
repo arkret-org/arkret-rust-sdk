@@ -23,7 +23,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use arkret_wire::{Error, Hash};
+use arkret_wire::{Hash, WireError};
 
 /// Delivery direction component of the idempotency identity
 /// (`applet-integration.md` §7.3.1).
@@ -295,7 +295,7 @@ impl<T: Clone> IdempotencyWindow<T> {
 }
 
 impl<T: Clone + Send + 'static> TransactionIdempotencyStore<T> for IdempotencyWindow<T> {
-    type Error = Error;
+    type Error = WireError;
 
     fn claim(
         &self,

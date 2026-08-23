@@ -11,7 +11,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{DidCoreId, DidFullId, Error, Result};
+use arkret_wire::{DidCoreId, DidFullId, Result, WireError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -21,7 +21,7 @@ pub const DID_WEBVH_V1_METHOD: &str = "did:webvh:1.0";
 
 pub fn validate_did_webvh_v1_method(parameters: &Value) -> Result<()> {
     if parameters.get("method").and_then(Value::as_str) != Some(DID_WEBVH_V1_METHOD) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "unsupported_did_method: expected did:webvh:1.0".to_owned(),
         ));
     }
@@ -30,17 +30,17 @@ pub fn validate_did_webvh_v1_method(parameters: &Value) -> Result<()> {
 
 pub fn did_web_document_url(did: &DidFullId) -> Result<String> {
     if did.method() != "web" {
-        return Err(Error::Protocol("DID method is not did:web".to_owned()));
+        return Err(WireError::Protocol("DID method is not did:web".to_owned()));
     }
     let method_id = did
         .as_str()
         .strip_prefix("did:web:")
-        .ok_or_else(|| Error::Protocol("invalid did:web identifier".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("invalid did:web identifier".to_owned()))?;
     let mut parts = method_id.split(':');
     let encoded_authority = parts
         .next()
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| Error::Protocol("did:web authority is empty".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("did:web authority is empty".to_owned()))?;
     let authority = encoded_authority.replace("%3A", ":").replace("%3a", ":");
     let path: Vec<&str> = parts.collect();
     if path.iter().any(|segment| {
@@ -50,7 +50,7 @@ pub fn did_web_document_url(did: &DidFullId) -> Result<String> {
             || segment.contains('?')
             || segment.contains('#')
     }) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "did:web contains an invalid path segment".to_owned(),
         ));
     }
@@ -60,15 +60,15 @@ pub fn did_web_document_url(did: &DidFullId) -> Result<String> {
         format!("https://{authority}/{}/did.json", path.join("/"))
     };
     let parsed =
-        url::Url::parse(&raw).map_err(|_| Error::Protocol("invalid did:web URL".to_owned()))?;
+        url::Url::parse(&raw).map_err(|_| WireError::Protocol("invalid did:web URL".to_owned()))?;
     let host = parsed
         .host_str()
         .filter(|host| host.contains('.'))
-        .ok_or_else(|| Error::Protocol("invalid did:web host".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("invalid did:web host".to_owned()))?;
     if !host.bytes().all(|byte| {
         byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'-')
     }) {
-        return Err(Error::Protocol("invalid did:web host".to_owned()));
+        return Err(WireError::Protocol("invalid did:web host".to_owned()));
     }
     Ok(parsed.to_string())
 }
@@ -271,7 +271,7 @@ impl DidDocument {
             .and_then(Value::as_str)
             .is_some_and(|raw_id| raw_id != self.id.as_str())
         {
-            return Err(Error::Protocol("did document id mismatch".to_owned()));
+            return Err(WireError::Protocol("did document id mismatch".to_owned()));
         }
         Ok(())
     }

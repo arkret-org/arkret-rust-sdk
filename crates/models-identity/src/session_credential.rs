@@ -2,7 +2,7 @@ use std::fmt;
 
 use arkret_wire::{
     DeviceId, DeviceRevocationGateCheckOutcome, DeviceRevocationGateCheckRequestBody, DidCoreId,
-    DidUrl, Error, EventId, Result, SessionGrantGateAdmission, SessionGrantId,
+    DidUrl, EventId, Result, SessionGrantGateAdmission, SessionGrantId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -69,10 +69,10 @@ impl SessionGrantDeviceBinding {
                 authorization_event_id: authorization_event_id.clone(),
                 model_generation_ref,
             }),
-            SessionGrantGateAdmission::DeviceSetupRequired => Err(Error::Protocol(
+            SessionGrantGateAdmission::DeviceSetupRequired => Err(WireError::Protocol(
                 "device setup is required; no session grant may be issued".to_owned(),
             )),
-            SessionGrantGateAdmission::Blocked { reason } => Err(Error::Protocol(format!(
+            SessionGrantGateAdmission::Blocked { reason } => Err(WireError::Protocol(format!(
                 "current device blocks session issuance: {reason:?}"
             ))),
         }
@@ -103,13 +103,17 @@ impl SessionGrantIssuanceNonce {
     pub fn new(value: impl Into<String>) -> Result<Self> {
         let value = value.into();
         let decoded = arkret_canonical::base64url_decode(&value).map_err(|_| {
-            Error::Protocol("session grant issuance_nonce must be canonical Base64URL".to_owned())
+            WireError::Protocol(
+                "session grant issuance_nonce must be canonical Base64URL".to_owned(),
+            )
         })?;
         let bytes: [u8; 32] = decoded.try_into().map_err(|_| {
-            Error::Protocol("session grant issuance_nonce must encode exactly 32 bytes".to_owned())
+            WireError::Protocol(
+                "session grant issuance_nonce must encode exactly 32 bytes".to_owned(),
+            )
         })?;
         if arkret_canonical::base64url_encode(bytes) != value {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "session grant issuance_nonce must be canonical unpadded Base64URL".to_owned(),
             ));
         }
@@ -155,12 +159,14 @@ impl CanonicalSessionPublicJwk {
     pub fn new(value: impl AsRef<str>) -> Result<Self> {
         let parsed =
             arkret_canonical::parse_json_rejecting_duplicate_keys(value.as_ref().as_bytes())
-                .map_err(|error| Error::Protocol(format!("invalid session public JWK: {error}")))?;
+                .map_err(|error| {
+                    WireError::Protocol(format!("invalid session public JWK: {error}"))
+                })?;
         validate_public_jwk(&parsed)?;
         let bytes = arkret_canonical::canonical_json_bytes(&parsed)
-            .map_err(|error| Error::Protocol(format!("invalid session public JWK: {error}")))?;
+            .map_err(|error| WireError::Protocol(format!("invalid session public JWK: {error}")))?;
         let canonical = String::from_utf8(bytes).map_err(|error| {
-            Error::Protocol(format!("invalid UTF-8 session public JWK: {error}"))
+            WireError::Protocol(format!("invalid UTF-8 session public JWK: {error}"))
         })?;
         Ok(Self(canonical))
     }
@@ -229,14 +235,14 @@ impl<'de> Deserialize<'de> for CanonicalSessionPublicJwk {
 
 fn validate_public_jwk(value: &Value) -> Result<()> {
     let object = value.as_object().ok_or_else(|| {
-        Error::Protocol("session_public_key must encode a JSON object".to_owned())
+        WireError::Protocol("session_public_key must encode a JSON object".to_owned())
     })?;
     let kty = required_non_empty_string(object, "kty")?;
     let allowed = match kty {
         "OKP" => {
             let crv = required_non_empty_string(object, "crv")?;
             if crv != "Ed25519" || required_base64url_member(object, "x")?.len() != 32 {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "session OKP JWK must be an Ed25519 key with a 32-byte x coordinate".to_owned(),
                 ));
             }
@@ -251,7 +257,7 @@ fn validate_public_jwk(value: &Value) -> Result<()> {
                 "P-384" => 48,
                 "P-521" => 66,
                 _ => {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "unsupported session EC JWK curve: {crv}"
                     )));
                 }
@@ -259,7 +265,7 @@ fn validate_public_jwk(value: &Value) -> Result<()> {
             if required_base64url_member(object, "x")?.len() != expected_len
                 || required_base64url_member(object, "y")?.len() != expected_len
             {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "session EC JWK {crv} coordinates have the wrong length"
                 )));
             }
@@ -272,7 +278,7 @@ fn validate_public_jwk(value: &Value) -> Result<()> {
             if required_base64url_member(object, "n")?.len() < 256
                 || !(1..=8).contains(&required_base64url_member(object, "e")?.len())
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "session RSA JWK must use at least a 2048-bit modulus and a bounded exponent"
                         .to_owned(),
                 ));
@@ -282,7 +288,7 @@ fn validate_public_jwk(value: &Value) -> Result<()> {
             ][..]
         }
         _ => {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "unsupported session public JWK kty: {kty}"
             )));
         }
@@ -291,7 +297,7 @@ fn validate_public_jwk(value: &Value) -> Result<()> {
         .keys()
         .find(|member| !allowed.contains(&member.as_str()))
     {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "unsupported or private session public JWK member: {member}"
         )));
     }
@@ -303,13 +309,13 @@ fn validate_public_jwk(value: &Value) -> Result<()> {
     for member in ["key_ops", "x5c"] {
         if let Some(value) = object.get(member) {
             let values = value.as_array().ok_or_else(|| {
-                Error::Protocol(format!("session public JWK {member} must be an array"))
+                WireError::Protocol(format!("session public JWK {member} must be an array"))
             })?;
             if values
                 .iter()
                 .any(|value| value.as_str().is_none_or(str::is_empty))
             {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "session public JWK {member} must contain only non-empty strings"
                 )));
             }
@@ -324,7 +330,7 @@ fn required_non_empty_string<'a>(object: &'a Map<String, Value>, member: &str) -
         .and_then(Value::as_str)
         .filter(|value| !value.is_empty())
         .ok_or_else(|| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "session public JWK {member} must be a non-empty string"
             ))
         })
@@ -338,7 +344,7 @@ fn required_base64url_member(object: &Map<String, Value>, member: &str) -> Resul
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
         || value.len() % 4 == 1
     {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "session public JWK {member} must be canonical unpadded Base64URL"
         )));
     }
@@ -408,8 +414,9 @@ pub struct SessionGrantIssuancePreimage {
 impl SessionGrantIssuancePreimage {
     pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
         self.validate()?;
-        arkret_canonical::canonical_json_bytes(self)
-            .map_err(|error| Error::Protocol(format!("invalid session grant preimage: {error}")))
+        arkret_canonical::canonical_json_bytes(self).map_err(|error| {
+            WireError::Protocol(format!("invalid session grant preimage: {error}"))
+        })
     }
 
     pub fn issuance_digest(&self) -> Result<[u8; 32]> {
@@ -511,7 +518,7 @@ struct RawSignedSessionGrantClaims {
 }
 
 impl TryFrom<RawSignedSessionGrantClaims> for SignedSessionGrantClaims {
-    type Error = Error;
+    type Error = WireError;
 
     fn try_from(raw: RawSignedSessionGrantClaims) -> Result<Self> {
         validate_issuance_fields(
@@ -580,18 +587,18 @@ impl SignedSessionGrantClaims {
     /// verification remains the host verifier's preceding responsibility.
     pub fn validate(&self) -> Result<()> {
         if self.kind != SESSION_GRANT_CREDENTIAL_KIND {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "session grant kind must be {SESSION_GRANT_CREDENTIAL_KIND}"
             )));
         }
         let expected = self.recomputed_grant_id()?;
         if self.grant_id != expected {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "session grant jti does not match signed issuance claims: expected {expected}"
             )));
         }
         if self.session_id == self.grant_id.as_str() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "session grant session_id must be independent from grant jti".to_owned(),
             ));
         }
@@ -614,33 +621,33 @@ fn validate_issuance_fields(
     scope_details: Option<&Map<String, Value>>,
 ) -> Result<()> {
     if schema != SESSION_GRANT_ISSUANCE_SCHEMA {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "session grant issuance schema must be {SESSION_GRANT_ISSUANCE_SCHEMA}"
         )));
     }
     if scopes.is_empty() || scopes.iter().any(|scope| scope.trim().is_empty()) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "session grant scopes must contain only non-empty values".to_owned(),
         ));
     }
     if scopes.windows(2).any(|pair| pair[0] >= pair[1]) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "session grant scopes must be byte-wise sorted and deduplicated".to_owned(),
         ));
     }
     if session_id.trim().is_empty() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "session grant session_id must not be empty".to_owned(),
         ));
     }
     if expires_at <= not_before {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "session grant expires_at must be after not_before".to_owned(),
         ));
     }
     validate_jwk_thumbprint(&cnf.jkt, "session grant cnf.jkt")?;
     if device_binding.is_some_and(|binding| binding.model_generation_ref == 0) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "session grant device generation must be positive".to_owned(),
         ));
     }
@@ -649,25 +656,25 @@ fn validate_issuance_fields(
             device_binding: holder_device_id,
         } => {
             let binding = device_binding.ok_or_else(|| {
-                Error::Protocol(
+                WireError::Protocol(
                     "standard human session grant requires a signed device_binding".to_owned(),
                 )
             })?;
             if binding.device_id.as_str() != holder_device_id {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "human holder_binding and signed device_binding identify different devices"
                         .to_owned(),
                 ));
             }
             if scope_details.is_some() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "human session grant must omit Agent scope_details".to_owned(),
                 ));
             }
         }
         SessionGrantHolderBinding::AgentRuntime { .. } => {
             if device_binding.is_some() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "Agent runtime session grant must omit human device_binding".to_owned(),
                 ));
             }
@@ -689,7 +696,7 @@ fn validate_jwk_thumbprint(value: &str, field: &str) -> Result<()> {
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
     {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "{field} must be an unpadded base64url SHA-256 JWK thumbprint"
         )));
     }

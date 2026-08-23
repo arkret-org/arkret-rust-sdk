@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{DidCoreId, Error, Hash, NonEmptyString, RealmId, Result};
+use arkret_wire::{DidCoreId, Hash, NonEmptyString, RealmId, Result, WireError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -163,12 +163,13 @@ impl AppletRegistrationPayload {
     pub fn to_value(&self) -> Result<Value> {
         // Spec: an empty proof object MUST be rejected as schema_violation.
         if self.proof.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet registration proof object must not be empty".to_owned(),
             ));
         }
-        serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("applet registration payload serialize: {err}")))
+        serde_json::to_value(self).map_err(|err| {
+            WireError::Protocol(format!("applet registration payload serialize: {err}"))
+        })
     }
 }
 

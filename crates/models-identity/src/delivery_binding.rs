@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use arkret_wire::{DeviceId, DidCoreId, Error, EventId, Hash, Result};
+use arkret_wire::{DeviceId, DidCoreId, EventId, Hash, Result, WireError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -99,14 +99,14 @@ impl MemberDeliveryBinding {
         self.service_resolution
             .validate_shape(&self.recipient_service_id)?;
         if self.delivery_modes.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "member_delivery_binding.delivery_modes MUST NOT be empty".to_owned(),
             ));
         }
         match self.binding_source {
             BindingSource::DidDocumentDefault => {
                 if self.did_document_digest.is_none() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "binding_source=did_document_default requires did_document_digest"
                             .to_owned(),
                     ));
@@ -114,7 +114,7 @@ impl MemberDeliveryBinding {
             }
             BindingSource::Explicit | BindingSource::Invite => {
                 if self.service_acceptance_ref.is_none() {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "binding_source={:?} requires service_acceptance_ref",
                         self.binding_source
                     )));
@@ -122,7 +122,7 @@ impl MemberDeliveryBinding {
             }
             BindingSource::OrganizationPolicy => {
                 if self.service_acceptance_ref.is_none() || self.policy_event_ref.is_none() {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "binding_source=organization_policy requires service_acceptance_ref + \
                          policy_event_ref"
                             .to_owned(),
@@ -131,7 +131,7 @@ impl MemberDeliveryBinding {
             }
             BindingSource::JoinPolicy | BindingSource::RealmPolicy => {
                 if self.policy_event_ref.is_none() {
-                    return Err(Error::Protocol(format!(
+                    return Err(WireError::Protocol(format!(
                         "binding_source={:?} requires policy_event_ref",
                         self.binding_source
                     )));

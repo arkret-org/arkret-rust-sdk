@@ -11,8 +11,8 @@ use std::fmt;
 
 use arkret_canonical::canonical;
 use arkret_wire::{
-    DidCoreId, DidFullId, DidUrl, Error, Hash, PayloadProof, Result, ServiceKind,
-    ServiceRegistrationReceiptId, project_full_id_to_core_id,
+    DidCoreId, DidFullId, DidUrl, Hash, PayloadProof, Result, ServiceKind,
+    ServiceRegistrationReceiptId, WireError, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -30,25 +30,26 @@ pub struct CanonicalServiceUrl(String);
 impl CanonicalServiceUrl {
     pub fn new(value: impl AsRef<str>) -> Result<Self> {
         let raw = value.as_ref().trim();
-        let mut url = Url::parse(raw)
-            .map_err(|error| Error::Protocol(format!("invalid service public base: {error}")))?;
+        let mut url = Url::parse(raw).map_err(|error| {
+            WireError::Protocol(format!("invalid service public base: {error}"))
+        })?;
         if !matches!(url.scheme(), "https" | "http") {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "service public base scheme must be https or explicit-development http".to_owned(),
             ));
         }
         if url.host_str().is_none() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "service public base must include a host".to_owned(),
             ));
         }
         if !url.username().is_empty() || url.password().is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "service public base must not contain userinfo".to_owned(),
             ));
         }
         if url.query().is_some() || url.fragment().is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "service public base must not contain a query or fragment".to_owned(),
             ));
         }
@@ -61,7 +62,7 @@ impl CanonicalServiceUrl {
         url.set_path(&canonical_path);
         let canonical = url.to_string();
         if canonical != raw {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "service public base is not canonical; use {canonical}"
             )));
         }
@@ -70,10 +71,11 @@ impl CanonicalServiceUrl {
 
     pub fn canonicalize(value: impl AsRef<str>) -> Result<Self> {
         let raw = value.as_ref().trim();
-        let mut url = Url::parse(raw)
-            .map_err(|error| Error::Protocol(format!("invalid service public base: {error}")))?;
+        let mut url = Url::parse(raw).map_err(|error| {
+            WireError::Protocol(format!("invalid service public base: {error}"))
+        })?;
         if !matches!(url.scheme(), "https" | "http") || url.host_str().is_none() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "service public base must be an http(s) URL with a host".to_owned(),
             ));
         }
@@ -82,7 +84,7 @@ impl CanonicalServiceUrl {
             || url.query().is_some()
             || url.fragment().is_some()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "service public base must not contain userinfo, query, or fragment".to_owned(),
             ));
         }
@@ -100,7 +102,7 @@ impl CanonicalServiceUrl {
         if self.0.starts_with("https://") {
             Ok(())
         } else {
-            Err(Error::Protocol(format!(
+            Err(WireError::Protocol(format!(
                 "production service public base must use https: {}",
                 self.0
             )))
@@ -166,7 +168,7 @@ impl ServiceRegistrationKey {
             service_kind,
             ServiceKind::PrincipalServer | ServiceKind::AuthServer | ServiceKind::IdentityRegistry
         ) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "service_kind {} is not valid in a service registration key",
                 service_kind.as_str()
             )));
@@ -243,7 +245,7 @@ pub struct ServiceDidDocument {
 impl ServiceDidDocument {
     pub fn validate_for(&self, key: &ServiceRegistrationKey) -> Result<()> {
         if self.id.method() != "webvh" {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "service registration DID document id must use did:webvh".to_owned(),
             ));
         }
@@ -252,7 +254,7 @@ impl ServiceDidDocument {
             .iter()
             .any(|value| value == "https://www.w3.org/ns/did/v1")
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "service DID document must include the DID Core context".to_owned(),
             ));
         }
@@ -260,14 +262,14 @@ impl ServiceDidDocument {
             || self.authentication.is_empty()
             || self.assertion_method.is_empty()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "service DID document must publish verification, authentication, and assertion keys"
                     .to_owned(),
             ));
         }
         for method in &self.verification_method {
             if method.method_type != "Multikey" || method.controller != self.id {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "service DID verification methods must be Multikey entries controlled by the service DID"
                         .to_owned(),
                 ));
@@ -275,7 +277,7 @@ impl ServiceDidDocument {
             if !method.id.starts_with(&format!("{}#", self.id))
                 || !is_multibase_base58(&method.public_key_multibase)
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "service DID verification method id or publicKeyMultibase is invalid"
                         .to_owned(),
                 ));
@@ -287,7 +289,7 @@ impl ServiceDidDocument {
                 .iter()
                 .any(|method| method.id == *reference)
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "service DID authentication and assertion methods must reference declared verification methods"
                         .to_owned(),
                 ));
@@ -303,7 +305,7 @@ impl ServiceDidDocument {
                         | ServiceKind::IdentityRegistry
                 )
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "service DID endpoints must use the closed ArkretService registration profile"
                         .to_owned(),
                 ));
@@ -319,7 +321,7 @@ impl ServiceDidDocument {
             })
             .count();
         if bindings != 1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "signed inception must contain exactly one ArkretService endpoint matching service_kind and public_base"
                     .to_owned(),
             ));
@@ -367,7 +369,7 @@ impl ServiceWebvhDataIntegrityProof {
             || !is_multibase_base58(&self.proof_value)
             || !is_did_url(&self.verification_method)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "service identity proof does not match the eddsa-jcs-2022 profile".to_owned(),
             ));
         }
@@ -395,7 +397,7 @@ impl ServiceWebvhInceptionOperation {
             || self.parameters.next_key_hashes.len() != 1
             || self.proof.is_empty()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "service registration requires a complete did:webvh v1 inception operation"
                     .to_owned(),
             ));
@@ -416,14 +418,14 @@ impl ServiceWebvhInceptionOperation {
                 .len()
                 != self.parameters.update_keys.len()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "service registration WebVH identifiers or updateKeys are not canonical base58btc"
                     .to_owned(),
             ));
         }
         let did_prefix = format!("did:webvh:{}:", self.parameters.scid);
         if !self.state.id.as_str().starts_with(&did_prefix) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "WebVH inception SCID does not match the DID document id".to_owned(),
             ));
         }
@@ -435,7 +437,7 @@ impl ServiceWebvhInceptionOperation {
                 .strip_prefix("did:key:")
                 .and_then(|value| value.split_once('#').map(|(key, _)| key))
                 .ok_or_else(|| {
-                    Error::Protocol(
+                    WireError::Protocol(
                         "WebVH inception proof verificationMethod must be did:key".to_owned(),
                     )
                 })?;
@@ -445,7 +447,7 @@ impl ServiceWebvhInceptionOperation {
                 .iter()
                 .any(|key| key == public_key)
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "WebVH inception proof must reference an updateKeys entry".to_owned(),
                 ));
             }
@@ -459,7 +461,7 @@ impl ServiceWebvhInceptionOperation {
 
     pub fn control_key_digest(&self) -> Result<String> {
         let key = self.parameters.update_keys.first().ok_or_else(|| {
-            Error::Protocol("WebVH inception updateKeys must not be empty".to_owned())
+            WireError::Protocol("WebVH inception updateKeys must not be empty".to_owned())
         })?;
         Ok(sha256_bytes(key.as_bytes()))
     }
@@ -510,7 +512,7 @@ impl ServiceRegistrationReceipt {
         document
             .as_object_mut()
             .ok_or_else(|| {
-                Error::Protocol("service registration receipt must be an object".to_owned())
+                WireError::Protocol("service registration receipt must be an object".to_owned())
             })?
             .remove("proof");
         Ok(Hash::new(canonical::canonical_sha256(&document)?)?)
@@ -556,7 +558,7 @@ impl ServiceRegistrationReceipt {
             || self.proof.created_at != self.issued_at
             || self.proof.proof_purpose.is_some()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "service registration receipt id or detached proof binding does not match its canonical claims"
                     .to_owned(),
             ));
@@ -572,7 +574,7 @@ impl ServiceRegistrationReceipt {
         if projected != self.provider_service_id
             || !self.proof.verification_method.starts_with(&provider_prefix)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "service registration proof verificationMethod is not controlled by the resolved provider service"
                     .to_owned(),
             ));
@@ -591,13 +593,13 @@ impl ServiceRegistrationReceipt {
             || &self.full_id != full_id
             || project_full_id_to_core_id(full_id)? != *service_id
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "service registration receipt key, stable service id, or complete DID mismatch"
                     .to_owned(),
             ));
         }
         if !is_sha256_digest(&self.log_head_digest) || !is_sha256_digest(&self.control_key_digest) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "service registration receipt contains an invalid id or digest".to_owned(),
             ));
         }
@@ -663,7 +665,7 @@ impl ServiceRegistrationEnsureRequestBody {
         let key = self.registration_key()?;
         self.inception_operation.validate_for(&key)?;
         if self.full_id != self.inception_operation.state.id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "service registration full_id must equal the signed inception document id"
                     .to_owned(),
             ));
@@ -694,7 +696,7 @@ impl ServiceRegistrationOutcome {
         if self.did_document.id != self.full_id
             || project_full_id_to_core_id(&self.full_id)? != self.service_id
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "service registration outcome stable service id or complete DID mismatch"
                     .to_owned(),
             ));
@@ -703,7 +705,7 @@ impl ServiceRegistrationOutcome {
         self.registration_receipt
             .validate_for(key, &self.service_id, &self.full_id)?;
         if self.registration_receipt.version_id != self.version_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "service registration receipt version_id mismatch".to_owned(),
             ));
         }
@@ -718,12 +720,12 @@ impl ServiceRegistrationOutcome {
         let key = request.registration_key()?;
         self.validate_for(&key)?;
         if self.full_id != request.full_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Provider returned a service DID different from the signed inception".to_owned(),
             ));
         }
         if self.did_document != request.inception_operation.state {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Provider returned a DID document different from the signed inception".to_owned(),
             ));
         }
@@ -733,7 +735,7 @@ impl ServiceRegistrationOutcome {
 
 fn validate_service_registration_idempotency_key(value: &str) -> Result<()> {
     if value.is_empty() || value.chars().count() > SERVICE_REGISTRATION_IDEMPOTENCY_KEY_MAX_LEN {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "service registration idempotency_key must be a bounded non-empty opaque string"
                 .to_owned(),
         ));

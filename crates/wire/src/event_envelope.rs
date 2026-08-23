@@ -37,7 +37,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::cba::{Precondition, SealBasis};
-use crate::error::{Error, Result};
+use crate::error::{Result, WireError};
 use crate::error_codes::ReasonCode;
 use crate::events::kinds::EventKind;
 use crate::primitives::{
@@ -80,7 +80,7 @@ pub const EVENT_REF_ROLE_AUTHORIZED_BY: &str = "authorized_by";
 
 pub fn validate_event_envelope_byte_len(byte_len: usize) -> Result<()> {
     if byte_len > MAX_EVENT_ENVELOPE_BYTES {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "event envelope exceeds v1 maximum of {MAX_EVENT_ENVELOPE_BYTES} bytes"
         )));
     }
@@ -90,7 +90,7 @@ pub fn validate_event_envelope_byte_len(byte_len: usize) -> Result<()> {
 /// Reject an HTTP message content length before the body is parsed or canonicalized.
 pub fn validate_http_message_content_len(byte_len: usize) -> Result<()> {
     if byte_len > MAX_HTTP_MESSAGE_CONTENT_BYTES {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "HTTP message content exceeds v1 maximum of {MAX_HTTP_MESSAGE_CONTENT_BYTES} bytes"
         )));
     }
@@ -99,7 +99,7 @@ pub fn validate_http_message_content_len(byte_len: usize) -> Result<()> {
 
 pub fn validate_event_submit_batch_count(count: usize) -> Result<()> {
     if count > MAX_EVENT_SUBMIT_BATCH {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "event submit batch exceeds v1 maximum of {MAX_EVENT_SUBMIT_BATCH} events"
         )));
     }
@@ -108,7 +108,7 @@ pub fn validate_event_submit_batch_count(count: usize) -> Result<()> {
 
 pub fn validate_event_prev_ref_count(count: usize) -> Result<()> {
     if count > MAX_EVENT_PREV_REFS {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "prev_refs exceeds v1 maximum of {MAX_EVENT_PREV_REFS} entries"
         )));
     }
@@ -117,7 +117,7 @@ pub fn validate_event_prev_ref_count(count: usize) -> Result<()> {
 
 pub fn validate_event_ref_count(count: usize) -> Result<()> {
     if count > MAX_EVENT_REFS {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "refs exceeds v1 maximum of {MAX_EVENT_REFS} entries"
         )));
     }
@@ -126,7 +126,7 @@ pub fn validate_event_ref_count(count: usize) -> Result<()> {
 
 pub fn validate_authorized_by_ref_count(count: usize) -> Result<()> {
     if count > MAX_AUTHORIZED_BY_REFS {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "authorized_by refs exceeds v1 maximum of {MAX_AUTHORIZED_BY_REFS} entries"
         )));
     }
@@ -135,7 +135,7 @@ pub fn validate_authorized_by_ref_count(count: usize) -> Result<()> {
 
 pub fn validate_actor_seq_sibling_count(count: usize) -> Result<()> {
     if count > MAX_ACTOR_SEQ_SIBLINGS {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "actor_seq sibling fork count exceeds v1 maximum of {MAX_ACTOR_SEQ_SIBLINGS}"
         )));
     }
@@ -144,7 +144,7 @@ pub fn validate_actor_seq_sibling_count(count: usize) -> Result<()> {
 
 pub fn validate_authority_chain_depth(depth: usize) -> Result<()> {
     if depth > MAX_AUTHORITY_CHAIN_DEPTH {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "authority chain depth exceeds v1 maximum of {MAX_AUTHORITY_CHAIN_DEPTH}"
         )));
     }
@@ -153,7 +153,7 @@ pub fn validate_authority_chain_depth(depth: usize) -> Result<()> {
 
 pub fn validate_authority_control_depth(depth: u32) -> Result<()> {
     if depth > MAX_AUTHORITY_CONTROL_DEPTH {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "max_authority_depth exceeds v1 field maximum of {MAX_AUTHORITY_CONTROL_DEPTH}"
         )));
     }
@@ -165,7 +165,7 @@ pub fn validate_event_prev_refs(prev_refs: &[EventId]) -> Result<()> {
     for prev_ref in prev_refs {
         validate_event_prev_ref_count(seen.len() + 1)?;
         if !seen.insert(prev_ref) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "prev_refs MUST NOT contain duplicate entries".to_owned(),
             ));
         }
@@ -430,7 +430,7 @@ impl PrincipalAuthorityKey {
 
     pub fn validate(&self) -> Result<()> {
         if self.principal_id.as_str().is_empty() || self.principal_server_id.as_str().is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "principal authority ids must be non-empty".to_owned(),
             ));
         }
@@ -551,7 +551,7 @@ impl RegistrationDidEvidenceDraft {
     pub fn accept(self, accepted_at: DateTime<Utc>) -> Result<RegistrationDidEvidence> {
         self.validate_shape()?;
         if accepted_at < self.control_proof.created_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "registration evidence acceptance predates its control proof".to_owned(),
             ));
         }
@@ -602,7 +602,7 @@ impl RegistrationDidEvidence {
             &self.control_proof,
         )?;
         if self.control_proof.created_at > self.accepted_at {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "registration DID evidence predates its control proof".to_owned(),
             ));
         }
@@ -646,7 +646,9 @@ fn validate_registration_did_evidence_fields(
         .as_str()
         .split_once('#')
         .map(|(controller, _)| controller)
-        .ok_or_else(|| Error::Protocol("registration control proof has no fragment".to_owned()))?;
+        .ok_or_else(|| {
+            WireError::Protocol("registration control proof has no fragment".to_owned())
+        })?;
     let mut witness_ids = BTreeSet::new();
     if adapter_version.trim().is_empty()
         || method_history_head.trim().is_empty()
@@ -666,7 +668,7 @@ fn validate_registration_did_evidence_fields(
                     .any(|witness| !witness_ids.insert(witness.witness_did.as_str().to_owned()))
         })
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "registration DID evidence shape or identity binding mismatch".to_owned(),
         ));
     }
@@ -676,7 +678,7 @@ fn validate_registration_did_evidence_fields(
                 && method_evidence.method_proofs[0].history_head == method_history_head => {}
         "web" | "key" if method_evidence.method_proofs.is_empty() => {}
         _ => {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "registration DID evidence method proof mismatch".to_owned(),
             ));
         }
@@ -717,7 +719,7 @@ pub fn derive_genesis_realm_id(event_id: &EventId) -> RealmId {
 /// Everything else, `scope_ref` included, stays inside the transcript.
 pub fn event_digest_preimage(envelope: &Value) -> Result<Value> {
     let Value::Object(map) = envelope else {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "Event digest preimage input must be a JSON object envelope".to_owned(),
         ));
     };
@@ -997,7 +999,7 @@ impl ScopeRef {
     /// ASCII Unit Separator byte. Genesis has no executable MLS scope.
     pub fn canonical_effective_scope_key_bytes(&self) -> Result<Vec<u8>> {
         match self {
-            Self::RealmGenesis => Err(Error::Protocol(
+            Self::RealmGenesis => Err(WireError::Protocol(
                 "RealmGenesis has no executable MLS security scope".to_owned(),
             )),
             Self::Realm { realm_id } => Ok(realm_id.as_str().as_bytes().to_vec()),
@@ -1031,7 +1033,7 @@ impl ScopeRef {
     /// Realm id of a Circle or Sidecar. `RealmGenesis` has no MLS scope.
     pub fn cell_subject_scope_id(&self) -> Result<&str> {
         match self {
-            Self::RealmGenesis => Err(Error::Protocol(
+            Self::RealmGenesis => Err(WireError::Protocol(
                 "RealmGenesis has no executable MLS security scope".to_owned(),
             )),
             Self::Realm { realm_id } => Ok(realm_id.as_str()),
@@ -1139,7 +1141,7 @@ impl From<HistoryEffectiveScope> for ScopeRef {
 }
 
 impl TryFrom<ScopeRef> for HistoryEffectiveScope {
-    type Error = Error;
+    type Error = WireError;
 
     fn try_from(scope: ScopeRef) -> Result<Self> {
         match scope {
@@ -1151,7 +1153,7 @@ impl TryFrom<ScopeRef> for HistoryEffectiveScope {
                 realm_id,
                 circle_id,
             }),
-            ScopeRef::RealmGenesis | ScopeRef::Sidecar { .. } => Err(Error::Protocol(
+            ScopeRef::RealmGenesis | ScopeRef::Sidecar { .. } => Err(WireError::Protocol(
                 "scope is not an admitted history effective scope".to_owned(),
             )),
         }
@@ -1255,11 +1257,11 @@ impl Event {
     ) -> Result<Self> {
         let mut value: Value = serde_json::from_slice(bytes)?;
         let object = value.as_object_mut().ok_or_else(|| {
-            Error::Protocol("Event digest payload must be a JSON object".to_owned())
+            WireError::Protocol("Event digest payload must be a JSON object".to_owned())
         })?;
         for forbidden in ["proofs", "unsigned", "actor_kind"] {
             if object.contains_key(forbidden) {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "Event digest payload must omit {forbidden}"
                 )));
             }
@@ -1277,7 +1279,7 @@ impl Event {
         event.event_id = event.derive_event_id_with_digest_suite(digest_suite)?;
         let canonical = arkret_canonical::canonical_json_bytes(&event.digest_payload()?)?;
         if canonical != bytes {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Event digest payload bytes are not canonical".to_owned(),
             ));
         }
@@ -1331,9 +1333,11 @@ impl Event {
         let hex = digest
             .split_once(':')
             .map(|(_, rest)| rest)
-            .ok_or_else(|| Error::Protocol("event digest must carry a suite prefix".to_owned()))?;
+            .ok_or_else(|| {
+                WireError::Protocol("event digest must carry a suite prefix".to_owned())
+            })?;
         if hex.len() != 64 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Event ID format requires a 32-octet event digest".to_owned(),
             ));
         }
@@ -1341,9 +1345,9 @@ impl Event {
             .step_by(2)
             .map(|i| u8::from_str_radix(&hex[i..i + 2], 16))
             .collect::<std::result::Result<Vec<u8>, _>>()
-            .map_err(|_| Error::Protocol("event digest is not lowercase hex".to_owned()))?;
+            .map_err(|_| WireError::Protocol("event digest is not lowercase hex".to_owned()))?;
         let digest_bytes: [u8; 32] = octets.try_into().map_err(|_| {
-            Error::Protocol("Event ID format requires a 32-octet event digest".to_owned())
+            WireError::Protocol("Event ID format requires a 32-octet event digest".to_owned())
         })?;
         Ok(EventId::from_digest(digest_suite, digest_bytes))
     }
@@ -1363,7 +1367,7 @@ impl Event {
         if derived == self.event_id {
             Ok(())
         } else {
-            Err(Error::Protocol(
+            Err(WireError::Protocol(
                 "event_id_digest_mismatch: carried event_id does not equal the value re-derived                  from this Event's own canonical content"
                     .to_owned(),
             ))
@@ -1470,25 +1474,25 @@ impl Event {
         // the genesis branch instead pins the closed scope shape.
         if self.kind == EventKind::RealmCreate {
             if self.scope_ref != ScopeRef::RealmGenesis {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "ak.realm.create MUST use the realm_genesis scope".to_owned(),
                 ));
             }
         } else if self.scope_ref.realm_id_opt() != Some(&self.realm_id) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "event scope_ref.realm_id must equal the envelope realm_id".to_owned(),
             ));
         }
         if self.actor_kind.is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 ReasonCode::ACTOR_KIND_REDUCER_MANAGED.to_owned(),
             ));
         }
         self.validate_applet_provenance_invariants()
-            .map_err(Error::Protocol)?;
+            .map_err(WireError::Protocol)?;
         match proof_requirement {
             EventProofSetRequirement::UnsignedDraft if !self.proofs.is_empty() => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "Event authoring draft must not carry proofs".to_owned(),
                 ));
             }
@@ -1497,7 +1501,7 @@ impl Event {
                     producer.validate_signer_resolution_evidence_pair()?;
                 }
                 _ => {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "caller submission must carry exactly one producer proof and no principal server admission proof"
                             .to_owned(),
                     ));
@@ -1511,14 +1515,14 @@ impl Event {
                     if producer.signer_resolution_evidence_ref.is_some()
                         || producer.signer_resolution_evidence_digest.is_some()
                     {
-                        return Err(Error::Protocol(
+                        return Err(WireError::Protocol(
                             "admission-backed producer proof must omit direct signer resolution evidence"
                                 .to_owned(),
                         ));
                     }
                 }
                 _ => {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "federated Event must carry exactly one producer proof followed by one principal server admission proof"
                             .to_owned(),
                     ));
@@ -1532,7 +1536,7 @@ impl Event {
             .iter()
             .any(|extension| !extension.fail_closed)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "event critical extensions must declare fail_closed=true".to_owned(),
             ));
         }
@@ -1557,7 +1561,7 @@ impl Event {
                 && self.auth_context.is_none()
                 && self.seal_basis.is_none();
             if !is_data_event && !is_control_move && !is_anchor_unit {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "reducer-input events must be either DataEvent(seal_ref+auth_context) or Control Move(seal_basis)"
                         .to_owned(),
                 ));
@@ -1567,7 +1571,7 @@ impl Event {
             || self.seal_basis.is_some()
             || !self.preconditions.is_empty()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "non-reducer events must not carry CBA reducer fields".to_owned(),
             ));
         }
@@ -1606,7 +1610,7 @@ impl Event {
             };
             proof.validate()?;
             if proof.event_digest != expected_hash {
-                return Err(Error::Protocol(format!(
+                return Err(WireError::Protocol(format!(
                     "event proof event_digest '{}' does not match event digest '{}'",
                     proof.event_digest, expected_hash
                 )));
@@ -1649,14 +1653,14 @@ impl Event {
             EventProof::PrincipalServerAdmission(admission),
         ] = self.proofs.as_slice()
         else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "accepted event must contain one producer proof followed by one principal server admission proof"
                     .to_owned(),
             ));
         };
         producer.validate()?;
         if producer.event_digest != expected_event_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "producer proof event digest does not match accepted event".to_owned(),
             ));
         }
@@ -1778,7 +1782,7 @@ impl Event {
         created_at: DateTime<Utc>,
     ) -> Result<Self> {
         let Value::Object(payload) = payload else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "event payload must be a JSON object".to_owned(),
             ));
         };

@@ -15,7 +15,7 @@
 use arkret_canonical::canonical;
 use serde_json::Value;
 
-use crate::error::{Error, Result};
+use crate::error::{Result, WireError};
 use crate::event_envelope::{
     MAX_EVENT_ENVELOPE_BYTES, MAX_HTTP_MESSAGE_CONTENT_BYTES, MAX_OPERATION_CANONICAL_BODY_BYTES,
     MAX_READ_VIEW_UNSIGNED_CANONICAL_BYTES,
@@ -74,14 +74,14 @@ impl WireBodyClass {
         let canonical_bytes = canonical::canonical_json_bytes(&value)?;
         let limit = self.canonical_byte_limit();
         if canonical_bytes.len() > limit {
-            return Err(Error::BodyCanonicalBytesExceeded {
+            return Err(WireError::BodyCanonicalBytesExceeded {
                 body_class: self.label(),
                 actual: canonical_bytes.len(),
                 limit,
             });
         }
         if canonical_bytes.as_slice() != bytes {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "canonical JSON input is not byte-for-byte canonical".to_owned(),
             ));
         }
@@ -101,7 +101,7 @@ impl WireBodyClass {
 /// (`scalability-constraints.md` §2.1.3).
 pub fn validate_http_message_content_len(byte_len: usize) -> Result<()> {
     if byte_len > MAX_HTTP_MESSAGE_CONTENT_BYTES {
-        return Err(Error::BodyWireBytesExceeded {
+        return Err(WireError::BodyWireBytesExceeded {
             actual: byte_len,
             limit: MAX_HTTP_MESSAGE_CONTENT_BYTES,
         });
@@ -189,13 +189,13 @@ mod tests {
         };
         let non_canonical = br#"{ "a": 1 }"#;
         let error = class.admit_canonical(non_canonical).unwrap_err();
-        assert!(matches!(error, Error::Protocol(_)));
+        assert!(matches!(error, WireError::Protocol(_)));
 
         let canonical_over_limit = br#"{"a":100}"#;
         let error = class.admit_canonical(canonical_over_limit).unwrap_err();
         assert!(matches!(
             error,
-            Error::BodyCanonicalBytesExceeded {
+            WireError::BodyCanonicalBytesExceeded {
                 actual: 9,
                 limit: 8,
                 ..

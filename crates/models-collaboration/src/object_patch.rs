@@ -11,7 +11,7 @@
 use std::sync::OnceLock;
 
 use arkret_wire::patch::{Patch, PatchTargetKind, validate_patch_semantic_safety};
-use arkret_wire::{Error, Hash, Result};
+use arkret_wire::{Hash, Result, WireError};
 use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -31,7 +31,7 @@ pub struct ObjectPatchPayload {
 impl ObjectPatchPayload {
     /// Build the minimal object-patch payload.
     pub fn new(_patch: Patch) -> Result<Self> {
-        Err(Error::Protocol(
+        Err(WireError::Protocol(
             "object_patch_payload requires target_ref; use ObjectPatchPayload::for_target"
                 .to_owned(),
         ))
@@ -60,7 +60,7 @@ impl ObjectPatchPayload {
         validate_object_patch_ref("target_ref", &self.target_ref)?;
         if let Some(object_ref) = &self.object_ref {
             validate_object_patch_ref("object_ref", object_ref)?;
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "object_patch_payload.object_ref is not canonical; use target_ref".to_owned(),
             ));
         }
@@ -76,7 +76,7 @@ impl ObjectPatchPayload {
     /// shared type constructors.
     pub fn to_value(&self) -> Result<Value> {
         self.validate()?;
-        serde_json::to_value(self).map_err(Error::from)
+        serde_json::to_value(self).map_err(WireError::from)
     }
 }
 
@@ -115,7 +115,7 @@ fn validate_object_patch_ref(field: &str, value: &str) -> Result<()> {
     if object_ref.is_match(value) {
         Ok(())
     } else {
-        Err(Error::Protocol(format!(
+        Err(WireError::Protocol(format!(
             "object_patch_payload.{field} must match event-payload.schema.json#/$defs/object_ref"
         )))
     }

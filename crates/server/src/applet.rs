@@ -22,7 +22,7 @@ use arkret_models_integration::applet_models::{
     AppletTransactionOutcome,
 };
 use arkret_signatures::VerificationMethodDocument;
-use arkret_wire::{DidUrl, Error, Hash, Result};
+use arkret_wire::{DidUrl, Hash, Result, WireError};
 
 use crate::idempotency::{
     IdempotencyIdentity, IdempotencyWindow, TransactionClaim, TransactionIdempotencyStore,
@@ -131,7 +131,8 @@ pub trait AppletHandler: Send + Sync + 'static {
 #[derive(Clone)]
 pub struct AppletService {
     pub handler: Arc<dyn AppletHandler>,
-    pub idempotency: Arc<dyn TransactionIdempotencyStore<AppletTransactionOutcome, Error = Error>>,
+    pub idempotency:
+        Arc<dyn TransactionIdempotencyStore<AppletTransactionOutcome, Error = WireError>>,
 }
 
 /// Result of routing one *verified* transaction delivery through the
@@ -153,7 +154,7 @@ pub enum TransactionDispatch {
     /// outcome.
     InFlight,
     /// The handler failed. The claim was released so the peer can retry.
-    Failed(Error),
+    Failed(WireError),
 }
 
 impl AppletService {
@@ -169,7 +170,9 @@ impl AppletService {
 
     pub fn from_arcs(
         handler: Arc<dyn AppletHandler>,
-        idempotency: Arc<dyn TransactionIdempotencyStore<AppletTransactionOutcome, Error = Error>>,
+        idempotency: Arc<
+            dyn TransactionIdempotencyStore<AppletTransactionOutcome, Error = WireError>,
+        >,
     ) -> Self {
         Self {
             handler,
@@ -274,7 +277,7 @@ mod tests {
         ) -> Result<VerificationMethodDocument> {
             self.resolver
                 .resolve_verification_method(verification_method)
-                .map_err(|err| Error::Protocol(err.to_string()))
+                .map_err(|err| WireError::Protocol(err.to_string()))
         }
         fn ping(&self) -> Result<AppletPingOutcome> {
             Ok(AppletPingOutcome {
@@ -301,7 +304,7 @@ mod tests {
         ) -> Result<AppletTransactionOutcome> {
             let call = self.transaction_calls.fetch_add(1, Ordering::SeqCst) + 1;
             if self.fail_next_transaction.swap(false, Ordering::SeqCst) {
-                return Err(Error::Protocol("simulated handler failure".to_owned()));
+                return Err(WireError::Protocol("simulated handler failure".to_owned()));
             }
             Ok(AppletTransactionOutcome {
                 ok: true,

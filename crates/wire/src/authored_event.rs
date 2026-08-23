@@ -27,7 +27,7 @@ use serde_json::Value;
 
 use crate::event_envelope::Event;
 use crate::primitives::EventProof;
-use crate::{Error, EventId, Result};
+use crate::{EventId, Result, WireError};
 
 /// An Event whose producer-signed content is complete and whose `event_id` was
 /// derived once from exactly that content.
@@ -70,7 +70,7 @@ impl AuthoredEvent {
     /// the identity.
     pub fn finalize_with_digest_suite(event: Event, digest_suite: DigestSuite) -> Result<Self> {
         if !event.proofs.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "authored_event_finalize_after_proof: proofs are attached to an AuthoredEvent, \
                  not carried into authoring"
                     .to_owned(),

@@ -25,7 +25,7 @@ impl RealmState {
             .or_else(|| self.extract_optional_field(content, "morph_id"))
             .or_else(|| self.extract_optional_field(content, "id"))
             .ok_or_else(|| {
-                Error::Protocol("morph event requires target_ref, morph_id, or id".to_owned())
+                WireError::Protocol("morph event requires target_ref, morph_id, or id".to_owned())
             })
     }
 
@@ -36,7 +36,7 @@ impl RealmState {
             .or_else(|| self.extract_optional_field::<String>(content, "id"))
             .map(|value| canonicalize_strand_ref(&value))
             .ok_or_else(|| {
-                Error::Protocol("strand event requires target_ref or strand_id".to_owned())
+                WireError::Protocol("strand event requires target_ref or strand_id".to_owned())
             })
     }
 
@@ -44,7 +44,7 @@ impl RealmState {
     pub(super) fn extract_space_id(&self, content: &(impl JsonFields + ?Sized)) -> Result<String> {
         self.extract_optional_field::<String>(content, "space_id")
             .or_else(|| self.extract_optional_field::<String>(content, "id"))
-            .ok_or_else(|| Error::Protocol("container event requires space_id".to_owned()))
+            .ok_or_else(|| WireError::Protocol("container event requires space_id".to_owned()))
     }
 
     /// Extract relation_id from event content.
@@ -54,7 +54,9 @@ impl RealmState {
     ) -> Result<String> {
         self.extract_optional_field(content, "relation_id")
             .or_else(|| self.extract_optional_field(content, "id"))
-            .ok_or_else(|| Error::Protocol("relation event requires relation_id or id".to_owned()))
+            .ok_or_else(|| {
+                WireError::Protocol("relation event requires relation_id or id".to_owned())
+            })
     }
 
     /// Extract a required field from event content.
@@ -65,10 +67,10 @@ impl RealmState {
     ) -> Result<T> {
         let value = content
             .json_field(field)
-            .ok_or_else(|| Error::Protocol(format!("missing field: {}", field)))?;
+            .ok_or_else(|| WireError::Protocol(format!("missing field: {}", field)))?;
 
         serde_json::from_value(value.clone())
-            .map_err(|_| Error::Protocol(format!("invalid field {}: wrong type", field)))
+            .map_err(|_| WireError::Protocol(format!("invalid field {}: wrong type", field)))
     }
 
     /// Extract an optional field from event content.
@@ -100,7 +102,7 @@ impl RealmState {
                 .or_else(|| self.extract_optional_field::<String>(&event.payload, "principal_id"))
                 .or_else(|| self.extract_optional_field::<String>(&event.payload, "member_id"))
                 .ok_or_else(|| {
-                    Error::Protocol("member state requires payload.actor_id".to_owned())
+                    WireError::Protocol("member state requires payload.actor_id".to_owned())
                 }),
             // A grant mints its grant id from envelope.event_id; subsequent
             // capability operations address that cell through payload.grant_id.
@@ -114,7 +116,7 @@ impl RealmState {
             | arkret_wire::event_kind_str::CAPABILITY_DERIVED => self
                 .extract_optional_field::<String>(&event.payload, "grant_id")
                 .ok_or_else(|| {
-                    Error::Protocol("capability event requires payload.grant_id".to_owned())
+                    WireError::Protocol("capability event requires payload.grant_id".to_owned())
                 }),
             arkret_wire::event_kind_str::REALM_POLICY | arkret_wire::event_kind_str::POLICY_SET => {
                 Ok(self
@@ -126,12 +128,14 @@ impl RealmState {
             | arkret_wire::event_kind_str::INVITE_ACCEPT => self
                 .extract_optional_field::<String>(&event.payload, "invite_id")
                 .or_else(|| self.extract_optional_field::<String>(&event.payload, "id"))
-                .ok_or_else(|| Error::Protocol("invite event requires invite_id or id".to_owned())),
+                .ok_or_else(|| {
+                    WireError::Protocol("invite event requires invite_id or id".to_owned())
+                }),
             arkret_wire::event_kind_str::READ_CURSOR_ADVANCE => self
                 .extract_optional_field::<String>(&event.payload, "scope")
                 .or_else(|| self.extract_optional_field::<String>(&event.payload, "target_ref"))
                 .ok_or_else(|| {
-                    Error::Protocol("read marker requires scope or target_ref".to_owned())
+                    WireError::Protocol("read marker requires scope or target_ref".to_owned())
                 }),
             // `ak.realm.organization` declares a tuple `cell_subject`
             // `(organization_id, relationship)`; it is keyed by that composite
@@ -141,14 +145,14 @@ impl RealmState {
                 let organization_id = self
                     .extract_optional_field::<String>(&event.payload, "organization_id")
                     .ok_or_else(|| {
-                        Error::Protocol(
+                        WireError::Protocol(
                             "realm organization event requires payload.organization_id".to_owned(),
                         )
                     })?;
                 let relationship = self
                     .extract_optional_field::<String>(&event.payload, "relationship")
                     .ok_or_else(|| {
-                        Error::Protocol(
+                        WireError::Protocol(
                             "realm organization event requires payload.relationship".to_owned(),
                         )
                     })?;
@@ -172,7 +176,7 @@ impl RealmState {
             | arkret_wire::event_kind_str::VIEW_RECONCILE => self
                 .extract_optional_field::<String>(&event.payload, "view_id")
                 .or_else(|| self.extract_optional_field::<String>(&event.payload, "id"))
-                .ok_or_else(|| Error::Protocol("view event requires view_id or id".to_owned())),
+                .ok_or_else(|| WireError::Protocol("view event requires view_id or id".to_owned())),
             _ => Ok(String::new()),
         }
     }

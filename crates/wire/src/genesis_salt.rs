@@ -5,7 +5,7 @@ use std::fmt;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::base64url::{base64url_decode, base64url_encode};
-use crate::{Error, Result};
+use crate::{Result, WireError};
 
 /// Canonical unpadded Base64URL encoding of exactly 32 CSPRNG octets.
 ///
@@ -23,7 +23,7 @@ impl GenesisSalt {
     pub fn generate() -> Result<Self> {
         let mut bytes = [0_u8; Self::OCTETS];
         getrandom::fill(&mut bytes).map_err(|error| {
-            Error::Protocol(format!(
+            WireError::Protocol(format!(
                 "generate Realm genesis salt from OS CSPRNG: {error}"
             ))
         })?;
@@ -33,14 +33,15 @@ impl GenesisSalt {
     pub fn new(value: impl Into<String>) -> Result<Self> {
         let value = value.into();
         if value.len() != Self::ENCODED_LEN || value.contains('=') {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "genesis_salt must be 43-character unpadded Base64URL".to_owned(),
             ));
         }
-        let decoded = base64url_decode(&value)
-            .map_err(|_| Error::Protocol("genesis_salt is not canonical Base64URL".to_owned()))?;
+        let decoded = base64url_decode(&value).map_err(|_| {
+            WireError::Protocol("genesis_salt is not canonical Base64URL".to_owned())
+        })?;
         if decoded.len() != Self::OCTETS || base64url_encode(&decoded) != value {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "genesis_salt must decode to exactly 32 octets canonically".to_owned(),
             ));
         }

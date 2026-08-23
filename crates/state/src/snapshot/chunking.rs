@@ -15,7 +15,7 @@ use super::types::{
     SnapshotMaterializedItem, SnapshotSecurityClass, SnapshotValidationCode,
     SnapshotValidationError, SnapshotVerifyOptions, SnapshotVerifyReport,
 };
-use crate::{BlobRef, Error, EventId, Hash, Result, SnapshotId};
+use crate::{BlobRef, EventId, Hash, Result, SnapshotId, WireError};
 
 /// Deterministic snapshot chunker. Same input always produces the same
 /// chunk layout, regardless of implementation.
@@ -37,7 +37,7 @@ impl Default for SnapshotChunker {
 impl SnapshotChunker {
     pub fn new(target_chunk_bytes: usize) -> Result<Self> {
         if target_chunk_bytes == 0 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "SnapshotChunker target_chunk_bytes must be > 0".to_owned(),
             ));
         }
@@ -95,7 +95,7 @@ pub fn build_snapshot_chunks_with_nonaccepted(
     quarantined: Vec<Value>,
 ) -> Result<Vec<BuiltSnapshotChunk>> {
     if target_chunk_bytes == 0 {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "snapshot target_chunk_bytes must be > 0".to_owned(),
         ));
     }
@@ -246,14 +246,14 @@ pub fn event_set_root(
 
 pub fn merkle_root_from_hashes(leaves: Vec<Hash>) -> Result<Hash> {
     if leaves.is_empty() {
-        return Hash::new(EMPTY_SHA256_DIGEST.to_owned()).map_err(Error::from);
+        return Hash::new(EMPTY_SHA256_DIGEST.to_owned()).map_err(WireError::from);
     }
     build_levels(&leaves).and_then(|levels| {
         levels
             .last()
             .and_then(|level| level.first())
             .cloned()
-            .ok_or_else(|| Error::Protocol("Merkle levels are empty".to_owned()))
+            .ok_or_else(|| WireError::Protocol("Merkle levels are empty".to_owned()))
     })
 }
 
@@ -443,7 +443,7 @@ fn sort_snapshot_items(items: &mut [SnapshotMaterializedItem]) {
 fn ensure_unique_snapshot_items(items: &[SnapshotMaterializedItem]) -> Result<()> {
     for pair in items.windows(2) {
         if pair[0].kind == pair[1].kind && pair[0].id == pair[1].id {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "duplicate snapshot item key ({}, {})",
                 pair[0].kind, pair[0].id
             )));
@@ -456,7 +456,7 @@ fn build_chunk_descriptor(payload: SnapshotChunkPayload) -> Result<BuiltSnapshot
     let canonical_bytes = snapshot_chunk_payload_bytes(&payload)?;
     let digest = sha256_digest(&canonical_bytes);
     let descriptor = SnapshotChunkDescriptor {
-        chunk_ref: BlobRef::new(format!("ak:blob:{digest}")).map_err(Error::from)?,
+        chunk_ref: BlobRef::new(format!("ak:blob:{digest}")).map_err(WireError::from)?,
         digest,
         size_bytes: canonical_bytes.len() as u64,
     };

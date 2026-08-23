@@ -89,7 +89,7 @@ impl StrandPatchPayload {
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("strand patch payload serialize: {err}")))
+            .map_err(|err| WireError::Protocol(format!("strand patch payload serialize: {err}")))
     }
 }
 /// Optional CAS guard carried on `ak.strand.move`
@@ -160,7 +160,7 @@ impl StrandMovePayload {
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("strand move payload serialize: {err}")))
+            .map_err(|err| WireError::Protocol(format!("strand move payload serialize: {err}")))
     }
 }
 
@@ -219,7 +219,7 @@ impl StrandReorderPayload {
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("strand reorder payload serialize: {err}")))
+            .map_err(|err| WireError::Protocol(format!("strand reorder payload serialize: {err}")))
     }
 }
 
@@ -328,8 +328,9 @@ impl StrandWatchSetPayload {
     }
 
     pub fn to_value(&self) -> Result<Value> {
-        serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("strand watch set payload serialize: {err}")))
+        serde_json::to_value(self).map_err(|err| {
+            WireError::Protocol(format!("strand watch set payload serialize: {err}"))
+        })
     }
 }
 

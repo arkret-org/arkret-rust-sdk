@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::cba_proof_bundle::CbaProofBundle;
 use crate::control_proposal::ControlProposalAck;
-use crate::error::{Error, Result};
+use crate::error::{Result, WireError};
 use crate::event_envelope::{Event, EventSubmitContext};
 use crate::offline_publication::{
     AnchorUnitLeaseBasis, AuthorizationLease, IngressReceipt, LeaseBasisRef,
@@ -53,7 +53,7 @@ pub fn classify_federated_event_submit_context(
     digest_suites: &[arkret_canonical::DigestSuite],
 ) -> Result<EventSubmitContext> {
     if events.len() != digest_suites.len() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "federated Event and digest-suite cardinality must match".to_owned(),
         ));
     }
@@ -71,7 +71,7 @@ fn classify_event_submit_context_shape(events: &[Event]) -> Result<EventSubmitCo
     let has_basis_free = events.iter().any(basis_free);
     let all_basis_free = !events.is_empty() && events.iter().all(basis_free);
     if has_basis_free && !all_basis_free {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "anchor Events must be authorized as one complete ordered unit".to_owned(),
         ));
     }
@@ -84,7 +84,7 @@ fn classify_event_submit_context_shape(events: &[Event]) -> Result<EventSubmitCo
             first_kind,
             crate::event_kind_str::REALM_CREATE | crate::event_kind_str::DEVICE_REANCHOR
         ) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "basis-free publication unit must be a registered Realm bootstrap or device re-anchor unit"
                     .to_owned(),
             ));
@@ -142,7 +142,7 @@ impl PcrGenesisUnit {
             || authorize.actor_seq != 1
             || authorize.event_id == create.event_id
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "PCR genesis unit must be the exact ordered create/authorize pair".to_owned(),
             ));
         }
@@ -189,12 +189,12 @@ impl AuthorizationLeaseIssueRequestBody {
     pub fn validate_structural(&self) -> Result<()> {
         let target_count = self.events.len() + self.intents.len();
         if target_count == 0 || target_count > 500 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "authorization lease issuance requires between 1 and 500 targets".to_owned(),
             ));
         }
         if !self.events.is_empty() && !self.intents.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "authorization lease issuance requires exactly one of events or intents".to_owned(),
             ));
         }
@@ -212,7 +212,7 @@ impl AuthorizationLeaseIssueOutcome {
     ) -> Result<()> {
         request.validate_structural()?;
         if self.authorization_leases.len() != request.events.len() + request.intents.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "authorization lease outcome cardinality changed".to_owned(),
             ));
         }
@@ -223,7 +223,7 @@ impl AuthorizationLeaseIssueOutcome {
             self.validate_event_bindings(&request.events, digest_suites)
         } else {
             if !digest_suites.is_empty() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "non-Event authorization lease intents forbid digest suites".to_owned(),
                 ));
             }
@@ -234,7 +234,7 @@ impl AuthorizationLeaseIssueOutcome {
                     || lease.risk_tier != intent.risk_tier
                     || lease.basis_ref != intent.basis_ref
                 {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "authorization lease outcome changed an ordered intent binding".to_owned(),
                     ));
                 }
@@ -249,7 +249,7 @@ impl AuthorizationLeaseIssueOutcome {
         digest_suites: &[arkret_canonical::DigestSuite],
     ) -> Result<()> {
         if events.len() != digest_suites.len() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "authorization lease Event and digest-suite cardinality must match".to_owned(),
             ));
         }
@@ -268,7 +268,7 @@ impl AuthorizationLeaseIssueOutcome {
                     _ => false,
                 };
                 if !basis_matches {
-                    return Err(Error::Protocol(
+                    return Err(WireError::Protocol(
                         "authorization lease outcome changed an ordered Event basis".to_owned(),
                     ));
                 }
@@ -288,14 +288,14 @@ pub fn validate_anchor_unit_lease_bindings(
     digest_suites: &[arkret_canonical::DigestSuite],
 ) -> Result<()> {
     if events.is_empty() || events.len() != leases.len() || events.len() != digest_suites.len() {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "anchor-unit Event, lease, and digest-suite cardinality must match and be non-empty"
                 .to_owned(),
         ));
     }
     let realm_id = events[0].realm_id.clone();
     if events.iter().any(|event| event.realm_id != realm_id) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "anchor-unit Events must share one realm_id".to_owned(),
         ));
     }
@@ -305,7 +305,7 @@ pub fn validate_anchor_unit_lease_bindings(
         .map(|(event, digest_suite)| {
             let digest = event.event_digest_with_digest_suite(digest_suite)?;
             crate::Hash::new(digest).map_err(|error| {
-                Error::Protocol(format!("anchor Event digest is invalid: {error}"))
+                WireError::Protocol(format!("anchor Event digest is invalid: {error}"))
             })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -317,12 +317,12 @@ pub fn validate_anchor_unit_lease_bindings(
     expected.unit_digest = expected.expected_unit_digest()?;
     for lease in leases {
         let LeaseBasisRef::AnchorUnit(reference) = &lease.basis_ref else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "closed anchor-unit submission requires an anchor_unit lease basis".to_owned(),
             ));
         };
         if reference.anchor_unit != expected {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "authorization lease anchor_unit does not match the submitted Event unit"
                     .to_owned(),
             ));
@@ -377,12 +377,12 @@ pub struct EventFederationSubmission {
 /// caller, not to this wire-level gate.
 fn validate_lease_binds_event(event: &Event, lease: &AuthorizationLease) -> Result<()> {
     if lease.actor_id != event.actor_id {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "authorization lease actor_id does not match the Event actor".to_owned(),
         ));
     }
     if lease.scope_ref != event.scope_ref {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "authorization lease scope_ref does not match the signed Event scope".to_owned(),
         ));
     }
@@ -403,13 +403,13 @@ fn validate_control_proposal_ack(
         // Outside that explicit context, absence of `seal_basis` continues to
         // identify a DataEvent and must fail closed.
         if context == EventSubmitContext::Standard && event.seal_basis.is_none() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "DataEvent submissions forbid a Control Proposal Ack".to_owned(),
             ));
         }
         let event_digest = crate::Hash::new(event.event_digest_with_digest_suite(digest_suite)?)?;
         if receipt.realm_id != event.realm_id || receipt.proposal_digest != event_digest {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "Control Proposal Ack does not bind the submitted Event".to_owned(),
             ));
         }
@@ -439,7 +439,7 @@ fn validate_membership_compensation_evidence(
             .and_then(serde_json::Value::as_str)
             != Some(core.subject_id.as_str())
     {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "membership compensation evidence does not bind the submitted Event".to_owned(),
         ));
     }
@@ -515,7 +515,7 @@ impl EventInitialSubmission {
             self.membership_compensation_evidence.as_ref(),
         )?;
         if self.cba_proof_bundles.len() > MAX_SUBMISSION_CBA_BUNDLES {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "submission exceeds {MAX_SUBMISSION_CBA_BUNDLES} CBA proof bundles"
             )));
         }
@@ -566,7 +566,7 @@ impl EventFederationSubmission {
             self.membership_compensation_evidence.as_ref(),
         )?;
         if self.ingress_receipts.len() > MAX_FEDERATION_INGRESS_RECEIPTS {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "federation submission permits at most {MAX_FEDERATION_INGRESS_RECEIPTS} ingress receipts"
             )));
         }
@@ -575,13 +575,13 @@ impl EventFederationSubmission {
             self.ingress_receipts.is_empty(),
         ) {
             (true, true) => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "delayed federation requires at least one lease-bound ingress receipt"
                         .to_owned(),
                 ));
             }
             (false, false) => {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "online federation forbids lease-bound ingress receipts".to_owned(),
                 ));
             }
@@ -592,7 +592,7 @@ impl EventFederationSubmission {
         for receipt in &self.ingress_receipts {
             receipt.validate_structural()?;
             if receipt.event_digest != event_digest {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "ingress receipt event_digest does not match the submitted Event".to_owned(),
                 ));
             }

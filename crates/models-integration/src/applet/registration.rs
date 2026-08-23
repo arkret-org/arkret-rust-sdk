@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use arkret_models_identity::did_document::DidDocument;
 use arkret_wire::{
-    DidCoreId, DidFullId, DidUrl, Error, EventKind, Hash, PayloadSigner, ProducerEventProof,
-    ProfileId, Result, SchemaId, XExtensionMap, canonical, proof_kind,
+    DidCoreId, DidFullId, DidUrl, EventKind, Hash, PayloadSigner, ProducerEventProof, ProfileId,
+    Result, SchemaId, WireError, XExtensionMap, canonical, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -336,20 +336,20 @@ impl AppletDidMethodVersionEvidence {
                 .bytes()
                 .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet registration epoch DID method is invalid".to_owned(),
             ));
         }
         if self.unversioned_refetch {
             if self.version_id.is_some() || self.version_time.is_some() {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "unversioned DID evidence cannot carry version selectors".to_owned(),
                 ));
             }
         } else if self.version_id.as_deref().is_none_or(str::is_empty)
             && self.version_time.is_none()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "versioned DID evidence requires version_id or version_time".to_owned(),
             ));
         }
@@ -604,7 +604,7 @@ impl AppletRegistrationEpochEvidence {
             });
         }
         if accepted_signing_keys.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet registration_epoch evidence has no signing keys".to_owned(),
             ));
         }
@@ -708,7 +708,7 @@ impl AppletRegistrationEpochTranscript {
         evidence: &AppletRegistrationEpochEvidence,
     ) -> Result<Self> {
         if package.service_id != arkret_wire::project_full_id_to_core_id(&evidence.full_id)? {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet registration epoch evidence service_id mismatch".to_owned(),
             ));
         }
@@ -810,37 +810,37 @@ impl AppletRegistrationEpochTranscript {
 
     pub fn validate_normalized(&self) -> Result<()> {
         if self.schema != SchemaId::APPLET_REGISTRATION_EPOCH_TRANSCRIPT_V1 {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet registration epoch transcript schema mismatch".to_owned(),
             ));
         }
         if self.derived_registration.kind != arkret_wire::event_kind_str::APPLET_REGISTRATION {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet registration epoch transcript kind mismatch".to_owned(),
             ));
         }
         let service_id =
             arkret_wire::project_full_id_to_core_id(&self.service_did_document.full_id)?;
         if self.derived_registration.service_id != service_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet registration epoch transcript service_id mismatch".to_owned(),
             ));
         }
         self.service_did_document.method_version.validate()?;
         let expected_method = core_method_name(&service_id)?;
         if self.service_did_document.method_version.method != expected_method {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet registration epoch DID method evidence mismatch".to_owned(),
             ));
         }
         if verification_method_controller_core(self.webhook_auth.key_ref.as_str())? != service_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet registration epoch signing key is outside service DID".to_owned(),
             ));
         }
         for key in &self.accepted_signing_keys {
             if verification_method_controller_core(key.key_ref.as_str())? != service_id {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "applet registration epoch signing key is outside service DID".to_owned(),
                 ));
             }
@@ -850,7 +850,7 @@ impl AppletRegistrationEpochTranscript {
             .iter()
             .any(|key| key.key_ref == self.webhook_auth.key_ref)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet registration epoch webhook key is not accepted".to_owned(),
             ));
         }
@@ -905,7 +905,7 @@ impl AppletRegistrationEpochTranscript {
             || self.webhook_auth.accepted_signature_algorithms.is_empty()
             || self.security_policy.claimed_profiles.is_empty()
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet registration epoch transcript contains an empty required set".to_owned(),
             ));
         }
@@ -963,7 +963,7 @@ fn validate_strictly_sorted_by<T>(
         .windows(2)
         .any(|pair| compare(&pair[0], &pair[1]) != std::cmp::Ordering::Less)
     {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "applet registration epoch {context} is unsorted or contains duplicates"
         )));
     }
@@ -976,7 +976,7 @@ fn reject_duplicate_adjacent_by<T>(
     equal: impl Fn(&T, &T) -> bool,
 ) -> Result<()> {
     if values.windows(2).any(|pair| equal(&pair[0], &pair[1])) {
-        return Err(Error::Protocol(format!(
+        return Err(WireError::Protocol(format!(
             "applet registration epoch {context} contains duplicate entries"
         )));
     }
@@ -989,7 +989,7 @@ fn core_method_name(service_id: &DidCoreId) -> Result<String> {
         .strip_prefix("ak:did_core:")
         .and_then(|value| value.split(':').next())
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| Error::Protocol("service_id has no DID method name".to_owned()))?;
+        .ok_or_else(|| WireError::Protocol("service_id has no DID method name".to_owned()))?;
     Ok(format!("did:{method}"))
 }
 
@@ -998,7 +998,7 @@ fn verification_method_controller_core(verification_method: &str) -> Result<DidC
         .split_once('#')
         .map(|(controller, _)| controller)
         .ok_or_else(|| {
-            Error::Protocol("applet signing key requires a DID URL fragment".to_owned())
+            WireError::Protocol("applet signing key requires a DID URL fragment".to_owned())
         })?;
     arkret_wire::project_full_id_to_core_id(&DidFullId::new(controller)?).map_err(Into::into)
 }
@@ -1190,10 +1190,10 @@ impl AppletPackage {
     /// Compute and stamp `package_digest`.
     pub fn seal(&mut self) -> Result<()> {
         let evidence = self.registration_epoch_evidence.as_ref().ok_or_else(|| {
-            Error::Protocol("applet package registration_epoch_evidence is missing".to_owned())
+            WireError::Protocol("applet package registration_epoch_evidence is missing".to_owned())
         })?;
         if self.compute_registration_epoch(evidence)? != self.registration_epoch {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet package registration_epoch does not match its transcript".to_owned(),
             ));
         }
@@ -1235,17 +1235,19 @@ impl AppletPackage {
     pub fn validate(&self) -> Result<()> {
         self.validate_wire()?;
         let evidence = self.registration_epoch_evidence.as_ref().ok_or_else(|| {
-            Error::Protocol("applet package registration_epoch_evidence is missing".to_owned())
+            WireError::Protocol("applet package registration_epoch_evidence is missing".to_owned())
         })?;
         self.validate_with_epoch_evidence(evidence)
     }
 
     pub fn validate_wire(&self) -> Result<()> {
         if self.schema != SchemaId::APPLET_PACKAGE_V1 {
-            return Err(Error::Protocol("applet package schema mismatch".to_owned()));
+            return Err(WireError::Protocol(
+                "applet package schema mismatch".to_owned(),
+            ));
         }
         if self.package_id.is_empty() || self.applet_id.is_empty() || self.base_url.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet package missing required fields".to_owned(),
             ));
         }
@@ -1254,17 +1256,17 @@ impl AppletPackage {
             .iter()
             .any(|profile| profile == ProfileId::APPLET_SERVICE_V1)
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet package MUST claim ak.profile.applet_service.v1".to_owned(),
             ));
         }
         if self.protocols.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet package protocols are empty".to_owned(),
             ));
         }
         if self.requested_scopes.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet package requested_scopes are empty".to_owned(),
             ));
         }
@@ -1277,15 +1279,19 @@ impl AppletPackage {
         validate_applet_extension_fields("delegation_policy", &self.delegation_policy.extra)?;
         validate_applet_extension_fields("e2ee_policy", &self.e2ee_policy.extensions)?;
         let Some(package_digest) = &self.package_digest else {
-            return Err(Error::Protocol("applet package is not sealed".to_owned()));
+            return Err(WireError::Protocol(
+                "applet package is not sealed".to_owned(),
+            ));
         };
         if package_digest != &self.compute_package_digest()? {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet package digest does not match its canonical content".to_owned(),
             ));
         }
         if self.proof.is_none() {
-            return Err(Error::Protocol("applet package is not signed".to_owned()));
+            return Err(WireError::Protocol(
+                "applet package is not signed".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -1296,18 +1302,18 @@ impl AppletPackage {
     ) -> Result<()> {
         self.validate_wire()?;
         if arkret_wire::project_full_id_to_core_id(&evidence.full_id)? != self.service_id {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet package registration_epoch_evidence service_id mismatch".to_owned(),
             ));
         }
         if evidence.accepted_signing_keys.is_empty() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet package registration_epoch_evidence signing keys are empty".to_owned(),
             ));
         }
         let recomputed = self.compute_registration_epoch(evidence)?;
         if recomputed != self.registration_epoch {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "applet package registration_epoch does not match its transcript".to_owned(),
             ));
         }
@@ -1389,7 +1395,7 @@ impl AppletPackage {
 fn validate_applet_extension_fields(context: &str, fields: &BTreeMap<String, Value>) -> Result<()> {
     for name in fields.keys() {
         let Some(suffix) = name.strip_prefix("x_") else {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "{context} contains non-extension field {name}"
             )));
         };
@@ -1403,7 +1409,7 @@ fn validate_applet_extension_fields(context: &str, fields: &BTreeMap<String, Val
                 }
             })
         {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "{context} contains invalid extension field {name}"
             )));
         }

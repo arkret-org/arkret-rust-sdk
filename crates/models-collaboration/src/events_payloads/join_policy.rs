@@ -15,7 +15,7 @@ pub struct DidMethod(String);
 impl DidMethod {
     pub fn new(value: String) -> Result<Self> {
         let Some(method) = value.strip_prefix("did:") else {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "DID method selector must start with 'did:'".to_owned(),
             ));
         };
@@ -24,7 +24,7 @@ impl DidMethod {
                 .bytes()
                 .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "DID method selector must match ^did:[a-z0-9]+$".to_owned(),
             ));
         }
@@ -37,7 +37,7 @@ impl DidMethod {
 }
 
 impl TryFrom<String> for DidMethod {
-    type Error = Error;
+    type Error = WireError;
 
     fn try_from(value: String) -> Result<Self> {
         Self::new(value)

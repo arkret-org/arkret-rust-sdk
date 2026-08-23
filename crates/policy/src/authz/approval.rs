@@ -115,10 +115,10 @@ impl ApprovalStrandManager {
         let proposal = self
             .proposals
             .get_mut(proposal_id)
-            .ok_or_else(|| Error::Protocol("proposal not found".to_owned()))?;
+            .ok_or_else(|| WireError::Protocol("proposal not found".to_owned()))?;
 
         if proposal.status != ProposalStatus::Pending {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "proposal {} is not pending (status: {:?})",
                 proposal_id, proposal.status
             )));
@@ -129,17 +129,19 @@ impl ApprovalStrandManager {
         {
             proposal.status = ProposalStatus::Expired;
             proposal.resolved_at = Some(now);
-            return Err(Error::Protocol("proposal has expired".to_owned()));
+            return Err(WireError::Protocol("proposal has expired".to_owned()));
         }
 
         if !proposal.required_approvers.contains(&approver) {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "approver is not in the required approvers list".to_owned(),
             ));
         }
 
         if proposal.approvals.iter().any(|a| a.approver == approver) {
-            return Err(Error::Protocol("approver has already responded".to_owned()));
+            return Err(WireError::Protocol(
+                "approver has already responded".to_owned(),
+            ));
         }
 
         proposal.approvals.push(ProposalApproval {
@@ -156,7 +158,7 @@ impl ApprovalStrandManager {
         self.proposals
             .get(proposal_id)
             .cloned()
-            .ok_or_else(|| Error::Protocol("proposal not found".to_owned()))
+            .ok_or_else(|| WireError::Protocol("proposal not found".to_owned()))
     }
 
     /// Check if a proposal is approved.

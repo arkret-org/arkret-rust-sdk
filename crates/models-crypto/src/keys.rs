@@ -191,7 +191,7 @@ impl DeviceProjectionAttestation {
             "verification_method": self.proof.verification_method,
             "created_at": arkret_canonical::format_timestamp_canonical(self.proof.created_at),
         }))
-        .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))
     }
 }
 
@@ -269,7 +269,7 @@ impl QueryDeviceRecord {
     ) -> arkret_wire::Result<()> {
         let core = &self.device_projection_attestation.attestation;
         if &core.principal_id != principal_id || &core.device_id != device_id {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "device projection attestation addresses a different (principal, device)"
                     .to_owned(),
             ));
@@ -280,17 +280,17 @@ impl QueryDeviceRecord {
             || core.authorized_generation_ref != self.authorized_generation_ref
             || core.device_status != self.device_status
         {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "device projection attestation does not cover this exact row".to_owned(),
             ));
         }
         if core.device_status != DeviceStatus::Active {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "device projection attestation does not attest a usable device".to_owned(),
             ));
         }
         if core.attested_at >= core.expires_at {
-            return Err(arkret_wire::Error::Protocol(
+            return Err(arkret_wire::WireError::Protocol(
                 "device projection attestation is not a positive validity window".to_owned(),
             ));
         }

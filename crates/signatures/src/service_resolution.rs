@@ -66,7 +66,7 @@ pub fn sign_principal_resolution_projection_attestation(
     signing_key: &SigningKey,
 ) -> arkret_wire::Result<PrincipalResolutionProjectionAttestation> {
     if core.issued_at >= core.expires_at {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "projection attestation is not a positive validity window".to_owned(),
         ));
     }
@@ -95,12 +95,12 @@ pub fn verify_public_principal_resolution(
     )?;
     let attestation = &resolution.projection_attestation;
     if attestation.proof.created_at != attestation.attestation.issued_at {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "projection attestation proof timestamp mismatch".to_owned(),
         ));
     }
     if now >= attestation.attestation.expires_at {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "projection attestation is expired".to_owned(),
         ));
     }
@@ -108,7 +108,7 @@ pub fn verify_public_principal_resolution(
         &resolution.method_history_evidence,
     )?)?;
     if attestation.attestation.method_history_evidence_digest != evidence_digest {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "projection attestation does not bind the supplied method history evidence".to_owned(),
         ));
     }
@@ -132,7 +132,7 @@ pub fn verify_service_route_handover_notice(
         || notice.proof.created_at != notice.notice.issued_at
         || now >= notice.notice.expires_at
     {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "handover notice target or freshness mismatch".to_owned(),
         ));
     }
@@ -150,7 +150,7 @@ pub fn verify_service_resolution_publish_ack(
 ) -> arkret_wire::Result<VerifyingKey> {
     verify_full_to_core_binding(&receiver_document.id, &ack.ack.receiver_service_id)?;
     if ack.proof.created_at != ack.ack.accepted_at {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "publish ack proof timestamp mismatch".to_owned(),
         ));
     }
@@ -168,7 +168,7 @@ pub fn verify_full_to_core_binding(
 ) -> arkret_wire::Result<()> {
     let projected = arkret_wire::project_full_id_to_core_id(full_id)?;
     if &projected != expected_service_id {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "full_id does not project to expected service core id".to_owned(),
         ));
     }
@@ -189,7 +189,7 @@ pub fn verify_record_successor(
         || successor.record.refresh_after >= successor.record.expires_at
         || now >= successor.record.expires_at
     {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "service resolution successor has a gap, fork, or expired validity".to_owned(),
         ));
     }
@@ -214,7 +214,7 @@ fn signature_value(signing_key: &SigningKey, bytes: &[u8]) -> arkret_wire::Resul
 }
 
 fn base64_value(value: String) -> arkret_wire::Result<Base64UrlString> {
-    Base64UrlString::new(value).map_err(|error| arkret_wire::Error::Protocol(error.to_owned()))
+    Base64UrlString::new(value).map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))
 }
 
 pub fn verify_authenticated_service_resolution(
@@ -242,15 +242,15 @@ fn verify_document_signature(
     let material = lookup_key_material(document, &proof.verification_method)?;
     let bytes = crate::proof::PublicKeyMaterial::Ed25519Multibase { value: material }
         .ed25519_bytes()
-        .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))?;
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
     let key = VerifyingKey::from_bytes(&bytes)
-        .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))?;
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
     let signature_bytes = arkret_canonical::base64url_decode(proof.jws.as_str())
-        .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))?;
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
     let signature = Signature::from_slice(&signature_bytes)
-        .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))?;
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
     key.verify(signing_bytes, &signature)
-        .map_err(|_| arkret_wire::Error::Protocol(invalid_message.to_owned()))?;
+        .map_err(|_| arkret_wire::WireError::Protocol(invalid_message.to_owned()))?;
     Ok(key)
 }
 
@@ -276,7 +276,7 @@ fn lookup_key_material(document: &DidDocument, method: &DidUrl) -> arkret_wire::
         })
         .cloned()
         .ok_or_else(|| {
-            arkret_wire::Error::Protocol(
+            arkret_wire::WireError::Protocol(
                 "service resolution proof key is absent from DID document".to_owned(),
             )
         })
@@ -288,7 +288,7 @@ fn require_assertion_method(document: &DidDocument, method: &DidUrl) -> arkret_w
         .get("assertionMethod")
         .and_then(serde_json::Value::as_array)
     else {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "service DID document has no assertionMethod relationship".to_owned(),
         ));
     };
@@ -301,7 +301,7 @@ fn require_assertion_method(document: &DidDocument, method: &DidUrl) -> arkret_w
         .filter_map(serde_json::Value::as_str)
         .any(|item| item == full || relative.as_deref().is_some_and(|relative| item == relative))
     {
-        return Err(arkret_wire::Error::Protocol(
+        return Err(arkret_wire::WireError::Protocol(
             "service resolution proof key is not an assertionMethod".to_owned(),
         ));
     }

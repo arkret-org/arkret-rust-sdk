@@ -215,7 +215,7 @@ pub struct MlsGenesisPayload {
 /// self-referential archive branch.
 pub fn mls_genesis_transition_digest(payload: &Value) -> Result<Hash> {
     let Value::Object(mut core) = payload.clone() else {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "MLS Genesis transition payload must be an object".to_owned(),
         ));
     };
@@ -232,13 +232,13 @@ pub fn mls_genesis_transition_digest(payload: &Value) -> Result<Hash> {
         "created_at",
     ] {
         if !core.contains_key(required) {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "MLS Genesis transition payload lacks {required}"
             )));
         }
     }
     if core.get("epoch").and_then(Value::as_u64) != Some(0) {
-        return Err(Error::Protocol(
+        return Err(WireError::Protocol(
             "MLS Genesis transition payload epoch must equal zero".to_owned(),
         ));
     }
@@ -280,7 +280,7 @@ impl MlsGenesisPayload {
         if self.governance_binding.mls_group_id() != self.mls_group_id.as_str()
             || self.governance_binding.effective_scope() != &self.effective_scope
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_genesis_payload governance binding does not match the group and scope"
                     .to_owned(),
             ));
@@ -421,18 +421,18 @@ struct MlsProposalPayloadWire {
 impl MlsProposalPayload {
     pub fn validate(&self) -> Result<()> {
         if self.proposal_message_ref.is_none() && self.proposal_digest.is_none() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_proposal_payload requires proposal_message_ref or proposal_digest".to_owned(),
             ));
         }
         if self.governance_binding.mls_group_id() != self.mls_group_id.as_str() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "mls_proposal_payload governance binding does not match mls_group_id".to_owned(),
             ));
         }
         if matches!(self.proposal_type, MlsProposalType::Add) {
             let Some(incarnation) = &self.target_authorization_incarnation else {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "add MLS proposal requires target authorization incarnation".to_owned(),
                 ));
             };
@@ -448,13 +448,13 @@ impl MlsProposalPayload {
                     )
                 )
             {
-                return Err(Error::Protocol(
+                return Err(WireError::Protocol(
                     "add MLS proposal target authorization incarnation does not match its scope"
                         .to_owned(),
                 ));
             }
         } else if self.target_authorization_incarnation.is_some() {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "non-add MLS proposal forbids target_authorization_incarnation".to_owned(),
             ));
         }
@@ -905,7 +905,7 @@ impl UnsignedMlsWelcomeClaimEnvelope {
         };
         envelope
             .validate_signature_shape()
-            .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+            .map_err(|reason| WireError::Protocol(reason.to_owned()))?;
         Ok(envelope)
     }
 }
