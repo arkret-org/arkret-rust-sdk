@@ -16,8 +16,8 @@ use arkret_models_identity::agent_signer_evidence::{
     AgentSigningPublicKey, ControllerAccountEligibility, ControllerAccountStatus,
 };
 use arkret_wire::{
-    CellRef, DidCoreId, DidFullId, DidUrl, EventId, Hash, NonEmptyString, ProfileId,
-    ProtocolOperationId, RealmId, SchemaId, Seal, SealId, SignerEvidenceRef,
+    CellRef, DidCoreId, DidFullId, DidUrl, DomainSeparationId, EventId, Hash, NonEmptyString,
+    ProfileId, ProtocolOperationId, RealmId, SchemaId, Seal, SealId, SignerEvidenceRef,
     project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -33,7 +33,7 @@ use crate::{Ed25519DetachedJwsVerifier, PublicKeyMaterial, sign_ed25519_detached
 
 const SNAPSHOT_LEASE_DOMAIN: &str = "ak.agent-authority-snapshot-v1";
 const CONTROLLER_GATE_DOMAIN: &str = "ak.controller-account-gate-v1";
-const EVENT_ADMISSION_RECEIPT_DOMAIN: &str = "ak.agent-signer-admission-receipt-v1";
+const EVENT_ADMISSION_RECEIPT_DOMAIN: &str = DomainSeparationId::AGENT_SIGNER_ADMISSION_RECEIPT_V1;
 const OUTER_ATTESTATION_DOMAIN: &str = "ak.agent-signer-evidence.v1";
 const DETACHED_JWS_KIND: &str = "detached_jws";
 const MAX_SEAL_LINEAGE: usize = 4096;
