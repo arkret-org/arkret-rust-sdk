@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: profiles/conformance-profiles.json; version=2026-08-23.1;
-//! sha256=212f09d38141b7327bcd966962afb234881e70f4d1a8bb6f7cc1e0bcb4492205 Entries: profile_ids=99
+//! Input: profiles/conformance-profiles.json; version=2026-08-23.2;
+//! sha256=9543c98a4d385f9bb38f7f25bc2c27f56eaac31eb1d6422375dd3d74d38a12e0 Entries: profile_ids=99
 
 use serde::{Deserialize, Serialize};
 
@@ -80,8 +80,8 @@ pub enum ProfileId {
     NotaryOpenSetV1,
     NotarySingleSignerV1,
     NotaryThresholdV1,
-    OrgHighAssuranceIdentityV1,
     OrganizationV1,
+    OrganizationHighAssuranceIdentityV1,
     PersonalAgentProvisioningV1,
     PersonalNodeV1,
     PersonalProductivityV1,
@@ -222,8 +222,8 @@ impl ProfileId {
         Self::NotaryOpenSetV1,
         Self::NotarySingleSignerV1,
         Self::NotaryThresholdV1,
-        Self::OrgHighAssuranceIdentityV1,
         Self::OrganizationV1,
+        Self::OrganizationHighAssuranceIdentityV1,
         Self::PersonalAgentProvisioningV1,
         Self::PersonalNodeV1,
         Self::PersonalProductivityV1,
@@ -343,9 +343,9 @@ impl ProfileId {
     pub const NOTARY_OPEN_SET_V1: &'static str = "ak.profile.notary.open_set.v1";
     pub const NOTARY_SINGLE_SIGNER_V1: &'static str = "ak.profile.notary.single_signer.v1";
     pub const NOTARY_THRESHOLD_V1: &'static str = "ak.profile.notary.threshold.v1";
-    pub const ORG_HIGH_ASSURANCE_IDENTITY_V1: &'static str =
-        "ak.profile.org_high_assurance_identity.v1";
     pub const ORGANIZATION_V1: &'static str = "ak.profile.organization.v1";
+    pub const ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1: &'static str =
+        "ak.profile.organization_high_assurance_identity.v1";
     pub const PERSONAL_AGENT_PROVISIONING_V1: &'static str =
         "ak.profile.personal_agent_provisioning.v1";
     pub const PERSONAL_NODE_V1: &'static str = "ak.profile.personal_node.v1";
@@ -453,8 +453,10 @@ impl ProfileId {
             Self::NotaryOpenSetV1 => Self::NOTARY_OPEN_SET_V1,
             Self::NotarySingleSignerV1 => Self::NOTARY_SINGLE_SIGNER_V1,
             Self::NotaryThresholdV1 => Self::NOTARY_THRESHOLD_V1,
-            Self::OrgHighAssuranceIdentityV1 => Self::ORG_HIGH_ASSURANCE_IDENTITY_V1,
             Self::OrganizationV1 => Self::ORGANIZATION_V1,
+            Self::OrganizationHighAssuranceIdentityV1 => {
+                Self::ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1
+            }
             Self::PersonalAgentProvisioningV1 => Self::PERSONAL_AGENT_PROVISIONING_V1,
             Self::PersonalNodeV1 => Self::PERSONAL_NODE_V1,
             Self::PersonalProductivityV1 => Self::PERSONAL_PRODUCTIVITY_V1,
@@ -559,8 +561,8 @@ impl ProfileId {
             Self::NotaryOpenSetV1 => ProfileRole::Admin,
             Self::NotarySingleSignerV1 => ProfileRole::Admin,
             Self::NotaryThresholdV1 => ProfileRole::Admin,
-            Self::OrgHighAssuranceIdentityV1 => ProfileRole::Directory,
             Self::OrganizationV1 => ProfileRole::Admin,
+            Self::OrganizationHighAssuranceIdentityV1 => ProfileRole::Directory,
             Self::PersonalAgentProvisioningV1 => ProfileRole::Server,
             Self::PersonalNodeV1 => ProfileRole::Admin,
             Self::PersonalProductivityV1 => ProfileRole::Client,
@@ -677,8 +679,10 @@ impl ProfileId {
             Self::NOTARY_OPEN_SET_V1 => Some(Self::NotaryOpenSetV1),
             Self::NOTARY_SINGLE_SIGNER_V1 => Some(Self::NotarySingleSignerV1),
             Self::NOTARY_THRESHOLD_V1 => Some(Self::NotaryThresholdV1),
-            Self::ORG_HIGH_ASSURANCE_IDENTITY_V1 => Some(Self::OrgHighAssuranceIdentityV1),
             Self::ORGANIZATION_V1 => Some(Self::OrganizationV1),
+            Self::ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1 => {
+                Some(Self::OrganizationHighAssuranceIdentityV1)
+            }
             Self::PERSONAL_AGENT_PROVISIONING_V1 => Some(Self::PersonalAgentProvisioningV1),
             Self::PERSONAL_NODE_V1 => Some(Self::PersonalNodeV1),
             Self::PERSONAL_PRODUCTIVITY_V1 => Some(Self::PersonalProductivityV1),

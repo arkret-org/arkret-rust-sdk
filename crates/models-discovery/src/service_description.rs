@@ -259,7 +259,7 @@ pub struct ServiceDescribe {
     /// Directory-service overlay: takedown notification or appeal contact.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub takedown_contact: Option<String>,
-    /// Directory-service overlay: readable per-DID/per-org/per-IP quota
+    /// Directory-service overlay: readable per-DID/per-organization/per-IP quota
     /// limits that do not fit the global `rate_limit_policy` shape.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rate_limits: Option<BTreeMap<String, Value>>,

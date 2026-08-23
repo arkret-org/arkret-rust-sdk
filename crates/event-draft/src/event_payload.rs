@@ -666,7 +666,7 @@ mod tests {
             "value": {
                 "holder_principal_id": "ak:did_core:webvh:z6mkfixtureholder",
                 "audience": {
-                    "represented_org": "ak:did_core:webvh:z6mkfixtureorganization",
+                    "represented_organization_id": "ak:did_core:webvh:z6mkfixtureorganization",
                     "verifier_service_ids": ["ak:did_core:webvh:z6mkfixtureverifier"]
                 },
                 "allowed_claims": [],
@@ -688,7 +688,7 @@ mod tests {
                 "presentation_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "proof_profile": "vc_di_bbs_2023",
                 "transport": "tsp",
-                "disclosed_fields": ["credentialSubject.org"],
+                "disclosed_fields": ["credentialSubject.organization_id"],
                 "withheld_fields": ["credentialSubject.handle"],
                 "created_at": "2026-04-26T00:00:00.000Z"
             }

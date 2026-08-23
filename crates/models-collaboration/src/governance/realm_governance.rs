@@ -862,7 +862,7 @@ pub struct RealmPolicyServerView {
     pub on_timeout: RealmPolicyServerOnTimeout,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub updated_at: DateTime<Utc>,
-    pub from_org_fallback: bool,
+    pub from_organization_fallback: bool,
 }
 
 // Both policy-server writes carry the caller-signed `ak.realm.policy_server`

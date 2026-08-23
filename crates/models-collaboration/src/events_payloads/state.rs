@@ -168,7 +168,7 @@ pub struct IdentityPresentationClaimRequest {
 pub struct IdentityPresentationRequestDocument {
     pub verifier_service_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub represented_org: Option<DidCoreId>,
+    pub represented_organization_id: Option<DidCoreId>,
     pub domain: String,
     pub challenge: NonEmptyString,
     pub purpose: NonEmptyString,
@@ -497,7 +497,7 @@ impl IdentityDisclosurePolicyClaim {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityDisclosureAudience {
-    pub represented_org: DidCoreId,
+    pub represented_organization_id: DidCoreId,
     pub verifier_service_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tsp_vids: Vec<DidFullId>,

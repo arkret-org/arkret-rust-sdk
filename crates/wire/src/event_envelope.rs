@@ -187,7 +187,7 @@ pub fn prev_frontier_digest(prev_refs: &[EventId]) -> Result<String> {
 
 /// AKP-0008 / AKP-0009 (spec head 37ce729) runtime classifier stamped by
 /// the reducer on every Envelope. Distinct from the existing `ActorKind`
-/// enum (which classifies `ActorProfile.actor_kind` as user/org/team/...)
+/// enum (which classifies `ActorProfile.actor_kind` as user/organization/team/...)
 /// this 4-value classifier describes the runtime origin of the
 /// envelope itself: native devices, applet-bound ghost actors, service
 /// principals, and personal agent runtimes.
