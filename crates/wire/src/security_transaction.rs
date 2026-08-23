@@ -61,23 +61,6 @@ pub enum RecoveryIdentityModel {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SecurityTransactionState {
-    Pending,
-    Running,
-    Completed,
-    Aborted,
-    Expired,
-}
-
-impl SecurityTransactionState {
-    pub fn is_terminal(self) -> bool {
-        matches!(self, Self::Completed | Self::Aborted | Self::Expired)
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum SecurityTransactionResultKind {
     Completed,
     Aborted,
@@ -400,7 +383,6 @@ pub struct SecurityTransaction {
     pub request_digest: Hash,
     pub prepared_plan: SecurityTransactionPreparedPlan,
     pub prepared_plan_digest: Hash,
-    pub state: SecurityTransactionState,
     pub accepted_steps: Vec<AcceptedStep>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub terminal_result: Option<SecurityTransactionTerminalResult>,
@@ -643,7 +625,6 @@ impl SecurityTransactionCreateRequest {
             request_digest,
             prepared_plan,
             prepared_plan_digest,
-            state: SecurityTransactionState::Pending,
             accepted_steps: Vec::new(),
             terminal_result: None,
         };
@@ -917,10 +898,22 @@ impl SecurityTransaction {
     }
 
     pub fn next_required_step(&self) -> Result<Option<SecurityTransactionStep>> {
-        if self.state.is_terminal() {
+        if self.is_terminal() {
             return Ok(None);
         }
         Ok(self.step_order()?.get(self.accepted_steps.len()).copied())
+    }
+
+    pub fn terminal_kind(&self) -> Option<SecurityTransactionResultKind> {
+        self.terminal_result.as_ref().map(|result| result.result)
+    }
+
+    pub fn is_terminal(&self) -> bool {
+        self.terminal_result.is_some()
+    }
+
+    pub fn is_completed(&self) -> bool {
+        self.terminal_kind() == Some(SecurityTransactionResultKind::Completed)
     }
 
     pub fn requires_device_attestation(&self) -> Result<bool> {
@@ -996,14 +989,9 @@ impl SecurityTransaction {
             }
         }
 
-        if self.state.is_terminal() {
-            let outcome = self.terminal_result.as_ref().ok_or_else(|| {
-                WireError::Protocol(
-                    "terminal security transaction must record a terminal outcome".to_owned(),
-                )
-            })?;
-            let expected = match self.state {
-                SecurityTransactionState::Completed => {
+        if let Some(outcome) = self.terminal_result.as_ref() {
+            match outcome.result {
+                SecurityTransactionResultKind::Completed => {
                     if self.accepted_steps.len() != order.len() {
                         return Err(WireError::Protocol(
                             "completed security transaction must contain its full closed step order"
@@ -1024,21 +1012,26 @@ impl SecurityTransaction {
                             "completed security rotation must not invent a receipt_id".to_owned(),
                         ));
                     }
-                    SecurityTransactionResultKind::Completed
+                    if outcome.reason_code.is_some() {
+                        return Err(WireError::Protocol(
+                            "completed security transaction must not carry a reason_code"
+                                .to_owned(),
+                        ));
+                    }
                 }
-                SecurityTransactionState::Aborted => SecurityTransactionResultKind::Aborted,
-                SecurityTransactionState::Expired => SecurityTransactionResultKind::Expired,
-                _ => unreachable!("state was checked to be terminal"),
-            };
-            if outcome.result != expected {
-                return Err(WireError::Protocol(
-                    "security transaction terminal outcome disagrees with its state".to_owned(),
-                ));
+                SecurityTransactionResultKind::Aborted | SecurityTransactionResultKind::Expired => {
+                    if outcome.receipt_id.is_some() || outcome.completion_attestation.is_some() {
+                        return Err(WireError::Protocol(
+                            "aborted or expired security transaction must not carry completion evidence"
+                                .to_owned(),
+                        ));
+                    }
+                }
             }
-            match (self.kind, self.state, &outcome.completion_attestation) {
+            match (self.kind, outcome.result, &outcome.completion_attestation) {
                 (
                     SecurityTransactionKind::Recovery,
-                    SecurityTransactionState::Completed,
+                    SecurityTransactionResultKind::Completed,
                     Some(attestation),
                 ) => {
                     attestation.validate_structural()?;
@@ -1076,7 +1069,11 @@ impl SecurityTransaction {
                         ));
                     }
                 }
-                (SecurityTransactionKind::Recovery, SecurityTransactionState::Completed, None) => {
+                (
+                    SecurityTransactionKind::Recovery,
+                    SecurityTransactionResultKind::Completed,
+                    None,
+                ) => {
                     return Err(WireError::Protocol(
                         "completed recovery transaction requires a completion attestation"
                             .to_owned(),
@@ -1093,11 +1090,6 @@ impl SecurityTransaction {
             return Ok(());
         }
 
-        if self.terminal_result.is_some() {
-            return Err(WireError::Protocol(
-                "non-terminal security transaction must not record a terminal outcome".to_owned(),
-            ));
-        }
         self.next_required_step()?.ok_or_else(|| {
             WireError::Protocol(
                 "non-terminal security transaction has exhausted its fixed step order".to_owned(),
