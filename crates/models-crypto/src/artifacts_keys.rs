@@ -8,8 +8,9 @@ use arkret_wire::{
     AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, DeviceId,
     DeviceReanchorPreFenceSealFrontier, DidCoreId, DidFullId, DidUrl, DomainSeparationId, EventId,
     Hash, HistoryEffectiveScope, HistorySecretRange, LeaseBasisRef, NonEmptyString, PolicyId,
-    RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, ReasonCode, RecoverySessionId, Result, SchemaId,
-    ScopeRef, TransactionId, TrustDomainId, WireError, XExtensionMap,
+    PrincipalAuthorityKey, RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, ReasonCode,
+    RecoverySessionId, RequestId, Result, SchemaId, ScopeRef, SessionGrantId, TransactionId,
+    TrustDomainId, WireError, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -887,7 +888,10 @@ impl<'de> Deserialize<'de> for Challenge {
 #[serde(try_from = "GenericRecoveryTranscriptWire")]
 pub struct GenericRecoveryTranscript {
     pub kind: RecoveryProofKind,
-    pub principal_authority: arkret_wire::PrincipalAuthorityKey,
+    pub request_id: RequestId,
+    pub session_grant_id: SessionGrantId,
+    pub session_grant_cnf_jkt: String,
+    pub principal_authority: PrincipalAuthorityKey,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TrustDomainId,
     pub policy_id: PolicyId,
@@ -910,7 +914,10 @@ pub struct GenericRecoveryTranscript {
 #[serde(deny_unknown_fields)]
 struct GenericRecoveryTranscriptWire {
     kind: RecoveryProofKind,
-    principal_authority: arkret_wire::PrincipalAuthorityKey,
+    request_id: RequestId,
+    session_grant_id: SessionGrantId,
+    session_grant_cnf_jkt: String,
+    principal_authority: PrincipalAuthorityKey,
     requesting_device_id: DeviceId,
     trust_domain: TrustDomainId,
     policy_id: PolicyId,
@@ -935,6 +942,9 @@ impl TryFrom<GenericRecoveryTranscriptWire> for GenericRecoveryTranscript {
         let transcript = Self {
             schema: wire.schema,
             kind: wire.kind,
+            request_id: wire.request_id,
+            session_grant_id: wire.session_grant_id,
+            session_grant_cnf_jkt: wire.session_grant_cnf_jkt,
             principal_authority: wire.principal_authority,
             requesting_device_id: wire.requesting_device_id,
             trust_domain: wire.trust_domain,
@@ -968,6 +978,7 @@ impl GenericRecoveryTranscript {
                 "recovery transcript generation must be a positive PCR generation".to_owned(),
             ));
         }
+        validate_recovery_grant_jkt(&self.session_grant_cnf_jkt)?;
         if self.kind == RecoveryProofKind::DidRoot
             || self.kind != self.proof_body.kind()
             || &self.challenge != self.proof_body.challenge()
@@ -989,7 +1000,10 @@ impl GenericRecoveryTranscript {
 #[serde(try_from = "DidRootTranscriptWire")]
 pub struct DidRootTranscript {
     pub kind: RecoveryProofKind,
-    pub principal_authority: arkret_wire::PrincipalAuthorityKey,
+    pub request_id: RequestId,
+    pub session_grant_id: SessionGrantId,
+    pub session_grant_cnf_jkt: String,
+    pub principal_authority: PrincipalAuthorityKey,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TrustDomainId,
     pub policy_id: PolicyId,
@@ -1011,7 +1025,10 @@ pub struct DidRootTranscript {
 #[serde(deny_unknown_fields)]
 struct DidRootTranscriptWire {
     kind: RecoveryProofKind,
-    principal_authority: arkret_wire::PrincipalAuthorityKey,
+    request_id: RequestId,
+    session_grant_id: SessionGrantId,
+    session_grant_cnf_jkt: String,
+    principal_authority: PrincipalAuthorityKey,
     requesting_device_id: DeviceId,
     trust_domain: TrustDomainId,
     policy_id: PolicyId,
@@ -1035,6 +1052,9 @@ impl TryFrom<DidRootTranscriptWire> for DidRootTranscript {
         let transcript = Self {
             schema: wire.schema,
             kind: wire.kind,
+            request_id: wire.request_id,
+            session_grant_id: wire.session_grant_id,
+            session_grant_cnf_jkt: wire.session_grant_cnf_jkt,
             principal_authority: wire.principal_authority,
             requesting_device_id: wire.requesting_device_id,
             trust_domain: wire.trust_domain,
@@ -1069,6 +1089,7 @@ impl DidRootTranscript {
                 "did_root generation must be a positive PCR generation".to_owned(),
             ));
         }
+        validate_recovery_grant_jkt(&self.session_grant_cnf_jkt)?;
         Ok(())
     }
 }
@@ -1200,7 +1221,8 @@ impl RecoveryPublicationAuthorityContext {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoverySessionCreateRequestBody {
-    pub principal_authority: arkret_wire::PrincipalAuthorityKey,
+    pub request_id: RequestId,
+    pub principal_authority: PrincipalAuthorityKey,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TrustDomainId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1528,8 +1550,11 @@ where
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RecoverySessionState {
     pub schema: String,
+    pub request_id: RequestId,
     pub recovery_session_id: RecoverySessionId,
-    pub principal_authority: arkret_wire::PrincipalAuthorityKey,
+    pub session_grant_id: SessionGrantId,
+    pub session_grant_cnf_jkt: String,
+    pub principal_authority: PrincipalAuthorityKey,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TrustDomainId,
     pub policy_id: PolicyId,
@@ -1538,11 +1563,8 @@ pub struct RecoverySessionState {
     pub current_device_generation_ref: u64,
     pub device_generation_status: DeviceGenerationStatus,
     pub registry_head: Hash,
-    #[cfg_attr(
-        feature = "openapi",
-        salvo(schema(value_type = Option<serde_json::Value>))
-    )]
-    pub accepted_seal_frontier: Option<DeviceReanchorPreFenceSealFrontier>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub accepted_seal_frontier: DeviceReanchorPreFenceSealFrontier,
     pub publication_authority_context: RecoveryPublicationAuthorityContext,
     pub publication_authority_context_digest: Hash,
     pub challenge: Challenge,
@@ -1567,12 +1589,15 @@ impl Serialize for RecoverySessionState {
         let created_at = arkret_canonical::canonical::format_timestamp_canonical(self.created_at);
         let updated_at = arkret_canonical::canonical::format_timestamp_canonical(self.updated_at);
         let mut map = serializer.serialize_map(Some(
-            19 + usize::from(self.proof_summary.is_some())
+            22 + usize::from(self.proof_summary.is_some())
                 + usize::from(self.transaction_id.is_some())
                 + usize::from(self.rejection_reason_code.is_some()),
         ))?;
         map.serialize_entry("schema", &self.schema)?;
+        map.serialize_entry("request_id", &self.request_id)?;
         map.serialize_entry("recovery_session_id", &self.recovery_session_id)?;
+        map.serialize_entry("session_grant_id", &self.session_grant_id)?;
+        map.serialize_entry("session_grant_cnf_jkt", &self.session_grant_cnf_jkt)?;
         map.serialize_entry("principal_authority", &self.principal_authority)?;
         map.serialize_entry("requesting_device_id", &self.requesting_device_id)?;
         map.serialize_entry("trust_domain", &self.trust_domain)?;
@@ -1616,8 +1641,11 @@ impl Serialize for RecoverySessionState {
 #[serde(deny_unknown_fields)]
 struct RecoverySessionStateWire {
     schema: String,
+    request_id: RequestId,
     recovery_session_id: RecoverySessionId,
-    principal_authority: arkret_wire::PrincipalAuthorityKey,
+    session_grant_id: SessionGrantId,
+    session_grant_cnf_jkt: String,
+    principal_authority: PrincipalAuthorityKey,
     requesting_device_id: DeviceId,
     trust_domain: TrustDomainId,
     policy_id: PolicyId,
@@ -1626,7 +1654,7 @@ struct RecoverySessionStateWire {
     current_device_generation_ref: u64,
     device_generation_status: DeviceGenerationStatus,
     registry_head: Hash,
-    accepted_seal_frontier: Option<DeviceReanchorPreFenceSealFrontier>,
+    accepted_seal_frontier: DeviceReanchorPreFenceSealFrontier,
     publication_authority_context: RecoveryPublicationAuthorityContext,
     publication_authority_context_digest: Hash,
     challenge: Challenge,
@@ -1644,11 +1672,8 @@ struct RecoverySessionStateWire {
 
 fn validate_recovery_session_state_shape(
     identity_model: RecoveryIdentityModel,
-    accepted_seal_frontier_present: bool,
 ) -> std::result::Result<(), &'static str> {
-    let valid =
-        identity_model == RecoveryIdentityModel::PcrPolicy && accepted_seal_frontier_present;
-    valid
+    (identity_model == RecoveryIdentityModel::PcrPolicy)
         .then_some(())
         .ok_or("recovery session identity_model does not match its authoritative snapshot")
 }
@@ -1658,13 +1683,8 @@ impl<'de> Deserialize<'de> for RecoverySessionState {
     where
         D: serde::Deserializer<'de>,
     {
-        let value = Value::deserialize(deserializer)?;
-        let accepted_seal_frontier_present = value
-            .as_object()
-            .is_some_and(|object| object.contains_key("accepted_seal_frontier"));
-        let wire: RecoverySessionStateWire =
-            serde_json::from_value(value).map_err(serde::de::Error::custom)?;
-        validate_recovery_session_state_shape(wire.identity_model, accepted_seal_frontier_present)
+        let wire = RecoverySessionStateWire::deserialize(deserializer)?;
+        validate_recovery_session_state_shape(wire.identity_model)
             .map_err(serde::de::Error::custom)?;
         if matches!(wire.state, SessionState::Verified | SessionState::Completed)
             && wire.proof_summary.is_none()
@@ -1680,7 +1700,10 @@ impl<'de> Deserialize<'de> for RecoverySessionState {
         }
         let state = Self {
             schema: wire.schema,
+            request_id: wire.request_id,
             recovery_session_id: wire.recovery_session_id,
+            session_grant_id: wire.session_grant_id,
+            session_grant_cnf_jkt: wire.session_grant_cnf_jkt,
             principal_authority: wire.principal_authority,
             requesting_device_id: wire.requesting_device_id,
             trust_domain: wire.trust_domain,
@@ -1724,7 +1747,8 @@ impl RecoverySessionState {
                 "current_device_generation_ref must be positive".to_owned(),
             ));
         }
-        validate_recovery_session_state_shape(self.identity_model, true)
+        validate_recovery_grant_jkt(&self.session_grant_cnf_jkt)?;
+        validate_recovery_session_state_shape(self.identity_model)
             .map_err(|reason| WireError::Protocol(reason.to_owned()))?;
         self.publication_authority_context
             .validate_for(self.identity_model)?;
@@ -1748,6 +1772,19 @@ impl RecoverySessionState {
         }
         Ok(())
     }
+}
+
+fn validate_recovery_grant_jkt(value: &str) -> Result<()> {
+    if value.len() != 43
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+    {
+        return Err(WireError::Protocol(
+            "recovery session grant cnf.jkt must be an unpadded SHA-256 JWK thumbprint".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/session_state`.

@@ -17,8 +17,8 @@ use arkret_models_identity::{
 };
 use arkret_signatures::PublicKeyMaterial;
 use arkret_state::mls_governance_proof::{
-    MlsGovernanceVerificationCheckpoint, MlsGroupGenesisBinding, SealDependencyReplayContext,
-    VerifiedMlsGovernanceFrontier,
+    MlsGovernanceVerificationCheckpoint, MlsGroupGenesisBinding, SealAvailabilityReplayAuthority,
+    SealDependencyReplayContext, VerifiedMlsGovernanceFrontier,
 };
 use arkret_wire::{Event, EventProof, Hash, RealmId, Seal, SealBasis, WireError};
 
@@ -844,9 +844,19 @@ fn verify_seal_dependencies_default(
     replay_context: &SealDependencyReplayContext,
     dependencies: &[GovernanceDependency],
 ) -> Result<(), WireError> {
-    replay_context.availability_policy.validate()?;
-    let seal_include_required = replay_context
-        .availability_policy
+    let SealAvailabilityReplayAuthority::Predecessor {
+        policy: availability_policy,
+        joined_member_principal_server_ids,
+        joined_service_actor_ids,
+    } = &replay_context.availability_authority
+    else {
+        return verify_genesis_availability_commitment(
+            &seal.availability_receipt_digests,
+            dependencies,
+        );
+    };
+    availability_policy.validate()?;
+    let seal_include_required = availability_policy
         .applies_to
         .contains(&AvailabilityEvidenceScope::SealInclude);
     let required = seal
@@ -949,26 +959,23 @@ fn verify_seal_dependencies_default(
                 .to_owned(),
         ));
     }
-    let minimum_retention_ms = replay_context
-        .availability_policy
+    let minimum_retention_ms = availability_policy
         .minimum_retention_ms
         .unwrap_or(86_400_000);
     let mut holders_by_event = BTreeMap::<_, BTreeSet<_>>::new();
     for receipt in &receipts {
         let holder_id = &receipt.receipt.holder_id;
-        let eligible =
-            replay_context
-                .availability_policy
-                .holder_roles
-                .iter()
-                .any(|role| match role {
-                    AvailabilityHolderRole::JoinedMemberPrincipalServer => replay_context
-                        .joined_member_principal_server_ids
-                        .contains(holder_id),
-                    AvailabilityHolderRole::JoinedServiceActor => {
-                        replay_context.joined_service_actor_ids.contains(holder_id)
-                    }
-                });
+        let eligible = availability_policy
+            .holder_roles
+            .iter()
+            .any(|role| match role {
+                AvailabilityHolderRole::JoinedMemberPrincipalServer => {
+                    joined_member_principal_server_ids.contains(holder_id)
+                }
+                AvailabilityHolderRole::JoinedServiceActor => {
+                    joined_service_actor_ids.contains(holder_id)
+                }
+            });
         if !eligible {
             return Err(WireError::Protocol(
                 "availability receipt holder has no accepted predecessor role".to_owned(),
@@ -1003,12 +1010,28 @@ fn verify_seal_dependencies_default(
         let holder_count = holders_by_event
             .get(&event.event_id)
             .map_or(0, BTreeSet::len);
-        if holder_count < usize::from(replay_context.availability_policy.min_holders) {
+        if holder_count < usize::from(availability_policy.min_holders) {
             return Err(WireError::Protocol(
                 "Seal delta Event does not meet the predecessor availability holder quorum"
                     .to_owned(),
             ));
         }
+    }
+    Ok(())
+}
+
+fn verify_genesis_availability_commitment(
+    availability_receipt_digests: &[Hash],
+    dependencies: &[GovernanceDependency],
+) -> Result<(), WireError> {
+    if !availability_receipt_digests.is_empty()
+        || dependencies.iter().any(|dependency| {
+            matches!(dependency, GovernanceDependency::AvailabilityReceipt { .. })
+        })
+    {
+        return Err(WireError::Protocol(
+            "genesis Seal must not commit or supply availability receipts".to_owned(),
+        ));
     }
     Ok(())
 }
@@ -1542,4 +1565,22 @@ where
                 .map_err(|error| error.to_string())
         },
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn genesis_availability_gate_is_absent_and_commitment_is_empty() {
+        verify_genesis_availability_commitment(&[], &[]).unwrap();
+
+        let committed = Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap();
+        let error = verify_genesis_availability_commitment(&[committed], &[]).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("genesis Seal must not commit or supply availability receipts")
+        );
+    }
 }

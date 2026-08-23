@@ -56,6 +56,7 @@ pub fn human_session_grant_intent_digest(
 #[allow(clippy::large_enum_variant)]
 pub enum SessionGrantRequestBody {
     Human(HumanSessionGrantRequest),
+    Recovery(RecoverySessionGrantRequest),
     Agent(AgentSessionGrantRequest),
 }
 
@@ -63,8 +64,36 @@ impl SessionGrantRequestBody {
     pub fn validate(&self) -> Result<()> {
         match self {
             Self::Human(request) => request.validate(),
+            Self::Recovery(request) => request.validate(),
             Self::Agent(request) => request.validate(),
         }
+    }
+}
+
+/// Fresh-device existing-principal recovery issuance. The Bound
+/// AccountHandoff and its per-request DPoP proof authenticate this body; the
+/// candidate device is intentionally not required to have an accepted-device
+/// authorization yet.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoverySessionGrantRequest {
+    pub credential_class: SessionGrantCredentialClass,
+    pub request_id: RequestId,
+    pub principal_id: DidCoreId,
+    pub device_id: DeviceId,
+    pub audience: DidCoreId,
+}
+
+impl RecoverySessionGrantRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.credential_class != SessionGrantCredentialClass::RecoverySession {
+            return Err(WireError::Protocol(
+                "recovery session grant request requires credential_class=recovery_session"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -890,6 +919,11 @@ impl SessionGrantIntrospectGrant {
             (SessionGrantHolderBinding::HumanDevice { .. }, None) => Err(WireError::Protocol(
                 "online human request context is missing device authorization selector".to_owned(),
             )),
+            (SessionGrantHolderBinding::RecoveryCandidateDevice { .. }, _) => {
+                Err(WireError::Protocol(
+                    "recovery candidate request context has no accepted-device selector".to_owned(),
+                ))
+            }
             (SessionGrantHolderBinding::AgentRuntime { .. }, _) => Err(WireError::Protocol(
                 "managed Agent request context must use delegated runtime authority".to_owned(),
             )),
@@ -897,6 +931,23 @@ impl SessionGrantIntrospectGrant {
     }
 
     pub fn validate(&self) -> Result<()> {
+        match (self.credential_class, &self.holder_binding) {
+            (
+                SessionGrantCredentialClass::Standard,
+                SessionGrantHolderBinding::HumanDevice { .. }
+                | SessionGrantHolderBinding::AgentRuntime { .. },
+            )
+            | (
+                SessionGrantCredentialClass::RecoverySession,
+                SessionGrantHolderBinding::RecoveryCandidateDevice { .. },
+            ) => {}
+            _ => {
+                return Err(WireError::Protocol(
+                    "session grant introspection credential_class and holder_binding are incompatible"
+                        .to_owned(),
+                ));
+            }
+        }
         match (&self.holder_binding, &self.device_id, &self.device_binding) {
             (
                 SessionGrantHolderBinding::HumanDevice { .. },
@@ -918,6 +969,19 @@ impl SessionGrantIntrospectGrant {
             (SessionGrantHolderBinding::HumanDevice { .. }, ..) => {
                 return Err(WireError::Protocol(
                     "human session grant introspection requires device_id and device_binding"
+                        .to_owned(),
+                ));
+            }
+            (
+                SessionGrantHolderBinding::RecoveryCandidateDevice {
+                    device_id: holder_device_id,
+                },
+                Some(device_id),
+                None,
+            ) if holder_device_id == device_id => {}
+            (SessionGrantHolderBinding::RecoveryCandidateDevice { .. }, ..) => {
+                return Err(WireError::Protocol(
+                    "recovery session grant introspection requires matching device_id and forbids device_binding"
                         .to_owned(),
                 ));
             }
@@ -1042,6 +1106,29 @@ mod session_grant_contract_tests {
             r#"{"kty":"OKP", "crv":"Ed25519","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#
         );
         assert!(serde_json::from_value::<SessionGrantOutcome>(noncanonical).is_err());
+    }
+
+    #[test]
+    fn issue_request_has_a_closed_recovery_branch() {
+        let valid = json!({
+            "credential_class": "recovery_session",
+            "request_id": "ak:request:01964137-0000-7000-8000-000000000040",
+            "principal_id": "ak:did_core:web:alice.example",
+            "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
+            "audience": "ak:did_core:web:service.example"
+        });
+        let request = serde_json::from_value::<SessionGrantRequestBody>(valid.clone()).unwrap();
+        assert!(matches!(request, SessionGrantRequestBody::Recovery(_)));
+        request.validate().unwrap();
+
+        let mut wrong_class = valid.clone();
+        wrong_class["credential_class"] = json!("standard");
+        let request = serde_json::from_value::<SessionGrantRequestBody>(wrong_class).unwrap();
+        assert!(request.validate().is_err());
+
+        let mut open = valid;
+        open["requested_scope"] = json!(["ak.self.events.read.scan"]);
+        assert!(serde_json::from_value::<SessionGrantRequestBody>(open).is_err());
     }
 
     #[test]
@@ -1196,6 +1283,21 @@ mod session_grant_contract_tests {
             "model_generation_ref": 7
         });
         assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(agent).is_err());
+
+        let mut recovery = introspect_grant_base("recovery_session");
+        recovery["holder_binding"] = json!({
+            "kind": "recovery_candidate_device",
+            "device_id": "ak:device:019a6aa0-0000-7000-8000-000000000000"
+        });
+        recovery.as_object_mut().unwrap().remove("device_binding");
+        assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(recovery.clone()).is_ok());
+
+        recovery["device_binding"] = json!({
+            "device_id": "ak:device:019a6aa0-0000-7000-8000-000000000000",
+            "authorization_event_id": "ak:event:ARKvbHo7orDUG4lSf-XaWVE2UDU5C-hOBPqUSLx8PmM3",
+            "model_generation_ref": 7
+        });
+        assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(recovery).is_err());
     }
 
     #[test]

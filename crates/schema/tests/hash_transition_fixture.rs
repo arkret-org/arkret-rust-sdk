@@ -56,7 +56,20 @@ fn hash_transition_fixture_authenticates_genesis_and_transition_bytes() {
         genesis["create_event_id"].as_str().unwrap(),
         DigestSuite::Sha256,
     );
-    assert_receipt(&genesis["create_availability_receipt"]);
+    assert_eq!(
+        genesis["genesis_availability_receipt_digests"]
+            .as_array()
+            .unwrap()
+            .len(),
+        0,
+        "genesis has no predecessor availability authority"
+    );
+    assert_eq!(
+        genesis["genesis_availability_negative_mutation"]
+            .as_str()
+            .unwrap(),
+        "non_empty_receipt_commitment"
+    );
     assert_eq!(
         digest(
             DigestSuite::Blake3,

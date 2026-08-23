@@ -1397,6 +1397,22 @@ pub fn standard_initial_session_grant_scope() -> Vec<String> {
         .collect()
 }
 
+pub const RECOVERY_SESSION_GRANT_OPERATIONS: [&str; 13] = [
+    arkret_wire::ServiceOperationId::ROOT_IDENTITY_LOG_READ_LIST,
+    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET,
+    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE,
+    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF,
+    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET,
+    arkret_wire::ServiceOperationId::SELF_EVENTS_READ_FRONTIER,
+    arkret_wire::ServiceOperationId::SELF_EVENTS_READ_SCAN,
+    arkret_wire::ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK,
+    arkret_wire::ServiceOperationId::SELF_KEYS_BACKUPS_READ_LIST,
+    arkret_wire::ServiceOperationId::SELF_KEYS_READ_LOOKUP,
+    arkret_wire::ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE,
+    arkret_wire::ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CREATE,
+    arkret_wire::ServiceOperationId::SELF_SECURITY_TRANSACTION_RESOURCE_GET,
+];
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

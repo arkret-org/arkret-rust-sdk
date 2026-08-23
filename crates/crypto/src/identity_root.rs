@@ -229,6 +229,9 @@ pub fn recovery_unlock_transcript(
     let transcript = GenericRecoveryTranscript {
         schema: DomainSeparationId::IDENTITY_RECOVERY_PROOF_V1.to_owned(),
         kind: RecoveryProofKind::RecoveryUnlock,
+        request_id: session.request_id.clone(),
+        session_grant_id: session.session_grant_id.clone(),
+        session_grant_cnf_jkt: session.session_grant_cnf_jkt.clone(),
         principal_authority: session.principal_authority.clone(),
         requesting_device_id: session.requesting_device_id.clone(),
         trust_domain: session.trust_domain.clone(),

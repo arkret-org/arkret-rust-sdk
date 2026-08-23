@@ -24,6 +24,7 @@ pub enum SessionGrantProofKind {
 #[serde(rename_all = "snake_case")]
 pub enum SessionGrantCredentialClass {
     Standard,
+    RecoverySession,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -32,6 +33,9 @@ pub enum SessionGrantCredentialClass {
 pub enum SessionGrantHolderBinding {
     HumanDevice {
         device_binding: String,
+    },
+    RecoveryCandidateDevice {
+        device_id: DeviceId,
     },
     AgentRuntime {
         agent_id: DidCoreId,
@@ -651,10 +655,13 @@ fn validate_issuance_fields(
             "session grant device generation must be positive".to_owned(),
         ));
     }
-    match holder_binding {
-        SessionGrantHolderBinding::HumanDevice {
-            device_binding: holder_device_id,
-        } => {
+    match (credential_class, holder_binding) {
+        (
+            SessionGrantCredentialClass::Standard,
+            SessionGrantHolderBinding::HumanDevice {
+                device_binding: holder_device_id,
+            },
+        ) => {
             let binding = device_binding.ok_or_else(|| {
                 WireError::Protocol(
                     "standard human session grant requires a signed device_binding".to_owned(),
@@ -672,21 +679,35 @@ fn validate_issuance_fields(
                 ));
             }
         }
-        SessionGrantHolderBinding::AgentRuntime { .. } => {
+        (SessionGrantCredentialClass::Standard, SessionGrantHolderBinding::AgentRuntime { .. }) => {
             if device_binding.is_some() {
                 return Err(WireError::Protocol(
                     "Agent runtime session grant must omit human device_binding".to_owned(),
                 ));
             }
         }
+        (
+            SessionGrantCredentialClass::RecoverySession,
+            SessionGrantHolderBinding::RecoveryCandidateDevice { .. },
+        ) => {
+            if device_binding.is_some() {
+                return Err(WireError::Protocol(
+                    "recovery-session grant must omit accepted device_binding".to_owned(),
+                ));
+            }
+            if scope_details.is_some() {
+                return Err(WireError::Protocol(
+                    "recovery-session grant must omit Agent scope_details".to_owned(),
+                ));
+            }
+        }
+        _ => {
+            return Err(WireError::Protocol(
+                "session grant credential_class and holder_binding are incompatible".to_owned(),
+            ));
+        }
     }
-    let _ = (
-        audience,
-        credential_class,
-        holder_binding,
-        device_binding,
-        scope_details,
-    );
+    let _ = (audience, holder_binding, device_binding, scope_details);
     Ok(())
 }
 
@@ -797,6 +818,28 @@ mod tests {
             value["session_public_key"],
             r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#
         );
+    }
+
+    #[test]
+    fn recovery_claims_require_candidate_holder_without_accepted_binding() {
+        let mut recovery = claims();
+        recovery.credential_class = SessionGrantCredentialClass::RecoverySession;
+        recovery.holder_binding = SessionGrantHolderBinding::RecoveryCandidateDevice {
+            device_id: DeviceId::new("ak:device:019a0000-0000-7000-8000-000000000009").unwrap(),
+        };
+        recovery.device_binding = None;
+        recovery.grant_id = recovery.recomputed_grant_id().unwrap();
+        recovery.validate().unwrap();
+
+        let mut accepted_binding = recovery.clone();
+        accepted_binding.device_binding = claims().device_binding;
+        assert!(accepted_binding.recomputed_grant_id().is_err());
+        assert!(accepted_binding.validate().is_err());
+
+        let mut wrong_class = recovery;
+        wrong_class.credential_class = SessionGrantCredentialClass::Standard;
+        assert!(wrong_class.recomputed_grant_id().is_err());
+        assert!(wrong_class.validate().is_err());
     }
 
     #[test]

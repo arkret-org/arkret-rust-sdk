@@ -116,12 +116,25 @@ impl ReplayEventLookup for BTreeMap<Hash, Event> {
 /// Reducer-derived predecessor facts required to evaluate one Seal's
 /// AvailabilityReceipt policy without consulting current Realm state.
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SealAvailabilityReplayAuthority {
+    /// A genesis Seal has no predecessor governance authority. Its receipt
+    /// commitment must be empty; the policy it materializes governs only its
+    /// successors.
+    Genesis,
+    /// Availability policy and holder eligibility frozen at the joined
+    /// predecessor view.
+    Predecessor {
+        policy: RealmAvailabilityPolicy,
+        joined_member_principal_server_ids: BTreeSet<DidCoreId>,
+        joined_service_actor_ids: BTreeSet<DidCoreId>,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SealDependencyReplayContext {
     pub event_digest_suites: BTreeMap<Hash, DigestSuite>,
     pub seal_digest_suite: DigestSuite,
-    pub availability_policy: RealmAvailabilityPolicy,
-    pub joined_member_principal_server_ids: BTreeSet<DidCoreId>,
-    pub joined_service_actor_ids: BTreeSet<DidCoreId>,
+    pub availability_authority: SealAvailabilityReplayAuthority,
 }
 
 impl MlsGovernanceVerificationCheckpoint {
@@ -2000,32 +2013,6 @@ fn seal_dependency_replay_context(
             return frontier_rejected("predecessor view has multiple Realm policy bundle cells");
         }
     }
-    if seal.predecessor_refs.is_empty() {
-        for digest in &seal.delta {
-            let Some(event) = all_events.event(digest)? else {
-                continue;
-            };
-            if event.kind.as_str() != arkret_wire::event_kind_str::REALM_CREATE {
-                continue;
-            }
-            event
-                .payload
-                .get("object")
-                .ok_or_else(|| WireError::Protocol("Realm create omits object".to_owned()))?;
-            // `ak.realm.create` carries the closed `RealmGenesis` object, not
-            // the later materialized `Realm` view. Availability policy is not
-            // a Genesis field in v1, so replay uses the protocol default. Do
-            // not deserialize the object as `Realm`: doing so makes historical
-            // replay depend on unrelated materialized-view fields and rejects
-            // otherwise valid retained Genesis bytes.
-            if availability_policy
-                .replace(RealmAvailabilityPolicy::default())
-                .is_some()
-            {
-                return frontier_rejected("genesis unit has conflicting availability policies");
-            }
-        }
-    }
     let mut context = SealDependencyReplayContext {
         event_digest_suites: seal
             .delta
@@ -2045,9 +2032,15 @@ fn seal_dependency_replay_context(
             })
             .collect::<arkret_wire::Result<_>>()?,
         seal_digest_suite: digest_suites.seal_digest_suite,
-        availability_policy: availability_policy.unwrap_or_default(),
-        joined_member_principal_server_ids: BTreeSet::new(),
-        joined_service_actor_ids: BTreeSet::new(),
+        availability_authority: if seal.predecessor_refs.is_empty() {
+            SealAvailabilityReplayAuthority::Genesis
+        } else {
+            SealAvailabilityReplayAuthority::Predecessor {
+                policy: availability_policy.unwrap_or_default(),
+                joined_member_principal_server_ids: BTreeSet::new(),
+                joined_service_actor_ids: BTreeSet::new(),
+            }
+        },
     };
     let covered = if seal.predecessor_refs.is_empty() {
         seal.delta.iter().cloned().collect::<BTreeSet<_>>()
@@ -2055,14 +2048,7 @@ fn seal_dependency_replay_context(
         union_predecessor_covered_events(&seal.predecessor_refs, seal_store)
             .map_err(replay_reject_error)?
     };
-    if seal.predecessor_refs.is_empty() {
-        for digest in &seal.delta {
-            let Some(event) = all_events.event(digest)? else {
-                continue;
-            };
-            add_joined_holder_from_event(&event, &mut context)?;
-        }
-    } else {
+    if !seal.predecessor_refs.is_empty() {
         for (cell, state) in predecessor_state {
             let cell_id = CellId::from_ref(cell)?;
             if cell_id.component() != arkret_wire::CellFamilyId::MEMBER_STATE_V1
@@ -2138,12 +2124,20 @@ fn add_joined_holder_from_event(
     if payload.membership != MembershipPayloadState::Join {
         return Ok(());
     }
+    let SealAvailabilityReplayAuthority::Predecessor {
+        joined_member_principal_server_ids,
+        joined_service_actor_ids,
+        ..
+    } = &mut context.availability_authority
+    else {
+        return Err(WireError::Protocol(
+            "genesis replay cannot acquire predecessor availability holders".to_owned(),
+        ));
+    };
     if let Some(authority) = payload.principal_authority {
-        context
-            .joined_member_principal_server_ids
-            .insert(authority.principal_server_id);
+        joined_member_principal_server_ids.insert(authority.principal_server_id);
     } else if let Some(actor_id) = payload.actor_id {
-        context.joined_service_actor_ids.insert(actor_id);
+        joined_service_actor_ids.insert(actor_id);
     }
     Ok(())
 }

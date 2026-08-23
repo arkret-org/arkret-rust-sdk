@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-23.3;
-//! sha256=7c2f5811a1870e19f3b987ccefc08c93aad99a111a5011722e71f1610e359b4e Entries: registered=257
+//! Input: registry/operation-registry.json; version=2026-08-24.1;
+//! sha256=e87ae124bbfb8a0e38f41228badc10dd06863ef99800c24da1b4065d5fe9da85 Entries: registered=257
 
 use serde::{Deserialize, Serialize};
 
@@ -4487,8 +4487,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "schema_resource",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
+        idempotency_mechanism: Some("request_id"),
+        retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/recovery-session.schema.json#/$defs/recovery_session_create_request_body",
         ),
@@ -4496,7 +4496,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/recovery-session.schema.json#/$defs/recovery_session_state",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.root.identity.recovery_session.resource.get\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.root.identity.recovery_session.command.create\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,

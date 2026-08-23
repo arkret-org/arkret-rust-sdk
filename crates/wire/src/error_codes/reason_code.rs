@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-23.5;
-//! sha256=a719f071e5442f47ec55715f4f170fca79b6c743663e6e6db641a053c1a5dd01
+//! Input: registry/error-code-registry.json; version=2026-08-23.6;
+//! sha256=98e39fd93a6b34258fbc7cd4863ce2161a8deeb675b798d0b08d205b315b5b8e
 //! Entries: reason_codes=469
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -3996,7 +3996,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_PRINCIPAL_ISOLATION,
         applies_to: &["authz", "device_recovery"],
-        description: "A recovery policy or recovery session request targets a principal_id different from the authenticated principal or authorized recovery coordinator scope. Servers MUST reject without revealing the target principal's recovery state.",
+        description: "A recovery policy or recovery session request targets a principal_id different from the principal bound to the authenticated SessionGrant. Servers MUST reject without revealing the target principal's recovery state.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_PROOF_KIND_UNKNOWN,
