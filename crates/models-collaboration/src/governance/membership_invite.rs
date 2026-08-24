@@ -66,8 +66,6 @@ pub struct MembershipPayload {
     pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub actor_id: Option<DidCoreId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub principal_authority: Option<arkret_wire::PrincipalAuthorityKey>,
     pub membership: MembershipPayloadState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delivery_status: Option<DeliveryStatus>,
@@ -110,7 +108,6 @@ impl MembershipPayload {
             strand_id: None,
             realm_id: None,
             actor_id: Some(actor_id),
-            principal_authority: None,
             delivery_status: None,
             delivery_binding: None,
             gate_proofs: Vec::new(),
@@ -135,7 +132,6 @@ impl MembershipPayload {
             strand_id: None,
             realm_id: Some(realm_id),
             actor_id: Some(actor_id),
-            principal_authority: None,
             delivery_status: Some(delivery_status),
             delivery_binding: None,
             gate_proofs: Vec::new(),
@@ -182,13 +178,6 @@ impl MembershipPayload {
         {
             return Err(WireError::Protocol(
                 "membership payload reason exceeds 256 characters".to_owned(),
-            ));
-        }
-        if let Some(authority) = &self.principal_authority
-            && self.actor_id.as_ref() != Some(&authority.principal_id)
-        {
-            return Err(WireError::Protocol(
-                "membership principal_authority does not bind actor_id".to_owned(),
             ));
         }
         if self.membership == MembershipPayloadState::Join {

@@ -247,14 +247,6 @@ impl ReadReceiptVisibility {
     }
 }
 
-/// Typed value of the Realm read-receipt policy cell.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ReadReceiptComplianceOptIn {
-    #[serde(default)]
-    pub child_privacy_tightening_against_required: bool,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReadReceiptPolicy {
@@ -265,7 +257,7 @@ pub struct ReadReceiptPolicy {
     #[serde(default = "default_read_receipt_scope_overrides_allowed")]
     pub scope_overrides_allowed: bool,
     #[serde(default)]
-    pub receipt_compliance_opt_in: ReadReceiptComplianceOptIn,
+    pub child_privacy_tightening_against_required: bool,
 }
 
 impl Default for ReadReceiptPolicy {
@@ -274,7 +266,7 @@ impl Default for ReadReceiptPolicy {
             disclosure: ReadReceiptDisclosure::Optional,
             visibility: ReadReceiptVisibility::Members,
             scope_overrides_allowed: true,
-            receipt_compliance_opt_in: ReadReceiptComplianceOptIn::default(),
+            child_privacy_tightening_against_required: false,
         }
     }
 }
@@ -336,12 +328,7 @@ impl ReadReceiptPolicy {
             (
                 ReadReceiptDisclosure::Required,
                 ReadReceiptDisclosure::Optional | ReadReceiptDisclosure::Disabled,
-            ) if self
-                .receipt_compliance_opt_in
-                .child_privacy_tightening_against_required =>
-            {
-                Ok(())
-            }
+            ) if self.child_privacy_tightening_against_required => Ok(()),
             (
                 ReadReceiptDisclosure::Required,
                 ReadReceiptDisclosure::Optional | ReadReceiptDisclosure::Disabled,

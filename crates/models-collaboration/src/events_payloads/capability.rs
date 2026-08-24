@@ -25,18 +25,6 @@ pub struct CapabilityGrantCreateBody {
     pub issuer_authority_refs: Vec<IssuerAuthorityRef>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
-    )]
-    pub not_before: Option<DateTime<Utc>>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
-    )]
-    pub expires_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

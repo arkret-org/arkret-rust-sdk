@@ -39,7 +39,6 @@ fn e2ee_block() -> ContentBlock {
                     "algorithm": "MLS",
                     "group_state_ref": "ak:event:AUifxzFz9FHjEtSVQXh_FAew1XOfIvIEHovpdd_Bp5HO"
                 },
-                "epoch": 42,
                 "ciphertext_digest": format!("sha256:{}", "b".repeat(64)),
                 "size_bytes": 700_000u64,
                 "media_type": "text/plain",

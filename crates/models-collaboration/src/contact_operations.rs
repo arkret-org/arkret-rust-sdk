@@ -403,7 +403,6 @@ pub struct BilateralContinuityCheckpointCore {
     pub participants: [PrincipalAuthorityKey; 2],
     #[serde(deserialize_with = "deserialize_uncheckpointed_root_basis")]
     pub root_basis: Box<ContactRoundEvidenceBundle>,
-    pub root_basis_digest: Hash,
     /// Contact round id at the compacted-prefix boundary. The first omitted
     /// tail edge points to this value; bundle content digests remain confined
     /// to `prefix_accumulator_root`.
@@ -524,16 +523,7 @@ impl BilateralContinuityCheckpoint {
             ));
         }
         let root = self.core.root_basis.as_ref().clone();
-        let root_digest = Hash::new(arkret_canonical::sha256_digest(
-            arkret_canonical::canonical_json_bytes(&root).map_err(|error| {
-                arkret_wire::WireError::Protocol(format!(
-                    "continuity_invalid: root basis canonicalization failed: {error}"
-                ))
-            })?,
-        ))?;
-        if root.previous_terminal_contact_round_id.is_some()
-            || root.continuity_checkpoint.is_some()
-            || root_digest != self.core.root_basis_digest
+        if root.previous_terminal_contact_round_id.is_some() || root.continuity_checkpoint.is_some()
         {
             return Err(arkret_wire::WireError::Protocol(
                 "continuity_invalid: checkpoint root basis mismatch".to_owned(),
@@ -563,16 +553,7 @@ impl BilateralContinuityCheckpointProposal {
             ));
         }
         let root = self.core.root_basis.as_ref();
-        let root_digest = Hash::new(arkret_canonical::sha256_digest(
-            arkret_canonical::canonical_json_bytes(root).map_err(|error| {
-                arkret_wire::WireError::Protocol(format!(
-                    "continuity_invalid: root basis canonicalization failed: {error}"
-                ))
-            })?,
-        ))?;
-        if root.previous_terminal_contact_round_id.is_some()
-            || root.continuity_checkpoint.is_some()
-            || root_digest != self.core.root_basis_digest
+        if root.previous_terminal_contact_round_id.is_some() || root.continuity_checkpoint.is_some()
         {
             return Err(arkret_wire::WireError::Protocol(
                 "continuity_invalid: checkpoint proposal root basis mismatch".to_owned(),
@@ -601,6 +582,18 @@ pub fn bilateral_checkpoint_digest(
     Ok(Hash::new(arkret_canonical::sha256_digest(material))?)
 }
 
+/// Derive the only v1 digest of a portable continuity root basis.
+///
+/// The digest is not a wire member: callers recompute `SHA-256(JCS(root_basis))`
+/// from the closed root object whenever an accumulator input needs it.
+pub fn bilateral_continuity_root_basis_digest(
+    root_basis: &ContactRoundEvidenceBundle,
+) -> arkret_wire::Result<Hash> {
+    let canonical = arkret_canonical::canonical_json_bytes(root_basis)
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
+    Ok(Hash::new(arkret_canonical::sha256_digest(canonical))?)
+}
+
 #[cfg(test)]
 mod bilateral_checkpoint_shape_tests {
     use super::*;
@@ -615,6 +608,16 @@ mod bilateral_checkpoint_shape_tests {
                 .to_string()
                 .contains("must be an uncheckpointed Contact round")
         );
+    }
+
+    #[test]
+    fn checkpoint_core_rejects_retired_root_basis_digest_member() {
+        let value = serde_json::json!({
+            "root_basis_digest":
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        });
+        let error = serde_json::from_value::<BilateralContinuityCheckpointCore>(value).unwrap_err();
+        assert!(error.to_string().contains("root_basis_digest"));
     }
 }
 

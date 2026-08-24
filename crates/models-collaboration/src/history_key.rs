@@ -514,27 +514,17 @@ pub enum HistorySecretChunkSealPurpose {
 #[serde(deny_unknown_fields)]
 pub struct HistorySecretChunkSealContext {
     pub purpose: HistorySecretChunkSealPurpose,
-    pub request_digest: Hash,
-    pub request_receipt_digest: Hash,
-    pub manifest_digest: Hash,
     pub manifest_admission_digest: Hash,
     pub chunk_response_id: HistoryResponseId,
     pub chunk_index: u64,
-    pub effective_scope: HistoryEffectiveScope,
     pub source_actor_id: DidCoreId,
     pub source_sender_domain: String,
-    pub requester_actor_id: DidCoreId,
-    pub requester_sender_domain: String,
-    pub covered_epoch_range: EpochRange,
-    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
 }
 
 impl HistorySecretChunkSealContext {
     pub fn validate(&self) -> Result<()> {
         validate_sender_domain(&self.source_sender_domain)?;
-        validate_sender_domain(&self.requester_sender_domain)?;
-        self.covered_epoch_range.validate()
+        Ok(())
     }
 
     pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
@@ -1977,7 +1967,6 @@ pub struct SealViewLocator {
     pub authority_realm_id: RealmId,
     pub seal_basis: SealBasis,
     pub current_gate_projection: CurrentGateProjection,
-    pub current_gate_projection_digest: Hash,
     pub authority_sequence: u64,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
@@ -1992,7 +1981,6 @@ pub struct RealmSealViewLocator {
     pub authority_realm_id: RealmId,
     pub seal_basis: SealBasis,
     pub current_gate_projection: RealmCurrentGateProjection,
-    pub current_gate_projection_digest: Hash,
     pub authority_sequence: u64,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
@@ -2007,7 +1995,6 @@ pub struct CircleSealViewLocator {
     pub authority_realm_id: RealmId,
     pub seal_basis: SealBasis,
     pub current_gate_projection: CircleCurrentGateProjection,
-    pub current_gate_projection_digest: Hash,
     pub authority_sequence: u64,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,

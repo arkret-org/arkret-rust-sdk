@@ -4,8 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Deref;
 
 use arkret_wire::{
-    AppletIdentifier, AuditBindingId, AuditReleaseId, AuditSessionId, CellRef, DidCoreId, DidUrl,
-    EventId, Hash, NonEmptyJsonObject, NonEmptyString, ObjectRef, RealmId, ScopeRef,
+    AppletId, AuditBindingId, AuditReleaseId, AuditSessionId, CellRef, DidCoreId, DidUrl, EventId,
+    Hash, NonEmptyJsonObject, NonEmptyString, ObjectRef, RealmId, ScopeRef, SealId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -119,7 +119,7 @@ impl AuditBindingStatus {
 pub struct AuditAppletBindingCreatePayload {
     pub realm_id: RealmId,
     pub effective_scope: ScopeRef,
-    pub applet_id: AppletIdentifier,
+    pub applet_id: AppletId,
     pub service_id: DidCoreId,
     pub purpose_kinds: Vec<NonEmptyString>,
     pub allowed_release_modes: Vec<AuditReleaseMode>,
@@ -188,23 +188,19 @@ pub struct AuditReleasePayloadEligibilityProof {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuditReleasePayload {
-    pub release_id: AuditReleaseId,
     pub session_id: AuditSessionId,
     pub binding_id: AuditBindingId,
     pub realm_id: RealmId,
     pub effective_scope: ScopeRef,
-    pub applet_id: AppletIdentifier,
+    pub applet_id: AppletId,
     pub service_id: DidCoreId,
     pub release_mode: AuditReleaseMode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sealed_epoch_range: Option<MlsEpochRange>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_refs: Option<Vec<ObjectRef>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub seal_ref: Option<EventId>,
+    pub seal_ref: SealId,
     pub seal_digest: Hash,
-    pub recipient_audit_actor_id: DidCoreId,
-    pub recipient_public_key_ref: DidUrl,
     pub approver_actor_id: DidCoreId,
     pub notice_ref: EventId,
     pub purpose_kind: NonEmptyString,
@@ -251,7 +247,7 @@ pub struct AuditSessionPayload {
     pub effective_scope: ScopeRef,
     pub session_state: AuditSessionStage,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub applet_id: Option<AppletIdentifier>,
+    pub applet_id: Option<AppletId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

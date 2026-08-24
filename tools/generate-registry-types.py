@@ -2466,7 +2466,6 @@ def generate_registry_descriptors(artifacts: Path) -> str:
             "    pub writer_authorities: &'static [&'static str],",
             "    pub holder_self_operations: &'static [&'static str],",
             "    pub write_event_kinds: &'static [&'static str],",
-            "    pub merge_strategy: &'static str,",
             "    pub deletion_mode: &'static str,",
             "}",
             "",
@@ -2559,7 +2558,6 @@ def generate_registry_descriptors(artifacts: Path) -> str:
                 f"        writer_authorities: {rust_slice(row['writer_authorities'])},",
                 f"        holder_self_operations: {rust_slice(row['holder_self_operations'])},",
                 f"        write_event_kinds: {event_kind_slice(row['write_event_kinds'])},",
-                f"        merge_strategy: {rust_string(row['merge_strategy'])},",
                 f"        deletion_mode: {rust_string(row['deletion_mode'])},",
                 "    },",
             ]

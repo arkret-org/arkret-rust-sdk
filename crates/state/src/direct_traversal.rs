@@ -1323,14 +1323,14 @@ mod tests {
     }
 
     fn add_proposal(event_id: &str, incarnation: &EventId) -> Event {
+        let proposal_bytes = b"direct-traversal-add-proposal";
         let payload = MlsProposalPayload {
             mls_group_id: MlsGroupId::new(GROUP).expect("group id"),
             base_epoch: 0,
             proposal_type: MlsProposalType::Add,
-            proposal_message_ref: None,
-            proposal_digest: Some(
-                Hash::new(format!("sha256:{}", "cd".repeat(32))).expect("proposal digest"),
-            ),
+            proposal_bytes_b64: arkret_canonical::base64url_encode(proposal_bytes),
+            proposal_digest: Hash::new(arkret_canonical::sha256_digest(proposal_bytes))
+                .expect("proposal digest"),
             target_principal_id: Some(actor()),
             target_device_id: None,
             target_authorization_incarnation: Some(AuthorizationIncarnation::Realm {

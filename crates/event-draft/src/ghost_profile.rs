@@ -4,7 +4,9 @@ use std::collections::BTreeMap;
 
 use arkret_models_collaboration::events_payloads::ActorProfileCreatePayload;
 use arkret_models_identity::ActorProfile;
-use arkret_models_integration::{AppletDelegatedEventAuthorization, GhostActorProfileFields};
+use arkret_models_integration::{
+    AppletDelegatedEventAuthorization, GhostActorProfileFields, GhostExternalTuple,
+};
 use arkret_wire::{ActorKind, AppletId, BlobRef, DidCoreId, RealmId, SchemaId, ScopeRef};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -46,6 +48,7 @@ impl GhostActorProfileRequest {
         principal_id: DidCoreId,
         display_name: impl Into<String>,
         managed_by_applet: AppletId,
+        external_ref: GhostExternalTuple,
     ) -> Self {
         Self {
             realm_id: None,
@@ -55,7 +58,7 @@ impl GhostActorProfileRequest {
             handle: None,
             avatar_blob_ref: None,
             accountable_principal_ids: Vec::new(),
-            profile_fields: GhostActorProfileFields::new(managed_by_applet),
+            profile_fields: GhostActorProfileFields::new(managed_by_applet, external_ref),
             created_at: Utc::now(),
             updated_by: None,
             updated_at: None,
@@ -80,7 +83,7 @@ impl GhostActorProfileRequest {
         self
     }
 
-    pub fn with_external_ref(mut self, external_ref: BTreeMap<String, Value>) -> Self {
+    pub fn with_external_ref(mut self, external_ref: GhostExternalTuple) -> Self {
         self.profile_fields.external_ref = external_ref;
         self
     }
@@ -115,12 +118,10 @@ impl GhostActorProfileRequest {
             "managed_by_applet".to_owned(),
             Value::String(self.profile_fields.managed_by_applet.to_string()),
         )]);
-        if !self.profile_fields.external_ref.is_empty() {
-            profile_fields.insert(
-                "external_ref".to_owned(),
-                serde_json::to_value(&self.profile_fields.external_ref)?,
-            );
-        }
+        profile_fields.insert(
+            "external_ref".to_owned(),
+            serde_json::to_value(&self.profile_fields.external_ref)?,
+        );
         Ok(ActorProfile {
             id: None,
             schema: SchemaId::ACTOR_PROFILE_V1.to_owned(),
@@ -183,10 +184,19 @@ mod tests {
         AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap()
     }
 
+    fn external_ref() -> GhostExternalTuple {
+        GhostExternalTuple {
+            protocol: "fixture".to_owned(),
+            instance_id: "instance-1".to_owned(),
+            external_id: "external-1".to_owned(),
+        }
+    }
+
     #[test]
     fn request_builds_schema_legal_profile_shape() {
-        let request = GhostActorProfileRequest::new(principal("ghost"), "Ghost", applet_id())
-            .with_accountable_principal_ids(vec![principal("owner")]);
+        let request =
+            GhostActorProfileRequest::new(principal("ghost"), "Ghost", applet_id(), external_ref())
+                .with_accountable_principal_ids(vec![principal("owner")]);
 
         let profile = request.to_actor_profile().unwrap();
 
@@ -199,8 +209,9 @@ mod tests {
 
     #[test]
     fn request_builds_profile_create_intent() {
-        let request = GhostActorProfileRequest::new(principal("ghost"), "Ghost", applet_id())
-            .with_accountable_principal_ids(vec![principal("owner")]);
+        let request =
+            GhostActorProfileRequest::new(principal("ghost"), "Ghost", applet_id(), external_ref())
+                .with_accountable_principal_ids(vec![principal("owner")]);
         let intent = request
             .profile_create_intent(
                 ScopeRef::Realm {
@@ -221,7 +232,8 @@ mod tests {
 
     #[test]
     fn request_omitted_updated_at_round_trip() {
-        let mut request = GhostActorProfileRequest::new(principal("ghost"), "Ghost", applet_id());
+        let mut request =
+            GhostActorProfileRequest::new(principal("ghost"), "Ghost", applet_id(), external_ref());
         // Canonical timestamps carry millisecond precision; pin created_at so the
         // round-trip comparison is not foiled by sub-millisecond clock digits.
         request.created_at = "2026-08-18T00:00:00.000Z".parse().unwrap();

@@ -112,8 +112,6 @@ pub struct AccountDataSetPayload {
     pub body: AccountDataBody,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encrypted_payload: Option<BTreeMap<String, Value>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub body_digest: Option<Hash>,
     /// `true` selects the schema's tombstone branch. `false` is never emitted
     /// and is rejected on deserialization.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -137,8 +135,6 @@ struct AccountDataSetPayloadWire {
     body: AccountDataBody,
     #[serde(default)]
     encrypted_payload: Option<BTreeMap<String, Value>>,
-    #[serde(default)]
-    body_digest: Option<Hash>,
     #[serde(default)]
     tombstone: Option<bool>,
     #[serde(
@@ -165,7 +161,6 @@ impl<'de> Deserialize<'de> for AccountDataSetPayload {
             expected_revision: wire.expected_revision,
             body: wire.body,
             encrypted_payload: wire.encrypted_payload,
-            body_digest: wire.body_digest,
             tombstone: wire.tombstone.unwrap_or(false),
             updated_at: wire.updated_at,
         };
@@ -332,6 +327,16 @@ mod tests {
                 "expected_state_digest":
                     "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "body": "dark"
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<AccountDataSetPayload>(json!({
+                "key": "ak.preference.theme",
+                "expected_revision": 0,
+                "body": "dark",
+                "body_digest":
+                    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
             }))
             .is_err()
         );

@@ -192,13 +192,6 @@ pub struct CellLatticeDeclaration {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AvailabilityHolderRole {
-    JoinedMemberPrincipalServer,
-    JoinedServiceActor,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum AvailabilityEvidenceScope {
     SealInclude,
     Snapshot,
@@ -209,7 +202,6 @@ pub enum AvailabilityEvidenceScope {
 #[serde(deny_unknown_fields)]
 pub struct RealmAvailabilityPolicy {
     pub min_holders: u8,
-    pub holder_roles: Vec<AvailabilityHolderRole>,
     pub applies_to: Vec<AvailabilityEvidenceScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub minimum_retention_ms: Option<u64>,
@@ -219,7 +211,6 @@ impl Default for RealmAvailabilityPolicy {
     fn default() -> Self {
         Self {
             min_holders: 1,
-            holder_roles: vec![AvailabilityHolderRole::JoinedMemberPrincipalServer],
             applies_to: vec![AvailabilityEvidenceScope::SealInclude],
             minimum_retention_ms: Some(86_400_000),
         }
@@ -229,14 +220,7 @@ impl Default for RealmAvailabilityPolicy {
 impl RealmAvailabilityPolicy {
     pub fn validate(&self) -> Result<()> {
         if !(1..=16).contains(&self.min_holders)
-            || self.holder_roles.is_empty()
             || self.applies_to.is_empty()
-            || self
-                .holder_roles
-                .iter()
-                .collect::<std::collections::BTreeSet<_>>()
-                .len()
-                != self.holder_roles.len()
             || self
                 .applies_to
                 .iter()

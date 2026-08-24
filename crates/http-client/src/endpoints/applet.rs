@@ -4,7 +4,8 @@ use arkret_models_collaboration::account_lifecycle::AppletRevokeRequestBody;
 use arkret_models_collaboration::http_bodies::AppletTransactionRequestBody;
 use arkret_models_discovery::ServiceDescribe;
 use arkret_models_integration::{
-    AppletActorView, AppletInstallOutcome, AppletInstallPlan, AppletInstallPreviewRequestBody,
+    AppletActorView, AppletInstallAuthorOutcome, AppletInstallAuthorRequestBody,
+    AppletInstallOutcome, AppletInstallPreviewOutcome, AppletInstallPreviewRequestBody,
     AppletInstallRequestBody, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
     AppletRevokeOutcome, AppletRevokePreviewOutcome, AppletRevokePreviewRequestBody,
     AppletThirdPartyLocationList, AppletThirdPartyUserList, AppletTransactionOutcome,
@@ -18,8 +19,9 @@ use arkret_wire::{DidCoreId, canonical};
 use ed25519_dalek::SigningKey;
 use reqwest::Method;
 use reqwest::header::CONTENT_TYPE;
+use url::Url;
 
-use crate::{Client, ClientRequestOptions, Error, Result, reject_path_segment};
+use crate::{Client, ClientRequestOptions, Error, Result, reject_path_segment, validate_base_url};
 
 pub struct SignedAppletTransactionOptions<'a> {
     pub source_service_id: &'a DidCoreId,
@@ -42,9 +44,34 @@ impl Client {
     pub async fn applet_install_preview(
         &self,
         request: &AppletInstallPreviewRequestBody,
-    ) -> Result<AppletInstallPlan> {
+    ) -> Result<AppletInstallPreviewOutcome> {
         self.post("/_arkret/self/applets/install/preview", request)
             .await
+    }
+
+    /// Relay a Principal-Server-signed authoring request to the Applet
+    /// service without forwarding this client's Principal Server credentials.
+    pub async fn applet_install_author_at(
+        &self,
+        applet_service_base_url: &Url,
+        request: &AppletInstallAuthorRequestBody,
+    ) -> Result<AppletInstallAuthorOutcome> {
+        validate_base_url(applet_service_base_url, self.allow_insecure_localhost)?;
+        let url = applet_author_url(applet_service_base_url)?;
+        let mut builder = self
+            .http
+            .request(Method::POST, url)
+            .header("Accept", "application/json")
+            .header(CONTENT_TYPE, "application/json")
+            .json(request);
+        if let Some(user_agent) = &self.user_agent {
+            builder = builder.header(reqwest::header::USER_AGENT, user_agent);
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(timeout) = self.default_timeout {
+            builder = builder.timeout(timeout);
+        }
+        self.send_json(builder).await
     }
 
     pub async fn applet_install(
@@ -212,4 +239,24 @@ fn request_authority(url: &url::Url) -> Result<String> {
         Some(port) => format!("{host}:{port}"),
         None => host.to_owned(),
     })
+}
+
+fn applet_author_url(base_url: &Url) -> Result<Url> {
+    base_url
+        .join("/_arkret/edge/applet/install/author")
+        .map_err(Into::into)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::applet_author_url;
+
+    #[test]
+    fn author_endpoint_is_origin_absolute_even_when_base_url_has_a_path() {
+        let base = url::Url::parse("https://applet.example/api/v1/").unwrap();
+        assert_eq!(
+            applet_author_url(&base).unwrap().as_str(),
+            "https://applet.example/_arkret/edge/applet/install/author"
+        );
+    }
 }

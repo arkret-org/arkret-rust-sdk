@@ -35,10 +35,6 @@ pub fn validate_payload_validator_profile(event_kind: &EventKind, payload: &Valu
     let payload = payload
         .as_object()
         .ok_or_else(|| profile_violation("ak.schema.define payload must be a JSON object"))?;
-    let schema_id = payload
-        .get("schema_id")
-        .and_then(Value::as_str)
-        .ok_or_else(|| profile_violation("ak.schema.define requires schema_id"))?;
     let document = payload
         .get("value")
         .and_then(Value::as_object)
@@ -50,10 +46,8 @@ pub fn validate_payload_validator_profile(event_kind: &EventKind, payload: &Valu
             profile_id
         )));
     }
-    if document.get("$id").and_then(Value::as_str) != Some(schema_id) {
-        return Err(profile_violation(
-            "ak.schema.define schema_id must equal value.$id",
-        ));
+    if document.get("$id").and_then(Value::as_str).is_none() {
+        return Err(profile_violation("ak.schema.define value requires $id"));
     }
 
     jsonschema::draft202012::meta::validate(&Value::Object(document.clone())).map_err(|error| {
@@ -74,7 +68,6 @@ mod tests {
     #[test]
     fn definition_profile_checks_meta_schema_without_resolving_instance_refs() {
         let payload = json!({
-            "schema_id": "ak.schema.example.v1",
             "value": {
                 "$schema": JSON_SCHEMA_2020_12_META_SCHEMA_URI,
                 "$id": "ak.schema.example.v1",
@@ -85,9 +78,8 @@ mod tests {
     }
 
     #[test]
-    fn definition_profile_rejects_invalid_keyword_shapes_and_subject_mismatch() {
+    fn definition_profile_rejects_invalid_keyword_shapes_and_missing_id() {
         let invalid_keyword = json!({
-            "schema_id": "ak.schema.example.v1",
             "value": {
                 "$schema": JSON_SCHEMA_2020_12_META_SCHEMA_URI,
                 "$id": "ak.schema.example.v1",
@@ -98,17 +90,13 @@ mod tests {
             validate_payload_validator_profile(&EventKind::SchemaDefine, &invalid_keyword).is_err()
         );
 
-        let mismatched_id = json!({
-            "schema_id": "ak.schema.example.v1",
+        let missing_id = json!({
             "value": {
                 "$schema": JSON_SCHEMA_2020_12_META_SCHEMA_URI,
-                "$id": "ak.schema.other.v1",
                 "type": "object"
             }
         });
-        assert!(
-            validate_payload_validator_profile(&EventKind::SchemaDefine, &mismatched_id).is_err()
-        );
+        assert!(validate_payload_validator_profile(&EventKind::SchemaDefine, &missing_id).is_err());
     }
 
     #[test]

@@ -290,7 +290,6 @@ pub struct EventRequirements {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthContext {
-    pub actor_id: DidCoreId,
     pub key_id: OpaqueLocalId,
     pub key_epoch: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]

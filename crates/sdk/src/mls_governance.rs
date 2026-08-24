@@ -7,9 +7,7 @@ use arkret_models_collaboration::governance_dependencies::{
 use arkret_models_collaboration::history_key::{
     AuthorizationIncarnation, HistoryKeyResponseSendRequest,
 };
-use arkret_models_collaboration::objects::realm::{
-    AvailabilityEvidenceScope, AvailabilityHolderRole,
-};
+use arkret_models_collaboration::objects::realm::AvailabilityEvidenceScope;
 use arkret_models_crypto::mls_governance_proof::{
     MlsGovernanceProofBundle, MlsGovernanceProofRequestBody, MlsSecurityFrontierLeaf,
 };
@@ -895,7 +893,6 @@ fn verify_seal_dependencies_default(
     let SealAvailabilityReplayAuthority::Predecessor {
         policy: availability_policy,
         joined_member_principal_server_ids,
-        joined_service_actor_ids,
     } = &replay_context.availability_authority
     else {
         return verify_genesis_availability_commitment(
@@ -1016,18 +1013,7 @@ fn verify_seal_dependencies_default(
     let mut holders_by_event = BTreeMap::<_, BTreeSet<_>>::new();
     for (_, receipt) in &receipts {
         let holder_id = &receipt.holder_id;
-        let eligible = availability_policy
-            .holder_roles
-            .iter()
-            .any(|role| match role {
-                AvailabilityHolderRole::JoinedMemberPrincipalServer => {
-                    joined_member_principal_server_ids.contains(holder_id)
-                }
-                AvailabilityHolderRole::JoinedServiceActor => {
-                    joined_service_actor_ids.contains(holder_id)
-                }
-            });
-        if !eligible {
+        if !joined_member_principal_server_ids.contains(holder_id) {
             return Err(WireError::Protocol(
                 "availability receipt holder has no accepted predecessor role".to_owned(),
             ));

@@ -9,11 +9,11 @@ use std::collections::BTreeMap;
 
 use arkret_models_identity::agent_signer_evidence::AgentEventAdmissionReceipt;
 use arkret_wire::{
-    Base64UrlString, BlobRef, ConsentId, ControlProposalAck, Cursor, DeviceId, DidCoreId, DidKey,
-    Event, EventId, EventInitialSubmission, Hash, IngressReceipt, MimiRoomUri, MlsGroupId, MorphId,
-    NonEmptyString, PayloadProof, ProofContextId, RealmId, ReasonCode, RelationId, ReportId,
-    Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId, StrandId, WireError,
-    canonical,
+    AppletId, Base64UrlString, BlobRef, ConsentId, ControlProposalAck, Cursor, DeviceId, DidCoreId,
+    DidKey, Event, EventId, EventInitialSubmission, Hash, IngressReceipt, MimiRoomUri, MlsGroupId,
+    MorphId, NonEmptyString, PayloadProof, ProofContextId, RealmId, ReasonCode, RelationId,
+    ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId, StrandId,
+    WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -473,7 +473,9 @@ impl EventsSubmitOutcome {
 /// on this crate).
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppletTransactionRequestBody {
+    pub applet_id: AppletId,
     pub source_service_id: DidCoreId,
     #[serde(default)]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -1008,7 +1010,6 @@ pub struct ProjectionStrandRow {
     /// COT-06-004 — derived flag: `true` when this Strand is the Realm's
     /// default Strand (`strand_id == Realm.default_strand_id`). Computed at query
     /// time from the Realm projection; never stored as a per-Strand column.
-    #[serde(default)]
     pub is_default: bool,
 }
 
@@ -2973,7 +2974,6 @@ mod device_pairing_tests {
             preconditions: Vec::new(),
             seal_ref: Some(SealId::new(format!("ak:seal:sha256:{}", "b".repeat(64))).unwrap()),
             auth_context: Some(AuthContext {
-                actor_id: principal_id,
                 key_id: arkret_wire::OpaqueLocalId::new("authorizing-device-signing-1").unwrap(),
                 key_epoch: 1,
                 credential_epoch: None,

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-08-23.6;
-//! sha256=98e39fd93a6b34258fbc7cd4863ce2161a8deeb675b798d0b08d205b315b5b8e Entries: error_codes=280
+//! sha256=fd52cf7ccde2d7834daa11a1a41ab821ac0f88c6be574f588246326f814cb1fb Entries: error_codes=279
 
 use serde::{Deserialize, Serialize};
 
@@ -71,7 +71,6 @@ pub enum ErrorCode {
     BlobExpired,
     BlobPresignInvalid,
     BlobQuotaExceeded,
-    BotActorRevoked,
     CallAlreadyAnswered,
     CallExpired,
     CallNotFound,
@@ -365,7 +364,6 @@ impl ErrorCode {
         Self::BlobExpired,
         Self::BlobPresignInvalid,
         Self::BlobQuotaExceeded,
-        Self::BotActorRevoked,
         Self::CallAlreadyAnswered,
         Self::CallExpired,
         Self::CallNotFound,
@@ -652,7 +650,6 @@ impl ErrorCode {
     pub const BLOB_EXPIRED: &'static str = "blob_expired";
     pub const BLOB_PRESIGN_INVALID: &'static str = "blob_presign_invalid";
     pub const BLOB_QUOTA_EXCEEDED: &'static str = "blob_quota_exceeded";
-    pub const BOT_ACTOR_REVOKED: &'static str = "bot_actor_revoked";
     pub const CALL_ALREADY_ANSWERED: &'static str = "call_already_answered";
     pub const CALL_EXPIRED: &'static str = "call_expired";
     pub const CALL_NOT_FOUND: &'static str = "call_not_found";
@@ -966,7 +963,6 @@ impl ErrorCode {
             Self::BlobExpired => "blob_expired",
             Self::BlobPresignInvalid => "blob_presign_invalid",
             Self::BlobQuotaExceeded => "blob_quota_exceeded",
-            Self::BotActorRevoked => "bot_actor_revoked",
             Self::CallAlreadyAnswered => "call_already_answered",
             Self::CallExpired => "call_expired",
             Self::CallNotFound => "call_not_found",
@@ -1269,7 +1265,6 @@ impl ErrorCode {
             "blob_expired" => Some(Self::BlobExpired),
             "blob_presign_invalid" => Some(Self::BlobPresignInvalid),
             "blob_quota_exceeded" => Some(Self::BlobQuotaExceeded),
-            "bot_actor_revoked" => Some(Self::BotActorRevoked),
             "call_already_answered" => Some(Self::CallAlreadyAnswered),
             "call_expired" => Some(Self::CallExpired),
             "call_not_found" => Some(Self::CallNotFound),
@@ -1877,14 +1872,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "The blob operation exceeds actor, Realm, organization, or deployment storage/bandwidth quota.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::BotActorRevoked,
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "The bot actor has been revoked and may not act.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CallAlreadyAnswered,
@@ -3076,7 +3063,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "A child Realm's read-receipt policy attempted to cross the parent's compliance floor (parent disclosure='required' → child 'optional' or 'disabled') without the parent explicitly setting receipt_compliance_opt_in.child_privacy_tightening_against_required=true. Reducer MUST reject the offending ak.realm.read_receipt_policy Move with this wire code. See zh/discovery/read-receipts.md §2.5.",
+        description: "A child Realm's read-receipt policy attempted to cross the parent's compliance floor (parent disclosure='required' → child 'optional' or 'disabled') without the parent explicitly setting child_privacy_tightening_against_required=true. Reducer MUST reject the offending ak.realm.read_receipt_policy Move with this wire code. See zh/discovery/read-receipts.md §2.5.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RealmFederationPolicyClosed,

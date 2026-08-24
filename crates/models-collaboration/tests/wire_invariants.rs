@@ -86,6 +86,8 @@ fn signal_envelope(signal_class: SignalClass, ttl_seconds: i64) -> SignalEnvelop
 
 fn applet_transaction(signal: SignalEnvelope) -> AppletTransactionRequestBody {
     AppletTransactionRequestBody {
+        applet_id: arkret_wire::AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa")
+            .unwrap(),
         source_service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         events: Vec::new(),
         signals: Some(vec![signal]),

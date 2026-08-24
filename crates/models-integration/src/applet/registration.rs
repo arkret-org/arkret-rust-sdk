@@ -1,16 +1,129 @@
 use std::collections::BTreeMap;
 
 use arkret_models_identity::did_document::DidDocument;
+use arkret_models_identity::{
+    ResolutionCommitment, ResolutionDidBindingEvidenceReceipt, ResolutionMethodEvidenceBoundary,
+    ResolutionMethodHistoryEvidence,
+};
 use arkret_wire::{
-    DidCoreId, DidFullId, DidUrl, EventKind, Hash, PayloadSigner, ProducerEventProof, ProfileId,
-    Result, SchemaId, WireError, XExtensionMap, canonical, proof_kind,
+    AppletId, DidCoreId, DidFullId, DidUrl, EventId, EventKind, GrantId, Hash, PayloadSigner,
+    ProfileId, RealmId, Result, SchemaId, WireError, XExtensionMap, canonical, proof_kind,
 };
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 use super::namespace_match::namespace_patterns_overlap;
-use crate::{AppletPackageE2eePolicy, DelegationPolicy, Widget};
+use crate::{AppletPackageE2eePolicy, DelegationPolicy, DetachedProof, GhostExternalTuple, Widget};
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AppletManagedActorRole {
+    Bot,
+    Ghost,
+}
+
+/// Closed v1 history evidence for a long-lived Applet-managed principal.
+/// The general resolution evidence enum also supports non-rotatable snapshots;
+/// this carrier deliberately cannot deserialize those branches.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct AppletManagedActorMethodHistoryEvidence(ResolutionMethodHistoryEvidence);
+
+impl AppletManagedActorMethodHistoryEvidence {
+    #[must_use]
+    pub fn boundary(&self) -> &ResolutionMethodEvidenceBoundary {
+        self.0.boundary()
+    }
+
+    #[must_use]
+    pub fn webvh_material(
+        &self,
+    ) -> (
+        &ResolutionDidBindingEvidenceReceipt,
+        &[serde_json::Value],
+        &[serde_json::Value],
+    ) {
+        let ResolutionMethodHistoryEvidence::WebvhLog {
+            evidence,
+            log_entries,
+            witness_records,
+            ..
+        } = &self.0
+        else {
+            unreachable!("constructor and deserializer admit only WebVH evidence")
+        };
+        (evidence, log_entries, witness_records)
+    }
+
+    pub fn validate_shape(&self) -> Result<()> {
+        self.0.validate_shape()
+    }
+}
+
+impl TryFrom<ResolutionMethodHistoryEvidence> for AppletManagedActorMethodHistoryEvidence {
+    type Error = WireError;
+
+    fn try_from(value: ResolutionMethodHistoryEvidence) -> Result<Self> {
+        if !matches!(value, ResolutionMethodHistoryEvidence::WebvhLog { .. }) {
+            return Err(WireError::Protocol(
+                "Applet-managed actor v1 requires WebVH log evidence".to_owned(),
+            ));
+        }
+        Ok(Self(value))
+    }
+}
+
+impl<'de> Deserialize<'de> for AppletManagedActorMethodHistoryEvidence {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        ResolutionMethodHistoryEvidence::deserialize(deserializer)?
+            .try_into()
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+/// Immutable payload of `ak.applet.managed_actor.provision`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletManagedActorProvisionPayload {
+    pub schema: String,
+    pub applet_id: AppletId,
+    pub service_id: DidCoreId,
+    pub actor_id: DidCoreId,
+    pub actor_principal_server_id: DidCoreId,
+    pub actor_role: AppletManagedActorRole,
+    pub initial_resolution: ResolutionCommitment,
+    pub method_history_evidence: AppletManagedActorMethodHistoryEvidence,
+    pub registration_ref: EventId,
+    pub applet_authority_ref: GrantId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external_ref: Option<GhostExternalTuple>,
+}
+
+impl AppletManagedActorProvisionPayload {
+    pub const SCHEMA: &'static str = "ak.schema.applet_managed_actor_provision.v1";
+
+    pub fn validate(&self) -> Result<()> {
+        self.method_history_evidence.validate_shape()?;
+        let boundary = self.method_history_evidence.boundary();
+        if self.schema != Self::SCHEMA
+            || self.actor_id == self.service_id
+            || matches!(self.actor_role, AppletManagedActorRole::Bot) != self.external_ref.is_none()
+            || arkret_wire::project_full_id_to_core_id(&self.initial_resolution.full_id)?
+                != self.actor_id
+            || boundary.to_method_history_head != self.initial_resolution.method_history_head
+            || boundary.to_version_id != self.initial_resolution.version_id
+        {
+            return Err(WireError::Protocol(
+                "schema_violation: invalid Applet-managed actor provision".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
 
 /// Which namespace bucket a claim lives in. The wire model
 /// (`applet-schema.md` §1.namespaces) groups claims into exactly
@@ -60,6 +173,7 @@ pub struct AppletNamespaceConflict {
 /// may coexist.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppletNamespaceEntry {
     #[serde(default)]
     pub exclusive: bool,
@@ -91,6 +205,7 @@ impl AppletNamespaceEntry {
 /// spec's object-form namespace entries).
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppletWireNamespaces {
     #[serde(default)]
     pub actors: Vec<AppletNamespaceEntry>,
@@ -282,6 +397,7 @@ pub struct AppletGhostPolicy {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppletAcceptedSigningKeyEvidence {
     pub key_ref: String,
     pub public_key_digest: Hash,
@@ -293,6 +409,7 @@ pub struct AppletAcceptedSigningKeyEvidence {
 /// resolution whenever the epoch is verified.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppletDidMethodVersionEvidence {
     pub method: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -355,14 +472,47 @@ impl AppletDidMethodVersionEvidence {
         }
         Ok(())
     }
+
+    pub fn validate_for_full_id(&self, full_id: &DidFullId) -> Result<()> {
+        self.validate()?;
+        if !full_id.as_str().starts_with(&format!("{}:", self.method)) {
+            return Err(WireError::Protocol(
+                "applet registration epoch DID method does not match full_id".to_owned(),
+            ));
+        }
+        match self.method.as_str() {
+            "did:webvh" if self.unversioned_refetch => Err(WireError::Protocol(
+                "did:webvh registration epoch evidence requires a stable version selector"
+                    .to_owned(),
+            )),
+            "did:web" if !self.unversioned_refetch => Err(WireError::Protocol(
+                "did:web registration epoch evidence requires unversioned refetch".to_owned(),
+            )),
+            "did:key"
+                if self.unversioned_refetch
+                    || self.version_id.as_deref().is_none_or(str::is_empty) =>
+            {
+                Err(WireError::Protocol(
+                    "did:key registration epoch evidence requires its synthetic immutable version_id"
+                        .to_owned(),
+                ))
+            }
+            "did:webvh" | "did:web" | "did:key" => Ok(()),
+            _ => Err(WireError::Protocol(
+                "applet registration epoch DID method has no active v1 adapter".to_owned(),
+            )),
+        }?;
+        Ok(())
+    }
 }
 
 /// Security-relevant registration fields included in the epoch transcript.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppletRegistrationEpochDerivedRegistration {
     pub kind: String,
-    pub applet_id: String,
+    pub applet_id: AppletId,
     pub service_id: DidCoreId,
     pub controller_id: DidCoreId,
     pub base_url: String,
@@ -379,6 +529,7 @@ pub struct AppletRegistrationEpochDerivedRegistration {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppletRegistrationEpochDidDocument {
     pub full_id: DidFullId,
     pub document_digest: Hash,
@@ -389,27 +540,22 @@ pub struct AppletRegistrationEpochDidDocument {
 /// `applet-schema.md` §1 (authoritative `applet_registration_payload`).
 ///
 /// This is the on-the-wire shape every external Applet implementation
-/// sends. Build it directly via [`WireAppletRegistration::new`] or derive
-/// it from an [`AppletPackage`] with [`AppletPackage::to_registration`].
+/// sends. Derive it from an [`AppletPackage`] with
+/// [`AppletPackage::to_registration`].
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct WireAppletRegistration {
-    pub applet_id: String,
+    pub applet_id: AppletId,
     pub service_id: DidCoreId,
     pub controller_id: DidCoreId,
     pub base_url: String,
     pub bot_actor_id: DidCoreId,
-    #[serde(default)]
+    pub claimed_profiles: Vec<String>,
     pub protocols: Vec<String>,
-    #[serde(default)]
     pub namespaces: AppletWireNamespaces,
-    #[serde(default)]
     pub receive_events: bool,
-    #[serde(default)]
     pub receive_signals: bool,
-    #[serde(default)]
     pub rate_limited: bool,
-    #[serde(default)]
     pub requested_scopes: Vec<String>,
     /// Canonical security epoch hash (`sha256:<hex>`) over the derived
     /// registration plus DID Document / signing-key / endpoint / auth
@@ -420,93 +566,86 @@ pub struct WireAppletRegistration {
     /// `AppletRegistrationEpochTranscript` or
     /// [`AppletPackage::seal_registration_epoch`].
     pub registration_epoch: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub webhook_auth: Option<WebhookAuth>,
-    /// Optional manifest snapshot (claimed profiles, limits, policies,
-    /// widget) per `applet_registration_payload.manifest`. Populated by
+    pub webhook_auth: WebhookAuth,
+    /// Required manifest snapshot (claimed profiles, limits, policies,
+    /// widget, and registration-epoch evidence) per
+    /// `applet_registration_payload.manifest`. Populated by
     /// `AppletPackage::to_registration`; never a substitute for the
     /// top-level required fields.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub manifest: Option<BTreeMap<String, Value>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proof: Option<ProducerEventProof>,
+    pub manifest: AppletRegistrationManifest,
+    pub proof: DetachedProof,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletRegistrationManifest {
+    pub claimed_profiles: Vec<String>,
+    pub limits: AppletLimits,
+    pub ghost_policy: AppletGhostPolicy,
+    pub delegation_policy: DelegationPolicy,
+    pub e2ee_policy: AppletPackageE2eePolicy,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub widget: Option<Widget>,
+    pub registration_epoch_evidence: AppletRegistrationEpochEvidence,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WireAppletRegistrationWire {
+    applet_id: AppletId,
+    service_id: DidCoreId,
+    controller_id: DidCoreId,
+    base_url: String,
+    bot_actor_id: DidCoreId,
+    claimed_profiles: Vec<String>,
+    protocols: Vec<String>,
+    namespaces: AppletWireNamespaces,
+    receive_events: bool,
+    receive_signals: bool,
+    rate_limited: bool,
+    requested_scopes: Vec<String>,
+    registration_epoch: Hash,
+    webhook_auth: WebhookAuth,
+    manifest: AppletRegistrationManifest,
+    proof: DetachedProof,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    created_at: DateTime<Utc>,
+}
+
+impl<'de> Deserialize<'de> for WireAppletRegistration {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let wire = WireAppletRegistrationWire::deserialize(deserializer)?;
+        Ok(Self {
+            applet_id: wire.applet_id,
+            service_id: wire.service_id,
+            controller_id: wire.controller_id,
+            base_url: wire.base_url,
+            bot_actor_id: wire.bot_actor_id,
+            claimed_profiles: wire.claimed_profiles,
+            protocols: wire.protocols,
+            namespaces: wire.namespaces,
+            receive_events: wire.receive_events,
+            receive_signals: wire.receive_signals,
+            rate_limited: wire.rate_limited,
+            requested_scopes: wire.requested_scopes,
+            registration_epoch: wire.registration_epoch,
+            webhook_auth: wire.webhook_auth,
+            manifest: wire.manifest,
+            proof: wire.proof,
+            created_at: wire.created_at,
+        })
+    }
 }
 
 impl WireAppletRegistration {
     /// Durable event kind this registration is published under.
     pub const KIND: &'static str = arkret_wire::event_kind_str::APPLET_REGISTRATION;
-
-    /// Build an unsigned registration. Caller MUST attach `proof` via
-    /// [`sign_registration`].
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        applet_id: impl Into<String>,
-        service_id: DidCoreId,
-        controller_id: DidCoreId,
-        base_url: impl Into<String>,
-        bot_actor_id: DidCoreId,
-        protocols: Vec<String>,
-        namespaces: AppletWireNamespaces,
-        registration_epoch: Hash,
-    ) -> Self {
-        Self {
-            applet_id: applet_id.into(),
-            service_id,
-            controller_id,
-            base_url: base_url.into(),
-            bot_actor_id,
-            protocols,
-            namespaces,
-            receive_events: false,
-            receive_signals: false,
-            rate_limited: false,
-            requested_scopes: Vec::new(),
-            registration_epoch,
-            webhook_auth: None,
-            manifest: None,
-            created_at: Utc::now(),
-            proof: None,
-        }
-    }
-
-    /// Canonical-JSON SHA256 of the registration **with `proof` set to
-    /// `None`**. This is what the controller signs.
-    pub fn payload_digest(&self) -> Result<Hash> {
-        let mut unsigned = self.clone();
-        unsigned.proof = None;
-        let hash = canonical::canonical_sha256(&unsigned)?;
-        Hash::new(hash).map_err(Into::into)
-    }
-}
-
-/// Sign a [`WireAppletRegistration`] in-place: compute the canonical
-/// digest (with `proof` removed), sign it with the supplied
-/// [`PayloadSigner`], and stamp `reg.proof`.
-pub fn sign_registration<S: PayloadSigner + ?Sized>(
-    reg: &mut WireAppletRegistration,
-    signer: &S,
-    verification_method: &DidUrl,
-) -> Result<()> {
-    let mut unsigned = reg.clone();
-    unsigned.proof = None;
-    let canonical_bytes = canonical::canonical_json_bytes(&unsigned)?;
-    let payload_digest = Hash::new(canonical::sha256_digest(&canonical_bytes))?;
-    let sig = signer.sign_payload(&canonical_bytes)?;
-    reg.proof = Some(ProducerEventProof {
-        kind: proof_kind::DETACHED_JWS.to_owned(),
-        verification_method: verification_method.to_owned(),
-        event_digest: payload_digest,
-        signer_resolution_evidence_ref: None,
-        signer_resolution_evidence_digest: None,
-        created_at: Utc::now(),
-        domain: None,
-        audience: None,
-        proof_purpose: None,
-        jws: sig.jws,
-    });
-    Ok(())
 }
 
 pub fn applet_signing_key_material_digest(public_key_material: &str) -> Result<Hash> {
@@ -531,17 +670,18 @@ pub fn normalize_applet_signing_key_ref(service_full_id: &DidFullId, key_ref: &s
 /// longer matches the install-time epoch.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppletRegistrationEpochEvidence {
     pub full_id: DidFullId,
     pub did_document_digest: Hash,
     pub method_version_evidence: AppletDidMethodVersionEvidence,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub accepted_signing_keys: Vec<AppletAcceptedSigningKeyEvidence>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AppletEpochEvidenceError {
     DidCoreIdMismatch,
+    DidDocumentDeactivated,
     DidDocumentDigestMismatch,
     SigningKeySetEmpty,
     SigningKeySetMismatch,
@@ -554,6 +694,7 @@ impl std::fmt::Display for AppletEpochEvidenceError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::DidCoreIdMismatch => write!(f, "service DID does not match DID document"),
+            Self::DidDocumentDeactivated => write!(f, "service DID document is deactivated"),
             Self::DidDocumentDigestMismatch => write!(f, "DID document digest mismatch"),
             Self::SigningKeySetEmpty => write!(f, "accepted signing key set is empty"),
             Self::SigningKeySetMismatch => write!(f, "accepted signing key set mismatch"),
@@ -594,7 +735,18 @@ impl AppletRegistrationEpochEvidence {
         document: &DidDocument,
         method_version_evidence: AppletDidMethodVersionEvidence,
     ) -> Result<Self> {
-        method_version_evidence.validate()?;
+        method_version_evidence.validate_for_full_id(&document.id)?;
+        if document
+            .raw_properties
+            .get("deactivated")
+            .and_then(Value::as_bool)
+            == Some(true)
+        {
+            return Err(WireError::Protocol(
+                "applet registration_epoch evidence cannot use a deactivated DID document"
+                    .to_owned(),
+            ));
+        }
         let did_document_digest = applet_did_document_digest(document)?;
         let mut accepted_signing_keys = Vec::with_capacity(document.verification_methods.len());
         for (key_ref, public_key_material) in &document.verification_methods {
@@ -623,6 +775,14 @@ impl AppletRegistrationEpochEvidence {
         if self.full_id != document.id {
             return Err(AppletEpochEvidenceError::DidCoreIdMismatch);
         }
+        if document
+            .raw_properties
+            .get("deactivated")
+            .and_then(Value::as_bool)
+            == Some(true)
+        {
+            return Err(AppletEpochEvidenceError::DidDocumentDeactivated);
+        }
         let actual_document_digest = applet_did_document_digest(document).map_err(|error| {
             AppletEpochEvidenceError::DidDocumentDigestFailed(error.to_string())
         })?;
@@ -632,9 +792,13 @@ impl AppletRegistrationEpochEvidence {
         if self.accepted_signing_keys.is_empty() {
             return Err(AppletEpochEvidenceError::SigningKeySetEmpty);
         }
-        if self.method_version_evidence.validate().is_err() {
+        if self
+            .method_version_evidence
+            .validate_for_full_id(&self.full_id)
+            .is_err()
+        {
             return Err(AppletEpochEvidenceError::DidDocumentDigestFailed(
-                "invalid DID method version evidence".to_owned(),
+                "invalid or mismatched DID method version evidence".to_owned(),
             ));
         }
 
@@ -676,6 +840,7 @@ impl AppletRegistrationEpochEvidence {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppletRegistrationEpochSecurityPolicy {
     pub claimed_profiles: Vec<String>,
     pub limits: AppletLimits,
@@ -689,6 +854,7 @@ pub struct AppletRegistrationEpochSecurityPolicy {
 /// Closed normalized transcript hashed to derive `registration_epoch`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppletRegistrationEpochTranscript {
     pub schema: String,
     pub derived_registration: AppletRegistrationEpochDerivedRegistration,
@@ -707,6 +873,14 @@ impl AppletRegistrationEpochTranscript {
         package: &AppletPackage,
         evidence: &AppletRegistrationEpochEvidence,
     ) -> Result<Self> {
+        evidence
+            .method_version_evidence
+            .validate_for_full_id(&evidence.full_id)?;
+        if evidence.accepted_signing_keys.is_empty() {
+            return Err(WireError::Protocol(
+                "applet registration epoch evidence has no signing keys".to_owned(),
+            ));
+        }
         if package.service_id != arkret_wire::project_full_id_to_core_id(&evidence.full_id)? {
             return Err(WireError::Protocol(
                 "applet registration epoch evidence service_id mismatch".to_owned(),
@@ -1023,13 +1197,14 @@ pub fn applet_did_document_digest(document: &DidDocument) -> Result<Hash> {
 /// spec §1a Package→registration derivation.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppletPackage {
     /// Always `ak.schema.applet_package.v1`.
     pub schema: String,
     /// Distribution identifier only — never a grant subject.
     pub package_id: String,
-    /// DID or `ak:applet:<uuidv7>`.
-    pub applet_id: String,
+    /// Canonical `ak:applet:<uuidv7>` identifier.
+    pub applet_id: AppletId,
     pub service_id: DidCoreId,
     pub controller_id: DidCoreId,
     pub base_url: String,
@@ -1064,10 +1239,6 @@ pub struct AppletPackage {
     /// Widget origin / CSP / token scope / consent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub widget: Option<Widget>,
-    /// Captured DID document + signing-key evidence covered by
-    /// `registration_epoch`.
-    #[serde(skip_serializing)]
-    pub registration_epoch_evidence: Option<AppletRegistrationEpochEvidence>,
     /// Canonical package hash (excludes `package_digest` + `proof`).
     /// `None` until [`seal`](Self::seal).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1083,7 +1254,7 @@ pub struct AppletPackage {
     pub created_at: DateTime<Utc>,
     /// Controller DID detached proof. `None` until [`sign`](Self::sign).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proof: Option<ProducerEventProof>,
+    pub proof: Option<DetachedProof>,
 }
 
 impl AppletPackage {
@@ -1094,7 +1265,7 @@ impl AppletPackage {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         package_id: impl Into<String>,
-        applet_id: impl Into<String>,
+        applet_id: AppletId,
         service_id: DidCoreId,
         service_full_id: DidFullId,
         controller_id: DidCoreId,
@@ -1108,7 +1279,7 @@ impl AppletPackage {
         Self {
             schema: SchemaId::APPLET_PACKAGE_V1.to_owned(),
             package_id: package_id.into(),
-            applet_id: applet_id.into(),
+            applet_id,
             service_id,
             controller_id,
             base_url: base_url.into(),
@@ -1134,7 +1305,6 @@ impl AppletPackage {
                 extensions: XExtensionMap::default(),
             },
             widget: None,
-            registration_epoch_evidence: None,
             package_digest: None,
             registration_epoch: Hash::new(format!("sha256:{}", "0".repeat(64)))
                 .expect("the registration epoch sentinel is a valid SHA-256 hash"),
@@ -1163,15 +1333,14 @@ impl AppletPackage {
             .registration_epoch()
     }
 
-    /// Capture local evidence and stamp the recomputed registration epoch.
-    /// Call this after changing any package field covered by the transcript
-    /// and before [`seal`](Self::seal).
+    /// Stamp the registration epoch from explicit install-time evidence.
+    /// The evidence is not stored in or serialized with the distribution
+    /// package and therefore never enters its digest or controller proof.
     pub fn seal_registration_epoch(
         &mut self,
-        evidence: AppletRegistrationEpochEvidence,
+        evidence: &AppletRegistrationEpochEvidence,
     ) -> Result<()> {
-        self.registration_epoch = self.compute_registration_epoch(&evidence)?;
-        self.registration_epoch_evidence = Some(evidence);
+        self.registration_epoch = self.compute_registration_epoch(evidence)?;
         self.package_digest = None;
         self.proof = None;
         Ok(())
@@ -1189,14 +1358,6 @@ impl AppletPackage {
 
     /// Compute and stamp `package_digest`.
     pub fn seal(&mut self) -> Result<()> {
-        let evidence = self.registration_epoch_evidence.as_ref().ok_or_else(|| {
-            WireError::Protocol("applet package registration_epoch_evidence is missing".to_owned())
-        })?;
-        if self.compute_registration_epoch(evidence)? != self.registration_epoch {
-            return Err(WireError::Protocol(
-                "applet package registration_epoch does not match its transcript".to_owned(),
-            ));
-        }
         self.package_digest = Some(self.compute_package_digest()?);
         Ok(())
     }
@@ -1214,17 +1375,15 @@ impl AppletPackage {
         let canonical_bytes = canonical::canonical_json_bytes(&unsigned)?;
         let payload_digest = Hash::new(canonical::sha256_digest(&canonical_bytes))?;
         let sig = signer.sign_payload(&canonical_bytes)?;
-        self.proof = Some(ProducerEventProof {
+        self.proof = Some(DetachedProof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
             verification_method: verification_method.to_owned(),
-            event_digest: payload_digest,
-            signer_resolution_evidence_ref: None,
-            signer_resolution_evidence_digest: None,
+            payload_digest,
             created_at: Utc::now(),
             domain: None,
             audience: None,
-            proof_purpose: None,
             jws: sig.jws,
+            extra: XExtensionMap::default(),
         });
         Ok(())
     }
@@ -1233,11 +1392,7 @@ impl AppletPackage {
     /// fields. Rejects a missing base profile, empty protocol /
     /// requested-scope lists, and an unsealed or unsigned package.
     pub fn validate(&self) -> Result<()> {
-        self.validate_wire()?;
-        let evidence = self.registration_epoch_evidence.as_ref().ok_or_else(|| {
-            WireError::Protocol("applet package registration_epoch_evidence is missing".to_owned())
-        })?;
-        self.validate_with_epoch_evidence(evidence)
+        self.validate_wire()
     }
 
     pub fn validate_wire(&self) -> Result<()> {
@@ -1246,7 +1401,7 @@ impl AppletPackage {
                 "applet package schema mismatch".to_owned(),
             ));
         }
-        if self.package_id.is_empty() || self.applet_id.is_empty() || self.base_url.is_empty() {
+        if self.package_id.is_empty() || self.base_url.is_empty() {
             return Err(WireError::Protocol(
                 "applet package missing required fields".to_owned(),
             ));
@@ -1322,73 +1477,55 @@ impl AppletPackage {
 
     /// Manifest snapshot folded into the derived registration's
     /// `manifest` slot (spec §1a derivation row `manifest`).
-    pub fn manifest_snapshot(&self) -> BTreeMap<String, Value> {
-        let mut manifest = serde_json::Map::new();
-        manifest.insert(
-            "claimed_profiles".to_owned(),
-            Value::Array(
-                self.claimed_profiles
-                    .iter()
-                    .cloned()
-                    .map(Value::String)
-                    .collect(),
-            ),
-        );
-        manifest.insert(
-            "limits".to_owned(),
-            serde_json::to_value(&self.limits).unwrap_or(Value::Null),
-        );
-        manifest.insert(
-            "ghost_policy".to_owned(),
-            serde_json::to_value(&self.ghost_policy).unwrap_or(Value::Null),
-        );
-        manifest.insert(
-            "delegation_policy".to_owned(),
-            serde_json::to_value(&self.delegation_policy).unwrap_or(Value::Null),
-        );
-        manifest.insert(
-            "e2ee_policy".to_owned(),
-            serde_json::to_value(&self.e2ee_policy).unwrap_or(Value::Null),
-        );
-        if let Some(widget) = &self.widget {
-            manifest.insert(
-                "widget".to_owned(),
-                serde_json::to_value(widget).unwrap_or(Value::Null),
-            );
+    pub fn manifest_snapshot(
+        &self,
+        registration_epoch_evidence: &AppletRegistrationEpochEvidence,
+    ) -> AppletRegistrationManifest {
+        AppletRegistrationManifest {
+            claimed_profiles: self.claimed_profiles.clone(),
+            limits: self.limits.clone(),
+            ghost_policy: self.ghost_policy.clone(),
+            delegation_policy: self.delegation_policy.clone(),
+            e2ee_policy: self.e2ee_policy.clone(),
+            widget: self.widget.clone(),
+            registration_epoch_evidence: registration_epoch_evidence.clone(),
         }
-        if let Some(evidence) = &self.registration_epoch_evidence
-            && let Ok(value) = serde_json::to_value(evidence)
-        {
-            manifest.insert("registration_epoch_evidence".to_owned(), value);
-        }
-        manifest.into_iter().collect()
     }
 
     /// Derive the canonical `ak.applet.registration` payload per the
-    /// spec §1a mapping table. The package `proof` is carried over; the
-    /// authz service still re-verifies / re-signs the derived
-    /// registration before fan-out.
-    pub fn to_registration(&self) -> Result<WireAppletRegistration> {
-        self.validate()?;
-        let mut reg = WireAppletRegistration::new(
-            self.applet_id.clone(),
-            self.service_id.clone(),
-            self.controller_id.clone(),
-            self.base_url.clone(),
-            self.bot_actor_id.clone(),
-            self.protocols.clone(),
-            self.namespaces.clone(),
-            self.registration_epoch.clone(),
-        );
-        reg.receive_events = self.receive_events;
-        reg.receive_signals = self.receive_signals;
-        reg.rate_limited = self.rate_limited;
-        reg.requested_scopes = self.requested_scopes.clone();
-        reg.webhook_auth = Some(self.webhook_auth.clone());
-        reg.manifest = Some(self.manifest_snapshot());
-        reg.created_at = self.created_at;
-        reg.proof = self.proof.clone();
-        Ok(reg)
+    /// spec §1a mapping table. This is payload derivation only: the formal
+    /// install request supplies its caller-signed registration Event, and the
+    /// Principal Server validates and atomically commits the fixed local unit
+    /// without re-signing or federation fan-out.
+    pub fn to_registration(
+        &self,
+        registration_epoch_evidence: &AppletRegistrationEpochEvidence,
+    ) -> Result<WireAppletRegistration> {
+        self.validate_with_epoch_evidence(registration_epoch_evidence)?;
+        Ok(WireAppletRegistration {
+            applet_id: self.applet_id.clone(),
+            service_id: self.service_id.clone(),
+            controller_id: self.controller_id.clone(),
+            base_url: self.base_url.clone(),
+            bot_actor_id: self.bot_actor_id.clone(),
+            claimed_profiles: self.claimed_profiles.clone(),
+            protocols: self.protocols.clone(),
+            namespaces: self.namespaces.clone(),
+            receive_events: self.receive_events,
+            receive_signals: self.receive_signals,
+            rate_limited: self.rate_limited,
+            requested_scopes: self.requested_scopes.clone(),
+            registration_epoch: self.registration_epoch.clone(),
+            webhook_auth: self.webhook_auth.clone(),
+            manifest: self.manifest_snapshot(registration_epoch_evidence),
+            proof: self.proof.clone().ok_or_else(|| {
+                WireError::Protocol(
+                    "applet package must be signed before deriving its registration payload"
+                        .to_owned(),
+                )
+            })?,
+            created_at: self.created_at,
+        })
     }
 }
 

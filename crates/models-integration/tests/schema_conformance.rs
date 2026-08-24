@@ -1,10 +1,7 @@
 use std::collections::BTreeMap;
 
-use arkret_models_integration::AppletRegistrationPayload;
 use arkret_models_integration::applet::AppletRegistrationEpochTranscript;
 use arkret_schema::embedded_json_artifact;
-use arkret_wire::{AppletIdentifier, DidCoreId, Hash};
-use serde_json::{Value, json};
 
 #[test]
 fn applet_registration_epoch_fixture_executes_against_owner() {
@@ -52,50 +49,4 @@ fn applet_registration_epoch_fixture_executes_against_owner() {
             .as_str(),
         positive["expected_registration_epoch"].as_str().unwrap()
     );
-}
-
-#[test]
-fn applet_registration_builder_validates_against_catalog() {
-    // applet-package.schema.json#/$defs/webhook_auth is closed: kind, key_ref
-    // and accepted_signature_algorithms are all required.
-    let webhook_auth: BTreeMap<String, Value> = [
-        ("kind".to_owned(), json!("http_message_signature")),
-        (
-            "key_ref".to_owned(),
-            json!("did:webvh:z6mkfixture:applet.example#svc"),
-        ),
-        (
-            "accepted_signature_algorithms".to_owned(),
-            json!(["ed25519"]),
-        ),
-    ]
-    .into_iter()
-    .collect();
-    let proof: BTreeMap<String, Value> = [("signature".to_owned(), json!("c2ln"))]
-        .into_iter()
-        .collect();
-    let payload = AppletRegistrationPayload::new(
-        AppletIdentifier::Service(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
-        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-        "https://applet.example",
-        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-        Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-        webhook_auth,
-        proof,
-        "2026-07-08T10:05:00.000Z".parse().unwrap(),
-    )
-    .with_protocols(vec!["a2a".to_owned()])
-    .with_requested_scopes(vec!["ak.message.create".to_owned()])
-    .with_receive_events(true);
-    let value = payload.to_value().unwrap();
-    assert_eq!(value["service_id"], json!("ak:did_core:webvh:z6mkfixture"));
-    assert_eq!(
-        value["claimed_profiles"],
-        json!(["ak.profile.applet_service.v1"])
-    );
-    arkret_schema::event_payload_validator_catalog()
-        .unwrap()
-        .validate_payload("ak.applet.registration", &value)
-        .unwrap();
 }

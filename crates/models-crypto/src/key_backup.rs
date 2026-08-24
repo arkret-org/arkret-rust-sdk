@@ -968,32 +968,9 @@ impl KeyBackup {
         self.validate_encryption_profile()?;
 
         let domain = &self.domain_separation;
-        let aad = &domain.aead_aad;
-        if domain.subdomain.trim().is_empty()
-            || domain.hkdf_info != self.backup_kind.hkdf_info(&domain.subdomain)
-        {
+        if domain.subdomain.trim().is_empty() {
             return Err(WireError::Protocol(
-                "key backup domain separation mismatch".to_owned(),
-            ));
-        }
-        let device_id = self.device_id.as_ref().map(|device_id| device_id.as_str());
-        let item_kinds = self
-            .contents
-            .iter()
-            .map(|item| item.item_kind().to_owned())
-            .collect::<Vec<_>>();
-        if aad.schema != Self::SCHEMA
-            || aad.actor_id != self.actor_id
-            || aad.device_id.as_deref() != device_id
-            || aad.backup_kind != self.backup_kind
-            || aad.backup_version != self.backup_version
-            || aad.created_at != self.created_at
-            || aad.item_kinds != item_kinds
-            || aad.recipient_method != Some(self.encryption.recipient_method)
-            || aad.recipient_key_ref != self.encryption.recipient_key_ref
-        {
-            return Err(WireError::Protocol(
-                "key backup authenticated domain metadata mismatch".to_owned(),
+                "key backup domain-separation subdomain must not be empty".to_owned(),
             ));
         }
         Ok(())
@@ -1395,45 +1372,11 @@ fn active_hpke_suite_aead(suite_id: &str) -> Result<Option<String>> {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct KeyBackupDomainSeparation {
-    pub hkdf_info: String,
     pub subdomain: String,
-    pub aead_aad: KeyBackupDomainSeparationAad,
-    #[serde(default, flatten)]
-    pub extra: XExtensionMap,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct KeyBackupDomainSeparationAad {
-    pub schema: String,
-    pub actor_id: DidCoreId,
-    /// The envelope's `device_id`, or `null` when it was sealed without an
-    /// originating device (the top-level `device_id` is optional). The key is
-    /// always present — never skipped, never an empty string — so the AAD
-    /// transcript keeps a fixed field set and sealer/opener reconstruct it
-    /// byte-identically (key-management.md §7.2).
-    pub device_id: Option<String>,
-    pub backup_kind: BackupKind,
-    pub backup_version: String,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub item_kinds: Vec<String>,
-    /// SEC-04: the envelope's `encryption.recipient_method` bound into the AEAD
-    /// AAD (key-backup.schema.json `domain_separation.aead_aad.recipient_method`)
-    /// so a ciphertext can never be cross-opened under the wrong recipient
-    /// interpretation. Sealer and opener reconstruct it byte-identically.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recipient_method: Option<KeyBackupRecipientMethod>,
-    /// SEC-04: the envelope's `encryption.recipient_key_ref` bound into the AEAD
-    /// AAD (key-backup.schema.json `domain_separation.aead_aad.recipient_key_ref`)
-    /// so the recipient key / verification method is part of the authenticated
-    /// context.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recipient_key_ref: Option<String>,
-    #[serde(default, flatten)]
-    pub extra: XExtensionMap,
+    #[serde(default, skip_serializing_if = "XExtensionMap::is_empty")]
+    pub aead_aad_extensions: XExtensionMap,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

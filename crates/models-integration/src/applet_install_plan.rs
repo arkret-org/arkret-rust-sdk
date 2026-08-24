@@ -1,8 +1,6 @@
 //! `ak.schema.applet_install_plan.v1` wire object.
 
-use arkret_wire::{
-    AppletId, DidCoreId, Hash, PlanId, Result, SchemaId, ScopeRef, WireError, canonical,
-};
+use arkret_wire::{AppletId, Hash, PlanId, Result, SchemaId, ScopeRef, WireError, canonical};
 use serde::{Deserialize, Serialize};
 
 use crate::artifacts_applet::{
@@ -12,19 +10,11 @@ use crate::artifacts_applet::{
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AppletInstallAppletId {
-    Service(DidCoreId),
-    AppletId(AppletId),
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletInstallPlan {
     pub schema: String,
     pub plan_id: PlanId,
-    pub applet_id: AppletInstallAppletId,
+    pub applet_id: AppletId,
     pub package_digest: Hash,
     pub registration_epoch: Hash,
     pub effective_scope: ScopeRef,

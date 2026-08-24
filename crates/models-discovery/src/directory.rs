@@ -971,9 +971,7 @@ pub struct DirectoryPushRegisterOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryAnnounceRequestBody {
-    pub resource_kind: DirectoryResourceKind,
-    pub resource_id: String,
-    pub discovery_state: BTreeMap<String, Value>,
+    pub discovery_event: Event,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_refs: Vec<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]

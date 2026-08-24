@@ -37,8 +37,6 @@ pub struct PrincipalResolutionProjection {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalResolutionUpdatePayload {
     pub next: ResolutionCommitment,
-    pub previous_resolution_event_ref: String,
-    pub previous_method_history_head: String,
 }
 
 /// Domain-separation context for the Principal Server projection attestation.

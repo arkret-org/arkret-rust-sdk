@@ -14,11 +14,7 @@ fn strip_fragment(domain: AppletNamespaceDomain, value: &str) -> &str {
 /// Conflict detection MUST NOT miss a real overlap, so this errs toward
 /// over-reporting: it strips a trailing `*` / `**` and tests prefix
 /// containment after fragment normalization.
-pub(super) fn namespace_patterns_overlap(
-    domain: AppletNamespaceDomain,
-    left: &str,
-    right: &str,
-) -> bool {
+pub fn namespace_patterns_overlap(domain: AppletNamespaceDomain, left: &str, right: &str) -> bool {
     let left = strip_fragment(domain, left);
     let right = strip_fragment(domain, right);
     if left == right {

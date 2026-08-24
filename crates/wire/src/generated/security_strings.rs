@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/proof-context-registry.json; version=2026-08-24.4;
-//! sha256=6e55d1de0b25d45aaaaffb87ca10403fb12fddc526c63b771401b32ebca76216 Input: registry/
+//! sha256=769f80ec528cac34112f00e660346b4a6c6617817ba5f292b4bec45c1731c27d Input: registry/
 //! exporter-label-registry.json; version=2026-08-21.1;
 //! sha256=6cb34e722ce41df3c91204d48f6cdf66b68640e9d86a379a9267cefce484bb02 Input: registry/
 //! digest-suite-registry.json; version=2026-08-18;
@@ -9,7 +9,7 @@
 //! signature-alg-registry.json; version=2026-08-18.1;
 //! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
 //! hpke-suite-registry.json; version=2026-08-21.2;
-//! sha256=1f8f4c9d3e8ab00fe6178c16171ebe5f23a01ff53cd1c39589fabc3c77f42fcc Input: registry/
+//! sha256=2e64858fbc4b8c14bcf7d85dd49ce2210353919829678f8a577553f337ab4682 Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-08-18;
 //! sha256=8a270bf4fb05fa17f1594d61252f573fff6eca36e2da7afa910fc44c7d334dad Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;

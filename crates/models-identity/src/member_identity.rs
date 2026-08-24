@@ -9,14 +9,13 @@
 //! * `MemberIdentity` no longer carries `primary_handle` / `handles[]`; handle lifecycle is
 //!   governed solely by `ak.schema.handle_claim.v1`. This object discloses `subject_id` +
 //!   `display_profile` for Realm UI projection only.
-//! * Payload field `identity_state_digest` renamed to `identity_payload_digest` (carrier cache
-//!   key).
+//! * The payload does not repeat the locally derivable carrier digest.
 //! * Roster `identity_state_digest` renamed to `member_display_state_digest` and now folds the
 //!   visible handle-claim digest set.
 //!
-//! Three distinct digests live here and MUST NOT be confused:
-//! * [`IdentityPayloadCarrier::carrier_sha256`] → `identity_payload_digest` (digest of the exact
-//!   `identity_payload` carrier object).
+//! Two wire digests plus one local helper live here and MUST NOT be confused:
+//! * [`IdentityPayloadCarrier::carrier_sha256`] derives the exact `identity_payload` carrier digest
+//!   locally; it is not a payload field.
 //! * [`member_identity_effective_set_digest`] → `expected_state_digest` (writer-observed
 //!   effective-set guard, includes `segment`).
 //! * [`member_display_state_digest`] → roster display cache key (includes effective events +
@@ -179,8 +178,7 @@ pub enum IdentityPayloadCarrier {
 
 impl IdentityPayloadCarrier {
     /// Canonical-JSON digest of the carrier wrapper object. This is the
-    /// value that goes into `MemberIdentityReplacementRef.payload_digest`
-    /// and (when set) [`MemberIdentityUpdatePayload::identity_payload_digest`].
+    /// value that goes into `MemberIdentityReplacementRef.payload_digest`.
     pub fn carrier_sha256(&self) -> Result<String> {
         Ok(canonical::sha256_digest(canonical::canonical_json_bytes(
             self,
@@ -203,16 +201,10 @@ pub struct MemberIdentityUpdatePayload {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub replaces: Vec<MemberIdentityReplacementRef>,
     pub identity_payload: IdentityPayloadCarrier,
-    /// R3.2 rename of the prior `identity_state_digest` field. Digest over
-    /// the exact `identity_payload` carrier object (cache-invalidation key
-    /// only). Equals [`IdentityPayloadCarrier::carrier_sha256`].
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub identity_payload_digest: Option<Hash>,
     /// Optimistic concurrency guard. When present, MUST equal the
     /// writer-observed effective-set digest computed by
-    /// [`member_identity_effective_set_digest`]. This is NOT the
-    /// `identity_payload_digest`, and NOT the roster
-    /// `member_display_state_digest`.
+    /// [`member_identity_effective_set_digest`]. This is not the locally
+    /// derived carrier digest or the roster `member_display_state_digest`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expected_state_digest: Option<Hash>,
 }
@@ -300,8 +292,8 @@ where
 ///
 /// This is the value a writer places in
 /// [`MemberIdentityUpdatePayload::expected_state_digest`] before applying
-/// a replacement. It is NOT the `identity_payload_digest` and NOT the
-/// roster [`member_display_state_digest`].
+/// a replacement. It is not the locally derived carrier digest or the roster
+/// [`member_display_state_digest`].
 pub fn member_identity_effective_set_digest(
     realm_id: &RealmId,
     actor_id: &DidCoreId,
@@ -448,7 +440,6 @@ mod tests {
             segment: MemberIdentitySegment::MemberIdentity,
             replaces: vec![],
             identity_payload: carrier_a,
-            identity_payload_digest: None,
             expected_state_digest: None,
         };
         let payload_b = MemberIdentityUpdatePayload {
@@ -460,7 +451,6 @@ mod tests {
                 payload_digest: digest_a,
             }],
             identity_payload: carrier_b,
-            identity_payload_digest: None,
             expected_state_digest: None,
         };
 
@@ -490,7 +480,6 @@ mod tests {
             segment: MemberIdentitySegment::MemberIdentity,
             replaces: vec![],
             identity_payload: carrier_a,
-            identity_payload_digest: None,
             expected_state_digest: None,
         };
         let payload_b = MemberIdentityUpdatePayload {
@@ -506,7 +495,6 @@ mod tests {
                 .unwrap(),
             }],
             identity_payload: carrier_b,
-            identity_payload_digest: None,
             expected_state_digest: None,
         };
 

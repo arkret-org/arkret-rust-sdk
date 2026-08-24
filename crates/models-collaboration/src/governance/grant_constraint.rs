@@ -699,18 +699,6 @@ pub struct CapabilityGrant {
     pub issuer_authority_refs: Vec<IssuerAuthorityRef>,
     #[serde(with = "canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "optional_canonical_timestamp"
-    )]
-    pub not_before: Option<DateTime<Utc>>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "optional_canonical_timestamp"
-    )]
-    pub expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_by: Option<DidCoreId>,
     #[serde(

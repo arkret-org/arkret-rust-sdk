@@ -9,8 +9,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    AppletIdentifier, CircleId, DidCoreId, DidUrl, EventId, EventProofAudience, Hash, RealmId,
-    ReasonCode, SchemaId, WireResourceSelector, XExtensionMap,
+    AppletId, CircleId, DidCoreId, DidUrl, EventId, EventProofAudience, Hash, RealmId, ReasonCode,
+    SchemaId, WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -173,16 +173,6 @@ pub struct WidgetEffect {
     pub policy_event_ref: Option<EventId>,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/applet_namespaces`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AppletNamespaces {
-    pub actors: Vec<NamespaceEntry>,
-    pub realms: Vec<NamespaceEntry>,
-    pub handles: Vec<NamespaceEntry>,
-}
-
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/delegation_policy`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -204,7 +194,7 @@ pub struct AppletPackageE2eePolicy {
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/detached_proof`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DetachedProof {
     pub kind: String,
     pub verification_method: DidUrl,
@@ -224,27 +214,29 @@ pub struct DetachedProof {
     pub extra: XExtensionMap,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/limits`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Limits {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_transaction_events: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_payload_bytes: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rate_limit_per_minute: Option<u64>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: XExtensionMap,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/namespace_entry`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct NamespaceEntry {
-    pub exclusive: bool,
-    pub pattern: String,
+impl DetachedProof {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        if self.kind != arkret_wire::proof_kind::DETACHED_JWS {
+            return Err(arkret_wire::WireError::Protocol(
+                "detached proof kind mismatch".to_owned(),
+            ));
+        }
+        if self.jws.is_empty() {
+            return Err(arkret_wire::WireError::Protocol(
+                "detached proof JWS is empty".to_owned(),
+            ));
+        }
+        if self
+            .domain
+            .as_deref()
+            .is_some_and(|domain| domain.trim().is_empty())
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "detached proof domain is empty".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet.schema.json`.
@@ -263,8 +255,7 @@ pub struct AppletError {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Applet {
     pub schema: String,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub applet_id: AppletIdentifier,
+    pub applet_id: AppletId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

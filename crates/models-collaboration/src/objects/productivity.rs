@@ -60,20 +60,7 @@ pub struct ScheduledSendValue {
     pub scheduled_send_id: ScheduledSendId,
     pub send_at: String,
     pub message_payload: MessageCreatePayload,
-    pub message_payload_digest: String,
     pub updated_hlc: String,
-}
-
-impl ScheduledSendValue {
-    pub fn validate_digest(&self) -> Result<()> {
-        let digest = scheduled_send_message_payload_digest(&self.message_payload)?;
-        if digest != self.message_payload_digest {
-            return Err(WireError::Protocol(
-                "scheduled_send.message_payload_digest does not match message_payload".to_owned(),
-            ));
-        }
-        Ok(())
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -1257,10 +1244,6 @@ impl FileTransferKeyDelivery {
 #[serde(deny_unknown_fields)]
 pub struct FileTransferKeyMessage {
     pub transfer_id: String,
-    pub blob_ref: String,
-    pub aead_profile: String,
-    pub nonce: String,
-    pub content_digest: String,
     pub key_envelope: FileTransferKeyEnvelope,
     pub expires_at: String,
 }
@@ -1268,15 +1251,6 @@ pub struct FileTransferKeyMessage {
 impl FileTransferKeyMessage {
     pub fn validate(&self) -> Result<()> {
         validate_file_transfer_id(&self.transfer_id)?;
-        validate_blob_ref(&self.blob_ref)?;
-        Hash::new(self.content_digest.clone())?;
-        validate_file_transfer_blob_digest_binding(&self.blob_ref, &self.content_digest)?;
-        if self.aead_profile != arkret_wire::AeadProfileId::XCHACHA20_POLY1305_V1 {
-            return Err(WireError::Protocol(
-                "file-transfer key message AEAD profile mismatch".to_owned(),
-            ));
-        }
-        validate_base64url("file-transfer key message nonce", &self.nonce)?;
         self.key_envelope.validate()?;
         Ok(canonical::validate_timestamp_canonical(&self.expires_at)?)
     }
@@ -1286,26 +1260,6 @@ impl FileTransferKeyMessage {
         if self.transfer_id != record.transfer_id {
             return Err(WireError::Protocol(
                 "file-transfer key message transfer_id mismatch".to_owned(),
-            ));
-        }
-        if self.blob_ref != record.blob_ref {
-            return Err(WireError::Protocol(
-                "file-transfer key message blob_ref mismatch".to_owned(),
-            ));
-        }
-        if self.aead_profile != record.encryption.aead_profile {
-            return Err(WireError::Protocol(
-                "file-transfer key message aead_profile mismatch".to_owned(),
-            ));
-        }
-        if self.nonce != record.encryption.nonce {
-            return Err(WireError::Protocol(
-                "file-transfer key message nonce mismatch".to_owned(),
-            ));
-        }
-        if self.content_digest != record.content_digest {
-            return Err(WireError::Protocol(
-                "file-transfer key message content_digest mismatch".to_owned(),
             ));
         }
         if record.access.visibility != FileTransferAccessVisibility::DeviceBound {
@@ -1878,12 +1832,6 @@ pub fn parse_realm_remark_account_data_key(key: &str) -> Result<RealmId> {
     realm_id_from_realm_remark_account_data_key(key).ok_or_else(|| {
         WireError::Protocol("realm remark key must be ak.contacts.realm.<realm_id>".to_owned())
     })
-}
-
-pub fn scheduled_send_message_payload_digest(
-    message_payload: &MessageCreatePayload,
-) -> Result<String> {
-    Ok(canonical::canonical_sha256(message_payload)?)
 }
 
 pub fn reminder_account_data_key(id: &str) -> Result<String> {
@@ -2611,7 +2559,7 @@ mod tests {
     }
 
     #[test]
-    fn scheduled_send_uses_an_independent_plan_id_and_validates_payload_digest() {
+    fn scheduled_send_uses_an_independent_plan_id() {
         let scheduled_send_id = ScheduledSendId::new_v7_at(1_725_000_123_456);
         let payload = MessageCreatePayload::with_content(
             StrandId::from_event_id(&EventId::from_digest(
@@ -2624,11 +2572,9 @@ mod tests {
         let value = ScheduledSendValue {
             scheduled_send_id: scheduled_send_id.clone(),
             send_at: "2026-06-07T00:00:00.000Z".to_owned(),
-            message_payload_digest: scheduled_send_message_payload_digest(&payload).unwrap(),
             message_payload: payload,
             updated_hlc: "01970e589d21-0000-a13f9c2e".to_owned(),
         };
-        value.validate_digest().unwrap();
         let wire = serde_json::to_value(&value).unwrap();
         assert_eq!(wire["scheduled_send_id"], scheduled_send_id.as_str());
         assert!(wire.get("planned_message_id").is_none());
@@ -2987,10 +2933,6 @@ mod tests {
 
         let message = FileTransferKeyMessage {
             transfer_id: record.transfer_id.clone(),
-            blob_ref: record.blob_ref.clone(),
-            aead_profile: record.encryption.aead_profile.clone(),
-            nonce: record.encryption.nonce.clone(),
-            content_digest: record.content_digest.clone(),
             key_envelope: FileTransferKeyEnvelope {
                 scheme: HPKE_SUITE_X25519_CHACHA20POLY1305_V1.to_owned(),
                 enc: "abc_DEF-012".to_owned(),
@@ -3003,13 +2945,13 @@ mod tests {
         message.validate_record_binding(&record).unwrap();
 
         let mut drifted = message;
-        drifted.nonce = "other_nonce".to_owned();
+        drifted.transfer_id = "different-transfer".to_owned();
         assert!(
             drifted
                 .validate_record_binding(&record)
                 .unwrap_err()
                 .to_string()
-                .contains("nonce mismatch")
+                .contains("transfer_id mismatch")
         );
     }
 

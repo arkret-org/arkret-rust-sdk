@@ -1037,24 +1037,6 @@ declare_special_form_id_kinds! {
     TrustDomainId, "trust_domain", is_trust_domain;
 }
 
-/// Applet identity accepted by the v1 wire protocol: either a stable service
-/// identity core or a typed `ak:applet:<uuidv7>` identifier.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AppletIdentifier {
-    Service(DidCoreId),
-    Cx(AppletId),
-}
-
-impl AppletIdentifier {
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Service(value) => value.as_str(),
-            Self::Cx(value) => value.as_str(),
-        }
-    }
-}
-
 // `id-kind-registry.json` gives `operation` `wire_form: ak:operation:<uuid>`
 // and `id_form: producer_allocated`, and it is not a `special_forms` row — the
 // content-addressed kinds (`blob`, `seal`, `service_registration_receipt`,
@@ -1386,21 +1368,19 @@ mod tests {
     }
 
     #[test]
-    fn applet_identifier_accepts_only_service_core_or_typed_applet_id() {
-        let service =
-            serde_json::from_str::<AppletIdentifier>(r#""ak:did_core:webvh:z6mkfixture""#).unwrap();
-        assert!(matches!(service, AppletIdentifier::Service(_)));
-
-        let typed = serde_json::from_str::<AppletIdentifier>(
-            r#""ak:applet:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5d""#,
-        )
-        .unwrap();
-        assert!(matches!(typed, AppletIdentifier::Cx(_)));
-        assert!(
-            serde_json::from_str::<AppletIdentifier>(r#""did:webvh:z6mkfixture:applet.example""#)
-                .is_err()
+    fn applet_id_rejects_service_did_and_untyped_values() {
+        let typed =
+            serde_json::from_str::<AppletId>(r#""ak:applet:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5d""#)
+                .unwrap();
+        assert_eq!(
+            typed.as_str(),
+            "ak:applet:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5d"
         );
-        assert!(serde_json::from_str::<AppletIdentifier>(r#""applet.example""#).is_err());
+        assert!(serde_json::from_str::<AppletId>(r#""ak:did_core:webvh:z6mkfixture""#).is_err());
+        assert!(
+            serde_json::from_str::<AppletId>(r#""did:webvh:z6mkfixture:applet.example""#).is_err()
+        );
+        assert!(serde_json::from_str::<AppletId>(r#""applet.example""#).is_err());
     }
 
     /// Round 4 (spec a77b995): method-name segment is `[a-z0-9]+` only;

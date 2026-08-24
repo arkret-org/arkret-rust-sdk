@@ -376,19 +376,11 @@ where
             )?;
             let seal_context = HistorySecretChunkSealContext {
                 purpose: HistorySecretChunkSealPurpose::Value,
-                request_digest,
-                request_receipt_digest: receipt_digest,
-                manifest_digest: chunk.manifest_digest.clone(),
                 manifest_admission_digest: chunk.manifest_admission_digest.clone(),
                 chunk_response_id: source.response_id.clone(),
                 chunk_index: chunk.chunk_index,
-                effective_scope: source.effective_scope.clone(),
                 source_actor_id: source.source_actor_id.clone(),
                 source_sender_domain: source.source_sender_domain.clone(),
-                requester_actor_id: accepted.request.requester_actor_id.clone(),
-                requester_sender_domain: accepted.request.requester_sender_domain.clone(),
-                covered_epoch_range: descriptor.covered_epoch_range,
-                expires_at: source.expires_at,
             };
             seal_context.validate()?;
             Ok(VerifiedHistoryResponseRecord::Chunk {

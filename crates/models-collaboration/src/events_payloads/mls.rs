@@ -66,13 +66,17 @@ impl<'de> Deserialize<'de> for MlsGenesisEpoch {
 pub enum MlsClaimTrustBinding {
     DeviceAuthorizeEventId(NonEmptyString),
     AgentKeyAuthorizeEventId(NonEmptyString),
+    MinimalMetadataPairwise {
+        pairwise_actor_id: DidCoreId,
+        pairwise_verification_method: DidUrl,
+    },
 }
 
 impl MlsClaimTrustBinding {
     pub fn device_authorize_event_id(&self) -> Option<&str> {
         match self {
             Self::DeviceAuthorizeEventId(event_id) => Some(event_id.as_str()),
-            Self::AgentKeyAuthorizeEventId(_) => None,
+            Self::AgentKeyAuthorizeEventId(_) | Self::MinimalMetadataPairwise { .. } => None,
         }
     }
 
@@ -80,6 +84,7 @@ impl MlsClaimTrustBinding {
         match self {
             Self::DeviceAuthorizeEventId(_) => None,
             Self::AgentKeyAuthorizeEventId(event_id) => Some(event_id.as_str()),
+            Self::MinimalMetadataPairwise { .. } => None,
         }
     }
 }
@@ -96,6 +101,9 @@ pub enum MlsRequesterTrustBinding {
         requester_agent_verification_method: DidUrl,
         requester_agent_key_authorize_event_id: EventId,
     },
+    RequesterMinimalMetadataPairwise {
+        requester_pairwise_verification_method: DidUrl,
+    },
 }
 
 impl MlsRequesterTrustBinding {
@@ -105,7 +113,9 @@ impl MlsRequesterTrustBinding {
                 requester_device_id,
                 ..
             } => Some(requester_device_id),
-            Self::RequesterNativeAgent { .. } => None,
+            Self::RequesterNativeAgent { .. } | Self::RequesterMinimalMetadataPairwise { .. } => {
+                None
+            }
         }
     }
 }
@@ -119,6 +129,10 @@ pub enum MlsWelcomeRecipient {
         recipient_agent_id: DidCoreId,
         recipient_agent_verification_method: DidUrl,
         agent_key_authorize_event_id: EventId,
+    },
+    MinimalMetadataPairwise {
+        recipient_pairwise_actor_id: DidCoreId,
+        recipient_pairwise_verification_method: DidUrl,
     },
 }
 
@@ -363,7 +377,16 @@ pub struct MlsKeypackagePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub keypackage_id: Option<NonEmptyString>,
     pub principal_id: DidCoreId,
-    pub device_id: DeviceId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<DeviceId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub endpoint_verification_method: Option<DidUrl>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_authorize_event_id: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_key_authorize_event_id: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub intended_realm_id: Option<RealmId>,
     pub keypackage_ref: ObjectRef,
     pub keypackage_digest: Hash,
     pub cipher_suites: Vec<String>,
@@ -376,7 +399,37 @@ pub struct MlsKeypackagePayload {
     pub expires_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
-    pub device_signature: SignatureMaterial,
+    pub endpoint_signature: SignatureMaterial,
+}
+
+impl MlsKeypackagePayload {
+    pub fn validate_endpoint(&self) -> std::result::Result<(), &'static str> {
+        match (
+            &self.device_id,
+            &self.endpoint_verification_method,
+            &self.device_authorize_event_id,
+            &self.agent_key_authorize_event_id,
+            &self.intended_realm_id,
+        ) {
+            (Some(_), None, Some(_), None, None) => Ok(()),
+            (None, Some(method), None, Some(_), None)
+                if self.endpoint_signature.kid.as_str() == method.as_str() =>
+            {
+                Ok(())
+            }
+            (None, Some(method), None, None, Some(_))
+                if self.endpoint_signature.kid.as_str() == method.as_str()
+                    && arkret_models_crypto::MlsEndpointIdentity::minimal_metadata_pairwise(
+                        self.principal_id.clone(),
+                        method.clone(),
+                    )
+                    .is_ok() =>
+            {
+                Ok(())
+            }
+            _ => Err("MLS KeyPackage endpoint branch is invalid"),
+        }
+    }
 }
 
 /// Counterpart for
@@ -386,8 +439,8 @@ pub struct MlsProposalPayload {
     pub mls_group_id: MlsGroupId,
     pub base_epoch: u64,
     pub proposal_type: MlsProposalType,
-    pub proposal_message_ref: Option<ObjectRef>,
-    pub proposal_digest: Option<Hash>,
+    pub proposal_bytes_b64: String,
+    pub proposal_digest: Hash,
     pub target_principal_id: Option<DidCoreId>,
     pub target_device_id: Option<DeviceId>,
     pub target_authorization_incarnation: Option<AuthorizationIncarnation>,
@@ -400,10 +453,8 @@ struct MlsProposalPayloadWire {
     mls_group_id: MlsGroupId,
     base_epoch: u64,
     proposal_type: MlsProposalType,
-    #[serde(default)]
-    proposal_message_ref: Option<ObjectRef>,
-    #[serde(default)]
-    proposal_digest: Option<Hash>,
+    proposal_bytes_b64: String,
+    proposal_digest: Hash,
     #[serde(default)]
     target_principal_id: Option<DidCoreId>,
     #[serde(default)]
@@ -415,9 +466,15 @@ struct MlsProposalPayloadWire {
 
 impl MlsProposalPayload {
     pub fn validate(&self) -> Result<()> {
-        if self.proposal_message_ref.is_none() && self.proposal_digest.is_none() {
+        let proposal_bytes = arkret_canonical::base64url_decode(&self.proposal_bytes_b64)
+            .map_err(|error| WireError::Protocol(format!("invalid MLS proposal bytes: {error}")))?;
+        if proposal_bytes.is_empty()
+            || arkret_canonical::base64url_encode(&proposal_bytes) != self.proposal_bytes_b64
+            || self.proposal_digest.as_str() != arkret_canonical::sha256_digest(&proposal_bytes)
+        {
             return Err(WireError::Protocol(
-                "mls_proposal_payload requires proposal_message_ref or proposal_digest".to_owned(),
+                "MLS proposal bytes are empty, non-canonical, or do not match proposal_digest"
+                    .to_owned(),
             ));
         }
         if self.governance_binding.mls_group_id() != self.mls_group_id.as_str() {
@@ -467,7 +524,7 @@ impl Serialize for MlsProposalPayload {
             mls_group_id: self.mls_group_id.clone(),
             base_epoch: self.base_epoch,
             proposal_type: self.proposal_type,
-            proposal_message_ref: self.proposal_message_ref.clone(),
+            proposal_bytes_b64: self.proposal_bytes_b64.clone(),
             proposal_digest: self.proposal_digest.clone(),
             target_principal_id: self.target_principal_id.clone(),
             target_device_id: self.target_device_id.clone(),
@@ -488,7 +545,7 @@ impl<'de> Deserialize<'de> for MlsProposalPayload {
             mls_group_id: wire.mls_group_id,
             base_epoch: wire.base_epoch,
             proposal_type: wire.proposal_type,
-            proposal_message_ref: wire.proposal_message_ref,
+            proposal_bytes_b64: wire.proposal_bytes_b64,
             proposal_digest: wire.proposal_digest,
             target_principal_id: wire.target_principal_id,
             target_device_id: wire.target_device_id,
@@ -549,6 +606,10 @@ struct MlsWelcomePayloadClaimRefWire {
     device_authorize_event_id: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     agent_key_authorize_event_id: Option<NonEmptyString>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pairwise_actor_id: Option<DidCoreId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pairwise_verification_method: Option<DidUrl>,
 }
 
 impl Serialize for MlsWelcomePayloadClaimRef {
@@ -556,13 +617,27 @@ impl Serialize for MlsWelcomePayloadClaimRef {
     where
         S: serde::Serializer,
     {
-        let (device_authorize_event_id, agent_key_authorize_event_id) = match &self.trust_binding {
+        let (
+            device_authorize_event_id,
+            agent_key_authorize_event_id,
+            pairwise_actor_id,
+            pairwise_verification_method,
+        ) = match &self.trust_binding {
             MlsClaimTrustBinding::DeviceAuthorizeEventId(event_id) => {
-                (Some(event_id.clone()), None)
+                (Some(event_id.clone()), None, None, None)
             }
             MlsClaimTrustBinding::AgentKeyAuthorizeEventId(event_id) => {
-                (None, Some(event_id.clone()))
+                (None, Some(event_id.clone()), None, None)
             }
+            MlsClaimTrustBinding::MinimalMetadataPairwise {
+                pairwise_actor_id,
+                pairwise_verification_method,
+            } => (
+                None,
+                None,
+                Some(pairwise_actor_id.clone()),
+                Some(pairwise_verification_method.clone()),
+            ),
         };
         MlsWelcomePayloadClaimRefWire {
             claim_id: self.claim_id.clone(),
@@ -571,6 +646,8 @@ impl Serialize for MlsWelcomePayloadClaimRef {
             capabilities_digest: self.capabilities_digest.clone(),
             device_authorize_event_id,
             agent_key_authorize_event_id,
+            pairwise_actor_id,
+            pairwise_verification_method,
         }
         .serialize(serializer)
     }
@@ -585,9 +662,26 @@ impl<'de> Deserialize<'de> for MlsWelcomePayloadClaimRef {
         let trust_binding = match (
             wire.device_authorize_event_id,
             wire.agent_key_authorize_event_id,
+            wire.pairwise_actor_id,
+            wire.pairwise_verification_method,
         ) {
-            (Some(event_id), None) => MlsClaimTrustBinding::DeviceAuthorizeEventId(event_id),
-            (None, Some(event_id)) => MlsClaimTrustBinding::AgentKeyAuthorizeEventId(event_id),
+            (Some(event_id), None, None, None) => {
+                MlsClaimTrustBinding::DeviceAuthorizeEventId(event_id)
+            }
+            (None, Some(event_id), None, None) => {
+                MlsClaimTrustBinding::AgentKeyAuthorizeEventId(event_id)
+            }
+            (None, None, Some(actor_id), Some(method)) => {
+                arkret_models_crypto::MlsEndpointIdentity::minimal_metadata_pairwise(
+                    actor_id.clone(),
+                    method.clone(),
+                )
+                .map_err(serde::de::Error::custom)?;
+                MlsClaimTrustBinding::MinimalMetadataPairwise {
+                    pairwise_actor_id: actor_id,
+                    pairwise_verification_method: method,
+                }
+            }
             _ => {
                 return Err(serde::de::Error::custom(
                     "claim_ref must contain exactly one trust binding",
@@ -622,6 +716,8 @@ struct MlsWelcomeClaimEnvelopeWire {
     requester_agent_verification_method: Option<DidUrl>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     requester_agent_key_authorize_event_id: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    requester_pairwise_verification_method: Option<DidUrl>,
     nonce: NonEmptyString,
     welcome_digest: Hash,
     #[serde(with = "canonical_timestamp")]
@@ -640,6 +736,7 @@ impl Serialize for MlsWelcomeClaimEnvelope {
             requester_agent_id,
             requester_agent_verification_method,
             requester_agent_key_authorize_event_id,
+            requester_pairwise_verification_method,
         ) = match &self.trust_binding {
             MlsRequesterTrustBinding::RequesterDevice {
                 requester_device_id,
@@ -647,6 +744,8 @@ impl Serialize for MlsWelcomeClaimEnvelope {
             } => (
                 Some(requester_device_id.clone()),
                 Some(requester_device_authorize_event_id.clone()),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -661,6 +760,18 @@ impl Serialize for MlsWelcomeClaimEnvelope {
                 Some(requester_agent_id.clone()),
                 Some(requester_agent_verification_method.clone()),
                 Some(requester_agent_key_authorize_event_id.clone()),
+                None,
+                None,
+            ),
+            MlsRequesterTrustBinding::RequesterMinimalMetadataPairwise {
+                requester_pairwise_verification_method,
+            } => (
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(requester_pairwise_verification_method.clone()),
             ),
         };
         MlsWelcomeClaimEnvelopeWire {
@@ -674,6 +785,7 @@ impl Serialize for MlsWelcomeClaimEnvelope {
             requester_agent_id,
             requester_agent_verification_method,
             requester_agent_key_authorize_event_id,
+            requester_pairwise_verification_method,
             nonce: self.nonce.clone(),
             welcome_digest: self.welcome_digest.clone(),
             created_at: self.created_at,
@@ -695,23 +807,34 @@ impl<'de> Deserialize<'de> for MlsWelcomeClaimEnvelope {
             wire.requester_agent_id,
             wire.requester_agent_verification_method,
             wire.requester_agent_key_authorize_event_id,
+            wire.requester_pairwise_verification_method,
         ) {
-            (Some(device_id), Some(event_id), None, None, None) => {
+            (Some(device_id), Some(event_id), None, None, None, None, None) => {
                 MlsRequesterTrustBinding::RequesterDevice {
                     requester_device_id: device_id,
                     requester_device_authorize_event_id: event_id,
                 }
             }
-            (None, None, Some(agent_id), Some(method), Some(authorize_event_id)) => {
+            (None, None, Some(agent_id), Some(method), Some(authorize_event_id), None, None) => {
                 MlsRequesterTrustBinding::RequesterNativeAgent {
                     requester_agent_id: agent_id,
                     requester_agent_verification_method: method,
                     requester_agent_key_authorize_event_id: authorize_event_id,
                 }
             }
+            (None, None, None, None, None, Some(method)) => {
+                arkret_models_crypto::MlsEndpointIdentity::minimal_metadata_pairwise(
+                    wire.requester_actor_id.clone(),
+                    method.clone(),
+                )
+                .map_err(serde::de::Error::custom)?;
+                MlsRequesterTrustBinding::RequesterMinimalMetadataPairwise {
+                    requester_pairwise_verification_method: method,
+                }
+            }
             _ => {
                 return Err(serde::de::Error::custom(
-                    "Welcome claim requester must select exactly one device or Native Agent branch",
+                    "Welcome claim requester must select exactly one device, Native Agent, or minimal-metadata pairwise branch",
                 ));
             }
         };
@@ -747,6 +870,8 @@ struct MlsWelcomeClaimEnvelopeSigningInputWire {
     requester_agent_verification_method: Option<DidUrl>,
     #[serde(skip_serializing_if = "Option::is_none")]
     requester_agent_key_authorize_event_id: Option<EventId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    requester_pairwise_verification_method: Option<DidUrl>,
     nonce: NonEmptyString,
     welcome_digest: Hash,
     #[serde(serialize_with = "serialize_canonical_timestamp")]
@@ -764,6 +889,7 @@ impl Serialize for MlsWelcomeClaimEnvelopeSigningInput {
             requester_agent_id,
             requester_agent_verification_method,
             requester_agent_key_authorize_event_id,
+            requester_pairwise_verification_method,
         ) = match &self.trust_binding {
             MlsRequesterTrustBinding::RequesterDevice {
                 requester_device_id,
@@ -771,6 +897,8 @@ impl Serialize for MlsWelcomeClaimEnvelopeSigningInput {
             } => (
                 Some(requester_device_id.clone()),
                 Some(requester_device_authorize_event_id.clone()),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -785,6 +913,18 @@ impl Serialize for MlsWelcomeClaimEnvelopeSigningInput {
                 Some(requester_agent_id.clone()),
                 Some(requester_agent_verification_method.clone()),
                 Some(requester_agent_key_authorize_event_id.clone()),
+                None,
+                None,
+            ),
+            MlsRequesterTrustBinding::RequesterMinimalMetadataPairwise {
+                requester_pairwise_verification_method,
+            } => (
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(requester_pairwise_verification_method.clone()),
             ),
         };
         MlsWelcomeClaimEnvelopeSigningInputWire {
@@ -798,6 +938,7 @@ impl Serialize for MlsWelcomeClaimEnvelopeSigningInput {
             requester_agent_id,
             requester_agent_verification_method,
             requester_agent_key_authorize_event_id,
+            requester_pairwise_verification_method,
             nonce: self.nonce.clone(),
             welcome_digest: self.welcome_digest.clone(),
             created_at: self.created_at,
@@ -846,6 +987,18 @@ impl MlsWelcomeClaimEnvelope {
                 return Err(ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
             }
             let _ = requester_agent_key_authorize_event_id;
+        }
+        if let MlsRequesterTrustBinding::RequesterMinimalMetadataPairwise {
+            requester_pairwise_verification_method,
+        } = &self.trust_binding
+            && (self.signature.kid.as_str() != requester_pairwise_verification_method.as_str()
+                || arkret_models_crypto::MlsEndpointIdentity::minimal_metadata_pairwise(
+                    self.requester_actor_id.clone(),
+                    requester_pairwise_verification_method.clone(),
+                )
+                .is_err())
+        {
+            return Err(ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
         }
         Ok(())
     }
@@ -909,17 +1062,16 @@ impl UnsignedMlsWelcomeClaimEnvelope {
 pub struct MlsWelcomePayload {
     pub mls_group_id: MlsGroupId,
     pub epoch: u64,
-    pub recipient_principal_id: DidCoreId,
+    pub recipient_principal_id: Option<DidCoreId>,
     pub recipient: MlsWelcomeRecipient,
     pub sender_device_id: Option<DeviceId>,
     pub keypackage_ref: ObjectRef,
-    pub keypackage_digest: Hash,
     pub claim_id: NonEmptyString,
     pub claim_ref: MlsWelcomePayloadClaimRef,
     pub claim_envelope: MlsWelcomeClaimEnvelope,
     pub claim_receipt: PeerKeyPackageClaimReceipt,
     pub carrier: MlsWelcomeCarrier,
-    pub commit_ref: Option<EventId>,
+    pub commit_ref: EventId,
     pub governance_binding: MlsGovernanceBindingPayload,
     pub expires_at: DateTime<Utc>,
 }
@@ -929,7 +1081,8 @@ pub struct MlsWelcomePayload {
 struct MlsWelcomePayloadWire {
     mls_group_id: MlsGroupId,
     epoch: u64,
-    recipient_principal_id: DidCoreId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    recipient_principal_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     recipient_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -939,9 +1092,12 @@ struct MlsWelcomePayloadWire {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     agent_key_authorize_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    recipient_pairwise_actor_id: Option<DidCoreId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    recipient_pairwise_verification_method: Option<DidUrl>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     sender_device_id: Option<DeviceId>,
     keypackage_ref: ObjectRef,
-    keypackage_digest: Hash,
     claim_id: NonEmptyString,
     claim_ref: MlsWelcomePayloadClaimRef,
     claim_envelope: MlsWelcomeClaimEnvelope,
@@ -952,8 +1108,7 @@ struct MlsWelcomePayloadWire {
     encrypted_welcome_ref: Option<ObjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     ciphertext: Option<NonEmptyString>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    commit_ref: Option<EventId>,
+    commit_ref: EventId,
     governance_binding: MlsGovernanceBindingPayload,
     #[serde(with = "canonical_timestamp")]
     expires_at: DateTime<Utc>,
@@ -969,10 +1124,19 @@ impl Serialize for MlsWelcomePayload {
             recipient_agent_id,
             recipient_agent_verification_method,
             agent_key_authorize_event_id,
+            recipient_pairwise_actor_id,
+            recipient_pairwise_verification_method,
         ) = match &self.recipient {
             MlsWelcomeRecipient::Device {
                 recipient_device_id,
-            } => (Some(recipient_device_id.clone()), None, None, None),
+            } => (
+                Some(recipient_device_id.clone()),
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
             MlsWelcomeRecipient::NativeAgent {
                 recipient_agent_id,
                 recipient_agent_verification_method,
@@ -982,6 +1146,19 @@ impl Serialize for MlsWelcomePayload {
                 Some(recipient_agent_id.clone()),
                 Some(recipient_agent_verification_method.clone()),
                 Some(agent_key_authorize_event_id.clone()),
+                None,
+                None,
+            ),
+            MlsWelcomeRecipient::MinimalMetadataPairwise {
+                recipient_pairwise_actor_id,
+                recipient_pairwise_verification_method,
+            } => (
+                None,
+                None,
+                None,
+                None,
+                Some(recipient_pairwise_actor_id.clone()),
+                Some(recipient_pairwise_verification_method.clone()),
             ),
         };
         MlsWelcomePayloadWire {
@@ -992,9 +1169,10 @@ impl Serialize for MlsWelcomePayload {
             recipient_agent_id,
             recipient_agent_verification_method,
             agent_key_authorize_event_id,
+            recipient_pairwise_actor_id,
+            recipient_pairwise_verification_method,
             sender_device_id: self.sender_device_id.clone(),
             keypackage_ref: self.keypackage_ref.clone(),
-            keypackage_digest: self.keypackage_digest.clone(),
             claim_id: self.claim_id.clone(),
             claim_ref: self.claim_ref.clone(),
             claim_envelope: self.claim_envelope.clone(),
@@ -1021,20 +1199,41 @@ impl<'de> Deserialize<'de> for MlsWelcomePayload {
             wire.recipient_agent_id,
             wire.recipient_agent_verification_method,
             wire.agent_key_authorize_event_id,
+            wire.recipient_pairwise_actor_id,
+            wire.recipient_pairwise_verification_method,
         ) {
-            (Some(device_id), None, None, None) => MlsWelcomeRecipient::Device {
-                recipient_device_id: device_id,
-            },
-            (None, Some(agent_id), Some(method), Some(authorize_event_id)) => {
+            (Some(device_id), None, None, None, None, None)
+                if wire.recipient_principal_id.is_some() =>
+            {
+                MlsWelcomeRecipient::Device {
+                    recipient_device_id: device_id,
+                }
+            }
+            (None, Some(agent_id), Some(method), Some(authorize_event_id), None, None)
+                if wire.recipient_principal_id.as_ref() == Some(&agent_id) =>
+            {
                 MlsWelcomeRecipient::NativeAgent {
                     recipient_agent_id: agent_id,
                     recipient_agent_verification_method: method,
                     agent_key_authorize_event_id: authorize_event_id,
                 }
             }
+            (None, None, None, None, Some(actor_id), Some(method))
+                if wire.recipient_principal_id.is_none() =>
+            {
+                arkret_models_crypto::MlsEndpointIdentity::minimal_metadata_pairwise(
+                    actor_id.clone(),
+                    method.clone(),
+                )
+                .map_err(serde::de::Error::custom)?;
+                MlsWelcomeRecipient::MinimalMetadataPairwise {
+                    recipient_pairwise_actor_id: actor_id,
+                    recipient_pairwise_verification_method: method,
+                }
+            }
             _ => {
                 return Err(serde::de::Error::custom(
-                    "MLS Welcome recipient must select exactly one device or Native Agent branch",
+                    "MLS Welcome recipient must select exactly one device, Native Agent, or minimal-metadata pairwise branch",
                 ));
             }
         };
@@ -1054,13 +1253,37 @@ impl<'de> Deserialize<'de> for MlsWelcomePayload {
         }
         if wire.claim_ref.claim_id != wire.claim_id
             || wire.claim_ref.keypackage_ref != wire.keypackage_ref
-            || wire.claim_ref.keypackage_digest != wire.keypackage_digest
             || wire.claim_envelope.claim_id != wire.claim_id
             || wire.claim_envelope.keypackage_ref != wire.keypackage_ref
-            || wire.claim_envelope.keypackage_digest != wire.keypackage_digest
+            || wire.claim_envelope.keypackage_digest != wire.claim_ref.keypackage_digest
         {
             return Err(serde::de::Error::custom(
                 "mls_welcome_payload claim bindings do not match top-level fields",
+            ));
+        }
+        if let MlsWelcomeRecipient::MinimalMetadataPairwise {
+            recipient_pairwise_actor_id,
+            recipient_pairwise_verification_method,
+        } = &recipient
+        {
+            match &wire.claim_ref.trust_binding {
+                MlsClaimTrustBinding::MinimalMetadataPairwise {
+                    pairwise_actor_id,
+                    pairwise_verification_method,
+                } if pairwise_actor_id == recipient_pairwise_actor_id
+                    && pairwise_verification_method == recipient_pairwise_verification_method => {}
+                _ => {
+                    return Err(serde::de::Error::custom(
+                        "pairwise Welcome recipient must equal the claim_ref pairwise endpoint",
+                    ));
+                }
+            }
+        } else if matches!(
+            &wire.claim_ref.trust_binding,
+            MlsClaimTrustBinding::MinimalMetadataPairwise { .. }
+        ) {
+            return Err(serde::de::Error::custom(
+                "pairwise claim_ref requires the pairwise Welcome recipient branch",
             ));
         }
         Ok(Self {
@@ -1070,7 +1293,6 @@ impl<'de> Deserialize<'de> for MlsWelcomePayload {
             recipient,
             sender_device_id: wire.sender_device_id,
             keypackage_ref: wire.keypackage_ref,
-            keypackage_digest: wire.keypackage_digest,
             claim_id: wire.claim_id,
             claim_ref: wire.claim_ref,
             claim_envelope: wire.claim_envelope,
@@ -1091,21 +1313,26 @@ pub fn validate_mls_welcome_claim_envelope(
     intended_realm_id: &RealmId,
     requester_actor_id: &DidCoreId,
     welcome_digest: &Hash,
-    claim_nonce: &str,
+    claim_request_id: &str,
     current_claim_device_authorize_event_id: Option<&str>,
     current_claim_agent_key_authorize_event_id: Option<&str>,
     current_requester_device_id: Option<&str>,
     current_requester_device_authorize_event_id: Option<&str>,
 ) -> std::result::Result<(), &'static str> {
+    let claim_keypackage = arkret_canonical::base64url::base64url_decode(&claim.keypackage)
+        .map_err(|_| ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH)?;
+    let claim_keypackage_digest = arkret_canonical::sha256_digest(&claim_keypackage);
+    let claim_capabilities = arkret_canonical::canonical_json_bytes(&claim.capabilities)
+        .map_err(|_| ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH)?;
+    let claim_capabilities_digest = arkret_canonical::sha256_digest(&claim_capabilities);
     if welcome.keypackage_ref != claim.keypackage_ref
         || welcome.claim_id.as_str() != claim.claim_id
         || welcome.claim_ref.claim_id.as_str() != claim.claim_id
         || welcome.claim_ref.keypackage_ref != claim.keypackage_ref
         || published.keypackage_ref != claim.keypackage_ref
-        || welcome.keypackage_digest.as_str() != claim.keypackage_digest.as_str()
-        || welcome.claim_ref.keypackage_digest.as_str() != claim.keypackage_digest.as_str()
-        || published.keypackage_digest.as_str() != claim.keypackage_digest.as_str()
-        || welcome.claim_ref.capabilities_digest.as_str() != claim.capabilities_digest.as_str()
+        || welcome.claim_ref.keypackage_digest.as_str() != claim_keypackage_digest
+        || published.keypackage_digest.as_str() != claim_keypackage_digest
+        || welcome.claim_ref.capabilities_digest.as_str() != claim_capabilities_digest
         || welcome.claim_ref.trust_binding.device_authorize_event_id()
             != claim
                 .device_authorize_event_id
@@ -1128,12 +1355,16 @@ pub fn validate_mls_welcome_claim_envelope(
         &claim.agent_id,
         &claim.agent_verification_method,
         &claim.agent_key_authorize_event_id,
+        &claim.pairwise_actor_id,
+        &claim.pairwise_verification_method,
     ) {
         (
             MlsWelcomeRecipient::Device {
                 recipient_device_id,
             },
             Some(claim_device_id),
+            None,
+            None,
             None,
             None,
             None,
@@ -1148,10 +1379,31 @@ pub fn validate_mls_welcome_claim_envelope(
             Some(claim_agent_id),
             Some(claim_method),
             Some(claim_authorize_event_id),
+            None,
+            None,
         ) if recipient_agent_id == claim_agent_id
-            && recipient_agent_id.as_core_id() == welcome.recipient_principal_id.as_core_id()
+            && welcome
+                .recipient_principal_id
+                .as_ref()
+                .is_some_and(|principal_id| {
+                    recipient_agent_id.as_core_id() == principal_id.as_core_id()
+                })
             && recipient_agent_verification_method == claim_method
             && agent_key_authorize_event_id == claim_authorize_event_id => {}
+        (
+            MlsWelcomeRecipient::MinimalMetadataPairwise {
+                recipient_pairwise_actor_id,
+                recipient_pairwise_verification_method,
+            },
+            None,
+            None,
+            None,
+            None,
+            Some(claim_actor_id),
+            Some(claim_method),
+        ) if welcome.recipient_principal_id.is_none()
+            && recipient_pairwise_actor_id == claim_actor_id
+            && recipient_pairwise_verification_method == claim_method => {}
         _ => return Err(ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH),
     }
     validate_claim_trust_binding(
@@ -1162,17 +1414,18 @@ pub fn validate_mls_welcome_claim_envelope(
 
     let envelope = &welcome.claim_envelope;
     if envelope.keypackage_ref != claim.keypackage_ref
-        || envelope.keypackage_digest.as_str() != claim.keypackage_digest.as_str()
+        || envelope.keypackage_digest.as_str() != claim_keypackage_digest
         || envelope.intended_realm_id != *intended_realm_id
         || envelope.claim_id.as_str() != claim.claim_id
         || envelope.requester_actor_id != *requester_actor_id
-        || envelope.nonce.as_str() != claim_nonce
+        || envelope.nonce.as_str() != claim_request_id
         || envelope.welcome_digest.as_str() != welcome_digest.as_str()
     {
         return Err(ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
     }
     validate_requester_signature_binding(
         &envelope.trust_binding,
+        requester_actor_id,
         current_requester_device_id,
         current_requester_device_authorize_event_id,
     )?;
@@ -1199,12 +1452,24 @@ fn validate_claim_trust_binding(
         {
             Ok(())
         }
+        MlsClaimTrustBinding::MinimalMetadataPairwise {
+            pairwise_actor_id,
+            pairwise_verification_method,
+        } if arkret_models_crypto::MlsEndpointIdentity::minimal_metadata_pairwise(
+            pairwise_actor_id.clone(),
+            pairwise_verification_method.clone(),
+        )
+        .is_ok() =>
+        {
+            Ok(())
+        }
         _ => Err(ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH),
     }
 }
 
 fn validate_requester_signature_binding(
     trust_binding: &MlsRequesterTrustBinding,
+    requester_actor_id: &DidCoreId,
     current_requester_device_id: Option<&str>,
     current_requester_device_authorize_event_id: Option<&str>,
 ) -> std::result::Result<(), &'static str> {
@@ -1228,6 +1493,16 @@ fn validate_requester_signature_binding(
                 requester_agent_verification_method,
                 requester_agent_key_authorize_event_id,
             );
+            Ok(())
+        }
+        MlsRequesterTrustBinding::RequesterMinimalMetadataPairwise {
+            requester_pairwise_verification_method,
+        } if arkret_models_crypto::MlsEndpointIdentity::minimal_metadata_pairwise(
+            requester_actor_id.clone(),
+            requester_pairwise_verification_method.clone(),
+        )
+        .is_ok() =>
+        {
             Ok(())
         }
         _ => Err(ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH),
@@ -1332,6 +1607,7 @@ mod tests {
             track_name: None,
             reason: Some("author_redaction".to_owned()),
             preserve: None,
+            mimi_provenance: None,
         };
 
         let value = serde_json::to_value(payload).unwrap();

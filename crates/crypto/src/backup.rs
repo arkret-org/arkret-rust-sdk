@@ -45,23 +45,23 @@ use arkret_canonical::canonical::{
 };
 use arkret_models_crypto::key_backup::{
     BackupKind, KeyBackup, KeyBackupAead, KeyBackupAeadName, KeyBackupContentItem,
-    KeyBackupDomainSeparation, KeyBackupDomainSeparationAad, KeyBackupEncryption,
-    KeyBackupFrontierRef, KeyBackupKdf, KeyBackupKdfName, KeyBackupKdfParams,
-    KeyBackupRecipientMethod,
+    KeyBackupDomainSeparation, KeyBackupEncryption, KeyBackupFrontierRef, KeyBackupKdf,
+    KeyBackupKdfName, KeyBackupKdfParams, KeyBackupRecipientMethod,
 };
 use arkret_models_crypto::{
     KeyBackupKeybag, KeyBackupPlaintext, SecretStorageContentIndex, SecretStorageItem,
 };
 use arkret_wire::{
     AEAD_PROFILE_XCHACHA20_POLY1305_V1, BackupId, Base64UrlString, DeviceId, DidCoreId, Hash,
+    XExtensionMap,
 };
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use getrandom::fill;
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
-use serde_json::json;
+use serde_json::{Map, Value, json};
 use sha2::Sha256;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
@@ -209,18 +209,23 @@ pub fn derive_vault_kek_with_salt(
 #[derive(Clone, Debug)]
 pub struct VaultBinding {
     pub backup_id: BackupId,
-    /// Domain-separation subdomain from the persisted envelope.
     pub subdomain: String,
-    /// Exact persisted AAD object. Encryption and decryption canonicalize this
-    /// value directly instead of reconstructing a parallel field set.
-    pub aead_aad: KeyBackupDomainSeparationAad,
+    pub actor_id: DidCoreId,
+    pub device_id: Option<DeviceId>,
+    pub backup_kind: BackupKind,
+    pub backup_version: String,
+    pub created_at: DateTime<Utc>,
+    pub item_kinds: Vec<String>,
+    pub recipient_method: KeyBackupRecipientMethod,
+    pub recipient_key_ref: Option<String>,
+    pub aead_aad_extensions: XExtensionMap,
 }
 
 impl VaultBinding {
     /// The wire token for this envelope's `backup_kind` (the snake_case
     /// value used in the AAD / nonce transcript and the envelope itself).
     fn backup_class_wire(&self) -> &'static str {
-        match self.aead_aad.backup_kind {
+        match self.backup_kind {
             BackupKind::SecretStorage => "secret_storage",
             BackupKind::MlsHistory => "mls_history",
         }
@@ -232,10 +237,7 @@ impl VaultBinding {
     /// Public so conformance KAT runners can pin the intermediate bytes
     /// (`key-backup-hardening-fixture.json` passphrase_kdf_kat case).
     pub fn subkey(&self, root: &[u8; VAULT_KDF_OUTPUT_LEN], subdomain: &str) -> [u8; 32] {
-        derive_subkey(
-            root,
-            self.aead_aad.backup_kind.hkdf_info(subdomain).as_bytes(),
-        )
+        derive_subkey(root, self.backup_kind.hkdf_info(subdomain).as_bytes())
     }
 
     /// Canonical-JSON bytes of the §7.2 deterministic-nonce transcript.
@@ -249,11 +251,11 @@ impl VaultBinding {
         // key so declaration order is irrelevant.
         let transcript = json!({
             "backup_id": self.backup_id.as_str(),
-            "actor_id": self.aead_aad.actor_id.as_str(),
-            "device_id": self.aead_aad.device_id.as_deref(),
+            "actor_id": self.actor_id.as_str(),
+            "device_id": self.device_id.as_ref().map(DeviceId::as_str),
             "backup_kind": self.backup_class_wire(),
-            "backup_version": self.aead_aad.backup_version.as_str(),
-            "created_at": format_timestamp_canonical(self.aead_aad.created_at),
+            "backup_version": self.backup_version.as_str(),
+            "created_at": format_timestamp_canonical(self.created_at),
             "aead": "xchacha20_poly1305",
             "aead_profile": AEAD_PROFILE_XCHACHA20_POLY1305_V1,
             "nonce_salt": nonce_salt_b64,
@@ -287,7 +289,60 @@ impl VaultBinding {
     /// cannot be tampered with post-encryption. Public for conformance
     /// KAT verification.
     pub fn aad(&self) -> Result<Vec<u8>> {
-        canonical_json_bytes(&self.aead_aad)
+        let mut item_kinds = self.item_kinds.clone();
+        item_kinds.sort_unstable();
+        item_kinds.dedup();
+        let mut aad = Map::new();
+        aad.insert(
+            "schema".to_owned(),
+            Value::String(VAULT_SCHEMA_ID.to_owned()),
+        );
+        aad.insert(
+            "actor_id".to_owned(),
+            Value::String(self.actor_id.as_str().to_owned()),
+        );
+        aad.insert(
+            "device_id".to_owned(),
+            self.device_id
+                .as_ref()
+                .map(|device_id| Value::String(device_id.as_str().to_owned()))
+                .unwrap_or(Value::Null),
+        );
+        aad.insert(
+            "backup_kind".to_owned(),
+            Value::String(self.backup_class_wire().to_owned()),
+        );
+        aad.insert(
+            "backup_version".to_owned(),
+            Value::String(self.backup_version.clone()),
+        );
+        aad.insert(
+            "created_at".to_owned(),
+            Value::String(format_timestamp_canonical(self.created_at)),
+        );
+        aad.insert(
+            "item_kinds".to_owned(),
+            Value::Array(item_kinds.into_iter().map(Value::String).collect()),
+        );
+        aad.insert(
+            "recipient_method".to_owned(),
+            serde_json::to_value(self.recipient_method)
+                .map_err(|err| KeyBackupError::Canonical(format!("aead aad: {err}")))?,
+        );
+        if let Some(recipient_key_ref) = &self.recipient_key_ref {
+            aad.insert(
+                "recipient_key_ref".to_owned(),
+                Value::String(recipient_key_ref.clone()),
+            );
+        }
+        for (key, value) in self.aead_aad_extensions.as_map() {
+            if aad.insert(key.clone(), value.clone()).is_some() {
+                return Err(KeyBackupError::InvalidInput(format!(
+                    "key backup AAD extension collides with fixed field {key:?}"
+                )));
+            }
+        }
+        canonical_json_bytes(&Value::Object(aad))
             .map_err(|err| KeyBackupError::Canonical(format!("aead aad: {err}")))
     }
 }
@@ -436,40 +491,9 @@ fn decrypt_key_backup_envelope_bytes(
         ));
     }
     let domain = &envelope.domain_separation;
-    let aad = &domain.aead_aad;
-    if domain.subdomain.trim().is_empty()
-        || domain.hkdf_info != envelope.backup_kind.hkdf_info(&domain.subdomain)
-    {
+    if domain.subdomain.trim().is_empty() {
         return Err(KeyBackupError::InvalidInput(
             "key backup domain separation mismatch".to_owned(),
-        ));
-    }
-    let device_id = envelope
-        .device_id
-        .as_ref()
-        .map(|device_id| device_id.as_str());
-    let item_kinds = envelope
-        .contents
-        .iter()
-        .map(|item| item.item_kind())
-        .collect::<Vec<_>>();
-    if aad.schema != VAULT_SCHEMA_ID
-        || aad.actor_id != envelope.actor_id
-        || aad.device_id.as_deref() != device_id
-        || aad.backup_kind != envelope.backup_kind
-        || aad.backup_version != envelope.backup_version
-        || aad.created_at != envelope.created_at
-        || aad
-            .item_kinds
-            .iter()
-            .map(String::as_str)
-            .collect::<Vec<_>>()
-            != item_kinds
-        || aad.recipient_method != Some(envelope.encryption.recipient_method)
-        || aad.recipient_key_ref != envelope.encryption.recipient_key_ref
-    {
-        return Err(KeyBackupError::InvalidInput(
-            "key backup authenticated metadata mismatch".to_owned(),
         ));
     }
     let kdf = envelope.encryption.kdf.as_ref().ok_or_else(|| {
@@ -513,16 +537,38 @@ fn decrypt_key_backup_envelope_bytes(
     }
     decrypt_vault(
         passphrase,
-        &VaultBinding {
-            backup_id: envelope.backup_id.clone(),
-            subdomain: envelope.domain_separation.subdomain.clone(),
-            aead_aad: envelope.domain_separation.aead_aad.clone(),
-        },
+        &vault_binding_from_envelope(envelope),
         salt,
         nonce.as_str(),
         nonce_salt.as_str(),
         &envelope.ciphertext,
     )
+}
+
+fn vault_binding_from_envelope(envelope: &KeyBackup) -> VaultBinding {
+    VaultBinding {
+        backup_id: envelope.backup_id.clone(),
+        subdomain: envelope.domain_separation.subdomain.clone(),
+        actor_id: envelope.actor_id.clone(),
+        device_id: envelope.device_id.clone(),
+        backup_kind: envelope.backup_kind,
+        backup_version: envelope.backup_version.clone(),
+        created_at: envelope.created_at,
+        item_kinds: envelope
+            .contents
+            .iter()
+            .map(|item| item.item_kind().to_owned())
+            .collect(),
+        recipient_method: envelope.encryption.recipient_method,
+        recipient_key_ref: envelope.encryption.recipient_key_ref.clone(),
+        aead_aad_extensions: envelope.domain_separation.aead_aad_extensions.clone(),
+    }
+}
+
+/// Derive the sole §7.2 AEAD/HPKE AAD from a typed key-backup envelope.
+/// No fixed AAD member is accepted from the wire.
+pub fn key_backup_aead_aad(envelope: &KeyBackup) -> Result<Vec<u8>> {
+    vault_binding_from_envelope(envelope).aad()
 }
 
 /// Open a `passphrase_kdf` envelope as its closed, typed plaintext keybag and
@@ -608,6 +654,34 @@ pub fn build_key_backup_envelope(
     kek: &VaultKek,
     items: Vec<SecretStorageItem>,
 ) -> Result<KeyBackup> {
+    build_key_backup_envelope_with_extensions(
+        backup_id,
+        actor_id,
+        device_id,
+        backup_kind,
+        backup_version,
+        subdomain,
+        XExtensionMap::default(),
+        kek,
+        items,
+    )
+}
+
+/// Build a genesis envelope whose derived AEAD AAD includes the supplied
+/// closed `x_*` extension map. Fixed AAD members remain SDK-derived and cannot
+/// be overridden by callers.
+#[allow(clippy::too_many_arguments)]
+pub fn build_key_backup_envelope_with_extensions(
+    backup_id: BackupId,
+    actor_id: DidCoreId,
+    device_id: Option<DeviceId>,
+    backup_kind: BackupKind,
+    backup_version: &str,
+    subdomain: &str,
+    aead_aad_extensions: XExtensionMap,
+    kek: &VaultKek,
+    items: Vec<SecretStorageItem>,
+) -> Result<KeyBackup> {
     let series_id =
         arkret_wire::BackupSeriesId::new(arkret_wire::new_prefixed_uuid7("ak:backup_series:"))
             .map_err(|err| {
@@ -620,6 +694,7 @@ pub fn build_key_backup_envelope(
         backup_kind,
         backup_version,
         subdomain,
+        aead_aad_extensions,
         kek,
         items,
         series_id,
@@ -638,6 +713,7 @@ fn build_key_backup_envelope_in_series(
     backup_kind: BackupKind,
     backup_version: &str,
     subdomain: &str,
+    aead_aad_extensions: XExtensionMap,
     kek: &VaultKek,
     items: Vec<SecretStorageItem>,
     series_id: arkret_wire::BackupSeriesId,
@@ -704,12 +780,11 @@ fn build_key_backup_envelope_in_series(
     // Truncate to whole seconds so the binding's canonical timestamp
     // round-trips byte-for-byte through the persisted `created_at`.
     let created_at = arkret_canonical::normalize_timestamp_canonical(Utc::now());
-    let aead_aad = KeyBackupDomainSeparationAad {
-        schema: VAULT_SCHEMA_ID.to_owned(),
+    let binding = VaultBinding {
+        backup_id: backup_id.clone(),
+        subdomain: subdomain.to_owned(),
         actor_id: actor_id.clone(),
-        device_id: device_id
-            .as_ref()
-            .map(|device_id| device_id.as_str().to_owned()),
+        device_id: device_id.clone(),
         backup_kind,
         backup_version: backup_version.to_owned(),
         created_at,
@@ -717,14 +792,9 @@ fn build_key_backup_envelope_in_series(
             .iter()
             .map(|item| item.item_kind().to_owned())
             .collect(),
-        recipient_method: Some(KeyBackupRecipientMethod::PassphraseKdf),
+        recipient_method: KeyBackupRecipientMethod::PassphraseKdf,
         recipient_key_ref: None,
-        extra: Default::default(),
-    };
-    let binding = VaultBinding {
-        backup_id: backup_id.clone(),
-        subdomain: subdomain.to_owned(),
-        aead_aad: aead_aad.clone(),
+        aead_aad_extensions: aead_aad_extensions.clone(),
     };
     let ciphertext = encrypt_vault(kek, &binding, &plaintext_bytes)?;
 
@@ -771,10 +841,8 @@ fn build_key_backup_envelope_in_series(
         extra: Default::default(),
     };
     let domain_separation = KeyBackupDomainSeparation {
-        hkdf_info: backup_kind.hkdf_info(subdomain),
         subdomain: subdomain.to_owned(),
-        aead_aad,
-        extra: Default::default(),
+        aead_aad_extensions,
     };
     let envelope = KeyBackup {
         backup_id,
@@ -858,6 +926,7 @@ pub fn build_key_backup_successor_envelope(
         predecessor.backup_kind,
         backup_version,
         &predecessor.domain_separation.subdomain,
+        predecessor.domain_separation.aead_aad_extensions.clone(),
         kek,
         items,
         predecessor.series_id.clone(),
@@ -946,5 +1015,42 @@ mod key_backup_envelope_tests {
             SecretStorageItemKind::PrivateAccountState
         );
         assert_eq!(envelope.contents[0].secret_version(), Some(3));
+    }
+
+    #[test]
+    fn derived_aad_sorts_and_deduplicates_item_kinds_and_preserves_extensions() {
+        let mut extensions = XExtensionMap::default();
+        extensions
+            .insert("x_vendor", json!({"policy":"strict"}))
+            .unwrap();
+        let binding = VaultBinding {
+            backup_id: "ak:backup:01964137-0000-7000-8000-000000000000"
+                .parse()
+                .unwrap(),
+            subdomain: "recovery_vault".to_owned(),
+            actor_id: "ak:did_core:webvh:z6mkfixture".parse().unwrap(),
+            device_id: None,
+            backup_kind: BackupKind::SecretStorage,
+            backup_version: "kb_1".to_owned(),
+            created_at: "2026-08-24T00:00:00Z".parse().unwrap(),
+            item_kinds: vec![
+                "private_account_state".to_owned(),
+                "account_data_namespace_key".to_owned(),
+                "private_account_state".to_owned(),
+            ],
+            recipient_method: KeyBackupRecipientMethod::PassphraseKdf,
+            recipient_key_ref: None,
+            aead_aad_extensions: extensions,
+        };
+        let aad = String::from_utf8(binding.aad().unwrap()).unwrap();
+        assert_eq!(
+            aad,
+            r#"{"actor_id":"ak:did_core:webvh:z6mkfixture","backup_kind":"secret_storage","backup_version":"kb_1","created_at":"2026-08-24T00:00:00.000Z","device_id":null,"item_kinds":["account_data_namespace_key","private_account_state"],"recipient_method":"passphrase_kdf","schema":"ak.schema.key_backup.v1","x_vendor":{"policy":"strict"}}"#
+        );
+
+        let mut without_extension = binding;
+        without_extension.aead_aad_extensions = XExtensionMap::default();
+        let aad = String::from_utf8(without_extension.aad().unwrap()).unwrap();
+        assert!(!aad.contains("x_vendor"));
     }
 }

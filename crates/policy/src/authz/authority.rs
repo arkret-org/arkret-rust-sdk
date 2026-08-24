@@ -7,14 +7,15 @@
 //!
 //! - Re-granting MUST NOT widen the action scope (`ActionsNotHeld`).
 //! - Re-granting MUST NOT widen the resource scope (`ResourceOutOfScope`).
-//! - Child `expires_at` MUST be no later than parent `expires_at` (`OverExpire`).
+//! - A child temporal expiry MUST be no later than its parent's effective temporal expiry
+//!   (`OverExpire`).
 //! - The caller MUST be the parent grant subject (`NotGrantHolder`).
 //! - The parent grant must exist (`ParentNotFound`), not be revoked (`ParentRevoked`) and not be
 //!   expired (`ParentExpired`).
 //!
 //! These helpers operate on a [`Grant`] shape that intentionally mirrors
 //! soland's in-memory runtime form (stringly-typed `resource`, single
-//! [`GrantConstraint`] list, top-level `expires_at` + `issuer_authority_refs`). The
+//! [`GrantConstraint`] list plus `issuer_authority_refs`). The
 //! wire-spec shape is the core authority
 //! [`arkret_models_collaboration::governance::grant_constraint::CapabilityGrant`]
 //! (`capability-grant.schema.json`) used at the canonical event boundary.
@@ -22,8 +23,7 @@
 //! event resolves into a
 //! `arkret_models_collaboration::governance::grant_constraint::CapabilityGrant`, then projects down
 //! to a `Grant` for fast in-memory authority enforcement. The
-//! fields critical to re-granting — `issuer_authority_refs` and `expires_at` — live
-//! on both shapes verbatim per
+//! fields critical to re-granting live in `issuer_authority_refs` and temporal constraints per
 //! `arkret-spec/spec/v1/zh/authz/capabilities.md` §3 + §10.
 //!
 //! All functions in this module are **pure**: they take a slice of grants
@@ -93,7 +93,7 @@ pub const REALM_AUTHORITY_ROOT_CELL_REF: &str = "ak:cell:ak.component.realm.auth
 /// A capability grant in its runtime / in-memory form.
 ///
 /// Mirrors soland's `crate::authz::Grant`. The fields `issuer_authority_refs` and
-/// `expires_at` are wire fields per `ak.schema.capability.v1`; the remaining
+/// `issuer_authority_refs` is a wire field per `ak.schema.capability.v1`; the remaining
 /// fields are runtime projections (`resource` is a stringly-typed selector
 /// rather than the typed [`crate::authz::ResourceSelector`] enum so that this
 /// module can be reused by client pre-checks without forcing the full
@@ -128,12 +128,6 @@ pub struct Grant {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub authority_root_refs:
         Vec<arkret_models_collaboration::governance::grant_constraint::AuthorityRootRef>,
-    /// Top-level convenience denormalization of the temporal constraint
-    /// inside `constraints[]`. When both forms are present the stricter
-    /// one wins (see [`grant_effective_expiry`]).
-    #[serde(default)]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub expires_at: Option<DateTime<Utc>>,
 }
 
 /// A constraint entry attached to a [`Grant`].
@@ -160,9 +154,8 @@ pub enum GrantConstraint {
     /// Temporal constraint (`constraint_kind: "temporal"`). Carries two
     /// independent facets that share the spec `temporal` discriminator:
     ///
-    /// - Grant expiry: optional `expires_at`. The top-level `Grant::expires_at` field and any
-    ///   `Temporal { expires_at }` entry are intersected; the stricter wins (see
-    ///   [`grant_effective_expiry`]).
+    /// - Grant expiry: optional `expires_at`; multiple temporal constraints intersect and the
+    ///   earliest expiry wins (see [`grant_effective_expiry`]).
     /// - Message edit / redact window (`constraint_subkind = "edit_window" | "redact_window"`,
     ///   constraint-schema.md §14.2). `message_edit_window` governs `ak.message.revise[.own]`;
     ///   `message_redact_window` governs `ak.message.redact[.own]`. `redact_after_window_allowed`
@@ -310,7 +303,6 @@ pub struct GrantRequestDraft {
     pub actions: Vec<String>,
     pub capability_action_registry_digest: Option<Hash>,
     pub constraints: Vec<GrantConstraint>,
-    pub expires_at: Option<DateTime<Utc>>,
 }
 
 /// Why an authority grant request was rejected.
@@ -349,24 +341,22 @@ pub enum AuthorityGrantError {
     RegistryBasisUnavailable,
 }
 
-/// Returns the effective expiry for a grant, taking the stricter of the
-/// top-level `expires_at` and any `constraint_kind=temporal` entry inside
-/// `constraints[]`. `None` means the grant never expires.
+/// Returns the earliest expiry across the grant's temporal constraints.
+/// `None` means the grant never expires.
 pub fn grant_effective_expiry(grant: &Grant) -> Option<DateTime<Utc>> {
-    let top_level = grant.expires_at;
-    let from_constraint = grant
-        .constraints
+    grant_effective_expiry_from_constraints(&grant.constraints)
+}
+
+fn grant_effective_expiry_from_constraints(
+    constraints: &[GrantConstraint],
+) -> Option<DateTime<Utc>> {
+    constraints
         .iter()
-        .find_map(|constraint| match constraint {
+        .filter_map(|constraint| match constraint {
             GrantConstraint::Temporal { expires_at, .. } => *expires_at,
             _ => None,
-        });
-    match (top_level, from_constraint) {
-        (Some(a), Some(b)) => Some(a.min(b)),
-        (Some(a), None) => Some(a),
-        (None, Some(b)) => Some(b),
-        (None, None) => None,
-    }
+        })
+        .min()
 }
 
 /// serde `skip_serializing_if` helper — omits `redact_after_window_allowed`
@@ -693,7 +683,6 @@ pub fn create_authority_grant(
             }],
             authority_depth: None,
             authority_root_refs: Vec::new(),
-            expires_at: requested.expires_at,
         };
         match max_authority_depth(&child) {
             Some(child_depth)
@@ -707,8 +696,10 @@ pub fn create_authority_grant(
         return Err(AuthorityGrantError::AuthorityDepthExceeded);
     }
 
+    let requested_effective_expiry =
+        grant_effective_expiry_from_constraints(&requested.constraints);
     if let Some(parent_expiry) = parent_effective_expiry {
-        match requested.expires_at {
+        match requested_effective_expiry {
             None => return Err(AuthorityGrantError::OverExpire),
             Some(child_expiry) if child_expiry > parent_expiry => {
                 return Err(AuthorityGrantError::OverExpire);
@@ -735,7 +726,6 @@ pub fn create_authority_grant(
         }],
         authority_depth: None,
         authority_root_refs: Vec::new(),
-        expires_at: requested.expires_at,
     })
 }
 
@@ -806,7 +796,6 @@ mod tests {
             }],
             authority_depth: Some(1),
             authority_root_refs: Vec::new(),
-            expires_at: None,
         }
     }
 
@@ -829,7 +818,16 @@ mod tests {
             resource: resource.to_owned(),
             actions: actions.iter().map(|s| (*s).to_owned()).collect(),
             capability_action_registry_digest: None,
-            constraints: Vec::new(),
+            constraints: expires_at
+                .map(|expires_at| GrantConstraint::Temporal {
+                    expires_at: Some(expires_at),
+                    constraint_subkind: None,
+                    message_edit_window: None,
+                    message_redact_window: None,
+                    redact_after_window_allowed: false,
+                })
+                .into_iter()
+                .collect(),
             revoked: false,
             created_at: Utc::now(),
             issuer_authority_refs: vec![IssuerAuthorityRef::Grant {
@@ -837,7 +835,6 @@ mod tests {
             }],
             authority_depth: None,
             authority_root_refs: Vec::new(),
-            expires_at,
         }
     }
 
@@ -850,6 +847,20 @@ mod tests {
             executed_by: None,
             registration_epoch: None,
         });
+    }
+
+    fn set_expiry(grant: &mut Grant, expires_at: DateTime<Utc>) {
+        grant.constraints.extend(expiry_constraints(expires_at));
+    }
+
+    fn expiry_constraints(expires_at: DateTime<Utc>) -> Vec<GrantConstraint> {
+        vec![GrantConstraint::Temporal {
+            expires_at: Some(expires_at),
+            constraint_subkind: None,
+            message_edit_window: None,
+            message_redact_window: None,
+            redact_after_window_allowed: false,
+        }]
     }
 
     #[test]
@@ -893,7 +904,7 @@ mod tests {
     fn parent_expired_breaks_chain() {
         let now = Utc::now();
         let mut root = root_grant("g1", &["read"], "ak:realm:1");
-        root.expires_at = Some(now - Duration::seconds(1));
+        set_expiry(&mut root, now - Duration::seconds(1));
         let child = child_grant(
             "g2",
             "g1",
@@ -913,7 +924,7 @@ mod tests {
         let now = Utc::now();
         let mut root = root_grant("g1", &["read", "send"], "ak:realm:1");
         permit_regrant(&mut root);
-        root.expires_at = Some(now + Duration::hours(1));
+        set_expiry(&mut root, now + Duration::hours(1));
         let parents = vec![root];
         let req = GrantRequestDraft {
             realm_id: "ak:realm:1".to_owned(),
@@ -924,8 +935,7 @@ mod tests {
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             capability_action_registry_digest: None,
-            constraints: Vec::new(),
-            expires_at: Some(now + Duration::minutes(30)),
+            constraints: expiry_constraints(now + Duration::minutes(30)),
         };
         let child = create_authority_grant("g1", &req, &parents, now).expect("valid authority");
         assert_eq!(
@@ -955,7 +965,6 @@ mod tests {
             actions: vec!["ak.realm.admin".to_owned()],
             capability_action_registry_digest: Some(digest.clone()),
             constraints: Vec::new(),
-            expires_at: None,
         };
         let child = create_authority_grant("g1", &request, &[root], now).unwrap();
         assert_eq!(child.capability_action_registry_digest, Some(digest));
@@ -978,7 +987,6 @@ mod tests {
             actions: vec!["ak.realm.admin".to_owned()],
             capability_action_registry_digest: None,
             constraints: Vec::new(),
-            expires_at: None,
         };
         assert!(matches!(
             create_authority_grant("g1", &request, &[root], now),
@@ -991,7 +999,7 @@ mod tests {
         let now = Utc::now();
         let mut root = root_grant("g1", &["read"], "ak:realm:1");
         permit_regrant(&mut root);
-        root.expires_at = Some(now + Duration::hours(1));
+        set_expiry(&mut root, now + Duration::hours(1));
         let parents = vec![root];
         let req = GrantRequestDraft {
             realm_id: "ak:realm:1".to_owned(),
@@ -1002,9 +1010,8 @@ mod tests {
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             capability_action_registry_digest: None,
-            constraints: Vec::new(),
             // Child outlives parent → reject.
-            expires_at: Some(now + Duration::hours(2)),
+            constraints: expiry_constraints(now + Duration::hours(2)),
         };
         assert!(matches!(
             create_authority_grant("g1", &req, &parents, now),
@@ -1013,7 +1020,7 @@ mod tests {
 
         // Also reject when child has no expiry but parent does.
         let req_none = GrantRequestDraft {
-            expires_at: None,
+            constraints: Vec::new(),
             ..req
         };
         assert!(matches!(
@@ -1038,7 +1045,6 @@ mod tests {
             actions: vec!["read".to_owned(), "send".to_owned(), "delete".to_owned()],
             capability_action_registry_digest: None,
             constraints: Vec::new(),
-            expires_at: None,
         };
         let err = create_authority_grant("g1", &req, &parents, now).unwrap_err();
         match err {
@@ -1065,7 +1071,6 @@ mod tests {
             actions: vec!["read".to_owned()],
             capability_action_registry_digest: None,
             constraints: Vec::new(),
-            expires_at: None,
         };
         assert!(matches!(
             create_authority_grant("g1", &req, &parents, now),
@@ -1096,7 +1101,6 @@ mod tests {
             actions: vec!["read".to_owned()],
             capability_action_registry_digest: None,
             constraints: Vec::new(),
-            expires_at: None,
         };
         assert!(matches!(
             create_authority_grant("g1", &base_req, &parents, now),
@@ -1141,7 +1145,6 @@ mod tests {
             actions: vec!["read".to_owned()],
             capability_action_registry_digest: None,
             constraints: Vec::new(),
-            expires_at: None,
         };
 
         let child = create_authority_grant("g1", &request, &[root], now)
@@ -1196,7 +1199,6 @@ mod tests {
                 executed_by: None,
                 registration_epoch: None,
             }],
-            expires_at: None,
         };
         assert!(matches!(
             create_authority_grant("g1", &req, &parents, now),
@@ -1220,7 +1222,6 @@ mod tests {
             actions: vec!["read".to_owned()],
             capability_action_registry_digest: None,
             constraints: Vec::new(),
-            expires_at: None,
         };
         assert!(matches!(
             create_authority_grant("g1", &req, &parents, now),
@@ -1242,7 +1243,6 @@ mod tests {
             actions: vec!["read".to_owned()],
             capability_action_registry_digest: None,
             constraints: Vec::new(),
-            expires_at: None,
         };
 
         assert!(matches!(
@@ -1374,7 +1374,6 @@ mod tests {
             actions: vec!["read".to_owned()],
             capability_action_registry_digest: None,
             constraints: Vec::new(),
-            expires_at: None,
         };
         assert!(matches!(
             create_authority_grant("g-missing", &req, &parents, now),
@@ -1383,10 +1382,10 @@ mod tests {
     }
 
     #[test]
-    fn grant_effective_expiry_picks_stricter_of_top_level_and_constraint() {
+    fn grant_effective_expiry_picks_earliest_temporal_constraint() {
         let now = Utc::now();
         let mut grant = root_grant("g1", &["read"], "ak:realm:1");
-        grant.expires_at = Some(now + Duration::hours(2));
+        set_expiry(&mut grant, now + Duration::hours(2));
         grant.constraints.push(GrantConstraint::Temporal {
             expires_at: Some(now + Duration::hours(1)),
             constraint_subkind: None,
@@ -1395,7 +1394,7 @@ mod tests {
             redact_after_window_allowed: false,
         });
         let effective = grant_effective_expiry(&grant).expect("has expiry");
-        // The constraint says 1h; top-level says 2h. Stricter (1h) wins.
+        // Temporal constraints intersect, so the earliest expiry wins.
         assert!(effective <= now + Duration::hours(1));
         assert!(effective > now + Duration::minutes(59));
     }

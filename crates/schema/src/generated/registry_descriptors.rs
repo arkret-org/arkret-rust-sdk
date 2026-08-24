@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-08-24.2;
-//! sha256=608eef00ca7ed5ddefe3218e243c551ecf1c9ae287fe1ef792b227659f8481eb Input: registry/
+//! sha256=9fcc948868e8863601e8863de0dfc3ffe414b8ed58fffae6346811c001ceafa8 Input: registry/
 //! capability-action-registry.json; version=2026-08-24.6;
-//! sha256=29923c9df96805f3cf0e346f9d1555c5ff75dac4336951f9a216764dcf94632c Input: registry/
+//! sha256=d8310ae806808ba8b32324ac9f6da26a606d8a398e18035292e529df3e4da35e Input: registry/
 //! schema-registry.json; version=2026-08-23.2;
-//! sha256=4c5df182f604a55a279f9329491ad41551fc163d07c15280ef80e1607c310cd6 Input: registry/
+//! sha256=bbfc2fb3a29f4742cb6a1315ebdc5a9c8639f453e6fdf99fa8723718858044b1 Input: registry/
 //! account-data-key-registry.json; version=2026-08-21.1;
-//! sha256=07b1fff8931e4405b3dfae6c3b852acc836f270e982a6772eb00fd966d8eadc1 Entries: id_kinds=60,
-//! special_forms=14, actions=169, schemas=192, account_data_patterns=24
+//! sha256=30090e918fc09c872969842fc26e5b780aeb0f89212c8a0e803abfe2656f053f Entries: id_kinds=60,
+//! special_forms=14, actions=169, schemas=195, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -77,7 +77,6 @@ pub struct AccountDataPatternDescriptor {
     pub writer_authorities: &'static [&'static str],
     pub holder_self_operations: &'static [&'static str],
     pub write_event_kinds: &'static [&'static str],
-    pub merge_strategy: &'static str,
     pub deletion_mode: &'static str,
 }
 
@@ -593,13 +592,13 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &["applet_id", "executed_by", "registration_epoch"],
-        target_event_kinds: &[],
+        target_event_kinds: &[event_kind_str::APPLET_MANAGED_ACTOR_PROVISION],
         grant_authority_actions: &[],
         profile: Some("ak.profile.applet_bridge.v1"),
         root_control_only: false,
         subject_only: false,
         reducer_only: false,
-        event_mapping_kind: "non_event_surface",
+        event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ApprovalVote,
@@ -3080,6 +3079,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/applet-ghost-operations.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::APPLET_INSTALL_AUTHORING_V1,
+        file: "schemas/applet-install-authoring.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::APPLET_INSTALL_OPERATIONS_V1,
         file: "schemas/applet-install-operations.schema.json",
     },
@@ -3088,8 +3091,16 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/applet-install-plan.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::APPLET_MANAGED_ACTOR_PROVISION_V1,
+        file: "schemas/applet-managed-actor.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::APPLET_PACKAGE_V1,
         file: "schemas/applet-package.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::APPLET_REGISTRATION_EPOCH_EVIDENCE_V1,
+        file: "schemas/applet-registration-epoch-evidence.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::APPLET_REGISTRATION_EPOCH_TRANSCRIPT_V1,
@@ -3749,7 +3760,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
             event_kind_str::ACCOUNT_DATA_SET,
             event_kind_str::ACCOUNT_BLOCKLIST,
         ],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3760,7 +3770,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["principal_server_cas"],
         holder_self_operations: &[],
         write_event_kinds: &[],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3771,7 +3780,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["principal_server_cas"],
         holder_self_operations: &[],
         write_event_kinds: &[],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3785,7 +3793,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
             event_kind_str::AGENT_ACTION_APPROVE,
             event_kind_str::ACCOUNT_DATA_SET,
         ],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3796,7 +3803,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3807,7 +3813,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3818,7 +3823,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3829,7 +3833,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3840,7 +3843,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3851,7 +3853,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3862,7 +3863,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3873,7 +3873,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "value_tombstone",
     },
     AccountDataPatternDescriptor {
@@ -3884,7 +3883,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3895,7 +3893,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3906,7 +3903,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3917,7 +3913,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3928,7 +3923,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3939,7 +3933,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3950,7 +3943,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3961,7 +3953,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3972,7 +3963,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3983,7 +3973,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3994,7 +3983,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -4005,7 +3993,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
         write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
-        merge_strategy: "cas_register",
         deletion_mode: "physical_delete",
     },
 ];

@@ -227,11 +227,11 @@ mod tests {
         folder
             .push(frame(serde_json::json!({
                 "kind": "delta",
-                "cursor": "ak:cursor:add",
+                "cursor": "ak:cursor:upsert",
                 "notifications": {"items": [{
                     "id": notification_id,
                     "notification_kind": "agent",
-                    "action": "add",
+                    "action": "upsert",
                     "data": approval
                 }]}
             })))
@@ -255,7 +255,7 @@ mod tests {
         assert_eq!(batch.frames.len(), 2);
         assert_eq!(
             batch.frames[0].notifications.as_ref().unwrap().items[0].action,
-            NotificationDeltaAction::Add
+            NotificationDeltaAction::Upsert
         );
         assert_eq!(
             batch.frames[1].notifications.as_ref().unwrap().items[0].action,

@@ -147,23 +147,8 @@ mod tests {
                 extra: Default::default(),
             },
             domain_separation: arkret_models_crypto::KeyBackupDomainSeparation {
-                hkdf_info: "arkret-key-backup/secret_storage/aead/v1".to_owned(),
                 subdomain: "aead".to_owned(),
-                aead_aad: arkret_models_crypto::KeyBackupDomainSeparationAad {
-                    schema: "ak.schema.key_backup.v1".to_owned(),
-                    actor_id: arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-                    device_id: Some("ak:device:01964137-0000-7000-8000-000000000000".to_owned()),
-                    backup_kind: arkret_models_crypto::BackupKind::SecretStorage,
-                    backup_version: "kb_1".to_owned(),
-                    created_at,
-                    item_kinds: vec!["private_account_state".to_owned()],
-                    recipient_method: Some(
-                        arkret_models_crypto::KeyBackupRecipientMethod::PassphraseKdf,
-                    ),
-                    recipient_key_ref: None,
-                    extra: Default::default(),
-                },
-                extra: Default::default(),
+                aead_aad_extensions: Default::default(),
             },
             contents: vec![arkret_models_crypto::KeyBackupContentItem::SecretStorage(
                 arkret_models_crypto::SecretStorageContentIndex {

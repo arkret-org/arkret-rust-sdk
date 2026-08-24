@@ -10,7 +10,7 @@ use arkret_models_identity::{
 };
 pub use arkret_wire::{AcceptedDeviceIssuePossessionProof, AcceptedDeviceRefreshPossessionProof};
 use arkret_wire::{
-    AcceptedDevicePossessionProof, Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash,
+    AcceptedDevicePossessionProof, AppletId, Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash,
     NonEmptyString, RealmId, RequestId, Result, ScopeRef, SessionGrantId, StrandId, WireError,
     canonical,
 };
@@ -217,7 +217,7 @@ pub struct SessionGrantAgentScopeRequest {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SessionGrantAppletDelegation {
-    pub applet_id: String,
+    pub applet_id: AppletId,
     pub effective_scope: ScopeRef,
     pub registration_epoch: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]

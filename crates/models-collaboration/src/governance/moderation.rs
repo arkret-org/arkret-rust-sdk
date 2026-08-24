@@ -132,7 +132,6 @@ impl ModerationReportRequestBody {
             || !auth_context.key_id.chars().all(|character| {
                 character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | ':' | '-')
             })
-            || auth_context.actor_id != event.actor_id
             || !event.proofs.iter().any(|proof| {
                 proof.as_producer().is_some_and(|proof| {
                     proof_controller_matches_actor(
@@ -312,7 +311,6 @@ mod signed_request_tests {
         .unwrap();
         event.seal_ref = Some(SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap());
         event.auth_context = Some(AuthContext {
-            actor_id: actor(),
             key_id: arkret_wire::OpaqueLocalId::new("device-1").unwrap(),
             key_epoch: 1,
             credential_epoch: None,

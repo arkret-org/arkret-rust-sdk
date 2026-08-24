@@ -9872,19 +9872,6 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/objects/read_receipts.rs::ReadReceiptComplianceOptIn",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/objects/read_receipts.rs",
-      "line": 252,
-      "kind": "struct",
-      "value_kind": "ReadReceiptComplianceOptIn",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
       "rust_type": "crates/models-collaboration/src/objects/read_receipts.rs::ReadReceiptPolicy",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/objects/read_receipts.rs",
@@ -14756,19 +14743,6 @@
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/SessionGrantDeviceBinding",
       "schema_openness": "closed",
       "classification": "B",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/models-identity/src/session_credential.rs::SessionGrantCnf",
-      "crate": "models-identity",
-      "file": "crates/models-identity/src/session_credential.rs",
-      "line": 374,
-      "kind": "struct",
-      "value_kind": "SessionGrantCnf",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
       "cfg_gated": false,
       "flatten_extra": false
     },

@@ -1392,17 +1392,12 @@ impl SchemaDefinitionDocument {
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct SchemaDefineStatePayload {
-    pub schema_id: SchemaDefinitionId,
     pub value: SchemaDefinitionDocument,
 }
 
 impl SchemaDefineStatePayload {
     pub fn validate(&self) -> Result<()> {
-        self.value.validate()?;
-        if self.schema_id != self.value.id {
-            return schema_violation("schema definition schema_id must equal value.$id");
-        }
-        Ok(())
+        self.value.validate()
     }
 }
 
@@ -1414,14 +1409,10 @@ impl<'de> Deserialize<'de> for SchemaDefineStatePayload {
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
         struct Wire {
-            schema_id: SchemaDefinitionId,
             value: SchemaDefinitionDocument,
         }
         let wire = Wire::deserialize(deserializer)?;
-        let payload = Self {
-            schema_id: wire.schema_id,
-            value: wire.value,
-        };
+        let payload = Self { value: wire.value };
         payload.validate().map_err(serde::de::Error::custom)?;
         Ok(payload)
     }

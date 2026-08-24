@@ -28,8 +28,7 @@ pub mod device_message_kind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationDeltaAction {
-    Add,
-    Update,
+    Upsert,
     Remove,
 }
 
@@ -114,19 +113,14 @@ impl NotificationDelta {
             ));
         }
         match (self.action, self.data.as_ref()) {
-            (
-                NotificationDeltaAction::Add | NotificationDeltaAction::Update,
-                Some(NotificationData::AgentRuntimeApproval(_)),
-            )
+            (NotificationDeltaAction::Upsert, Some(NotificationData::AgentRuntimeApproval(_)))
             | (
                 NotificationDeltaAction::Remove,
                 None | Some(NotificationData::AgentRuntimeApprovalRemoval(_)),
             ) => Ok(()),
-            (NotificationDeltaAction::Add | NotificationDeltaAction::Update, _) => {
-                Err(WireError::Protocol(
-                    "notification add/update requires agent_runtime_approval data".to_owned(),
-                ))
-            }
+            (NotificationDeltaAction::Upsert, _) => Err(WireError::Protocol(
+                "notification upsert requires agent_runtime_approval data".to_owned(),
+            )),
             (NotificationDeltaAction::Remove, _) => Err(WireError::Protocol(
                 "notification remove data must contain only a terminal reason".to_owned(),
             )),
@@ -159,6 +153,43 @@ impl<'de> Deserialize<'de> for NotificationDelta {
         let wire = NotificationDeltaWire::deserialize(deserializer)?;
         Self::try_new(wire.id, wire.notification_kind, wire.action, wire.data)
             .map_err(serde::de::Error::custom)
+    }
+}
+
+#[cfg(test)]
+mod notification_delta_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn approval_delta(action: &str) -> serde_json::Value {
+        json!({
+            "id": "ak:notification:01964137-0000-7000-8000-000000000001",
+            "action": action,
+            "data": {
+                "kind": "agent_runtime_approval",
+                "approval_request_id": "agent_runtime_approval:01964137-0000-7000-8000-000000000000",
+                "agent_id": "ak:did_core:webvh:z6mkfixtureagent",
+                "requested_at": "2026-07-13T10:00:00.000Z",
+                "expires_at": "2026-07-13T10:15:00.000Z"
+            },
+            "notification_kind": "agent"
+        })
+    }
+
+    #[test]
+    fn notification_delta_accepts_upsert_and_rejects_retired_actions() {
+        let delta: NotificationDelta = serde_json::from_value(approval_delta("upsert")).unwrap();
+        assert_eq!(delta.action, NotificationDeltaAction::Upsert);
+        assert!(serde_json::from_value::<NotificationDelta>(approval_delta("add")).is_err());
+        assert!(serde_json::from_value::<NotificationDelta>(approval_delta("update")).is_err());
+    }
+
+    #[test]
+    fn notification_delta_rejects_unknown_members() {
+        let mut value = approval_delta("upsert");
+        value["legacy_action"] = json!("add");
+        assert!(serde_json::from_value::<NotificationDelta>(value).is_err());
     }
 }
 

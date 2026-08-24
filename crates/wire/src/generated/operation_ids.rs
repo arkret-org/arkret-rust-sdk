@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-08-24.6;
-//! sha256=ae6f5877e079c0015ffedbada738a9a9cafc5a39ac6b6572c56578a80015cf15 Entries: registered=257
+//! sha256=6a98eab6c03d24a18b71d81b7d2d1825f6616fd4f4eb8c4d7874fceebc51e29b Entries: registered=258
 
 use serde::{Deserialize, Serialize};
 
@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 pub enum ServiceOperationId {
     EdgeAppletActorReadResolve,
     EdgeAppletCommandTransaction,
+    EdgeAppletInstallCommandAuthor,
     EdgeAppletReadDescribe,
     EdgeAppletReadPing,
     EdgeAppletReadProtocolMetadata,
@@ -270,6 +271,7 @@ pub enum ServiceOperationId {
 pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::EDGE_APPLET_ACTOR_READ_RESOLVE,
     ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION,
+    ServiceOperationId::EDGE_APPLET_INSTALL_COMMAND_AUTHOR,
     ServiceOperationId::EDGE_APPLET_READ_DESCRIBE,
     ServiceOperationId::EDGE_APPLET_READ_PING,
     ServiceOperationId::EDGE_APPLET_READ_PROTOCOL_METADATA,
@@ -572,6 +574,7 @@ impl ServiceOperationId {
     pub const ALL: &'static [Self] = &[
         Self::EdgeAppletActorReadResolve,
         Self::EdgeAppletCommandTransaction,
+        Self::EdgeAppletInstallCommandAuthor,
         Self::EdgeAppletReadDescribe,
         Self::EdgeAppletReadPing,
         Self::EdgeAppletReadProtocolMetadata,
@@ -831,6 +834,8 @@ impl ServiceOperationId {
 
     pub const EDGE_APPLET_ACTOR_READ_RESOLVE: &'static str = "ak.edge.applet.actor.read.resolve";
     pub const EDGE_APPLET_COMMAND_TRANSACTION: &'static str = "ak.edge.applet.command.transaction";
+    pub const EDGE_APPLET_INSTALL_COMMAND_AUTHOR: &'static str =
+        "ak.edge.applet.install.command.author";
     pub const EDGE_APPLET_READ_DESCRIBE: &'static str = "ak.edge.applet.read.describe";
     pub const EDGE_APPLET_READ_PING: &'static str = "ak.edge.applet.read.ping";
     pub const EDGE_APPLET_READ_PROTOCOL_METADATA: &'static str =
@@ -1238,6 +1243,7 @@ impl ServiceOperationId {
         match self {
             Self::EdgeAppletActorReadResolve => Self::EDGE_APPLET_ACTOR_READ_RESOLVE,
             Self::EdgeAppletCommandTransaction => Self::EDGE_APPLET_COMMAND_TRANSACTION,
+            Self::EdgeAppletInstallCommandAuthor => Self::EDGE_APPLET_INSTALL_COMMAND_AUTHOR,
             Self::EdgeAppletReadDescribe => Self::EDGE_APPLET_READ_DESCRIBE,
             Self::EdgeAppletReadPing => Self::EDGE_APPLET_READ_PING,
             Self::EdgeAppletReadProtocolMetadata => Self::EDGE_APPLET_READ_PROTOCOL_METADATA,
@@ -1634,6 +1640,7 @@ impl ServiceOperationId {
         match value {
             Self::EDGE_APPLET_ACTOR_READ_RESOLVE => Some(Self::EdgeAppletActorReadResolve),
             Self::EDGE_APPLET_COMMAND_TRANSACTION => Some(Self::EdgeAppletCommandTransaction),
+            Self::EDGE_APPLET_INSTALL_COMMAND_AUTHOR => Some(Self::EdgeAppletInstallCommandAuthor),
             Self::EDGE_APPLET_READ_DESCRIBE => Some(Self::EdgeAppletReadDescribe),
             Self::EDGE_APPLET_READ_PING => Some(Self::EdgeAppletReadPing),
             Self::EDGE_APPLET_READ_PROTOCOL_METADATA => Some(Self::EdgeAppletReadProtocolMetadata),
@@ -2155,6 +2162,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::EdgeAppletInstallCommandAuthor,
+        http_method: "POST",
+        http_path: "/_arkret/edge/applet/install/author",
+        grpc: Some("EdgeApplet/InstallAuthor"),
+        mq: Some("edge.applet.install.command.author"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/applet-install-authoring.schema.json#/$defs/author_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/applet-install-authoring.schema.json#/$defs/author_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "The operation admits no Arkret Event and therefore has no registry-classified durable effect; independently, the Applet service MUST atomically persist request id/digest, exact bundle, and Bot key custody before returning, while Principal Server Event admission occurs only at install commit",
+            ),
             branch_contract_json: None,
         }),
     },
@@ -5233,6 +5267,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             target: Some(DurableEventTarget::Static(&[
                 "ak.applet.registration",
                 "ak.capability.grant",
+                "ak.applet.managed_actor.provision",
+                "ak.realm.create",
+                "ak.identity.accountability_grant",
+                "ak.profile.create",
             ])),
             rationale: None,
             branch_contract_json: None,
@@ -5287,6 +5325,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&[
+                "ak.applet.managed_actor.provision",
+                "ak.realm.create",
                 "ak.identity.accountability_grant",
                 "ak.profile.create",
             ])),
@@ -5308,7 +5348,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: Some(
             "schemas/applet-install-operations.schema.json#/$defs/applet_install_preview_request_body",
         ),
-        response_schema_ref: Some("schemas/applet-install-plan.schema.json"),
+        response_schema_ref: Some(
+            "schemas/applet-install-authoring.schema.json#/$defs/preview_outcome",
+        ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -6602,7 +6644,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
-        request_schema_ref: Some("schemas/invite-delivery-request.schema.json"),
+        request_schema_ref: Some(
+            "schemas/invite-delivery-request.schema.json#/$defs/self_invite_dispatch_request_body",
+        ),
         response_schema_ref: Some(
             "schemas/invite-delivery-request.schema.json#/$defs/invite_delivery_outcome",
         ),

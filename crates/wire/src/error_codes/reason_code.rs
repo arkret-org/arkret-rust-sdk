@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-08-23.6;
-//! sha256=98e39fd93a6b34258fbc7cd4863ce2161a8deeb675b798d0b08d205b315b5b8e
-//! Entries: reason_codes=469
+//! sha256=fd52cf7ccde2d7834daa11a1a41ab821ac0f88c6be574f588246326f814cb1fb
+//! Entries: reason_codes=468
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -217,7 +217,6 @@ pub enum ReasonCode {
     InvalidatedByRateLimit,
     InviteAlreadyTerminal,
     InviteEventActorMismatch,
-    InviteEventBytesMismatch,
     InviteEventUnaccepted,
     InviteKindRequiresRevoke,
     InviteOobEntropyTooLow,
@@ -749,7 +748,6 @@ impl ReasonCode {
     pub const INVALIDATED_BY_RATE_LIMIT: &'static str = "invalidated_by_rate_limit";
     pub const INVITE_ALREADY_TERMINAL: &'static str = "invite_already_terminal";
     pub const INVITE_EVENT_ACTOR_MISMATCH: &'static str = "invite_event_actor_mismatch";
-    pub const INVITE_EVENT_BYTES_MISMATCH: &'static str = "invite_event_bytes_mismatch";
     pub const INVITE_EVENT_UNACCEPTED: &'static str = "invite_event_unaccepted";
     pub const INVITE_KIND_REQUIRES_REVOKE: &'static str = "invite_kind_requires_revoke";
     pub const INVITE_OOB_ENTROPY_TOO_LOW: &'static str = "invite_oob_entropy_too_low";
@@ -1308,7 +1306,6 @@ impl ReasonCode {
             Self::InvalidatedByRateLimit => Self::INVALIDATED_BY_RATE_LIMIT,
             Self::InviteAlreadyTerminal => Self::INVITE_ALREADY_TERMINAL,
             Self::InviteEventActorMismatch => Self::INVITE_EVENT_ACTOR_MISMATCH,
-            Self::InviteEventBytesMismatch => Self::INVITE_EVENT_BYTES_MISMATCH,
             Self::InviteEventUnaccepted => Self::INVITE_EVENT_UNACCEPTED,
             Self::InviteKindRequiresRevoke => Self::INVITE_KIND_REQUIRES_REVOKE,
             Self::InviteOobEntropyTooLow => Self::INVITE_OOB_ENTROPY_TOO_LOW,
@@ -1867,7 +1864,6 @@ impl ReasonCode {
             Self::INVALIDATED_BY_RATE_LIMIT => Self::InvalidatedByRateLimit,
             Self::INVITE_ALREADY_TERMINAL => Self::InviteAlreadyTerminal,
             Self::INVITE_EVENT_ACTOR_MISMATCH => Self::InviteEventActorMismatch,
-            Self::INVITE_EVENT_BYTES_MISMATCH => Self::InviteEventBytesMismatch,
             Self::INVITE_EVENT_UNACCEPTED => Self::InviteEventUnaccepted,
             Self::INVITE_KIND_REQUIRES_REVOKE => Self::InviteKindRequiresRevoke,
             Self::INVITE_OOB_ENTROPY_TOO_LOW => Self::InviteOobEntropyTooLow,
@@ -3121,7 +3117,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::GRANT_VALIDITY_WINDOW_EMPTY,
         applies_to: &["auth_decision", "event_envelope"],
-        description: "A capability grant's normalized effective validity window is empty: effective_not_before >= effective_expires_at after combining top-level not_before/expires_at with temporal not_before/expires_at constraints. Reducer MUST reject the grant. See zh/authz/capabilities.md §6.1.",
+        description: "A capability grant's normalized effective validity window is empty: effective_not_before >= effective_expires_at after intersecting its temporal constraints. Reducer MUST reject the grant. See zh/authz/capabilities.md §6.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::HANDLE_HOLDER_ACCEPTANCE_MISSING,
@@ -3276,17 +3272,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::INVITE_EVENT_ACTOR_MISMATCH,
         applies_to: &["service_call"],
-        description: "Sub-reason for failed_precondition when ak.self.invites.command.dispatch carries an invite_event whose signing actor is not the authenticated session actor. The service MUST NOT co-sign or re-author the Event; see zh/sync/invite-addressing.md §7.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::INVITE_EVENT_BYTES_MISMATCH,
-        applies_to: &["service_call"],
-        description: "Sub-reason for failed_precondition when the invite_event supplied to ak.self.invites.command.dispatch is not byte-for-byte equal to the canonical Event bytes this service already accepted. Clients MUST read the Event back through ak.self.events.read.resolve instead of re-authoring it; see zh/sync/invite-addressing.md §7.",
+        description: "Sub-reason for failed_precondition when ak.self.invites.command.dispatch resolves invite_event_id to an accepted Event whose signing actor is not the authenticated session actor. The request carries only the Event ID; the service MUST NOT co-sign or re-author the resolved Event; see zh/sync/invite-addressing.md §7.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INVITE_EVENT_UNACCEPTED,
         applies_to: &["service_call"],
-        description: "Sub-reason for failed_precondition when ak.self.invites.command.dispatch references an invite_event this Principal Server has not accepted. Private delivery only starts from an already accepted durable ak.invite.create; see zh/sync/invite-addressing.md §7.",
+        description: "Sub-reason for failed_precondition when ak.self.invites.command.dispatch supplies an invite_event_id that this Principal Server cannot resolve to an accepted durable ak.invite.create Event. Private delivery only starts from that resolved accepted Event; see zh/sync/invite-addressing.md §7.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INVITE_KIND_REQUIRES_REVOKE,

@@ -170,21 +170,12 @@ pub enum MediaIceSignatureAlgorithm {
     MlDsa65,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum MediaIceSignatureInput {
-    #[serde(rename = "ak.media.ice_config.v1")]
-    IceConfigV1,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MediaIceConfigSignature {
     pub kid: String,
     pub signature_algorithm: MediaIceSignatureAlgorithm,
-    pub signature_input: MediaIceSignatureInput,
-    pub payload_digest: Hash,
     pub sig: String,
 }
 

@@ -273,6 +273,7 @@ pub enum MlsKeyPackageState {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MlsKeyPackageRecord {
     /// Globally unique identifier (`ak:mls:kp:<uuid>`, RFC 9562 UUIDv7).
     pub keypackage_id: String,
@@ -301,7 +302,7 @@ pub struct MlsKeyPackageRecord {
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub device_signature: Option<ProducerEventProof>,
+    pub endpoint_signature: Option<ProducerEventProof>,
     /// Whether this is a reusable last-resort KeyPackage. Last-resort
     /// KeyPackages are NOT consumed on claim (the server keeps them
     /// claimable), so a member is always (re-)addable even after its
@@ -328,7 +329,12 @@ impl MlsKeyPackageRecord {
 
 #[cfg(test)]
 mod tests {
-    use super::MlsKeyPackageState;
+    use arkret_wire::{DeviceId, DidCoreId, Hash};
+    use chrono::{DateTime, Utc};
+
+    use super::{
+        MlsEndpointIdentity, MlsGroupStateRecord, MlsKeyPackageRecord, MlsKeyPackageState,
+    };
 
     #[test]
     fn keypackage_wire_state_accepts_retired_and_rejects_expired() {
@@ -336,6 +342,54 @@ mod tests {
         assert_eq!(retired, MlsKeyPackageState::Retired);
         assert_eq!(serde_json::to_string(&retired).unwrap(), "\"retired\"");
         assert!(serde_json::from_str::<MlsKeyPackageState>("\"expired\"").is_err());
+    }
+
+    #[test]
+    fn local_mls_records_reject_unknown_legacy_fields() {
+        let principal_id = DidCoreId::new("ak:did_core:web:alice.example".to_owned()).unwrap();
+        let device_id =
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001".to_owned()).unwrap();
+        let updated_at = DateTime::parse_from_rfc3339("2026-08-25T00:00:00.000Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let key_package = MlsKeyPackageRecord {
+            keypackage_id: "ak:mls:kp:01904100-0000-7000-8000-000000000001".to_owned(),
+            endpoint: MlsEndpointIdentity::human_device(principal_id.clone(), device_id.clone()),
+            keypackage: "AQ".to_owned(),
+            keypackage_ref: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
+            cipher_suites: vec!["MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519".to_owned()],
+            capabilities: vec!["mimi.content.v1".to_owned()],
+            state: MlsKeyPackageState::Published,
+            claim_id: None,
+            created_at: updated_at.to_owned(),
+            expires_at: None,
+            endpoint_signature: None,
+            last_resort: false,
+        };
+        let group = MlsGroupStateRecord {
+            group_id: "group-1".to_owned(),
+            principal_id,
+            device_id,
+            epoch: 1,
+            serialized_state: vec![1, 2, 3],
+            updated_at,
+        };
+
+        let mut key_package_value = serde_json::to_value(key_package).unwrap();
+        assert!(serde_json::from_value::<MlsKeyPackageRecord>(key_package_value.clone()).is_ok());
+        key_package_value
+            .as_object_mut()
+            .unwrap()
+            .insert("legacy_field".to_owned(), serde_json::Value::Bool(true));
+        assert!(serde_json::from_value::<MlsKeyPackageRecord>(key_package_value).is_err());
+
+        let mut group_value = serde_json::to_value(group).unwrap();
+        assert!(serde_json::from_value::<MlsGroupStateRecord>(group_value.clone()).is_ok());
+        group_value
+            .as_object_mut()
+            .unwrap()
+            .insert("legacy_field".to_owned(), serde_json::Value::Bool(true));
+        assert!(serde_json::from_value::<MlsGroupStateRecord>(group_value).is_err());
     }
 }
 
@@ -347,6 +401,7 @@ mod tests {
 /// from OpenMLS internals.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MlsGroupStateRecord {
     pub group_id: String,
     pub principal_id: DidCoreId,

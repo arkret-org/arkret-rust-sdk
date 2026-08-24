@@ -369,13 +369,6 @@ where
     T::deserialize(deserializer).map(Some)
 }
 
-/// RFC 7800 confirmation claim binding a grant to a DPoP holder key.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SessionGrantCnf {
-    pub jkt: String,
-}
-
 /// Closed immutable issuer-record preimage used to derive SessionGrantId.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -392,7 +385,6 @@ pub struct SessionGrantIssuancePreimage {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub session_id: String,
-    pub cnf: SessionGrantCnf,
     pub credential_class: SessionGrantCredentialClass,
     pub holder_binding: SessionGrantHolderBinding,
     #[serde(
@@ -441,7 +433,6 @@ impl SessionGrantIssuancePreimage {
             self.not_before,
             self.expires_at,
             &self.session_id,
-            &self.cnf,
             self.credential_class,
             &self.holder_binding,
             self.device_binding.as_ref(),
@@ -468,7 +459,6 @@ pub struct SignedSessionGrantClaims {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub session_id: String,
-    pub cnf: SessionGrantCnf,
     pub credential_class: SessionGrantCredentialClass,
     pub holder_binding: SessionGrantHolderBinding,
     #[serde(
@@ -510,7 +500,6 @@ struct RawSignedSessionGrantClaims {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     expires_at: DateTime<Utc>,
     session_id: String,
-    cnf: SessionGrantCnf,
     credential_class: SessionGrantCredentialClass,
     holder_binding: SessionGrantHolderBinding,
     #[serde(default, deserialize_with = "deserialize_optional_non_null")]
@@ -532,7 +521,6 @@ impl TryFrom<RawSignedSessionGrantClaims> for SignedSessionGrantClaims {
             raw.not_before,
             raw.expires_at,
             &raw.session_id,
-            &raw.cnf,
             raw.credential_class,
             &raw.holder_binding,
             raw.device_binding.as_ref(),
@@ -550,7 +538,6 @@ impl TryFrom<RawSignedSessionGrantClaims> for SignedSessionGrantClaims {
             not_before: raw.not_before,
             expires_at: raw.expires_at,
             session_id: raw.session_id,
-            cnf: raw.cnf,
             credential_class: raw.credential_class,
             holder_binding: raw.holder_binding,
             device_binding: raw.device_binding,
@@ -573,7 +560,6 @@ impl SignedSessionGrantClaims {
             not_before: self.not_before,
             expires_at: self.expires_at,
             session_id: self.session_id.clone(),
-            cnf: self.cnf.clone(),
             credential_class: self.credential_class,
             holder_binding: self.holder_binding.clone(),
             device_binding: self.device_binding.clone(),
@@ -618,7 +604,6 @@ fn validate_issuance_fields(
     not_before: DateTime<Utc>,
     expires_at: DateTime<Utc>,
     session_id: &str,
-    cnf: &SessionGrantCnf,
     credential_class: SessionGrantCredentialClass,
     holder_binding: &SessionGrantHolderBinding,
     device_binding: Option<&SessionGrantDeviceBinding>,
@@ -649,7 +634,6 @@ fn validate_issuance_fields(
             "session grant expires_at must be after not_before".to_owned(),
         ));
     }
-    validate_jwk_thumbprint(&cnf.jkt, "session grant cnf.jkt")?;
     if device_binding.is_some_and(|binding| binding.model_generation_ref == 0) {
         return Err(WireError::Protocol(
             "session grant device generation must be positive".to_owned(),
@@ -782,9 +766,6 @@ mod tests {
             not_before: "2026-07-18T00:00:00.000Z".parse().unwrap(),
             expires_at: "2026-07-18T00:15:00.000Z".parse().unwrap(),
             session_id: "session-1".to_owned(),
-            cnf: SessionGrantCnf {
-                jkt: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
-            },
             credential_class: SessionGrantCredentialClass::Standard,
             holder_binding: SessionGrantHolderBinding::HumanDevice {
                 device_binding: "ak:device:019a0000-0000-7000-8000-000000000001".to_owned(),

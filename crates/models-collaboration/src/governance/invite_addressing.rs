@@ -486,6 +486,32 @@ pub struct InviteDeliveryRequestBody {
     pub idempotency_key: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SelfInviteDispatchRequestBody {
+    pub schema: String,
+    pub invite_event_id: EventId,
+    pub invite_address: InviteAddress,
+    pub introduction_evidence: IntroductionEvidence,
+    pub idempotency_key: String,
+}
+
+impl SelfInviteDispatchRequestBody {
+    pub fn validate_minimal(&self) -> Result<()> {
+        if self.schema != SchemaId::INVITE_DELIVERY_REQUEST_V1 {
+            return Err(WireError::Protocol(
+                "invite_delivery_request.schema mismatch".to_owned(),
+            ));
+        }
+        if self.idempotency_key.trim().is_empty() || self.idempotency_key.len() > 256 {
+            return Err(WireError::Protocol(
+                "invite_delivery_request.idempotency_key MUST be 1..=256 bytes".to_owned(),
+            ));
+        }
+        self.invite_address.validate()
+    }
+}
+
 impl InviteDeliveryRequestBody {
     pub fn new(
         invite_event: Event,

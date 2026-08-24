@@ -7,7 +7,6 @@
 //! CBOR codec only.
 
 use arkret_wire::{DeviceId, DidCoreId, DidUrl, EventId, Hash};
-use serde::ser::Error as _;
 use serde::{Deserialize, Serialize};
 
 use crate::MlsEndpointIdentity;
@@ -51,7 +50,8 @@ pub struct MlsWelcomeEnvelope {
 struct MlsWelcomeEnvelopeWire {
     group_id: String,
     epoch: u64,
-    recipient_principal_id: DidCoreId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    recipient_principal_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     recipient_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -60,6 +60,10 @@ struct MlsWelcomeEnvelopeWire {
     recipient_agent_verification_method: Option<DidUrl>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     agent_key_authorize_event_id: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    recipient_pairwise_actor_id: Option<DidCoreId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    recipient_pairwise_verification_method: Option<DidUrl>,
     welcome: String,
     welcome_hash: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -71,35 +75,63 @@ impl Serialize for MlsWelcomeEnvelope {
     where
         S: serde::Serializer,
     {
-        let (recipient_device_id, recipient_agent_id, method, authorization_ref) =
-            match &self.recipient {
-                MlsEndpointIdentity::HumanDevice { device_id, .. } => {
-                    (Some(device_id.clone()), None, None, None)
-                }
-                MlsEndpointIdentity::NativeAgentRuntime {
-                    agent_id,
-                    verification_method,
-                    agent_key_authorize_event_id,
-                } => (
-                    None,
-                    Some(agent_id.clone()),
-                    Some(verification_method.clone()),
-                    Some(agent_key_authorize_event_id.clone()),
-                ),
-                MlsEndpointIdentity::MinimalMetadataPairwise { .. } => {
-                    return Err(S::Error::custom(
-                        "minimal-metadata Welcome has no registered pairwise wire branch",
-                    ));
-                }
-            };
+        let (
+            recipient_principal_id,
+            recipient_device_id,
+            recipient_agent_id,
+            method,
+            authorization_ref,
+            recipient_pairwise_actor_id,
+            recipient_pairwise_verification_method,
+        ) = match &self.recipient {
+            MlsEndpointIdentity::HumanDevice {
+                principal_id,
+                device_id,
+            } => (
+                Some(principal_id.clone()),
+                Some(device_id.clone()),
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
+            MlsEndpointIdentity::NativeAgentRuntime {
+                agent_id,
+                verification_method,
+                agent_key_authorize_event_id,
+            } => (
+                Some(agent_id.clone()),
+                None,
+                Some(agent_id.clone()),
+                Some(verification_method.clone()),
+                Some(agent_key_authorize_event_id.clone()),
+                None,
+                None,
+            ),
+            MlsEndpointIdentity::MinimalMetadataPairwise {
+                pairwise_actor_id,
+                verification_method,
+            } => (
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(pairwise_actor_id.clone()),
+                Some(verification_method.clone()),
+            ),
+        };
         MlsWelcomeEnvelopeWire {
             group_id: self.group_id.clone(),
             epoch: self.epoch,
-            recipient_principal_id: self.recipient.actor_id().clone(),
+            recipient_principal_id,
             recipient_device_id,
             recipient_agent_id,
             recipient_agent_verification_method: method,
             agent_key_authorize_event_id: authorization_ref,
+            recipient_pairwise_actor_id,
+            recipient_pairwise_verification_method,
             welcome: self.welcome.clone(),
             welcome_hash: self.welcome_hash.clone(),
             ratchet_tree: self.ratchet_tree.clone(),
@@ -119,19 +151,30 @@ impl<'de> Deserialize<'de> for MlsWelcomeEnvelope {
             wire.recipient_agent_id,
             wire.recipient_agent_verification_method,
             wire.agent_key_authorize_event_id,
+            wire.recipient_pairwise_actor_id,
+            wire.recipient_pairwise_verification_method,
         ) {
-            (Some(device_id), None, None, None) => {
-                MlsEndpointIdentity::human_device(wire.recipient_principal_id.clone(), device_id)
+            (Some(device_id), None, None, None, None, None) => {
+                let principal_id = wire.recipient_principal_id.clone().ok_or_else(|| {
+                    serde::de::Error::custom("human MLS Welcome requires recipient_principal_id")
+                })?;
+                MlsEndpointIdentity::human_device(principal_id, device_id)
             }
-            (None, Some(agent_id), Some(method), Some(authorization_ref))
-                if agent_id == wire.recipient_principal_id =>
+            (None, Some(agent_id), Some(method), Some(authorization_ref), None, None)
+                if wire.recipient_principal_id.as_ref() == Some(&agent_id) =>
             {
                 MlsEndpointIdentity::native_agent_runtime(agent_id, method, authorization_ref)
                     .map_err(serde::de::Error::custom)?
             }
+            (None, None, None, None, Some(actor_id), Some(method))
+                if wire.recipient_principal_id.is_none() =>
+            {
+                MlsEndpointIdentity::minimal_metadata_pairwise(actor_id, method)
+                    .map_err(serde::de::Error::custom)?
+            }
             _ => {
                 return Err(serde::de::Error::custom(
-                    "MLS Welcome must select exactly one human device or Native Agent endpoint",
+                    "MLS Welcome must select exactly one human device, Native Agent, or minimal-metadata pairwise endpoint",
                 ));
             }
         };

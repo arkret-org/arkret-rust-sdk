@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/schema-registry.json; version=2026-08-23.2;
-//! sha256=4c5df182f604a55a279f9329491ad41551fc163d07c15280ef80e1607c310cd6 Entries: schema_ids=192,
-//! active=192
+//! sha256=bbfc2fb3a29f4742cb6a1315ebdc5a9c8639f453e6fdf99fa8723718858044b1 Entries: schema_ids=195,
+//! active=195
 
 use serde::{Deserialize, Serialize};
 
@@ -40,9 +40,12 @@ pub enum SchemaId {
     AppletV1,
     AppletEdgeOperationsV1,
     AppletGhostOperationsV1,
+    AppletInstallAuthoringV1,
     AppletInstallOperationsV1,
     AppletInstallPlanV1,
+    AppletManagedActorProvisionV1,
     AppletPackageV1,
+    AppletRegistrationEpochEvidenceV1,
     AppletRegistrationEpochTranscriptV1,
     AppletWidgetDeclarationV1,
     AuditReleaseAttestationV1,
@@ -236,9 +239,12 @@ impl SchemaId {
         Self::AppletV1,
         Self::AppletEdgeOperationsV1,
         Self::AppletGhostOperationsV1,
+        Self::AppletInstallAuthoringV1,
         Self::AppletInstallOperationsV1,
         Self::AppletInstallPlanV1,
+        Self::AppletManagedActorProvisionV1,
         Self::AppletPackageV1,
+        Self::AppletRegistrationEpochEvidenceV1,
         Self::AppletRegistrationEpochTranscriptV1,
         Self::AppletWidgetDeclarationV1,
         Self::AuditReleaseAttestationV1,
@@ -432,9 +438,12 @@ impl SchemaId {
         Self::AppletV1,
         Self::AppletEdgeOperationsV1,
         Self::AppletGhostOperationsV1,
+        Self::AppletInstallAuthoringV1,
         Self::AppletInstallOperationsV1,
         Self::AppletInstallPlanV1,
+        Self::AppletManagedActorProvisionV1,
         Self::AppletPackageV1,
+        Self::AppletRegistrationEpochEvidenceV1,
         Self::AppletRegistrationEpochTranscriptV1,
         Self::AppletWidgetDeclarationV1,
         Self::AuditReleaseAttestationV1,
@@ -688,17 +697,28 @@ impl SchemaId {
     /// Closed request/response DTO bundle for ak.self.applet.ghost.command.provision
     /// (Applet-managed Ghost Actor provisioning by an installed bridge Applet).
     pub const APPLET_GHOST_OPERATIONS_V1: &'static str = "ak.schema.applet_ghost_operations.v1";
+    /// Closed Principal Server preview, Applet authoring request, and managed-actor creation bundle
+    /// DTOs for the durable co-sign handshake.
+    pub const APPLET_INSTALL_AUTHORING_V1: &'static str = "ak.schema.applet_install_authoring.v1";
     /// Closed request/response DTO bundle for ak.self.applet.install.command.preview and
     /// ak.applet.install.
     pub const APPLET_INSTALL_OPERATIONS_V1: &'static str = "ak.schema.applet_install_operations.v1";
-    /// Canonical Applet InstallPlan returned by ak.self.applet.install.command.preview and
-    /// recomputed by ak.self.applet.command.install before commit. plan_digest is calculated over
-    /// this object with plan_digest omitted.
+    /// Canonical Applet InstallPlan nested in the Principal Server-signed authoring request and
+    /// recomputed by install commit before admission. plan_digest is calculated over this object
+    /// with plan_digest omitted.
     pub const APPLET_INSTALL_PLAN_V1: &'static str = "ak.schema.applet_install_plan.v1";
+    /// Immutable service-authored Bot/Ghost creation authority cross-bound to an
+    /// applet_managed_control PCR genesis.
+    pub const APPLET_MANAGED_ACTOR_PROVISION_V1: &'static str =
+        "ak.schema.applet_managed_actor_provision.v1";
     /// Controller-signed package used by ak.self.applet.command.install preview/commit to derive
     /// ak.applet.registration and capability grants. Distribution object only; not Realm history
     /// truth and not authorization.
     pub const APPLET_PACKAGE_V1: &'static str = "ak.schema.applet_package.v1";
+    /// Closed install-time service DID document, method-version and accepted signing-key snapshot
+    /// carried only by the caller-signed Applet registration Event manifest.
+    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_V1: &'static str =
+        "ak.schema.applet_registration_epoch_evidence.v1";
     /// Closed normalized transcript for deterministic recomputation of Applet registration_epoch
     /// from derived registration, DID document/version, signing-key, endpoint/auth, and
     /// security-policy evidence.
@@ -1155,9 +1175,12 @@ impl SchemaId {
             Self::AppletV1 => Self::APPLET_V1,
             Self::AppletEdgeOperationsV1 => Self::APPLET_EDGE_OPERATIONS_V1,
             Self::AppletGhostOperationsV1 => Self::APPLET_GHOST_OPERATIONS_V1,
+            Self::AppletInstallAuthoringV1 => Self::APPLET_INSTALL_AUTHORING_V1,
             Self::AppletInstallOperationsV1 => Self::APPLET_INSTALL_OPERATIONS_V1,
             Self::AppletInstallPlanV1 => Self::APPLET_INSTALL_PLAN_V1,
+            Self::AppletManagedActorProvisionV1 => Self::APPLET_MANAGED_ACTOR_PROVISION_V1,
             Self::AppletPackageV1 => Self::APPLET_PACKAGE_V1,
+            Self::AppletRegistrationEpochEvidenceV1 => Self::APPLET_REGISTRATION_EPOCH_EVIDENCE_V1,
             Self::AppletRegistrationEpochTranscriptV1 => {
                 Self::APPLET_REGISTRATION_EPOCH_TRANSCRIPT_V1
             }
@@ -1378,9 +1401,14 @@ impl SchemaId {
             Self::AppletV1 => "schemas/applet.schema.json",
             Self::AppletEdgeOperationsV1 => "schemas/applet-edge-operations.schema.json",
             Self::AppletGhostOperationsV1 => "schemas/applet-ghost-operations.schema.json",
+            Self::AppletInstallAuthoringV1 => "schemas/applet-install-authoring.schema.json",
             Self::AppletInstallOperationsV1 => "schemas/applet-install-operations.schema.json",
             Self::AppletInstallPlanV1 => "schemas/applet-install-plan.schema.json",
+            Self::AppletManagedActorProvisionV1 => "schemas/applet-managed-actor.schema.json",
             Self::AppletPackageV1 => "schemas/applet-package.schema.json",
+            Self::AppletRegistrationEpochEvidenceV1 => {
+                "schemas/applet-registration-epoch-evidence.schema.json"
+            }
             Self::AppletRegistrationEpochTranscriptV1 => {
                 "schemas/applet-registration-epoch-transcript.schema.json"
             }
@@ -1607,9 +1635,14 @@ impl SchemaId {
             Self::APPLET_V1 => Some(Self::AppletV1),
             Self::APPLET_EDGE_OPERATIONS_V1 => Some(Self::AppletEdgeOperationsV1),
             Self::APPLET_GHOST_OPERATIONS_V1 => Some(Self::AppletGhostOperationsV1),
+            Self::APPLET_INSTALL_AUTHORING_V1 => Some(Self::AppletInstallAuthoringV1),
             Self::APPLET_INSTALL_OPERATIONS_V1 => Some(Self::AppletInstallOperationsV1),
             Self::APPLET_INSTALL_PLAN_V1 => Some(Self::AppletInstallPlanV1),
+            Self::APPLET_MANAGED_ACTOR_PROVISION_V1 => Some(Self::AppletManagedActorProvisionV1),
             Self::APPLET_PACKAGE_V1 => Some(Self::AppletPackageV1),
+            Self::APPLET_REGISTRATION_EPOCH_EVIDENCE_V1 => {
+                Some(Self::AppletRegistrationEpochEvidenceV1)
+            }
             Self::APPLET_REGISTRATION_EPOCH_TRANSCRIPT_V1 => {
                 Some(Self::AppletRegistrationEpochTranscriptV1)
             }

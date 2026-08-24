@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_identifiers::AppletIdentifier;
+use arkret_identifiers::AppletId;
 use arkret_models_integration::{
     AppletBridgeErrorClass, AppletBridgeErrorPayload, AppletBridgeVisibilityScope,
 };
@@ -16,7 +16,7 @@ use crate::{EventDraftError, EventIntent, Result, TypedEventDraft};
 #[derive(Clone, Debug)]
 pub struct AppletBridgeErrorBuilder {
     realm_id: RealmId,
-    applet_id: AppletIdentifier,
+    applet_id: AppletId,
     actor_id: DidCoreId,
     failed_transaction_ref: String,
     error_class: AppletBridgeErrorClass,
@@ -32,7 +32,7 @@ impl AppletBridgeErrorBuilder {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         realm_id: RealmId,
-        applet_id: AppletIdentifier,
+        applet_id: AppletId,
         actor_id: DidCoreId,
         failed_transaction_ref: impl Into<String>,
         error_class: AppletBridgeErrorClass,
@@ -102,7 +102,7 @@ impl AppletBridgeErrorBuilder {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{AppletId, AppletIdentifier, EventKind};
+    use arkret_wire::{AppletId, EventKind};
     use serde_json::json;
 
     use super::*;
@@ -115,9 +115,7 @@ mod tests {
     fn bridge_error_builder_emits_canonical_typed_payload() {
         let event = AppletBridgeErrorBuilder::new(
             realm(),
-            AppletIdentifier::Cx(
-                AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
-            ),
+            AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
             DidCoreId::new("ak:did_core:webvh:z6mkfixture:bot.example").unwrap(),
             "ak:event:Adoyyx1AqvJH02hYxuUtpzuC-zpV8GxwFQ8XInZLbu3s",
             AppletBridgeErrorClass::ExternalNetwork,
@@ -142,9 +140,7 @@ mod tests {
     fn bridge_error_builder_rejects_non_object_external_ref() {
         let result = AppletBridgeErrorBuilder::new(
             realm(),
-            AppletIdentifier::Cx(
-                AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
-            ),
+            AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
             DidCoreId::new("ak:did_core:webvh:z6mkfixture:bot.example").unwrap(),
             "ak:event:Adoyyx1AqvJH02hYxuUtpzuC-zpV8GxwFQ8XInZLbu3s",
             AppletBridgeErrorClass::Schema,

@@ -246,7 +246,6 @@ pub struct AgentRequestedScopeDisclosure {
     pub agent_id: DidCoreId,
     pub controller_id: DidCoreId,
     pub requested_scope: AgentKeyScope,
-    pub requested_scope_digest: Hash,
     pub verifier_service_id: DidCoreId,
     pub audience: NonEmptyString,
     pub challenge: NonEmptyString,
@@ -327,16 +326,6 @@ impl AgentRequestedScopeDisclosure {
         {
             return Err(WireError::Protocol(
                 "agent requested-scope disclosure proof digest mismatch".to_owned(),
-            ));
-        }
-        let expected = agent_requested_scope_digest(
-            &self.agent_id,
-            &self.controller_id,
-            &self.requested_scope,
-        )?;
-        if self.requested_scope_digest != expected {
-            return Err(WireError::Protocol(
-                "agent requested-scope disclosure digest does not match its scope".to_owned(),
             ));
         }
         Ok(())
@@ -2195,8 +2184,6 @@ pub struct KeyState {
     pub controller_authorization_ref: DidUrl,
     /// Immutable global Agent ceiling captured by provisioning.
     pub requested_scope: AgentKeyScope,
-    /// Digest of the immutable ceiling committed by the accepted Agent DID.
-    pub requested_scope_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pairing_request_id: Option<OpaqueLocalId>,
     /// Branch of the current unconsumed, unexpired pairing handle. Present
@@ -2397,7 +2384,6 @@ mod tests {
             "principal_control_realm_id": "ak:realm:AUf0Zz23_ZBqZYNvzHTY6qhhx-2YyO94WTorNCFnnvvN",
             "controller_authorization_ref": "did:webvh:z6mkcontroller:controller.example#authorize-1",
             "requested_scope": {"actions": [], "resources": []},
-            "requested_scope_digest": format!("sha256:{}", "0".repeat(64)),
             "active_authorizations": []
         });
         let parsed: KeyState = serde_json::from_value(value.clone()).expect("core ids parse");
@@ -2450,7 +2436,6 @@ mod tests {
                 "actions": ["ak.message.create"],
                 "resources": []
             },
-            "requested_scope_digest": format!("sha256:{}", "0".repeat(64)),
             "verifier_service_id": "ak:did_core:webvh:z6mkfixture",
             "audience": "ak.gate.account.command.pair_agent_key",
             "challenge": "0123456789abcdef",

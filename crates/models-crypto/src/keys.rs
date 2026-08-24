@@ -212,27 +212,10 @@ pub struct QueryDeviceRecord {
     /// `key_record` once real prekey records are published.
     #[serde(default)]
     pub algorithms: AlgorithmKeyRecords,
-    /// Authoritative device verify key as an Ed25519 `did:key`
-    /// (multibase base58btc, multicodec ed25519-pub).
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub device_signing_key: DidKey,
-    /// Device HPKE sealing public key echoed verbatim from the authoritative
-    /// `ak.device.authorize.payload.hpke_key` (`device-lifecycle.md` §8.2);
-    /// services MUST NOT substitute this value in projection.
-    pub hpke_key: NonEmptyString,
-    /// Canonical (UTF-8 bytewise sorted, deduplicated) algorithm ids echoed
-    /// verbatim from `ak.device.authorize.payload.algorithms`; together with
-    /// `device_signing_key` and `hpke_key` this is the material the §5.2
-    /// `ak-device-trust-bind-v1` transcript covers. Distinct from the sibling
-    /// `algorithms` prekey-bundle map.
+    /// Canonical (UTF-8 bytewise sorted, deduplicated) algorithm ids used to
+    /// select entries from the sibling prekey-bundle map. Device identity,
+    /// signing/HPKE material and generation live only in the attestation.
     pub trust_algorithms: Vec<NonEmptyString>,
-    /// Directory status of the device at query time. Constant `active`.
-    pub device_status: DeviceStatus,
-    /// Accepted `ak.device.authorize` event id that anchored the device-set
-    /// projection.
-    pub device_authorize_event_id: EventId,
-    /// Reducer-managed B-model generation that authorized this device.
-    pub authorized_generation_ref: u64,
     /// Origin Principal Server signature over this exact row.
     pub device_projection_attestation: DeviceProjectionAttestation,
 }
@@ -242,23 +225,24 @@ impl QueryDeviceRecord {
     /// generation.
     ///
     /// This is the generation half of the §8.2 gate only. A caller MUST also
-    /// verify the attestation proof and its field-for-field agreement with the
-    /// row before treating the keys as usable; `arkret-signatures` owns that
-    /// half because it needs the serving Principal Server's DID Document.
+    /// verify the attestation proof before treating the attested keys as usable;
+    /// `arkret-signatures` owns that half because it needs the serving Principal
+    /// Server's DID Document.
     pub fn is_usable_in_generation(&self, generation: Option<&DeviceGenerationState>) -> bool {
-        if self.device_status != DeviceStatus::Active {
+        let attested = &self.device_projection_attestation.attestation;
+        if attested.device_status != DeviceStatus::Active {
             return false;
         }
         match generation {
             Some(state) => {
                 state.device_generation_status == DeviceGenerationStatus::Active
-                    && self.authorized_generation_ref == state.current_device_generation_ref
+                    && attested.authorized_generation_ref == state.current_device_generation_ref
             }
             None => false,
         }
     }
 
-    /// Cross-bind the attestation to the row it travels with.
+    /// Bind the attestation to the `(principal_id, device_id)` map keys it travels under.
     ///
     /// This does not verify the detached proof; it rejects a swapped or edited
     /// row before a caller spends a signature check on it.
@@ -272,16 +256,6 @@ impl QueryDeviceRecord {
             return Err(arkret_wire::WireError::Protocol(
                 "device projection attestation addresses a different (principal, device)"
                     .to_owned(),
-            ));
-        }
-        if core.device_signing_key != self.device_signing_key
-            || core.hpke_key != self.hpke_key
-            || core.device_authorize_event_id != self.device_authorize_event_id
-            || core.authorized_generation_ref != self.authorized_generation_ref
-            || core.device_status != self.device_status
-        {
-            return Err(arkret_wire::WireError::Protocol(
-                "device projection attestation does not cover this exact row".to_owned(),
             ));
         }
         if core.device_status != DeviceStatus::Active {
@@ -461,12 +435,12 @@ mod device_generation_tests {
         );
 
         let mut edited: QueryDeviceRecord = serde_json::from_value(attested_row(7)).unwrap();
-        edited.hpke_key = NonEmptyString::new("hpke-attacker").unwrap();
+        edited.device_projection_attestation.attestation.device_id = other_device;
         assert!(
             edited
                 .validate_attestation_binding(&principal, &device)
                 .is_err(),
-            "an edited row must not pass its own attestation"
+            "an attestation moved under another row key must be rejected"
         );
     }
 

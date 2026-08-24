@@ -590,6 +590,7 @@ pub enum RealmPurpose {
     DirectConversation,
     PrincipalControl,
     ManagedAgentControl,
+    AppletManagedControl,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -800,6 +801,38 @@ impl RealmGenesis {
         Ok(value)
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub fn applet_managed_control(
+        genesis_salt: GenesisSalt,
+        initial_resolution: arkret_models_identity::ResolutionCommitment,
+        trust_domain: TrustDomainId,
+        schema_refs: Vec<String>,
+        reducer_profile: impl Into<String>,
+        digest_algorithm: canonical::DigestSuite,
+        security_class: SecurityClass,
+        encryption_profile: EncryptionProfile,
+        notary: NotaryValue,
+        capability_action_registry_digest: Hash,
+    ) -> Result<Self> {
+        let value = Self {
+            schema: SchemaId::REALM_GENESIS_V1.to_owned(),
+            purpose: RealmPurpose::AppletManagedControl,
+            genesis_salt,
+            founding_device_descriptor: None,
+            initial_resolution: Some(initial_resolution),
+            trust_domain,
+            schema_refs,
+            reducer_profile: reducer_profile.into(),
+            digest_algorithm,
+            security_class,
+            encryption_profile,
+            notary,
+            capability_action_registry_digest,
+        };
+        value.validate()?;
+        Ok(value)
+    }
+
     pub fn validate(&self) -> Result<()> {
         if self.schema != SchemaId::REALM_GENESIS_V1
             || self.schema_refs.is_empty()
@@ -809,13 +842,19 @@ impl RealmGenesis {
             || (self.purpose == RealmPurpose::PrincipalControl && self.initial_resolution.is_none())
             || (!matches!(
                 self.purpose,
-                RealmPurpose::PrincipalControl | RealmPurpose::ManagedAgentControl
+                RealmPurpose::PrincipalControl
+                    | RealmPurpose::ManagedAgentControl
+                    | RealmPurpose::AppletManagedControl
             ) && self.initial_resolution.is_some())
-            || (self.purpose == RealmPurpose::ManagedAgentControl
-                && self.founding_device_descriptor.is_some())
             || (matches!(
                 self.purpose,
-                RealmPurpose::PrincipalControl | RealmPurpose::ManagedAgentControl
+                RealmPurpose::ManagedAgentControl | RealmPurpose::AppletManagedControl
+            ) && self.founding_device_descriptor.is_some())
+            || (matches!(
+                self.purpose,
+                RealmPurpose::PrincipalControl
+                    | RealmPurpose::ManagedAgentControl
+                    | RealmPurpose::AppletManagedControl
             ) != self.initial_resolution.is_some())
         {
             return Err(WireError::Protocol(

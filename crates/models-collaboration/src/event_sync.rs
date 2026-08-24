@@ -10,8 +10,8 @@ use arkret_canonical::DigestSuite;
 use arkret_wire::SchemaId;
 use arkret_wire::{
     CbaProofBundle, ControlProposalAck, ControlProposalDecision, ControlProposalDecisionPolicy,
-    DidCoreId, Event, EventFederationSubmission, EventId, Hash, MAX_ACTOR_SEQ_TOTAL_SIBLINGS,
-    RealmId, Result, Seal, SealBasis, SealId, WireError,
+    DidCoreId, DidFullId, Event, EventFederationSubmission, EventId, Hash,
+    MAX_ACTOR_SEQ_TOTAL_SIBLINGS, RealmId, Result, Seal, SealBasis, SealId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -1360,14 +1360,17 @@ mod tests {
             )
             .unwrap(),
             authorization_lease_id: authorization_lease.authorization_lease_id.clone(),
+            qualified_ingress_id: DidFullId::new("did:web:authority.example").unwrap(),
             received_at: issued_at,
-            service_id: DidCoreId::new("ak:did_core:web:ingress.example").unwrap(),
+            ingress_basis: authorization_lease.basis_ref.clone(),
+            ingress_frontier: vec![event.event_id.clone()],
+            service_id: DidCoreId::new("ak:did_core:web:authority.example").unwrap(),
             authority_set_ref,
             proofs: Vec::new(),
         };
         let receipt_digest = receipt.receipt_digest().unwrap();
         receipt.proofs = vec![publication_proof(
-            &DidUrl::new("did:web:ingress.example#key-1").unwrap(),
+            &DidUrl::new("did:web:authority.example#key-1").unwrap(),
             receipt_digest,
             issued_at,
         )];

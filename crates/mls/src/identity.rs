@@ -1,12 +1,20 @@
 use std::collections::BTreeMap;
 
 use arkret_canonical::base64url_encode;
-use arkret_models_crypto::{
-    KeyOperationSignature, KeyPackageUploadEntry, KeyPackagesUploadRequestBody,
-    KeyPackagesUploadUnsignedRequest, MlsEndpointIdentity, MlsGovernanceBindingPayload,
-    MlsKeyPackageRecord, keypackages_upload_signing_input, mls_key_package_record_upload_entry,
+use arkret_models_collaboration::{
+    MlsRequesterTrustBinding, MlsWelcomeClaimEnvelope, UnsignedMlsWelcomeClaimEnvelope,
 };
-use arkret_wire::{DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, canonical};
+use arkret_models_crypto::{
+    KeyOperationSignature, KeyPackageUploadEntry, KeyPackagesConsumeRequestBody,
+    KeyPackagesConsumeUnsignedRequest, KeyPackagesUploadRequestBody,
+    KeyPackagesUploadUnsignedRequest, MlsEndpointIdentity, MlsGovernanceBindingPayload,
+    MlsKeyPackageRecord, RecipientMlsDurableReceipt, RecipientMlsDurableSigner,
+    keypackages_consume_signing_input, keypackages_upload_signing_input,
+    mls_key_package_record_upload_entry,
+};
+use arkret_wire::{
+    Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, RealmId, canonical,
+};
 use chrono::{Duration, Utc};
 use openmls::prelude::{
     BasicCredential, Ciphersuite, CredentialWithKey, GroupId, KeyPackage, KeyPackageIn, MlsGroup,
@@ -272,16 +280,8 @@ impl ArkretMlsIdentity {
         &self,
         records: &[MlsKeyPackageRecord],
         verification_method: &str,
+        intended_realm_id: Option<RealmId>,
     ) -> Result<KeyPackagesUploadRequestBody> {
-        if matches!(
-            self.profile,
-            ArkretMlsIdentityProfile::MinimalMetadataPairwise { .. }
-        ) {
-            return Err(Error::Protocol(
-                "minimal-metadata KeyPackage upload has no registered pairwise wire request"
-                    .to_owned(),
-            ));
-        }
         if records.is_empty() {
             return Err(Error::Protocol(
                 "KeyPackage upload requires at least one record".to_owned(),
@@ -291,19 +291,195 @@ impl ArkretMlsIdentity {
             .iter()
             .map(|record| self.key_package_upload_entry(record))
             .collect::<Result<Vec<_>>>()?;
+        let (principal_id, device_id, pairwise_verification_method, intended_realm_id) =
+            match &self.profile {
+                ArkretMlsIdentityProfile::HumanDevice => {
+                    if intended_realm_id.is_some() {
+                        return Err(Error::Protocol(
+                            "human-device KeyPackage upload must not carry pairwise Realm affinity"
+                                .to_owned(),
+                        ));
+                    }
+                    (
+                        self.principal_id.clone(),
+                        Some(self.device_id.clone()),
+                        None,
+                        None,
+                    )
+                }
+                ArkretMlsIdentityProfile::MinimalMetadataPairwise {
+                    pairwise_actor_id,
+                    verification_method,
+                } => {
+                    let realm_id = intended_realm_id.ok_or_else(|| {
+                        Error::Protocol(
+                            "minimal-metadata KeyPackage upload requires intended Realm affinity"
+                                .to_owned(),
+                        )
+                    })?;
+                    (
+                        pairwise_actor_id.clone(),
+                        None,
+                        Some(verification_method.clone()),
+                        Some(realm_id),
+                    )
+                }
+            };
         let unsigned = KeyPackagesUploadUnsignedRequest {
-            principal_id: self.principal_id.clone(),
-            device_id: self.device_id.clone(),
+            principal_id,
+            device_id,
+            pairwise_verification_method,
+            intended_realm_id,
+            agent_verification_method: None,
+            agent_key_authorize_event_id: None,
             keypackages,
             expires_at: None,
             strand_id: None,
             mls_group_id: None,
         };
+        if unsigned
+            .pairwise_verification_method
+            .as_ref()
+            .is_some_and(|method| method.as_str() != verification_method)
+        {
+            return Err(Error::Protocol(
+                "minimal-metadata upload signer differs from the pairwise endpoint method"
+                    .to_owned(),
+            ));
+        }
+        unsigned
+            .validate_shape()
+            .map_err(|error| Error::Protocol(error.to_owned()))?;
         let signature = self.sign_keypackage_input(
             verification_method,
             &keypackages_upload_signing_input(&unsigned)?,
         )?;
         Ok(unsigned.into_signed(signature))
+    }
+
+    /// Sign the recipient's durable-acceptance receipt with the exact MLS
+    /// endpoint key that owned the claimed KeyPackage. This is called only
+    /// after the joined snapshot has crossed the client's durable barrier.
+    pub fn sign_recipient_mls_durable_receipt(
+        &self,
+        mut receipt: RecipientMlsDurableReceipt,
+    ) -> Result<RecipientMlsDurableReceipt> {
+        let verification_method = match (&self.profile, &receipt.recipient) {
+            (
+                ArkretMlsIdentityProfile::HumanDevice,
+                RecipientMlsDurableSigner::Device {
+                    recipient_device_id,
+                    device_verification_method,
+                },
+            ) if receipt.recipient_principal_id == self.principal_id
+                && recipient_device_id == &self.device_id =>
+            {
+                device_verification_method
+            }
+            (
+                ArkretMlsIdentityProfile::MinimalMetadataPairwise {
+                    pairwise_actor_id,
+                    verification_method,
+                },
+                RecipientMlsDurableSigner::MinimalMetadataPairwise {
+                    recipient_pairwise_verification_method,
+                },
+            ) if &receipt.recipient_principal_id == pairwise_actor_id
+                && recipient_pairwise_verification_method == verification_method =>
+            {
+                recipient_pairwise_verification_method
+            }
+            _ => {
+                return Err(Error::Protocol(
+                    "recipient durable receipt does not match this MLS endpoint".to_owned(),
+                ));
+            }
+        }
+        .clone();
+        receipt.signature = self.sign_keypackage_input(
+            verification_method.as_str(),
+            &receipt.canonical_signing_bytes()?,
+        )?;
+        receipt
+            .validate_shape()
+            .map_err(|error| Error::Protocol(error.to_owned()))?;
+        Ok(receipt)
+    }
+
+    /// Sign the single-source consume command with the same endpoint key as
+    /// the required durable receipt. No Account/Device mirror is introduced.
+    pub fn signed_key_packages_consume_request(
+        &self,
+        claim_id: NonEmptyString,
+        recipient_durable_receipt: RecipientMlsDurableReceipt,
+    ) -> Result<KeyPackagesConsumeRequestBody> {
+        let unsigned = KeyPackagesConsumeUnsignedRequest {
+            claim_id,
+            recipient_durable_receipt,
+        };
+        unsigned
+            .validate_shape()
+            .map_err(|error| Error::Protocol(error.to_owned()))?;
+        let method = match &unsigned.recipient_durable_receipt.recipient {
+            RecipientMlsDurableSigner::Device {
+                device_verification_method,
+                ..
+            } => device_verification_method,
+            RecipientMlsDurableSigner::NativeAgent {
+                recipient_agent_verification_method,
+                ..
+            } => recipient_agent_verification_method,
+            RecipientMlsDurableSigner::MinimalMetadataPairwise {
+                recipient_pairwise_verification_method,
+            } => recipient_pairwise_verification_method,
+        };
+        let signature = self.sign_keypackage_input(
+            method.as_str(),
+            &keypackages_consume_signing_input(&unsigned)?,
+        )?;
+        let body = unsigned.into_signed(signature);
+        body.validate_shape()
+            .map_err(|error| Error::Protocol(error.to_owned()))?;
+        Ok(body)
+    }
+
+    /// Sign a Welcome claim envelope as a minimal-metadata pairwise requester.
+    /// The requester authority is the exact MLS Leaf did:key; no transport
+    /// Account or Device identity is inferred or mirrored into the transcript.
+    pub fn sign_pairwise_welcome_claim_envelope(
+        &self,
+        envelope: UnsignedMlsWelcomeClaimEnvelope,
+    ) -> Result<MlsWelcomeClaimEnvelope> {
+        let ArkretMlsIdentityProfile::MinimalMetadataPairwise {
+            pairwise_actor_id,
+            verification_method,
+        } = &self.profile
+        else {
+            return Err(Error::Protocol(
+                "pairwise Welcome requester signing requires a pairwise MLS identity".to_owned(),
+            ));
+        };
+        let input = envelope.signing_input();
+        if &input.requester_actor_id != pairwise_actor_id
+            || !matches!(
+                &input.trust_binding,
+                MlsRequesterTrustBinding::RequesterMinimalMetadataPairwise {
+                    requester_pairwise_verification_method,
+                } if requester_pairwise_verification_method == verification_method
+            )
+        {
+            return Err(Error::Protocol(
+                "Welcome requester transcript does not match this pairwise MLS identity".to_owned(),
+            ));
+        }
+        let signing_bytes = envelope.canonical_signing_bytes()?;
+        let signature = self.signer.sign(&signing_bytes).map_err(mls_error)?;
+        envelope
+            .attach_signature(
+                NonEmptyString::new(verification_method.as_str())?,
+                Base64UrlString::new(base64url_encode(signature))?,
+            )
+            .map_err(Into::into)
     }
 
     fn sign_keypackage_input(
@@ -349,7 +525,7 @@ impl ArkretMlsIdentity {
             claim_id: None,
             created_at,
             expires_at: Some(created_at + Duration::days(7)),
-            device_signature: None,
+            endpoint_signature: None,
             last_resort: false,
         })
     }
@@ -727,5 +903,91 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn pairwise_identity_signs_welcome_durable_receipt_and_consume_command() {
+        let seed = [31_u8; 32];
+        let (pairwise_actor_id, verification_method) = minimal_profile_inputs(seed);
+        let identity = ArkretMlsIdentity::from_minimal_metadata_ed25519_signing_seed(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturetransport".to_owned()).unwrap(),
+            DeviceId::new("ak:device:01964137-0000-7000-8000-000000000031".to_owned()).unwrap(),
+            pairwise_actor_id.clone(),
+            verification_method.clone(),
+            seed,
+        )
+        .unwrap();
+        let claim_request_id = Base64UrlString::new("Y2xhaW0tcmVxdWVzdC0wMDAwMDAwMQ").unwrap();
+        let keypackage_ref = format!("sha256:{}", "11".repeat(32));
+        let welcome_digest = Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap();
+        let envelope = UnsignedMlsWelcomeClaimEnvelope::new(
+            arkret_models_collaboration::MlsWelcomeClaimEnvelopeSigningInput {
+                keypackage_ref: keypackage_ref.clone(),
+                keypackage_digest: Hash::new(format!("sha256:{}", "33".repeat(32))).unwrap(),
+                intended_realm_id: RealmId::new(
+                    "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5".to_owned(),
+                )
+                .unwrap(),
+                claim_id: NonEmptyString::new("claim-without-keypackage-prefix").unwrap(),
+                requester_actor_id: pairwise_actor_id.clone(),
+                trust_binding: MlsRequesterTrustBinding::RequesterMinimalMetadataPairwise {
+                    requester_pairwise_verification_method: verification_method.clone(),
+                },
+                nonce: NonEmptyString::new("Y2xhaW0tbm9uY2UtMDAwMDAwMDAwMQ").unwrap(),
+                welcome_digest: welcome_digest.clone(),
+                created_at: Utc::now(),
+            },
+        );
+        let envelope = identity
+            .sign_pairwise_welcome_claim_envelope(envelope)
+            .unwrap();
+        assert_eq!(
+            envelope.signature.kid.as_str(),
+            verification_method.as_str()
+        );
+
+        let placeholder = KeyOperationSignature {
+            kid: NonEmptyString::new(verification_method.as_str()).unwrap(),
+            signature_algorithm: Some(NonEmptyString::new("Ed25519").unwrap()),
+            sig: Base64UrlString::new("AA").unwrap(),
+        };
+        let receipt = RecipientMlsDurableReceipt {
+            domain: NonEmptyString::new(
+                arkret_wire::DomainSeparationId::MLS_RECIPIENT_DURABLE_RECEIPT_V1,
+            )
+            .unwrap(),
+            claim_request_id,
+            key_package_ref: NonEmptyString::new(keypackage_ref).unwrap(),
+            recipient_principal_id: pairwise_actor_id,
+            recipient: RecipientMlsDurableSigner::MinimalMetadataPairwise {
+                recipient_pairwise_verification_method: verification_method.clone(),
+            },
+            recipient_service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureservice".to_owned())
+                .unwrap(),
+            realm_id: RealmId::new(
+                "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5".to_owned(),
+            )
+            .unwrap(),
+            mls_group_id: NonEmptyString::new("pairwise-group").unwrap(),
+            mls_epoch: 1,
+            welcome_ref: NonEmptyString::new(
+                "ak:event:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM",
+            )
+            .unwrap(),
+            welcome_digest,
+            durable_at: Utc::now(),
+            signature: placeholder,
+        };
+        let receipt = identity
+            .sign_recipient_mls_durable_receipt(receipt)
+            .unwrap();
+        let request = identity
+            .signed_key_packages_consume_request(
+                NonEmptyString::new("claim-without-keypackage-prefix").unwrap(),
+                receipt,
+            )
+            .unwrap();
+        assert_eq!(request.signature.kid.as_str(), verification_method.as_str());
+        request.validate_shape().unwrap();
     }
 }

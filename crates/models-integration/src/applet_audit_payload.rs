@@ -2,10 +2,11 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{AppletIdentifier, DidCoreId, Hash, NonEmptyString, RealmId, Result, WireError};
-use chrono::{DateTime, Utc};
+use arkret_wire::{AppletId, NonEmptyString, RealmId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+pub use crate::applet::WireAppletRegistration as AppletRegistrationPayload;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,8 +34,7 @@ pub enum AppletBridgeErrorClass {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletBridgeErrorPayload {
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub applet_id: AppletIdentifier,
+    pub applet_id: AppletId,
     pub realm_id: RealmId,
     pub failed_transaction_ref: String,
     pub error_class: AppletBridgeErrorClass,
@@ -47,122 +47,4 @@ pub struct AppletBridgeErrorPayload {
     pub message: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/applet_registration_payload`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AppletRegistrationPayload {
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub applet_id: AppletIdentifier,
-    pub service_id: DidCoreId,
-    pub controller_id: DidCoreId,
-    pub base_url: String,
-    pub bot_actor_id: DidCoreId,
-    pub claimed_profiles: Vec<String>,
-    pub protocols: Vec<String>,
-    pub namespaces: BTreeMap<String, Value>,
-    pub receive_events: bool,
-    pub receive_signals: bool,
-    pub rate_limited: bool,
-    pub requested_scopes: Vec<String>,
-    pub registration_epoch: Hash,
-    pub webhook_auth: BTreeMap<String, Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub manifest: Option<BTreeMap<String, Value>>,
-    pub proof: BTreeMap<String, Value>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-}
-
-impl AppletRegistrationPayload {
-    /// Build a `ak.applet.registration` payload with the full closed field set
-    /// (`event-payload.schema.json#/$defs/applet_registration_payload`). The
-    /// spec marks the complete field set required; the collection / flag
-    /// fields default to their empty / false forms (all schema-valid) and are
-    /// set through the `with_*` chain. A `{service_id, namespace, capabilities}`
-    /// short form fails the strong payload validator (missing required fields +
-    /// `additionalProperties: false`).
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        applet_id: AppletIdentifier,
-        service_id: DidCoreId,
-        controller_id: DidCoreId,
-        base_url: impl Into<String>,
-        bot_actor_id: DidCoreId,
-        registration_epoch: Hash,
-        webhook_auth: BTreeMap<String, Value>,
-        proof: BTreeMap<String, Value>,
-        created_at: DateTime<Utc>,
-    ) -> Self {
-        Self {
-            applet_id,
-            service_id,
-            controller_id,
-            base_url: base_url.into(),
-            bot_actor_id,
-            claimed_profiles: vec![arkret_wire::ProfileId::APPLET_SERVICE_V1.to_owned()],
-            protocols: Vec::new(),
-            namespaces: BTreeMap::new(),
-            receive_events: false,
-            receive_signals: false,
-            rate_limited: false,
-            requested_scopes: Vec::new(),
-            registration_epoch,
-            webhook_auth,
-            manifest: None,
-            proof,
-            created_at,
-        }
-    }
-
-    pub fn with_protocols(mut self, protocols: Vec<String>) -> Self {
-        self.protocols = protocols;
-        self
-    }
-
-    pub fn with_requested_scopes(mut self, requested_scopes: Vec<String>) -> Self {
-        self.requested_scopes = requested_scopes;
-        self
-    }
-
-    pub fn with_receive_events(mut self, receive_events: bool) -> Self {
-        self.receive_events = receive_events;
-        self
-    }
-
-    pub fn to_value(&self) -> Result<Value> {
-        // Spec: an empty proof object MUST be rejected as schema_violation.
-        if self.proof.is_empty() {
-            return Err(WireError::Protocol(
-                "applet registration proof object must not be empty".to_owned(),
-            ));
-        }
-        serde_json::to_value(self).map_err(|err| {
-            WireError::Protocol(format!("applet registration payload serialize: {err}"))
-        })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn applet_registration_builder_rejects_empty_proof() {
-        let payload = AppletRegistrationPayload::new(
-            AppletIdentifier::Service(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-            "https://applet.example",
-            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-            Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-            BTreeMap::new(),
-            BTreeMap::new(),
-            "2026-07-08T10:05:00.000Z".parse().unwrap(),
-        );
-        assert!(payload.to_value().is_err());
-    }
 }

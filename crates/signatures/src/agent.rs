@@ -688,12 +688,6 @@ mod tests {
             request_id: RequestId::new("ak:request:01970000-0000-7000-8000-000000000021").unwrap(),
             agent_id: agent_actor_id.clone(),
             controller_id: controller_id.clone(),
-            requested_scope_digest: agent_requested_scope_digest(
-                &agent_actor_id,
-                &controller_id,
-                &requested_scope,
-            )
-            .unwrap(),
             requested_scope: requested_scope.clone(),
             verifier_service_id: service_id.clone(),
             audience: NonEmptyString::new(

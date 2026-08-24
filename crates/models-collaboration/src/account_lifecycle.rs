@@ -116,8 +116,6 @@ pub struct ConsentRevokeRequestBody {
 pub struct ConsentRequestRequestBody {
     pub holder_principal_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub peer_principal_id: Option<DidCoreId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub consent_scope: Option<ConsentScope>,
 }
 
@@ -175,7 +173,7 @@ pub const ACCOUNT_LIFECYCLE_PROOF_SCHEMA: &str = SchemaId::ACCOUNT_OPERATIONS_V1
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionGrantAppletSelector {
-    pub applet_id: String,
+    pub applet_id: AppletId,
     pub effective_scope: ScopeRef,
     pub registration_epoch: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -262,7 +260,6 @@ pub struct UnsignedAccountStatusRecord {
         with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
-    pub verification_method: DidUrl,
 }
 
 impl UnsignedAccountStatusRecord {
@@ -335,10 +332,10 @@ impl UnsignedAccountStatusRecord {
         Hash::new(canonical::sha256_digest(&self.canonical_bytes()?)).map_err(Into::into)
     }
 
-    pub fn proof_metadata(&self) -> Result<UnsignedPayloadProof> {
+    pub fn proof_metadata(&self, verification_method: DidUrl) -> Result<UnsignedPayloadProof> {
         Ok(UnsignedPayloadProof {
             kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
-            verification_method: self.verification_method.clone(),
+            verification_method,
             payload_digest: self.payload_digest()?,
             created_at: self.issued_at,
             domain: None,
@@ -350,7 +347,6 @@ impl UnsignedAccountStatusRecord {
     pub fn canonical_proof_binding_bytes(&self, proof: &UnsignedPayloadProof) -> Result<Vec<u8>> {
         proof.validate_production()?;
         if proof.payload_digest != self.payload_digest()?
-            || proof.verification_method != self.verification_method
             || proof.created_at != self.issued_at
             || proof.domain.is_some()
             || proof.audience.is_some()
@@ -388,7 +384,6 @@ impl UnsignedAccountStatusRecord {
             issued_at: self.issued_at,
             effective_at: self.effective_at,
             expires_at: self.expires_at,
-            verification_method: self.verification_method,
             proof,
         };
         record.validate_shape()?;
@@ -425,7 +420,6 @@ pub struct AccountStatusRecord {
         with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
-    pub verification_method: DidUrl,
     pub proof: PayloadProof,
 }
 
@@ -446,7 +440,6 @@ impl AccountStatusRecord {
             issued_at: self.issued_at,
             effective_at: self.effective_at,
             expires_at: self.expires_at,
-            verification_method: self.verification_method.clone(),
         }
     }
 
@@ -468,11 +461,6 @@ impl AccountStatusRecord {
         if self.account_status_record_id != self.unsigned().record_id()? {
             return Err(arkret_wire::WireError::Protocol(
                 "account status account_status_record_id mismatch".to_owned(),
-            ));
-        }
-        if self.verification_method != self.proof.verification_method {
-            return Err(arkret_wire::WireError::Protocol(
-                "account status verification_method mismatch".to_owned(),
             ));
         }
         self.proof.validate_production()?;

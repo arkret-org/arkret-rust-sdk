@@ -2201,7 +2201,7 @@ mod tests {
             ),
             (
                 "ak.schema.define",
-                json!({"schema_id": "ak.schema.fixture.v1"}),
+                json!({"value": {"$id": "ak.schema.fixture.v1"}}),
                 "ak.schema.fixture.v1",
             ),
             (

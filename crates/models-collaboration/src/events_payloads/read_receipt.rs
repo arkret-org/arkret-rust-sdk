@@ -14,8 +14,7 @@ pub struct ReadReceiptPolicyPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scope_overrides_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub receipt_compliance_opt_in:
-        Option<crate::objects::read_receipts::ReadReceiptComplianceOptIn>,
+    pub child_privacy_tightening_against_required: Option<bool>,
 }
 
 // `realm_archive_payload` uses `models::operation_payloads::RealmArchivePayload`.

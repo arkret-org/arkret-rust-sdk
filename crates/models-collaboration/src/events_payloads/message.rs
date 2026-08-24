@@ -26,6 +26,27 @@ pub enum MessageTrackName {
     Discussion,
 }
 
+/// Auditable attribution for a message authored by a MIMI facade service.
+///
+/// The Event actor remains the facade service DID. These fields attribute the
+/// external sender without granting that sender's authority to the facade.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MimiMessageProvenance {
+    pub provenance: MimiMessageProvenanceKind,
+    pub source_provider: DidCoreId,
+    pub attributed_sender_actor_id: DidCoreId,
+    pub attributed_sender_device_id: DeviceId,
+    pub source_envelope_digest: Hash,
+    pub room_binding_ref: EventId,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MimiMessageProvenanceKind {
+    #[serde(rename = "mimi_facade")]
+    MimiFacade,
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/message_redact_payload`.
 ///
@@ -42,6 +63,8 @@ pub struct MessageRedactPayload {
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preserve: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mimi_provenance: Option<MimiMessageProvenance>,
 }
 
 /// Counterpart for
@@ -65,6 +88,8 @@ pub struct MessageRevisePayload {
     pub encrypted_metadata: Option<EncryptedEnvelope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mimi_provenance: Option<MimiMessageProvenance>,
 }
 
 #[derive(Deserialize)]
@@ -83,6 +108,8 @@ struct MessageRevisePayloadWire {
     encrypted_metadata: Option<EncryptedEnvelope>,
     #[serde(default)]
     reason: Option<String>,
+    #[serde(default)]
+    mimi_provenance: Option<MimiMessageProvenance>,
 }
 
 impl<'de> Deserialize<'de> for MessageRevisePayload {
@@ -109,6 +136,7 @@ impl<'de> Deserialize<'de> for MessageRevisePayload {
             metadata: wire.metadata,
             encrypted_metadata: wire.encrypted_metadata,
             reason: wire.reason,
+            mimi_provenance: wire.mimi_provenance,
         })
     }
 }
@@ -836,6 +864,8 @@ pub struct MessageCreatePayload {
     pub reply_to: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agent_context: Option<MessageAgentContext>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mimi_provenance: Option<MimiMessageProvenance>,
 }
 
 impl MessageCreatePayload {
@@ -871,6 +901,7 @@ impl MessageCreatePayload {
             blob_refs: Vec::new(),
             reply_to: None,
             agent_context: None,
+            mimi_provenance: None,
         }
     }
 
@@ -901,6 +932,7 @@ impl MessageCreatePayload {
             blob_refs: Vec::new(),
             reply_to: None,
             agent_context: None,
+            mimi_provenance: None,
         }
     }
 

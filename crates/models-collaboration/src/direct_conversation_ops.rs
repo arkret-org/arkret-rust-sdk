@@ -769,9 +769,6 @@ pub struct DirectConversationFoundingAcceptanceReceipt {
     pub main_strand_id: StrandId,
     pub founding_unit_digest: Hash,
     pub authorization_core: DirectConversationFoundingAuthorizationCore,
-    /// Always `true` on the wire: the receipt is only emitted inside the slot-committing
-    /// transaction.
-    pub slot_committed: bool,
     pub issuer_service_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
@@ -779,15 +776,7 @@ pub struct DirectConversationFoundingAcceptanceReceipt {
 }
 
 impl DirectConversationFoundingAcceptanceReceipt {
-    /// Shape check that does not replace admission: `slot_committed` MUST be true, otherwise the
-    /// receipt does not attest that the founder's unique slot was closed.
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
-        if !self.slot_committed {
-            return Err(arkret_wire::WireError::Protocol(
-                "direct conversation founding acceptance receipt must set slot_committed"
-                    .to_owned(),
-            ));
-        }
         if self.proof.created_at != self.accepted_at {
             return Err(arkret_wire::WireError::Protocol(
                 "direct conversation founding receipt proof.created_at must equal accepted_at"
@@ -807,7 +796,6 @@ impl DirectConversationFoundingAcceptanceReceipt {
             main_strand_id: &'a StrandId,
             founding_unit_digest: &'a Hash,
             authorization_core: &'a DirectConversationFoundingAuthorizationCore,
-            slot_committed: bool,
             issuer_service_id: &'a DidCoreId,
             #[serde(
                 serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp"
@@ -821,7 +809,6 @@ impl DirectConversationFoundingAcceptanceReceipt {
             main_strand_id: &self.main_strand_id,
             founding_unit_digest: &self.founding_unit_digest,
             authorization_core: &self.authorization_core,
-            slot_committed: self.slot_committed,
             issuer_service_id: &self.issuer_service_id,
             accepted_at: self.accepted_at,
         })
@@ -953,7 +940,6 @@ mod tests {
                 "root_contact_round_id": "sha256:55e2bdad8a06d2503f04e1d0cb5046a918f1002eab53e560ce399fe5aaf10c82",
                 "accepted_contact_evidence_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
             },
-            "slot_committed": true,
             "issuer_service_id": "ak:did_core:web:ps.example",
             "accepted_at": "2026-08-08T00:00:00.000Z",
             "proof": {

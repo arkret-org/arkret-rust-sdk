@@ -597,7 +597,7 @@ impl EventFederationSubmission {
                 ));
             }
             if let Some(lease) = &self.authorization_lease {
-                receipt.validate_against_lease(lease, &event_digest)?;
+                receipt.validate_against_lease(lease, &event_digest, &self.event.event_id)?;
             }
         }
         Ok(())
@@ -721,7 +721,6 @@ mod tests {
             _ => unreachable!(),
         });
         event.auth_context = Some(AuthContext {
-            actor_id: event.actor_id.clone(),
             key_id: crate::OpaqueLocalId::new("device-1").unwrap(),
             key_epoch: 1,
             credential_epoch: None,

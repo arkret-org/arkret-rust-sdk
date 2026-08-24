@@ -208,7 +208,6 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
             "account_deactivation": { "member_action": "leave_all" },
             "availability_policy": {
                 "min_holders": 1,
-                "holder_roles": ["joined_member_principal_server"],
                 "applies_to": ["seal_include"]
             },
             "audit_policy": {

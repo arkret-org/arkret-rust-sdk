@@ -126,7 +126,6 @@ pub enum SealAvailabilityReplayAuthority {
     Predecessor {
         policy: RealmAvailabilityPolicy,
         joined_member_principal_server_ids: BTreeSet<DidCoreId>,
-        joined_service_actor_ids: BTreeSet<DidCoreId>,
     },
 }
 
@@ -2099,7 +2098,6 @@ fn seal_dependency_replay_context(
             SealAvailabilityReplayAuthority::Predecessor {
                 policy: availability_policy.unwrap_or_default(),
                 joined_member_principal_server_ids: BTreeSet::new(),
-                joined_service_actor_ids: BTreeSet::new(),
             }
         },
     };
@@ -2187,7 +2185,6 @@ fn add_joined_holder_from_event(
     }
     let SealAvailabilityReplayAuthority::Predecessor {
         joined_member_principal_server_ids,
-        joined_service_actor_ids,
         ..
     } = &mut context.availability_authority
     else {
@@ -2195,12 +2192,8 @@ fn add_joined_holder_from_event(
             "genesis replay cannot acquire predecessor availability holders".to_owned(),
         ));
     };
-    if let Some(authority) = payload.principal_authority {
-        joined_member_principal_server_ids.insert(authority.principal_server_id);
-    } else if let Some(binding) = payload.delivery_binding {
+    if let Some(binding) = payload.delivery_binding {
         joined_member_principal_server_ids.insert(binding.recipient_service_id);
-    } else if let Some(actor_id) = payload.actor_id {
-        joined_service_actor_ids.insert(actor_id);
     }
     Ok(())
 }

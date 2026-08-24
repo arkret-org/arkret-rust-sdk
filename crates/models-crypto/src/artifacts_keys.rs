@@ -609,7 +609,6 @@ pub struct Failure {
 pub struct KeyPackageClaimRecord {
     pub claim_id: String,
     pub keypackage_ref: String,
-    pub keypackage_digest: Hash,
     pub principal_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
@@ -617,16 +616,16 @@ pub struct KeyPackageClaimRecord {
     pub agent_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_verification_method: Option<DidUrl>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pairwise_verification_method: Option<DidUrl>,
     pub keypackage: String,
     pub capabilities: Vec<String>,
-    pub capabilities_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_authorize_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_key_authorize_event_id: Option<EventId>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub device_signature: KeyOperationSignature,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revocation_status: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -641,7 +640,6 @@ pub struct KeyPackageClaimRecord {
 pub struct KeyPackageUploadEntry {
     pub keypackage_id: String,
     pub keypackage_ref: String,
-    pub keypackage_digest: Hash,
     pub keypackage: Base64UrlString,
     pub cipher_suites: Vec<String>,
     pub capabilities: Vec<String>,
@@ -650,7 +648,7 @@ pub struct KeyPackageUploadEntry {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_signature: Option<KeyOperationSignature>,
+    pub endpoint_signature: Option<KeyOperationSignature>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_resort: Option<bool>,
 }

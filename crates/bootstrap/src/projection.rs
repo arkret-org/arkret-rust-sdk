@@ -56,7 +56,12 @@ pub fn expected_realm_create_cells(event: &Event) -> BTreeSet<String> {
     }
     if matches!(
         purpose,
-        Some("direct_conversation" | "principal_control" | "managed_agent_control")
+        Some(
+            "direct_conversation"
+                | "principal_control"
+                | "managed_agent_control"
+                | "applet_managed_control"
+        )
     ) {
         cells.insert(format!(
             "ak:cell:{}:null",
