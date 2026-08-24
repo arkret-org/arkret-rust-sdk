@@ -22,13 +22,6 @@ pub enum DidFreshnessRiskTier {
     High,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct DidFreshnessProfileDescriptor {
-    pub freshness_profile_id: &'static str,
-    pub risk_tier: DidFreshnessRiskTier,
-    pub stale_behavior: &'static str,
-}
-
 impl DidFreshnessProfileId {
     pub const ALL: &'static [Self] = &[
         Self::CurrentExternalClaimV1,
@@ -85,36 +78,3 @@ impl DidFreshnessProfileId {
         }
     }
 }
-
-pub const REGISTERED_DID_FRESHNESS_PROFILES: &[DidFreshnessProfileDescriptor] = &[
-    DidFreshnessProfileDescriptor {
-        freshness_profile_id: DidFreshnessProfileId::CURRENT_EXTERNAL_CLAIM_V1,
-        risk_tier: DidFreshnessRiskTier::High,
-        stale_behavior: "synchronous_refresh_or_fail_closed",
-    },
-    DidFreshnessProfileDescriptor {
-        freshness_profile_id: DidFreshnessProfileId::METHOD_SUCCESSOR_V1,
-        risk_tier: DidFreshnessRiskTier::High,
-        stale_behavior: "synchronous_refresh_or_fail_closed",
-    },
-    DidFreshnessProfileDescriptor {
-        freshness_profile_id: DidFreshnessProfileId::ONGOING_GOVERNANCE_V1,
-        risk_tier: DidFreshnessRiskTier::High,
-        stale_behavior: "synchronous_refresh_or_fail_closed",
-    },
-    DidFreshnessProfileDescriptor {
-        freshness_profile_id: DidFreshnessProfileId::OPTIONAL_DID_ROOT_RECOVERY_V1,
-        risk_tier: DidFreshnessRiskTier::High,
-        stale_behavior: "synchronous_refresh_or_fail_closed",
-    },
-    DidFreshnessProfileDescriptor {
-        freshness_profile_id: DidFreshnessProfileId::REGISTRATION_CURRENT_V1,
-        risk_tier: DidFreshnessRiskTier::High,
-        stale_behavior: "synchronous_refresh_or_fail_closed",
-    },
-    DidFreshnessProfileDescriptor {
-        freshness_profile_id: DidFreshnessProfileId::UNREGISTERED_FAIL_CLOSED_V1,
-        risk_tier: DidFreshnessRiskTier::High,
-        stale_behavior: "synchronous_refresh_or_fail_closed",
-    },
-];

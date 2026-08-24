@@ -7,6 +7,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::governance::peer_contact::{ContactIntroductionEvidence, PeerContactAddress};
+use crate::prepared_event_draft::PreparedEventDraft;
 use crate::string_marker;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -838,8 +839,6 @@ pub enum ContactOperationRejectReason {
     ContactScopeStale,
 }
 
-pub type ContactPreparedEventDraft = crate::prepared_event_draft::PreparedEventDraft;
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -860,35 +859,35 @@ pub enum ContactPreparedOutcome {
         reservation_handle: ReservationHandle,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
-        event_draft: ContactPreparedEventDraft,
+        event_draft: PreparedEventDraft,
     },
     Response {
         operation_id: ProtocolOperationId,
         reservation_handle: ReservationHandle,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
-        event_draft: ContactPreparedEventDraft,
+        event_draft: PreparedEventDraft,
     },
     Reject {
         operation_id: ProtocolOperationId,
         reservation_handle: ReservationHandle,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
-        event_draft: ContactPreparedEventDraft,
+        event_draft: PreparedEventDraft,
     },
     ScopeUpdate {
         operation_id: ProtocolOperationId,
         reservation_handle: ReservationHandle,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
-        event_draft: ContactPreparedEventDraft,
+        event_draft: PreparedEventDraft,
     },
     Tombstone {
         operation_id: ProtocolOperationId,
         reservation_handle: ReservationHandle,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
-        event_draft: ContactPreparedEventDraft,
+        event_draft: PreparedEventDraft,
     },
 }
 

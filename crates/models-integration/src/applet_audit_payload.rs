@@ -2,12 +2,10 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{DidCoreId, Hash, NonEmptyString, RealmId, Result, WireError};
+use arkret_wire::{AppletIdentifier, DidCoreId, Hash, NonEmptyString, RealmId, Result, WireError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::applet_models::AppletIdentifier;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

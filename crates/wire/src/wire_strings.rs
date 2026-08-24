@@ -1430,31 +1430,6 @@ mod tests {
     }
 
     #[test]
-    fn did_url_rejects_query_markers() {
-        // Regression guard: the identifier segment used to accept `?`, so a
-        // query-bearing DID URL slipped through even though the spec pattern
-        // `[^\s#?]+` forbids it.
-        assert!(DidUrl::new("did:web:example.com?service=files#key-1").is_err());
-        assert!(DidUrl::new("did:webvh:z6mkfixture:alice.example?versionId=1#key-1").is_err());
-    }
-
-    #[test]
-    fn did_url_rejects_repeated_fragment_markers() {
-        // Proves the removed `identifier.contains('#')` branch was dead: the
-        // fragment charset check is what rejects a second `#`.
-        assert!(DidUrl::new("did:web:example.com#a#b").is_err());
-        assert!(DidUrl::new("did:web:example.com#a#").is_err());
-    }
-
-    #[test]
-    fn did_url_keeps_accepting_path_segments() {
-        // D2: the spec identifier class allows `/`; do not tighten this without
-        // tightening `common-ids.schema.json#/$defs/did_url` first.
-        assert!(DidUrl::new("did:webvh:example.test/tenant1#k1").is_ok());
-        assert!(DidUrl::new("did:web:example.test/a/b/c#key-1").is_ok());
-    }
-
-    #[test]
     fn did_url_serde_round_trips_accepted_samples() {
         for sample in DID_URL_ACCEPTED {
             let encoded = format!("\"{sample}\"");

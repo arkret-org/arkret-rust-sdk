@@ -2,6 +2,7 @@
 
 use std::collections::BTreeSet;
 
+use arkret_models_identity::BindingSource;
 use arkret_models_identity::primary_handle::HandleIssuerPolicyEntry;
 use arkret_wire::{DidCoreId, DomainSeparationId};
 
@@ -10,7 +11,6 @@ use crate::events_payloads::device_identity::{
 };
 use crate::events_payloads::join_policy::JoinPolicyPayload;
 use crate::governance::agent_participation::AgentParticipationPolicy;
-use crate::governance::delivery_binding::BindingSource;
 use crate::internal_prelude::*;
 
 /// Counterpart for

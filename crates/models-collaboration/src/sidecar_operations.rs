@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::agent_operations::{
     AgentSidecarAccessReadiness, PendingSidecarAccessReconciliationItem,
 };
+use crate::prepared_event_draft::PreparedEventDraft;
 use crate::string_marker;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -131,8 +132,6 @@ impl<'de> Deserialize<'de> for SidecarAcceptedOk {
     }
 }
 
-pub type SidecarPreparedEventDraft = crate::prepared_event_draft::PreparedEventDraft;
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "branch", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -142,8 +141,8 @@ pub enum SidecarPreparedOutcome {
         reservation_handle: ReservationHandle,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
-        create_event_draft: SidecarPreparedEventDraft,
-        context_attach_event_draft: SidecarPreparedEventDraft,
+        create_event_draft: PreparedEventDraft,
+        context_attach_event_draft: PreparedEventDraft,
     },
     Existing {
         operation_id: ProtocolOperationId,
@@ -151,7 +150,7 @@ pub enum SidecarPreparedOutcome {
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
         sidecar_id: SidecarId,
-        context_attach_event_draft: SidecarPreparedEventDraft,
+        context_attach_event_draft: PreparedEventDraft,
     },
 }
 

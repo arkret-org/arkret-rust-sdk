@@ -150,10 +150,8 @@ pub use arkret_models_collaboration::governance::audit::{
 };
 pub use arkret_models_collaboration::governance::authorization::*;
 pub use arkret_models_collaboration::governance::circle::*;
-pub use arkret_models_collaboration::governance::delivery_binding::*;
 pub use arkret_models_collaboration::governance::erasure::*;
 pub use arkret_models_collaboration::governance::grant_constraint::*;
-pub use arkret_models_collaboration::governance::handle_claim::*;
 pub use arkret_models_collaboration::governance::invite_addressing::*;
 pub use arkret_models_collaboration::governance::join_policy::*;
 pub use arkret_models_collaboration::governance::member_delivery_binding_candidate::*;
@@ -197,6 +195,7 @@ pub use arkret_models_collaboration::objects::relation::*;
 pub use arkret_models_collaboration::objects::space::*;
 pub use arkret_models_collaboration::objects::strand::*;
 pub use arkret_models_collaboration::objects::view::*;
+pub use arkret_models_collaboration::prepared_event_draft::PreparedEventDraft;
 pub use arkret_models_collaboration::seal_transparency::*;
 pub use arkret_models_collaboration::session_grant_bodies::*;
 pub use arkret_models_collaboration::signal_message_stream::*;
@@ -240,7 +239,7 @@ pub use arkret_models_crypto::mls_envelopes::{
 };
 pub use arkret_models_crypto::mls_payloads::*;
 pub use arkret_models_crypto::mls_records::{
-    MlsEndpointIdentity, MlsKeyPackageRecord, RealmPairwiseAcceptedGroupState,
+    MlsEndpointIdentity, MlsKeyPackageRecord, MlsKeyPackageState, RealmPairwiseAcceptedGroupState,
     RealmPairwiseAcceptedLeaf, RealmPairwiseAuthorState, RealmPairwiseKeyScopeLedger,
 };
 pub use arkret_models_crypto::protected_payload::{
@@ -273,8 +272,10 @@ pub use arkret_models_identity::claim_presentation::{
     AgentSelectorClaim, DIRECTORY_RESTRICTED_CLAIM_PRESENTATION_KIND, DirectoryPresentedClaim,
     DirectoryRestrictedClaimPresentation, validate_agent_slug,
 };
+pub use arkret_models_identity::delivery_binding::*;
 pub use arkret_models_identity::device_verification::*;
 pub use arkret_models_identity::handle::*;
+pub use arkret_models_identity::handle_claim::*;
 pub use arkret_models_identity::http_bodies::*;
 pub use arkret_models_identity::identity::*;
 pub use arkret_models_identity::identity_link_cache::*;

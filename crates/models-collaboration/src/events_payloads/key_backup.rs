@@ -20,45 +20,13 @@ pub const KEY_BACKUP_ACTIVE_SERIES_SIGNED_FIELDS: [&str; 8] = [
     "issued_at",
 ];
 
-/// A real active-series signature. The unsigned state has no value of this
-/// type, and the historical `"pending"` sentinel is rejected at every typed
-/// construction and deserialization boundary.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[serde(transparent)]
-pub struct KeyBackupActiveSeriesSignature(Base64UrlString);
-
-impl KeyBackupActiveSeriesSignature {
-    pub fn new(signature: Base64UrlString) -> Result<Self> {
-        if signature.as_str() == "pending" {
-            return Err(WireError::Protocol(
-                "active-series signature cannot be the pending sentinel".to_owned(),
-            ));
-        }
-        Ok(Self(signature))
-    }
-
-    pub fn as_str(&self) -> &str {
-        self.0.as_str()
-    }
-}
-
-impl<'de> Deserialize<'de> for KeyBackupActiveSeriesSignature {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let signature = Base64UrlString::deserialize(deserializer)?;
-        Self::new(signature).map_err(serde::de::Error::custom)
-    }
-}
-
 /// Counterpart for the closed current-generation device authorization binding.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupActiveSeriesAuthData {
     pub verification_method: DidUrl,
     pub signature_algorithm: KeyBackupSignatureAlgorithm,
-    pub signature: KeyBackupActiveSeriesSignature,
+    pub signature: Base64UrlString,
     pub signed_fields: Vec<String>,
     pub device_authorize_event_id: EventId,
 }
@@ -206,7 +174,7 @@ impl UnsignedKeyBackupActiveSeries {
             auth_data: KeyBackupActiveSeriesAuthData {
                 verification_method: self.auth_data.verification_method,
                 signature_algorithm: self.auth_data.signature_algorithm,
-                signature: KeyBackupActiveSeriesSignature::new(signature)?,
+                signature,
                 signed_fields: self.auth_data.signed_fields,
                 device_authorize_event_id: self.auth_data.device_authorize_event_id,
             },
@@ -506,23 +474,6 @@ mod tests {
             .attach_signature(Base64UrlString::new("AQ".to_owned()).unwrap())
             .unwrap();
         assert_eq!(signed.signing_payload_bytes().unwrap(), EXPECTED.as_bytes());
-    }
-
-    #[test]
-    fn signed_active_series_rejects_the_historical_pending_sentinel() {
-        let unsigned = unsigned_fixture();
-        assert!(
-            unsigned
-                .attach_signature(Base64UrlString::new("pending".to_owned()).unwrap())
-                .is_err()
-        );
-
-        let signed = unsigned_fixture()
-            .attach_signature(Base64UrlString::new("AQ".to_owned()).unwrap())
-            .unwrap();
-        let mut value = serde_json::to_value(signed).unwrap();
-        value["auth_data"]["signature"] = Value::String("pending".to_owned());
-        assert!(serde_json::from_value::<KeyBackupActiveSeries>(value).is_err());
     }
 
     #[test]

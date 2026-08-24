@@ -149,8 +149,8 @@ jobs:
     # Hard gate (SDK-TEST-07): the embedded spec artifact snapshot MUST match
     # the live spec. ARKRET_REQUIRE_SPEC=1 turns the otherwise-skipping test
     # into a failure when the spec checkout is missing, so this job can never
-    # silently pass without comparing. Refresh the snapshot with
-    # `python tools/refresh-embedded-artifacts.py` when the spec moves.
+    # silently pass without comparing. Refresh every spec-derived SDK surface
+    # with `./tools/sync-spec.ps1` when the spec moves.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -297,19 +297,13 @@ jobs:
       - name: Verify registry type generator
         working-directory: arkret-rust-sdk
         run: python tools/tests/test_generate_registry_types.py
-      - name: Verify embedded artifact snapshot
-        working-directory: arkret-rust-sdk
-        run: >-
-          python tools/refresh-embedded-artifacts.py --check
-          ${{ github.workspace }}/arkret-spec/spec/v1/artifacts
-      - name: Reject registry-derived SDK surface drift
+      - name: Verify all spec-derived SDK surfaces
         working-directory: arkret-rust-sdk
         shell: pwsh
         run: |
           $artifacts = "${{ github.workspace }}/arkret-spec/spec/v1/artifacts"
           ./tools/test-utf8-byte-order.ps1
-          ./tools/sync-spec-generated.ps1 -ArtifactsDir $artifacts -Check
-          ./tools/sync-spec-generated.ps1 -ArtifactsDir $artifacts -Check
+          ./tools/sync-spec.ps1 -ArtifactsDir $artifacts -Check
       - name: Verify claimable-profile operation coverage matrix
         working-directory: arkret-rust-sdk
         run: >-

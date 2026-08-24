@@ -4,6 +4,9 @@ param(
     [switch]$Check
 )
 
+# Internal Rust-generation layer. Contributors and CI should normally invoke
+# sync-spec.ps1 so this layer and the embedded artifact snapshot stay aligned.
+
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $artifacts = (Resolve-Path -LiteralPath $ArtifactsDir).Path

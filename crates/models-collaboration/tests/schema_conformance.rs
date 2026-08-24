@@ -8,7 +8,6 @@ mod models {
         StrandReorderExpectedPosition, StrandReorderPayload, StrandWatchExpectedValue,
         StrandWatchLevel, StrandWatchSetPayload,
     };
-    pub use arkret_models_collaboration::governance::delivery_binding::DeliveryStatus;
     pub use arkret_models_collaboration::governance::invite_addressing::InviteDeliveryTarget;
     pub use arkret_models_collaboration::governance::membership_invite::{
         InviteCancelPayload, InviteCancelTargetState, InviteCreatePayload, InviteRevokePayload,
@@ -23,7 +22,7 @@ mod models {
         RealmTombstonePayload,
     };
     pub use arkret_models_collaboration::object_patch::ObjectPatchPayload;
-    pub use arkret_models_identity::ServiceResolutionCarrier;
+    pub use arkret_models_identity::{DeliveryStatus, ServiceResolutionCarrier};
     pub use arkret_wire::patch::{Patch, PatchOp};
     pub use arkret_wire::{
         DidCoreId, DidFullId, EventId, Hash, HistoryAccess, InviteId, PlaintextDataClassKind,

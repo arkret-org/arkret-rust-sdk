@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use arkret_models_identity::{DeliveryStatus, MemberDeliveryBinding};
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
     DidCoreId, DidUrl, EventId, Hash, InviteId, RealmId, Result, StrandId, WireError,
@@ -8,7 +9,6 @@ use arkret_wire::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::governance::delivery_binding::{DeliveryStatus, MemberDeliveryBinding};
 use crate::governance::invite_addressing::InviteDeliveryTarget;
 use crate::governance::third_party_invite::ThirdPartyInvite;
 use crate::objects::relation::Relation;

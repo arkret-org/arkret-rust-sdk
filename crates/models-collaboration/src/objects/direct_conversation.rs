@@ -2,6 +2,7 @@
 
 use std::collections::BTreeSet;
 
+use arkret_models_identity::DeliveryStatus;
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
     DidCoreId, EncryptionProfile, EventId, GenesisSalt, Hash, ObjectStage, ObjectState, ProfileId,
@@ -11,7 +12,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::events_payloads::{RealmCreatePayload, RealmGenesis, RealmPurpose, StrandCreatePayload};
-use crate::governance::delivery_binding::DeliveryStatus;
 use crate::governance::membership_invite::MembershipPayload;
 use crate::objects::profiles::{STRAND_TRACK_NAME_DISCUSSION, StrandTrack};
 use crate::objects::strand::Strand;

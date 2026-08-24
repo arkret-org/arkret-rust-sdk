@@ -353,12 +353,7 @@ impl<'de> Deserialize<'de> for MlsGenesisPayload {
     }
 }
 
-// `MlsKeyPackageState` is owned by `arkret-models-crypto` (mls_records) so the
-// MLS behavior layer can reach it without depending on this crate. It is
-// re-exported here because `MlsKeypackagePayload::state` is typed by it and
-// `arkret-sdk` glob-re-exports this module as `arkret_sdk::MlsKeyPackageState`
-// — the path SDK consumers construct the payload through.
-pub use arkret_models_crypto::MlsKeyPackageState;
+use arkret_models_crypto::MlsKeyPackageState;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/mls_keypackage_payload`.

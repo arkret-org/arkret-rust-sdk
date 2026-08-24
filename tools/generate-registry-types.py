@@ -1880,112 +1880,6 @@ def generate_closed_registry_types(artifacts: Path) -> str:
     return "\n".join(lines) + "\n"
 
 
-def generate_operation_error_mappings(artifacts: Path) -> str:
-    files = [
-        "operation-registry.json",
-        "operations-error-mapping.json",
-        "error-code-registry.json",
-    ]
-    loaded = [
-        (f"registry/{name}", *load(artifacts / "registry" / name))
-        for name in files
-    ]
-    operation_artifact, mapping_artifact, error_artifact = [
-        item[1] for item in loaded
-    ]
-    operations = sorted(
-        operation_artifact["operations"], key=lambda row: row["operation_id"]
-    )
-    mappings = sorted(
-        mapping_artifact["operations"], key=lambda row: row["operation_id"]
-    )
-    ensure_unique(operations, "operation_id", ("ak.",))
-    ensure_unique(mappings, "operation_id", ("ak.",))
-    operation_by_id = {row["operation_id"]: row for row in operations}
-    mapping_by_id = {row["operation_id"]: row for row in mappings}
-    if operation_by_id.keys() != mapping_by_id.keys():
-        missing = sorted(operation_by_id.keys() - mapping_by_id.keys())
-        unknown = sorted(mapping_by_id.keys() - operation_by_id.keys())
-        raise ValueError(
-            "operations-error-mapping coverage mismatch: "
-            f"missing={missing}, unknown={unknown}"
-        )
-    error_codes = {row["code"] for row in error_artifact["codes"]}
-    reason_codes = {row["code"] for row in error_artifact["reason_codes"]}
-    for mapping in mappings:
-        operation = operation_by_id[mapping["operation_id"]]
-        if mapping["http_alias"] != operation["http"]:
-            raise ValueError(
-                f"{mapping['operation_id']} http_alias {mapping['http_alias']!r} "
-                f"does not match operation registry {operation['http']!r}"
-            )
-        unknown_errors = sorted(
-            set(mapping["operation_specific"]) - error_codes - reason_codes
-        )
-        if unknown_errors:
-            raise ValueError(
-                f"{mapping['operation_id']} references unknown errors {unknown_errors}"
-            )
-    lines = header(loaded, f"operations={len(mappings)}")
-    lines.extend(
-        [
-            "use crate::{ErrorCode, ReasonCode, ServiceOperationId};",
-            "",
-            "#[derive(Clone, Debug, PartialEq, Eq)]",
-            "pub enum OperationSpecificError {",
-            "    ErrorCode(ErrorCode),",
-            "    ReasonCode(ReasonCode),",
-            "}",
-            "",
-            "impl OperationSpecificError {",
-            "    pub fn as_str(&self) -> &str {",
-            "        match self {",
-            "            Self::ErrorCode(code) => code.as_str(),",
-            "            Self::ReasonCode(code) => code.as_str(),",
-            "        }",
-            "    }",
-            "}",
-            "",
-            "#[derive(Clone, Debug, PartialEq, Eq)]",
-            "pub struct OperationErrorMappingDescriptor {",
-            "    pub operation: ServiceOperationId,",
-            "    pub operation_specific: &'static [OperationSpecificError],",
-            "}",
-            "",
-            "pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[",
-        ]
-    )
-    for mapping in mappings:
-        lines.extend(
-            [
-                "    OperationErrorMappingDescriptor {",
-                "        operation: ServiceOperationId::"
-                f"{variant(mapping['operation_id'], ('ak.',))},",
-                "        operation_specific: &[",
-            ]
-        )
-        for code in mapping["operation_specific"]:
-            if code in error_codes:
-                lines.append(
-                    f"            OperationSpecificError::ErrorCode(ErrorCode::{variant(code)}),"
-                )
-            else:
-                lines.append(
-                    f"            OperationSpecificError::ReasonCode(ReasonCode::{variant(code)}),"
-                )
-        lines.extend(["        ],", "    },"])
-    lines.extend(
-        [
-            "];",
-            "",
-            "pub const fn operation_error_mapping(",
-            "    operation: ServiceOperationId,",
-            ") -> &'static OperationErrorMappingDescriptor {",
-            "    &OPERATION_ERROR_MAPPINGS[operation as usize]",
-            "}",
-        ]
-    )
-    return "\n".join(lines) + "\n"
 
 
 def account_data_key_namespace(pattern: str) -> str:
@@ -2739,11 +2633,7 @@ def generate_did_freshness_profiles(artifacts: Path) -> str:
     artifact, digest = load(artifacts / relative)
     rows = sorted(artifact["profiles"], key=lambda row: row["freshness_profile_id"])
     ensure_unique(rows, "freshness_profile_id", DID_FRESHNESS_PREFIXES)
-    tiers = {
-        "low": "Low",
-        "medium": "Medium",
-        "high": "High",
-    }
+    tiers = {"low": "Low", "medium": "Medium", "high": "High"}
     lines = header([(relative, artifact, digest)], f"registered={len(rows)}")
     lines.extend(
         [
@@ -2766,13 +2656,6 @@ def generate_did_freshness_profiles(artifacts: Path) -> str:
             "    High,",
             "}",
             "",
-            "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
-            "pub struct DidFreshnessProfileDescriptor {",
-            "    pub freshness_profile_id: &'static str,",
-            "    pub risk_tier: DidFreshnessRiskTier,",
-            "    pub stale_behavior: &'static str,",
-            "}",
-            "",
             "impl DidFreshnessProfileId {",
             "    pub const ALL: &'static [Self] = &[",
         ]
@@ -2787,27 +2670,13 @@ def generate_did_freshness_profiles(artifacts: Path) -> str:
             f"    pub const {associated_name(row['freshness_profile_id'], DID_FRESHNESS_PREFIXES)}: "
             f"&'static str = {rust_string(row['freshness_profile_id'])};"
         )
-    lines.extend(
-        [
-            "",
-            "    pub const fn as_str(self) -> &'static str {",
-            "        match self {",
-        ]
-    )
+    lines.extend(["", "    pub const fn as_str(self) -> &'static str {", "        match self {"])
     for row in rows:
         lines.append(
             f"            Self::{variant(row['freshness_profile_id'], DID_FRESHNESS_PREFIXES)} => "
             f"Self::{associated_name(row['freshness_profile_id'], DID_FRESHNESS_PREFIXES)},"
         )
-    lines.extend(
-        [
-            "        }",
-            "    }",
-            "",
-            "    pub const fn risk_tier(self) -> DidFreshnessRiskTier {",
-            "        match self {",
-        ]
-    )
+    lines.extend(["        }", "    }", "", "    pub const fn risk_tier(self) -> DidFreshnessRiskTier {", "        match self {"])
     for row in rows:
         lines.append(
             f"            Self::{variant(row['freshness_profile_id'], DID_FRESHNESS_PREFIXES)} => "
@@ -2819,7 +2688,7 @@ def generate_did_freshness_profiles(artifacts: Path) -> str:
             "    }",
             "",
             "    /// §5.4: an unknown id resolves to the strictest tier, never to",
-            "    /// \"any cached binding will do\".",
+            '    /// "any cached binding will do".',
             "    pub fn from_wire(value: &str) -> Option<Self> {",
             "        match value {",
         ]
@@ -2829,29 +2698,9 @@ def generate_did_freshness_profiles(artifacts: Path) -> str:
             f"            Self::{associated_name(row['freshness_profile_id'], DID_FRESHNESS_PREFIXES)} => "
             f"Some(Self::{variant(row['freshness_profile_id'], DID_FRESHNESS_PREFIXES)}),"
         )
-    lines.extend(
-        [
-            "            _ => None,",
-            "        }",
-            "    }",
-            "}",
-            "",
-            "pub const REGISTERED_DID_FRESHNESS_PROFILES: &[DidFreshnessProfileDescriptor] = &[",
-        ]
-    )
-    for row in rows:
-        lines.extend(
-            [
-                "    DidFreshnessProfileDescriptor {",
-                "        freshness_profile_id: DidFreshnessProfileId::"
-                f"{associated_name(row['freshness_profile_id'], DID_FRESHNESS_PREFIXES)},",
-                f"        risk_tier: DidFreshnessRiskTier::{tiers[row['risk_tier']]},",
-                f"        stale_behavior: {rust_string(row['stale_behavior'])},",
-                "    },",
-            ]
-        )
-    lines.append("];")
+    lines.extend(["            _ => None,", "        }", "    }", "}"])
     return "\n".join(lines) + "\n"
+
 
 
 def generate_authority_sources(artifacts: Path) -> str:
@@ -2865,7 +2714,6 @@ def generate_authority_sources(artifacts: Path) -> str:
             "use serde::{Deserialize, Serialize};",
             "",
             "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
-            "#[repr(usize)]",
             "pub enum AuthoritySourceId {",
         ]
     )
@@ -2875,34 +2723,6 @@ def generate_authority_sources(artifacts: Path) -> str:
         )
     lines.extend(
         [
-            "}",
-            "",
-            "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
-            "pub struct AuthoritySourcePhaseDescriptor {",
-            "    pub phase: &'static str,",
-            "    pub actor_rule: &'static str,",
-            "    pub action_allowlist: &'static [&'static str],",
-            "    pub activation_checks: &'static [&'static str],",
-            "}",
-            "",
-            "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
-            "pub struct AuthoritySourceDescriptor {",
-            "    pub authority_source_id: AuthoritySourceId,",
-            "    pub status: &'static str,",
-            "    pub profile: &'static str,",
-            "    pub wire_ref: &'static str,",
-            "    pub binding_event_kind: &'static str,",
-            "    pub binding_ref_role: &'static str,",
-            "    pub phases: &'static [AuthoritySourcePhaseDescriptor],",
-            "    pub phase_selection: Option<&'static str>,",
-            "    pub action_allowlist: &'static [&'static str],",
-            "    pub activation_checks: &'static [&'static str],",
-            "    pub forbidden_actions: &'static [&'static str],",
-            "    pub revocation_model: &'static str,",
-            "    pub authority_generation_independent: bool,",
-            "    pub grantable: bool,",
-            "    pub delegated_event_rule: &'static str,",
-            "    pub failure_mode: &'static str,",
             "}",
             "",
             "impl AuthoritySourceId {",
@@ -2950,10 +2770,6 @@ def generate_authority_sources(artifacts: Path) -> str:
             "            _ => None,",
             "        }",
             "    }",
-            "",
-            "    pub const fn descriptor(self) -> &'static AuthoritySourceDescriptor {",
-            "        &REGISTERED_AUTHORITY_SOURCES[self as usize]",
-            "    }",
             "}",
             "",
             "impl std::fmt::Display for AuthoritySourceId {",
@@ -2981,52 +2797,54 @@ def generate_authority_sources(artifacts: Path) -> str:
             "        })",
             "    }",
             "}",
-            "",
-            "pub const REGISTERED_AUTHORITY_SOURCES: &[AuthoritySourceDescriptor] = &[",
         ]
     )
+    return "\n".join(lines) + "\n"
+
+
+def generate_simple_string_enum(
+    *,
+    relative: str,
+    artifact: dict[str, Any],
+    digest: str,
+    rows: list[dict[str, Any]],
+    key: str,
+    prefixes: tuple[str, ...],
+    enum_name: str,
+    counts: str,
+    repr_usize: bool = False,
+) -> str:
+    """Generate the shared closed wire-id enum surface used by simple registries."""
+    ensure_unique(rows, key, prefixes)
+    lines = header([(relative, artifact, digest)], counts)
+    lines.append("#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]")
+    if repr_usize:
+        lines.append("#[repr(usize)]")
+    lines.append(f"pub enum {enum_name} {{")
     for row in rows:
-        lines.extend(
-            [
-                "    AuthoritySourceDescriptor {",
-                "        authority_source_id: AuthoritySourceId::"
-                f"{variant(row['authority_source_id'], AUTHORITY_SOURCE_PREFIXES)},",
-                f"        status: {rust_string(row['status'])},",
-                f"        profile: {rust_string(row['profile'])},",
-                f"        wire_ref: {rust_string(row['wire_ref'])},",
-                f"        binding_event_kind: {rust_string(row['binding_event_kind'])},",
-                f"        binding_ref_role: {rust_string(row['binding_ref_role'])},",
-                "        phases: &[",
-            ]
+        lines.append(f"    {variant(row[key], prefixes)},")
+    lines.extend(["}", "", f"impl {enum_name} {{", "    pub const ALL: &'static [Self] = &["])
+    for row in rows:
+        lines.append(f"        Self::{variant(row[key], prefixes)},")
+    lines.extend(["    ];", ""])
+    for row in rows:
+        lines.append(
+            f"    pub const {associated_name(row[key], prefixes)}: &'static str = "
+            f"{rust_string(row[key])};"
         )
-        for phase in row.get("phases", []):
-            lines.extend(
-                [
-                    "            AuthoritySourcePhaseDescriptor {",
-                    f"                phase: {rust_string(phase['phase'])},",
-                    f"                actor_rule: {rust_string(phase['actor_rule'])},",
-                    f"                action_allowlist: {rust_slice(phase.get('action_allowlist'))},",
-                    f"                activation_checks: {rust_slice(phase.get('activation_checks'))},",
-                    "            },",
-                ]
-            )
-        lines.extend(
-            [
-                "        ],",
-                f"        phase_selection: {rust_option(row.get('phase_selection'))},",
-                f"        action_allowlist: {rust_slice(row.get('action_allowlist'))},",
-                f"        activation_checks: {rust_slice(row.get('activation_checks'))},",
-                f"        forbidden_actions: {rust_slice(row.get('forbidden_actions'))},",
-                f"        revocation_model: {rust_string(row['revocation_model'])},",
-                "        authority_generation_independent: "
-                f"{str(bool(row['authority_generation_independent'])).lower()},",
-                f"        grantable: {str(bool(row['grantable'])).lower()},",
-                f"        delegated_event_rule: {rust_string(row['delegated_event_rule'])},",
-                f"        failure_mode: {rust_string(row['failure_mode'])},",
-                "    },",
-            ]
+    lines.extend(["", "    pub const fn as_str(self) -> &'static str {", "        match self {"])
+    for row in rows:
+        lines.append(
+            f"            Self::{variant(row[key], prefixes)} => "
+            f"Self::{associated_name(row[key], prefixes)},"
         )
-    lines.append("];")
+    lines.extend(["        }", "    }", "", "    pub fn from_wire(value: &str) -> Option<Self> {", "        match value {"])
+    for row in rows:
+        lines.append(
+            f"            Self::{associated_name(row[key], prefixes)} => "
+            f"Some(Self::{variant(row[key], prefixes)}),"
+        )
+    lines.extend(["            _ => None,", "        }", "    }", "}"])
     return "\n".join(lines) + "\n"
 
 
@@ -3034,40 +2852,17 @@ def generate_service_contract_ids(artifacts: Path) -> str:
     relative = "registry/contract-registry.json"
     data, digest = load(artifacts / relative)
     rows = sorted(data.get("service_contracts", []), key=lambda row: row["contract_id"])
-    ensure_unique(rows, "contract_id", ("ak.",))
-    lines = header([(relative, data, digest)], f"service_contracts={len(rows)}")
-    lines.extend(
-        [
-            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
-            "#[repr(usize)]",
-            "pub enum ServiceContractId {",
-        ]
+    return generate_simple_string_enum(
+        relative=relative,
+        artifact=data,
+        digest=digest,
+        rows=rows,
+        key="contract_id",
+        prefixes=("ak.",),
+        enum_name="ServiceContractId",
+        counts=f"service_contracts={len(rows)}",
+        repr_usize=True,
     )
-    for row in rows:
-        lines.append(f"    {variant(row['contract_id'], ('ak.',))},")
-    lines.extend(["}", "", "impl ServiceContractId {", "    pub const ALL: &'static [Self] = &["])
-    for row in rows:
-        lines.append(f"        Self::{variant(row['contract_id'], ('ak.',))},")
-    lines.extend(["    ];", ""])
-    for row in rows:
-        lines.append(
-            f"    pub const {associated_name(row['contract_id'], ('ak.',))}: &'static str = "
-            f"{rust_string(row['contract_id'])};"
-        )
-    lines.extend(["", "    pub const fn as_str(self) -> &'static str {", "        match self {"])
-    for row in rows:
-        lines.append(
-            f"            Self::{variant(row['contract_id'], ('ak.',))} => "
-            f"Self::{associated_name(row['contract_id'], ('ak.',))},"
-        )
-    lines.extend(["        }", "    }", "", "    pub fn from_wire(value: &str) -> Option<Self> {", "        match value {"])
-    for row in rows:
-        lines.append(
-            f"            Self::{associated_name(row['contract_id'], ('ak.',))} => "
-            f"Some(Self::{variant(row['contract_id'], ('ak.',))}),"
-        )
-    lines.extend(["            _ => None,", "        }", "    }", "}"])
-    return "\n".join(lines) + "\n"
 
 
 def generate_device_message_kinds(artifacts: Path) -> str:
@@ -3077,76 +2872,32 @@ def generate_device_message_kinds(artifacts: Path) -> str:
         {"kind": value}
         for value in sorted(data["$defs"]["actor_private_update_kind"]["enum"])
     ]
-    ensure_unique(rows, "kind", ("ak.",))
-    lines = header([(relative, data, digest)], f"actor_private_update_kinds={len(rows)}")
-    lines.extend(
-        [
-            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
-            "pub enum ActorPrivateUpdateKind {",
-        ]
+    return generate_simple_string_enum(
+        relative=relative,
+        artifact=data,
+        digest=digest,
+        rows=rows,
+        key="kind",
+        prefixes=("ak.",),
+        enum_name="ActorPrivateUpdateKind",
+        counts=f"actor_private_update_kinds={len(rows)}",
     )
-    for row in rows:
-        lines.append(f"    {variant(row['kind'], ('ak.',))},")
-    lines.extend(["}", "", "impl ActorPrivateUpdateKind {", "    pub const ALL: &'static [Self] = &["])
-    for row in rows:
-        lines.append(f"        Self::{variant(row['kind'], ('ak.',))},")
-    lines.extend(["    ];", ""])
-    for row in rows:
-        lines.append(
-            f"    pub const {associated_name(row['kind'], ('ak.',))}: &'static str = "
-            f"{rust_string(row['kind'])};"
-        )
-    lines.extend(["", "    pub const fn as_str(self) -> &'static str {", "        match self {"])
-    for row in rows:
-        lines.append(
-            f"            Self::{variant(row['kind'], ('ak.',))} => "
-            f"Self::{associated_name(row['kind'], ('ak.',))},"
-        )
-    lines.extend(["        }", "    }", "", "    pub fn from_wire(value: &str) -> Option<Self> {", "        match value {"])
-    for row in rows:
-        lines.append(
-            f"            Self::{associated_name(row['kind'], ('ak.',))} => "
-            f"Some(Self::{variant(row['kind'], ('ak.',))}),"
-        )
-    lines.extend(["            _ => None,", "        }", "    }", "}"])
-    return "\n".join(lines) + "\n"
 
 
 def generate_authority_set_ids(artifacts: Path) -> str:
     relative = "registry/authority-set-policy-registry.json"
     data, digest = load(artifacts / relative)
     rows = sorted(data["policies"], key=lambda row: row["authority_set_id"])
-    ensure_unique(rows, "authority_set_id", ("ak.authority_set.",))
-    lines = header([(relative, data, digest)], f"authority_sets={len(rows)}")
-    lines.extend([
-        "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
-        "pub enum AuthoritySetId {",
-    ])
-    for row in rows:
-        lines.append(f"    {variant(row['authority_set_id'], ('ak.authority_set.',))},")
-    lines.extend(["}", "", "impl AuthoritySetId {", "    pub const ALL: &'static [Self] = &["])
-    for row in rows:
-        lines.append(f"        Self::{variant(row['authority_set_id'], ('ak.authority_set.',))},")
-    lines.extend(["    ];", ""])
-    for row in rows:
-        lines.append(
-            f"    pub const {associated_name(row['authority_set_id'], ('ak.authority_set.',))}: &'static str = "
-            f"{rust_string(row['authority_set_id'])};"
-        )
-    lines.extend(["", "    pub const fn as_str(self) -> &'static str {", "        match self {"])
-    for row in rows:
-        lines.append(
-            f"            Self::{variant(row['authority_set_id'], ('ak.authority_set.',))} => "
-            f"Self::{associated_name(row['authority_set_id'], ('ak.authority_set.',))},"
-        )
-    lines.extend(["        }", "    }", "", "    pub fn from_wire(value: &str) -> Option<Self> {", "        match value {"])
-    for row in rows:
-        lines.append(
-            f"            Self::{associated_name(row['authority_set_id'], ('ak.authority_set.',))} => "
-            f"Some(Self::{variant(row['authority_set_id'], ('ak.authority_set.',))}),"
-        )
-    lines.extend(["            _ => None,", "        }", "    }", "}"])
-    return "\n".join(lines) + "\n"
+    return generate_simple_string_enum(
+        relative=relative,
+        artifact=data,
+        digest=digest,
+        rows=rows,
+        key="authority_set_id",
+        prefixes=("ak.authority_set.",),
+        enum_name="AuthoritySetId",
+        counts=f"authority_sets={len(rows)}",
+    )
 
 
 def generate_history_store_limits(artifacts: Path) -> str:
@@ -3374,9 +3125,6 @@ GENERATORS = {
     "crates/wire/src/error_codes/error_code.rs": generate_error_codes,
     "crates/wire/src/error_codes/reason_code.rs": generate_reason_codes,
     "crates/wire/src/generated/operation_ids.rs": generate_operations,
-    "crates/wire/src/generated/operation_error_mappings.rs": (
-        generate_operation_error_mappings
-    ),
     "crates/wire/src/generated/schema_ids.rs": generate_schema_ids,
     "crates/wire/src/generated/closed_registry_types.rs": (
         generate_closed_registry_types

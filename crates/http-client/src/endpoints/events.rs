@@ -22,8 +22,8 @@ use arkret_models_collaboration::governance_dependencies::{
 use arkret_models_collaboration::http_bodies::{
     EventDeliveryStatusOutcome, EventDeliveryStatusRequestBody, EventSealSubmitOutcome, EventView,
     EventsQueryOutcome, EventsRangeCompleteness, EventsResolveOutcome, EventsResolveRequestBody,
-    EventsSubmitBatchRequestBody, EventsSubmitOutcome, EventsSubscribeFrame, ProjectionSpaceList,
-    ProjectionStrandList, SealResolveOutcome, SelfSealResolveRequestBody,
+    EventsSubmitOutcome, EventsSubscribeFrame, ProjectionSpaceList, ProjectionStrandList,
+    SealResolveOutcome, SelfSealResolveRequestBody,
 };
 use arkret_models_collaboration::objects::query_projection::{
     CollectionProjectionView, DocumentMorphProjectionOutcome, ViewProjectionRequestBody,
@@ -39,7 +39,8 @@ use arkret_wire::{
     ControlProposalAckIssueOutcome, ControlProposalAckIssueRequest, ControlProposalDecisionPolicy,
     ControlProposalDecisionReadOutcome, ControlProposalDecisionReadRequestBody,
     ControlProposalDecisionSubmitOutcome, ControlProposalDecisionSubmitRequestBody, Cursor,
-    DidCoreId, Event, EventInitialSubmission, EventSubmitContext, Hash, RealmId, Seal,
+    DidCoreId, Event, EventInitialSubmission, EventSubmitContext, EventsSubmitBatchRequestBody,
+    Hash, RealmId, Seal,
 };
 use reqwest::{Method, RequestBuilder, Response};
 use serde::Serialize;

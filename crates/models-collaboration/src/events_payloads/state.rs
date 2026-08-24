@@ -7,12 +7,23 @@ use arkret_wire::{DidCoreId, DidFullId, TrustDomainId, validate_canonical_idna_d
 
 use crate::governance::operation_wire::Policy;
 use crate::internal_prelude::*;
+use crate::objects::media::MediaBackendKind;
 
 fn schema_violation<T>(message: impl Into<String>) -> Result<T> {
     Err(WireError::Protocol(format!(
         "schema_violation: {}",
         message.into()
     )))
+}
+
+fn deserialize_non_null_optional<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
 }
 
 macro_rules! validated_string_newtype {
@@ -105,18 +116,190 @@ validated_string_newtype!(
     "invalid policy rule id"
 );
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/state_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+/// Counterpart for `event-payload.schema.json#/$defs/realm_moderation_policy_state_payload`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct StatePayload {
-    /// Spec-declared open state value. `state` is lifecycle metadata and does
-    /// not discriminate this value's shape.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub value: Option<Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
+pub struct RealmModerationPolicyStatePayload {
+    pub value: BTreeMap<String, Value>,
+}
+
+/// Deployment roles supported by one Realm media service.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RealmMediaServiceMode {
+    Turn,
+    Sfu,
+    Mcu,
+}
+
+/// Call topologies allowed or selected by one Realm media service.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RealmMediaCallMode {
+    P2p,
+    Sfu,
+    Mcu,
+}
+
+/// Counterpart for `event-payload.schema.json#/$defs/media_service_focus`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct MediaServiceFocus {
+    pub focus_id: NonEmptyString,
+    pub focus_kind: MediaBackendKind,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub region: Option<NonEmptyString>,
+    pub token_endpoint: String,
+    pub connect_url: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<NonEmptyString>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub health_endpoint: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub cascade_group: Option<NonEmptyString>,
+}
+
+impl MediaServiceFocus {
+    fn validate(&self) -> Result<()> {
+        if self.focus_id.as_str().starts_with("ak:") {
+            return schema_violation("media service focus_id must not use the ak: namespace");
+        }
+        if !is_url_with_scheme(&self.token_endpoint, "https://") {
+            return schema_violation("media service token_endpoint must be an https URL");
+        }
+        if !is_url_with_allowed_schemes(&self.connect_url, &["https://", "wss://"]) {
+            return schema_violation("media service connect_url must be an https or wss URL");
+        }
+        if self
+            .health_endpoint
+            .as_deref()
+            .is_some_and(|url| !is_url_with_scheme(url, "https://"))
+        {
+            return schema_violation("media service health_endpoint must be an https URL");
+        }
+        if contains_duplicate(&self.capabilities) {
+            return schema_violation("media service focus capabilities must be unique");
+        }
+        Ok(())
+    }
+}
+
+/// Closed descriptor carried under `RealmMediaServicePayload::value`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmMediaServiceValue {
+    pub service_id: DidCoreId,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub modes: Option<Vec<RealmMediaServiceMode>>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub ice_config_endpoint: Option<String>,
+    pub foci: Vec<MediaServiceFocus>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_call_mode: Option<RealmMediaCallMode>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub allowed_call_modes: Option<Vec<RealmMediaCallMode>>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub recording_supported: Option<bool>,
+}
+
+impl RealmMediaServiceValue {
+    pub fn validate(&self) -> Result<()> {
+        if self
+            .modes
+            .as_ref()
+            .is_some_and(|modes| modes.is_empty() || contains_duplicate(modes))
+        {
+            return schema_violation("media service modes must be non-empty and unique");
+        }
+        if self
+            .ice_config_endpoint
+            .as_deref()
+            .is_some_and(|url| !is_url_with_scheme(url, "https://"))
+        {
+            return schema_violation("media service ice_config_endpoint must be an https URL");
+        }
+        if self.foci.is_empty() || contains_duplicate(&self.foci) {
+            return schema_violation("media service foci must be non-empty and unique");
+        }
+        for focus in &self.foci {
+            focus.validate()?;
+        }
+        if self
+            .allowed_call_modes
+            .as_ref()
+            .is_some_and(|modes| modes.is_empty() || contains_duplicate(modes))
+        {
+            return schema_violation(
+                "media service allowed_call_modes must be non-empty and unique",
+            );
+        }
+        Ok(())
+    }
+}
+
+/// Counterpart for `event-payload.schema.json#/$defs/realm_media_service_payload`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmMediaServicePayload {
+    pub value: RealmMediaServiceValue,
+}
+
+impl RealmMediaServicePayload {
+    pub fn validate(&self) -> Result<()> {
+        self.value.validate()
+    }
+}
+
+fn contains_duplicate<T: PartialEq>(values: &[T]) -> bool {
+    values
+        .iter()
+        .enumerate()
+        .any(|(index, value)| values[..index].contains(value))
+}
+
+fn is_url_with_allowed_schemes(value: &str, schemes: &[&str]) -> bool {
+    schemes
+        .iter()
+        .any(|scheme| is_url_with_scheme(value, scheme))
+}
+
+fn is_url_with_scheme(value: &str, scheme: &str) -> bool {
+    value
+        .strip_prefix(scheme)
+        .is_some_and(|rest| !rest.is_empty() && !rest.chars().any(char::is_whitespace))
 }
 
 /// Counterpart for `event-payload.schema.json#/$defs/realm_upgrade_state_payload`.
@@ -1320,4 +1503,53 @@ pub struct NotaryFaultCensorshipPayload {
     pub non_membership_proof: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub missing_rejection_or_defer_proof: Option<BTreeMap<String, Value>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn realm_moderation_policy_uses_the_current_closed_value_shape() {
+        let payload: RealmModerationPolicyStatePayload = serde_json::from_value(json!({
+            "value": {
+                "rules": [],
+                "default_action": "allow"
+            }
+        }))
+        .expect("current moderation-policy payload");
+
+        assert_eq!(payload.value["default_action"], "allow");
+    }
+
+    #[test]
+    fn realm_media_service_uses_the_current_typed_descriptor() {
+        let wire = json!({
+            "value": {
+                "service_id": "ak:did_core:webvh:z6mkfixturemedia",
+                "modes": ["turn", "sfu"],
+                "ice_config_endpoint": "https://media.example/_arkret/self/rtc/ice-config",
+                "foci": [{
+                    "focus_id": "fra-1",
+                    "focus_kind": "livekit",
+                    "region": "eu-central",
+                    "token_endpoint": "https://media.example/_arkret/self/rtc/token",
+                    "connect_url": "wss://media.example/livekit",
+                    "capabilities": ["simulcast"],
+                    "health_endpoint": "https://media.example/health",
+                    "cascade_group": "eu"
+                }],
+                "default_call_mode": "sfu",
+                "allowed_call_modes": ["p2p", "sfu"],
+                "recording_supported": true
+            }
+        });
+        let payload: RealmMediaServicePayload =
+            serde_json::from_value(wire.clone()).expect("current media-service payload");
+
+        payload.validate().expect("schema constraints");
+        assert_eq!(serde_json::to_value(payload).expect("serialize"), wire);
+    }
 }

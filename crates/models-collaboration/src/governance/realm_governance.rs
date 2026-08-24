@@ -632,21 +632,11 @@ impl RealmModerationPolicyReplaceRequestBody {
                     .to_owned(),
             ));
         }
-        let payload: crate::events_payloads::StatePayload =
+        let payload: crate::events_payloads::RealmModerationPolicyStatePayload =
             crate::events_payloads::event_wire::decode_payload_after_kind_validation(
                 &self.moderation_policy_event.event,
             )?;
-        if payload.state.is_some() || payload.reason.is_some() {
-            return Err(WireError::Protocol(
-                "Realm moderation-policy payload permits only value".to_owned(),
-            ));
-        }
-        let Some(Value::Object(policy)) = payload.value else {
-            return Err(WireError::Protocol(
-                "Realm moderation-policy payload.value must be an object".to_owned(),
-            ));
-        };
-        Ok(policy.into_iter().collect())
+        Ok(payload.value)
     }
 }
 
@@ -654,13 +644,10 @@ fn moderation_policy_head_is_complete(head: &Value) -> bool {
     if head.is_null() {
         return true;
     }
-    serde_json::from_value::<crate::events_payloads::StatePayload>(head.clone()).is_ok_and(
-        |payload| {
-            payload.state.is_none()
-                && payload.reason.is_none()
-                && matches!(payload.value, Some(Value::Object(_)))
-        },
+    serde_json::from_value::<crate::events_payloads::RealmModerationPolicyStatePayload>(
+        head.clone(),
     )
+    .is_ok()
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

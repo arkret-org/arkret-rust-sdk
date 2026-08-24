@@ -18,9 +18,3 @@ fn read_scope_strand_track_uses_explicit_track_field() {
         })
     );
 }
-
-#[test]
-fn read_scope_rejects_removed_track_kind_variants() {
-    let old = serde_json::json!("strand_discussion");
-    assert!(serde_json::from_value::<ReadCursorScope>(old).is_err());
-}

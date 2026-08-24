@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
+use arkret_models_integration::AppletRegistrationPayload;
 use arkret_models_integration::applet::AppletRegistrationEpochTranscript;
-use arkret_models_integration::{AppletIdentifier, AppletRegistrationPayload};
 use arkret_schema::embedded_json_artifact;
-use arkret_wire::{DidCoreId, Hash};
+use arkret_wire::{AppletIdentifier, DidCoreId, Hash};
 use serde_json::{Value, json};
 
 #[test]

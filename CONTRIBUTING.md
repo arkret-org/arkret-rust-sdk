@@ -37,34 +37,33 @@ behavior being changed.
 
 ## Spec-derived surfaces
 
-The Rust outputs and embedded snapshots listed in
-`tools/spec-generation-manifest.json` are generated from
+The Rust outputs listed in `tools/spec-generation-manifest.json` and the two
+embedded snapshots under `crates/schema/src/` are generated from
 `arkret-spec/spec/v1/artifacts` and committed. Generated Rust files carry an
 `@generated` header and must never be hand-edited; the manifest is the
-authoritative list of outputs and their input artifacts.
+authoritative list of Rust outputs and their input artifacts.
 
-Regenerate both layers **against the same artifact tree, in the same commit**:
-
-```sh
-./tools/sync-spec-generated.ps1 -ArtifactsDir ../arkret-spec/spec/v1/artifacts
-python tools/refresh-embedded-artifacts.py ../arkret-spec/spec/v1/artifacts
-```
-
-Verify with the matching check modes (both return in seconds and need no
-`cargo`):
+Use the single synchronization entry point so both layers are regenerated
+**against the same artifact tree, in the same commit**:
 
 ```sh
-./tools/sync-spec-generated.ps1 -ArtifactsDir ../arkret-spec/spec/v1/artifacts -Check
-python tools/refresh-embedded-artifacts.py --check ../arkret-spec/spec/v1/artifacts
+./tools/sync-spec.ps1 -ArtifactsDir ../arkret-spec/spec/v1/artifacts
 ```
 
-These are two independent layers — `crates/{policy,wire,schema,lattice-registry}/**/generated/*.rs`
-(compile-time constants) and `crates/schema/src/embedded_artifacts.json`
-(the runtime artifact snapshot) — and they have gone stale to *different*
-spec generations before. Refresh and re-check both. The `sha256=` in a
-generated file's header is the digest of the input *at generation time*, not
-of the current spec, so recompute it against the spec file rather than
-trusting the `version:` line.
+Verify both layers with the matching check mode (it needs no `cargo`):
+
+```sh
+./tools/sync-spec.ps1 -ArtifactsDir ../arkret-spec/spec/v1/artifacts -Check
+```
+
+The entry point delegates to two independently testable implementation layers:
+`sync-spec-generated.ps1` produces compile-time Rust constants and descriptors,
+while `refresh-embedded-artifacts.py` produces the runtime JSON/OpenAPI
+snapshot. They have gone stale to *different* spec generations before, which is
+why contributors and CI must not invoke only one layer. The `sha256=` in a
+generated file's header is the digest of the input *at generation time*, not of
+the current spec, so recompute it against the spec file rather than trusting the
+`version:` line.
 
 Nothing above runs in the pre-commit hook (it needs a spec checkout the hook
 cannot assume), so the enforcement is the `spec-drift` CI job. Run the checks

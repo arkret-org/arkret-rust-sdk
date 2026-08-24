@@ -44,6 +44,7 @@ pub use events_payloads::{
     SignatureMaterial, realm_organization_statement_signing_bytes,
 };
 pub use governance::audit::{AccessKind, AuditPolicyAccessPayload};
+pub use prepared_event_draft::PreparedEventDraft;
 pub use resolved_state::ResolvedStateEvent;
 
 macro_rules! string_marker {

@@ -966,6 +966,18 @@
       "spec_pointer": "event-payload.schema.json#/$defs/notary_fault_censorship_payload/properties/non_membership_proof"
     },
     {
+      "finding": "crates/models-collaboration/src/events_payloads/state.rs::RealmModerationPolicyStatePayload.value",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "event-payload.schema.json#/$defs/realm_moderation_policy_state_payload/properties/value",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "event-payload.schema.json#/$defs/realm_moderation_policy_state_payload/properties/value"
+    },
+    {
       "finding": "crates/models-collaboration/src/events_payloads/state.rs::SchemaDefinitionDocument.keywords",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -987,17 +999,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
       "spec_pointer": "event-payload.schema.json#/$defs/state_conflict_recovery_payload/properties/resolved_value"
-    },
-    {
-      "finding": "crates/models-collaboration/src/events_payloads/state.rs::StatePayload.value",
-      "classification": "closed_discriminated",
-      "lifecycle": "pending_migration",
-      "decision": "closed",
-      "authority": "Option<Value>",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
       "finding": "crates/models-collaboration/src/events_payloads/strand.rs::StrandCreatePayload.initial_relations",
@@ -5350,17 +5351,6 @@
       "lifecycle": "retained_boundary",
       "decision": "raw",
       "authority": "arkret-spec protocol schema owning state",
-      "owner_repository": "inkson",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
-      "finding": "json_path_mutation:inkson/src/views/chat/mod.rs::sign_prepared_sidecar_event:d87a460761f20063",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning proofs",
       "owner_repository": "inkson",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",

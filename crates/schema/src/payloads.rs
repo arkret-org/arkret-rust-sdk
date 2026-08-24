@@ -403,24 +403,15 @@ mod tests {
     /// Every entry is a deliberate "no dedicated event-payload def" decision. A
     /// *new* active standard kind that silently inherits this loose shape must be
     /// added here with a rationale, which is exactly what
-    /// [`every_active_standard_kind_resolves_to_dedicated_or_documented_catch_all`]
+    /// [`every_active_standard_kind_avoids_undocumented_generic_payloads`]
     /// forces — so the hand-maintained match table cannot quietly drift a new
     /// kind onto an under-specified payload surface.
     const KINDS_USING_GENERIC_STANDARD_PAYLOAD: &[EventKind] = &[];
 
-    /// F-04 full-assertion guard (part 2): active standard kinds validated only
-    /// against the generic `state_payload` state-transition shape.
-    /// Empty since arkret-spec `815a547d` closed the last five open-value
-    /// control payloads (`ak.realm.asset_privacy_policy` / `discovery` /
-    /// `join_rule` / `policy` / `schema`) onto dedicated
-    /// `event-payload.schema.json#/$defs/realm_*_payload` defs and deleted the
-    /// `state_payload` catch-all itself.
-    const KINDS_USING_STATE_PAYLOAD: &[EventKind] = &[];
-
-    /// F-04 residual closed: beyond [`catalog_covers_every_active_standard_kind`]
+    /// Beyond [`catalog_covers_every_active_standard_kind`]
     /// (which fails closed when a kind resolves to *no* validator), this test
     /// pins *which* kinds are allowed to resolve to a **catch-all** payload shape
-    /// (`generic_standard_payload` / `state_payload`) rather than a dedicated
+    /// (`generic_standard_payload`) rather than a dedicated
     /// `event-payload.schema.json#/$defs/*_payload` def.
     ///
     /// It asserts, over the full embedded spec event-kind registry, that the set
@@ -435,9 +426,8 @@ mod tests {
     /// neither set and needs no maintenance here. This turns hand-table drift
     /// toward under-validation into a CI-catchable failure.
     #[test]
-    fn every_active_standard_kind_resolves_to_dedicated_or_documented_catch_all() {
+    fn every_active_standard_kind_avoids_undocumented_generic_payloads() {
         const GENERIC_DEF: &str = "generic_standard_payload";
-        const STATE_DEF: &str = "state_payload";
 
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
         let bundle = SpecArtifactBundle::load_embedded().unwrap();
@@ -448,7 +438,6 @@ mod tests {
             .unwrap();
 
         let mut generic = BTreeSet::new();
-        let mut state = BTreeSet::new();
         for entry in entries {
             if entry.get("status").and_then(Value::as_str) != Some("active") {
                 continue;
@@ -473,9 +462,6 @@ mod tests {
                 GENERIC_DEF => {
                     generic.insert(event_kind.to_owned());
                 }
-                STATE_DEF => {
-                    state.insert(event_kind.to_owned());
-                }
                 _ => {}
             }
         }
@@ -484,23 +470,12 @@ mod tests {
             .iter()
             .map(|kind| kind.as_str().to_owned())
             .collect();
-        let expected_state: BTreeSet<String> = KINDS_USING_STATE_PAYLOAD
-            .iter()
-            .map(|kind| kind.as_str().to_owned())
-            .collect();
-
         assert_eq!(
             generic, expected_generic,
             "active standard kinds resolving to the loose `generic_standard_payload` shape \
              drifted from the documented KINDS_USING_GENERIC_STANDARD_PAYLOAD set; either wire \
              the new kind to a dedicated `*_payload` def in the registry or register \
              it here with a rationale"
-        );
-        assert_eq!(
-            state, expected_state,
-            "active standard kinds resolving to the loose `state_payload` shape drifted from the \
-             documented KINDS_USING_STATE_PAYLOAD set; either wire the new kind to a dedicated \
-             `*_payload` def in the registry or register it here with a rationale"
         );
     }
 

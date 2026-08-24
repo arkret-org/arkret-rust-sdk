@@ -5,7 +5,7 @@
 //! and `invite-receive-policy.schema.json`.
 
 use arkret_models_identity::handle::Handle;
-use arkret_models_identity::{RouteAssistance, ServiceResolutionCarrier};
+use arkret_models_identity::{HandleClaim, RouteAssistance, ServiceResolutionCarrier};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
@@ -15,7 +15,6 @@ use arkret_wire::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::governance::handle_claim::HandleClaim;
 use crate::governance::member_delivery_binding_candidate::MemberDeliveryBindingCandidate;
 
 pub const INVITE_RECIPIENT_SERVICE_KIND_PRINCIPAL_SERVER: &str = "principal_server";

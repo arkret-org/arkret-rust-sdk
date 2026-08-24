@@ -8,10 +8,9 @@
 
 use std::collections::BTreeMap;
 
-pub use arkret_wire::AppletIdentifier;
 use arkret_wire::{
-    AppletId, BlobRef, DidCoreId, Event, EventId, GrantId, Hash, ProtocolOperationId, RealmId,
-    ReasonCode, ScopeRef,
+    AppletId, AppletRevokeMode, BlobRef, DidCoreId, Event, EventId, GrantId, Hash,
+    ProtocolOperationId, RealmId, ReasonCode, ScopeRef,
 };
 use serde::{Deserialize, Serialize};
 
@@ -119,11 +118,6 @@ pub struct AppletInstallOutcome {
     pub effective_status: AppletInstallEffectiveStatus,
     pub rejected: Vec<AppletRejectedItem>,
 }
-
-// `AppletRevokeMode` relocated to `arkret-wire` (`applet_revoke_mode`) so the
-// collaboration-owned `AppletRevokeRequestBody` can name it. Re-exported here
-// for path stability.
-pub use arkret_wire::AppletRevokeMode;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

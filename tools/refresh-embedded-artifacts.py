@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Generate SDK-embedded machine-readable artifacts from the live spec.
 
+This is the internal runtime-snapshot layer. Contributors and CI should
+normally invoke ``tools/sync-spec.ps1`` so the Rust-generated layer is refreshed
+or checked against the same artifact tree.
+
 The embedded snapshot is a single JSON object mapping the artifact path
 (relative to arkret-spec/spec/v1/artifacts, forward slashes) to the parsed
 artifact JSON. The canonical OpenAPI YAML is copied without transformation.

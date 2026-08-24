@@ -18,9 +18,7 @@
 //!   code registration.
 //! * `unroutable.v1` delivery-side effects (skipping notifications / sync / push / to-device /
 //!   key-packages) — server delivery pipeline conduct.
-use arkret_models_collaboration::governance::delivery_binding::{
-    BindingSource, DeliveryStatus, MemberDeliveryBinding,
-};
+use arkret_models_identity::{BindingSource, DeliveryStatus, MemberDeliveryBinding};
 use arkret_schema::{embedded_error_code_identifiers, embedded_json_artifact};
 use arkret_wire::{DidFullId, project_full_id_to_core_id};
 use serde_json::Value;

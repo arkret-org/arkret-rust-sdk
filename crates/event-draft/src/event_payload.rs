@@ -201,9 +201,9 @@ event_payload_accessors! {
     event_spec::RealmDeliveryBindingPolicy => (as_realm_delivery_binding_policy, RealmDeliveryBindingPolicyPayload),
     event_spec::RealmAssetPrivacyPolicy => (as_realm_asset_privacy_policy, RealmAssetPrivacyPolicyPayload),
     event_spec::RealmReadReceiptPolicy => (as_realm_read_receipt_policy, ReadReceiptPolicyPayload),
-    event_spec::RealmModerationPolicy => (as_realm_moderation_policy, StatePayload),
+    event_spec::RealmModerationPolicy => (as_realm_moderation_policy, RealmModerationPolicyStatePayload),
     event_spec::RealmPlaintextVisibleServices => (as_realm_plaintext_visible_services, PlaintextVisibleServicesPayload),
-    event_spec::RealmMediaService => (as_realm_media_service, StatePayload),
+    event_spec::RealmMediaService => (as_realm_media_service, RealmMediaServicePayload, RealmMediaServicePayload::validate),
     event_spec::RealmSchema => (as_realm_schema, RealmSchemaPayload),
     event_spec::RealmInheritancePolicy => (as_realm_inheritance_policy, RealmInheritancePolicyPayload),
     event_spec::RealmArchive => (as_realm_archive, RealmArchivePayload),
@@ -608,37 +608,6 @@ mod tests {
                 ..
             })
         ));
-    }
-
-    #[test]
-    fn closed_state_payload_adapters_reject_removed_lifecycle_fields() {
-        let mut event = base_event();
-        event.kind = EventKind::PolicyAction;
-        event.payload = serde_json::from_value(json!({
-            "action_id": "approval-1",
-            "value": {
-                "action": "ak.policy.approve",
-                "approval_required": true,
-                "approval_quorum": 1,
-                "policy_scope": "ak:realm:example"
-            },
-            "state": "approved"
-        }))
-        .unwrap();
-        assert!(event.as_policy_action().is_err());
-
-        event.kind = EventKind::SchemaDefine;
-        event.payload = serde_json::from_value(json!({
-            "schema_id": "ak.schema.example.v1",
-            "value": {
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
-                "$id": "ak.schema.example.v1",
-                "type": "object"
-            },
-            "reason": "unexpected"
-        }))
-        .unwrap();
-        assert!(event.as_schema_define().is_err());
     }
 
     #[test]

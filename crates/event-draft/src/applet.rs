@@ -2,8 +2,9 @@
 
 use std::collections::BTreeMap;
 
+use arkret_identifiers::AppletIdentifier;
 use arkret_models_integration::{
-    AppletBridgeErrorClass, AppletBridgeErrorPayload, AppletBridgeVisibilityScope, AppletIdentifier,
+    AppletBridgeErrorClass, AppletBridgeErrorPayload, AppletBridgeVisibilityScope,
 };
 use arkret_wire::{DidCoreId, NonEmptyString, RealmId, ScopeRef};
 use chrono::{DateTime, Utc};

@@ -740,10 +740,6 @@ pub struct FederationServiceBindingRef {
 
 // ── EventsSubmit variants ───────────────────────────────────────────────
 
-// `EventsSubmitBatchRequestBody` lives in this crate's `http_bodies`
-// module (re-exported here for the historic flat path).
-pub use crate::http_bodies::EventsSubmitBatchRequestBody;
-
 pub const MAX_FEDERATED_EVENTS: usize = 500;
 
 /// Round 4 — federation `/events/submit` request. Used when a remote

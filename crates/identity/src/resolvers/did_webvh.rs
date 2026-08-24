@@ -72,7 +72,7 @@ pub struct VerifiedDidWebvhLog {
     pub active_update_keys: Vec<String>,
 }
 
-pub use arkret_models_identity::DidWebvhWitnessPolicy;
+use arkret_models_identity::DidWebvhWitnessPolicy;
 
 /// One successfully verified method-native witness set.
 #[derive(Clone, Debug, PartialEq, Eq)]

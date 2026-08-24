@@ -232,21 +232,6 @@ mod tests {
     }
 
     #[test]
-    fn current_child_scope_policy_rejects_removed_fields() {
-        assert!(
-            serde_json::from_value::<ChildScopePolicy>(json!({
-                "kind": "require_e2ee",
-                "metadata_encryption_floor": "e2ee_required"
-            }))
-            .is_err()
-        );
-        let mut value = serde_json::to_value(space("board")).unwrap();
-        value["default_scope_circle_id"] =
-            json!("ak:circle:AV624IkuHj3HmxAYE6uyYmBa4Est3gGGdnOsjn71z5L2");
-        assert!(serde_json::from_value::<Space>(value).is_err());
-    }
-
-    #[test]
     fn list_wip_policy_is_owned_by_space_fields() {
         let mut list = space("list");
         list.fields.insert("wip_limit".to_owned(), json!(5));

@@ -10,6 +10,7 @@
 //! reaches all of them within its layering edge. the `arkret` umbrella re-exports them
 //! for path stability.
 
+use arkret_models_identity::HandleClaim;
 use arkret_models_identity::account::{
     AccountBindingReceipt, AccountDeviceSummary, AccountRegistrationAudit,
     AccountRegistrationControlProof, AccountRegistrationPolicyEvidence,
@@ -27,7 +28,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::governance::handle_claim::HandleClaim;
 use crate::objects::account_status::AccountStatus;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

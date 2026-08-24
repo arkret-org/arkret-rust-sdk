@@ -18,12 +18,11 @@
 //!      e.g. invite token payload, organization member roster push.
 //!
 //! Any object lacking `proofs[]` MUST NOT be named a candidate.
+use arkret_models_identity::DeliveryBindingHint;
 use arkret_models_identity::handle::{Handle, HandleHintBindingSource};
 use arkret_wire::{DidCoreId, EventId, Hash, ProducerEventProof, SchemaId, canonical};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-
-use crate::governance::handle_claim::DeliveryBindingHint;
 
 /// Builder entry-point hint. Advisory for audit / telemetry only; reducer
 /// behaviour MUST NOT branch on this.
@@ -245,11 +244,11 @@ impl MemberDeliveryBindingCandidate {
 mod tests {
     use std::collections::BTreeSet;
 
+    use arkret_models_identity::{DeliveryMode, RecipientServiceKind};
     use arkret_wire::DidUrl;
     use serde_json::json;
 
     use super::*;
-    use crate::governance::delivery_binding::{DeliveryMode, RecipientServiceKind};
 
     fn fake_principal(label: &str) -> DidCoreId {
         DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{label}")).unwrap()

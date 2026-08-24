@@ -1,12 +1,11 @@
 use arkret_canonical::serde_helpers::optional_canonical_timestamp;
 use arkret_identifiers::{DidCoreId, EventId, RealmId};
 use arkret_models_identity::handle::Handle;
-use arkret_models_identity::{RouteAssistance, ServiceResolutionCarrier};
+use arkret_models_identity::{HandleClaim, RouteAssistance, ServiceResolutionCarrier};
 use arkret_wire::PrincipalAuthorityKey;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::governance::handle_claim::HandleClaim;
 use crate::governance::invite_addressing::PrincipalLocator;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

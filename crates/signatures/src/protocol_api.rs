@@ -266,14 +266,6 @@ pub struct SignatureVerification {
     pub warnings: Vec<String>,
 }
 
-/// Wire-form HTTP Message Signature container.
-///
-/// The canonical struct now lives in `arkret-wire` (`arkret_wire::http_signature`)
-/// so the federation wire contracts can embed it without depending on this
-/// crate. The canonical signature base (the bytes actually signed) is still
-/// built by the single RFC 9421 implementation in [`crate::http_signature`].
-pub use arkret_wire::HttpMessageSignature;
-
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;

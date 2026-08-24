@@ -141,21 +141,18 @@ pub use extension_manifest::{
 pub use extension_map::XExtensionMap;
 pub use generated::{
     AccountDataKey, ActorPrivateUpdateKind, AeadProfileId, AlgorithmSuiteDescriptor,
-    AuthoritySetId, AuthoritySetPolicyKind, AuthoritySetSourceKind, AuthoritySourceDescriptor,
-    AuthoritySourceId, AuthoritySourcePhaseDescriptor, BindingKind, CapabilityActionId,
-    CellFamilyId, DIGEST_SUITES, DidFreshnessProfileDescriptor, DidFreshnessProfileId,
-    DidFreshnessRiskTier, DomainSeparationId, EVENT_KIND_COUNT, EVENT_KIND_DESCRIPTORS,
-    EVENT_KIND_REGISTRY_SHA256, EXPORTER_LABELS, EventCellRule, EventCellRuleField,
-    EventCellRuleKey, EventCellRuleOperator, EventKind, ExporterLabelDescriptor, ExporterLabelId,
-    HISTORY_STORE_LIMITS, HPKE_SUITES, HistoryStoreLimits, HpkeSuiteId, MLS_CIPHERSUITES,
-    MLS_EXTENSIONS, MlsExtensionDescriptor, OPERATION_ERROR_MAPPINGS,
-    OperationErrorMappingDescriptor, OperationSpecificError, PROOF_CONTEXTS, ProfileId,
-    ProfileRole, ProofContextDescriptor, ProofContextId, REDUCER_PROFILE_UPGRADE_EDGES,
-    REGISTERED_AUTHORITY_SOURCES, REGISTERED_DID_FRESHNESS_PROFILES, RELATION_KIND_DESCRIPTORS,
-    ReducerProfileId, SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS,
-    SIGNATURE_ALGORITHMS, SchemaId, ServiceContractId, ServiceKindDescriptor,
-    ServiceOperationDescriptor, ServiceOperationId, TrackName, can_upgrade_reducer_profile,
-    event_kind_str, event_spec, is_reducer_profile_id, operation_error_mapping, requirements_for,
+    AuthoritySetId, AuthoritySetPolicyKind, AuthoritySetSourceKind, AuthoritySourceId, BindingKind,
+    CapabilityActionId, CellFamilyId, DIGEST_SUITES, DidFreshnessProfileId, DidFreshnessRiskTier,
+    DomainSeparationId, EVENT_KIND_COUNT, EVENT_KIND_DESCRIPTORS, EVENT_KIND_REGISTRY_SHA256,
+    EXPORTER_LABELS, EventCellRule, EventCellRuleField, EventCellRuleKey, EventCellRuleOperator,
+    EventKind, ExporterLabelDescriptor, ExporterLabelId, HISTORY_STORE_LIMITS, HPKE_SUITES,
+    HistoryStoreLimits, HpkeSuiteId, MLS_CIPHERSUITES, MLS_EXTENSIONS, MlsExtensionDescriptor,
+    PROOF_CONTEXTS, ProfileId, ProfileRole, ProofContextDescriptor, ProofContextId,
+    REDUCER_PROFILE_UPGRADE_EDGES, RELATION_KIND_DESCRIPTORS, ReducerProfileId,
+    SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId,
+    ServiceContractId, ServiceKindDescriptor, ServiceOperationDescriptor, ServiceOperationId,
+    TrackName, can_upgrade_reducer_profile, event_kind_str, event_spec, is_reducer_profile_id,
+    requirements_for,
 };
 pub use genesis_salt::GenesisSalt;
 pub use history_secret::{EpochRange, HistorySecretRange, validate_canonical_ranges};

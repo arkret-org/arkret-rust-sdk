@@ -9,14 +9,12 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    CircleId, DidCoreId, DidUrl, EventId, EventProofAudience, Hash, RealmId, ReasonCode, SchemaId,
-    WireResourceSelector, XExtensionMap,
+    AppletIdentifier, CircleId, DidCoreId, DidUrl, EventId, EventProofAudience, Hash, RealmId,
+    ReasonCode, SchemaId, WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::applet_models::AppletIdentifier;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/external_ref`.

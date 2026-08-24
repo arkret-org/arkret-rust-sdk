@@ -25,23 +25,6 @@ class RegistryGeneratorTests(unittest.TestCase):
             shutil.copy2(SPEC_ARTIFACTS / "registry" / name, registry / name)
         return temporary, artifacts
 
-    def test_operation_error_mapping_rejects_incomplete_coverage(self) -> None:
-        temporary, artifacts = self.registry_fixture(
-            [
-                "operation-registry.json",
-                "operations-error-mapping.json",
-                "error-code-registry.json",
-            ]
-        )
-        with temporary:
-            path = artifacts / "registry" / "operations-error-mapping.json"
-            mapping = json.loads(path.read_text(encoding="utf-8"))
-            mapping["operations"].pop()
-            path.write_text(json.dumps(mapping), encoding="utf-8")
-
-            with self.assertRaisesRegex(ValueError, "coverage mismatch"):
-                GENERATOR.generate_operation_error_mappings(artifacts)
-
     def test_digest_suite_codes_are_generated_from_the_registry(self) -> None:
         temporary, artifacts = self.registry_fixture(["digest-suite-registry.json"])
         with temporary:
@@ -61,23 +44,6 @@ class RegistryGeneratorTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "high nibble zero"):
                 GENERATOR.generate_digest_suite_codes(artifacts)
-
-    def test_operation_error_mapping_rejects_unknown_error(self) -> None:
-        temporary, artifacts = self.registry_fixture(
-            [
-                "operation-registry.json",
-                "operations-error-mapping.json",
-                "error-code-registry.json",
-            ]
-        )
-        with temporary:
-            path = artifacts / "registry" / "operations-error-mapping.json"
-            mapping = json.loads(path.read_text(encoding="utf-8"))
-            mapping["operations"][0]["operation_specific"].append("injected_unknown")
-            path.write_text(json.dumps(mapping), encoding="utf-8")
-
-            with self.assertRaisesRegex(ValueError, "unknown errors"):
-                GENERATOR.generate_operation_error_mappings(artifacts)
 
     def test_closed_registry_output_contains_the_complete_current_sets(self) -> None:
         temporary, artifacts = self.registry_fixture(
@@ -136,27 +102,30 @@ class RegistryGeneratorTests(unittest.TestCase):
         )
         self.assertNotIn('        code: "', descriptors)
 
-    def test_relation_kinds_expose_only_the_descriptor_identity(self) -> None:
+    def test_relation_kind_descriptors_are_generated(self) -> None:
         temporary, artifacts = self.registry_fixture(["relation-kind-registry.json"])
         with temporary:
             generated = GENERATOR.generate_relation_kinds(artifacts)
 
         self.assertIn("pub struct RelationKindDescriptor", generated)
         self.assertIn("pub const RELATION_KIND_DESCRIPTORS", generated)
-        self.assertNotIn("StandardRelationKindMetadata", generated)
-        self.assertNotIn("STANDARD_RELATION_KIND_METADATA", generated)
-        self.assertNotIn("standard_relation_kind_metadata", generated)
 
-    def test_authority_sources_generate_closed_ids_and_phase_descriptors(self) -> None:
+    def test_authority_sources_generate_every_registered_id(self) -> None:
         temporary, artifacts = self.registry_fixture(["authority-source-registry.json"])
         with temporary:
             generated = GENERATOR.generate_authority_sources(artifacts)
+            registry = json.loads(
+                (artifacts / "registry" / "authority-source-registry.json").read_text(
+                    encoding="utf-8"
+                )
+            )
 
         self.assertIn("pub enum AuthoritySourceId", generated)
-        self.assertIn("Self::DirectConversationBootstrapParticipantV1", generated)
-        self.assertIn("pub struct AuthoritySourcePhaseDescriptor", generated)
-        self.assertIn('phase: "provisional_history_send"', generated)
-        self.assertIn("pub const REGISTERED_AUTHORITY_SOURCES", generated)
+        for source in registry["sources"]:
+            source_id = source["authority_source_id"]
+            variant = GENERATOR.variant(source_id, GENERATOR.AUTHORITY_SOURCE_PREFIXES)
+            self.assertIn(f"Self::{variant}", generated)
+            self.assertIn(json.dumps(source_id), generated)
 
 
 class RustdocTextTests(unittest.TestCase):

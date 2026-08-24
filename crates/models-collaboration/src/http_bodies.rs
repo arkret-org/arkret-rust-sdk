@@ -310,7 +310,7 @@ pub enum SelfEventsSubmitOutcome {
     DirectConversationFounding(DirectConversationFoundingAcceptanceOutcome),
 }
 
-pub use arkret_wire::EventsSubmitBatchRequestBody;
+use arkret_wire::EventsSubmitBatchRequestBody;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitRejectedRow`.
