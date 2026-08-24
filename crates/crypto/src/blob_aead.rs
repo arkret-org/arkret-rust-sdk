@@ -63,16 +63,10 @@ pub const DEFAULT_SEGMENT_SIZE: u32 = 262_144;
 pub const MIN_SEGMENT_SIZE: u32 = 1024;
 /// Maximum `segment_bytes`: 8 MiB (scalability-constraints.md §6).
 pub const MAX_SEGMENT_SIZE: u32 = 8_388_608;
-/// Maximum `segment_count`: 2^20 (scalability-constraints.md §6). The wire
-/// type is `u32`, but v1 interop caps streams at 2^20 segments; a larger
-/// declared count MUST be rejected (`schema_violation`) *before* any
-/// count-proportional allocation — an attacker-controlled envelope must not
-/// be able to drive `Vec::with_capacity(segment_count)`.
+/// Maximum derived segment count: 2^20 (scalability-constraints.md §6).
 pub const MAX_SEGMENT_COUNT: u32 = 1_048_576;
 
-/// Reject `segment_bytes` / `segment_count` values outside the spec hard
-/// limits. Shared by the encrypt (wire-producing) and decrypt
-/// (attacker-facing) paths.
+/// Reject segment parameters outside the spec hard limits.
 fn validate_segment_bounds(segment_bytes: u32, segment_count: u32) -> Result<()> {
     if !(MIN_SEGMENT_SIZE..=MAX_SEGMENT_SIZE).contains(&segment_bytes) {
         return Err(protocol(
@@ -110,7 +104,8 @@ const FLAG_LAST: u8 = 0x01;
 ///
 /// `Option` fields distinguish the two `scheme` shapes:
 /// - whole-file carries `nonce`;
-/// - streaming carries `nonce_prefix`, `segment_bytes`, `segment_count`.
+/// - streaming carries `nonce_prefix` and `segment_bytes`; the segment count is derived from
+///   `size_bytes`.
 ///
 /// All serde `rename`s match the schema exactly; absent optionals are skipped.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -147,9 +142,6 @@ struct AttachmentEnvelopeFields {
     /// Streaming: segment size in bytes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub segment_bytes: Option<u32>,
-    /// Streaming: number of segments.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub segment_count: Option<u32>,
 }
 
 fn typed_envelope(fields: AttachmentEnvelopeFields) -> Result<EncryptedAttachment> {
@@ -248,13 +240,22 @@ fn whole_file_aad(
     Ok(canonical_json_bytes(&map)?)
 }
 
-/// `ceil(plaintext_size / segment_bytes)`, empty plaintext → 1 (§3.3.1).
-fn segment_count_for(plaintext_size: usize, segment_bytes: u32) -> u32 {
-    if plaintext_size == 0 {
-        return 1;
+/// Derive the unique streaming segment count from the plaintext length and
+/// fixed segment size. Empty plaintext is one authenticated empty segment.
+pub fn stream_segment_count(size_bytes: u64, segment_bytes: u32) -> Result<u32> {
+    if !(MIN_SEGMENT_SIZE..=MAX_SEGMENT_SIZE).contains(&segment_bytes) {
+        return Err(protocol(
+            "schema_violation",
+            &format!(
+                "segment_bytes={segment_bytes} outside [{MIN_SEGMENT_SIZE}, {MAX_SEGMENT_SIZE}]"
+            ),
+        ));
     }
-    let segment_bytes = segment_bytes as usize;
-    plaintext_size.div_ceil(segment_bytes) as u32
+    let count = size_bytes.max(1).div_ceil(u64::from(segment_bytes));
+    let count = u32::try_from(count)
+        .map_err(|_| protocol("schema_violation", "derived segment count exceeds u32"))?;
+    validate_segment_bounds(segment_bytes, count)?;
+    Ok(count)
 }
 
 // ─── streaming encrypt ──────────────────────────────────────────────────────
@@ -282,8 +283,7 @@ pub fn encrypt_stream(
             ),
         ));
     }
-    let segment_count = segment_count_for(plaintext.len(), params.segment_bytes);
-    validate_segment_bounds(params.segment_bytes, segment_count)?;
+    let segment_count = stream_segment_count(plaintext.len() as u64, params.segment_bytes)?;
     let cipher = cipher_from_key(content_key)?;
 
     let mut nonce_prefix = [0u8; NONCE_PREFIX_LEN];
@@ -341,7 +341,6 @@ pub fn encrypt_stream(
         nonce: None,
         nonce_prefix: Some(nonce_prefix_b64),
         segment_bytes: Some(params.segment_bytes),
-        segment_count: Some(segment_count),
     };
 
     Ok((ciphertext, typed_envelope(envelope)?))
@@ -382,28 +381,8 @@ impl StreamContext {
         let segment_bytes = env
             .segment_bytes
             .ok_or_else(|| protocol("unsupported_attachment_scheme", "missing segment_bytes"))?;
-        let segment_count = env
-            .segment_count
-            .ok_or_else(|| protocol("unsupported_attachment_scheme", "missing segment_count"))?;
-
-        // §6 hard limits FIRST: both fields are attacker-controlled wire
-        // input, and `decrypt_stream` allocates
-        // `Vec::with_capacity(segment_count)` — an unbounded declared count
-        // is a capacity bomb. Rejecting here guarantees every downstream
-        // count-/size-proportional allocation is bounded
-        // (≤ 2^20 segments, segment_bytes ≤ 8 MiB).
-        validate_segment_bounds(segment_bytes, segment_count)?;
-        // Declared segment_count MUST equal ceil(size/segment_bytes) (§3.3.1).
-        // A mismatch is treated as a truncation/forgery of the count.
-        let expected = segment_count_for(env.size_bytes as usize, segment_bytes);
-        if expected != segment_count {
-            return Err(protocol(
-                "segment_stream_truncated",
-                &format!(
-                    "declared segment_count={segment_count} != ceil(size/segment_bytes)={expected}"
-                ),
-            ));
-        }
+        // Derive and bound the count before any count-proportional allocation.
+        let segment_count = stream_segment_count(env.size_bytes, segment_bytes)?;
 
         let nonce_prefix_bytes = base64url_decode(nonce_prefix_b64)?;
         let nonce_prefix: [u8; NONCE_PREFIX_LEN] = nonce_prefix_bytes
@@ -692,7 +671,6 @@ pub fn encrypt_whole_file(
         nonce: Some(nonce_b64),
         nonce_prefix: None,
         segment_bytes: None,
-        segment_count: None,
     };
     Ok((ciphertext, typed_envelope(envelope)?))
 }
@@ -799,7 +777,8 @@ mod tests {
     fn split_segments(ct: &[u8], env: &EncryptedAttachment) -> Vec<Vec<u8>> {
         let env = envelope_fields(env).unwrap();
         let segment_bytes = env.segment_bytes.unwrap() as usize;
-        let segment_count = env.segment_count.unwrap();
+        let segment_count =
+            stream_segment_count(env.size_bytes, env.segment_bytes.unwrap()).unwrap();
         let mut out = Vec::new();
         let mut offset = 0;
         for index in 0..segment_count {
@@ -824,7 +803,10 @@ mod tests {
         let plaintext: Vec<u8> = (0..(2 * S + 10) as u32).map(|i| (i % 251) as u8).collect();
         let (ct, env) = encrypt_stream(&plaintext, &key, &p).unwrap();
         let fields = envelope_fields(&env).unwrap();
-        assert_eq!(fields.segment_count, Some(3));
+        assert_eq!(
+            stream_segment_count(fields.size_bytes, fields.segment_bytes.unwrap()).unwrap(),
+            3
+        );
         assert_eq!(fields.scheme, SCHEME_STREAM);
         assert_eq!(fields.encryption_algorithm, ALG_STREAM_XCHACHA);
 
@@ -848,26 +830,41 @@ mod tests {
         // empty plaintext → single zero-length last segment, count 1
         let (ct, env) = encrypt_stream(&[], &key, &params(MIN_SEGMENT_SIZE)).unwrap();
         let fields = envelope_fields(&env).unwrap();
-        assert_eq!(fields.segment_count, Some(1));
+        assert_eq!(
+            stream_segment_count(fields.size_bytes, fields.segment_bytes.unwrap()).unwrap(),
+            1
+        );
         assert_eq!(fields.size_bytes, 0);
         assert_eq!(decrypt_stream(&ct, &env, &key).unwrap(), Vec::<u8>::new());
 
         // single short segment
         let p = vec![7u8; 30];
         let (ct, env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
-        assert_eq!(envelope_fields(&env).unwrap().segment_count, Some(1));
+        let fields = envelope_fields(&env).unwrap();
+        assert_eq!(
+            stream_segment_count(fields.size_bytes, fields.segment_bytes.unwrap()).unwrap(),
+            1
+        );
         assert_eq!(decrypt_stream(&ct, &env, &key).unwrap(), p);
 
         // exactly divisible: 2*S / S == 2 segments, last == segment_bytes
         let p = vec![3u8; 2 * S];
         let (ct, env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
-        assert_eq!(envelope_fields(&env).unwrap().segment_count, Some(2));
+        let fields = envelope_fields(&env).unwrap();
+        assert_eq!(
+            stream_segment_count(fields.size_bytes, fields.segment_bytes.unwrap()).unwrap(),
+            2
+        );
         assert_eq!(decrypt_stream(&ct, &env, &key).unwrap(), p);
 
         // last segment of exactly 1 byte: (S+1) / S -> 2 segments (S + 1)
         let p = vec![9u8; S + 1];
         let (ct, env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
-        assert_eq!(envelope_fields(&env).unwrap().segment_count, Some(2));
+        let fields = envelope_fields(&env).unwrap();
+        assert_eq!(
+            stream_segment_count(fields.size_bytes, fields.segment_bytes.unwrap()).unwrap(),
+            2
+        );
         assert_eq!(decrypt_stream(&ct, &env, &key).unwrap(), p);
     }
 
@@ -883,21 +880,6 @@ mod tests {
             dec.push_segment(i as u32, seg).unwrap();
         }
         let err = dec.finish().unwrap_err();
-        assert_eq!(reason(&err), "segment_stream_truncated");
-    }
-
-    #[test]
-    fn stream_truncation_via_count_mismatch() {
-        let key = key();
-        let p = vec![1u8; 3 * S + 8];
-        let (_ct, env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
-        // declared count no longer matches ceil(size/segment_bytes)
-        let mut fields = envelope_fields(&env).unwrap();
-        fields.segment_count = Some(5);
-        let env = typed_envelope(fields).unwrap();
-        let Err(err) = StreamDecryptor::new(&env, &key) else {
-            panic!("expected count-mismatch rejection");
-        };
         assert_eq!(reason(&err), "segment_stream_truncated");
     }
 
@@ -1064,7 +1046,6 @@ mod tests {
             "epoch": 42,
             "nonce_prefix": "AAAAAAAAAAAAAAAAAAAAAAAAAA",
             "segment_bytes": 262144,
-            "segment_count": 13,
             "ciphertext_digest": "sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
             "size_bytes": 3211264,
             "media_type": "video/mp4"
@@ -1073,7 +1054,10 @@ mod tests {
         let fields = envelope_fields(&env).unwrap();
         assert_eq!(fields.scheme, SCHEME_STREAM);
         assert_eq!(fields.segment_bytes, Some(262_144));
-        assert_eq!(fields.segment_count, Some(13));
+        assert_eq!(
+            stream_segment_count(fields.size_bytes, fields.segment_bytes.unwrap()).unwrap(),
+            13
+        );
         assert!(fields.nonce.is_none());
 
         // round-trip back to JSON: whole-file optionals are skipped.

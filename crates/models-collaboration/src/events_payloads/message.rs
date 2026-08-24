@@ -591,7 +591,7 @@ impl ContentBlock {
 
     /// Validate an `ak.content.long_text` block against the normative rules that JSON Schema
     /// cannot express: UTF-8 byte bounds, normalization, format / media-type binding,
-    /// hash-only Blob refs, the plaintext `size_bytes` / `segment_count` relation and the
+    /// hash-only Blob refs, the streaming descriptor shape and the
     /// mandatory streaming AEAD scheme for the E2EE branch.
     ///
     /// The `>256 KiB` rule itself is not enforced here: section 4.1.4 allows a shorter body when
@@ -730,35 +730,18 @@ impl ContentBlock {
                         .to_owned(),
                 ));
             }
-            for key in [
-                "nonce_prefix",
-                "segment_bytes",
-                "segment_count",
-                "size_bytes",
-            ] {
+            for key in ["nonce_prefix", "segment_bytes", "size_bytes"] {
                 if !attachment.contains_key(key) {
                     return Err(WireError::Protocol(format!(
                         "E2EE long_text attachment requires {key}"
                     )));
                 }
             }
-            let plaintext_size = attachment.get("size_bytes").and_then(Value::as_u64);
             let segment_bytes = attachment.get("segment_bytes").and_then(Value::as_u64);
-            let segment_count = attachment.get("segment_count").and_then(Value::as_u64);
-            if let (Some(size), Some(seg), Some(count)) =
-                (plaintext_size, segment_bytes, segment_count)
-            {
-                if seg == 0 {
-                    return Err(WireError::Protocol(
-                        "E2EE long_text attachment segment_bytes must be positive".to_owned(),
-                    ));
-                }
-                let expected = if size == 0 { 1 } else { size.div_ceil(seg) };
-                if expected != count {
-                    return Err(WireError::Protocol(format!(
-                        "E2EE long_text attachment segment_count {count} does not equal                          ceil(size_bytes / segment_bytes) = {expected}"
-                    )));
-                }
+            if segment_bytes == Some(0) {
+                return Err(WireError::Protocol(
+                    "E2EE long_text attachment segment_bytes must be positive".to_owned(),
+                ));
             }
         }
 

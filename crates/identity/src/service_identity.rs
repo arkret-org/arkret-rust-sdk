@@ -702,10 +702,7 @@ mod tests {
         .unwrap();
         request.validate().unwrap();
         let outcome = ServiceRegistrationOutcome {
-            service_id: project_full_id_to_core_id(&operation.state.id).unwrap(),
-            full_id: operation.state.id.clone(),
             did_document: operation.state.clone(),
-            version_id: operation.version_id.clone(),
             registration_receipt: receipt(&operation),
             created: true,
         };

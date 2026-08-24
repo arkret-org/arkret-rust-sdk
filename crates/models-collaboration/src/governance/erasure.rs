@@ -49,7 +49,6 @@ pub fn account_erasure_receipt_id(
 #[serde(deny_unknown_fields)]
 pub struct ErasureReceiptPackage {
     pub receipt: ErasureReceipt,
-    pub receipt_digest: Hash,
     pub retained_stub: VerificationStub,
 }
 
@@ -64,9 +63,9 @@ impl ErasureReceiptPackage {
 
     pub fn validate_bindings(&self) -> Result<()> {
         self.receipt.validate_minimal()?;
-        if self.computed_receipt_digest()? != self.receipt_digest {
+        if self.receipt.retained_stub.is_some() {
             return Err(WireError::Protocol(
-                "erasure receipt digest mismatch".to_owned(),
+                "erasure receipt package forbids nested retained_stub".to_owned(),
             ));
         }
         self.receipt

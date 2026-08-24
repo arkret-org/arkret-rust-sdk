@@ -121,7 +121,6 @@ pub struct StreamEncryptedAttachment {
     pub media_type: String,
     pub nonce_prefix: Base64UrlString,
     pub segment_bytes: u64,
-    pub segment_count: u64,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

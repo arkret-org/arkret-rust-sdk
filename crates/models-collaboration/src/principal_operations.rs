@@ -2,9 +2,8 @@ use arkret_models_identity::{
     DidOperationSubmitRequestBody, IdentityCreationControlProof, PCR_GENESIS_UNIT_KINDS,
 };
 use arkret_wire::{
-    DeviceId, DidCoreId, DidFullId, EventBatchReceipt, EventBatchReceiptEvent, Hash,
-    IdempotencyKey, PcrGenesisUnit, RealmId, RegistrationDidEvidence, Result, WireError, canonical,
-    project_full_id_to_core_id,
+    DeviceId, DidCoreId, DidFullId, EventBatchReceipt, Hash, IdempotencyKey, PcrGenesisUnit,
+    RealmId, RegistrationDidEvidence, Result, WireError, canonical, project_full_id_to_core_id,
 };
 use serde::{Deserialize, Serialize};
 
@@ -171,12 +170,11 @@ impl PcrGenesisSubmitOutcome {
                 WireError::Protocol("PCR genesis omits founding device descriptor".to_owned())
             })?;
         let receipt_event_id = |kind: &str| {
-            self.receipt.events.iter().find_map(|event| match event {
-                EventBatchReceiptEvent::Item(item) if item.kind.as_str() == kind => {
-                    Some(&item.event_id)
-                }
-                _ => None,
-            })
+            self.receipt
+                .events
+                .iter()
+                .find(|item| item.kind.as_str() == kind)
+                .map(|item| &item.event_id)
         };
         if self.principal_id != request.principal_id
             || self.pcr_realm_id != request.pcr_realm_id

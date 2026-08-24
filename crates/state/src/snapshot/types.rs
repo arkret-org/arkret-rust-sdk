@@ -135,7 +135,7 @@ impl SnapshotManifest {
             "state_digest": self.state_digest,
             "frontier": self.frontier,
             "event_set_commitment": self.event_set_commitment,
-            "issuer": self.authority_binding.issuer,
+            "issuer": self.created_by,
             "authority_kind": self.authority_binding.authority_kind,
             "auth_state_digest": self.authority_binding.auth_state_digest,
             "auth_frontier": self.authority_binding.auth_frontier,
@@ -209,17 +209,6 @@ impl SnapshotManifest {
         let attestations = &self.authority_binding.witness_attestations;
         if self.authority_binding.authority_kind != SnapshotAuthorityKind::WitnessQuorum {
             return Ok(());
-        }
-
-        let declared_quorum = self
-            .verification_hints
-            .as_ref()
-            .and_then(|hints| hints.witness_quorum);
-        if declared_quorum != Some(policy.threshold) {
-            return Err(SnapshotValidationError::new(
-                SnapshotValidationCode::SnapshotAuthorityUnverified,
-                "verification_hints.witness_quorum does not match the policy-derived threshold",
-            ));
         }
 
         for attestation in attestations {
@@ -332,8 +321,6 @@ pub struct EventSetCommitment {
     pub root: Hash,
     pub covered_event_count: u64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub covered_event_ids: Vec<EventId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub actor_seq_ranges: Vec<ActorSeqRangeCommitment>,
 }
 
@@ -367,7 +354,6 @@ pub struct EventSetLeaf {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AuthorityBinding {
-    pub issuer: DidCoreId,
     pub authority_kind: SnapshotAuthorityKind,
     pub auth_state_digest: Hash,
     #[serde(default)]
@@ -413,9 +399,6 @@ pub struct SnapshotWitnessAttestation {
 /// auth/policy state at `manifest.created_at` through
 /// `authority_binding.auth_frontier` / `auth_state_digest`
 /// (`snapshot-schema.md` §5.1).
-///
-/// `verification_hints.witness_quorum` is never an input here: it is the
-/// issuer's declared value and is only cross-checked against `threshold`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SnapshotWitnessQuorumPolicy {
     /// Witnesses authorized at `manifest.created_at` whose signing keys the
@@ -471,8 +454,6 @@ pub struct SnapshotVerificationHints {
     pub inclusion_proof_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub challenge_window_seconds: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub witness_quorum: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub conflict_records_digest: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]

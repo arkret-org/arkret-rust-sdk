@@ -38,14 +38,6 @@ pub const MAX_BUNDLE_DEPENDENCY_DEPTH: usize = 4096;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AvailabilityReceipt {
-    pub receipt: AvailabilityReceiptContent,
-    pub receipt_digest: Hash,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AvailabilityReceiptContent {
     pub realm_id: RealmId,
     pub event_id: EventId,
     pub bytes_digest: Hash,
@@ -60,23 +52,18 @@ pub struct AvailabilityReceiptContent {
 impl AvailabilityReceipt {
     pub const SCHEMA: &'static str = SchemaId::AVAILABILITY_RECEIPT_V1;
     pub fn canonical_receipt_bytes(&self) -> Result<Vec<u8>> {
-        canonical::canonical_json_bytes(&self.receipt).map_err(Into::into)
+        canonical::canonical_json_bytes(self).map_err(Into::into)
     }
 
-    pub fn validate_receipt_digest<F>(&self, digest: F) -> Result<()>
+    pub fn full_receipt_digest<F>(&self, digest: F) -> Result<Hash>
     where
         F: FnOnce(&[u8]) -> Result<Hash>,
     {
-        if digest(&self.canonical_receipt_bytes()?)? != self.receipt_digest {
-            return Err(WireError::Protocol(
-                "availability receipt full canonical digest mismatch".to_owned(),
-            ));
-        }
-        Ok(())
+        digest(&self.canonical_receipt_bytes()?)
     }
 
     pub fn canonical_signature_payload_bytes(&self) -> Result<Vec<u8>> {
-        let mut json = serde_json::to_value(&self.receipt)?;
+        let mut json = serde_json::to_value(self)?;
         if let Value::Object(map) = &mut json {
             map.remove("signature");
         }
@@ -87,9 +74,7 @@ impl AvailabilityReceipt {
     where
         F: FnOnce(&[u8]) -> Result<Hash>,
     {
-        if digest(&self.canonical_signature_payload_bytes()?)?
-            != self.receipt.signature.payload_digest
-        {
+        if digest(&self.canonical_signature_payload_bytes()?)? != self.signature.payload_digest {
             return Err(WireError::Protocol(
                 "availability receipt signature payload digest mismatch".to_owned(),
             ));
@@ -111,27 +96,25 @@ impl AvailabilityReceipt {
         );
         binding.insert(
             "payload_digest".to_owned(),
-            serde_json::to_value(&self.receipt.signature.payload_digest)?,
+            serde_json::to_value(&self.signature.payload_digest)?,
         );
         binding.insert(
             "verification_method".to_owned(),
-            serde_json::to_value(&self.receipt.signature.verification_method)?,
+            serde_json::to_value(&self.signature.verification_method)?,
         );
         binding.insert(
             "created_at".to_owned(),
             Value::String(canonical::format_timestamp_canonical(
-                self.receipt.signature.created_at,
+                self.signature.created_at,
             )),
         );
         canonical::canonical_json_bytes(&Value::Object(binding)).map_err(Into::into)
     }
 
     pub fn validate_structural(&self) -> Result<()> {
-        self.receipt.signature.validate()?;
-        if self.receipt.holder_signer_evidence_ref.content_digest()?
-            != self.receipt.holder_signer_evidence_digest
+        self.signature.validate()?;
+        if self.holder_signer_evidence_ref.content_digest()? != self.holder_signer_evidence_digest
             || !self
-                .receipt
                 .holder_signer_evidence_digest
                 .as_ref()
                 .starts_with("sha256:")
@@ -151,7 +134,7 @@ impl AvailabilityReceipt {
             ));
         };
         map.remove("unsigned");
-        let mut preimage = b"ak.availability-event-bytes-v1".to_vec();
+        let mut preimage = b"ak.availability_event_bytes.v1".to_vec();
         preimage.push(0);
         preimage.extend(canonical::canonical_json_bytes(&value)?);
         Ok(preimage)
@@ -161,12 +144,12 @@ impl AvailabilityReceipt {
     where
         F: FnOnce(&[u8]) -> Result<Hash>,
     {
-        if event.event_id != self.receipt.event_id {
+        if event.event_id != self.event_id {
             return Err(WireError::Protocol(
                 "availability receipt Event id mismatch".to_owned(),
             ));
         }
-        if digest(&Self::event_bytes_digest_preimage(event)?)? != self.receipt.bytes_digest {
+        if digest(&Self::event_bytes_digest_preimage(event)?)? != self.bytes_digest {
             return Err(WireError::Protocol(
                 "availability receipt Event bytes digest mismatch".to_owned(),
             ));
@@ -251,7 +234,7 @@ impl CbaProofBundle {
             "CBA proof bundle availability_proofs",
             self.availability_proofs
                 .iter()
-                .map(|receipt| Ok(receipt.receipt_digest.as_str().as_bytes().to_vec())),
+                .map(AvailabilityReceipt::canonical_receipt_bytes),
         )?;
 
         let seals_by_id = self
@@ -291,7 +274,7 @@ impl CbaProofBundle {
         }
         for receipt in &self.availability_proofs {
             receipt.validate_structural()?;
-            if receipt.receipt.realm_id != *target_realm {
+            if receipt.realm_id != *target_realm {
                 return Err(WireError::Protocol(
                     "CBA proof bundle contains a cross-Realm availability proof".to_owned(),
                 ));

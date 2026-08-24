@@ -683,33 +683,25 @@ impl ServiceRegistrationEnsureRequestBody {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceRegistrationOutcome {
-    pub service_id: DidCoreId,
-    pub full_id: DidFullId,
     pub did_document: ServiceDidDocument,
-    pub version_id: String,
     pub registration_receipt: ServiceRegistrationReceipt,
     pub created: bool,
 }
 
 impl ServiceRegistrationOutcome {
     pub fn validate_for(&self, key: &ServiceRegistrationKey) -> Result<()> {
-        if self.did_document.id != self.full_id
-            || project_full_id_to_core_id(&self.full_id)? != self.service_id
-        {
+        if self.did_document.id != self.registration_receipt.full_id {
             return Err(WireError::Protocol(
                 "service registration outcome stable service id or complete DID mismatch"
                     .to_owned(),
             ));
         }
         self.did_document.validate_for(key)?;
-        self.registration_receipt
-            .validate_for(key, &self.service_id, &self.full_id)?;
-        if self.registration_receipt.version_id != self.version_id {
-            return Err(WireError::Protocol(
-                "service registration receipt version_id mismatch".to_owned(),
-            ));
-        }
-        Ok(())
+        self.registration_receipt.validate_for(
+            key,
+            &self.registration_receipt.service_id,
+            &self.registration_receipt.full_id,
+        )
     }
 
     pub fn validate_ensure_response(
@@ -719,7 +711,7 @@ impl ServiceRegistrationOutcome {
         request.validate()?;
         let key = request.registration_key()?;
         self.validate_for(&key)?;
-        if self.full_id != request.full_id {
+        if self.registration_receipt.full_id != request.full_id {
             return Err(WireError::Protocol(
                 "Provider returned a service DID different from the signed inception".to_owned(),
             ));
@@ -730,6 +722,21 @@ impl ServiceRegistrationOutcome {
             ));
         }
         Ok(())
+    }
+
+    #[must_use]
+    pub fn service_id(&self) -> &DidCoreId {
+        &self.registration_receipt.service_id
+    }
+
+    #[must_use]
+    pub fn full_id(&self) -> &DidFullId {
+        &self.registration_receipt.full_id
+    }
+
+    #[must_use]
+    pub fn version_id(&self) -> &str {
+        &self.registration_receipt.version_id
     }
 }
 

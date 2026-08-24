@@ -2417,13 +2417,18 @@ pub struct RecoveryPolicyPublishOutcome {
 pub struct RecoveryThresholdConfig {
     /// Minimum shares to reconstruct (MUST be >= 2).
     pub k: u32,
-    /// Total shares issued (MUST equal `shares.len()` and be >= `k`).
-    pub n: u32,
     pub shares: Vec<RecoveryShare>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub vss_root_commitment: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reshare_policy: Option<RecoveryResharePolicy>,
+}
+
+impl RecoveryThresholdConfig {
+    #[must_use]
+    pub fn share_count(&self) -> usize {
+        self.shares.len()
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

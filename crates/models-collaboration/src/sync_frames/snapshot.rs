@@ -55,7 +55,6 @@ pub struct RangeCompletenessAttestationWitnessAttestationWitnessesItem {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RangeCompletenessAttestationWitnessAttestation {
-    pub kind: String,
     pub witnesses: Vec<RangeCompletenessAttestationWitnessAttestationWitnessesItem>,
 }
 
@@ -198,8 +197,6 @@ pub struct SnapshotEventSetCommitment {
     pub root: Hash,
     pub covered_event_count: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub covered_event_ids: Option<Vec<EventId>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub actor_seq_ranges: Option<Vec<SnapshotEventSetCommitmentActorSeqRangesItem>>,
 }
 
@@ -210,8 +207,6 @@ pub struct SnapshotVerificationHintsValue {
     pub inclusion_proof_url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub challenge_window_seconds: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub witness_quorum: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub conflict_records_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -257,7 +252,6 @@ pub struct SnapshotWitnessAttestationItem {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SnapshotAuthorityBinding {
-    pub issuer: DidCoreId,
     pub authority_kind: String,
     pub auth_state_digest: Hash,
     pub auth_frontier: Vec<EventId>,

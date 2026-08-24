@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use arkret_models_collaboration::governance_dependencies::{
-    GovernanceDependency, governance_attester_evidence_selectors,
+    GovernanceDependency, GovernanceDependencySelector, governance_attester_evidence_selectors,
     governance_runtime_dependency_selectors_for_replay,
 };
 use arkret_models_collaboration::history_key::HistoryKeyResponseSendRequest;
@@ -96,16 +96,16 @@ fn evidence_by_digest<'a>(
             continue;
         };
         if selector
-            == &(arkret_models_collaboration::governance_dependencies::GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
+            == &(GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
                 content_digest: digest.clone(),
             })
             && found
                 .replace(authenticated_signer_resolution_evidence.as_ref())
                 .is_some()
         {
-                return Err(WireError::Protocol(
-                    "duplicate signer-resolution evidence dependency".to_owned(),
-                ));
+            return Err(WireError::Protocol(
+                "duplicate signer-resolution evidence dependency".to_owned(),
+            ));
         }
     }
     found.ok_or_else(|| {
@@ -878,24 +878,24 @@ fn verify_seal_dependencies_default(
     let mut receipts = Vec::new();
     for dependency in dependencies {
         let GovernanceDependency::AvailabilityReceipt {
+            selector: GovernanceDependencySelector::AvailabilityReceipt { content_digest },
             availability_receipt,
-            ..
         } = dependency
         else {
             continue;
         };
-        if !required.contains(&availability_receipt.receipt_digest) {
+        if !required.contains(content_digest) {
             continue;
         }
         availability_receipt.validate_structural()?;
-        if availability_receipt.receipt.realm_id != seal.realm_id {
+        if availability_receipt.realm_id != seal.realm_id {
             return Err(WireError::Protocol(
                 "availability receipt is cross-Realm".to_owned(),
             ));
         }
         let event = events
             .values()
-            .find(|event| event.event_id == availability_receipt.receipt.event_id)
+            .find(|event| event.event_id == availability_receipt.event_id)
             .ok_or_else(|| {
                 WireError::Protocol("availability receipt Event is unresolved".to_owned())
             })?;
@@ -917,17 +917,20 @@ fn verify_seal_dependencies_default(
         let digest = |bytes: &[u8]| {
             Hash::new(arkret_canonical::digest(event_digest_suite, bytes)).map_err(Into::into)
         };
-        availability_receipt.validate_receipt_digest(digest)?;
+        if availability_receipt.full_receipt_digest(digest)? != *content_digest {
+            return Err(WireError::Protocol(
+                "availability receipt dependency selector digest mismatch".to_owned(),
+            ));
+        }
         availability_receipt.validate_signature_payload_digest(digest)?;
         availability_receipt.validate_event_bytes_digest(event, digest)?;
         let evidence = evidence_by_digest(
             dependencies,
-            &availability_receipt.receipt.holder_signer_evidence_digest,
+            &availability_receipt.holder_signer_evidence_digest,
         )?;
-        if evidence.signer_id() != &availability_receipt.receipt.holder_id
-            || evidence.verification_method()
-                != &availability_receipt.receipt.signature.verification_method
-            || evidence.evidence_ref()? != availability_receipt.receipt.holder_signer_evidence_ref
+        if evidence.signer_id() != &availability_receipt.holder_id
+            || evidence.verification_method() != &availability_receipt.signature.verification_method
+            || evidence.evidence_ref()? != availability_receipt.holder_signer_evidence_ref
         {
             return Err(WireError::Protocol(
                 "availability receipt holder signer evidence binding mismatch".to_owned(),
@@ -936,19 +939,19 @@ fn verify_seal_dependencies_default(
         let key = authenticated_document_key(
             evidence,
             dependencies,
-            availability_receipt.receipt.signature.created_at,
+            availability_receipt.signature.created_at,
         )?;
         arkret_signatures::verify_ed25519_detached_jws_payload_proof(
-            &availability_receipt.receipt.signature,
+            &availability_receipt.signature,
             &availability_receipt.canonical_signature_binding_bytes()?,
             &key,
         )
         .map_err(|error| WireError::Protocol(error.to_string()))?;
-        receipts.push(availability_receipt.clone());
+        receipts.push((content_digest.clone(), availability_receipt.clone()));
     }
     let supplied = receipts
         .iter()
-        .map(|receipt| receipt.receipt_digest.clone())
+        .map(|(digest, _)| digest.clone())
         .collect::<BTreeSet<_>>();
     if supplied != required || supplied.len() != receipts.len() {
         return Err(WireError::Protocol(
@@ -960,8 +963,8 @@ fn verify_seal_dependencies_default(
         .minimum_retention_ms
         .unwrap_or(86_400_000);
     let mut holders_by_event = BTreeMap::<_, BTreeSet<_>>::new();
-    for receipt in &receipts {
-        let holder_id = &receipt.receipt.holder_id;
+    for (_, receipt) in &receipts {
+        let holder_id = &receipt.holder_id;
         let eligible = availability_policy
             .holder_roles
             .iter()
@@ -979,7 +982,6 @@ fn verify_seal_dependencies_default(
             ));
         }
         let retained_for_ms = receipt
-            .receipt
             .retention_expires_at
             .signed_duration_since(seal.sealed_at)
             .num_milliseconds();
@@ -991,7 +993,7 @@ fn verify_seal_dependencies_default(
             ));
         }
         if !holders_by_event
-            .entry(receipt.receipt.event_id.clone())
+            .entry(receipt.event_id.clone())
             .or_default()
             .insert(holder_id.clone())
         {

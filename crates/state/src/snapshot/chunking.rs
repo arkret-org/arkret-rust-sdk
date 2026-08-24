@@ -15,7 +15,7 @@ use super::types::{
     SnapshotMaterializedItem, SnapshotSecurityClass, SnapshotValidationCode,
     SnapshotValidationError, SnapshotVerifyOptions, SnapshotVerifyReport,
 };
-use crate::{BlobRef, EventId, Hash, Result, SnapshotId, WireError};
+use crate::{BlobRef, Hash, Result, SnapshotId, WireError};
 
 /// Deterministic snapshot chunker. Same input always produces the same
 /// chunk layout, regardless of implementation.
@@ -211,14 +211,12 @@ pub fn snapshot_state_leaf_hash(item: &SnapshotMaterializedItem) -> Result<Hash>
 pub fn event_set_commitment(
     algorithm: EventSetCommitmentAlgorithm,
     entries: &[EventSetLeaf],
-    covered_event_ids: Vec<EventId>,
 ) -> Result<EventSetCommitment> {
     let root = event_set_root(&algorithm, entries)?;
     Ok(EventSetCommitment {
         algorithm,
         root,
         covered_event_count: entries.len() as u64,
-        covered_event_ids,
         actor_seq_ranges: Vec::new(),
     })
 }
@@ -255,19 +253,6 @@ pub fn merkle_root_from_hashes(leaves: Vec<Hash>) -> Result<Hash> {
             .cloned()
             .ok_or_else(|| WireError::Protocol("Merkle levels are empty".to_owned()))
     })
-}
-
-pub fn manifest_frontiers_match(manifest: &SnapshotManifest) -> bool {
-    event_id_sets_equal(
-        &manifest.frontier.event_ids,
-        &manifest.event_set_commitment.covered_event_ids,
-    )
-}
-
-pub fn event_id_sets_equal(a: &[EventId], b: &[EventId]) -> bool {
-    let left: BTreeSet<_> = a.iter().collect();
-    let right: BTreeSet<_> = b.iter().collect();
-    left == right
 }
 
 pub fn verify_snapshot_chunk_bytes(
@@ -503,12 +488,6 @@ impl SnapshotManifest {
                 "snapshot chunks must not be empty",
             ));
         }
-        if self.authority_binding.issuer != self.created_by {
-            return Err(SnapshotValidationError::new(
-                SnapshotValidationCode::SnapshotAuthorityUnverified,
-                "snapshot authority_binding.issuer does not match created_by",
-            ));
-        }
         if self.signature.kind != DETACHED_JWS_PROOF_KIND
             || self.signature.verification_method.trim().is_empty()
             || self.signature.jws.trim().is_empty()
@@ -534,13 +513,6 @@ impl SnapshotManifest {
         // checked first and the per-row conditions only afterwards
         // (`snapshot-schema.md` §5.1).
         self.validate_witness_attestation_shape()?;
-        if !manifest_frontiers_match(self) {
-            return Err(SnapshotValidationError::new(
-                SnapshotValidationCode::InclusionProofFailed,
-                "event_set_commitment.covered_event_ids does not match frontier.event_ids",
-            ));
-        }
-
         let max_age = match self.security_class {
             SnapshotSecurityClass::Standard => {
                 Duration::milliseconds(SNAPSHOT_V1_STANDARD_MAX_ACCEPTANCE_AGE_MS)

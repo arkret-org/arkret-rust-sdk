@@ -32,6 +32,13 @@ pub struct VerifiedRangeCompleteness {
     pub attestation_id: String,
     pub covered_event_ids: BTreeSet<EventId>,
     pub to_frontier: Vec<EventId>,
+    pub assurance: RangeCompletenessAssurance,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RangeCompletenessAssurance {
+    SingleSource,
+    FederationWitnessAttested,
 }
 
 #[derive(Serialize)]
@@ -346,38 +353,36 @@ fn validate_witnesses(
     payload: &RangeCompletenessAttestation,
     high_assurance: bool,
     allowed_witnesses: &BTreeSet<DidCoreId>,
-) -> Result<(), RangeCompletenessError> {
+) -> Result<RangeCompletenessAssurance, RangeCompletenessError> {
     let witnesses = &payload.witness_attestation.witnesses;
-    match payload.witness_attestation.kind.as_str() {
-        "single_source" => {
+    match witnesses.len() {
+        1 => {
             if high_assurance {
                 return Err(RangeCompletenessError::WitnessDisagreement(
                     "high-assurance Realm requires federation witnesses".to_owned(),
                 ));
             }
-            if witnesses.is_empty()
-                || !witnesses.iter().any(|witness| {
-                    witness.issuer == payload.issuer
-                        && witness
-                            .verification_method
-                            .as_str()
-                            .split_once('#')
-                            .and_then(|(controller, _)| DidFullId::new(controller).ok())
-                            .and_then(|controller| project_full_id_to_core_id(&controller).ok())
-                            .is_some_and(|controller| controller == payload.issuer)
-                })
+            let witness = &witnesses[0];
+            if witness.issuer != payload.issuer
+                || witness
+                    .verification_method
+                    .as_str()
+                    .split_once('#')
+                    .and_then(|(controller, _)| DidFullId::new(controller).ok())
+                    .and_then(|controller| project_full_id_to_core_id(&controller).ok())
+                    .is_none_or(|controller| controller != payload.issuer)
+                || !payload
+                    .proofs
+                    .iter()
+                    .any(|proof| proof.verification_method == witness.verification_method)
             {
                 return Err(RangeCompletenessError::SchemaViolation(
                     "single-source witness is not bound to the issuer".to_owned(),
                 ));
             }
+            Ok(RangeCompletenessAssurance::SingleSource)
         }
-        "federation_witness_attested" => {
-            if witnesses.len() < 2 {
-                return Err(RangeCompletenessError::WitnessDisagreement(
-                    "federation witness quorum has fewer than two witnesses".to_owned(),
-                ));
-            }
+        2.. => {
             let issuers = witnesses
                 .iter()
                 .map(|witness| &witness.issuer)
@@ -411,14 +416,12 @@ fn validate_witnesses(
                     "a declared witness did not sign the payload".to_owned(),
                 ));
             }
+            Ok(RangeCompletenessAssurance::FederationWitnessAttested)
         }
-        other => {
-            return Err(RangeCompletenessError::SchemaViolation(format!(
-                "unknown witness mode {other}"
-            )));
-        }
+        0 => Err(RangeCompletenessError::SchemaViolation(
+            "range completeness requires at least one witness".to_owned(),
+        )),
     }
-    Ok(())
 }
 
 /// Verify a completeness attestation for a finished, unfiltered full-Realm
@@ -514,11 +517,12 @@ pub fn verify_full_realm_range_completeness_with_suite(
     if root != payload.root || covered_event_ids.len() as u64 != payload.count {
         return Err(RangeCompletenessError::RootMismatch);
     }
-    validate_witnesses(&payload, high_assurance, allowed_witnesses)?;
+    let assurance = validate_witnesses(&payload, high_assurance, allowed_witnesses)?;
     Ok(VerifiedRangeCompleteness {
         attestation_id: payload.attestation_id,
         covered_event_ids,
         to_frontier: heads,
+        assurance,
     })
 }
 
@@ -632,7 +636,6 @@ mod tests {
             count: covered.len() as u64,
             observed_at: created_at,
             witness_attestation: RangeCompletenessAttestationWitnessAttestation {
-                kind: "single_source".to_owned(),
                 witnesses: vec![
                     RangeCompletenessAttestationWitnessAttestationWitnessesItem {
                         issuer: issuer.clone(),

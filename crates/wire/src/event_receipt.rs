@@ -120,18 +120,10 @@ pub struct EventBatchReceipt {
     pub receipt_id: ReceiptId,
     pub issuer: DidCoreId,
     pub scope: EventBatchReceiptScope,
-    pub events: Vec<EventBatchReceiptEvent>,
+    pub events: Vec<EventBatchReceiptItem>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub proofs: Vec<PayloadProof>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum EventBatchReceiptEvent {
-    Digest(Hash),
-    Item(EventBatchReceiptItem),
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -142,7 +134,7 @@ pub struct EventBatchReceiptItem {
     pub kind: NonEmptyString,
 }
 
-impl EventBatchReceiptEvent {
+impl EventBatchReceiptItem {
     pub fn canonical_json_bytes(&self) -> Result<Vec<u8>> {
         canonical::canonical_json_bytes(self).map_err(Into::into)
     }
@@ -235,7 +227,7 @@ impl EventBatchReceipt {
         let canonical_events = self
             .events
             .iter()
-            .map(EventBatchReceiptEvent::canonical_json_bytes)
+            .map(EventBatchReceiptItem::canonical_json_bytes)
             .collect::<Result<Vec<_>>>()?;
         if canonical_events.windows(2).any(|pair| pair[0] >= pair[1]) {
             return Err(WireError::Protocol(
@@ -255,33 +247,20 @@ impl EventBatchReceipt {
             }
             EventBatchReceiptScope::DeviceReanchor(scope) => {
                 scope.validate_authority()?;
-                if self.events.len() != 2
-                    || self
-                        .events
-                        .iter()
-                        .any(|event| !matches!(event, EventBatchReceiptEvent::Item(_)))
-                {
+                if self.events.len() != 2 {
                     return Err(WireError::Protocol(
                         "device reanchor receipt must contain exactly two typed event items"
                             .to_owned(),
                     ));
                 }
-                let reanchor = self.events.iter().find_map(|event| match event {
-                    EventBatchReceiptEvent::Item(item)
-                        if item.kind.as_str() == crate::event_kind_str::DEVICE_REANCHOR =>
-                    {
-                        Some(item)
-                    }
-                    _ => None,
-                });
-                let authorize = self.events.iter().find_map(|event| match event {
-                    EventBatchReceiptEvent::Item(item)
-                        if item.kind.as_str() == crate::event_kind_str::DEVICE_AUTHORIZE =>
-                    {
-                        Some(item)
-                    }
-                    _ => None,
-                });
+                let reanchor = self
+                    .events
+                    .iter()
+                    .find(|item| item.kind.as_str() == crate::event_kind_str::DEVICE_REANCHOR);
+                let authorize = self
+                    .events
+                    .iter()
+                    .find(|item| item.kind.as_str() == crate::event_kind_str::DEVICE_AUTHORIZE);
                 if reanchor.is_none() || authorize.is_none() {
                     return Err(WireError::Protocol(
                         "device reanchor receipt event kinds mismatch".to_owned(),
@@ -289,32 +268,19 @@ impl EventBatchReceipt {
                 }
             }
             EventBatchReceiptScope::PcrGenesis(_scope) => {
-                if self.events.len() != 2
-                    || self
-                        .events
-                        .iter()
-                        .any(|event| !matches!(event, EventBatchReceiptEvent::Item(_)))
-                {
+                if self.events.len() != 2 {
                     return Err(WireError::Protocol(
                         "PCR genesis receipt must contain exactly two typed event items".to_owned(),
                     ));
                 }
-                let create = self.events.iter().find_map(|event| match event {
-                    EventBatchReceiptEvent::Item(item)
-                        if item.kind.as_str() == crate::event_kind_str::REALM_CREATE =>
-                    {
-                        Some(item)
-                    }
-                    _ => None,
-                });
-                let authorize = self.events.iter().find_map(|event| match event {
-                    EventBatchReceiptEvent::Item(item)
-                        if item.kind.as_str() == crate::event_kind_str::DEVICE_AUTHORIZE =>
-                    {
-                        Some(item)
-                    }
-                    _ => None,
-                });
+                let create = self
+                    .events
+                    .iter()
+                    .find(|item| item.kind.as_str() == crate::event_kind_str::REALM_CREATE);
+                let authorize = self
+                    .events
+                    .iter()
+                    .find(|item| item.kind.as_str() == crate::event_kind_str::DEVICE_AUTHORIZE);
                 if create.is_none() || authorize.is_none() {
                     return Err(WireError::Protocol(
                         "PCR genesis receipt event kinds mismatch".to_owned(),
@@ -367,17 +333,17 @@ mod event_batch_receipt_tests {
         )
     }
 
-    fn item(digest: Hash, kind: &str) -> EventBatchReceiptEvent {
-        EventBatchReceiptEvent::Item(EventBatchReceiptItem {
+    fn item(digest: Hash, kind: &str) -> EventBatchReceiptItem {
+        EventBatchReceiptItem {
             event_id: EventId::from_event_digest(&digest).unwrap(),
             kind: NonEmptyString::new(kind).unwrap(),
-        })
+        }
     }
 
     #[test]
     fn bare_event_id_is_not_a_receipt_event() {
         let encoded = "\"ak:event:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-\"";
-        assert!(serde_json::from_str::<EventBatchReceiptEvent>(encoded).is_err());
+        assert!(serde_json::from_str::<EventBatchReceiptItem>(encoded).is_err());
     }
 
     #[test]
@@ -420,11 +386,7 @@ mod event_batch_receipt_tests {
         let proof = unsigned_proof.finalize("AAAA..BBBB").unwrap();
         assert_eq!(receipt.proof_binding_bytes(&proof).unwrap(), signing_bytes);
         receipt.proofs.push(proof);
-        assert!(matches!(
-            &receipt.events[0],
-            EventBatchReceiptEvent::Item(item)
-                if item.kind.as_str() == "ak.device.authorize"
-        ));
+        assert_eq!(receipt.events[0].kind.as_str(), "ak.device.authorize");
         receipt.validate().unwrap();
         receipt.events.reverse();
         let reversed_digest = receipt.payload_digest().unwrap();

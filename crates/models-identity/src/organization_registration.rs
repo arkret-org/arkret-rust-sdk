@@ -557,27 +557,33 @@ impl OrganizationRegistrationReceipt {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRegistrationOutcome {
-    pub organization_id: DidCoreId,
-    pub full_id: DidFullId,
-    pub registration_generation: u64,
-    pub version_id: String,
     pub registration_receipt: OrganizationRegistrationReceipt,
     pub created: bool,
 }
 
 impl OrganizationRegistrationOutcome {
     pub fn validate(&self) -> Result<()> {
-        self.registration_receipt.validate()?;
-        if self.organization_id != self.registration_receipt.organization_id
-            || self.full_id != self.registration_receipt.full_id
-            || self.registration_generation != self.registration_receipt.registration_generation
-            || self.version_id != self.registration_receipt.version_id
-        {
-            return Err(WireError::Protocol(
-                "organization registration outcome and receipt do not match".to_owned(),
-            ));
-        }
-        Ok(())
+        self.registration_receipt.validate()
+    }
+
+    #[must_use]
+    pub fn organization_id(&self) -> &DidCoreId {
+        &self.registration_receipt.organization_id
+    }
+
+    #[must_use]
+    pub fn full_id(&self) -> &DidFullId {
+        &self.registration_receipt.full_id
+    }
+
+    #[must_use]
+    pub fn registration_generation(&self) -> u64 {
+        self.registration_receipt.registration_generation
+    }
+
+    #[must_use]
+    pub fn version_id(&self) -> &str {
+        &self.registration_receipt.version_id
     }
 }
 
@@ -891,10 +897,6 @@ mod tests {
         receipt.registration_receipt_id = receipt.expected_receipt_id().unwrap();
         receipt.proof.payload_digest = receipt.expected_payload_digest().unwrap();
         let outcome = OrganizationRegistrationOutcome {
-            organization_id: receipt.organization_id.clone(),
-            full_id: receipt.full_id.clone(),
-            registration_generation: 1,
-            version_id: receipt.version_id.clone(),
             registration_receipt: receipt,
             created: true,
         };

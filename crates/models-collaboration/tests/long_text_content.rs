@@ -44,8 +44,7 @@ fn e2ee_block() -> ContentBlock {
                 "size_bytes": 700_000u64,
                 "media_type": "text/plain",
                 "nonce_prefix": "AAAAAAAAAAAAAAAAAAAAAAAAAA",
-                "segment_bytes": 262_144u64,
-                "segment_count": 3u64
+                "segment_bytes": 262_144u64
             }),
         )
 }
@@ -125,14 +124,6 @@ fn e2ee_ciphertext_digest_must_equal_the_blob_ref_digest() {
     attachment["ciphertext_digest"] = json!(format!("sha256:{}", "c".repeat(64)));
     let mismatched = e2ee_block().with_field("attachment", attachment);
     assert!(mismatched.validate_long_text().is_err());
-}
-
-#[test]
-fn e2ee_segment_count_is_derived_from_the_plaintext_size() {
-    let mut attachment = e2ee_block().extra.get("attachment").unwrap().clone();
-    attachment["segment_count"] = json!(2u64);
-    let wrong_count = e2ee_block().with_field("attachment", attachment);
-    assert!(wrong_count.validate_long_text().is_err());
 }
 
 #[test]

@@ -1315,7 +1315,15 @@ impl GovernanceDependency {
                 availability_receipt,
             } => {
                 availability_receipt.validate_structural()?;
-                if content_digest != &availability_receipt.receipt_digest {
+                let digest_suite = content_digest.digest_suite()?;
+                if content_digest
+                    != &availability_receipt.full_receipt_digest(|bytes| {
+                        Ok(Hash::new(arkret_canonical::canonical::digest(
+                            digest_suite,
+                            bytes,
+                        ))?)
+                    })?
+                {
                     return Err(WireError::Protocol(
                         "availability receipt dependency selector digest mismatch".to_owned(),
                     ));
