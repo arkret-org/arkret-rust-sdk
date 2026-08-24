@@ -390,8 +390,8 @@ pub trait CellStore: Send + Sync {
         new_ops: &[(CellRef, IssuedOp)],
     ) -> StoreResult<()>;
 
-    /// Roll back a previously-`append_sealed_effects` call when the
-    /// computed state_root failed to match `Seal.state_root`.
+    /// Roll back a previously-`append_sealed_effects` call when publishing the
+    /// accepting Seal fails after candidate-state validation.
     fn rollback_seal(&self, realm_id: &RealmId, seal: &SealId) -> StoreResult<()>;
 }
 

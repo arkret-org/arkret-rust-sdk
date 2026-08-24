@@ -527,12 +527,21 @@ where
             ));
         }
     }
-    cells.append_sealed_effects(&seal.realm_id, &seal.id, &new_ops)?;
-
-    let post_state = effective_state_for_covered_events(&covered, &seal.realm_id, cells, registry)?;
+    // Validate the candidate state before publishing any of its effects. A
+    // durable backend may deliberately hide cell ops until their accepting
+    // Seal exists (PostgreSQL does this with a JOIN against state_seals), so
+    // re-reading the store after append_sealed_effects cannot portably expose
+    // the candidate batch. Resolve the already-sealed predecessor batches and
+    // layer this Seal's receiver-derived ops onto them in memory instead.
+    let post_state = effective_state_for_covered_events_with_new_ops(
+        &covered,
+        &seal.realm_id,
+        cells,
+        registry,
+        &new_ops,
+    )?;
     let post_live_suite = live_digest_suite_from_state(&post_state)?;
     if post_live_suite != digest_suites.seal_digest_suite {
-        cells.rollback_seal(&seal.realm_id, &seal.id)?;
         return Err(SealReject::Structural(
             "post-state live digest suite does not match the Seal suite".to_owned(),
         ));
@@ -540,14 +549,17 @@ where
     let recomputed_state = compute_state_root(&post_state, digest_suites.seal_digest_suite)
         .map_err(|e| SealReject::Store(format!("state_root recompute failed: {e}")))?;
     if recomputed_state.as_str() != seal.state_root.as_str() {
-        cells.rollback_seal(&seal.realm_id, &seal.id)?;
         return Err(SealReject::StateRootMismatch {
             declared: seal.state_root.as_str().to_owned(),
             recomputed: recomputed_state.as_str().to_owned(),
         });
     }
 
-    seals.put(seal, digest_suites.seal_digest_suite)?;
+    cells.append_sealed_effects(&seal.realm_id, &seal.id, &new_ops)?;
+    if let Err(error) = seals.put(seal, digest_suites.seal_digest_suite) {
+        let _ = cells.rollback_seal(&seal.realm_id, &seal.id);
+        return Err(error.into());
+    }
     for (digest, ..) in &accepted {
         events.mark_sealed(digest, seal)?;
     }
@@ -1314,6 +1326,57 @@ fn effective_state_for_covered_events(
     Ok(out)
 }
 
+/// Resolve a candidate post-state without requiring its cell ops to be
+/// visible through the durable [`CellStore`] before the accepting Seal is
+/// committed.
+fn effective_state_for_covered_events_with_new_ops(
+    covered: &BTreeSet<Hash>,
+    realm_id: &RealmId,
+    cells: &dyn CellStore,
+    registry: &dyn CellRegistry,
+    new_ops: &[(CellRef, IssuedOp)],
+) -> Result<BTreeMap<CellRef, CellState>, SealReject> {
+    let mut cells_to_resolve = cells
+        .list_cells(realm_id)?
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+    cells_to_resolve.extend(new_ops.iter().map(|(cell, _)| cell.clone()));
+
+    let mut out = BTreeMap::new();
+    for cell in cells_to_resolve {
+        let mut batches = cells
+            .sealed_op_batches_for_cell(realm_id, &cell)?
+            .into_iter()
+            .filter_map(|(_, ops)| {
+                let covered_ops = ops
+                    .into_iter()
+                    .filter(|issued| covered.contains(&issued.op.move_id))
+                    .collect::<Vec<_>>();
+                (!covered_ops.is_empty()).then_some(covered_ops)
+            })
+            .collect::<Vec<_>>();
+        let candidate = new_ops
+            .iter()
+            .filter(|(candidate_cell, issued)| {
+                candidate_cell == &cell && covered.contains(&issued.op.move_id)
+            })
+            .map(|(_, issued)| issued.clone())
+            .collect::<Vec<_>>();
+        if !candidate.is_empty() {
+            batches.push(candidate);
+        }
+        if batches.is_empty() {
+            continue;
+        }
+        let binding = registry.resolve(realm_id, &cell)?;
+        out.insert(
+            cell.clone(),
+            join_cell_seal_batches(binding.lattice.as_ref(), &cell, &batches),
+        );
+    }
+    Ok(out)
+}
+
 /// Linearize one Seal's `delta[]` per §6.3.1 steps 2-3.
 ///
 /// Each entry is a Control Move paired with the `event_digest` that
@@ -1528,6 +1591,74 @@ mod tests {
     };
 
     const SUITE: arkret_canonical::DigestSuite = arkret_canonical::DigestSuite::Sha256;
+
+    /// Models a durable backend that does not expose candidate cell ops until
+    /// their accepting Seal is committed. PostgreSQL uses this visibility
+    /// rule so orphaned writes from an interrupted apply cannot enter an
+    /// effective Realm view.
+    #[derive(Default)]
+    struct SealGatedCellStore {
+        inner: MemoryCellStore,
+    }
+
+    impl CellStore for SealGatedCellStore {
+        fn list_cells(&self, _realm_id: &RealmId) -> crate::state::StoreResult<Vec<CellRef>> {
+            Ok(Vec::new())
+        }
+
+        fn sealed_ops_for_cell(
+            &self,
+            _realm_id: &RealmId,
+            _cell: &CellRef,
+        ) -> crate::state::StoreResult<Vec<IssuedOp>> {
+            Ok(Vec::new())
+        }
+
+        fn sealed_op_batches_for_cell(
+            &self,
+            _realm_id: &RealmId,
+            _cell: &CellRef,
+        ) -> crate::state::StoreResult<Vec<(SealId, Vec<IssuedOp>)>> {
+            Ok(Vec::new())
+        }
+
+        fn cached_state(
+            &self,
+            realm_id: &RealmId,
+            cell: &CellRef,
+            view_hash: &Hash,
+        ) -> crate::state::StoreResult<Option<CellState>> {
+            self.inner.cached_state(realm_id, cell, view_hash)
+        }
+
+        fn put_cached_state(
+            &self,
+            realm_id: &RealmId,
+            cell: &CellRef,
+            view_hash: &Hash,
+            state: &CellState,
+        ) -> crate::state::StoreResult<()> {
+            self.inner
+                .put_cached_state(realm_id, cell, view_hash, state)
+        }
+
+        fn append_sealed_effects(
+            &self,
+            realm_id: &RealmId,
+            seal: &SealId,
+            new_ops: &[(CellRef, IssuedOp)],
+        ) -> crate::state::StoreResult<()> {
+            self.inner.append_sealed_effects(realm_id, seal, new_ops)
+        }
+
+        fn rollback_seal(
+            &self,
+            realm_id: &RealmId,
+            seal: &SealId,
+        ) -> crate::state::StoreResult<()> {
+            self.inner.rollback_seal(realm_id, seal)
+        }
+    }
 
     #[test]
     fn live_digest_suite_uses_genesis_until_a_transition_cell_exists() {
@@ -2351,6 +2482,48 @@ mod tests {
         .unwrap();
         assert_eq!(effect.accepted_event_digests, vec![digest]);
         assert_eq!(effect.post_state_root, seal.state_root);
+    }
+
+    #[test]
+    fn apply_seal_validates_candidate_state_before_durable_visibility() {
+        let events = MemoryControlEventStore::default();
+        let seals = MemorySealStore::default();
+        let cells = SealGatedCellStore::default();
+        let registry = MemoryCellRegistry::default();
+        let event = genesis_create();
+        let digest = control_event_digest(&event, SUITE).unwrap();
+        events
+            .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
+            .unwrap();
+        let post_state = state_with_digest_suite([]);
+        let seal = signed_seal_with_coverage(
+            Vec::new(),
+            vec![digest.clone()],
+            std::slice::from_ref(&event),
+            &post_state,
+            0,
+        );
+
+        let effect = apply_seal_in_context(
+            &seal,
+            &events,
+            &seals,
+            &cells,
+            &registry,
+            ok_proofs,
+            genesis_digest_suite_write,
+            EventSubmitContext::AnchorUnit,
+        )
+        .unwrap();
+
+        assert_eq!(effect.accepted_event_digests, vec![digest.clone()]);
+        assert_eq!(effect.post_state_root, seal.state_root);
+        let stored = cells
+            .inner
+            .sealed_ops_for_cell(&realm(), &digest_suite_cell())
+            .unwrap();
+        assert_eq!(stored.len(), 1);
+        assert_eq!(stored[0].op.move_id, digest);
     }
 
     #[test]
