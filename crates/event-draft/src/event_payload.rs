@@ -49,9 +49,8 @@ use arkret_models_identity::claim_presentation::AgentSelectorClaim;
 use arkret_models_identity::delivery_binding::DevicePushRoutePayload;
 use arkret_models_identity::identity_resolution::PrincipalResolutionUpdatePayload;
 use arkret_models_identity::member_identity::MemberIdentityUpdatePayload;
-use arkret_models_integration::applet_audit_payload::{
-    AppletBridgeErrorPayload, AppletRegistrationPayload,
-};
+use arkret_models_integration::applet::AppletRegistrationPayload;
+use arkret_models_integration::applet_audit_payload::AppletBridgeErrorPayload;
 use arkret_wire::{Event, Result, WireError, event_spec};
 use serde::Serialize;
 use serde::de::DeserializeOwned;

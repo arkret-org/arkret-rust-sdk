@@ -923,7 +923,7 @@ mod tests {
         let keypackage_ref = format!("sha256:{}", "11".repeat(32));
         let welcome_digest = Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap();
         let envelope = UnsignedMlsWelcomeClaimEnvelope::new(
-            arkret_models_collaboration::MlsWelcomeClaimEnvelopeSigningInput {
+            arkret_models_collaboration::events_payloads::mls::MlsWelcomeClaimEnvelopeSigningInput {
                 keypackage_ref: keypackage_ref.clone(),
                 keypackage_digest: Hash::new(format!("sha256:{}", "33".repeat(32))).unwrap(),
                 intended_realm_id: RealmId::new(

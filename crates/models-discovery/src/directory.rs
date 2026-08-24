@@ -1502,7 +1502,7 @@ mod directory_requester_proof_binding_tests {
 
 #[cfg(test)]
 mod directory_governance_proof_tests {
-    use arkret_wire::{DidCoreId, DidUrl, Hash, ServiceOperationId};
+    use arkret_wire::{AuditReasonText, DidCoreId, DidUrl, Hash, ServiceOperationId};
     use chrono::{TimeZone, Utc};
     use serde_json::{Value, json};
 

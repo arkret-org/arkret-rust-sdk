@@ -23,15 +23,12 @@ fn profile_violation(message: impl Into<String>) -> SchemaError {
     SchemaError::Protocol(format!("schema_violation: {}", message.into()))
 }
 
-/// Run the external payload validator, when the Event kind has one registered.
+/// Run the external validator for an `ak.schema.define` payload.
 ///
-/// Kind-bound payload JSON Schema validation must run before this function.
-/// Unlisted Event kinds have no external validator and therefore return `Ok`.
-pub fn validate_payload_validator_profile(event_kind: &EventKind, payload: &Value) -> Result<()> {
-    let Some(profile_id) = payload_validator_profile_id(event_kind) else {
-        return Ok(());
-    };
-
+/// The caller must first select `EventKind::SchemaDefine` and run its bound
+/// payload JSON Schema validation.
+pub fn validate_schema_definition_payload(payload: &Value) -> Result<()> {
+    let profile_id = JSON_SCHEMA_2020_12_DEFINITION_VALIDATOR_PROFILE;
     let payload = payload
         .as_object()
         .ok_or_else(|| profile_violation("ak.schema.define payload must be a JSON object"))?;
@@ -74,7 +71,7 @@ mod tests {
                 "$ref": "https://schemas.example.invalid/not-installed.json"
             }
         });
-        validate_payload_validator_profile(&EventKind::SchemaDefine, &payload).unwrap();
+        validate_schema_definition_payload(&payload).unwrap();
     }
 
     #[test]
@@ -86,9 +83,7 @@ mod tests {
                 "type": "not-a-json-schema-type"
             }
         });
-        assert!(
-            validate_payload_validator_profile(&EventKind::SchemaDefine, &invalid_keyword).is_err()
-        );
+        assert!(validate_schema_definition_payload(&invalid_keyword).is_err());
 
         let missing_id = json!({
             "value": {
@@ -96,7 +91,7 @@ mod tests {
                 "type": "object"
             }
         });
-        assert!(validate_payload_validator_profile(&EventKind::SchemaDefine, &missing_id).is_err());
+        assert!(validate_schema_definition_payload(&missing_id).is_err());
     }
 
     #[test]

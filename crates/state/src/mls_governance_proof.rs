@@ -1091,7 +1091,7 @@ where
             }
             let entry = materialize_frontier_entry(
                 cell,
-                value,
+                &FrontierValueState { value },
                 seal,
                 &state,
                 &seal_store,
@@ -1106,7 +1106,9 @@ where
                     let (boundary_cell, boundary_value) = &ordered_values[boundary_index];
                     materialize_frontier_entry(
                         boundary_cell,
-                        boundary_value,
+                        &FrontierValueState {
+                            value: boundary_value,
+                        },
                         seal,
                         &state,
                         &seal_store,
@@ -1122,7 +1124,9 @@ where
                 .map(|(boundary_cell, boundary_value)| {
                     materialize_frontier_entry(
                         boundary_cell,
-                        boundary_value,
+                        &FrontierValueState {
+                            value: boundary_value,
+                        },
                         seal,
                         &state,
                         &seal_store,
@@ -1230,10 +1234,15 @@ fn exact_seal_cut(
     Ok((cut, edges))
 }
 
+#[derive(serde::Serialize)]
+struct FrontierValueState<'a> {
+    value: &'a Value,
+}
+
 #[allow(clippy::too_many_arguments)]
 fn materialize_frontier_entry(
     cell: &CellRef,
-    value: &Value,
+    cell_state: &FrontierValueState<'_>,
     seal: &Seal,
     state: &BTreeMap<CellRef, CellState>,
     seal_store: &MemorySealStore,
@@ -1242,10 +1251,11 @@ fn materialize_frontier_entry(
     event_ids: &mut BTreeSet<EventId>,
     digest_suite: DigestSuite,
 ) -> arkret_wire::Result<MlsGovernanceFrontierCellEntry> {
+    let value = cell_state.value;
     let proof = crate::state_inclusion_proof(state, cell, digest_suite)?;
     let preimage = arkret_canonical::canonical_json_bytes(&json!({
         "cell": cell,
-        "state": {"value": value},
+        "state": cell_state,
     }))?;
     let covered = union_predecessor_covered_events(std::slice::from_ref(&seal.id), seal_store)
         .map_err(replay_reject_error)?;

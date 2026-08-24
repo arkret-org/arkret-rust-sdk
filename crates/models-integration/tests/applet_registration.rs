@@ -6,8 +6,8 @@ use arkret_models_integration::{
     AppletInstallPlan, AppletInstallPreviewRequestBody, AppletInstallRequestBody,
     AppletManagedActorAuthoringBundle, AppletNamespaceDomain, AppletNamespaceEntry, AppletPackage,
     AppletPingOutcome, AppletRegistrationEpochEvidence, AppletRegistrationEpochTranscript,
-    AppletTransactionOutcome, AppletWireNamespaces, DetachedProof, E2eeEffect,
-    HttpMessageSignatureAlgorithm, WebhookAuth, WidgetEffect, WireAppletRegistration,
+    AppletRegistrationPayload, AppletTransactionOutcome, AppletWireNamespaces, DetachedProof,
+    E2eeEffect, HttpMessageSignatureAlgorithm, WebhookAuth, WidgetEffect,
 };
 use arkret_wire::{
     AppletId, DidCoreId, DidFullId, DidUrl, Hash, Hlc, PayloadSignature, PayloadSigner, PlanId,
@@ -97,7 +97,7 @@ fn stub_detached_jws(payload_digest: &Hash) -> String {
     )
 }
 
-fn sample_wire_registration() -> WireAppletRegistration {
+fn sample_wire_registration() -> AppletRegistrationPayload {
     let mut package = package_with_required_fields();
     let evidence = sample_epoch_evidence(&package.service_id);
     package.seal_registration_epoch(&evidence).unwrap();
@@ -106,7 +106,7 @@ fn sample_wire_registration() -> WireAppletRegistration {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         payload_digest: sample_epoch(),
-        created_at: Utc::now(),
+        created_at: chrono::DateTime::from_timestamp_millis(Utc::now().timestamp_millis()).unwrap(),
         domain: None,
         audience: None,
         jws: "header..sig".to_owned(),
@@ -187,12 +187,30 @@ fn package_with_required_fields() -> AppletPackage {
     package
 }
 
+fn seal_and_sign_test_package(package: &mut AppletPackage) {
+    package.seal().unwrap();
+    let verification_method = package.webhook_auth.key_ref.clone();
+    let signer = StubSigner {
+        did: full("slackbridge"),
+        verification_method: verification_method.clone(),
+    };
+    package.sign(&signer, &verification_method).unwrap();
+}
+
+fn finalized_package_with_required_fields() -> AppletPackage {
+    let mut package = package_with_required_fields();
+    let evidence = sample_epoch_evidence(&package.service_id);
+    package.seal_registration_epoch(&evidence).unwrap();
+    seal_and_sign_test_package(&mut package);
+    package
+}
+
 #[test]
 fn wire_registration_round_trips_with_the_exact_package_proof() {
     let registration = sample_wire_registration();
     let value = serde_json::to_value(&registration).unwrap();
     assert!(value.get("kind").is_none());
-    let round_trip: WireAppletRegistration = serde_json::from_value(value).unwrap();
+    let round_trip: AppletRegistrationPayload = serde_json::from_value(value).unwrap();
     assert_eq!(round_trip.applet_id, registration.applet_id);
     assert_eq!(round_trip.namespaces.actors, registration.namespaces.actors);
     assert_eq!(round_trip.proof, registration.proof);
@@ -207,21 +225,21 @@ fn wire_registration_rejects_missing_and_recursively_unknown_fields() {
         .as_object_mut()
         .unwrap()
         .remove("claimed_profiles");
-    assert!(serde_json::from_value::<WireAppletRegistration>(missing_claimed_profiles).is_err());
+    assert!(serde_json::from_value::<AppletRegistrationPayload>(missing_claimed_profiles).is_err());
 
     let mut unknown_top_level = value.clone();
     unknown_top_level["legacy"] = json!(true);
-    assert!(serde_json::from_value::<WireAppletRegistration>(unknown_top_level).is_err());
+    assert!(serde_json::from_value::<AppletRegistrationPayload>(unknown_top_level).is_err());
 
     let mut unknown_manifest = value.clone();
     unknown_manifest["manifest"]["legacy"] = json!(true);
-    assert!(serde_json::from_value::<WireAppletRegistration>(unknown_manifest).is_err());
+    assert!(serde_json::from_value::<AppletRegistrationPayload>(unknown_manifest).is_err());
 
     let mut old_event_digest_proof = value;
     let proof = old_event_digest_proof["proof"].as_object_mut().unwrap();
     let digest = proof.remove("payload_digest").unwrap();
     proof.insert("event_digest".to_owned(), digest);
-    assert!(serde_json::from_value::<WireAppletRegistration>(old_event_digest_proof).is_err());
+    assert!(serde_json::from_value::<AppletRegistrationPayload>(old_event_digest_proof).is_err());
 }
 
 #[test]
@@ -371,6 +389,7 @@ fn registration_epoch_evidence_rejects_rotation_swap_and_empty_key_set() {
         .validate_against_did_document(&old_document)
         .unwrap();
     package.seal_registration_epoch(&old_evidence).unwrap();
+    seal_and_sign_test_package(&mut package);
     package.validate_with_epoch_evidence(&old_evidence).unwrap();
     let old_epoch = package.registration_epoch.clone();
 
@@ -400,6 +419,7 @@ fn registration_epoch_evidence_rejects_rotation_swap_and_empty_key_set() {
             .is_err()
     );
     package.seal_registration_epoch(&rotated_evidence).unwrap();
+    seal_and_sign_test_package(&mut package);
     assert_ne!(package.registration_epoch, old_epoch);
     package
         .validate_with_epoch_evidence(&rotated_evidence)
@@ -515,8 +535,8 @@ fn install_plan_digest_excludes_itself_and_scope_round_trips() {
 #[test]
 fn install_commit_uses_each_signed_event_carrier_once() {
     let scope = ScopeRef::Realm { realm_id: realm() };
-    let package = package_with_required_fields();
-    let requested_at = Utc::now();
+    let package = finalized_package_with_required_fields();
+    let requested_at = arkret_canonical::canonical::normalize_timestamp_canonical(Utc::now());
     let requested_expires_at = requested_at + chrono::Duration::minutes(5);
     let registration_epoch_evidence = sample_epoch_evidence(&package.service_id);
     let registration_event = arkret_wire::test_support::raw_event(
@@ -549,7 +569,7 @@ fn install_commit_uses_each_signed_event_carrier_once() {
         applet_id: package.applet_id.clone(),
         service_id: package.service_id.clone(),
         package_digest: package.package_digest.clone().unwrap(),
-        effective_scope: scope,
+        effective_scope: scope.clone(),
         approval_request: arkret_models_integration::AppletApprovalRequest {
             approve_actions: vec!["ak.message.create".to_owned()],
             ghost_actor_mode: arkret_models_integration::AppletGhostActorMode::Disallowed,
@@ -571,8 +591,13 @@ fn install_commit_uses_each_signed_event_carrier_once() {
             .unwrap(),
     };
     let authoring_request =
-        AppletInstallAuthoringRequest::sign(basis, sample_epoch(), requested_expires_at, &signer)
-            .unwrap();
+        AppletInstallAuthoringRequest::sign(
+            basis,
+            package.registration_epoch.clone(),
+            requested_expires_at,
+            &signer,
+        )
+        .unwrap();
     let bot_actor_provision_event = arkret_wire::test_support::raw_event_at(
         "ak.applet.managed_actor.provision", scope.clone(), service("slackbridge"), actor("principal-server"), 1,
         Hlc::new("01970e589d21-0100-a13f9c2e").unwrap(),
@@ -697,7 +722,7 @@ fn install_commit_uses_each_signed_event_carrier_once() {
 
 #[test]
 fn install_preview_has_only_package_and_authoring_basis() {
-    let package = package_with_required_fields();
+    let package = finalized_package_with_required_fields();
     let evidence = sample_epoch_evidence(&package.service_id);
     let scope = ScopeRef::Realm { realm_id: realm() };
     let registration_event = arkret_wire::test_support::raw_event(
@@ -771,9 +796,9 @@ fn install_preview_has_only_package_and_authoring_basis() {
 
 #[test]
 fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
-    let package = package_with_required_fields();
+    let package = finalized_package_with_required_fields();
     let scope = ScopeRef::Realm { realm_id: realm() };
-    let requested_at = Utc::now();
+    let requested_at = arkret_canonical::canonical::normalize_timestamp_canonical(Utc::now());
     let expires_at = requested_at + chrono::Duration::minutes(5);
     let registration_event = arkret_wire::test_support::raw_event(
         "ak.applet.registration", scope.clone(), actor("admin"), actor("principal-server"), 1,
@@ -818,23 +843,32 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
         verification_method: DidUrl::new(format!("{}#notary-key", full("principal-server")))
             .unwrap(),
     };
-    let first =
-        AppletInstallAuthoringRequest::sign(basis.clone(), sample_epoch(), expires_at, &signer)
-            .unwrap();
+    let first = AppletInstallAuthoringRequest::sign(
+        basis.clone(),
+        package.registration_epoch.clone(),
+        expires_at,
+        &signer,
+    )
+    .unwrap();
     let mut excessive_window = basis.clone();
     excessive_window.requested_expires_at = requested_at + chrono::Duration::minutes(6);
     assert!(excessive_window.validate().is_err());
     assert!(
         AppletInstallAuthoringRequest::sign(
             basis.clone(),
-            sample_epoch(),
+            package.registration_epoch.clone(),
             expires_at - chrono::Duration::seconds(1),
             &signer,
         )
         .is_err()
     );
-    let second =
-        AppletInstallAuthoringRequest::sign(basis, sample_epoch(), expires_at, &signer).unwrap();
+    let second = AppletInstallAuthoringRequest::sign(
+        basis,
+        package.registration_epoch.clone(),
+        expires_at,
+        &signer,
+    )
+    .unwrap();
     assert_eq!(
         canonical::canonical_json_bytes(&first).unwrap(),
         canonical::canonical_json_bytes(&second).unwrap()

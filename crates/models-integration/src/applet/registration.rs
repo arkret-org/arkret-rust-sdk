@@ -538,7 +538,7 @@ pub struct AppletRegistrationEpochDidDocument {
 /// [`AppletPackage::to_registration`].
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize)]
-pub struct WireAppletRegistration {
+pub struct AppletRegistrationPayload {
     pub applet_id: AppletId,
     pub service_id: DidCoreId,
     pub controller_id: DidCoreId,
@@ -588,7 +588,7 @@ pub struct AppletRegistrationManifest {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct WireAppletRegistrationWire {
+struct AppletRegistrationPayloadWire {
     applet_id: AppletId,
     service_id: DidCoreId,
     controller_id: DidCoreId,
@@ -609,12 +609,12 @@ struct WireAppletRegistrationWire {
     created_at: DateTime<Utc>,
 }
 
-impl<'de> Deserialize<'de> for WireAppletRegistration {
+impl<'de> Deserialize<'de> for AppletRegistrationPayload {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let wire = WireAppletRegistrationWire::deserialize(deserializer)?;
+        let wire = AppletRegistrationPayloadWire::deserialize(deserializer)?;
         Ok(Self {
             applet_id: wire.applet_id,
             service_id: wire.service_id,
@@ -637,7 +637,7 @@ impl<'de> Deserialize<'de> for WireAppletRegistration {
     }
 }
 
-impl WireAppletRegistration {
+impl AppletRegistrationPayload {
     /// Durable event kind this registration is published under.
     pub const KIND: &'static str = arkret_wire::event_kind_str::APPLET_REGISTRATION;
 }
@@ -1494,9 +1494,9 @@ impl AppletPackage {
     pub fn to_registration(
         &self,
         registration_epoch_evidence: &AppletRegistrationEpochEvidence,
-    ) -> Result<WireAppletRegistration> {
+    ) -> Result<AppletRegistrationPayload> {
         self.validate_with_epoch_evidence(registration_epoch_evidence)?;
-        Ok(WireAppletRegistration {
+        Ok(AppletRegistrationPayload {
             applet_id: self.applet_id.clone(),
             service_id: self.service_id.clone(),
             controller_id: self.controller_id.clone(),

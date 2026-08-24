@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use arkret_models_integration::applet::AppletRegistrationEpochTranscript;
 use arkret_schema::embedded_json_artifact;
 

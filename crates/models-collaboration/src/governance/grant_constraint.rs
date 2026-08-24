@@ -806,7 +806,15 @@ mod tests {
             actions: vec!["ak.event.read".to_owned()],
             resources: vec![serde_json::from_value(json!({"kind": "realm"})).unwrap()],
             capability_action_registry_digest: None,
-            constraints: Vec::new(),
+            constraints: vec![
+                serde_json::from_value(json!({
+                    "constraint_kind": "temporal",
+                    "effect": "allow",
+                    "not_before": "2026-07-14T12:34:56.789Z",
+                    "expires_at": "2026-07-14T12:34:56.789Z"
+                }))
+                .unwrap(),
+            ],
             issuer_authority_refs: vec![IssuerAuthorityRef::RealmRoot {
                 realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
                     .unwrap(),
@@ -815,8 +823,6 @@ mod tests {
                 authority_generation: 0,
             }],
             issued_at: fractional,
-            not_before: Some(fractional),
-            expires_at: Some(fractional),
             updated_by: None,
             updated_at: Some(fractional),
             revoked_by: None,
@@ -826,8 +832,8 @@ mod tests {
         let wire = serde_json::to_value(&grant).unwrap();
         for pointer in [
             "/issued_at",
-            "/not_before",
-            "/expires_at",
+            "/constraints/0/not_before",
+            "/constraints/0/expires_at",
             "/updated_at",
             "/revoked_at",
         ] {
