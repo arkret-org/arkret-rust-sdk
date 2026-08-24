@@ -15,7 +15,6 @@ pub fn verify_frozen_notary_signature(
     canonical_body: &[u8],
     digest_suite: arkret_canonical::DigestSuite,
 ) -> arkret_wire::Result<()> {
-    signature.validate_descriptor_binding(descriptor)?;
     let expected_payload_digest =
         Hash::new(arkret_canonical::digest(digest_suite, canonical_body))?;
     if signature.payload_digest != expected_payload_digest {
@@ -23,6 +22,22 @@ pub fn verify_frozen_notary_signature(
             "Seal signature payload_digest does not match canonical body".to_owned(),
         ));
     }
+    verify_frozen_notary_detached_jws(signature, descriptor, canonical_body)
+}
+
+/// Verify a domain-specific detached JWS against a frozen notary descriptor.
+///
+/// Unlike [`verify_frozen_notary_signature`], this helper deliberately does
+/// not reinterpret `payload_digest` as the digest of `signed_payload`.
+/// Protocol objects such as Control Proposal Acks bind their statement digest
+/// inside a domain-separated transcript; their structural validators check
+/// that binding before this cryptographic verification step.
+pub fn verify_frozen_notary_detached_jws(
+    signature: &SealSignature,
+    descriptor: &NotarySignerDescriptor,
+    signed_payload: &[u8],
+) -> arkret_wire::Result<()> {
+    signature.validate_descriptor_binding(descriptor)?;
     let mut segments = signature.jws.split('.');
     let protected_b64u = segments.next().unwrap_or_default();
     let payload = segments.next().unwrap_or_default();
@@ -36,7 +51,7 @@ pub fn verify_frozen_notary_signature(
     let signature_bytes = arkret_canonical::base64url_decode(signature_b64u)?;
     let signing_input = format!(
         "{protected_b64u}.{}",
-        arkret_canonical::base64url_encode(canonical_body)
+        arkret_canonical::base64url_encode(signed_payload)
     );
 
     match (descriptor.key_kind, descriptor.jose_algorithm) {
@@ -147,5 +162,29 @@ mod tests {
             current.frozen_public_key_b64u
         );
         assert!(error.to_string().contains("signature verification failed"));
+    }
+
+    #[test]
+    fn domain_transcript_verification_does_not_reinterpret_payload_digest() {
+        let method = DidUrl::new("did:web:replay-kat.example#notary-key-1").unwrap();
+        let seed = [0x33; 32];
+        let descriptor = descriptor(seed, &method);
+        let transcript = br#"{\"context\":\"ak.control_proposal_authority_ack_proof.v1\"}"#;
+        let mut signature = signature(seed, &method, transcript);
+        signature.payload_digest = Hash::new(arkret_canonical::canonical::sha256_digest(
+            b"authority-ack-body",
+        ))
+        .unwrap();
+
+        verify_frozen_notary_detached_jws(&signature, &descriptor, transcript)
+            .expect("domain transcript signature must verify under the frozen descriptor");
+        let error = verify_frozen_notary_signature(
+            &signature,
+            &descriptor,
+            transcript,
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .expect_err("the Seal verifier must retain its direct body-digest contract");
+        assert!(error.to_string().contains("payload_digest"));
     }
 }

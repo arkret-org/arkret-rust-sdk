@@ -1021,15 +1021,15 @@ fn verify_seal_dependencies_default(
 
 fn verify_genesis_availability_commitment(
     availability_receipt_digests: &[Hash],
-    dependencies: &[GovernanceDependency],
+    _dependencies: &[GovernanceDependency],
 ) -> Result<(), WireError> {
-    if !availability_receipt_digests.is_empty()
-        || dependencies.iter().any(|dependency| {
-            matches!(dependency, GovernanceDependency::AvailabilityReceipt { .. })
-        })
-    {
+    // `dependencies` is the checkpoint-wide closure shared while replaying
+    // every Seal in the path. Successor receipts can therefore be present
+    // while the genesis Seal is being checked; they are not supplied *by*
+    // genesis unless its own signed commitment names them.
+    if !availability_receipt_digests.is_empty() {
         return Err(WireError::Protocol(
-            "genesis Seal must not commit or supply availability receipts".to_owned(),
+            "genesis Seal must not commit availability receipts".to_owned(),
         ));
     }
     Ok(())
@@ -1579,7 +1579,7 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains("genesis Seal must not commit or supply availability receipts")
+                .contains("genesis Seal must not commit availability receipts")
         );
     }
 }

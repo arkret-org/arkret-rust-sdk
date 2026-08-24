@@ -25,7 +25,7 @@ pub use eddsa_jcs_2022::{
     EddsaJcs2022Error, build_eddsa_jcs_2022_proof, eddsa_jcs_2022_proof_config,
     eddsa_jcs_2022_signing_input, verify_eddsa_jcs_2022_proof,
 };
-pub use frozen_notary::verify_frozen_notary_signature;
+pub use frozen_notary::{verify_frozen_notary_detached_jws, verify_frozen_notary_signature};
 
 // Agent key-pairing canonical binding digests. Gated by `collaboration` because
 // they validate against the `PublicKey` wire model owned by

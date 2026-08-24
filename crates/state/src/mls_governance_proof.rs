@@ -2134,6 +2134,8 @@ fn add_joined_holder_from_event(
     };
     if let Some(authority) = payload.principal_authority {
         joined_member_principal_server_ids.insert(authority.principal_server_id);
+    } else if let Some(binding) = payload.delivery_binding {
+        joined_member_principal_server_ids.insert(binding.recipient_service_id);
     } else if let Some(actor_id) = payload.actor_id {
         joined_service_actor_ids.insert(actor_id);
     }
