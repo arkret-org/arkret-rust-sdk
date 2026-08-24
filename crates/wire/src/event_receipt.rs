@@ -43,8 +43,6 @@ pub struct PcrGenesisReceiptScope {
     pub log_head_digest: Hash,
     pub control_key_digest: Hash,
     pub registration_evidence_digest: Hash,
-    pub create_digest: Hash,
-    pub founding_authorize_digest: Hash,
     pub accepted_device_id: crate::DeviceId,
     pub device_key_digest: Hash,
     pub hpke_key_digest: Hash,
@@ -83,12 +81,10 @@ pub enum DeviceReanchorReceiptScopeKind {
 pub struct DeviceReanchorReceiptScope {
     pub kind: DeviceReanchorReceiptScopeKind,
     pub principal_id: DidCoreId,
+    pub principal_server_id: DidCoreId,
     pub realm_id: RealmId,
-    pub authority: PrincipalAuthorityKey,
     pub previous_device_generation: u64,
     pub new_device_generation: u64,
-    pub reanchor_digest: Hash,
-    pub replacement_authorize_digest: Hash,
 }
 
 impl DeviceReanchorReceiptScope {
@@ -99,11 +95,11 @@ impl DeviceReanchorReceiptScope {
     /// monotonic successor pair. A same-core instance selecting a different
     /// Principal Server, PCR Realm or genesis receipt is a different PCR.
     pub fn validate_authority(&self) -> Result<()> {
-        if self.authority.principal_id != self.principal_id {
-            return Err(WireError::Protocol(
-                "device reanchor receipt scope authority does not bind its principal".to_owned(),
-            ));
+        PrincipalAuthorityKey {
+            principal_id: self.principal_id.clone(),
+            principal_server_id: self.principal_server_id.clone(),
         }
+        .validate()?;
         if self.previous_device_generation == 0
             || self.new_device_generation != self.previous_device_generation.saturating_add(1)
         {
@@ -119,26 +115,11 @@ impl DeviceReanchorReceiptScope {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct EventBatchReceiptFrontier {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_seq: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub event_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hlc: Option<String>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct EventBatchReceipt {
     pub schema: String,
     pub receipt_id: ReceiptId,
     pub issuer: DidCoreId,
     pub scope: EventBatchReceiptScope,
-    pub frontier: EventBatchReceiptFrontier,
     pub events: Vec<EventBatchReceiptEvent>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -261,15 +242,6 @@ impl EventBatchReceipt {
                 "event batch receipt events must be canonical sorted and duplicate-free".to_owned(),
             ));
         }
-        if self.frontier.actor_seq.is_none()
-            && self.frontier.event_id.is_none()
-            && self.frontier.event_digest.is_none()
-            && self.frontier.hlc.is_none()
-        {
-            return Err(WireError::Protocol(
-                "event batch receipt frontier must not be empty".to_owned(),
-            ));
-        }
         match &self.scope {
             EventBatchReceiptScope::Ordinary(scope) => {
                 if scope.actor_id.is_none()
@@ -310,17 +282,13 @@ impl EventBatchReceipt {
                     }
                     _ => None,
                 });
-                if reanchor.map(|item| item.event_id.event_digest())
-                    != Some(scope.reanchor_digest.clone())
-                    || authorize.map(|item| item.event_id.event_digest())
-                        != Some(scope.replacement_authorize_digest.clone())
-                {
+                if reanchor.is_none() || authorize.is_none() {
                     return Err(WireError::Protocol(
-                        "device reanchor receipt event binding mismatch".to_owned(),
+                        "device reanchor receipt event kinds mismatch".to_owned(),
                     ));
                 }
             }
-            EventBatchReceiptScope::PcrGenesis(scope) => {
+            EventBatchReceiptScope::PcrGenesis(_scope) => {
                 if self.events.len() != 2
                     || self
                         .events
@@ -347,13 +315,9 @@ impl EventBatchReceipt {
                     }
                     _ => None,
                 });
-                if create.map(|item| item.event_id.event_digest())
-                    != Some(scope.create_digest.clone())
-                    || authorize.map(|item| item.event_id.event_digest())
-                        != Some(scope.founding_authorize_digest.clone())
-                {
+                if create.is_none() || authorize.is_none() {
                     return Err(WireError::Protocol(
-                        "PCR genesis receipt event binding mismatch".to_owned(),
+                        "PCR genesis receipt event kinds mismatch".to_owned(),
                     ));
                 }
             }
@@ -426,21 +390,13 @@ mod event_batch_receipt_tests {
             issuer: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
             scope: EventBatchReceiptScope::DeviceReanchor(DeviceReanchorReceiptScope {
                 kind: DeviceReanchorReceiptScopeKind::DeviceReanchorUnit,
-                principal_id: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+                principal_id: fixture_authority().principal_id,
+                principal_server_id: fixture_authority().principal_server_id,
                 realm_id: RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
                     .unwrap(),
-                authority: fixture_authority(),
                 previous_device_generation: 1,
                 new_device_generation: 2,
-                reanchor_digest: reanchor_digest.clone(),
-                replacement_authorize_digest: authorize_digest.clone(),
             }),
-            frontier: EventBatchReceiptFrontier {
-                actor_seq: Some(2),
-                event_id: None,
-                event_digest: None,
-                hlc: None,
-            },
             events: vec![
                 item(reanchor_digest, "ak.device.reanchor"),
                 item(authorize_digest, "ak.device.authorize"),
@@ -489,22 +445,17 @@ mod event_batch_receipt_tests {
             issuer: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
             scope: EventBatchReceiptScope::DeviceReanchor(DeviceReanchorReceiptScope {
                 kind: DeviceReanchorReceiptScopeKind::DeviceReanchorUnit,
-                principal_id: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+                principal_id: fixture_authority().principal_id,
+                principal_server_id: fixture_authority().principal_server_id,
                 realm_id: RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
                     .unwrap(),
-                authority: fixture_authority(),
                 previous_device_generation: 1,
                 new_device_generation: 2,
-                reanchor_digest: event_digest.clone(),
-                replacement_authorize_digest: hash(0xbb),
             }),
-            frontier: EventBatchReceiptFrontier {
-                actor_seq: Some(1),
-                event_id: None,
-                event_digest: Some(event_digest.clone()),
-                hlc: None,
-            },
-            events: vec![item(event_digest, "ak.device.reanchor")],
+            events: vec![
+                item(event_digest, "ak.device.reanchor"),
+                item(hash(0xbb), "ak.device.authorize"),
+            ],
             created_at,
             proofs: Vec::new(),
         };
@@ -534,16 +485,44 @@ mod event_batch_receipt_tests {
         let authority = fixture_authority();
         let scope = DeviceReanchorReceiptScope {
             kind: DeviceReanchorReceiptScopeKind::DeviceReanchorUnit,
-            principal_id: authority.principal_id.clone(),
+            principal_id: authority.principal_id,
+            principal_server_id: authority.principal_server_id,
             realm_id: RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
                 .unwrap(),
-            authority,
             previous_device_generation: 1,
             new_device_generation: 3,
-            reanchor_digest: hash(0xbb),
-            replacement_authorize_digest: hash(0xaa),
         };
         let error = scope.validate_authority().unwrap_err();
         assert!(error.to_string().contains("immediate successors"));
+    }
+
+    #[test]
+    fn reanchor_scope_serializes_the_single_flat_authority_pair() {
+        let scope = DeviceReanchorReceiptScope {
+            kind: DeviceReanchorReceiptScopeKind::DeviceReanchorUnit,
+            principal_id: fixture_authority().principal_id,
+            principal_server_id: fixture_authority().principal_server_id,
+            realm_id: RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
+                .unwrap(),
+            previous_device_generation: 1,
+            new_device_generation: 2,
+        };
+        let value = serde_json::to_value(scope).unwrap();
+        let object = value.as_object().unwrap();
+        assert_eq!(
+            object
+                .keys()
+                .map(String::as_str)
+                .collect::<std::collections::BTreeSet<_>>(),
+            std::collections::BTreeSet::from([
+                "kind",
+                "new_device_generation",
+                "previous_device_generation",
+                "principal_id",
+                "principal_server_id",
+                "realm_id",
+            ])
+        );
+        assert!(!object.contains_key("authority"));
     }
 }

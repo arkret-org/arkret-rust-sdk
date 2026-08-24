@@ -1,15 +1,15 @@
 {
   "summary": {
-    "total": 1347,
+    "total": 1346,
     "by_classification": {
       "A": 10,
       "B": 755,
-      "needs_review": 582
+      "needs_review": 581
     },
     "by_openness": {
       "closed": 763,
       "open": 2,
-      "unresolved": 574,
+      "unresolved": 573,
       "unspecified": 8
     },
     "by_crate": {
@@ -26,7 +26,7 @@
       "sdk": 4,
       "signatures": 8,
       "state": 4,
-      "wire": 140
+      "wire": 139
     }
   },
   "entries": [
@@ -3063,7 +3063,7 @@
       "rust_type": "crates/models-collaboration/src/events_payloads/device_identity.rs::DeviceListUpdatePayload",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/events_payloads/device_identity.rs",
-      "line": 546,
+      "line": 548,
       "kind": "struct",
       "value_kind": "DeviceListUpdatePayload",
       "spec_pointer": "event-payload.schema.json#/$defs/device_list_update_payload",
@@ -3076,7 +3076,7 @@
       "rust_type": "crates/models-collaboration/src/events_payloads/device_identity.rs::DeviceListUpdatePayloadWire",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/events_payloads/device_identity.rs",
-      "line": 565,
+      "line": 567,
       "kind": "struct",
       "value_kind": "DeviceListUpdatePayloadWire",
       "spec_pointer": null,
@@ -3089,7 +3089,7 @@
       "rust_type": "crates/models-collaboration/src/events_payloads/device_identity.rs::DeviceRevokePayload",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/events_payloads/device_identity.rs",
-      "line": 627,
+      "line": 629,
       "kind": "struct",
       "value_kind": "DeviceRevokePayload",
       "spec_pointer": "event-payload.schema.json#/$defs/device_revoke_payload",
@@ -3102,7 +3102,7 @@
       "rust_type": "crates/models-collaboration/src/events_payloads/device_identity.rs::DirectConversationBoundPayload",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/events_payloads/device_identity.rs",
-      "line": 685,
+      "line": 687,
       "kind": "struct",
       "value_kind": "DirectConversationBoundPayload",
       "spec_pointer": "event-payload.schema.json#/$defs/direct_conversation_bound_payload",
@@ -10070,7 +10070,7 @@
       "rust_type": "crates/models-collaboration/src/principal_operations.rs::PcrGenesisSubmitRequestBody",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/principal_operations.rs",
-      "line": 19,
+      "line": 20,
       "kind": "struct",
       "value_kind": "PcrGenesisSubmitRequestBody",
       "spec_pointer": null,
@@ -10083,7 +10083,7 @@
       "rust_type": "crates/models-collaboration/src/principal_operations.rs::PcrGenesisSubmitOutcome",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/principal_operations.rs",
-      "line": 152,
+      "line": 153,
       "kind": "struct",
       "value_kind": "PcrGenesisSubmitOutcome",
       "spec_pointer": "principal-operations.schema.json#/$defs/pcr_genesis_submit_outcome",
@@ -16323,7 +16323,7 @@
       "rust_type": "crates/wire/src/event_receipt.rs::EventBatchOrdinaryReceiptScope",
       "crate": "wire",
       "file": "crates/wire/src/event_receipt.rs",
-      "line": 58,
+      "line": 56,
       "kind": "struct",
       "value_kind": "EventBatchOrdinaryReceiptScope",
       "spec_pointer": null,
@@ -16336,7 +16336,7 @@
       "rust_type": "crates/wire/src/event_receipt.rs::DeviceReanchorReceiptScope",
       "crate": "wire",
       "file": "crates/wire/src/event_receipt.rs",
-      "line": 82,
+      "line": 80,
       "kind": "struct",
       "value_kind": "DeviceReanchorReceiptScope",
       "spec_pointer": "event-batch-receipt.schema.json#/$defs/device_reanchor_scope",
@@ -16346,23 +16346,10 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/wire/src/event_receipt.rs::EventBatchReceiptFrontier",
-      "crate": "wire",
-      "file": "crates/wire/src/event_receipt.rs",
-      "line": 121,
-      "kind": "struct",
-      "value_kind": "EventBatchReceiptFrontier",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
       "rust_type": "crates/wire/src/event_receipt.rs::EventBatchReceipt",
       "crate": "wire",
       "file": "crates/wire/src/event_receipt.rs",
-      "line": 135,
+      "line": 117,
       "kind": "struct",
       "value_kind": "EventBatchReceipt",
       "spec_pointer": "event-batch-receipt.schema.json",
@@ -16375,7 +16362,7 @@
       "rust_type": "crates/wire/src/event_receipt.rs::EventBatchReceiptItem",
       "crate": "wire",
       "file": "crates/wire/src/event_receipt.rs",
-      "line": 158,
+      "line": 139,
       "kind": "struct",
       "value_kind": "EventBatchReceiptItem",
       "spec_pointer": null,

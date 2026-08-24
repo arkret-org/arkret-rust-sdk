@@ -74,7 +74,7 @@ mod tests {
 
     const REQUEST_EVENT_REF: &str = "ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD";
     const CORE_DIGEST: &str =
-        "sha256:14d0ee1b476e812181b3c4b56bf64971e06ea74b2c18a306d591bc3a97d9755d";
+        "sha256:3f0e0067730234e299960042937a951f5e24c81e099cb7a26562db9efe4a405f";
 
     fn hash(fill: char) -> Hash {
         Hash::new(format!("sha256:{}", fill.to_string().repeat(64))).unwrap()
@@ -133,7 +133,7 @@ mod tests {
                 "\"request_event_ref\":\"ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD\",",
                 "\"slot_version\":1,",
                 "\"source_checkpoint\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},",
-                "\"receipt_digest\":\"sha256:14d0ee1b476e812181b3c4b56bf64971e06ea74b2c18a306d591bc3a97d9755d\"}"
+                "\"receipt_digest\":\"sha256:3f0e0067730234e299960042937a951f5e24c81e099cb7a26562db9efe4a405f\"}"
             )
         );
         verify_contact_request_acceptance_receipt(

@@ -422,7 +422,7 @@ mod tests {
         assert_eq!(
             string_set_digest_component(&left, DomainSeparationId::ACCOUNTABILITY_SCOPE_SET_V1,)
                 .unwrap(),
-            "GuBGA6Mm1pfBN0XAk4CD0zuPPBxC5HzVNM-AIdFZRnc"
+            "AWANhOFZ5FNgAQMK9mqCeI3ATOZR6o7qwshmpk3ij3U"
         );
         assert_eq!(
             string_set_digest_component(&left, DomainSeparationId::ACCOUNTABILITY_SCOPE_SET_V1,)

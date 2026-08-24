@@ -2,8 +2,9 @@ use arkret_models_identity::{
     DidOperationSubmitRequestBody, IdentityCreationControlProof, PCR_GENESIS_UNIT_KINDS,
 };
 use arkret_wire::{
-    DeviceId, DidCoreId, DidFullId, EventBatchReceipt, Hash, IdempotencyKey, PcrGenesisUnit,
-    RealmId, RegistrationDidEvidence, Result, WireError, canonical, project_full_id_to_core_id,
+    DeviceId, DidCoreId, DidFullId, EventBatchReceipt, EventBatchReceiptEvent, Hash,
+    IdempotencyKey, PcrGenesisUnit, RealmId, RegistrationDidEvidence, Result, WireError, canonical,
+    project_full_id_to_core_id,
 };
 use serde::{Deserialize, Serialize};
 
@@ -169,18 +170,14 @@ impl PcrGenesisSubmitOutcome {
             .ok_or_else(|| {
                 WireError::Protocol("PCR genesis omits founding device descriptor".to_owned())
             })?;
-        let create_digest = Hash::new(
-            request
-                .genesis_unit
-                .create()
-                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)?,
-        )?;
-        let authorize_digest = Hash::new(
-            request
-                .genesis_unit
-                .founding_authorize()
-                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)?,
-        )?;
+        let receipt_event_id = |kind: &str| {
+            self.receipt.events.iter().find_map(|event| match event {
+                EventBatchReceiptEvent::Item(item) if item.kind.as_str() == kind => {
+                    Some(&item.event_id)
+                }
+                _ => None,
+            })
+        };
         if self.principal_id != request.principal_id
             || self.pcr_realm_id != request.pcr_realm_id
             || self.accepted_device_id != descriptor.device_id
@@ -195,8 +192,10 @@ impl PcrGenesisSubmitOutcome {
             || scope.accepted_device_id != descriptor.device_id
             || scope.device_key_digest != descriptor.device_key_digest
             || scope.hpke_key_digest != descriptor.hpke_key_digest
-            || scope.create_digest != create_digest
-            || scope.founding_authorize_digest != authorize_digest
+            || receipt_event_id(arkret_wire::event_kind_str::REALM_CREATE)
+                != Some(&request.genesis_unit.create().event_id)
+            || receipt_event_id(arkret_wire::event_kind_str::DEVICE_AUTHORIZE)
+                != Some(&request.genesis_unit.founding_authorize().event_id)
         {
             return Err(WireError::Protocol(
                 "PCR genesis accepted receipt does not match the submitted unit".to_owned(),
