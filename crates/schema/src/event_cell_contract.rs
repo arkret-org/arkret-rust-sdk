@@ -2014,7 +2014,6 @@ mod tests {
             // `seal_ref` plus `auth_context`, never a control `seal_basis`.
             "seal_ref": "ak:seal:sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
             "auth_context": {
-                "actor_id": "ak:did_core:webvh:z6mkfixture",
                 "key_id": "device:019f9e50-d787-74e0-8731-c9ad5eaa9183",
                 "key_epoch": 1
             },
