@@ -111,7 +111,6 @@ fn event_read_projection_rows_match_their_schema_definitions() {
         "kind": EventKind::MessageCreate.as_str(),
         "realm_id": "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs",
         "created_at": "2026-08-09T00:00:00.000Z",
-        "event_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "payload_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "redaction_reason": "policy_hidden",
         "hidden_fields": ["payload.body"],

@@ -41,8 +41,6 @@ pub struct AuditAccessedPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub paired_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub paired_event_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub late_recovery_original_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cell_head_before: Option<Hash>,
@@ -53,6 +51,12 @@ pub struct AuditAccessedPayload {
     pub accessed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ryw_required: Option<bool>,
+}
+
+impl AuditAccessedPayload {
+    pub fn paired_event_digest(&self) -> Option<Hash> {
+        self.paired_event_id.as_ref().map(EventId::event_digest)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

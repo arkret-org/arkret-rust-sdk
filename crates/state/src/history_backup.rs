@@ -25,8 +25,8 @@ use arkret_models_crypto::{KeyBackupKeybag, KeyBackupPlaintext};
 use arkret_wire::base64url::{base64url_decode, base64url_encode};
 use arkret_wire::canonical::sha256_digest;
 use arkret_wire::{
-    DidCoreId, HISTORY_STORE_LIMITS, Hash, HistoryCandidateMaterialKey, HistoryEffectiveScope,
-    HistorySecretRange, LocalAuthoritativeHistorySecret, Result, WireError,
+    DidCoreId, Hash, HistoryCandidateMaterialKey, HistoryEffectiveScope, HistorySecretRange,
+    LocalAuthoritativeHistorySecret, Result, WireError,
 };
 use chrono::{DateTime, Utc};
 
@@ -159,13 +159,6 @@ pub fn restore_history_backup_candidates(
         ));
     };
     let mls_group_id = effective_scope.canonical_mls_group_id()?;
-    let expires_at = first_observed_at
-        .checked_add_signed(chrono::Duration::seconds(
-            HISTORY_STORE_LIMITS.origin_attribution_ttl_seconds,
-        ))
-        .ok_or_else(|| {
-            WireError::Protocol("history candidate origin expiry overflows".to_owned())
-        })?;
     let origin_quota_domain = PortableBackupQuotaDomain {
         backup_series_id: plaintext.series_id.to_string(),
         producer_actor_id: producer_actor_id.clone(),
@@ -195,7 +188,6 @@ pub fn restore_history_backup_candidates(
                 origin_quota_domain: origin_quota_domain.clone(),
                 origin_ref: origin_ref.clone(),
                 first_observed_at,
-                expires_at,
             };
             attribution.validate()?;
             restored.push(RestoredHistoryCandidate {

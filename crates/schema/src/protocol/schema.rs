@@ -493,10 +493,10 @@ impl ProtocolSchemaRegistry {
                 validate_canonical_acct_uri(value).is_ok()
             })
             .with_format("arkret-single-line-display-text", |value: &str| {
-                validate_single_line_display_text(value, usize::MAX, usize::MAX).is_ok()
+                validate_single_line_display_text(value, usize::MAX).is_ok()
             })
             .with_format("arkret-short-text", |value: &str| {
-                validate_short_text(value, usize::MAX, usize::MAX).is_ok()
+                validate_short_text(value, usize::MAX).is_ok()
             })
             .with_format("arkret-content-text", |value: &str| {
                 validate_content_text(value).is_ok()

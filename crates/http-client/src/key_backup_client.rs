@@ -194,20 +194,6 @@ mod tests {
                     "ak:event:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM",
                 )
                 .unwrap(),
-                signed_fields: [
-                    "backup_id",
-                    "actor_id",
-                    "backup_kind",
-                    "backup_version",
-                    "series_id",
-                    "series_seq",
-                    "encryption",
-                    "domain_separation",
-                    "contents",
-                    "ciphertext_digest",
-                ]
-                .map(str::to_owned)
-                .to_vec(),
                 extra: Default::default(),
             }),
             retention: None,

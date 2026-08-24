@@ -161,21 +161,11 @@ pub fn verify_ice_config_outcome(
     }
     verify_ice_config_signature(outcome, anchors, &kid)?;
 
-    if outcome.bucket_seconds == 0 {
-        return Err(Error::Protocol(
-            "ice_config_denied: bucket_seconds must be positive".to_owned(),
-        ));
-    }
-    let bucket = i64::from(outcome.bucket_seconds);
-    let expected_bucket_secs = outcome.issued_at.timestamp().div_euclid(bucket) * bucket;
-    if outcome.issued_at_bucket.timestamp() != expected_bucket_secs
-        || outcome.issued_at_bucket.timestamp_subsec_nanos() != 0
-    {
-        return Err(Error::Protocol(
-            "ice_config_denied: issued_at_bucket must equal floor(issued_at / bucket_seconds)"
-                .to_owned(),
-        ));
-    }
+    outcome.expires_at().map_err(|err| {
+        Error::Protocol(format!(
+            "ice_config_denied: expiry computation failed: {err}"
+        ))
+    })?;
 
     for server in &outcome.ice_servers {
         if server.urls.is_empty() {
@@ -278,9 +268,6 @@ mod tests {
             ttl_seconds: 300,
             refresh_lead_seconds: 60,
             issued_at: "2026-05-27T12:29:56.000Z".parse().unwrap(),
-            issued_at_bucket: "2026-05-27T12:25:00.000Z".parse().unwrap(),
-            bucket_seconds: 300,
-            expires_at: None,
             turn_required: false,
             constraints: None,
             next_retry_at: None,

@@ -15,23 +15,6 @@ use crate::{
     DeviceId, DidCoreId, DidUrl, EventId, Hash, ReceiptId, RecoverySessionId, TransactionId,
 };
 
-pub const RECOVERY_COMPLETION_ATTESTATION_SIGNED_FIELDS: [&str; 14] = [
-    "schema",
-    "transaction_id",
-    "transaction_request_digest",
-    "prepared_plan_digest",
-    "principal_id",
-    "coordinator_service_id",
-    "recovery_session_id",
-    "terminal_receipt_id",
-    "terminal_receipt_digest",
-    "replacement_device_id",
-    "device_authorization_event_id",
-    "device_authorization_event_digest",
-    "result_model_generation_ref",
-    "completed_at",
-];
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -89,7 +72,6 @@ pub struct RecoveryCompletionAttestationAuthData {
     pub verification_method: DidUrl,
     pub signature_algorithm: String,
     pub signature: String,
-    pub signed_fields: Vec<String>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -107,7 +89,6 @@ pub struct RecoveryCompletionAttestation {
     pub terminal_receipt_digest: Hash,
     pub replacement_device_id: DeviceId,
     pub device_authorization_event_id: EventId,
-    pub device_authorization_event_digest: Hash,
     pub result_model_generation_ref: u64,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub completed_at: DateTime<Utc>,
@@ -127,18 +108,6 @@ impl RecoveryCompletionAttestation {
         {
             return Err(WireError::Protocol(
                 "recovery completion attestation requires a complete Ed25519 authorization"
-                    .to_owned(),
-            ));
-        }
-        if self
-            .auth_data
-            .signed_fields
-            .iter()
-            .map(String::as_str)
-            .ne(RECOVERY_COMPLETION_ATTESTATION_SIGNED_FIELDS)
-        {
-            return Err(WireError::Protocol(
-                "recovery completion attestation signed_fields must equal the registered ordered set"
                     .to_owned(),
             ));
         }
@@ -164,10 +133,14 @@ impl RecoveryCompletionAttestation {
             terminal_receipt_digest: self.terminal_receipt_digest.clone(),
             replacement_device_id: self.replacement_device_id.clone(),
             device_authorization_event_id: self.device_authorization_event_id.clone(),
-            device_authorization_event_digest: self.device_authorization_event_digest.clone(),
             result_model_generation_ref: self.result_model_generation_ref,
             completed_at: self.completed_at,
         })
+    }
+
+    /// Digest losslessly encoded by the suite-bearing authorization Event ID.
+    pub fn device_authorization_event_digest(&self) -> Hash {
+        self.device_authorization_event_id.event_digest()
     }
 }
 
@@ -184,7 +157,6 @@ pub struct UnsignedRecoveryCompletionAttestationBody {
     pub terminal_receipt_digest: Hash,
     pub replacement_device_id: DeviceId,
     pub device_authorization_event_id: EventId,
-    pub device_authorization_event_digest: Hash,
     pub result_model_generation_ref: u64,
     pub completed_at: DateTime<Utc>,
 }
@@ -229,17 +201,12 @@ impl UnsignedRecoveryCompletionAttestation {
             terminal_receipt_digest: body.terminal_receipt_digest,
             replacement_device_id: body.replacement_device_id,
             device_authorization_event_id: body.device_authorization_event_id,
-            device_authorization_event_digest: body.device_authorization_event_digest,
             result_model_generation_ref: body.result_model_generation_ref,
             completed_at: body.completed_at,
             auth_data: RecoveryCompletionAttestationAuthData {
                 verification_method: self.verification_method,
                 signature_algorithm: "Ed25519".to_owned(),
                 signature: signature.into_string(),
-                signed_fields: RECOVERY_COMPLETION_ATTESTATION_SIGNED_FIELDS
-                    .into_iter()
-                    .map(str::to_owned)
-                    .collect(),
             },
         };
         attestation.validate_structural()?;
@@ -274,7 +241,6 @@ fn recovery_completion_attestation_signing_bytes(
         "terminal_receipt_digest": &body.terminal_receipt_digest,
         "replacement_device_id": &body.replacement_device_id,
         "device_authorization_event_id": &body.device_authorization_event_id,
-        "device_authorization_event_digest": &body.device_authorization_event_digest,
         "result_model_generation_ref": &body.result_model_generation_ref,
         "completed_at": crate::canonical::format_timestamp_canonical(body.completed_at),
     });

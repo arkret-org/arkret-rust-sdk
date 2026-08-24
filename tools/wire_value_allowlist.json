@@ -783,14 +783,14 @@
     },
     {
       "finding": "crates/models-collaboration/src/events_payloads/key_backup.rs::KeyBackupActiveSeries.extra",
-      "classification": "polymorphic_boundary",
+      "classification": "open_json",
       "lifecycle": "retained_boundary",
-      "decision": "raw",
+      "decision": "open",
       "authority": "arkret_models_crypto::KeyBackupActiveSeries signing typestate",
       "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
       "spec_pointer": "key-backup-active-series.schema.json"
     },
     {
@@ -1023,6 +1023,17 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
       "spec_pointer": "event-payload.schema.json#/$defs/view_payload/properties/definition"
+    },
+    {
+      "finding": "crates/models-collaboration/src/governance/audit.rs::AuditRywWitness.extensions",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "BTreeMap<String, serde_json::Value>",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
       "finding": "crates/models-collaboration/src/governance/authorization.rs::AuthzCheckOutcome.applied_constraints",
@@ -3674,30 +3685,6 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:crates/models-crypto/src/key_backup.rs::recovery_policy_signature_transcript_bytes:2656b9d296b77924",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "adjudication": "manual",
-      "authority": "UnsignedRecoveryPolicy/RecoveryPolicy fixed signed-fields transcript",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain JSON assembly only inside the canonical RecoveryPolicy transcript helper; producers use signing_payload_bytes and attach_signature so signed_fields and the omitted signature member cannot be supplied independently.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The object is a signature transcript, not a kind-selected payload. The helper validates the exact signed_fields set and canonicalizes the same typed policy used by signed validation; key-backup typestate tests cover tampering and invalid field sets."
-    },
-    {
-      "finding": "json_authoring:crates/models-crypto/src/key_backup.rs::recovery_receipt_signature_transcript_bytes:756ae053fddc2cfa",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "adjudication": "manual",
-      "authority": "UnsignedRecoveryReceipt/RecoveryReceipt fixed signed-fields transcript",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain JSON assembly only inside the canonical RecoveryReceipt transcript helper; producers use signing_payload_bytes and attach_signature, with the SDK deriving the optional-field-dependent signed_fields set.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The object commits a typed receipt for signing and never dispatches a body by kind. The shared helper removes only the detached signature, validates the exact field set and canonicalizes deterministically; recovery-receipt typestate tests cover mutation."
-    },
-    {
       "finding": "json_authoring:crates/models-identity/src/member_identity.rs::member_display_state_digest:f72ac927fb27aeb2",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -4529,7 +4516,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:soland/crates/http/src/routing/interop/webrtc.rs::pairwise_turn_username:604a800646f79c67",
+      "finding": "json_authoring:soland/crates/http/src/routing/interop/webrtc.rs::pairwise_turn_username:73a694ac5d4ca850",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4607,7 +4594,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:soland/crates/storage-postgres/src/events.rs::try_from:efb555220319f50c",
+      "finding": "json_authoring:soland/crates/storage-postgres/src/events.rs::try_from:a3198b2857f31d42",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",

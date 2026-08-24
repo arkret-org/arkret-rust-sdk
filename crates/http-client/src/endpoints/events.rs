@@ -865,7 +865,7 @@ impl Client {
         submission: &EventInitialSubmission,
     ) -> Result<EventsSubmitOutcome> {
         let outcome: EventsSubmitOutcome = self.post("/_arkret/self/events", submission).await?;
-        outcome.validate_delivery_state()?;
+        outcome.validate_delivery_invariants()?;
         Ok(outcome)
     }
 
@@ -885,7 +885,7 @@ impl Client {
         let outcome: EventsSubmitOutcome = self
             .post_with_options("/_arkret/self/events", submission, options)
             .await?;
-        outcome.validate_delivery_state()?;
+        outcome.validate_delivery_invariants()?;
         Ok(outcome)
     }
 
@@ -915,7 +915,7 @@ impl Client {
         let outcome: EventsSubmitOutcome = self
             .post_with_options("/_arkret/self/events", &body, options)
             .await?;
-        outcome.validate_delivery_state()?;
+        outcome.validate_delivery_invariants()?;
         Ok(outcome)
     }
 

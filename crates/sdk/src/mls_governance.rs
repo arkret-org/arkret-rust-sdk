@@ -329,7 +329,6 @@ pub fn build_native_agent_signer_resolution_evidence(
 /// portable evidence does not self-authenticate.
 pub fn verify_native_agent_historical_event_key<VerifyExternalTrust>(
     event: &Event,
-    event_digest_suite: arkret_canonical::DigestSuite,
     evidence: &AuthenticatedSignerResolutionEvidence,
     dependencies: &[GovernanceDependency],
     verify_external_trust: VerifyExternalTrust,
@@ -455,7 +454,6 @@ where
     } else {
         false
     };
-    let event_digest = Hash::new(event.event_digest_with_digest_suite(event_digest_suite)?)?;
     let origin_admission = event
         .proofs
         .iter()
@@ -504,7 +502,6 @@ where
                 now: chrono::Utc::now(),
             },
             event_id: &event.event_id,
-            event_digest: &event_digest,
             realm_id: &event.realm_id,
             producer_accepted_at: origin_admission.accepted_at,
             producer_signer_resolution_evidence_ref: producer_evidence_ref,

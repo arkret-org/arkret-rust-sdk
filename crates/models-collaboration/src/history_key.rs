@@ -217,8 +217,6 @@ pub enum HistoryCandidateOriginAttribution {
         origin_ref: ResponseSenderOriginRef,
         #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
         first_observed_at: DateTime<Utc>,
-        #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
-        expires_at: DateTime<Utc>,
     },
     RrkArchive {
         material_key: HistoryCandidateMaterialKey,
@@ -226,8 +224,6 @@ pub enum HistoryCandidateOriginAttribution {
         origin_ref: RrkArchiveOriginRef,
         #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
         first_observed_at: DateTime<Utc>,
-        #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
-        expires_at: DateTime<Utc>,
     },
     PortableBackup {
         material_key: HistoryCandidateMaterialKey,
@@ -235,8 +231,6 @@ pub enum HistoryCandidateOriginAttribution {
         origin_ref: PortableBackupOriginRef,
         #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
         first_observed_at: DateTime<Utc>,
-        #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
-        expires_at: DateTime<Utc>,
     },
 }
 
@@ -311,12 +305,12 @@ impl HistoryCandidateOriginAttribution {
         }
     }
 
-    pub fn expires_at(&self) -> DateTime<Utc> {
-        match self {
-            Self::ResponseSender { expires_at, .. }
-            | Self::RrkArchive { expires_at, .. }
-            | Self::PortableBackup { expires_at, .. } => *expires_at,
-        }
+    pub fn expires_at(&self) -> Result<DateTime<Utc>> {
+        self.first_observed_at()
+            .checked_add_signed(chrono::Duration::seconds(2_592_000))
+            .ok_or_else(|| {
+                WireError::Protocol("history candidate origin expiry overflows".to_owned())
+            })
     }
 
     /// Exact ledger-row identity `(material_key, origin_domain, origin_ref)`.
@@ -337,7 +331,7 @@ impl HistoryCandidateOriginAttribution {
             && self.origin_quota_domain_bytes()? == other.origin_quota_domain_bytes()?)
     }
 
-    /// `(expires_at, candidate_digest, origin_domain, JCS(origin_quota_domain),
+    /// `(first_observed_at, candidate_digest, origin_domain, JCS(origin_quota_domain),
     /// JCS(origin_ref))` — the canonical tuple an over-cap ledger keeps the
     /// minimum of (`history-visibility.md:433-434`).
     ///
@@ -347,7 +341,7 @@ impl HistoryCandidateOriginAttribution {
     /// turn a deterministic rule into a precision-dependent one.
     pub fn canonical_retention_key(&self) -> Result<Vec<u8>> {
         arkret_wire::canonical::canonical_json_bytes(&serde_json::json!([
-            arkret_wire::canonical::format_timestamp_canonical(self.expires_at()),
+            arkret_wire::canonical::format_timestamp_canonical(self.first_observed_at()),
             self.material_key().candidate_digest,
             self.origin_domain(),
             serde_json::from_slice::<serde_json::Value>(&self.origin_quota_domain_bytes()?)?,
@@ -357,24 +351,18 @@ impl HistoryCandidateOriginAttribution {
     }
 
     pub fn validate(&self) -> Result<()> {
-        const IMMUTABLE_ORIGIN_LIFETIME_SECONDS: i64 = 2_592_000;
-
-        let (material_key, first_observed_at, expires_at) = match self {
+        let material_key = match self {
             Self::ResponseSender {
                 material_key,
                 origin_quota_domain,
-                first_observed_at,
-                expires_at,
                 ..
             } => {
                 validate_sender_domain(&origin_quota_domain.source_sender_domain)?;
-                (material_key, first_observed_at, expires_at)
+                material_key
             }
             Self::RrkArchive {
                 material_key,
                 origin_quota_domain,
-                first_observed_at,
-                expires_at,
                 ..
             } => {
                 validate_bounded_chars(
@@ -383,14 +371,13 @@ impl HistoryCandidateOriginAttribution {
                     512,
                     "recovery_key_id",
                 )?;
-                (material_key, first_observed_at, expires_at)
+                material_key
             }
             Self::PortableBackup {
                 material_key,
                 origin_quota_domain,
                 origin_ref,
-                first_observed_at,
-                expires_at,
+                ..
             } => {
                 if !uuid_v7_suffix(&origin_quota_domain.backup_series_id, "ak:backup_series:") {
                     return Err(WireError::Protocol(
@@ -415,18 +402,11 @@ impl HistoryCandidateOriginAttribution {
                         "history backup origin id is invalid".to_owned(),
                     ));
                 }
-                (material_key, first_observed_at, expires_at)
+                material_key
             }
         };
         material_key.validate()?;
-        if expires_at.signed_duration_since(*first_observed_at)
-            != chrono::Duration::seconds(IMMUTABLE_ORIGIN_LIFETIME_SECONDS)
-        {
-            return Err(WireError::Protocol(
-                "history candidate origin expiry must equal first_observed_at plus 2592000 seconds"
-                    .to_owned(),
-            ));
-        }
+        self.expires_at()?;
         Ok(())
     }
 }

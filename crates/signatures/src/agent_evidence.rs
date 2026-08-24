@@ -381,7 +381,6 @@ pub struct CurrentAgentSignerEvidenceValidationContext<'a> {
 pub struct HistoricalAgentSignerEvidenceValidationContext<'a> {
     pub common: AgentEvidenceCommonContext<'a>,
     pub event_id: &'a EventId,
-    pub event_digest: &'a Hash,
     pub realm_id: &'a RealmId,
     pub producer_accepted_at: DateTime<Utc>,
     pub producer_signer_resolution_evidence_ref: &'a SignerEvidenceRef,
@@ -1232,7 +1231,6 @@ fn historical_receipt_matches(
 ) -> bool {
     receipt.schema.as_str() == SchemaId::AGENT_SIGNER_ADMISSION_RECEIPT_V1
         && receipt.event_id == *context.event_id
-        && receipt.event_digest == *context.event_digest
         && receipt.realm_id == *context.realm_id
         && receipt.producer_accepted_at == context.producer_accepted_at
         && receipt.agent_id == *context.common.signer_id

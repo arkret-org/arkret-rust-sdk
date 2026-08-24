@@ -191,9 +191,9 @@ pub use query_auth::{
 pub use receive_policy::*;
 pub use recovery_authority::{
     CanonicalEncoding, CanonicalPublicMaterial, IssueRecoveryCompletionGrantOutcome,
-    IssueRecoveryCompletionGrantRequest, RECOVERY_COMPLETION_ATTESTATION_SIGNED_FIELDS,
-    RecoveryCompletionAttestation, RecoveryCompletionAttestationAuthData,
-    UnsignedRecoveryCompletionAttestation, UnsignedRecoveryCompletionAttestationBody,
+    IssueRecoveryCompletionGrantRequest, RecoveryCompletionAttestation,
+    RecoveryCompletionAttestationAuthData, UnsignedRecoveryCompletionAttestation,
+    UnsignedRecoveryCompletionAttestationBody,
 };
 pub use resource_selector::{
     ObjectRef, ResourceMatchScope, ResourceSelectorKind, WireResourceSelector,
@@ -204,11 +204,10 @@ pub use seal::{
 };
 pub use security_transaction::{
     AcceptedStep, BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupRotationPlan,
-    CLIENT_STEP_ATTESTATION_SIGNED_FIELDS, ClientStepAttestation, ClientStepAttestationAuthData,
-    PCR_POLICY_RECOVERY_STEP_ORDER, PcrPolicyRecoveryBinding, PcrPolicyRecoveryPlan,
-    PreparedEventUnit, RecoveryIdentityModel, RecoveryPreparedPlan,
-    RecoveryTransactionCreateRequest, SECURITY_ROTATION_STEP_ORDER, SecurityRotationPlan,
-    SecurityRotationTransactionCreateRequest, SecurityTransaction,
+    ClientStepAttestation, ClientStepAttestationAuthData, PCR_POLICY_RECOVERY_STEP_ORDER,
+    PcrPolicyRecoveryBinding, PcrPolicyRecoveryPlan, PreparedEventUnit, RecoveryIdentityModel,
+    RecoveryPreparedPlan, RecoveryTransactionCreateRequest, SECURITY_ROTATION_STEP_ORDER,
+    SecurityRotationPlan, SecurityRotationTransactionCreateRequest, SecurityTransaction,
     SecurityTransactionCreateRequest, SecurityTransactionKind, SecurityTransactionPreparedPlan,
     SecurityTransactionResultKind, SecurityTransactionStep, SecurityTransactionTerminalResult,
     UnsignedClientStepAttestation, security_rotation_erase_confirmation_digest,

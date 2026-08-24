@@ -318,9 +318,19 @@ pub enum ControllerAccountGateBasis {
     },
     AccountStatusEvent {
         status_event_id: EventId,
-        status_event_digest: Hash,
         status_frontier_digest: Hash,
     },
+}
+
+impl ControllerAccountGateBasis {
+    pub fn status_event_digest(&self) -> Option<Hash> {
+        match self {
+            Self::AccountBindingDefault { .. } => None,
+            Self::AccountStatusEvent {
+                status_event_id, ..
+            } => Some(status_event_id.event_digest()),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -417,7 +427,6 @@ pub struct AgentCurrentObservation {
 pub struct AgentEventAdmissionReceipt {
     pub schema: NonEmptyString,
     pub event_id: EventId,
-    pub event_digest: Hash,
     pub realm_id: RealmId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub producer_accepted_at: DateTime<Utc>,
@@ -429,6 +438,12 @@ pub struct AgentEventAdmissionReceipt {
     pub producer_signer_resolution_evidence_digest: Hash,
     pub receiver_service_id: DidCoreId,
     pub proof: AgentDetachedJws,
+}
+
+impl AgentEventAdmissionReceipt {
+    pub fn event_digest(&self) -> Hash {
+        self.event_id.event_digest()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -552,9 +567,17 @@ pub enum AgentSignerEvidenceQuerySelector {
         agent_id: DidCoreId,
         verification_method: DidUrl,
         event_id: EventId,
-        event_digest: Hash,
         receiver_service_id: DidCoreId,
     },
+}
+
+impl AgentSignerEvidenceQuerySelector {
+    pub fn historical_event_digest(&self) -> Option<Hash> {
+        match self {
+            Self::CurrentAdmission { .. } => None,
+            Self::HistoricalEvent { event_id, .. } => Some(event_id.event_digest()),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -676,7 +699,6 @@ impl AgentSignerEvidenceQueryOutcome {
                     agent_id: signer_id.clone(),
                     verification_method: verification_method.clone(),
                     event_id: event_admission_receipt.event_id.clone(),
-                    event_digest: event_admission_receipt.event_digest.clone(),
                     receiver_service_id: event_admission_receipt.receiver_service_id.clone(),
                 },
             };

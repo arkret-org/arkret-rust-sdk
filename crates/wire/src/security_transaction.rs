@@ -19,15 +19,6 @@ use crate::{
 
 pub const MAX_SECURITY_TRANSACTION_TTL: Duration = Duration::hours(24);
 pub const MAX_OPAQUE_REF_CHARS: usize = 2048;
-pub const CLIENT_STEP_ATTESTATION_SIGNED_FIELDS: [&str; 6] = [
-    "step",
-    "output_ref",
-    "transaction_id",
-    "transaction_request_digest",
-    "prepared_plan_digest",
-    "attestation_digest",
-];
-
 pub const PCR_POLICY_RECOVERY_STEP_ORDER: [SecurityTransactionStep; 2] = [
     SecurityTransactionStep::SubmitReanchorUnit,
     SecurityTransactionStep::IssueTerminalReceipt,
@@ -560,7 +551,6 @@ pub struct ClientStepAttestationAuthData {
     pub verification_method: DidUrl,
     pub signature_algorithm: String,
     pub signature: String,
-    pub signed_fields: Vec<String>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -582,16 +572,9 @@ impl<A: Serialize> ClientStepAttestation<A> {
         if self.auth_data.signature_algorithm != "Ed25519"
             || self.auth_data.verification_method.is_empty()
             || self.auth_data.signature.is_empty()
-            || self
-                .auth_data
-                .signed_fields
-                .iter()
-                .map(String::as_str)
-                .ne(CLIENT_STEP_ATTESTATION_SIGNED_FIELDS)
         {
             return Err(WireError::Protocol(
-                "client step attestation authorization is incomplete or has invalid signed_fields"
-                    .to_owned(),
+                "client step attestation authorization is incomplete".to_owned(),
             ));
         }
         validate_step_output_ref("client_attestation.output_ref", &self.output_ref)?;
@@ -683,10 +666,6 @@ impl<A: Serialize> UnsignedClientStepAttestation<A> {
                 verification_method: self.verification_method,
                 signature_algorithm: "Ed25519".to_owned(),
                 signature: signature.into_string(),
-                signed_fields: CLIENT_STEP_ATTESTATION_SIGNED_FIELDS
-                    .into_iter()
-                    .map(str::to_owned)
-                    .collect(),
             },
         };
         attestation.validate_structural()?;

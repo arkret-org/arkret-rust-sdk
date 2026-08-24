@@ -7,66 +7,38 @@ use unicode_normalization::{UnicodeNormalization, is_nfc};
 use crate::{Result, WireError};
 
 pub const HANDLE_LOCALPART_MAX_CODE_POINTS: usize = 128;
-pub const HANDLE_LOCALPART_MAX_UTF8_OCTETS: usize = 512;
 pub const AGENT_SLUG_MAX_CODE_POINTS: usize = 64;
-pub const AGENT_SLUG_MAX_UTF8_OCTETS: usize = 256;
 pub const DOMAIN_MAX_ASCII_OCTETS: usize = 253;
-pub const DISPLAY_TEXT_MAX_UTF8_OCTETS: usize = 1024;
-pub const LONG_DISPLAY_TEXT_MAX_UTF8_OCTETS: usize = 2048;
 
 pub fn prepare_handle_localpart(input: &str) -> Result<String> {
-    prepare_human_identifier(
-        input,
-        HANDLE_LOCALPART_MAX_CODE_POINTS,
-        HANDLE_LOCALPART_MAX_UTF8_OCTETS,
-    )
+    prepare_human_identifier(input, HANDLE_LOCALPART_MAX_CODE_POINTS)
 }
 
 pub fn validate_canonical_handle_localpart(input: &str) -> Result<()> {
-    validate_canonical_human_identifier(
-        input,
-        HANDLE_LOCALPART_MAX_CODE_POINTS,
-        HANDLE_LOCALPART_MAX_UTF8_OCTETS,
-    )
+    validate_canonical_human_identifier(input, HANDLE_LOCALPART_MAX_CODE_POINTS)
 }
 
 pub fn prepare_agent_slug(input: &str) -> Result<String> {
-    prepare_human_identifier(
-        input,
-        AGENT_SLUG_MAX_CODE_POINTS,
-        AGENT_SLUG_MAX_UTF8_OCTETS,
-    )
+    prepare_human_identifier(input, AGENT_SLUG_MAX_CODE_POINTS)
 }
 
 pub fn validate_canonical_agent_slug(input: &str) -> Result<()> {
-    validate_canonical_human_identifier(
-        input,
-        AGENT_SLUG_MAX_CODE_POINTS,
-        AGENT_SLUG_MAX_UTF8_OCTETS,
-    )
+    validate_canonical_human_identifier(input, AGENT_SLUG_MAX_CODE_POINTS)
 }
 
-pub fn prepare_human_identifier(
-    input: &str,
-    max_code_points: usize,
-    max_utf8_octets: usize,
-) -> Result<String> {
+pub fn prepare_human_identifier(input: &str, max_code_points: usize) -> Result<String> {
     let prepared = UsernameCaseMapped::new()
         .enforce(input)
         .map_err(|error| {
             WireError::Protocol(format!("human identifier PRECIS failure: {error:?}"))
         })?
         .into_owned();
-    validate_human_identifier_shape(&prepared, max_code_points, max_utf8_octets)?;
+    validate_human_identifier_shape(&prepared, max_code_points)?;
     Ok(prepared)
 }
 
-pub fn validate_canonical_human_identifier(
-    input: &str,
-    max_code_points: usize,
-    max_utf8_octets: usize,
-) -> Result<()> {
-    let prepared = prepare_human_identifier(input, max_code_points, max_utf8_octets)?;
+pub fn validate_canonical_human_identifier(input: &str, max_code_points: usize) -> Result<()> {
+    let prepared = prepare_human_identifier(input, max_code_points)?;
     if prepared != input {
         return Err(WireError::Protocol(
             "human identifier is not in canonical prepared form".to_owned(),
@@ -75,13 +47,8 @@ pub fn validate_canonical_human_identifier(
     Ok(())
 }
 
-fn validate_human_identifier_shape(
-    value: &str,
-    max_code_points: usize,
-    max_utf8_octets: usize,
-) -> Result<()> {
-    if value.is_empty() || value.chars().count() > max_code_points || value.len() > max_utf8_octets
-    {
+fn validate_human_identifier_shape(value: &str, max_code_points: usize) -> Result<()> {
+    if value.is_empty() || value.chars().count() > max_code_points {
         return Err(WireError::Protocol(
             "human identifier length is outside the profile bounds".to_owned(),
         ));
@@ -175,12 +142,8 @@ pub fn human_identifier_skeleton(value: &str) -> Result<String> {
     Ok(unicode_security::skeleton(value).collect())
 }
 
-pub fn validate_single_line_display_text(
-    value: &str,
-    max_code_points: usize,
-    max_utf8_octets: usize,
-) -> Result<()> {
-    validate_nfc_and_length(value, max_code_points, max_utf8_octets)?;
+pub fn validate_single_line_display_text(value: &str, max_code_points: usize) -> Result<()> {
+    validate_nfc_and_code_points(value, max_code_points)?;
     if value.chars().all(char::is_whitespace)
         || value.chars().any(|character| {
             character.is_control() || is_bidi_format_control(character) || character == '\u{FEFF}'
@@ -196,7 +159,7 @@ pub fn validate_single_line_display_text(
 /// Return the deterministic holder-local skeleton used by
 /// `arkret_display_confusable_v1`.
 pub fn display_confusable_skeleton_v1(value: &str) -> Result<String> {
-    validate_single_line_display_text(value, 512, LONG_DISPLAY_TEXT_MAX_UTF8_OCTETS)?;
+    validate_single_line_display_text(value, 512)?;
     let prepared: String = value
         .chars()
         .filter(|character| !is_registered_default_ignorable(*character))
@@ -234,12 +197,8 @@ fn is_registered_default_ignorable(character: char) -> bool {
     )
 }
 
-pub fn validate_short_text(
-    value: &str,
-    max_code_points: usize,
-    max_utf8_octets: usize,
-) -> Result<()> {
-    validate_nfc_and_length(value, max_code_points, max_utf8_octets)?;
+pub fn validate_short_text(value: &str, max_code_points: usize) -> Result<()> {
+    validate_nfc_and_code_points(value, max_code_points)?;
     if value.chars().any(|character| {
         (character.is_control() && character != '\n')
             || is_bidi_embedding_or_override(character)
@@ -304,16 +263,8 @@ fn decode_upper_hex(value: u8) -> Result<u8> {
     }
 }
 
-fn validate_nfc_and_length(
-    value: &str,
-    max_code_points: usize,
-    max_utf8_octets: usize,
-) -> Result<()> {
-    if value.is_empty()
-        || !is_nfc(value)
-        || value.chars().count() > max_code_points
-        || value.len() > max_utf8_octets
-    {
+fn validate_nfc_and_code_points(value: &str, max_code_points: usize) -> Result<()> {
+    if value.is_empty() || !is_nfc(value) || value.chars().count() > max_code_points {
         return Err(WireError::Protocol(
             "text is empty, non-NFC, or outside the profile bounds".to_owned(),
         ));
@@ -361,15 +312,10 @@ mod tests {
 
     #[test]
     fn display_text_accepts_multilingual_content_and_rejects_controls() {
-        validate_single_line_display_text(
-            "中文标题 🚀 / R&D（第二阶段）",
-            256,
-            DISPLAY_TEXT_MAX_UTF8_OCTETS,
-        )
-        .unwrap();
-        assert!(validate_single_line_display_text("   ", 256, 1024).is_err());
-        assert!(validate_single_line_display_text("line\nbreak", 256, 1024).is_err());
-        assert!(validate_single_line_display_text("x\u{202E}y", 256, 1024).is_err());
+        validate_single_line_display_text("中文标题 🚀 / R&D（第二阶段）", 256).unwrap();
+        assert!(validate_single_line_display_text("   ", 256).is_err());
+        assert!(validate_single_line_display_text("line\nbreak", 256).is_err());
+        assert!(validate_single_line_display_text("x\u{202E}y", 256).is_err());
     }
 
     #[test]

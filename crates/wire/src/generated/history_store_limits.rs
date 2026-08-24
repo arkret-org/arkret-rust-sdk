@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/history-recovery-scalability-registry.json; version=2026-08-21.2;
-//! sha256=ae836d25eb19f1463161f7b2658a20395bc4e7bd662ce935f81929e5e7f65cc8
+//! Input: registry/history-recovery-scalability-registry.json; version=2026-08-24.1;
+//! sha256=aa7fc7ae7b9c6ee28a6a5be7cb907d74d3c11421b99fbe44fa39e136157c26e8
 //! Entries: history_store_limits=7
 
 /// Machine-readable `history_store` section of
@@ -31,20 +31,22 @@
 /// (material_key,origin_domain,origin_ref), while quotas use the separately persisted stable
 /// origin_quota_domain. The ledger admits at most 4 rows per material_key, 64 rows per exact
 /// (scope,group,epoch,origin_domain,origin_quota_domain), and 256 rows total per
-/// (scope,group,epoch). first_observed_at is immutable and expires_at=first_observed_at+2592000
-/// seconds cannot be extended by duplicate/refetch. Exact duplicate is a no-op. Before admission
-/// prune expired rows, then when any cap remains exceeded retain the minimum canonical tuple
-/// (expires_at,material_key.candidate_digest,origin_domain,JCS(origin_quota_domain),
+/// (scope,group,epoch). first_observed_at is immutable; expiry is computed as
+/// first_observed_at+2592000 seconds, is not stored, cannot be extended by duplicate/refetch, and
+/// timestamp overflow fails closed. Exact duplicate is a no-op. Before admission prune expired
+/// rows, then when any cap remains exceeded retain the minimum canonical tuple
+/// (first_observed_at,material_key.candidate_digest,origin_domain,JCS(origin_quota_domain),
 /// JCS(origin_ref)) and reject/prune larger rows. Origin attribution never duplicates bytes or
 /// changes material_received_sequence.
 ///
 /// Event candidate binding rule: EventCandidateBinding key is exactly
 /// (event_binding_key,candidate_digest,outcome), where
-/// event_binding_key=(effective_scope,mls_group_id,epoch,event_id,event_digest,
-/// verified_sender_domain) and outcome is success|failure. It contains no origin and origin cannot
-/// be inferred from it. The independent ledger is capped at 256 rows per (scope,group,epoch);
-/// expires_at equals immutable first_observed_at plus 2592000 seconds. Prune expired rows first,
-/// then (expires_at,event_id,event_digest,verified_sender_domain,candidate_digest,outcome)
+/// event_binding_key=(effective_scope,mls_group_id,epoch,event_id,verified_sender_domain) and
+/// outcome is success|failure. The suite-bearing event_id losslessly supplies the Event digest. The
+/// binding contains no origin and origin cannot be inferred from it. The independent ledger is
+/// capped at 256 rows per (scope,group,epoch); expiry is computed as immutable first_observed_at
+/// plus 2592000 seconds, is not stored, and timestamp overflow fails closed. Prune expired rows
+/// first, then (first_observed_at,event_id,verified_sender_domain,candidate_digest,outcome)
 /// canonical ascending. Pruning never changes the ciphertext replay ledger, material authority, or
 /// local_authoritative.
 ///

@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    CircleId, DidCoreId, RealmId, ReasonCode, RelationId, RelationKind, RelationState,
-    RelationTruthSourceClass, Result, SchemaId, ScopeRef, WireError,
+    CircleId, DidCoreId, EventId, Hash, RealmId, ReasonCode, RelationId, RelationKind,
+    RelationState, RelationTruthSourceClass, Result, SchemaId, ScopeRef, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -113,6 +113,21 @@ pub enum RelationConflictPolicy {
     ClosePrevious,
     #[default]
     RequireReview,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RelationConflictCandidate {
+    pub event_id: EventId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+impl RelationConflictCandidate {
+    pub fn event_digest(&self) -> Hash {
+        self.event_id.event_digest()
+    }
 }
 
 fn relation_scope_is_default(value: &RelationScope) -> bool {

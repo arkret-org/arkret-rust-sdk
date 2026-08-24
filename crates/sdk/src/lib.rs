@@ -144,9 +144,9 @@ pub use arkret_models_collaboration::governance::agent_artifacts::*;
 pub use arkret_models_collaboration::governance::agent_participation::*;
 pub use arkret_models_collaboration::governance::audit::{
     ABSOLUTE_HARD_CEILING_MS, AccessKind, AuditAssurance, AuditPolicyAccessPayload,
-    AuditRywReceipt, E2EE_RELAXED_INCOMPATIBLE_COMPLIANCE_PROFILES, ReceiptIndependence,
-    RywActorFrontierEntry, RywFrontier, RywIssuerRole, is_e2ee_relaxed_compatible_with_compliance,
-    validate_relaxed_window_ms,
+    AuditRywReceipt, AuditRywRecoveryReasonCode, AuditRywWitness, AuditRywWitnessAttestation,
+    E2EE_RELAXED_INCOMPATIBLE_COMPLIANCE_PROFILES, RywActorFrontierEntry, RywFrontier,
+    RywIssuerRole, is_e2ee_relaxed_compatible_with_compliance, validate_relaxed_window_ms,
 };
 pub use arkret_models_collaboration::governance::authorization::*;
 pub use arkret_models_collaboration::governance::circle::*;

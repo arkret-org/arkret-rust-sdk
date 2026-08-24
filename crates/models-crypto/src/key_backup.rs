@@ -696,23 +696,6 @@ pub struct KeyBackup {
     pub extra: XExtensionMap,
 }
 
-const KEY_BACKUP_SIGNED_FIELD_ORDER: [&str; 14] = [
-    "backup_id",
-    "actor_id",
-    "backup_kind",
-    "backup_version",
-    "series_id",
-    "series_seq",
-    "supersedes",
-    "supersedes_digest",
-    "encryption",
-    "domain_separation",
-    "contents",
-    "ciphertext_digest",
-    "frontier_ref",
-    "recovery_policy_ref",
-];
-
 /// Signing identity for a key-backup envelope before its detached signature is
 /// available. The signature is deliberately absent from this type, so an
 /// unsigned envelope cannot be mistaken for an uploadable [`KeyBackup`].
@@ -782,8 +765,7 @@ impl UnsignedKeyBackup {
     }
 
     /// Canonical bytes signed by the author. These bytes include all auth
-    /// metadata and the SDK-owned canonical `signed_fields`, but never a
-    /// placeholder or empty signature.
+    /// metadata except the not-yet-existing signature.
     pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
         let unsigned = self.unsigned_wire_value()?;
         Ok(arkret_canonical::canonical_json_bytes(&unsigned)?)
@@ -798,7 +780,6 @@ impl UnsignedKeyBackup {
             signature_algorithm: self.auth_data.signature_algorithm,
             signature,
             device_authorize_event_id: self.auth_data.device_authorize_event_id,
-            signed_fields: self.envelope.expected_signed_fields(),
             extra: self.auth_data.extra,
         });
         self.envelope.validate()?;
@@ -829,10 +810,6 @@ impl UnsignedKeyBackup {
             "device_authorize_event_id".to_owned(),
             serde_json::to_value(&self.auth_data.device_authorize_event_id)?,
         );
-        auth_data.insert(
-            "signed_fields".to_owned(),
-            serde_json::to_value(self.envelope.expected_signed_fields())?,
-        );
         for (key, value) in self.auth_data.extra.iter() {
             auth_data.insert(key.clone(), value.clone());
         }
@@ -859,22 +836,6 @@ impl KeyBackup {
             return Err(WireError::Protocol(
                 "key backup auth_data.device_id does not match envelope device_id".to_owned(),
             ));
-        }
-        let expected_signed_fields = self.expected_signed_fields();
-        let actual_signed_fields = auth_data
-            .signed_fields
-            .iter()
-            .map(String::as_str)
-            .collect::<BTreeSet<_>>();
-        if actual_signed_fields.len() != auth_data.signed_fields.len()
-            || expected_signed_fields
-                .iter()
-                .any(|field| !actual_signed_fields.contains(field.as_str()))
-        {
-            return Err(WireError::Protocol(format!(
-                "key backup auth_data.signed_fields must be unique and cover {:?}",
-                expected_signed_fields
-            )));
         }
         Ok(())
     }
@@ -1117,20 +1078,6 @@ impl KeyBackup {
             }
         }
         Ok(())
-    }
-
-    fn expected_signed_fields(&self) -> Vec<String> {
-        KEY_BACKUP_SIGNED_FIELD_ORDER
-            .into_iter()
-            .filter(|field| match *field {
-                "supersedes" => self.supersedes.is_some(),
-                "supersedes_digest" => self.supersedes_digest.is_some(),
-                "frontier_ref" => self.frontier_ref.is_some(),
-                "recovery_policy_ref" => self.recovery_policy_ref.is_some(),
-                _ => true,
-            })
-            .map(str::to_owned)
-            .collect()
     }
 
     /// Canonical signature input for a fully formed backup envelope.
@@ -1784,7 +1731,6 @@ pub struct KeyBackupAuthData {
     pub signature_algorithm: KeyBackupSignatureAlgorithm,
     pub signature: Base64UrlString,
     pub device_authorize_event_id: EventId,
-    pub signed_fields: Vec<String>,
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
 }
@@ -1899,14 +1845,14 @@ impl RecoveryPolicy {
     pub const SIGNATURE_TYPE: &'static str = RECOVERY_POLICY_SIGNATURE_TYPE;
 
     /// Canonical detached-signature transcript shared by policy producers and
-    /// verifiers. `signed_fields` names the projected policy members; the
-    /// ordered declaration is also bound into the outer transcript.
+    /// verifiers. Every present top-level policy member except `auth_data` is
+    /// authenticated under the fixed policy domain.
     pub fn signature_transcript_bytes(&self) -> Result<Vec<u8>> {
         self.validate()?;
         let policy = serde_json::to_value(self).map_err(|error| {
             WireError::Protocol(format!("failed to serialize recovery policy: {error}"))
         })?;
-        recovery_policy_signature_transcript_bytes(&policy, &self.auth_data.signed_fields)
+        recovery_policy_signature_transcript_bytes(&policy)
     }
 
     pub fn validate(&self) -> Result<()> {
@@ -2018,59 +1964,6 @@ impl RecoveryPolicy {
             }
         }
 
-        let signed_fields = self
-            .auth_data
-            .signed_fields
-            .iter()
-            .map(String::as_str)
-            .collect::<BTreeSet<_>>();
-        if signed_fields.len() != self.auth_data.signed_fields.len() {
-            return Err(WireError::Protocol(
-                "recovery policy auth_data signed_fields must be unique".to_owned(),
-            ));
-        }
-        let required_signed_fields = [
-            "schema",
-            "policy_id",
-            "principal_id",
-            "version",
-            "supersedes",
-            "trust_domain",
-            "allowed_proof_kinds",
-            "publication_authorization_rules",
-            "issued_at",
-        ];
-        if required_signed_fields
-            .iter()
-            .any(|field| !signed_fields.contains(field))
-        {
-            return Err(WireError::Protocol(
-                "recovery policy auth_data omits a required signed field".to_owned(),
-            ));
-        }
-        for (present, field) in [
-            (self.threshold.is_some(), "threshold"),
-            (self.device_quorum.is_some(), "device_quorum"),
-            (
-                self.trusted_recovery_services.is_some(),
-                "trusted_recovery_services",
-            ),
-            (self.recovery_keys.is_some(), "recovery_keys"),
-            (
-                self.recovery_key_agreements.is_some(),
-                "recovery_key_agreements",
-            ),
-            (self.approval_requirement.is_some(), "approval_requirement"),
-            (self.audit.is_some(), "audit"),
-            (self.not_before.is_some(), "not_before"),
-            (self.expires_at.is_some(), "expires_at"),
-        ] {
-            if present && !signed_fields.contains(field) {
-                return Err(WireError::Protocol(format!(
-                    "recovery policy auth_data must sign {field}"
-                )));
-            }
-        }
         Ok(())
     }
 
@@ -2249,7 +2142,6 @@ pub struct UnsignedRecoveryPolicy {
     body: UnsignedRecoveryPolicyBody,
     verification_method: DidUrl,
     signature_algorithm: KeyBackupSignatureAlgorithm,
-    signed_fields: Vec<String>,
 }
 
 impl UnsignedRecoveryPolicy {
@@ -2259,18 +2151,16 @@ impl UnsignedRecoveryPolicy {
         signature_algorithm: KeyBackupSignatureAlgorithm,
     ) -> Result<Self> {
         validate_key_backup_signature_algorithm(signature_algorithm)?;
-        let signed_fields = recovery_policy_signed_fields(&body);
         Ok(Self {
             body,
             verification_method,
             signature_algorithm,
-            signed_fields,
         })
     }
 
     pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
         let policy = recovery_policy_unsigned_value(&self.body)?;
-        recovery_policy_signature_transcript_bytes(&policy, &self.signed_fields)
+        recovery_policy_signature_transcript_bytes(&policy)
     }
 
     pub fn attach_signature(self, signature: Base64UrlString) -> Result<RecoveryPolicy> {
@@ -2298,7 +2188,6 @@ impl UnsignedRecoveryPolicy {
                 verification_method: self.verification_method,
                 signature_algorithm: self.signature_algorithm.as_str().to_owned(),
                 signature: signature.into_string(),
-                signed_fields: self.signed_fields,
             },
             extra: body.extra,
         };
@@ -2307,69 +2196,12 @@ impl UnsignedRecoveryPolicy {
     }
 }
 
-fn recovery_policy_signed_fields(body: &UnsignedRecoveryPolicyBody) -> Vec<String> {
-    let mut fields = [
-        "schema",
-        "policy_id",
-        "principal_id",
-        "version",
-        "trust_domain",
-        "allowed_proof_kinds",
-        "publication_authorization_rules",
-    ]
-    .into_iter()
-    .map(str::to_owned)
-    .collect::<Vec<_>>();
-    for (present, field) in [
-        (body.threshold.is_some(), "threshold"),
-        (body.device_quorum.is_some(), "device_quorum"),
-        (
-            body.trusted_recovery_services.is_some(),
-            "trusted_recovery_services",
-        ),
-        (body.recovery_keys.is_some(), "recovery_keys"),
-        (
-            body.recovery_key_agreements.is_some(),
-            "recovery_key_agreements",
-        ),
-        (body.approval_requirement.is_some(), "approval_requirement"),
-        (body.audit.is_some(), "audit"),
-    ] {
-        if present {
-            fields.push(field.to_owned());
-        }
-    }
-    fields.push("supersedes".to_owned());
-    fields.push("issued_at".to_owned());
-    if body.not_before.is_some() {
-        fields.push("not_before".to_owned());
-    }
-    if body.expires_at.is_some() {
-        fields.push("expires_at".to_owned());
-    }
-    fields
-}
-
-fn recovery_policy_signature_transcript_bytes(
-    policy: &Value,
-    signed_fields: &[String],
-) -> Result<Vec<u8>> {
-    let mut signed_payload = serde_json::Map::new();
-    for field in signed_fields {
-        signed_payload.insert(
-            field.clone(),
-            policy.get(field).cloned().unwrap_or(Value::Null),
-        );
-    }
-    Ok(arkret_canonical::canonical_json_bytes(&json!({
-        "type": RecoveryPolicy::SIGNATURE_TYPE,
-        "signed_fields": signed_fields,
-        "payload": Value::Object(signed_payload),
-    }))?)
+fn recovery_policy_signature_transcript_bytes(policy: &Value) -> Result<Vec<u8>> {
+    domain_separated_unsigned_object_bytes(RecoveryPolicy::SIGNATURE_TYPE, policy)
 }
 
 fn recovery_policy_unsigned_value(body: &UnsignedRecoveryPolicyBody) -> Result<Value> {
-    Ok(json!({
+    let mut value = json!({
         "schema": RecoveryPolicy::SCHEMA,
         "policy_id": &body.policy_id,
         "principal_id": &body.principal_id,
@@ -2388,7 +2220,44 @@ fn recovery_policy_unsigned_value(body: &UnsignedRecoveryPolicyBody) -> Result<V
         "issued_at": arkret_canonical::canonical::format_timestamp_canonical(body.issued_at),
         "not_before": body.not_before.map(arkret_canonical::canonical::format_timestamp_canonical),
         "expires_at": body.expires_at.map(arkret_canonical::canonical::format_timestamp_canonical),
-    }))
+    });
+    let object = value.as_object_mut().expect("policy literal is an object");
+    for (present, field) in [
+        (body.threshold.is_some(), "threshold"),
+        (body.device_quorum.is_some(), "device_quorum"),
+        (
+            body.trusted_recovery_services.is_some(),
+            "trusted_recovery_services",
+        ),
+        (body.recovery_keys.is_some(), "recovery_keys"),
+        (
+            body.recovery_key_agreements.is_some(),
+            "recovery_key_agreements",
+        ),
+        (body.approval_requirement.is_some(), "approval_requirement"),
+        (body.audit.is_some(), "audit"),
+        (body.not_before.is_some(), "not_before"),
+        (body.expires_at.is_some(), "expires_at"),
+    ] {
+        if !present {
+            object.remove(field);
+        }
+    }
+    for (key, extension) in body.extra.iter() {
+        object.insert(key.clone(), extension.clone());
+    }
+    Ok(value)
+}
+
+fn domain_separated_unsigned_object_bytes(domain: &str, value: &Value) -> Result<Vec<u8>> {
+    let mut unsigned = value.clone();
+    let object = unsigned.as_object_mut().ok_or_else(|| {
+        WireError::Protocol("signature subject must serialize as an object".to_owned())
+    })?;
+    object.remove("auth_data");
+    let mut transcript = format!("{domain}\n").into_bytes();
+    transcript.extend(arkret_canonical::canonical_json_bytes(&unsigned)?);
+    Ok(transcript)
 }
 
 /// Read-model summary for the currently accepted recovery policy.
@@ -2801,15 +2670,13 @@ pub struct RecoveryAuditConfig {
     pub receipt_required: Option<bool>,
 }
 
-/// `recovery-policy.schema.json#/properties/auth_data` — detached signature
-/// over the declared `signed_fields`.
+/// `recovery-policy.schema.json#/properties/auth_data`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RecoveryPolicyAuthData {
     pub verification_method: DidUrl,
     pub signature_algorithm: String,
     pub signature: String,
-    pub signed_fields: Vec<String>,
 }
 
 /// AKP recovery proof-family enum, aligned to `recovery-policy.schema.json`
@@ -2915,16 +2782,14 @@ impl RecoveryReceipt {
     pub const SIGNATURE_TYPE: &'static str =
         arkret_wire::DomainSeparationId::IDENTITY_RECOVERY_RECEIPT_SIGNATURE_V1;
 
-    /// Canonical signature input shared by clients and verifiers.
-    ///
-    /// Only fields named by `auth_data.signed_fields` are copied into the
-    /// transcript, so the signature value itself can be filled after signing.
+    /// Canonical signature input shared by clients and verifiers. Every
+    /// present top-level receipt member except `auth_data` is authenticated.
     pub fn signature_transcript_bytes(&self) -> Result<Vec<u8>> {
         self.validate()?;
         let payload = serde_json::to_value(self).map_err(|error| {
             WireError::Protocol(format!("failed to serialize recovery receipt: {error}"))
         })?;
-        recovery_receipt_signature_transcript_bytes(&payload, &self.auth_data.signed_fields)
+        recovery_receipt_signature_transcript_bytes(&payload)
     }
 
     pub fn validate(&self) -> Result<()> {
@@ -2955,55 +2820,6 @@ impl RecoveryReceipt {
             return Err(WireError::Protocol(
                 "recovery receipt signature must be non-empty base64url".to_owned(),
             ));
-        }
-        let signed = self
-            .auth_data
-            .signed_fields
-            .iter()
-            .map(String::as_str)
-            .collect::<BTreeSet<_>>();
-        if signed.len() != self.auth_data.signed_fields.len() {
-            return Err(WireError::Protocol(
-                "recovery receipt signed_fields must be unique".to_owned(),
-            ));
-        }
-        let mut required = vec![
-            "schema",
-            "receipt_id",
-            "transaction_id",
-            "transaction_request_digest",
-            "prepared_plan_digest",
-            "principal_id",
-            "recovery_session_id",
-            "policy_id",
-            "policy_version",
-            "trust_domain",
-            "new_device_id",
-            "identity_model",
-            "previous_model_generation_ref",
-            "result_model_generation_ref",
-            "authorization_event_id",
-            "proof_summary",
-            "backup_classes_unlocked",
-            "welcome_count",
-            "outcome",
-            "started_at",
-            "completed_at",
-        ];
-        required.extend(["reanchor_event_id", "reanchor_batch_receipt_id"]);
-        if self.welcome_realm_summary.is_some() {
-            required.push("welcome_realm_summary");
-        }
-        if self.outcome_reason_code.is_some() {
-            required.push("outcome_reason_code");
-        }
-        if let Some(missing) = required
-            .into_iter()
-            .find(|required_field| !signed.contains(required_field))
-        {
-            return Err(WireError::Protocol(format!(
-                "recovery receipt signed_fields omits {missing}"
-            )));
         }
         Ok(())
     }
@@ -3045,7 +2861,6 @@ pub struct UnsignedRecoveryReceiptBody {
 pub struct UnsignedRecoveryReceipt {
     body: UnsignedRecoveryReceiptBody,
     verification_method: DidUrl,
-    signed_fields: Vec<String>,
 }
 
 impl UnsignedRecoveryReceipt {
@@ -3063,17 +2878,15 @@ impl UnsignedRecoveryReceipt {
             body.started_at,
             body.completed_at,
         )?;
-        let signed_fields = recovery_receipt_signed_fields(&body);
         Ok(Self {
             body,
             verification_method,
-            signed_fields,
         })
     }
 
     pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
         let receipt = recovery_receipt_unsigned_value(&self.body);
-        recovery_receipt_signature_transcript_bytes(&receipt, &self.signed_fields)
+        recovery_receipt_signature_transcript_bytes(&receipt)
     }
 
     pub fn attach_signature(self, signature: Base64UrlString) -> Result<RecoveryReceipt> {
@@ -3109,7 +2922,6 @@ impl UnsignedRecoveryReceipt {
                 verification_method: self.verification_method,
                 signature_algorithm: "Ed25519".to_owned(),
                 signature: signature.into_string(),
-                signed_fields: self.signed_fields,
             },
             extra: body.extra,
         };
@@ -3167,71 +2979,12 @@ fn validate_recovery_receipt_body(
     Ok(())
 }
 
-fn recovery_receipt_signed_fields(body: &UnsignedRecoveryReceiptBody) -> Vec<String> {
-    let mut fields = [
-        "schema",
-        "receipt_id",
-        "transaction_id",
-        "transaction_request_digest",
-        "prepared_plan_digest",
-        "principal_id",
-        "recovery_session_id",
-        "policy_id",
-        "policy_version",
-        "trust_domain",
-        "new_device_id",
-        "identity_model",
-        "previous_model_generation_ref",
-        "result_model_generation_ref",
-        "authorization_event_id",
-        "reanchor_event_id",
-        "reanchor_batch_receipt_id",
-        "proof_summary",
-        "backup_classes_unlocked",
-        "welcome_count",
-        "outcome",
-        "started_at",
-        "completed_at",
-    ]
-    .into_iter()
-    .map(str::to_owned)
-    .collect::<Vec<_>>();
-    if body.welcome_realm_summary.is_some() {
-        fields.push("welcome_realm_summary".to_owned());
-    }
-    if body.outcome_reason_code.is_some() {
-        fields.push("outcome_reason_code".to_owned());
-    }
-    fields
-}
-
-fn recovery_receipt_signature_transcript_bytes(
-    receipt: &Value,
-    signed_fields: &[String],
-) -> Result<Vec<u8>> {
-    let mut signed_payload = serde_json::Map::new();
-    for field in signed_fields {
-        let value = receipt.get(field).cloned().ok_or_else(|| {
-            WireError::Protocol(format!(
-                "recovery receipt signed field {field} is absent from the authoring body"
-            ))
-        })?;
-        signed_payload.insert(field.clone(), value);
-    }
-    let transcript = json!({
-        "type": RecoveryReceipt::SIGNATURE_TYPE,
-        "signed_fields": signed_fields,
-        "payload": signed_payload,
-    });
-    arkret_canonical::canonical_json_bytes(&transcript).map_err(|error| {
-        WireError::Protocol(format!(
-            "failed to canonicalize recovery receipt signature transcript: {error}"
-        ))
-    })
+fn recovery_receipt_signature_transcript_bytes(receipt: &Value) -> Result<Vec<u8>> {
+    domain_separated_unsigned_object_bytes(RecoveryReceipt::SIGNATURE_TYPE, receipt)
 }
 
 fn recovery_receipt_unsigned_value(body: &UnsignedRecoveryReceiptBody) -> Value {
-    json!({
+    let mut value = json!({
         "schema": RecoveryReceipt::SCHEMA,
         "receipt_id": &body.receipt_id,
         "transaction_id": &body.transaction_id,
@@ -3258,7 +3011,32 @@ fn recovery_receipt_unsigned_value(body: &UnsignedRecoveryReceiptBody) -> Value 
         "outcome_reason_code": &body.outcome_reason_code,
         "started_at": arkret_canonical::canonical::format_timestamp_canonical(body.started_at),
         "completed_at": arkret_canonical::canonical::format_timestamp_canonical(body.completed_at),
-    })
+    });
+    let object = value.as_object_mut().expect("receipt literal is an object");
+    for (present, field) in [
+        (
+            body.device_list_update_event_id.is_some(),
+            "device_list_update_event_id",
+        ),
+        (body.reanchor_event_id.is_some(), "reanchor_event_id"),
+        (
+            body.reanchor_batch_receipt_id.is_some(),
+            "reanchor_batch_receipt_id",
+        ),
+        (
+            body.welcome_realm_summary.is_some(),
+            "welcome_realm_summary",
+        ),
+        (body.outcome_reason_code.is_some(), "outcome_reason_code"),
+    ] {
+        if !present {
+            object.remove(field);
+        }
+    }
+    for (key, extension) in body.extra.iter() {
+        object.insert(key.clone(), extension.clone());
+    }
+    value
 }
 
 /// `recovery-receipt.schema.json#/properties/proof_summary`.
@@ -3316,7 +3094,6 @@ pub struct RecoveryReceiptAuthData {
     pub verification_method: DidUrl,
     pub signature_algorithm: String,
     pub signature: String,
-    pub signed_fields: Vec<String>,
 }
 
 // ─── DID-proof session grant strand ──────────────────────────────────────────

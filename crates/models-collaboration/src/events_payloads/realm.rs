@@ -28,7 +28,6 @@ pub enum InheritancePolicyStatus {
 #[serde(deny_unknown_fields)]
 pub struct RealmOwnerTransferPatch {
     pub controller_id: DidCoreId,
-    pub controller_epoch: u64,
 }
 
 /// Counterpart for
@@ -42,11 +41,14 @@ pub struct RealmOwnerTransferPayload {
     pub successor_acceptance: SignatureMaterial,
 }
 
-/// Patch carried by `ak.realm.authority.reset`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmAuthorityResetPatch {
-    pub authority_generation: u64,
+impl RealmOwnerTransferPayload {
+    pub fn successor_controller_epoch(current: u64) -> Result<u64> {
+        const JSON_SAFE_INTEGER_MAX: u64 = 9_007_199_254_740_991;
+        current
+            .checked_add(1)
+            .filter(|successor| *successor <= JSON_SAFE_INTEGER_MAX)
+            .ok_or_else(|| WireError::Protocol("Realm controller_epoch is exhausted".to_owned()))
+    }
 }
 
 /// Counterpart for
@@ -56,8 +58,19 @@ pub struct RealmAuthorityResetPatch {
 pub struct RealmAuthorityResetPayload {
     pub realm_id: RealmId,
     pub expected_state_digest: Hash,
-    pub patch: RealmAuthorityResetPatch,
     pub destructive_confirmation: String,
+}
+
+impl RealmAuthorityResetPayload {
+    pub fn successor_authority_generation(current: u64) -> Result<u64> {
+        const JSON_SAFE_INTEGER_MAX: u64 = 9_007_199_254_740_991;
+        current
+            .checked_add(1)
+            .filter(|successor| *successor <= JSON_SAFE_INTEGER_MAX)
+            .ok_or_else(|| {
+                WireError::Protocol("Realm authority_generation is exhausted".to_owned())
+            })
+    }
 }
 
 /// Patch carried by `ak.realm.authority.basis_update`.

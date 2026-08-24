@@ -165,10 +165,8 @@ impl std::fmt::Display for EventsSubmitStatus {
     }
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum EventDeliveryState {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EventDeliveryStateView {
     Complete,
     Pending,
 }
@@ -230,12 +228,27 @@ pub struct EventDeliveryStatusRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct EventDeliveryStatusOutcome {
     pub event_id: EventId,
-    pub delivery_state: EventDeliveryState,
-    pub pending_delivery_count: u32,
     pub targets: Vec<EventDeliveryTargetStatus>,
 }
 
 impl EventDeliveryStatusOutcome {
+    #[must_use]
+    pub fn pending_delivery_count(&self) -> u32 {
+        self.targets
+            .iter()
+            .filter(|target| target.status.is_pending())
+            .count() as u32
+    }
+
+    #[must_use]
+    pub fn delivery_state(&self) -> EventDeliveryStateView {
+        if self.pending_delivery_count() == 0 {
+            EventDeliveryStateView::Complete
+        } else {
+            EventDeliveryStateView::Pending
+        }
+    }
+
     pub fn validate_for_request(&self, request: &EventDeliveryStatusRequestBody) -> Result<()> {
         if self.event_id != request.event_id {
             return Err(WireError::Protocol(
@@ -252,7 +265,6 @@ impl EventDeliveryStatusOutcome {
             ));
         }
         let mut previous: Option<&str> = None;
-        let mut pending = 0_u32;
         for target in &self.targets {
             target.validate()?;
             if previous.is_some_and(|previous| previous >= target.target_id.as_str()) {
@@ -261,22 +273,6 @@ impl EventDeliveryStatusOutcome {
                 ));
             }
             previous = Some(target.target_id.as_str());
-            pending += u32::from(target.status.is_pending());
-        }
-        if pending != self.pending_delivery_count {
-            return Err(WireError::Protocol(
-                "pending_delivery_count does not equal the pending target count".to_owned(),
-            ));
-        }
-        let expected = if pending == 0 {
-            EventDeliveryState::Complete
-        } else {
-            EventDeliveryState::Pending
-        };
-        if self.delivery_state != expected {
-            return Err(WireError::Protocol(
-                "event delivery_state does not match pending_delivery_count".to_owned(),
-            ));
         }
         Ok(())
     }
@@ -383,7 +379,6 @@ pub struct EventsSubmitOutcome {
     pub status: EventsSubmitStatus,
     #[serde(default)]
     pub accepted: Vec<EventId>,
-    pub delivery_state: EventDeliveryState,
     pub pending_delivery_count: u32,
     /// Newly issued or byte-identical previously issued receipts for the
     /// accepted and duplicate Event digests.
@@ -419,22 +414,18 @@ pub struct EventsSubmitOutcome {
 }
 
 impl EventsSubmitOutcome {
-    pub fn validate_delivery_state(&self) -> Result<()> {
-        let expected = if self.pending_delivery_count == 0 {
-            EventDeliveryState::Complete
+    #[must_use]
+    pub const fn delivery_state(&self) -> EventDeliveryStateView {
+        if self.pending_delivery_count == 0 {
+            EventDeliveryStateView::Complete
         } else {
-            EventDeliveryState::Pending
-        };
-        if self.delivery_state != expected {
-            return Err(WireError::Protocol(
-                "Event submit delivery_state does not match pending_delivery_count".to_owned(),
-            ));
+            EventDeliveryStateView::Pending
         }
+    }
+
+    pub fn validate_delivery_invariants(&self) -> Result<()> {
         if self.status == EventsSubmitStatus::HistoricalOnly {
-            if !self.accepted.is_empty()
-                || self.delivery_state != EventDeliveryState::Complete
-                || self.pending_delivery_count != 0
-            {
+            if !self.accepted.is_empty() || self.pending_delivery_count != 0 {
                 return Err(WireError::Protocol(
                     "historical_only submit outcomes require accepted=[] and delivery complete/0"
                         .to_owned(),
@@ -450,7 +441,7 @@ impl EventsSubmitOutcome {
                     "historical_only original_outcome cannot be historical_only".to_owned(),
                 ));
             }
-            original.validate_delivery_state()?;
+            original.validate_delivery_invariants()?;
         }
         let accepted_or_duplicate = self
             .accepted
@@ -465,11 +456,7 @@ impl EventsSubmitOutcome {
                         .to_owned(),
                 ));
             }
-            let key = (
-                &receipt.event_id,
-                &receipt.event_digest,
-                &receipt.receiver_service_id,
-            );
+            let key = (&receipt.event_id, &receipt.receiver_service_id);
             if !receipt_keys.insert(key) {
                 return Err(WireError::Protocol(
                     "Agent Event admission receipts contain a duplicate selector".to_owned(),
@@ -2264,7 +2251,6 @@ pub struct RedactedEventView {
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub created_at: Option<DateTime<Utc>>,
-    pub event_digest: Hash,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub payload_digest: Option<Hash>,
     pub redaction_reason: EventRedactionReason,
@@ -2274,6 +2260,12 @@ pub struct RedactedEventView {
     pub inclusion_proof: Option<BTreeMap<String, Value>>,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = bool)))]
     pub reducer_input: ReducerInputFalse,
+}
+
+impl RedactedEventView {
+    pub fn event_digest(&self) -> Hash {
+        self.event_id.event_digest()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -3210,11 +3202,9 @@ mod event_delivery_status_tests {
     }
 
     #[test]
-    fn delivery_status_requires_exact_sorted_pending_aggregate() {
+    fn delivery_status_derives_pending_aggregate_from_sorted_targets() {
         let outcome = EventDeliveryStatusOutcome {
             event_id: request().event_id,
-            delivery_state: EventDeliveryState::Pending,
-            pending_delivery_count: 1,
             targets: vec![
                 target(
                     "00000000-0000-7000-8000-000000000001",
@@ -3227,10 +3217,8 @@ mod event_delivery_status_tests {
             ],
         };
         outcome.validate_for_request(&request()).unwrap();
-
-        let mut wrong_count = outcome.clone();
-        wrong_count.pending_delivery_count = 0;
-        assert!(wrong_count.validate().is_err());
+        assert_eq!(outcome.pending_delivery_count(), 1);
+        assert_eq!(outcome.delivery_state(), EventDeliveryStateView::Pending);
 
         let mut out_of_order = outcome;
         out_of_order.targets.reverse();
@@ -3238,7 +3226,7 @@ mod event_delivery_status_tests {
     }
 
     #[test]
-    fn submit_delivery_fields_are_required_and_closed() {
+    fn submit_delivery_aggregate_is_derived_and_old_wire_field_is_rejected() {
         let missing = json!({
             "status": "accepted",
             "accepted": [EVENT_ID]
@@ -3248,20 +3236,19 @@ mod event_delivery_status_tests {
         let valid = json!({
             "status": "accepted",
             "accepted": [EVENT_ID],
-            "delivery_state": "pending",
             "pending_delivery_count": 1
         });
         let outcome: EventsSubmitOutcome = serde_json::from_value(valid).unwrap();
-        outcome.validate_delivery_state().unwrap();
+        outcome.validate_delivery_invariants().unwrap();
+        assert_eq!(outcome.delivery_state(), EventDeliveryStateView::Pending);
 
-        let invalid = json!({
+        let old = json!({
             "status": "accepted",
             "accepted": [EVENT_ID],
             "delivery_state": "complete",
             "pending_delivery_count": 1
         });
-        let outcome: EventsSubmitOutcome = serde_json::from_value(invalid).unwrap();
-        assert!(outcome.validate_delivery_state().is_err());
+        assert!(serde_json::from_value::<EventsSubmitOutcome>(old).is_err());
     }
 }
 

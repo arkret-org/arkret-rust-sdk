@@ -90,7 +90,7 @@ impl HistoryMaterialLedger {
         now: DateTime<Utc>,
     ) -> Result<ReceivedMaterialPlan> {
         attribution.validate()?;
-        if attribution.expires_at() <= now {
+        if attribution.expires_at()? <= now {
             return Err(WireError::Protocol(
                 "history candidate origin attribution is already expired".to_owned(),
             ));
@@ -152,7 +152,13 @@ impl HistoryMaterialLedger {
         now: DateTime<Utc>,
     ) -> Result<()> {
         binding.validate()?;
-        self.event_bindings.retain(|entry| entry.expires_at > now);
+        let mut live_bindings = Vec::with_capacity(self.event_bindings.len());
+        for entry in self.event_bindings.drain(..) {
+            if entry.expires_at()? > now {
+                live_bindings.push(entry);
+            }
+        }
+        self.event_bindings = live_bindings;
         match self.event_bindings.iter().find(|entry| {
             entry.event_binding_key == binding.event_binding_key
                 && entry.candidate_digest == binding.candidate_digest
@@ -277,7 +283,13 @@ impl HistoryMaterialLedger {
         attribution: &HistoryCandidateOriginAttribution,
         now: DateTime<Utc>,
     ) -> Result<()> {
-        self.origins.retain(|row| row.expires_at() > now);
+        let mut live_origins = Vec::with_capacity(self.origins.len());
+        for row in self.origins.drain(..) {
+            if row.expires_at()? > now {
+                live_origins.push(row);
+            }
+        }
+        self.origins = live_origins;
         if !self.has_origin_row(attribution)? {
             self.origins.push(attribution.clone());
         }
@@ -323,7 +335,7 @@ fn limits() -> arkret_wire::HistoryStoreLimits {
     HISTORY_STORE_LIMITS
 }
 
-/// `(expires_at, event_id, event_digest, verified_sender_domain,
+/// `(first_observed_at, event_id, verified_sender_domain,
 /// candidate_digest, outcome)` — the canonical ascending order an over-cap
 /// Event-binding ledger keeps the minimum of
 /// (`history_store/event_candidate_binding_rule`).
@@ -332,9 +344,8 @@ fn limits() -> arkret_wire::HistoryStoreLimits {
 /// trims trailing subsecond zeros, so `…:00Z` would sort after `…:00.500Z`.
 fn event_binding_retention_key(binding: &EventCandidateBinding) -> Result<Vec<u8>> {
     arkret_wire::canonical::canonical_json_bytes(&serde_json::json!([
-        arkret_wire::canonical::format_timestamp_canonical(binding.expires_at),
+        arkret_wire::canonical::format_timestamp_canonical(binding.first_observed_at),
         binding.event_binding_key.event_id,
-        binding.event_binding_key.event_digest,
         binding.event_binding_key.verified_sender_domain,
         binding.candidate_digest,
         binding.outcome,
@@ -424,8 +435,6 @@ mod tests {
                 source_record_digest: digest(0xF0 ^ response_index),
             },
             first_observed_at: now,
-            expires_at: now
-                + chrono::Duration::seconds(HISTORY_STORE_LIMITS.origin_attribution_ttl_seconds),
         }
     }
 
@@ -436,7 +445,6 @@ mod tests {
             epoch: candidate_scope.epoch,
             event_id: EventId::new("ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
                 .unwrap(),
-            event_digest: digest(0xAA),
             verified_sender_domain: "ak:device:sender".to_owned(),
         }
     }
@@ -492,7 +500,10 @@ mod tests {
         let _ = ledger.admit_received_candidate(&row, later).unwrap();
         assert_eq!(ledger.origins.len(), 1);
         assert_eq!(ledger.origins[0].first_observed_at(), now);
-        assert_eq!(ledger.origins[0].expires_at(), row.expires_at());
+        assert_eq!(
+            ledger.origins[0].expires_at().unwrap(),
+            row.expires_at().unwrap()
+        );
     }
 
     #[test]
@@ -642,7 +653,7 @@ mod tests {
         let now = Utc::now();
         let mut ledger = HistoryMaterialLedger::default();
         let row = attribution(digest(1), "sender.one", 1, now);
-        let after_expiry = row.expires_at() + chrono::Duration::seconds(1);
+        let after_expiry = row.expires_at().unwrap() + chrono::Duration::seconds(1);
         assert!(ledger.admit_received_candidate(&row, after_expiry).is_err());
     }
 }

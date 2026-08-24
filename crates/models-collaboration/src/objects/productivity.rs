@@ -1538,10 +1538,10 @@ impl ContactRemark {
             ));
         }
         if !self.petname.is_empty() {
-            arkret_wire::validate_single_line_display_text(&self.petname, 128, 512)?;
+            arkret_wire::validate_single_line_display_text(&self.petname, 128)?;
         }
         if let Some(display_name) = self.global_display_name_at_save.as_deref() {
-            arkret_wire::validate_single_line_display_text(display_name, 512, 2_048)?;
+            arkret_wire::validate_single_line_display_text(display_name, 512)?;
         }
         if self.note.chars().count() > 4_096 {
             return Err(WireError::Protocol(

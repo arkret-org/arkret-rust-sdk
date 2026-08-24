@@ -109,7 +109,6 @@ pub fn build_realm_owner_transfer_intent(
     payload: RealmOwnerTransferPayload,
 ) -> Result<EventIntent> {
     if scope_ref.realm_id() != &payload.realm_id
-        || payload.patch.controller_epoch == 0
         || !payload
             .expected_state_digest
             .as_str()
@@ -142,7 +141,6 @@ pub fn build_realm_authority_reset_intent(
     payload: RealmAuthorityResetPayload,
 ) -> Result<EventIntent> {
     if scope_ref.realm_id() != &payload.realm_id
-        || payload.patch.authority_generation == 0
         || payload.destructive_confirmation != arkret_wire::event_kind_str::REALM_AUTHORITY_RESET
         || !payload
             .expected_state_digest
@@ -692,7 +690,7 @@ mod tests {
         let transfer: RealmOwnerTransferPayload = serde_json::from_value(json!({
             "realm_id": REALM,
             "expected_state_digest": expected,
-            "patch": {"controller_id": successor, "controller_epoch": 1},
+            "patch": {"controller_id": successor},
             "successor_acceptance": "detached-successor-proof"
         }))
         .unwrap();
@@ -708,7 +706,6 @@ mod tests {
         let reset: RealmAuthorityResetPayload = serde_json::from_value(json!({
             "realm_id": REALM,
             "expected_state_digest": format!("sha256:{}", "2".repeat(64)),
-            "patch": {"authority_generation": 1},
             "destructive_confirmation": EventKind::RealmAuthorityReset
         }))
         .unwrap();
@@ -744,7 +741,6 @@ mod tests {
         let payload: RealmAuthorityResetPayload = serde_json::from_value(json!({
             "realm_id": REALM,
             "expected_state_digest": format!("sha256:{}", "4".repeat(64)),
-            "patch": {"authority_generation": 1},
             "destructive_confirmation": "RESET"
         }))
         .unwrap();

@@ -74,7 +74,6 @@ pub struct AgentCleanupRecord {
     pub controller_membership_generation_ref: EventId,
     pub initiator_authority: PrincipalAuthorityKey,
     pub controller_terminal_event_id: EventId,
-    pub controller_terminal_event_digest: Hash,
     pub expected_agent_ids: Vec<DidCoreId>,
     pub cleanup_intent_digest: Hash,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
@@ -111,7 +110,6 @@ impl AgentCleanupRecord {
             controller_membership_generation_ref: &'a EventId,
             initiator_authority: &'a PrincipalAuthorityKey,
             controller_terminal_event_id: &'a EventId,
-            controller_terminal_event_digest: &'a Hash,
             expected_agent_ids: &'a [DidCoreId],
         }
 
@@ -123,10 +121,13 @@ impl AgentCleanupRecord {
                 controller_membership_generation_ref: &self.controller_membership_generation_ref,
                 initiator_authority: &self.initiator_authority,
                 controller_terminal_event_id: &self.controller_terminal_event_id,
-                controller_terminal_event_digest: &self.controller_terminal_event_digest,
                 expected_agent_ids: &self.expected_agent_ids,
             },
         )?)?)
+    }
+
+    pub fn controller_terminal_event_digest(&self) -> Hash {
+        self.controller_terminal_event_id.event_digest()
     }
 
     pub fn validate(&self) -> Result<()> {
@@ -534,7 +535,6 @@ mod tests {
                 "ak:did_core:web:principal.example",
             ),
             controller_terminal_event_id: event_id('b'),
-            controller_terminal_event_digest: hash('1'),
             expected_agent_ids: vec![
                 DidCoreId::new("ak:did_core:web:agent-a.example").unwrap(),
                 DidCoreId::new("ak:did_core:web:agent-b.example").unwrap(),

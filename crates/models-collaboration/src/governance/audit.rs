@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DidCoreId, EventId, Hash, ProducerEventProof, ProfileId, RealmId, ReasonCode, Result, SchemaId,
-    TrustDomainId, WireError,
+    DidCoreId, DidUrl, EventId, Hash, ProducerEventProof, ProfileId, RealmId, ReasonCode,
+    ReceiptId, Result, SchemaId, TrustDomainId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -98,25 +98,14 @@ impl AuditAssurance {
 ///
 /// `events_api` is the originating Events API node; `witness` is an
 /// independent log; `peer_node` is another Principal Server replica.
-/// Combine with [`ReceiptIndependence`] to detect single-source receipts
-/// that don't satisfy the attested-mode independence requirement.
+/// Receipt independence is derived from the verified
+/// [`AuditRywWitnessAttestation`] rather than a producer-authored class.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RywIssuerRole {
     EventsApi,
     Witness,
     PeerNode,
-}
-
-/// Whether the RYW receipt was issued by an issuer independent of the
-/// Events API node that accepted the audit envelope.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ReceiptIndependence {
-    /// At least one issuer is distinct from the originating Events API.
-    Independent,
-    /// All proofs come from the same node — not durable in attested mode.
-    SingleSource,
 }
 
 /// Per-actor frontier entry referenced by the RYW receipt.
@@ -135,6 +124,33 @@ pub struct RywFrontier {
     pub actor_frontier: BTreeMap<DidCoreId, RywActorFrontierEntry>,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuditRywWitnessAttestation {
+    pub witnesses: Vec<AuditRywWitness>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct AuditRywWitness {
+    pub issuer: DidCoreId,
+    pub verification_method: DidUrl,
+    pub controlling_organization: DidCoreId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
+    pub attested_at: Option<DateTime<Utc>>,
+    #[serde(default, flatten)]
+    pub extensions: BTreeMap<String, serde_json::Value>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AuditRywRecoveryReasonCode {
+    #[serde(rename = "late_key_arrival")]
+    LateKeyArrival,
+}
+
 /// `ak.audit.ryw_receipt` event payload
 /// (`audit-ryw-receipt.schema.json`).
 ///
@@ -143,27 +159,35 @@ pub struct RywFrontier {
 /// Agent MUST gate plaintext release on receiving a receipt that meets
 /// the Realm's declared `audit_assurance`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AuditRywReceipt {
-    pub receipt_id: String,
+    pub receipt_id: ReceiptId,
     pub schema: String,
     pub issuer: DidCoreId,
     pub issuer_role: RywIssuerRole,
     pub audit_event_id: EventId,
-    pub audit_event_digest: Hash,
     pub realm_id: RealmId,
     /// Round 4 (2026-05-20, spec a77b995) — REQUIRED trust domain
     /// binding. Mixed into the canonical `audit_policy_version_digest`
     /// 4-tuple so receipts cannot be replayed across deployments.
     pub trust_domain: TrustDomainId,
+    pub realm_operator_organization: DidCoreId,
     pub audit_actor_id: DidCoreId,
     pub frontier: RywFrontier,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
-    pub receipt_independence: ReceiptIndependence,
+    pub witness_attestation: AuditRywWitnessAttestation,
     pub audit_assurance_class: AuditAssurance,
+    pub audit_policy_version_digest: Hash,
     pub proofs: Vec<ProducerEventProof>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery_reason_code: Option<AuditRywRecoveryReasonCode>,
 }
 
 impl AuditRywReceipt {
+    pub fn audit_event_digest(&self) -> Hash {
+        self.audit_event_id.event_digest()
+    }
+
     pub const SCHEMA: &'static str = SchemaId::AUDIT_RYW_RECEIPT_V1;
 }

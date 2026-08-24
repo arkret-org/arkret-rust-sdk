@@ -177,11 +177,14 @@ pub struct EventCandidateBindingKey {
     pub mls_group_id: String,
     pub epoch: u64,
     pub event_id: EventId,
-    pub event_digest: Hash,
     pub verified_sender_domain: String,
 }
 
 impl EventCandidateBindingKey {
+    pub fn event_digest(&self) -> Hash {
+        self.event_id.event_digest()
+    }
+
     pub fn validate(&self) -> Result<()> {
         validate_canonical_mls_group_id(&self.effective_scope, &self.mls_group_id)?;
         if !(1..=MAX_HISTORY_SENDER_DOMAIN_CHARS)
@@ -230,8 +233,6 @@ pub struct EventCandidateBinding {
     pub outcome: EventCandidateBindingOutcome,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub first_observed_at: DateTime<Utc>,
-    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
 }
 
 impl EventCandidateBinding {
@@ -243,19 +244,11 @@ impl EventCandidateBinding {
         outcome: EventCandidateBindingOutcome,
         first_observed_at: DateTime<Utc>,
     ) -> Result<Self> {
-        let expires_at = first_observed_at
-            .checked_add_signed(chrono::Duration::seconds(
-                HISTORY_STORE_LIMITS.event_candidate_binding_ttl_seconds,
-            ))
-            .ok_or_else(|| {
-                WireError::Protocol("history Event candidate binding expiry overflows".to_owned())
-            })?;
         let binding = Self {
             event_binding_key,
             candidate_digest,
             outcome,
             first_observed_at,
-            expires_at,
         };
         binding.validate()?;
         Ok(binding)
@@ -263,16 +256,17 @@ impl EventCandidateBinding {
 
     pub fn validate(&self) -> Result<()> {
         self.event_binding_key.validate()?;
-        if self
-            .expires_at
-            .signed_duration_since(self.first_observed_at)
-            != chrono::Duration::seconds(HISTORY_STORE_LIMITS.event_candidate_binding_ttl_seconds)
-        {
-            return Err(WireError::Protocol(format!(
-                "history Event candidate binding expiry must equal first_observed_at plus {} seconds",
-                HISTORY_STORE_LIMITS.event_candidate_binding_ttl_seconds
-            )));
-        }
+        self.expires_at()?;
         Ok(())
+    }
+
+    pub fn expires_at(&self) -> Result<DateTime<Utc>> {
+        self.first_observed_at
+            .checked_add_signed(chrono::Duration::seconds(
+                HISTORY_STORE_LIMITS.event_candidate_binding_ttl_seconds,
+            ))
+            .ok_or_else(|| {
+                WireError::Protocol("history Event candidate binding expiry overflows".to_owned())
+            })
     }
 }

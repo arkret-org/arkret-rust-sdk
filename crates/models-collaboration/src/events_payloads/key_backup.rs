@@ -4,22 +4,6 @@ use arkret_wire::DidCoreId;
 
 use crate::internal_prelude::*;
 
-/// Top-level application fields declared by `auth_data.signed_fields`.
-///
-/// The signature transcript also binds every `auth_data` member except the
-/// signature itself. Those members are signature-envelope metadata rather
-/// than application fields, so they are intentionally not repeated here.
-pub const KEY_BACKUP_ACTIVE_SERIES_SIGNED_FIELDS: [&str; 8] = [
-    "schema",
-    "actor_id",
-    "backup_kind",
-    "active_series_id",
-    "series_pointer_version",
-    "previous_series_ids",
-    "frontier_ref",
-    "issued_at",
-];
-
 /// Counterpart for the closed current-generation device authorization binding.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -27,7 +11,6 @@ pub struct KeyBackupActiveSeriesAuthData {
     pub verification_method: DidUrl,
     pub signature_algorithm: KeyBackupSignatureAlgorithm,
     pub signature: Base64UrlString,
-    pub signed_fields: Vec<String>,
     pub device_authorize_event_id: EventId,
 }
 
@@ -36,7 +19,6 @@ pub struct KeyBackupActiveSeriesAuthData {
 struct UnsignedKeyBackupActiveSeriesAuthData {
     verification_method: DidUrl,
     signature_algorithm: KeyBackupSignatureAlgorithm,
-    signed_fields: Vec<String>,
     device_authorize_event_id: EventId,
 }
 
@@ -144,10 +126,6 @@ impl UnsignedKeyBackupActiveSeries {
             auth_data: UnsignedKeyBackupActiveSeriesAuthData {
                 verification_method,
                 signature_algorithm: KeyBackupSignatureAlgorithm::Ed25519,
-                signed_fields: KEY_BACKUP_ACTIVE_SERIES_SIGNED_FIELDS
-                    .iter()
-                    .map(ToString::to_string)
-                    .collect(),
                 device_authorize_event_id: trust_anchor.authorize_event_id,
             },
             extra: BTreeMap::new(),
@@ -175,7 +153,6 @@ impl UnsignedKeyBackupActiveSeries {
                 verification_method: self.auth_data.verification_method,
                 signature_algorithm: self.auth_data.signature_algorithm,
                 signature,
-                signed_fields: self.auth_data.signed_fields,
                 device_authorize_event_id: self.auth_data.device_authorize_event_id,
             },
             extra: self.extra,
@@ -202,7 +179,6 @@ impl KeyBackupActiveSeries {
             auth_data: UnsignedKeyBackupActiveSeriesAuthData {
                 verification_method: self.auth_data.verification_method.clone(),
                 signature_algorithm: self.auth_data.signature_algorithm,
-                signed_fields: self.auth_data.signed_fields.clone(),
                 device_authorize_event_id: self.auth_data.device_authorize_event_id.clone(),
             },
             extra: self.extra.clone(),
@@ -281,10 +257,6 @@ pub fn resolve_controller_backup_trust_anchor(
 pub enum KeyBackupActiveSeriesTransitionError {
     #[error("key_backup_active_series_schema_mismatch")]
     SchemaMismatch,
-    #[error("key_backup_active_series_signed_fields_duplicate")]
-    SignedFieldsDuplicate,
-    #[error("key_backup_active_series_signed_fields_incomplete")]
-    SignedFieldsIncomplete,
     #[error("key_backup_active_series_active_in_previous")]
     ActiveInPrevious,
     #[error("key_backup_active_series_previous_series_duplicate")]
@@ -303,8 +275,6 @@ impl KeyBackupActiveSeriesTransitionError {
     pub const fn reason_code(self) -> &'static str {
         match self {
             Self::SchemaMismatch => "key_backup_active_series_schema_mismatch",
-            Self::SignedFieldsDuplicate => "key_backup_active_series_signed_fields_duplicate",
-            Self::SignedFieldsIncomplete => "key_backup_active_series_signed_fields_incomplete",
             Self::ActiveInPrevious => "key_backup_active_series_active_in_previous",
             Self::PreviousSeriesDuplicate => "key_backup_active_series_previous_series_duplicate",
             Self::ActorOrClassMismatch => "key_backup_active_series_actor_or_class_mismatch",
@@ -349,8 +319,7 @@ pub fn validate_key_backup_active_series_transition(
 }
 
 /// Validate one active-series record independently of its predecessor. This is
-/// shared by admission, authority, and reducer paths so `signed_fields`
-/// duplicate/incomplete semantics cannot diverge between verifiers.
+/// shared by admission, authority, and reducer paths.
 pub fn validate_key_backup_active_series_record(
     record: &KeyBackupActiveSeries,
 ) -> std::result::Result<(), KeyBackupActiveSeriesTransitionError> {
@@ -361,24 +330,6 @@ pub fn validate_key_backup_active_series_record(
             .any(|key| !valid_active_series_extension_key(key))
     {
         return Err(KeyBackupActiveSeriesTransitionError::SchemaMismatch);
-    }
-    let signed_fields = record
-        .auth_data
-        .signed_fields
-        .iter()
-        .collect::<std::collections::BTreeSet<_>>();
-    if signed_fields.len() != record.auth_data.signed_fields.len() {
-        return Err(KeyBackupActiveSeriesTransitionError::SignedFieldsDuplicate);
-    }
-    if KEY_BACKUP_ACTIVE_SERIES_SIGNED_FIELDS
-        .iter()
-        .any(|required| {
-            !signed_fields
-                .iter()
-                .any(|candidate| candidate.as_str() == *required)
-        })
-    {
-        return Err(KeyBackupActiveSeriesTransitionError::SignedFieldsIncomplete);
     }
     if record
         .previous_series_ids
@@ -458,7 +409,7 @@ mod tests {
     #[test]
     fn active_series_signing_transcript_kat_is_stable_across_typestates() {
         const EXPECTED: &str = concat!(
-            r#"{"active_series_id":"ak:backup_series:019a6760-0000-7000-8000-000000000001","actor_id":"ak:did_core:web:alice.example","auth_data":{"device_authorize_event_id":"ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e","signature_algorithm":"Ed25519","signed_fields":["schema","actor_id","backup_kind","active_series_id","series_pointer_version","previous_series_ids","frontier_ref","issued_at"],"verification_method":"did:web:alice.example#device-1"},"backup_kind":"mls_history","frontier_ref":{"device_generation_ref":1,"frontier_digest":"sha256:"#,
+            r#"{"active_series_id":"ak:backup_series:019a6760-0000-7000-8000-000000000001","actor_id":"ak:did_core:web:alice.example","auth_data":{"device_authorize_event_id":"ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e","signature_algorithm":"Ed25519","verification_method":"did:web:alice.example#device-1"},"backup_kind":"mls_history","frontier_ref":{"device_generation_ref":1,"frontier_digest":"sha256:"#,
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             r#"","seal_ref":"ak:seal:sha256:"#,
             "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -474,29 +425,5 @@ mod tests {
             .attach_signature(Base64UrlString::new("AQ".to_owned()).unwrap())
             .unwrap();
         assert_eq!(signed.signing_payload_bytes().unwrap(), EXPECTED.as_bytes());
-    }
-
-    #[test]
-    fn signed_fields_duplicate_and_incomplete_reasons_are_stable() {
-        let mut duplicate = unsigned_fixture()
-            .attach_signature(Base64UrlString::new("AQ".to_owned()).unwrap())
-            .unwrap();
-        duplicate.auth_data.signed_fields.push("schema".to_owned());
-        assert_eq!(
-            validate_key_backup_active_series_transition(None, &duplicate),
-            Err(KeyBackupActiveSeriesTransitionError::SignedFieldsDuplicate)
-        );
-
-        let mut incomplete = unsigned_fixture()
-            .attach_signature(Base64UrlString::new("AQ".to_owned()).unwrap())
-            .unwrap();
-        incomplete
-            .auth_data
-            .signed_fields
-            .retain(|field| field != "issued_at");
-        assert_eq!(
-            validate_key_backup_active_series_transition(None, &incomplete),
-            Err(KeyBackupActiveSeriesTransitionError::SignedFieldsIncomplete)
-        );
     }
 }

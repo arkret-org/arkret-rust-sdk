@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 /// Domain separator for the canonical ICE configuration signature transcript.
 pub const MEDIA_ICE_CONFIG_SIGNING_LABEL: &str = "ak.media.ice_config.v1";
+pub const MEDIA_ICE_BUCKET_SECONDS: i64 = 300;
 
 fn is_false(value: &bool) -> bool {
     !*value
@@ -43,15 +44,6 @@ pub struct MediaIceConfigOutcome {
     pub refresh_lead_seconds: u32,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub issued_at_bucket: DateTime<Utc>,
-    pub bucket_seconds: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(
-        default,
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
-    )]
-    pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub turn_required: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -66,6 +58,28 @@ pub struct MediaIceConfigOutcome {
 }
 
 impl MediaIceConfigOutcome {
+    pub const fn bucket_seconds(&self) -> i64 {
+        MEDIA_ICE_BUCKET_SECONDS
+    }
+
+    pub fn issued_at_bucket(&self) -> DateTime<Utc> {
+        let bucket_start = self
+            .issued_at
+            .timestamp()
+            .div_euclid(MEDIA_ICE_BUCKET_SECONDS)
+            * MEDIA_ICE_BUCKET_SECONDS;
+        DateTime::from_timestamp(bucket_start, 0)
+            .expect("a bucketed representable DateTime remains representable")
+    }
+
+    pub fn expires_at(&self) -> arkret_wire::Result<DateTime<Utc>> {
+        self.issued_at
+            .checked_add_signed(chrono::Duration::seconds(i64::from(self.ttl_seconds)))
+            .ok_or_else(|| {
+                arkret_wire::WireError::Protocol("ICE configuration expiry overflows".to_owned())
+            })
+    }
+
     /// Canonicalize the signed response payload after removing the detached
     /// signature container. Timestamp spelling is enforced by this model's
     /// canonical serializers before JCS encoding.

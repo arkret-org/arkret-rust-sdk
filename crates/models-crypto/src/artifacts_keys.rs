@@ -319,7 +319,6 @@ pub struct KeyBackupUnlockProofAuthData {
     pub verification_method: DidUrl,
     pub signature_algorithm: KeyBackupSignatureAlgorithm,
     pub signature: Base64UrlString,
-    pub signed_fields: Vec<String>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -347,7 +346,7 @@ pub struct KeyBackupUnlockProof {
 impl KeyBackupUnlockProof {
     pub const SCHEMA: &'static str = SchemaId::KEY_BACKUP_UNLOCK_PROOF_V1;
 
-    /// Validate the signed wire shape and the SDK-owned signature coverage.
+    /// Validate the signed wire shape.
     pub fn validate(&self) -> Result<()> {
         if self.schema != Self::SCHEMA {
             return Err(WireError::Protocol(format!(
@@ -364,22 +363,6 @@ impl KeyBackupUnlockProof {
         }) {
             return Err(WireError::Protocol(
                 "key backup unlock proof challenge must be 43 base64url characters".to_owned(),
-            ));
-        }
-        let actual = self
-            .auth_data
-            .signed_fields
-            .iter()
-            .map(String::as_str)
-            .collect::<std::collections::BTreeSet<_>>();
-        if actual.len() != self.auth_data.signed_fields.len()
-            || KEY_BACKUP_UNLOCK_PROOF_SIGNED_FIELDS
-                .iter()
-                .any(|field| !actual.contains(field))
-        {
-            return Err(WireError::Protocol(
-                "key backup unlock proof signed_fields must be unique and cover the canonical field set"
-                    .to_owned(),
             ));
         }
         Ok(())
@@ -401,20 +384,6 @@ impl KeyBackupUnlockProof {
         key_backup_unlock_proof_signing_payload_bytes(&unsigned)
     }
 }
-
-const KEY_BACKUP_UNLOCK_PROOF_SIGNED_FIELDS: [&str; 11] = [
-    "schema",
-    "recovery_session_id",
-    "principal_id",
-    "requesting_device_id",
-    "backup_id",
-    "backup_kind",
-    "series_id",
-    "ciphertext_digest",
-    "proof_kind",
-    "proof_digest",
-    "issued_at",
-];
 
 /// Signature metadata for an unlock proof before a signature exists.
 #[derive(Clone, Debug)]
@@ -520,10 +489,6 @@ impl UnsignedKeyBackupUnlockProof {
                 verification_method: self.auth_data.verification_method,
                 signature_algorithm: self.auth_data.signature_algorithm,
                 signature,
-                signed_fields: KEY_BACKUP_UNLOCK_PROOF_SIGNED_FIELDS
-                    .into_iter()
-                    .map(str::to_owned)
-                    .collect(),
             },
             extra: self.extra,
         };
@@ -536,7 +501,6 @@ impl UnsignedKeyBackupUnlockProof {
         struct UnsignedAuthData<'a> {
             verification_method: &'a DidUrl,
             signature_algorithm: KeyBackupSignatureAlgorithm,
-            signed_fields: [&'static str; 11],
         }
 
         #[derive(Serialize)]
@@ -576,7 +540,6 @@ impl UnsignedKeyBackupUnlockProof {
             auth_data: UnsignedAuthData {
                 verification_method: &self.auth_data.verification_method,
                 signature_algorithm: self.auth_data.signature_algorithm,
-                signed_fields: KEY_BACKUP_UNLOCK_PROOF_SIGNED_FIELDS,
             },
             extra: &self.extra,
         })
