@@ -47,8 +47,6 @@ pub struct AccountDataEncryptedValue {
     pub nonce: String,
     pub ciphertext: String,
     pub aad: AccountDataEncryptedValueAad,
-    pub aad_digest: String,
-    pub ciphertext_digest: String,
 }
 
 impl AccountDataEncryptedValue {
@@ -135,8 +133,6 @@ pub fn seal_account_data_value_with_nonce(
         nonce: base64url_encode(nonce),
         ciphertext: base64url_encode(&ciphertext),
         aad,
-        aad_digest: sha256_digest(&aad_bytes),
-        ciphertext_digest: sha256_digest(&ciphertext),
     })
 }
 
@@ -174,13 +170,6 @@ pub fn validate_account_data_encrypted_value(
         return Err(protocol_error(
             "account-data ciphertext is shorter than the AEAD tag",
         ));
-    }
-    let aad_bytes = canonical_aad(&value.aad)?;
-    if value.aad_digest != sha256_digest(&aad_bytes) {
-        return Err(protocol_error("account-data AAD digest mismatch"));
-    }
-    if value.ciphertext_digest != sha256_digest(&ciphertext) {
-        return Err(protocol_error("account-data ciphertext digest mismatch"));
     }
     Ok(())
 }

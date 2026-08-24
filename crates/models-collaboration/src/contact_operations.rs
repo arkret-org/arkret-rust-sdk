@@ -891,6 +891,31 @@ pub enum ContactPreparedOutcome {
     },
 }
 
+impl ContactPreparedOutcome {
+    pub fn event_draft(&self) -> arkret_wire::Result<&PreparedEventDraft> {
+        let (draft, expected_kind) = match self {
+            Self::Request { event_draft, .. } => {
+                (event_draft, arkret_wire::event_kind_str::CONTACT_REQUESTED)
+            }
+            Self::Response { event_draft, .. } => {
+                (event_draft, arkret_wire::event_kind_str::CONTACT_ACCEPTED)
+            }
+            Self::Reject { event_draft, .. } => {
+                (event_draft, arkret_wire::event_kind_str::CONTACT_REJECTED)
+            }
+            Self::ScopeUpdate { event_draft, .. } => (
+                event_draft,
+                arkret_wire::event_kind_str::CONTACT_SCOPE_UPDATE,
+            ),
+            Self::Tombstone { event_draft, .. } => {
+                (event_draft, arkret_wire::event_kind_str::CONTACT_TOMBSTONE)
+            }
+        };
+        draft.unsigned_event_for_kind(expected_kind)?;
+        Ok(draft)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "result_kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

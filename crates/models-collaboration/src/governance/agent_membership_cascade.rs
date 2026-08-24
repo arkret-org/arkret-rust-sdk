@@ -50,13 +50,11 @@ impl AgentControllerMembershipBinding {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum AgentCleanupStatus {
-    AgentCleanupPending,
-    AgentCleanupCompleted,
-    AgentCleanupOverdue,
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AgentCleanupStatusView {
+    Pending,
+    Completed,
+    Overdue,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -69,7 +67,7 @@ pub enum AgentMembershipCascadeSchema {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentCleanupPendingRecord {
+pub struct AgentCleanupRecord {
     pub schema: AgentMembershipCascadeSchema,
     pub realm_id: RealmId,
     pub controller_authority: PrincipalAuthorityKey,
@@ -79,7 +77,6 @@ pub struct AgentCleanupPendingRecord {
     pub controller_terminal_event_digest: Hash,
     pub expected_agent_ids: Vec<DidCoreId>,
     pub cleanup_intent_digest: Hash,
-    pub status: AgentCleanupStatus,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
@@ -94,7 +91,17 @@ pub struct AgentCleanupPendingRecord {
     pub agent_transition_event_ids: Option<Vec<EventId>>,
 }
 
-impl AgentCleanupPendingRecord {
+impl AgentCleanupRecord {
+    pub fn cleanup_status(&self, now: DateTime<Utc>) -> AgentCleanupStatusView {
+        if self.completed_at.is_some() {
+            AgentCleanupStatusView::Completed
+        } else if self.cleanup_due_at <= now {
+            AgentCleanupStatusView::Overdue
+        } else {
+            AgentCleanupStatusView::Pending
+        }
+    }
+
     pub fn expected_cleanup_intent_digest(&self) -> Result<Hash> {
         #[derive(Serialize)]
         struct CleanupIntentPreimage<'a> {
@@ -136,18 +143,11 @@ impl AgentCleanupPendingRecord {
                 "agent cleanup intent digest does not bind the frozen record".to_owned(),
             ));
         }
-        match self.status {
-            AgentCleanupStatus::AgentCleanupCompleted => {
-                let event_ids = self.agent_transition_event_ids.as_deref().ok_or_else(|| {
-                    WireError::Protocol(
-                        "completed agent cleanup requires transition Event ids".to_owned(),
-                    )
-                })?;
-                if self.completed_at.is_none() {
-                    return Err(WireError::Protocol(
-                        "completed agent cleanup requires completed_at".to_owned(),
-                    ));
-                }
+        match (
+            self.completed_at.as_ref(),
+            self.agent_transition_event_ids.as_deref(),
+        ) {
+            (Some(_), Some(event_ids)) => {
                 validate_unique_event_ids(event_ids)?;
                 if event_ids.len() != self.expected_agent_ids.len() {
                     return Err(WireError::Protocol(
@@ -156,13 +156,11 @@ impl AgentCleanupPendingRecord {
                     ));
                 }
             }
-            AgentCleanupStatus::AgentCleanupPending | AgentCleanupStatus::AgentCleanupOverdue => {
-                if self.completed_at.is_some() || self.agent_transition_event_ids.is_some() {
-                    return Err(WireError::Protocol(
-                        "pending or overdue agent cleanup forbids completion fields".to_owned(),
-                    ));
-                }
-            }
+            (None, None) => {}
+            _ => return Err(WireError::Protocol(
+                "agent cleanup completion timestamp and transition Event ids must appear together"
+                    .to_owned(),
+            )),
         }
         Ok(())
     }
@@ -522,7 +520,7 @@ mod tests {
         let accepted_at = DateTime::parse_from_rfc3339("2026-08-15T00:00:00Z")
             .unwrap()
             .with_timezone(&Utc);
-        let mut record = AgentCleanupPendingRecord {
+        let mut record = AgentCleanupRecord {
             schema: AgentMembershipCascadeSchema::V1,
             realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
                 .unwrap(),
@@ -542,7 +540,6 @@ mod tests {
                 DidCoreId::new("ak:did_core:web:agent-b.example").unwrap(),
             ],
             cleanup_intent_digest: hash('2'),
-            status: AgentCleanupStatus::AgentCleanupPending,
             accepted_at,
             cleanup_due_at: accepted_at + chrono::Duration::hours(1),
             completed_at: None,
@@ -550,11 +547,22 @@ mod tests {
         };
         record.cleanup_intent_digest = record.expected_cleanup_intent_digest().unwrap();
         record.validate().unwrap();
-        record.status = AgentCleanupStatus::AgentCleanupCompleted;
-        assert!(record.validate().is_err());
+        assert_eq!(
+            record.cleanup_status(accepted_at + chrono::Duration::minutes(30)),
+            AgentCleanupStatusView::Pending
+        );
+        assert_eq!(
+            record.cleanup_status(accepted_at + chrono::Duration::hours(2)),
+            AgentCleanupStatusView::Overdue
+        );
         record.completed_at = Some(accepted_at + chrono::Duration::minutes(1));
+        assert!(record.validate().is_err());
         record.agent_transition_event_ids = Some(vec![event_id('c'), event_id('d')]);
         record.validate().unwrap();
+        assert_eq!(
+            record.cleanup_status(accepted_at + chrono::Duration::hours(2)),
+            AgentCleanupStatusView::Completed
+        );
     }
 
     #[test]

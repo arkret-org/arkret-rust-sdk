@@ -158,7 +158,6 @@ pub enum EventBatchReceiptEvent {
 #[serde(deny_unknown_fields)]
 pub struct EventBatchReceiptItem {
     pub event_id: EventId,
-    pub event_digest: Hash,
     pub kind: NonEmptyString,
 }
 
@@ -311,9 +310,10 @@ impl EventBatchReceipt {
                     }
                     _ => None,
                 });
-                if reanchor.map(|item| &item.event_digest) != Some(&scope.reanchor_digest)
-                    || authorize.map(|item| &item.event_digest)
-                        != Some(&scope.replacement_authorize_digest)
+                if reanchor.map(|item| item.event_id.event_digest())
+                    != Some(scope.reanchor_digest.clone())
+                    || authorize.map(|item| item.event_id.event_digest())
+                        != Some(scope.replacement_authorize_digest.clone())
                 {
                     return Err(WireError::Protocol(
                         "device reanchor receipt event binding mismatch".to_owned(),
@@ -347,9 +347,10 @@ impl EventBatchReceipt {
                     }
                     _ => None,
                 });
-                if create.map(|item| &item.event_digest) != Some(&scope.create_digest)
-                    || authorize.map(|item| &item.event_digest)
-                        != Some(&scope.founding_authorize_digest)
+                if create.map(|item| item.event_id.event_digest())
+                    != Some(scope.create_digest.clone())
+                    || authorize.map(|item| item.event_id.event_digest())
+                        != Some(scope.founding_authorize_digest.clone())
                 {
                     return Err(WireError::Protocol(
                         "PCR genesis receipt event binding mismatch".to_owned(),
@@ -402,10 +403,9 @@ mod event_batch_receipt_tests {
         )
     }
 
-    fn item(id: &str, digest: Hash, kind: &str) -> EventBatchReceiptEvent {
+    fn item(digest: Hash, kind: &str) -> EventBatchReceiptEvent {
         EventBatchReceiptEvent::Item(EventBatchReceiptItem {
-            event_id: EventId::new(id).unwrap(),
-            event_digest: digest,
+            event_id: EventId::from_event_digest(&digest).unwrap(),
             kind: NonEmptyString::new(kind).unwrap(),
         })
     }
@@ -442,16 +442,8 @@ mod event_batch_receipt_tests {
                 hlc: None,
             },
             events: vec![
-                item(
-                    "ak:event:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
-                    reanchor_digest,
-                    "ak.device.reanchor",
-                ),
-                item(
-                    "ak:event:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL",
-                    authorize_digest,
-                    "ak.device.authorize",
-                ),
+                item(reanchor_digest, "ak.device.reanchor"),
+                item(authorize_digest, "ak.device.authorize"),
             ],
             created_at: Utc::now(),
             proofs: Vec::new(),
@@ -512,11 +504,7 @@ mod event_batch_receipt_tests {
                 event_digest: Some(event_digest.clone()),
                 hlc: None,
             },
-            events: vec![item(
-                "ak:event:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL",
-                event_digest,
-                "ak.device.reanchor",
-            )],
+            events: vec![item(event_digest, "ak.device.reanchor")],
             created_at,
             proofs: Vec::new(),
         };

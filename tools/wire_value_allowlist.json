@@ -783,14 +783,14 @@
     },
     {
       "finding": "crates/models-collaboration/src/events_payloads/key_backup.rs::KeyBackupActiveSeries.extra",
-      "classification": "open_json",
+      "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
-      "decision": "open",
+      "decision": "raw",
       "authority": "arkret_models_crypto::KeyBackupActiveSeries signing typestate",
       "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
       "spec_pointer": "key-backup-active-series.schema.json"
     },
     {
@@ -3298,18 +3298,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
       "spec_pointer": "recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_request/properties/terminal_receipt"
-    },
-    {
-      "finding": "crates/wire/src/security_transaction.rs::PreparedEventUnit.request",
-      "classification": "open_json",
-      "lifecycle": "retained_boundary",
-      "decision": "open",
-      "authority": "security-transaction.schema.json#/$defs/prepared_event_unit/properties/request",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "spec_pointer": "security-transaction.schema.json#/$defs/prepared_event_unit/properties/request"
     },
     {
       "finding": "floria/src/config/mod.rs::AppConfig.extra",

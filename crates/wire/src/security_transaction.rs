@@ -6,8 +6,6 @@
 //! Recovery is additionally discriminated by identity model. This is not a
 //! general Saga/Plan DSL.
 
-use std::collections::BTreeMap;
-
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -89,7 +87,7 @@ pub enum SecurityTransactionStep {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AcceptedStep {
     pub prepared_material_digest: Hash,
@@ -133,101 +131,23 @@ pub struct BackupRotationBinding {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PreparedEventUnit {
-    pub operation_id: String,
-    pub destination_service_id: DidCoreId,
-    pub audience: DidCoreId,
-    pub request_schema: String,
-    pub request: BTreeMap<String, Value>,
-    pub canonical_request_base64url: String,
+    pub request: EventsSubmitBatchRequestBody,
     pub request_digest: Hash,
 }
 
 impl PreparedEventUnit {
-    pub fn new<T: Serialize>(destination_service_id: DidCoreId, request: T) -> Result<Self> {
-        let request = serde_json::to_value(request)?;
-        let Value::Object(request) = request else {
-            return Err(WireError::Protocol(
-                "prepared Event unit request must be a JSON object".to_owned(),
-            ));
-        };
-        let request = request.into_iter().collect::<BTreeMap<_, _>>();
-        let bytes = arkret_canonical::canonical::canonical_json_bytes(&request)?;
-        Ok(Self {
-            operation_id: crate::ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT.to_owned(),
-            audience: destination_service_id.clone(),
-            destination_service_id,
-            request_schema: "https://arkret.org/v1/schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitBatchRequestBody".to_owned(),
-            canonical_request_base64url: arkret_canonical::base64url::base64url_encode(&bytes),
-            request_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&bytes))?,
-            request,
-        })
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PreparedEventSubmissionBatch {
-    pub destination_service_id: DidCoreId,
-    pub audience: DidCoreId,
-    pub request: EventsSubmitBatchRequestBody,
-    pub canonical_request_base64url: String,
-    pub request_digest: Hash,
-}
-
-impl PreparedEventSubmissionBatch {
     pub fn new(
-        destination_service_id: DidCoreId,
+        digest_suite: arkret_canonical::DigestSuite,
         request: EventsSubmitBatchRequestBody,
     ) -> Result<Self> {
         let bytes = arkret_canonical::canonical::canonical_json_bytes(&request)?;
         Ok(Self {
-            audience: destination_service_id.clone(),
-            destination_service_id,
+            request_digest: Hash::new(arkret_canonical::canonical::digest(digest_suite, &bytes))?,
             request,
-            canonical_request_base64url: arkret_canonical::base64url::base64url_encode(&bytes),
-            request_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&bytes))?,
         })
-    }
-
-    pub fn validate_structural(
-        &self,
-        coordinator_service_id: &DidCoreId,
-        digest_suites: &[arkret_canonical::DigestSuite],
-    ) -> Result<()> {
-        if &self.destination_service_id != coordinator_service_id
-            || self.audience != self.destination_service_id
-        {
-            return Err(WireError::Protocol(
-                "prepared Event publication batch destination or audience is invalid".to_owned(),
-            ));
-        }
-        let bytes = arkret_canonical::base64url_decode(&self.canonical_request_base64url)?;
-        let canonical = arkret_canonical::canonical::canonical_json_bytes(&self.request)?;
-        if bytes != canonical {
-            return Err(WireError::Protocol(
-                "prepared Event publication batch bytes do not equal the typed request".to_owned(),
-            ));
-        }
-        arkret_canonical::canonical::verify_digest(&bytes, self.request_digest.as_str())?;
-        if self.request.events.len() != digest_suites.len() {
-            return Err(WireError::Protocol(
-                "prepared Event publication batch and digest-suite cardinality must match"
-                    .to_owned(),
-            ));
-        }
-        for (submission, digest_suite) in self
-            .request
-            .events
-            .iter()
-            .zip(digest_suites.iter().copied())
-        {
-            submission.validate_structural(digest_suite)?;
-        }
-        Ok(())
     }
 }
 
@@ -323,7 +243,7 @@ impl RecoveryPreparedPlan {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SecurityRotationPlan {
     pub revoke_unit: PreparedEventUnit,
@@ -334,7 +254,7 @@ pub struct SecurityRotationPlan {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BackupRotationPlan {
     pub binding: BackupRotationBinding,
@@ -401,7 +321,7 @@ pub struct RecoveryTransactionCreateRequest {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SecurityRotationTransactionCreateRequest {
     pub transaction_id: TransactionId,
@@ -842,39 +762,15 @@ fn validate_canonical_digest<T: Serialize + ?Sized>(
 }
 
 impl PreparedEventUnit {
-    fn validate_structural(&self, coordinator_service_id: &DidCoreId) -> Result<()> {
-        if self.operation_id != crate::ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT
-            || self.request_schema
-                != "https://arkret.org/v1/schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitBatchRequestBody"
-            || &self.destination_service_id != coordinator_service_id
-            || self.audience != self.destination_service_id
-        {
-            return Err(WireError::Protocol(
-                "prepared Event unit operation/schema/destination/audience binding is invalid"
-                    .to_owned(),
-            ));
-        }
-        let bytes =
-            arkret_canonical::base64url::base64url_decode(&self.canonical_request_base64url)?;
-        if bytes != arkret_canonical::canonical::canonical_json_bytes(&self.request)? {
-            return Err(WireError::Protocol(
-                "prepared Event unit bytes do not equal canonical request bytes".to_owned(),
-            ));
-        }
+    fn validate_structural(&self) -> Result<()> {
+        let bytes = arkret_canonical::canonical::canonical_json_bytes(&self.request)?;
         arkret_canonical::canonical::verify_digest(&bytes, self.request_digest.as_str())?;
         Ok(())
     }
 
-    fn events_submit_request(
-        &self,
-        coordinator_service_id: &DidCoreId,
-    ) -> Result<EventsSubmitBatchRequestBody> {
-        self.validate_structural(coordinator_service_id)?;
-        serde_json::from_value(serde_json::to_value(&self.request)?).map_err(|error| {
-            WireError::Protocol(format!(
-                "prepared Event unit is not a typed EventsSubmitBatchRequestBody: {error}"
-            ))
-        })
+    fn events_submit_request(&self) -> Result<&EventsSubmitBatchRequestBody> {
+        self.validate_structural()?;
+        Ok(&self.request)
     }
 }
 
@@ -1101,9 +997,7 @@ impl SecurityTransaction {
     fn validate_recovery_plan(&self, plan: &RecoveryPreparedPlan) -> Result<()> {
         let RecoveryPreparedPlan::PcrPolicy(plan) = plan;
         let binding = &plan.binding;
-        let reanchor_request = plan
-            .reanchor_unit
-            .events_submit_request(&self.coordinator_service_id)?;
+        let reanchor_request = plan.reanchor_unit.events_submit_request()?;
         let expected = [
             (
                 binding.reanchor_event_id.as_str(),
@@ -1132,9 +1026,7 @@ impl SecurityTransaction {
 
     fn validate_security_rotation_plan(&self, plan: &SecurityRotationPlan) -> Result<()> {
         validate_security_rotation_fixed_shape(plan)?;
-        let revoke_request = plan
-            .revoke_unit
-            .events_submit_request(&self.coordinator_service_id)?;
+        let revoke_request = plan.revoke_unit.events_submit_request()?;
         if revoke_request.events.len() != 1
             || revoke_request.events[0].event.kind != crate::event_kind_str::DEVICE_REVOKE
         {
@@ -1197,9 +1089,7 @@ impl SecurityTransaction {
                     "security-rotation backup object references must be unique".to_owned(),
                 ));
             }
-            let active_series_request = plan_rotation
-                .active_series_unit
-                .events_submit_request(&self.coordinator_service_id)?;
+            let active_series_request = plan_rotation.active_series_unit.events_submit_request()?;
             if active_series_request.events.len() != 1
                 || active_series_request.events[0].event.event_id
                     != binding_rotation.active_series_event_id
@@ -1330,5 +1220,28 @@ mod untagged_contract_tests {
             steps,
             serde_json::json!(["submit_reanchor_unit", "issue_terminal_receipt"])
         );
+    }
+
+    #[test]
+    fn prepared_event_unit_is_minimal_and_suite_aware() {
+        let request = EventsSubmitBatchRequestBody { events: Vec::new() };
+        for suite in [
+            arkret_canonical::DigestSuite::Sha256,
+            arkret_canonical::DigestSuite::Blake3,
+        ] {
+            let unit = PreparedEventUnit::new(suite, request.clone()).unwrap();
+            unit.validate_structural().unwrap();
+            assert_eq!(unit.request_digest.digest_suite().unwrap(), suite);
+            let encoded = serde_json::to_value(&unit).unwrap();
+            assert_eq!(
+                encoded
+                    .as_object()
+                    .unwrap()
+                    .keys()
+                    .cloned()
+                    .collect::<Vec<_>>(),
+                ["request", "request_digest"]
+            );
+        }
     }
 }

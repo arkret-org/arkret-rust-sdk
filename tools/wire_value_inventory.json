@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total": 747,
+    "total": 746,
     "scope": {
       "repositories": [
         "arkret-rust-sdk",
@@ -66,34 +66,34 @@
       "state": 8,
       "storage": 71,
       "storage-postgres": 1,
-      "wire": 19
+      "wire": 18
     },
     "by_category": {
       "closed_dispatch": 2,
       "json_authoring": 99,
       "json_path_mutation": 106,
       "paired_api": 20,
-      "public_value_field": 520
+      "public_value_field": 519
     },
     "by_classification": {
       "closed_discriminated": 7,
       "independent": 21,
       "internal_or_fixture": 2,
-      "open_json": 130,
-      "polymorphic_boundary": 587
+      "open_json": 128,
+      "polymorphic_boundary": 588
     },
     "by_lifecycle": {
       "pending_migration": 7,
-      "retained_boundary": 740
+      "retained_boundary": 739
     },
     "by_decision": {
       "closed": 7,
       "independent": 21,
-      "open": 130,
-      "raw": 589
+      "open": 128,
+      "raw": 590
     },
     "by_owner_repository": {
-      "arkret-rust-sdk": 305,
+      "arkret-rust-sdk": 304,
       "bridges": 4,
       "chime": 3,
       "coauth": 45,
@@ -107,7 +107,7 @@
       "closed": 5,
       "open_json": 5,
       "open_json_container": 32,
-      "open_map": 94,
+      "open_map": 93,
       "unknown": 611
     }
   },
@@ -1871,13 +1871,13 @@
       "rust_type": "BTreeMap<String, Value>",
       "spec_pointer": "key-backup-active-series.schema.json",
       "schema_shape": "open_map",
-      "classification": "open_json",
+      "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
-      "decision": "open",
+      "decision": "raw",
       "authority": "arkret_models_crypto::KeyBackupActiveSeries signing typestate",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
       "evidence": "public BTreeMap<String, Value> field"
     },
     {
@@ -7497,32 +7497,6 @@
       "evidence": "public Value field"
     },
     {
-      "finding": "crates/wire/src/security_transaction.rs::PreparedEventUnit.request",
-      "category": "public_value_field",
-      "rust_field": "crates/wire/src/security_transaction.rs::PreparedEventUnit.request",
-      "crate": "wire",
-      "file": "crates/wire/src/security_transaction.rs",
-      "path": "crates/wire/src/security_transaction.rs",
-      "line": 160,
-      "owner": "PreparedEventUnit",
-      "owner_repository": "arkret-rust-sdk",
-      "symbol": "PreparedEventUnit.request",
-      "field": "request",
-      "discriminator": null,
-      "data_field": "request",
-      "rust_type": "BTreeMap<String, Value>",
-      "spec_pointer": "security-transaction.schema.json#/$defs/prepared_event_unit/properties/request",
-      "schema_shape": "open_map",
-      "classification": "open_json",
-      "lifecycle": "retained_boundary",
-      "decision": "open",
-      "authority": "security-transaction.schema.json#/$defs/prepared_event_unit/properties/request",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "evidence": "public BTreeMap<String, Value> field"
-    },
-    {
       "finding": "floria/src/config/mod.rs::AppConfig.extra",
       "category": "public_value_field",
       "rust_field": "floria/src/config/mod.rs::AppConfig.extra",
@@ -8205,7 +8179,7 @@
       "crate": null,
       "file": "crates/crypto/src/account_data_crypto.rs",
       "path": "crates/crypto/src/account_data_crypto.rs",
-      "line": 83,
+      "line": 81,
       "owner": "derive_account_data_value_key",
       "owner_repository": "arkret-rust-sdk",
       "symbol": "derive_account_data_value_key",
@@ -8543,7 +8517,7 @@
       "crate": null,
       "file": "crates/state/src/mls_governance_proof.rs",
       "path": "crates/state/src/mls_governance_proof.rs",
-      "line": 1190,
+      "line": 1184,
       "owner": "materialize_frontier_entry",
       "owner_repository": "arkret-rust-sdk",
       "symbol": "materialize_frontier_entry",
@@ -9557,7 +9531,7 @@
       "crate": null,
       "file": "soland/crates/http/src/routing/events/event_log/submit/agent_membership_cascade.rs",
       "path": "soland/crates/http/src/routing/events/event_log/submit/agent_membership_cascade.rs",
-      "line": 552,
+      "line": 551,
       "owner": "finalize_prepared_batch",
       "owner_repository": "soland",
       "symbol": "finalize_prepared_batch",
@@ -10909,7 +10883,7 @@
       "crate": null,
       "file": "crates/models-collaboration/src/contact_operations.rs",
       "path": "crates/models-collaboration/src/contact_operations.rs",
-      "line": 1107,
+      "line": 1132,
       "owner": "canonical_signing_bytes_without_signature",
       "owner_repository": "arkret-rust-sdk",
       "symbol": "canonical_signing_bytes_without_signature",
@@ -11767,7 +11741,7 @@
       "crate": null,
       "file": "crates/wire/src/event_receipt.rs",
       "path": "crates/wire/src/event_receipt.rs",
-      "line": 191,
+      "line": 190,
       "owner": "payload_digest",
       "owner_repository": "arkret-rust-sdk",
       "symbol": "payload_digest",
@@ -13613,7 +13587,7 @@
       "crate": null,
       "file": "crates/state/src/mls_governance_proof.rs",
       "path": "crates/state/src/mls_governance_proof.rs",
-      "line": 1178,
+      "line": 1172,
       "owner": "materialize_frontier_entry",
       "owner_repository": "arkret-rust-sdk",
       "symbol": "materialize_frontier_entry",
@@ -13630,7 +13604,7 @@
       "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing.",
-      "evidence": "fn materialize_frontier_entry( cell: &CellRef, value: &Value, seal: &Seal, state: &BTreeMap<CellRef, CellState>, seal_store: &MemorySealStore, cell_store: &MemoryCellStore, events: &BTreeMap<Hash, Event>, event_descriptors: &mut BTreeMap<EventId, Hash>, digest_suite: DigestSui..."
+      "evidence": "fn materialize_frontier_entry( cell: &CellRef, value: &Value, seal: &Seal, state: &BTreeMap<CellRef, CellState>, seal_store: &MemorySealStore, cell_store: &MemoryCellStore, events: &BTreeMap<Hash, Event>, event_ids: &mut BTreeSet<EventId>, digest_suite: DigestSuite, )"
     },
     {
       "finding": "paired_api:inkson/src/key_backup/domain_sep.rs::attach_key_backup_domain_separation",
@@ -13925,7 +13899,7 @@
       "crate": null,
       "file": "soland/crates/http/src/routing/identity/recovery/security_transaction_endpoints.rs",
       "path": "soland/crates/http/src/routing/identity/recovery/security_transaction_endpoints.rs",
-      "line": 649,
+      "line": 635,
       "owner": "backup_value_matches_rotation",
       "owner_repository": "soland",
       "symbol": "backup_value_matches_rotation",

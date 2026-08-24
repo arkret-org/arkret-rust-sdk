@@ -1115,6 +1115,11 @@ impl EventId {
     pub fn identity_key(&self) -> EventIdentityKey {
         EventIdentityKey::from_event_id(self)
     }
+
+    /// Recover the suite-bearing full Event digest losslessly encoded by this id.
+    pub fn event_digest(&self) -> Hash {
+        self.identity_key().event_digest()
+    }
 }
 
 fn is_blob_ref(value: &str) -> bool {
@@ -1820,6 +1825,8 @@ mod tests {
         );
         assert_eq!(sha.event_id().digest_bytes(), digest);
         assert_eq!(sha.event_id().identity_key(), sha);
+        assert_eq!(sha.event_id().event_digest(), sha.event_digest());
+        assert_eq!(blake.event_id().event_digest(), blake.event_digest());
         assert_ne!(blake.event_id(), sha.event_id());
         assert_eq!(
             EventIdentityKey::from_event_digest(&sha.event_digest()).unwrap(),

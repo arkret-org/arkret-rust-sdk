@@ -981,7 +981,7 @@ where
     seal_predecessor_edges.sort();
 
     let (_, leaf_principals, leaf_credentials) = canonical_leaf_set(local_mls_leaves)?;
-    let mut event_descriptors = BTreeMap::<EventId, Hash>::new();
+    let mut event_ids = BTreeSet::<EventId>::new();
     let mut branches = Vec::new();
     let mut target_leaves = request.proof_target_basis.leaves.clone();
     target_leaves.sort();
@@ -1035,7 +1035,7 @@ where
                 &seal_store,
                 &cell_store,
                 &events,
-                &mut event_descriptors,
+                &mut event_ids,
                 branch_digest_suite,
             )?;
             let left = index
@@ -1050,7 +1050,7 @@ where
                         &seal_store,
                         &cell_store,
                         &events,
-                        &mut event_descriptors,
+                        &mut event_ids,
                         branch_digest_suite,
                     )
                 })
@@ -1066,7 +1066,7 @@ where
                         &seal_store,
                         &cell_store,
                         &events,
-                        &mut event_descriptors,
+                        &mut event_ids,
                         branch_digest_suite,
                     )
                 })
@@ -1109,13 +1109,7 @@ where
     let proof_material = MlsGovernanceTypedProofMaterial {
         seal_descriptors,
         seal_predecessor_edges,
-        event_descriptors: event_descriptors
-            .into_iter()
-            .map(|(event_id, event_digest)| MlsGovernanceEventDescriptor {
-                event_id,
-                event_digest,
-            })
-            .collect(),
+        event_ids: event_ids.into_iter().collect(),
     };
     let placeholder =
         Hash::new("sha256:0000000000000000000000000000000000000000000000000000000000000000")?;
@@ -1183,7 +1177,7 @@ fn materialize_frontier_entry(
     seal_store: &MemorySealStore,
     cell_store: &MemoryCellStore,
     events: &BTreeMap<Hash, Event>,
-    event_descriptors: &mut BTreeMap<EventId, Hash>,
+    event_ids: &mut BTreeSet<EventId>,
     digest_suite: DigestSuite,
 ) -> arkret_wire::Result<MlsGovernanceFrontierCellEntry> {
     let proof = crate::state_inclusion_proof(state, cell, digest_suite)?;
@@ -1205,11 +1199,10 @@ fn materialize_frontier_entry(
         let event = events.get(&digest).ok_or_else(|| {
             WireError::Protocol("materializer provenance Event is unresolved".to_owned())
         })?;
-        if let Some(previous) = event_descriptors.insert(event.event_id.clone(), digest.clone())
-            && previous != digest
-        {
-            return frontier_rejected("materializer Event id resolves to two digests");
+        if event.event_id.event_digest() != digest {
+            return frontier_rejected("materializer Event id does not bind its resolved digest");
         }
+        event_ids.insert(event.event_id.clone());
         provenance_event_refs.push(event.event_id.clone());
     }
     provenance_event_refs.sort();
@@ -1318,10 +1311,10 @@ fn verify_resolved_events<'a>(
 ) -> arkret_wire::Result<BTreeMap<EventId, &'a Event>> {
     let descriptors = bundle
         .proof_material
-        .event_descriptors
+        .event_ids
         .iter()
-        .map(|descriptor| (descriptor.event_id.clone(), &descriptor.event_digest))
-        .collect::<BTreeMap<_, _>>();
+        .cloned()
+        .collect::<BTreeSet<_>>();
     if descriptors.len() != resolved.len() {
         return frontier_rejected("resolved Event set is not every-and-only the descriptor set");
     }
@@ -1329,15 +1322,15 @@ fn verify_resolved_events<'a>(
         .all_entries()
         .flat_map(|entry| entry.provenance_event_refs.iter().cloned())
         .collect::<BTreeSet<_>>();
-    if referenced != descriptors.keys().cloned().collect() {
+    if referenced != descriptors {
         return frontier_rejected("Event descriptor set is not every-and-only provenance closure");
     }
     let mut events = BTreeMap::new();
     for event in resolved {
-        let expected_digest = descriptors
-            .get(&event.event_id)
-            .ok_or_else(|| WireError::Protocol("resolved undescribed Event".to_owned()))?;
-        if claimed_event_digest(event)? != **expected_digest
+        if !descriptors.contains(&event.event_id) {
+            return frontier_rejected("resolved undescribed Event");
+        }
+        if claimed_event_digest(event)? != event.event_id.event_digest()
             || events.insert(event.event_id.clone(), event).is_some()
         {
             return frontier_rejected("resolved Event id or signed digest mismatch");
@@ -1382,7 +1375,12 @@ fn claimed_event_digest(event: &Event) -> arkret_wire::Result<Hash> {
             claimed = Some(digest.clone());
         }
     }
-    claimed.ok_or_else(|| WireError::Protocol("Event has no signed digest claim".to_owned()))
+    let claimed = claimed
+        .ok_or_else(|| WireError::Protocol("Event has no signed digest claim".to_owned()))?;
+    if claimed != event.event_id.event_digest() {
+        return frontier_rejected("Event id does not bind the signed digest claim");
+    }
+    Ok(claimed)
 }
 
 fn merge_dependencies(

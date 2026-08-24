@@ -255,14 +255,6 @@ pub struct MlsGovernanceSealDescriptor {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MlsGovernanceEventDescriptor {
-    pub event_id: EventId,
-    pub event_digest: Hash,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct MlsGovernanceSealPredecessorEdge {
     pub seal_ref: SealId,
     pub predecessor_seal_ref: SealId,
@@ -274,7 +266,7 @@ pub struct MlsGovernanceSealPredecessorEdge {
 pub struct MlsGovernanceTypedProofMaterial {
     pub seal_descriptors: Vec<MlsGovernanceSealDescriptor>,
     pub seal_predecessor_edges: Vec<MlsGovernanceSealPredecessorEdge>,
-    pub event_descriptors: Vec<MlsGovernanceEventDescriptor>,
+    pub event_ids: Vec<EventId>,
 }
 
 impl MlsGovernanceTypedProofMaterial {
@@ -282,7 +274,7 @@ impl MlsGovernanceTypedProofMaterial {
         if self.seal_descriptors.is_empty()
             || !is_sorted_unique(&self.seal_descriptors)
             || !is_sorted_unique_or_empty(&self.seal_predecessor_edges)
-            || !is_sorted_unique_or_empty(&self.event_descriptors)
+            || !is_sorted_unique_or_empty(&self.event_ids)
         {
             return schema("MLS governance proof descriptors are not canonical sets");
         }
@@ -496,9 +488,8 @@ impl MlsGovernanceProofBundle {
 
         let described_events = self
             .proof_material
-            .event_descriptors
+            .event_ids
             .iter()
-            .map(|descriptor| &descriptor.event_id)
             .collect::<BTreeSet<_>>();
         for entry in self.all_entries() {
             if !described_seals.contains(&entry.inclusion_witness.root_seal_ref)
