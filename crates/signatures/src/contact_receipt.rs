@@ -26,18 +26,16 @@ pub fn contact_request_acceptance_receipt_signing_bytes(
 /// Verify a pending-incoming Contact receipt after the caller has resolved the
 /// issuer service key at `receipt.core.accepted_at`.
 ///
-/// `expected_request_event_ref` and `expected_request_digest` must come from
-/// the exact request Event, not from the list projection's summary alone.
+/// `expected_request_event_ref` must come from the exact request Event, not
+/// from the list projection's summary alone. Its digest is encoded in the
+/// suite-tagged full-digest EventId.
 pub fn verify_contact_request_acceptance_receipt(
     receipt: &RequestAcceptanceReceipt,
     expected_request_event_ref: &EventId,
-    expected_request_digest: &Hash,
     verifying_key: &ed25519_dalek::VerifyingKey,
 ) -> Result<()> {
     receipt.validate_shape()?;
-    if &receipt.core.request_event_ref != expected_request_event_ref
-        || &receipt.core.request_digest != expected_request_digest
-    {
+    if &receipt.core.request_event_ref != expected_request_event_ref {
         return Err(WireError::Protocol(
             "Contact request receipt does not bind the exact request Event".to_owned(),
         ));
@@ -74,7 +72,7 @@ mod tests {
 
     const REQUEST_EVENT_REF: &str = "ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD";
     const CORE_DIGEST: &str =
-        "sha256:3f0e0067730234e299960042937a951f5e24c81e099cb7a26562db9efe4a405f";
+        "sha256:954956d6a6cff74c828d11f7f2d03d8f1dafb28de93f823444caaa392a2e2b98";
 
     fn hash(fill: char) -> Hash {
         Hash::new(format!("sha256:{}", fill.to_string().repeat(64))).unwrap()
@@ -96,7 +94,6 @@ mod tests {
                 slot_predecessor: None,
                 previous_terminal_contact_round_id: None,
                 request_event_ref: EventId::new(REQUEST_EVENT_REF).unwrap(),
-                request_digest: hash('a'),
                 source_checkpoint: hash('b'),
                 accepted_at,
                 issuer: DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
@@ -122,6 +119,10 @@ mod tests {
         let receipt = signed_receipt(&signing_key);
         assert_eq!(receipt.receipt_digest.as_str(), CORE_DIGEST);
         assert_eq!(
+            receipt.core.request_digest().as_str(),
+            "sha256:02664a0d6cf50cb3a6915e24be3474df766151d978b74106ddd45876bd5cd383"
+        );
+        assert_eq!(
             String::from_utf8(contact_request_acceptance_receipt_signing_bytes(&receipt).unwrap())
                 .unwrap(),
             concat!(
@@ -129,17 +130,15 @@ mod tests {
                 "\"holder\":{\"kind\":\"human\",\"principal_id\":\"ak:did_core:webvh:z6mkfixturealice\"},",
                 "\"issuer\":\"ak:did_core:web:ps.example\",",
                 "\"peer\":{\"kind\":\"human\",\"principal_id\":\"ak:did_core:webvh:z6mkfixturebob\"},",
-                "\"request_digest\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",",
                 "\"request_event_ref\":\"ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD\",",
                 "\"slot_version\":1,",
                 "\"source_checkpoint\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},",
-                "\"receipt_digest\":\"sha256:3f0e0067730234e299960042937a951f5e24c81e099cb7a26562db9efe4a405f\"}"
+                "\"receipt_digest\":\"sha256:954956d6a6cff74c828d11f7f2d03d8f1dafb28de93f823444caaa392a2e2b98\"}"
             )
         );
         verify_contact_request_acceptance_receipt(
             &receipt,
             &receipt.core.request_event_ref,
-            &receipt.core.request_digest,
             &signing_key.verifying_key(),
         )
         .unwrap();
@@ -159,19 +158,6 @@ mod tests {
             verify_contact_request_acceptance_receipt(
                 &receipt,
                 &wrong_event,
-                &receipt.core.request_digest,
-                &signing_key.verifying_key(),
-            )
-            .is_err()
-        );
-
-        let mut core_tampered = receipt.clone();
-        core_tampered.core.request_digest = hash('c');
-        assert!(
-            verify_contact_request_acceptance_receipt(
-                &core_tampered,
-                &core_tampered.core.request_event_ref,
-                &core_tampered.core.request_digest,
                 &signing_key.verifying_key(),
             )
             .is_err()
@@ -188,7 +174,6 @@ mod tests {
             verify_contact_request_acceptance_receipt(
                 &signature_tampered,
                 &signature_tampered.core.request_event_ref,
-                &signature_tampered.core.request_digest,
                 &signing_key.verifying_key(),
             )
             .is_err()

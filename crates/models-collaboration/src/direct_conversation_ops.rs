@@ -43,9 +43,20 @@ pub enum DirectConversationFoundingAuthorityEvidence {
     },
     ControllerAgent {
         agent_provision_ref: EventId,
-        agent_provision_digest: Hash,
         controller_binding_digest: Hash,
     },
+}
+
+impl DirectConversationFoundingAuthorityEvidence {
+    pub fn agent_provision_digest(&self) -> Option<Hash> {
+        match self {
+            Self::ControllerAgent {
+                agent_provision_ref,
+                ..
+            } => Some(agent_provision_ref.event_digest()),
+            Self::Human { .. } => None,
+        }
+    }
 }
 
 /// Typed self carrier for the only Direct Conversation founding workflow.
@@ -725,9 +736,20 @@ pub enum DirectConversationFoundingAuthorizationCore {
     /// controller-to-own-Agent: no Contact round exists, founder is fixed to the controller.
     ControllerAgent {
         agent_provision_ref: EventId,
-        agent_provision_digest: Hash,
         controller_binding_digest: Hash,
     },
+}
+
+impl DirectConversationFoundingAuthorizationCore {
+    pub fn agent_provision_digest(&self) -> Option<Hash> {
+        match self {
+            Self::ControllerAgent {
+                agent_provision_ref,
+                ..
+            } => Some(agent_provision_ref.event_digest()),
+            Self::Human { .. } => None,
+        }
+    }
 }
 
 /// Source-signed evidence that the founder's current Principal Server atomically accepted exactly
@@ -879,6 +901,21 @@ mod tests {
     }
 
     use super::*;
+
+    #[test]
+    fn controller_agent_provision_digest_is_derived_from_event_ref() {
+        let evidence = DirectConversationFoundingAuthorityEvidence::ControllerAgent {
+            agent_provision_ref: EventId::new(
+                "ak:event:AWAIb405aEEenVBHYRG-ZfDs-f9_j3E67tWGI36uYxFJ",
+            )
+            .unwrap(),
+            controller_binding_digest: Hash::new(format!("sha256:{}", "e".repeat(64))).unwrap(),
+        };
+        assert_eq!(
+            evidence.agent_provision_digest().unwrap().as_str(),
+            "sha256:60086f8d3968411e9d50476111be65f0ecf9ff7f8f713aeed586237eae631149"
+        );
+    }
 
     fn event_ids() -> [EventId; 4] {
         [

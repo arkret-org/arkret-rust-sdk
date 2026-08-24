@@ -74,7 +74,6 @@ pub struct RequestAcceptanceReceiptCore {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_terminal_contact_round_id: Option<Hash>,
     pub request_event_ref: EventId,
-    pub request_digest: Hash,
     pub source_checkpoint: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
@@ -82,6 +81,10 @@ pub struct RequestAcceptanceReceiptCore {
 }
 
 impl RequestAcceptanceReceiptCore {
+    pub fn request_digest(&self) -> Hash {
+        self.request_event_ref.event_digest()
+    }
+
     pub fn validate(&self) -> arkret_wire::Result<()> {
         if self.slot_version == 0
             || (self.slot_version == 1) == self.slot_predecessor.is_some()
@@ -182,7 +185,6 @@ pub struct ContactCurrentProof {
     pub issuer: DidCoreId,
     pub terminal: bool,
     pub head_event_ref: EventId,
-    pub head_digest: Hash,
     pub accepted_frontier: Vec<EventId>,
     pub complete_through: u64,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -191,6 +193,10 @@ pub struct ContactCurrentProof {
 }
 
 impl ContactCurrentProof {
+    pub fn head_digest(&self) -> Hash {
+        self.head_event_ref.event_digest()
+    }
+
     pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
         canonical_signing_bytes_without_signature(self)
     }
@@ -226,7 +232,6 @@ pub struct NormalResponseAcceptanceReceipt {
     pub contact_round_id: Hash,
     pub request_receipt: RequestAcceptanceReceipt,
     pub response_event_ref: EventId,
-    pub response_digest: Hash,
     pub outgoing_slot_absence_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
@@ -235,6 +240,10 @@ pub struct NormalResponseAcceptanceReceipt {
 }
 
 impl NormalResponseAcceptanceReceipt {
+    pub fn response_digest(&self) -> Hash {
+        self.response_event_ref.event_digest()
+    }
+
     pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
         canonical_signing_bytes_without_signature(self)
     }
@@ -246,7 +255,6 @@ impl NormalResponseAcceptanceReceipt {
 pub struct RejectAcceptanceReceipt {
     pub request_receipt: RequestAcceptanceReceipt,
     pub reject_event_ref: EventId,
-    pub reject_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub issuer: DidCoreId,
@@ -254,6 +262,10 @@ pub struct RejectAcceptanceReceipt {
 }
 
 impl RejectAcceptanceReceipt {
+    pub fn reject_digest(&self) -> Hash {
+        self.reject_event_ref.event_digest()
+    }
+
     pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
         canonical_signing_bytes_without_signature(self)
     }
@@ -1105,7 +1117,6 @@ pub struct PeerContactMirrorReceipt {
     pub domain: PeerContactMirrorReceiptDomain,
     pub request_digest: Hash,
     pub signed_event_ref: EventId,
-    pub signed_event_digest: Hash,
     pub outcome: PeerContactOutcome,
     pub recipient_service_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1115,6 +1126,10 @@ pub struct PeerContactMirrorReceipt {
 }
 
 impl PeerContactMirrorReceipt {
+    pub fn signed_event_digest(&self) -> Hash {
+        self.signed_event_ref.event_digest()
+    }
+
     pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
         canonical_signing_bytes_without_signature(self)
     }
@@ -1245,5 +1260,107 @@ impl PeerContactSubmitOutcome {
                 "peer Contact status does not match mirror receipt outcome".to_owned(),
             ))
         }
+    }
+}
+
+#[cfg(test)]
+mod event_digest_derivation_tests {
+    use arkret_wire::{Base64UrlString, DidUrl};
+    use chrono::{DateTime, Utc};
+
+    use super::*;
+
+    const EVENT_REF: &str = "ak:event:AWAIb405aEEenVBHYRG-ZfDs-f9_j3E67tWGI36uYxFJ";
+    const EVENT_DIGEST: &str =
+        "sha256:60086f8d3968411e9d50476111be65f0ecf9ff7f8f713aeed586237eae631149";
+
+    fn hash(fill: char) -> Hash {
+        Hash::new(format!("sha256:{}", fill.to_string().repeat(64))).unwrap()
+    }
+
+    fn timestamp() -> DateTime<Utc> {
+        DateTime::parse_from_rfc3339("2026-08-08T00:00:00.000Z")
+            .unwrap()
+            .with_timezone(&Utc)
+    }
+
+    fn signature() -> ProtocolSignature {
+        ProtocolSignature {
+            verification_method: DidUrl::new("did:web:ps.example#key-1").unwrap(),
+            created_at: timestamp(),
+            jws: Base64UrlString::new("AA").unwrap(),
+        }
+    }
+
+    fn request_receipt() -> RequestAcceptanceReceipt {
+        RequestAcceptanceReceipt {
+            core: RequestAcceptanceReceiptCore {
+                holder: ContactPeer::Human {
+                    principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+                },
+                peer: ContactPeer::Human {
+                    principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+                },
+                slot_version: 1,
+                slot_predecessor: None,
+                previous_terminal_contact_round_id: None,
+                request_event_ref: EventId::new(EVENT_REF).unwrap(),
+                source_checkpoint: hash('a'),
+                accepted_at: timestamp(),
+                issuer: DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
+            },
+            receipt_digest: hash('b'),
+            signature: signature(),
+        }
+    }
+
+    #[test]
+    fn all_contact_event_digests_are_derived_from_complete_event_ids() {
+        let request = request_receipt();
+        assert_eq!(request.core.request_digest().as_str(), EVENT_DIGEST);
+
+        let proof = ContactCurrentProof {
+            contact_round_id: hash('c'),
+            issuer: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+            terminal: false,
+            head_event_ref: EventId::new(EVENT_REF).unwrap(),
+            accepted_frontier: vec![EventId::new(EVENT_REF).unwrap()],
+            complete_through: 1,
+            fresh_until: timestamp(),
+            signature: signature(),
+        };
+        assert_eq!(proof.head_digest().as_str(), EVENT_DIGEST);
+
+        let response = NormalResponseAcceptanceReceipt {
+            contact_round_id: hash('d'),
+            request_receipt: request.clone(),
+            response_event_ref: EventId::new(EVENT_REF).unwrap(),
+            outgoing_slot_absence_digest: hash('e'),
+            accepted_at: timestamp(),
+            issuer: DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+            signature: signature(),
+        };
+        assert_eq!(response.response_digest().as_str(), EVENT_DIGEST);
+
+        let reject = RejectAcceptanceReceipt {
+            request_receipt: request,
+            reject_event_ref: EventId::new(EVENT_REF).unwrap(),
+            accepted_at: timestamp(),
+            issuer: DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+            signature: signature(),
+        };
+        assert_eq!(reject.reject_digest().as_str(), EVENT_DIGEST);
+
+        let mirror = PeerContactMirrorReceipt {
+            domain: PeerContactMirrorReceiptDomain::V1,
+            request_digest: hash('f'),
+            signed_event_ref: EventId::new(EVENT_REF).unwrap(),
+            outcome: PeerContactOutcome::Accepted,
+            recipient_service_id: DidCoreId::new("ak:did_core:web:peer.example").unwrap(),
+            received_at: timestamp(),
+            issuer: DidCoreId::new("ak:did_core:web:peer.example").unwrap(),
+            signature: signature(),
+        };
+        assert_eq!(mirror.signed_event_digest().as_str(), EVENT_DIGEST);
     }
 }
