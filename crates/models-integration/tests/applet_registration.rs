@@ -590,14 +590,13 @@ fn install_commit_uses_each_signed_event_carrier_once() {
         verification_method: DidUrl::new(format!("{}#notary-key", full("principal-server")))
             .unwrap(),
     };
-    let authoring_request =
-        AppletInstallAuthoringRequest::sign(
-            basis,
-            package.registration_epoch.clone(),
-            requested_expires_at,
-            &signer,
-        )
-        .unwrap();
+    let authoring_request = AppletInstallAuthoringRequest::sign(
+        basis,
+        package.registration_epoch.clone(),
+        requested_expires_at,
+        &signer,
+    )
+    .unwrap();
     let bot_actor_provision_event = arkret_wire::test_support::raw_event_at(
         "ak.applet.managed_actor.provision", scope.clone(), service("slackbridge"), actor("principal-server"), 1,
         Hlc::new("01970e589d21-0100-a13f9c2e").unwrap(),
