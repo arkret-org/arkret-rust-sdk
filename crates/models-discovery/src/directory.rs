@@ -12,8 +12,8 @@ use arkret_models_identity::handle::Handle;
 use arkret_models_identity::handle_claim::{DeliveryBindingHint, HandleClaim};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    Audience, BlobRef, DidCoreId, DidUrl, EncryptionProfile, EventId, Hash, JoinRule,
-    NonEmptyString, PayloadProof, ProofContextId, RealmId, Result, SchemaId, SealBasis,
+    Audience, AuditReasonText, BlobRef, DidCoreId, DidUrl, EncryptionProfile, EventId, Hash,
+    JoinRule, NonEmptyString, PayloadProof, ProofContextId, RealmId, Result, SchemaId, SealBasis,
     ServiceOperationId, WireError, proof_kind,
 };
 use chrono::{DateTime, Utc};
@@ -21,7 +21,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::directory_artifacts::ObjectPreview;
-use crate::service_description::DirectoryResourceKind;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -971,6 +970,7 @@ pub struct DirectoryPushRegisterOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryAnnounceRequestBody {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub discovery_event: Event,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_refs: Vec<String>,
@@ -1135,7 +1135,7 @@ pub struct DirectoryWithdrawRequestBody {
     pub resource_id: String,
     pub governance_proof: DirectoryGovernanceProof,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
+    pub reason: Option<AuditReasonText>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -1530,7 +1530,7 @@ mod directory_governance_proof_tests {
         let mut body = DirectoryWithdrawRequestBody {
             resource_id: RESOURCE_ID.to_owned(),
             governance_proof: proof(Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap()),
-            reason: Some("offline".to_owned()),
+            reason: Some(AuditReasonText::new("offline").unwrap()),
             effective_at: None,
         };
         let digest = body.payload_digest().unwrap();

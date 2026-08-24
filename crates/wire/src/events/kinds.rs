@@ -91,6 +91,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::AgentSidecarExchangeControl => EventProductClass::Sidecar,
         EventKind::AppletBridgeError
         | EventKind::AppletDiscovery
+        | EventKind::AppletManagedActorProvision
         | EventKind::AppletRegistration => EventProductClass::Applet,
         EventKind::AttestationRangeCompleteness
         | EventKind::AuditAccessed

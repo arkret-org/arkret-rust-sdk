@@ -20,7 +20,7 @@
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_models_collaboration::history_key::{
-    HistoryChunkPlaintext, HistoryResponseCapabilityPlaintext,
+    EpochRange, HistoryChunkPlaintext, HistoryResponseCapabilityPlaintext,
     HistoryResponseCapabilitySealContext, HistorySecretChunkSealContext, SealedHistoryChunk,
     SealedHistoryResponseCapability, response_capability_commitment,
 };
@@ -336,6 +336,7 @@ pub fn open_history_response_capability(
 pub fn open_history_secret_chunk(
     recipient_private_key_b64u: &str,
     context: &HistorySecretChunkSealContext,
+    expected_range: &EpochRange,
     sealed: &SealedHistoryChunk,
 ) -> Result<HistoryChunkPlaintext> {
     context.validate()?;
@@ -352,11 +353,11 @@ pub fn open_history_secret_chunk(
         ));
     }
     plaintext.validate()?;
-    if plaintext.secret_range.from_epoch != context.covered_epoch_range.from_epoch
-        || plaintext.secret_range.to_epoch != context.covered_epoch_range.to_epoch
+    if plaintext.secret_range.from_epoch != expected_range.from_epoch
+        || plaintext.secret_range.to_epoch != expected_range.to_epoch
     {
         return Err(Error::Protocol(
-            "opened history chunk range does not match its HPKE context".to_owned(),
+            "opened history chunk range does not match its verified manifest descriptor".to_owned(),
         ));
     }
     Ok(plaintext)

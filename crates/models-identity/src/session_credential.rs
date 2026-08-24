@@ -695,19 +695,6 @@ fn validate_issuance_fields(
     Ok(())
 }
 
-fn validate_jwk_thumbprint(value: &str, field: &str) -> Result<()> {
-    if value.len() != 43
-        || !value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-    {
-        return Err(WireError::Protocol(format!(
-            "{field} must be an unpadded base64url SHA-256 JWK thumbprint"
-        )));
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;

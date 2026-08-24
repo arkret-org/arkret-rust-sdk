@@ -10,8 +10,8 @@ use std::collections::BTreeSet;
 
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    DidCoreId, DidFullId, DidUrl, EventInitialSubmission, IdempotencyKey, PrincipalAuthorityKey,
-    SchemaId, project_full_id_to_core_id,
+    AuditReasonText, DidCoreId, DidFullId, DidUrl, EventInitialSubmission, IdempotencyKey,
+    PrincipalAuthorityKey, SchemaId, project_full_id_to_core_id,
 };
 
 use crate::agent_signer_evidence::AgentSigningKeyBinding;
@@ -823,7 +823,7 @@ pub struct AgentView {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentPauseRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<NonEmptyString>,
+    pub reason: Option<AuditReasonText>,
     /// Initial publication of the closed Agent-PCR lifecycle Event authored by
     /// the Agent principal and executed/signed by its controller delegation.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -844,7 +844,7 @@ pub struct AgentResumeRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct AgentDeactivateRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<NonEmptyString>,
+    pub reason: Option<AuditReasonText>,
     /// Closed Agent-PCR terminal lifecycle Event authored by the Agent
     /// principal and executed/signed by its controller delegation.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -860,7 +860,7 @@ impl AgentDeactivateRequestBody {
             ));
         }
         let payload_reason = event.payload.get("reason").and_then(Value::as_str);
-        if payload_reason != self.reason.as_ref().map(NonEmptyString::as_str) {
+        if payload_reason != self.reason.as_ref().map(AuditReasonText::as_str) {
             return Err(WireError::Protocol(
                 "agent deactivation request reason must equal lifecycle Event payload reason"
                     .to_owned(),
@@ -1082,7 +1082,6 @@ pub enum PendingSidecarAccessReconciliationStage {
 pub struct PendingSidecarAccessReconciliationItem {
     pub agent_id: DidCoreId,
     pub provisioning_phase: PendingSidecarAccessReconciliationStage,
-    pub reason: NonEmptyString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub membership_frontier: Option<Vec<EventId>>,
 }
@@ -2524,10 +2523,15 @@ mod tests {
         let valid = PendingSidecarAccessReconciliationItem {
             agent_id,
             provisioning_phase: PendingSidecarAccessReconciliationStage::MlsRemove,
-            reason: NonEmptyString::new("mls_remove_obligation_pending").unwrap(),
             membership_frontier: Some(membership_frontier.clone()),
         };
         valid.validate().unwrap();
+        let mut with_legacy_reason = serde_json::to_value(&valid).unwrap();
+        with_legacy_reason["reason"] = serde_json::json!("mls_remove_obligation_pending");
+        assert!(
+            serde_json::from_value::<PendingSidecarAccessReconciliationItem>(with_legacy_reason)
+                .is_err()
+        );
 
         let mut missing = valid.clone();
         missing.membership_frontier = None;

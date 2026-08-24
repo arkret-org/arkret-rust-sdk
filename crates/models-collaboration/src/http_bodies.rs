@@ -9,11 +9,11 @@ use std::collections::BTreeMap;
 
 use arkret_models_identity::agent_signer_evidence::AgentEventAdmissionReceipt;
 use arkret_wire::{
-    AppletId, Base64UrlString, BlobRef, ConsentId, ControlProposalAck, Cursor, DeviceId, DidCoreId,
-    DidKey, Event, EventId, EventInitialSubmission, Hash, IngressReceipt, MimiRoomUri, MlsGroupId,
-    MorphId, NonEmptyString, PayloadProof, ProofContextId, RealmId, ReasonCode, RelationId,
-    ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId, StrandId,
-    WireError, canonical,
+    AppletId, AuditReasonText, Base64UrlString, BlobRef, ConsentId, ControlProposalAck, Cursor,
+    DeviceId, DidCoreId, DidKey, Event, EventId, EventInitialSubmission, Hash, IngressReceipt,
+    MimiRoomUri, MlsGroupId, MorphId, NonEmptyString, PayloadProof, ProofContextId, RealmId,
+    ReasonCode, RelationId, ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope,
+    SpaceId, StrandId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -1386,9 +1386,16 @@ impl MimiRequestConsentRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiRequestConsentOutcome {
     pub consent_id: ConsentId,
-    pub status: NonEmptyString,
+    pub status: MimiRequestConsentStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub challenge: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum MimiRequestConsentStatus {
+    Requested,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1410,7 +1417,7 @@ pub struct MimiUpdateConsentRequestBody {
     pub consent_event: EventInitialSubmission,
     pub signature: PayloadProof,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<NonEmptyString>,
+    pub reason: Option<AuditReasonText>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
@@ -1674,9 +1681,16 @@ pub struct MimiReportAbuseRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiReportAbuseOutcome {
     pub report_id: ReportId,
-    pub status: NonEmptyString,
+    pub status: MimiReportAbuseStatus,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub routed_to: Vec<DidCoreId>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum MimiReportAbuseStatus {
+    Queued,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1714,6 +1728,20 @@ mod mimi_consent_tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn mimi_outcome_statuses_reject_unknown_literals() {
+        assert_eq!(
+            serde_json::from_str::<MimiRequestConsentStatus>(r#""requested""#).unwrap(),
+            MimiRequestConsentStatus::Requested
+        );
+        assert_eq!(
+            serde_json::from_str::<MimiReportAbuseStatus>(r#""queued""#).unwrap(),
+            MimiReportAbuseStatus::Queued
+        );
+        assert!(serde_json::from_str::<MimiRequestConsentStatus>(r#""accepted""#).is_err());
+        assert!(serde_json::from_str::<MimiReportAbuseStatus>(r#""accepted""#).is_err());
+    }
 
     fn request() -> MimiUpdateConsentRequestBody {
         let created_at = Utc
@@ -1802,7 +1830,7 @@ mod mimi_consent_tests {
                 proof_purpose: None,
                 jws: "e30..c2ln".to_owned(),
             },
-            reason: Some(NonEmptyString::new("accepted after review").unwrap()),
+            reason: Some(AuditReasonText::new("accepted after review").unwrap()),
             expires_at: None,
         };
         request.signature.payload_digest = request.payload_digest().unwrap();

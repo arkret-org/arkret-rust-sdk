@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/account-data-key-registry.json; version=2026-08-21.1;
-//! sha256=30090e918fc09c872969842fc26e5b780aeb0f89212c8a0e803abfe2656f053f
+//! Input: registry/account-data-key-registry.json; version=2026-08-25.1;
+//! sha256=bad8e54ec4b6a81e8adc1c4a294dfcba47911cba260b9b68ad3a6a06fac071e8
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};

@@ -310,7 +310,7 @@ impl EventBatchReceipt {
 // migrated; `EventProofAudience` below is still used by
 // `arkret_models_integration::artifacts_applet`.
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum EventProofAudience {
     Single(String),

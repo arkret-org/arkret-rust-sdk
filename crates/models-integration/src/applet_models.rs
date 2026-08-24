@@ -56,15 +56,6 @@ pub struct AppletApprovalRequest {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AppletBotMembership {
-    Invite,
-    Join,
-    Disabled,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum AppletGhostActorMode {
     Disallowed,
     ControllerApproved,
@@ -75,8 +66,6 @@ pub enum AppletGhostActorMode {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletActorPolicy {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bot_membership: Option<AppletBotMembership>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ghost_actor_mode: Option<AppletGhostActorMode>,
 }
@@ -104,24 +93,21 @@ pub struct AppletRejectedItem {
 pub enum AppletInstallEffectiveStatus {
     Installed,
     PartiallyInstalled,
-    Rejected,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletInstallOutcome {
-    pub ok: bool,
     pub install_id: String,
     pub applet_id: AppletId,
-    pub registration_event_ref: Option<EventId>,
+    pub registration_event_ref: EventId,
     pub registration_epoch: Hash,
     pub bot_actor_id: DidCoreId,
     pub bot_actor_principal_server_id: DidCoreId,
     pub bot_actor_provision_ref: EventId,
     pub bot_principal_control_realm_id: RealmId,
     pub capability_grant_refs: Vec<GrantId>,
-    pub membership_event_refs: Vec<EventId>,
     pub e2ee_authorization_refs: Vec<EventId>,
     pub widget_policy_ref: Option<EventId>,
     pub effective_status: AppletInstallEffectiveStatus,

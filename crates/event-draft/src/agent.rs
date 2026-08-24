@@ -87,7 +87,7 @@ pub fn build_agent_pause_intent(
     controller_id: DidCoreId,
     principal_control_scope_ref: ScopeRef,
     controller_authorization_ref: DidUrl,
-    reason: Option<String>,
+    reason: Option<arkret_wire::AuditReasonText>,
     status_changed_at: DateTime<Utc>,
 ) -> Result<EventIntent> {
     let payload = AgentPausePayload {
@@ -143,7 +143,7 @@ pub fn build_agent_deactivate_intent(
     principal_control_scope_ref: ScopeRef,
     controller_authorization_ref: DidUrl,
     previous_status: AgentLifecycleState,
-    reason: Option<String>,
+    reason: Option<arkret_wire::AuditReasonText>,
     status_changed_at: DateTime<Utc>,
 ) -> Result<EventIntent> {
     let previous_status = match previous_status {
@@ -379,7 +379,9 @@ mod tests {
                     key_id: arkret_wire::NonEmptyString::new("runtime-key-1").unwrap(),
                     revoked_by: controller_id.clone(),
                     revoked_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
-                    reason: Some("controller_deactivated".to_owned()),
+                    reason: Some(
+                        arkret_wire::AuditReasonText::new("controller_deactivated").unwrap(),
+                    ),
                 },
                 scope(),
                 agent_id.clone(),
@@ -433,7 +435,7 @@ mod tests {
                 controller_id.clone(),
                 scope(),
                 authorization_ref.clone(),
-                Some("user_requested".to_owned()),
+                Some(arkret_wire::AuditReasonText::new("user_requested").unwrap()),
                 changed_at,
             )
             .unwrap(),
@@ -482,7 +484,7 @@ mod tests {
                 scope(),
                 DidUrl::new(resume.authorization_ref.clone().unwrap()).unwrap(),
                 AgentLifecycleState::Paused,
-                Some("user_requested".to_owned()),
+                Some(arkret_wire::AuditReasonText::new("user_requested").unwrap()),
                 changed_at,
             )
             .unwrap(),

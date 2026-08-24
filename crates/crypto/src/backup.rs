@@ -945,7 +945,7 @@ fn key_backup_supersedes_digest(predecessor: &KeyBackup) -> Result<String> {
     })?;
     if let Some(auth_data) = canonical
         .get_mut("auth_data")
-        .and_then(serde_json::Value::as_object_mut)
+        .and_then(Value::as_object_mut)
     {
         auth_data.remove("signature");
     }

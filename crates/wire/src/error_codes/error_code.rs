@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-23.6;
-//! sha256=fd52cf7ccde2d7834daa11a1a41ab821ac0f88c6be574f588246326f814cb1fb Entries: error_codes=279
+//! Input: registry/error-code-registry.json; version=2026-08-25.1;
+//! sha256=3137ddf4bf0a5d5ace98e73828ec01d80a1631b8e6eca7c225dca47658ec82d7 Entries: error_codes=280
 
 use serde::{Deserialize, Serialize};
 
@@ -65,6 +65,7 @@ pub enum ErrorCode {
     AudienceUnknown,
     AuditReceiptInvalidated,
     AuthExpired,
+    AuthoringRequestExpired,
     AuthorizedGrantRevoked,
     AvatarBlobRefInvalid,
     BlobDigestMismatch,
@@ -358,6 +359,7 @@ impl ErrorCode {
         Self::AudienceUnknown,
         Self::AuditReceiptInvalidated,
         Self::AuthExpired,
+        Self::AuthoringRequestExpired,
         Self::AuthorizedGrantRevoked,
         Self::AvatarBlobRefInvalid,
         Self::BlobDigestMismatch,
@@ -644,6 +646,7 @@ impl ErrorCode {
     pub const AUDIENCE_UNKNOWN: &'static str = "audience_unknown";
     pub const AUDIT_RECEIPT_INVALIDATED: &'static str = "audit_receipt_invalidated";
     pub const AUTH_EXPIRED: &'static str = "auth_expired";
+    pub const AUTHORING_REQUEST_EXPIRED: &'static str = "authoring_request_expired";
     pub const AUTHORIZED_GRANT_REVOKED: &'static str = "authorized_grant_revoked";
     pub const AVATAR_BLOB_REF_INVALID: &'static str = "avatar_blob_ref_invalid";
     pub const BLOB_DIGEST_MISMATCH: &'static str = "blob_digest_mismatch";
@@ -957,6 +960,7 @@ impl ErrorCode {
             Self::AudienceUnknown => "audience_unknown",
             Self::AuditReceiptInvalidated => "audit_receipt_invalidated",
             Self::AuthExpired => "auth_expired",
+            Self::AuthoringRequestExpired => "authoring_request_expired",
             Self::AuthorizedGrantRevoked => "authorized_grant_revoked",
             Self::AvatarBlobRefInvalid => "avatar_blob_ref_invalid",
             Self::BlobDigestMismatch => "blob_digest_mismatch",
@@ -1259,6 +1263,7 @@ impl ErrorCode {
             "audience_unknown" => Some(Self::AudienceUnknown),
             "audit_receipt_invalidated" => Some(Self::AuditReceiptInvalidated),
             "auth_expired" => Some(Self::AuthExpired),
+            "authoring_request_expired" => Some(Self::AuthoringRequestExpired),
             "authorized_grant_revoked" => Some(Self::AuthorizedGrantRevoked),
             "avatar_blob_ref_invalid" => Some(Self::AvatarBlobRefInvalid),
             "blob_digest_mismatch" => Some(Self::BlobDigestMismatch),
@@ -1824,6 +1829,14 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "Session, token, or grant has expired.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::AuthoringRequestExpired,
+        http_status: 410,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "A first Applet managed-actor authoring or install commit attempt arrived after the Principal Server-signed authoring request expiry. Exact durable replay of an already successful request remains available; the caller must otherwise obtain a fresh preview.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AuthorizedGrantRevoked,

@@ -297,6 +297,14 @@ fn is_feature_ref(value: &str) -> bool {
 }
 
 validated_wire_string!(
+    /// Human-readable audit explanation matching
+    /// `string-profiles.schema.json#/$defs/audit_reason_text`.
+    AuditReasonText,
+    |value: &str| crate::validate_short_text(value, 1024).is_ok(),
+    "audit reason must be NFC short text containing 1..=1024 code points"
+);
+
+validated_wire_string!(
     /// Open profile identifier matching the Event Envelope `profile_ref` grammar.
     ///
     /// Unknown but well-formed profile IDs are preserved so registry evolution
@@ -1207,6 +1215,16 @@ impl<'de> Deserialize<'de> for DidKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn audit_reason_text_enforces_unicode_and_length_profile() {
+        assert!(AuditReasonText::new("审计说明\n第二行").is_ok());
+        assert!(AuditReasonText::new("x".repeat(1024)).is_ok());
+        assert!(AuditReasonText::new("").is_err());
+        assert!(AuditReasonText::new("x".repeat(1025)).is_err());
+        assert!(AuditReasonText::new("cafe\u{301}").is_err());
+        assert!(AuditReasonText::new("bad\rreason").is_err());
+    }
 
     #[test]
     fn open_profile_and_feature_refs_validate_shape_without_closing_the_registry() {

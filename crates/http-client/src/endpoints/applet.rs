@@ -21,7 +21,8 @@ use reqwest::Method;
 use reqwest::header::CONTENT_TYPE;
 use url::Url;
 
-use crate::{Client, ClientRequestOptions, Error, Result, reject_path_segment, validate_base_url};
+use crate::client_internals::validate_base_url;
+use crate::{Client, ClientRequestOptions, Error, Result, reject_path_segment};
 
 pub struct SignedAppletTransactionOptions<'a> {
     pub source_service_id: &'a DidCoreId,
@@ -231,7 +232,7 @@ impl Client {
     }
 }
 
-fn request_authority(url: &url::Url) -> Result<String> {
+fn request_authority(url: &Url) -> Result<String> {
     let host = url
         .host_str()
         .ok_or_else(|| Error::Protocol("applet transaction URL has no host".to_owned()))?;

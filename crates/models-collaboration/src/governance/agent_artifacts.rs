@@ -17,8 +17,6 @@ pub struct GrantSnapshot {
     pub grant_id: GrantId,
     pub realm_id: RealmId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status: Option<NonEmptyString>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grant_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -64,6 +62,21 @@ pub struct PublicKey {
     pub key: Base64UrlString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_digest: Option<Hash>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn grant_snapshot_rejects_removed_status_hint() {
+        let value = serde_json::json!({
+            "grant_id": "ak:grant:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM",
+            "realm_id": "ak:realm:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM",
+            "status": "active"
+        });
+        assert!(serde_json::from_value::<GrantSnapshot>(value).is_err());
+    }
 }
 
 // `seal.schema.json#/$defs/signature` is modelled by

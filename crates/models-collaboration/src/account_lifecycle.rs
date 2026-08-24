@@ -18,10 +18,10 @@ use arkret_models_identity::account::{
 };
 use arkret_models_identity::actor_profile::{AccountMaterializedProfile, ActorProfile};
 use arkret_wire::{
-    ActorProfileId, AppletId, AppletRevokeMode, ConsentScope, Cursor, DeviceId, DidCoreId,
-    DidFullId, DidUrl, EventBatchReceipt, EventInitialSubmission, EventKind, Hash, NonEmptyString,
-    PayloadProof, ProofContextId, RealmId, ReasonCode, ReceiptId, Result, SchemaId, ScopeRef,
-    ServiceOperationId, SessionGrantId, UnsignedPayloadProof, canonical,
+    ActorProfileId, AppletId, AppletRevokeMode, AuditReasonText, ConsentScope, Cursor, DeviceId,
+    DidCoreId, DidFullId, DidUrl, EventBatchReceipt, EventInitialSubmission, EventKind, Hash,
+    NonEmptyString, PayloadProof, ProofContextId, RealmId, ReasonCode, ReceiptId, Result, SchemaId,
+    ScopeRef, ServiceOperationId, SessionGrantId, UnsignedPayloadProof, canonical,
     project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -249,7 +249,7 @@ pub struct UnsignedAccountStatusRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<NonEmptyString>,
+    pub reason: Option<AuditReasonText>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -409,7 +409,7 @@ pub struct AccountStatusRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<NonEmptyString>,
+    pub reason: Option<AuditReasonText>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]

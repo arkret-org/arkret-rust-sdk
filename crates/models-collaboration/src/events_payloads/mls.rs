@@ -412,18 +412,13 @@ impl MlsKeypackagePayload {
             &self.intended_realm_id,
         ) {
             (Some(_), None, Some(_), None, None) => Ok(()),
-            (None, Some(method), None, Some(_), None)
-                if self.endpoint_signature.kid.as_str() == method.as_str() =>
-            {
-                Ok(())
-            }
+            (None, Some(_), None, Some(_), None) => Ok(()),
             (None, Some(method), None, None, Some(_))
-                if self.endpoint_signature.kid.as_str() == method.as_str()
-                    && arkret_models_crypto::MlsEndpointIdentity::minimal_metadata_pairwise(
-                        self.principal_id.clone(),
-                        method.clone(),
-                    )
-                    .is_ok() =>
+                if arkret_models_crypto::MlsEndpointIdentity::minimal_metadata_pairwise(
+                    self.principal_id.clone(),
+                    method.clone(),
+                )
+                .is_ok() =>
             {
                 Ok(())
             }
@@ -748,7 +743,6 @@ impl Serialize for MlsWelcomeClaimEnvelope {
                 None,
                 None,
                 None,
-                None,
             ),
             MlsRequesterTrustBinding::RequesterNativeAgent {
                 requester_agent_id,
@@ -760,7 +754,6 @@ impl Serialize for MlsWelcomeClaimEnvelope {
                 Some(requester_agent_id.clone()),
                 Some(requester_agent_verification_method.clone()),
                 Some(requester_agent_key_authorize_event_id.clone()),
-                None,
                 None,
             ),
             MlsRequesterTrustBinding::RequesterMinimalMetadataPairwise {
@@ -809,13 +802,13 @@ impl<'de> Deserialize<'de> for MlsWelcomeClaimEnvelope {
             wire.requester_agent_key_authorize_event_id,
             wire.requester_pairwise_verification_method,
         ) {
-            (Some(device_id), Some(event_id), None, None, None, None, None) => {
+            (Some(device_id), Some(event_id), None, None, None, None) => {
                 MlsRequesterTrustBinding::RequesterDevice {
                     requester_device_id: device_id,
                     requester_device_authorize_event_id: event_id,
                 }
             }
-            (None, None, Some(agent_id), Some(method), Some(authorize_event_id), None, None) => {
+            (None, None, Some(agent_id), Some(method), Some(authorize_event_id), None) => {
                 MlsRequesterTrustBinding::RequesterNativeAgent {
                     requester_agent_id: agent_id,
                     requester_agent_verification_method: method,
@@ -901,7 +894,6 @@ impl Serialize for MlsWelcomeClaimEnvelopeSigningInput {
                 None,
                 None,
                 None,
-                None,
             ),
             MlsRequesterTrustBinding::RequesterNativeAgent {
                 requester_agent_id,
@@ -913,7 +905,6 @@ impl Serialize for MlsWelcomeClaimEnvelopeSigningInput {
                 Some(requester_agent_id.clone()),
                 Some(requester_agent_verification_method.clone()),
                 Some(requester_agent_key_authorize_event_id.clone()),
-                None,
                 None,
             ),
             MlsRequesterTrustBinding::RequesterMinimalMetadataPairwise {
@@ -1355,7 +1346,6 @@ pub fn validate_mls_welcome_claim_envelope(
         &claim.agent_id,
         &claim.agent_verification_method,
         &claim.agent_key_authorize_event_id,
-        &claim.pairwise_actor_id,
         &claim.pairwise_verification_method,
     ) {
         (
@@ -1363,7 +1353,6 @@ pub fn validate_mls_welcome_claim_envelope(
                 recipient_device_id,
             },
             Some(claim_device_id),
-            None,
             None,
             None,
             None,
@@ -1379,7 +1368,6 @@ pub fn validate_mls_welcome_claim_envelope(
             Some(claim_agent_id),
             Some(claim_method),
             Some(claim_authorize_event_id),
-            None,
             None,
         ) if recipient_agent_id == claim_agent_id
             && welcome
@@ -1399,10 +1387,9 @@ pub fn validate_mls_welcome_claim_envelope(
             None,
             None,
             None,
-            Some(claim_actor_id),
             Some(claim_method),
         ) if welcome.recipient_principal_id.is_none()
-            && recipient_pairwise_actor_id == claim_actor_id
+            && recipient_pairwise_actor_id == &claim.principal_id
             && recipient_pairwise_verification_method == claim_method => {}
         _ => return Err(ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH),
     }

@@ -1,8 +1,8 @@
 //! Agent-lifecycle and agent-key payloads.
 
 use arkret_models_identity::handle::HandleVisibility;
-use arkret_wire::DidCoreId;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
+use arkret_wire::{AuditReasonText, DidCoreId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -159,7 +159,7 @@ pub struct AgentActionRejectPayload {
     pub agent_id: DidCoreId,
     pub controller_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
+    pub reason: Option<AuditReasonText>,
     #[serde(with = "canonical_timestamp")]
     pub rejected_at: DateTime<Utc>,
 }
@@ -211,7 +211,7 @@ pub struct AgentDeactivatePayload {
     #[serde(with = "canonical_timestamp")]
     pub status_changed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
+    pub reason: Option<AuditReasonText>,
 }
 
 /// Counterpart for
@@ -477,7 +477,7 @@ pub struct AgentKeyRevokePayload {
     #[serde(with = "canonical_timestamp")]
     pub revoked_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
+    pub reason: Option<AuditReasonText>,
 }
 
 /// Counterpart for
@@ -492,7 +492,7 @@ pub struct AgentPausePayload {
     #[serde(with = "canonical_timestamp")]
     pub status_changed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
+    pub reason: Option<AuditReasonText>,
 }
 
 /// Counterpart for
@@ -507,7 +507,7 @@ pub struct AgentResumePayload {
     #[serde(with = "canonical_timestamp")]
     pub status_changed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
+    pub reason: Option<AuditReasonText>,
 }
 
 #[cfg(test)]

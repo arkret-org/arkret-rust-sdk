@@ -7,8 +7,8 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    Base64UrlString, DeviceId, DidCoreId, DidUrl, DomainSeparationId, EventId, Hash, KeyPackageRef,
-    NonEmptyString, RealmId, StrandId,
+    AuditReasonText, Base64UrlString, DeviceId, DidCoreId, DidUrl, DomainSeparationId, EventId,
+    Hash, KeyPackageRef, NonEmptyString, RealmId, StrandId,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -746,8 +746,7 @@ pub struct KeyPackageClaimTerminalReceipt {
 
 impl KeyPackageClaimTerminalReceipt {
     pub fn validate_shape(&self) -> Result<(), PeerKeyPackageClaimShapeError> {
-        if self.domain.as_str()
-            != arkret_wire::DomainSeparationId::KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1
+        if self.domain.as_str() != DomainSeparationId::KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1
             || !(22..=128).contains(&self.claim_request_id.as_str().len())
             || self
                 .signature
@@ -1561,7 +1560,7 @@ pub struct KeyPackagesRevokeRequestBody {
     pub device_id: DeviceId,
     pub signature: KeyOperationSignature,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<NonEmptyString>,
+    pub reason: Option<AuditReasonText>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1573,7 +1572,7 @@ pub struct KeyPackagesRevokeUnsignedRequest {
     pub key_package_refs: Vec<String>,
     pub device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<NonEmptyString>,
+    pub reason: Option<AuditReasonText>,
 }
 
 impl KeyPackagesRevokeRequestBody {

@@ -1801,7 +1801,10 @@ mod tests {
             };
 
             let response = client.mimi_report_abuse(&request).await.unwrap();
-            assert_eq!(response.status.as_str(), "queued");
+            assert_eq!(
+                response.status,
+                arkret_models_collaboration::http_bodies::MimiReportAbuseStatus::Queued
+            );
 
             let raw = capture.await.unwrap();
             let (request_line, _headers, body) = split_request(&raw);

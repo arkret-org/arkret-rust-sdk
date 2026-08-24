@@ -6,13 +6,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::DigestSuite;
-#[cfg(test)]
-use arkret_wire::SchemaId;
 use arkret_wire::{
     CbaProofBundle, ControlProposalAck, ControlProposalDecision, ControlProposalDecisionPolicy,
-    DidCoreId, DidFullId, Event, EventFederationSubmission, EventId, Hash,
-    MAX_ACTOR_SEQ_TOTAL_SIBLINGS, RealmId, Result, Seal, SealBasis, SealId, WireError,
+    DidCoreId, Event, EventFederationSubmission, EventId, Hash, MAX_ACTOR_SEQ_TOTAL_SIBLINGS,
+    RealmId, Result, Seal, SealBasis, SealId, WireError,
 };
+#[cfg(test)]
+use arkret_wire::{DidFullId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

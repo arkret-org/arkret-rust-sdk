@@ -6,14 +6,14 @@ use arkret_canonical::{
     decode_multibase_base58btc, decode_multicodec_varint, encode_multibase_base58btc,
 };
 use arkret_wire::{
-    AttestationId, AuthoritySetIssuer, AuthoritySetIssuerRole, AuthorizationLease, BackupId,
-    BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupSeriesId, Base64UrlString,
-    CbaProofBundle, ControlProposalAck, Cursor, DeviceId, DidCoreId, DidUrl, EpochRange, Event,
-    EventId, EventInitialSubmission, EventKind, HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES,
-    Hash, HistoryEffectiveScope, LeaseBasisRef, NonEmptyString, PayloadProof, PolicyId,
-    ProofContextId, RECOVERY_POLICY_SIGNATURE_TYPE, RealmId, ReasonCode, ReceiptId,
-    RecoverySessionId, Result, SchemaId, ServiceOperationId, TransactionId, TrustDomainId,
-    WireError, XExtensionMap,
+    AttestationId, AuditReasonText, AuthoritySetIssuer, AuthoritySetIssuerRole, AuthorizationLease,
+    BackupId, BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupSeriesId,
+    Base64UrlString, CbaProofBundle, ControlProposalAck, Cursor, DeviceId, DidCoreId, DidUrl,
+    EpochRange, Event, EventId, EventInitialSubmission, EventKind,
+    HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES, Hash, HistoryEffectiveScope, LeaseBasisRef,
+    NonEmptyString, PayloadProof, PolicyId, ProofContextId, RECOVERY_POLICY_SIGNATURE_TYPE,
+    RealmId, ReasonCode, ReceiptId, RecoverySessionId, Result, SchemaId, ServiceOperationId,
+    TransactionId, TrustDomainId, WireError, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -241,7 +241,7 @@ pub struct KeysBackupsDeleteRequestBody {
     pub challenge_id: Base64UrlString,
     pub proof: KeyBackupDeleteProof,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<NonEmptyString>,
+    pub reason: Option<AuditReasonText>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

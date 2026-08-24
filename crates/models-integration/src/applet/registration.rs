@@ -7,7 +7,7 @@ use arkret_models_identity::{
 };
 use arkret_wire::{
     AppletId, DidCoreId, DidFullId, DidUrl, EventId, EventKind, GrantId, Hash, PayloadSigner,
-    ProfileId, RealmId, Result, SchemaId, WireError, XExtensionMap, canonical, proof_kind,
+    ProfileId, Result, SchemaId, WireError, XExtensionMap, canonical, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -37,13 +37,7 @@ impl AppletManagedActorMethodHistoryEvidence {
     }
 
     #[must_use]
-    pub fn webvh_material(
-        &self,
-    ) -> (
-        &ResolutionDidBindingEvidenceReceipt,
-        &[serde_json::Value],
-        &[serde_json::Value],
-    ) {
+    pub fn webvh_material(&self) -> (&ResolutionDidBindingEvidenceReceipt, &[Value], &[Value]) {
         let ResolutionMethodHistoryEvidence::WebvhLog {
             evidence,
             log_entries,

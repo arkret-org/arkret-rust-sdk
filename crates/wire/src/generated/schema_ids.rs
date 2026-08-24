@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-23.2;
-//! sha256=bbfc2fb3a29f4742cb6a1315ebdc5a9c8639f453e6fdf99fa8723718858044b1 Entries: schema_ids=195,
-//! active=195
+//! Input: registry/schema-registry.json; version=2026-08-25.2;
+//! sha256=ba437ee35c454c2944301b0954950ccb30f5bd7b24fce0709ed5fba56f721da4 Entries: schema_ids=198,
+//! active=198
 
 use serde::{Deserialize, Serialize};
 
@@ -41,8 +41,11 @@ pub enum SchemaId {
     AppletEdgeOperationsV1,
     AppletGhostOperationsV1,
     AppletInstallAuthoringV1,
+    AppletInstallAuthoringRequestV1,
+    AppletInstallAuthoringRequestBasisV1,
     AppletInstallOperationsV1,
     AppletInstallPlanV1,
+    AppletManagedActorAuthoringBundleV1,
     AppletManagedActorProvisionV1,
     AppletPackageV1,
     AppletRegistrationEpochEvidenceV1,
@@ -240,8 +243,11 @@ impl SchemaId {
         Self::AppletEdgeOperationsV1,
         Self::AppletGhostOperationsV1,
         Self::AppletInstallAuthoringV1,
+        Self::AppletInstallAuthoringRequestV1,
+        Self::AppletInstallAuthoringRequestBasisV1,
         Self::AppletInstallOperationsV1,
         Self::AppletInstallPlanV1,
+        Self::AppletManagedActorAuthoringBundleV1,
         Self::AppletManagedActorProvisionV1,
         Self::AppletPackageV1,
         Self::AppletRegistrationEpochEvidenceV1,
@@ -439,8 +445,11 @@ impl SchemaId {
         Self::AppletEdgeOperationsV1,
         Self::AppletGhostOperationsV1,
         Self::AppletInstallAuthoringV1,
+        Self::AppletInstallAuthoringRequestV1,
+        Self::AppletInstallAuthoringRequestBasisV1,
         Self::AppletInstallOperationsV1,
         Self::AppletInstallPlanV1,
+        Self::AppletManagedActorAuthoringBundleV1,
         Self::AppletManagedActorProvisionV1,
         Self::AppletPackageV1,
         Self::AppletRegistrationEpochEvidenceV1,
@@ -700,6 +709,14 @@ impl SchemaId {
     /// Closed Principal Server preview, Applet authoring request, and managed-actor creation bundle
     /// DTOs for the durable co-sign handshake.
     pub const APPLET_INSTALL_AUTHORING_V1: &'static str = "ak.schema.applet_install_authoring.v1";
+    /// Principal Server-signed, expiry-bounded Applet install authoring request used by the durable
+    /// co-sign handshake.
+    pub const APPLET_INSTALL_AUTHORING_REQUEST_V1: &'static str =
+        "ak.schema.applet_install_authoring_request.v1";
+    /// Canonical unsigned basis frozen by the Principal Server preview and covered by the install
+    /// authoring request signature.
+    pub const APPLET_INSTALL_AUTHORING_REQUEST_BASIS_V1: &'static str =
+        "ak.schema.applet_install_authoring_request_basis.v1";
     /// Closed request/response DTO bundle for ak.self.applet.install.command.preview and
     /// ak.applet.install.
     pub const APPLET_INSTALL_OPERATIONS_V1: &'static str = "ak.schema.applet_install_operations.v1";
@@ -707,6 +724,10 @@ impl SchemaId {
     /// recomputed by install commit before admission. plan_digest is calculated over this object
     /// with plan_digest omitted.
     pub const APPLET_INSTALL_PLAN_V1: &'static str = "ak.schema.applet_install_plan.v1";
+    /// Exact four-Event service-authored managed-actor creation bundle returned by the Applet
+    /// service after validating an authoring request.
+    pub const APPLET_MANAGED_ACTOR_AUTHORING_BUNDLE_V1: &'static str =
+        "ak.schema.applet_managed_actor_authoring_bundle.v1";
     /// Immutable service-authored Bot/Ghost creation authority cross-bound to an
     /// applet_managed_control PCR genesis.
     pub const APPLET_MANAGED_ACTOR_PROVISION_V1: &'static str =
@@ -1176,8 +1197,15 @@ impl SchemaId {
             Self::AppletEdgeOperationsV1 => Self::APPLET_EDGE_OPERATIONS_V1,
             Self::AppletGhostOperationsV1 => Self::APPLET_GHOST_OPERATIONS_V1,
             Self::AppletInstallAuthoringV1 => Self::APPLET_INSTALL_AUTHORING_V1,
+            Self::AppletInstallAuthoringRequestV1 => Self::APPLET_INSTALL_AUTHORING_REQUEST_V1,
+            Self::AppletInstallAuthoringRequestBasisV1 => {
+                Self::APPLET_INSTALL_AUTHORING_REQUEST_BASIS_V1
+            }
             Self::AppletInstallOperationsV1 => Self::APPLET_INSTALL_OPERATIONS_V1,
             Self::AppletInstallPlanV1 => Self::APPLET_INSTALL_PLAN_V1,
+            Self::AppletManagedActorAuthoringBundleV1 => {
+                Self::APPLET_MANAGED_ACTOR_AUTHORING_BUNDLE_V1
+            }
             Self::AppletManagedActorProvisionV1 => Self::APPLET_MANAGED_ACTOR_PROVISION_V1,
             Self::AppletPackageV1 => Self::APPLET_PACKAGE_V1,
             Self::AppletRegistrationEpochEvidenceV1 => Self::APPLET_REGISTRATION_EPOCH_EVIDENCE_V1,
@@ -1402,8 +1430,15 @@ impl SchemaId {
             Self::AppletEdgeOperationsV1 => "schemas/applet-edge-operations.schema.json",
             Self::AppletGhostOperationsV1 => "schemas/applet-ghost-operations.schema.json",
             Self::AppletInstallAuthoringV1 => "schemas/applet-install-authoring.schema.json",
+            Self::AppletInstallAuthoringRequestV1 => "schemas/applet-install-authoring.schema.json",
+            Self::AppletInstallAuthoringRequestBasisV1 => {
+                "schemas/applet-install-authoring.schema.json"
+            }
             Self::AppletInstallOperationsV1 => "schemas/applet-install-operations.schema.json",
             Self::AppletInstallPlanV1 => "schemas/applet-install-plan.schema.json",
+            Self::AppletManagedActorAuthoringBundleV1 => {
+                "schemas/applet-install-authoring.schema.json"
+            }
             Self::AppletManagedActorProvisionV1 => "schemas/applet-managed-actor.schema.json",
             Self::AppletPackageV1 => "schemas/applet-package.schema.json",
             Self::AppletRegistrationEpochEvidenceV1 => {
@@ -1636,8 +1671,17 @@ impl SchemaId {
             Self::APPLET_EDGE_OPERATIONS_V1 => Some(Self::AppletEdgeOperationsV1),
             Self::APPLET_GHOST_OPERATIONS_V1 => Some(Self::AppletGhostOperationsV1),
             Self::APPLET_INSTALL_AUTHORING_V1 => Some(Self::AppletInstallAuthoringV1),
+            Self::APPLET_INSTALL_AUTHORING_REQUEST_V1 => {
+                Some(Self::AppletInstallAuthoringRequestV1)
+            }
+            Self::APPLET_INSTALL_AUTHORING_REQUEST_BASIS_V1 => {
+                Some(Self::AppletInstallAuthoringRequestBasisV1)
+            }
             Self::APPLET_INSTALL_OPERATIONS_V1 => Some(Self::AppletInstallOperationsV1),
             Self::APPLET_INSTALL_PLAN_V1 => Some(Self::AppletInstallPlanV1),
+            Self::APPLET_MANAGED_ACTOR_AUTHORING_BUNDLE_V1 => {
+                Some(Self::AppletManagedActorAuthoringBundleV1)
+            }
             Self::APPLET_MANAGED_ACTOR_PROVISION_V1 => Some(Self::AppletManagedActorProvisionV1),
             Self::APPLET_PACKAGE_V1 => Some(Self::AppletPackageV1),
             Self::APPLET_REGISTRATION_EPOCH_EVIDENCE_V1 => {

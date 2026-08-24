@@ -66,12 +66,6 @@ fn validate_ice_server_credential_privacy(server: &MediaIceServer) -> Result<()>
     Ok(())
 }
 
-fn ice_config_canonical_payload(outcome: &MediaIceConfigOutcome) -> Result<Vec<u8>> {
-    outcome.canonical_signature_payload().map_err(|err| {
-        Error::Protocol(format!("ice_config_denied: canonicalization failed: {err}"))
-    })
-}
-
 fn ice_config_signing_input(outcome: &MediaIceConfigOutcome) -> Result<Vec<u8>> {
     outcome.signature_input().map_err(|err| {
         Error::Protocol(format!(

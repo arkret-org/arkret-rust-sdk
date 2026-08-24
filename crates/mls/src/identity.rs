@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use arkret_canonical::base64url_encode;
-use arkret_models_collaboration::{
+use arkret_models_collaboration::events_payloads::{
     MlsRequesterTrustBinding, MlsWelcomeClaimEnvelope, UnsignedMlsWelcomeClaimEnvelope,
 };
 use arkret_models_crypto::{
@@ -476,8 +476,10 @@ impl ArkretMlsIdentity {
         let signature = self.signer.sign(&signing_bytes).map_err(mls_error)?;
         envelope
             .attach_signature(
-                NonEmptyString::new(verification_method.as_str())?,
-                Base64UrlString::new(base64url_encode(signature))?,
+                NonEmptyString::new(verification_method.as_str())
+                    .map_err(|error| Error::Protocol(error.to_owned()))?,
+                Base64UrlString::new(base64url_encode(signature))
+                    .map_err(|error| Error::Protocol(error.to_owned()))?,
             )
             .map_err(Into::into)
     }
