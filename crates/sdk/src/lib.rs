@@ -400,15 +400,16 @@ pub use arkret_wire::{
 pub use history_response::{
     HistorySourceProofExternalVerificationRequest, VerifiedHistoryChunk, VerifiedHistoryEpochSuite,
     VerifiedHistoryManifest, VerifiedHistoryResponseRecord,
-    embedded_history_release_predicate_registry_digest, verify_history_response_lost_record,
-    verify_history_response_record, verify_history_source_proof,
-    verify_minimal_metadata_history_source_local_state,
+    embedded_history_release_predicate_registry_digest, registered_mls_ciphersuite_kdf_nh,
+    verify_history_response_lost_record, verify_history_response_record,
+    verify_history_source_proof, verify_minimal_metadata_history_source_local_state,
     verify_minimal_metadata_identity_link_signature,
     winning_history_epoch_suites_from_verified_checkpoint,
 };
 pub use mls_governance::{
     NativeAgentHistoricalTrustRequest, VerifiedMlsGovernanceClosure,
-    build_native_agent_signer_resolution_evidence, declared_genesis_live_digest_suite,
+    build_native_agent_signer_resolution_evidence,
+    current_authorization_incarnation_from_verified_checkpoint, declared_genesis_live_digest_suite,
     derive_verified_mls_governance_checkpoint_at_basis, materialize_mls_governance_frontier,
     signed_event_digest_claim, verify_event_derived_genesis_checkpoint,
     verify_mls_governance_checkpoint, verify_mls_governance_closure, verify_mls_governance_cut,

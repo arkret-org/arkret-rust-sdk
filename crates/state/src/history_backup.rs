@@ -19,7 +19,10 @@
 use std::collections::BTreeMap;
 
 use arkret_models_collaboration::history_key::{
-    HistoryCandidateOriginAttribution, PortableBackupOriginRef, PortableBackupQuotaDomain,
+    ArchiveAuthorizationTuple, HistoryCandidateOriginAttribution,
+    OrganizationRecoveryArchiveListOutcome, OrganizationRecoveryArchiveListQuery,
+    OrganizationRecoveryArchiveReplica, OrganizationRecoveryArchiveReplicaOutcome,
+    PortableBackupOriginRef, PortableBackupQuotaDomain,
 };
 use arkret_models_crypto::{KeyBackupKeybag, KeyBackupPlaintext};
 use arkret_wire::base64url::{base64url_decode, base64url_encode};
@@ -29,6 +32,7 @@ use arkret_wire::{
     LocalAuthoritativeHistorySecret, Result, WireError,
 };
 use chrono::{DateTime, Utc};
+use serde::Serialize;
 
 /// One restored epoch secret, ready for
 /// [`crate::history_store::HistoryMaterialLedger::admit_received_candidate`].
@@ -39,6 +43,234 @@ use chrono::{DateTime, Utc};
 pub struct RestoredHistoryCandidate {
     pub attribution: HistoryCandidateOriginAttribution,
     pub secret: Vec<u8>,
+}
+
+/// Exact local coordinate protected by the organization-recovery archive GC
+/// barrier.
+///
+/// The spec deliberately leaves the private database layout unspecified. This
+/// value is therefore a deterministic decision input, not a wire object or a
+/// prescribed storage row.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct OrganizationRecoveryArchiveGcCoordinate {
+    pub effective_scope: HistoryEffectiveScope,
+    pub mls_group_id: String,
+    pub epoch: u64,
+    pub container_event_ref: arkret_wire::EventId,
+    pub archive_authorization_tuple_digest: Hash,
+}
+
+/// Source-local evidence required before deleting one MLS history secret under
+/// `organization_recovery_key` durability.
+///
+/// Callers must persist updates made by [`Self::record_durable_holder_acceptance`]
+/// and [`Self::record_exact_holder_reread`] atomically with their own replica
+/// receipt and barrier result. The helper owns the fail-closed comparison logic
+/// while leaving transaction and table layout to the service.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct OrganizationRecoveryArchiveGcLedger {
+    pub coverage_coordinate: OrganizationRecoveryArchiveGcCoordinate,
+    pub durable_holder_acceptance: bool,
+    pub exact_holder_reread: bool,
+    pub covered_epochs: Vec<u64>,
+    pub local_history_secret_present: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub archive_replica_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_receipt_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exact_archive_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exact_container_event_ref: Option<arkret_wire::EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exact_traversal_intent_digest: Option<Hash>,
+    #[serde(skip)]
+    accepted_replica: Option<OrganizationRecoveryArchiveReplica>,
+    #[serde(skip)]
+    first_receipt: Option<OrganizationRecoveryArchiveReplicaOutcome>,
+}
+
+/// Result of admitting an archive replica receipt into the local GC barrier.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OrganizationRecoveryArchiveReplicaAdmission {
+    FirstAccepted,
+    ExactDuplicate,
+}
+
+impl OrganizationRecoveryArchiveGcLedger {
+    /// Start tracking one exact local history secret and its already-created
+    /// archive replica. No durability is inferred merely from constructing or
+    /// sending the replica.
+    pub fn new(replica: &OrganizationRecoveryArchiveReplica) -> Result<Self> {
+        replica.validate()?;
+        let tuple = archive_authorization_tuple(&replica.archive);
+        Ok(Self {
+            coverage_coordinate: OrganizationRecoveryArchiveGcCoordinate {
+                effective_scope: replica.archive.effective_scope.clone(),
+                mls_group_id: replica.archive.mls_group_id.clone(),
+                epoch: replica.archive.epoch,
+                container_event_ref: replica.container_event_ref.clone(),
+                archive_authorization_tuple_digest: tuple.archive_authorization_tuple_digest()?,
+            },
+            durable_holder_acceptance: false,
+            exact_holder_reread: false,
+            covered_epochs: Vec::new(),
+            local_history_secret_present: true,
+            archive_replica_digest: None,
+            first_receipt_digest: None,
+            exact_archive_digest: None,
+            exact_container_event_ref: None,
+            exact_traversal_intent_digest: None,
+            accepted_replica: None,
+            first_receipt: None,
+        })
+    }
+
+    /// Record the holder's first durable acceptance, or recognize a byte-exact
+    /// retry. Any later semantic retry whose replica or receipt bytes differ is
+    /// a conflict and cannot refresh the GC barrier.
+    pub fn record_durable_holder_acceptance(
+        &mut self,
+        replica: &OrganizationRecoveryArchiveReplica,
+        receipt: &OrganizationRecoveryArchiveReplicaOutcome,
+    ) -> Result<OrganizationRecoveryArchiveReplicaAdmission> {
+        replica.validate()?;
+        receipt.validate()?;
+        let replica_digest = replica.archive_replica_digest()?;
+        if receipt.archive_replica_digest != replica_digest
+            || receipt.holder_service_id != replica.holder_service_id
+            || replica.holder_service_id != replica.archive.holder_service_id
+            || self.coverage_coordinate != Self::new(replica)?.coverage_coordinate
+        {
+            return Err(WireError::Protocol(
+                "organization recovery archive acceptance does not bind the exact GC coordinate"
+                    .to_owned(),
+            ));
+        }
+
+        if let (Some(accepted), Some(first_receipt)) = (&self.accepted_replica, &self.first_receipt)
+        {
+            if accepted == replica && first_receipt == receipt {
+                return Ok(OrganizationRecoveryArchiveReplicaAdmission::ExactDuplicate);
+            }
+            return Err(WireError::Protocol(
+                "organization recovery archive acceptance conflicts with the first durable bytes"
+                    .to_owned(),
+            ));
+        }
+
+        let receipt_digest = Hash::new(sha256_digest(
+            arkret_wire::canonical::canonical_json_bytes(receipt)?,
+        ))?;
+        self.durable_holder_acceptance = true;
+        self.archive_replica_digest = Some(replica_digest);
+        self.first_receipt_digest = Some(receipt_digest);
+        self.accepted_replica = Some(replica.clone());
+        self.first_receipt = Some(receipt.clone());
+        Ok(OrganizationRecoveryArchiveReplicaAdmission::FirstAccepted)
+    }
+
+    /// Apply the holder-bound list barrier only when it returns the exact
+    /// archive, container Event and archive-lifetime traversal retention that
+    /// were durably accepted.
+    pub fn record_exact_holder_reread(
+        &mut self,
+        query: &OrganizationRecoveryArchiveListQuery,
+        outcome: &OrganizationRecoveryArchiveListOutcome,
+    ) -> Result<()> {
+        query.validate()?;
+        outcome.validate()?;
+        let replica = self.accepted_replica.as_ref().ok_or_else(|| {
+            WireError::Protocol(
+                "organization recovery archive GC requires durable holder acceptance".to_owned(),
+            )
+        })?;
+        let receipt = self.first_receipt.as_ref().ok_or_else(|| {
+            WireError::Protocol(
+                "organization recovery archive GC requires the first durable receipt".to_owned(),
+            )
+        })?;
+        let archive = &replica.archive;
+        if query.effective_scope != archive.effective_scope
+            || query.recovery_key_id != archive.recovery_key_id
+            || query.key_agreement_ref != archive.key_agreement_ref
+            || query.accepted_key_evidence_ref != archive.accepted_key_evidence_ref
+            || query.holder_trusted_basis != archive.holder_trusted_basis
+            || query.from_epoch != Some(archive.epoch)
+            || query.to_epoch != Some(archive.epoch)
+            || query.cursor.is_some()
+            || outcome.limited
+            || outcome.cursor.is_some()
+            || outcome.items.len() != 1
+        {
+            return Err(WireError::Protocol(
+                "organization recovery archive barrier did not resolve the exact accepted row"
+                    .to_owned(),
+            ));
+        }
+        let item = &outcome.items[0];
+        if item.archive_sequence != receipt.archive_sequence
+            || item.archive_replica_digest != receipt.archive_replica_digest
+            || item.archive != replica.archive
+            || item.container_event_ref != replica.container_event_ref
+            || item.history_traversal_retention != replica.history_traversal_retention
+        {
+            return Err(WireError::Protocol(
+                "organization recovery archive barrier bytes differ from the durable replica"
+                    .to_owned(),
+            ));
+        }
+
+        self.exact_holder_reread = true;
+        self.covered_epochs = vec![archive.epoch];
+        self.exact_archive_digest = Some(archive.archive_digest()?);
+        self.exact_container_event_ref = Some(replica.container_event_ref.clone());
+        self.exact_traversal_intent_digest = Some(
+            replica
+                .history_traversal_retention
+                .traversal_intent_digest
+                .clone(),
+        );
+        Ok(())
+    }
+
+    /// Delete the source-local secret only after both durable barriers are
+    /// present for this exact epoch. Repeated deletion is rejected rather than
+    /// being mistaken for fresh coverage.
+    pub fn gc_local_history_secret(&mut self) -> Result<()> {
+        if !self.durable_holder_acceptance
+            || !self.exact_holder_reread
+            || self.covered_epochs != [self.coverage_coordinate.epoch]
+            || self.archive_replica_digest.is_none()
+            || self.first_receipt_digest.is_none()
+            || self.exact_archive_digest.is_none()
+            || self.exact_container_event_ref.as_ref()
+                != Some(&self.coverage_coordinate.container_event_ref)
+            || self.exact_traversal_intent_digest.is_none()
+            || !self.local_history_secret_present
+        {
+            return Err(WireError::Protocol(
+                "failed_precondition: organization recovery archive durability barrier incomplete"
+                    .to_owned(),
+            ));
+        }
+        self.local_history_secret_present = false;
+        Ok(())
+    }
+}
+
+fn archive_authorization_tuple(
+    archive: &arkret_wire::OrganizationRecoveryArchive,
+) -> ArchiveAuthorizationTuple {
+    ArchiveAuthorizationTuple {
+        recovery_key_id: archive.recovery_key_id.clone(),
+        key_agreement_ref: archive.key_agreement_ref.clone(),
+        holder_principal_id: archive.holder_principal_id.clone(),
+        holder_service_id: archive.holder_service_id.clone(),
+        holder_signing_ref: archive.holder_signing_ref.clone(),
+        accepted_key_evidence_ref: archive.accepted_key_evidence_ref.clone(),
+        holder_trusted_basis: archive.holder_trusted_basis.clone(),
+    }
 }
 
 /// Pack `local_authoritative` secrets for one exporter effective scope into the
@@ -201,6 +433,10 @@ pub fn restore_history_backup_candidates(
 
 #[cfg(test)]
 mod tests {
+    use arkret_models_collaboration::history_key::{
+        OrganizationRecoveryArchiveListOutcome, OrganizationRecoveryArchiveListQuery,
+        OrganizationRecoveryArchiveReplica, OrganizationRecoveryArchiveReplicaOutcome,
+    };
     use arkret_wire::{BackupId, BackupSeriesId, EventId, RealmId};
 
     use super::*;
@@ -337,5 +573,88 @@ mod tests {
         let mut secret = local_secret(1, 1);
         secret.secret_b64u = base64url_encode([1_u8; 16]);
         assert!(pack_local_authoritative_history_backup(&scope(), &[secret], KDF_NH).is_err());
+    }
+
+    #[test]
+    fn rrk_archive_fixture_executes_the_durable_before_gc_barrier() {
+        let fixture =
+            arkret_schema::embedded_json_artifact("fixtures/history-key-recovery-fixture.json")
+                .unwrap();
+        let kat = &fixture["organization_recovery_archive_durable_before_gc_kat"];
+        let replica: OrganizationRecoveryArchiveReplica =
+            serde_json::from_value(kat["replica"].clone()).unwrap();
+        let receipt: OrganizationRecoveryArchiveReplicaOutcome =
+            serde_json::from_value(kat["first_receipt"].clone()).unwrap();
+        let query: OrganizationRecoveryArchiveListQuery =
+            serde_json::from_value(kat["barrier_query"].clone()).unwrap();
+        let outcome: OrganizationRecoveryArchiveListOutcome =
+            serde_json::from_value(kat["barrier_resolve_outcome"].clone()).unwrap();
+
+        let mut ledger = OrganizationRecoveryArchiveGcLedger::new(&replica).unwrap();
+        assert_eq!(
+            serde_json::to_value(&ledger).unwrap(),
+            kat["coverage_ledger"]["initial"]
+        );
+        assert!(ledger.gc_local_history_secret().is_err());
+
+        assert_eq!(
+            ledger
+                .record_durable_holder_acceptance(&replica, &receipt)
+                .unwrap(),
+            OrganizationRecoveryArchiveReplicaAdmission::FirstAccepted
+        );
+        assert_eq!(
+            serde_json::to_value(&ledger).unwrap(),
+            kat["coverage_ledger"]["after_first_accept"]
+        );
+        assert_eq!(
+            ledger
+                .record_durable_holder_acceptance(&replica, &receipt)
+                .unwrap(),
+            OrganizationRecoveryArchiveReplicaAdmission::ExactDuplicate
+        );
+        assert_eq!(
+            arkret_wire::canonical::canonical_json_bytes(&receipt).unwrap(),
+            base64url_decode(kat["first_receipt_jcs_b64u"].as_str().unwrap()).unwrap()
+        );
+
+        let mut changed_replica = replica.clone();
+        changed_replica.replicated_at += chrono::Duration::seconds(3);
+        assert!(
+            ledger
+                .record_durable_holder_acceptance(&changed_replica, &receipt)
+                .is_err()
+        );
+
+        let mut changed_outcome = outcome.clone();
+        let ciphertext = &mut changed_outcome.items[0].archive.ciphertext;
+        ciphertext.replace_range(
+            0..1,
+            if ciphertext.starts_with('A') {
+                "B"
+            } else {
+                "A"
+            },
+        );
+        assert!(
+            ledger
+                .record_exact_holder_reread(&query, &changed_outcome)
+                .is_err()
+        );
+        assert_eq!(
+            serde_json::to_value(&ledger).unwrap(),
+            kat["coverage_ledger"]["after_first_accept"]
+        );
+
+        ledger.record_exact_holder_reread(&query, &outcome).unwrap();
+        assert_eq!(
+            serde_json::to_value(&ledger).unwrap(),
+            kat["coverage_ledger"]["after_exact_reread"]
+        );
+        ledger.gc_local_history_secret().unwrap();
+        assert_eq!(
+            serde_json::to_value(&ledger).unwrap(),
+            kat["coverage_ledger"]["after_local_gc"]
+        );
     }
 }

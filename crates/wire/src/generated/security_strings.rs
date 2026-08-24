@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-24.3;
-//! sha256=cc9a7c8cb7bbfadfa717badcc9315ae85214ff10ac8a8fb03ef90a97e94e22c0 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-24.4;
+//! sha256=6e55d1de0b25d45aaaaffb87ca10403fb12fddc526c63b771401b32ebca76216 Input: registry/
 //! exporter-label-registry.json; version=2026-08-21.1;
-//! sha256=6cb34e722ce41df3c91204d48f6cdf66b68640e9d86a379a9267cefce484bb02 Input: registry/
+//! sha256=ce7f4a1c53b50f33ee71ba4a70e638819abfba103a3fa26560661fe516dc4d37 Input: registry/
 //! digest-suite-registry.json; version=2026-08-18;
 //! sha256=7b9f5368e30cebd43c509db7815b9a01681f8cf11147600f6be16bddcc74657f Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
@@ -1259,7 +1259,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
     ProofContextDescriptor {
         id: ProofContextId::AvailabilityReceiptProofV1,
         context: "ak.availability_receipt_proof.v1",
-        object_family: "availability_receipt_content",
+        object_family: "availability_receipt",
         consumer_operation: None,
         binding_fields: &[
             "payload_digest",
@@ -1273,7 +1273,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "verification_method",
             "created_at",
         ],
-        schema_ref: "schemas/availability-receipt.schema.json#/$defs/availability_receipt_content",
+        schema_ref: "schemas/availability-receipt.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::ControlProposalAuthorityAckProofV1,

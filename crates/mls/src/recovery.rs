@@ -29,7 +29,7 @@ pub fn late_device_join_steps(welcome: &MlsWelcomeEnvelope) -> Result<Vec<MlsDev
     } = &welcome.recipient
     else {
         return Err(Error::Protocol(
-            "device recovery workflow cannot consume a Native Agent Welcome".to_owned(),
+            "device recovery workflow requires a human-device Welcome".to_owned(),
         ));
     };
     Ok(vec![MlsDeviceWorkflowStep {

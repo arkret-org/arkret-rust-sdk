@@ -2,8 +2,8 @@
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-08-24.2;
 //! sha256=608eef00ca7ed5ddefe3218e243c551ecf1c9ae287fe1ef792b227659f8481eb Input: registry/
-//! capability-action-registry.json; version=2026-08-24.5;
-//! sha256=11b6baedf7567388d827f249182284ae683f68661ec535c8ce44d437d9c402dd Input: registry/
+//! capability-action-registry.json; version=2026-08-24.6;
+//! sha256=29923c9df96805f3cf0e346f9d1555c5ff75dac4336951f9a216764dcf94632c Input: registry/
 //! schema-registry.json; version=2026-08-23.2;
 //! sha256=4c5df182f604a55a279f9329491ad41551fc163d07c15280ef80e1607c310cd6 Input: registry/
 //! account-data-key-registry.json; version=2026-08-21.1;

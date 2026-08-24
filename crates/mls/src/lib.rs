@@ -790,6 +790,46 @@ mod tests {
     }
 
     #[test]
+    fn existing_member_applies_durable_add_proposal_before_referencing_commit() {
+        let alice = ArkretMlsIdentity::new_basic(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000061").unwrap(),
+        )
+        .unwrap();
+        let bob = ArkretMlsIdentity::new_basic(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000062").unwrap(),
+        )
+        .unwrap();
+        let carol = ArkretMlsIdentity::new_basic(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturecarol").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000063").unwrap(),
+        )
+        .unwrap();
+        let bob_key_package = bob.key_package_record().unwrap();
+        let carol_key_package = carol.key_package_record().unwrap();
+        let mut alice_group = alice
+            .create_group(b"ak:realm:Abv-DTiqqItOdVuCsiERm9HxIf_JwLqRfx9WfkG_eVld")
+            .unwrap();
+        let add_bob = alice_group.add_member(&bob_key_package).unwrap();
+        let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
+
+        let add_carol = alice_group.add_member(&carol_key_package).unwrap();
+        assert_eq!(add_carol.proposal.proposal_type, "add");
+        assert_eq!(add_carol.proposal.epoch + 1, add_carol.commit.epoch);
+        assert_eq!(
+            add_carol.proposal.proposal_digest.as_str(),
+            arkret_canonical::sha256_digest(
+                arkret_canonical::base64url_decode(&add_carol.proposal.proposal).unwrap()
+            )
+        );
+        bob_group.apply_proposal(&add_carol.proposal).unwrap();
+        bob_group.apply_commit(&add_carol.commit).unwrap();
+
+        assert_eq!(bob_group.epoch(), alice_group.epoch());
+    }
+
+    #[test]
     fn message_crypto_encrypts_decrypts_and_verifies_opaque_digest() {
         let alice = ArkretMlsIdentity::new_basic(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),

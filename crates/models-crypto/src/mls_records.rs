@@ -27,6 +27,10 @@ pub enum MlsEndpointIdentity {
         verification_method: DidUrl,
         agent_key_authorize_event_id: EventId,
     },
+    MinimalMetadataPairwise {
+        pairwise_actor_id: DidCoreId,
+        verification_method: DidUrl,
+    },
 }
 
 impl MlsEndpointIdentity {
@@ -69,10 +73,46 @@ impl MlsEndpointIdentity {
         })
     }
 
+    pub fn minimal_metadata_pairwise(
+        pairwise_actor_id: DidCoreId,
+        verification_method: DidUrl,
+    ) -> arkret_wire::Result<Self> {
+        let (controller, fragment) =
+            verification_method
+                .as_str()
+                .split_once('#')
+                .ok_or_else(|| {
+                    arkret_wire::WireError::Protocol(
+                        "minimal-metadata verification method has no fragment".to_owned(),
+                    )
+                })?;
+        let multibase = controller.strip_prefix("did:key:").ok_or_else(|| {
+            arkret_wire::WireError::Protocol(
+                "minimal-metadata verification method must use did:key".to_owned(),
+            )
+        })?;
+        if fragment != multibase
+            || pairwise_actor_id.as_str() != format!("ak:did_core:key:{multibase}")
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "minimal-metadata endpoint actor and verification method differ".to_owned(),
+            ));
+        }
+        arkret_canonical::decode_ed25519_multibase(multibase)
+            .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
+        Ok(Self::MinimalMetadataPairwise {
+            pairwise_actor_id,
+            verification_method,
+        })
+    }
+
     pub fn actor_id(&self) -> &DidCoreId {
         match self {
             Self::HumanDevice { principal_id, .. } => principal_id,
             Self::NativeAgentRuntime { agent_id, .. } => agent_id,
+            Self::MinimalMetadataPairwise {
+                pairwise_actor_id, ..
+            } => pairwise_actor_id,
         }
     }
 
@@ -87,6 +127,14 @@ impl MlsEndpointIdentity {
                 agent_id.clone(),
                 verification_method.clone(),
                 agent_key_authorize_event_id.clone(),
+            )
+            .map(|_| ()),
+            Self::MinimalMetadataPairwise {
+                pairwise_actor_id,
+                verification_method,
+            } => Self::minimal_metadata_pairwise(
+                pairwise_actor_id.clone(),
+                verification_method.clone(),
             )
             .map(|_| ()),
         }

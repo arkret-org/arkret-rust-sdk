@@ -229,6 +229,69 @@ where
     }
 }
 
+/// Return the exact Event that established the effective `join` value of one
+/// registered membership cell at a verified checkpoint.
+///
+/// This replays the checkpoint through the ordinary reducer. It does not pick
+/// a retained `join` Event by timestamp or list order, so leave/rejoin and
+/// concurrent histories cannot silently bind an MLS Add to a stale
+/// authorization incarnation.
+pub fn winning_membership_join_event_from_verified_checkpoint<ProjectWrites>(
+    checkpoint: &MlsGovernanceVerificationCheckpoint,
+    cell: &CellRef,
+    registry: &dyn CellRegistry,
+    project_writes: ProjectWrites,
+) -> arkret_wire::Result<EventId>
+where
+    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+{
+    checkpoint.validate_checkpoint()?;
+    let cell_id = CellId::from_ref(cell)?;
+    if !matches!(
+        cell_id.component(),
+        arkret_wire::CellFamilyId::MEMBER_STATE_V1 | arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1
+    ) {
+        return frontier_rejected("authorization incarnation target is not a membership cell");
+    }
+    let (seal_store, cell_store, ..) = replay_checkpoint_and_cut_to_basis(
+        &checkpoint.realm_id,
+        &checkpoint.basis,
+        &checkpoint.basis,
+        checkpoint,
+        &[],
+        &[],
+        &checkpoint.governance_dependencies,
+        registry,
+        |_, _, _, _| Ok(()),
+        |_, _, _| Ok(()),
+        |_, _, _, _| Ok(()),
+        project_writes,
+    )?;
+    let state = effective_state_at(
+        &checkpoint.basis.leaves,
+        &checkpoint.realm_id,
+        &seal_store,
+        &cell_store,
+        registry,
+    )
+    .map_err(replay_reject_error)?;
+    if !matches!(state.get(cell), Some(CellState::Value(value)) if value.as_str() == Some("join")) {
+        return frontier_rejected("authorization membership cell is not effectively joined");
+    }
+    let issued = cell_store
+        .sealed_ops_for_cell(&checkpoint.realm_id, cell)
+        .map_err(replay_store_error)?;
+    let winning_digest = winning_membership_join(&issued)?;
+    for event in &checkpoint.accepted_events {
+        if claimed_event_digest(event)? == winning_digest {
+            return Ok(event.event_id.clone());
+        }
+    }
+    Err(WireError::Protocol(
+        "winning membership transition is absent from the verified checkpoint".to_owned(),
+    ))
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn verify_mls_governance_checkpoint_with_registry<
     VerifySealSignature,

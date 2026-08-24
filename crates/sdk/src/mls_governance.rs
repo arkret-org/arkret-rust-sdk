@@ -4,7 +4,9 @@ use arkret_models_collaboration::governance_dependencies::{
     GovernanceDependency, GovernanceDependencySelector, governance_attester_evidence_selectors,
     governance_runtime_dependency_selectors_for_replay,
 };
-use arkret_models_collaboration::history_key::HistoryKeyResponseSendRequest;
+use arkret_models_collaboration::history_key::{
+    AuthorizationIncarnation, HistoryKeyResponseSendRequest,
+};
 use arkret_models_collaboration::objects::realm::{
     AvailabilityEvidenceScope, AvailabilityHolderRole,
 };
@@ -20,7 +22,9 @@ use arkret_state::mls_governance_proof::{
     MlsGovernanceVerificationCheckpoint, MlsGroupGenesisBinding, SealAvailabilityReplayAuthority,
     SealDependencyReplayContext, VerifiedMlsGovernanceFrontier,
 };
-use arkret_wire::{Event, EventProof, Hash, RealmId, Seal, SealBasis, WireError};
+use arkret_wire::{
+    CellRef, CircleId, Event, EventProof, Hash, RealmId, Seal, SealBasis, WireError,
+};
 
 /// Result of verifying raw complete governance material without trusting a
 /// caller-supplied target digest suite.
@@ -28,6 +32,53 @@ use arkret_wire::{Event, EventProof, Hash, RealmId, Seal, SealBasis, WireError};
 pub struct VerifiedMlsGovernanceClosure {
     pub checkpoint: MlsGovernanceVerificationCheckpoint,
     pub event_digest_suites: BTreeMap<Hash, arkret_canonical::DigestSuite>,
+}
+
+/// Derive the exact current membership incarnation from a fully verified
+/// reducer checkpoint for use in an MLS Add proposal.
+pub fn current_authorization_incarnation_from_verified_checkpoint(
+    checkpoint: &MlsGovernanceVerificationCheckpoint,
+    target: &arkret_wire::DidCoreId,
+    circle_id: Option<&CircleId>,
+) -> Result<AuthorizationIncarnation, WireError> {
+    let registry = arkret_lattice_registry::try_build_sdk_cell_registry().map_err(|error| {
+        WireError::Protocol(format!(
+            "MLS authorization-incarnation registry construction failed: {error}"
+        ))
+    })?;
+    let winning_join = |cell: &CellRef| {
+        arkret_state::mls_governance_proof::winning_membership_join_event_from_verified_checkpoint(
+            checkpoint,
+            cell,
+            &registry,
+            |event, digest_suite| {
+                arkret_schema::project_registered_cell_writes(event, digest_suite)
+                    .map_err(|error| error.to_string())
+            },
+        )
+    };
+    let realm_cell = CellRef::new(arkret_wire::cell::subject_cell(
+        arkret_wire::CellFamilyId::MEMBER_STATE_V1,
+        target.as_str(),
+    ))?;
+    let realm_membership_incarnation_ref = winning_join(&realm_cell)?;
+    let Some(circle_id) = circle_id else {
+        return Ok(AuthorizationIncarnation::Realm {
+            realm_membership_incarnation_ref,
+        });
+    };
+    let circle_subject = arkret_wire::cell::composite_subject(&[
+        serde_json::Value::String(circle_id.as_str().to_owned()),
+        serde_json::Value::String(target.as_str().to_owned()),
+    ])?;
+    let circle_cell = CellRef::new(arkret_wire::cell::subject_cell(
+        arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1,
+        &circle_subject,
+    ))?;
+    Ok(AuthorizationIncarnation::Circle {
+        realm_membership_incarnation_ref,
+        circle_membership_incarnation_ref: winning_join(&circle_cell)?,
+    })
 }
 
 /// The only Native Agent historical-evidence checks that cannot be derived

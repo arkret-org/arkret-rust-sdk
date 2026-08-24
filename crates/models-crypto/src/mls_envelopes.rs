@@ -7,6 +7,7 @@
 //! CBOR codec only.
 
 use arkret_wire::{DeviceId, DidCoreId, DidUrl, EventId, Hash};
+use serde::ser::Error as _;
 use serde::{Deserialize, Serialize};
 
 use crate::MlsEndpointIdentity;
@@ -85,6 +86,11 @@ impl Serialize for MlsWelcomeEnvelope {
                     Some(verification_method.clone()),
                     Some(agent_key_authorize_event_id.clone()),
                 ),
+                MlsEndpointIdentity::MinimalMetadataPairwise { .. } => {
+                    return Err(S::Error::custom(
+                        "minimal-metadata Welcome has no registered pairwise wire branch",
+                    ));
+                }
             };
         MlsWelcomeEnvelopeWire {
             group_id: self.group_id.clone(),

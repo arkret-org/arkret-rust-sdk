@@ -458,11 +458,8 @@ mod tests {
                 .rsplit("#/$defs/")
                 .next()
                 .unwrap_or(rule.payload_schema_id.as_str());
-            match def {
-                GENERIC_DEF => {
-                    generic.insert(event_kind.to_owned());
-                }
-                _ => {}
+            if def == GENERIC_DEF {
+                generic.insert(event_kind.to_owned());
             }
         }
 

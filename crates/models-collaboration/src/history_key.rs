@@ -2753,6 +2753,10 @@ impl OrganizationRecoveryArchiveListQuery {
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRecoveryArchiveListItem {
     pub archive_sequence: u64,
+    /// Exact canonical digest of the first archive replica durably accepted by
+    /// the holder service. This is the only valid self-traversal access
+    /// coordinate for this row.
+    pub archive_replica_digest: Hash,
     pub archive: OrganizationRecoveryArchive,
     pub container_event_ref: EventId,
     pub history_traversal_retention: HistoryGovernanceTraversalRetention,
@@ -2773,6 +2777,11 @@ impl OrganizationRecoveryArchiveListOutcome {
         validate_pagination(self.limited, self.cursor.as_deref())?;
         for item in &self.items {
             item.archive.validate()?;
+            if item.archive_replica_digest.as_str().is_empty() {
+                return Err(WireError::Protocol(
+                    "archive item replica digest is empty".to_owned(),
+                ));
+            }
             item.history_traversal_retention
                 .validate_for_archive(&item.archive, &item.container_event_ref)?;
         }
@@ -2780,6 +2789,30 @@ impl OrganizationRecoveryArchiveListOutcome {
             if pair[0].archive_sequence >= pair[1].archive_sequence {
                 return Err(WireError::Protocol(
                     "archive items are not sequence ascending".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Validate that every typed row is within the exact holder query rather
+    /// than merely being well-formed. The holder must perform this binding
+    /// before using `archive_replica_digest` as a traversal access coordinate.
+    pub fn validate_for_query(&self, query: &OrganizationRecoveryArchiveListQuery) -> Result<()> {
+        query.validate()?;
+        self.validate()?;
+        for item in &self.items {
+            let archive = &item.archive;
+            if archive.effective_scope != query.effective_scope
+                || archive.recovery_key_id != query.recovery_key_id
+                || archive.key_agreement_ref != query.key_agreement_ref
+                || archive.accepted_key_evidence_ref != query.accepted_key_evidence_ref
+                || archive.holder_trusted_basis != query.holder_trusted_basis
+                || query.from_epoch.is_some_and(|from| archive.epoch < from)
+                || query.to_epoch.is_some_and(|to| archive.epoch > to)
+            {
+                return Err(WireError::Protocol(
+                    "archive item is outside the exact holder query".to_owned(),
                 ));
             }
         }
@@ -2882,7 +2915,6 @@ impl OrganizationRecoveryArchiveReplica {
     pub fn validate_proof_binding(&self) -> Result<()> {
         self.service_proof.validate_production()?;
         if self.service_proof.payload_digest != self.canonical_payload_digest()?
-            || self.service_proof.created_at != self.replicated_at
             || self.service_proof.domain.is_some()
             || self.service_proof.audience.is_some()
             || self.service_proof.proof_purpose.is_some()
@@ -2981,7 +3013,6 @@ impl OrganizationRecoveryArchiveReplicaOutcome {
     pub fn validate_proof_binding(&self) -> Result<()> {
         self.service_proof.validate_production()?;
         if self.service_proof.payload_digest != self.canonical_payload_digest()?
-            || self.service_proof.created_at != self.accepted_at
             || self.service_proof.domain.is_some()
             || self.service_proof.audience.is_some()
             || self.service_proof.proof_purpose.is_some()

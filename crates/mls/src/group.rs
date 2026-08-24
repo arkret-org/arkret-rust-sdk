@@ -5,9 +5,9 @@ use aes_gcm::{Aes128Gcm, KeyInit};
 use arkret_canonical::{base64url_decode, base64url_encode};
 use arkret_models_crypto::{
     EncryptedPayload, EventContentPreEncryptionHeader, MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
-    MlsCommitEnvelope, MlsEndpointIdentity, MlsGovernanceBindingExtension,
-    MlsGovernanceBindingPayload, MlsGovernanceBindingValidationContext, MlsGroupStateRecord,
-    MlsGroupStateSink, MlsKeyPackageRecord, MlsProposalEnvelope, MlsWelcomeEnvelope,
+    MlsCommitEnvelope, MlsGovernanceBindingExtension, MlsGovernanceBindingPayload,
+    MlsGovernanceBindingValidationContext, MlsGroupStateRecord, MlsGroupStateSink,
+    MlsKeyPackageRecord, MlsProposalEnvelope, MlsWelcomeEnvelope,
     verify_mls_governance_binding_extension,
 };
 use arkret_wire::{
@@ -35,7 +35,7 @@ use zeroize::Zeroizing;
 
 use crate::identity::{
     ARKRET_MLS_CIPHERSUITE, ARKRET_MLS_CIPHERSUITE_CANONICAL_ID, ArkretMlsIdentity,
-    decode_key_package, decode_leaf_credential, leaf_credential_bytes,
+    ArkretMlsIdentityProfile, decode_key_package, decode_leaf_credential,
 };
 use crate::{MlsError as Error, Result};
 
@@ -225,12 +225,14 @@ pub struct ArkretMlsGroup {
 
 #[derive(Clone, Debug)]
 pub struct MlsAddMemberResult {
+    pub proposal: MlsProposalEnvelope,
     pub commit: MlsCommitEnvelope,
     pub welcome: MlsWelcomeEnvelope,
 }
 
 #[derive(Clone, Debug)]
 pub struct MlsAddMembersResult {
+    pub proposals: Vec<MlsProposalEnvelope>,
     pub commit: MlsCommitEnvelope,
     pub welcomes: Vec<MlsWelcomeEnvelope>,
 }
@@ -270,6 +272,7 @@ struct OpenMlsStateSnapshot {
     epoch: u64,
     principal_id: DidCoreId,
     device_id: DeviceId,
+    profile: ArkretMlsIdentityProfile,
     signer_public_key: String,
     storage_entries: BTreeMap<String, String>,
     /// Retained per-epoch `history_secret[N]` (decimal epoch → base64url
@@ -890,6 +893,7 @@ impl ArkretMlsGroup {
             epoch: self.epoch(),
             principal_id: self.identity.principal_id.clone(),
             device_id: self.identity.device_id.clone(),
+            profile: self.identity.profile().clone(),
             signer_public_key: encode(self.identity.signer.public()),
             storage_entries: snapshot_provider_storage(&self.identity.provider)?,
             history_secrets: self
@@ -942,11 +946,13 @@ impl ArkretMlsGroup {
             ARKRET_MLS_CIPHERSUITE.signature_algorithm(),
         )
         .ok_or_else(|| Error::Protocol("OpenMLS signer is missing from snapshot".to_owned()))?;
+        snapshot.profile.validate_signer(signer.public())?;
         let credential = CredentialWithKey {
-            credential: BasicCredential::new(leaf_credential_bytes(
-                &record.principal_id,
-                &record.device_id,
-            ))
+            credential: BasicCredential::new(
+                snapshot
+                    .profile
+                    .credential_bytes(&record.principal_id, &record.device_id),
+            )
             .into(),
             signature_key: signer.public().into(),
         };
@@ -972,6 +978,7 @@ impl ArkretMlsGroup {
             identity: ArkretMlsIdentity {
                 principal_id: record.principal_id.clone(),
                 device_id: record.device_id.clone(),
+                profile: snapshot.profile,
                 provider,
                 signer,
                 credential,
@@ -1056,6 +1063,11 @@ impl ArkretMlsGroup {
             .next()
             .ok_or_else(|| Error::Protocol("MLS add_member returned no Welcome".to_owned()))?;
         Ok(MlsAddMemberResult {
+            proposal: result
+                .proposals
+                .into_iter()
+                .next()
+                .ok_or_else(|| Error::Protocol("MLS add_member returned no Proposal".to_owned()))?,
             commit: result.commit,
             welcome,
         })
@@ -1101,10 +1113,30 @@ impl ArkretMlsGroup {
                 member_key_package,
             )?);
         }
+        let base_epoch = self.epoch();
+        let ratchet_tree = Some(self.ratchet_tree()?);
+        let mut proposals = Vec::with_capacity(keypackages.len());
+        for key_package in &keypackages {
+            let (proposal_message, _proposal_ref) = self
+                .group
+                .propose_add_member(&self.identity.provider, &self.identity.signer, key_package)
+                .map_err(mls_error)?;
+            let proposal_bytes = proposal_message
+                .tls_serialize_detached()
+                .map_err(mls_error)?;
+            proposals.push(MlsProposalEnvelope {
+                group_id: self.group_id(),
+                epoch: base_epoch,
+                proposal_type: "add".to_owned(),
+                proposal: encode(&proposal_bytes),
+                proposal_digest: Hash::new(canonical::sha256_digest(&proposal_bytes))?,
+                ratchet_tree: ratchet_tree.clone(),
+            });
+        }
         let governance_extensions = governance_binding
             .map(|binding| self.governance_extensions_for_next_epoch(binding))
             .transpose()?;
-        let mut builder = self.group.commit_builder().propose_adds(keypackages);
+        let mut builder = self.group.commit_builder().consume_proposal_store(true);
         if let Some(extensions) = governance_extensions {
             builder = builder
                 .propose_group_context_extensions(extensions)
@@ -1133,7 +1165,6 @@ impl ArkretMlsGroup {
 
         let commit_bytes = commit.tls_serialize_detached().map_err(mls_error)?;
         let welcome_bytes = welcome.tls_serialize_detached().map_err(mls_error)?;
-        let ratchet_tree = Some(self.ratchet_tree()?);
         let commit_digest = Hash::new(canonical::sha256_digest(&commit_bytes))?;
         let welcome_hash = Hash::new(canonical::sha256_digest(&welcome_bytes))?;
         let group_id = self.group_id();
@@ -1151,6 +1182,7 @@ impl ArkretMlsGroup {
             .collect();
 
         Ok(MlsAddMembersResult {
+            proposals,
             commit: MlsCommitEnvelope {
                 group_id,
                 epoch,
@@ -1361,12 +1393,7 @@ impl ArkretMlsGroup {
         identity: ArkretMlsIdentity,
         envelope: &MlsWelcomeEnvelope,
     ) -> Result<Self> {
-        if envelope.recipient
-            != MlsEndpointIdentity::human_device(
-                identity.principal_id.clone(),
-                identity.device_id.clone(),
-            )
-        {
+        if envelope.recipient != identity.endpoint_identity() {
             return Err(Error::Protocol(
                 "MLS Welcome recipient does not match identity".to_owned(),
             ));
@@ -1581,14 +1608,11 @@ impl ArkretMlsGroup {
     }
 
     /// Stage an incoming by-reference MLS proposal so a subsequent
-    /// `apply_commit` that references it (e.g. a Remove commit produced by
-    /// `remove_member_by_principal`) can resolve `MissingProposal`.
+    /// `apply_commit` that references it can resolve `MissingProposal`.
     ///
-    /// The commit envelope produced for Remove carries the proposals
-    /// out-of-band in [`MlsRemoveMemberResult::proposals`]; surviving members
-    /// MUST apply each of those proposals through this method before applying
-    /// the referencing commit. Add commits inline their proposals and never
-    /// require this step.
+    /// Add and Remove commits carry their proposals out-of-band. Existing
+    /// members MUST apply each proposal through this method before applying
+    /// the referencing commit; new Add recipients join from the Welcome.
     pub fn apply_proposal(&mut self, envelope: &MlsProposalEnvelope) -> Result<()> {
         let proposal_bytes = decode(&envelope.proposal)?;
         let actual_digest = canonical::sha256_digest(&proposal_bytes);

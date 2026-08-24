@@ -624,6 +624,10 @@ impl MlsEnvelopeOperationExt for MlsWelcomeEnvelope {
                 verification_method,
                 agent_key_authorize_event_id,
             } => format!("agent:{agent_id}:{verification_method}:{agent_key_authorize_event_id}"),
+            arkret_models_crypto::MlsEndpointIdentity::MinimalMetadataPairwise {
+                pairwise_actor_id,
+                verification_method,
+            } => format!("pairwise:{pairwise_actor_id}:{verification_method}"),
         };
         Ok(
             LocalOperationDraft::new(operation_id, realm_id, self.clone())

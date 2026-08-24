@@ -1049,7 +1049,7 @@ pub fn winning_history_epoch_suites_from_verified_checkpoint(
         return invalid("history secret ranges require mls_exporter_aead_v1");
     }
     let cipher_suite = genesis.cipher_suite.as_str().to_owned();
-    let kdf_nh = registered_kdf_nh(&cipher_suite)?;
+    let kdf_nh = registered_mls_ciphersuite_kdf_nh(&cipher_suite)?;
     let maximum_epoch = requested_ranges
         .last()
         .expect("canonical non-empty ranges validated above")
@@ -1077,7 +1077,14 @@ pub fn winning_history_epoch_suites_from_verified_checkpoint(
     Ok(result)
 }
 
-fn registered_kdf_nh(cipher_suite: &str) -> Result<u16, WireError> {
+/// Resolve `KDF.Nh` for one exact MLS ciphersuite identifier registered by the
+/// embedded v1 protocol artifacts.
+///
+/// Callers must still obtain `cipher_suite` from a verified winning transition;
+/// this helper only maps that authoritative suite to its RFC 9420 hash width.
+/// Unknown identifiers and registered rows without a supported mapping fail
+/// closed rather than defaulting to SHA-256.
+pub fn registered_mls_ciphersuite_kdf_nh(cipher_suite: &str) -> Result<u16, WireError> {
     if !arkret_wire::MLS_CIPHERSUITES
         .iter()
         .any(|row| row.canonical_id == cipher_suite)
@@ -1114,4 +1121,29 @@ fn scope_matches(history: &HistoryEffectiveScope, scope: &ScopeRef) -> bool {
 
 fn invalid<T>(message: &str) -> Result<T, WireError> {
     Err(WireError::Protocol(message.to_owned()))
+}
+
+#[cfg(test)]
+mod mls_ciphersuite_kdf_nh_tests {
+    use super::registered_mls_ciphersuite_kdf_nh;
+
+    #[test]
+    fn every_registered_suite_has_its_exact_hash_width() {
+        let expected = [
+            ("MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519", 32_u16),
+            ("MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519", 32),
+            ("MLS_128_MLKEM768X25519_AES128GCM_SHA256_Ed25519", 32),
+            ("MLS_128_MLKEM768X25519_CHACHA20POLY1305_SHA384_MLDSA44", 48),
+        ];
+        assert_eq!(arkret_wire::MLS_CIPHERSUITES.len(), expected.len());
+        for (suite, kdf_nh) in expected {
+            assert!(
+                arkret_wire::MLS_CIPHERSUITES
+                    .iter()
+                    .any(|row| row.canonical_id == suite)
+            );
+            assert_eq!(registered_mls_ciphersuite_kdf_nh(suite).unwrap(), kdf_nh);
+        }
+        assert!(registered_mls_ciphersuite_kdf_nh("MLS_000_UNKNOWN").is_err());
+    }
 }

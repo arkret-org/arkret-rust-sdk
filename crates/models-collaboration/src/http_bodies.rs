@@ -2931,12 +2931,12 @@ mod device_pairing_tests {
             transcript_digest.clone(),
         )
         .unwrap()
-        .attach_signature(device_signature.clone());
+        .attach_signature(device_signature);
         let authorize_payload = UnsignedDeviceAuthorizePayload::new(
             principal_id.clone(),
             target_device.clone(),
             NonEmptyString::new(did_key.as_str()).unwrap(),
-            hpke_key.clone(),
+            hpke_key,
             algorithms,
             Some(NonEmptyString::new("Ed25519").unwrap()),
             DeviceOrPrincipalRef::DeviceId(authorizing_device.clone()),
