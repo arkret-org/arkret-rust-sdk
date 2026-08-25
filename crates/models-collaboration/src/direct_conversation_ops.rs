@@ -956,11 +956,11 @@ mod tests {
         let receipt = receipt();
         assert_eq!(
             receipt.transcript_digest().unwrap().as_str(),
-            "sha256:2bef6462fa7e06eb14e233016225fd0ac6e6ec6e42ef65f974af00a744a66db5"
+            "sha256:788ad86b03e38f2e67f3f5b6aaea16ae8cd92ab1befc723d8d0415b799921496"
         );
         assert_eq!(
             receipt.signing_input_bytes().unwrap(),
-            b"sha256:2bef6462fa7e06eb14e233016225fd0ac6e6ec6e42ef65f974af00a744a66db5"
+            b"sha256:788ad86b03e38f2e67f3f5b6aaea16ae8cd92ab1befc723d8d0415b799921496"
         );
         let mut changed_proof = receipt.clone();
         changed_proof.proof.jws = Base64UrlString::new("ZGlmZmVyZW50".to_owned()).unwrap();

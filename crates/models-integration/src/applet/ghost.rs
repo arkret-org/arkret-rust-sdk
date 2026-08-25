@@ -177,12 +177,17 @@ mod tests {
     use super::*;
 
     fn event(kind: &str, actor: &str, suffix: &str) -> Event {
-        arkret_wire::test_support::raw_event(
-            kind,
+        let scope_ref = if kind == "ak.realm.create" {
+            ScopeRef::RealmGenesis
+        } else {
             ScopeRef::Realm {
                 realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
                     .unwrap(),
-            },
+            }
+        };
+        arkret_wire::test_support::raw_event(
+            kind,
+            scope_ref,
             DidCoreId::new(actor.replace("did:", "ak:did_core:")).unwrap(),
             DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
             0,

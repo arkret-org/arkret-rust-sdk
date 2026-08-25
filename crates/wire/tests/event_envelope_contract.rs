@@ -144,7 +144,8 @@ fn event_scalability_helpers_reject_over_limits() {
 /// `event-and-patch.md` §75 names producer-selected `auth_context.capability_refs`
 /// alongside `effects` as a field a v1 receiver MUST reject with
 /// `schema_violation`, and the envelope schema closes `auth_context` over
-/// `{actor_id, key_id, key_epoch, credential_epoch}`.
+/// `{key_id, key_epoch, credential_epoch}`. The Event envelope is the sole
+/// carrier of `actor_id`.
 ///
 /// Rejecting is the point: effective capabilities are derived from the accepted
 /// governance basis, so a producer that ships a list has either been tampered
@@ -153,7 +154,6 @@ fn event_scalability_helpers_reject_over_limits() {
 #[test]
 fn auth_context_rejects_a_producer_selected_capability_list() {
     let base = json!({
-        "actor_id": "ak:did_core:webvh:z6mkfixture",
         "key_id": "device:01904100-0000-7000-8000-65c7feb295d8",
         "key_epoch": 1
     });

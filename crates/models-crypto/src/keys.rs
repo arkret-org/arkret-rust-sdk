@@ -366,12 +366,7 @@ mod device_generation_tests {
         let trust_algorithm = arkret_wire::generated::HPKE_SUITES[2].canonical_id;
         json!({
             "algorithms": {},
-            "device_signing_key": DEVICE_SIGNING_KEY,
-            "hpke_key": "hpke-1",
             "trust_algorithms": [trust_algorithm],
-            "device_status": "active",
-            "device_authorize_event_id": DEVICE_AUTHORIZE_EVENT,
-            "authorized_generation_ref": generation,
             "device_projection_attestation": {
                 "attestation": {
                     "principal_id": PRINCIPAL_ID,

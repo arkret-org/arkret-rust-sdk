@@ -808,7 +808,7 @@ mod tests {
     fn test_key_ref() -> EncryptedAttachmentKeyRef {
         EncryptedAttachmentKeyRef {
             algorithm: arkret_models_crypto::EncryptedAttachmentKeyAlgorithm::Mls,
-            group_state_ref: arkret_models_crypto::EncryptedAttachmentGroupStateRef::Event(
+            group_state_ref: EncryptedAttachmentGroupStateRef::Event(
                 arkret_wire::EventId::new(
                     "ak:event:AQNy1zG98lAoTz0YOf-2Yp2-GXeJioPlyg8nW6qxW-OB".to_owned(),
                 )

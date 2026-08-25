@@ -2527,6 +2527,46 @@ mod tests {
     }
 
     #[test]
+    fn rejected_anchor_state_root_never_publishes_candidate_cell_ops() {
+        let events = MemoryControlEventStore::default();
+        let seals = MemorySealStore::default();
+        let cells = MemoryCellStore::default();
+        let registry = MemoryCellRegistry::default();
+        let event = genesis_create();
+        let digest = control_event_digest(&event, SUITE).unwrap();
+        events
+            .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
+            .unwrap();
+        let declared_post_state = state_with_digest_suite([(
+            capability_cell(),
+            CellState::Value(json!([{"marker": "not-derived"}])),
+        )]);
+        let seal = signed_seal_with_coverage(
+            Vec::new(),
+            vec![digest],
+            std::slice::from_ref(&event),
+            &declared_post_state,
+            0,
+        );
+
+        let error = apply_seal_in_context(
+            &seal,
+            &events,
+            &seals,
+            &cells,
+            &registry,
+            ok_proofs,
+            genesis_digest_suite_write,
+            EventSubmitContext::AnchorUnit,
+        )
+        .unwrap_err();
+
+        assert!(matches!(error, SealReject::StateRootMismatch { .. }));
+        assert!(cells.list_cells(&realm()).unwrap().is_empty());
+        assert!(seals.get(&seal.id).unwrap().is_none());
+    }
+
+    #[test]
     fn anchor_unit_stages_create_projection_before_creator_binding_transition() {
         let events = MemoryControlEventStore::default();
         let seals = MemorySealStore::default();

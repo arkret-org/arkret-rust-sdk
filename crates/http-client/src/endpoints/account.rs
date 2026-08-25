@@ -843,10 +843,10 @@ mod tests {
         let server = tokio::spawn(async move {
             let (mut first, _) = listener.accept().await.unwrap();
             let first_raw = read_http_request(&mut first).await;
-            // Model a durable commit followed by a lost/late response.
-            tokio::time::sleep(StdDuration::from_millis(80)).await;
-            drop(first);
-
+            // Keep the committed first request open without a response. The
+            // client timeout deterministically opens the retry; accepting it
+            // directly avoids making the second attempt race an arbitrary
+            // wall-clock sleep under a loaded test runner.
             let (mut second, _) = listener.accept().await.unwrap();
             let second_raw = read_http_request(&mut second).await;
             let body = session_grant_outcome_json();
@@ -856,6 +856,7 @@ mod tests {
                 body
             );
             second.write_all(response.as_bytes()).await.unwrap();
+            drop(first);
             (first_raw, second_raw)
         });
 

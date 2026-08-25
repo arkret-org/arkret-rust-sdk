@@ -13,7 +13,7 @@ use arkret_wire::{
     AppletId, DidCoreId, DidFullId, DidUrl, Hash, Hlc, PayloadSignature, PayloadSigner, PlanId,
     RealmId, Result as WireResult, ScopeRef,
 };
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
 
 struct StubSigner {
@@ -35,7 +35,7 @@ impl PayloadSigner for StubSigner {
         Ok(PayloadSignature {
             verification_method: self.verification_method.clone(),
             payload_digest: payload_digest.clone(),
-            created_at: Utc::now(),
+            created_at: canonical_now(),
             jws: stub_detached_jws(&payload_digest),
         })
     }
@@ -63,6 +63,10 @@ fn realm() -> RealmId {
 
 fn sample_epoch() -> Hash {
     Hash::new(format!("sha256:{}", "bb".repeat(32))).unwrap()
+}
+
+fn canonical_now() -> DateTime<Utc> {
+    DateTime::from_timestamp_millis(Utc::now().timestamp_millis()).unwrap()
 }
 
 fn sample_epoch_evidence(service_id: &DidCoreId) -> AppletRegistrationEpochEvidence {
@@ -106,7 +110,7 @@ fn sample_wire_registration() -> AppletRegistrationPayload {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         payload_digest: sample_epoch(),
-        created_at: chrono::DateTime::from_timestamp_millis(Utc::now().timestamp_millis()).unwrap(),
+        created_at: canonical_now(),
         domain: None,
         audience: None,
         jws: "header..sig".to_owned(),
@@ -119,13 +123,13 @@ fn sample_wire_registration() -> AppletRegistrationPayload {
 fn exclusive_namespace_claims_conflict_only_within_the_same_domain() {
     let exclusive_pattern = AppletWireNamespaces {
         actors: vec![AppletNamespaceEntry::exclusive(
-            "did:webvh:z6mkfixture:slack-bridge.example:ghost:*",
+            "did:webvh:z6mkmanagedfixture:actors.example:managed:*",
         )],
         ..Default::default()
     };
     let exclusive_concrete = AppletWireNamespaces {
         actors: vec![AppletNamespaceEntry::exclusive(
-            "did:webvh:z6mkfixture:slack-bridge.example:ghost:u1",
+            "did:webvh:z6mkmanagedfixture:actors.example:managed:u1",
         )],
         ..Default::default()
     };
@@ -135,13 +139,13 @@ fn exclusive_namespace_claims_conflict_only_within_the_same_domain() {
 
     let shared_pattern = AppletWireNamespaces {
         actors: vec![AppletNamespaceEntry::shared(
-            "did:webvh:z6mkfixture:slack-bridge.example:ghost:*",
+            "did:webvh:z6mkmanagedfixture:actors.example:managed:*",
         )],
         ..Default::default()
     };
     let shared_concrete = AppletWireNamespaces {
         actors: vec![AppletNamespaceEntry::shared(
-            "did:webvh:z6mkfixture:slack-bridge.example:ghost:u1",
+            "did:webvh:z6mkmanagedfixture:actors.example:managed:u1",
         )],
         ..Default::default()
     };
@@ -166,7 +170,7 @@ fn package_with_required_fields() -> AppletPackage {
         vec!["slack".to_owned()],
         AppletWireNamespaces {
             actors: vec![AppletNamespaceEntry::exclusive(
-                "did:webvh:z6mkfixture:slackbridge.example:ghost:*",
+                "did:webvh:z6mkmanagedfixture:actors.example:managed:*",
             )],
             realms: vec![],
             handles: vec![],
@@ -204,7 +208,6 @@ fn finalized_package_with_required_fields() -> AppletPackage {
     seal_and_sign_test_package(&mut package);
     package
 }
-
 #[test]
 fn wire_registration_round_trips_with_the_exact_package_proof() {
     let registration = sample_wire_registration();
@@ -536,7 +539,7 @@ fn install_plan_digest_excludes_itself_and_scope_round_trips() {
 fn install_commit_uses_each_signed_event_carrier_once() {
     let scope = ScopeRef::Realm { realm_id: realm() };
     let package = finalized_package_with_required_fields();
-    let requested_at = arkret_canonical::canonical::normalize_timestamp_canonical(Utc::now());
+    let requested_at = canonical_now();
     let requested_expires_at = requested_at + chrono::Duration::minutes(5);
     let registration_epoch_evidence = sample_epoch_evidence(&package.service_id);
     let registration_event = arkret_wire::test_support::raw_event(
@@ -605,7 +608,7 @@ fn install_commit_uses_each_signed_event_carrier_once() {
     ).unwrap();
     let bot_pcr_genesis_event = arkret_wire::test_support::raw_event_at(
         "ak.realm.create",
-        scope.clone(),
+        ScopeRef::RealmGenesis,
         package.bot_actor_id.clone(),
         actor("principal-server"),
         0,
@@ -744,6 +747,7 @@ fn install_preview_has_only_package_and_authoring_basis() {
         json!({"grant_id": "ak:grant:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu"}),
     )
     .unwrap();
+    let requested_at = canonical_now();
     let request = AppletInstallPreviewRequestBody {
         authoring_request_basis: AppletInstallAuthoringRequestBasis {
             schema: "ak.schema.applet_install_authoring_request_basis.v1".to_owned(),
@@ -763,8 +767,8 @@ fn install_preview_has_only_package_and_authoring_basis() {
             actor_policy: None,
             e2ee_policy: None,
             widget_policy: None,
-            requested_at: Utc::now(),
-            requested_expires_at: Utc::now() + chrono::Duration::minutes(5),
+            requested_at,
+            requested_expires_at: requested_at + chrono::Duration::minutes(5),
             registration_event,
             capability_grant_events: vec![capability_grant_event],
         },
@@ -797,7 +801,7 @@ fn install_preview_has_only_package_and_authoring_basis() {
 fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
     let package = finalized_package_with_required_fields();
     let scope = ScopeRef::Realm { realm_id: realm() };
-    let requested_at = arkret_canonical::canonical::normalize_timestamp_canonical(Utc::now());
+    let requested_at = canonical_now();
     let expires_at = requested_at + chrono::Duration::minutes(5);
     let registration_event = arkret_wire::test_support::raw_event(
         "ak.applet.registration", scope.clone(), actor("admin"), actor("principal-server"), 1,

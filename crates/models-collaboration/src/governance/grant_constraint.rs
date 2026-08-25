@@ -784,7 +784,7 @@ mod tests {
     }
 
     #[test]
-    fn capability_grant_serializes_all_timestamps_canonically() {
+    fn capability_grant_serializes_lifecycle_timestamps_canonically() {
         let fractional = DateTime::parse_from_rfc3339("2026-07-14T12:34:56.789Z")
             .unwrap()
             .with_timezone(&Utc);

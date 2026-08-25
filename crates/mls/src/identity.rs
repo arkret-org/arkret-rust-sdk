@@ -838,8 +838,19 @@ mod tests {
                 verification_method: verification_method.clone(),
             }
         );
-        assert!(serde_json::to_vec(&add.welcome).is_err());
-        let group = ArkretMlsGroup::join_from_welcome(restored, &add.welcome).unwrap();
+        let welcome_wire = serde_json::to_value(&add.welcome).unwrap();
+        assert!(welcome_wire.get("recipient_principal_id").is_none());
+        assert_eq!(
+            welcome_wire["recipient_pairwise_actor_id"],
+            pairwise_actor_id.as_str()
+        );
+        assert_eq!(
+            welcome_wire["recipient_pairwise_verification_method"],
+            verification_method.as_str()
+        );
+        let welcome = serde_json::from_value(welcome_wire).unwrap();
+        assert_eq!(welcome, add.welcome);
+        let group = ArkretMlsGroup::join_from_welcome(restored, &welcome).unwrap();
         assert_eq!(
             group.local_content_sender_domain().unwrap(),
             pairwise_actor_id.as_str()

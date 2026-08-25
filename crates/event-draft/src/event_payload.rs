@@ -49,7 +49,9 @@ use arkret_models_identity::claim_presentation::AgentSelectorClaim;
 use arkret_models_identity::delivery_binding::DevicePushRoutePayload;
 use arkret_models_identity::identity_resolution::PrincipalResolutionUpdatePayload;
 use arkret_models_identity::member_identity::MemberIdentityUpdatePayload;
-use arkret_models_integration::applet::AppletRegistrationPayload;
+use arkret_models_integration::applet::{
+    AppletManagedActorProvisionPayload, AppletRegistrationPayload,
+};
 use arkret_models_integration::applet_audit_payload::AppletBridgeErrorPayload;
 use arkret_wire::{Event, Result, WireError, event_spec};
 use serde::Serialize;
@@ -344,6 +346,7 @@ event_payload_accessors! {
     event_spec::InviteRevoke => (as_invite_revoke, InviteRevokePayload),
     event_spec::AppletBridgeError => (as_applet_bridge_error, AppletBridgeErrorPayload),
     event_spec::AppletRegistration => (as_applet_registration, AppletRegistrationPayload),
+    event_spec::AppletManagedActorProvision => (as_applet_managed_actor_provision, AppletManagedActorProvisionPayload, AppletManagedActorProvisionPayload::validate),
     event_spec::MimiRoomBinding => (as_mimi_room_binding, MimiRoomBindingPayload),
     event_spec::CallCreate => (as_call_create, CallCreatePayload),
     event_spec::CallState => (as_call_state, CallStatePayload),
@@ -679,7 +682,6 @@ mod tests {
 
         event.kind = EventKind::SchemaDefine;
         event.payload = serde_json::from_value(json!({
-            "schema_id": "ak.schema.example.v1",
             "value": {
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "$id": "ak.schema.example.v1",

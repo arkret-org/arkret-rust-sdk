@@ -124,13 +124,13 @@ mod tests {
     fn single_star_matches_exactly_one_segment() {
         assert!(namespace_pattern_matches(
             Actors,
-            "did:webvh:z6mkfixture:slack-bridge.example:ghost:*",
-            "did:webvh:z6mkfixture:slack-bridge.example:ghost:u123"
+            "did:webvh:z6mkmanagedfixture:actors.example:managed:*",
+            "did:webvh:z6mkmanagedfixture:actors.example:managed:u123"
         ));
         assert!(!namespace_pattern_matches(
             Actors,
-            "did:webvh:z6mkfixture:slack-bridge.example:ghost:*",
-            "did:webvh:z6mkfixture:other.example:ghost:u123"
+            "did:webvh:z6mkmanagedfixture:actors.example:managed:*",
+            "did:webvh:z6mkotherfixture:other.example:managed:u123"
         ));
         assert!(!namespace_pattern_matches(
             Realms,
@@ -143,8 +143,8 @@ mod tests {
     fn actor_matching_ignores_did_fragment() {
         assert!(namespace_pattern_matches(
             Actors,
-            "did:webvh:z6mkfixture:slack-bridge.example:ghost:*",
-            "did:webvh:z6mkfixture:slack-bridge.example:ghost:u123#key-1"
+            "did:webvh:z6mkmanagedfixture:actors.example:managed:*",
+            "did:webvh:z6mkmanagedfixture:actors.example:managed:u123#key-1"
         ));
     }
 

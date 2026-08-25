@@ -1,6 +1,6 @@
 //! Key management and recovery schema artifact counterparts.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::ops::Deref;
 
@@ -604,8 +604,7 @@ pub struct Failure {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/keypackage-operations.schema.json#/$defs/keypackage_claim_record`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, Serialize)]
 pub struct KeyPackageClaimRecord {
     pub claim_id: String,
     pub keypackage_ref: String,
@@ -630,6 +629,119 @@ pub struct KeyPackageClaimRecord {
     pub revocation_status: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_resort: Option<bool>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct KeyPackageClaimRecordWire {
+    claim_id: String,
+    keypackage_ref: String,
+    principal_id: DidCoreId,
+    #[serde(default)]
+    device_id: Option<DeviceId>,
+    #[serde(default)]
+    agent_id: Option<DidCoreId>,
+    #[serde(default)]
+    agent_verification_method: Option<DidUrl>,
+    #[serde(default)]
+    pairwise_verification_method: Option<DidUrl>,
+    keypackage: String,
+    capabilities: Vec<String>,
+    #[serde(default)]
+    device_authorize_event_id: Option<EventId>,
+    #[serde(default)]
+    agent_key_authorize_event_id: Option<EventId>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    expires_at: DateTime<Utc>,
+    #[serde(default)]
+    revocation_status: Option<String>,
+    #[serde(default)]
+    last_resort: Option<bool>,
+}
+
+impl<'de> Deserialize<'de> for KeyPackageClaimRecord {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = KeyPackageClaimRecordWire::deserialize(deserializer)?;
+        let record = Self {
+            claim_id: wire.claim_id,
+            keypackage_ref: wire.keypackage_ref,
+            principal_id: wire.principal_id,
+            device_id: wire.device_id,
+            agent_id: wire.agent_id,
+            agent_verification_method: wire.agent_verification_method,
+            pairwise_verification_method: wire.pairwise_verification_method,
+            keypackage: wire.keypackage,
+            capabilities: wire.capabilities,
+            device_authorize_event_id: wire.device_authorize_event_id,
+            agent_key_authorize_event_id: wire.agent_key_authorize_event_id,
+            expires_at: wire.expires_at,
+            revocation_status: wire.revocation_status,
+            last_resort: wire.last_resort,
+        };
+        record.validate_shape().map_err(serde::de::Error::custom)?;
+        Ok(record)
+    }
+}
+
+impl KeyPackageClaimRecord {
+    /// Enforce the closed claim-record union and scalar profiles at the wire
+    /// boundary. Callers must never be able to deserialize a record that the
+    /// authoritative schema would reject and then forget a separate validator.
+    pub fn validate_shape(&self) -> std::result::Result<(), &'static str> {
+        NonEmptyString::new(self.claim_id.clone())?;
+        if self.claim_id.starts_with("ak:") {
+            return Err("KeyPackage claim_id must not use the ak: namespace");
+        }
+        NonEmptyString::new(self.keypackage_ref.clone())?;
+        Base64UrlString::new(self.keypackage.clone())?;
+
+        let capabilities = self
+            .capabilities
+            .iter()
+            .map(|value| NonEmptyString::new(value.clone()).map(|_| value.as_str()))
+            .collect::<std::result::Result<BTreeSet<_>, _>>()?;
+        if capabilities.is_empty() || capabilities.len() != self.capabilities.len() {
+            return Err("KeyPackage claim capabilities must be non-empty and unique");
+        }
+        if self.revocation_status.as_deref().is_some_and(|status| {
+            !matches!(
+                status,
+                "active" | "expired" | "revoked" | "principal_deactivated" | "device_revoked"
+            )
+        }) {
+            return Err("KeyPackage claim revocation_status is not registered");
+        }
+
+        match (
+            &self.device_id,
+            &self.device_authorize_event_id,
+            &self.agent_id,
+            &self.agent_verification_method,
+            &self.agent_key_authorize_event_id,
+            &self.pairwise_verification_method,
+        ) {
+            (Some(_), Some(_), None, None, None, None) => Ok(()),
+            (None, None, Some(agent_id), Some(_), Some(_), None)
+                if agent_id.as_core_id() == self.principal_id.as_core_id() =>
+            {
+                Ok(())
+            }
+            (None, None, None, None, None, Some(method)) => {
+                crate::MlsEndpointIdentity::minimal_metadata_pairwise(
+                    self.principal_id.clone(),
+                    method.clone(),
+                )
+                .map(|_| ())
+                .map_err(|_| "KeyPackage claim pairwise endpoint binding is invalid")
+            }
+            _ => Err(
+                "KeyPackage claim must select exactly one device, Native Agent, or minimal-metadata pairwise branch",
+            ),
+        }
+    }
 }
 
 /// Counterpart for
@@ -1123,7 +1235,7 @@ impl RecoveryPublicationAuthorityContext {
                     arkret_wire::event_kind_str::DEVICE_REANCHOR
                 }
             })
-            .collect::<std::collections::BTreeSet<_>>();
+            .collect::<BTreeSet<_>>();
         if self
             .authority_set_policy
             .authorization_rules

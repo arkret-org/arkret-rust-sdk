@@ -3146,12 +3146,11 @@ mod contact_projection_tests {
                     },
                     "slot_version": 1,
                     "request_event_ref": REQUEST_EVENT_REF,
-                    "request_digest": format!("sha256:{}", "a".repeat(64)),
                     "source_checkpoint": format!("sha256:{}", "b".repeat(64)),
                     "accepted_at": "2026-08-08T00:00:00.000Z",
                     "issuer": "ak:did_core:web:ps.example"
                 },
-                "receipt_digest": "sha256:2fdfa19bf8985ffaef489341b31640af91d92a05b65a73e313f58e32821ebef5",
+                "receipt_digest": "sha256:7a885d00ba1fc8e9c0e2858d2f5c49d98e1f38ed108e31620e05cfbc795f7fcc",
                 "signature": {
                     "verification_method": "did:web:ps.example#key-1",
                     "created_at": "2026-08-08T00:00:00.000Z",

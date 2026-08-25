@@ -925,6 +925,9 @@ pub fn validate_target_claim_evidence(
     claim: &KeyPackageClaimRecord,
     receipt: &PeerKeyPackageClaimReceipt,
 ) -> Result<(), PeerKeyPackageClaimShapeError> {
+    claim
+        .validate_shape()
+        .map_err(|_| PeerKeyPackageClaimShapeError::TargetSignerEvidenceMismatch)?;
     let request = &receipt.request;
     if claim.principal_id != request.target_principal_id
         || request

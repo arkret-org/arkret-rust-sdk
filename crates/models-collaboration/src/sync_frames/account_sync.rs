@@ -162,7 +162,7 @@ mod notification_delta_tests {
 
     use super::*;
 
-    fn approval_delta(action: &str) -> serde_json::Value {
+    fn approval_delta(action: &str) -> Value {
         json!({
             "id": "ak:notification:01964137-0000-7000-8000-000000000001",
             "action": action,

@@ -1225,7 +1225,6 @@ mod tests {
             "prev_refs": [],
             "seal_ref": format!("ak:seal:sha256:{}", "e".repeat(64)),
             "auth_context": {
-                "actor_id": "ak:did_core:web:alice.example",
                 "key_id": "device:01904100-0000-7000-8000-000000000002",
                 "key_epoch": 1
             },

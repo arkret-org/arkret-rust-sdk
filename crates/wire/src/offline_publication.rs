@@ -751,10 +751,7 @@ mod tests {
                 EventId::new("ak:event:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD".to_owned())
                     .unwrap(),
             ],
-            service_id: DidCoreId::new(
-                "ak:did_core:webvh:z6mkfixture:authority.example".to_owned(),
-            )
-            .unwrap(),
+            service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap(),
             authority_set_ref: lease.authority_set_ref.clone(),
             proofs: Vec::new(),
         };
@@ -988,7 +985,7 @@ mod tests {
                 .is_err()
         );
         let wrong_event_id =
-            EventId::new("ak:event:CTqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD").unwrap();
+            EventId::new("ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e").unwrap();
         assert!(
             receipt
                 .validate_against_lease(&lease, &digest, &wrong_event_id)
@@ -1027,7 +1024,7 @@ mod tests {
 
         let mut unordered_frontier = baseline.clone();
         unordered_frontier.ingress_frontier = vec![
-            EventId::new("ak:event:BTqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD").unwrap(),
+            EventId::new("ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e").unwrap(),
             EventId::new("ak:event:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD").unwrap(),
         ];
         assert!(unordered_frontier.validate_structural().is_err());

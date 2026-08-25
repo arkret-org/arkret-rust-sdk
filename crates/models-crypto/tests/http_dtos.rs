@@ -82,25 +82,58 @@ fn pairwise_claim_evidence_binds_every_signed_target_selector() {
 }
 
 #[test]
+fn keypackage_claim_record_rejects_schema_invalid_scalars_and_mixed_authority() {
+    let valid = json!({
+        "claim_id": "keypackage-t-01:Y2xhaW0tbm9uY2U",
+        "keypackage_ref": "ak:mls:keypackage:test-01",
+        "principal_id": "ak:did_core:webvh:z6mkfixture",
+        "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
+        "keypackage": "AQID",
+        "capabilities": ["ak.mls.profile.full"],
+        "device_authorize_event_id": "ak:event:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM",
+        "expires_at": "2100-01-01T00:00:00.000Z",
+        "revocation_status": "active"
+    });
+    assert!(serde_json::from_value::<KeyPackageClaimRecord>(valid.clone()).is_ok());
+
+    for (field, invalid) in [
+        ("claim_id", json!("")),
+        ("claim_id", json!("ak:claim:retired-shape")),
+        ("keypackage_ref", json!("")),
+        ("keypackage", json!("not+base64url")),
+        ("capabilities", json!([])),
+        ("capabilities", json!(["duplicate", "duplicate"])),
+        ("revocation_status", json!("unknown")),
+    ] {
+        let mut candidate = valid.clone();
+        candidate[field] = invalid;
+        assert!(
+            serde_json::from_value::<KeyPackageClaimRecord>(candidate).is_err(),
+            "field {field} accepted a schema-invalid value"
+        );
+    }
+
+    let mut mixed = valid;
+    mixed["agent_id"] = json!("ak:did_core:webvh:z6mkfixture");
+    mixed["agent_verification_method"] = json!("did:webvh:z6mkfixture#runtime");
+    mixed["agent_key_authorize_event_id"] =
+        json!("ak:event:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM");
+    assert!(serde_json::from_value::<KeyPackageClaimRecord>(mixed).is_err());
+}
+
+#[test]
 fn keypackages_claim_outcome_uses_typed_records_and_failures() {
     let outcome = json!({
         "claim_request_id": "Y2xhaW0tbm9uY2U",
         "claims": [{
             "claim_id": "keypackage-t-01:Y2xhaW0tbm9uY2U",
             "keypackage_ref": "ak:mls:keypackage:test-01",
-            "keypackage_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "principal_id": "ak:did_core:webvh:z6mkfixture",
             "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
             "keypackage": "AQID",
             "capabilities": ["ak.mls.profile.full"],
-            "capabilities_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             "device_authorize_event_id": "ak:event:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM",
             "expires_at": "2100-01-01T00:00:00.000Z",
-            "endpoint_signature": {
-                "kid": "did:webvh:z6mkfixture:alice.example#ak:device:01904100-0000-7000-8000-000000000001",
-                "signature_algorithm": "Ed25519",
-                "sig": "c2ln"
-            },
             "revocation_status": "active"
         }],
         "claim_receipt": {
@@ -136,15 +169,12 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
         "claims": [{
             "claim_id": "keypackage-t-01:Y2xhaW0tbm9uY2U",
             "keypackage_ref": "ak:mls:keypackage:test-01",
-            "keypackage_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "principal_id": "ak:did_core:webvh:z6mkfixture",
             "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
             "keypackage": "AQID",
             "capabilities": ["ak.mls.profile.full"],
-            "capabilities_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             "device_authorize_event_id": "ak:event:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM",
             "expires_at": "2100-01-01T00:00:00.000Z",
-            "endpoint_signature": {"kid": "did:webvh:z6mkfixture:alice.example#device", "sig": "c2ln"},
             "unexpected": true
         }]
     });

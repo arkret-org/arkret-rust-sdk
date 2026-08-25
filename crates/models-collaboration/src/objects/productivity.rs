@@ -2945,7 +2945,7 @@ mod tests {
         message.validate_record_binding(&record).unwrap();
 
         let mut drifted = message;
-        drifted.transfer_id = "different-transfer".to_owned();
+        drifted.transfer_id = "abcdefghijklmnopqrstuv".to_owned();
         assert!(
             drifted
                 .validate_record_binding(&record)
