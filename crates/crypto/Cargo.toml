@@ -65,6 +65,7 @@ backup = [
 identity-root = [
     "dep:bip39",
     "dep:ed25519-dalek",
+    "dep:getrandom",
     "dep:hkdf",
     "dep:hpke",
     "dep:zeroize",

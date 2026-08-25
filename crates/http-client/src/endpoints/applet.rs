@@ -9,6 +9,7 @@ use arkret_models_integration::{
     AppletInstallRequestBody, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
     AppletRevokeOutcome, AppletRevokePreviewOutcome, AppletRevokePreviewRequestBody,
     AppletThirdPartyLocationList, AppletThirdPartyUserList, AppletTransactionOutcome,
+    GhostActorProvisionOutcome, GhostActorProvisionRequestBody,
 };
 use arkret_signatures::http_signature::{
     Component, ContentDigest, ContentDigestAlgorithm, SignedRequestParts, canonical_message,
@@ -103,6 +104,19 @@ impl Client {
     ) -> Result<AppletRevokeOutcome> {
         reject_path_segment(applet_id)?;
         let path = format!("/_arkret/self/applets/{applet_id}/revoke");
+        let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
+        self.post_with_options(&path, request, &options).await
+    }
+
+    /// Provision an Applet-managed Ghost actor through the canonical self
+    /// operation `ak.self.applet.ghost.command.provision`.
+    pub async fn ghost_actor_provision(
+        &self,
+        applet_id: &str,
+        idempotency_key: &str,
+        request: &GhostActorProvisionRequestBody,
+    ) -> Result<GhostActorProvisionOutcome> {
+        let path = ghost_actor_provision_path(applet_id)?;
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
         self.post_with_options(&path, request, &options).await
     }
@@ -232,6 +246,13 @@ impl Client {
     }
 }
 
+fn ghost_actor_provision_path(applet_id: &str) -> Result<String> {
+    reject_path_segment(applet_id)?;
+    Ok(format!(
+        "/_arkret/self/applets/{applet_id}/ghosts/provision"
+    ))
+}
+
 fn request_authority(url: &Url) -> Result<String> {
     let host = url
         .host_str()
@@ -250,7 +271,7 @@ fn applet_author_url(base_url: &Url) -> Result<Url> {
 
 #[cfg(test)]
 mod tests {
-    use super::applet_author_url;
+    use super::{applet_author_url, ghost_actor_provision_path};
 
     #[test]
     fn author_endpoint_is_origin_absolute_even_when_base_url_has_a_path() {
@@ -259,5 +280,15 @@ mod tests {
             applet_author_url(&base).unwrap().as_str(),
             "https://applet.example/_arkret/edge/applet/install/author"
         );
+    }
+
+    #[test]
+    fn ghost_applet_id_is_one_safe_path_segment() {
+        assert_eq!(
+            ghost_actor_provision_path("ak:applet:01904100-0000-7000-8000-000000000001").unwrap(),
+            "/_arkret/self/applets/ak:applet:01904100-0000-7000-8000-000000000001/ghosts/provision"
+        );
+        assert!(ghost_actor_provision_path("../other/ghosts").is_err());
+        assert!(ghost_actor_provision_path("applet%2Fescape").is_err());
     }
 }

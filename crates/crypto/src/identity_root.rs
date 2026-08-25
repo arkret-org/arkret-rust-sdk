@@ -26,12 +26,55 @@ pub enum IdentityRecoveryKdfError {
     InvalidMnemonic(String),
     #[error("identity recovery requires an English 24-word BIP-39 mnemonic")]
     MnemonicMustHave24Words,
+    #[error("identity recovery mnemonic entropy must be exactly 32 bytes")]
+    InvalidMnemonicEntropyLength,
+    #[error("identity recovery mnemonic entropy generation failed: {0}")]
+    Entropy(String),
     #[error("identity recovery root generation overflow")]
     RootGenerationOverflow,
     #[error("identity recovery HKDF expansion failed")]
     HkdfExpand,
     #[error("identity recovery HPKE derivation disagrees with the RFC 9180 implementation")]
     HpkeDerivationMismatch,
+}
+
+/// Generate the canonical English 24-word BIP-39 presentation of a fresh
+/// 256-bit identity recovery secret.
+pub fn generate_bip39_identity_recovery_mnemonic() -> Result<String, IdentityRecoveryKdfError> {
+    let mut entropy = [0u8; 32];
+    getrandom::fill(&mut entropy)
+        .map_err(|error| IdentityRecoveryKdfError::Entropy(error.to_string()))?;
+    let result = format_bip39_identity_recovery_mnemonic(&entropy);
+    entropy.zeroize();
+    result
+}
+
+/// Render exactly 32 bytes of recovery entropy as an English 24-word BIP-39
+/// mnemonic. This is the user-facing path named by key-management.md §3.3.
+pub fn format_bip39_identity_recovery_mnemonic(
+    entropy: &[u8],
+) -> Result<String, IdentityRecoveryKdfError> {
+    let entropy: &[u8; 32] = entropy
+        .try_into()
+        .map_err(|_| IdentityRecoveryKdfError::InvalidMnemonicEntropyLength)?;
+    let mnemonic = bip39::Mnemonic::from_entropy_in(bip39::Language::English, entropy)
+        .map_err(|error| IdentityRecoveryKdfError::InvalidMnemonic(error.to_string()))?;
+    Ok(mnemonic.words().collect::<Vec<_>>().join(" "))
+}
+
+/// Parse and return the canonical lower-case, single-space English 24-word
+/// BIP-39 presentation accepted by the identity recovery KDF.
+pub fn normalize_bip39_identity_recovery_mnemonic(
+    input: &str,
+) -> Result<String, IdentityRecoveryKdfError> {
+    let collapsed = input.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mnemonic =
+        bip39::Mnemonic::parse_in(bip39::Language::English, collapsed.to_ascii_lowercase())
+            .map_err(|error| IdentityRecoveryKdfError::InvalidMnemonic(error.to_string()))?;
+    if mnemonic.word_count() != 24 {
+        return Err(IdentityRecoveryKdfError::MnemonicMustHave24Words);
+    }
+    Ok(mnemonic.words().collect::<Vec<_>>().join(" "))
 }
 
 #[derive(Debug, Error)]
@@ -103,11 +146,9 @@ pub fn bip39_identity_recovery_secret(
     mnemonic_utf8: &str,
     passphrase_utf8: &str,
 ) -> Result<[u8; 64], IdentityRecoveryKdfError> {
-    let mnemonic = bip39::Mnemonic::parse(mnemonic_utf8)
+    let normalized = normalize_bip39_identity_recovery_mnemonic(mnemonic_utf8)?;
+    let mnemonic = bip39::Mnemonic::parse_in(bip39::Language::English, normalized)
         .map_err(|error| IdentityRecoveryKdfError::InvalidMnemonic(error.to_string()))?;
-    if mnemonic.word_count() != 24 {
-        return Err(IdentityRecoveryKdfError::MnemonicMustHave24Words);
-    }
     Ok(mnemonic.to_seed(passphrase_utf8))
 }
 
@@ -362,4 +403,36 @@ fn multikey(prefix: &[u8; 2], public_key: &[u8; 32]) -> String {
     bytes[..2].copy_from_slice(prefix);
     bytes[2..].copy_from_slice(public_key);
     format!("z{}", arkret_canonical::multibase::encode_base58btc(bytes))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mnemonic_helpers_share_one_canonical_24_word_representation() {
+        let mnemonic = format_bip39_identity_recovery_mnemonic(&[0u8; 32]).unwrap();
+        assert_eq!(mnemonic.split_whitespace().count(), 24);
+        let noisy = mnemonic
+            .split_whitespace()
+            .map(str::to_ascii_uppercase)
+            .collect::<Vec<_>>()
+            .join("   ");
+        assert_eq!(
+            normalize_bip39_identity_recovery_mnemonic(&noisy).unwrap(),
+            mnemonic
+        );
+        assert_eq!(
+            bip39_identity_recovery_secret(&noisy, "").unwrap(),
+            bip39_identity_recovery_secret(&mnemonic, "").unwrap()
+        );
+    }
+
+    #[test]
+    fn mnemonic_formatter_rejects_non_256_bit_entropy() {
+        assert!(matches!(
+            format_bip39_identity_recovery_mnemonic(&[0u8; 16]),
+            Err(IdentityRecoveryKdfError::InvalidMnemonicEntropyLength)
+        ));
+    }
 }

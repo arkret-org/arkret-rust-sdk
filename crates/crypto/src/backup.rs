@@ -108,10 +108,19 @@ pub const VAULT_SALT_LEN: usize = 16;
 /// without a counter.
 pub const VAULT_NONCE_LEN: usize = 24;
 
-/// Length of the high-entropy Recovery Key in bytes. 32 bytes = 256 bits
-/// of entropy; encoded as five groups of six base32-style characters
-/// this gives the user a memorable, copy-pasteable string.
-pub const RECOVERY_KEY_BYTES: usize = 32;
+/// Length of the high-entropy backup-passphrase input in bytes.
+///
+/// This is not the identity recovery-secret representation from
+/// `key-management.md` §3.3. The standard identity recovery path lives in
+/// `crate::identity_root` and uses either a 24-word BIP-39 seed or decoded
+/// raw secret bytes.
+pub const BACKUP_PASSPHRASE_BYTES: usize = 32;
+
+#[deprecated(
+    since = "0.3.0",
+    note = "use BACKUP_PASSPHRASE_BYTES; identity recovery secrets live in identity_root"
+)]
+pub const RECOVERY_KEY_BYTES: usize = BACKUP_PASSPHRASE_BYTES;
 
 /// Outcome of [`derive_vault_kek`]: the **root unlock key** plus the
 /// parameters that generated it. The parameters round-trip into the
@@ -590,23 +599,25 @@ pub fn decrypt_key_backup_envelope(
     Ok(keybag)
 }
 
-/// Generate a fresh Recovery Key as a human-readable string of
-/// Crockford-base32-style groups (alphabet `0-9 + A-Z` minus `I/L/O/U`
-/// to avoid lookalikes). 32 random bytes (256 bits) are encoded as 50
-/// characters in five-character groups separated by `-`.
-pub fn generate_recovery_key() -> Result<String> {
-    let mut bytes = [0u8; RECOVERY_KEY_BYTES];
-    fill(&mut bytes).map_err(|err| KeyBackupError::Rng(format!("recovery key rng: {err}")))?;
-    Ok(format_recovery_key(&bytes))
+/// Generate a product-chosen backup passphrase using a complete 256-bit
+/// Crockford-base32-style encoding.
+///
+/// This helper is for `recipient_method="passphrase_kdf"`; it does not create
+/// the standard identity recovery secret.
+pub fn generate_backup_passphrase() -> Result<String> {
+    let mut bytes = [0u8; BACKUP_PASSPHRASE_BYTES];
+    fill(&mut bytes).map_err(|err| KeyBackupError::Rng(format!("backup passphrase rng: {err}")))?;
+    Ok(format_backup_passphrase(&bytes))
 }
 
-/// Render the recovery-key string from raw bytes — split out so the
-/// generator is testable without consuming entropy.
-pub fn format_recovery_key(bytes: &[u8]) -> String {
+/// Render all input bits as Crockford-base32-style groups. A 32-byte input
+/// becomes 52 characters (plus separators), with the final partial group
+/// zero-padded rather than discarded.
+pub fn format_backup_passphrase(bytes: &[u8]) -> String {
     const ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
     let mut bits: u64 = 0;
     let mut nbits: u32 = 0;
-    let mut groups: Vec<String> = Vec::with_capacity(8);
+    let mut groups: Vec<String> = Vec::with_capacity(11);
     let mut current = String::with_capacity(5);
     for &b in bytes {
         bits = (bits << 8) | u64::from(b);
@@ -620,17 +631,42 @@ pub fn format_recovery_key(bytes: &[u8]) -> String {
             }
         }
     }
+    if nbits > 0 {
+        let idx = ((bits << (5 - nbits)) & 0x1F) as usize;
+        current.push(ALPHABET[idx] as char);
+    }
     if !current.is_empty() {
         groups.push(current);
     }
     groups.join("-")
 }
 
+#[deprecated(
+    since = "0.3.0",
+    note = "use generate_backup_passphrase; identity recovery mnemonics live in identity_root"
+)]
+pub fn generate_recovery_key() -> Result<String> {
+    generate_backup_passphrase()
+}
+
+#[deprecated(
+    since = "0.3.0",
+    note = "use format_backup_passphrase; identity recovery mnemonics live in identity_root"
+)]
+pub fn format_recovery_key(bytes: &[u8]) -> String {
+    format_backup_passphrase(bytes)
+}
+
 /// SHA-256 the recovery key (UTF-8) and return `"sha256:<hex>"`. Only
 /// the digest is persisted on disk so the plaintext is gone the moment
 /// the user dismisses the "copy / print" affordance.
+pub fn fingerprint_backup_passphrase(passphrase: &str) -> String {
+    sha256_digest(passphrase.as_bytes())
+}
+
+#[deprecated(since = "0.3.0", note = "use fingerprint_backup_passphrase")]
 pub fn fingerprint_recovery_key(recovery_key: &str) -> String {
-    sha256_digest(recovery_key.as_bytes())
+    fingerprint_backup_passphrase(recovery_key)
 }
 
 /// Build a typed `ak.schema.key_backup.v1` genesis envelope from closed
@@ -973,6 +1009,19 @@ mod key_backup_envelope_tests {
     use arkret_models_crypto::SecretStorageItemKind;
 
     use super::*;
+
+    #[test]
+    fn backup_passphrase_encoding_preserves_the_final_entropy_bit() {
+        let zeros = [0u8; BACKUP_PASSPHRASE_BYTES];
+        let mut final_bit = zeros;
+        final_bit[BACKUP_PASSPHRASE_BYTES - 1] = 1;
+
+        let encoded_zeros = format_backup_passphrase(&zeros);
+        let encoded_final_bit = format_backup_passphrase(&final_bit);
+        assert_eq!(encoded_zeros.replace('-', "").len(), 52);
+        assert_eq!(encoded_final_bit.replace('-', "").len(), 52);
+        assert_ne!(encoded_zeros, encoded_final_bit);
+    }
 
     /// The keybag is the only place the `backup_kind` branch, the branch-only
     /// `effective_scope` and the `x_` extension namespace meet, so the seal path

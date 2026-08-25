@@ -2,7 +2,7 @@
 
 use arkret_canonical::base64url::base64_standard_encode;
 use arkret_models_collaboration::objects::blob::{
-    Blob, BlobPresignOutcome, BlobPresignRequestBody, BlobUploadMetadata, BlobUploadOutcome,
+    BlobPresignOutcome, BlobPresignRequestBody, BlobUploadMetadata, BlobUploadOutcome,
 };
 use arkret_models_collaboration::sync_frames::account_sync::{
     DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody, DeviceMessagesGetOutcome,
@@ -170,13 +170,6 @@ impl Client {
             None => builder,
         };
         self.apply_auth(builder, &method_for_auth, &url)
-    }
-
-    pub async fn blob_metadata(&self, blob_ref: &BlobRef) -> Result<Blob> {
-        let builder = self
-            .request(Method::GET, "/_arkret/self/blob/get")?
-            .query(&[("blob_ref", blob_ref.as_str())]);
-        self.send_json(builder).await
     }
 
     pub async fn blob_head(&self, blob_ref: &BlobRef) -> Result<HeaderMap> {

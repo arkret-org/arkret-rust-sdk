@@ -1,7 +1,9 @@
 //! RFC 9420 validation for externally supplied public epoch state.
 
 use arkret_canonical::base64url_encode;
-use arkret_models_crypto::MlsSecurityFrontierLeaf;
+use arkret_models_crypto::{
+    MLS_GOVERNANCE_BINDING_EXTENSION_TYPE, MlsGovernanceBindingPayload, MlsSecurityFrontierLeaf,
+};
 use openmls::prelude::{
     MlsMessageBodyIn, MlsMessageIn, OpenMlsProvider, ProposalStore, PublicGroup, RatchetTreeIn,
 };
@@ -24,6 +26,40 @@ pub fn validate_public_group_state(
     ratchet_tree_bytes: &[u8],
     expected_mls_group_id: &str,
     expected_epoch: u64,
+) -> Result<Vec<MlsSecurityFrontierLeaf>> {
+    validate_public_group_state_inner(
+        group_info_bytes,
+        ratchet_tree_bytes,
+        expected_mls_group_id,
+        expected_epoch,
+        None,
+    )
+}
+
+/// Validate public MLS state and require the transcript-authenticated Arkret
+/// governance binding to equal the binding accepted in the source Event.
+pub fn validate_public_group_state_with_governance_binding(
+    group_info_bytes: &[u8],
+    ratchet_tree_bytes: &[u8],
+    expected_mls_group_id: &str,
+    expected_epoch: u64,
+    expected_governance_binding: &MlsGovernanceBindingPayload,
+) -> Result<Vec<MlsSecurityFrontierLeaf>> {
+    validate_public_group_state_inner(
+        group_info_bytes,
+        ratchet_tree_bytes,
+        expected_mls_group_id,
+        expected_epoch,
+        Some(expected_governance_binding),
+    )
+}
+
+fn validate_public_group_state_inner(
+    group_info_bytes: &[u8],
+    ratchet_tree_bytes: &[u8],
+    expected_mls_group_id: &str,
+    expected_epoch: u64,
+    expected_governance_binding: Option<&MlsGovernanceBindingPayload>,
 ) -> Result<Vec<MlsSecurityFrontierLeaf>> {
     let message = MlsMessageIn::tls_deserialize_exact(group_info_bytes).map_err(mls_error)?;
     let MlsMessageBodyIn::GroupInfo(group_info) = message.extract() else {
@@ -53,6 +89,24 @@ pub fn validate_public_group_state(
         ProposalStore::new(),
     )
     .map_err(mls_error)?;
+    if let Some(expected) = expected_governance_binding {
+        let encoded = public_group
+            .group_context()
+            .extensions()
+            .unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE)
+            .ok_or_else(|| {
+                Error::Protocol(
+                    "MLS public group state omits the governance binding extension".to_owned(),
+                )
+            })?;
+        let actual = MlsGovernanceBindingPayload::from_deterministic_cbor(&encoded.0)
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        if &actual != expected {
+            return Err(Error::Protocol(
+                "MLS GroupContext governance binding does not match accepted genesis".to_owned(),
+            ));
+        }
+    }
 
     let mut leaves = public_group
         .members()

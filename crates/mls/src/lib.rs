@@ -245,6 +245,42 @@ mod tests {
     }
 
     #[test]
+    fn public_group_state_requires_the_accepted_governance_binding() {
+        let group_id_bytes = b"ak:realm:AVZ0UQnRW8eCvIwGGUs7VXGwa4j5CIcLwAfQIW_pL7XK";
+        let group_id = base64url_encode(group_id_bytes);
+        let binding = governance_binding(&group_id, 0, 0, governance_hash('3'));
+        let alice = ArkretMlsIdentity::new_basic(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1c6").unwrap(),
+        )
+        .unwrap();
+        let group = alice
+            .create_group_with_governance_binding(group_id_bytes, &binding)
+            .unwrap();
+        let (group_info, ratchet_tree) = group.public_group_state_bytes().unwrap();
+
+        validate_public_group_state_with_governance_binding(
+            &group_info,
+            &ratchet_tree,
+            &group_id,
+            0,
+            &binding,
+        )
+        .unwrap();
+        let mismatched = governance_binding(&group_id, 0, 0, governance_hash('4'));
+        assert!(
+            validate_public_group_state_with_governance_binding(
+                &group_info,
+                &ratchet_tree,
+                &group_id,
+                0,
+                &mismatched,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn update_governance_binding_enters_group_context_extension() {
         let alice = ArkretMlsIdentity::new_basic(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
