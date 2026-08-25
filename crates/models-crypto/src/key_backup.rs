@@ -83,6 +83,7 @@ pub struct KeyBackupsListQuery {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct KeysBackupsList {
     #[serde(default)]
     pub backups: Vec<KeyBackupSummary>,
@@ -575,6 +576,7 @@ pub enum KeyBackupPutStatus {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct KeysBackupsReplaceOutcome {
     pub status: KeyBackupPutStatus,
     pub backup_id: BackupId,
@@ -3035,6 +3037,32 @@ pub struct RecoveryReceiptAuthData {
     pub verification_method: DidUrl,
     pub signature_algorithm: String,
     pub signature: String,
+}
+
+#[cfg(test)]
+mod closed_outcome_tests {
+    use super::*;
+
+    #[test]
+    fn key_backup_outcomes_reject_unknown_fields() {
+        let list = json!({
+            "backups": [],
+            "has_more": false,
+            "unexpected": 42
+        });
+        let list_error = serde_json::from_value::<KeysBackupsList>(list).unwrap_err();
+        assert!(list_error.to_string().contains("unknown field"));
+
+        let replace = json!({
+            "status": "accepted",
+            "backup_id": "ak:backup:01964137-0000-7000-8000-000000000000",
+            "ciphertext_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "unexpected": 42
+        });
+        let replace_error =
+            serde_json::from_value::<KeysBackupsReplaceOutcome>(replace).unwrap_err();
+        assert!(replace_error.to_string().contains("unknown field"));
+    }
 }
 
 // ─── DID-proof session grant strand ──────────────────────────────────────────

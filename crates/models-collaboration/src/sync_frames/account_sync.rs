@@ -964,6 +964,7 @@ impl Serialize for MlsWelcomeProjectedDeviceMessage {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct DeviceMessagesSendOutcome {
     pub ok: bool,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -974,6 +975,7 @@ pub struct DeviceMessagesSendOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct DeviceMessagesGetOutcome {
     pub messages: Vec<DeviceMessageEnvelope>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1445,5 +1447,23 @@ mod tests {
         });
         let parsed: std::result::Result<MemberRosterEntry, _> = serde_json::from_value(raw);
         assert!(parsed.is_err(), "unknown roster fields must be rejected");
+    }
+
+    #[test]
+    fn device_message_outcomes_reject_unknown_fields() {
+        let send = serde_json::json!({
+            "ok": true,
+            "unexpected": 42
+        });
+        let send_error = serde_json::from_value::<DeviceMessagesSendOutcome>(send).unwrap_err();
+        assert!(send_error.to_string().contains("unknown field"));
+
+        let get = serde_json::json!({
+            "messages": [],
+            "has_more": false,
+            "unexpected": 42
+        });
+        let get_error = serde_json::from_value::<DeviceMessagesGetOutcome>(get).unwrap_err();
+        assert!(get_error.to_string().contains("unknown field"));
     }
 }

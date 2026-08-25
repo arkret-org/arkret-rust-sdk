@@ -105,6 +105,7 @@ pub struct BlobUploadMetadata {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BlobUploadOutcome {
     pub blob_ref: BlobRef,
     /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
@@ -188,4 +189,21 @@ pub struct BlobPresignDetachedJwsProof {
 pub struct BlobPresignEnvelope {
     pub payload: BlobPresignPayload,
     pub proof: BlobPresignDetachedJwsProof,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn blob_upload_outcome_rejects_unknown_fields() {
+        let raw = serde_json::json!({
+            "blob_ref": "ak:blob:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "size_bytes": 1,
+            "content_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "unexpected": 42
+        });
+        let error = serde_json::from_value::<BlobUploadOutcome>(raw).unwrap_err();
+        assert!(error.to_string().contains("unknown field"));
+    }
 }
