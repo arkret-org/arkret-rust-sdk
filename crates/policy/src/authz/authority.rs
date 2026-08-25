@@ -10,6 +10,8 @@
 //! - A child temporal expiry MUST be no later than its parent's effective temporal expiry
 //!   (`OverExpire`).
 //! - The caller MUST be the parent grant subject (`NotGrantHolder`).
+//! - Only an ordinary authority-control constraint can authorize a regrant
+//!   (`AuthorityRegrantDenied`).
 //! - The parent grant must exist (`ParentNotFound`), not be revoked (`ParentRevoked`) and not be
 //!   expired (`ParentExpired`).
 //!
@@ -309,7 +311,8 @@ pub struct GrantRequestDraft {
 ///
 /// Surfaced through HTTP by soland as `parent_revoked` / `parent_expired` /
 /// `not_grant_holder` / `capability_not_held` / `capability_over_expire` /
-/// `resource_out_of_scope`. See capabilities.md §10.
+/// `resource_out_of_scope` / `authority_regrant_denied`. See capabilities.md
+/// §10.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AuthorityGrantError {
     /// Parent grant_id is unknown.
@@ -336,6 +339,9 @@ pub enum AuthorityGrantError {
     /// Parent grant's `max_authority_depth` leaves no room for another
     /// child, or the child failed to seal the decremented depth.
     AuthorityDepthExceeded,
+    /// The parent has no ordinary authority-control constraint, or a parent
+    /// that forbids further regrant was asked to issue a non-terminal child.
+    AuthorityRegrantDenied,
     /// Aggregate-admin expansion cannot be evaluated against the exact
     /// registry snapshot bound by the parent/child grant.
     RegistryBasisUnavailable,
@@ -371,11 +377,12 @@ pub fn is_grant_expired(grant: &Grant, now: DateTime<Utc>) -> bool {
     grant_effective_expiry(grant).is_some_and(|expiry| now >= expiry)
 }
 
-/// Returns the strictest authority-depth ceiling carried by a grant.
+/// Returns the strictest ordinary authority-depth ceiling carried by a grant.
 ///
 /// `None` means the grant did not opt into a finite authority-depth seal.
 /// When present, child grants must carry a `AuthorityControl` constraint no
-/// greater than `parent_depth - 1`; a parent depth of zero cannot issue a child grant.
+/// greater than `parent_depth - 1`; a parent depth of zero cannot issue a child
+/// grant. Applet-authority bindings do not contribute a depth ceiling.
 pub fn max_authority_depth(grant: &Grant) -> Option<u32> {
     max_authority_depth_from_constraints(&grant.constraints)
 }
@@ -386,6 +393,7 @@ fn max_authority_depth_from_constraints(constraints: &[GrantConstraint]) -> Opti
         .filter_map(|constraint| match constraint {
             GrantConstraint::AuthorityControl {
                 max_authority_depth,
+                constraint_subkind: None,
                 ..
             } => *max_authority_depth,
             _ => None,
@@ -393,24 +401,27 @@ fn max_authority_depth_from_constraints(constraints: &[GrantConstraint]) -> Opti
         .min()
 }
 
-/// Returns whether every authority-control constraint explicitly permits the
-/// grant to act as an issuer authority. The field is fail-closed: a missing
-/// value deserializes to `false`, as required by constraint-schema.md §7.2.
+/// Returns whether every ordinary authority-control constraint explicitly
+/// permits the grant to act as an issuer authority. The field is fail-closed:
+/// a missing value deserializes to `false`, as required by
+/// constraint-schema.md §7.2. `constraint_subkind=applet_authority` is a
+/// grant-local binding and never contributes regrant authority.
 pub fn authority_regrant_allowed(grant: &Grant) -> bool {
-    let mut saw_authority_control = false;
+    let mut saw_ordinary_authority_control = false;
     for constraint in &grant.constraints {
         if let GrantConstraint::AuthorityControl {
             authority_regrant_allowed,
+            constraint_subkind: None,
             ..
         } = constraint
         {
-            saw_authority_control = true;
+            saw_ordinary_authority_control = true;
             if !authority_regrant_allowed {
                 return false;
             }
         }
     }
-    saw_authority_control
+    saw_ordinary_authority_control
 }
 
 pub fn validate_applet_authority_binding(
@@ -638,27 +649,47 @@ pub fn create_authority_grant(
         return Err(AuthorityGrantError::ResourceOutOfScope);
     }
 
-    let has_authority_control = parent
-        .constraints
-        .iter()
-        .any(|constraint| matches!(constraint, GrantConstraint::AuthorityControl { .. }));
-    if !has_authority_control {
-        return Err(AuthorityGrantError::AuthorityDepthExceeded);
+    let has_ordinary_authority_control = parent.constraints.iter().any(|constraint| {
+        matches!(
+            constraint,
+            GrantConstraint::AuthorityControl {
+                constraint_subkind: None,
+                ..
+            }
+        )
+    });
+    if !has_ordinary_authority_control {
+        return Err(AuthorityGrantError::AuthorityRegrantDenied);
     }
 
     let parent_allows_further_regrant = authority_regrant_allowed(parent);
     let mut child_constraints = requested.constraints.clone();
-    if !parent_allows_further_regrant
-        && max_authority_depth_from_constraints(&child_constraints).is_none()
-    {
-        child_constraints.push(GrantConstraint::AuthorityControl {
-            max_authority_depth: Some(0),
-            authority_regrant_allowed: false,
-            constraint_subkind: None,
-            applet_id: None,
-            executed_by: None,
-            registration_epoch: None,
-        });
+    if !parent_allows_further_regrant {
+        let mut saw_child_ordinary_authority_control = false;
+        for constraint in &child_constraints {
+            if let GrantConstraint::AuthorityControl {
+                max_authority_depth,
+                authority_regrant_allowed,
+                constraint_subkind: None,
+                ..
+            } = constraint
+            {
+                saw_child_ordinary_authority_control = true;
+                if *max_authority_depth != Some(0) || *authority_regrant_allowed {
+                    return Err(AuthorityGrantError::AuthorityRegrantDenied);
+                }
+            }
+        }
+        if !saw_child_ordinary_authority_control {
+            child_constraints.push(GrantConstraint::AuthorityControl {
+                max_authority_depth: Some(0),
+                authority_regrant_allowed: false,
+                constraint_subkind: None,
+                applet_id: None,
+                executed_by: None,
+                registration_epoch: None,
+            });
+        }
     }
 
     if let Some(parent_depth) = max_authority_depth(parent) {
@@ -690,10 +721,6 @@ pub fn create_authority_grant(
                     && (parent_allows_further_regrant || child_depth == 0) => {}
             _ => return Err(AuthorityGrantError::AuthorityDepthExceeded),
         }
-    } else if !parent_allows_further_regrant
-        && max_authority_depth_from_constraints(&child_constraints).is_some_and(|depth| depth > 0)
-    {
-        return Err(AuthorityGrantError::AuthorityDepthExceeded);
     }
 
     let requested_effective_expiry =
@@ -847,6 +874,19 @@ mod tests {
             executed_by: None,
             registration_epoch: None,
         });
+    }
+
+    fn applet_authority_constraint() -> GrantConstraint {
+        GrantConstraint::AuthorityControl {
+            max_authority_depth: None,
+            authority_regrant_allowed: false,
+            constraint_subkind: Some(GrantConstraintSubkind::AppletAuthority),
+            applet_id: Some(
+                AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
+            ),
+            executed_by: Some(DidCoreId::new("ak:did_core:web:calendar.example").unwrap()),
+            registration_epoch: Some(Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap()),
+        }
     }
 
     fn set_expiry(grant: &mut Grant, expires_at: DateTime<Utc>) {
@@ -1124,6 +1164,37 @@ mod tests {
     }
 
     #[test]
+    fn create_authority_grant_rejects_parent_without_ordinary_authority_control() {
+        let now = Utc::now();
+        let root = root_grant("g1", &["read"], "ak:realm:1");
+        let request = GrantRequestDraft {
+            realm_id: "ak:realm:1".to_owned(),
+            issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            issuer_principal_server_id: "did:webvh:z6mkfixture:server".to_owned(),
+            subject: "did:webvh:z6mkfixture:carol".to_owned(),
+            subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
+            resource: "ak:realm:1".to_owned(),
+            actions: vec!["read".to_owned()],
+            capability_action_registry_digest: None,
+            constraints: Vec::new(),
+        };
+
+        assert!(matches!(
+            create_authority_grant("g1", &request, std::slice::from_ref(&root), now),
+            Err(AuthorityGrantError::AuthorityRegrantDenied)
+        ));
+
+        let mut applet_only = root;
+        applet_only.constraints.push(applet_authority_constraint());
+        assert_eq!(max_authority_depth(&applet_only), None);
+        assert!(!authority_regrant_allowed(&applet_only));
+        assert!(matches!(
+            create_authority_grant("g1", &request, &[applet_only], now),
+            Err(AuthorityGrantError::AuthorityRegrantDenied)
+        ));
+    }
+
+    #[test]
     fn create_authority_grant_seals_child_when_parent_disallows_further_regrant() {
         let now = Utc::now();
         let mut root = root_grant("g1", &["read"], "ak:realm:1");
@@ -1144,13 +1215,70 @@ mod tests {
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             capability_action_registry_digest: None,
-            constraints: Vec::new(),
+            constraints: vec![applet_authority_constraint()],
         };
 
         let child = create_authority_grant("g1", &request, &[root], now)
             .expect("the immediate child is allowed but must be terminal");
         assert_eq!(max_authority_depth(&child), Some(0));
         assert!(!authority_regrant_allowed(&child));
+        assert!(child.constraints.iter().any(|constraint| {
+            matches!(
+                constraint,
+                GrantConstraint::AuthorityControl {
+                    max_authority_depth: Some(0),
+                    authority_regrant_allowed: false,
+                    constraint_subkind: None,
+                    ..
+                }
+            )
+        }));
+        assert!(child.constraints.iter().any(|constraint| {
+            matches!(
+                constraint,
+                GrantConstraint::AuthorityControl {
+                    constraint_subkind: Some(GrantConstraintSubkind::AppletAuthority),
+                    ..
+                }
+            )
+        }));
+    }
+
+    #[test]
+    fn create_authority_grant_rejects_reopened_terminal_child() {
+        let now = Utc::now();
+        let mut root = root_grant("g1", &["read"], "ak:realm:1");
+        root.constraints.push(GrantConstraint::AuthorityControl {
+            max_authority_depth: Some(2),
+            authority_regrant_allowed: false,
+            constraint_subkind: None,
+            applet_id: None,
+            executed_by: None,
+            registration_epoch: None,
+        });
+        let request = GrantRequestDraft {
+            realm_id: "ak:realm:1".to_owned(),
+            issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            issuer_principal_server_id: "did:webvh:z6mkfixture:server".to_owned(),
+            subject: "did:webvh:z6mkfixture:carol".to_owned(),
+            subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
+            resource: "ak:realm:1".to_owned(),
+            actions: vec!["read".to_owned()],
+            capability_action_registry_digest: None,
+            constraints: vec![GrantConstraint::AuthorityControl {
+                max_authority_depth: Some(0),
+                authority_regrant_allowed: true,
+                constraint_subkind: None,
+                applet_id: None,
+                executed_by: None,
+                registration_epoch: None,
+            }],
+        };
+
+        assert!(matches!(
+            create_authority_grant("g1", &request, &[root], now),
+            Err(AuthorityGrantError::AuthorityRegrantDenied)
+        ));
     }
 
     #[test]
