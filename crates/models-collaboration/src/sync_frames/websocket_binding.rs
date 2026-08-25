@@ -635,14 +635,6 @@ impl WebSocketServerFrame {
         }
     }
 
-    pub fn connection_error(error: WebSocketTransportError) -> Self {
-        Self::Error {
-            frame_scope: WebSocketFrameScope::Connection,
-            channel_id: None,
-            error,
-        }
-    }
-
     /// The channel this frame belongs to, if it is channel-scoped.
     pub fn channel_id(&self) -> Option<&str> {
         match self {

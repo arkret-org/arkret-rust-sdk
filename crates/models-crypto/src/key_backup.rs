@@ -2367,13 +2367,6 @@ pub struct RecoveryThresholdConfig {
     pub reshare_policy: Option<RecoveryResharePolicy>,
 }
 
-impl RecoveryThresholdConfig {
-    #[must_use]
-    pub fn share_count(&self) -> usize {
-        self.shares.len()
-    }
-}
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

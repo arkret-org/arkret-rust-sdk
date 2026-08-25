@@ -1694,16 +1694,6 @@ impl ArkretMlsGroup {
         }
     }
 
-    pub fn apply_commits(&mut self, envelopes: &[MlsCommitEnvelope]) -> Result<u64> {
-        let mut sorted = envelopes.iter().collect::<Vec<_>>();
-        sorted.sort_by_key(|envelope| envelope.epoch);
-        let pending = validate_commit_backfill(&self.group_id(), self.epoch(), &sorted)?;
-        for envelope in pending {
-            self.apply_commit(envelope)?;
-        }
-        Ok(self.epoch())
-    }
-
     /// Apply one strictly-next Commit and immediately retain the entered
     /// epoch's history secret before the caller exports a durable snapshot.
     ///
@@ -1761,48 +1751,6 @@ pub fn reaction_routing_tag_from_root(
         .map_err(|_| Error::Crypto("reaction routing HMAC key is invalid".to_owned()))?;
     mac.update(normalized.as_bytes());
     Ok(base64url_encode(mac.finalize().into_bytes()))
-}
-
-fn validate_commit_backfill<'a>(
-    expected_group_id: &str,
-    current_epoch: u64,
-    sorted: &[&'a MlsCommitEnvelope],
-) -> Result<Vec<&'a MlsCommitEnvelope>> {
-    if sorted.windows(2).any(|pair| pair[0].epoch == pair[1].epoch) {
-        return Err(Error::Protocol(
-            "MLS Commit backfill contains more than one candidate for an epoch".to_owned(),
-        ));
-    }
-    if sorted
-        .iter()
-        .any(|envelope| envelope.group_id != expected_group_id)
-    {
-        return Err(Error::Protocol(
-            "MLS Commit backfill contains a foreign group_id".to_owned(),
-        ));
-    }
-    let pending = sorted
-        .iter()
-        .copied()
-        .filter(|envelope| envelope.epoch > current_epoch)
-        .collect::<Vec<_>>();
-    if pending.is_empty() {
-        return Ok(pending);
-    }
-    let mut expected_epoch = current_epoch
-        .checked_add(1)
-        .ok_or_else(|| Error::Protocol("MLS epoch overflow".to_owned()))?;
-    for envelope in &pending {
-        if envelope.epoch != expected_epoch {
-            return Err(Error::Protocol(format!(
-                "MLS Commit backfill omits epoch {expected_epoch}"
-            )));
-        }
-        expected_epoch = expected_epoch
-            .checked_add(1)
-            .ok_or_else(|| Error::Protocol("MLS epoch overflow".to_owned()))?;
-    }
-    Ok(pending)
 }
 
 /// Standalone (group-free) variant of
@@ -2201,36 +2149,6 @@ mod content_scheme_anchor_tests {
         .unwrap()
         .create_group(REALM.as_bytes())
         .unwrap()
-    }
-
-    fn commit_stub(group_id: &str, epoch: u64, digest_byte: char) -> MlsCommitEnvelope {
-        MlsCommitEnvelope {
-            group_id: group_id.to_owned(),
-            epoch,
-            commit: "AA".to_owned(),
-            commit_digest: Hash::new(format!("sha256:{}", digest_byte.to_string().repeat(64)))
-                .unwrap(),
-            ratchet_tree: None,
-        }
-    }
-
-    #[test]
-    fn commit_backfill_rejects_gaps_duplicates_and_foreign_groups_before_apply() {
-        let first = commit_stub("group", 4, '1');
-        let duplicate = commit_stub("group", 4, '2');
-        assert!(validate_commit_backfill("group", 3, &[&first, &duplicate]).is_err());
-
-        let gap = commit_stub("group", 5, '3');
-        assert!(validate_commit_backfill("group", 3, &[&gap]).is_err());
-
-        let foreign = commit_stub("other", 4, '4');
-        assert!(validate_commit_backfill("group", 3, &[&foreign]).is_err());
-        assert_eq!(
-            validate_commit_backfill("group", 3, &[&first])
-                .unwrap()
-                .len(),
-            1
-        );
     }
 
     /// Every wire-breaking AEAD parameter of the content scheme, checked

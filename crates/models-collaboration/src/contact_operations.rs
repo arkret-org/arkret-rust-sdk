@@ -1,7 +1,6 @@
 use arkret_wire::{
-    ControlProposalAck, DeviceId, DidCoreId, DidFullId, Event, EventId, Hash, IdempotencyKey,
-    PrincipalAuthorityKey, ProtocolOpaqueId, ProtocolOperationId, ProtocolSignature,
-    ReservationHandle,
+    ControlProposalAck, DidCoreId, DidFullId, Event, EventId, Hash, IdempotencyKey,
+    PrincipalAuthorityKey, ProtocolOperationId, ProtocolSignature, ReservationHandle,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -9,21 +8,6 @@ use serde::{Deserialize, Serialize};
 use crate::governance::peer_contact::{ContactIntroductionEvidence, PeerContactAddress};
 use crate::prepared_event_draft::PreparedEventDraft;
 use crate::string_marker;
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum StandardHolderBinding {
-    HumanDevice {
-        device_binding: ProtocolOpaqueId,
-    },
-    AgentRuntime {
-        agent_id: DidCoreId,
-        device_id: DeviceId,
-        agent_key_authorization_ref: EventId,
-        verification_method: arkret_wire::DidUrl,
-    },
-}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]

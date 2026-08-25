@@ -322,17 +322,6 @@ pub enum ControllerAccountGateBasis {
     },
 }
 
-impl ControllerAccountGateBasis {
-    pub fn status_event_digest(&self) -> Option<Hash> {
-        match self {
-            Self::AccountBindingDefault { .. } => None,
-            Self::AccountStatusEvent {
-                status_event_id, ..
-            } => Some(status_event_id.event_digest()),
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -569,15 +558,6 @@ pub enum AgentSignerEvidenceQuerySelector {
         event_id: EventId,
         receiver_service_id: DidCoreId,
     },
-}
-
-impl AgentSignerEvidenceQuerySelector {
-    pub fn historical_event_digest(&self) -> Option<Hash> {
-        match self {
-            Self::CurrentAdmission { .. } => None,
-            Self::HistoricalEvent { event_id, .. } => Some(event_id.event_digest()),
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

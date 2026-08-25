@@ -137,11 +137,6 @@ impl RecoveryCompletionAttestation {
             completed_at: self.completed_at,
         })
     }
-
-    /// Digest losslessly encoded by the suite-bearing authorization Event ID.
-    pub fn device_authorization_event_digest(&self) -> Hash {
-        self.device_authorization_event_id.event_digest()
-    }
 }
 
 /// Recovery-completion members before coordinator signature metadata exists.

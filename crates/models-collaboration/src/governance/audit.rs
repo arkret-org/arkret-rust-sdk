@@ -185,9 +185,5 @@ pub struct AuditRywReceipt {
 }
 
 impl AuditRywReceipt {
-    pub fn audit_event_digest(&self) -> Hash {
-        self.audit_event_id.event_digest()
-    }
-
     pub const SCHEMA: &'static str = SchemaId::AUDIT_RYW_RECEIPT_V1;
 }

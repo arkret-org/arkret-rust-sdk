@@ -53,12 +53,6 @@ pub struct AuditAccessedPayload {
     pub ryw_required: Option<bool>,
 }
 
-impl AuditAccessedPayload {
-    pub fn paired_event_digest(&self) -> Option<Hash> {
-        self.paired_event_id.as_ref().map(EventId::event_digest)
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AuditReleaseMode {

@@ -126,10 +126,6 @@ impl AgentCleanupRecord {
         )?)?)
     }
 
-    pub fn controller_terminal_event_digest(&self) -> Hash {
-        self.controller_terminal_event_id.event_digest()
-    }
-
     pub fn validate(&self) -> Result<()> {
         self.controller_authority.validate()?;
         self.initiator_authority.validate()?;

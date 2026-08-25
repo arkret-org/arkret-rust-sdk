@@ -109,35 +109,6 @@ impl OrganizationRecoveryArchiveSealContext {
         key.copy_from_slice(&bytes);
         Ok(key)
     }
-
-    /// Assemble the public archive once the sealed bytes exist. The context
-    /// fields are moved in unchanged, so a sealed archive can never disagree
-    /// with the transcript its ciphertext was bound to.
-    pub fn into_archive(
-        self,
-        enc: String,
-        ciphertext: String,
-    ) -> Result<OrganizationRecoveryArchive> {
-        let archive = OrganizationRecoveryArchive {
-            effective_scope: self.effective_scope,
-            mls_group_id: self.mls_group_id,
-            epoch: self.epoch,
-            transition_digest: self.transition_digest,
-            recovery_key_id: self.recovery_key_id,
-            holder_principal_id: self.holder_principal_id,
-            holder_service_id: self.holder_service_id,
-            key_agreement_ref: self.key_agreement_ref,
-            holder_signing_ref: self.holder_signing_ref,
-            hpke_suite: self.hpke_suite,
-            frozen_public_key_b64u: self.frozen_public_key_b64u,
-            accepted_key_evidence_ref: self.accepted_key_evidence_ref,
-            holder_trusted_basis: self.holder_trusted_basis,
-            enc,
-            ciphertext,
-        };
-        archive.validate()?;
-        Ok(archive)
-    }
 }
 
 /// `frozen_public_key_b64u` is canonical unpadded base64url of exactly 32
