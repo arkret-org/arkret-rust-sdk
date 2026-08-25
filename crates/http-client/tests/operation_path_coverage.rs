@@ -141,6 +141,10 @@ const NON_OPERATION_LITERALS: &[(&str, &str)] = &[
         "/_arkret/self/realms/!realm:example.test/join-applications/sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         "endpoints/join_policy.rs in-file unit test expectation with substituted sample values",
     ),
+    (
+        "/_arkret/self/applets/ak:applet:01904100-0000-7000-8000-000000000001/ghosts/provision",
+        "endpoints/applet.rs in-file unit test expectation with a substituted sample applet id",
+    ),
 ];
 
 /// Collapse a concrete or templated path to its registry-comparable shape:
