@@ -38,3 +38,15 @@ workspace = true
 [[test]]
 name = "encoding_vectors"
 required-features = ["embedded-artifacts"]
+
+[[test]]
+name = "hash_transition_fixture"
+required-features = ["embedded-artifacts"]
+
+[[test]]
+name = "identity_link_response_signing_fixture"
+required-features = ["embedded-artifacts"]
+
+[[test]]
+name = "device_revocation_pending_fixture"
+required-features = ["embedded-artifacts"]

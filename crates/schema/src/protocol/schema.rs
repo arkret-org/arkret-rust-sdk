@@ -1,7 +1,7 @@
 use std::error::Error as StdError;
 use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 
 use arkret_wire::{
     SchemaId, validate_canonical_acct_uri, validate_canonical_agent_slug,
@@ -18,6 +18,7 @@ use super::validators::is_security_sensitive_extension;
 #[derive(Default)]
 struct ValidatorCache {
     validators: RwLock<BTreeMap<String, Arc<Validator>>>,
+    compile_lock: Mutex<()>,
     retriever_schemas: RwLock<Option<Arc<BTreeMap<String, Value>>>>,
     cache_hits: AtomicU64,
     cache_misses: AtomicU64,
@@ -417,6 +418,31 @@ impl ProtocolSchemaRegistry {
     }
 
     fn compiled_validator(&self, schema_id: &str) -> Result<Arc<Validator>> {
+        if let Some(validator) = self
+            .validator_cache
+            .validators
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .get(schema_id)
+            .cloned()
+        {
+            self.validator_cache
+                .cache_hits
+                .fetch_add(1, Ordering::Relaxed);
+            return Ok(validator);
+        }
+
+        // Validator construction walks the complete schema graph through the
+        // retriever and is substantially more expensive than validation. More
+        // importantly, concurrent cold-cache construction of the same graph
+        // can block inside the Draft 2020-12 compiler. Serialize cold-cache
+        // construction and re-check after taking the lock so only one caller
+        // compiles a given validator.
+        let _compile_guard = self
+            .validator_cache
+            .compile_lock
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         if let Some(validator) = self
             .validator_cache
             .validators

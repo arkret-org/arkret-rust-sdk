@@ -1,4 +1,4 @@
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 #[cfg(test)]
 use arkret_wire::{EventKind, SchemaId};
@@ -16,7 +16,7 @@ pub struct EventPayloadSchemaRule {
 pub struct EventPayloadValidatorCatalog {
     pub rules: BTreeMap<String, EventPayloadSchemaRule>,
     #[serde(default, skip)]
-    registry: ProtocolSchemaRegistry,
+    registry: Arc<ProtocolSchemaRegistry>,
 }
 
 impl EventPayloadValidatorCatalog {
@@ -174,7 +174,10 @@ fn event_payload_validator_catalog_from_bundle(
             },
         );
     }
-    Ok(EventPayloadValidatorCatalog { rules, registry })
+    Ok(EventPayloadValidatorCatalog {
+        rules,
+        registry: Arc::new(registry),
+    })
 }
 
 pub(super) fn payload_schema_ref_for_event_entry(
@@ -221,9 +224,46 @@ fn required_fields_for_schema_ref(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, Barrier};
+
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn concurrent_catalog_clones_compile_each_payload_validator_once() {
+        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+        let payload = Arc::new(json!({
+            "policy_revision": 1,
+            "federation_policy": "restricted",
+            "content_encryption_floor": "allow_plaintext",
+            "metadata_encryption_floor": "allow_plaintext"
+        }));
+        let worker_count = 8;
+        let barrier = Arc::new(Barrier::new(worker_count));
+        let workers = (0..worker_count)
+            .map(|_| {
+                let catalog = catalog.clone();
+                let payload = Arc::clone(&payload);
+                let barrier = Arc::clone(&barrier);
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    catalog
+                        .validate_payload("ak.realm.policy_bundle", payload.as_ref())
+                        .unwrap();
+                })
+            })
+            .collect::<Vec<_>>();
+
+        for worker in workers {
+            worker.join().unwrap();
+        }
+
+        let stats = catalog.registry.validator_stats();
+        assert_eq!(stats.compiled_validators, 1);
+        assert_eq!(stats.cache_misses, 1);
+        assert_eq!(stats.cache_hits, (worker_count - 1) as u64);
+    }
 
     #[test]
     fn rsvp_payload_allows_nullable_occurrence_but_not_null_event_ref() {
