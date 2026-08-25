@@ -1218,10 +1218,9 @@ impl ArkretMlsGroup {
 
     /// Remove every leaf whose BasicCredential identity matches `target`.
     ///
-    /// In the current credential encoding (`mls.rs::ArkretMlsIdentity::new_basic`)
-    /// the leaf identity bytes are `principal_id.as_str().as_bytes()` — they
-    /// do NOT include the device id. Therefore matching by principal removes
-    /// **all leaves** owned by that principal in this group.
+    /// Human-device credentials bind `principal#device`; minimal-metadata
+    /// pairwise credentials are the exact Realm-local `ak:did_core:key:` actor.
+    /// Matching by actor removes every leaf for that closed identity branch.
     ///
     /// Errors when the target principal has no leaf in this group.
     pub fn remove_member_by_principal(

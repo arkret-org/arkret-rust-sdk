@@ -112,16 +112,41 @@ impl ArkretMlsIdentityProfile {
 pub(super) fn decode_leaf_credential(bytes: &[u8]) -> Result<(DidCoreId, NonEmptyString)> {
     let encoded = std::str::from_utf8(bytes)
         .map_err(|_| Error::Protocol("MLS BasicCredential is not UTF-8".to_owned()))?;
-    let (principal, device) = encoded.rsplit_once('#').ok_or_else(|| {
-        Error::Protocol("MLS BasicCredential must bind a principal DID and device id".to_owned())
-    })?;
-    let principal_id = DidCoreId::new(principal.to_owned())?;
-    DeviceId::new(device.to_owned()).map_err(|error| {
-        Error::Protocol(format!("MLS BasicCredential device id is invalid: {error}"))
-    })?;
     let credential_ref = NonEmptyString::new(encoded.to_owned())
         .map_err(|error| Error::Protocol(format!("MLS credential ref is invalid: {error}")))?;
-    Ok((principal_id, credential_ref))
+    if let Some((principal, device)) = encoded.rsplit_once('#') {
+        let principal_id = DidCoreId::new(principal.to_owned())?;
+        DeviceId::new(device.to_owned()).map_err(|error| {
+            Error::Protocol(format!("MLS BasicCredential device id is invalid: {error}"))
+        })?;
+        return Ok((principal_id, credential_ref));
+    }
+    if !encoded.starts_with("ak:did_core:key:") {
+        return Err(Error::Protocol(
+            "MLS BasicCredential must bind a principal/device or exact pairwise did:key actor"
+                .to_owned(),
+        ));
+    }
+    Ok((DidCoreId::new(encoded.to_owned())?, credential_ref))
+}
+
+#[cfg(test)]
+mod leaf_credential_tests {
+    use super::*;
+
+    #[test]
+    fn exact_pairwise_actor_is_a_closed_leaf_credential_branch() {
+        let actor = "ak:did_core:key:z6MkghLt1e8m1fmANsdJJco3aCLV8Xnigr5UWwC3u5iZFPd3";
+        let (decoded, credential_ref) = decode_leaf_credential(actor.as_bytes()).unwrap();
+
+        assert_eq!(decoded.as_str(), actor);
+        assert_eq!(credential_ref.as_str(), actor);
+    }
+
+    #[test]
+    fn raw_non_pairwise_actor_does_not_masquerade_as_a_device_credential() {
+        assert!(decode_leaf_credential(b"ak:did_core:web:alice.example").is_err());
+    }
 }
 
 pub struct ArkretMlsIdentity {
