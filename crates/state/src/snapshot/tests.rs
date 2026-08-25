@@ -90,48 +90,6 @@ fn manifest_for_items(
     (manifest, chunk_payloads, chunk_bytes)
 }
 
-#[test]
-fn snapshot_v1_manifest_and_chunk_verify() {
-    let item = SnapshotMaterializedItem {
-        kind: "strand".to_owned(),
-        id: "ak:strand:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19".to_owned(),
-        object: serde_json::json!({
-            "id": "ak:strand:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            "schema": "ak.schema.strand.v1"
-        }),
-        source_event_id: snapshot_v1_event_id("000000000001"),
-    };
-    let (manifest, payloads, bytes) = manifest_for_items(vec![item]);
-    let decoded = parse_verified_snapshot_chunk_bytes(&manifest.chunks[0], &bytes[0]).unwrap();
-    assert_eq!(decoded, payloads[0]);
-    let report = verify_snapshot_manifest(
-        &manifest,
-        &payloads,
-        &SnapshotVerifyOptions::standard(
-            "2026-06-02T00:00:00.000Z".parse::<DateTime<Utc>>().unwrap(),
-            CORE_REDUCER_PROFILE,
-        ),
-    )
-    .unwrap();
-    assert_eq!(report.item_count, 1);
-    assert_eq!(report.chunk_count, 1);
-}
-
-#[test]
-fn snapshot_v1_stale_standard_manifest_rejects() {
-    let (manifest, payloads, _) = manifest_for_items(Vec::new());
-    let err = verify_snapshot_manifest(
-        &manifest,
-        &payloads,
-        &SnapshotVerifyOptions::standard(
-            "2026-07-15T00:00:00.000Z".parse::<DateTime<Utc>>().unwrap(),
-            CORE_REDUCER_PROFILE,
-        ),
-    )
-    .unwrap_err();
-    assert_eq!(err.code, SnapshotValidationCode::SnapshotIssuerRevoked);
-}
-
 // ── Chunker ───────────────────────────────────────────────────────
 
 #[test]

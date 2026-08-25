@@ -278,7 +278,6 @@ pub use arkret_models_identity::handle::*;
 pub use arkret_models_identity::handle_claim::*;
 pub use arkret_models_identity::http_bodies::*;
 pub use arkret_models_identity::identity::*;
-pub use arkret_models_identity::identity_link_cache::*;
 pub use arkret_models_identity::identity_resolution::*;
 pub use arkret_models_identity::member_identity::*;
 pub use arkret_models_identity::service_identity::*;
@@ -292,7 +291,6 @@ pub use arkret_models_integration::applet_audit_payload::*;
 pub use arkret_models_integration::applet_install_plan::*;
 pub use arkret_models_integration::applet_models::*;
 pub use arkret_models_integration::artifacts_applet::*;
-pub use arkret_models_integration::http_bodies::*;
 pub use arkret_models_integration::integration::*;
 pub use arkret_models_integration::models_push::*;
 pub use arkret_models_integration::{integration, push};
@@ -360,7 +358,6 @@ pub use arkret_wire::control_proposal::*;
 pub use arkret_wire::device_revocation::*;
 pub use arkret_wire::error_codes::*;
 pub use arkret_wire::event_envelope::*;
-pub use arkret_wire::http_signature::HttpMessageSignature;
 pub use arkret_wire::notary::{
     ForensicAttribution, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, NotaryValue,
 };

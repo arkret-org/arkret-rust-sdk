@@ -1206,11 +1206,6 @@ impl InteropSurfaceEntry {
         Self::new(name, InteropSurfaceKind::DelegatedResolver)
     }
 
-    pub fn with_since(mut self, since: impl Into<String>) -> Self {
-        self.since = Some(since.into());
-        self
-    }
-
     pub fn with_notes(mut self, notes: impl Into<String>) -> Self {
         self.notes = Some(notes.into());
         self

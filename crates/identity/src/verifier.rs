@@ -1626,7 +1626,10 @@ mod tests {
             vec![witness.clone()]
         );
         assert_eq!(
-            store.invalidate(&crate::BindingInvalidation::for_evidence_witness(witness)),
+            store.invalidate(&crate::BindingInvalidation {
+                evidence_witness_did: Some(witness),
+                ..Default::default()
+            }),
             1
         );
     }

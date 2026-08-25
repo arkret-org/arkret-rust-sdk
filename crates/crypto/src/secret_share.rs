@@ -20,8 +20,7 @@
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_models_collaboration::history_key::{
-    EpochRange, HistoryChunkPlaintext, HistoryResponseCapabilityPlaintext,
-    HistoryResponseCapabilitySealContext, HistorySecretChunkSealContext, SealedHistoryChunk,
+    HistoryResponseCapabilityPlaintext, HistoryResponseCapabilitySealContext,
     SealedHistoryResponseCapability, response_capability_commitment,
 };
 pub use arkret_models_crypto::{SecretShareRequestContent, SecretShareSendContent};
@@ -41,11 +40,6 @@ use crate::{Error, Result};
 pub const SECRET_REQUEST_KIND: &str = arkret_wire::SECRET_REQUEST_KIND;
 /// Wire `kind` for the sealed secret response (`ak.secret.send`).
 pub const SECRET_SEND_KIND: &str = arkret_wire::SECRET_SEND_KIND;
-
-/// `secret_id` for the inkson MLS account secret — the only secret class the
-/// D2D direct-share path ships in v1. Kept here so client and conformance code
-/// agree on the exact opaque token.
-pub const SECRET_ID_MLS_ACCOUNT: &str = "inkson_mls_account_secret";
 
 /// Canonical HPKE AAD for an `ak.secret.send` to-device envelope.
 ///
@@ -259,21 +253,6 @@ fn split_hpke_seal(sealed: &str) -> Result<(String, String)> {
     ))
 }
 
-fn combine_hpke_seal(enc: &str, ciphertext: &str) -> Result<String> {
-    let enc = decode_x25519_key("HPKE enc", enc)?;
-    let ciphertext_encoded = ciphertext;
-    let ciphertext = base64url_decode(ciphertext_encoded.as_bytes())?;
-    if ciphertext.is_empty() || base64url_encode(&ciphertext) != ciphertext_encoded {
-        return Err(Error::Protocol(
-            "HPKE ciphertext must be non-empty canonical base64url".to_owned(),
-        ));
-    }
-    let mut blob = Vec::with_capacity(enc.len() + ciphertext.len());
-    blob.extend(enc);
-    blob.extend(ciphertext);
-    Ok(base64url_encode(blob))
-}
-
 /// Seal a 32-byte history response stream capability with the registered
 /// RFC 9180 base-mode profile. The exact closed context JCS bytes are passed
 /// byte-for-byte as both `info` and single-shot AEAD `aad`.
@@ -300,67 +279,6 @@ pub fn seal_history_response_capability(
     let sealed = SealedHistoryResponseCapability { enc, ciphertext };
     sealed.validate()?;
     Ok(sealed)
-}
-
-/// Open and fully validate a registered history response stream capability.
-pub fn open_history_response_capability(
-    recipient_private_key_b64u: &str,
-    context: &HistoryResponseCapabilitySealContext,
-    sealed: &SealedHistoryResponseCapability,
-) -> Result<HistoryResponseCapabilityPlaintext> {
-    context.validate()?;
-    sealed.validate()?;
-    let private = decode_x25519_key("recipient_private_key_b64u", recipient_private_key_b64u)?;
-    let binding = context.canonical_bytes()?;
-    let combined = combine_hpke_seal(&sealed.enc, &sealed.ciphertext)?;
-    let plaintext_bytes =
-        open_base_mode_with_x25519_privkey(&private, &combined, &binding, &binding)?;
-    let plaintext: HistoryResponseCapabilityPlaintext = serde_json::from_slice(&plaintext_bytes)?;
-    if arkret_canonical::canonical_json_bytes(&plaintext)? != plaintext_bytes {
-        return Err(Error::Protocol(
-            "history response capability plaintext is not canonical JSON".to_owned(),
-        ));
-    }
-    plaintext.validate()?;
-    if response_capability_commitment(&plaintext.response_capability_b64u)?
-        != context.response_capability_commitment
-    {
-        return Err(Error::Protocol(
-            "opened history response capability does not match the context commitment".to_owned(),
-        ));
-    }
-    Ok(plaintext)
-}
-
-/// Open and fully validate one registered history-secret chunk.
-pub fn open_history_secret_chunk(
-    recipient_private_key_b64u: &str,
-    context: &HistorySecretChunkSealContext,
-    expected_range: &EpochRange,
-    sealed: &SealedHistoryChunk,
-) -> Result<HistoryChunkPlaintext> {
-    context.validate()?;
-    sealed.validate()?;
-    let private = decode_x25519_key("recipient_private_key_b64u", recipient_private_key_b64u)?;
-    let binding = context.canonical_bytes()?;
-    let combined = combine_hpke_seal(&sealed.enc, &sealed.ciphertext)?;
-    let plaintext_bytes =
-        open_base_mode_with_x25519_privkey(&private, &combined, &binding, &binding)?;
-    let plaintext: HistoryChunkPlaintext = serde_json::from_slice(&plaintext_bytes)?;
-    if arkret_canonical::canonical_json_bytes(&plaintext)? != plaintext_bytes {
-        return Err(Error::Protocol(
-            "history chunk plaintext is not canonical JSON".to_owned(),
-        ));
-    }
-    plaintext.validate()?;
-    if plaintext.secret_range.from_epoch != expected_range.from_epoch
-        || plaintext.secret_range.to_epoch != expected_range.to_epoch
-    {
-        return Err(Error::Protocol(
-            "opened history chunk range does not match its verified manifest descriptor".to_owned(),
-        ));
-    }
-    Ok(plaintext)
 }
 
 #[cfg(test)]
@@ -396,7 +314,7 @@ mod secret_share_send_aad_tests {
                 recipient_principal_id: arkret_wire::DidCoreId::new(RECIPIENT.to_owned()).unwrap(),
                 recipient_device_id: DeviceId::new(RECIPIENT_DEVICE.to_owned()).unwrap(),
                 request_id: REQUEST_ID.to_owned(),
-                secret_id: SECRET_ID_MLS_ACCOUNT.to_owned(),
+                secret_id: "inkson_mls_account_secret".to_owned(),
                 expires_at: EXPIRES.to_owned(),
             }
         }
@@ -539,13 +457,13 @@ mod tests {
     fn request_content_round_trips_and_validates() {
         let content = SecretShareRequestContent {
             request_id: "req-1".to_owned(),
-            secret_id: SECRET_ID_MLS_ACCOUNT.to_owned(),
+            secret_id: "inkson_mls_account_secret".to_owned(),
             from_device: device(),
             recipient_hpke_public_key: "cHVia2V5".to_owned(),
         };
         content.validate().unwrap();
         let value = serde_json::to_value(&content).unwrap();
-        assert_eq!(value["secret_id"], json!(SECRET_ID_MLS_ACCOUNT));
+        assert_eq!(value["secret_id"], json!("inkson_mls_account_secret"));
         let parsed: SecretShareRequestContent = serde_json::from_value(value).unwrap();
         assert_eq!(parsed, content);
     }
@@ -554,7 +472,7 @@ mod tests {
     fn send_content_round_trips_and_rejects_bad_scheme() {
         let content = SecretShareSendContent {
             request_id: "req-1".to_owned(),
-            secret_id: SECRET_ID_MLS_ACCOUNT.to_owned(),
+            secret_id: "inkson_mls_account_secret".to_owned(),
             from_device: device(),
             scheme: HPKE_SUITE_X25519_CHACHA20POLY1305_V1.to_owned(),
             enc: "ZW5j".to_owned(),
@@ -581,7 +499,7 @@ mod tests {
     fn request_content_rejects_empty_fields() {
         let content = SecretShareRequestContent {
             request_id: "  ".to_owned(),
-            secret_id: SECRET_ID_MLS_ACCOUNT.to_owned(),
+            secret_id: "inkson_mls_account_secret".to_owned(),
             from_device: device(),
             recipient_hpke_public_key: "cHVia2V5".to_owned(),
         };

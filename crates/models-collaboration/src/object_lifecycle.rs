@@ -2,7 +2,7 @@
 //!
 //! The `arkret` umbrella re-exports these owner-defined shapes at its root.
 
-use arkret_wire::{EventRef, SpaceId, StrandId};
+use arkret_wire::{EventRef, SpaceId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -34,19 +34,4 @@ pub struct SpaceObjectTombstonePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub effective_at: Option<DateTime<Utc>>,
-}
-
-/// Round 4 — build the cell_subject for `ak.strand.update`.
-/// `(family=CellFamilyId::STRAND_METADATA_V1, subject=strand_id)`,
-/// CAS-register semantics, bottom=reject.
-pub fn strand_update_cell_subject(strand_id: &StrandId) -> String {
-    strand_id.as_str().to_owned()
-}
-
-/// Round 4 — build the cell_subject for `ak.strand.tracks_patch`. Same
-/// cell family and bottom semantics as [`strand_update_cell_subject`];
-/// the two events share the cell so they compete via CAS rather than
-/// silently overwriting each other.
-pub fn strand_tracks_patch_cell_subject(strand_id: &StrandId) -> String {
-    strand_id.as_str().to_owned()
 }

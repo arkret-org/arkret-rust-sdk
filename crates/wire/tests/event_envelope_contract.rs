@@ -5,9 +5,7 @@ use arkret_wire::{
     MAX_ACTOR_SEQ_SIBLINGS, MAX_AUTHORITY_CHAIN_DEPTH, MAX_AUTHORITY_CONTROL_DEPTH,
     MAX_AUTHORIZED_BY_REFS, MAX_EVENT_ENVELOPE_BYTES, MAX_EVENT_PREV_REFS, MAX_EVENT_REFS,
     MAX_EVENT_RESOLVE, MAX_EVENT_SUBMIT_BATCH, RealmId, ScopeRef, prev_frontier_digest,
-    validate_actor_seq_sibling_count, validate_authority_chain_depth,
-    validate_authority_control_depth, validate_authorized_by_ref_count,
-    validate_event_envelope_byte_len, validate_event_prev_refs, validate_event_ref_count,
+    validate_authorized_by_ref_count, validate_event_envelope_byte_len, validate_event_ref_count,
     validate_event_submit_batch_count,
 };
 use serde_json::json;
@@ -125,20 +123,6 @@ fn event_scalability_helpers_reject_over_limits() {
     assert!(validate_event_ref_count(MAX_EVENT_REFS + 1).is_err());
     validate_authorized_by_ref_count(MAX_AUTHORIZED_BY_REFS).unwrap();
     assert!(validate_authorized_by_ref_count(MAX_AUTHORIZED_BY_REFS + 1).is_err());
-    validate_actor_seq_sibling_count(MAX_ACTOR_SEQ_SIBLINGS).unwrap();
-    assert!(validate_actor_seq_sibling_count(MAX_ACTOR_SEQ_SIBLINGS + 1).is_err());
-    validate_authority_chain_depth(MAX_AUTHORITY_CHAIN_DEPTH).unwrap();
-    assert!(validate_authority_chain_depth(MAX_AUTHORITY_CHAIN_DEPTH + 1).is_err());
-    validate_authority_control_depth(MAX_AUTHORITY_CONTROL_DEPTH).unwrap();
-    assert!(validate_authority_control_depth(MAX_AUTHORITY_CONTROL_DEPTH + 1).is_err());
-
-    let prev_refs = (0..MAX_EVENT_PREV_REFS)
-        .map(|index| strong_ref(index as u8))
-        .collect::<Vec<_>>();
-    validate_event_prev_refs(&prev_refs).unwrap();
-    let mut duplicate = prev_refs;
-    duplicate.push(duplicate[0].clone());
-    assert!(validate_event_prev_refs(&duplicate).is_err());
 }
 
 /// `event-and-patch.md` §75 names producer-selected `auth_context.capability_refs`

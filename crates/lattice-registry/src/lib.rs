@@ -95,14 +95,6 @@ mod tests {
         assert_eq!(actual, expected);
 
         let registry = build_sdk_cell_registry();
-        let registered: BTreeMap<_, _> = registry
-            .registered_families()
-            .map(|family| (family.to_owned(), ()))
-            .collect();
-        let expected_families: BTreeMap<_, _> =
-            expected.keys().map(|family| (family.clone(), ())).collect();
-        assert_eq!(registered, expected_families);
-
         let realm_id =
             RealmId::new("ak:realm:AU2FuZ5Cmuwsb0J0xuJwH47SCEL34D7oJWb4JivTH934".to_owned())
                 .unwrap();

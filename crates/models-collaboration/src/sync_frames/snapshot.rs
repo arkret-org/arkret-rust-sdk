@@ -153,25 +153,6 @@ impl RangeCompletenessAttestation {
     }
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/realm.schema.json#/$defs/cell_lattice`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CellLattice {
-    pub cell_family: String,
-    pub lattice: String,
-    pub bottom: String,
-    pub cell_role: String,
-    pub plane: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sealed: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub parameters: Option<BTreeMap<String, Value>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub initial_value: Option<Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sentinel_writers: Option<Vec<String>>,
-}
-
 /// Counterpart for `spec/v1/artifacts/schemas/snapshot.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SnapshotFrontierValue {

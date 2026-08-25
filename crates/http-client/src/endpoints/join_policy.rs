@@ -1,11 +1,9 @@
 use arkret_models_collaboration::governance::join_policy::{
-    JoinApplicationAuditOutcome, JoinApplicationCancelRequestBody, JoinApplicationGetOutcome,
-    JoinApplicationListOutcome, JoinApplicationMutationOutcome, JoinApplicationReviewRequestBody,
-    JoinApplicationSubmitRequestBody,
+    JoinApplicationGetOutcome, JoinApplicationListOutcome,
 };
 use reqwest::Method;
 
-use crate::{Client, ClientRequestOptions, Error, Result, reject_path_segment};
+use crate::{Client, Error, Result, reject_path_segment};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct JoinApplicationListOptions {
@@ -47,58 +45,6 @@ impl JoinApplicationListOptions {
 }
 
 impl Client {
-    pub async fn join_application_submit(
-        &self,
-        realm_id: &str,
-        idempotency_key: &str,
-        request: &JoinApplicationSubmitRequestBody,
-    ) -> Result<JoinApplicationMutationOutcome> {
-        request
-            .validate()
-            .map_err(|error| Error::Protocol(error.to_string()))?;
-        let path = join_application_collection_path(realm_id)?;
-        let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
-        self.post_with_options(&path, request, &options).await
-    }
-
-    pub async fn join_application_review(
-        &self,
-        realm_id: &str,
-        application_ref: &str,
-        idempotency_key: &str,
-        request: &JoinApplicationReviewRequestBody,
-    ) -> Result<JoinApplicationMutationOutcome> {
-        request
-            .receipt
-            .validate()
-            .map_err(|error| Error::Protocol(error.to_string()))?;
-        let path = format!(
-            "{}/reviews",
-            join_application_resource_path(realm_id, application_ref)?
-        );
-        let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
-        self.post_with_options(&path, request, &options).await
-    }
-
-    pub async fn join_application_cancel(
-        &self,
-        realm_id: &str,
-        application_ref: &str,
-        idempotency_key: &str,
-        request: &JoinApplicationCancelRequestBody,
-    ) -> Result<JoinApplicationMutationOutcome> {
-        request
-            .receipt
-            .validate()
-            .map_err(|error| Error::Protocol(error.to_string()))?;
-        let path = format!(
-            "{}/cancel",
-            join_application_resource_path(realm_id, application_ref)?
-        );
-        let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
-        self.post_with_options(&path, request, &options).await
-    }
-
     pub async fn join_applications(
         &self,
         realm_id: &str,
@@ -123,18 +69,6 @@ impl Client {
     ) -> Result<JoinApplicationGetOutcome> {
         self.get(&join_application_resource_path(realm_id, application_ref)?)
             .await
-    }
-
-    pub async fn join_application_audit(
-        &self,
-        realm_id: &str,
-        application_ref: &str,
-    ) -> Result<JoinApplicationAuditOutcome> {
-        let path = format!(
-            "{}/audit",
-            join_application_resource_path(realm_id, application_ref)?
-        );
-        self.get(&path).await
     }
 }
 

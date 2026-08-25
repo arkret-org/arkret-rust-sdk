@@ -5,8 +5,7 @@ use arkret_event_draft::{
 use arkret_identifiers::{DidCoreId, Hlc, OperationId, RealmId};
 use arkret_models_collaboration::events_payloads::{ContentBlock, MessageCreatePayload};
 use arkret_wire::{
-    Audience, DidUrl, EventKind, Hash, OperationKind, ProducerEventProof, ProofBindingRequirements,
-    ScopeRef, StrandId, event_spec,
+    DidUrl, EventKind, Hash, OperationKind, ProducerEventProof, ScopeRef, StrandId, event_spec,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -172,49 +171,6 @@ fn accepted_event_projection_requires_exactly_one_producer_proof() {
     )
     .unwrap();
     assert!(with_two_proofs.context.producer_device_id.is_none());
-}
-
-#[test]
-fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding() {
-    let mut operation = OperationEnvelopeBuilder::<event_spec::MessageCreate>::new(
-        OperationId::new("ak:operation:01904100-0000-7000-8000-9c5aa4740640").unwrap(),
-        test_scope(),
-        DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap(),
-        7,
-        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
-        message_payload(),
-    )
-    .build(&EventDraftKindRegistry::default())
-    .unwrap();
-    let digest = operation.operation_digest().unwrap();
-    operation.proofs = vec![ProducerEventProof {
-        kind: "detached_jws".to_owned(),
-        verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
-        event_digest: Hash::new(digest).unwrap(),
-        signer_resolution_evidence_ref: None,
-        signer_resolution_evidence_digest: None,
-        created_at: Utc::now(),
-        domain: None,
-        audience: Some(Audience::Single(
-            "did:webvh:z6mkfixture:service.example".to_owned(),
-        )),
-        proof_purpose: None,
-        jws: "e30..c2ln".to_owned(),
-    }];
-
-    let error = operation
-        .validate_proof_bindings_with_context(
-            Some("ak:trust_domain:example.net".to_owned()),
-            Some(Audience::Single(
-                "did:webvh:z6mkfixture:service.example".to_owned(),
-            )),
-            ProofBindingRequirements::cross_domain(),
-        )
-        .unwrap_err();
-    assert!(
-        error.to_string().contains("proof_binding_missing"),
-        "unexpected proof-binding error: {error}"
-    );
 }
 
 #[test]

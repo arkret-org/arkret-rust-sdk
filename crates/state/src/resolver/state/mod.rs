@@ -315,17 +315,6 @@ impl RealmState {
             })
     }
 
-    pub fn capability_allows(&self, capability_id: &str, action: &str) -> bool {
-        self.effective_capability(capability_id)
-            .and_then(|event| event.content.get("actions"))
-            .and_then(Value::as_array)
-            .is_some_and(|actions| {
-                actions.iter().any(|candidate| {
-                    candidate.as_str() == Some(action) || candidate.as_str() == Some("*")
-                })
-            })
-    }
-
     /// Compute state hash for verification.
     pub fn compute_state_digest(&self) -> String {
         canonical_sha256(&state_digest_payload(StateHashInput {
@@ -358,60 +347,5 @@ impl RealmState {
             reactions: &self.reactions,
             tombstone_event_id: &self.tombstone_event_id,
         }))
-    }
-
-    pub(super) fn from_snapshot(snapshot: StateSnapshot) -> Self {
-        Self {
-            realm_id: snapshot.realm_id,
-            reducer_profile: snapshot.reducer_profile,
-            subjects: snapshot.subjects,
-            morphs: snapshot.morphs,
-            spaces: snapshot.spaces,
-            relations: snapshot.relations,
-            resolved_state: snapshot.resolved_state,
-            messages: snapshot.messages,
-            reactions: snapshot.reactions,
-            conflict_records: Vec::new(),
-            frontier: snapshot.frontier,
-            state_events: Vec::new(),
-            processed_events: BTreeMap::new(),
-            redacted_events: BTreeSet::new(),
-            tombstone_event_id: snapshot.tombstone_event_id,
-        }
-    }
-
-    pub fn restore_snapshot_or_replay(
-        snapshot: Option<StateSnapshot>,
-        realm_id: RealmId,
-        repo_events: &[Event],
-    ) -> Result<SnapshotRestore> {
-        if let Some(snapshot) = snapshot {
-            match snapshot.verify() {
-                Ok(()) => {
-                    return Ok(SnapshotRestore {
-                        state: Self::from_snapshot(snapshot),
-                        source: SnapshotRestoreSource::Snapshot,
-                        snapshot_error: None,
-                    });
-                }
-                Err(err) => {
-                    let mut state = Self::new(realm_id);
-                    state.apply_events(repo_events)?;
-                    return Ok(SnapshotRestore {
-                        state,
-                        source: SnapshotRestoreSource::RepoReplay,
-                        snapshot_error: Some(err.to_string()),
-                    });
-                }
-            }
-        }
-
-        let mut state = Self::new(realm_id);
-        state.apply_events(repo_events)?;
-        Ok(SnapshotRestore {
-            state,
-            source: SnapshotRestoreSource::RepoReplay,
-            snapshot_error: None,
-        })
     }
 }

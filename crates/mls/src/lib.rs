@@ -204,13 +204,19 @@ mod tests {
             .unwrap();
         let current = group.current_governance_binding().unwrap().unwrap();
         let current_group_id = group.group_id();
-        let mut expected = MlsGovernanceBindingValidationContext::for_commit(
-            &current_group_id,
-            0,
-            0,
-            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
-            CORE_REDUCER_PROFILE,
-        );
+        let mut expected = MlsGovernanceBindingValidationContext {
+            mls_group_id: &current_group_id,
+            previous_epoch: 0,
+            next_epoch: 0,
+            binding_profile: ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
+            reducer_profile: CORE_REDUCER_PROFILE,
+            effective_scope: None,
+            security_frontier_digest: None,
+            content_scheme: None,
+            durability_policy: None,
+            sidecar_binding: None,
+            forbid_sidecar_binding: false,
+        };
         expected.security_frontier_digest = Some(binding.security_frontier_digest());
 
         assert_eq!(current, binding);
@@ -300,13 +306,19 @@ mod tests {
         );
 
         let commit = group.update_governance_binding(&binding).unwrap();
-        let mut expected = MlsGovernanceBindingValidationContext::for_commit(
-            &group_id,
-            0,
-            1,
-            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
-            CORE_REDUCER_PROFILE,
-        );
+        let mut expected = MlsGovernanceBindingValidationContext {
+            mls_group_id: &group_id,
+            previous_epoch: 0,
+            next_epoch: 1,
+            binding_profile: ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
+            reducer_profile: CORE_REDUCER_PROFILE,
+            effective_scope: None,
+            security_frontier_digest: None,
+            content_scheme: None,
+            durability_policy: None,
+            sidecar_binding: None,
+            forbid_sidecar_binding: false,
+        };
         expected.security_frontier_digest = Some(binding.security_frontier_digest());
 
         assert_eq!(commit.group_id, group_id);
@@ -462,13 +474,19 @@ mod tests {
             .create_group(b"ak:realm:ATbqnZTuOFCMxdc8XLr13QAW37vsli-pHeGiBB7JC41D")
             .unwrap();
         let group_id = group.group_id();
-        let expected = MlsGovernanceBindingValidationContext::for_commit(
-            &group_id,
-            0,
-            1,
-            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
-            CORE_REDUCER_PROFILE,
-        );
+        let expected = MlsGovernanceBindingValidationContext {
+            mls_group_id: &group_id,
+            previous_epoch: 0,
+            next_epoch: 1,
+            binding_profile: ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
+            reducer_profile: CORE_REDUCER_PROFILE,
+            effective_scope: None,
+            security_frontier_digest: None,
+            content_scheme: None,
+            durability_policy: None,
+            sidecar_binding: None,
+            forbid_sidecar_binding: false,
+        };
 
         let err = group
             .verify_current_governance_binding(&expected)
@@ -491,17 +509,32 @@ mod tests {
             .create_group(b"ak:realm:AYHc9IWh-gvw1Sbq4Y3zTVuzVQC11iFldtLg1SK7EMb_")
             .unwrap();
         let group_id = group.group_id();
-        let binding = governance_binding(&group_id, 0, 1, governance_hash('3'))
-            .with_binding_profile(ProfileId::E2EE_RELAXED_V1)
-            .unwrap();
-        group.update_governance_binding(&binding).unwrap();
-        let expected = MlsGovernanceBindingValidationContext::for_commit(
-            &group_id,
+        let binding = MlsGovernanceBindingPayload::realm(
+            governance_realm(),
+            group_id.clone(),
             0,
             1,
-            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
+            governance_hash('3'),
+            arkret_wire::ContentScheme::MlsRfc9420,
+            None,
+            ProfileId::E2EE_RELAXED_V1,
             CORE_REDUCER_PROFILE,
-        );
+        )
+        .unwrap();
+        group.update_governance_binding(&binding).unwrap();
+        let expected = MlsGovernanceBindingValidationContext {
+            mls_group_id: &group_id,
+            previous_epoch: 0,
+            next_epoch: 1,
+            binding_profile: ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
+            reducer_profile: CORE_REDUCER_PROFILE,
+            effective_scope: None,
+            security_frontier_digest: None,
+            content_scheme: None,
+            durability_policy: None,
+            sidecar_binding: None,
+            forbid_sidecar_binding: false,
+        };
 
         let err = group
             .verify_current_governance_binding(&expected)
@@ -527,13 +560,19 @@ mod tests {
         let binding = governance_binding(&group_id, 0, 1, governance_hash('4'));
         group.update_governance_binding(&binding).unwrap();
         let stale_security_frontier_digest = governance_hash('9');
-        let mut expected = MlsGovernanceBindingValidationContext::for_commit(
-            &group_id,
-            0,
-            1,
-            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
-            CORE_REDUCER_PROFILE,
-        );
+        let mut expected = MlsGovernanceBindingValidationContext {
+            mls_group_id: &group_id,
+            previous_epoch: 0,
+            next_epoch: 1,
+            binding_profile: ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
+            reducer_profile: CORE_REDUCER_PROFILE,
+            effective_scope: None,
+            security_frontier_digest: None,
+            content_scheme: None,
+            durability_policy: None,
+            sidecar_binding: None,
+            forbid_sidecar_binding: false,
+        };
         expected.security_frontier_digest = Some(&stale_security_frontier_digest);
 
         let err = group

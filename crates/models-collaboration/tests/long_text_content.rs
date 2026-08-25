@@ -236,8 +236,7 @@ fn text_format_has_typed_authoring_and_reading_apis() {
     assert_eq!(markdown.to_value().unwrap()["format"], "markdown");
 
     let structured = ContentBlock::text_with_format("fallback", TextFormat::ProsemirrorJson)
-        .with_formatted_body(json!({"type": "doc", "content": []}))
-        .unwrap();
+        .with_field("formatted_body", json!({"type": "doc", "content": []}));
     assert_eq!(structured.text_format(), Some(TextFormat::ProsemirrorJson));
     assert!(structured.formatted_body().unwrap().is_object());
 
@@ -249,19 +248,9 @@ fn text_format_has_typed_authoring_and_reading_apis() {
 #[test]
 fn text_format_rejects_invalid_combinations() {
     assert!(
-        ContentBlock::text("plain")
-            .with_formatted_body(json!("rich"))
-            .is_err()
-    );
-    assert!(
         ContentBlock::new(ContentBlockKind::Text, "body")
             .with_field("format", json!("html"))
             .validate_inline_text()
-            .is_err()
-    );
-    assert!(
-        ContentBlock::markdown_text("body")
-            .with_formatted_body(json!(42))
             .is_err()
     );
 }

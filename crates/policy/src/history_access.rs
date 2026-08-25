@@ -11,9 +11,7 @@
 //! is its single source — and arrives here as a `u64`.
 
 use arkret_models_collaboration::history_key::AuthorizationIncarnation;
-use arkret_wire::{
-    CircleId, DidCoreId, ErrorCode, EventId, HistoryAccess, HistoryEffectiveScope, RealmId,
-};
+use arkret_wire::{DidCoreId, ErrorCode, EventId, HistoryAccess, HistoryEffectiveScope, RealmId};
 use serde::{Deserialize, Serialize};
 
 /// `allow_event(access, E, join)` — history-visibility.md §4.
@@ -59,19 +57,6 @@ pub const fn readable_by_scope(
         recipient.event_covers_join_activation,
     ) && recipient.authorization_subject_active
         && recipient.scope_readable
-}
-
-/// `readable_standard_mls(E, endpoint)` — history-visibility.md §4.
-///
-/// `event_covers_endpoint_admission` is `T0(E) causally covers
-/// endpoint.current_endpoint_admission`. Exporter responses MUST NOT apply the
-/// endpoint floor, so they call [`readable_by_scope`] instead of this function.
-pub const fn readable_standard_mls(
-    current_history_access: HistoryAccess,
-    recipient: RecipientScopeStanding,
-    event_covers_endpoint_admission: bool,
-) -> bool {
-    readable_by_scope(current_history_access, recipient) && event_covers_endpoint_admission
 }
 
 /// The non-policy half of `deliverable`: the current membership, device,
@@ -277,59 +262,10 @@ impl MinimalMetadataEndpointIdentity {
     }
 }
 
-/// Every `(Realm, endpoint incarnation)` MUST own a unique pairwise actor, and
-/// one Realm MUST NOT reuse an actor across endpoints —
-/// history-visibility.md §3.
-pub fn validate_realm_pairwise_uniqueness(
-    identities: &[MinimalMetadataEndpointIdentity],
-) -> Result<(), &'static str> {
-    let mut by_incarnation = std::collections::BTreeSet::new();
-    let mut by_actor = std::collections::BTreeSet::new();
-    for identity in identities {
-        identity.validate()?;
-        if !by_incarnation.insert((
-            identity.realm_id.as_str(),
-            identity.endpoint_incarnation.as_str(),
-        )) {
-            return Err("one (Realm, endpoint incarnation) carries more than one pairwise actor");
-        }
-        if !by_actor.insert((
-            identity.realm_id.as_str(),
-            identity.pairwise_actor_id.as_str(),
-        )) {
-            return Err("a Realm reuses one pairwise actor across endpoints");
-        }
-    }
-    Ok(())
-}
-
-/// The scope a pairwise-actor replacement was requested at.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum PairwiseRotationScope {
-    /// Realm-global replacement — the only legal form.
-    Realm { realm_id: RealmId },
-    /// Circle-local rotation, which MUST be rejected.
-    CircleLocal {
-        realm_id: RealmId,
-        circle_id: CircleId,
-    },
-}
-
-/// A pairwise identity's lifetime is the Realm-global endpoint incarnation:
-/// replacement terminates the old actor in the Realm and in every Circle at
-/// once, so a Circle-local rotation MUST be rejected —
-/// history-visibility.md §3.
-pub fn validate_pairwise_rotation(scope: &PairwiseRotationScope) -> Result<(), &'static str> {
-    match scope {
-        PairwiseRotationScope::Realm { .. } => Ok(()),
-        PairwiseRotationScope::CircleLocal { .. } => {
-            Err("a minimal-metadata pairwise actor cannot be rotated Circle-locally")
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use arkret_wire::CircleId;
+
     use super::*;
 
     fn realm_scope() -> HistoryEffectiveScope {
@@ -537,16 +473,6 @@ mod tests {
     }
 
     #[test]
-    fn the_endpoint_floor_applies_only_to_standard_mls() {
-        let access = HistoryAccess::AllHistoryForCurrentMembers;
-        // The exporter lane never consults the floor.
-        assert!(readable_by_scope(access, standing(true)));
-        // Standard MLS additionally requires the admission cover.
-        assert!(readable_standard_mls(access, standing(true), true));
-        assert!(!readable_standard_mls(access, standing(true), false));
-    }
-
-    #[test]
     fn an_ordinary_self_update_keeps_the_endpoint_incarnation() {
         let admission = EndpointAdmission {
             activation_event_id: event_id('a'),
@@ -631,36 +557,5 @@ mod tests {
         let mut not_did_key = pairwise("ak:did_core:webvh:z6mkalice", 'a');
         not_did_key.leaf_credential_identity = "ak:did_core:webvh:z6mkalice".to_owned();
         assert!(not_did_key.validate().is_err());
-    }
-
-    #[test]
-    fn a_realm_cannot_reuse_one_pairwise_actor_across_endpoints() {
-        let one = pairwise("ak:did_core:key:z6MkPairwiseOne", 'a');
-        let two = pairwise("ak:did_core:key:z6MkPairwiseTwo", 'b');
-        validate_realm_pairwise_uniqueness(&[one.clone(), two]).unwrap();
-
-        let reused = pairwise("ak:did_core:key:z6MkPairwiseOne", 'b');
-        assert!(validate_realm_pairwise_uniqueness(&[one.clone(), reused]).is_err());
-
-        let duplicate_incarnation = pairwise("ak:did_core:key:z6MkPairwiseTwo", 'a');
-        assert!(validate_realm_pairwise_uniqueness(&[one, duplicate_incarnation]).is_err());
-    }
-
-    #[test]
-    fn circle_local_pairwise_rotation_is_rejected() {
-        let realm_id =
-            RealmId::new("ak:realm:AfjSiYTXJZS-0ifVfy1f_uzsmJIBjDyN11_-dxnne50e").unwrap();
-        validate_pairwise_rotation(&PairwiseRotationScope::Realm {
-            realm_id: realm_id.clone(),
-        })
-        .unwrap();
-        assert!(
-            validate_pairwise_rotation(&PairwiseRotationScope::CircleLocal {
-                realm_id,
-                circle_id: CircleId::new("ak:circle:ARIqxK3jWXYxpb544UphWaZm_ti9wclu9_0-eSuyZ2e_")
-                    .unwrap(),
-            })
-            .is_err()
-        );
     }
 }

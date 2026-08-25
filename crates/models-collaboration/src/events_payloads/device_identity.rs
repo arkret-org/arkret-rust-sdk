@@ -888,27 +888,6 @@ mod tests {
     }
 
     #[test]
-    fn founding_descriptor_requires_a_complete_did_key() {
-        let bare: DeviceAuthorizePayload =
-            serde_json::from_value(device_authorize_value()).unwrap();
-        assert!(
-            crate::events_payloads::FoundingDeviceDescriptor::from_authorize_payload(&bare)
-                .is_err()
-        );
-
-        let mut complete_value = device_authorize_value();
-        complete_value["device_public_key"] = json!("did:key:z6MkDeviceKey");
-        let complete: DeviceAuthorizePayload = serde_json::from_value(complete_value).unwrap();
-        let descriptor =
-            crate::events_payloads::FoundingDeviceDescriptor::from_authorize_payload(&complete)
-                .unwrap();
-        assert_eq!(
-            descriptor.device_public_key.as_str(),
-            "did:key:z6MkDeviceKey"
-        );
-    }
-
-    #[test]
     fn device_authorize_deserialization_enforces_required_signature_and_canonical_lists() {
         let mut missing_signature = device_authorize_value();
         missing_signature

@@ -3,7 +3,7 @@
 use arkret_models_collaboration::governance::circle::{
     CircleArchiveRequestBody, CircleCreateRequestBody, CircleList, CircleMemberDeleteRequestBody,
     CircleMemberRequestBody, CircleMembershipOutcome, CircleRestoreRequestBody,
-    CircleScopeRotateOutcome, CircleScopeRotateRequestBody, CircleTombstoneRequestBody, CircleView,
+    CircleScopeRotateOutcome, CircleScopeRotateRequestBody, CircleView,
 };
 use reqwest::Method;
 
@@ -15,12 +15,6 @@ impl Client {
             .request(Method::GET, "/_arkret/self/circles")?
             .query(&[("realm_id", realm_id)]);
         self.send_json(builder).await
-    }
-
-    pub async fn circle_get(&self, circle_id: &str) -> Result<CircleView> {
-        reject_path_segment(circle_id)?;
-        self.get(&format!("/_arkret/self/circles/{circle_id}"))
-            .await
     }
 
     pub async fn circle_create(&self, request: &CircleCreateRequestBody) -> Result<CircleView> {
@@ -84,14 +78,6 @@ impl Client {
         request: &CircleRestoreRequestBody,
     ) -> Result<CircleView> {
         self.circle_lifecycle(circle_id, "restore", request).await
-    }
-
-    pub async fn circle_tombstone(
-        &self,
-        circle_id: &str,
-        request: &CircleTombstoneRequestBody,
-    ) -> Result<CircleView> {
-        self.circle_lifecycle(circle_id, "tombstone", request).await
     }
 
     pub async fn circle_scope_rotate(

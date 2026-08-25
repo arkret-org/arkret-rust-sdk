@@ -114,7 +114,7 @@ fn membership_payload_strong_type_passes_spec_validator() {
 
     // join transition (unroutable): realm_id + actor_id + delivery_status
     // required, but delivery_binding only when routable.
-    let join = MembershipPayload::join(
+    let mut join = MembershipPayload::join(
         RealmId::new("ak:realm:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD").unwrap(),
         project_full_id_to_core_id(
             &DidFullId::new("did:webvh:z6mkfixturebob:bob.example").unwrap(),
@@ -122,8 +122,8 @@ fn membership_payload_strong_type_passes_spec_validator() {
         .unwrap(),
         DeliveryStatus::Unroutable,
         "invite_accept",
-    )
-    .with_invite_ref(MembershipInviteRef::Event(
+    );
+    join.invite_ref = Some(MembershipInviteRef::Event(
         EventId::new("ak:event:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G").unwrap(),
     ));
     catalog
@@ -333,7 +333,8 @@ fn lifecycle_optional_timestamps_pass_spec_schemas() {
     assert!(bare.get("effective_at").is_none());
     assert!(bare.get("freeze_expires_at").is_none());
     catalog.validate_payload("ak.realm.freeze", &bare).unwrap();
-    let mut freeze = freeze.with_freeze_expires_at(at());
+    let mut freeze = freeze;
+    freeze.freeze_expires_at = Some(at());
     freeze.effective_at = Some(at());
     let value = freeze.to_value().unwrap();
     assert_eq!(
@@ -430,18 +431,17 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
     catalog
         .validate_payload("ak.strand.watch.set", &cleared_value)
         .unwrap();
-    let guarded =
-        StrandWatchSetPayload::set(strand(), actor(), StrandWatchLevel::Participating, None)
-            .with_expected_value(Some(StrandWatchExpectedValue {
-                level: StrandWatchLevel::Muted,
-                level_public: None,
-            }));
+    let mut guarded =
+        StrandWatchSetPayload::set(strand(), actor(), StrandWatchLevel::Participating, None);
+    guarded.expected_value = Some(StrandWatchExpectedValue {
+        level: StrandWatchLevel::Muted,
+        level_public: None,
+    });
     catalog
         .validate_payload("ak.strand.watch.set", &guarded.to_value().unwrap())
         .unwrap();
     // expected_value may also assert "no prior cell" via null.
-    let guarded_null = StrandWatchSetPayload::set(strand(), actor(), StrandWatchLevel::All, None)
-        .with_expected_value(None);
+    let guarded_null = StrandWatchSetPayload::set(strand(), actor(), StrandWatchLevel::All, None);
     let guarded_null_value = guarded_null.to_value().unwrap();
     assert!(guarded_null_value["expected_value"].is_null());
     catalog
@@ -537,28 +537,6 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
             .validate_value(&services_ref, &leaky_services)
             .is_err()
     );
-}
-
-#[test]
-fn auth_session_fixture_enforces_device_identity_key_separation() {
-    let fixture = embedded_json_artifact("fixtures/auth-session-proof-fixture.json").unwrap();
-    let vector = fixture["cases"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|case| case["name"] == "session_and_device_identity_key_separation")
-        .expect("session/device key-separation vector missing");
-    for case in vector["cases"].as_array().unwrap() {
-        let result = arkret_models_collaboration::session_grant_bodies::validate_session_device_key_separation(
-            case["session_public_key_fingerprint"].as_str().unwrap(),
-            case["device_public_key_fingerprint"].as_str().unwrap(),
-        );
-        match case["expected"].as_str().unwrap() {
-            "accepted" => result.unwrap(),
-            "unauthenticated" => assert!(result.is_err()),
-            unexpected => panic!("unknown key-separation outcome {unexpected}"),
-        }
-    }
 }
 
 #[test]

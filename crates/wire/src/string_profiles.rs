@@ -156,8 +156,8 @@ pub fn validate_single_line_display_text(value: &str, max_code_points: usize) ->
     Ok(())
 }
 
-/// Return the deterministic holder-local skeleton used by
-/// `arkret_display_confusable_v1`.
+/// Return the deterministic holder-local skeleton used for impersonation
+/// warnings.
 pub fn display_confusable_skeleton_v1(value: &str) -> Result<String> {
     validate_single_line_display_text(value, 512)?;
     let prepared: String = value
@@ -166,16 +166,6 @@ pub fn display_confusable_skeleton_v1(value: &str) -> Result<String> {
         .nfkc()
         .collect();
     Ok(unicode_security::skeleton(&prepared).nfd().collect())
-}
-
-/// Compare two display strings for holder-local impersonation warnings.
-///
-/// This predicate is intentionally case-sensitive and must never be used as
-/// canonical equality or as an authorization decision.
-pub fn arkret_display_confusable_v1(a: &str, b: &str) -> Result<bool> {
-    let a_skeleton = display_confusable_skeleton_v1(a)?;
-    let b_skeleton = display_confusable_skeleton_v1(b)?;
-    Ok(a == b || a_skeleton == b_skeleton)
 }
 
 fn is_registered_default_ignorable(character: char) -> bool {
@@ -340,17 +330,5 @@ mod tests {
         let cyrillic = human_identifier_skeleton("раураl").unwrap();
         assert_eq!(latin, cyrillic);
         assert_ne!("paypal", "раураl");
-    }
-
-    #[test]
-    fn display_confusable_pairwise_vectors_match_the_spec() {
-        assert!(arkret_display_confusable_v1("alice", "alice").unwrap());
-        assert!(arkret_display_confusable_v1("Alice", "Ａlice").unwrap());
-        assert!(arkret_display_confusable_v1("paypal", "раураl").unwrap());
-        assert!(arkret_display_confusable_v1("admin", "admin\u{200D}").unwrap());
-        assert!(!arkret_display_confusable_v1("Alice", "alice").unwrap());
-        assert!(!arkret_display_confusable_v1("Alice", "Alicia").unwrap());
-        assert!(!arkret_display_confusable_v1("王伟", "王薇").unwrap());
-        assert!(arkret_display_confusable_v1("line\nbreak", "line break").is_err());
     }
 }

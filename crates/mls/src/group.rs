@@ -105,11 +105,6 @@ impl ExporterAeadSuite {
         }
     }
 
-    /// `N_AEAD - 8`: the exporter output length of the sender nonce prefix.
-    pub const fn nonce_prefix_len(self) -> usize {
-        self.nonce_len() - arkret_crypto::AEAD_NONCE_COUNTER_LEN
-    }
-
     /// Resolve an `aead_profile` against `mls-ciphersuite-registry.json`.
     ///
     /// Two separate gates, both required by `encoding.md` §10.1: the row must
@@ -2379,7 +2374,6 @@ mod content_scheme_anchor_tests {
         assert_eq!(suite, ExporterAeadSuite::Aes128Gcm);
         assert_eq!(suite.key_len(), 16);
         assert_eq!(suite.nonce_len(), 12);
-        assert_eq!(suite.nonce_prefix_len(), 4);
 
         // The pre-fix local aliases are not registered MLS ciphersuites and
         // MUST fail closed rather than select an algorithm.

@@ -153,13 +153,6 @@ pub const CONTENT_KIND_LOCATION: &str = "ak.content.location";
 pub const CONTENT_KIND_POLL: &str = "ak.content.poll";
 pub const CONTENT_KIND_POLL_RESPONSE: &str = "ak.content.poll.response";
 
-pub const MEDIA_CONTENT_KINDS: [&str; 4] = [
-    CONTENT_KIND_IMAGE,
-    CONTENT_KIND_VIDEO,
-    CONTENT_KIND_AUDIO,
-    CONTENT_KIND_FILE,
-];
-
 /// Extensible ContentBlock used by message, Strand, and Morph content fields.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ContentBlock {
@@ -216,28 +209,6 @@ impl ContentBlock {
 
     pub fn formatted_body(&self) -> Option<&Value> {
         self.extra.get("formatted_body")
-    }
-
-    /// Attach the structured rich-text representation for a non-plain text block.
-    pub fn with_formatted_body(mut self, formatted_body: Value) -> Result<Self> {
-        let Some(format) = self.text_format() else {
-            return Err(WireError::Protocol(
-                "formatted_body requires ak.content.text with an explicit format".to_owned(),
-            ));
-        };
-        if format == TextFormat::Plain {
-            return Err(WireError::Protocol(
-                "format=plain must not carry formatted_body".to_owned(),
-            ));
-        }
-        if !formatted_body.is_string() && !formatted_body.is_object() {
-            return Err(WireError::Protocol(
-                "formatted_body must be a string or object".to_owned(),
-            ));
-        }
-        self.extra
-            .insert("formatted_body".to_owned(), formatted_body);
-        Ok(self)
     }
 
     pub fn from_value(value: Value) -> Result<Self> {
@@ -869,23 +840,6 @@ pub struct MessageCreatePayload {
 }
 
 impl MessageCreatePayload {
-    pub fn with_protected_content(
-        strand_id: StrandId,
-        track_name: impl Into<String>,
-        protected_content: ProtectedPayload<ContentBlock>,
-    ) -> Self {
-        match protected_content {
-            ProtectedPayload::Plain(content) => {
-                Self::with_content(strand_id, track_name, content.into_value())
-            }
-            ProtectedPayload::Mls(content) => Self::with_encrypted_content_envelope(
-                strand_id,
-                track_name,
-                content.into_envelope(),
-            ),
-        }
-    }
-
     pub fn with_content(
         strand_id: StrandId,
         track_name: impl Into<String>,
@@ -1008,13 +962,6 @@ impl MessageCreatePayload {
             .content_block()?
             .map(|content| content.body)
             .unwrap_or_default())
-    }
-
-    pub fn first_media_content_block(&self) -> Result<Option<ContentBlock>> {
-        let Some(content) = self.content_block()? else {
-            return Ok(None);
-        };
-        Ok(content.first_media_block().cloned())
     }
 
     pub fn first_media_attachment(&self) -> Result<Option<ContentBlockMediaAttachment>> {

@@ -299,13 +299,6 @@ impl Facets {
         }
     }
 
-    pub fn facet_names(&self) -> Vec<Facet> {
-        match self {
-            Self::Names(names) => names.clone(),
-            Self::Configs(configs) => configs.keys().cloned().collect(),
-        }
-    }
-
     pub fn contains(&self, facet: &Facet) -> bool {
         match self {
             Self::Names(names) => names.contains(facet),
@@ -1608,10 +1601,6 @@ impl ProducerEventProof {
     /// domain, and audience.
     pub fn validate_binding(&self, expected: &SignatureBindingPayload) -> Result<()> {
         self.validate_binding_with_requirements(expected, ProofBindingRequirements::local())
-    }
-
-    pub fn validate_cross_domain_binding(&self, expected: &SignatureBindingPayload) -> Result<()> {
-        self.validate_binding_with_requirements(expected, ProofBindingRequirements::cross_domain())
     }
 
     pub fn validate_binding_with_requirements(

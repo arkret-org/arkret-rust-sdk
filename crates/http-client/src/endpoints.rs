@@ -19,8 +19,6 @@ mod security;
 mod signal;
 
 pub use account::AccountSubscribeFrameStream;
-pub use agent::AgentRuntimeApprovalStatusResponse;
-pub use applet::SignedAppletTransactionOptions;
 pub use data::{
     BlobDownloadOptions, BlobResumableUploadOptions, RESUMABLE_UPLOAD_FEATURE,
     RESUMABLE_UPLOAD_THRESHOLD_BYTES, blob_resumable_upload_base_url,

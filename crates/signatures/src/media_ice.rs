@@ -36,11 +36,6 @@ impl IceConfig {
     pub fn turn_servers(&self) -> impl Iterator<Item = &MediaIceServer> {
         self.ice_servers.iter().filter(|server| server.is_turn())
     }
-
-    /// STUN servers only.
-    pub fn stun_servers(&self) -> impl Iterator<Item = &MediaIceServer> {
-        self.ice_servers.iter().filter(|server| server.is_stun())
-    }
 }
 
 fn validate_ice_server_credential_privacy(server: &MediaIceServer) -> Result<()> {
@@ -267,7 +262,6 @@ mod tests {
         let config = verify_ice_config_outcome(&outcome, &anchors).unwrap();
         assert_eq!(config.issuer_did, did("media"));
         assert_eq!(config.ttl_seconds, 300);
-        assert_eq!(config.stun_servers().count(), 1);
         assert_eq!(config.turn_servers().count(), 1);
         assert!(!config.turn_required);
     }

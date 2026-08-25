@@ -21,13 +21,13 @@ use arkret_models_collaboration::governance_dependencies::{
     GovernanceDependencyResolveOutcome, SelfGovernanceDependencyResolveRequest,
 };
 use arkret_models_collaboration::http_bodies::{
-    EventDeliveryStatusOutcome, EventDeliveryStatusRequestBody, EventSealSubmitOutcome, EventView,
+    EventDeliveryStatusOutcome, EventDeliveryStatusRequestBody, EventSealSubmitOutcome,
     EventsQueryOutcome, EventsRangeCompleteness, EventsResolveOutcome, EventsResolveRequestBody,
-    EventsSubmitOutcome, EventsSubscribeFrame, ProjectionSpaceList, ProjectionStrandList,
-    SealResolveOutcome, SelfSealResolveRequestBody,
+    EventsSubmitOutcome, EventsSubscribeFrame, ProjectionStrandList, SealResolveOutcome,
+    SelfSealResolveRequestBody,
 };
 use arkret_models_collaboration::objects::query_projection::{
-    CollectionProjectionView, DocumentMorphProjectionOutcome, ViewProjectionRequestBody,
+    CollectionProjectionView, ViewProjectionRequestBody,
 };
 use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceValidator;
 use arkret_models_crypto::{MlsGovernanceProofBundle, MlsGovernanceProofRequestBody};
@@ -36,8 +36,8 @@ use arkret_schema::PreparedStandardEvent;
 use arkret_state::SnapshotManifest;
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    AuthorizationLease, AuthorizationLeaseIssueRequestBody, ControlProposalAck,
-    ControlProposalAckIssueOutcome, ControlProposalAckIssueRequest, ControlProposalDecisionPolicy,
+    AuthorizationLeaseIssueRequestBody, ControlProposalAck, ControlProposalAckIssueOutcome,
+    ControlProposalAckIssueRequest, ControlProposalDecisionPolicy,
     ControlProposalDecisionReadOutcome, ControlProposalDecisionReadRequestBody,
     ControlProposalDecisionSubmitOutcome, ControlProposalDecisionSubmitRequestBody, Cursor,
     DidCoreId, Event, EventInitialSubmission, EventSubmitContext, EventsSubmitBatchRequestBody,
@@ -305,79 +305,6 @@ impl Client {
             .collect()
     }
 
-    pub async fn prepare_initial_submissions_with_local_proposal_authority<F>(
-        &self,
-        events: &[Event],
-        digest_suites: &[arkret_canonical::DigestSuite],
-        mut issue_receipt: F,
-    ) -> Result<Vec<EventInitialSubmission>>
-    where
-        F: FnMut(&Event, &AuthorizationLease) -> Result<ControlProposalAck>,
-    {
-        let submit_context = initial_submission_context(events)?;
-        let anchor_unit = submit_context == EventSubmitContext::AnchorUnit;
-        let request = AuthorizationLeaseIssueRequestBody {
-            events: events.to_vec(),
-            intents: Vec::new(),
-        };
-        let request_key = arkret_wire::new_prefixed_uuid7("lease-");
-        let options = ClientRequestOptions::new()
-            .request_id(request_key.clone())
-            .idempotency_key(request_key);
-        let outcome = self
-            .issue_authorization_leases(&request, digest_suites, &options)
-            .await?;
-        let mut submissions = Vec::with_capacity(events.len());
-        for ((event, digest_suite), lease) in events
-            .iter()
-            .zip(digest_suites.iter().copied())
-            .zip(outcome.authorization_leases)
-        {
-            let control_proposal_ack = if anchor_unit || event.seal_basis.is_some() {
-                Some(issue_receipt(event, &lease)?)
-            } else {
-                None
-            };
-            let submission = EventInitialSubmission {
-                event: event.clone(),
-                authorization_lease: Some(lease),
-                cba_proof_bundles: Vec::new(),
-                control_proposal_ack,
-                membership_compensation_evidence: None,
-            };
-            submission.validate_structural_in_context(submit_context, digest_suite)?;
-            submissions.push(submission);
-        }
-        Ok(submissions)
-    }
-
-    /// Prepare an ordered Event unit while collecting one immutable member
-    /// receipt from every supplied current authority transport.
-    ///
-    /// The resulting receipt set is sorted and checked against `notary`; a
-    /// partial threshold or mixed recovery set fails before Event submission.
-    pub async fn prepare_initial_submissions_with_proposal_authorities(
-        &self,
-        events: &[Event],
-        digest_suites: &[arkret_canonical::DigestSuite],
-        authority_clients: &[Client],
-        notary: &NotaryValue,
-        policy: ControlProposalDecisionPolicy,
-    ) -> Result<Vec<EventInitialSubmission>> {
-        if authority_clients.is_empty() {
-            return Err(Error::Protocol(
-                "proposal authority client set must not be empty".to_owned(),
-            ));
-        }
-        self.prepare_initial_submissions_with_collector(
-            events,
-            digest_suites,
-            Some((authority_clients, notary, policy)),
-            true,
-        )
-        .await
-    }
-
     async fn prepare_initial_submissions_with_collector(
         &self,
         events: &[Event],
@@ -545,14 +472,6 @@ impl Client {
     ) -> Result<ServiceDescribe> {
         self.events_read_query("/_arkret/self/events/describe", request)
             .await
-    }
-
-    /// Fetch one accepted Event together with its server-visible receipt
-    /// objects. B-model recovery uses this after atomic submission to obtain
-    /// and validate the generated `ak.schema.event_batch_receipt.v1`.
-    pub async fn event_view(&self, event_id: &str) -> Result<EventView> {
-        reject_path_segment(event_id)?;
-        self.get(&format!("/_arkret/self/events/{event_id}")).await
     }
 
     /// Subscribe to the Event stream for one or more Realms / actors via
@@ -868,10 +787,9 @@ impl Client {
     }
 
     /// Submit one initial Event publication via `ak.self.events.command.submit`
-    /// (`POST /_arkret/self/events`). Wire body is the first `oneOf` arm of
-    /// `EventsSubmitRequestBody`, i.e. `EventInitialSubmission` — the signed
-    /// Event plus the publication evidence that bounds it. A bare Event
-    /// Envelope is no longer a valid body.
+    /// (`POST /_arkret/self/events`). Wire body is `EventInitialSubmission` —
+    /// the signed Event plus the publication evidence that bounds it. A bare
+    /// Event Envelope is no longer a valid body.
     ///
     /// Callers that do not already hold a wrapper should use
     /// [`prepare_initial_submission`](Self::prepare_initial_submission) so the
@@ -882,26 +800,6 @@ impl Client {
         submission: &EventInitialSubmission,
     ) -> Result<EventsSubmitOutcome> {
         let outcome: EventsSubmitOutcome = self.post("/_arkret/self/events", submission).await?;
-        outcome.validate_delivery_invariants()?;
-        Ok(outcome)
-    }
-
-    /// [`events_submit`](Self::events_submit) with per-request options.
-    ///
-    /// Attaching an `Idempotency-Key` via
-    /// [`ClientRequestOptions::idempotency_key`] makes this POST eligible
-    /// for the transparent 5xx/timeout retry gate (the server dedupes on
-    /// `event_id` + canonical bytes per operations-sync.md §events.submit,
-    /// so a resend is an idempotent no-op returning `duplicate[]`). The key
-    /// travels only in the header — it is not a request-body field.
-    pub async fn events_submit_with_options(
-        &self,
-        submission: &EventInitialSubmission,
-        options: &ClientRequestOptions,
-    ) -> Result<EventsSubmitOutcome> {
-        let outcome: EventsSubmitOutcome = self
-            .post_with_options("/_arkret/self/events", submission, options)
-            .await?;
         outcome.validate_delivery_invariants()?;
         Ok(outcome)
     }
@@ -1020,26 +918,9 @@ impl Client {
         self.post(&path, request).await
     }
 
-    pub async fn realm_spaces(&self, realm_id: &str) -> Result<ProjectionSpaceList> {
-        reject_path_segment(realm_id)?;
-        let path = format!("/_arkret/self/realms/{realm_id}/spaces");
-        self.get(&path).await
-    }
-
     pub async fn realm_strands(&self, realm_id: &str) -> Result<ProjectionStrandList> {
         reject_path_segment(realm_id)?;
         let path = format!("/_arkret/self/realms/{realm_id}/strands");
-        self.get(&path).await
-    }
-
-    pub async fn document_projection(
-        &self,
-        realm_id: &str,
-        morph_id: &str,
-    ) -> Result<DocumentMorphProjectionOutcome> {
-        reject_path_segment(realm_id)?;
-        reject_path_segment(morph_id)?;
-        let path = format!("/_arkret/self/realms/{realm_id}/morphs/{morph_id}");
         self.get(&path).await
     }
 

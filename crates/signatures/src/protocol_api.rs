@@ -114,21 +114,6 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "collaboration")]
 pub use crate::device_authorization::verify_device_authorize_possession;
 
-/// Wire-reserved proof algorithms: registered `active` rows of the
-/// signature-alg-registry whose wire `jose_algorithm` value this SDK can parse and
-/// recognise, but for which it ships **no client signer or verifier yet**.
-///
-/// `ES256` (ECDSA P-256, profile-gated classical interop) has no P-256
-/// signer/verifier in this workspace. `ML-DSA-65` (NIST FIPS 204 ML-DSA
-/// category 3, `role=v1_profile_gated_pqc` behind
-/// `ak.profile.signature.pqc.v1`) is here because the workspace pulls in no
-/// FIPS 204 / ML-DSA crate. The Ed25519 verifier fails closed on both (they are
-/// never mistaken for valid). Activating either — adding the dependency and a
-/// dispatch arm — is a separate mid-term owner decision (SDK-SOTA-01), tracked
-/// so this constant is the single place to flip an entry into
-/// [`PRODUCTION_ALGORITHMS`] once implemented.
-pub const FUTURE_ALGORITHMS: &[&str] = &["ES256", "ML-DSA-65"];
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerificationMethodDocument {
     pub did: DidFullId,
@@ -318,14 +303,6 @@ mod tests {
     fn production_algorithms_exclude_unimplemented_registry_rows() {
         assert!(!PRODUCTION_ALGORITHMS.contains(&"ES256"));
         assert!(!PRODUCTION_ALGORITHMS.contains(&"ML-DSA-65"));
-        assert!(FUTURE_ALGORITHMS.contains(&"ES256"));
-        assert!(FUTURE_ALGORITHMS.contains(&"ML-DSA-65"));
-        // The two sets are disjoint: nothing is both usable and reserved.
-        assert!(
-            !PRODUCTION_ALGORITHMS
-                .iter()
-                .any(|alg| FUTURE_ALGORITHMS.contains(alg))
-        );
         // The production set is exactly the algorithms with a real
         // signer/verifier: Ed25519 only.
         assert_eq!(PRODUCTION_ALGORITHMS, &["Ed25519"]);

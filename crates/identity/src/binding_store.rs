@@ -257,34 +257,6 @@ impl BindingInvalidation {
         }
     }
 
-    /// Selector constrained to one verification method (key rotation).
-    pub fn for_verification_method(verification_method: DidUrl) -> Self {
-        Self {
-            verification_method: Some(verification_method),
-            ..Self::default()
-        }
-    }
-
-    /// Selector constrained to one history head (witness fork).
-    pub fn for_history_head(history_head: String) -> Self {
-        Self {
-            history_head: Some(history_head),
-            ..Self::default()
-        }
-    }
-
-    /// Selector constrained to one witness DID (witness revocation).
-    ///
-    /// Stores that declare evidence-bearing methods MUST support this lookup:
-    /// §5.6 makes reverse lookup by witness DID the minimum a selective
-    /// invalidation needs.
-    pub fn for_evidence_witness(witness_did: DidFullId) -> Self {
-        Self {
-            evidence_witness_did: Some(witness_did),
-            ..Self::default()
-        }
-    }
-
     /// Selector constrained to one policy digest (resolver / Realm policy change).
     pub fn for_policy_digest(policy_digest: Hash) -> Self {
         Self {
@@ -878,7 +850,8 @@ mod tests {
         assert_eq!(store.len(), 2);
 
         let rotated = DidUrl::new(format!("{}#key-1", did())).expect("valid did url");
-        let removed = store.invalidate(&BindingInvalidation::for_verification_method(rotated));
+        let removed =
+            store.invalidate(&BindingInvalidation::default().with_verification_method(rotated));
         assert_eq!(removed, 1, "rotation removes exactly the superseded key");
         assert_eq!(store.len(), 1);
         assert_eq!(
@@ -918,7 +891,8 @@ mod tests {
         sound.fragment = "key-2";
         let store = store_with(&[forked, sound]);
 
-        let removed = store.invalidate(&BindingInvalidation::for_history_head("1-abc".to_owned()));
+        let removed =
+            store.invalidate(&BindingInvalidation::default().with_history_head("1-abc".to_owned()));
         assert_eq!(removed, 1);
         assert_eq!(
             store.snapshot()[0].binding().history_head(),

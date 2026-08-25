@@ -4,8 +4,8 @@ use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::base64url::base64url_encode;
 use arkret_wire::{
     AccountDataKey, BlobId, CallId, CircleId, DeviceId, DidCoreId,
-    HPKE_SUITE_X25519_CHACHA20POLY1305_V1, Hash, Hlc, ProfileId, RealmId, Result, ScheduledSendId,
-    SchemaId, ScopeRef, SpaceId, StrandId, WireError, canonical,
+    HPKE_SUITE_X25519_CHACHA20POLY1305_V1, Hash, Hlc, RealmId, Result, ScheduledSendId, SchemaId,
+    ScopeRef, SpaceId, StrandId, WireError, canonical,
 };
 use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use chrono_tz::Tz;
@@ -663,21 +663,6 @@ impl CalendarEventFields {
         )))
     }
 
-    /// Local wall-clock start of the base occurrence, i.e. the recurrence
-    /// anchor, as an instant in the event timezone under the pinned release.
-    pub fn base_start_instant(&self) -> Result<DateTime<Utc>> {
-        let timezone = parse_calendar_timezone(&self.timezone)?;
-        if self.all_day {
-            let date = parse_calendar_date(&self.start, "calendar start")?;
-            return resolve_local_to_instant(
-                date.and_hms_opt(0, 0, 0).expect("midnight is always valid"),
-                timezone,
-            );
-        }
-        let local = parse_calendar_local_date_time(&self.start, "calendar start")?;
-        resolve_local_to_instant(local, timezone)
-    }
-
     /// Base interval length. Recurring timed events reuse this elapsed duration
     /// for every occurrence; v1 has no ISO duration wire field, so an
     /// implementation MUST NOT pick between elapsed and wall-clock deltas.
@@ -1253,30 +1238,6 @@ impl FileTransferKeyMessage {
         validate_file_transfer_id(&self.transfer_id)?;
         self.key_envelope.validate()?;
         Ok(canonical::validate_timestamp_canonical(&self.expires_at)?)
-    }
-
-    pub fn validate_record_binding(&self, record: &FileTransferRecord) -> Result<()> {
-        self.validate()?;
-        if self.transfer_id != record.transfer_id {
-            return Err(WireError::Protocol(
-                "file-transfer key message transfer_id mismatch".to_owned(),
-            ));
-        }
-        if record.access.visibility != FileTransferAccessVisibility::DeviceBound {
-            return Err(WireError::Protocol(
-                "file-transfer key message requires device_bound record".to_owned(),
-            ));
-        }
-        if !matches!(
-            &record.encryption.key_delivery,
-            FileTransferKeyDelivery::ToDeviceWrappedKey { key_message_kind }
-                if key_message_kind == FILE_TRANSFER_KEY_MESSAGE_KIND
-        ) {
-            return Err(WireError::Protocol(
-                "device_bound file-transfer requires to_device_wrapped_key".to_owned(),
-            ));
-        }
-        Ok(())
     }
 }
 
@@ -1899,35 +1860,6 @@ pub fn search_index_manifest_account_data_key(
     ))
 }
 
-pub fn blind_index_token(
-    index_key: &[u8],
-    realm_id: &RealmId,
-    effective_scope: &ScopeRef,
-    epoch: u64,
-    index_generation: u64,
-    term: &str,
-) -> Result<String> {
-    validate_search_index_key(index_key)?;
-    if effective_scope.realm_id() != realm_id {
-        return Err(WireError::Protocol(
-            "blind index token effective_scope must be bound to realm_id".to_owned(),
-        ));
-    }
-    let normalized_term = normalize_search_term(term)?;
-    let material = json!({
-        "profile": ProfileId::SEARCH_BLIND_INDEX_V1,
-        "realm_id": realm_id.as_str(),
-        "effective_scope": effective_scope,
-        "epoch": epoch,
-        "index_generation": index_generation,
-        "term_digest": canonical::sha256_digest(normalized_term.as_bytes()),
-    });
-    Ok(base64url_encode(hmac_sha256(
-        index_key,
-        &canonical::canonical_json_bytes(&material)?,
-    )))
-}
-
 pub fn file_transfer_account_data_key(namespace_key: &[u8], transfer_id: &str) -> Result<String> {
     validate_file_transfer_id(transfer_id)?;
     Ok(format!(
@@ -2250,27 +2182,6 @@ fn is_uuid_v7(value: &str) -> bool {
         })
 }
 
-fn validate_search_index_key(index_key: &[u8]) -> Result<()> {
-    if index_key.is_empty() {
-        Err(WireError::Protocol(
-            "search index key material must not be empty".to_owned(),
-        ))
-    } else {
-        Ok(())
-    }
-}
-
-fn normalize_search_term(term: &str) -> Result<String> {
-    let normalized = term.trim().nfc().collect::<String>();
-    if normalized.is_empty() {
-        Err(WireError::Protocol(
-            "blind index search term must not be empty".to_owned(),
-        ))
-    } else {
-        Ok(normalized)
-    }
-}
-
 fn looks_derived_key(value: &str) -> bool {
     value.len() >= 16
         && value
@@ -2448,24 +2359,6 @@ mod tests {
         assert!(
             validate_private_account_data_key("ak.contacts.actor.did:web:alice.example").is_err()
         );
-    }
-
-    fn test_realm_id(seed: &str) -> RealmId {
-        RealmId::from_event_id(
-            &EventId::from_event_digest(
-                &Hash::new(arkret_canonical::sha256_digest(seed.as_bytes())).unwrap(),
-            )
-            .unwrap(),
-        )
-    }
-
-    fn test_circle_id(seed: &str) -> CircleId {
-        CircleId::from_event_id(
-            &EventId::from_event_digest(
-                &Hash::new(arkret_canonical::sha256_digest(seed.as_bytes())).unwrap(),
-            )
-            .unwrap(),
-        )
     }
 
     fn test_time(second: u32) -> DateTime<Utc> {
@@ -2921,41 +2814,6 @@ mod tests {
     }
 
     #[test]
-    fn file_transfer_key_message_validates_record_binding() {
-        let mut record = file_transfer_record();
-        record.access.visibility = FileTransferAccessVisibility::DeviceBound;
-        record.access.recipient_device_ids =
-            vec!["ak:device:01904100-0000-7000-8000-000000000003".to_owned()];
-        record.encryption.key_delivery = FileTransferKeyDelivery::ToDeviceWrappedKey {
-            key_message_kind: FILE_TRANSFER_KEY_MESSAGE_KIND.to_owned(),
-        };
-        record.validate().unwrap();
-
-        let message = FileTransferKeyMessage {
-            transfer_id: record.transfer_id.clone(),
-            key_envelope: FileTransferKeyEnvelope {
-                scheme: HPKE_SUITE_X25519_CHACHA20POLY1305_V1.to_owned(),
-                enc: "abc_DEF-012".to_owned(),
-                ciphertext: "def_ABC-345".to_owned(),
-                aad_digest: format!("sha256:{}", "cd".repeat(32)),
-            },
-            expires_at: "2026-06-22T00:30:00.000Z".to_owned(),
-        };
-
-        message.validate_record_binding(&record).unwrap();
-
-        let mut drifted = message;
-        drifted.transfer_id = "abcdefghijklmnopqrstuv".to_owned();
-        assert!(
-            drifted
-                .validate_record_binding(&record)
-                .unwrap_err()
-                .to_string()
-                .contains("transfer_id mismatch")
-        );
-    }
-
-    #[test]
     fn file_transfer_record_rejects_blob_digest_drift() {
         let mut record = file_transfer_record();
         record.blob_ref = format!("ak:blob:sha256:{}", "cd".repeat(32));
@@ -3012,41 +2870,5 @@ mod tests {
         assert!(wire.get("epoch_id").is_none());
         assert_eq!(wire["leakage_class"], "forward_private");
         assert_eq!(wire["token_rotation_cadence_ms"], 3_600_000);
-    }
-
-    #[test]
-    fn blind_index_tokens_bind_realm_scope_epoch_and_generation() {
-        let index_key = b"realm local search index key";
-        let realm_a = test_realm_id("000000000401");
-        let realm_b = test_realm_id("000000000402");
-        let scope_a = ScopeRef::Realm {
-            realm_id: realm_a.clone(),
-        };
-        let scope_b = ScopeRef::Realm {
-            realm_id: realm_b.clone(),
-        };
-        let token_a =
-            blind_index_token(index_key, &realm_a, &scope_a, 7, 11, "Release Plan").unwrap();
-        let token_b =
-            blind_index_token(index_key, &realm_b, &scope_b, 7, 11, "Release Plan").unwrap();
-        assert_ne!(token_a, token_b);
-        assert_ne!(
-            token_a,
-            blind_index_token(index_key, &realm_a, &scope_a, 8, 11, "Release Plan").unwrap()
-        );
-        assert_ne!(
-            token_a,
-            blind_index_token(index_key, &realm_a, &scope_a, 7, 12, "Release Plan").unwrap()
-        );
-
-        let circle_scope = ScopeRef::Circle {
-            realm_id: realm_a.clone(),
-            circle_id: test_circle_id("000000000501"),
-        };
-        assert_ne!(
-            token_a,
-            blind_index_token(index_key, &realm_a, &circle_scope, 7, 11, "Release Plan").unwrap()
-        );
-        assert!(blind_index_token(index_key, &realm_b, &scope_a, 7, 11, "Release Plan").is_err());
     }
 }

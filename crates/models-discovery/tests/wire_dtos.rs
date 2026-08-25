@@ -7,7 +7,6 @@ use arkret_wire::{DidFullId, RealmId, ServiceKind, TrustDomainId};
 #[test]
 fn interop_surface_entry_is_closed_and_supports_delegated_resolver() {
     let surface = InteropSurfaceEntry::delegated_resolver("auth_server_did_resolver")
-        .with_since("1")
         .with_notes("delegated DID document surface");
     let encoded = serde_json::to_value(&surface).unwrap();
     assert_eq!(encoded["kind"], "delegated_resolver");

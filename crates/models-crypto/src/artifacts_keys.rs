@@ -770,40 +770,6 @@ pub type AlgorithmCounts = BTreeMap<NonEmptyString, u64>;
 /// `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/algorithm_key_records`.
 pub type AlgorithmKeyRecords = BTreeMap<NonEmptyString, KeyRecord>;
 
-/// Counterpart for `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/backup_metadata`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BackupMetadata {
-    pub backup_id: BackupId,
-    pub actor_id: DidCoreId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_id: Option<String>,
-    pub backup_kind: BackupKind,
-    pub backup_version: String,
-    pub series_id: BackupSeriesId,
-    pub series_seq: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub supersedes: Option<BackupId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub supersedes_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub frontier_ref: Option<BTreeMap<String, Value>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recovery_policy_ref: Option<BTreeMap<String, Value>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub expires_at: Option<DateTime<Utc>>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub updated_at: Option<DateTime<Utc>>,
-    pub ciphertext_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub retention: Option<BTreeMap<String, Value>>,
-}
-
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/device_algorithm_map`.
 pub type DeviceAlgorithmMap = BTreeMap<DeviceId, NonEmptyString>;
@@ -1993,32 +1959,6 @@ impl GenericRecoveryProofBody {
             )),
         }
     }
-}
-
-// ── Keypackage operations aggregate ──────────────────────────────────────
-// The `arkret` umbrella re-exports this owner-defined enum at its root.
-
-/// Counterpart for `spec/v1/artifacts/schemas/keypackage-operations.schema.json`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-// A one-shot HTTP body/aggregate: it is built once per request, moved a
-// handful of times, then dropped. Boxing the large variant would trade a
-// free stack move for a heap allocation on every request and break the
-// constructor/pattern shape in every downstream repository, so the size
-// skew is accepted deliberately.
-#[allow(clippy::large_enum_variant)]
-pub enum KeyPackageOperations {
-    KeyPackagesUploadRequestBody(crate::http_bodies::KeyPackagesUploadRequestBody),
-    KeyPackagesUploadOutcome(crate::http_bodies::KeyPackagesUploadOutcome),
-    KeyPackagesClaimRequestBody(crate::http_bodies::KeyPackagesClaimRequestBody),
-    KeyPackagesClaimOutcome(crate::http_bodies::KeyPackagesClaimOutcome),
-    PeerKeyPackagesClaimQueryRequestBody(crate::http_bodies::PeerKeyPackagesClaimQueryRequestBody),
-    PeerKeyPackagesClaimQueryOutcome(crate::http_bodies::PeerKeyPackagesClaimQueryOutcome),
-    KeyPackagesConsumeRequestBody(crate::http_bodies::KeyPackagesConsumeRequestBody),
-    KeyPackagesConsumeOutcome(crate::http_bodies::KeyPackagesConsumeOutcome),
-    KeyPackagesRevokeRequestBody(crate::http_bodies::KeyPackagesRevokeRequestBody),
-    KeyPackagesRevokeOutcome(crate::http_bodies::KeyPackagesRevokeOutcome),
 }
 
 #[cfg(test)]

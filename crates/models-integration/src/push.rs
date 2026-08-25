@@ -175,18 +175,6 @@ impl PushBridgeDescribeGatewayDescriptor {
     pub fn supports_profile(&self, name: &str) -> bool {
         list_contains_ignore_ascii_case(&self.supported_profiles, name)
     }
-
-    /// Whether this gateway advertises support for `name` as a downstream
-    /// provider (case-insensitive).
-    pub fn supports_provider(&self, name: &str) -> bool {
-        list_contains_ignore_ascii_case(&self.supported_providers, name)
-    }
-
-    /// Whether the gateway will accept the requested auth mode such as
-    /// `"http-message-signature"` or `"bearer"`.
-    pub fn supports_auth_mode(&self, name: &str) -> bool {
-        list_contains_ignore_ascii_case(&self.auth_modes, name)
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -210,26 +198,9 @@ pub struct PushBridgeDescribeNotifyDescriptor {
 }
 
 impl PushBridgeDescribeNotifyDescriptor {
-    /// Whether the gateway has any deduplication backend configured.
-    pub fn supports_dedup(&self) -> bool {
-        self.dedup_backend
-            .as_deref()
-            .is_some_and(|backend| !backend.trim().is_empty())
-    }
-
-    /// Deduplication retention window, when advertised.
-    pub fn dedup_window(&self) -> Option<Duration> {
-        self.dedup_ttl_seconds.map(Duration::from_secs)
-    }
-
     /// Rate-limit window length, when advertised.
     pub fn rate_limit_window(&self) -> Option<Duration> {
         self.rate_limit_window_seconds.map(Duration::from_secs)
-    }
-
-    /// Whether the gateway advertises the named rate-limit scope.
-    pub fn rate_limits_by(&self, scope: &str) -> bool {
-        list_contains_ignore_ascii_case(&self.rate_limit_scopes, scope)
     }
 
     /// Maximum request size in bytes, exposed as `usize` for convenience.
@@ -278,24 +249,6 @@ pub struct ProviderCapabilityDescriptor {
     /// not inspect.
     #[serde(default)]
     pub blind_wakeup_required: bool,
-}
-
-impl ProviderCapabilityDescriptor {
-    /// TTL cap exposed as `Duration`, when advertised.
-    pub fn ttl_max(&self) -> Option<Duration> {
-        self.ttl_seconds_max.map(Duration::from_secs)
-    }
-
-    /// Whether this provider accepts a multi-recipient batch shape.
-    pub fn supports_batch(&self) -> bool {
-        !self.batch.eq_ignore_ascii_case("none") && !self.batch.is_empty()
-    }
-
-    /// Whether this provider lists `kind` among its accepted credential
-    /// material (case-insensitive).
-    pub fn accepts_credential(&self, kind: &str) -> bool {
-        list_contains_ignore_ascii_case(&self.credential_kinds, kind)
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -380,9 +333,6 @@ mod tests {
         assert!(descriptor.supports_profile("FCM"));
         assert!(descriptor.supports_profile("apns"));
         assert!(!descriptor.supports_profile("webpush"));
-        assert!(descriptor.supports_provider("Huawei"));
-        assert!(!descriptor.supports_provider("xiaomi"));
-        assert!(descriptor.supports_auth_mode("HTTP-Message-Signature"));
     }
 
     #[test]
@@ -401,19 +351,11 @@ mod tests {
             rate_limit_scopes: vec!["per-app".to_owned()],
         };
 
-        assert!(descriptor.supports_dedup());
-        assert_eq!(descriptor.dedup_window(), Some(Duration::from_secs(300)));
         assert_eq!(
             descriptor.rate_limit_window(),
             Some(Duration::from_secs(60))
         );
-        assert!(descriptor.rate_limits_by("per-app"));
-        assert!(!descriptor.rate_limits_by("per-actor"));
         assert_eq!(descriptor.max_request_size(), 16 * 1024);
-
-        let empty = PushBridgeDescribeNotifyDescriptor::default();
-        assert!(!empty.supports_dedup());
-        assert!(empty.dedup_window().is_none());
     }
 
     #[test]
@@ -436,12 +378,10 @@ mod tests {
         assert_eq!(cap.name, "default-fcm-app");
         assert_eq!(cap.kind, "fcm");
         assert_eq!(cap.batch, "multicast");
-        assert_eq!(cap.ttl_max(), Some(Duration::from_secs(28 * 24 * 60 * 60)));
+        assert_eq!(cap.ttl_seconds_max, Some(28 * 24 * 60 * 60));
         assert!(cap.supports_collapse);
         assert!(cap.supports_badge);
-        assert!(cap.supports_batch());
-        assert!(cap.accepts_credential("service_account_v1"));
-        assert!(!cap.accepts_credential("vapid_keypair"));
+        assert_eq!(cap.credential_kinds, ["service_account_v1"]);
         assert!(cap.blind_wakeup_required);
 
         let reserialized = serde_json::to_value(&cap).expect("serialize fixture");

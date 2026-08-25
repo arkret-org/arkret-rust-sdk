@@ -142,14 +142,6 @@ impl AppletDelegatedEventAuthorization {
     pub fn validate(&self) -> Result<()> {
         Ok(())
     }
-
-    pub fn apply_to_event(&self, event: &mut Event) -> Result<()> {
-        self.validate()?;
-        event.executed_by = Some(self.executed_by.clone());
-        event.authorization_ref = Some(self.authorization_ref.clone());
-        event.applet_id = Some(self.applet_id.clone());
-        Ok(())
-    }
 }
 
 /// Typed `profile_fields` payload for an Applet-managed Ghost Actor.
@@ -195,37 +187,6 @@ mod tests {
             serde_json::json!({"object": {}}),
         )
         .unwrap()
-    }
-
-    #[test]
-    fn applet_delegation_applies_all_signed_envelope_fields() {
-        let mut event = arkret_wire::test_support::raw_event(
-            "ak.profile.create",
-            ScopeRef::Realm {
-                realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
-                    .unwrap(),
-            },
-            DidCoreId::new("ak:did_core:web:ghost.example").unwrap(),
-            DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
-            1,
-            Hlc::new("019041000000-0000-00000000").unwrap(),
-            serde_json::json!({"object": {}}),
-        )
-        .unwrap();
-        let authorization = AppletDelegatedEventAuthorization::new(
-            DidCoreId::new("ak:did_core:web:applet.example").unwrap(),
-            AuthorizationRef::new("ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1").unwrap(),
-            AppletId::new("ak:applet:01904100-0000-7000-8000-000000000003").unwrap(),
-        );
-
-        authorization.apply_to_event(&mut event).unwrap();
-
-        assert_eq!(event.executed_by.as_ref(), Some(&authorization.executed_by));
-        assert_eq!(
-            event.authorization_ref.as_deref(),
-            Some(authorization.authorization_ref.as_str())
-        );
-        assert_eq!(event.applet_id.as_ref(), Some(&authorization.applet_id));
     }
 
     #[test]

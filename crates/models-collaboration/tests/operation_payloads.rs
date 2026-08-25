@@ -5,9 +5,7 @@ use arkret_models_collaboration::events_payloads::{ObjectCreatePayload, *};
 use arkret_models_collaboration::objects::profiles::{Morph, MorphMetadata};
 use arkret_models_collaboration::objects::space::Space;
 use arkret_models_collaboration::objects::strand::{MessageMetadata, StrandMetadata};
-use arkret_models_crypto::{
-    EncryptedEnvelope, MlsEncryptedPayload, PlainPayload, ProtectedPayload,
-};
+use arkret_models_crypto::{EncryptedEnvelope, MlsEncryptedPayload, ProtectedPayload};
 use arkret_schema::event_payload_validator_catalog;
 use arkret_wire::{
     DidCoreId, DidFullId, MorphId, RealmId, SpaceId, StrandId, project_full_id_to_core_id,
@@ -126,10 +124,10 @@ fn message_create_payload_requires_exactly_one_content_carrier() {
 fn message_payload_protection_axis_is_closed_and_typed() {
     let strand_id =
         StrandId::new("ak:strand:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1").unwrap();
-    let plain = MessageCreatePayload::with_protected_content(
+    let plain = MessageCreatePayload::with_content(
         strand_id.clone(),
         "discussion",
-        ProtectedPayload::from(PlainPayload::new(ContentBlock::text("hello"))),
+        ContentBlock::text("hello"),
     );
     assert!(matches!(
         plain.protected_content().unwrap(),
@@ -216,9 +214,6 @@ fn message_create_payload_reads_plain_body_and_first_media_block() {
     payload.blob_refs.push(blob_ref.clone());
 
     assert_eq!(payload.plain_body().unwrap(), "caption text");
-    assert!(MEDIA_CONTENT_KINDS.contains(&CONTENT_KIND_FILE));
-    let block = payload.first_media_content_block().unwrap().unwrap();
-    assert_eq!(block.kind, ContentBlockKind::File);
     let attachment = payload.first_media_attachment().unwrap().unwrap();
     assert_eq!(attachment.blob_ref, blob_ref);
     assert_eq!(attachment.mime_type.as_deref(), Some("application/pdf"));

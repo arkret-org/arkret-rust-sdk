@@ -1,8 +1,8 @@
 //! Push gateway endpoint methods on [`Client`].
 
 use arkret_models_integration::{
-    OkOutcome, PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
-    PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody,
+    PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
+    PushRegisterDeviceRequestBody,
 };
 
 use crate::{Client, Result};
@@ -13,14 +13,6 @@ impl Client {
         request: &PushRegisterDeviceRequestBody,
     ) -> Result<PushRegisterDeviceOutcome> {
         self.post("/_arkret/edge/push/register-device", request)
-            .await
-    }
-
-    pub async fn push_unregister_device(
-        &self,
-        request: &PushUnregisterDeviceRequestBody,
-    ) -> Result<OkOutcome> {
-        self.post("/_arkret/edge/push/unregister-device", request)
             .await
     }
 

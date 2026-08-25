@@ -116,12 +116,6 @@ pub const VAULT_NONCE_LEN: usize = 24;
 /// raw secret bytes.
 pub const BACKUP_PASSPHRASE_BYTES: usize = 32;
 
-#[deprecated(
-    since = "0.3.0",
-    note = "use BACKUP_PASSPHRASE_BYTES; identity recovery secrets live in identity_root"
-)]
-pub const RECOVERY_KEY_BYTES: usize = BACKUP_PASSPHRASE_BYTES;
-
 /// Outcome of [`derive_vault_kek`]: the **root unlock key** plus the
 /// parameters that generated it. The parameters round-trip into the
 /// backup envelope so any future device can reproduce the KDF given just
@@ -599,17 +593,6 @@ pub fn decrypt_key_backup_envelope(
     Ok(keybag)
 }
 
-/// Generate a product-chosen backup passphrase using a complete 256-bit
-/// Crockford-base32-style encoding.
-///
-/// This helper is for `recipient_method="passphrase_kdf"`; it does not create
-/// the standard identity recovery secret.
-pub fn generate_backup_passphrase() -> Result<String> {
-    let mut bytes = [0u8; BACKUP_PASSPHRASE_BYTES];
-    fill(&mut bytes).map_err(|err| KeyBackupError::Rng(format!("backup passphrase rng: {err}")))?;
-    Ok(format_backup_passphrase(&bytes))
-}
-
 /// Render all input bits as Crockford-base32-style groups. A 32-byte input
 /// becomes 52 characters (plus separators), with the final partial group
 /// zero-padded rather than discarded.
@@ -639,34 +622,6 @@ pub fn format_backup_passphrase(bytes: &[u8]) -> String {
         groups.push(current);
     }
     groups.join("-")
-}
-
-#[deprecated(
-    since = "0.3.0",
-    note = "use generate_backup_passphrase; identity recovery mnemonics live in identity_root"
-)]
-pub fn generate_recovery_key() -> Result<String> {
-    generate_backup_passphrase()
-}
-
-#[deprecated(
-    since = "0.3.0",
-    note = "use format_backup_passphrase; identity recovery mnemonics live in identity_root"
-)]
-pub fn format_recovery_key(bytes: &[u8]) -> String {
-    format_backup_passphrase(bytes)
-}
-
-/// SHA-256 the recovery key (UTF-8) and return `"sha256:<hex>"`. Only
-/// the digest is persisted on disk so the plaintext is gone the moment
-/// the user dismisses the "copy / print" affordance.
-pub fn fingerprint_backup_passphrase(passphrase: &str) -> String {
-    sha256_digest(passphrase.as_bytes())
-}
-
-#[deprecated(since = "0.3.0", note = "use fingerprint_backup_passphrase")]
-pub fn fingerprint_recovery_key(recovery_key: &str) -> String {
-    fingerprint_backup_passphrase(recovery_key)
 }
 
 /// Build a typed `ak.schema.key_backup.v1` genesis envelope from closed

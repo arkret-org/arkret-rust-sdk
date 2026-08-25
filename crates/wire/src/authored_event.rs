@@ -161,21 +161,6 @@ impl AuthoredEvent {
         self.event.unsigned.insert(key.into(), value);
     }
 
-    /// Test-only constructor that skips the identity proof.
-    ///
-    /// Production code cannot reach it: `test-support` is a dev-dependency
-    /// feature. It exists so downstream tests can build the one input shape the
-    /// public constructors refuse, and prove that the paths consuming an
-    /// `AuthoredEvent` — signing above all — fail closed on it.
-    #[cfg(feature = "test-support")]
-    #[doc(hidden)]
-    pub fn from_unverified_for_test(event: Event, digest_suite: DigestSuite) -> Self {
-        Self {
-            event,
-            digest_suite,
-        }
-    }
-
     /// Re-prove the identity invariant against the carried content.
     ///
     /// Held by construction; kept as the explicit assertion the signer runs so

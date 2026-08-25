@@ -17,7 +17,6 @@ use crate::mls_envelopes::MlsCommitEnvelope;
 pub const MLS_GOVERNANCE_BINDING_VERSION: u8 = 1;
 pub const MLS_GOVERNANCE_BINDING_ENCODING_PROFILE: &str = "cbor-deterministic-rfc8949-v1";
 pub const MLS_GOVERNANCE_BINDING_EXTENSION_TYPE: u16 = 0xF1C0;
-pub const MLS_GOVERNANCE_BINDING_EXTENSION_NAME: &str = "mls_governance_binding";
 
 fn content_scheme_from_str(value: &str) -> Result<ContentScheme> {
     value
@@ -209,18 +208,6 @@ impl MlsGovernanceBindingPayload {
         };
         payload.validate()?;
         Ok(payload)
-    }
-
-    pub fn with_binding_profile(mut self, profile: impl Into<String>) -> Result<Self> {
-        self.binding_profile = profile.into();
-        self.validate()?;
-        Ok(self)
-    }
-
-    pub fn with_reducer_profile(mut self, profile: impl Into<String>) -> Result<Self> {
-        self.reducer_profile = profile.into();
-        self.validate()?;
-        Ok(self)
     }
 
     pub fn validate(&self) -> Result<()> {
@@ -452,13 +439,6 @@ impl MlsGovernanceBindingPayload {
         Ok(payload)
     }
 
-    pub fn to_group_context_extension(&self) -> Result<MlsGovernanceBindingExtension> {
-        Ok(MlsGovernanceBindingExtension {
-            extension_type: MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
-            extension_data: self.to_deterministic_cbor()?,
-        })
-    }
-
     pub fn realm_id(&self) -> &RealmId {
         &self.realm_id
     }
@@ -662,49 +642,13 @@ pub struct MlsGovernanceBindingValidationContext<'a> {
     pub forbid_sidecar_binding: bool,
 }
 
-impl<'a> MlsGovernanceBindingValidationContext<'a> {
-    pub fn for_commit(
-        mls_group_id: &'a str,
-        previous_epoch: u64,
-        next_epoch: u64,
-        binding_profile: &'a str,
-        reducer_profile: &'a str,
-    ) -> Self {
-        Self {
-            mls_group_id,
-            previous_epoch,
-            next_epoch,
-            binding_profile,
-            reducer_profile,
-            effective_scope: None,
-            security_frontier_digest: None,
-            content_scheme: None,
-            durability_policy: None,
-            sidecar_binding: None,
-            forbid_sidecar_binding: false,
-        }
-    }
-
-    pub fn with_sidecar_binding(mut self, binding: &'a SidecarMlsBinding) -> Self {
-        self.sidecar_binding = Some(binding);
-        self.forbid_sidecar_binding = false;
-        self
-    }
-
-    pub fn without_sidecar_binding(mut self) -> Self {
-        self.sidecar_binding = None;
-        self.forbid_sidecar_binding = true;
-        self
-    }
-}
-
 pub fn decode_mls_governance_binding_extension(
     extension_type: u16,
     extension_data: &[u8],
 ) -> Result<MlsGovernanceBindingPayload> {
     if extension_type != MLS_GOVERNANCE_BINDING_EXTENSION_TYPE {
         return Err(WireError::Protocol(format!(
-            "expected {MLS_GOVERNANCE_BINDING_EXTENSION_NAME} GroupContext extension codepoint 0x{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE:04X}, got 0x{extension_type:04X} (unsupported_profile)"
+            "expected mls_governance_binding GroupContext extension codepoint 0x{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE:04X}, got 0x{extension_type:04X} (unsupported_profile)"
         )));
     }
     MlsGovernanceBindingPayload::from_deterministic_cbor(extension_data)
@@ -716,7 +660,7 @@ pub fn verify_mls_governance_binding_extension(
 ) -> Result<MlsGovernanceBindingPayload> {
     let extension = extension.ok_or_else(|| {
         WireError::Protocol(format!(
-            "missing {MLS_GOVERNANCE_BINDING_EXTENSION_NAME} GroupContext extension 0x{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE:04X} (unsupported_profile)"
+            "missing mls_governance_binding GroupContext extension 0x{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE:04X} (unsupported_profile)"
         ))
     })?;
     let payload = extension.decode_payload()?;
@@ -1514,6 +1458,32 @@ mod tests {
         "ak.reducer.core.v1"
     }
 
+    fn commit_context<'a>(
+        binding: &'a MlsGovernanceBindingPayload,
+        binding_profile: &'a str,
+    ) -> MlsGovernanceBindingValidationContext<'a> {
+        MlsGovernanceBindingValidationContext {
+            mls_group_id: binding.mls_group_id(),
+            previous_epoch: binding.previous_epoch(),
+            next_epoch: binding.next_epoch(),
+            binding_profile,
+            reducer_profile: reducer_profile(),
+            effective_scope: None,
+            security_frontier_digest: None,
+            content_scheme: None,
+            durability_policy: None,
+            sidecar_binding: None,
+            forbid_sidecar_binding: false,
+        }
+    }
+
+    fn extension_of(binding: &MlsGovernanceBindingPayload) -> MlsGovernanceBindingExtension {
+        MlsGovernanceBindingExtension {
+            extension_type: MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
+            extension_data: binding.to_deterministic_cbor().unwrap(),
+        }
+    }
+
     fn full_binding() -> MlsGovernanceBindingPayload {
         MlsGovernanceBindingPayload::realm(
             realm(),
@@ -1564,12 +1534,15 @@ mod tests {
         )
         .unwrap();
 
-        binding
-            .clone()
-            .with_binding_profile("ak.profile.mls_governance_binding.full.v1")
-            .unwrap();
-        assert!(binding.clone().with_binding_profile("mls.full").is_err());
-        assert!(binding.clone().with_reducer_profile("").is_err());
+        let mut renamed = binding.clone();
+        renamed.binding_profile = "ak.profile.mls_governance_binding.full.v1".to_owned();
+        renamed.validate().unwrap();
+        let mut invalid = binding.clone();
+        invalid.binding_profile = "mls.full".to_owned();
+        assert!(invalid.validate().is_err());
+        let mut empty_reducer = binding.clone();
+        empty_reducer.reducer_profile = String::new();
+        assert!(empty_reducer.validate().is_err());
 
         let value = serde_json::to_value(&binding).unwrap();
         assert_eq!(value["security_frontier_digest"], hash('2').as_str());
@@ -1597,7 +1570,7 @@ mod tests {
 
         assert_eq!(decoded, binding);
         assert_eq!(
-            decoded.to_group_context_extension().unwrap().extension_type,
+            extension_of(&decoded).extension_type,
             MLS_GOVERNANCE_BINDING_EXTENSION_TYPE
         );
         assert!(!bytes.windows(7).any(|window| window == b"track"));
@@ -1734,39 +1707,24 @@ mod tests {
         );
         let decoded = MlsGovernanceBindingPayload::from_deterministic_cbor(&bytes).unwrap();
         assert_eq!(decoded.sidecar_binding(), Some(&sidecar_binding));
-        let expected = MlsGovernanceBindingValidationContext::for_commit(
-            binding.mls_group_id(),
-            binding.previous_epoch(),
-            binding.next_epoch(),
-            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
-            reducer_profile(),
-        )
-        .with_sidecar_binding(&sidecar_binding);
+        let mut expected = commit_context(&binding, ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1);
+        expected.sidecar_binding = Some(&sidecar_binding);
         decoded.validate_against(&expected).unwrap();
 
         let mut stale = sidecar_binding.clone();
         stale.participant_authority_digest = hash('9');
-        let stale_expected = MlsGovernanceBindingValidationContext::for_commit(
-            binding.mls_group_id(),
-            binding.previous_epoch(),
-            binding.next_epoch(),
-            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
-            reducer_profile(),
-        )
-        .with_sidecar_binding(&stale);
+        let mut stale_expected =
+            commit_context(&binding, ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1);
+        stale_expected.sidecar_binding = Some(&stale);
         assert!(decoded.validate_against(&stale_expected).is_err());
         assert!(
             decoded
-                .validate_against(
-                    &MlsGovernanceBindingValidationContext::for_commit(
-                        binding.mls_group_id(),
-                        binding.previous_epoch(),
-                        binding.next_epoch(),
-                        ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
-                        reducer_profile(),
-                    )
-                    .without_sidecar_binding(),
-                )
+                .validate_against(&{
+                    let mut context =
+                        commit_context(&binding, ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1);
+                    context.forbid_sidecar_binding = true;
+                    context
+                })
                 .is_err()
         );
     }
@@ -1805,13 +1763,7 @@ mod tests {
     #[test]
     fn mls_governance_binding_rejects_missing_or_wrong_extension_codepoint() {
         let binding = full_binding();
-        let mut expected = MlsGovernanceBindingValidationContext::for_commit(
-            binding.mls_group_id(),
-            binding.previous_epoch(),
-            binding.next_epoch(),
-            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
-            reducer_profile(),
-        );
+        let mut expected = commit_context(&binding, ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1);
         expected.security_frontier_digest = Some(binding.security_frontier_digest());
 
         let missing = verify_mls_governance_binding_extension(None, &expected).unwrap_err();
@@ -1834,17 +1786,11 @@ mod tests {
 
     #[test]
     fn mls_governance_binding_rejects_profile_downgrade_in_full_context() {
-        let relaxed = full_binding()
-            .with_binding_profile(ProfileId::E2EE_RELAXED_V1)
-            .unwrap();
-        let expected = MlsGovernanceBindingValidationContext::for_commit(
-            relaxed.mls_group_id(),
-            relaxed.previous_epoch(),
-            relaxed.next_epoch(),
-            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
-            reducer_profile(),
-        );
-        let extension = relaxed.to_group_context_extension().unwrap();
+        let mut relaxed = full_binding();
+        relaxed.binding_profile = ProfileId::E2EE_RELAXED_V1.to_owned();
+        relaxed.validate().unwrap();
+        let expected = commit_context(&relaxed, ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1);
+        let extension = extension_of(&relaxed);
         let err = verify_mls_governance_binding_extension(Some(&extension), &expected).unwrap_err();
 
         assert!(
@@ -1856,16 +1802,10 @@ mod tests {
     #[test]
     fn mls_governance_binding_rejects_stale_security_frontier_digest() {
         let binding = full_binding();
-        let mut expected = MlsGovernanceBindingValidationContext::for_commit(
-            binding.mls_group_id(),
-            binding.previous_epoch(),
-            binding.next_epoch(),
-            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
-            reducer_profile(),
-        );
+        let mut expected = commit_context(&binding, ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1);
         let stale_security_frontier_digest = hash('9');
         expected.security_frontier_digest = Some(&stale_security_frontier_digest);
-        let extension = binding.to_group_context_extension().unwrap();
+        let extension = extension_of(&binding);
         let err = verify_mls_governance_binding_extension(Some(&extension), &expected).unwrap_err();
 
         assert!(

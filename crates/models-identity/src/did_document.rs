@@ -280,29 +280,10 @@ impl DidDocument {
         self.id.method()
     }
 
-    pub fn control_keys(&self) -> &BTreeMap<String, String> {
-        &self.verification_methods
-    }
-
-    pub fn primary_key(&self) -> Option<(&str, &str)> {
-        self.verification_methods
-            .iter()
-            .next()
-            .map(|(key_id, public_key)| (key_id.as_str(), public_key.as_str()))
-    }
-
     pub fn handles(&self) -> Vec<&str> {
         self.also_known_as
             .iter()
             .filter(|entry| !entry.starts_with("http://") && !entry.starts_with("https://"))
-            .map(String::as_str)
-            .collect()
-    }
-
-    pub fn service_urls(&self) -> Vec<&str> {
-        self.also_known_as
-            .iter()
-            .filter(|entry| entry.starts_with("http://") || entry.starts_with("https://"))
             .map(String::as_str)
             .collect()
     }
@@ -361,15 +342,10 @@ mod tests {
 
         assert_eq!(document.method(), "webvh");
         assert_eq!(
-            document.control_keys().get("key-1"),
+            document.verification_methods.get("key-1"),
             Some(&"pub".to_owned())
         );
-        assert_eq!(document.primary_key(), Some(("key-1", "pub")));
         assert_eq!(document.handles(), vec!["@alice:example"]);
-        assert_eq!(
-            document.service_urls(),
-            vec!["https://example.test/users/alice"]
-        );
     }
 
     #[test]

@@ -220,14 +220,6 @@ impl Client {
             .map(|(body, _headers)| body)
     }
 
-    pub(crate) async fn send_json_with_headers<T: DeserializeOwned>(
-        &self,
-        builder: RequestBuilder,
-    ) -> Result<(T, HeaderMap)> {
-        self.send_json_with_headers_and_replay_policy(builder, false)
-            .await
-    }
-
     async fn send_json_with_headers_and_replay_policy<T: DeserializeOwned>(
         &self,
         builder: RequestBuilder,
@@ -250,11 +242,6 @@ impl Client {
         serde_json::from_slice(&body)
             .map(|body| (body, headers))
             .map_err(Error::from)
-    }
-
-    pub(crate) async fn send_empty(&self, builder: RequestBuilder) -> Result<HeaderMap> {
-        let response = self.send_response(builder).await?;
-        Ok(response.headers().clone())
     }
 
     pub(crate) async fn send_response(&self, builder: RequestBuilder) -> Result<Response> {

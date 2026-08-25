@@ -519,40 +519,6 @@ pub enum RealmExportSchema {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RealmModerationInheritanceMode {
-    None,
-    Organization,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct RealmEffectiveModerationPolicy {
-    pub realm_id: RealmId,
-    pub inheritance_mode: RealmModerationInheritanceMode,
-    #[serde(default)]
-    pub inheritance_chain: Vec<DidCoreId>,
-    pub organization_policy_layers: Vec<BTreeMap<String, Value>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_policy: Option<BTreeMap<String, Value>>,
-    pub effective_rules: Vec<BTreeMap<String, Value>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub override_organization_approval_required: Option<bool>,
-    /// content-moderation.md §7 — how the owning organizations' policy layers
-    /// combine. A Realm that names more than one owning organization merges
-    /// their layers most-restrictively (`most_restrictive`): a join / write is
-    /// denied if ANY owning organization denies it, and a Realm override of an
-    /// organization deny requires approval from every organization that denies
-    /// the target.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_merge_strategy: Option<String>,
-    #[serde(default, flatten)]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub extra: BTreeMap<String, Value>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmModerationPolicyReplaceRequestBody {

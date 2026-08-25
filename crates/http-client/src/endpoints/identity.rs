@@ -2,39 +2,26 @@
 
 use arkret_models_crypto::{RecoveryPolicyPublishOutcome, RecoveryPolicyPublishRequest};
 use arkret_models_discovery::{
-    DidCoreIdAllowlist, DirectoryActorSearchOutcome, DirectoryAgentSelectorResolutionOutcome,
+    DirectoryActorSearchOutcome, DirectoryAgentSelectorResolutionOutcome,
     DirectoryHandleResolutionOutcome, DirectoryListHandlesForSubjectRequestBody,
-    DirectoryOrganizationResolutionOutcome, DirectoryOrganizationSearchOutcome,
-    DirectoryPrivateContactDiscoveryOutcome, DirectoryPrivateContactDiscoveryRequestBody,
-    DirectoryRealmResolutionOutcome, DirectoryRealmSearchOutcome,
-    DirectoryResolveAgentSelectorRequestBody, DirectoryResolveHandleRequestBody,
-    DirectoryResolveOrganizationRequestBody, DirectoryResolveRealmRequestBody,
+    DirectoryOrganizationSearchOutcome, DirectoryRealmResolutionOutcome,
+    DirectoryRealmSearchOutcome, DirectoryResolveAgentSelectorRequestBody,
+    DirectoryResolveHandleRequestBody, DirectoryResolveRealmRequestBody,
     DirectoryResolveTargetRequestBody, DirectorySearchActorsRequestBody,
     DirectorySearchOrganizationsRequestBody, DirectorySearchRealmsRequestBody,
-    DirectorySearchUsersRequestBody, DirectorySubjectHandleList, DirectoryTargetResolutionOutcome,
-    DirectoryUserSearchOutcome, ServiceDescribe, ServiceEndpointBinding, ServiceRequirements,
+    DirectorySubjectHandleList, DirectoryTargetResolutionOutcome, ServiceDescribe,
+    ServiceRequirements,
 };
-#[cfg(not(target_arch = "wasm32"))]
-use arkret_models_identity::AuthenticatedSignerResolutionEvidence;
 use arkret_models_identity::service_identity::{
     SERVICE_REGISTRATION_ENSURE_PATH, SERVICE_REGISTRATION_GET_PATH,
     ServiceRegistrationEnsureRequestBody, ServiceRegistrationKey, ServiceRegistrationOutcome,
 };
 use arkret_models_identity::{
-    ActorProfileResolveOutcome, ActorProfileResolveRequest, AuthenticatedServiceResolution,
-    DidOperationSubmitOutcome, DidOperationSubmitRequestBody, IdentityDescription,
-    IdentityDocumentView, IdentityLogListOutcome, IdentityReceiptListOutcome,
-    IdentityResolveOutcome, IdentityResolveRequestBody, ORGANIZATION_REGISTRATION_ENSURE_PATH,
-    ORGANIZATION_REGISTRATION_GET_PATH, ORGANIZATION_REGISTRATION_PREPARE_PATH,
-    ORGANIZATION_REGISTRATION_REFRESH_PATH, ORGANIZATION_REGISTRATION_REVOKE_PATH,
-    OrganizationRegistrationChallenge, OrganizationRegistrationChallengeRequestBody,
-    OrganizationRegistrationEnsureRequestBody, OrganizationRegistrationOutcome,
-    OrganizationRegistrationRefreshRequestBody, OrganizationRegistrationRevokeRequestBody,
-    PrincipalResolutionAuditEvidence, PrincipalResolutionAuditRequest, PublicPrincipalResolution,
+    AuthenticatedServiceResolution, DidOperationSubmitOutcome, DidOperationSubmitRequestBody,
+    IdentityDescription, IdentityDocumentView, IdentityLogListOutcome, IdentityReceiptListOutcome,
+    IdentityResolveOutcome, IdentityResolveRequestBody, PublicPrincipalResolution,
 };
 use arkret_wire::{DidCoreId, ServiceKind};
-#[cfg(not(target_arch = "wasm32"))]
-use chrono::{DateTime, Utc};
 use reqwest::Method;
 
 use crate::{Client, Error, Result};
@@ -44,9 +31,8 @@ impl Client {
     /// persisting a remote binding.
     ///
     /// This surface carries no PCR material and therefore has no history
-    /// selector; account-internal audit evidence is
-    /// [`Client::self_identity_resolution_audit`]. Sensitive callers must still
-    /// verify the projection attestation and run the method adapter themselves.
+    /// selector. Sensitive callers must still verify the projection attestation
+    /// and run the method adapter themselves.
     pub async fn open_principal_resolution(
         &self,
         principal_id: &DidCoreId,
@@ -65,57 +51,6 @@ impl Client {
         Ok(resolution)
     }
 
-    /// Fetch account-internal resolution audit evidence.
-    ///
-    /// Authorization is a holder session bound to the request authority pair, an
-    /// current holder session for the exact authority pair. Recovery first
-    /// completes through the existing transaction and becomes current holder.
-    pub async fn self_identity_resolution_audit(
-        &self,
-        request: &PrincipalResolutionAuditRequest,
-    ) -> Result<PrincipalResolutionAuditEvidence> {
-        request
-            .validate()
-            .map_err(|error| Error::Protocol(error.to_string()))?;
-        let evidence: PrincipalResolutionAuditEvidence = self
-            .send_json(
-                self.request(
-                    Method::POST,
-                    "/_arkret/self/identity/resolution-audit/query",
-                )?
-                .json(request),
-            )
-            .await?;
-        evidence
-            .validate_history_continuation()
-            .map_err(|error| Error::Protocol(error.to_string()))?;
-        Ok(evidence)
-    }
-
-    /// Resolve current global Actor Profiles for actors the caller shares
-    /// `realm_id` with.
-    ///
-    /// This is the only outward carrier for the PCR-resident profile facts; a
-    /// cross-principal actor selector on the events surface is not one.
-    pub async fn self_actor_profiles(
-        &self,
-        request: &ActorProfileResolveRequest,
-    ) -> Result<ActorProfileResolveOutcome> {
-        request
-            .validate()
-            .map_err(|error| Error::Protocol(error.to_string()))?;
-        let outcome: ActorProfileResolveOutcome = self
-            .send_json(
-                self.request(Method::POST, "/_arkret/self/actor-profiles/query")?
-                    .json(request),
-            )
-            .await?;
-        outcome
-            .validate_covers(&request.actor_ids)
-            .map_err(|error| Error::Protocol(error.to_string()))?;
-        Ok(outcome)
-    }
-
     /// Fetch the current authenticated resolution closure for one stable service id.
     ///
     /// Unlike `ServiceDescribe`, this response retains the signed route record,
@@ -131,26 +66,6 @@ impl Client {
         let path = format!("/_arkret/open/services/{encoded}/resolution");
         let builder = self.public_request(Method::GET, &path)?;
         self.send_json_limited(builder, 1024 * 1024).await
-    }
-
-    /// Fetch and cryptographically verify the immutable signer evidence for
-    /// the service assertion method that signed its current resolution record.
-    ///
-    /// Realm bootstrap code should retain the returned evidence object and
-    /// derive its frozen notary descriptor with
-    /// `ed25519_notary_signer_descriptor_from_evidence`; it must not assemble
-    /// either object from Describe fields or a separate current DID lookup.
-    #[cfg(not(target_arch = "wasm32"))]
-    pub async fn open_service_signer_evidence(
-        &self,
-        service_id: &DidCoreId,
-        now: DateTime<Utc>,
-    ) -> Result<AuthenticatedSignerResolutionEvidence> {
-        let resolution = self.open_service_resolution(service_id).await?;
-        arkret_identity::service_signer_evidence_from_authenticated_resolution(
-            resolution, service_id, now,
-        )
-        .map_err(|error| Error::Protocol(error.to_string()))
     }
 
     pub async fn describe(&self) -> Result<ServiceDescribe> {
@@ -173,48 +88,6 @@ impl Client {
         ServiceRequirements::new()
             .service_kind(service_kind)
             .verify(&description)?;
-        Ok(description)
-    }
-
-    pub async fn describe_and_verify(
-        &self,
-        requirements: &ServiceRequirements,
-    ) -> Result<ServiceDescribe> {
-        let description = self.describe().await?;
-        requirements.verify(&description)?;
-        Ok(description)
-    }
-
-    pub async fn describe_role_and_verify(
-        &self,
-        service_kind: ServiceKind,
-        requirements: &ServiceRequirements,
-    ) -> Result<ServiceDescribe> {
-        let description = self.describe_for_role(service_kind).await?;
-        requirements.verify(&description)?;
-        Ok(description)
-    }
-
-    /// Fetches one role-scoped description and verifies its service DID and
-    /// advertised operations against the expected DID service binding.
-    pub async fn describe_role_and_verify_binding(
-        &self,
-        service_kind: ServiceKind,
-        requirements: &ServiceRequirements,
-        binding: &ServiceEndpointBinding,
-    ) -> Result<ServiceDescribe> {
-        if binding.service_kind != service_kind {
-            return Err(Error::Protocol(format!(
-                "service binding role {} does not match requested role {}",
-                binding.service_kind, service_kind
-            )));
-        }
-        let description = self
-            .describe_role_and_verify(service_kind, requirements)
-            .await?;
-        DidCoreIdAllowlist::new()
-            .allow(binding.clone())
-            .verify_description(&description)?;
         Ok(description)
     }
 
@@ -343,80 +216,6 @@ impl Client {
         Ok(outcome)
     }
 
-    pub async fn organization_registration_prepare(
-        &self,
-        request: &OrganizationRegistrationChallengeRequestBody,
-    ) -> Result<OrganizationRegistrationChallenge> {
-        request.validate()?;
-        let challenge: OrganizationRegistrationChallenge = self
-            .post(ORGANIZATION_REGISTRATION_PREPARE_PATH, request)
-            .await?;
-        challenge.validate_for(request)?;
-        Ok(challenge)
-    }
-
-    pub async fn organization_registration_ensure(
-        &self,
-        request: &OrganizationRegistrationEnsureRequestBody,
-    ) -> Result<OrganizationRegistrationOutcome> {
-        request.validate()?;
-        let outcome: OrganizationRegistrationOutcome = self
-            .post(ORGANIZATION_REGISTRATION_ENSURE_PATH, request)
-            .await?;
-        outcome.validate()?;
-        Ok(outcome)
-    }
-
-    pub async fn organization_registration_get(
-        &self,
-        organization_id: &DidCoreId,
-    ) -> Result<OrganizationRegistrationOutcome> {
-        let builder = self
-            .request(Method::GET, ORGANIZATION_REGISTRATION_GET_PATH)?
-            .query(&[("organization_id", organization_id.as_str())]);
-        let outcome: OrganizationRegistrationOutcome = self.send_json(builder).await?;
-        outcome.validate()?;
-        if outcome.created {
-            return Err(Error::Protocol(
-                "organization-registration GET response must set created=false".to_owned(),
-            ));
-        }
-        Ok(outcome)
-    }
-
-    pub async fn organization_registration_refresh(
-        &self,
-        request: &OrganizationRegistrationRefreshRequestBody,
-    ) -> Result<OrganizationRegistrationOutcome> {
-        request.validate()?;
-        let outcome: OrganizationRegistrationOutcome = self
-            .post(ORGANIZATION_REGISTRATION_REFRESH_PATH, request)
-            .await?;
-        outcome.validate()?;
-        if outcome.created {
-            return Err(Error::Protocol(
-                "organization-registration refresh must not open a generation".to_owned(),
-            ));
-        }
-        Ok(outcome)
-    }
-
-    pub async fn organization_registration_revoke(
-        &self,
-        request: &OrganizationRegistrationRevokeRequestBody,
-    ) -> Result<OrganizationRegistrationOutcome> {
-        let outcome: OrganizationRegistrationOutcome = self
-            .post(ORGANIZATION_REGISTRATION_REVOKE_PATH, request)
-            .await?;
-        outcome.validate()?;
-        if outcome.created {
-            return Err(Error::Protocol(
-                "organization-registration revoke must not open a generation".to_owned(),
-            ));
-        }
-        Ok(outcome)
-    }
-
     pub async fn directory_describe(&self) -> Result<ServiceDescribe> {
         self.get("/_arkret/find/directory/describe").await
     }
@@ -459,36 +258,11 @@ impl Client {
             .await
     }
 
-    pub async fn directory_resolve_organization(
-        &self,
-        request: &DirectoryResolveOrganizationRequestBody,
-    ) -> Result<DirectoryOrganizationResolutionOutcome> {
-        self.post("/_arkret/find/directory/resolve-organization", request)
-            .await
-    }
-
     pub async fn directory_search_actors(
         &self,
         request: &DirectorySearchActorsRequestBody,
     ) -> Result<DirectoryActorSearchOutcome> {
         self.post("/_arkret/find/directory/search-actors", request)
-            .await
-    }
-
-    pub async fn directory_search_users(
-        &self,
-        q: &str,
-        realm_id: Option<&str>,
-        limit: Option<u32>,
-    ) -> Result<DirectoryUserSearchOutcome> {
-        let request = DirectorySearchUsersRequestBody {
-            query: q.to_owned(),
-            realm_id: realm_id.map(str::parse).transpose()?,
-            cursor: None,
-            limit,
-            intent: None,
-        };
-        self.post("/_arkret/find/directory/search-users", &request)
             .await
     }
 
@@ -525,13 +299,5 @@ impl Client {
             .await?;
         body.validate()?;
         Ok(body)
-    }
-
-    pub async fn directory_private_contact_discovery(
-        &self,
-        request: &DirectoryPrivateContactDiscoveryRequestBody,
-    ) -> Result<DirectoryPrivateContactDiscoveryOutcome> {
-        self.post("/_arkret/find/directory/private-contact-discovery", request)
-            .await
     }
 }

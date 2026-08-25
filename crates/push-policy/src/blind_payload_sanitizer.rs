@@ -401,140 +401,168 @@ pub fn is_allowed_blind_field(key: &str) -> bool {
 
 /// Return true if `key` is a forbidden payload key for the blind wakeup
 /// contract. Centralised here so chime / floria stay in sync.
+pub const FORBIDDEN_BLIND_PAYLOAD_KEYS: &[&str] = &[
+    "event_id",
+    "message_id",
+    "strand_id",
+    "realm_id",
+    "space_id",
+    "thread_id",
+    "correlation_id",
+    "request_id",
+    "txn_id",
+    "tracking_id",
+    "sender",
+    "sender_did",
+    "sender_handle",
+    "sender_actor_display_name",
+    "sender_display_name",
+    "sender_name",
+    "user_name",
+    "display_name",
+    "from",
+    "to",
+    "target_did",
+    "actor",
+    "audience",
+    "audiences",
+    "audience_mention",
+    "audience_mentions",
+    "audience_mention_policy",
+    "audience_mention_routing_hint",
+    "audience_recipient_count",
+    "recipient_count",
+    "recipient_counts",
+    "expanded_recipients",
+    "watcher_count",
+    "participant_count",
+    "engaged_count",
+    "device_did",
+    "device_url",
+    "device_id",
+    "device_name",
+    "body",
+    "message_content",
+    "formatted_body",
+    "notification_body",
+    "message",
+    "message_payload",
+    "message_payload_digest",
+    "message_text",
+    "text",
+    "plaintext",
+    "content",
+    "title",
+    "subtitle",
+    "notification_title",
+    "alert",
+    "preview",
+    "summary",
+    "template",
+    "template_vars",
+    "reaction",
+    "reaction_value",
+    "target_ref",
+    "target_key",
+    "collection_title",
+    "collection_key",
+    "reminder_note",
+    "note",
+    "draft_slot",
+    "origin_device_id",
+    "realm_key",
+    "blind_tokens",
+    "shard_key",
+    "filename",
+    "file_name",
+    "attachment_name",
+    "attachment_filename",
+    "attachment_preview",
+    "mime_type",
+    "media_url",
+    "space_name",
+    "strand_name",
+    "room_name",
+    "room_display_name",
+    "provider_payload",
+    "provider_data",
+    "notification_payload",
+    "payload",
+    "aps",
+    "android",
+    "webpush",
+    "encrypted_content",
+    "ciphertext",
+    "sdp",
+    "offer",
+    "candidate",
+    "ice",
+    "ice_candidate",
+    "ice_candidates",
+    "turn",
+    "turns",
+    "turn_credential",
+    "turn_credentials",
+    "call_setup",
+    "facet",
+    "facets",
+    "entity_facet",
+    "entity_facets",
+    "view_renderer",
+    "view_renderers",
+    "rendered_view",
+    "renderer",
+];
+
+/// Fields accepted on the gateway-facing blind notification but stripped
+/// before constructing an external provider payload. They are routing,
+/// audit, preference, or encrypted-protocol state rather than provider data.
+pub const PROVIDER_EGRESS_STRIP_KEYS: &[&str] = &[
+    "route_tokens",
+    "realm_route_token",
+    "scope_route_token",
+    "mention_redirect_target_route_tokens",
+    "delivery_binding_frontier_token",
+    "target_route_token",
+    "timing_profile_hint",
+    "attestation_evidence",
+    "attestation_chain",
+    "size",
+    "strand_body",
+    "encrypted_payload",
+    "encrypted_metadata",
+    "metadata",
+    "fields",
+    "track",
+    "track_name",
+    "push_rules",
+    "dnd",
+    "dnd_schedule",
+    "dnd_enabled",
+    "dnd_exceptions",
+    "snooze",
+    "snoozed",
+    "snooze_expires_at",
+    "snooze_until",
+    "appeal_id",
+    "audit_purpose",
+    "audit_policy_version_digest",
+    "policy_frontier_digest",
+    "trust_domain",
+];
+
 pub fn is_forbidden_payload_key(key: &str) -> bool {
-    matches!(
-        key.to_ascii_lowercase().as_str(),
-        // Correlation identifiers.
-        "event_id"
-            | "message_id"
-            | "strand_id"
-            // Realm and Space identifiers are forbidden in blind push payloads
-            // since either leaks correlatable scope.
-            | "realm_id"
-            | "space_id"
-            | "thread_id"
-            | "correlation_id"
-            | "request_id"
-            | "txn_id"
-            | "tracking_id"
-            // Sender / target identity.
-            | "sender"
-            | "sender_did"
-            | "sender_handle"
-            | "sender_actor_display_name"
-            | "sender_display_name"
-            | "sender_name"
-            | "user_name"
-            | "display_name"
-            | "from"
-            | "to"
-            | "target_did"
-            | "actor"
-            // Audience mention expansion state. Servers may compute
-            // receiver-side `mentions_actor`, but push payloads must not
-            // leak which audience was expanded, recipient counts, or the
-            // concrete recipient list.
-            | "audience"
-            | "audiences"
-            | "audience_mention"
-            | "audience_mentions"
-            | "audience_mention_policy"
-            | "audience_mention_routing_hint"
-            | "audience_recipient_count"
-            | "recipient_count"
-            | "recipient_counts"
-            | "expanded_recipients"
-            | "watcher_count"
-            | "participant_count"
-            | "engaged_count"
-            // Device identity. Devices are not independent actors and no longer
-            // have DID identifiers; they are identified by
-            // `device_id = ak:device:<uuid>` under a principal DID verification
-            // method. Keep `device_did` forbidden for defense in depth so
-            // malicious clients cannot leak linkable identity.
-            | "device_did"
-            | "device_url"
-            | "device_id"
-            | "device_name"
-            // Content / preview.
-            | "body"
-            // Spec rename (head 37ce729): `message_body` → `message_content`.
-            | "message_content"
-            | "formatted_body"
-            | "notification_body"
-            | "message"
-            | "message_payload"
-            | "message_payload_digest"
-            | "message_text"
-            | "text"
-            | "plaintext"
-            | "content"
-            | "title"
-            | "subtitle"
-            | "notification_title"
-            | "alert"
-            | "preview"
-            | "summary"
-            | "template"
-            | "template_vars"
-            | "reaction"
-            | "reaction_value"
-            | "target_ref"
-            | "target_key"
-            | "collection_title"
-            | "collection_key"
-            | "reminder_note"
-            | "note"
-            | "draft_slot"
-            | "origin_device_id"
-            | "realm_key"
-            | "blind_tokens"
-            | "shard_key"
-            // Attachment metadata.
-            | "filename"
-            | "file_name"
-            | "attachment_name"
-            | "attachment_filename"
-            | "attachment_preview"
-            | "mime_type"
-            | "media_url"
-            // Space / strand / room names.
-            | "space_name"
-            | "strand_name"
-            | "room_name"
-            | "room_display_name"
-            // Provider escape hatches.
-            | "provider_payload"
-            | "provider_data"
-            | "notification_payload"
-            | "payload"
-            | "aps"
-            | "android"
-            | "webpush"
-            | "encrypted_content"
-            | "ciphertext"
-            // Call setup.
-            | "sdp"
-            | "offer"
-            | "candidate"
-            | "ice"
-            | "ice_candidate"
-            | "ice_candidates"
-            | "turn"
-            | "turns"
-            | "turn_credential"
-            | "turn_credentials"
-            | "call_setup"
-            // View renderers.
-            | "facet"
-            | "facets"
-            | "entity_facet"
-            | "entity_facets"
-            | "view_renderer"
-            | "view_renderers"
-            | "rendered_view"
-            | "renderer"
-    )
+    let key = key.to_ascii_lowercase();
+    FORBIDDEN_BLIND_PAYLOAD_KEYS.contains(&key.as_str())
+}
+
+/// Return true when an internal notification field must not cross the final
+/// external provider boundary.
+pub fn is_forbidden_provider_egress_key(key: &str) -> bool {
+    is_forbidden_payload_key(key)
+        || PROVIDER_EGRESS_STRIP_KEYS
+            .iter()
+            .any(|name| name.eq_ignore_ascii_case(key))
 }
 
 #[cfg(test)]

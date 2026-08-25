@@ -87,16 +87,6 @@ pub fn validate_event_envelope_byte_len(byte_len: usize) -> Result<()> {
     Ok(())
 }
 
-/// Reject an HTTP message content length before the body is parsed or canonicalized.
-pub fn validate_http_message_content_len(byte_len: usize) -> Result<()> {
-    if byte_len > MAX_HTTP_MESSAGE_CONTENT_BYTES {
-        return Err(WireError::Protocol(format!(
-            "HTTP message content exceeds v1 maximum of {MAX_HTTP_MESSAGE_CONTENT_BYTES} bytes"
-        )));
-    }
-    Ok(())
-}
-
 pub fn validate_event_submit_batch_count(count: usize) -> Result<()> {
     if count > MAX_EVENT_SUBMIT_BATCH {
         return Err(WireError::Protocol(format!(
@@ -129,46 +119,6 @@ pub fn validate_authorized_by_ref_count(count: usize) -> Result<()> {
         return Err(WireError::Protocol(format!(
             "authorized_by refs exceeds v1 maximum of {MAX_AUTHORIZED_BY_REFS} entries"
         )));
-    }
-    Ok(())
-}
-
-pub fn validate_actor_seq_sibling_count(count: usize) -> Result<()> {
-    if count > MAX_ACTOR_SEQ_SIBLINGS {
-        return Err(WireError::Protocol(format!(
-            "actor_seq sibling fork count exceeds v1 maximum of {MAX_ACTOR_SEQ_SIBLINGS}"
-        )));
-    }
-    Ok(())
-}
-
-pub fn validate_authority_chain_depth(depth: usize) -> Result<()> {
-    if depth > MAX_AUTHORITY_CHAIN_DEPTH {
-        return Err(WireError::Protocol(format!(
-            "authority chain depth exceeds v1 maximum of {MAX_AUTHORITY_CHAIN_DEPTH}"
-        )));
-    }
-    Ok(())
-}
-
-pub fn validate_authority_control_depth(depth: u32) -> Result<()> {
-    if depth > MAX_AUTHORITY_CONTROL_DEPTH {
-        return Err(WireError::Protocol(format!(
-            "max_authority_depth exceeds v1 field maximum of {MAX_AUTHORITY_CONTROL_DEPTH}"
-        )));
-    }
-    Ok(())
-}
-
-pub fn validate_event_prev_refs(prev_refs: &[EventId]) -> Result<()> {
-    let mut seen = BTreeSet::new();
-    for prev_ref in prev_refs {
-        validate_event_prev_ref_count(seen.len() + 1)?;
-        if !seen.insert(prev_ref) {
-            return Err(WireError::Protocol(
-                "prev_refs MUST NOT contain duplicate entries".to_owned(),
-            ));
-        }
     }
     Ok(())
 }
@@ -1226,7 +1176,6 @@ pub enum EventSubmitContext {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum EventProofSetRequirement {
-    UnsignedDraft,
     ProducerSubmission,
     AcceptedEvent,
 }
@@ -1452,18 +1401,6 @@ impl Event {
         self.validate_principal_server_admission_binding(digest_suite)
     }
 
-    /// Validate a producer-authored Event before proofs are appended.
-    ///
-    /// This applies the same CBA and envelope shape rules as submission while
-    /// requiring the draft to remain unsigned. Prepare protocols use it before
-    /// returning canonical digest-payload bytes to a caller.
-    pub fn validate_for_authoring_structural(&self) -> Result<()> {
-        self.validate_structural_in_context(
-            EventSubmitContext::Standard,
-            EventProofSetRequirement::UnsignedDraft,
-        )
-    }
-
     fn validate_structural_in_context(
         &self,
         context: EventSubmitContext,
@@ -1491,11 +1428,6 @@ impl Event {
         self.validate_applet_provenance_invariants()
             .map_err(WireError::Protocol)?;
         match proof_requirement {
-            EventProofSetRequirement::UnsignedDraft if !self.proofs.is_empty() => {
-                return Err(WireError::Protocol(
-                    "Event authoring draft must not carry proofs".to_owned(),
-                ));
-            }
             EventProofSetRequirement::ProducerSubmission => match self.proofs.as_slice() {
                 [EventProof::Producer(producer)] => {
                     producer.validate_signer_resolution_evidence_pair()?;
@@ -1528,7 +1460,6 @@ impl Event {
                     ));
                 }
             },
-            EventProofSetRequirement::UnsignedDraft => {}
         }
         if self
             .requirements
@@ -1922,32 +1853,6 @@ mod event_wire_surface_tests {
             Event::from_digest_payload_bytes(&spaced, arkret_canonical::DigestSuite::Sha256,)
                 .is_err()
         );
-    }
-
-    #[test]
-    fn authoring_validation_requires_cba_shape_before_signing() {
-        let mut event = base_event();
-        assert!(event.validate_for_authoring_structural().is_err());
-
-        event.seal_basis = Some(SealBasis {
-            leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "0".repeat(64))).unwrap()],
-        });
-        event.validate_for_authoring_structural().unwrap();
-
-        event.proofs.push(EventProof::Producer(ProducerEventProof {
-            kind: "detached_jws".to_owned(),
-            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
-            event_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
-            signer_resolution_evidence_ref: None,
-            signer_resolution_evidence_digest: None,
-            created_at: event.created_at,
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: "a..b".to_owned(),
-        }));
-        assert!(event.validate_for_authoring_structural().is_err());
-        event.validate_for_submit_structural().unwrap();
     }
 
     #[test]

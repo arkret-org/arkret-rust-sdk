@@ -891,8 +891,6 @@ fn capability_rebind_uses_deterministic_lww_order() {
         .get(&format!("ak.capability|{grant_id}"))
         .unwrap();
     assert_eq!(resolved.content["actions"][1], "ak.reaction.add");
-    assert!(state.capability_allows(grant_id.as_str(), "ak.reaction.add"));
-    assert!(!state.capability_allows(grant_id.as_str(), "message.delete"));
 }
 
 #[test]
@@ -954,21 +952,6 @@ fn snapshot_manifest_tracks_state_digest_and_merkle_root() {
 }
 
 #[test]
-fn snapshot_chunk_manifest_verifies_digests() {
-    let state = RealmState::new(realm_id());
-    let snapshot = state.snapshot().unwrap();
-    let manifest = snapshot.manifest_with_chunks(16).unwrap();
-    let bytes = snapshot.canonical_snapshot_bytes().unwrap();
-    let chunks: Vec<Vec<u8>> = bytes.chunks(16).map(|chunk| chunk.to_vec()).collect();
-
-    verify_snapshot_chunks(&manifest, chunks.clone()).unwrap();
-
-    let mut tampered = chunks;
-    tampered[0][0] ^= 1;
-    assert!(verify_snapshot_chunks(&manifest, tampered).is_err());
-}
-
-#[test]
 fn merkle_root_preserves_caller_leaf_order() {
     let a = merkle_root(vec![
         "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
@@ -1001,28 +984,6 @@ fn merkle_root_promotes_odd_tail_without_duplication() {
     .unwrap();
 
     assert_ne!(three, duplicate_tail);
-}
-
-#[test]
-fn restore_snapshot_or_replay_falls_back_on_verification_failure() {
-    let event = morph_event(10, "Replayed task");
-    let mut state = RealmState::new(realm_id());
-    state.apply_events(std::slice::from_ref(&event)).unwrap();
-    let mut snapshot = state.snapshot().unwrap();
-    snapshot.state_digest =
-        "sha256:0000000000000000000000000000000000000000000000000000000000000000".to_owned();
-
-    let restored =
-        RealmState::restore_snapshot_or_replay(Some(snapshot), realm_id(), &[event]).unwrap();
-
-    assert_eq!(restored.source, SnapshotRestoreSource::RepoReplay);
-    assert!(
-        restored
-            .snapshot_error
-            .unwrap()
-            .contains("state hash mismatch")
-    );
-    assert_eq!(restored.state.morphs.len(), 1);
 }
 
 #[test]

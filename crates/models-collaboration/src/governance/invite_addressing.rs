@@ -58,12 +58,6 @@ pub struct InviteLocatorResolveRequestBody {
     pub locator_token: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PrincipalLocatorResolveRequestBody {
-    pub locator_token: String,
-}
-
 impl InviteLocatorResolveRequestBody {
     pub fn new(locator_token: impl Into<String>) -> Self {
         Self {

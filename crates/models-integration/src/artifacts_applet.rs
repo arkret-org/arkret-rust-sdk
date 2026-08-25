@@ -73,18 +73,6 @@ pub struct RejectedItem {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/third_party_query`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ThirdPartyQuery {
-    pub protocol: String,
-    pub external_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub instance_id: Option<String>,
-}
-
-/// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-operations.schema.json#/$defs/e2ee_policy`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -153,22 +153,6 @@ impl MembershipPayload {
         self
     }
 
-    pub fn with_invite_ref(mut self, invite_ref: MembershipInviteRef) -> Self {
-        self.invite_ref = Some(invite_ref);
-        self
-    }
-
-    pub fn with_controller_membership_ended(
-        mut self,
-        binding: crate::governance::agent_membership_cascade::AgentControllerMembershipBinding,
-    ) -> Self {
-        self.membership_cause = Some(
-            crate::governance::agent_membership_cascade::MembershipLifecycleCause::ControllerMembershipEnded,
-        );
-        self.agent_controller_binding = Some(binding);
-        self
-    }
-
     /// Validate the schema-level conditional required fields, then serialize.
     pub fn to_value(&self) -> Result<Value> {
         if self

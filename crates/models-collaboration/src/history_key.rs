@@ -558,29 +558,6 @@ impl OrganizationRecoveryArchivePlaintext {
     pub fn validate(&self) -> Result<()> {
         validate_base64url_bounded(&self.history_secret_b64u, 1, 512, "history_secret_b64u")
     }
-
-    /// The decoded `history_secret` length MUST equal `KDF.Nh` of the winning
-    /// group transition proven for `archive.epoch`
-    /// (`history-key.schema.json#/$defs/organization_recovery_archive_plaintext`).
-    pub fn validate_for_kdf_nh(&self, kdf_nh: usize) -> Result<()> {
-        self.validate()?;
-        if kdf_nh == 0 {
-            return Err(WireError::Protocol(
-                "MLS ciphersuite KDF.Nh must be positive".to_owned(),
-            ));
-        }
-        let actual = arkret_wire::base64url::base64url_decode(&self.history_secret_b64u)
-            .map_err(|error| {
-                WireError::Protocol(format!("archive history secret is not base64url: {error}"))
-            })?
-            .len();
-        if actual != kdf_nh {
-            return Err(WireError::Protocol(format!(
-                "archive history secret contains {actual} bytes; expected {kdf_nh}"
-            )));
-        }
-        Ok(())
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -2715,23 +2692,6 @@ impl OrganizationRecoveryArchiveListQuery {
             ));
         }
         Ok(())
-    }
-
-    /// Semantic identity of this query.
-    ///
-    /// `history-key-canonical-binding-registry.json` fixes the preimage as the
-    /// complete closed query with `cursor` removed: a continuation cursor does
-    /// not change query identity, while `accepted_key_evidence_ref` and
-    /// `holder_trusted_basis` are both included.
-    pub fn archive_list_query_digest(&self) -> Result<Hash> {
-        let mut value = serde_json::to_value(self)?;
-        let serde_json::Value::Object(map) = &mut value else {
-            return Err(WireError::Protocol(
-                "archive list query must be an object".to_owned(),
-            ));
-        };
-        map.remove("cursor");
-        framed_sha256("ak.organization-recovery-archive-list-query-v1", &value)
     }
 }
 

@@ -815,17 +815,6 @@ impl<'de> Deserialize<'de> for KeyVerificationCancellationReason {
     }
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/key-backup-active-series.schema.json#/$defs/frontier_ref`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct FrontierRef {
-    pub frontier_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub seal_ref: Option<Hash>,
-    pub device_generation_ref: u64,
-}
-
 #[cfg(test)]
 mod key_verification_tests {
     use serde_json::json;

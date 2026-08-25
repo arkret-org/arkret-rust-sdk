@@ -943,49 +943,6 @@ impl ControlProposalDecision {
         validate_proofs(proofs, &self.decision_digest()?, self.decided_at())
     }
 
-    /// Validate the immutable Ack selectors when the preceding defer bodies
-    /// are not part of this projection.
-    pub fn validate_ack_binding_protocol_bounds(&self, ack: &ControlProposalAck) -> Result<()> {
-        ack.validate_protocol_bounds()?;
-        self.validate_standalone_protocol_bounds()?;
-        let (realm_id, proposal_digest, proposal_ack_digest, absolute_due_at, authority_set_ref) =
-            match self {
-                Self::SignedReject {
-                    realm_id,
-                    proposal_digest,
-                    proposal_ack_digest,
-                    absolute_due_at,
-                    authority_set_ref,
-                    ..
-                }
-                | Self::SignedDefer {
-                    realm_id,
-                    proposal_digest,
-                    proposal_ack_digest,
-                    absolute_due_at,
-                    authority_set_ref,
-                    ..
-                } => (
-                    realm_id,
-                    proposal_digest,
-                    proposal_ack_digest,
-                    absolute_due_at,
-                    authority_set_ref,
-                ),
-            };
-        if realm_id != &ack.realm_id
-            || proposal_digest != &ack.proposal_digest
-            || proposal_ack_digest != &ack.proposal_ack_digest()?
-            || absolute_due_at != &ack.absolute_due_at
-            || authority_set_ref != &ack.authority_set_ref
-        {
-            return Err(WireError::Protocol(
-                "proposal decision does not preserve its Control Proposal Ack binding".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-
     pub fn canonical_bytes_for_signature(&self) -> Result<Vec<u8>> {
         let proof = match self {
             Self::SignedReject { proofs, .. } | Self::SignedDefer { proofs, .. } => {

@@ -142,44 +142,6 @@ fn proof_validate_binding_ignores_domain_and_audience_when_context_is_local() {
 }
 
 #[test]
-fn proof_validate_cross_domain_binding_requires_domain_and_audience() {
-    let mut proof = valid_proof();
-    proof.audience = Some(Audience::Single(
-        "did:webvh:z6mkfixture:service.example".to_owned(),
-    ));
-    let mut expected =
-        proof.binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
-    expected.domain = Some("ak:trust_domain:example.net".to_owned());
-    expected.audience = Some(Audience::Single(
-        "did:webvh:z6mkfixture:service.example".to_owned(),
-    ));
-    let error = proof.validate_cross_domain_binding(&expected).unwrap_err();
-    assert!(
-        error.to_string().contains("proof_binding_missing"),
-        "{error}"
-    );
-
-    proof.domain = Some("ak:trust_domain:example.net".to_owned());
-    assert!(proof.validate_cross_domain_binding(&expected).is_ok());
-}
-
-#[test]
-fn proof_validate_cross_domain_binding_requires_expected_context() {
-    let mut proof = valid_proof();
-    proof.domain = Some("ak:trust_domain:example.net".to_owned());
-    proof.audience = Some(Audience::Single(
-        "did:webvh:z6mkfixture:service.example".to_owned(),
-    ));
-    let expected =
-        valid_proof().binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
-    let error = proof.validate_cross_domain_binding(&expected).unwrap_err();
-    assert!(
-        error.to_string().contains("proof_binding_missing"),
-        "{error}"
-    );
-}
-
-#[test]
 fn proof_validate_rejects_empty_domain_or_audience() {
     let mut proof = valid_proof();
     proof.domain = Some(" ".to_owned());

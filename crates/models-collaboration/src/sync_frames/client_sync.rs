@@ -175,19 +175,6 @@ pub struct TimelineOrderKey {
     pub event_id: EventId,
 }
 
-impl TimelineOrderKey {
-    /// Build an order key from an event and a caller-computed causal depth.
-    pub fn from_event(event: &Event, causal_depth: u64) -> Self {
-        Self {
-            causal_depth,
-            hlc: event.hlc.clone(),
-            actor_id: event.actor_id.clone(),
-            actor_seq: event.actor_seq,
-            event_id: event.event_id.clone(),
-        }
-    }
-}
-
 /// Stream position for one Realm at a sync boundary.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SyncStreamPosition {
@@ -414,23 +401,6 @@ pub struct SyncSemantics {
     pub requires_token_binding: bool,
 }
 
-impl SyncSemantics {
-    /// Derive semantics from a request.
-    pub fn from_request(request: &SyncRequestBody) -> Self {
-        let mode = if request.after.is_some() {
-            SyncMode::Incremental
-        } else {
-            SyncMode::Initial
-        };
-        Self {
-            mode,
-            after: request.after.clone(),
-            expects_full_state: mode == SyncMode::Initial,
-            requires_token_binding: mode == SyncMode::Incremental,
-        }
-    }
-}
-
 /// Realm membership bucket in sync responses and list projections.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -637,28 +607,6 @@ mod tests {
     }
 
     #[test]
-    fn sync_semantics_distinguish_initial_and_incremental() {
-        let mut request = SyncRequestBody {
-            after: None,
-            catchup: Some(true),
-            filter: None,
-            subscriptions: None,
-        };
-        let initial = SyncSemantics::from_request(&request);
-
-        assert_eq!(initial.mode, SyncMode::Initial);
-        assert!(initial.expects_full_state);
-        assert!(!initial.requires_token_binding);
-
-        request.after = Some("token123".to_owned());
-        let incremental = SyncSemantics::from_request(&request);
-
-        assert_eq!(incremental.mode, SyncMode::Incremental);
-        assert!(!incremental.expects_full_state);
-        assert!(incremental.requires_token_binding);
-    }
-
-    #[test]
     fn sync_filter_digest_normalizes_collection_fields() {
         let realm_a =
             RealmId::new("ak:realm:AYqEzQ3jW02EHkMjxFQTlyeowxPQXJE4fI6JGOnzi23t").unwrap();
@@ -777,8 +725,20 @@ mod tests {
             EventId::new("ak:event:AXGvEEJkv6YPQvGdReHV-eLM-8ukvH7r9m8dCu3KWw36").unwrap();
 
         let mut keys = [
-            TimelineOrderKey::from_event(&newer_hlc, 0),
-            TimelineOrderKey::from_event(&deeper, 1),
+            TimelineOrderKey {
+                causal_depth: 0,
+                hlc: newer_hlc.hlc.clone(),
+                actor_id: newer_hlc.actor_id.clone(),
+                actor_seq: newer_hlc.actor_seq,
+                event_id: newer_hlc.event_id.clone(),
+            },
+            TimelineOrderKey {
+                causal_depth: 1,
+                hlc: deeper.hlc.clone(),
+                actor_id: deeper.actor_id.clone(),
+                actor_seq: deeper.actor_seq,
+                event_id: deeper.event_id.clone(),
+            },
         ];
         keys.sort();
 

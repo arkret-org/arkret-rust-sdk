@@ -1,6 +1,5 @@
 //! Canonical encrypted attachment codec — `ak.blob.stream_aead.v1`
-//! (chunked streaming AEAD, STREAM / OAE2) and `ak.blob.whole_file_aead.v1`
-//! (whole-file AEAD).
+//! (chunked streaming AEAD, STREAM / OAE2).
 //!
 //! Implements `crypto-media/media-and-blob.md` §3.2 / §3.3 against the wire
 //! shape in `blob.schema.json#/$defs/encrypted_attachment` (`artifacts/schemas/blob.schema.
@@ -46,18 +45,11 @@ use serde_json::{Value, json};
 
 use crate::{Error, Result};
 
-/// Whole-file AEAD scheme id.
-pub const SCHEME_WHOLE_FILE: &str = arkret_wire::BLOB_SCHEME_WHOLE_FILE_AEAD_V1;
 /// Chunked streaming AEAD scheme id (STREAM / OAE2).
 pub const SCHEME_STREAM: &str = arkret_wire::BLOB_SCHEME_STREAM_AEAD_V1;
 
 /// XChaCha20-Poly1305 streaming `alg` value.
 pub const ALG_STREAM_XCHACHA: &str = "mls_exporter_aead_xchacha20poly1305_stream";
-/// XChaCha20-Poly1305 whole-file `alg` value.
-pub const ALG_WHOLE_FILE_XCHACHA: &str = "mls_exporter_aead_xchacha20poly1305";
-
-/// Default segment size: 256 KiB (§3.3.1).
-pub const DEFAULT_SEGMENT_SIZE: u32 = 262_144;
 
 /// Minimum `segment_bytes`: 1 KiB (scalability-constraints.md §6). Values
 /// outside `[MIN_SEGMENT_SIZE, MAX_SEGMENT_SIZE]` MUST be rejected on both
@@ -118,7 +110,7 @@ struct AttachmentEnvelopeFields {
     pub blob_ref: String,
     /// Always `true`.
     pub encrypted: bool,
-    /// Construction scheme (`SCHEME_WHOLE_FILE` / `SCHEME_STREAM`).
+    /// Construction scheme (`SCHEME_STREAM` for the v1 chunked binding).
     pub scheme: String,
     /// AEAD algorithm id.
     pub encryption_algorithm: String,
@@ -167,7 +159,7 @@ pub struct StreamEncryptParams {
     pub key_ref: EncryptedAttachmentKeyRef,
     /// Declared media type.
     pub media_type: String,
-    /// Segment size; use [`DEFAULT_SEGMENT_SIZE`] for the v1 default.
+    /// Segment size in bytes; bounded by [`MIN_SEGMENT_SIZE`] / [`MAX_SEGMENT_SIZE`].
     pub segment_bytes: u32,
 }
 
@@ -253,25 +245,6 @@ fn stream_segment_aad(
             json!(if last { FLAG_LAST } else { FLAG_NORMAL }),
         ),
         ("segment_count", json!(segment_count)),
-        ("media_type", json!(media_type)),
-        ("size_bytes", json!(size_bytes)),
-    ]);
-    Ok(canonical_json_bytes(&map)?)
-}
-
-/// Canonical whole-file AAD (§3.3.3 whole-file binding).
-fn whole_file_aad(
-    key_ref: &EncryptedAttachmentKeyRef,
-    epoch: u64,
-    nonce_b64: &str,
-    media_type: &str,
-    size_bytes: u64,
-) -> Result<Vec<u8>> {
-    let map: BTreeMap<&str, Value> = BTreeMap::from([
-        ("scheme", json!(SCHEME_WHOLE_FILE)),
-        ("key_ref", json!(key_ref)),
-        ("epoch", json!(epoch)),
-        ("nonce", json!(nonce_b64)),
         ("media_type", json!(media_type)),
         ("size_bytes", json!(size_bytes)),
     ]);
@@ -682,113 +655,6 @@ pub fn decrypt_stream(
     Ok(plaintext)
 }
 
-// ─── whole-file ──────────────────────────────────────────────────────────────
-
-/// Encrypt `plaintext` into `ak.blob.whole_file_aead.v1` form (single nonce,
-/// single ciphertext+tag). The returned typed envelope is content-addressed
-/// over the ciphertext bytes.
-pub fn encrypt_whole_file(
-    plaintext: &[u8],
-    content_key: &[u8; 32],
-    key_ref: EncryptedAttachmentKeyRef,
-    media_type: String,
-    resolver: &impl AttachmentGroupStateEpochResolver,
-) -> Result<(Vec<u8>, EncryptedAttachment)> {
-    let cipher = cipher_from_key(content_key)?;
-    let mut nonce = [0u8; N_AEAD];
-    getrandom::fill(&mut nonce).map_err(|error| Error::Crypto(error.to_string()))?;
-    let nonce_b64 = base64url_encode(nonce);
-
-    let size_bytes = plaintext.len() as u64;
-    let epoch = attachment_epoch(&key_ref, resolver)?;
-    let aad = whole_file_aad(&key_ref, epoch, &nonce_b64, &media_type, size_bytes)?;
-    let ciphertext = cipher
-        .encrypt(
-            &nonce.into(),
-            Payload {
-                msg: plaintext,
-                aad: &aad,
-            },
-        )
-        .map_err(|_| Error::Crypto("whole-file AEAD encryption failed".to_owned()))?;
-
-    let envelope = AttachmentEnvelopeFields {
-        blob_ref: format!("ak:blob:sha256:{}", sha256_hex(&ciphertext)),
-        encrypted: true,
-        scheme: SCHEME_WHOLE_FILE.to_owned(),
-        encryption_algorithm: ALG_WHOLE_FILE_XCHACHA.to_owned(),
-        key_ref,
-        ciphertext_digest: format!("sha256:{}", sha256_hex(&ciphertext)),
-        size_bytes,
-        media_type,
-        nonce: Some(nonce_b64),
-        nonce_prefix: None,
-        segment_bytes: None,
-    };
-    Ok((ciphertext, typed_envelope(envelope)?))
-}
-
-/// Decrypt a `ak.blob.whole_file_aead.v1` attachment. Verifies the overall
-/// `ciphertext_digest` before AEAD, then the AEAD tag; on any mismatch the
-/// plaintext is never returned.
-pub fn decrypt_whole_file(
-    ciphertext: &[u8],
-    env: &EncryptedAttachment,
-    content_key: &[u8; 32],
-    resolver: &impl AttachmentGroupStateEpochResolver,
-) -> Result<Vec<u8>> {
-    let env = envelope_fields(env)?;
-    if env.scheme != SCHEME_WHOLE_FILE || env.encryption_algorithm != ALG_WHOLE_FILE_XCHACHA {
-        return Err(protocol(
-            "unsupported_attachment_scheme",
-            &format!(
-                "scheme={} alg={} not whole-file XChaCha20-Poly1305",
-                env.scheme, env.encryption_algorithm
-            ),
-        ));
-    }
-    let nonce_b64 = env
-        .nonce
-        .as_deref()
-        .ok_or_else(|| protocol("unsupported_attachment_scheme", "missing nonce"))?;
-
-    // Overall integrity before releasing any plaintext (§3.3.5 / §5).
-    let actual_digest = format!("sha256:{}", sha256_hex(ciphertext));
-    if actual_digest != env.ciphertext_digest {
-        return Err(protocol(
-            "digest_mismatch",
-            &format!(
-                "recomputed {actual_digest} != envelope {}",
-                env.ciphertext_digest
-            ),
-        ));
-    }
-
-    let nonce_bytes = base64url_decode(nonce_b64)?;
-    let nonce: [u8; N_AEAD] = nonce_bytes
-        .as_slice()
-        .try_into()
-        .map_err(|_| protocol("unsupported_attachment_scheme", "nonce length != 24"))?;
-    let cipher = cipher_from_key(content_key)?;
-    let epoch = attachment_epoch(&env.key_ref, resolver)?;
-    let aad = whole_file_aad(
-        &env.key_ref,
-        epoch,
-        nonce_b64,
-        &env.media_type,
-        env.size_bytes,
-    )?;
-    cipher
-        .decrypt(
-            &nonce.into(),
-            Payload {
-                msg: ciphertext,
-                aad: &aad,
-            },
-        )
-        .map_err(|_| protocol("segment_aead_failed", "whole-file AEAD tag check failed"))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1132,60 +998,6 @@ mod tests {
     }
 
     #[test]
-    fn whole_file_roundtrip_and_closure() {
-        let key = key();
-        let p = b"the quick brown fox".to_vec();
-        let (ct, env) = encrypt_whole_file(
-            &p,
-            &key,
-            test_key_ref(),
-            "text/plain".to_owned(),
-            &winning_epoch,
-        )
-        .unwrap();
-        let fields = envelope_fields(&env).unwrap();
-        assert_eq!(fields.scheme, SCHEME_WHOLE_FILE);
-        assert_eq!(fields.encryption_algorithm, ALG_WHOLE_FILE_XCHACHA);
-        assert!(fields.nonce.is_some());
-        assert_eq!(
-            decrypt_whole_file(&ct, &env, &key, &winning_epoch).unwrap(),
-            p
-        );
-
-        // digest mismatch
-        let mut bad = envelope_fields(&env).unwrap();
-        bad.ciphertext_digest =
-            "sha256:1111111111111111111111111111111111111111111111111111111111111111".to_owned();
-        let bad = typed_envelope(bad).unwrap();
-        assert_eq!(
-            reason(&decrypt_whole_file(&ct, &bad, &key, &winning_epoch).unwrap_err()),
-            "digest_mismatch"
-        );
-
-        // AES alg closure
-        let mut bad = envelope_fields(&env).unwrap();
-        bad.encryption_algorithm = "mls_exporter_aead_aes_256_gcm".to_owned();
-        let bad = typed_envelope(bad).unwrap();
-        assert_eq!(
-            reason(&decrypt_whole_file(&ct, &bad, &key, &winning_epoch).unwrap_err()),
-            "unsupported_attachment_scheme"
-        );
-
-        // tamper ciphertext → AEAD fail (after recomputing the digest over the
-        // tampered bytes, which would mismatch first; so tamper a byte AND fix
-        // the digest to isolate the AEAD path)
-        let mut tampered = ct;
-        tampered[0] ^= 0xff;
-        let mut env2 = envelope_fields(&env).unwrap();
-        env2.ciphertext_digest = format!("sha256:{}", sha256_hex(&tampered));
-        let env2 = typed_envelope(env2).unwrap();
-        assert_eq!(
-            reason(&decrypt_whole_file(&tampered, &env2, &key, &winning_epoch).unwrap_err()),
-            "segment_aead_failed"
-        );
-    }
-
-    #[test]
     fn envelope_serde_matches_schema_field_names() {
         // Stream envelope from a hand-written JSON with exact schema field names.
         let raw = r#"{
@@ -1210,25 +1022,10 @@ mod tests {
         );
         assert!(fields.nonce.is_none());
 
-        // round-trip back to JSON: whole-file optionals are skipped.
+        // round-trip back to JSON: whole-file-only optionals are skipped.
         let value = serde_json::to_value(&env).unwrap();
         assert!(value.get("nonce").is_none());
         assert_eq!(value["nonce_prefix"], "AAAAAAAAAAAAAAAAAAAAAAAAAA");
         assert_eq!(value["encrypted"], true);
-
-        // Whole-file envelope skips stream-only fields.
-        let (_ct, wf) = encrypt_whole_file(
-            b"x",
-            &key(),
-            test_key_ref(),
-            "text/plain".to_owned(),
-            &winning_epoch,
-        )
-        .unwrap();
-        let value = serde_json::to_value(&wf).unwrap();
-        assert!(value.get("nonce_prefix").is_none());
-        assert!(value.get("segment_bytes").is_none());
-        assert!(value.get("segment_count").is_none());
-        assert!(value.get("nonce").is_some());
     }
 }

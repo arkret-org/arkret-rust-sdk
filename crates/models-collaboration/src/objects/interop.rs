@@ -3,35 +3,10 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DidCoreId, EventId, Hash, MimiRoomUri, MimiUri, PayloadProof, ProofContextId, RealmId, StrandId,
+    DidCoreId, Hash, MimiRoomUri, MimiUri, PayloadProof, ProofContextId, RealmId, StrandId,
 };
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/mimi-interop.schema.json#/$defs/content_mapping_receipt`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ContentMappingReceipt {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub schema: Option<String>,
-    pub kind: String,
-    pub profile: String,
-    pub mimi_room_uri: MimiRoomUri,
-    pub source_format: String,
-    pub target_format: String,
-    pub original_envelope_digest: Hash,
-    pub mapped_operation_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mimi_message_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub arkret_event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub accepted_at: Option<DateTime<Utc>>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
 /// Counterpart for `spec/v1/artifacts/schemas/mimi-interop.schema.json#/$defs/provider_directory`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -160,14 +135,6 @@ pub struct Ciphertext {
     pub payload: String,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/mimi-operations.schema.json#/$defs/consent_target`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ConsentTarget {
-    pub kind: String,
-    pub id: String,
-}
-
 /// Counterpart for `spec/v1/artifacts/schemas/mimi-operations.schema.json#/$defs/group_info`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -183,14 +150,4 @@ pub struct GroupInfo {
 pub struct Identifier {
     pub kind: String,
     pub identifier_commitment: Hash,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/mimi-operations.schema.json#/$defs/opaque_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct OpaquePayload {
-    pub content_type: String,
-    pub payload_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub payload: Option<String>,
 }

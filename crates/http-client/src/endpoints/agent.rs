@@ -1,16 +1,10 @@
 //! Personal-agent endpoint methods on [`Client`].
 
-use std::ops::Deref;
-use std::time::Duration;
-
 use arkret_models_collaboration::agent_operations::{
-    AgentDeactivateRequestBody, AgentGrantAttachOutcome, AgentGrantAttachRequestBody,
-    AgentGrantDetachOutcome, AgentGrantDetachRequestBody, AgentKeyPairOutcome,
-    AgentKeyPairRequestBody, AgentLifecycleOutcome, AgentList, AgentPauseRequestBody,
-    AgentProvisionOutcome, AgentProvisionRequestBody, AgentRenewPairingOutcome,
-    AgentRenewPairingRequestBody, AgentResumeRequestBody, AgentRuntimeApprovalOutcome,
-    AgentRuntimeApprovalRequestBody, AgentRuntimeApprovalStatusOutcome,
-    AgentRuntimeApprovalStatusRequestBody, AgentSidecarList, AgentSidecarView, AgentView,
+    AgentDeactivateRequestBody, AgentKeyPairOutcome, AgentKeyPairRequestBody,
+    AgentLifecycleOutcome, AgentList, AgentPauseRequestBody, AgentProvisionOutcome,
+    AgentProvisionRequestBody, AgentRenewPairingOutcome, AgentRenewPairingRequestBody,
+    AgentResumeRequestBody, AgentSidecarList, AgentSidecarView, AgentView,
 };
 use arkret_models_collaboration::governance::agent_participation::{
     AgentParticipationOutcome, ParticipationReplaceRequestBody,
@@ -20,52 +14,19 @@ use arkret_models_collaboration::sidecar_operations::{
 };
 use arkret_models_identity::agent_signer_evidence::{
     AgentSignerEvidenceQueryOutcome, AgentSignerEvidenceQueryRequestBody,
-    ControllerAccountGateAttestationIssueOutcome, ControllerAccountGateAttestationIssueRequestBody,
 };
-use arkret_wire::{GrantId, RealmId, SidecarId};
+use arkret_wire::{RealmId, SidecarId};
 use reqwest::Method;
 
-use crate::{Client, Error, Result, retry_after_ms};
+use crate::{Client, Error, Result};
 
 const AGENT_KEY_PAIR_PATH: &str = "/_arkret/gate/account/agent-key-pair";
-const CONTROLLER_GATE_ATTESTATIONS_PATH: &str =
-    "/_arkret/gate/account/controller-gate-attestations";
-const AGENT_PAIRING_RUNTIME_KEY_REQUESTS_PATH: &str =
-    "/_arkret/open/agent-pairing/runtime-key-requests";
-const AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS_PATH: &str =
-    "/_arkret/open/agent-pairing/runtime-key-requests/status";
 const AGENTS_PATH: &str = "/_arkret/self/agents";
 const AGENT_SIGNER_EVIDENCE_QUERY_PATH: &str = "/_arkret/self/agent-signer-evidence/query";
 const AGENT_SIDECARS_PATH: &str = "/_arkret/self/agent-sidecars";
 const AGENT_SIDECAR_ENSURE_PATH: &str = "/_arkret/self/agent-sidecars:ensure";
 
-#[derive(Clone, Debug)]
-pub struct AgentRuntimeApprovalStatusResponse {
-    pub outcome: AgentRuntimeApprovalStatusOutcome,
-    pub retry_after: Option<Duration>,
-}
-
-impl Deref for AgentRuntimeApprovalStatusResponse {
-    type Target = AgentRuntimeApprovalStatusOutcome;
-
-    fn deref(&self) -> &Self::Target {
-        &self.outcome
-    }
-}
-
 impl Client {
-    /// `POST /_arkret/gate/account/controller-gate-attestations`
-    /// (`ak.gate.account.command.issue_controller_gate_attestation`).
-    ///
-    /// The caller must apply the service-to-service authentication required by
-    /// its Account Authority deployment before sending this request.
-    pub async fn issue_controller_account_gate_attestation(
-        &self,
-        request: &ControllerAccountGateAttestationIssueRequestBody,
-    ) -> Result<ControllerAccountGateAttestationIssueOutcome> {
-        self.post(CONTROLLER_GATE_ATTESTATIONS_PATH, request).await
-    }
-
     /// `POST /_arkret/self/agent-signer-evidence/query`
     /// (`ak.self.agent_signer_evidence.read.resolve`).
     pub async fn agent_signer_evidence_query(
@@ -90,33 +51,6 @@ impl Client {
         );
         let builder = self.canonical_json_body(builder, request)?;
         self.send_json(builder).await
-    }
-
-    /// `POST /_arkret/open/agent-pairing/runtime-key-requests`
-    /// (`ak.open.agent_pairing.command.submit_runtime_key_request`).
-    pub async fn agent_runtime_approval_request(
-        &self,
-        request: &AgentRuntimeApprovalRequestBody,
-    ) -> Result<AgentRuntimeApprovalOutcome> {
-        self.post(AGENT_PAIRING_RUNTIME_KEY_REQUESTS_PATH, request)
-            .await
-    }
-
-    /// `POST /_arkret/open/agent-pairing/runtime-key-requests/status`
-    /// (`ak.open.agent_pairing.read.runtime_key_request_status`).
-    pub async fn agent_runtime_approval_status(
-        &self,
-        request: &AgentRuntimeApprovalStatusRequestBody,
-    ) -> Result<AgentRuntimeApprovalStatusResponse> {
-        let builder = self.canonical_json_body(
-            self.request(Method::POST, AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS_PATH)?,
-            request,
-        )?;
-        let (outcome, headers) = self.send_json_with_headers(builder).await?;
-        Ok(AgentRuntimeApprovalStatusResponse {
-            outcome,
-            retry_after: retry_after_ms(&headers).map(Duration::from_millis),
-        })
     }
 
     /// `POST /_arkret/self/agents` (`ak.self.agent.command.provision`).
@@ -189,39 +123,6 @@ impl Client {
             agent_path_component(agent_id)?
         );
         self.post(&path, request).await
-    }
-
-    /// `POST /_arkret/self/agents/{agent_id}/grants`
-    /// (`ak.self.agent.grant.command.attach`).
-    pub async fn agent_grant_attach(
-        &self,
-        agent_id: &str,
-        digest_suite: arkret_canonical::DigestSuite,
-        request: &AgentGrantAttachRequestBody,
-    ) -> Result<AgentGrantAttachOutcome> {
-        request.validate(digest_suite)?;
-        let path = format!("{}/{}/grants", AGENTS_PATH, agent_path_component(agent_id)?);
-        self.post(&path, request).await
-    }
-
-    /// `DELETE /_arkret/self/agents/{agent_id}/grants/{grant_id}`
-    /// (`ak.self.agent.grant.resource.delete`).
-    pub async fn agent_grant_delete(
-        &self,
-        agent_id: &str,
-        grant_id: &GrantId,
-        digest_suite: arkret_canonical::DigestSuite,
-        request: &AgentGrantDetachRequestBody,
-    ) -> Result<AgentGrantDetachOutcome> {
-        request.validate(digest_suite)?;
-        let path = format!(
-            "{}/{}/grants/{}",
-            AGENTS_PATH,
-            agent_path_component(agent_id)?,
-            agent_path_component(grant_id.as_str())?
-        );
-        let builder = self.canonical_json_body(self.request(Method::DELETE, &path)?, request)?;
-        self.send_json(builder).await
     }
 
     /// `GET /_arkret/self/agents/{agent_id}/participation`

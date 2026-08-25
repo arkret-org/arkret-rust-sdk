@@ -727,27 +727,6 @@ impl IdentityCreationLease {
         }
     }
 
-    pub fn allowed_commands(&self) -> &'static [IdentityCreationCommandKind] {
-        use IdentityCreationCommandKind::{
-            IssueAbandonmentChallenge, IssueIdentityBindingChallenge, SubmitRegistration,
-        };
-        match self.state {
-            IdentityCreationLeaseState::Active => &[IssueIdentityBindingChallenge],
-            IdentityCreationLeaseState::Reserved => &[
-                IssueIdentityBindingChallenge,
-                SubmitRegistration,
-                IssueAbandonmentChallenge,
-            ],
-            IdentityCreationLeaseState::DidPublished => {
-                &[SubmitRegistration, IssueAbandonmentChallenge]
-            }
-            IdentityCreationLeaseState::PcrAccepted | IdentityCreationLeaseState::AccountBound => {
-                &[SubmitRegistration]
-            }
-            IdentityCreationLeaseState::Completed => &[],
-        }
-    }
-
     pub fn required_local_artifacts(
         &self,
         goal: IdentityCreationGoal,
@@ -2179,10 +2158,6 @@ mod account_handoff_tests {
         assert_eq!(
             lease.allowed_goals(),
             &[IdentityCreationGoal::CompleteIdentity]
-        );
-        assert_eq!(
-            lease.allowed_commands(),
-            &[IdentityCreationCommandKind::IssueIdentityBindingChallenge]
         );
 
         lease.state = IdentityCreationLeaseState::Reserved;

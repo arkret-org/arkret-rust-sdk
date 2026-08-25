@@ -5,11 +5,10 @@ use arkret_models_crypto::mls_envelopes::{
     MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
 };
 use arkret_wire::{
-    Audience, AuthoredEvent, AuthorizationRef, CriticalExtension, DeviceId, DeviceMessageId,
-    DidCoreId, DidFullId, Event, EventId, EventKind, EventRef, EventRequirements, FeatureRef,
-    GrantId, Hash, Hlc, OperationId, OperationKind, Precondition, ProducerEventProof, ProfileRef,
-    ProofBindingRequirements, RealmId, ScopeRef, SealBasis, SealId, SignatureBindingPayload,
-    canonical, project_full_id_to_core_id,
+    AuthoredEvent, AuthorizationRef, CriticalExtension, DeviceId, DeviceMessageId, DidCoreId,
+    DidFullId, Event, EventId, EventKind, EventRef, EventRequirements, FeatureRef, GrantId, Hash,
+    Hlc, OperationId, OperationKind, Precondition, ProducerEventProof, ProfileRef, RealmId,
+    ScopeRef, SealBasis, SealId, canonical, project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -360,27 +359,6 @@ impl OperationEnvelope {
                     proof.event_digest, expected_hash
                 )));
             }
-        }
-        Ok(())
-    }
-
-    pub fn validate_proof_bindings_with_context(
-        &self,
-        domain: Option<String>,
-        audience: Option<Audience>,
-        requirements: ProofBindingRequirements,
-    ) -> Result<()> {
-        let expected_hash = Hash::new(self.operation_digest()?)?;
-        for proof in &self.proofs {
-            let expected = SignatureBindingPayload {
-                payload_digest: expected_hash.clone(),
-                actor_id: self.actor_id.clone(),
-                verification_method: proof.verification_method.clone(),
-                created_at: proof.created_at,
-                domain: domain.clone(),
-                audience: audience.clone(),
-            };
-            proof.validate_binding_with_requirements(&expected, requirements)?;
         }
         Ok(())
     }

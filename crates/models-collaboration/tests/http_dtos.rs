@@ -116,7 +116,6 @@ fn events_subscribe_frame_parses_ndjson_line() {
         frame.payload.as_ref().unwrap()["event_id"],
         "ak:event:AUqXOT9Lj7xeL7HUnhfi7zyJzW1Z59QIVz7exmpHN2N6"
     );
-    assert!(frame.is_event());
     assert!(!frame.requires_resubscribe());
     assert!(!frame.is_catchup_complete());
 }

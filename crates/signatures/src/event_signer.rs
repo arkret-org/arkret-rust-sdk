@@ -343,28 +343,6 @@ mod tests {
             .unwrap();
     }
 
-    /// Fail closed on authored content that no longer matches its id, instead
-    /// of quietly re-deriving one that does. Only a test-support constructor
-    /// can build this input; the public ones derive or verify.
-    #[test]
-    fn sign_event_rejects_authored_content_that_does_not_match_its_id() {
-        let mut tampered = make_event();
-        tampered.event_id = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0xa0; 32]);
-        let mut tampered = AuthoredEvent::from_unverified_for_test(
-            tampered,
-            arkret_canonical::DigestSuite::Sha256,
-        );
-
-        let signer = StubPayloadSigner::new(alice(), vm_alice());
-        let err = sign_event(&mut tampered, &signer, &vm_alice(), SignEventOptions::new())
-            .expect_err("signing tampered authored content must fail closed");
-        assert!(
-            format!("{err}").contains("event_id_digest_mismatch"),
-            "got: {err}"
-        );
-        assert!(tampered.proofs.is_empty(), "no proof may be attached");
-    }
-
     #[test]
     fn sign_event_uses_the_realm_suite_the_event_was_authored_under() {
         let mut event = AuthoredEvent::finalize_with_digest_suite(

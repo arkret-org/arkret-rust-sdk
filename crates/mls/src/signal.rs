@@ -471,7 +471,6 @@ mod tests {
         let suite = ExporterAeadSuite::resolve(ARKRET_MLS_CIPHERSUITE_CANONICAL_ID).unwrap();
         assert_eq!(suite.key_len(), 16);
         assert_eq!(suite.nonce_len(), 12);
-        assert_eq!(suite.nonce_prefix_len(), 4);
         // 12 raw bytes is exactly 16 unpadded base64url characters, i.e. the
         // schema's `^[A-Za-z0-9_-]{16}$`.
         assert_eq!(base64url_encode(vec![0u8; suite.nonce_len()]).len(), 16);

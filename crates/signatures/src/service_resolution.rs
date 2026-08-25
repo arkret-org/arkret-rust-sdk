@@ -4,7 +4,7 @@ use arkret_models_identity::{
     AuthenticatedServiceResolution, DidDocument, PrincipalResolutionProjectionAttestation,
     PrincipalResolutionProjectionAttestationCore, PublicPrincipalResolution,
     ServiceResolutionPublishAck, ServiceResolutionPublishAckCore, ServiceResolutionRecord,
-    ServiceResolutionRecordCore, ServiceRouteHandoverNotice, ServiceRouteHandoverNoticeCore,
+    ServiceResolutionRecordCore, ServiceRouteHandoverNotice,
 };
 use arkret_wire::{Base64UrlString, DidCoreId, DidFullId, DidUrl, ProtocolSignature};
 use chrono::{DateTime, Utc};
@@ -29,20 +29,6 @@ pub fn sign_service_resolution_record(
         signing_key.sign(&bytes).to_bytes(),
     ))?;
     Ok(record)
-}
-
-pub fn sign_service_route_handover_notice(
-    core: ServiceRouteHandoverNoticeCore,
-    verification_method: DidUrl,
-    signing_key: &SigningKey,
-) -> arkret_wire::Result<ServiceRouteHandoverNotice> {
-    core.validate_shape()?;
-    let mut notice = ServiceRouteHandoverNotice {
-        proof: placeholder_proof(verification_method, core.issued_at)?,
-        notice: core,
-    };
-    notice.proof.jws = signature_value(signing_key, &notice.proof_signing_bytes()?)?;
-    Ok(notice)
 }
 
 pub fn sign_service_resolution_publish_ack(
@@ -144,24 +130,6 @@ pub fn verify_service_route_handover_notice(
     )
 }
 
-pub fn verify_service_resolution_publish_ack(
-    ack: &ServiceResolutionPublishAck,
-    receiver_document: &DidDocument,
-) -> arkret_wire::Result<VerifyingKey> {
-    verify_full_to_core_binding(&receiver_document.id, &ack.ack.receiver_service_id)?;
-    if ack.proof.created_at != ack.ack.accepted_at {
-        return Err(arkret_wire::WireError::Protocol(
-            "publish ack proof timestamp mismatch".to_owned(),
-        ));
-    }
-    verify_document_signature(
-        receiver_document,
-        &ack.proof,
-        &ack.proof_signing_bytes()?,
-        "invalid service resolution publish ack proof",
-    )
-}
-
 pub fn verify_full_to_core_binding(
     full_id: &DidFullId,
     expected_service_id: &DidCoreId,
@@ -173,27 +141,6 @@ pub fn verify_full_to_core_binding(
         ));
     }
     Ok(())
-}
-
-pub fn verify_record_successor(
-    previous: &ServiceResolutionRecord,
-    successor: &ServiceResolutionRecord,
-    now: DateTime<Utc>,
-) -> arkret_wire::Result<()> {
-    let previous_digest = arkret_wire::Hash::new(arkret_canonical::canonical_sha256(previous)?)?;
-    if successor.record.service_id != previous.record.service_id
-        || successor.record.service_kind != previous.record.service_kind
-        || successor.record.record_sequence != previous.record.record_sequence + 1
-        || successor.record.previous_record_digest.as_ref() != Some(&previous_digest)
-        || successor.record.issued_at > successor.record.refresh_after
-        || successor.record.refresh_after >= successor.record.expires_at
-        || now >= successor.record.expires_at
-    {
-        return Err(arkret_wire::WireError::Protocol(
-            "service resolution successor has a gap, fork, or expired validity".to_owned(),
-        ));
-    }
-    verify_full_to_core_binding(&successor.record.full_id, &successor.record.service_id)
 }
 
 fn placeholder_proof(
@@ -402,22 +349,5 @@ mod tests {
         resolution.service_resolution_record.record.base_url =
             "https://attacker.example/".to_owned();
         assert!(verify_authenticated_service_resolution(&resolution, &service_id, now).is_err());
-    }
-
-    #[test]
-    fn same_core_successor_accepts_exact_chain_and_rejects_fork() {
-        let (resolution, _) = fixture();
-        let previous = resolution.service_resolution_record;
-        let mut successor = previous.clone();
-        successor.record.record_sequence = previous.record.record_sequence + 1;
-        successor.record.previous_record_digest =
-            Some(Hash::new(arkret_canonical::canonical_sha256(&previous).unwrap()).unwrap());
-        successor.record.full_id = DidFullId::new("did:web:agent-authority.example").unwrap();
-        assert!(verify_record_successor(&previous, &successor, successor.record.issued_at).is_ok());
-
-        successor.record.record_sequence = previous.record.record_sequence;
-        assert!(
-            verify_record_successor(&previous, &successor, successor.record.issued_at).is_err()
-        );
     }
 }

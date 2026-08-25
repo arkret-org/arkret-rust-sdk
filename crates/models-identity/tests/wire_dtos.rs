@@ -1,5 +1,4 @@
 use arkret_models_identity::ActorProfile;
-use arkret_models_identity::identity_link_cache::compute_policy_frontier_digest;
 use arkret_models_identity::service_identity::ServiceRegistrationReceipt;
 use arkret_wire::{ActorKind, ActorStatus, SchemaId};
 use serde_json::json;
@@ -79,31 +78,4 @@ fn service_registration_receipt_uses_the_spec_field_and_typed_id() {
         "A".repeat(64)
     ));
     assert!(serde_json::from_value::<ServiceRegistrationReceipt>(invalid_id).is_err());
-}
-
-#[test]
-fn policy_frontier_digest_is_deterministic() {
-    let h1 = compute_policy_frontier_digest(
-        &json!({"mode": "strict"}),
-        &json!("members_only"),
-        &json!({"profile": "default"}),
-        &json!(false),
-    )
-    .unwrap();
-    let h2 = compute_policy_frontier_digest(
-        &json!({"mode": "strict"}),
-        &json!("members_only"),
-        &json!({"profile": "default"}),
-        &json!(false),
-    )
-    .unwrap();
-    assert_eq!(h1, h2);
-    let h3 = compute_policy_frontier_digest(
-        &json!({"mode": "strict"}),
-        &json!("members_only"),
-        &json!({"profile": "default"}),
-        &json!(true),
-    )
-    .unwrap();
-    assert_ne!(h1, h3);
 }

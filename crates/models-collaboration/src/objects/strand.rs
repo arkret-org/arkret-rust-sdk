@@ -412,13 +412,6 @@ impl Strand {
         strand
     }
 
-    pub fn is_conversational(&self) -> bool {
-        resolve_primary_track(&self.tracks, None)
-            .ok()
-            .flatten()
-            .is_some_and(|(name, _)| name == STRAND_TRACK_NAME_DISCUSSION)
-    }
-
     pub fn validate_title(&self) -> Result<()> {
         if self
             .metadata_title()

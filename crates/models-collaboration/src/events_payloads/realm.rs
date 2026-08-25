@@ -6,9 +6,6 @@ use arkret_models_identity::BindingSource;
 use arkret_models_identity::primary_handle::HandleIssuerPolicyEntry;
 use arkret_wire::{DidCoreId, DomainSeparationId};
 
-use crate::events_payloads::device_identity::{
-    DeviceAuthorizationBindingKind, DeviceAuthorizePayload, typed_device_authorize_payload_digest,
-};
 use crate::events_payloads::join_policy::JoinPolicyPayload;
 use crate::governance::agent_participation::AgentParticipationPolicy;
 use crate::internal_prelude::*;
@@ -212,10 +209,6 @@ pub struct RealmPreauthPolicy {
 /// turn that into `schema_violation`, or worse, into a silent truncation.
 pub const RELAXED_WINDOW_MAX_MS_CEILING: u64 = 300_000;
 
-/// Default removed-member decryption window when `relaxed_window_max_ms` is
-/// absent.
-pub const RELAXED_WINDOW_DEFAULT_MS: u64 = 30_000;
-
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_policy_bundle_payload`.
 ///
@@ -258,7 +251,7 @@ pub struct RealmPolicyBundlePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_send_pause: Option<MlsSendPause>,
     /// Declared `ak.profile.e2ee_relaxed.v1` removed-member decryption window.
-    /// Absent means [`RELAXED_WINDOW_DEFAULT_MS`].
+    /// Absent means the spec default of 30000 ms.
     ///
     /// A value above [`RELAXED_WINDOW_MAX_MS_CEILING`] is representable on
     /// purpose: the reducer and every receiver reject it with
@@ -357,15 +350,6 @@ impl RealmPolicyBundlePayload {
             policy_revision,
             ..self.clone()
         }
-    }
-
-    /// Effective removed-member decryption window.
-    ///
-    /// Only meaningful once the value has passed the reducer's ceiling check;
-    /// this deliberately does not clamp.
-    pub fn relaxed_window_ms(&self) -> u64 {
-        self.relaxed_window_max_ms
-            .unwrap_or(RELAXED_WINDOW_DEFAULT_MS)
     }
 
     /// Whether `relaxed_window_max_ms` is above the absolute ceiling.
@@ -626,44 +610,6 @@ pub struct FoundingDeviceDescriptor {
 }
 
 impl FoundingDeviceDescriptor {
-    /// Build the root commitment from the shared typed authorize payload.
-    ///
-    /// The descriptor schema narrows `device_public_key` to a complete
-    /// Ed25519 `did:key`, while the reusable authorize payload deliberately
-    /// accepts any non-empty key representation. Parse through [`DidKey`] at
-    /// this boundary so a bare multibase fragment cannot reach wire
-    /// validation.
-    pub fn from_authorize_payload(payload: &DeviceAuthorizePayload) -> Result<Self> {
-        if payload.authorization_binding_kind != DeviceAuthorizationBindingKind::RegistrationAnchor
-            || payload.recovery_session_id.is_some()
-        {
-            return Err(WireError::Protocol(
-                "founding device authorization must be root-anchored registration".to_owned(),
-            ));
-        }
-        let device_public_key = DidKey::new(payload.device_public_key.as_str().to_owned())
-            .map_err(|reason| WireError::Protocol(reason.to_owned()))?;
-        let descriptor = Self {
-            descriptor_version: 1,
-            device_id: payload.device_id.clone(),
-            device_public_key: NonEmptyString::new(device_public_key.to_string())
-                .map_err(|reason| WireError::Protocol(reason.to_owned()))?,
-            device_key_digest: Hash::new(canonical::sha256_digest(device_public_key.as_bytes()))?,
-            device_key_algorithm: FoundingDeviceKeyAlgorithm::Ed25519,
-            device_key_purpose: FoundingDeviceKeyPurpose::EventSigningAndMlsIdentity,
-            hpke_key: payload.hpke_key.clone(),
-            hpke_key_digest: Hash::new(canonical::sha256_digest(payload.hpke_key.as_bytes()))?,
-            hpke_key_algorithm: FoundingDeviceHpkeKeyAlgorithm::X25519,
-            algorithms: payload.algorithms.clone(),
-            founding_authorize_payload_digest: typed_device_authorize_payload_digest(
-                payload,
-                canonical::DigestSuite::Sha256,
-            )?,
-        };
-        descriptor.validate()?;
-        Ok(descriptor)
-    }
-
     pub fn validate(&self) -> Result<()> {
         if self.descriptor_version != 1
             || !self.device_public_key.as_str().starts_with("did:key:z")
@@ -1002,11 +948,6 @@ impl RealmFreezePayload {
         if !reason.trim().is_empty() {
             self.reason = Some(reason);
         }
-        self
-    }
-
-    pub fn with_freeze_expires_at(mut self, expires_at: DateTime<Utc>) -> Self {
-        self.freeze_expires_at = Some(expires_at);
         self
     }
 
@@ -1502,8 +1443,8 @@ mod realm_policy_bundle_tests {
             .validate()
             .expect("an over-ceiling window is not a schema_violation");
         assert_eq!(
-            bundle.relaxed_window_ms(),
-            RELAXED_WINDOW_MAX_MS_CEILING + 1,
+            bundle.relaxed_window_max_ms,
+            Some(RELAXED_WINDOW_MAX_MS_CEILING + 1),
             "the value must not be truncated to the ceiling"
         );
         assert!(bundle.relaxed_window_exceeds_ceiling());
@@ -1511,9 +1452,6 @@ mod realm_policy_bundle_tests {
         let mut at_ceiling = RealmPolicyBundlePayload::new(2);
         at_ceiling.relaxed_window_max_ms = Some(RELAXED_WINDOW_MAX_MS_CEILING);
         assert!(!at_ceiling.relaxed_window_exceeds_ceiling());
-
-        let absent = declared_bundle();
-        assert_eq!(absent.relaxed_window_ms(), RELAXED_WINDOW_DEFAULT_MS);
     }
 
     #[test]

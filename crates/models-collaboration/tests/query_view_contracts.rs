@@ -84,7 +84,6 @@ fn facets_accept_name_lists_and_config_maps() {
     let names: Facets =
         serde_json::from_value(json!(["stateful", "rankable", "renderable"])).unwrap();
     assert!(names.contains(&Facet::Stateful));
-    assert_eq!(names.facet_names().len(), 3);
 
     let configs: Facets = serde_json::from_value(json!({
         "rankable": {"rank_field": "fields.rank"},

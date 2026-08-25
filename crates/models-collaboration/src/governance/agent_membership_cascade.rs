@@ -492,24 +492,22 @@ mod tests {
             controller_membership_generation_ref: event_id('a'),
             controller_terminal_event_ref: Some(event_id('b')),
         };
-        MembershipPayload::transition(
+        let mut leave = MembershipPayload::transition(
             MembershipPayloadState::Leave,
             DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
             "controller membership ended",
-        )
-        .with_controller_membership_ended(binding.clone())
-        .to_value()
-        .unwrap();
-        assert!(
-            MembershipPayload::transition(
-                MembershipPayloadState::Ban,
-                DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
-                "controller membership ended",
-            )
-            .with_controller_membership_ended(binding)
-            .to_value()
-            .is_err()
         );
+        leave.membership_cause = Some(MembershipLifecycleCause::ControllerMembershipEnded);
+        leave.agent_controller_binding = Some(binding.clone());
+        leave.to_value().unwrap();
+        let mut ban = MembershipPayload::transition(
+            MembershipPayloadState::Ban,
+            DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
+            "controller membership ended",
+        );
+        ban.membership_cause = Some(MembershipLifecycleCause::ControllerMembershipEnded);
+        ban.agent_controller_binding = Some(binding);
+        assert!(ban.to_value().is_err());
     }
 
     #[test]

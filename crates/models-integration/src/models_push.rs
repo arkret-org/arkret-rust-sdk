@@ -690,59 +690,6 @@ pub fn validate_push_notify_contract_shape(request: &PushNotifyRequestBody) -> R
     Ok(())
 }
 
-pub fn validate_push_notify_outcome_conservation(
-    request: &PushNotifyRequestBody,
-    outcome: &PushNotifyOutcome,
-) -> Result<(), String> {
-    let expected_push_target_id = request
-        .notification
-        .push_target_id
-        .as_ref()
-        .ok_or_else(|| "notification.push_target_id is required".to_owned())?;
-    if &outcome.push_target_id != expected_push_target_id {
-        return Err("push notify outcome push_target_id does not match the request".to_owned());
-    }
-
-    let requested_device_ids = request
-        .notification
-        .devices
-        .iter()
-        .map(|device| device.device_id.as_str())
-        .collect::<HashSet<_>>();
-    if requested_device_ids.is_empty() {
-        return Err("notification.devices must contain at least one device".to_owned());
-    }
-    if requested_device_ids.len() != request.notification.devices.len() {
-        return Err("notification.devices contains duplicate device_id values".to_owned());
-    }
-    let mut outcome_device_ids = HashSet::with_capacity(outcome.outcomes.len());
-    for device_outcome in &outcome.outcomes {
-        device_outcome.validate()?;
-        let device_id = device_outcome.device_id.as_str();
-        if !requested_device_ids.contains(device_id) {
-            return Err(format!(
-                "push notify outcome contains unrequested device_id `{device_id}`"
-            ));
-        }
-        if !outcome_device_ids.insert(device_id) {
-            return Err(format!(
-                "push notify outcome contains duplicate device_id `{device_id}`"
-            ));
-        }
-    }
-    if outcome_device_ids.len() != requested_device_ids.len() {
-        let missing = requested_device_ids
-            .difference(&outcome_device_ids)
-            .copied()
-            .collect::<Vec<_>>();
-        return Err(format!(
-            "push notify outcome is missing requested device_id values: {}",
-            missing.join(", ")
-        ));
-    }
-    Ok(())
-}
-
 fn reject_forbidden_plaintext_fields(path: &str, value: &Value) -> Result<(), String> {
     match value {
         Value::Object(map) => {
@@ -907,7 +854,7 @@ mod tests {
     }
 
     #[test]
-    fn validates_push_notify_outcome_conservation() {
+    fn push_notify_outcome_serializes_gateway_status_and_reason_code() {
         let request = valid_request();
         let outcome = PushNotifyOutcome {
             push_target_id: request.notification.push_target_id.clone().unwrap(),
@@ -923,57 +870,10 @@ mod tests {
             ],
         };
 
-        validate_push_notify_outcome_conservation(&request, &outcome).unwrap();
         let encoded = serde_json::to_value(&outcome).unwrap();
         assert_eq!(encoded["outcomes"][0]["gateway_status"], "accepted");
         assert_eq!(encoded["outcomes"][1]["reason_code"], "rate_limited");
         assert!(encoded["outcomes"][0].get("reason_code").is_none());
-    }
-
-    #[test]
-    fn rejects_non_conserving_push_notify_outcomes() {
-        let request = valid_request();
-        let push_target_id = request.notification.push_target_id.clone().unwrap();
-        let first_device_id = request.notification.devices[0].device_id.clone();
-        let second_device_id = request.notification.devices[1].device_id.clone();
-
-        let missing = PushNotifyOutcome {
-            push_target_id: push_target_id.clone(),
-            outcomes: vec![PushNotifyDeviceOutcome::accepted(first_device_id.clone())],
-        };
-        assert!(
-            validate_push_notify_outcome_conservation(&request, &missing)
-                .unwrap_err()
-                .contains("missing")
-        );
-
-        let duplicate = PushNotifyOutcome {
-            push_target_id: push_target_id.clone(),
-            outcomes: vec![
-                PushNotifyDeviceOutcome::accepted(first_device_id.clone()),
-                PushNotifyDeviceOutcome::duplicate(first_device_id),
-            ],
-        };
-        assert!(
-            validate_push_notify_outcome_conservation(&request, &duplicate)
-                .unwrap_err()
-                .contains("duplicate")
-        );
-
-        let unrequested = PushNotifyOutcome {
-            push_target_id,
-            outcomes: vec![
-                PushNotifyDeviceOutcome::accepted(second_device_id),
-                PushNotifyDeviceOutcome::accepted(
-                    DeviceId::new("ak:device:01904100-0000-7000-8000-000000000099").unwrap(),
-                ),
-            ],
-        };
-        assert!(
-            validate_push_notify_outcome_conservation(&request, &unrequested)
-                .unwrap_err()
-                .contains("unrequested")
-        );
     }
 
     #[test]

@@ -332,21 +332,6 @@ impl Realm {
         }
     }
 
-    /// Builder: declare the initial notary cell value. Servers seed the
-    /// `ak:cell:ak.component.notary.v1:<realm_id>` cell from this hint at
-    /// Realm creation time. Subsequent rotations strand through Move.
-    pub fn with_notary(mut self, notary: NotaryValue) -> Self {
-        self.notary = notary;
-        self
-    }
-
-    /// Builder: cap how stale the latest Seal leaf may be before clients
-    /// SHOULD warn / re-fetch.
-    pub fn with_revocation_freshness_window(mut self, max_ms: u64) -> Self {
-        self.revocation_freshness_window_ms = Some(max_ms);
-        self
-    }
-
     pub fn control_proposal_decision_policy(&self) -> Result<ControlProposalDecisionPolicy> {
         let duration_from_ms = |value: u64, field: &str| {
             i64::try_from(value)
@@ -372,22 +357,6 @@ impl Realm {
         };
         policy.validate()?;
         Ok(policy)
-    }
-
-    /// Builder: declare a per-cell-family lattice hint. Append-only; call
-    /// once per (cell_family, lattice) pair.
-    pub fn with_cell_lattice(
-        mut self,
-        cell_family: impl Into<String>,
-        lattice: impl Into<String>,
-        bottom: Option<String>,
-    ) -> Self {
-        self.cell_lattices.push(CellLatticeDeclaration {
-            cell_family: cell_family.into(),
-            lattice: lattice.into(),
-            bottom,
-        });
-        self
     }
 
     /// Validate spec-level Realm invariants.

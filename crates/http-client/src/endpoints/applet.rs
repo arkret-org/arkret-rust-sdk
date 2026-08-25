@@ -8,31 +8,14 @@ use arkret_models_integration::{
     AppletInstallOutcome, AppletInstallPreviewOutcome, AppletInstallPreviewRequestBody,
     AppletInstallRequestBody, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
     AppletRevokeOutcome, AppletRevokePreviewOutcome, AppletRevokePreviewRequestBody,
-    AppletThirdPartyLocationList, AppletThirdPartyUserList, AppletTransactionOutcome,
-    GhostActorProvisionOutcome, GhostActorProvisionRequestBody,
+    AppletTransactionOutcome, GhostActorProvisionOutcome, GhostActorProvisionRequestBody,
 };
-use arkret_signatures::http_signature::{
-    Component, ContentDigest, ContentDigestAlgorithm, SignedRequestParts, canonical_message,
-    format_signature_header, format_signature_input_component_list, parse_signature_input,
-    sign_message,
-};
-use arkret_wire::{DidCoreId, canonical};
-use ed25519_dalek::SigningKey;
 use reqwest::Method;
 use reqwest::header::CONTENT_TYPE;
 use url::Url;
 
 use crate::client_internals::validate_base_url;
-use crate::{Client, ClientRequestOptions, Error, Result, reject_path_segment};
-
-pub struct SignedAppletTransactionOptions<'a> {
-    pub source_service_id: &'a DidCoreId,
-    pub destination_service_id: &'a DidCoreId,
-    pub key_id: &'a str,
-    pub signing_key: &'a SigningKey,
-    pub created: Option<i64>,
-    pub expires: Option<i64>,
-}
+use crate::{Client, ClientRequestOptions, Result, reject_path_segment};
 
 impl Client {
     pub async fn applet_ping(&self) -> Result<AppletPingOutcome> {
@@ -131,92 +114,6 @@ impl Client {
             .await
     }
 
-    pub async fn applet_transaction_signed(
-        &self,
-        idempotency_key: &str,
-        request: &AppletTransactionRequestBody,
-        signature: SignedAppletTransactionOptions<'_>,
-    ) -> Result<AppletTransactionOutcome> {
-        if &request.source_service_id != signature.source_service_id {
-            return Err(Error::Protocol(
-                "applet transaction source_service_id must match signing source".to_owned(),
-            ));
-        }
-        let path = "/_arkret/edge/applet/transactions";
-        let url = self.base_url.join(path.trim_start_matches('/'))?;
-        let target_uri = url.to_string();
-        let authority = request_authority(&url)?;
-        let body_bytes = canonical::canonical_json_bytes(request)?;
-        let content_digest = ContentDigest::compute(&body_bytes, ContentDigestAlgorithm::Sha256);
-        let created = signature
-            .created
-            .unwrap_or_else(|| chrono::Utc::now().timestamp());
-        let expires = signature.expires.unwrap_or(created + 300);
-        if expires < created || expires - created > 300 {
-            return Err(Error::Protocol(
-                "applet transaction signature validity window must be within 300 seconds"
-                    .to_owned(),
-            ));
-        }
-        let covered_components = vec![
-            Component::Method,
-            Component::TargetUri,
-            Component::Authority,
-            Component::Header("content-digest".to_owned()),
-            Component::Header("source-service-id".to_owned()),
-            Component::Header("destination-service-id".to_owned()),
-            Component::Header("idempotency-key".to_owned()),
-        ];
-        let signature_input_header =
-            format_signature_input_component_list("sig1", &covered_components)
-                .map_err(|error| Error::Protocol(format!("signature input: {error}")))?;
-        let signature_input_header = format!(
-            "{signature_input_header};created={created};expires={expires};keyid=\"{}\";alg=\"ed25519\"",
-            signature.key_id
-        );
-        let signature_input = parse_signature_input(&signature_input_header)
-            .map_err(|error| Error::Protocol(format!("signature input: {error}")))?;
-        let headers = vec![
-            (
-                "source-service-id".to_owned(),
-                signature.source_service_id.to_string(),
-            ),
-            (
-                "destination-service-id".to_owned(),
-                signature.destination_service_id.to_string(),
-            ),
-            ("idempotency-key".to_owned(), idempotency_key.to_owned()),
-        ];
-        let parts = SignedRequestParts {
-            method: "POST".to_owned(),
-            target_uri,
-            authority,
-            path: url.path().to_owned(),
-            headers,
-            body_digest: Some(content_digest.wire_value.clone()),
-        };
-        let message = canonical_message(&parts, &signature_input)
-            .map_err(|error| Error::Protocol(format!("canonical signature message: {error}")))?;
-        let signature_header =
-            format_signature_header("sig1", &sign_message(&message, signature.signing_key))
-                .map_err(|error| Error::Protocol(format!("signature header: {error}")))?;
-
-        let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
-        let builder = self.apply_request_options(self.request(Method::POST, path)?, &options)?;
-        let builder = builder
-            .header(CONTENT_TYPE, "application/json")
-            .header("Content-Digest", content_digest.wire_value)
-            .header("Source-Service-ID", signature.source_service_id.to_string())
-            .header(
-                "Destination-Service-ID",
-                signature.destination_service_id.to_string(),
-            )
-            .header("Signature-Input", signature_input_header)
-            .header("Signature", signature_header)
-            .body(body_bytes);
-        self.send_json(builder).await
-    }
-
     pub async fn applet_actor(&self, actor_id: &str) -> Result<AppletActorView> {
         reject_path_segment(actor_id)?;
         let path = format!("/_arkret/edge/applet/actors/{actor_id}");
@@ -234,16 +131,6 @@ impl Client {
         let path = format!("/_arkret/edge/applet/protocols/{protocol}");
         self.get(&path).await
     }
-
-    /// Query third-party users for an applet.
-    pub async fn applet_third_party_users(&self) -> Result<AppletThirdPartyUserList> {
-        self.get("/_arkret/edge/applet/third_party/users").await
-    }
-
-    /// Query third-party locations for an applet.
-    pub async fn applet_third_party_locations(&self) -> Result<AppletThirdPartyLocationList> {
-        self.get("/_arkret/edge/applet/third_party/locations").await
-    }
 }
 
 fn ghost_actor_provision_path(applet_id: &str) -> Result<String> {
@@ -251,16 +138,6 @@ fn ghost_actor_provision_path(applet_id: &str) -> Result<String> {
     Ok(format!(
         "/_arkret/self/applets/{applet_id}/ghosts/provision"
     ))
-}
-
-fn request_authority(url: &Url) -> Result<String> {
-    let host = url
-        .host_str()
-        .ok_or_else(|| Error::Protocol("applet transaction URL has no host".to_owned()))?;
-    Ok(match url.port() {
-        Some(port) => format!("{host}:{port}"),
-        None => host.to_owned(),
-    })
 }
 
 fn applet_author_url(base_url: &Url) -> Result<Url> {

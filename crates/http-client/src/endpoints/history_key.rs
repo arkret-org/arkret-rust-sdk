@@ -2,12 +2,9 @@
 
 use arkret_models_collaboration::history_key::{
     HistoryKeyRequest, HistoryKeyRequestCreateOutcome, HistoryKeyRequestListOutcome,
-    HistoryKeyRequestListQuery, HistoryKeyRequestReplica, HistoryKeyRequestReplicaOutcome,
-    HistoryKeyResponseAckOutcome, HistoryKeyResponseAckRequest, HistoryKeyResponseListOutcome,
-    HistoryKeyResponseListQuery, HistoryKeyResponseSendReceipt, HistoryKeyResponseSendRequest,
-    HistoryKeySourceRelay, OrganizationRecoveryArchiveListOutcome,
-    OrganizationRecoveryArchiveListQuery, OrganizationRecoveryArchiveReplica,
-    OrganizationRecoveryArchiveReplicaOutcome,
+    HistoryKeyRequestListQuery, HistoryKeyResponseAckOutcome, HistoryKeyResponseAckRequest,
+    HistoryKeyResponseListOutcome, HistoryKeyResponseListQuery, HistoryKeyResponseSendReceipt,
+    HistoryKeyResponseSendRequest, HistoryKeySourceRelay,
 };
 use reqwest::Method;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue};
@@ -19,13 +16,7 @@ const PATH_SELF_HISTORY_KEY_REQUESTS_READ: &str = "/_arkret/self/history-key-req
 const PATH_SELF_HISTORY_KEY_RESPONSES: &str = "/_arkret/self/history-key-responses";
 const PATH_SELF_HISTORY_KEY_RESPONSES_READ: &str = "/_arkret/self/history-key-responses/read";
 const PATH_SELF_HISTORY_KEY_RESPONSES_ACK: &str = "/_arkret/self/history-key-responses/ack";
-const PATH_SELF_ORGANIZATION_RECOVERY_ARCHIVES_READ: &str =
-    "/_arkret/self/organization-recovery-archives/read";
-const PATH_PEER_HISTORY_KEY_REQUESTS_REPLICATE: &str =
-    "/_arkret/peer/history-key-requests/replicate";
 const PATH_PEER_HISTORY_KEY_RESPONSES_RELAY: &str = "/_arkret/peer/history-key-responses/relay";
-const PATH_PEER_ORGANIZATION_RECOVERY_ARCHIVES_REPLICATE: &str =
-    "/_arkret/peer/organization-recovery-archives/replicate";
 
 fn history_response_authorization(capability_b64u: &str) -> Result<HeaderValue> {
     let decoded = arkret_canonical::base64url::base64url_decode(capability_b64u)
@@ -136,35 +127,6 @@ impl Client {
         Ok(outcome)
     }
 
-    pub async fn organization_recovery_archive_list(
-        &self,
-        query: &OrganizationRecoveryArchiveListQuery,
-    ) -> Result<OrganizationRecoveryArchiveListOutcome> {
-        query.validate()?;
-        let outcome: OrganizationRecoveryArchiveListOutcome = self
-            .post(PATH_SELF_ORGANIZATION_RECOVERY_ARCHIVES_READ, query)
-            .await?;
-        outcome.validate()?;
-        Ok(outcome)
-    }
-
-    pub async fn peer_history_key_request_replicate(
-        &self,
-        request: &HistoryKeyRequestReplica,
-    ) -> Result<HistoryKeyRequestReplicaOutcome> {
-        request.validate()?;
-        let outcome: HistoryKeyRequestReplicaOutcome = self
-            .post_protocol_replay_safe(PATH_PEER_HISTORY_KEY_REQUESTS_REPLICATE, request)
-            .await?;
-        outcome.validate()?;
-        if outcome.destination_service_id != request.destination_service_id {
-            return Err(Error::Protocol(
-                "history request replica receipt changed destination_service_id".to_owned(),
-            ));
-        }
-        Ok(outcome)
-    }
-
     pub async fn peer_history_key_response_relay(
         &self,
         request: &HistoryKeySourceRelay,
@@ -177,23 +139,6 @@ impl Client {
         if outcome.response_id != request.response.response_id {
             return Err(Error::Protocol(
                 "history response relay receipt changed response_id".to_owned(),
-            ));
-        }
-        Ok(outcome)
-    }
-
-    pub async fn peer_organization_recovery_archive_replicate(
-        &self,
-        request: &OrganizationRecoveryArchiveReplica,
-    ) -> Result<OrganizationRecoveryArchiveReplicaOutcome> {
-        request.validate()?;
-        let outcome: OrganizationRecoveryArchiveReplicaOutcome = self
-            .post_protocol_replay_safe(PATH_PEER_ORGANIZATION_RECOVERY_ARCHIVES_REPLICATE, request)
-            .await?;
-        outcome.validate()?;
-        if outcome.holder_service_id != request.holder_service_id {
-            return Err(Error::Protocol(
-                "archive replica receipt changed holder_service_id".to_owned(),
             ));
         }
         Ok(outcome)

@@ -1,19 +1,11 @@
-use std::collections::BTreeSet;
-
-use chrono::Duration;
 use serde_json::Value;
 
-use super::constants::{
-    DEFAULT_SNAPSHOT_CHUNK_BYTES, DETACHED_JWS_PROOF_KIND, EMPTY_SHA256_DIGEST,
-    SNAPSHOT_CHUNK_TYPE, SNAPSHOT_V1_HIGH_ASSURANCE_MAX_ACCEPTANCE_AGE_MS,
-    SNAPSHOT_V1_STANDARD_MAX_ACCEPTANCE_AGE_MS,
-};
+use super::constants::{DEFAULT_SNAPSHOT_CHUNK_BYTES, EMPTY_SHA256_DIGEST, SNAPSHOT_CHUNK_TYPE};
 use super::merkle::{build_levels, sha256_digest};
 use super::types::{
     BuiltSnapshotChunk, EventSetCommitment, EventSetCommitmentAlgorithm, EventSetLeaf,
-    SnapshotChunk, SnapshotChunkDescriptor, SnapshotChunkPayload, SnapshotManifest,
-    SnapshotMaterializedItem, SnapshotSecurityClass, SnapshotValidationCode,
-    SnapshotValidationError, SnapshotVerifyOptions, SnapshotVerifyReport,
+    SnapshotChunk, SnapshotChunkDescriptor, SnapshotChunkPayload, SnapshotMaterializedItem,
+    SnapshotValidationCode, SnapshotValidationError,
 };
 use crate::{BlobRef, Hash, Result, SnapshotId, WireError};
 
@@ -282,122 +274,6 @@ pub fn verify_snapshot_chunk_bytes(
     verify_snapshot_chunk_ref_digest(descriptor)
 }
 
-pub fn parse_verified_snapshot_chunk_bytes(
-    descriptor: &SnapshotChunkDescriptor,
-    bytes: &[u8],
-) -> std::result::Result<SnapshotChunkPayload, SnapshotValidationError> {
-    verify_snapshot_chunk_bytes(descriptor, bytes)?;
-    serde_json::from_slice(bytes).map_err(|err| {
-        SnapshotValidationError::new(
-            SnapshotValidationCode::DigestMismatch,
-            format!("snapshot chunk JSON decode failed: {err}"),
-        )
-    })
-}
-
-pub fn verify_snapshot_manifest(
-    manifest: &SnapshotManifest,
-    chunks: &[SnapshotChunkPayload],
-    options: &SnapshotVerifyOptions,
-) -> std::result::Result<SnapshotVerifyReport, SnapshotValidationError> {
-    manifest.validate_manifest_only(options)?;
-    if chunks.len() != manifest.chunks.len() {
-        return Err(SnapshotValidationError::new(
-            SnapshotValidationCode::DigestMismatch,
-            format!(
-                "snapshot chunk count mismatch: manifest has {}, payloads have {}",
-                manifest.chunks.len(),
-                chunks.len()
-            ),
-        ));
-    }
-
-    let mut keys = BTreeSet::new();
-    let mut previous_key: Option<(String, String)> = None;
-    let mut items = Vec::new();
-    let mut source_event_ids = Vec::new();
-    for (index, (descriptor, payload)) in manifest.chunks.iter().zip(chunks.iter()).enumerate() {
-        let bytes = snapshot_chunk_payload_bytes(payload).map_err(|err| {
-            SnapshotValidationError::new(
-                SnapshotValidationCode::DigestMismatch,
-                format!("snapshot chunk {index} canonicalization failed: {err}"),
-            )
-        })?;
-        verify_snapshot_chunk_bytes(descriptor, &bytes)?;
-        if payload.chunk_kind != SNAPSHOT_CHUNK_TYPE {
-            return Err(SnapshotValidationError::new(
-                SnapshotValidationCode::DigestMismatch,
-                format!(
-                    "snapshot chunk {index} has invalid type '{}'",
-                    payload.chunk_kind
-                ),
-            ));
-        }
-        if payload.snapshot_ref != manifest.id {
-            return Err(SnapshotValidationError::new(
-                SnapshotValidationCode::DigestMismatch,
-                format!("snapshot chunk {index} snapshot_ref does not match manifest id"),
-            ));
-        }
-        if payload.index != index as u32 {
-            return Err(SnapshotValidationError::new(
-                SnapshotValidationCode::DigestMismatch,
-                format!("snapshot chunk {index} payload index is {}", payload.index),
-            ));
-        }
-        if payload.reducer_profile != manifest.reducer_profile {
-            return Err(SnapshotValidationError::new(
-                SnapshotValidationCode::DigestMismatch,
-                format!("snapshot chunk {index} reducer_profile mismatch"),
-            ));
-        }
-        for item in &payload.items {
-            let key = (item.kind.clone(), item.id.clone());
-            if previous_key
-                .as_ref()
-                .is_some_and(|previous| previous >= &key)
-            {
-                return Err(SnapshotValidationError::new(
-                    SnapshotValidationCode::DigestMismatch,
-                    "snapshot chunk items are not strictly sorted by (kind,id)",
-                ));
-            }
-            if !keys.insert(key.clone()) {
-                return Err(SnapshotValidationError::new(
-                    SnapshotValidationCode::DigestMismatch,
-                    format!("duplicate snapshot item ({},{})", key.0, key.1),
-                ));
-            }
-            previous_key = Some(key);
-            source_event_ids.push(item.source_event_id.clone());
-            items.push(item.clone());
-        }
-    }
-
-    let computed_state_digest = state_digest_from_items(&items).map_err(|err| {
-        SnapshotValidationError::new(
-            SnapshotValidationCode::DigestMismatch,
-            format!("snapshot state_digest could not be computed: {err}"),
-        )
-    })?;
-    if computed_state_digest != manifest.state_digest {
-        return Err(SnapshotValidationError::new(
-            SnapshotValidationCode::DigestMismatch,
-            format!(
-                "snapshot state_digest mismatch: manifest {}, computed {}",
-                manifest.state_digest, computed_state_digest
-            ),
-        ));
-    }
-
-    Ok(SnapshotVerifyReport {
-        item_count: keys.len(),
-        chunk_count: chunks.len(),
-        state_digest: computed_state_digest,
-        source_event_ids,
-    })
-}
-
 fn verify_snapshot_chunk_ref_digest(
     descriptor: &SnapshotChunkDescriptor,
 ) -> std::result::Result<(), SnapshotValidationError> {
@@ -460,85 +336,4 @@ fn sorted_event_set_entries(entries: &[EventSetLeaf]) -> Vec<EventSetLeaf> {
         left.cmp(&right)
     });
     sorted
-}
-
-impl SnapshotManifest {
-    pub fn validate_manifest_only(
-        &self,
-        options: &SnapshotVerifyOptions,
-    ) -> std::result::Result<(), SnapshotValidationError> {
-        if self.reducer_profile != options.expected_reducer_profile {
-            return Err(SnapshotValidationError::new(
-                SnapshotValidationCode::DigestMismatch,
-                format!(
-                    "snapshot reducer_profile '{}' does not match expected '{}'",
-                    self.reducer_profile, options.expected_reducer_profile
-                ),
-            ));
-        }
-        if self.schema_profile_refs.is_empty() {
-            return Err(SnapshotValidationError::new(
-                SnapshotValidationCode::SnapshotUnavailable,
-                "snapshot schema_profile_refs must not be empty",
-            ));
-        }
-        if self.chunks.is_empty() {
-            return Err(SnapshotValidationError::new(
-                SnapshotValidationCode::SnapshotUnavailable,
-                "snapshot chunks must not be empty",
-            ));
-        }
-        if self.signature.kind != DETACHED_JWS_PROOF_KIND
-            || self.signature.verification_method.trim().is_empty()
-            || self.signature.jws.trim().is_empty()
-        {
-            return Err(SnapshotValidationError::new(
-                SnapshotValidationCode::SnapshotAuthorityUnverified,
-                "snapshot signature is not a structurally valid detached JWS proof",
-            ));
-        }
-        let expected_digest = self.expected_signature_digest().map_err(|err| {
-            SnapshotValidationError::new(
-                SnapshotValidationCode::DigestMismatch,
-                format!("snapshot signature payload digest could not be computed: {err}"),
-            )
-        })?;
-        if self.signature.payload_digest != expected_digest {
-            return Err(SnapshotValidationError::new(
-                SnapshotValidationCode::DigestMismatch,
-                "snapshot signature payload_digest does not match manifest canonical bytes",
-            ));
-        }
-        // The manifest signature covers the final witness list, so it is
-        // checked first and the per-row conditions only afterwards
-        // (`snapshot-schema.md` §5.1).
-        self.validate_witness_attestation_shape()?;
-        let max_age = match self.security_class {
-            SnapshotSecurityClass::Standard => {
-                Duration::milliseconds(SNAPSHOT_V1_STANDARD_MAX_ACCEPTANCE_AGE_MS)
-            }
-            SnapshotSecurityClass::HighAssurance => {
-                if !options.allow_high_assurance {
-                    return Err(SnapshotValidationError::new(
-                        SnapshotValidationCode::InclusionProofFailed,
-                        "high_assurance snapshot verification is not enabled",
-                    ));
-                }
-                Duration::milliseconds(SNAPSHOT_V1_HIGH_ASSURANCE_MAX_ACCEPTANCE_AGE_MS)
-            }
-        };
-        if self.created_at > options.now + Duration::minutes(5) {
-            return Err(SnapshotValidationError::new(
-                SnapshotValidationCode::SnapshotAuthorityUnverified,
-                "snapshot created_at is too far in the future",
-            ));
-        }
-        if options.now - self.created_at > max_age {
-            return Err(SnapshotValidationError::new(
-                SnapshotValidationCode::SnapshotIssuerRevoked,
-                "snapshot manifest is outside the acceptance window",
-            ));
-        }
-        Ok(())
-    }
 }

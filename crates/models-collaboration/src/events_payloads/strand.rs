@@ -302,11 +302,6 @@ impl StrandWatchSetPayload {
         }
     }
 
-    pub fn with_expected_value(mut self, expected: Option<StrandWatchExpectedValue>) -> Self {
-        self.expected_value = expected;
-        self
-    }
-
     /// Canonical `cas_register` cell this write targets: family
     /// `ak.component.strand.watch.v1` with the tuple subject
     /// `(strand_id, watcher_actor_id)` from the event-kind registry

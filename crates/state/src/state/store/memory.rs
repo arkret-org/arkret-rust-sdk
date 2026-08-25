@@ -1067,11 +1067,6 @@ impl MemoryCellRegistry {
         }
     }
 
-    /// Return every registered cell family in deterministic order.
-    pub fn registered_families(&self) -> impl Iterator<Item = &str> {
-        self.bindings.keys().map(String::as_str)
-    }
-
     /// Register an additional binding (test fixtures / Realm-level overrides).
     pub fn register(
         &mut self,

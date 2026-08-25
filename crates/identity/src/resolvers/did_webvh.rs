@@ -380,53 +380,6 @@ pub fn verify_did_webvh_v1_chain_bytes(
     verify_did_webvh_v1_chain(did, &raw_entries)
 }
 
-/// Verify one unpublished principal entry against a complete, independently
-/// obtained and verified current history without publishing the candidate.
-///
-/// The expected version ids come from the transaction-bound DID refs. This
-/// prevents a valid candidate for another head or generation from being
-/// substituted at the recovery-authority boundary.
-pub fn verify_did_webvh_v1_candidate_entry_bytes(
-    did: &DidFullId,
-    current_history_bytes: &[u8],
-    expected_previous_version_id: &str,
-    candidate_entry_bytes: &[u8],
-    expected_candidate_version_id: &str,
-) -> Result<VerifiedDidWebvhLog> {
-    let current = verify_did_webvh_v1_log_bytes(did, current_history_bytes)?;
-    if current.head_version_id != expected_previous_version_id {
-        return Err(IdentityError::Protocol(
-            "did:webvh candidate previous version does not equal the verified current head"
-                .to_owned(),
-        ));
-    }
-
-    let candidate: Value = serde_json::from_slice(candidate_entry_bytes)?;
-    if !candidate.is_object() {
-        return Err(IdentityError::Protocol(
-            "did:webvh candidate entry must be one JSON object".to_owned(),
-        ));
-    }
-    let typed_candidate: DidWebvhLogEntry = serde_json::from_value(candidate.clone())?;
-    if typed_candidate.version_id != expected_candidate_version_id {
-        return Err(IdentityError::Protocol(
-            "did:webvh candidate versionId does not equal the transaction-bound entry ref"
-                .to_owned(),
-        ));
-    }
-
-    let expected_entry_count = current.entries.len() + 1;
-    let mut combined = current.raw_entries;
-    combined.push(candidate);
-    let verified = verify_did_webvh_v1_log(did, &combined)?;
-    if verified.entries.len() != expected_entry_count {
-        return Err(IdentityError::Protocol(
-            "did:webvh candidate verification did not append exactly one entry".to_owned(),
-        ));
-    }
-    Ok(verified)
-}
-
 /// Parse the only method-native witness policy shape accepted by Arkret.
 ///
 /// A missing `parameters.witness` means that no method witness is declared.

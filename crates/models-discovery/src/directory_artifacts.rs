@@ -1,28 +1,9 @@
 //! Contact and directory schema artifact counterparts (pure `$defs`
 //! shapes shared by the directory operation DTOs).
 
-use arkret_wire::{ConsentScope, EventId, MessageId, NonEmptyString, StrandId};
+use arkret_wire::{EventId, MessageId, StrandId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/invite_consent_handoff_stub`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct InviteConsentHandoffStub {
-    pub kind: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub consent_scope: Option<ConsentScope>,
-    pub state: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state_digest: Option<NonEmptyString>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub next_step: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub expires_at: Option<DateTime<Utc>>,
-}
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/object_preview`.

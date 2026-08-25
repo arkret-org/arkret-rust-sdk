@@ -207,22 +207,6 @@ impl RealmAuthorityRootProof {
     }
 }
 
-/// Build the `authorization_ref` value for a staged genesis-batch root proof.
-///
-/// The create Event id is not carried in the ref itself; it is the batch
-/// predecessor the Event must descend from. Returning it here keeps callers
-/// from inventing their own binding.
-pub fn staged_root_authorization(create: &Event) -> Result<RealmAuthorityRootProof> {
-    if create.kind != EventKind::RealmCreate {
-        return Err(WireError::Protocol(
-            "staged Realm authority-root proof must bind an ak.realm.create Event".to_owned(),
-        ));
-    }
-    Ok(RealmAuthorityRootProof::StagedGenesis {
-        create_event_id: create.event_id.clone(),
-    })
-}
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RealmBootstrapValidationError {
     NotOrdinaryRealmBootstrap,
@@ -663,20 +647,6 @@ mod tests {
         assert_eq!(value.controller_epoch, 0);
         assert_eq!(value.authority_generation, 0);
         assert!(!value.is_genesis_for("did:web:other.example"));
-    }
-
-    #[test]
-    fn staged_root_authorization_binds_the_create_event() {
-        let create = create();
-        let proof = staged_root_authorization(&create).unwrap();
-        assert_eq!(
-            proof,
-            RealmAuthorityRootProof::StagedGenesis {
-                create_event_id: create.event_id
-            }
-        );
-        assert_eq!(proof.authorization_ref(), REALM_AUTHORITY_ROOT_CELL);
-        assert!(staged_root_authorization(&complete_unit()[4]).is_err());
     }
 
     #[test]

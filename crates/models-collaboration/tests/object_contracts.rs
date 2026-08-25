@@ -133,7 +133,6 @@ fn strand_discussion_constructor_sets_room_shape() {
         "Launch board discussion",
         actor("did:webvh:z6mkfixture:alice.example"),
     );
-    assert!(strand.is_conversational());
     assert_eq!(strand.tracks.len(), 2, "synthesis + discussion expected");
 
     let synthesis = strand
@@ -148,18 +147,6 @@ fn strand_discussion_constructor_sets_room_shape() {
         .expect("discussion track present");
     assert_eq!(discussion.is_primary, Some(true));
     assert_eq!(discussion.profile.as_deref(), Some("discussion"));
-}
-
-/// T21 — synthesis-only Strands are not conversational.
-#[test]
-fn synthesis_strand_is_not_conversational() {
-    let strand = Strand::new(
-        StrandId::new("ak:strand:AT_TSQZlyY7Fu85J33nzo3fSau9RjJOeu21RspghP1gC").unwrap(),
-        RealmId::new("ak:realm:Ae45Cr1AeIit-Zrz1lJhczoDtaA38mI5e6z8nYtMnMW7").unwrap(),
-        "Launch board synthesis",
-        actor("did:webvh:z6mkfixture:alice.example"),
-    );
-    assert!(!strand.is_conversational());
 }
 
 /// T21 — StrandTrack typed constructors honour the standard
@@ -213,22 +200,21 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     assert!(realm.cell_lattices.is_empty());
     assert!(realm.updated_by.is_none());
 
-    realm = realm
-        .with_notary(NotaryValue::Threshold {
-            threshold: 2,
-            members: vec![
-                signer("did:webvh:z6mkfixturea:a.example"),
-                signer("did:webvh:z6mkfixtureb:b.example"),
-                signer("did:webvh:z6mkfixturec:c.example"),
-            ],
-            forensic_attribution: arkret_wire::ForensicAttribution::QuorumIntersection,
-        })
-        .with_revocation_freshness_window(60_000)
-        .with_cell_lattice(
-            arkret_wire::CellFamilyId::STRAND_TRACKS_V1,
-            "cas_register",
-            Some("reject".to_owned()),
-        );
+    realm.notary = NotaryValue::Threshold {
+        threshold: 2,
+        members: vec![
+            signer("did:webvh:z6mkfixturea:a.example"),
+            signer("did:webvh:z6mkfixtureb:b.example"),
+            signer("did:webvh:z6mkfixturec:c.example"),
+        ],
+        forensic_attribution: arkret_wire::ForensicAttribution::QuorumIntersection,
+    };
+    realm.revocation_freshness_window_ms = Some(60_000);
+    realm.cell_lattices.push(CellLatticeDeclaration {
+        cell_family: arkret_wire::CellFamilyId::STRAND_TRACKS_V1.to_owned(),
+        lattice: "cas_register".to_owned(),
+        bottom: Some("reject".to_owned()),
+    });
     realm.preview_policy_id =
         Some(PolicyId::new("ak:policy:0196419b-0000-7000-8000-000000000003").unwrap());
     realm.digest_algorithm = canonical::DigestSuite::Blake3;

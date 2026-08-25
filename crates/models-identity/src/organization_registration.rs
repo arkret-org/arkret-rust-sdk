@@ -7,17 +7,6 @@ use arkret_wire::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-pub const ORGANIZATION_REGISTRATION_PREPARE_PATH: &str =
-    "/_arkret/root/identity/organization-registrations:prepare";
-pub const ORGANIZATION_REGISTRATION_ENSURE_PATH: &str =
-    "/_arkret/root/identity/organization-registrations:ensure";
-pub const ORGANIZATION_REGISTRATION_GET_PATH: &str =
-    "/_arkret/root/identity/organization-registrations";
-pub const ORGANIZATION_REGISTRATION_REFRESH_PATH: &str =
-    "/_arkret/root/identity/organization-registrations:refresh";
-pub const ORGANIZATION_REGISTRATION_REVOKE_PATH: &str =
-    "/_arkret/root/identity/organization-registrations:revoke";
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]

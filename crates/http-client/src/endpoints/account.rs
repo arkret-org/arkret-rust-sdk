@@ -3,7 +3,7 @@
 
 use arkret_models_collaboration::account_lifecycle::{
     AccountRegisterOutcome, AccountRegisterRequestBody, AccountUpdateProfileRequestBody,
-    AccountView, SessionRevokeOutcome, SessionRevokeRequestBody,
+    AccountView,
 };
 use arkret_models_collaboration::contact_operations::{
     ContactAcceptRequestBody, ContactOperationOutcome, ContactOperationRequestBody,
@@ -18,8 +18,8 @@ use arkret_models_collaboration::http_bodies::{
     DevicePairingStatusOutcome, DevicePairingStatusRequestBody,
 };
 use arkret_models_collaboration::session_grant_bodies::{
-    SessionGrantIntrospectOutcome, SessionGrantIntrospectRequestBody, SessionGrantOutcome,
-    SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
+    SessionGrantOutcome, SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody,
+    SessionGrantRequestBody,
 };
 use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountSubscribeBatch, AccountSubscribeFrame, AccountSubscribeFrameKind,
@@ -31,8 +31,7 @@ use arkret_models_discovery::ServiceDescribe;
 use arkret_models_identity::{
     AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountHandoffOutcome,
     AccountHandoffRequestBody, AccountLogoutOutcome, AccountLogoutRequestBody,
-    AccountOnboardingSnapshot, AccountRequestErasureOutcome, AccountRequestErasureRequestBody,
-    AccountUpdateProfileOutcome, IdentityAbandonmentChallengeOutcome,
+    AccountOnboardingSnapshot, AccountUpdateProfileOutcome, IdentityAbandonmentChallengeOutcome,
     IdentityAbandonmentChallengeRequestBody, IdentityAbandonmentOutcome,
     IdentityAbandonmentRequestBody, IdentityBindingChallengeOutcome,
     IdentityBindingChallengeRequestBody,
@@ -157,26 +156,6 @@ impl Client {
             .await
     }
 
-    /// Durable exact-replay session-grant revocation. Retries reuse the same
-    /// canonical request body and proof; no `Idempotency-Key` header is added.
-    pub async fn auth_revoke_session_grant(
-        &self,
-        req: &SessionRevokeRequestBody,
-    ) -> Result<SessionRevokeOutcome> {
-        self.post_protocol_replay_safe("/_arkret/gate/account/session-grants/revoke", req)
-            .await
-    }
-
-    /// Read-only issuer-ledger introspection. Exactly one of grant id or JWT is
-    /// encoded by `SessionGrantIntrospectRequestBody`.
-    pub async fn auth_introspect_session_grant(
-        &self,
-        req: &SessionGrantIntrospectRequestBody,
-    ) -> Result<SessionGrantIntrospectOutcome> {
-        self.post("/_arkret/gate/account/session-grants/introspect", req)
-            .await
-    }
-
     /// `POST /_arkret/gate/account/logout`
     /// (`ak.gate.account.command.logout`): terminate the current
     /// DPoP-bound account session at the Account Authority.
@@ -239,23 +218,6 @@ impl Client {
     ) -> Result<AccountUpdateProfileOutcome> {
         request.validate(digest_suite)?;
         self.post("/_arkret/self/account/profile", request).await
-    }
-
-    /// `POST /_arkret/gate/account/erasure-requests`
-    /// (`ak.gate.account.command.request_erasure`). Success is an acceptance
-    /// confirmation only: the erasure intent is durably recorded and the
-    /// Account Authority starts its existing `erasure_pending` issuance flow.
-    /// Exact request-id replay returns the recorded outcome.
-    pub async fn account_request_erasure(
-        &self,
-        request: &AccountRequestErasureRequestBody,
-    ) -> Result<AccountRequestErasureOutcome> {
-        request.validate()?;
-        let outcome: AccountRequestErasureOutcome = self
-            .post("/_arkret/gate/account/erasure-requests", request)
-            .await?;
-        outcome.validate()?;
-        Ok(outcome)
     }
 
     pub async fn account_device_pair(
@@ -716,25 +678,6 @@ mod tests {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    fn session_revoke_request() -> SessionRevokeRequestBody {
-        serde_json::from_value(serde_json::json!({
-            "target_session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW"
-        }))
-        .unwrap()
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    fn session_revoke_outcome_json() -> String {
-        serde_json::json!({
-            "revoked_count": 1,
-            "revoked_session_grant_ids": [
-                "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW"
-            ]
-        })
-        .to_string()
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
     #[derive(Clone, Copy)]
     enum ReplayTrigger {
         Timeout,
@@ -801,9 +744,11 @@ mod tests {
             .allow_insecure_localhost()
             .timeout(StdDuration::from_millis(timeout_ms))
             .retry(
-                crate::RetryConfig::standard(1)
-                    .with_base_delay(StdDuration::from_millis(1))
-                    .with_jitter(false),
+                crate::RetryConfig {
+                    base_delay: StdDuration::from_millis(1),
+                    ..crate::RetryConfig::standard(1)
+                }
+                .with_jitter(false),
             )
             .build()
             .unwrap()
@@ -872,9 +817,11 @@ mod tests {
             })))
             .timeout(StdDuration::from_millis(40))
             .retry(
-                crate::RetryConfig::standard(1)
-                    .with_base_delay(StdDuration::from_millis(1))
-                    .with_jitter(false),
+                crate::RetryConfig {
+                    base_delay: StdDuration::from_millis(1),
+                    ..crate::RetryConfig::standard(1)
+                }
+                .with_jitter(false),
             )
             .build()
             .unwrap();
@@ -931,24 +878,7 @@ mod tests {
 
     #[cfg(not(target_arch = "wasm32"))]
     #[tokio::test]
-    async fn session_grant_revoke_timeout_reuses_exact_body_without_idempotency_key() {
-        let (addr, server) =
-            start_exact_replay_server(ReplayTrigger::Timeout, session_revoke_outcome_json()).await;
-        exact_replay_client(addr, 40)
-            .auth_revoke_session_grant(&session_revoke_request())
-            .await
-            .unwrap();
-        let (first, second) = server.await.unwrap();
-        assert_exact_replay_capture(
-            &first,
-            &second,
-            "/_arkret/gate/account/session-grants/revoke",
-        );
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    #[tokio::test]
-    async fn all_session_grant_mutations_replay_exact_body_after_5xx() {
+    async fn session_grant_issue_and_refresh_replay_exact_body_after_5xx() {
         let (addr, server) = start_exact_replay_server(
             ReplayTrigger::ServiceUnavailable,
             session_grant_outcome_json(),
@@ -975,22 +905,6 @@ mod tests {
             &first,
             &second,
             "/_arkret/gate/account/session-grants/refresh",
-        );
-
-        let (addr, server) = start_exact_replay_server(
-            ReplayTrigger::ServiceUnavailable,
-            session_revoke_outcome_json(),
-        )
-        .await;
-        exact_replay_client(addr, 1_000)
-            .auth_revoke_session_grant(&session_revoke_request())
-            .await
-            .unwrap();
-        let (first, second) = server.await.unwrap();
-        assert_exact_replay_capture(
-            &first,
-            &second,
-            "/_arkret/gate/account/session-grants/revoke",
         );
     }
 
@@ -1036,9 +950,11 @@ mod tests {
         let client = Client::builder(Url::parse(&format!("http://{addr}/")).unwrap())
             .allow_insecure_localhost()
             .retry(
-                crate::RetryConfig::standard(1)
-                    .with_base_delay(StdDuration::from_millis(1))
-                    .with_jitter(false),
+                crate::RetryConfig {
+                    base_delay: StdDuration::from_millis(1),
+                    ..crate::RetryConfig::standard(1)
+                }
+                .with_jitter(false),
             )
             .build()
             .unwrap();

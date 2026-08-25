@@ -11,12 +11,12 @@ use arkret_models_collaboration::sync_frames::account_sync::{
 use arkret_models_crypto::{
     BackupSeriesEraseOutcome, BackupSeriesEraseRequestBody, KeyBackup, KeyBackupSummary,
     KeyBackupsListQuery, KeyPackagesClaimOutcome, KeyPackagesClaimRequestBody,
-    KeyPackagesConsumeOutcome, KeyPackagesConsumeRequestBody, KeyPackagesRevokeOutcome,
-    KeyPackagesRevokeRequestBody, KeyPackagesUploadOutcome, KeyPackagesUploadRequestBody,
-    KeysBackupsDeleteChallenge, KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody,
-    KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsList, KeysBackupsReplaceOutcome,
-    KeysBackupsUnlockRequestBody, KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome,
-    KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody,
+    KeyPackagesConsumeOutcome, KeyPackagesConsumeRequestBody, KeyPackagesUploadOutcome,
+    KeyPackagesUploadRequestBody, KeysBackupsDeleteChallenge, KeysBackupsDeleteOutcome,
+    KeysBackupsDeleteRequestBody, KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsList,
+    KeysBackupsReplaceOutcome, KeysBackupsUnlockRequestBody, KeysClaimOutcome,
+    KeysClaimRequestBody, KeysQueryOutcome, KeysQueryRequestBody, KeysUploadOutcome,
+    KeysUploadRequestBody,
 };
 use arkret_models_discovery::ServiceDescribe;
 use arkret_models_identity::account::{
@@ -25,7 +25,7 @@ use arkret_models_identity::account::{
 };
 use arkret_wire::{BackupId, BlobRef};
 use reqwest::Method;
-use reqwest::header::{HeaderMap, RANGE};
+use reqwest::header::RANGE;
 use url::Url;
 
 use crate::client_internals::{
@@ -170,13 +170,6 @@ impl Client {
             None => builder,
         };
         self.apply_auth(builder, &method_for_auth, &url)
-    }
-
-    pub async fn blob_head(&self, blob_ref: &BlobRef) -> Result<HeaderMap> {
-        let builder = self
-            .request(Method::HEAD, "/_arkret/self/blob/get")?
-            .query(&[("blob_ref", blob_ref.as_str())]);
-        self.send_empty(builder).await
     }
 
     pub async fn blob_upload(&self, body: &BlobUploadMetadata) -> Result<BlobUploadOutcome> {
@@ -483,14 +476,6 @@ impl Client {
         request: &KeyPackagesConsumeRequestBody,
     ) -> Result<KeyPackagesConsumeOutcome> {
         self.post("/_arkret/self/keys/keypackages/consume", request)
-            .await
-    }
-
-    pub async fn keypackages_revoke(
-        &self,
-        request: &KeyPackagesRevokeRequestBody,
-    ) -> Result<KeyPackagesRevokeOutcome> {
-        self.post("/_arkret/self/keys/keypackages/revoke", request)
             .await
     }
 

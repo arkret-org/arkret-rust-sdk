@@ -59,36 +59,6 @@ impl DidCoreIdAllowlist {
     pub fn binding(&self, service_id: &DidCoreId) -> Option<&ServiceEndpointBinding> {
         self.services.get(service_id)
     }
-
-    pub fn verify_description(&self, description: &ServiceDescribe) -> Result<()> {
-        let binding = self.services.get(&description.service_id).ok_or_else(|| {
-            WireError::Protocol(format!(
-                "service DID {} is not allowlisted",
-                description.service_id
-            ))
-        })?;
-        if description.service_kind != binding.service_kind {
-            return Err(WireError::Protocol(format!(
-                "service DID {} is allowlisted as {}, not {}",
-                description.service_id,
-                binding.service_kind.as_str(),
-                description.service_kind
-            )));
-        }
-        for operation in &binding.operations {
-            if !description
-                .supported_operations
-                .iter()
-                .any(|actual| actual == operation)
-            {
-                return Err(WireError::Protocol(format!(
-                    "allowlisted service {} does not advertise operation {operation}",
-                    description.service_id
-                )));
-            }
-        }
-        Ok(())
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -382,80 +352,6 @@ mod tests {
                 .to_string()
                 .contains(ErrorCode::UNSUPPORTED_PROTOCOL_VERSION)
         );
-    }
-
-    #[test]
-    fn service_id_allowlist_verifies_description_and_operations() {
-        let service_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
-        let allowlist = DidCoreIdAllowlist::new().allow(ServiceEndpointBinding {
-            service_id: service_id.clone(),
-            service_kind: ServiceKind::DirectoryService,
-            endpoint: "https://svc.example/_arkret/find/directory".to_owned(),
-            operations: vec!["ak.find.directory.read.search_realms".to_owned()],
-        });
-        let description = ServiceDescribe {
-            service_id,
-            service_resolution: arkret_models_identity::ResolutionCommitment {
-                full_id: DidFullId::new("did:webvh:z6mkfixture:svc.example").unwrap(),
-                method_history_head: "fixture-head".to_owned(),
-                version_id: "fixture-version".to_owned(),
-            },
-            trust_domain: TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-            service_kind: ServiceKind::DirectoryService,
-            protocol_version: "1.0".to_owned(),
-            supported_profiles: vec![ProfileId::DIRECTORY_SERVICE_V1.to_owned()],
-            profile_bindings: Default::default(),
-            supported_features: vec![],
-            calendar_tzdb_versions: vec![],
-            supported_operations: vec!["ak.find.directory.read.search_realms".to_owned()],
-            supported_bindings: vec![],
-            auth_metadata: AuthMetadata::minimal("development"),
-            limits: ServerLimits::default(),
-            plaintext_visibility: PlaintextVisibility::none(),
-            privacy_derivation: None,
-            receive_policy_constraints: None,
-            implemented_features: vec![],
-            claimed_profiles: vec![],
-            verified_profiles: vec![],
-            experimental_features: vec![],
-            interop_surfaces: vec![],
-            development_mode: false,
-            rate_limit_policy: Some(RateLimitPolicy::unspecified()),
-            rate_limit_policy_id: None,
-            egress_network_policy: Some(EgressNetworkPolicy::deny_private_defaults()),
-            resource_kinds: vec![
-                DirectoryResourceKind::Realm,
-                DirectoryResourceKind::Organization,
-                DirectoryResourceKind::Actor,
-                DirectoryResourceKind::Applet,
-                DirectoryResourceKind::Handle,
-            ],
-            discovery_profiles: vec![ProfileId::DIRECTORY_SERVICE_V1.to_owned()],
-            restricted_query_proof: Some(true),
-            ingest_modes: vec![DirectoryIngestMode::Push],
-            accept_policy_kind: Some(DirectoryAcceptPolicyKind::Open),
-            accept_policy_ref: None,
-            default_ttl_seconds: Some(86_400),
-            max_ttl_seconds: Some(604_800),
-            revalidation_grace_seconds: Some(3_600),
-            accepted_resource_kinds: vec![
-                DirectoryResourceKind::Realm,
-                DirectoryResourceKind::Organization,
-                DirectoryResourceKind::Actor,
-                DirectoryResourceKind::Applet,
-                DirectoryResourceKind::Handle,
-            ],
-            accepted_did_methods: vec!["did:web".to_owned(), "did:webvh".to_owned()],
-            takedown_contact: None,
-            rate_limits: Some(BTreeMap::new()),
-            supported_reducer_profiles: vec![],
-            frontier: Vec::new(),
-            snapshot_frontier: Vec::new(),
-            last_materialized_at: None,
-            extensions: Default::default(),
-        };
-
-        allowlist.verify_description(&description).unwrap();
     }
 
     #[test]

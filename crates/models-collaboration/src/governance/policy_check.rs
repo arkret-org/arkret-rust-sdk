@@ -4,38 +4,11 @@ use std::collections::BTreeMap;
 
 use arkret_wire::{
     AuthzDecision, DeviceId, DidCoreId, FreshnessState, Hash, RealmId, ReasonCode, Result,
-    TrustDomainId, canonical,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-// ── Trust domain plumbing ───────────────────────────────────────────────
-
-/// Compute the canonical `audit_policy_version_digest` 4-tuple digest.
-///
-/// Canonical JSON over the object:
-/// ```text
-/// { "realm_id": <realm_id>,
-///   "trust_domain": <trust_domain>,
-///   "audit_disclosure": <audit_disclosure>,
-///   "audit_assurance": <audit_assurance> }
-/// ```
-/// hashed with SHA-256 per RFC 8785 JCS.
-pub fn compute_audit_policy_version_digest(
-    realm_id: &RealmId,
-    trust_domain: &TrustDomainId,
-    audit_disclosure: &Value,
-    audit_assurance: &Value,
-) -> Result<[u8; 32]> {
-    let canonical_bytes = canonical::canonical_json_bytes(&serde_json::json!({
-        "realm_id": realm_id.as_str(),
-        "trust_domain": trust_domain.as_str(),
-        "audit_disclosure": audit_disclosure,
-        "audit_assurance": audit_assurance,
-    }))?;
-    Ok(canonical::sha256_bytes(&canonical_bytes))
-}
 
 // ── PolicyCheck ─────────────────────────────────────────────────────────
 

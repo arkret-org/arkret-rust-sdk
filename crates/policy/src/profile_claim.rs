@@ -258,11 +258,6 @@ impl std::error::Error for ProfileClaimError {}
 pub struct ProfileValidator {
     service_kind: ServiceKind,
     permitted_roles: Vec<ProfileRole>,
-    /// If true, `Experimental` claims for ids not in the spec are surfaced as
-    /// `ExperimentalUnknownProfile` errors rather than silently accepted.
-    /// Defaults to true so callers see the unknown id; flip via
-    /// [`Self::accept_experimental_unknown`].
-    surface_experimental_unknown: bool,
 }
 
 impl ProfileValidator {
@@ -274,15 +269,7 @@ impl ProfileValidator {
         Self {
             service_kind,
             permitted_roles,
-            surface_experimental_unknown: true,
         }
-    }
-
-    /// Treat `Experimental` claims with unknown profile ids as acceptable
-    /// (the default is to flag them so the caller can audit before shipping).
-    pub fn accept_experimental_unknown(mut self) -> Self {
-        self.surface_experimental_unknown = false;
-        self
     }
 
     pub fn service_kind(&self) -> &ServiceKind {
@@ -349,7 +336,6 @@ impl ProfileValidator {
                 ProfileRole::Admin,
                 ProfileRole::Interop,
             ],
-            surface_experimental_unknown: true,
         }
     }
 
@@ -394,13 +380,9 @@ impl ProfileValidator {
             }
             ClaimedProfile::Unknown(profile_id) => match claim.kind {
                 ProfileClaimKind::Experimental => {
-                    if self.surface_experimental_unknown {
-                        Err(ProfileClaimError::ExperimentalUnknownProfile {
-                            profile_id: profile_id.clone(),
-                        })
-                    } else {
-                        Ok(())
-                    }
+                    Err(ProfileClaimError::ExperimentalUnknownProfile {
+                        profile_id: profile_id.clone(),
+                    })
                 }
                 ProfileClaimKind::SelfClaimed | ProfileClaimKind::ConformanceVerified => {
                     Err(ProfileClaimError::UnknownProfile {
@@ -490,13 +472,6 @@ mod tests {
             errors[0],
             ProfileClaimError::ExperimentalUnknownProfile { .. }
         ));
-
-        let permissive = ProfileValidator::for_client().accept_experimental_unknown();
-        permissive
-            .validate(&[ProfileClaim::experimental(
-                "ak.profile.experimental_thing.v1",
-            )])
-            .expect("permissive validator accepts experimental unknown ids");
     }
 
     #[test]

@@ -51,7 +51,6 @@ pub mod extension_manifest;
 pub mod generated;
 pub mod history_secret;
 pub mod history_store;
-pub mod http_signature;
 pub mod ingress_budget;
 pub mod mls_transition;
 pub mod notary;
@@ -162,7 +161,6 @@ pub use history_store::{
     HistoryCandidateMaterialKey, HistoryCandidateMaterialRecord, LocalAuthoritativeHistorySecret,
     MAX_HISTORY_SENDER_DOMAIN_CHARS, MAX_LOCAL_MLS_STATE_REF_CHARS,
 };
-pub use http_signature::HttpMessageSignature;
 pub use ingress_budget::WireBodyClass;
 pub use mls_transition::mls_genesis_transition_digest;
 pub use notary::{

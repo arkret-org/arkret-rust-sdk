@@ -2,20 +2,15 @@ use arkret_models_collaboration::governance::audit::{AccessKind, AuditPolicyAcce
 use arkret_models_collaboration::governance::moderation_appeal::{
     AppealDecision, AppealDecisionPayload, AppealSubmitPayload, ModerationAppealPayload,
 };
-use arkret_models_collaboration::governance::policy_check::compute_audit_policy_version_digest;
 use arkret_models_collaboration::governance::third_party_invite::{
     ThirdPartyInvite, ThirdPartyInviteOobKind,
 };
 use arkret_models_collaboration::governance_payloads::ConsentRevokePayload;
 use arkret_models_collaboration::http_bodies::AppletTransactionRequestBody;
-use arkret_models_collaboration::object_lifecycle::{
-    strand_tracks_patch_cell_subject, strand_update_cell_subject,
-};
 use arkret_wire::signal::{SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME};
 use arkret_wire::{
     ConsentId, DeviceId, DidCoreId, DidUrl, EventId, Hash, RealmId, ScopeRef, SealId, SignalClass,
-    SignalEncryptedPayload, SignalEnvelope, SignalKeyRef, SignalProof, StrandId, TrustDomainId,
-    TypedAppealId,
+    SignalEncryptedPayload, SignalEnvelope, SignalKeyRef, SignalProof, TypedAppealId,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde_json::{Value, json};
@@ -199,23 +194,6 @@ fn moderation_appeal_decision_uphold_rejects_modify_ref() {
 }
 
 #[test]
-fn audit_policy_version_digest_is_deterministic_and_domain_separates() {
-    let trust_domain = TrustDomainId::new("ak:trust_domain:example.net").unwrap();
-    let other_trust_domain = TrustDomainId::new("ak:trust_domain:other.example").unwrap();
-    let disclosure = json!({"mode": "strict"});
-    let assurance = json!("attested_hardware");
-    let h1 = compute_audit_policy_version_digest(&realm(), &trust_domain, &disclosure, &assurance)
-        .unwrap();
-    let h2 = compute_audit_policy_version_digest(&realm(), &trust_domain, &disclosure, &assurance)
-        .unwrap();
-    assert_eq!(h1, h2);
-    let h3 =
-        compute_audit_policy_version_digest(&realm(), &other_trust_domain, &disclosure, &assurance)
-            .unwrap();
-    assert_ne!(h1, h3);
-}
-
-#[test]
 fn third_party_invite_rejects_mode_mismatch() {
     let mut invite = ThirdPartyInvite {
         oob_code_kind: ThirdPartyInviteOobKind::OfflineToken,
@@ -319,11 +297,4 @@ fn consent_revoke_requires_observed_dots() {
         }))
         .is_err()
     );
-}
-
-#[test]
-fn strand_cell_subject_helpers_return_strand_id() {
-    let strand = StrandId::new("ak:strand:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM").unwrap();
-    assert_eq!(strand_update_cell_subject(&strand), strand.as_str());
-    assert_eq!(strand_tracks_patch_cell_subject(&strand), strand.as_str());
 }

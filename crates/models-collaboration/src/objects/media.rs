@@ -62,16 +62,6 @@ impl MediaIceConfigOutcome {
         MEDIA_ICE_BUCKET_SECONDS
     }
 
-    pub fn issued_at_bucket(&self) -> DateTime<Utc> {
-        let bucket_start = self
-            .issued_at
-            .timestamp()
-            .div_euclid(MEDIA_ICE_BUCKET_SECONDS)
-            * MEDIA_ICE_BUCKET_SECONDS;
-        DateTime::from_timestamp(bucket_start, 0)
-            .expect("a bucketed representable DateTime remains representable")
-    }
-
     pub fn expires_at(&self) -> arkret_wire::Result<DateTime<Utc>> {
         self.issued_at
             .checked_add_signed(chrono::Duration::seconds(i64::from(self.ttl_seconds)))
@@ -136,14 +126,6 @@ impl MediaIceServer {
         self.urls
             .iter()
             .any(|url| url.starts_with("turn:") || url.starts_with("turns:"))
-    }
-
-    pub fn is_stun(&self) -> bool {
-        !self.is_turn()
-            && self
-                .urls
-                .iter()
-                .any(|url| url.starts_with("stun:") || url.starts_with("stuns:"))
     }
 }
 

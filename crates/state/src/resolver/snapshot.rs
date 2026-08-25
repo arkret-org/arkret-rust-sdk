@@ -232,14 +232,6 @@ impl StateSnapshot {
         })
     }
 
-    pub fn manifest_with_chunks(&self, chunk_size: usize) -> Result<ReducerSnapshotManifest> {
-        let chunks = self.chunk_manifest(chunk_size)?;
-        let mut manifest = self.manifest()?;
-        manifest.chunk_count = chunks.len() as u32;
-        manifest.chunks = chunks;
-        Ok(manifest)
-    }
-
     pub fn verify(&self) -> Result<()> {
         self.verify_hash()?;
         let actual_root = self.state_merkle_root()?;

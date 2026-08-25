@@ -20,9 +20,7 @@
 use arkret_canonical::{base64url_decode, base64url_encode, canonical};
 use arkret_schema::embedded_json_artifact;
 use arkret_signatures::proof::{PublicKeyMaterial, verify_detached_ed25519_signature};
-use arkret_signatures::{
-    FUTURE_ALGORITHMS, PRODUCTION_ALGORITHMS, verify_ed25519_detached_jws_proof,
-};
+use arkret_signatures::{PRODUCTION_ALGORITHMS, verify_ed25519_detached_jws_proof};
 use arkret_wire::{DidFullId, DidUrl, Hash, ProducerEventProof, project_full_id_to_core_id};
 use ed25519_dalek::Signer as _;
 use serde_json::Value;
@@ -189,7 +187,6 @@ fn non_ed25519_vectors_pin_canonical_chain_and_stay_wire_reserved() {
     let es256 = vector(&fixture, "ak.vector.encoding.crypto.es256_detached_jws.v1");
     assert_canonical_chain(&es256);
     assert!(!PRODUCTION_ALGORITHMS.contains(&"ES256"));
-    assert!(FUTURE_ALGORITHMS.contains(&"ES256"));
 
     let mldsa = vector(
         &fixture,
@@ -217,7 +214,6 @@ fn non_ed25519_vectors_pin_canonical_chain_and_stay_wire_reserved() {
         s(&mldsa, "binding_digest")
     );
     assert!(!PRODUCTION_ALGORITHMS.contains(&"ML-DSA-65"));
-    assert!(FUTURE_ALGORITHMS.contains(&"ML-DSA-65"));
 }
 
 /// Build a well-formed SDK `ProducerEventProof` around a negative-case JWS so the reject

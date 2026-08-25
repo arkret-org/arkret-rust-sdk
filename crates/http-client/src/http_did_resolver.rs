@@ -189,15 +189,6 @@ impl HttpDidResolver {
         Self::build(policy, DEFAULT_HTTP_DID_RESOLVER_MAX_ENTRIES, egress_policy)
     }
 
-    /// Build a resolver with an explicit in-memory cache bound.
-    pub fn with_cache_limit(
-        policy: ResolverPolicy,
-        egress_policy: OutboundPolicy,
-        max_cache_entries: usize,
-    ) -> Result<Self> {
-        Self::build(policy, max_cache_entries, egress_policy)
-    }
-
     fn build(
         policy: ResolverPolicy,
         max_cache_entries: usize,
@@ -653,12 +644,9 @@ mod tests {
 
     #[tokio::test]
     async fn resolver_cache_is_bounded_and_removes_expired_entries() {
-        let resolver = HttpDidResolver::with_cache_limit(
-            ResolverPolicy::default(),
-            OutboundPolicy::public_https(),
-            2,
-        )
-        .unwrap();
+        let resolver =
+            HttpDidResolver::build(ResolverPolicy::default(), 2, OutboundPolicy::public_https())
+                .unwrap();
         let first = DidFullId::new("did:web:first.example").unwrap();
         let second = DidFullId::new("did:web:second.example").unwrap();
         let third = DidFullId::new("did:web:third.example").unwrap();
