@@ -83,6 +83,17 @@ impl PayloadSigner for FixtureSigner {
             jws: "eyJhbGciOiJFZERTQSJ9..AA".to_owned(),
         })
     }
+
+    fn sign_notary_payload_with_digest_suite(
+        &self,
+        canonical_bytes: &[u8],
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<PayloadSignature, WireError> {
+        let mut signature = self.sign_payload(canonical_bytes)?;
+        signature.payload_digest =
+            Hash::new(arkret_canonical::digest(digest_suite, canonical_bytes))?;
+        Ok(signature)
+    }
 }
 
 fn attach_fixture_proof(event: &mut Event, verification_method: &DidUrl) {

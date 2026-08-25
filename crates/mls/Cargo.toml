@@ -11,6 +11,9 @@ repository = "https://github.com/arkret-org/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 
+[features]
+test-utils = []
+
 [dependencies]
 aes-gcm = {workspace = true}
 arkret-canonical = {workspace = true}

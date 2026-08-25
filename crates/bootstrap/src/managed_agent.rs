@@ -573,7 +573,10 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
     seal.id = Seal::id_from_canonical_bytes(&canonical_bytes, MANAGED_AGENT_PCR_DIGEST_SUITE)?;
     seal.notary_signature = NotarySig::Single(
         signer
-            .sign_payload_with_digest_suite(&canonical_bytes, MANAGED_AGENT_PCR_DIGEST_SUITE)?
+            .sign_notary_payload_with_digest_suite(
+                &canonical_bytes,
+                MANAGED_AGENT_PCR_DIGEST_SUITE,
+            )?
             .into(),
     );
     seal.validate_structural()?;

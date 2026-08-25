@@ -2,15 +2,32 @@
 
 use arkret_canonical::base64url_encode;
 use arkret_models_crypto::{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE, MlsGovernanceBindingPayload};
-use arkret_wire::NonEmptyString;
+use arkret_wire::{Base64UrlString, DeviceId, DidCoreId, NonEmptyString};
 use openmls::prelude::{
     MlsMessageBodyIn, MlsMessageIn, OpenMlsProvider, ProposalStore, PublicGroup, RatchetTreeIn,
 };
 use openmls_rust_crypto::OpenMlsRustCrypto;
+use serde::{Deserialize, Serialize};
 use tls_codec::Deserialize as TlsDeserializeTrait;
 
-use crate::identity::{MlsLeafEndpointIdentity, decode_leaf_endpoint_identity};
+use crate::identity::decode_leaf_credential;
 use crate::{MlsError as Error, Result};
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum MlsPublicLeafEndpointCredential {
+    HumanDevice { device_id: DeviceId },
+    Actor { actor_id: DidCoreId },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsPublicEndpointLeaf {
+    pub leaf_index: u32,
+    pub endpoint_credential: MlsPublicLeafEndpointCredential,
+    pub credential_ref: NonEmptyString,
+    pub signature_key: Base64UrlString,
+}
 
 /// Validate an MLSMessage carrying GroupInfo together with the exact external
 /// ratchet tree, then return occupied leaves with their real tree indices.
@@ -20,14 +37,6 @@ use crate::{MlsError as Error, Result};
 /// constraints. No leaves or tree bytes are accepted from a governance proof
 /// bundle; callers obtain these two byte strings only from the typed standard
 /// group-state-material operation after its content-address checks pass.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MlsPublicEndpointLeaf {
-    pub leaf_index: u32,
-    pub endpoint_identity: MlsLeafEndpointIdentity,
-    pub credential_ref: NonEmptyString,
-    pub signature_key: Vec<u8>,
-}
-
 pub fn validate_public_group_state(
     group_info_bytes: &[u8],
     ratchet_tree_bytes: &[u8],
@@ -118,13 +127,23 @@ fn validate_public_group_state_inner(
     let mut leaves = public_group
         .members()
         .map(|member| {
-            let (endpoint_identity, credential_ref) =
-                decode_leaf_endpoint_identity(member.credential.serialized_content())?;
+            let credential_ref = decode_leaf_credential(member.credential.serialized_content())?;
+            let endpoint_credential = if let Ok(device_id) = DeviceId::new(credential_ref.as_str())
+            {
+                MlsPublicLeafEndpointCredential::HumanDevice { device_id }
+            } else {
+                MlsPublicLeafEndpointCredential::Actor {
+                    actor_id: DidCoreId::new(credential_ref.as_str().to_owned())?,
+                }
+            };
             Ok(MlsPublicEndpointLeaf {
                 leaf_index: member.index.u32(),
-                endpoint_identity,
+                endpoint_credential,
                 credential_ref,
-                signature_key: member.signature_key,
+                signature_key: Base64UrlString::new(base64url_encode(
+                    member.signature_key.as_slice(),
+                ))
+                .map_err(|error| Error::Protocol(error.to_owned()))?,
             })
         })
         .collect::<Result<Vec<_>>>()?;

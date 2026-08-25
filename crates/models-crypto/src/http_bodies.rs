@@ -53,8 +53,7 @@ pub struct KeyPackagesUploadRequestBody {
 /// `ak.self.keys.keypackages.upload.create`.
 ///
 /// The request-level signature is absent by construction, so producers and
-/// verifiers sign the complete typed request with every entry and metadata
-/// field in canonical order.
+/// verifiers cannot accidentally sign different upload shapes.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

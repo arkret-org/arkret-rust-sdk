@@ -35,6 +35,7 @@ use std::mem::size_of;
 
 use arkret_canonical::{base64url_decode, base64url_encode};
 use arkret_crypto::{AeadNonceContext, AeadNonceReplayTracker, compose_aead_nonce};
+use arkret_models_crypto::MlsEndpointIdentity;
 use arkret_wire::{
     Hash, MAX_SIGNAL_PLAINTEXT_BYTES, ReasonCode, SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME,
     SignalAeadBinding, SignalEncryptedPayload, SignalEnvelope, canonical,
@@ -101,9 +102,12 @@ impl ArkretMlsGroup {
             )));
         }
         let suite = self.signal_suite_for(binding)?;
-        if binding.sender_actor_id != &self.identity.principal_id
-            || binding.sender_device_id != &self.identity.device_id
-        {
+        let Some((principal_id, device_id)) = self.identity.endpoint.as_human_device() else {
+            return Err(Error::Protocol(
+                "ordinary Signal sender requires a human-device MLS endpoint".to_owned(),
+            ));
+        };
+        if binding.sender_actor_id != principal_id || binding.sender_device_id != device_id {
             return Err(Error::Protocol(
                 "signal sender does not match this MLS identity".to_owned(),
             ));
@@ -280,17 +284,17 @@ impl ArkretMlsGroup {
 
     fn verified_signal_sender_domain(&self, binding: &SignalAeadBinding<'_>) -> Result<Vec<u8>> {
         let matching_leaves = self
-            .group
-            .members()
-            .filter(|member| {
-                member.credential.serialized_content()
-                    == binding.sender_device_id.as_str().as_bytes()
-                    && self
-                        .leaf_bindings
-                        .get(&member.index.u32())
-                        .is_some_and(|accepted| {
-                            accepted.principal_id.as_str() == binding.sender_actor_id.as_str()
-                        })
+            .verified_leaf_bindings()?
+            .into_iter()
+            .filter(|leaf| {
+                matches!(
+                    &leaf.endpoint,
+                    MlsEndpointIdentity::HumanDevice {
+                        principal_id,
+                        device_id,
+                    } if principal_id == binding.sender_actor_id
+                        && device_id == binding.sender_device_id
+                )
             })
             .count();
         if matching_leaves != 1 {
@@ -327,8 +331,8 @@ fn signal_nonce_context(
 #[cfg(test)]
 mod tests {
     use arkret_wire::{
-        Base64UrlString, DeviceId, DidCoreId, DidUrl, NonEmptyString, RealmId, ScopeRef, SealId,
-        SignalClass, SignalKeyRef, SignalProof, proof_kind,
+        DeviceId, DidCoreId, DidUrl, RealmId, ScopeRef, SealId, SignalClass, SignalKeyRef,
+        SignalProof, proof_kind,
     };
     use chrono::{DateTime, Duration, TimeZone, Utc};
 
@@ -423,42 +427,24 @@ mod tests {
     }
 
     fn alice_and_bob() -> (ArkretMlsGroup, ArkretMlsGroup) {
-        let alice = ArkretMlsIdentity::new_test_identity(
+        let alice = ArkretMlsIdentity::new_test_human_device(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
             DeviceId::new(ALICE_DEVICE.to_owned()).unwrap(),
         )
         .unwrap();
-        let bob = ArkretMlsIdentity::new_test_identity(
+        let bob = ArkretMlsIdentity::new_test_human_device(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturebob".to_owned()).unwrap(),
             DeviceId::new(BOB_DEVICE.to_owned()).unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
+        let alice_endpoint = alice.endpoint_identity();
+        let bob_endpoint = bob.endpoint_identity();
         let mut alice_group = alice.create_group(REALM.as_bytes()).unwrap();
         let add = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &add.welcome).unwrap();
-        let alice_signature_key = alice_group.active_author_leaves()[0].signature_key.clone();
-        assert!(
-            bob_group
-                .install_accepted_leaf_bindings([crate::VerifiedMlsLeafBinding {
-                    principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned())
-                        .unwrap(),
-                    credential_ref: NonEmptyString::new(ALICE_DEVICE).unwrap(),
-                    leaf_signature_key: Base64UrlString::new("AA").unwrap(),
-                }])
-                .is_err(),
-            "accepted transition binding must pin the exact Leaf signature key"
-        );
         bob_group
-            .install_accepted_leaf_bindings([crate::VerifiedMlsLeafBinding {
-                principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned())
-                    .unwrap(),
-                credential_ref: NonEmptyString::new(ALICE_DEVICE).unwrap(),
-                leaf_signature_key: Base64UrlString::new(crate::group::encode(
-                    &alice_signature_key,
-                ))
-                .unwrap(),
-            }])
+            .install_test_leaf_bindings(vec![alice_endpoint, bob_endpoint])
             .unwrap();
         assert_eq!(alice_group.epoch(), bob_group.epoch());
         (alice_group, bob_group)

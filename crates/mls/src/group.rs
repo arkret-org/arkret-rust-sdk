@@ -15,10 +15,10 @@ use arkret_models_crypto::{
     verify_mls_governance_binding_extension,
 };
 use arkret_wire::{
-    Base64UrlString, DeviceId, DidCoreId, EncryptedPayloadScheme, EventCandidateBinding,
-    EventCandidateBindingKey, EventCandidateBindingOutcome, EventId, Hash,
-    HistoryCandidateMaterialRecord, HistoryEffectiveScope, LocalAuthoritativeHistorySecret,
-    MLS_CIPHERSUITES, NonEmptyString, ReasonCode, ScopeRef, canonical,
+    DidCoreId, EncryptedPayloadScheme, EventCandidateBinding, EventCandidateBindingKey,
+    EventCandidateBindingOutcome, EventId, Hash, HistoryCandidateMaterialRecord,
+    HistoryEffectiveScope, LocalAuthoritativeHistorySecret, MLS_CIPHERSUITES, ReasonCode, ScopeRef,
+    canonical,
 };
 use chrono::Utc;
 use hkdf::Hkdf;
@@ -39,8 +39,7 @@ use zeroize::Zeroizing;
 
 use crate::identity::{
     ARKRET_MLS_CIPHERSUITE, ARKRET_MLS_CIPHERSUITE_CANONICAL_ID, ArkretMlsIdentity,
-    ArkretMlsIdentityProfile, MlsLeafEndpointIdentity, decode_key_package,
-    decode_leaf_endpoint_identity,
+    ArkretMlsIdentityProfile, decode_key_package,
 };
 use crate::{MlsError as Error, Result};
 
@@ -202,6 +201,10 @@ fn aes_gcm_nonce(nonce: &[u8]) -> Result<[u8; 12]> {
 pub struct ArkretMlsGroup {
     pub(super) identity: ArkretMlsIdentity,
     pub(super) group: MlsGroup,
+    /// Accepted-transition-derived member attribution. It is persisted inside
+    /// the same opaque T3 snapshot as the RFC 9420 state and is never inferred
+    /// from BasicCredential bytes alone.
+    pub(super) leaf_bindings: BTreeMap<u32, MlsVerifiedLeafBinding>,
     /// Per-epoch MLS exporter `history_secret[N]` retained for the
     /// `mls_exporter_aead_v1` content scheme. OpenMLS only evaluates
     /// `export_secret` against the *current* epoch, so a `history_secret`
@@ -226,14 +229,6 @@ pub struct ArkretMlsGroup {
     /// spaces, and sharing one counter would only waste range. Persisted with
     /// the group snapshot — see [`crate::signal`] for the reuse contract.
     pub(super) signal_nonce_counter: u64,
-    pub(super) leaf_bindings: BTreeMap<u32, VerifiedMlsLeafBinding>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VerifiedMlsLeafBinding {
-    pub principal_id: DidCoreId,
-    pub credential_ref: NonEmptyString,
-    pub leaf_signature_key: Base64UrlString,
 }
 
 #[derive(Clone, Debug)]
@@ -271,6 +266,18 @@ pub struct MlsRemoveMemberResult {
     pub removed_principals: Vec<DidCoreId>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsVerifiedLeafBinding {
+    pub leaf_index: u32,
+    pub principal_id: DidCoreId,
+    pub endpoint: MlsEndpointIdentity,
+    pub credential_ref: arkret_wire::NonEmptyString,
+    pub signature_key: arkret_wire::Base64UrlString,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_authorize_event_id: Option<EventId>,
+}
+
 // NOTE: `MlsRemoveMemberResult` / `MlsAddMemberResult` / `MlsAddMembersResult`
 // no longer carry `commit_operation` / `welcome_device_message_target`
 // projections. The envelope -> local scheduler draft and envelope ->
@@ -283,11 +290,11 @@ struct OpenMlsStateSnapshot {
     context: String,
     group_id: String,
     epoch: u64,
-    principal_id: DidCoreId,
-    device_id: DeviceId,
+    endpoint: MlsEndpointIdentity,
     profile: ArkretMlsIdentityProfile,
     signer_public_key: String,
     storage_entries: BTreeMap<String, String>,
+    leaf_bindings: BTreeMap<u32, MlsVerifiedLeafBinding>,
     /// Retained per-epoch `history_secret[N]` (decimal epoch → base64url
     /// secret bytes). Defaults to empty for snapshots written before the
     /// `mls_exporter_aead_v1` content scheme existed.
@@ -306,169 +313,13 @@ struct OpenMlsStateSnapshot {
     /// missing field can only mean "never sealed a Signal", i.e. 0.
     #[serde(default, skip_serializing_if = "is_zero_u64")]
     signal_nonce_counter: u64,
-    leaf_bindings: BTreeMap<u32, VerifiedMlsLeafBinding>,
 }
 
 fn is_zero_u64(value: &u64) -> bool {
     *value == 0
 }
 
-fn validate_leaf_binding(
-    credential_bytes: &[u8],
-    signature_key: &[u8],
-    binding: &VerifiedMlsLeafBinding,
-) -> Result<()> {
-    let (endpoint, credential_ref) = decode_leaf_endpoint_identity(credential_bytes)?;
-    if credential_ref != binding.credential_ref {
-        return Err(Error::Protocol(
-            "accepted MLS leaf binding credential differs from the public tree".to_owned(),
-        ));
-    }
-    if let MlsLeafEndpointIdentity::Actor(actor_id) = endpoint
-        && actor_id != binding.principal_id
-    {
-        return Err(Error::Protocol(
-            "accepted actor MLS leaf binding principal differs from its credential".to_owned(),
-        ));
-    }
-    if encode(signature_key) != binding.leaf_signature_key.as_str() {
-        return Err(Error::Protocol(
-            "accepted MLS leaf binding signature key differs from the public tree".to_owned(),
-        ));
-    }
-    Ok(())
-}
-
-fn binding_from_endpoint(
-    endpoint: &MlsEndpointIdentity,
-    credential_bytes: &[u8],
-    signature_key: &[u8],
-) -> Result<VerifiedMlsLeafBinding> {
-    let (decoded, credential_ref) = decode_leaf_endpoint_identity(credential_bytes)?;
-    let matches = match (endpoint, decoded) {
-        (
-            MlsEndpointIdentity::HumanDevice { device_id, .. },
-            MlsLeafEndpointIdentity::HumanDevice(actual),
-        ) => device_id == &actual,
-        (
-            MlsEndpointIdentity::NativeAgentRuntime { agent_id, .. },
-            MlsLeafEndpointIdentity::Actor(actual),
-        ) => agent_id == &actual,
-        (
-            MlsEndpointIdentity::MinimalMetadataPairwise {
-                pairwise_actor_id, ..
-            },
-            MlsLeafEndpointIdentity::Actor(actual),
-        ) => pairwise_actor_id == &actual,
-        _ => false,
-    };
-    if !matches {
-        return Err(Error::Protocol(
-            "MLS KeyPackage credential differs from its accepted endpoint binding".to_owned(),
-        ));
-    }
-    Ok(VerifiedMlsLeafBinding {
-        principal_id: endpoint.actor_id().clone(),
-        credential_ref,
-        leaf_signature_key: Base64UrlString::new(encode(signature_key))
-            .map_err(|error| Error::Protocol(error.to_string()))?,
-    })
-}
-
-pub(super) fn initial_leaf_bindings(
-    group: &MlsGroup,
-    identity: &ArkretMlsIdentity,
-) -> Result<BTreeMap<u32, VerifiedMlsLeafBinding>> {
-    let mut matches = group
-        .members()
-        .filter(|member| member.signature_key.as_slice() == identity.signer.public());
-    let member = matches.next().ok_or_else(|| {
-        Error::Protocol("new MLS group has no leaf for its creator identity".to_owned())
-    })?;
-    if matches.next().is_some() {
-        return Err(Error::Protocol(
-            "new MLS group has multiple creator leaves for one signer".to_owned(),
-        ));
-    }
-    let (_, credential_ref) =
-        decode_leaf_endpoint_identity(member.credential.serialized_content())?;
-    Ok(BTreeMap::from([(
-        member.index.u32(),
-        VerifiedMlsLeafBinding {
-            principal_id: identity.principal_id.clone(),
-            credential_ref,
-            leaf_signature_key: Base64UrlString::new(encode(member.signature_key.as_slice()))
-                .map_err(|error| Error::Protocol(error.to_string()))?,
-        },
-    )]))
-}
-
-fn recover_joined_leaf_bindings(
-    group: &MlsGroup,
-    identity: &ArkretMlsIdentity,
-) -> Result<BTreeMap<u32, VerifiedMlsLeafBinding>> {
-    let mut matches = group
-        .members()
-        .filter(|member| member.signature_key.as_slice() == identity.signer.public());
-    let member = matches.next().ok_or_else(|| {
-        Error::Protocol("joined MLS group has no leaf for the Welcome recipient".to_owned())
-    })?;
-    if matches.next().is_some() {
-        return Err(Error::Protocol(
-            "joined MLS group has multiple leaves for the Welcome recipient signer".to_owned(),
-        ));
-    }
-    let binding = binding_from_endpoint(
-        &identity.endpoint_identity(),
-        member.credential.serialized_content(),
-        member.signature_key.as_slice(),
-    )?;
-    Ok(BTreeMap::from([(member.index.u32(), binding)]))
-}
-
 impl ArkretMlsGroup {
-    /// Install principal ownership reconstructed from accepted MLS transition
-    /// Events. A binding is keyed by the exact BasicCredential bytes and must
-    /// resolve to one current leaf; public-tree data alone never supplies an
-    /// ordinary principal id.
-    pub fn install_accepted_leaf_bindings(
-        &mut self,
-        bindings: impl IntoIterator<Item = VerifiedMlsLeafBinding>,
-    ) -> Result<()> {
-        for binding in bindings {
-            let mut matches = self.group.members().filter(|member| {
-                member.credential.serialized_content() == binding.credential_ref.as_str().as_bytes()
-            });
-            let member = matches.next().ok_or_else(|| {
-                Error::Protocol(format!(
-                    "accepted MLS leaf binding {} has no current leaf",
-                    binding.credential_ref
-                ))
-            })?;
-            if matches.next().is_some() {
-                return Err(Error::Protocol(format!(
-                    "accepted MLS leaf binding {} resolves to multiple current leaves",
-                    binding.credential_ref
-                )));
-            }
-            validate_leaf_binding(
-                member.credential.serialized_content(),
-                member.signature_key.as_slice(),
-                &binding,
-            )?;
-            if let Some(current) = self.leaf_bindings.get(&member.index.u32())
-                && current != &binding
-            {
-                return Err(Error::Protocol(format!(
-                    "accepted MLS leaf binding conflicts at leaf {}",
-                    member.index.u32()
-                )));
-            }
-            self.leaf_bindings.insert(member.index.u32(), binding);
-        }
-        Ok(())
-    }
-
     /// Whether this member still has an active leaf in the group. A client that
     /// processes a Remove commit targeting itself becomes inactive and must not
     /// treat subsequent epoch failures as an ordinary sync lag.
@@ -478,6 +329,186 @@ impl ArkretMlsGroup {
 
     pub fn identity(&self) -> &ArkretMlsIdentity {
         &self.identity
+    }
+
+    /// Install the complete binding map derived from the accepted Genesis or
+    /// winning Add/Commit transition. The map must cover every occupied leaf
+    /// exactly once and match the RFC 9420 credential and signature key byte
+    /// for byte before it can enter the durable T3 snapshot.
+    pub fn install_verified_leaf_bindings(
+        &mut self,
+        bindings: Vec<MlsVerifiedLeafBinding>,
+    ) -> Result<()> {
+        let members = self.group.members().collect::<Vec<_>>();
+        if bindings.len() != members.len() {
+            return Err(Error::Protocol(
+                "verified MLS leaf bindings do not cover every occupied leaf".to_owned(),
+            ));
+        }
+        let mut installed = BTreeMap::new();
+        for binding in bindings {
+            let member = members
+                .iter()
+                .find(|member| member.index.u32() == binding.leaf_index)
+                .ok_or_else(|| {
+                    Error::Protocol("verified MLS binding names an empty leaf".to_owned())
+                })?;
+            if installed.contains_key(&binding.leaf_index) {
+                return Err(Error::Protocol(
+                    "duplicate verified MLS leaf binding".to_owned(),
+                ));
+            }
+            if binding.endpoint.actor_id() != &binding.principal_id {
+                return Err(Error::Protocol(
+                    "verified MLS binding principal differs from endpoint actor".to_owned(),
+                ));
+            }
+            let expected_credential = match &binding.endpoint {
+                MlsEndpointIdentity::HumanDevice { device_id, .. } => {
+                    if binding.device_authorize_event_id.is_none() {
+                        return Err(Error::Protocol(
+                            "ordinary MLS leaf binding omits device authorization Event".to_owned(),
+                        ));
+                    }
+                    device_id.as_str()
+                }
+                MlsEndpointIdentity::NativeAgentRuntime { agent_id, .. } => agent_id.as_str(),
+                MlsEndpointIdentity::MinimalMetadataPairwise {
+                    pairwise_actor_id, ..
+                } => pairwise_actor_id.as_str(),
+            };
+            if binding.credential_ref.as_str() != expected_credential
+                || member.credential.serialized_content() != expected_credential.as_bytes()
+            {
+                return Err(Error::Protocol(
+                    "verified MLS binding credential differs from the occupied leaf".to_owned(),
+                ));
+            }
+            let signature_key = base64url_decode(binding.signature_key.as_str())?;
+            if signature_key.as_slice() != member.signature_key.as_slice() {
+                return Err(Error::Protocol(
+                    "verified MLS binding signature key differs from the occupied leaf".to_owned(),
+                ));
+            }
+            installed.insert(binding.leaf_index, binding);
+        }
+        self.leaf_bindings = installed;
+        Ok(())
+    }
+
+    pub fn install_local_creator_binding(
+        &mut self,
+        device_authorize_event_id: Option<EventId>,
+    ) -> Result<()> {
+        let members = self.group.members().collect::<Vec<_>>();
+        if members.len() != 1 || members[0].index.u32() != 0 {
+            return Err(Error::Protocol(
+                "local creator binding requires the unique epoch-0 leaf".to_owned(),
+            ));
+        }
+        let member = &members[0];
+        let credential_ref = arkret_wire::NonEmptyString::new(
+            std::str::from_utf8(member.credential.serialized_content())
+                .map_err(|_| Error::Protocol("creator credential is not UTF-8".to_owned()))?
+                .to_owned(),
+        )
+        .map_err(|error| Error::Protocol(error.to_owned()))?;
+        let signature_key =
+            arkret_wire::Base64UrlString::new(base64url_encode(member.signature_key.as_slice()))
+                .map_err(|error| Error::Protocol(error.to_owned()))?;
+        self.install_verified_leaf_bindings(vec![MlsVerifiedLeafBinding {
+            leaf_index: 0,
+            principal_id: self.identity.endpoint.actor_id().clone(),
+            endpoint: self.identity.endpoint.clone(),
+            credential_ref,
+            signature_key,
+            device_authorize_event_id,
+        }])
+    }
+
+    #[cfg(any(test, feature = "test-utils"))]
+    #[doc(hidden)]
+    pub fn install_test_leaf_bindings(
+        &mut self,
+        endpoints: Vec<MlsEndpointIdentity>,
+    ) -> Result<()> {
+        let mut remaining = endpoints;
+        let mut bindings = Vec::new();
+        for leaf in self.active_author_leaves() {
+            let crate::AuthorLeafCredential::Basic { identity } = leaf.credential else {
+                return Err(Error::Protocol(
+                    "test MLS leaf is not BasicCredential".to_owned(),
+                ));
+            };
+            let position = remaining
+                .iter()
+                .position(|endpoint| match endpoint {
+                    MlsEndpointIdentity::HumanDevice { device_id, .. } => {
+                        identity.as_slice() == device_id.as_str().as_bytes()
+                    }
+                    MlsEndpointIdentity::NativeAgentRuntime { agent_id, .. } => {
+                        identity.as_slice() == agent_id.as_str().as_bytes()
+                    }
+                    MlsEndpointIdentity::MinimalMetadataPairwise {
+                        pairwise_actor_id, ..
+                    } => identity.as_slice() == pairwise_actor_id.as_str().as_bytes(),
+                })
+                .ok_or_else(|| {
+                    Error::Protocol("test MLS endpoint does not match a leaf".to_owned())
+                })?;
+            let endpoint = remaining.remove(position);
+            let credential_ref = arkret_wire::NonEmptyString::new(
+                String::from_utf8(identity)
+                    .map_err(|_| Error::Protocol("test MLS credential is not UTF-8".to_owned()))?,
+            )
+            .map_err(|error| Error::Protocol(error.to_owned()))?;
+            let device_authorize_event_id =
+                matches!(endpoint, MlsEndpointIdentity::HumanDevice { .. }).then(|| {
+                    EventId::new("ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1".to_owned())
+                        .expect("fixed test Event id is valid")
+                });
+            bindings.push(MlsVerifiedLeafBinding {
+                leaf_index: leaf.leaf_index,
+                principal_id: endpoint.actor_id().clone(),
+                endpoint,
+                credential_ref,
+                signature_key: arkret_wire::Base64UrlString::new(base64url_encode(
+                    &leaf.signature_key,
+                ))
+                .map_err(|error| Error::Protocol(error.to_owned()))?,
+                device_authorize_event_id,
+            });
+        }
+        if !remaining.is_empty() {
+            return Err(Error::Protocol(
+                "test MLS endpoints leave phantom members".to_owned(),
+            ));
+        }
+        self.install_verified_leaf_bindings(bindings)
+    }
+
+    pub fn verified_leaf_bindings(&self) -> Result<Vec<MlsVerifiedLeafBinding>> {
+        self.require_complete_leaf_bindings()?;
+        Ok(self.leaf_bindings.values().cloned().collect())
+    }
+
+    fn require_complete_leaf_bindings(&self) -> Result<()> {
+        let occupied = self
+            .group
+            .members()
+            .map(|member| member.index.u32())
+            .collect::<Vec<_>>();
+        if occupied.len() != self.leaf_bindings.len()
+            || occupied
+                .iter()
+                .any(|index| !self.leaf_bindings.contains_key(index))
+        {
+            return Err(Error::Protocol(
+                "MLS member attribution is unavailable until accepted transition bindings are installed"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
     }
 
     pub fn epoch(&self) -> u64 {
@@ -937,12 +968,15 @@ impl ArkretMlsGroup {
                 "local MLS sender leaf is not a BasicCredential".to_owned(),
             ));
         }
-        let (endpoint, _) =
-            decode_leaf_endpoint_identity(own_leaf.credential.serialized_content())?;
-        Ok(match endpoint {
-            MlsLeafEndpointIdentity::HumanDevice(device_id) => device_id.to_string(),
-            MlsLeafEndpointIdentity::Actor(actor_id) => actor_id.to_string(),
-        })
+        let actual_identity = own_leaf.credential.serialized_content();
+        let identity = std::str::from_utf8(actual_identity).map_err(|_| {
+            Error::Protocol("active local MLS leaf identity is not canonical UTF-8".to_owned())
+        })?;
+        let derived_sender_domain = identity
+            .rsplit_once('#')
+            .map(|(_, device)| device)
+            .unwrap_or(identity);
+        Ok(derived_sender_domain.to_owned())
     }
 
     fn verified_local_content_sender_domain(&self, declared: &str) -> Result<Vec<u8>> {
@@ -970,25 +1004,17 @@ impl ArkretMlsGroup {
         })
     }
 
-    /// Return the principal roster only from accepted transition bindings.
-    /// A naked RFC 9420 public tree does not carry ordinary principal ids.
+    /// Snapshot member principals only from the accepted-transition binding
+    /// map. A bare RFC 9420 tree is endpoint evidence, not a principal roster.
     pub fn member_principal_ids(&self) -> Result<Vec<DidCoreId>> {
-        let mut seen = std::collections::BTreeSet::new();
-        for member in self.group.members() {
-            let binding = self.leaf_bindings.get(&member.index.u32()).ok_or_else(|| {
-                Error::Protocol(format!(
-                    "accepted transition binding is missing for MLS leaf {}",
-                    member.index.u32()
-                ))
-            })?;
-            validate_leaf_binding(
-                member.credential.serialized_content(),
-                member.signature_key.as_slice(),
-                binding,
-            )?;
-            seen.insert(binding.principal_id.clone());
-        }
-        Ok(seen.into_iter().collect())
+        self.require_complete_leaf_bindings()?;
+        Ok(self
+            .leaf_bindings
+            .values()
+            .map(|binding| binding.principal_id.clone())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect())
     }
 
     /// Snapshot the group's active leaves for minimal-metadata author
@@ -1011,10 +1037,9 @@ impl ArkretMlsGroup {
                     == openmls::prelude::CredentialType::Basic
                 {
                     crate::AuthorLeafCredential::Basic {
-                        // Author verification is byte-exact. Never project an
-                        // ordinary DeviceId credential into a principal: the
-                        // group-local accepted transition binding is the only
-                        // source of account membership.
+                        // Author verification is byte-exact. Principal
+                        // ownership comes from the verified group-local leaf
+                        // binding, not from reinterpretation of these bytes.
                         identity: member.credential.serialized_content().to_vec(),
                     }
                 } else {
@@ -1036,28 +1061,16 @@ impl ArkretMlsGroup {
     pub fn security_frontier_leaves(
         &self,
     ) -> Result<Vec<arkret_models_crypto::MlsSecurityFrontierLeaf>> {
+        self.require_complete_leaf_bindings()?;
         let mut leaves = self
-            .group
-            .members()
-            .map(|member| {
-                let binding = self.leaf_bindings.get(&member.index.u32()).ok_or_else(|| {
-                    Error::Protocol(format!(
-                        "accepted transition binding is missing for MLS leaf {}",
-                        member.index.u32()
-                    ))
-                })?;
-                validate_leaf_binding(
-                    member.credential.serialized_content(),
-                    member.signature_key.as_slice(),
-                    binding,
-                )?;
-                Ok(arkret_models_crypto::MlsSecurityFrontierLeaf {
-                    leaf_index: member.index.u32(),
-                    principal_id: binding.principal_id.clone(),
-                    credential_ref: binding.credential_ref.clone(),
-                })
+            .leaf_bindings
+            .values()
+            .map(|binding| arkret_models_crypto::MlsSecurityFrontierLeaf {
+                leaf_index: binding.leaf_index,
+                principal_id: binding.principal_id.clone(),
+                credential_ref: binding.credential_ref.clone(),
             })
-            .collect::<Result<Vec<_>>>()?;
+            .collect::<Vec<_>>();
         leaves.sort_by_key(|leaf| leaf.leaf_index);
         Ok(leaves)
     }
@@ -1076,15 +1089,16 @@ impl ArkretMlsGroup {
     }
 
     pub fn export_state_record(&self) -> Result<MlsGroupStateRecord> {
+        self.require_complete_leaf_bindings()?;
         let snapshot = OpenMlsStateSnapshot {
             context: ARKRET_OPENMLS_STATE_SNAPSHOT.to_owned(),
             group_id: self.group_id(),
             epoch: self.epoch(),
-            principal_id: self.identity.principal_id.clone(),
-            device_id: self.identity.device_id.clone(),
+            endpoint: self.identity.endpoint.clone(),
             profile: self.identity.profile().clone(),
             signer_public_key: encode(self.identity.signer.public()),
             storage_entries: snapshot_provider_storage(&self.identity.provider)?,
+            leaf_bindings: self.leaf_bindings.clone(),
             history_secrets: self
                 .history_secrets
                 .iter()
@@ -1092,12 +1106,10 @@ impl ArkretMlsGroup {
                 .collect(),
             content_nonce_counter: self.content_nonce_counter,
             signal_nonce_counter: self.signal_nonce_counter,
-            leaf_bindings: self.leaf_bindings.clone(),
         };
         Ok(MlsGroupStateRecord {
             group_id: snapshot.group_id.clone(),
-            principal_id: snapshot.principal_id.clone(),
-            device_id: snapshot.device_id.clone(),
+            endpoint: snapshot.endpoint.clone(),
             epoch: snapshot.epoch,
             serialized_state: serde_json::to_vec(&snapshot)?,
             updated_at: Utc::now(),
@@ -1119,8 +1131,7 @@ impl ArkretMlsGroup {
         }
         if snapshot.group_id != record.group_id
             || snapshot.epoch != record.epoch
-            || snapshot.principal_id != record.principal_id
-            || snapshot.device_id != record.device_id
+            || snapshot.endpoint != record.endpoint
         {
             return Err(Error::Protocol(
                 "OpenMLS state snapshot metadata mismatch".to_owned(),
@@ -1138,12 +1149,8 @@ impl ArkretMlsGroup {
         .ok_or_else(|| Error::Protocol("OpenMLS signer is missing from snapshot".to_owned()))?;
         snapshot.profile.validate_signer(signer.public())?;
         let credential = CredentialWithKey {
-            credential: BasicCredential::new(
-                snapshot
-                    .profile
-                    .credential_bytes(&record.principal_id, &record.device_id),
-            )
-            .into(),
+            credential: BasicCredential::new(snapshot.profile.credential_bytes(&record.endpoint))
+                .into(),
             signature_key: signer.public().into(),
         };
         let group_id = GroupId::from_slice(&decode(&record.group_id)?);
@@ -1164,21 +1171,23 @@ impl ArkretMlsGroup {
             history_secrets.insert(epoch, Zeroizing::new(decode(secret_b64)?));
         }
 
-        Ok(Self {
+        let bindings = snapshot.leaf_bindings;
+        let mut restored = Self {
             identity: ArkretMlsIdentity {
-                principal_id: record.principal_id.clone(),
-                device_id: record.device_id.clone(),
+                endpoint: record.endpoint.clone(),
                 profile: snapshot.profile,
                 provider,
                 signer,
                 credential,
             },
             group,
+            leaf_bindings: BTreeMap::new(),
             history_secrets,
             content_nonce_counter: snapshot.content_nonce_counter,
             signal_nonce_counter: snapshot.signal_nonce_counter,
-            leaf_bindings: snapshot.leaf_bindings,
-        })
+        };
+        restored.install_verified_leaf_bindings(bindings.into_values().collect())?;
+        Ok(restored)
     }
 
     /// Produce a "self-update" commit envelope — the MLS commit that
@@ -1292,13 +1301,18 @@ impl ArkretMlsGroup {
                 "refusing to add an empty MLS KeyPackage batch".to_owned(),
             ));
         }
+        #[cfg(any(test, feature = "test-utils"))]
+        let test_endpoints = self
+            .leaf_bindings
+            .values()
+            .map(|binding| binding.endpoint.clone())
+            .chain(
+                member_key_packages
+                    .iter()
+                    .map(|record| record.endpoint.clone()),
+            )
+            .collect::<Vec<_>>();
         let mut keypackages = Vec::with_capacity(member_key_packages.len());
-        let mut accepted_bindings = Vec::with_capacity(member_key_packages.len());
-        let existing_leaf_indices = self
-            .group
-            .members()
-            .map(|member| member.index.u32())
-            .collect::<std::collections::BTreeSet<_>>();
         let required_capabilities = self.required_keypackage_capabilities()?;
         for member_key_package in member_key_packages {
             if !member_key_package.is_usable() {
@@ -1312,11 +1326,6 @@ impl ArkretMlsGroup {
                 &keypackage,
                 &required_capabilities,
             )?;
-            accepted_bindings.push(binding_from_endpoint(
-                &member_key_package.endpoint,
-                keypackage.leaf_node().credential().serialized_content(),
-                keypackage.leaf_node().signature_key().as_slice(),
-            )?);
             keypackages.push(keypackage);
         }
         let base_epoch = self.epoch();
@@ -1368,24 +1377,8 @@ impl ArkretMlsGroup {
         self.group
             .merge_pending_commit(&self.identity.provider)
             .map_err(mls_error)?;
-        let new_members = self
-            .group
-            .members()
-            .filter(|member| !existing_leaf_indices.contains(&member.index.u32()))
-            .collect::<Vec<_>>();
-        if new_members.len() != member_key_packages.len() {
-            return Err(Error::Protocol(
-                "accepted Add transition did not produce the expected leaf set".to_owned(),
-            ));
-        }
-        for (member, binding) in new_members.into_iter().zip(accepted_bindings) {
-            validate_leaf_binding(
-                member.credential.serialized_content(),
-                member.signature_key.as_slice(),
-                &binding,
-            )?;
-            self.leaf_bindings.insert(member.index.u32(), binding);
-        }
+        #[cfg(any(test, feature = "test-utils"))]
+        self.install_test_leaf_bindings(test_endpoints)?;
 
         let commit_bytes = commit.tls_serialize_detached().map_err(mls_error)?;
         let welcome_bytes = welcome.tls_serialize_detached().map_err(mls_error)?;
@@ -1418,10 +1411,9 @@ impl ArkretMlsGroup {
         })
     }
 
-    /// Remove every leaf whose BasicCredential identity matches `target`.
-    ///
-    /// Principal ownership comes from accepted transition bindings, never by
-    /// decoding an ordinary DeviceId credential as an account identity.
+    /// Remove every leaf attributed to `target` by the accepted-transition
+    /// binding map. BasicCredential bytes are never treated as a principal
+    /// directory.
     ///
     /// Errors when the target principal has no leaf in this group.
     pub fn remove_member_by_principal(
@@ -1470,6 +1462,7 @@ impl ArkretMlsGroup {
                 "remove_members_by_principal requires at least one target".to_owned(),
             ));
         }
+        self.require_complete_leaf_bindings()?;
 
         let mut canonical_targets: Vec<&str> = targets.iter().map(DidCoreId::as_str).collect();
         canonical_targets.sort_unstable();
@@ -1477,17 +1470,16 @@ impl ArkretMlsGroup {
         let leaves: Vec<LeafNodeIndex> = self
             .group
             .members()
-            .filter_map(|member| {
-                let principal_id = &self.leaf_bindings.get(&member.index.u32())?.principal_id;
-                if canonical_targets
-                    .iter()
-                    .any(|target| principal_id.as_str() == *target)
-                {
-                    Some(member.index)
-                } else {
-                    None
-                }
+            .filter(|member| {
+                self.leaf_bindings
+                    .get(&member.index.u32())
+                    .is_some_and(|binding| {
+                        canonical_targets
+                            .iter()
+                            .any(|target| binding.principal_id.as_str() == *target)
+                    })
             })
+            .map(|member| member.index)
             .collect();
 
         for target in canonical_targets {
@@ -1520,16 +1512,8 @@ impl ArkretMlsGroup {
             .filter(|member| leaves.contains(&member.index))
             .map(|member| {
                 let binding = self.leaf_bindings.get(&member.index.u32()).ok_or_else(|| {
-                    Error::Protocol(format!(
-                        "accepted transition binding is missing for MLS leaf {}",
-                        member.index.u32()
-                    ))
+                    Error::Protocol("removed MLS leaf has no verified binding".to_owned())
                 })?;
-                validate_leaf_binding(
-                    member.credential.serialized_content(),
-                    member.signature_key.as_slice(),
-                    binding,
-                )?;
                 Ok((member.index, binding.principal_id.clone()))
             })
             .collect::<Result<Vec<_>>>()?;
@@ -1589,6 +1573,9 @@ impl ArkretMlsGroup {
         self.group
             .merge_pending_commit(&self.identity.provider)
             .map_err(mls_error)?;
+        for leaf in leaves {
+            self.leaf_bindings.remove(&leaf.u32());
+        }
 
         let commit_bytes = commit.tls_serialize_detached().map_err(mls_error)?;
 
@@ -1597,7 +1584,6 @@ impl ArkretMlsGroup {
         for (idx, principal) in pre_commit {
             removed_leaves.push(idx.u32());
             removed_principals.push(principal);
-            self.leaf_bindings.remove(&idx.u32());
         }
 
         Ok(MlsRemoveMemberResult {
@@ -1681,15 +1667,14 @@ impl ArkretMlsGroup {
                 .map_err(mls_error)?;
             return Err(error);
         }
-        let leaf_bindings = recover_joined_leaf_bindings(&group, &identity)?;
 
         Ok(Self {
             identity,
             group,
+            leaf_bindings: BTreeMap::new(),
             history_secrets: BTreeMap::new(),
             content_nonce_counter: 0,
             signal_nonce_counter: 0,
-            leaf_bindings,
         })
     }
 
@@ -2335,6 +2320,7 @@ impl arkret_crypto::sframe::MlsExporterSource for ArkretMlsGroup {
 #[cfg(test)]
 mod content_scheme_anchor_tests {
     use arkret_crypto::compose_aead_nonce;
+    use arkret_wire::DeviceId;
 
     use super::*;
     use crate::identity::ArkretMlsIdentity;
@@ -2347,7 +2333,7 @@ mod content_scheme_anchor_tests {
     const DEVICE: &str = "ak:device:01904100-0000-7000-8000-000000000007";
 
     fn founder() -> ArkretMlsGroup {
-        ArkretMlsIdentity::new_test_identity(
+        ArkretMlsIdentity::new_test_human_device(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
             DeviceId::new(DEVICE.to_owned()).unwrap(),
         )
@@ -2373,7 +2359,17 @@ mod content_scheme_anchor_tests {
         assert_eq!(profile, "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519");
         assert_eq!(
             group
-                .content_nonce_context(group.identity.device_id.as_str().as_bytes(), 3,)
+                .content_nonce_context(
+                    group
+                        .identity
+                        .endpoint
+                        .as_human_device()
+                        .expect("test founder is a human device")
+                        .1
+                        .as_str()
+                        .as_bytes(),
+                    3,
+                )
                 .unwrap()
                 .mls_group_id,
             group.group_id()

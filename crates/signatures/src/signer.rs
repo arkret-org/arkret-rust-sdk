@@ -104,6 +104,31 @@ impl PayloadSigner for Ed25519PayloadSigner {
             jws,
         })
     }
+
+    fn sign_notary_payload_with_digest_suite(
+        &self,
+        canonical_bytes: &[u8],
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> WireResult<PayloadSignature> {
+        let header = canonical::canonical_json_bytes(&serde_json::json!({
+            "alg": "Ed25519",
+            "kid": self.kid,
+        }))
+        .map_err(|err| WireError::Protocol(format!("invalid notary protected header: {err}")))?;
+        let header_b64 = base64url_encode(header);
+        let signing_input = format!("{header_b64}.{}", base64url_encode(canonical_bytes));
+        let signature = self.signing_key.sign(signing_input.as_bytes());
+        let jws = format!("{header_b64}..{}", base64url_encode(signature.to_bytes()));
+        let payload_digest = Hash::new(canonical::digest(digest_suite, canonical_bytes))
+            .map_err(|err| WireError::Protocol(format!("invalid canonical hash: {err}")))?;
+
+        Ok(PayloadSignature {
+            verification_method: self.kid.clone(),
+            payload_digest,
+            created_at: Utc::now(),
+            jws,
+        })
+    }
 }
 
 /// Best-effort verification of a [`PayloadSignature`] produced by an
@@ -182,7 +207,10 @@ pub fn verify_ed25519_payload_signature(
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{EventId, Hash, Hlc, NotarySig, RealmId, Seal, SealId};
+    use arkret_wire::{
+        EventId, Hash, Hlc, NotaryJoseAlgorithm, NotaryKeyKind, NotarySig, NotarySignerDescriptor,
+        RealmId, Seal, SealId, project_full_id_to_core_id,
+    };
 
     use super::*;
 
@@ -286,15 +314,21 @@ mod tests {
             NotarySig::Single(sig) => {
                 assert!(!sig.jws.is_empty());
                 let bytes = a.canonical_bytes_for_id().unwrap();
-                verify_ed25519_payload_signature(
+                let public_key = signer.verifying_key().to_bytes();
+                let descriptor = NotarySignerDescriptor {
+                    actor_id: project_full_id_to_core_id(signer.signer_did()).unwrap(),
+                    verification_method: signer.verification_method_id().clone(),
+                    key_kind: NotaryKeyKind::Ed25519Raw32,
+                    jose_algorithm: NotaryJoseAlgorithm::Ed25519,
+                    frozen_public_key_b64u: base64url_encode(public_key),
+                    frozen_public_key_digest: Hash::new(canonical::sha256_digest(public_key))
+                        .unwrap(),
+                };
+                crate::verify_frozen_notary_signature(
+                    sig,
+                    &descriptor,
                     &bytes,
-                    &PayloadSignature {
-                        verification_method: sig.verification_method.clone(),
-                        payload_digest: sig.payload_digest.clone(),
-                        created_at: a.sealed_at,
-                        jws: sig.jws.clone(),
-                    },
-                    &signer.verifying_key(),
+                    arkret_canonical::DigestSuite::Sha256,
                 )
                 .unwrap();
             }

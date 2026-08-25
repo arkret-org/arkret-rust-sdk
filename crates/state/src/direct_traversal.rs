@@ -1332,7 +1332,6 @@ mod tests {
             proposal_digest: Hash::new(arkret_canonical::sha256_digest(proposal_bytes))
                 .expect("proposal digest"),
             target_principal_id: Some(actor()),
-            target_device_id: None,
             target_authorization_incarnation: Some(AuthorizationIncarnation::Realm {
                 realm_membership_incarnation_ref: incarnation.clone(),
             }),

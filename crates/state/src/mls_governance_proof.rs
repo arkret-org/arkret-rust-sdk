@@ -874,8 +874,15 @@ where
     let mut projected_entries = Vec::new();
     for (cell, state) in target_state {
         let cell_id = CellId::from_ref(&cell)?;
-        if matches!(state, CellState::Bottom(_)) && registered_frontier_family(cell_id.component())
-        {
+        // The joined Realm state necessarily contains many governance cells
+        // outside the closed MLS security-frontier registry. They are not
+        // proof entries and must be ignored here, exactly as the per-branch
+        // materializer and closure verifier do above. An unregistered family
+        // supplied *as a proof entry* is still rejected by entry validation.
+        if !registered_frontier_family(cell_id.component()) {
+            continue;
+        }
+        if matches!(state, CellState::Bottom(_)) {
             return frontier_rejected("joined target security-frontier cell is Bottom");
         }
         let CellState::Value(value) = state else {

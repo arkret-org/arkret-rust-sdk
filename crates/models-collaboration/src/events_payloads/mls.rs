@@ -30,7 +30,6 @@ pub enum MlsProposalType {
     Remove,
     Psk,
     Reinit,
-    ExternalInit,
     GroupContextExtensions,
     AppCustom,
 }
@@ -404,7 +403,6 @@ pub struct MlsProposalPayload {
     pub proposal_bytes_b64: String,
     pub proposal_digest: Hash,
     pub target_principal_id: Option<DidCoreId>,
-    pub target_device_id: Option<DeviceId>,
     pub target_authorization_incarnation: Option<AuthorizationIncarnation>,
     pub governance_binding: MlsGovernanceBindingPayload,
 }
@@ -419,8 +417,6 @@ struct MlsProposalPayloadWire {
     proposal_digest: Hash,
     #[serde(default)]
     target_principal_id: Option<DidCoreId>,
-    #[serde(default)]
-    target_device_id: Option<DeviceId>,
     #[serde(default)]
     target_authorization_incarnation: Option<AuthorizationIncarnation>,
     governance_binding: MlsGovernanceBindingPayload,
@@ -489,7 +485,6 @@ impl Serialize for MlsProposalPayload {
             proposal_bytes_b64: self.proposal_bytes_b64.clone(),
             proposal_digest: self.proposal_digest.clone(),
             target_principal_id: self.target_principal_id.clone(),
-            target_device_id: self.target_device_id.clone(),
             target_authorization_incarnation: self.target_authorization_incarnation.clone(),
             governance_binding: self.governance_binding.clone(),
         }
@@ -510,7 +505,6 @@ impl<'de> Deserialize<'de> for MlsProposalPayload {
             proposal_bytes_b64: wire.proposal_bytes_b64,
             proposal_digest: wire.proposal_digest,
             target_principal_id: wire.target_principal_id,
-            target_device_id: wire.target_device_id,
             target_authorization_incarnation: wire.target_authorization_incarnation,
             governance_binding: wire.governance_binding,
         };

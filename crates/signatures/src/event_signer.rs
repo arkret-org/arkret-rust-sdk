@@ -285,6 +285,16 @@ mod tests {
                 jws: stub_jws,
             })
         }
+
+        fn sign_notary_payload_with_digest_suite(
+            &self,
+            canonical_bytes: &[u8],
+            digest_suite: arkret_canonical::DigestSuite,
+        ) -> WireResult<PayloadSignature> {
+            let mut signature = self.sign_payload(canonical_bytes)?;
+            signature.payload_digest = Hash::new(canonical::digest(digest_suite, canonical_bytes))?;
+            Ok(signature)
+        }
     }
 
     #[test]

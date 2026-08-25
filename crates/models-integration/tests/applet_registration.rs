@@ -39,6 +39,16 @@ impl PayloadSigner for StubSigner {
             jws: stub_detached_jws(&payload_digest),
         })
     }
+
+    fn sign_notary_payload_with_digest_suite(
+        &self,
+        canonical_bytes: &[u8],
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> WireResult<PayloadSignature> {
+        let mut signature = self.sign_payload(canonical_bytes)?;
+        signature.payload_digest = Hash::new(canonical::digest(digest_suite, canonical_bytes))?;
+        Ok(signature)
+    }
 }
 
 fn full(name: &str) -> DidFullId {

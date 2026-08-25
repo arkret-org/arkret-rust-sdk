@@ -39,18 +39,16 @@ pub trait PayloadSigner {
     /// [`Seal::sign_single`] build the canonical body bytes and delegate here.
     fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<PayloadSignature>;
 
-    /// Sign canonical bytes while binding `payload_digest` to an explicit
-    /// verified Realm digest suite. The compact detached JWS signs the same
-    /// canonical bytes; only the typed digest field changes with the suite.
-    fn sign_payload_with_digest_suite(
+    /// Sign a Seal/notary payload while binding both the typed digest suite and
+    /// the frozen verification method. Unlike ordinary Event proofs, the Seal
+    /// profile requires protected `kid` to equal [`Self::verification_method_id`].
+    /// Implementations MUST therefore construct a fresh notary-profile JWS;
+    /// rewriting only `payload_digest` on an ordinary proof is invalid.
+    fn sign_notary_payload_with_digest_suite(
         &self,
         canonical_bytes: &[u8],
         digest_suite: arkret_canonical::DigestSuite,
-    ) -> Result<PayloadSignature> {
-        let mut signature = self.sign_payload(canonical_bytes)?;
-        signature.payload_digest = Hash::new(canonical::digest(digest_suite, canonical_bytes))?;
-        Ok(signature)
-    }
+    ) -> Result<PayloadSignature>;
 }
 
 impl Seal {
@@ -174,7 +172,9 @@ impl Seal {
             hlc: &hlc,
         })?;
         let id = Seal::id_from_canonical_bytes(&body_bytes, digest_suite)?;
-        let sig = seal_signature(signer.sign_payload_with_digest_suite(&body_bytes, digest_suite)?);
+        let sig = seal_signature(
+            signer.sign_notary_payload_with_digest_suite(&body_bytes, digest_suite)?,
+        );
         Ok(Seal {
             id,
             realm_id,
@@ -280,7 +280,7 @@ impl Seal {
         let mut signatures = Vec::with_capacity(signers.len());
         for signer in signers {
             signatures.push(seal_signature(
-                signer.sign_payload_with_digest_suite(&body_bytes, digest_suite)?,
+                signer.sign_notary_payload_with_digest_suite(&body_bytes, digest_suite)?,
             ));
         }
         signatures.sort_by(|left, right| left.verification_method.cmp(&right.verification_method));
@@ -616,6 +616,16 @@ mod tests {
                 created_at: Utc.with_ymd_and_hms(2026, 5, 9, 0, 0, 0).unwrap(),
                 jws: "AAAA.BBBB.CCCC".to_owned(),
             })
+        }
+
+        fn sign_notary_payload_with_digest_suite(
+            &self,
+            canonical_bytes: &[u8],
+            digest_suite: arkret_canonical::DigestSuite,
+        ) -> Result<PayloadSignature> {
+            let mut signature = self.sign_payload(canonical_bytes)?;
+            signature.payload_digest = Hash::new(canonical::digest(digest_suite, canonical_bytes))?;
+            Ok(signature)
         }
     }
 

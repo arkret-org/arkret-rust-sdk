@@ -34,6 +34,16 @@ pub enum MlsEndpointIdentity {
 }
 
 impl MlsEndpointIdentity {
+    pub fn as_human_device(&self) -> Option<(&DidCoreId, &DeviceId)> {
+        match self {
+            Self::HumanDevice {
+                principal_id,
+                device_id,
+            } => Some((principal_id, device_id)),
+            Self::NativeAgentRuntime { .. } | Self::MinimalMetadataPairwise { .. } => None,
+        }
+    }
+
     pub fn human_device(principal_id: DidCoreId, device_id: DeviceId) -> Self {
         Self::HumanDevice {
             principal_id,
@@ -325,6 +335,55 @@ impl MlsKeyPackageRecord {
     }
 }
 
+/// Endpoint-scoped client-private KeyPackage inventory. This is local
+/// maintenance state, not an HTTP DTO and not evidence of server inventory.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LocalMlsKeyPackageInventory {
+    pub endpoint: MlsEndpointIdentity,
+    pub entries: BTreeMap<String, LocalMlsKeyPackageInventoryEntry>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LocalMlsKeyPackageInventoryEntry {
+    pub keypackage_id: String,
+    pub keypackage_ref: Hash,
+    pub state: MlsKeyPackageState,
+    pub has_private_state: bool,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    pub last_resort: bool,
+}
+
+impl LocalMlsKeyPackageInventory {
+    pub fn usable_single_use_count(&self, now: DateTime<Utc>) -> usize {
+        self.entries
+            .values()
+            .filter(|entry| {
+                entry.has_private_state
+                    && !entry.last_resort
+                    && entry.expires_at > now
+                    && matches!(entry.state, MlsKeyPackageState::Published)
+            })
+            .count()
+    }
+
+    /// One automatic maintenance cycle produces at most this many fresh
+    /// packages and never uses an upload response as a follow-up probe.
+    pub fn maintenance_deficit(&self, now: DateTime<Utc>, low_water: usize) -> usize {
+        low_water.saturating_sub(self.usable_single_use_count(now))
+    }
+
+    /// A diagnostic refill is deliberately independent of the estimated
+    /// remote state and remains bounded to one low-water-sized batch.
+    pub fn manual_refill_count(low_water: usize) -> usize {
+        low_water
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use arkret_wire::{DeviceId, DidCoreId, Hash};
@@ -365,8 +424,7 @@ mod tests {
         };
         let group = MlsGroupStateRecord {
             group_id: "group-1".to_owned(),
-            principal_id,
-            device_id,
+            endpoint: MlsEndpointIdentity::human_device(principal_id, device_id),
             epoch: 1,
             serialized_state: vec![1, 2, 3],
             updated_at,
@@ -401,8 +459,7 @@ mod tests {
 #[serde(deny_unknown_fields)]
 pub struct MlsGroupStateRecord {
     pub group_id: String,
-    pub principal_id: DidCoreId,
-    pub device_id: DeviceId,
+    pub endpoint: MlsEndpointIdentity,
     pub epoch: u64,
     pub serialized_state: Vec<u8>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -416,8 +473,7 @@ impl std::fmt::Debug for MlsGroupStateRecord {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MlsGroupStateRecord")
             .field("group_id", &self.group_id)
-            .field("principal_id", &self.principal_id)
-            .field("device_id", &self.device_id)
+            .field("endpoint", &self.endpoint)
             .field("epoch", &self.epoch)
             .field(
                 "serialized_state",

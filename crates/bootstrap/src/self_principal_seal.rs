@@ -98,7 +98,10 @@ pub fn build_self_principal_bootstrap_seal<S: PayloadSigner + ?Sized>(
     seal.id = Seal::id_from_canonical_bytes(&canonical_bytes, SELF_PRINCIPAL_PCR_DIGEST_SUITE)?;
     seal.notary_signature = NotarySig::Single(
         signer
-            .sign_payload_with_digest_suite(&canonical_bytes, SELF_PRINCIPAL_PCR_DIGEST_SUITE)?
+            .sign_notary_payload_with_digest_suite(
+                &canonical_bytes,
+                SELF_PRINCIPAL_PCR_DIGEST_SUITE,
+            )?
             .into(),
     );
     seal.validate_structural()?;
@@ -240,7 +243,10 @@ pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
     seal.id = Seal::id_from_canonical_bytes(&canonical_bytes, SELF_PRINCIPAL_PCR_DIGEST_SUITE)?;
     seal.notary_signature = NotarySig::Single(
         signer
-            .sign_payload_with_digest_suite(&canonical_bytes, SELF_PRINCIPAL_PCR_DIGEST_SUITE)?
+            .sign_notary_payload_with_digest_suite(
+                &canonical_bytes,
+                SELF_PRINCIPAL_PCR_DIGEST_SUITE,
+            )?
             .into(),
     );
     seal.validate_structural()?;
@@ -368,7 +374,10 @@ pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
     seal.id = Seal::id_from_canonical_bytes(&canonical_bytes, SELF_PRINCIPAL_PCR_DIGEST_SUITE)?;
     seal.notary_signature = NotarySig::Single(
         signer
-            .sign_payload_with_digest_suite(&canonical_bytes, SELF_PRINCIPAL_PCR_DIGEST_SUITE)?
+            .sign_notary_payload_with_digest_suite(
+                &canonical_bytes,
+                SELF_PRINCIPAL_PCR_DIGEST_SUITE,
+            )?
             .into(),
     );
     seal.validate_structural()?;
