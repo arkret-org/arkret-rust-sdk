@@ -17,10 +17,15 @@ pub mod protocol;
 pub use arkret_wire::events;
 pub use error::{Result, SchemaError, SchemaValidationIssue, SchemaValidationReason};
 pub use event_cell_contract::{
+    CapabilityAuthorityAudit, CapabilityAuthorityAuditIndex, CapabilityAuthorityProjectionError,
     EventCellContractContext, EventCellContractError, FrozenPreState, batch_add_tag,
-    derived_object_id, derived_object_id_for_kind, derived_object_ids, derived_object_ids_for_kind,
-    event_derived_id_kinds_for_kind, or_set_dot, project_registered_cell_writes,
-    project_registered_cell_writes_with_pre_state, project_registered_operation_writes,
+    derive_capability_authority_audit, derived_object_id, derived_object_id_for_kind,
+    derived_object_ids, derived_object_ids_for_kind, event_derived_id_kinds_for_kind, or_set_dot,
+    project_registered_cell_writes, project_registered_cell_writes_with_authority_resolver,
+    project_registered_cell_writes_with_pre_state,
+    project_registered_cell_writes_with_pre_state_and_authority_resolver,
+    project_registered_operation_writes,
+    project_registered_operation_writes_with_authority_resolver,
     validate_registered_cell_plane_in_context, validate_registered_cell_writes,
     validate_registered_cell_writes_in_context,
 };

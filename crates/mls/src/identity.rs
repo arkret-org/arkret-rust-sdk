@@ -7,10 +7,11 @@ use arkret_models_collaboration::events_payloads::{
 use arkret_models_crypto::{
     KeyOperationSignature, KeyPackageUploadEntry, KeyPackagesConsumeRequestBody,
     KeyPackagesConsumeUnsignedRequest, KeyPackagesUploadRequestBody,
-    KeyPackagesUploadUnsignedRequest, MlsEndpointIdentity, MlsGovernanceBindingPayload,
-    MlsKeyPackageRecord, RecipientMlsDurableReceipt, RecipientMlsDurableSigner,
+    KeyPackagesUploadUnsignedRequest, MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE,
+    MlsEndpointIdentity, MlsGovernanceBindingPayload, MlsKeyPackageRecord,
+    RecipientMlsDurableReceipt, RecipientMlsDurableSigner, decode_keypackage_capability_extension,
     keypackages_consume_signing_input, keypackages_upload_signing_input,
-    mls_key_package_record_upload_entry,
+    mls_key_package_record_upload_entry, validate_advertised_keypackage_capabilities,
 };
 use arkret_wire::{
     Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, RealmId, canonical,
@@ -29,8 +30,8 @@ use zeroize::Zeroize;
 
 use crate::group::{
     ArkretMlsGroup, decode, encode, governance_binding_group_context_extensions,
-    governance_binding_openmls_capabilities, mls_error, restore_provider_storage,
-    snapshot_provider_storage,
+    governance_binding_openmls_capabilities, keypackage_capabilities_leaf_extensions, mls_error,
+    restore_provider_storage, snapshot_provider_storage,
 };
 use crate::{MlsError as Error, Result};
 
@@ -47,7 +48,7 @@ pub const ARKRET_MLS_CIPHERSUITE: Ciphersuite =
 /// upstream drift fails loudly rather than reaching the wire.
 pub const ARKRET_MLS_CIPHERSUITE_CANONICAL_ID: &str =
     "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519";
-pub const ARKRET_MLS_KEY_PACKAGE_CAPABILITIES: &[&str] = &["mimi.content.v1", "ak.content.v1"];
+pub const ARKRET_MLS_KEY_PACKAGE_CAPABILITIES: &[&str] = &["ak.content.v1", "mimi.content.v1"];
 
 const ARKRET_OPENMLS_IDENTITY_STATE_SNAPSHOT: &str = "arkret-openmls-identity-state-v1";
 
@@ -499,7 +500,9 @@ impl ArkretMlsIdentity {
 
     fn key_package_record_inner(&self) -> Result<MlsKeyPackageRecord> {
         let capabilities = governance_binding_openmls_capabilities();
-        let builder = KeyPackage::builder().leaf_node_capabilities(capabilities);
+        let builder = KeyPackage::builder()
+            .leaf_node_capabilities(capabilities)
+            .leaf_node_extensions(keypackage_capabilities_leaf_extensions()?);
         let keypackage = builder
             .build(
                 ARKRET_MLS_CIPHERSUITE,
@@ -594,6 +597,8 @@ impl ArkretMlsIdentity {
             .ciphersuite(ARKRET_MLS_CIPHERSUITE)
             .capabilities(governance_binding_openmls_capabilities())
             .with_group_context_extensions(governance_binding_group_context_extensions(None)?)
+            .with_leaf_node_extensions(keypackage_capabilities_leaf_extensions()?)
+            .map_err(mls_error)?
             .use_ratchet_tree_extension(true)
             .build();
         let group = MlsGroup::new_with_group_id(
@@ -638,6 +643,8 @@ impl ArkretMlsIdentity {
             .with_group_context_extensions(governance_binding_group_context_extensions(Some(
                 binding,
             ))?)
+            .with_leaf_node_extensions(keypackage_capabilities_leaf_extensions()?)
+            .map_err(mls_error)?
             .use_ratchet_tree_extension(true)
             .build();
         let group = MlsGroup::new_with_group_id(
@@ -711,6 +718,40 @@ pub fn author_leaf_from_key_package_bytes(
     })
 }
 
+/// Return the application capabilities authenticated by the KeyPackage
+/// LeafNode signature.
+pub fn keypackage_capabilities_from_key_package_bytes(bytes: &[u8]) -> Result<Vec<String>> {
+    let provider = OpenMlsRustCrypto::default();
+    let key_package_in = KeyPackageIn::tls_deserialize_exact(bytes).map_err(mls_error)?;
+    let keypackage = key_package_in
+        .validate(provider.crypto(), ProtocolVersion::Mls10)
+        .map_err(mls_error)?;
+    let extension = keypackage
+        .leaf_node()
+        .extensions()
+        .unknown(MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE)
+        .ok_or_else(|| {
+            Error::Protocol("KeyPackage LeafNode keypackage_capabilities is missing".to_owned())
+        })?;
+    decode_keypackage_capability_extension(&extension.0)
+        .map_err(|error| Error::Protocol(error.to_string()))
+}
+
+/// Verify that the HTTP/storage projection exactly repeats the capabilities
+/// authenticated by the KeyPackage LeafNode signature.
+pub fn validate_keypackage_capability_binding(bytes: &[u8], advertised: &[String]) -> Result<()> {
+    let advertised_refs = advertised.iter().map(String::as_str).collect::<Vec<_>>();
+    validate_advertised_keypackage_capabilities(&advertised_refs)
+        .map_err(|error| Error::Protocol(error.to_string()))?;
+    let signed = keypackage_capabilities_from_key_package_bytes(bytes)?;
+    if signed != advertised {
+        return Err(Error::Protocol(
+            "outer KeyPackage capabilities do not match signed LeafNode capabilities".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::Value;
@@ -741,13 +782,23 @@ mod tests {
         let record = identity.key_package_record().unwrap();
         assert_eq!(
             record.capabilities,
-            vec!["mimi.content.v1".to_owned(), "ak.content.v1".to_owned()]
+            vec!["ak.content.v1".to_owned(), "mimi.content.v1".to_owned()]
         );
 
         let value = serde_json::to_value(&record).unwrap();
         assert!(
             matches!(value.get("capabilities"), Some(Value::Array(values)) if !values.is_empty())
         );
+
+        let key_package_bytes = decode(&record.keypackage).unwrap();
+        assert_eq!(
+            keypackage_capabilities_from_key_package_bytes(&key_package_bytes).unwrap(),
+            record.capabilities
+        );
+        validate_keypackage_capability_binding(&key_package_bytes, &record.capabilities).unwrap();
+        let mut mismatched = record.capabilities.clone();
+        mismatched.pop();
+        assert!(validate_keypackage_capability_binding(&key_package_bytes, &mismatched).is_err());
     }
 
     #[test]
@@ -848,9 +899,14 @@ mod tests {
             welcome_wire["recipient_pairwise_verification_method"],
             verification_method.as_str()
         );
-        let welcome = serde_json::from_value(welcome_wire).unwrap();
+        let welcome: arkret_models_crypto::MlsWelcomeEnvelope =
+            serde_json::from_value(welcome_wire).unwrap();
         assert_eq!(welcome, add.welcome);
-        let group = ArkretMlsGroup::join_from_welcome(restored, &welcome).unwrap();
+        let serialized_welcome = serde_json::to_vec(&welcome).unwrap();
+        let decoded_welcome: arkret_models_crypto::MlsWelcomeEnvelope =
+            serde_json::from_slice(&serialized_welcome).unwrap();
+        assert_eq!(decoded_welcome, welcome);
+        let group = ArkretMlsGroup::join_from_welcome(restored, &decoded_welcome).unwrap();
         assert_eq!(
             group.local_content_sender_domain().unwrap(),
             pairwise_actor_id.as_str()

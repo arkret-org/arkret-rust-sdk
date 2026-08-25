@@ -751,7 +751,7 @@ mod tests {
                 EventId::new("ak:event:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD".to_owned())
                     .unwrap(),
             ],
-            service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap(),
+            service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             authority_set_ref: lease.authority_set_ref.clone(),
             proofs: Vec::new(),
         };
@@ -985,7 +985,7 @@ mod tests {
                 .is_err()
         );
         let wrong_event_id =
-            EventId::new("ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e").unwrap();
+            EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x5a; 32]);
         assert!(
             receipt
                 .validate_against_lease(&lease, &digest, &wrong_event_id)
@@ -1023,10 +1023,13 @@ mod tests {
         assert!(empty_frontier.validate_structural().is_err());
 
         let mut unordered_frontier = baseline.clone();
-        unordered_frontier.ingress_frontier = vec![
-            EventId::new("ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e").unwrap(),
-            EventId::new("ak:event:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD").unwrap(),
+        let mut noncanonical_frontier = vec![
+            EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x02; 32]),
+            EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x01; 32]),
         ];
+        noncanonical_frontier.sort();
+        noncanonical_frontier.reverse();
+        unordered_frontier.ingress_frontier = noncanonical_frontier;
         assert!(unordered_frontier.validate_structural().is_err());
 
         let mut wrong_ingress = baseline.clone();

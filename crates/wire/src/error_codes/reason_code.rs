@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-25.1;
-//! sha256=3137ddf4bf0a5d5ace98e73828ec01d80a1631b8e6eca7c225dca47658ec82d7
-//! Entries: reason_codes=468
+//! Input: registry/error-code-registry.json; version=2026-08-25.4;
+//! sha256=36bf3f44eee93b55f00348a9f1e17397d5e708257e96d04b4b20bdabcd60663e
+//! Entries: reason_codes=470
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -453,11 +453,13 @@ pub enum ReasonCode {
     UnresolvedBasis,
     UnsupportedAeadProfile,
     UnsupportedAttachmentScheme,
+    UnsupportedCiphersuite,
     UnsupportedDigestAlgorithm,
     UnsupportedEventKind,
     UnsupportedFeature,
     UnsupportedHpkeSuite,
     UnsupportedProfile,
+    UnsupportedProtocolVersion,
     UnsupportedSignatureAlg,
     UntrustedBackupSignature,
     VerificationMethodPrincipalMismatch,
@@ -1019,11 +1021,13 @@ impl ReasonCode {
     pub const UNRESOLVED_BASIS: &'static str = "unresolved_basis";
     pub const UNSUPPORTED_AEAD_PROFILE: &'static str = "unsupported_aead_profile";
     pub const UNSUPPORTED_ATTACHMENT_SCHEME: &'static str = "unsupported_attachment_scheme";
+    pub const UNSUPPORTED_CIPHERSUITE: &'static str = "unsupported_ciphersuite";
     pub const UNSUPPORTED_DIGEST_ALGORITHM: &'static str = "unsupported_digest_algorithm";
     pub const UNSUPPORTED_EVENT_KIND: &'static str = "unsupported_event_kind";
     pub const UNSUPPORTED_FEATURE: &'static str = "unsupported_feature";
     pub const UNSUPPORTED_HPKE_SUITE: &'static str = "unsupported_hpke_suite";
     pub const UNSUPPORTED_PROFILE: &'static str = "unsupported_profile";
+    pub const UNSUPPORTED_PROTOCOL_VERSION: &'static str = "unsupported_protocol_version";
     pub const UNSUPPORTED_SIGNATURE_ALG: &'static str = "unsupported_signature_alg";
     pub const UNTRUSTED_BACKUP_SIGNATURE: &'static str = "untrusted_backup_signature";
     pub const VERIFICATION_METHOD_PRINCIPAL_MISMATCH: &'static str =
@@ -1572,11 +1576,13 @@ impl ReasonCode {
             Self::UnresolvedBasis => Self::UNRESOLVED_BASIS,
             Self::UnsupportedAeadProfile => Self::UNSUPPORTED_AEAD_PROFILE,
             Self::UnsupportedAttachmentScheme => Self::UNSUPPORTED_ATTACHMENT_SCHEME,
+            Self::UnsupportedCiphersuite => Self::UNSUPPORTED_CIPHERSUITE,
             Self::UnsupportedDigestAlgorithm => Self::UNSUPPORTED_DIGEST_ALGORITHM,
             Self::UnsupportedEventKind => Self::UNSUPPORTED_EVENT_KIND,
             Self::UnsupportedFeature => Self::UNSUPPORTED_FEATURE,
             Self::UnsupportedHpkeSuite => Self::UNSUPPORTED_HPKE_SUITE,
             Self::UnsupportedProfile => Self::UNSUPPORTED_PROFILE,
+            Self::UnsupportedProtocolVersion => Self::UNSUPPORTED_PROTOCOL_VERSION,
             Self::UnsupportedSignatureAlg => Self::UNSUPPORTED_SIGNATURE_ALG,
             Self::UntrustedBackupSignature => Self::UNTRUSTED_BACKUP_SIGNATURE,
             Self::VerificationMethodPrincipalMismatch => {
@@ -2130,11 +2136,13 @@ impl ReasonCode {
             Self::UNRESOLVED_BASIS => Self::UnresolvedBasis,
             Self::UNSUPPORTED_AEAD_PROFILE => Self::UnsupportedAeadProfile,
             Self::UNSUPPORTED_ATTACHMENT_SCHEME => Self::UnsupportedAttachmentScheme,
+            Self::UNSUPPORTED_CIPHERSUITE => Self::UnsupportedCiphersuite,
             Self::UNSUPPORTED_DIGEST_ALGORITHM => Self::UnsupportedDigestAlgorithm,
             Self::UNSUPPORTED_EVENT_KIND => Self::UnsupportedEventKind,
             Self::UNSUPPORTED_FEATURE => Self::UnsupportedFeature,
             Self::UNSUPPORTED_HPKE_SUITE => Self::UnsupportedHpkeSuite,
             Self::UNSUPPORTED_PROFILE => Self::UnsupportedProfile,
+            Self::UNSUPPORTED_PROTOCOL_VERSION => Self::UnsupportedProtocolVersion,
             Self::UNSUPPORTED_SIGNATURE_ALG => Self::UnsupportedSignatureAlg,
             Self::UNTRUSTED_BACKUP_SIGNATURE => Self::UntrustedBackupSignature,
             Self::VERIFICATION_METHOD_PRINCIPAL_MISMATCH => {
@@ -4464,6 +4472,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "An encrypted-attachment envelope carries a `scheme` value the receiver does not recognise. Receivers MUST fail closed rather than guess a decryption form. See zh/crypto-media/media-and-blob.md §3.2/§3.3.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::UNSUPPORTED_CIPHERSUITE,
+        applies_to: &["service_call", "auth_decision", "keypackage_lifecycle"],
+        description: "An MLS ciphersuite selector is not an active row of artifacts/registry/mls-ciphersuite-registry.json (unknown, inactive, or reserved-but-not-activated) during KeyPackage claim or group negotiation. Receivers MUST fail closed even if the underlying MLS library supports the suite. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/crypto-media/encryption-and-audit.md §2.6.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::UNSUPPORTED_DIGEST_ALGORITHM,
         applies_to: &["schema_validation", "batch_item", "event_envelope"],
         description: "Per-item algorithm-agility failure: a critical digest prefix is not an active digest-suite registry row. Receiver MUST fail closed. Dual-registered with the top-level service code.",
@@ -4487,6 +4500,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::UNSUPPORTED_PROFILE,
         applies_to: &["push_notify_outcome"],
         description: "Per-device rejection reason in ak.edge.push.command.notify: the device has not opted in to the requested notification profile (for example a visible notification sent to a device without visible_notification_opt_in). Terminal; the caller falls back to the blind_wakeup form and MUST NOT resend the same shape. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::UNSUPPORTED_PROTOCOL_VERSION,
+        applies_to: &["feature_discovery", "service_call"],
+        description: "The peer's protocol-family bootstrap discriminator is well formed but unsupported. The consumer rejects the complete service before reading version-specific capability claims or caching its route. Missing or non-string values remain schema_violation. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/overview/evolution-and-compatibility.md §1 and §4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::UNSUPPORTED_SIGNATURE_ALG,

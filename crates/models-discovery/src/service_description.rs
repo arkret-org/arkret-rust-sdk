@@ -5,7 +5,7 @@ use std::str::FromStr;
 use arkret_wire::generated::profile_requirements::requirements_for;
 use arkret_wire::{DidCoreId, DidFullId, ProfileId, SchemaId, *};
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -141,6 +141,7 @@ pub struct ServiceDescribe {
     /// expected deployment scope.
     pub trust_domain: TrustDomainId,
     pub service_kind: ServiceKind,
+    #[serde(deserialize_with = "deserialize_protocol_version")]
     pub protocol_version: String,
     /// Profiles the service
     /// declares conformance to. Empty array is valid; missing is not.
@@ -390,6 +391,15 @@ impl ServiceDescribe {
     /// - `verified_profiles` MUST be empty when `development_mode = true`.
     /// - the describe `anyOf` requires `rate_limit_policy` or `rate_limit_policy_id`.
     pub fn validate(&self) -> Result<()> {
+        if self.protocol_version != PROTOCOL_VERSION {
+            return Err(WireError::ProtocolCode {
+                code: ErrorCode::UnsupportedProtocolVersion,
+                message: format!(
+                    "ServiceDescribe protocol_version {} does not match Arkret {PROTOCOL_VERSION}",
+                    self.protocol_version
+                ),
+            });
+        }
         if project_full_id_to_core_id(&self.service_resolution.full_id)? != self.service_id
             || self.service_resolution.method_history_head.is_empty()
             || self.service_resolution.version_id.is_empty()
@@ -588,6 +598,20 @@ impl ServiceDescribe {
         }
         Ok(())
     }
+}
+
+fn deserialize_protocol_version<'de, D>(deserializer: D) -> std::result::Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = String::deserialize(deserializer)?;
+    if value != PROTOCOL_VERSION {
+        return Err(serde::de::Error::custom(format!(
+            "{}: ServiceDescribe protocol_version {value} does not match Arkret {PROTOCOL_VERSION}",
+            ErrorCode::UNSUPPORTED_PROTOCOL_VERSION
+        )));
+    }
+    Ok(value)
 }
 
 /// Profile-specific interoperable carrier binding.

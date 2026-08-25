@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-25.1;
-//! sha256=3137ddf4bf0a5d5ace98e73828ec01d80a1631b8e6eca7c225dca47658ec82d7 Entries: error_codes=280
+//! Input: registry/error-code-registry.json; version=2026-08-25.4;
+//! sha256=36bf3f44eee93b55f00348a9f1e17397d5e708257e96d04b4b20bdabcd60663e Entries: error_codes=282
 
 use serde::{Deserialize, Serialize};
 
@@ -297,6 +297,7 @@ pub enum ErrorCode {
     TurnCredentialExpired,
     Unauthenticated,
     UnrecognizedEndpoint,
+    UnsupportedCiphersuite,
     UnsupportedContentEncoding,
     UnsupportedDidMethod,
     UnsupportedDigestAlgorithm,
@@ -310,6 +311,7 @@ pub enum ErrorCode {
     UnsupportedProfile,
     UnsupportedProfilePatchPath,
     UnsupportedProofProfile,
+    UnsupportedProtocolVersion,
     UnsupportedSignatureAlg,
     UpstreamUnavailable,
     VerifierUnauthorized,
@@ -591,6 +593,7 @@ impl ErrorCode {
         Self::TurnCredentialExpired,
         Self::Unauthenticated,
         Self::UnrecognizedEndpoint,
+        Self::UnsupportedCiphersuite,
         Self::UnsupportedContentEncoding,
         Self::UnsupportedDidMethod,
         Self::UnsupportedDigestAlgorithm,
@@ -604,6 +607,7 @@ impl ErrorCode {
         Self::UnsupportedProfile,
         Self::UnsupportedProfilePatchPath,
         Self::UnsupportedProofProfile,
+        Self::UnsupportedProtocolVersion,
         Self::UnsupportedSignatureAlg,
         Self::UpstreamUnavailable,
         Self::VerifierUnauthorized,
@@ -902,6 +906,7 @@ impl ErrorCode {
     pub const TURN_CREDENTIAL_EXPIRED: &'static str = "turn_credential_expired";
     pub const UNAUTHENTICATED: &'static str = "unauthenticated";
     pub const UNRECOGNIZED_ENDPOINT: &'static str = "unrecognized_endpoint";
+    pub const UNSUPPORTED_CIPHERSUITE: &'static str = "unsupported_ciphersuite";
     pub const UNSUPPORTED_CONTENT_ENCODING: &'static str = "unsupported_content_encoding";
     pub const UNSUPPORTED_DID_METHOD: &'static str = "unsupported_did_method";
     pub const UNSUPPORTED_DIGEST_ALGORITHM: &'static str = "unsupported_digest_algorithm";
@@ -916,6 +921,7 @@ impl ErrorCode {
     pub const UNSUPPORTED_PROFILE: &'static str = "unsupported_profile";
     pub const UNSUPPORTED_PROFILE_PATCH_PATH: &'static str = "unsupported_profile_patch_path";
     pub const UNSUPPORTED_PROOF_PROFILE: &'static str = "unsupported_proof_profile";
+    pub const UNSUPPORTED_PROTOCOL_VERSION: &'static str = "unsupported_protocol_version";
     pub const UNSUPPORTED_SIGNATURE_ALG: &'static str = "unsupported_signature_alg";
     pub const UPSTREAM_UNAVAILABLE: &'static str = "upstream_unavailable";
     pub const VERIFIER_UNAUTHORIZED: &'static str = "verifier_unauthorized";
@@ -1202,6 +1208,7 @@ impl ErrorCode {
             Self::TurnCredentialExpired => "turn_credential_expired",
             Self::Unauthenticated => "unauthenticated",
             Self::UnrecognizedEndpoint => "unrecognized_endpoint",
+            Self::UnsupportedCiphersuite => "unsupported_ciphersuite",
             Self::UnsupportedContentEncoding => "unsupported_content_encoding",
             Self::UnsupportedDidMethod => "unsupported_did_method",
             Self::UnsupportedDigestAlgorithm => "unsupported_digest_algorithm",
@@ -1217,6 +1224,7 @@ impl ErrorCode {
             Self::UnsupportedProfile => "unsupported_profile",
             Self::UnsupportedProfilePatchPath => "unsupported_profile_patch_path",
             Self::UnsupportedProofProfile => "unsupported_proof_profile",
+            Self::UnsupportedProtocolVersion => "unsupported_protocol_version",
             Self::UnsupportedSignatureAlg => "unsupported_signature_alg",
             Self::UpstreamUnavailable => "upstream_unavailable",
             Self::VerifierUnauthorized => "verifier_unauthorized",
@@ -1521,6 +1529,7 @@ impl ErrorCode {
             "turn_credential_expired" => Some(Self::TurnCredentialExpired),
             "unauthenticated" => Some(Self::Unauthenticated),
             "unrecognized_endpoint" => Some(Self::UnrecognizedEndpoint),
+            "unsupported_ciphersuite" => Some(Self::UnsupportedCiphersuite),
             "unsupported_content_encoding" => Some(Self::UnsupportedContentEncoding),
             "unsupported_did_method" => Some(Self::UnsupportedDidMethod),
             "unsupported_digest_algorithm" => Some(Self::UnsupportedDigestAlgorithm),
@@ -1536,6 +1545,7 @@ impl ErrorCode {
             "unsupported_profile" => Some(Self::UnsupportedProfile),
             "unsupported_profile_patch_path" => Some(Self::UnsupportedProfilePatchPath),
             "unsupported_proof_profile" => Some(Self::UnsupportedProofProfile),
+            "unsupported_protocol_version" => Some(Self::UnsupportedProtocolVersion),
             "unsupported_signature_alg" => Some(Self::UnsupportedSignatureAlg),
             "upstream_unavailable" => Some(Self::UpstreamUnavailable),
             "verifier_unauthorized" => Some(Self::VerifierUnauthorized),
@@ -3687,6 +3697,14 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The path is inside the protocol namespace but not implemented by the service.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::UnsupportedCiphersuite,
+        http_status: 422,
+        http_status_by_context: &[],
+        scope: "both",
+        applies_to: &[],
+        description: "An MLS ciphersuite selector is not an active row of artifacts/registry/mls-ciphersuite-registry.json (unknown, inactive, or reserved-but-not-activated) during KeyPackage claim or group negotiation. One of the four algorithm-agility fail-closed errors; dual-registered as a service code and a reason_code (see unsupported_digest_algorithm). Receivers MUST fail closed even if the underlying MLS library supports the suite. See zh/crypto-media/encryption-and-audit.md §2.6.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedContentEncoding,
         http_status: 415,
         http_status_by_context: &[],
@@ -3708,7 +3726,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The digest suite prefix in a typed digest value (e.g. sha256:<hex>, cbor.sha256:<hex>) is not an active row of artifacts/registry/digest-suite-registry.json supported by the receiver (unknown id, unregistered tuple, or reserved suite) on a critical field. See zh/conformance/encoding.md §3.1-§3.2. Dual-registered (also a reason_code): all three algorithm-agility fail-closed errors (unsupported_digest_algorithm / unsupported_signature_alg / unsupported_hpke_suite) appear in both `codes` (top-level service error) and `reason_codes` (per-item sub-reason); see zh/conformance/schema-registry.md §1.1.1.",
+        description: "The digest suite prefix in a typed digest value (e.g. sha256:<hex>, cbor.sha256:<hex>) is not an active row of artifacts/registry/digest-suite-registry.json supported by the receiver (unknown id, unregistered tuple, or reserved suite) on a critical field. See zh/conformance/encoding.md §3.1-§3.2. Dual-registered (also a reason_code): all four algorithm-agility fail-closed errors (unsupported_digest_algorithm / unsupported_signature_alg / unsupported_hpke_suite / unsupported_ciphersuite) appear in both `codes` (top-level service error) and `reason_codes` (per-item sub-reason); see zh/conformance/schema-registry.md §1.1.1.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedEventKind,
@@ -3732,7 +3750,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "HPKE suite id on an application-layer sealed surface is not an active row of artifacts/registry/hpke-suite-registry.json (unknown, inactive, or reserved-but-not-activated). One of the three algorithm-agility fail-closed errors; dual-registered as a service code and a reason_code (see unsupported_digest_algorithm). Receivers MUST fail closed rather than infer suite parameters from the AEAD name. See zh/identity/key-management.md §7.5.2.",
+        description: "HPKE suite id on an application-layer sealed surface is not an active row of artifacts/registry/hpke-suite-registry.json (unknown, inactive, or reserved-but-not-activated). One of the four algorithm-agility fail-closed errors; dual-registered as a service code and a reason_code (see unsupported_digest_algorithm). Receivers MUST fail closed rather than infer suite parameters from the AEAD name. See zh/identity/key-management.md §7.5.2.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedJoinRule,
@@ -3791,12 +3809,20 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "Wallet and verifier have no mutually supported proof profile for the requested presentation.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::UnsupportedProtocolVersion,
+        http_status: 422,
+        http_status_by_context: &[],
+        scope: "both",
+        applies_to: &[],
+        description: "A syntactically well-formed protocol-family bootstrap discriminator is not supported by the receiver. For v1 ServiceDescribe and equivalent ping surfaces, a protocol_version string other than the canonical value 1.0 makes the complete service unusable before capability intersection or route caching. Missing or non-string values remain schema_violation. A binding that implements Arkret-Protocol-Version header or equivalent media-type negotiation returns this code for an unsupported requested version. Dual-registered as a top-level service code and a reason_code. See zh/overview/evolution-and-compatibility.md §1 and §4.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedSignatureAlg,
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "Proof / event signature `alg` is not in the conformance signature-algorithm allowlist (artifacts/registry/signature-alg-registry.json) on a critical field. One of the three algorithm-agility fail-closed errors; dual-registered as a service code and a reason_code (see unsupported_digest_algorithm). See zh/conformance/encoding.md §6.1.",
+        description: "Proof / event signature `alg` is not in the conformance signature-algorithm allowlist (artifacts/registry/signature-alg-registry.json) on a critical field. One of the four algorithm-agility fail-closed errors; dual-registered as a service code and a reason_code (see unsupported_digest_algorithm). See zh/conformance/encoding.md §6.1.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UpstreamUnavailable,

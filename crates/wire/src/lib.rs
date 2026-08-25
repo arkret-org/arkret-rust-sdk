@@ -53,6 +53,7 @@ pub mod history_secret;
 pub mod history_store;
 pub mod http_signature;
 pub mod ingress_budget;
+pub mod mls_transition;
 pub mod notary;
 pub mod object_address;
 pub mod offline_publication;
@@ -163,6 +164,7 @@ pub use history_store::{
 };
 pub use http_signature::HttpMessageSignature;
 pub use ingress_budget::WireBodyClass;
+pub use mls_transition::mls_genesis_transition_digest;
 pub use notary::{
     ForensicAttribution, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, NotaryValue,
 };

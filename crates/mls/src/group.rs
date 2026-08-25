@@ -5,9 +5,13 @@ use aes_gcm::{Aes128Gcm, KeyInit};
 use arkret_canonical::{base64url_decode, base64url_encode};
 use arkret_models_crypto::{
     EncryptedPayload, EventContentPreEncryptionHeader, MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
-    MlsCommitEnvelope, MlsGovernanceBindingExtension, MlsGovernanceBindingPayload,
+    MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE,
+    MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE, MlsCommitEnvelope,
+    MlsGovernanceBindingExtension, MlsGovernanceBindingPayload,
     MlsGovernanceBindingValidationContext, MlsGroupStateRecord, MlsGroupStateSink,
     MlsKeyPackageRecord, MlsProposalEnvelope, MlsWelcomeEnvelope,
+    REQUIRED_ARKRET_GROUP_CAPABILITIES, decode_keypackage_capability_extension,
+    encode_keypackage_capability_extension, validate_required_keypackage_capabilities,
     verify_mls_governance_binding_extension,
 };
 use arkret_wire::{
@@ -21,9 +25,9 @@ use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use openmls::prelude::{
     BasicCredential, Capabilities, CredentialWithKey, Extension, ExtensionType, Extensions,
-    GroupContext, GroupId, LeafNodeIndex, LeafNodeParameters, MlsGroup, MlsGroupJoinConfig,
-    MlsMessageBodyIn, MlsMessageIn, OpenMlsProvider, ProcessedMessageContent, RatchetTreeIn,
-    RequiredCapabilitiesExtension, StagedWelcome, UnknownExtension,
+    GroupContext, GroupId, LeafNode, LeafNodeIndex, LeafNodeParameters, MlsGroup,
+    MlsGroupJoinConfig, MlsMessageBodyIn, MlsMessageIn, OpenMlsProvider, ProcessedMessageContent,
+    RatchetTreeIn, RequiredCapabilitiesExtension, StagedWelcome, UnknownExtension,
 };
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
@@ -357,6 +361,20 @@ impl ArkretMlsGroup {
                 extension_type: MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
                 extension_data: extension.0.clone(),
             })
+    }
+
+    pub fn required_keypackage_capabilities(&self) -> Result<Vec<String>> {
+        let extension = self
+            .group
+            .extensions()
+            .unknown(MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE)
+            .ok_or_else(|| {
+                Error::Protocol(
+                    "required_keypackage_capabilities GroupContext extension is missing".to_owned(),
+                )
+            })?;
+        decode_keypackage_capability_extension(&extension.0)
+            .map_err(|error| Error::Protocol(error.to_string()))
     }
 
     pub fn current_governance_binding(&self) -> Result<Option<MlsGovernanceBindingPayload>> {
@@ -1102,16 +1120,20 @@ impl ArkretMlsGroup {
             ));
         }
         let mut keypackages = Vec::with_capacity(member_key_packages.len());
+        let required_capabilities = self.required_keypackage_capabilities()?;
         for member_key_package in member_key_packages {
             if !member_key_package.is_usable() {
                 return Err(Error::Protocol(
                     "refusing to add revoked MLS KeyPackage".to_owned(),
                 ));
             }
-            keypackages.push(decode_key_package(
-                &self.identity.provider,
+            let keypackage = decode_key_package(&self.identity.provider, member_key_package)?;
+            validate_keypackage_capability_binding(
                 member_key_package,
-            )?);
+                &keypackage,
+                &required_capabilities,
+            )?;
+            keypackages.push(keypackage);
         }
         let base_epoch = self.epoch();
         let ratchet_tree = Some(self.ratchet_tree()?);
@@ -1421,15 +1443,41 @@ impl ArkretMlsGroup {
             None => None,
         };
 
-        let group = StagedWelcome::new_from_welcome(
+        let staged_welcome = StagedWelcome::new_from_welcome(
             &identity.provider,
             &MlsGroupJoinConfig::default(),
             welcome,
             ratchet_tree,
         )
-        .map_err(mls_error)?
-        .into_group(&identity.provider)
         .map_err(mls_error)?;
+
+        let required_extension = staged_welcome
+            .group_context()
+            .extensions()
+            .unknown(MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE)
+            .ok_or_else(|| {
+                Error::Protocol(
+                    "required_keypackage_capabilities GroupContext extension is missing".to_owned(),
+                )
+            })?;
+        let required = decode_keypackage_capability_extension(&required_extension.0)
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        let required_refs = required.iter().map(String::as_str).collect::<Vec<_>>();
+        validate_required_keypackage_capabilities(
+            &required_refs,
+            crate::identity::ARKRET_MLS_KEY_PACKAGE_CAPABILITIES,
+        )
+        .map_err(|error| Error::Protocol(error.to_string()))?;
+
+        let mut group = staged_welcome
+            .into_group(&identity.provider)
+            .map_err(mls_error)?;
+        if let Err(error) = validate_group_capability_floor(&group, &required) {
+            group
+                .delete(identity.provider.storage())
+                .map_err(mls_error)?;
+            return Err(error);
+        }
 
         Ok(Self {
             identity,
@@ -1591,6 +1639,11 @@ impl ArkretMlsGroup {
 
         match processed.into_content() {
             ProcessedMessageContent::StagedCommitMessage(commit) => {
+                validate_staged_commit_capability_floor(
+                    &self.group,
+                    &self.identity.provider,
+                    &commit,
+                )?;
                 self.group
                     .merge_staged_commit(&self.identity.provider, *commit)
                     .map_err(mls_error)?;
@@ -1980,9 +2033,11 @@ pub(super) fn governance_binding_openmls_extension(
 
 pub(super) fn governance_binding_required_capabilities_extension() -> Extension {
     Extension::RequiredCapabilities(RequiredCapabilitiesExtension::new(
-        &[ExtensionType::Unknown(
-            MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
-        )],
+        &[
+            ExtensionType::Unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE),
+            ExtensionType::Unknown(MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
+            ExtensionType::Unknown(MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
+        ],
         &[],
         &[],
     ))
@@ -1990,20 +2045,118 @@ pub(super) fn governance_binding_required_capabilities_extension() -> Extension 
 
 pub(super) fn governance_binding_openmls_capabilities() -> Capabilities {
     Capabilities::builder()
-        .extensions(vec![ExtensionType::Unknown(
-            MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
-        )])
+        .extensions(vec![
+            ExtensionType::Unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE),
+            ExtensionType::Unknown(MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
+            ExtensionType::Unknown(MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
+        ])
         .build()
+}
+
+pub(super) fn keypackage_capabilities_leaf_extensions() -> Result<Extensions<LeafNode>> {
+    let extension_data = encode_keypackage_capability_extension(
+        &crate::identity::ARKRET_MLS_KEY_PACKAGE_CAPABILITIES,
+    )
+    .map_err(|error| Error::Protocol(error.to_string()))?;
+    Extensions::from_vec(vec![Extension::Unknown(
+        MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE,
+        UnknownExtension(extension_data),
+    )])
+    .map_err(mls_error)
+}
+
+fn required_keypackage_capabilities_group_context_extension() -> Result<Extension> {
+    let extension_data = encode_keypackage_capability_extension(REQUIRED_ARKRET_GROUP_CAPABILITIES)
+        .map_err(|error| Error::Protocol(error.to_string()))?;
+    Ok(Extension::Unknown(
+        MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE,
+        UnknownExtension(extension_data),
+    ))
 }
 
 pub(super) fn governance_binding_group_context_extensions(
     binding: Option<&MlsGovernanceBindingPayload>,
 ) -> Result<Extensions<GroupContext>> {
-    let mut extensions = vec![governance_binding_required_capabilities_extension()];
+    let mut extensions = vec![
+        governance_binding_required_capabilities_extension(),
+        required_keypackage_capabilities_group_context_extension()?,
+    ];
     if let Some(binding) = binding {
         extensions.push(governance_binding_openmls_extension(binding)?);
     }
     Extensions::from_vec(extensions).map_err(mls_error)
+}
+
+fn validate_keypackage_capability_binding(
+    record: &MlsKeyPackageRecord,
+    keypackage: &openmls::prelude::KeyPackage,
+    required: &[String],
+) -> Result<()> {
+    let extension = keypackage
+        .leaf_node()
+        .extensions()
+        .unknown(MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE)
+        .ok_or_else(|| {
+            Error::Protocol("KeyPackage LeafNode keypackage_capabilities is missing".to_owned())
+        })?;
+    let signed = decode_keypackage_capability_extension(&extension.0)
+        .map_err(|error| Error::Protocol(error.to_string()))?;
+    if signed != record.capabilities {
+        return Err(Error::Protocol(
+            "outer KeyPackage capabilities do not match signed LeafNode capabilities".to_owned(),
+        ));
+    }
+    let required = required.iter().map(String::as_str).collect::<Vec<_>>();
+    let signed = signed.iter().map(String::as_str).collect::<Vec<_>>();
+    validate_required_keypackage_capabilities(&required, &signed)
+        .map_err(|error| Error::Protocol(error.to_string()))
+}
+
+fn validate_leaf_capability_floor(leaf: &LeafNode, required: &[String]) -> Result<()> {
+    let extension = leaf
+        .extensions()
+        .unknown(MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE)
+        .ok_or_else(|| Error::Protocol("LeafNode keypackage_capabilities is missing".to_owned()))?;
+    let advertised = decode_keypackage_capability_extension(&extension.0)
+        .map_err(|error| Error::Protocol(error.to_string()))?;
+    let required = required.iter().map(String::as_str).collect::<Vec<_>>();
+    let advertised = advertised.iter().map(String::as_str).collect::<Vec<_>>();
+    validate_required_keypackage_capabilities(&required, &advertised)
+        .map_err(|error| Error::Protocol(error.to_string()))
+}
+
+fn validate_group_capability_floor(group: &MlsGroup, required: &[String]) -> Result<()> {
+    for leaf in group.export_ratchet_tree().leaves() {
+        validate_leaf_capability_floor(leaf, required)?;
+    }
+    Ok(())
+}
+
+fn validate_staged_commit_capability_floor(
+    current_group: &MlsGroup,
+    provider: &OpenMlsRustCrypto,
+    staged: &openmls::prelude::StagedCommit,
+) -> Result<()> {
+    let extension = staged
+        .group_context()
+        .extensions()
+        .unknown(MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE)
+        .ok_or_else(|| {
+            Error::Protocol(
+                "required_keypackage_capabilities GroupContext extension is missing".to_owned(),
+            )
+        })?;
+    let required = decode_keypackage_capability_extension(&extension.0)
+        .map_err(|error| Error::Protocol(error.to_string()))?;
+    let original_tree = current_group.export_ratchet_tree();
+    let prospective_tree = staged
+        .export_ratchet_tree(provider.crypto(), original_tree)
+        .map_err(mls_error)?
+        .ok_or_else(|| Error::Protocol("staged member Commit has no ratchet tree".to_owned()))?;
+    for leaf in prospective_tree.leaves() {
+        validate_leaf_capability_floor(leaf, &required)?;
+    }
+    Ok(())
 }
 
 pub(super) fn mls_error(error: impl std::fmt::Debug) -> Error {

@@ -228,39 +228,7 @@ pub struct MlsGenesisPayload {
 /// archive is removed internally so callers cannot accidentally hash the
 /// self-referential archive branch.
 pub fn mls_genesis_transition_digest(payload: &Value) -> Result<Hash> {
-    let Value::Object(mut core) = payload.clone() else {
-        return Err(WireError::Protocol(
-            "MLS Genesis transition payload must be an object".to_owned(),
-        ));
-    };
-    for required in [
-        "mls_group_id",
-        "effective_scope",
-        "epoch",
-        "cipher_suite",
-        "group_info_ref",
-        "group_info_digest",
-        "ratchet_tree_ref",
-        "ratchet_tree_digest",
-        "governance_binding",
-        "created_at",
-    ] {
-        if !core.contains_key(required) {
-            return Err(WireError::Protocol(format!(
-                "MLS Genesis transition payload lacks {required}"
-            )));
-        }
-    }
-    if core.get("epoch").and_then(Value::as_u64) != Some(0) {
-        return Err(WireError::Protocol(
-            "MLS Genesis transition payload epoch must equal zero".to_owned(),
-        ));
-    }
-    core.remove("organization_recovery_archive");
-    let mut preimage = b"ak.mls-genesis-transition-v1".to_vec();
-    preimage.push(0);
-    preimage.extend(arkret_canonical::canonical_json_bytes(&core)?);
-    Ok(Hash::new(arkret_canonical::sha256_digest(preimage))?)
+    arkret_wire::mls_genesis_transition_digest(payload)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -1512,7 +1480,7 @@ mod tests {
                 "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19".to_owned(),
             )
             .unwrap(),
-            claim_id: NonEmptyString::new("ak:mls:kp:claim").unwrap(),
+            claim_id: NonEmptyString::new("keypackage-claim").unwrap(),
             requester_actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             trust_binding: MlsRequesterTrustBinding::RequesterDevice {
                 requester_device_id: DeviceId::new(

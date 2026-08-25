@@ -309,6 +309,14 @@ mod tests {
 
         assert_eq!(add.commit.epoch, 1);
         assert_eq!(
+            alice_group.required_keypackage_capabilities().unwrap(),
+            vec!["ak.content.v1".to_owned()]
+        );
+        assert_eq!(
+            bob_group.required_keypackage_capabilities().unwrap(),
+            vec!["ak.content.v1".to_owned()]
+        );
+        assert_eq!(
             alice_group.current_governance_binding().unwrap(),
             Some(commit_binding.clone())
         );
@@ -316,6 +324,31 @@ mod tests {
             bob_group.current_governance_binding().unwrap(),
             Some(commit_binding)
         );
+    }
+
+    #[test]
+    fn add_member_rejects_outer_capabilities_that_differ_from_the_signed_leaf() {
+        let alice = ArkretMlsIdentity::new_basic(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1cc").unwrap(),
+        )
+        .unwrap();
+        let bob = ArkretMlsIdentity::new_basic(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1cd").unwrap(),
+        )
+        .unwrap();
+        let mut bob_key_package = bob.key_package_record().unwrap();
+        bob_key_package.capabilities = vec!["ak.content.v1".to_owned()];
+        let mut alice_group = alice.create_group(b"capability-binding-mismatch").unwrap();
+
+        let error = alice_group.add_member(&bob_key_package).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("outer KeyPackage capabilities do not match signed LeafNode")
+        );
+        assert_eq!(alice_group.epoch(), 0);
     }
 
     #[test]

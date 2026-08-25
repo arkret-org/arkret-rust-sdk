@@ -7,7 +7,7 @@
 //! (`zh/models/event-and-patch.md` section 2.4.2).
 
 use std::borrow::Cow;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 
 #[cfg(test)]
@@ -77,6 +77,10 @@ pub enum EventCellContractError {
         reason_code: String,
         message: String,
     },
+    #[error("event kind {kind} cannot derive capability authority: {message}")]
+    CapabilityAuthorityProjection { kind: String, message: String },
+    #[error("event kind {kind} is waiting for referenced grant {grant_id}")]
+    CapabilityAuthorityDependency { kind: String, grant_id: String },
 }
 
 impl EventCellContractError {
@@ -90,8 +94,189 @@ impl EventCellContractError {
                 "invite_kind_requires_revoke"
             }
             Self::PreStateRequirement { .. } => "reducer_projection_failed",
+            Self::CapabilityAuthorityProjection { .. } => "reducer_projection_failed",
+            Self::CapabilityAuthorityDependency { .. } => "temporarily_unavailable",
             _ => "effects_payload_mismatch",
         }
+    }
+}
+
+/// Immutable reducer-derived authority audit inherited by a child grant.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CapabilityAuthorityAudit {
+    pub authority_depth: u64,
+    pub authority_root_refs: Vec<Value>,
+}
+
+/// Why the authority audit for a Capability Grant cannot be derived.
+#[derive(Clone, Debug, Error, PartialEq, Eq)]
+pub enum CapabilityAuthorityProjectionError {
+    #[error("issuer_authority_refs must be a non-empty array")]
+    InvalidRefs,
+    #[error("issuer_authority_refs contains an invalid {0} reference")]
+    InvalidRef(&'static str),
+    #[error("referenced grant {0} has not been projected")]
+    UnresolvedGrant(String),
+    #[error("authority depth exceeds the v1 integer range")]
+    DepthOverflow,
+}
+
+/// Derive the immutable authority audit for a Capability Grant body.
+///
+/// Direct roots have depth zero. The child depth is the maximum parent depth
+/// plus one, and its roots are the direct roots union every parent's already
+/// materialized roots. Missing parents are dependencies, never an invitation
+/// to guess a depth or root.
+pub fn derive_capability_authority_audit(
+    grant: &Value,
+    resolve: &dyn Fn(&str) -> Option<CapabilityAuthorityAudit>,
+) -> Result<CapabilityAuthorityAudit, CapabilityAuthorityProjectionError> {
+    let refs = grant
+        .get("issuer_authority_refs")
+        .and_then(Value::as_array)
+        .filter(|refs| !refs.is_empty())
+        .ok_or(CapabilityAuthorityProjectionError::InvalidRefs)?;
+    let mut maximum_depth = 0_u64;
+    let mut roots = BTreeMap::<(Vec<u8>, Vec<u8>, [u8; 8]), Value>::new();
+    for authority_ref in refs {
+        match authority_ref.get("kind").and_then(Value::as_str) {
+            Some("realm_root") => {
+                if authority_ref
+                    .get("controller_epoch_at_issuance")
+                    .and_then(Value::as_u64)
+                    .is_none()
+                {
+                    return Err(CapabilityAuthorityProjectionError::InvalidRef("realm_root"));
+                }
+                insert_capability_authority_root(
+                    &mut roots,
+                    authority_ref,
+                    CapabilityAuthorityProjectionError::InvalidRef("realm_root"),
+                )?;
+            }
+            Some("grant") => {
+                let grant_id = authority_ref
+                    .get("grant_id")
+                    .and_then(Value::as_str)
+                    .filter(|grant_id| !grant_id.is_empty())
+                    .ok_or(CapabilityAuthorityProjectionError::InvalidRef("grant"))?;
+                let parent = resolve(grant_id).ok_or_else(|| {
+                    CapabilityAuthorityProjectionError::UnresolvedGrant(grant_id.to_owned())
+                })?;
+                if parent.authority_depth == 0 {
+                    return Err(CapabilityAuthorityProjectionError::InvalidRef(
+                        "parent grant depth",
+                    ));
+                }
+                maximum_depth = maximum_depth.max(parent.authority_depth);
+                if parent.authority_root_refs.is_empty() {
+                    return Err(CapabilityAuthorityProjectionError::InvalidRef(
+                        "parent grant root",
+                    ));
+                }
+                for root in &parent.authority_root_refs {
+                    insert_capability_authority_root(
+                        &mut roots,
+                        root,
+                        CapabilityAuthorityProjectionError::InvalidRef("parent grant root"),
+                    )?;
+                }
+            }
+            _ => return Err(CapabilityAuthorityProjectionError::InvalidRef("unknown")),
+        }
+    }
+    if roots.is_empty() {
+        return Err(CapabilityAuthorityProjectionError::InvalidRefs);
+    }
+    Ok(CapabilityAuthorityAudit {
+        authority_depth: maximum_depth
+            .checked_add(1)
+            .ok_or(CapabilityAuthorityProjectionError::DepthOverflow)?,
+        authority_root_refs: roots.into_values().collect(),
+    })
+}
+
+fn insert_capability_authority_root(
+    roots: &mut BTreeMap<(Vec<u8>, Vec<u8>, [u8; 8]), Value>,
+    root: &Value,
+    error: CapabilityAuthorityProjectionError,
+) -> Result<(), CapabilityAuthorityProjectionError> {
+    let realm_id = root
+        .get("realm_id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| error.clone())?;
+    let cell_ref = root
+        .get("cell_ref")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| error.clone())?;
+    let authority_generation = root
+        .get("authority_generation")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| error.clone())?;
+    let identity = (
+        realm_id.as_bytes().to_vec(),
+        cell_ref.as_bytes().to_vec(),
+        authority_generation.to_be_bytes(),
+    );
+    roots.entry(identity).or_insert_with(|| {
+        serde_json::json!({
+            "kind": "realm_root",
+            "realm_id": realm_id,
+            "cell_ref": cell_ref,
+            "authority_generation": authority_generation,
+        })
+    });
+    Ok(())
+}
+
+type CapabilityAuthorityResolver<'a> = dyn Fn(&str) -> Option<CapabilityAuthorityAudit> + 'a;
+
+/// Immutable Capability Grant bodies indexed by their Event-derived grant id.
+///
+/// Proof and history replay construct this index from the exact accepted Event
+/// closure they are verifying. Resolution recursively uses only those signed
+/// bodies and therefore produces the same audit as a live ProjectionState.
+#[derive(Clone, Debug, Default)]
+pub struct CapabilityAuthorityAuditIndex {
+    grants: BTreeMap<String, Value>,
+}
+
+impl CapabilityAuthorityAuditIndex {
+    /// Index Capability Grant authoring bodies from an accepted Event closure.
+    pub fn from_events<'a>(events: impl IntoIterator<Item = &'a Event>) -> Self {
+        let mut grants = BTreeMap::new();
+        for event in events {
+            if event.kind != EventKind::CapabilityGrant {
+                continue;
+            }
+            let grant_id = arkret_identifiers::GrantId::from_event_id(&event.event_id).to_string();
+            if let Some(grant) = event.payload.get("grant") {
+                grants.entry(grant_id).or_insert_with(|| grant.clone());
+            }
+        }
+        Self { grants }
+    }
+
+    /// Resolve one grant's immutable audit, rejecting missing/cyclic ancestry.
+    pub fn resolve(&self, grant_id: &str) -> Option<CapabilityAuthorityAudit> {
+        self.resolve_inner(grant_id, &BTreeSet::new())
+    }
+
+    fn resolve_inner(
+        &self,
+        grant_id: &str,
+        visiting: &BTreeSet<String>,
+    ) -> Option<CapabilityAuthorityAudit> {
+        if visiting.contains(grant_id) {
+            return None;
+        }
+        let grant = self.grants.get(grant_id)?;
+        let mut next = visiting.clone();
+        next.insert(grant_id.to_owned());
+        derive_capability_authority_audit(grant, &|parent_id| self.resolve_inner(parent_id, &next))
+            .ok()
     }
 }
 
@@ -153,7 +338,27 @@ pub fn project_registered_cell_writes(
     event: &Event,
     digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<Vec<ProjectedCellWrite>, EventCellContractError> {
-    project_registered_cell_writes_with_pre_state(event, digest_suite, &FrozenPreState::new())
+    project_registered_operation_writes_with_pre_state(
+        &ProjectedEventInput::from(event),
+        digest_suite,
+        &FrozenPreState::new(),
+        None,
+    )
+}
+
+/// Project registered writes with the immutable authority audit resolver used
+/// by Capability Grant derived members.
+pub fn project_registered_cell_writes_with_authority_resolver(
+    event: &Event,
+    digest_suite: arkret_canonical::DigestSuite,
+    resolve: &CapabilityAuthorityResolver<'_>,
+) -> Result<Vec<ProjectedCellWrite>, EventCellContractError> {
+    project_registered_operation_writes_with_pre_state(
+        &ProjectedEventInput::from(event),
+        digest_suite,
+        &FrozenPreState::new(),
+        Some(resolve),
+    )
 }
 
 /// Project registered writes after evaluating every requirement against one
@@ -170,6 +375,23 @@ pub fn project_registered_cell_writes_with_pre_state(
         &ProjectedEventInput::from(event),
         digest_suite,
         frozen_pre_state,
+        None,
+    )
+}
+
+/// Project registered writes against one frozen pre-state and one immutable
+/// Capability Grant authority resolver.
+pub fn project_registered_cell_writes_with_pre_state_and_authority_resolver(
+    event: &Event,
+    digest_suite: arkret_canonical::DigestSuite,
+    frozen_pre_state: &FrozenPreState,
+    resolve: &CapabilityAuthorityResolver<'_>,
+) -> Result<Vec<ProjectedCellWrite>, EventCellContractError> {
+    project_registered_operation_writes_with_pre_state(
+        &ProjectedEventInput::from(event),
+        digest_suite,
+        frozen_pre_state,
+        Some(resolve),
     )
 }
 
@@ -179,13 +401,33 @@ pub fn project_registered_operation_writes(
     event: &ProjectedEventInput,
     digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<Vec<ProjectedCellWrite>, EventCellContractError> {
-    project_registered_operation_writes_with_pre_state(event, digest_suite, &FrozenPreState::new())
+    project_registered_operation_writes_with_pre_state(
+        event,
+        digest_suite,
+        &FrozenPreState::new(),
+        None,
+    )
+}
+
+/// Project an accepted operation with its Capability Grant authority basis.
+pub fn project_registered_operation_writes_with_authority_resolver(
+    event: &ProjectedEventInput,
+    digest_suite: arkret_canonical::DigestSuite,
+    resolve: &CapabilityAuthorityResolver<'_>,
+) -> Result<Vec<ProjectedCellWrite>, EventCellContractError> {
+    project_registered_operation_writes_with_pre_state(
+        event,
+        digest_suite,
+        &FrozenPreState::new(),
+        Some(resolve),
+    )
 }
 
 fn project_registered_operation_writes_with_pre_state(
     event: &ProjectedEventInput,
     digest_suite: arkret_canonical::DigestSuite,
     frozen_pre_state: &FrozenPreState,
+    authority_resolver: Option<&CapabilityAuthorityResolver<'_>>,
 ) -> Result<Vec<ProjectedCellWrite>, EventCellContractError> {
     let kind = event.kind.as_str().to_owned();
     let registry = event_kind_registry()?;
@@ -256,6 +498,7 @@ fn project_registered_operation_writes_with_pre_state(
                 &kind,
                 &dot_for(event, write_index),
                 digest_suite,
+                authority_resolver,
             )?;
             projected.push(ProjectedCellWrite {
                 cell,
@@ -316,6 +559,7 @@ fn project_registered_operation_writes_with_pre_state(
             &kind,
             &dot,
             digest_suite,
+            authority_resolver,
         )? {
             projected.push(ProjectedCellWrite {
                 cell: cell.clone(),
@@ -550,6 +794,7 @@ fn derive_effect_ops(
     kind: &str,
     dot: &str,
     digest_suite: arkret_canonical::DigestSuite,
+    authority_resolver: Option<&CapabilityAuthorityResolver<'_>>,
 ) -> Result<Vec<ProjectedOp>, EventCellContractError> {
     let projection_kind = projection
         .get("kind")
@@ -568,6 +813,7 @@ fn derive_effect_ops(
             kind,
             dot,
             digest_suite,
+            authority_resolver,
         )
     };
     match projection_kind {
@@ -654,6 +900,7 @@ fn derive_effect_ops(
                 kind,
                 dot,
                 digest_suite,
+                authority_resolver,
             )?);
             op.value = Some(source("value")?);
             Ok(vec![ProjectedOp::Direct(op)])
@@ -685,6 +932,7 @@ fn derive_effect_ops(
                         kind,
                         dot,
                         digest_suite,
+                        authority_resolver,
                     )?;
                     Some(ObservedRemoveMatch {
                         element_field: element_field.to_owned(),
@@ -794,6 +1042,7 @@ fn derive_effect_ops(
                     kind,
                     dot,
                     digest_suite,
+                    authority_resolver,
                 )
             };
             let mut op = LatticeOp::empty();
@@ -804,6 +1053,7 @@ fn derive_effect_ops(
                 kind,
                 dot,
                 digest_suite,
+                authority_resolver,
             )?);
             match branch_op {
                 "add" => {
@@ -872,6 +1122,7 @@ fn or_set_tag(
     kind: &str,
     dot: &str,
     digest_suite: arkret_canonical::DigestSuite,
+    authority_resolver: Option<&CapabilityAuthorityResolver<'_>>,
 ) -> Result<String, EventCellContractError> {
     let source = source.ok_or_else(|| effect_set_error(kind, "or_set op omits its tag source"))?;
     if source.get("envelope_field").and_then(Value::as_str) == Some("event_id") {
@@ -880,10 +1131,18 @@ fn or_set_tag(
             "or_set tag must use {\"dot\": true}; a bare event_id is not a dot",
         ));
     }
-    effect_source_value(event, write, source, kind, dot, digest_suite)?
-        .as_str()
-        .map(str::to_owned)
-        .ok_or_else(|| effect_set_error(kind, "or_set tag must derive a string"))
+    effect_source_value(
+        event,
+        write,
+        source,
+        kind,
+        dot,
+        digest_suite,
+        authority_resolver,
+    )?
+    .as_str()
+    .map(str::to_owned)
+    .ok_or_else(|| effect_set_error(kind, "or_set tag must derive a string"))
 }
 
 /// `batch_tag(i) = base64url_nopad(sha256(utf8(tag_context) || 0x0A ||
@@ -940,6 +1199,7 @@ fn effect_source_value(
     kind: &str,
     dot: &str,
     digest_suite: arkret_canonical::DigestSuite,
+    authority_resolver: Option<&CapabilityAuthorityResolver<'_>>,
 ) -> Result<Value, EventCellContractError> {
     let source = source
         .as_object()
@@ -968,7 +1228,7 @@ fn effect_source_value(
         // no dotted member suffix, so [`field_value`] — which walks members —
         // cannot resolve it and would fail the whole Event closed.
         if path == "payload" {
-            return materialized_payload_root(event, kind);
+            return materialized_payload_root(event, write, kind, authority_resolver);
         }
         return field_value(event, path)
             .cloned()
@@ -1033,7 +1293,9 @@ fn projected_envelope_value(event: &ProjectedEventInput, field: &str) -> Option<
 /// the same canonical value without accepting a producer override.
 fn materialized_payload_root(
     event: &ProjectedEventInput,
+    write: &Value,
     kind: &str,
+    authority_resolver: Option<&CapabilityAuthorityResolver<'_>>,
 ) -> Result<Value, EventCellContractError> {
     let mut payload = payload_root(event);
     if event.kind != EventKind::CapabilityGrant {
@@ -1050,16 +1312,90 @@ fn materialized_payload_root(
                 "capability grant materialization requires payload.grant object",
             )
         })?;
-    if grant.contains_key("issuer_principal_server_id") {
-        return Err(effect_set_error(
-            kind,
-            "producer-authored payload.grant.issuer_principal_server_id is forbidden",
-        ));
+    let derived_members = write
+        .get("derived_members")
+        .and_then(Value::as_array)
+        .ok_or_else(|| effect_set_error(kind, "capability grant write omits derived_members"))?;
+    let mut authority_audit = None;
+    for member in derived_members {
+        let name = member
+            .get("name")
+            .and_then(Value::as_str)
+            .ok_or_else(|| effect_set_error(kind, "derived member omits name"))?;
+        if grant.contains_key(name) {
+            return Err(effect_set_error(
+                kind,
+                &format!("producer-authored payload.grant.{name} is forbidden"),
+            ));
+        }
+        match member.get("derivation").and_then(Value::as_str) {
+            Some("capability_issuer_principal_server_id") => {
+                grant.insert(
+                    name.to_owned(),
+                    Value::String(event.principal_server_id.as_str().to_owned()),
+                );
+            }
+            Some("capability_authority_depth" | "capability_authority_root_refs") => {
+                let audit = match authority_audit.as_ref() {
+                    Some(audit) => audit,
+                    None => {
+                        let resolve = authority_resolver.ok_or_else(|| {
+                            EventCellContractError::CapabilityAuthorityProjection {
+                                kind: kind.to_owned(),
+                                message: "an authority resolver is required".to_owned(),
+                            }
+                        })?;
+                        authority_audit = Some(
+                            match derive_capability_authority_audit(
+                                &Value::Object(grant.clone()),
+                                resolve,
+                            ) {
+                                Ok(audit) => audit,
+                                Err(CapabilityAuthorityProjectionError::UnresolvedGrant(
+                                    grant_id,
+                                )) => {
+                                    return Err(
+                                        EventCellContractError::CapabilityAuthorityDependency {
+                                            kind: kind.to_owned(),
+                                            grant_id,
+                                        },
+                                    );
+                                }
+                                Err(error) => {
+                                    return Err(
+                                        EventCellContractError::CapabilityAuthorityProjection {
+                                            kind: kind.to_owned(),
+                                            message: error.to_string(),
+                                        },
+                                    );
+                                }
+                            },
+                        );
+                        authority_audit
+                            .as_ref()
+                            .expect("authority audit was just initialized")
+                    }
+                };
+                let value = match member.get("derivation").and_then(Value::as_str) {
+                    Some("capability_authority_depth") => {
+                        Value::Number(audit.authority_depth.into())
+                    }
+                    Some("capability_authority_root_refs") => {
+                        Value::Array(audit.authority_root_refs.clone())
+                    }
+                    _ => unreachable!("matched authority derivation"),
+                };
+                grant.insert(name.to_owned(), value);
+            }
+            Some(derivation) => {
+                return Err(effect_set_error(
+                    kind,
+                    &format!("unsupported derived member {derivation}"),
+                ));
+            }
+            None => return Err(effect_set_error(kind, "derived member omits derivation")),
+        }
     }
-    grant.insert(
-        "issuer_principal_server_id".to_owned(),
-        Value::String(event.principal_server_id.as_str().to_owned()),
-    );
     Ok(payload)
 }
 
@@ -1197,6 +1533,8 @@ fn derive_value_projection_value(
             field_value(event, &path).cloned()
         } else if let Some(digest_of) = member.get("digest_of") {
             member_digest(event, digest_of, &kind, digest_suite)?
+        } else if let Some(derivation) = member.get("derivation").and_then(Value::as_str) {
+            member_derivation(event, derivation, &kind)?
         } else {
             return Err(projection_error(
                 &kind,
@@ -1218,6 +1556,27 @@ fn derive_value_projection_value(
         }
     }
     Ok(Value::Object(projected))
+}
+
+fn member_derivation(
+    event: &ProjectedEventInput,
+    derivation: &str,
+    kind: &str,
+) -> Result<Option<Value>, EventCellContractError> {
+    match derivation {
+        "event_digest_from_event_id" => Ok(Some(Value::String(
+            event.event_id.event_digest().to_string(),
+        ))),
+        "mls_genesis_transition_digest" => {
+            let digest = arkret_wire::mls_genesis_transition_digest(&payload_root(event))
+                .map_err(|error| projection_error(kind, &error.to_string()))?;
+            Ok(Some(Value::String(digest.to_string())))
+        }
+        _ => Err(projection_error(
+            kind,
+            &format!("unsupported value projection derivation {derivation}"),
+        )),
+    }
 }
 
 /// Compute a `digest_of` member over its declared input encoding.
@@ -3022,7 +3381,14 @@ mod tests {
                     "issuer": "ak:did_core:webvh:z6mkfixture",
                     "subject": "ak:did_core:webvh:z6mkfixture",
                     "subject_principal_server_id": "ak:did_core:web:principal.example",
-                    "actions": ["ak.realm.admin"]
+                    "actions": ["ak.realm.admin"],
+                    "issuer_authority_refs": [{
+                        "kind": "realm_root",
+                        "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
+                        "cell_ref": "ak:cell:ak.component.realm.authority_root.v1:null",
+                        "controller_epoch_at_issuance": 7,
+                        "authority_generation": 2
+                    }]
                 }
             },
             "proofs": []
@@ -3037,12 +3403,138 @@ mod tests {
         let mut materialized_payload = serde_json::to_value(&event.payload).unwrap();
         materialized_payload["grant"]["issuer_principal_server_id"] =
             json!(event.principal_server_id.as_str());
+        materialized_payload["grant"]["authority_depth"] = json!(1);
+        materialized_payload["grant"]["authority_root_refs"] = json!([{
+            "kind": "realm_root",
+            "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
+            "cell_ref": "ak:cell:ak.component.realm.authority_root.v1:null",
+            "authority_generation": 2
+        }]);
+        let audit_index = CapabilityAuthorityAuditIndex::from_events([&event]);
         assert_eq!(
-            project(&event),
+            audit_index.resolve(grant_id),
+            Some(CapabilityAuthorityAudit {
+                authority_depth: 1,
+                authority_root_refs: materialized_payload["grant"]["authority_root_refs"]
+                    .as_array()
+                    .unwrap()
+                    .clone(),
+            })
+        );
+        assert_eq!(
+            project_registered_cell_writes_with_authority_resolver(
+                &event,
+                arkret_canonical::DigestSuite::Sha256,
+                &|_| None,
+            )
+            .unwrap(),
             vec![write(
                 &format!("ak:cell:ak.component.capability.grant.v1:{grant_id}"),
                 add_op(&format!("{event_id}:0"), materialized_payload),
             )]
+        );
+
+        let error = project_registered_cell_writes(&event, arkret_canonical::DigestSuite::Sha256)
+            .expect_err("generic projection without an authority resolver must fail closed");
+        assert!(matches!(
+            error,
+            EventCellContractError::CapabilityAuthorityProjection { .. }
+        ));
+
+        let mut child = event.clone();
+        child
+            .payload
+            .get_mut("grant")
+            .and_then(Value::as_object_mut)
+            .unwrap()
+            .insert(
+                "issuer_authority_refs".to_owned(),
+                json!([{
+                    "kind": "grant",
+                    "grant_id": "ak:grant:AWX8BSZeeRJJ_ipjlL7Ll7EGSQkGrOPbmXFP_UmHb16G"
+                }]),
+            );
+        let error = project_registered_cell_writes_with_authority_resolver(
+            &child,
+            arkret_canonical::DigestSuite::Sha256,
+            &|_| None,
+        )
+        .expect_err("an unprojected parent must remain an availability dependency");
+        assert!(matches!(
+            error,
+            EventCellContractError::CapabilityAuthorityDependency { .. }
+        ));
+        assert_eq!(error.reason_code(), "temporarily_unavailable");
+    }
+
+    #[test]
+    fn capability_authority_audit_uses_max_parent_depth_and_canonical_root_union() {
+        let root_a = json!({
+            "kind": "realm_root",
+            "realm_id": "ak:realm:a",
+            "cell_ref": "ak:cell:ak.component.realm.authority_root.v1:null",
+            "authority_generation": 10
+        });
+        let root_b = json!({
+            "kind": "realm_root",
+            "realm_id": "ak:realm:a",
+            "cell_ref": "ak:cell:ak.component.realm.authority_root.v1:null",
+            "authority_generation": 2
+        });
+        let root_c = json!({
+            "kind": "realm_root",
+            "realm_id": "ak:realm:b",
+            "cell_ref": "ak:cell:ak.component.realm.authority_root.v1:null",
+            "authority_generation": 0
+        });
+        let grant = json!({
+            "issuer_authority_refs": [
+                {"kind": "grant", "grant_id": "parent-shallow"},
+                {"kind": "grant", "grant_id": "parent-deep"},
+                {
+                    "kind": "realm_root",
+                    "realm_id": "ak:realm:a",
+                    "cell_ref": "ak:cell:ak.component.realm.authority_root.v1:null",
+                    "controller_epoch_at_issuance": 99,
+                    "authority_generation": 2
+                }
+            ]
+        });
+        let audit = derive_capability_authority_audit(&grant, &|grant_id| match grant_id {
+            "parent-shallow" => Some(CapabilityAuthorityAudit {
+                authority_depth: 1,
+                authority_root_refs: vec![root_c.clone(), root_b.clone()],
+            }),
+            "parent-deep" => Some(CapabilityAuthorityAudit {
+                authority_depth: 3,
+                authority_root_refs: vec![root_a.clone(), root_b.clone()],
+            }),
+            _ => None,
+        })
+        .unwrap();
+
+        assert_eq!(audit.authority_depth, 4);
+        assert_eq!(audit.authority_root_refs, vec![root_b, root_a, root_c]);
+        assert!(
+            audit
+                .authority_root_refs
+                .iter()
+                .all(|root| { root.get("controller_epoch_at_issuance").is_none() })
+        );
+    }
+
+    #[test]
+    fn capability_authority_audit_rejects_an_unprojected_parent() {
+        let error = derive_capability_authority_audit(
+            &json!({
+                "issuer_authority_refs": [{"kind": "grant", "grant_id": "missing"}]
+            }),
+            &|_| None,
+        )
+        .unwrap_err();
+        assert_eq!(
+            error,
+            CapabilityAuthorityProjectionError::UnresolvedGrant("missing".to_owned())
         );
     }
 
@@ -3297,6 +3789,7 @@ mod or_set_dot_vector_tests {
             event.kind.as_str(),
             &or_set_dot(event.event_id.as_str(), 0),
             arkret_canonical::DigestSuite::Sha256,
+            None,
         )
         .unwrap_err();
 

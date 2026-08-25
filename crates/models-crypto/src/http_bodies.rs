@@ -17,6 +17,9 @@ use crate::artifacts_keys::{
     Failure, KeyOperationSignature, KeyPackageClaimRecord, KeyPackageUploadEntry,
 };
 use crate::key_backup::KeyBackup;
+use crate::keypackage_capabilities::{
+    validate_advertised_keypackage_capabilities, validate_required_keypackage_capabilities,
+};
 use crate::mls_records::{MlsEndpointIdentity, MlsKeyPackageRecord};
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -929,6 +932,18 @@ pub fn validate_target_claim_evidence(
         .validate_shape()
         .map_err(|_| PeerKeyPackageClaimShapeError::TargetSignerEvidenceMismatch)?;
     let request = &receipt.request;
+    let required_capabilities = request
+        .required_capabilities
+        .iter()
+        .map(NonEmptyString::as_str)
+        .collect::<Vec<_>>();
+    let advertised_capabilities = claim
+        .capabilities
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+    validate_required_keypackage_capabilities(&required_capabilities, &advertised_capabilities)
+        .map_err(|_| PeerKeyPackageClaimShapeError::TargetSignerEvidenceMismatch)?;
     if claim.principal_id != request.target_principal_id
         || request
             .target_keypackage_ref
@@ -1014,7 +1029,18 @@ fn validate_peer_claim_fields(
         .iter()
         .map(NonEmptyString::as_str)
         .collect::<BTreeSet<_>>();
-    if capabilities.is_empty() || capabilities.len() != request.required_capabilities.len() {
+    let canonical_capabilities = request
+        .required_capabilities
+        .iter()
+        .map(NonEmptyString::as_str)
+        .collect::<Vec<_>>();
+    if capabilities.is_empty()
+        || capabilities.len() != request.required_capabilities.len()
+        || validate_advertised_keypackage_capabilities(&canonical_capabilities).is_err()
+        || canonical_capabilities
+            .iter()
+            .any(|capability| !crate::is_active_keypackage_capability(capability))
+    {
         return Err(PeerKeyPackageClaimShapeError::InvalidRequiredCapabilities);
     }
     let target_devices = request

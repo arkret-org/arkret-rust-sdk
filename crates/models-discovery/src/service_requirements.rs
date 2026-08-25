@@ -7,7 +7,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DeviceId, DidCoreId, OperationId, PROTOCOL_VERSION, RealmId, Result, ServiceKind, WireError,
+    DeviceId, DidCoreId, ErrorCode, OperationId, PROTOCOL_VERSION, RealmId, Result, ServiceKind,
+    WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -208,10 +209,13 @@ impl ServiceRequirements {
 
     pub fn verify(&self, description: &ServiceDescribe) -> Result<()> {
         if description.protocol_version != PROTOCOL_VERSION {
-            return Err(WireError::Protocol(format!(
-                "service protocol_version {} does not match Arkret {PROTOCOL_VERSION}",
-                description.protocol_version
-            )));
+            return Err(WireError::ProtocolCode {
+                code: ErrorCode::UnsupportedProtocolVersion,
+                message: format!(
+                    "service protocol_version {} does not match Arkret {PROTOCOL_VERSION}",
+                    description.protocol_version
+                ),
+            });
         }
 
         if let Some(service_kind) = &self.service_kind {
@@ -358,6 +362,26 @@ mod tests {
             .operation("ak.find.directory.read.search_realms")
             .verify(&description)
             .unwrap();
+
+        let mut incompatible = description.clone();
+        incompatible.protocol_version = "2.0".to_owned();
+        let error = ServiceRequirements::new()
+            .verify(&incompatible)
+            .expect_err("an unsupported protocol family must fail closed");
+        assert_eq!(
+            error.error_code(),
+            Some(ErrorCode::UnsupportedProtocolVersion)
+        );
+
+        let mut incompatible_json = serde_json::to_value(description).unwrap();
+        incompatible_json["protocol_version"] = serde_json::json!("2.0");
+        let error = serde_json::from_value::<ServiceDescribe>(incompatible_json)
+            .expect_err("the v1 typed consumer must reject another protocol family");
+        assert!(
+            error
+                .to_string()
+                .contains(ErrorCode::UNSUPPORTED_PROTOCOL_VERSION)
+        );
     }
 
     #[test]

@@ -275,7 +275,7 @@ pub enum MlsKeyPackageState {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsKeyPackageRecord {
-    /// Globally unique identifier (`ak:mls:kp:<uuid>`, RFC 9562 UUIDv7).
+    /// Globally unique typed identifier (`ak:mls:kp:<uuid>`, RFC 9562 UUIDv7).
     pub keypackage_id: String,
     /// Exact MLS endpoint that owns the BasicCredential and LeafNode key.
     /// Human devices and Native Agent runtimes are mutually exclusive; callers

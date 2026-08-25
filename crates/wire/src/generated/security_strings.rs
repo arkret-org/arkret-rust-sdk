@@ -3,21 +3,21 @@
 //! Input: registry/proof-context-registry.json; version=2026-08-25.1;
 //! sha256=326c7b78eee0eafce8a7884314277aef5a16b320991f4373af0dbc23606e69f8 Input: registry/
 //! exporter-label-registry.json; version=2026-08-21.1;
-//! sha256=ce7f4a1c53b50f33ee71ba4a70e638819abfba103a3fa26560661fe516dc4d37 Input: registry/
+//! sha256=6cb34e722ce41df3c91204d48f6cdf66b68640e9d86a379a9267cefce484bb02 Input: registry/
 //! digest-suite-registry.json; version=2026-08-18;
 //! sha256=7b9f5368e30cebd43c509db7815b9a01681f8cf11147600f6be16bddcc74657f Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
 //! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
 //! hpke-suite-registry.json; version=2026-08-25.1;
 //! sha256=c91e5a1fa8e86b1a3db4dad362cf3d28128b168c8e9b5cbb3c7f297159fec231 Input: registry/
-//! mls-ciphersuite-registry.json; version=2026-08-18;
-//! sha256=8a270bf4fb05fa17f1594d61252f573fff6eca36e2da7afa910fc44c7d334dad Input: registry/
-//! mls-extension-registry.json; version=2026-06-03;
-//! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8 Input: registry/
+//! mls-ciphersuite-registry.json; version=2026-08-25;
+//! sha256=68619d8db1de222c9d032fdc96e92be32e85fdc0a3a0befdf4b21d135a57075d Input: registry/
+//! mls-extension-registry.json; version=2026-08-25;
+//! sha256=298685c15b11d75b55b1b6ece6a3674b320ae00a90f488cc4d2d3545f4888b86 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
 //! Entries: proof_contexts=78, exporter_labels=9, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1, domain_separations=32, aead_profiles=2
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=32, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -2603,12 +2603,32 @@ pub const MLS_CIPHERSUITES: &[AlgorithmSuiteDescriptor] = &[
     },
 ];
 
-pub const MLS_EXTENSIONS: &[MlsExtensionDescriptor] = &[MlsExtensionDescriptor {
-    name: "mls_governance_binding",
-    codepoint: "0xF1C0",
-    status: "active",
-    profile_id: "ak.profile.mls_governance_binding.full.v1",
-}];
+pub const MLS_EXTENSIONS: &[MlsExtensionDescriptor] = &[
+    MlsExtensionDescriptor {
+        name: "keypackage_capabilities",
+        codepoint: "0xF1C1",
+        status: "active",
+        profile_id: "ak.profile.mls_governance_binding.full.v1",
+    },
+    MlsExtensionDescriptor {
+        name: "mls_governance_binding",
+        codepoint: "0xF1C0",
+        status: "active",
+        profile_id: "ak.profile.mls_governance_binding.full.v1",
+    },
+    MlsExtensionDescriptor {
+        name: "required_capabilities",
+        codepoint: "0x0003",
+        status: "active",
+        profile_id: "ak.profile.mls_governance_binding.full.v1",
+    },
+    MlsExtensionDescriptor {
+        name: "required_keypackage_capabilities",
+        codepoint: "0xF1C2",
+        status: "active",
+        profile_id: "ak.profile.mls_governance_binding.full.v1",
+    },
+];
 
 pub fn proof_context(value: &str) -> Option<&'static ProofContextDescriptor> {
     ProofContextId::from_wire(value).map(proof_context_descriptor)
