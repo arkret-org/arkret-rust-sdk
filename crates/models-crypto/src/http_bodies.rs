@@ -52,9 +52,9 @@ pub struct KeyPackagesUploadRequestBody {
 /// Canonical unsigned projection for
 /// `ak.self.keys.keypackages.upload.create`.
 ///
-/// The request-level signature and every optional entry signature are absent
-/// by construction, so producers and verifiers cannot accidentally sign
-/// different upload shapes.
+/// The request-level signature is absent by construction, so producers and
+/// verifiers sign the complete typed request with every entry and metadata
+/// field in canonical order.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -109,10 +109,6 @@ impl KeyPackagesUploadRequestBody {
 
     #[must_use]
     pub fn unsigned(&self) -> KeyPackagesUploadUnsignedRequest {
-        let mut keypackages = self.keypackages.clone();
-        for entry in &mut keypackages {
-            entry.endpoint_signature = None;
-        }
         KeyPackagesUploadUnsignedRequest {
             principal_id: self.principal_id.clone(),
             device_id: self.device_id.clone(),
@@ -120,7 +116,7 @@ impl KeyPackagesUploadRequestBody {
             intended_realm_id: self.intended_realm_id.clone(),
             agent_verification_method: self.agent_verification_method.clone(),
             agent_key_authorize_event_id: self.agent_key_authorize_event_id.clone(),
-            keypackages,
+            keypackages: self.keypackages.clone(),
             expires_at: self.expires_at,
             strand_id: self.strand_id.clone(),
             mls_group_id: self.mls_group_id.clone(),
@@ -190,7 +186,6 @@ pub fn mls_key_package_record_upload_entry(
             .expires_at
             .unwrap_or(record.created_at + Duration::days(7)),
         created_at: record.created_at,
-        endpoint_signature: None,
         last_resort: record.last_resort.then_some(true),
     })
 }
@@ -216,66 +211,6 @@ pub fn keypackages_upload_signing_input(
     keypackage_signing_input(KEYPACKAGES_UPLOAD_SIGNATURE_DOMAIN, unsigned)
 }
 
-#[derive(Serialize)]
-struct KeyPackageUploadEntryUnsigned<'a> {
-    principal_id: &'a DidCoreId,
-    device_id: &'a DeviceId,
-    keypackage: KeyPackageUploadEntry,
-}
-
-#[derive(Serialize)]
-struct KeyPackageEndpointUploadEntryUnsigned<'a> {
-    principal_id: &'a DidCoreId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    device_id: Option<&'a DeviceId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pairwise_verification_method: Option<&'a DidUrl>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    intended_realm_id: Option<&'a RealmId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    agent_verification_method: Option<&'a DidUrl>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    agent_key_authorize_event_id: Option<&'a EventId>,
-    keypackage: KeyPackageUploadEntry,
-}
-
-pub fn keypackage_upload_endpoint_entry_signing_input(
-    request: &KeyPackagesUploadUnsignedRequest,
-    entry: &KeyPackageUploadEntry,
-) -> arkret_canonical::Result<Vec<u8>> {
-    let mut keypackage = entry.clone();
-    keypackage.endpoint_signature = None;
-    keypackage_signing_input(
-        KEYPACKAGES_UPLOAD_SIGNATURE_DOMAIN,
-        &KeyPackageEndpointUploadEntryUnsigned {
-            principal_id: &request.principal_id,
-            device_id: request.device_id.as_ref(),
-            pairwise_verification_method: request.pairwise_verification_method.as_ref(),
-            intended_realm_id: request.intended_realm_id.as_ref(),
-            agent_verification_method: request.agent_verification_method.as_ref(),
-            agent_key_authorize_event_id: request.agent_key_authorize_event_id.as_ref(),
-            keypackage,
-        },
-    )
-}
-
-pub fn keypackage_upload_entry_signing_input(
-    principal_id: &DidCoreId,
-    device_id: &DeviceId,
-    entry: &KeyPackageUploadEntry,
-) -> arkret_canonical::Result<Vec<u8>> {
-    let mut keypackage = entry.clone();
-    keypackage.endpoint_signature = None;
-    keypackage_signing_input(
-        KEYPACKAGES_UPLOAD_SIGNATURE_DOMAIN,
-        &KeyPackageUploadEntryUnsigned {
-            principal_id,
-            device_id,
-            keypackage,
-        },
-    )
-}
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -289,8 +224,6 @@ pub struct KeyPackagesUploadOutcome {
         skip_serializing_if = "Vec::is_empty"
     )]
     pub key_package_refs: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub available_count: Option<u64>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

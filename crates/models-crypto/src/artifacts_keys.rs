@@ -760,8 +760,6 @@ pub struct KeyPackageUploadEntry {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub endpoint_signature: Option<KeyOperationSignature>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_resort: Option<bool>,
 }
 

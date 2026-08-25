@@ -1,12 +1,11 @@
 //! Canonical KeyPackage write signatures.
 
 use arkret_models_crypto::{
-    KeyOperationSignature, KeyPackageUploadEntry, KeyPackagesConsumeUnsignedRequest,
-    KeyPackagesRevokeUnsignedRequest, KeyPackagesUploadUnsignedRequest,
-    keypackage_upload_entry_signing_input, keypackages_consume_signing_input,
+    KeyOperationSignature, KeyPackagesConsumeUnsignedRequest, KeyPackagesRevokeUnsignedRequest,
+    KeyPackagesUploadUnsignedRequest, keypackages_consume_signing_input,
     keypackages_revoke_signing_input, keypackages_upload_signing_input,
 };
-use arkret_wire::{Base64UrlString, DeviceId, DidCoreId, NonEmptyString};
+use arkret_wire::{Base64UrlString, NonEmptyString};
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use ed25519_dalek::{Signature, Signer as _, SigningKey, Verifier as _, VerifyingKey};
@@ -94,20 +93,6 @@ pub fn sign_keypackages_upload_request(
         signing_seed,
         verification_method,
         &keypackages_upload_signing_input(unsigned)?,
-    )
-}
-
-pub fn sign_keypackage_upload_entry(
-    principal_id: &DidCoreId,
-    device_id: &DeviceId,
-    entry: &KeyPackageUploadEntry,
-    verification_method: &str,
-    signing_seed: &[u8; 32],
-) -> KeyPackageSignatureResult<KeyOperationSignature> {
-    sign_keypackage_signing_input(
-        signing_seed,
-        verification_method,
-        &keypackage_upload_entry_signing_input(principal_id, device_id, entry)?,
     )
 }
 

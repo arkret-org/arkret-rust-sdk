@@ -332,7 +332,7 @@ pub use arkret_signatures::device_pairing::{
 pub use arkret_signatures::federation::*;
 pub use arkret_signatures::keypackages::{
     KeyPackageSignatureError, KeyPackageSignatureResult, keypackage_signature_from_bytes,
-    sign_keypackage_signing_input, sign_keypackage_upload_entry, sign_keypackages_consume_request,
+    sign_keypackage_signing_input, sign_keypackages_consume_request,
     sign_keypackages_revoke_request, sign_keypackages_upload_request,
     verify_keypackage_signing_input,
 };

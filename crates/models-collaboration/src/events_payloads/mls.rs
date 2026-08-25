@@ -367,7 +367,6 @@ pub struct MlsKeypackagePayload {
     pub expires_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
-    pub endpoint_signature: SignatureMaterial,
 }
 
 impl MlsKeypackagePayload {

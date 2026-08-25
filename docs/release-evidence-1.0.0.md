@@ -28,7 +28,7 @@ git diff --check
 cotest local release gate against soland:
 
 - Command:
-  `pwsh -NoProfile -File ..\cotest\scripts\run-cotest.ps1 -Profile release-gate -Runtime process -SkipJointSmokeGate`
+  `pwsh -NoProfile -File ..\cotest\scripts\run-server-conformance.ps1 -Profile release-gate -Runtime process -SkipJointSmokeGate`
 - Result: success
 - Passed: 28
 - Failed: 0

@@ -8,8 +8,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DeviceId, DidCoreId, DidFullId, DidUrl, EventId, Hash, NonEmptyString, ProducerEventProof,
-    RealmId, project_full_id_to_core_id,
+    DeviceId, DidCoreId, DidFullId, DidUrl, EventId, Hash, NonEmptyString, RealmId,
+    project_full_id_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -301,8 +301,6 @@ pub struct MlsKeyPackageRecord {
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub endpoint_signature: Option<ProducerEventProof>,
     /// Whether this is a reusable last-resort KeyPackage. Last-resort
     /// KeyPackages are NOT consumed on claim (the server keeps them
     /// claimable), so a member is always (re-)addable even after its
@@ -363,7 +361,6 @@ mod tests {
             claim_id: None,
             created_at: updated_at.to_owned(),
             expires_at: None,
-            endpoint_signature: None,
             last_resort: false,
         };
         let group = MlsGroupStateRecord {

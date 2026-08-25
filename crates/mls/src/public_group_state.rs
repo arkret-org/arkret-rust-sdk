@@ -1,16 +1,15 @@
 //! RFC 9420 validation for externally supplied public epoch state.
 
 use arkret_canonical::base64url_encode;
-use arkret_models_crypto::{
-    MLS_GOVERNANCE_BINDING_EXTENSION_TYPE, MlsGovernanceBindingPayload, MlsSecurityFrontierLeaf,
-};
+use arkret_models_crypto::{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE, MlsGovernanceBindingPayload};
+use arkret_wire::NonEmptyString;
 use openmls::prelude::{
     MlsMessageBodyIn, MlsMessageIn, OpenMlsProvider, ProposalStore, PublicGroup, RatchetTreeIn,
 };
 use openmls_rust_crypto::OpenMlsRustCrypto;
 use tls_codec::Deserialize as TlsDeserializeTrait;
 
-use crate::identity::decode_leaf_credential;
+use crate::identity::{MlsLeafEndpointIdentity, decode_leaf_endpoint_identity};
 use crate::{MlsError as Error, Result};
 
 /// Validate an MLSMessage carrying GroupInfo together with the exact external
@@ -21,12 +20,20 @@ use crate::{MlsError as Error, Result};
 /// constraints. No leaves or tree bytes are accepted from a governance proof
 /// bundle; callers obtain these two byte strings only from the typed standard
 /// group-state-material operation after its content-address checks pass.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MlsPublicEndpointLeaf {
+    pub leaf_index: u32,
+    pub endpoint_identity: MlsLeafEndpointIdentity,
+    pub credential_ref: NonEmptyString,
+    pub signature_key: Vec<u8>,
+}
+
 pub fn validate_public_group_state(
     group_info_bytes: &[u8],
     ratchet_tree_bytes: &[u8],
     expected_mls_group_id: &str,
     expected_epoch: u64,
-) -> Result<Vec<MlsSecurityFrontierLeaf>> {
+) -> Result<Vec<MlsPublicEndpointLeaf>> {
     validate_public_group_state_inner(
         group_info_bytes,
         ratchet_tree_bytes,
@@ -44,7 +51,7 @@ pub fn validate_public_group_state_with_governance_binding(
     expected_mls_group_id: &str,
     expected_epoch: u64,
     expected_governance_binding: &MlsGovernanceBindingPayload,
-) -> Result<Vec<MlsSecurityFrontierLeaf>> {
+) -> Result<Vec<MlsPublicEndpointLeaf>> {
     validate_public_group_state_inner(
         group_info_bytes,
         ratchet_tree_bytes,
@@ -60,7 +67,7 @@ fn validate_public_group_state_inner(
     expected_mls_group_id: &str,
     expected_epoch: u64,
     expected_governance_binding: Option<&MlsGovernanceBindingPayload>,
-) -> Result<Vec<MlsSecurityFrontierLeaf>> {
+) -> Result<Vec<MlsPublicEndpointLeaf>> {
     let message = MlsMessageIn::tls_deserialize_exact(group_info_bytes).map_err(mls_error)?;
     let MlsMessageBodyIn::GroupInfo(group_info) = message.extract() else {
         return Err(Error::Protocol(
@@ -111,12 +118,13 @@ fn validate_public_group_state_inner(
     let mut leaves = public_group
         .members()
         .map(|member| {
-            let (principal_id, credential_ref) =
-                decode_leaf_credential(member.credential.serialized_content())?;
-            Ok(MlsSecurityFrontierLeaf {
+            let (endpoint_identity, credential_ref) =
+                decode_leaf_endpoint_identity(member.credential.serialized_content())?;
+            Ok(MlsPublicEndpointLeaf {
                 leaf_index: member.index.u32(),
-                principal_id,
+                endpoint_identity,
                 credential_ref,
+                signature_key: member.signature_key,
             })
         })
         .collect::<Result<Vec<_>>>()?;

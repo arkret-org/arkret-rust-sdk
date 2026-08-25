@@ -279,15 +279,19 @@ impl ArkretMlsGroup {
     }
 
     fn verified_signal_sender_domain(&self, binding: &SignalAeadBinding<'_>) -> Result<Vec<u8>> {
-        let expected_identity = format!(
-            "{}#{}",
-            binding.sender_actor_id.as_str(),
-            binding.sender_device_id.as_str()
-        );
         let matching_leaves = self
             .group
             .members()
-            .filter(|member| member.credential.serialized_content() == expected_identity.as_bytes())
+            .filter(|member| {
+                member.credential.serialized_content()
+                    == binding.sender_device_id.as_str().as_bytes()
+                    && self
+                        .leaf_bindings
+                        .get(&member.index.u32())
+                        .is_some_and(|accepted| {
+                            accepted.principal_id.as_str() == binding.sender_actor_id.as_str()
+                        })
+            })
             .count();
         if matching_leaves != 1 {
             return Err(Error::Protocol(
@@ -323,8 +327,8 @@ fn signal_nonce_context(
 #[cfg(test)]
 mod tests {
     use arkret_wire::{
-        DeviceId, DidCoreId, DidUrl, RealmId, ScopeRef, SealId, SignalClass, SignalKeyRef,
-        SignalProof, proof_kind,
+        Base64UrlString, DeviceId, DidCoreId, DidUrl, NonEmptyString, RealmId, ScopeRef, SealId,
+        SignalClass, SignalKeyRef, SignalProof, proof_kind,
     };
     use chrono::{DateTime, Duration, TimeZone, Utc};
 
@@ -419,12 +423,12 @@ mod tests {
     }
 
     fn alice_and_bob() -> (ArkretMlsGroup, ArkretMlsGroup) {
-        let alice = ArkretMlsIdentity::new_basic(
+        let alice = ArkretMlsIdentity::new_test_identity(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
             DeviceId::new(ALICE_DEVICE.to_owned()).unwrap(),
         )
         .unwrap();
-        let bob = ArkretMlsIdentity::new_basic(
+        let bob = ArkretMlsIdentity::new_test_identity(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturebob".to_owned()).unwrap(),
             DeviceId::new(BOB_DEVICE.to_owned()).unwrap(),
         )
@@ -432,7 +436,30 @@ mod tests {
         let bob_key_package = bob.key_package_record().unwrap();
         let mut alice_group = alice.create_group(REALM.as_bytes()).unwrap();
         let add = alice_group.add_member(&bob_key_package).unwrap();
-        let bob_group = ArkretMlsGroup::join_from_welcome(bob, &add.welcome).unwrap();
+        let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &add.welcome).unwrap();
+        let alice_signature_key = alice_group.active_author_leaves()[0].signature_key.clone();
+        assert!(
+            bob_group
+                .install_accepted_leaf_bindings([crate::VerifiedMlsLeafBinding {
+                    principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned())
+                        .unwrap(),
+                    credential_ref: NonEmptyString::new(ALICE_DEVICE).unwrap(),
+                    leaf_signature_key: Base64UrlString::new("AA").unwrap(),
+                }])
+                .is_err(),
+            "accepted transition binding must pin the exact Leaf signature key"
+        );
+        bob_group
+            .install_accepted_leaf_bindings([crate::VerifiedMlsLeafBinding {
+                principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned())
+                    .unwrap(),
+                credential_ref: NonEmptyString::new(ALICE_DEVICE).unwrap(),
+                leaf_signature_key: Base64UrlString::new(crate::group::encode(
+                    &alice_signature_key,
+                ))
+                .unwrap(),
+            }])
+            .unwrap();
         assert_eq!(alice_group.epoch(), bob_group.epoch());
         (alice_group, bob_group)
     }
