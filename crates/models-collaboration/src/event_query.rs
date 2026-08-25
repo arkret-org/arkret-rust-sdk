@@ -30,13 +30,21 @@ pub struct PeerEventsDescribeRequestBody {
 
 /// Canonical QUERY content for `ak.self.events.read.frontier`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EventsFrontierRequestBody {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<DidCoreId>,
+    pub actor_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
+}
+
+/// Canonical QUERY content shared by `ak.self.seals.read.frontier` and
+/// `ak.peer.seals.read.frontier`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SealFrontierRequestBody {
+    pub realm_id: RealmId,
 }
 
 /// Canonical QUERY content for `ak.peer.events.read.frontier`.
@@ -92,7 +100,7 @@ pub struct EventsQueryPostRequestBody {
 
 #[cfg(test)]
 mod tests {
-    use super::EventsQueryOrder;
+    use super::{EventsFrontierRequestBody, EventsQueryOrder, SealFrontierRequestBody};
 
     #[test]
     fn query_order_uses_protocol_wire_values() {
@@ -102,6 +110,23 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&EventsQueryOrder::Descending).unwrap(),
             "\"descending\""
+        );
+    }
+
+    #[test]
+    fn event_and_seal_frontier_requests_are_disjoint_closed_shapes() {
+        assert!(
+            serde_json::from_value::<EventsFrontierRequestBody>(serde_json::json!({
+                "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<SealFrontierRequestBody>(serde_json::json!({
+                "actor_id": "ak:did_core:web:alice.example",
+                "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
+            }))
+            .is_err()
         );
     }
 }

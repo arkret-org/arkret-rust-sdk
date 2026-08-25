@@ -8,9 +8,10 @@ use arkret_models_collaboration::direct_conversation_ops::{
 };
 use arkret_models_collaboration::event_query::{
     EventsDescribeRequestBody, EventsFrontierRequestBody, EventsQueryPostRequestBody,
+    SealFrontierRequestBody,
 };
 use arkret_models_collaboration::event_sync::{
-    EventsFrontierAccountClientState, EventsFrontierSelector,
+    EventsFrontierSelector, EventsFrontierState, SealFrontierState,
 };
 use arkret_models_collaboration::governance::authorization::{
     AuthzCheckOutcome, AuthzCheckRequestBody, AuthzInviteList, GrantList,
@@ -195,27 +196,43 @@ impl Client {
     pub async fn events_frontier(
         &self,
         selector: &EventsFrontierSelector,
-    ) -> Result<EventsFrontierAccountClientState> {
+    ) -> Result<EventsFrontierState> {
         let body = match selector {
             EventsFrontierSelector::RealmActor { realm_id, actor_id } => {
                 EventsFrontierRequestBody {
-                    actor_id: Some(actor_id.clone()),
+                    actor_id: actor_id.clone(),
                     realm_id: Some(realm_id.clone()),
                 }
             }
-            EventsFrontierSelector::RealmSeal { realm_id } => EventsFrontierRequestBody {
-                actor_id: None,
-                realm_id: Some(realm_id.clone()),
-            },
             EventsFrontierSelector::ActorAggregate { actor_id } => EventsFrontierRequestBody {
-                actor_id: Some(actor_id.clone()),
+                actor_id: actor_id.clone(),
                 realm_id: None,
             },
         };
-        let state: EventsFrontierAccountClientState = self
+        let state: EventsFrontierState = self
             .events_read_query("/_arkret/self/events/frontier", &body)
             .await?;
         selector.validate_response(&state.frontier)?;
+        Ok(state)
+    }
+
+    /// Fetch the complete accepted Realm Seal antichain from its sole self
+    /// discovery surface.
+    pub async fn seals_frontier(&self, realm_id: RealmId) -> Result<SealFrontierState> {
+        let state: SealFrontierState = self
+            .events_read_query(
+                "/_arkret/self/seals/frontier",
+                &SealFrontierRequestBody {
+                    realm_id: realm_id.clone(),
+                },
+            )
+            .await?;
+        if state.frontier.realm_id != realm_id {
+            return Err(Error::Protocol(
+                "Seal frontier response does not match the requested realm_id".to_owned(),
+            ));
+        }
+        state.frontier.validate_protocol_bounds()?;
         Ok(state)
     }
 

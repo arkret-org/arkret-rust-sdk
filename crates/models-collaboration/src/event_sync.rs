@@ -19,37 +19,31 @@ use serde_json::Value;
 
 // ── EventsFrontier 3-way split ──────────────────────────────────────────
 
-/// `/events/frontier` peer-role selector. The account-client and
-/// anonymous-health responses are shape-discriminated; the federation-peer
-/// response follows the single canonical
-/// [`EventsFrontierFederationPeerState`] shape defined by the spec
-/// artifacts (`service-operation-dtos.schema.json`).
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FrontierPeerRole {
-    AccountClient,
-    FederationPeer,
-    AnonymousHealth,
-}
-
 /// `ak.self.events.read.frontier` account-client response
-/// (`service-operation-dtos.schema.json#/$defs/EventsFrontierAccountClientState`,
-/// SPEC-SOL-003 resolution): a single `frontier` object whose shape follows
-/// the request selector — actor (`{actor_id, actor_seq, event_id}`) or Realm
-/// Seal view (`{realm_id, seal_id, control_event_set_root, state_root,
-/// hlc?}`) — plus optional receipts. The Realm Seal view is the registered
-/// account-client source for minting a single-leaf Control Move `seal_basis`
-/// and a DataEvent `seal_ref`. When accepted managed Agent PCR Events are
-/// ahead of their accepted Seal, the view remains that signed predecessor and
-/// `receipts` carries the full `ak.managed_agent_pcr.seal_head.v1` Seal needed
-/// by the controller device to author its successor.
+/// (`service-operation-dtos.schema.json#/$defs/EventsFrontierState`). Realm
+/// Seal discovery is exclusively `ak.self.seals.read.frontier`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct EventsFrontierAccountClientState {
+#[serde(deny_unknown_fields)]
+pub struct EventsFrontierState {
     pub frontier: EventsFrontierView,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SealFrontierState {
+    pub frontier: RealmSealFrontierView,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub receipts: Vec<ManagedAgentPcrSealHeadReceipt>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PeerSealFrontierState {
+    pub frontier: RealmSealFrontierView,
+    pub service_proof: arkret_wire::PayloadProof,
 }
 
 /// Typed, closed receipt carrying the last accepted controller-device-signed
@@ -101,9 +95,6 @@ pub enum EventsFrontierSelector {
         realm_id: RealmId,
         actor_id: DidCoreId,
     },
-    RealmSeal {
-        realm_id: RealmId,
-    },
     ActorAggregate {
         actor_id: DidCoreId,
     },
@@ -118,9 +109,6 @@ impl EventsFrontierSelector {
                 ("realm_id", realm_id.as_str().to_owned()),
                 ("actor_id", actor_id.as_str().to_owned()),
             ],
-            Self::RealmSeal { realm_id } => {
-                vec![("realm_id", realm_id.as_str().to_owned())]
-            }
             Self::ActorAggregate { actor_id } => {
                 vec![("actor_id", actor_id.as_str().to_owned())]
             }
@@ -135,11 +123,6 @@ impl EventsFrontierSelector {
                 if &frontier.realm_id == realm_id && &frontier.actor_id == actor_id =>
             {
                 frontier.validate()
-            }
-            (Self::RealmSeal { realm_id }, EventsFrontierView::RealmSeal(frontier))
-                if &frontier.realm_id == realm_id =>
-            {
-                frontier.validate_protocol_bounds()
             }
             (Self::ActorAggregate { actor_id }, EventsFrontierView::ActorAggregate(frontier))
                 if &frontier.actor_id == actor_id =>
@@ -159,7 +142,6 @@ impl EventsFrontierSelector {
 #[serde(untagged)]
 pub enum EventsFrontierView {
     RealmActor(RealmActorFrontierView),
-    RealmSeal(RealmSealFrontierView),
     ActorAggregate(ActorAggregateFrontierView),
 }
 
@@ -693,33 +675,6 @@ pub struct EventsFrontierFederationPeerState {
     pub issuer: DidCoreId,
     /// Service signature object over the peer frontier response.
     pub signature: BTreeMap<String, Value>,
-}
-
-/// Round 4 — anonymous-health variant. Used by public health checks
-/// (`peer_role=anonymous_health`); the wire shape MUST NOT carry
-/// receipts, signatures, or actor_seq_upper_bounds. Type system
-/// enforces this (no such fields).
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct EventsFrontierAnonymousHealthState {
-    pub peer_role: FrontierPeerRole,
-    pub service_id: DidCoreId,
-    pub healthy: bool,
-    /// Wall-clock instant the frontier snapshot was generated. Used for
-    /// staleness detection only — not signed.
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub generated_at: DateTime<Utc>,
-}
-
-/// Round 4 — discriminated `/events/frontier` response.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-#[allow(clippy::large_enum_variant)]
-pub enum EventsFrontierState {
-    AccountClient(EventsFrontierAccountClientState),
-    FederationPeer(EventsFrontierFederationPeerState),
-    AnonymousHealth(EventsFrontierAnonymousHealthState),
 }
 
 // ── FederationServiceBindingRef ─────────────────────────────────────────
