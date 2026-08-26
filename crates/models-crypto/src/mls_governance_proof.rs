@@ -265,8 +265,8 @@ pub struct MlsGovernanceSealPredecessorEdge {
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceTypedProofMaterial {
     pub seal_descriptors: Vec<MlsGovernanceSealDescriptor>,
-    pub seal_predecessor_edges: Vec<MlsGovernanceSealPredecessorEdge>,
     pub event_ids: Vec<EventId>,
+    pub seal_predecessor_edges: Vec<MlsGovernanceSealPredecessorEdge>,
 }
 
 impl MlsGovernanceTypedProofMaterial {

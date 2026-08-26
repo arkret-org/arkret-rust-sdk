@@ -136,40 +136,31 @@ pub enum MlsWelcomeRecipient {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MlsWelcomeCarrier {
-    welcome_ref: Option<ObjectRef>,
-    encrypted_welcome_ref: Option<ObjectRef>,
-    ciphertext: Option<NonEmptyString>,
-}
+pub struct MlsWelcomeCarrier(Vec<u8>);
 
 impl MlsWelcomeCarrier {
-    pub fn new(
-        welcome_ref: Option<ObjectRef>,
-        encrypted_welcome_ref: Option<ObjectRef>,
-        ciphertext: Option<NonEmptyString>,
-    ) -> std::result::Result<Self, &'static str> {
-        if welcome_ref.is_none() && encrypted_welcome_ref.is_none() && ciphertext.is_none() {
-            return Err(
-                "MLS Welcome carrier must include welcome_ref, encrypted_welcome_ref, or ciphertext",
-            );
+    pub fn new(welcome_bytes: Vec<u8>) -> std::result::Result<Self, &'static str> {
+        if welcome_bytes.is_empty() {
+            return Err("MLS Welcome bytes must not be empty");
         }
-        Ok(Self {
-            welcome_ref,
-            encrypted_welcome_ref,
-            ciphertext,
-        })
+        Ok(Self(welcome_bytes))
     }
 
-    pub fn welcome_ref(&self) -> Option<&str> {
-        self.welcome_ref.as_deref()
+    fn from_base64url(ciphertext: &Base64UrlString) -> std::result::Result<Self, &'static str> {
+        let welcome_bytes = arkret_canonical::base64url::base64url_decode(ciphertext.as_str())
+            .map_err(|_| "MLS Welcome ciphertext must decode as unpadded base64url")?;
+        if arkret_canonical::base64url::base64url_encode(&welcome_bytes) != ciphertext.as_str() {
+            return Err("MLS Welcome ciphertext must be canonical unpadded base64url");
+        }
+        Self::new(welcome_bytes)
     }
 
-    pub fn encrypted_welcome_ref(&self) -> Option<&str> {
-        self.encrypted_welcome_ref.as_deref()
+    pub fn welcome_bytes(&self) -> &[u8] {
+        &self.0
     }
 
-    pub fn ciphertext(&self) -> Option<&str> {
-        self.ciphertext.as_deref()
+    pub fn ciphertext(&self) -> String {
+        arkret_canonical::base64url::base64url_encode(&self.0)
     }
 }
 
@@ -532,7 +523,6 @@ pub struct MlsWelcomeClaimEnvelope {
     pub claim_id: NonEmptyString,
     pub requester_actor_id: DidCoreId,
     pub trust_binding: MlsRequesterTrustBinding,
-    pub nonce: NonEmptyString,
     pub welcome_digest: Hash,
     pub created_at: DateTime<Utc>,
     pub signature: KeyOperationSignature,
@@ -546,7 +536,6 @@ pub struct MlsWelcomeClaimEnvelopeSigningInput {
     pub claim_id: NonEmptyString,
     pub requester_actor_id: DidCoreId,
     pub trust_binding: MlsRequesterTrustBinding,
-    pub nonce: NonEmptyString,
     pub welcome_digest: Hash,
     pub created_at: DateTime<Utc>,
 }
@@ -674,7 +663,6 @@ struct MlsWelcomeClaimEnvelopeWire {
     requester_agent_key_authorize_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     requester_pairwise_verification_method: Option<DidUrl>,
-    nonce: NonEmptyString,
     welcome_digest: Hash,
     #[serde(with = "canonical_timestamp")]
     created_at: DateTime<Utc>,
@@ -740,7 +728,6 @@ impl Serialize for MlsWelcomeClaimEnvelope {
             requester_agent_verification_method,
             requester_agent_key_authorize_event_id,
             requester_pairwise_verification_method,
-            nonce: self.nonce.clone(),
             welcome_digest: self.welcome_digest.clone(),
             created_at: self.created_at,
             signature: self.signature.clone(),
@@ -799,7 +786,6 @@ impl<'de> Deserialize<'de> for MlsWelcomeClaimEnvelope {
             claim_id: wire.claim_id,
             requester_actor_id: wire.requester_actor_id,
             trust_binding,
-            nonce: wire.nonce,
             welcome_digest: wire.welcome_digest,
             created_at: wire.created_at,
             signature: wire.signature,
@@ -826,17 +812,14 @@ struct MlsWelcomeClaimEnvelopeSigningInputWire {
     requester_agent_key_authorize_event_id: Option<EventId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     requester_pairwise_verification_method: Option<DidUrl>,
-    nonce: NonEmptyString,
+    claim_request_id: Base64UrlString,
     welcome_digest: Hash,
     #[serde(serialize_with = "serialize_canonical_timestamp")]
     created_at: DateTime<Utc>,
 }
 
-impl Serialize for MlsWelcomeClaimEnvelopeSigningInput {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
+impl MlsWelcomeClaimEnvelopeSigningInput {
+    fn wire(&self, claim_request_id: &Base64UrlString) -> MlsWelcomeClaimEnvelopeSigningInputWire {
         let (
             requester_device_id,
             requester_device_authorize_event_id,
@@ -891,31 +874,43 @@ impl Serialize for MlsWelcomeClaimEnvelopeSigningInput {
             requester_agent_verification_method,
             requester_agent_key_authorize_event_id,
             requester_pairwise_verification_method,
-            nonce: self.nonce.clone(),
+            claim_request_id: claim_request_id.clone(),
             welcome_digest: self.welcome_digest.clone(),
             created_at: self.created_at,
         }
-        .serialize(serializer)
     }
 }
 
 impl MlsWelcomeClaimEnvelope {
-    pub fn signing_input(&self) -> MlsWelcomeClaimEnvelopeSigningInput {
-        MlsWelcomeClaimEnvelopeSigningInput {
+    pub fn signing_input(
+        &self,
+        claim_receipt: &PeerKeyPackageClaimReceipt,
+    ) -> Result<MlsWelcomeClaimEnvelopeSigningInput> {
+        if claim_receipt.claim_request_id != claim_receipt.request.claim_request_id {
+            return Err(WireError::Protocol(
+                "claim receipt request id does not match its request context".to_owned(),
+            ));
+        }
+        Ok(MlsWelcomeClaimEnvelopeSigningInput {
             keypackage_ref: self.keypackage_ref.clone(),
             keypackage_digest: self.keypackage_digest.clone(),
             intended_realm_id: self.intended_realm_id.clone(),
             claim_id: self.claim_id.clone(),
             requester_actor_id: self.requester_actor_id.clone(),
             trust_binding: self.trust_binding.clone(),
-            nonce: self.nonce.clone(),
             welcome_digest: self.welcome_digest.clone(),
             created_at: self.created_at,
-        }
+        })
     }
 
-    pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
-        Ok(canonical::canonical_json_bytes(&self.signing_input())?)
+    pub fn canonical_signing_bytes(
+        &self,
+        claim_receipt: &PeerKeyPackageClaimReceipt,
+    ) -> Result<Vec<u8>> {
+        let input = self.signing_input(claim_receipt)?;
+        Ok(canonical::canonical_json_bytes(
+            &input.wire(&claim_receipt.claim_request_id),
+        )?)
     }
 
     pub fn validate_signature_shape(&self) -> std::result::Result<(), &'static str> {
@@ -957,17 +952,30 @@ impl MlsWelcomeClaimEnvelope {
 }
 
 /// Welcome-claim authoring state before the requester signature exists.
-/// The existing signing-input model owns the canonical transcript fields;
-/// this wrapper makes attachment of a real signature the only transition to
-/// the outbound envelope.
+/// The signing-input model owns the envelope-derived transcript fields, while
+/// the exact claim receipt supplies the sole claim request id. This wrapper
+/// makes attachment of a real signature the only transition to the outbound
+/// envelope.
 #[derive(Clone, Debug)]
 pub struct UnsignedMlsWelcomeClaimEnvelope {
     signing_input: MlsWelcomeClaimEnvelopeSigningInput,
+    claim_request_id: Base64UrlString,
 }
 
 impl UnsignedMlsWelcomeClaimEnvelope {
-    pub fn new(signing_input: MlsWelcomeClaimEnvelopeSigningInput) -> Self {
-        Self { signing_input }
+    pub fn new(
+        signing_input: MlsWelcomeClaimEnvelopeSigningInput,
+        claim_receipt: &PeerKeyPackageClaimReceipt,
+    ) -> Result<Self> {
+        if claim_receipt.claim_request_id != claim_receipt.request.claim_request_id {
+            return Err(WireError::Protocol(
+                "claim receipt request id does not match its request context".to_owned(),
+            ));
+        }
+        Ok(Self {
+            signing_input,
+            claim_request_id: claim_receipt.claim_request_id.clone(),
+        })
     }
 
     pub fn signing_input(&self) -> &MlsWelcomeClaimEnvelopeSigningInput {
@@ -975,7 +983,9 @@ impl UnsignedMlsWelcomeClaimEnvelope {
     }
 
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
-        Ok(canonical::canonical_json_bytes(&self.signing_input)?)
+        Ok(canonical::canonical_json_bytes(
+            &self.signing_input.wire(&self.claim_request_id),
+        )?)
     }
 
     pub fn attach_signature(
@@ -991,7 +1001,6 @@ impl UnsignedMlsWelcomeClaimEnvelope {
             claim_id: input.claim_id,
             requester_actor_id: input.requester_actor_id,
             trust_binding: input.trust_binding,
-            nonce: input.nonce,
             welcome_digest: input.welcome_digest,
             created_at: input.created_at,
             signature: KeyOperationSignature {
@@ -1054,12 +1063,7 @@ struct MlsWelcomePayloadWire {
     claim_ref: MlsWelcomePayloadClaimRef,
     claim_envelope: MlsWelcomeClaimEnvelope,
     claim_receipt: PeerKeyPackageClaimReceipt,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    welcome_ref: Option<ObjectRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    encrypted_welcome_ref: Option<ObjectRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    ciphertext: Option<NonEmptyString>,
+    ciphertext: Base64UrlString,
     commit_ref: EventId,
     governance_binding: MlsGovernanceBindingPayload,
     #[serde(with = "canonical_timestamp")]
@@ -1071,6 +1075,17 @@ impl Serialize for MlsWelcomePayload {
     where
         S: serde::Serializer,
     {
+        let expected_welcome_digest = arkret_canonical::sha256_digest(self.carrier.welcome_bytes());
+        if self.claim_receipt.claim_request_id != self.claim_receipt.request.claim_request_id {
+            return Err(serde::ser::Error::custom(
+                "mls_welcome_payload claim receipt request id context does not match",
+            ));
+        }
+        if self.claim_envelope.welcome_digest.as_str() != expected_welcome_digest {
+            return Err(serde::ser::Error::custom(
+                "mls_welcome_payload claim_envelope welcome_digest does not match Welcome bytes",
+            ));
+        }
         let (
             recipient_device_id,
             recipient_agent_id,
@@ -1129,9 +1144,8 @@ impl Serialize for MlsWelcomePayload {
             claim_ref: self.claim_ref.clone(),
             claim_envelope: self.claim_envelope.clone(),
             claim_receipt: self.claim_receipt.clone(),
-            welcome_ref: self.carrier.welcome_ref.clone(),
-            encrypted_welcome_ref: self.carrier.encrypted_welcome_ref.clone(),
-            ciphertext: self.carrier.ciphertext.clone(),
+            ciphertext: Base64UrlString::new(self.carrier.ciphertext())
+                .expect("encoded non-empty Welcome bytes are canonical base64url"),
             commit_ref: self.commit_ref.clone(),
             governance_binding: self.governance_binding.clone(),
             expires_at: self.expires_at,
@@ -1189,13 +1203,14 @@ impl<'de> Deserialize<'de> for MlsWelcomePayload {
                 ));
             }
         };
-        let carrier = MlsWelcomeCarrier::new(
-            wire.welcome_ref,
-            wire.encrypted_welcome_ref,
-            wire.ciphertext,
-        )
-        .map_err(serde::de::Error::custom)?;
+        let carrier = MlsWelcomeCarrier::from_base64url(&wire.ciphertext)
+            .map_err(serde::de::Error::custom)?;
         let claim_receipt = wire.claim_receipt;
+        if claim_receipt.claim_request_id != claim_receipt.request.claim_request_id {
+            return Err(serde::de::Error::custom(
+                "mls_welcome_payload claim receipt request id context does not match",
+            ));
+        }
         if wire.governance_binding.mls_group_id() != wire.mls_group_id.as_str()
             || wire.governance_binding.next_epoch() != wire.epoch
         {
@@ -1211,6 +1226,13 @@ impl<'de> Deserialize<'de> for MlsWelcomePayload {
         {
             return Err(serde::de::Error::custom(
                 "mls_welcome_payload claim bindings do not match top-level fields",
+            ));
+        }
+        if wire.claim_envelope.welcome_digest.as_str()
+            != arkret_canonical::sha256_digest(carrier.welcome_bytes())
+        {
+            return Err(serde::de::Error::custom(
+                "mls_welcome_payload claim_envelope welcome_digest does not match Welcome bytes",
             ));
         }
         if let MlsWelcomeRecipient::MinimalMetadataPairwise {
@@ -1265,7 +1287,6 @@ pub fn validate_mls_welcome_claim_envelope(
     intended_realm_id: &RealmId,
     requester_actor_id: &DidCoreId,
     welcome_digest: &Hash,
-    claim_request_id: &str,
     current_claim_device_authorize_event_id: Option<&str>,
     current_claim_agent_key_authorize_event_id: Option<&str>,
     current_requester_device_id: Option<&str>,
@@ -1366,9 +1387,11 @@ pub fn validate_mls_welcome_claim_envelope(
         || envelope.intended_realm_id != *intended_realm_id
         || envelope.claim_id.as_str() != claim.claim_id
         || envelope.requester_actor_id != *requester_actor_id
-        || envelope.nonce.as_str() != claim_request_id
         || envelope.welcome_digest.as_str() != welcome_digest.as_str()
     {
+        return Err(ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+    }
+    if welcome.claim_receipt.claim_request_id != welcome.claim_receipt.request.claim_request_id {
         return Err(ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
     }
     validate_requester_signature_binding(
@@ -1485,7 +1508,6 @@ mod tests {
                 )
                 .unwrap(),
             },
-            nonce: NonEmptyString::new("nonce").unwrap(),
             welcome_digest: Hash::new(
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             )
@@ -1522,6 +1544,85 @@ mod tests {
         value["created_at"] = serde_json::json!("2026-06-23T07:51:12Z");
 
         assert!(serde_json::from_value::<MlsWelcomeClaimEnvelope>(value).is_err());
+    }
+
+    #[test]
+    fn welcome_carrier_accepts_only_canonical_unpadded_base64url_bytes() {
+        let canonical = Base64UrlString::new("AA").unwrap();
+        let carrier = MlsWelcomeCarrier::from_base64url(&canonical).unwrap();
+        assert_eq!(carrier.welcome_bytes(), &[0]);
+        assert_eq!(carrier.ciphertext(), "AA");
+
+        let noncanonical = Base64UrlString::new("AB").unwrap();
+        assert!(MlsWelcomeCarrier::from_base64url(&noncanonical).is_err());
+        let undecodable = Base64UrlString::new("A").unwrap();
+        assert!(MlsWelcomeCarrier::from_base64url(&undecodable).is_err());
+        assert!(Base64UrlString::new("AA==").is_err());
+        assert!(MlsWelcomeCarrier::new(Vec::new()).is_err());
+    }
+
+    #[test]
+    fn welcome_payload_fixture_binds_inline_bytes_and_rejects_retired_carriers() {
+        let fixture = arkret_schema::embedded_json_artifact(
+            "fixtures/keypackage-pairwise-welcome-fixture.json",
+        )
+        .unwrap();
+        let valid = fixture["schema_validation_cases"][0]["instance"].clone();
+        let payload: MlsWelcomePayload = serde_json::from_value(valid.clone()).unwrap();
+        assert_eq!(payload.carrier.welcome_bytes(), &[0]);
+        assert_eq!(
+            payload.claim_envelope.welcome_digest.as_str(),
+            "sha256:6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+        );
+        assert_eq!(serde_json::to_value(&payload).unwrap(), valid);
+
+        let signing_input = payload
+            .claim_envelope
+            .signing_input(&payload.claim_receipt)
+            .unwrap();
+        let unsigned =
+            UnsignedMlsWelcomeClaimEnvelope::new(signing_input.clone(), &payload.claim_receipt)
+                .unwrap();
+        let transcript: Value =
+            serde_json::from_slice(&unsigned.canonical_signing_bytes().unwrap()).unwrap();
+        assert_eq!(
+            transcript["claim_request_id"],
+            payload.claim_receipt.claim_request_id.as_str()
+        );
+        let mut mismatched_authoring_context = payload.claim_receipt.clone();
+        mismatched_authoring_context.request.claim_request_id =
+            Base64UrlString::new("AAAAAAAAAAAAAAAAAAAAAQ").unwrap();
+        assert!(
+            UnsignedMlsWelcomeClaimEnvelope::new(signing_input, &mismatched_authoring_context)
+                .is_err()
+        );
+
+        let mut retired_nonce = valid.clone();
+        retired_nonce["claim_envelope"]["nonce"] = serde_json::json!("legacy");
+        assert!(serde_json::from_value::<MlsWelcomePayload>(retired_nonce).is_err());
+
+        let mut mismatched_receipt_context = valid.clone();
+        mismatched_receipt_context["claim_receipt"]["request"]["claim_request_id"] =
+            serde_json::json!("AAAAAAAAAAAAAAAAAAAAAQ");
+        assert!(serde_json::from_value::<MlsWelcomePayload>(mismatched_receipt_context).is_err());
+
+        for retired_field in ["welcome_ref", "encrypted_welcome_ref"] {
+            let mut invalid = valid.clone();
+            invalid[retired_field] = serde_json::json!(
+                "ak:blob:sha256:8888888888888888888888888888888888888888888888888888888888888888"
+            );
+            assert!(serde_json::from_value::<MlsWelcomePayload>(invalid).is_err());
+        }
+        for invalid_ciphertext in ["AA==", "AB", "A"] {
+            let mut invalid = valid.clone();
+            invalid["ciphertext"] = serde_json::json!(invalid_ciphertext);
+            assert!(serde_json::from_value::<MlsWelcomePayload>(invalid).is_err());
+        }
+        let mut invalid_digest = valid;
+        invalid_digest["claim_envelope"]["welcome_digest"] = serde_json::json!(
+            "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        );
+        assert!(serde_json::from_value::<MlsWelcomePayload>(invalid_digest).is_err());
     }
 
     #[test]

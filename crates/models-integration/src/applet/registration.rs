@@ -275,11 +275,11 @@ impl HttpMessageSignatureAlgorithm {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WebhookAuth {
-    pub kind: WebhookAuthKind,
     pub key_ref: DidUrl,
     pub accepted_signature_algorithms: Vec<HttpMessageSignatureAlgorithm>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub signature_header: Option<String>,
+    pub kind: WebhookAuthKind,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
 }
@@ -290,10 +290,10 @@ impl WebhookAuth {
         accepted_signature_algorithms: Vec<HttpMessageSignatureAlgorithm>,
     ) -> Self {
         Self {
-            kind: WebhookAuthKind::HttpMessageSignature,
             key_ref,
             accepted_signature_algorithms,
             signature_header: None,
+            kind: WebhookAuthKind::HttpMessageSignature,
             extra: XExtensionMap::default(),
         }
     }

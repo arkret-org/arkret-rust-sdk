@@ -32,18 +32,10 @@ pub enum NotificationDeltaAction {
     Remove,
 }
 
-/// Closed notification data discriminator.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AccountNotificationDataKind {
-    AgentRuntimeApproval,
-}
-
 /// Account-private Agent runtime approval projection.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentRuntimeApprovalNotificationData {
-    pub kind: AccountNotificationDataKind,
     pub approval_request_id: OpaqueLocalId,
     pub agent_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -67,7 +59,6 @@ pub enum AgentRuntimeApprovalRemovalReason {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentRuntimeApprovalNotificationRemovalData {
-    pub kind: AccountNotificationDataKind,
     pub reason: AgentRuntimeApprovalRemovalReason,
 }
 
@@ -86,32 +77,20 @@ pub struct NotificationDelta {
     pub action: NotificationDeltaAction,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub data: Option<NotificationData>,
-    pub notification_kind: NotificationKind,
 }
 
 impl NotificationDelta {
     pub fn try_new(
         id: NotificationId,
-        notification_kind: NotificationKind,
         action: NotificationDeltaAction,
         data: Option<NotificationData>,
     ) -> Result<Self> {
-        let delta = Self {
-            id,
-            notification_kind,
-            action,
-            data,
-        };
+        let delta = Self { id, action, data };
         delta.validate_shape()?;
         Ok(delta)
     }
 
     pub fn validate_shape(&self) -> Result<()> {
-        if self.notification_kind != NotificationKind::Agent {
-            return Err(WireError::Protocol(
-                "account notification delta notification_kind must be agent".to_owned(),
-            ));
-        }
         match (self.action, self.data.as_ref()) {
             (NotificationDeltaAction::Upsert, Some(NotificationData::AgentRuntimeApproval(_)))
             | (
@@ -142,7 +121,6 @@ struct NotificationDeltaWire {
     action: NotificationDeltaAction,
     #[serde(default)]
     data: Option<NotificationData>,
-    notification_kind: NotificationKind,
 }
 
 impl<'de> Deserialize<'de> for NotificationDelta {
@@ -151,8 +129,7 @@ impl<'de> Deserialize<'de> for NotificationDelta {
         D: serde::Deserializer<'de>,
     {
         let wire = NotificationDeltaWire::deserialize(deserializer)?;
-        Self::try_new(wire.id, wire.notification_kind, wire.action, wire.data)
-            .map_err(serde::de::Error::custom)
+        Self::try_new(wire.id, wire.action, wire.data).map_err(serde::de::Error::custom)
     }
 }
 
@@ -167,13 +144,11 @@ mod notification_delta_tests {
             "id": "ak:notification:01964137-0000-7000-8000-000000000001",
             "action": action,
             "data": {
-                "kind": "agent_runtime_approval",
                 "approval_request_id": "agent_runtime_approval:01964137-0000-7000-8000-000000000000",
                 "agent_id": "ak:did_core:webvh:z6mkfixtureagent",
                 "requested_at": "2026-07-13T10:00:00.000Z",
                 "expires_at": "2026-07-13T10:15:00.000Z"
-            },
-            "notification_kind": "agent"
+            }
         })
     }
 
@@ -190,6 +165,14 @@ mod notification_delta_tests {
         let mut value = approval_delta("upsert");
         value["legacy_action"] = json!("add");
         assert!(serde_json::from_value::<NotificationDelta>(value).is_err());
+
+        let mut retired_notification_kind = approval_delta("upsert");
+        retired_notification_kind["notification_kind"] = json!("agent");
+        assert!(serde_json::from_value::<NotificationDelta>(retired_notification_kind).is_err());
+
+        let mut retired_data_kind = approval_delta("upsert");
+        retired_data_kind["data"]["kind"] = json!("agent_runtime_approval");
+        assert!(serde_json::from_value::<NotificationDelta>(retired_data_kind).is_err());
     }
 }
 

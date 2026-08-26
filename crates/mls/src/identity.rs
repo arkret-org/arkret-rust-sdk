@@ -1054,7 +1054,16 @@ mod tests {
             ArkretMlsSigner::from_ed25519_signing_key(ed25519_dalek::SigningKey::from_bytes(&seed)),
         )
         .unwrap();
-        let claim_request_id = Base64UrlString::new("Y2xhaW0tcmVxdWVzdC0wMDAwMDAwMQ").unwrap();
+        let fixture = arkret_schema::embedded_json_artifact(
+            "fixtures/keypackage-pairwise-welcome-fixture.json",
+        )
+        .unwrap();
+        let claim_receipt: arkret_models_crypto::PeerKeyPackageClaimReceipt =
+            serde_json::from_value(
+                fixture["schema_validation_cases"][0]["instance"]["claim_receipt"].clone(),
+            )
+            .unwrap();
+        let claim_request_id = claim_receipt.claim_request_id.clone();
         let keypackage_ref = format!("sha256:{}", "11".repeat(32));
         let welcome_digest = Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap();
         let envelope = UnsignedMlsWelcomeClaimEnvelope::new(
@@ -1070,11 +1079,12 @@ mod tests {
                 trust_binding: MlsRequesterTrustBinding::RequesterMinimalMetadataPairwise {
                     requester_pairwise_verification_method: verification_method.clone(),
                 },
-                nonce: NonEmptyString::new("Y2xhaW0tbm9uY2UtMDAwMDAwMDAwMQ").unwrap(),
                 welcome_digest: welcome_digest.clone(),
                 created_at: Utc::now(),
             },
-        );
+            &claim_receipt,
+        )
+        .unwrap();
         let envelope = identity
             .sign_pairwise_welcome_claim_envelope(envelope)
             .unwrap();
@@ -1093,7 +1103,7 @@ mod tests {
                 arkret_wire::DomainSeparationId::MLS_RECIPIENT_DURABLE_RECEIPT_V1,
             )
             .unwrap(),
-            claim_request_id,
+            claim_request_id: claim_request_id.clone(),
             key_package_ref: NonEmptyString::new(keypackage_ref).unwrap(),
             recipient_principal_id: pairwise_actor_id,
             recipient: RecipientMlsDurableSigner::MinimalMetadataPairwise {

@@ -217,7 +217,6 @@ mod tests {
     fn folder_preserves_ordered_notification_deltas_across_frames() {
         let notification_id = "ak:notification:01964137-0000-7000-8000-000000000004";
         let approval = serde_json::json!({
-            "kind": "agent_runtime_approval",
             "approval_request_id": "agent_runtime_approval:01964137-0000-7000-8000-000000000004",
             "agent_id": "ak:did_core:webvh:z6mkfixture",
             "requested_at": "2026-07-13T10:00:00.000Z",
@@ -230,7 +229,6 @@ mod tests {
                 "cursor": "ak:cursor:upsert",
                 "notifications": {"items": [{
                     "id": notification_id,
-                    "notification_kind": "agent",
                     "action": "upsert",
                     "data": approval
                 }]}
@@ -242,9 +240,8 @@ mod tests {
                 "cursor": "ak:cursor:remove",
                 "notifications": {"items": [{
                     "id": notification_id,
-                    "notification_kind": "agent",
                     "action": "remove",
-                    "data": {"kind": "agent_runtime_approval", "reason": "approved"}
+                    "data": {"reason": "approved"}
                 }]}
             })))
             .unwrap();

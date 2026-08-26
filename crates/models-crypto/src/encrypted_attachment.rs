@@ -7,7 +7,7 @@ use arkret_wire::{Base64UrlString, BlobRef, EventId, Hash};
 use serde::{Deserialize, Serialize};
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/blob.schema.json#/properties/encryption/properties/key_ref`.
+/// `spec/v1/artifacts/schemas/blob.schema.json#/$defs/encrypted_attachment/properties/key_ref`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EncryptedAttachmentKeyAlgorithm {
