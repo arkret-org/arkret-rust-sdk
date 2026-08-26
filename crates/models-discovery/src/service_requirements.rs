@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 
 use arkret_wire::{
     DeviceId, DidCoreId, ErrorCode, OperationId, PROTOCOL_VERSION, RealmId, Result, ServiceKind,
-    WireError,
+    ServiceOperationId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -198,11 +198,11 @@ impl ServiceRequirements {
             // Cross-check the service-kind capability matrix (T3-10):
             // refuse a description that advertises operations forbidden
             // for its declared `service_kind`.
-            for op in &description.supported_operations {
-                if !service_kind.permits_operation(op) {
+            for binding in &description.operation_bindings {
+                if !service_kind.permits_operation(binding.operation_id.as_str()) {
                     return Err(WireError::Protocol(format!(
-                        "service_kind {} must not advertise operation {op}",
-                        service_kind
+                        "service_kind {} must not advertise operation {}",
+                        service_kind, binding.operation_id
                     )));
                 }
             }
@@ -233,10 +233,12 @@ impl ServiceRequirements {
         }
 
         for operation in &self.operations {
-            if !description
-                .supported_operations
-                .iter()
-                .any(|actual| actual == operation)
+            if !ServiceOperationId::from_wire(operation).is_some_and(|required| {
+                description
+                    .operation_bindings
+                    .iter()
+                    .any(|actual| actual.operation_id == required)
+            })
             {
                 return Err(WireError::Protocol(format!(
                     "service does not support operation {operation}"
@@ -250,13 +252,13 @@ impl ServiceRequirements {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{DidCoreId, DidFullId, ProfileId, TrustDomainId};
+    use arkret_wire::{DidCoreId, DidFullId, ProfileId, ServiceOperationId, TrustDomainId};
 
     use super::*;
     use crate::service_description::{
         AuthMetadata, ClaimedProfileEntry, DirectoryAcceptPolicyKind, DirectoryIngestMode,
-        DirectoryResourceKind, EgressNetworkPolicy, PlaintextVisibility, RateLimitPolicy,
-        ServerLimits,
+        DirectoryResourceKind, EgressNetworkPolicy, OperationBinding, PlaintextVisibility,
+        RateLimitPolicy, ServerLimits,
     };
 
     #[test]
@@ -275,7 +277,10 @@ mod tests {
             profile_bindings: Default::default(),
             supported_features: vec![],
             calendar_tzdb_versions: vec![],
-            supported_operations: vec!["ak.find.directory.read.search_realms".to_owned()],
+            operation_bindings: vec![OperationBinding::current_http_json(
+                ServiceOperationId::FindDirectoryReadSearchRealms,
+            )
+            .unwrap()],
             supported_bindings: vec![],
             auth_metadata: AuthMetadata::minimal("development"),
             limits: ServerLimits::default(),

@@ -148,7 +148,6 @@ pub fn direct_conversation_realm_create_payload(
     genesis_salt: GenesisSalt,
     trust_domain: TrustDomainId,
     notary: NotaryValue,
-    capability_action_registry_digest: Hash,
     _created_at: DateTime<Utc>,
 ) -> Result<RealmCreatePayload> {
     let genesis = RealmGenesis::event_derived(
@@ -164,7 +163,6 @@ pub fn direct_conversation_realm_create_payload(
         SecurityClass::Standard,
         EncryptionProfile::MlsRfc9420,
         notary,
-        capability_action_registry_digest,
     )?;
     Ok(RealmCreatePayload::new(genesis))
 }
@@ -437,7 +435,6 @@ mod tests {
             GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap(),
             trust_domain(),
             notary(&creator),
-            Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
             DateTime::parse_from_rfc3339("2026-07-21T00:00:00.000Z")
                 .unwrap()
                 .with_timezone(&Utc),

@@ -185,7 +185,6 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
         single_signer_notary("did:webvh:z6mkfixture:alice.example"),
-        Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
     );
     assert!(realm.preview_policy_id.is_none());
     assert_eq!(realm.digest_algorithm, canonical::DigestSuite::Sha256);
@@ -293,7 +292,6 @@ fn realm_anchor_fields_include_required_notary() {
         TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
         single_signer_notary("did:webvh:z6mkfixture:alice.example"),
-        Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
     );
     let json = serde_json::to_value(&realm).unwrap();
     let obj = json.as_object().unwrap();
@@ -327,7 +325,6 @@ fn realm_notary_descriptor_must_be_valid() {
             frozen_public_key_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             ..signer("did:webvh:z6mkfixture:notary.example")
         }),
-        Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
     );
 
     let err = realm.validate_kind_invariants().unwrap_err();
@@ -343,7 +340,6 @@ fn realm_digest_algorithm_defaults_and_rejects_unknown_values() {
         TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
         single_signer_notary("did:webvh:z6mkfixture:alice.example"),
-        Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
     );
     let mut json = serde_json::to_value(&realm).unwrap();
     let obj = json.as_object_mut().unwrap();
@@ -523,7 +519,6 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
         TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
         single_signer_notary("did:webvh:z6mkfixture:notary.example"),
-        Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
     );
     realm.policy_id =
         Some(PolicyId::new("ak:policy:01904100-0000-7000-8000-0000000000f3").unwrap());

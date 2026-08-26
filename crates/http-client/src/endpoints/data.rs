@@ -88,6 +88,19 @@ pub fn blob_resumable_upload_base_url(description: &ServiceDescribe) -> Option<U
     {
         return None;
     }
+    let local_tus = arkret_models_discovery::OperationBinding {
+        operation_id: arkret_wire::ServiceOperationId::SelfBlobUploadCreate,
+        binding_kind: arkret_wire::BindingKind::Tus,
+        preference: 0,
+        request_schema_ref: None,
+        response_schema_ref: None,
+        error_schema_ref: None,
+        success_shape_kind: arkret_models_discovery::OperationSuccessShapeKind::MetadataHeaders,
+    };
+    description.select_operation_binding(
+        arkret_wire::ServiceOperationId::SelfBlobUploadCreate,
+        &[local_tus],
+    )?;
     let binding = description
         .supported_bindings
         .iter()
@@ -686,7 +699,12 @@ mod tests {
             },
             "trust_domain": "ak:trust_domain:server.local",
             "supported_profiles": [],
-            "supported_operations": [],
+            "operation_bindings": [{
+                "operation_id": "ak.self.blob.upload.create",
+                "binding_kind": "tus",
+                "preference": 10,
+                "success_shape_kind": "metadata_headers"
+            }],
             "supported_bindings": [{
                 "kind": "tus",
                 "base_url": "https://server.local/uploads/",

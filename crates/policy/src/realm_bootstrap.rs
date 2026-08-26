@@ -12,14 +12,14 @@
 
 use arkret_event_draft::{EventIntent, EventPayloadExt, EventSpec, TypedEventDraft};
 use arkret_models_collaboration::events_payloads::{
-    RealmAuthorityBasisUpdatePayload, RealmAuthorityResetPayload, RealmCreatePayload,
-    RealmOwnerTransferPayload, RealmProfile, RealmPurpose,
+    RealmAuthorityResetPayload, RealmCreatePayload, RealmOwnerTransferPayload, RealmProfile,
+    RealmPurpose,
 };
 use arkret_models_collaboration::governance::membership_invite::{
     MembershipPayload, MembershipPayloadState,
 };
 use arkret_wire::{
-    AuthorizationRef, CellRef, DidCoreId, Event, EventId, EventKind, Hash, PredicateOp,
+    AuthorizationRef, CellRef, DidCoreId, Event, EventId, EventKind, PredicateOp,
     REALM_AUTHORITY_ROOT_CELL, RealmId, Result, ScopeRef, WireError, event_spec,
 };
 use chrono::{DateTime, Utc};
@@ -52,22 +52,15 @@ pub struct RealmAuthorityRootValue {
     pub controller_id: DidCoreId,
     pub controller_epoch: u64,
     pub authority_generation: u64,
-    pub capability_action_registry_digest: Hash,
 }
 
 impl RealmAuthorityRootValue {
     /// Derive the genesis value from an accepted `ak.realm.create` payload.
-    ///
-    /// Both inputs come from the signed payload: the receiver copies the
-    /// author's registry digest verbatim instead of substituting its own
-    /// embedded snapshot, because the digest is a `state_root` leaf input and
-    /// inferring it would fork genesis state across software versions.
-    pub fn genesis(controller_id: DidCoreId, capability_action_registry_digest: Hash) -> Self {
+    pub fn genesis(controller_id: DidCoreId) -> Self {
         Self {
             controller_id,
             controller_epoch: 0,
             authority_generation: 0,
-            capability_action_registry_digest,
         }
     }
 
@@ -152,30 +145,6 @@ pub fn build_realm_authority_reset_intent(
         ));
     }
     build_realm_authority_intent::<event_spec::RealmAuthorityReset>(
-        scope_ref, actor_id, created_at, payload,
-    )
-}
-
-/// Build an unsigned `ak.realm.authority.basis_update` Event after verifying
-/// that this SDK can resolve the requested registry snapshot.
-pub fn build_realm_authority_basis_update_intent(
-    scope_ref: ScopeRef,
-    actor_id: DidCoreId,
-    created_at: DateTime<Utc>,
-    payload: RealmAuthorityBasisUpdatePayload,
-) -> Result<EventIntent> {
-    if scope_ref.realm_id() != &payload.realm_id
-        || !payload
-            .expected_state_digest
-            .as_str()
-            .starts_with("sha256:")
-    {
-        return Err(WireError::Protocol(
-            "schema_violation: invalid Realm authority basis update payload".to_owned(),
-        ));
-    }
-    crate::require_registry_basis(Some(&payload.patch.capability_action_registry_digest))?;
-    build_realm_authority_intent::<event_spec::RealmAuthorityBasisUpdate>(
         scope_ref, actor_id, created_at, payload,
     )
 }
@@ -418,18 +387,12 @@ pub fn validate_realm_bootstrap_unit(
 
 /// Derive and check the registered authority-root value of a create payload.
 fn genesis_authority_root(
-    object: &serde_json::Map<String, serde_json::Value>,
+    _object: &serde_json::Map<String, serde_json::Value>,
     actor_id: &str,
 ) -> std::result::Result<RealmAuthorityRootValue, RealmBootstrapValidationError> {
-    let digest = object
-        .get("capability_action_registry_digest")
-        .and_then(serde_json::Value::as_str)
-        .ok_or(RealmBootstrapValidationError::RealmAuthorityRootMissing)?;
-    let digest = Hash::new(digest.to_owned())
-        .map_err(|_| RealmBootstrapValidationError::RealmAuthorityRootConflict)?;
     let controller_id = DidCoreId::new(actor_id)
         .map_err(|_| RealmBootstrapValidationError::RealmAuthorityRootConflict)?;
-    Ok(RealmAuthorityRootValue::genesis(controller_id, digest))
+    Ok(RealmAuthorityRootValue::genesis(controller_id))
 }
 
 #[cfg(test)]
@@ -441,7 +404,6 @@ mod tests {
 
     const REALM: &str = "ak:realm:AS_LTHQu5UtXbAIUOgUFzEY5nFJzI1cgPvxODB_NnHSR";
     const ACTOR: &str = "ak:did_core:webvh:z6mkfixture";
-    const DIGEST: &str = "sha256:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a";
 
     fn created_at() -> DateTime<Utc> {
         DateTime::parse_from_rfc3339("2026-05-26T10:30:00.000Z")
@@ -488,8 +450,7 @@ mod tests {
                         "frozen_public_key_b64u": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
                         "frozen_public_key_digest": "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"
                     }
-                },
-                "capability_action_registry_digest": DIGEST
+                }
             }}),
         )
     }
@@ -543,13 +504,6 @@ mod tests {
         let result = validate_realm_bootstrap_unit(&events);
         let bootstrap = result.expect("bootstrap accepted");
         assert!(bootstrap.authority_root.is_genesis_for(ACTOR));
-        assert_eq!(
-            bootstrap
-                .authority_root
-                .capability_action_registry_digest
-                .as_str(),
-            DIGEST
-        );
     }
 
     #[test]
@@ -561,39 +515,6 @@ mod tests {
         assert_eq!(
             validate_realm_bootstrap_unit(&events),
             Err(RealmBootstrapValidationError::PlaneCrossWrite)
-        );
-    }
-
-    #[test]
-    fn rejects_create_without_registry_basis() {
-        let mut create = create();
-        create
-            .payload
-            .get_mut("object")
-            .and_then(serde_json::Value::as_object_mut)
-            .unwrap()
-            .remove("capability_action_registry_digest");
-        assert_eq!(
-            validate_realm_bootstrap_unit(&[create]),
-            Err(RealmBootstrapValidationError::RealmAuthorityRootMissing)
-        );
-    }
-
-    #[test]
-    fn rejects_create_with_malformed_registry_basis() {
-        let mut create = create();
-        create
-            .payload
-            .get_mut("object")
-            .and_then(serde_json::Value::as_object_mut)
-            .unwrap()
-            .insert(
-                "capability_action_registry_digest".to_owned(),
-                json!("not-a-digest"),
-            );
-        assert_eq!(
-            validate_realm_bootstrap_unit(&[create]),
-            Err(RealmBootstrapValidationError::RealmAuthorityRootConflict)
         );
     }
 
@@ -640,10 +561,7 @@ mod tests {
 
     #[test]
     fn genesis_root_value_is_controller_epoch_and_generation_zero() {
-        let value = RealmAuthorityRootValue::genesis(
-            DidCoreId::new(ACTOR).unwrap(),
-            Hash::new(DIGEST.to_owned()).unwrap(),
-        );
+        let value = RealmAuthorityRootValue::genesis(DidCoreId::new(ACTOR).unwrap());
         assert_eq!(value.controller_epoch, 0);
         assert_eq!(value.authority_generation, 0);
         assert!(!value.is_genesis_for("did:web:other.example"));
@@ -683,23 +601,6 @@ mod tests {
             build_realm_authority_reset_intent(scope.clone(), actor.clone(), created_at(), reset)
                 .unwrap();
         assert_eq!(intent.kind(), &EventKind::RealmAuthorityReset);
-        assert_eq!(
-            intent.authorization_ref().map(AuthorizationRef::as_str),
-            Some(REALM_AUTHORITY_ROOT_CELL)
-        );
-
-        let basis: RealmAuthorityBasisUpdatePayload = serde_json::from_value(json!({
-            "realm_id": REALM,
-            "expected_state_digest": format!("sha256:{}", "3".repeat(64)),
-            "patch": {
-                "capability_action_registry_digest": crate::current_capability_action_registry_digest()
-                    .unwrap()
-            }
-        }))
-        .unwrap();
-        let intent =
-            build_realm_authority_basis_update_intent(scope, actor, created_at(), basis).unwrap();
-        assert_eq!(intent.kind(), &EventKind::RealmAuthorityBasisUpdate);
         assert_eq!(
             intent.authorization_ref().map(AuthorizationRef::as_str),
             Some(REALM_AUTHORITY_ROOT_CELL)

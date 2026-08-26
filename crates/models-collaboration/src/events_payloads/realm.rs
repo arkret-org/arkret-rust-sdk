@@ -70,23 +70,6 @@ impl RealmAuthorityResetPayload {
     }
 }
 
-/// Patch carried by `ak.realm.authority.basis_update`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmAuthorityBasisUpdatePatch {
-    pub capability_action_registry_digest: Hash,
-}
-
-/// Counterpart for
-/// `event-payload.schema.json#/$defs/realm_authority_basis_update_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmAuthorityBasisUpdatePayload {
-    pub realm_id: RealmId,
-    pub expected_state_digest: Hash,
-    pub patch: RealmAuthorityBasisUpdatePatch,
-}
-
 /// `rebind_authorization` enum for [`RealmDeliveryBindingPolicyPayload`]
 /// (`event-payload.schema.json#/$defs/realm_delivery_binding_policy_payload`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -646,7 +629,6 @@ pub struct RealmGenesis {
     pub security_class: SecurityClass,
     pub encryption_profile: EncryptionProfile,
     pub notary: NotaryValue,
-    pub capability_action_registry_digest: Hash,
 }
 
 impl RealmGenesis {
@@ -661,7 +643,6 @@ impl RealmGenesis {
         security_class: SecurityClass,
         encryption_profile: EncryptionProfile,
         notary: NotaryValue,
-        capability_action_registry_digest: Hash,
     ) -> Result<Self> {
         let value = Self {
             schema: SchemaId::REALM_GENESIS_V1.to_owned(),
@@ -676,7 +657,6 @@ impl RealmGenesis {
             security_class,
             encryption_profile,
             notary,
-            capability_action_registry_digest,
         };
         value.validate()?;
         Ok(value)
@@ -694,7 +674,6 @@ impl RealmGenesis {
         security_class: SecurityClass,
         encryption_profile: EncryptionProfile,
         notary: NotaryValue,
-        capability_action_registry_digest: Hash,
     ) -> Result<Self> {
         let value = Self {
             schema: SchemaId::REALM_GENESIS_V1.to_owned(),
@@ -709,7 +688,6 @@ impl RealmGenesis {
             security_class,
             encryption_profile,
             notary,
-            capability_action_registry_digest,
         };
         value.validate()?;
         Ok(value)
@@ -726,7 +704,6 @@ impl RealmGenesis {
         security_class: SecurityClass,
         encryption_profile: EncryptionProfile,
         notary: NotaryValue,
-        capability_action_registry_digest: Hash,
     ) -> Result<Self> {
         let value = Self {
             schema: SchemaId::REALM_GENESIS_V1.to_owned(),
@@ -741,7 +718,6 @@ impl RealmGenesis {
             security_class,
             encryption_profile,
             notary,
-            capability_action_registry_digest,
         };
         value.validate()?;
         Ok(value)
@@ -758,7 +734,6 @@ impl RealmGenesis {
         security_class: SecurityClass,
         encryption_profile: EncryptionProfile,
         notary: NotaryValue,
-        capability_action_registry_digest: Hash,
     ) -> Result<Self> {
         let value = Self {
             schema: SchemaId::REALM_GENESIS_V1.to_owned(),
@@ -773,7 +748,6 @@ impl RealmGenesis {
             security_class,
             encryption_profile,
             notary,
-            capability_action_registry_digest,
         };
         value.validate()?;
         Ok(value)

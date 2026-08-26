@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-26.2;
-//! sha256=2fe9ce8e57ece8a2f844a00a41a4fd45162049ec88f24dce36d0bf13b00f8321 Entries: schema_ids=200,
-//! active=200
+//! Input: registry/schema-registry.json; version=2026-08-27.2;
+//! sha256=611eccce74428b698fec974086f781447eb2086c954ed3b0d78bc44c089aab02 Entries: schema_ids=199,
+//! active=199
 
 use serde::{Deserialize, Serialize};
 
@@ -100,7 +100,6 @@ pub enum SchemaId {
     EventsSubscribeFrameV1,
     ExtensionManifestV1,
     FileTransferV1,
-    GovernanceRegistrySnapshotV1,
     GrantConstraintV1,
     HandleClaimV1,
     HighRiskAuthorityProofV1,
@@ -304,7 +303,6 @@ impl SchemaId {
         Self::EventsSubscribeFrameV1,
         Self::ExtensionManifestV1,
         Self::FileTransferV1,
-        Self::GovernanceRegistrySnapshotV1,
         Self::GrantConstraintV1,
         Self::HandleClaimV1,
         Self::HighRiskAuthorityProofV1,
@@ -508,7 +506,6 @@ impl SchemaId {
         Self::EventsSubscribeFrameV1,
         Self::ExtensionManifestV1,
         Self::FileTransferV1,
-        Self::GovernanceRegistrySnapshotV1,
         Self::GrantConstraintV1,
         Self::HandleClaimV1,
         Self::HighRiskAuthorityProofV1,
@@ -894,11 +891,6 @@ impl SchemaId {
     /// Encrypted account-data plaintext shape and to-device key message content for
     /// principal-private cross-device file transfer.
     pub const FILE_TRANSFER_V1: &'static str = "ak.schema.file_transfer.v1";
-    /// Small content-addressed governance registry manifest plus a deterministic transitive
-    /// event-envelope/event-payload local-schema manifest; each named artifact is fetched
-    /// separately for historical apply_seal replay.
-    pub const GOVERNANCE_REGISTRY_SNAPSHOT_V1: &'static str =
-        "ak.schema.governance_registry_snapshot.v1";
     pub const GRANT_CONSTRAINT_V1: &'static str = "ak.schema.grant_constraint.v1";
     pub const HANDLE_CLAIM_V1: &'static str = "ak.schema.handle_claim.v1";
     /// Shared high-risk authority proof family (principal_signing / device_quorum /
@@ -1091,9 +1083,9 @@ impl SchemaId {
     /// Closed RecoveryTransaction and SecurityRotationTransaction resource.
     pub const SECURITY_TRANSACTION_V1: &'static str = "ak.schema.security_transaction.v1";
     /// Canonical ServiceDescribe response for ak.server.read.describe and per-surface describe
-    /// operations: base service metadata plus claim-level partitions (supported_operations /
-    /// implemented_features / claimed_profiles / verified_profiles / experimental_features /
-    /// interop_surfaces) and the registered directory_service overlay fields used by
+    /// operations: base service metadata plus exact operation_bindings and claim-level partitions
+    /// (implemented_features / claimed_profiles / verified_profiles / experimental_features /
+    /// interop_surfaces), with the registered directory_service overlay fields used by
     /// ak.find.directory.read.describe. Enforces development_mode=true =&gt; verified_profiles=[].
     /// interop_surfaces is limited to external interop surfaces. See service-surface.md §3.0 and
     /// discovery-directory.md §8.9.
@@ -1286,7 +1278,6 @@ impl SchemaId {
             Self::EventsSubscribeFrameV1 => Self::EVENTS_SUBSCRIBE_FRAME_V1,
             Self::ExtensionManifestV1 => Self::EXTENSION_MANIFEST_V1,
             Self::FileTransferV1 => Self::FILE_TRANSFER_V1,
-            Self::GovernanceRegistrySnapshotV1 => Self::GOVERNANCE_REGISTRY_SNAPSHOT_V1,
             Self::GrantConstraintV1 => Self::GRANT_CONSTRAINT_V1,
             Self::HandleClaimV1 => Self::HANDLE_CLAIM_V1,
             Self::HighRiskAuthorityProofV1 => Self::HIGH_RISK_AUTHORITY_PROOF_V1,
@@ -1527,9 +1518,6 @@ impl SchemaId {
             Self::EventsSubscribeFrameV1 => "schemas/events-subscribe-frame.schema.json",
             Self::ExtensionManifestV1 => "schemas/extension-manifest.schema.json",
             Self::FileTransferV1 => "schemas/file-transfer.schema.json",
-            Self::GovernanceRegistrySnapshotV1 => {
-                "schemas/governance-registry-snapshot.schema.json"
-            }
             Self::GrantConstraintV1 => "schemas/grant-constraint.schema.json",
             Self::HandleClaimV1 => "schemas/handle-claim.schema.json",
             Self::HighRiskAuthorityProofV1 => "schemas/high-risk-authority-proof.schema.json",
@@ -1776,7 +1764,6 @@ impl SchemaId {
             Self::EVENTS_SUBSCRIBE_FRAME_V1 => Some(Self::EventsSubscribeFrameV1),
             Self::EXTENSION_MANIFEST_V1 => Some(Self::ExtensionManifestV1),
             Self::FILE_TRANSFER_V1 => Some(Self::FileTransferV1),
-            Self::GOVERNANCE_REGISTRY_SNAPSHOT_V1 => Some(Self::GovernanceRegistrySnapshotV1),
             Self::GRANT_CONSTRAINT_V1 => Some(Self::GrantConstraintV1),
             Self::HANDLE_CLAIM_V1 => Some(Self::HandleClaimV1),
             Self::HIGH_RISK_AUTHORITY_PROOF_V1 => Some(Self::HighRiskAuthorityProofV1),

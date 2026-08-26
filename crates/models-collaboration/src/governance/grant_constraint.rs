@@ -685,8 +685,6 @@ pub struct CapabilityGrant {
     pub subject_principal_server_id: Option<DidCoreId>,
     pub actions: Vec<String>,
     pub resources: Vec<WireResourceSelector>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub capability_action_registry_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub constraints: Vec<GrantConstraint>,
     /// The authority this grant was issued under (`capabilities.md` §10).
@@ -805,7 +803,6 @@ mod tests {
             ),
             actions: vec!["ak.event.read".to_owned()],
             resources: vec![serde_json::from_value(json!({"kind": "realm"})).unwrap()],
-            capability_action_registry_digest: None,
             constraints: vec![
                 serde_json::from_value(json!({
                     "constraint_kind": "temporal",

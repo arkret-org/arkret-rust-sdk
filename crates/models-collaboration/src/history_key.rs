@@ -624,8 +624,6 @@ pub enum HistoryGovernanceTraversalIntent {
         request_digest: Hash,
         requested_ranges: Vec<EpochRange>,
         authorization_incarnation: AuthorizationIncarnation,
-        registry_snapshot_digest: Hash,
-        traversal_admission_registry_digest: Hash,
         retention: RequestExpiringRetention,
     },
     OrganizationRecoveryArchive {
@@ -638,38 +636,14 @@ pub enum HistoryGovernanceTraversalIntent {
         requested_ranges: [EpochRange; 1],
         archive_authorization_tuple: ArchiveAuthorizationTuple,
         container_event_ref: EventId,
-        registry_snapshot_digest: Hash,
-        traversal_admission_registry_digest: Hash,
         retention: ArchiveLifetimeRetention,
     },
 }
 
 impl HistoryGovernanceTraversalIntent {
-    /// Registry digest that pins the manifest T0 traversal-admission rules the
-    /// service used. It is not caller-supplied policy: verifiers MUST compare it
-    /// against the digest recomputed from the normative registry artifact.
-    pub fn traversal_admission_registry_digest(&self) -> &Hash {
-        match self {
-            Self::MemberHistoryDelivery {
-                traversal_admission_registry_digest,
-                ..
-            }
-            | Self::OrganizationRecoveryArchive {
-                traversal_admission_registry_digest,
-                ..
-            } => traversal_admission_registry_digest,
-        }
-    }
-
     pub fn validate(&self) -> Result<()> {
-        let (
-            effective_scope,
-            mls_group_id,
-            history_basis,
-            current_basis,
-            target_basis,
-            registry_digest,
-        ) = match self {
+        let (effective_scope, mls_group_id, history_basis, current_basis, target_basis) = match self
+        {
             Self::MemberHistoryDelivery {
                 effective_scope,
                 mls_group_id,
@@ -677,7 +651,6 @@ impl HistoryGovernanceTraversalIntent {
                 trusted_current_basis,
                 target_basis,
                 requested_ranges,
-                registry_snapshot_digest,
                 ..
             } => {
                 validate_canonical_ranges(requested_ranges, 64)?;
@@ -687,7 +660,6 @@ impl HistoryGovernanceTraversalIntent {
                     trusted_history_base_basis,
                     trusted_current_basis,
                     target_basis,
-                    registry_snapshot_digest,
                 )
             }
             Self::OrganizationRecoveryArchive {
@@ -698,7 +670,6 @@ impl HistoryGovernanceTraversalIntent {
                 target_basis,
                 requested_ranges,
                 archive_authorization_tuple,
-                registry_snapshot_digest,
                 ..
             } => {
                 requested_ranges[0].validate()?;
@@ -718,7 +689,6 @@ impl HistoryGovernanceTraversalIntent {
                     trusted_history_base_basis,
                     trusted_current_basis,
                     target_basis,
-                    registry_snapshot_digest,
                 )
             }
         };
@@ -735,7 +705,7 @@ impl HistoryGovernanceTraversalIntent {
         history_basis.validate_protocol_bounds()?;
         current_basis.validate_protocol_bounds()?;
         target_basis.validate_protocol_bounds()?;
-        require_sha256(registry_digest, "registry_snapshot_digest")
+        Ok(())
     }
 
     pub fn canonical_digest(&self) -> Result<Hash> {
@@ -1861,34 +1831,6 @@ impl HistoryManifestAdmission {
     }
 }
 
-pub fn history_manifest_t0_registry_digest(registry: &serde_json::Value) -> Result<Hash> {
-    let manifest = registry.get("manifest_t0_registry").ok_or_else(|| {
-        WireError::Protocol("history release registry lacks manifest_t0_registry".to_owned())
-    })?;
-    if !manifest.is_object() {
-        return Err(WireError::Protocol(
-            "history release manifest_t0_registry must be an object".to_owned(),
-        ));
-    }
-    framed_sha256("ak.history-manifest-t0-registry-v1", manifest)
-}
-
-pub fn history_release_predicate_registry_digest(registry: &serde_json::Value) -> Result<Hash> {
-    let serde_json::Value::Object(mut object) = registry.clone() else {
-        return Err(WireError::Protocol(
-            "history release predicate registry must be an object".to_owned(),
-        ));
-    };
-    if object.remove("wire_registry_binding").is_none() {
-        return Err(WireError::Protocol(
-            "history release predicate registry lacks wire_registry_binding".to_owned(),
-        ));
-    }
-    Ok(Hash::new(arkret_wire::canonical::canonical_sha256(
-        &object,
-    )?)?)
-}
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RealmCurrentGateProjectionKind {
@@ -2296,7 +2238,6 @@ pub enum HistoryReleaseVerifierProfile {
 #[serde(deny_unknown_fields)]
 pub struct HistoryReleaseAttestation {
     pub kind: HistoryReleaseAttestationKind,
-    pub predicate_registry_digest: Hash,
     pub source_record_digest: Hash,
     pub response_id: HistoryResponseId,
     pub request_digest: Hash,
@@ -2326,7 +2267,6 @@ pub struct HistoryReleaseAttestation {
 
 impl HistoryReleaseAttestation {
     pub fn validate(&self) -> Result<()> {
-        require_sha256(&self.predicate_registry_digest, "predicate_registry_digest")?;
         validate_sender_domain(&self.recipient_sender_domain)?;
         validate_sender_domain(&self.source_sender_domain)?;
         self.released_range.validate()?;

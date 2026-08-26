@@ -11,8 +11,8 @@ use arkret_models_collaboration::events_payloads::{
 };
 use arkret_models_identity::ResolutionCommitment;
 use arkret_wire::{
-    CellRef, DidCoreId, DidFullId, EncryptionProfile, Event, EventKind, EventRef, GenesisSalt,
-    Hash, Hlc, NotaryValue, PcrGenesisUnit, ProfileId, Result, SchemaId, ScopeRef, SecurityClass,
+    CellRef, DidCoreId, DidFullId, EncryptionProfile, Event, EventKind, EventRef, GenesisSalt, Hlc,
+    NotaryValue, PcrGenesisUnit, ProfileId, Result, SchemaId, ScopeRef, SecurityClass,
     TrustDomainId, WireError, composite_subject, event_spec, project_full_id_to_core_id,
     proof_kind,
 };
@@ -39,9 +39,6 @@ pub struct SelfPrincipalPcrCreateInput {
     /// Initial owner-published DID resolution state committed by PCR genesis.
     pub initial_resolution: ResolutionCommitment,
     pub founding_device_descriptor: FoundingDeviceDescriptor,
-    /// Genesis capability-action registry basis copied into the Realm's
-    /// authority-root cell (`models/realm-and-space.md` section 2.5).
-    pub capability_action_registry_digest: Hash,
     pub created_at: DateTime<Utc>,
     pub hlc: Hlc,
 }
@@ -87,7 +84,6 @@ pub fn build_self_principal_pcr_create(
         SecurityClass::HighAssurance,
         EncryptionProfile::MlsRfc9420,
         input.notary,
-        input.capability_action_registry_digest.clone(),
     )?;
 
     let payload = RealmCreatePayload::new(genesis);

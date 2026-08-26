@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-26.1;
-//! sha256=d211a8306a7b0f609cfd78b142dcd3f2871581997e21dfa75d59c003ea5c50ed
+//! Input: registry/error-code-registry.json; version=2026-08-27.2;
+//! sha256=a4acbd8c1192d1883897ac66d2acf06487c78dd8a5f793334d50fcc6cd40b313
 //! Entries: reason_codes=471
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -87,7 +87,6 @@ pub enum ReasonCode {
     CallStateTerminal,
     CallStateTransitionInvalid,
     CallSummaryInvalid,
-    CapabilityRegistryBasisUnavailable,
     CardinalityViolation,
     CausalRefsTooLarge,
     CborBoundsInvalid,
@@ -459,6 +458,7 @@ pub enum ReasonCode {
     UnsupportedEventKind,
     UnsupportedFeature,
     UnsupportedHpkeSuite,
+    UnsupportedOperationBinding,
     UnsupportedProfile,
     UnsupportedProtocolVersion,
     UnsupportedSignatureAlg,
@@ -590,8 +590,6 @@ impl ReasonCode {
     pub const CALL_STATE_TERMINAL: &'static str = "call_state_terminal";
     pub const CALL_STATE_TRANSITION_INVALID: &'static str = "call_state_transition_invalid";
     pub const CALL_SUMMARY_INVALID: &'static str = "call_summary_invalid";
-    pub const CAPABILITY_REGISTRY_BASIS_UNAVAILABLE: &'static str =
-        "capability_registry_basis_unavailable";
     pub const CARDINALITY_VIOLATION: &'static str = "cardinality_violation";
     pub const CAUSAL_REFS_TOO_LARGE: &'static str = "causal_refs_too_large";
     pub const CBOR_BOUNDS_INVALID: &'static str = "cbor_bounds_invalid";
@@ -1031,6 +1029,7 @@ impl ReasonCode {
     pub const UNSUPPORTED_EVENT_KIND: &'static str = "unsupported_event_kind";
     pub const UNSUPPORTED_FEATURE: &'static str = "unsupported_feature";
     pub const UNSUPPORTED_HPKE_SUITE: &'static str = "unsupported_hpke_suite";
+    pub const UNSUPPORTED_OPERATION_BINDING: &'static str = "unsupported_operation_binding";
     pub const UNSUPPORTED_PROFILE: &'static str = "unsupported_profile";
     pub const UNSUPPORTED_PROTOCOL_VERSION: &'static str = "unsupported_protocol_version";
     pub const UNSUPPORTED_SIGNATURE_ALG: &'static str = "unsupported_signature_alg";
@@ -1157,7 +1156,6 @@ impl ReasonCode {
             Self::CallStateTerminal => Self::CALL_STATE_TERMINAL,
             Self::CallStateTransitionInvalid => Self::CALL_STATE_TRANSITION_INVALID,
             Self::CallSummaryInvalid => Self::CALL_SUMMARY_INVALID,
-            Self::CapabilityRegistryBasisUnavailable => Self::CAPABILITY_REGISTRY_BASIS_UNAVAILABLE,
             Self::CardinalityViolation => Self::CARDINALITY_VIOLATION,
             Self::CausalRefsTooLarge => Self::CAUSAL_REFS_TOO_LARGE,
             Self::CborBoundsInvalid => Self::CBOR_BOUNDS_INVALID,
@@ -1589,6 +1587,7 @@ impl ReasonCode {
             Self::UnsupportedEventKind => Self::UNSUPPORTED_EVENT_KIND,
             Self::UnsupportedFeature => Self::UNSUPPORTED_FEATURE,
             Self::UnsupportedHpkeSuite => Self::UNSUPPORTED_HPKE_SUITE,
+            Self::UnsupportedOperationBinding => Self::UNSUPPORTED_OPERATION_BINDING,
             Self::UnsupportedProfile => Self::UNSUPPORTED_PROFILE,
             Self::UnsupportedProtocolVersion => Self::UNSUPPORTED_PROTOCOL_VERSION,
             Self::UnsupportedSignatureAlg => Self::UNSUPPORTED_SIGNATURE_ALG,
@@ -1720,7 +1719,6 @@ impl ReasonCode {
             Self::CALL_STATE_TERMINAL => Self::CallStateTerminal,
             Self::CALL_STATE_TRANSITION_INVALID => Self::CallStateTransitionInvalid,
             Self::CALL_SUMMARY_INVALID => Self::CallSummaryInvalid,
-            Self::CAPABILITY_REGISTRY_BASIS_UNAVAILABLE => Self::CapabilityRegistryBasisUnavailable,
             Self::CARDINALITY_VIOLATION => Self::CardinalityViolation,
             Self::CAUSAL_REFS_TOO_LARGE => Self::CausalRefsTooLarge,
             Self::CBOR_BOUNDS_INVALID => Self::CborBoundsInvalid,
@@ -2152,6 +2150,7 @@ impl ReasonCode {
             Self::UNSUPPORTED_EVENT_KIND => Self::UnsupportedEventKind,
             Self::UNSUPPORTED_FEATURE => Self::UnsupportedFeature,
             Self::UNSUPPORTED_HPKE_SUITE => Self::UnsupportedHpkeSuite,
+            Self::UNSUPPORTED_OPERATION_BINDING => Self::UnsupportedOperationBinding,
             Self::UNSUPPORTED_PROFILE => Self::UnsupportedProfile,
             Self::UNSUPPORTED_PROTOCOL_VERSION => Self::UnsupportedProtocolVersion,
             Self::UNSUPPORTED_SIGNATURE_ALG => Self::UnsupportedSignatureAlg,
@@ -2634,11 +2633,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::CALL_SUMMARY_INVALID,
         applies_to: &["event_envelope"],
         description: "A `ak.call.summary` event was rejected because its `final_state` is not a terminal call state, the referenced `call_id` has no terminal `ak.call.state` head, or a divergent summary already exists for the call (the summary cell is write-once). Reducer MUST `failed_precondition`. See zh/crypto-media/call-state.md §7.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CAPABILITY_REGISTRY_BASIS_UNAVAILABLE,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "An aggregate capability grant pins a capability-action registry digest that does not match the current embedded registry's JCS digest. Receiver MUST fail closed.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CARDINALITY_VIOLATION,
@@ -3896,12 +3890,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_AUTHORITY_CONTROLLER_MISMATCH,
         applies_to: &["event_envelope", "state_resolution", "auth_decision"],
-        description: "An Event presented ak:cell:ak.component.realm.authority_root.v1:null as its authorization_ref but the cell's current controller_id is not the authorizing principal, or the epoch / authority_generation / registry digest bound at issuance no longer matches the cell in that basis. Includes replaying a staged genesis-batch root proof outside its atomic bootstrap unit. See zh/authz/capabilities.md section 3.2.",
+        description: "An Event presented ak:cell:ak.component.realm.authority_root.v1:null as its authorization_ref but the cell's current controller_id is not the authorizing principal, or the epoch / authority_generation bound at issuance no longer matches the cell in that basis. Includes replaying a staged genesis-batch root proof outside its atomic bootstrap unit. See zh/authz/capabilities.md section 3.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_AUTHORITY_ROOT_CONFLICT,
         applies_to: &["event_envelope", "state_resolution"],
-        description: "The authority-root cell value was author-supplied or otherwise diverges from the registered value_projection: controller_id not equal to the create envelope actor_id, a non-zero controller_epoch or authority_generation at genesis, a capability_action_registry_digest differing from the signed create payload, or members beyond the closed four-field shape. Reducer MUST reject the whole unit. See zh/models/realm-and-space.md section 2.5.",
+        description: "The authority-root cell value was author-supplied or otherwise diverges from the registered value_projection: controller_id not equal to the create envelope actor_id, a non-zero controller_epoch or authority_generation at genesis, or members beyond the closed three-field shape. Reducer MUST reject the whole unit. See zh/models/realm-and-space.md section 2.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_AUTHORITY_ROOT_MISSING,
@@ -4511,6 +4505,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::UNSUPPORTED_HPKE_SUITE,
         applies_to: &["service_call", "auth_decision"],
         description: "HPKE suite id on an application-layer sealed surface (key-backup recipient_method=recovery_public_key, ak.secret.send, member-application encryption_envelope, file-transfer key_envelope) is not an active row in artifacts/registry/hpke-suite-registry.json (unknown, inactive, or reserved-but-not-activated). Receivers MUST fail closed rather than infer suite parameters from the AEAD name. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/identity/key-management.md §7.5.2.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::UNSUPPORTED_OPERATION_BINDING,
+        applies_to: &["feature_discovery", "service_call"],
+        description: "No exact operation/carrier/schema row is shared by the caller and the role-scoped ServiceDescribe. The failure is operation-local and is never an authorization or Realm-state decision. Dual-registered as a reason_code and a top-level service code (see codes[]).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::UNSUPPORTED_PROFILE,

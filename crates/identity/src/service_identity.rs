@@ -284,7 +284,6 @@ pub struct ResolvedService {
     pub service_id: DidCoreId,
     pub service_kind: ServiceKind,
     pub endpoint: CanonicalServiceUrl,
-    pub supported_operations: Vec<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub resolved_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -294,17 +293,10 @@ pub struct ResolvedService {
 
 impl ResolvedService {
     pub fn validate(&self) -> Result<()> {
-        if self
-            .supported_operations
-            .iter()
-            .any(|operation| !self.service_kind.permits_operation(operation))
-        {
-            return Err(IdentityError::Protocol(format!(
-                "resolved {} advertises an operation forbidden for {}",
-                self.service_id,
-                self.service_kind.as_str()
-            )));
-        }
+        // Endpoint resolution identifies only the service and route. Exact
+        // callable carriers are obtained from the role-scoped ServiceDescribe
+        // after reverse-binding verification; duplicating them here would
+        // create a second, stale capability advertisement.
         Ok(())
     }
 }
@@ -829,7 +821,6 @@ mod tests {
             service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture:auth.example").unwrap(),
             service_kind: ServiceKind::AuthServer,
             endpoint: CanonicalServiceUrl::new("https://auth.example/").unwrap(),
-            supported_operations: vec!["ak.self.account.register".to_owned()],
             resolved_at: "2026-08-18T00:00:00.000Z".parse().unwrap(),
             expires_at: None,
         };

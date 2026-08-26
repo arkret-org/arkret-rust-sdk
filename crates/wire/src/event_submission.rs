@@ -808,6 +808,25 @@ mod tests {
     }
 
     #[test]
+    fn signed_event_and_write_submission_reject_unknown_critical_members() {
+        let submission = EventInitialSubmission::online(online_event());
+
+        let mut unknown_request_member = serde_json::to_value(&submission).unwrap();
+        unknown_request_member["x_future_write_control"] = serde_json::json!(true);
+        assert!(
+            serde_json::from_value::<EventInitialSubmission>(unknown_request_member).is_err(),
+            "the current write request is closed"
+        );
+
+        let mut unknown_signed_member = serde_json::to_value(&submission).unwrap();
+        unknown_signed_member["event"]["x_future_signed_control"] = serde_json::json!(true);
+        assert!(
+            serde_json::from_value::<EventInitialSubmission>(unknown_signed_member).is_err(),
+            "the signed Event envelope is closed"
+        );
+    }
+
+    #[test]
     fn caller_proven_anchor_allows_its_control_proposal_ack_without_seal_basis() {
         let mut event = online_event();
         event.seal_ref = None;

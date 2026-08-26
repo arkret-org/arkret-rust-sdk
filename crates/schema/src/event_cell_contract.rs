@@ -3135,8 +3135,7 @@ mod tests {
                             "frozen_public_key_b64u": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
                             "frozen_public_key_digest": "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"
                         }
-                    },
-                    "capability_action_registry_digest": "sha256:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a"
+                    }
                 }
             },
             "proofs": []
@@ -3172,17 +3171,15 @@ mod tests {
                     arkret_wire::REALM_REDUCER_PROFILE_CELL,
                     set_op(json!("ak.reducer.core.v1")),
                 ),
-                // The authority root is a registry-derived composite: the
-                // controller and registry basis come from the signed payload,
-                // the epoch and generation are registry literals so no author
-                // can start a Realm at a rotated or reset authority.
+                // The authority root is reducer-derived. The controller comes
+                // from the signed envelope; epoch and generation are frozen
+                // genesis literals.
                 write(
                     arkret_wire::REALM_AUTHORITY_ROOT_CELL,
                     set_op(json!({
                         "controller_id": "ak:did_core:webvh:z6mkfixture",
                         "controller_epoch": 0,
-                        "authority_generation": 0,
-                        "capability_action_registry_digest": object["capability_action_registry_digest"].clone()
+                        "authority_generation": 0
                     })),
                 ),
             ]

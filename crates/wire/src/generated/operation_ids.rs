@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-26.1;
-//! sha256=4a7019893a7b8d232b7eaf839713c8603ca868a4464e6dd1f59d3d241eceb974 Entries: registered=260
+//! Input: registry/operation-registry.json; version=2026-08-27.2;
+//! sha256=ec297a5e4d5d0f39312cb04e6d22c846c384ccde750e37f63b63dae63e7b935f Entries: registered=260
 
 use serde::{Deserialize, Serialize};
 
@@ -2226,7 +2226,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: None,
+        response_schema_ref: Some("schemas/service-describe.schema.json"),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -2507,7 +2507,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: None,
+        response_schema_ref: Some("schemas/service-describe.schema.json"),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -3843,7 +3843,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/PeerEventsDescribeRequestBody",
         ),
-        response_schema_ref: None,
+        response_schema_ref: Some("schemas/service-describe.schema.json"),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -4618,7 +4618,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: None,
+        response_schema_ref: Some("schemas/service-describe.schema.json"),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -4730,7 +4730,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: None,
+        response_schema_ref: Some("schemas/service-describe.schema.json"),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -4762,7 +4762,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: None,
+        response_schema_ref: Some("schemas/account-subscribe-frame.schema.json"),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -6339,7 +6339,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/EventsDescribeRequestBody",
         ),
-        response_schema_ref: None,
+        response_schema_ref: Some("schemas/service-describe.schema.json"),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -6431,7 +6431,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: None,
+        response_schema_ref: Some("schemas/events-subscribe-frame.schema.json"),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -7902,7 +7902,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: None,
+        response_schema_ref: Some("schemas/signal-stream-frame.schema.json"),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -7991,7 +7991,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: None,
+        response_schema_ref: Some("schemas/service-describe.schema.json"),
         uncertain_outcome: None,
         durable_effect: None,
     },

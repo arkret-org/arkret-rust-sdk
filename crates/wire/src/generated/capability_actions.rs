@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-08-26.3;
-//! sha256=ed853ca3a70651a16c76ed1bcdea34405002067439319a1c64aad37c0d2c216a Entries: registered=169
+//! Input: registry/capability-action-registry.json; version=2026-08-27.2;
+//! sha256=bd0804c5e6786e8a6a9dfef1198be4f2e6ac5cd23e3c3550b64b0fb29fd9157e Entries: registered=168
 
 use serde::{Deserialize, Serialize};
 
@@ -108,7 +108,6 @@ pub enum CapabilityActionId {
     RealmAdmin,
     RealmAlias,
     RealmArchive,
-    RealmAuthorityBasisUpdate,
     RealmAuthorityReset,
     RealmCreate,
     RealmDestroy,
@@ -281,7 +280,6 @@ impl CapabilityActionId {
         Self::RealmAdmin,
         Self::RealmAlias,
         Self::RealmArchive,
-        Self::RealmAuthorityBasisUpdate,
         Self::RealmAuthorityReset,
         Self::RealmCreate,
         Self::RealmDestroy,
@@ -452,7 +450,6 @@ impl CapabilityActionId {
     pub const REALM_ADMIN: &'static str = "ak.realm.admin";
     pub const REALM_ALIAS: &'static str = "ak.realm.alias";
     pub const REALM_ARCHIVE: &'static str = "ak.realm.archive";
-    pub const REALM_AUTHORITY_BASIS_UPDATE: &'static str = "ak.realm.authority.basis_update";
     pub const REALM_AUTHORITY_RESET: &'static str = "ak.realm.authority.reset";
     pub const REALM_CREATE: &'static str = "ak.realm.create";
     pub const REALM_DESTROY: &'static str = "ak.realm.destroy";
@@ -633,7 +630,6 @@ impl CapabilityActionId {
             Self::RealmAdmin => Self::REALM_ADMIN,
             Self::RealmAlias => Self::REALM_ALIAS,
             Self::RealmArchive => Self::REALM_ARCHIVE,
-            Self::RealmAuthorityBasisUpdate => Self::REALM_AUTHORITY_BASIS_UPDATE,
             Self::RealmAuthorityReset => Self::REALM_AUTHORITY_RESET,
             Self::RealmCreate => Self::REALM_CREATE,
             Self::RealmDestroy => Self::REALM_DESTROY,
@@ -813,7 +809,6 @@ impl CapabilityActionId {
             Self::REALM_ADMIN => Some(Self::RealmAdmin),
             Self::REALM_ALIAS => Some(Self::RealmAlias),
             Self::REALM_ARCHIVE => Some(Self::RealmArchive),
-            Self::REALM_AUTHORITY_BASIS_UPDATE => Some(Self::RealmAuthorityBasisUpdate),
             Self::REALM_AUTHORITY_RESET => Some(Self::RealmAuthorityReset),
             Self::REALM_CREATE => Some(Self::RealmCreate),
             Self::REALM_DESTROY => Some(Self::RealmDestroy),

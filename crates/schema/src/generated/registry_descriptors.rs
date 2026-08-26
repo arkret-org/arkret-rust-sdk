@@ -2,13 +2,13 @@
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-08-26.2;
 //! sha256=0771935a8bdc7ae98608a839ce7e3e2c550c4db83eba41b1cf32f35760ee1a3a Input: registry/
-//! capability-action-registry.json; version=2026-08-26.3;
-//! sha256=ed853ca3a70651a16c76ed1bcdea34405002067439319a1c64aad37c0d2c216a Input: registry/
-//! schema-registry.json; version=2026-08-26.2;
-//! sha256=2fe9ce8e57ece8a2f844a00a41a4fd45162049ec88f24dce36d0bf13b00f8321 Input: registry/
+//! capability-action-registry.json; version=2026-08-27.2;
+//! sha256=bd0804c5e6786e8a6a9dfef1198be4f2e6ac5cd23e3c3550b64b0fb29fd9157e Input: registry/
+//! schema-registry.json; version=2026-08-27.2;
+//! sha256=611eccce74428b698fec974086f781447eb2086c954ed3b0d78bc44c089aab02 Input: registry/
 //! account-data-key-registry.json; version=2026-08-26.1;
 //! sha256=f4b1ac768650134230da437063fbcffc513e923058d7ef4e100837cd9804dc7d Entries: id_kinds=59,
-//! special_forms=14, actions=169, schemas=200, account_data_patterns=24
+//! special_forms=14, actions=168, schemas=199, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -1831,19 +1831,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::RealmAuthorityBasisUpdate,
-        category: "management",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        target_event_kinds: &[event_kind_str::REALM_AUTHORITY_BASIS_UPDATE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: true,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
         action: CapabilityActionId::RealmAuthorityReset,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
@@ -2181,6 +2168,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.relation.create",
             "ak.relation.tombstone",
             "ak.relation.update",
+            "ak.rsvp.set",
             "ak.schema.define",
             "ak.space.archive",
             "ak.space.create",
@@ -3312,10 +3300,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::FILE_TRANSFER_V1,
         file: "schemas/file-transfer.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::GOVERNANCE_REGISTRY_SNAPSHOT_V1,
-        file: "schemas/governance-registry-snapshot.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::GRANT_CONSTRAINT_V1,

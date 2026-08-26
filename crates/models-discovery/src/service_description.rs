@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::str::FromStr;
 
@@ -129,6 +129,161 @@ pub struct PrivacyDerivation {
     pub push_target_id: Option<PushTargetPrivacyDerivation>,
 }
 
+/// Closed success-carrier classes registered by the current Arkret v1
+/// operation catalog.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperationSuccessShapeKind {
+    BinaryStream,
+    EmptyResponse,
+    EventStream,
+    MetadataHeaders,
+    SchemaResource,
+    ServiceDescribe,
+    TypedResponse,
+}
+
+impl OperationSuccessShapeKind {
+    pub fn from_registry(value: &str) -> Option<Self> {
+        match value {
+            "binary_stream" => Some(Self::BinaryStream),
+            "empty_response" => Some(Self::EmptyResponse),
+            "event_stream" => Some(Self::EventStream),
+            "metadata_headers" => Some(Self::MetadataHeaders),
+            "schema_resource" => Some(Self::SchemaResource),
+            "service_describe" => Some(Self::ServiceDescribe),
+            "typed_response" => Some(Self::TypedResponse),
+            _ => None,
+        }
+    }
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::BinaryStream => "binary_stream",
+            Self::EmptyResponse => "empty_response",
+            Self::EventStream => "event_stream",
+            Self::MetadataHeaders => "metadata_headers",
+            Self::SchemaResource => "schema_resource",
+            Self::ServiceDescribe => "service_describe",
+            Self::TypedResponse => "typed_response",
+        }
+    }
+}
+
+/// One exact operation/carrier/schema combination advertised by a
+/// role-scoped [`ServiceDescribe`]. No field is a compatibility range.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OperationBinding {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    pub operation_id: ServiceOperationId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    pub binding_kind: BindingKind,
+    pub preference: u16,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_schema_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_schema_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_schema_ref: Option<String>,
+    pub success_shape_kind: OperationSuccessShapeKind,
+}
+
+impl OperationBinding {
+    pub fn current_http_json(operation_id: ServiceOperationId) -> Result<Self> {
+        let descriptor = operation_id.descriptor();
+        let success_shape_kind = OperationSuccessShapeKind::from_registry(
+            descriptor.success_shape_kind,
+        )
+        .ok_or_else(|| {
+            WireError::Protocol(format!(
+                "operation registry contains unsupported success_shape_kind={} ({})",
+                descriptor.success_shape_kind,
+                ErrorCode::SCHEMA_VIOLATION
+            ))
+        })?;
+        Ok(Self {
+            operation_id,
+            binding_kind: BindingKind::HttpJson,
+            preference: 100,
+            request_schema_ref: descriptor.request_schema_ref.map(str::to_owned),
+            response_schema_ref: descriptor.response_schema_ref.map(str::to_owned),
+            error_schema_ref: Some("schemas/http-error-envelope.schema.json".to_owned()),
+            success_shape_kind,
+        })
+    }
+
+    pub fn current_tus_blob_upload() -> Self {
+        Self {
+            operation_id: ServiceOperationId::SelfBlobUploadCreate,
+            binding_kind: BindingKind::Tus,
+            preference: 10,
+            request_schema_ref: None,
+            response_schema_ref: None,
+            error_schema_ref: None,
+            success_shape_kind: OperationSuccessShapeKind::MetadataHeaders,
+        }
+    }
+
+    pub fn current_websocket(operation_id: ServiceOperationId) -> Result<Self> {
+        let (request_schema_ref, response_schema_ref) = match operation_id {
+            ServiceOperationId::SelfAccountStreamSubscribe => (
+                "schemas/websocket-frame.schema.json#/$defs/open_account",
+                "schemas/account-subscribe-frame.schema.json",
+            ),
+            ServiceOperationId::SelfEventsStreamSubscribe => (
+                "schemas/websocket-frame.schema.json#/$defs/open_events",
+                "schemas/events-subscribe-frame.schema.json",
+            ),
+            ServiceOperationId::SelfSignalStreamSubscribe => (
+                "schemas/websocket-frame.schema.json#/$defs/open_signal",
+                "schemas/signal-stream-frame.schema.json",
+            ),
+            _ => {
+                return Err(WireError::Protocol(format!(
+                    "operation {operation_id} has no current-v1 WebSocket carrier ({})",
+                    ErrorCode::SCHEMA_VIOLATION
+                )));
+            }
+        };
+        Ok(Self {
+            operation_id,
+            binding_kind: BindingKind::Websocket,
+            preference: 10,
+            request_schema_ref: Some(request_schema_ref.to_owned()),
+            response_schema_ref: Some(response_schema_ref.to_owned()),
+            error_schema_ref: Some("schemas/websocket-frame.schema.json#/$defs/error".to_owned()),
+            success_shape_kind: OperationSuccessShapeKind::EventStream,
+        })
+    }
+
+    fn current_for_identity(&self) -> Result<Self> {
+        match self.binding_kind {
+            BindingKind::HttpJson => Self::current_http_json(self.operation_id),
+            BindingKind::Tus if self.operation_id == ServiceOperationId::SelfBlobUploadCreate => {
+                Ok(Self::current_tus_blob_upload())
+            }
+            BindingKind::Tus => Err(WireError::Protocol(format!(
+                "operation {} has no current-v1 TUS carrier ({})",
+                self.operation_id,
+                ErrorCode::SCHEMA_VIOLATION
+            ))),
+            BindingKind::Websocket => Self::current_websocket(self.operation_id),
+        }
+    }
+
+    fn identity_eq(&self, other: &Self) -> bool {
+        self.operation_id == other.operation_id
+            && self.binding_kind == other.binding_kind
+            && self.request_schema_ref == other.request_schema_ref
+            && self.response_schema_ref == other.response_schema_ref
+            && self.error_schema_ref == other.error_schema_ref
+            && self.success_shape_kind == other.success_shape_kind
+    }
+}
+
 /// Canonical service description defined by `service-describe.schema.json`.
 /// Receivers reject responses missing required fields with `schema_violation`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -149,7 +304,9 @@ pub struct ServiceDescribe {
     /// Profile-specific carrier declarations keyed by profile id.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub profile_bindings: BTreeMap<String, ProfileBinding>,
-    pub supported_operations: Vec<String>,
+    /// Complete role-scoped set of exact operation carriers. The removed
+    /// flat operation list is intentionally not accepted by this model.
+    pub operation_bindings: Vec<OperationBinding>,
     pub supported_bindings: Vec<SupportedBinding>,
     pub supported_features: Vec<String>,
     /// Exact IANA TZDB releases this service can execute for Calendar
@@ -288,7 +445,7 @@ pub struct ServiceDescribe {
     /// top level.
     #[serde(default, flatten)]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub extensions: BTreeMap<String, Value>,
+    pub extensions: XExtensionMap,
 }
 
 impl ServiceDescribe {
@@ -296,10 +453,12 @@ impl ServiceDescribe {
 
     /// Publish the exact shared SDK build compiled into this service.
     pub fn install_current_arkret_build_identity(&mut self) -> Result<()> {
-        self.extensions.insert(
-            ARKRET_BUILD_IDENTITY_EXTENSION.to_owned(),
-            serde_json::to_value(ArkretBuildIdentity::current())?,
-        );
+        self.extensions
+            .insert(
+                ARKRET_BUILD_IDENTITY_EXTENSION.to_owned(),
+                serde_json::to_value(ArkretBuildIdentity::current())?,
+            )
+            .map_err(|message| WireError::Protocol(message.to_owned()))?;
         Ok(())
     }
 
@@ -348,7 +507,7 @@ impl ServiceDescribe {
             protocol_version: PROTOCOL_VERSION.to_owned(),
             supported_profiles: Vec::new(),
             profile_bindings: BTreeMap::new(),
-            supported_operations: Vec::new(),
+            operation_bindings: Vec::new(),
             supported_bindings: Vec::new(),
             supported_features: Vec::new(),
             calendar_tzdb_versions: Vec::new(),
@@ -383,7 +542,7 @@ impl ServiceDescribe {
             frontier: Vec::new(),
             snapshot_frontier: Vec::new(),
             last_materialized_at: None,
-            extensions: BTreeMap::new(),
+            extensions: XExtensionMap::default(),
         }
     }
 
@@ -415,6 +574,96 @@ impl ServiceDescribe {
                 self.service_kind.as_str(),
                 ErrorCode::SCHEMA_VIOLATION
             )));
+        }
+        let unique_operation_binding_identities = self
+            .operation_bindings
+            .iter()
+            .map(|binding| {
+                (
+                    binding.operation_id,
+                    binding.binding_kind,
+                    binding.request_schema_ref.as_deref(),
+                    binding.response_schema_ref.as_deref(),
+                    binding.error_schema_ref.as_deref(),
+                    binding.success_shape_kind,
+                )
+            })
+            .collect::<BTreeSet<_>>()
+            .len()
+            == self.operation_bindings.len();
+        if !unique_operation_binding_identities {
+            return Err(WireError::Protocol(format!(
+                "ServiceDescribe: duplicate operation binding identity ({})",
+                ErrorCode::SCHEMA_VIOLATION
+            )));
+        }
+        for binding in &self.operation_bindings {
+            let expected = binding.current_for_identity()?;
+            if !binding.identity_eq(&expected) {
+                return Err(WireError::Protocol(format!(
+                    "ServiceDescribe: carrier for {} does not match the current-v1 operation registry ({})",
+                    binding.operation_id,
+                    ErrorCode::SCHEMA_VIOLATION
+                )));
+            }
+        }
+        let transport_operations = self
+            .supported_bindings
+            .iter()
+            .map(|transport| {
+                let operations = transport
+                    .extra
+                    .get("operations")
+                    .and_then(Value::as_array)
+                    .ok_or_else(|| {
+                        WireError::Protocol(format!(
+                            "ServiceDescribe: transport binding {} lacks operations ({})",
+                            transport.kind,
+                            ErrorCode::SCHEMA_VIOLATION
+                        ))
+                    })?;
+                operations
+                    .iter()
+                    .map(|operation| {
+                        let operation = operation.as_str().ok_or_else(|| {
+                            WireError::Protocol(format!(
+                                "ServiceDescribe: transport operation must be a string ({})",
+                                ErrorCode::SCHEMA_VIOLATION
+                            ))
+                        })?;
+                        ServiceOperationId::from_wire(operation).ok_or_else(|| {
+                            WireError::Protocol(format!(
+                                "ServiceDescribe: unknown transport operation {operation} ({})",
+                                ErrorCode::SCHEMA_VIOLATION
+                            ))
+                        })
+                    })
+                    .collect::<Result<Vec<_>>>()
+                    .map(|operations| (transport.kind, operations))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        for binding in &self.operation_bindings {
+            if !transport_operations.iter().any(|(kind, operations)| {
+                *kind == binding.binding_kind && operations.contains(&binding.operation_id)
+            }) {
+                return Err(WireError::Protocol(format!(
+                    "ServiceDescribe: operation binding {} is not covered by its transport binding ({})",
+                    binding.operation_id,
+                    ErrorCode::SCHEMA_VIOLATION
+                )));
+            }
+        }
+        for (kind, operations) in &transport_operations {
+            for operation in operations {
+                if !self.operation_bindings.iter().any(|binding| {
+                    binding.binding_kind == *kind && binding.operation_id == *operation
+                }) {
+                    return Err(WireError::Protocol(format!(
+                        "ServiceDescribe: transport binding advertises {operation} without an exact operation binding ({})",
+                        ErrorCode::SCHEMA_VIOLATION
+                    )));
+                }
+            }
         }
         if let Some(push_target) = self
             .privacy_derivation
@@ -450,7 +699,7 @@ impl ServiceDescribe {
         let unique_tzdb_versions = self
             .calendar_tzdb_versions
             .iter()
-            .collect::<std::collections::BTreeSet<_>>()
+            .collect::<BTreeSet<_>>()
             .len()
             == self.calendar_tzdb_versions.len();
         if (claims_calendar && self.calendar_tzdb_versions.is_empty())
@@ -510,10 +759,11 @@ impl ServiceDescribe {
                     ))
                 })?;
             if requirements.required_operations.iter().any(|required| {
-                !self
-                    .supported_operations
-                    .iter()
-                    .any(|operation| operation == required)
+                !ServiceOperationId::from_wire(required).is_some_and(|required| {
+                    self.operation_bindings
+                        .iter()
+                        .any(|binding| binding.operation_id == required)
+                })
             }) || requirements.required_features.iter().any(|required| {
                 !self
                     .supported_features
@@ -598,6 +848,36 @@ impl ServiceDescribe {
         }
         Ok(())
     }
+
+    /// Whether the role advertises any carrier for the operation.
+    pub fn supports_operation(&self, operation_id: ServiceOperationId) -> bool {
+        self.operation_bindings
+            .iter()
+            .any(|binding| binding.operation_id == operation_id)
+    }
+
+    /// Select the deterministic exact intersection with a caller-owned
+    /// carrier set. Lower server preference wins; the derived ordering of the
+    /// remaining identity fields provides the canonical tie-break.
+    pub fn select_operation_binding<'a>(
+        &'a self,
+        operation_id: ServiceOperationId,
+        locally_supported: &[OperationBinding],
+    ) -> Option<&'a OperationBinding> {
+        self.operation_bindings
+            .iter()
+            .filter(|server| {
+                server.operation_id == operation_id
+                    && locally_supported
+                        .iter()
+                        .any(|local| server.identity_eq(local))
+            })
+            .min_by(|left, right| {
+                left.preference
+                    .cmp(&right.preference)
+                    .then_with(|| left.cmp(right))
+            })
+    }
 }
 
 /// Profile-specific interoperable carrier binding.
@@ -658,6 +938,84 @@ mod tests {
     }
 
     #[test]
+    fn removed_flat_operation_field_is_rejected_during_decode() {
+        let description = ServiceDescribe::development(
+            DidFullId::new("did:webvh:z6mkfixture:service.example").unwrap(),
+            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+            ServiceKind::PrincipalServer,
+        );
+        let mut wire = serde_json::to_value(description).unwrap();
+        wire.as_object_mut().unwrap().insert(
+            "supported_operations".to_owned(),
+            json!([ServiceOperationId::SELF_EVENTS_READ_SCAN]),
+        );
+
+        assert!(serde_json::from_value::<ServiceDescribe>(wire).is_err());
+    }
+
+    #[test]
+    fn operation_carrier_selection_requires_an_exact_schema_identity() {
+        let operation = ServiceOperationId::SelfEventsStreamSubscribe;
+        let mut description = ServiceDescribe::development(
+            DidFullId::new("did:webvh:z6mkfixture:service.example").unwrap(),
+            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+            ServiceKind::PrincipalServer,
+        );
+        let http = OperationBinding::current_http_json(operation).unwrap();
+        let websocket = OperationBinding::current_websocket(operation).unwrap();
+        description.operation_bindings = vec![http.clone(), websocket.clone()];
+
+        assert_eq!(
+            description
+                .select_operation_binding(operation, &[http.clone(), websocket.clone()])
+                .unwrap()
+                .binding_kind,
+            BindingKind::Websocket
+        );
+
+        let mut unknown_schema = websocket;
+        unknown_schema.response_schema_ref = Some("schemas/unknown.schema.json".to_owned());
+        assert!(
+            description
+                .select_operation_binding(operation, &[unknown_schema])
+                .is_none()
+        );
+        assert!(
+            description
+                .select_operation_binding(operation, &[http])
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn operation_rows_are_isolated_to_the_described_role() {
+        let operation = ServiceOperationId::SelfEventsReadScan;
+        let local = OperationBinding::current_http_json(operation).unwrap();
+        let mut member = ServiceDescribe::development(
+            DidFullId::new("did:webvh:z6mkfixture:member.example").unwrap(),
+            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+            ServiceKind::PrincipalServer,
+        );
+        member.operation_bindings.push(local.clone());
+        let anonymous = ServiceDescribe::development(
+            DidFullId::new("did:webvh:z6mkfixture:anonymous.example").unwrap(),
+            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+            ServiceKind::PrincipalServer,
+        );
+
+        assert!(
+            member
+                .select_operation_binding(operation, std::slice::from_ref(&local))
+                .is_some()
+        );
+        assert!(
+            anonymous
+                .select_operation_binding(operation, std::slice::from_ref(&local))
+                .is_none()
+        );
+    }
+
+    #[test]
     fn auth_grant_exchange_is_the_closed_account_handoff_shape() {
         let exchange: AuthGrantExchange =
             serde_json::from_value(json!({"kind": "account_handoff"})).unwrap();
@@ -683,8 +1041,19 @@ mod tests {
             protocol_version: PROTOCOL_VERSION.to_owned(),
             supported_profiles: vec![ProfileId::DIRECTORY_SERVICE_V1.to_owned()],
             profile_bindings: BTreeMap::new(),
-            supported_operations: vec!["ak.find.directory.read.describe".to_owned()],
-            supported_bindings: vec![],
+            operation_bindings: vec![
+                OperationBinding::current_http_json(ServiceOperationId::FindDirectoryReadDescribe)
+                    .unwrap(),
+            ],
+            supported_bindings: vec![
+                SupportedBinding::new(BindingKind::HttpJson)
+                    .with_base_url("https://directory.example")
+                    .with_extra(
+                        "operations",
+                        json!([ServiceOperationId::FIND_DIRECTORY_READ_DESCRIBE]),
+                    )
+                    .with_extra("extension_profile_required", Value::Null),
+            ],
             supported_features: vec![],
             calendar_tzdb_versions: vec![],
             auth_metadata: AuthMetadata::minimal("development"),
@@ -735,7 +1104,7 @@ mod tests {
             frontier: vec![],
             snapshot_frontier: vec![],
             last_materialized_at: None,
-            extensions: BTreeMap::new(),
+            extensions: XExtensionMap::default(),
         }
     }
 
@@ -756,7 +1125,7 @@ mod tests {
                 carrier: "profile_private_http_receipt_v1".to_owned(),
             },
         );
-        description.supported_operations.extend(
+        description.operation_bindings.extend(
             [
                 ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_SUBMIT,
                 ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_REVIEW,
@@ -765,7 +1134,28 @@ mod tests {
                 ServiceOperationId::SELF_REALM_JOIN_APPLICATION_RESOURCE_GET,
                 ServiceOperationId::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST,
             ]
-            .map(ToOwned::to_owned),
+            .map(|operation| {
+                OperationBinding::current_http_json(
+                    ServiceOperationId::from_wire(operation).unwrap(),
+                )
+                .unwrap()
+            }),
+        );
+        description.supported_bindings.push(
+            SupportedBinding::new(BindingKind::HttpJson)
+                .with_base_url("https://service.example")
+                .with_extra(
+                    "operations",
+                    json!([
+                        ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_SUBMIT,
+                        ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_REVIEW,
+                        ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL,
+                        ServiceOperationId::SELF_REALM_JOIN_APPLICATION_READ_LIST,
+                        ServiceOperationId::SELF_REALM_JOIN_APPLICATION_RESOURCE_GET,
+                        ServiceOperationId::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST,
+                    ]),
+                )
+                .with_extra("extension_profile_required", Value::Null),
         );
         description.supported_features.extend(
             [

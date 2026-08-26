@@ -36,7 +36,6 @@ pub struct ManagedAgentPcrCreatePayloadInput {
     pub initial_resolution: ResolutionCommitment,
     pub genesis_salt: GenesisSalt,
     pub trust_domain: TrustDomainId,
-    pub capability_action_registry_digest: Hash,
     pub created_at: DateTime<Utc>,
 }
 
@@ -68,7 +67,6 @@ pub fn build_managed_agent_pcr_create_payload(
         SecurityClass::HighAssurance,
         EncryptionProfile::MlsRfc9420,
         input.notary,
-        input.capability_action_registry_digest,
     )?;
 
     let payload = RealmCreatePayload::new(genesis);

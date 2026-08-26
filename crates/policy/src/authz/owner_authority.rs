@@ -1,53 +1,20 @@
-//! The two capability-aggregate questions, kept apart on purpose.
+//! Capability aggregate queries for the compiled current profile.
 //!
-//! `capabilities.md` section 3.2 asks two different things of an aggregate
-//! action and they have different namespaces:
-//!
-//! - **Operational coverage** — may the holder directly author this durable Event? Answered over
-//!   `target_event_kinds`.
-//! - **Grant authority** — may the holder sign a grant *for* this action? Answered over
-//!   `grant_authority_actions`, by action id.
-//!
-//! Several actions map to one event kind (`ak.agent.sidecar.write` and
-//! `ak.message.create` both target `ak.message.create`), so answering the
-//! second question with the first one's data hands a profile-gated action to
-//! anyone holding the core one. Both helpers live here, in the single SDK
-//! implementation, so a service cannot grow its own divergent copy.
+//! Runtime authorization is selected by the Realm profile. Registry JSON is a
+//! build-time input only and never participates in a signed authority basis.
 
-use arkret_wire::{CapabilityActionId, Hash};
+use arkret_wire::CapabilityActionId;
 
 use crate::{Result, WireError};
 
-/// Resolve the registry basis an expansion is anchored to.
-///
-/// A grant or authority-root cell names the snapshot it was signed against.
-/// Expanding under any other snapshot would silently re-interpret a historical
-/// signature, so an unknown basis fails closed instead of falling back to the
-/// receiver's own registry.
-pub fn require_registry_basis(basis: Option<&Hash>) -> Result<()> {
-    let Some(basis) = basis else {
-        return Err(WireError::Protocol(
-            "capability_registry_basis_unavailable: aggregate expansion requires a registry basis"
-                .to_owned(),
-        ));
-    };
-    super::capability_action_registry_snapshot(basis)?;
-    Ok(())
-}
-
 /// True when `holder_action` directly authorizes authoring every durable Event
 /// kind that `child_action` targets.
-///
-/// Use for Event admission only. Never for "may this issuer sign a grant for
-/// `child_action`".
 pub fn action_covers_event_kinds(holder_action: &str, child_action: &str) -> Result<bool> {
     if holder_action == child_action {
         return Ok(true);
     }
     let holder = descriptor(holder_action)?;
     let child = descriptor(child_action)?;
-    // An empty child coverage set is a subset of everything. Without this guard
-    // every non-event action would be "covered" by every aggregate.
     if child.target_event_kinds.is_empty() {
         return Ok(false);
     }
@@ -58,9 +25,6 @@ pub fn action_covers_event_kinds(holder_action: &str, child_action: &str) -> Res
 }
 
 /// True when `holder_action` authorizes signing a grant for `child_action`.
-///
-/// Matching is by action id against the rule-derived `grant_authority_actions`
-/// set. Event-kind containment MUST NOT be substituted here.
 pub fn action_grants_authority_for(holder_action: &str, child_action: &str) -> Result<bool> {
     if holder_action == child_action {
         return Ok(true);
@@ -69,122 +33,41 @@ pub fn action_grants_authority_for(holder_action: &str, child_action: &str) -> R
     Ok(holder.grant_authority_actions.contains(&child_action))
 }
 
-/// True when the Realm owner aggregate may sign a grant for `child_action`
-/// under the given registry basis. The registry-derived
-/// `grant_authority_actions` set is the complete authority surface. A
-/// descriptor carrying `profile` is intentionally excluded by the registry's
-/// `require_profile_null` rule and cannot be re-enabled through Realm
-/// `schema_refs` or an implementation-private active-profile list.
-pub fn owner_may_grant(child_action: &str, registry_basis: Option<&Hash>) -> Result<bool> {
-    let basis = registry_basis.ok_or_else(|| {
-        WireError::Protocol(
-            "capability_registry_basis_unavailable: aggregate expansion requires a registry basis"
-                .to_owned(),
-        )
-    })?;
-    let registry = super::capability_action_registry_snapshot(basis)?;
-    let child = super::capability_action_descriptor_in(&registry, child_action)?;
-    if descriptor_flag(child, "root_control_only")
-        || descriptor_flag(child, "subject_only")
-        || descriptor_flag(child, "reducer_only")
-    {
+/// True when the compiled Realm-owner role may sign a grant for `child_action`.
+pub fn owner_may_grant(child_action: &str) -> Result<bool> {
+    let child = descriptor(child_action)?;
+    if owner_role_must_not_cover(child) {
         return Ok(false);
     }
-    if child
-        .get("profile")
-        .is_some_and(|profile| !profile.is_null())
-    {
+    action_grants_authority_for(CapabilityActionId::REALM_OWNER, child_action)
+}
+
+/// True when the compiled Realm-owner role may author `event_kind`.
+pub fn owner_may_author_event_kind(event_kind: &str) -> Result<bool> {
+    let owner = descriptor(CapabilityActionId::REALM_OWNER)?;
+    Ok(owner.target_event_kinds.contains(&event_kind))
+}
+
+/// True when the compiled Realm-owner role covers the durable Events represented
+/// by `child_action`. Non-event surfaces are not accepted through this helper.
+pub fn owner_may_author_action(child_action: &str) -> Result<bool> {
+    let child = descriptor(child_action)?;
+    if owner_role_must_not_cover(child) {
         return Ok(false);
     }
-    snapshot_action_contains(
-        &registry,
-        CapabilityActionId::REALM_OWNER,
-        "grant_authority_actions",
-        child_action,
-    )
+    action_covers_event_kinds(CapabilityActionId::REALM_OWNER, child_action)
 }
 
-/// True when the Realm owner aggregate directly authorizes authoring
-/// `event_kind` under the given registry basis.
-pub fn owner_may_author_event_kind(
-    event_kind: &str,
-    registry_basis: Option<&Hash>,
-) -> Result<bool> {
-    let basis = registry_basis.ok_or_else(|| {
-        WireError::Protocol(
-            "capability_registry_basis_unavailable: aggregate expansion requires a registry basis"
-                .to_owned(),
-        )
-    })?;
-    let registry = super::capability_action_registry_snapshot(basis)?;
-    snapshot_action_contains(
-        &registry,
-        CapabilityActionId::REALM_OWNER,
-        "target_event_kinds",
-        event_kind,
-    )
-}
-
-/// True when the Realm owner aggregate directly authorizes the durable Events
-/// represented by `child_action` under the given registry basis.
-///
-/// This is the action-level form needed by local authorization preflights.
-/// It deliberately uses `target_event_kinds` (operational coverage), not
-/// `grant_authority_actions` (issuer upper bound), and rejects non-Event
-/// actions whose target set is empty instead of accepting the empty subset
-/// vacuously.
-pub fn owner_may_author_action(child_action: &str, registry_basis: Option<&Hash>) -> Result<bool> {
-    let basis = registry_basis.ok_or_else(|| {
-        WireError::Protocol(
-            "capability_registry_basis_unavailable: aggregate expansion requires a registry basis"
-                .to_owned(),
-        )
-    })?;
-    let registry = super::capability_action_registry_snapshot(basis)?;
-    let child = super::capability_action_descriptor_in(&registry, child_action)?;
-    let child_event_kinds = child
-        .get("target_event_kinds")
-        .and_then(serde_json::Value::as_array)
-        .ok_or_else(|| {
-            WireError::Protocol(format!(
-                "schema_violation: capability action '{child_action}' has no target_event_kinds"
-            ))
-        })?;
-    if child_event_kinds.is_empty() {
-        return Ok(false);
-    }
-    let owner = super::capability_action_descriptor_in(&registry, CapabilityActionId::REALM_OWNER)?;
-    let owner_event_kinds = owner
-        .get("target_event_kinds")
-        .and_then(serde_json::Value::as_array)
-        .ok_or_else(|| {
-            WireError::Protocol(
-                "schema_violation: ak.realm.owner has no target_event_kinds".to_owned(),
-            )
-        })?;
-    Ok(child_event_kinds
-        .iter()
-        .all(|kind| owner_event_kinds.iter().any(|candidate| candidate == kind)))
-}
-
-fn descriptor_flag(descriptor: &serde_json::Value, field: &str) -> bool {
-    descriptor
-        .get(field)
-        .and_then(serde_json::Value::as_bool)
-        .unwrap_or(false)
-}
-
-fn snapshot_action_contains(
-    registry: &serde_json::Value,
-    action: &str,
-    field: &str,
-    needle: &str,
-) -> Result<bool> {
-    let descriptor = super::capability_action_descriptor_in(registry, action)?;
-    Ok(descriptor
-        .get(field)
-        .and_then(serde_json::Value::as_array)
-        .is_some_and(|values| values.iter().any(|value| value.as_str() == Some(needle))))
+/// Structural current-v1 boundary: a Realm role can never cross into root,
+/// reducer or subject/personal authority even if generated aggregate rows are
+/// accidentally widened. This predicate is compiled into the profile code and
+/// is evaluated before either direct Event coverage or grant-authority sets.
+fn owner_role_must_not_cover(action: &arkret_schema::CapabilityActionDescriptor) -> bool {
+    action.root_control_only
+        || action.subject_only
+        || action.reducer_only
+        || action.category == "personal"
+        || action.action.as_str().starts_with("ak.self.")
 }
 
 fn descriptor(action: &str) -> Result<&'static arkret_schema::CapabilityActionDescriptor> {
@@ -199,90 +82,45 @@ fn descriptor(action: &str) -> Result<&'static arkret_schema::CapabilityActionDe
 mod tests {
     use super::*;
 
-    fn basis() -> Hash {
-        super::super::current_capability_action_registry_digest().unwrap()
+    #[test]
+    fn owner_covers_core_events_but_not_non_event_actions() {
+        assert!(owner_may_author_action("ak.strand.create").unwrap());
+        assert!(owner_may_author_event_kind("ak.message.create").unwrap());
+        assert!(!owner_may_author_action("ak.audit.export").unwrap());
     }
 
     #[test]
-    fn current_registry_snapshot_remains_exactly_resolvable() {
-        let basis = basis();
-        require_registry_basis(Some(&basis)).unwrap();
-        assert!(owner_may_author_event_kind("ak.message.create", Some(&basis)).unwrap());
-        assert!(owner_may_grant("ak.message.create", Some(&basis)).unwrap());
+    fn owner_grant_surface_uses_the_compiled_exact_action_set() {
+        assert!(owner_may_grant("ak.audit.export").unwrap());
+        assert!(owner_may_grant("ak.strand.create").unwrap());
+        assert!(owner_may_grant(CapabilityActionId::REALM_OWNER).unwrap());
+        assert!(!owner_may_grant("ak.realm.destroy").unwrap());
+        assert!(!owner_may_grant("ak.realm.tombstone").unwrap());
+        assert!(!owner_may_grant("ak.capability.derived").unwrap());
+        assert!(!owner_may_grant("ak.agent.sidecar.write").unwrap());
+        assert!(owner_may_grant("ak.rsvp.set").unwrap());
     }
 
     #[test]
-    fn retained_registry_snapshot_preserves_existing_realm_owner_authority() {
-        let retained = Hash::new(
-            "sha256:85c4e7f01bf0744bdb47a4b340de38b5919287da00a79d80bd7fdbdcb7cfbe45".to_owned(),
-        )
-        .unwrap();
+    fn owner_role_hard_denies_root_subject_reducer_personal_and_unknown_semantics() {
+        for action in [
+            "ak.realm.destroy",
+            "ak.capability.relinquish",
+            "ak.capability.derived",
+            "ak.invite.accept",
+            "ak.read_cursor.advance",
+            "ak.self.events.read.scan",
+        ] {
+            assert!(!owner_may_author_action(action).unwrap(), "{action}");
+            assert!(!owner_may_grant(action).unwrap(), "{action}");
+        }
 
-        require_registry_basis(Some(&retained)).unwrap();
-        assert!(owner_may_author_action("ak.invite.create", Some(&retained)).unwrap());
-        assert!(owner_may_author_action("ak.realm.profile", Some(&retained)).unwrap());
-        assert!(owner_may_grant("ak.message.create", Some(&retained), &[]).unwrap());
+        assert!(owner_may_author_action("ak.unknown.future").is_err());
+        assert!(owner_may_grant("ak.unknown.future").is_err());
     }
 
     #[test]
-    fn unknown_registry_snapshot_still_fails_closed() {
-        let unknown = Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap();
-        assert!(require_registry_basis(Some(&unknown)).is_err());
-    }
-
-    #[test]
-    fn owner_covers_strand_create_but_not_non_event_actions() {
-        assert!(
-            action_covers_event_kinds(CapabilityActionId::REALM_OWNER, "ak.strand.create").unwrap()
-        );
-        // ak.audit.export is a non-event surface: an empty coverage set must
-        // never be satisfied by an aggregate.
-        assert!(
-            !action_covers_event_kinds(CapabilityActionId::REALM_OWNER, "ak.audit.export").unwrap()
-        );
-    }
-
-    #[test]
-    fn owner_action_preflight_uses_snapshot_operational_coverage() {
-        let basis = basis();
-        assert!(owner_may_author_action("ak.invite.create", Some(&basis)).unwrap());
-        assert!(owner_may_author_action("ak.realm.profile", Some(&basis)).unwrap());
-        assert!(!owner_may_author_action("ak.audit.export", Some(&basis)).unwrap());
-        assert!(!owner_may_author_action("ak.realm.destroy", Some(&basis)).unwrap());
-    }
-
-    #[test]
-    fn owner_may_grant_core_non_event_and_key_share() {
-        let basis = basis();
-        assert!(owner_may_grant("ak.audit.export", Some(&basis)).unwrap());
-        assert!(owner_may_grant("ak.strand.create", Some(&basis)).unwrap());
-        // Owner is self-grantable: that is how a co-owner is appointed.
-        assert!(owner_may_grant(CapabilityActionId::REALM_OWNER, Some(&basis)).unwrap());
-    }
-
-    #[test]
-    fn owner_may_not_grant_root_control_or_reducer_only_actions() {
-        let basis = basis();
-        assert!(!owner_may_grant("ak.realm.destroy", Some(&basis)).unwrap());
-        assert!(!owner_may_grant("ak.realm.tombstone", Some(&basis)).unwrap());
-        assert!(!owner_may_grant("ak.capability.derived", Some(&basis)).unwrap());
-        // ...and they are outside operational coverage too.
-        assert!(
-            !action_covers_event_kinds(CapabilityActionId::REALM_OWNER, "ak.realm.destroy")
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn profile_actions_cannot_be_enabled_by_realm_schema_refs() {
-        let basis = basis();
-        assert!(!owner_may_grant("ak.agent.sidecar.write", Some(&basis)).unwrap());
-    }
-
-    #[test]
-    fn same_target_event_kind_does_not_confer_grant_authority() {
-        // Both map to ak.message.create, but only the core action is in the
-        // owner grant-authority set.
+    fn event_coverage_does_not_confer_grant_authority() {
         assert!(
             action_covers_event_kinds(CapabilityActionId::REALM_OWNER, "ak.agent.sidecar.write")
                 .unwrap()
@@ -291,13 +129,6 @@ mod tests {
             !action_grants_authority_for(CapabilityActionId::REALM_OWNER, "ak.agent.sidecar.write")
                 .unwrap()
         );
-    }
-
-    #[test]
-    fn expansion_without_a_known_registry_basis_fails_closed() {
-        assert!(owner_may_grant("ak.strand.create", None).is_err());
-        let unknown = Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap();
-        assert!(owner_may_grant("ak.strand.create", Some(&unknown)).is_err());
     }
 
     #[test]

@@ -247,7 +247,7 @@ mod federation_dependency_tests {
 
 mod device_pairing_tests {
     use arkret_wire::{
-        AuthContext, DidCoreId, DidUrl, EventKind, EventRequirements, ProducerEventProof, ScopeRef,
+        DidCoreId, DidUrl, EventKind, EventRequirements, ProducerEventProof, ScopeRef, SealBasis,
         proof_kind,
     };
 
@@ -339,13 +339,11 @@ mod device_pairing_tests {
             refs: Vec::new(),
             causal_refs: Vec::new(),
             preconditions: Vec::new(),
-            seal_ref: Some(SealId::new(format!("ak:seal:sha256:{}", "b".repeat(64))).unwrap()),
-            auth_context: Some(AuthContext {
-                key_id: arkret_wire::OpaqueLocalId::new("authorizing-device-signing-1").unwrap(),
-                key_epoch: 1,
-                credential_epoch: None,
+            seal_ref: None,
+            auth_context: None,
+            seal_basis: Some(SealBasis {
+                leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "b".repeat(64))).unwrap()],
             }),
-            seal_basis: None,
             payload: serde_json::to_value(authorize_payload)
                 .unwrap()
                 .as_object()

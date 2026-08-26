@@ -108,8 +108,6 @@ pub struct Grant {
     pub subject_principal_server_id: Option<String>,
     pub resource: String,
     pub actions: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub capability_action_registry_digest: Option<Hash>,
     #[serde(default)]
     pub constraints: Vec<GrantConstraint>,
     pub revoked: bool,
@@ -493,7 +491,6 @@ mod tests {
             subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
             resource: resource.to_owned(),
             actions: actions.iter().map(|s| (*s).to_owned()).collect(),
-            capability_action_registry_digest: None,
             constraints: Vec::new(),
             revoked: false,
             created_at: Utc::now(),
@@ -526,7 +523,6 @@ mod tests {
             subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
             resource: resource.to_owned(),
             actions: actions.iter().map(|s| (*s).to_owned()).collect(),
-            capability_action_registry_digest: None,
             constraints: expires_at
                 .map(|expires_at| GrantConstraint::Temporal {
                     expires_at: Some(expires_at),

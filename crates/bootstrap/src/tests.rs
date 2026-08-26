@@ -218,8 +218,6 @@ fn input() -> SelfPrincipalPcrCreateInput {
             version_id: "1-fixture".to_owned(),
         },
         founding_device_descriptor: founding_device_descriptor(&principal_id, created_at),
-        capability_action_registry_digest: Hash::new(format!("sha256:{}", "9a".repeat(32)))
-            .unwrap(),
         created_at,
         hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
     }
@@ -521,8 +519,6 @@ fn managed_agent_pcr_create() -> Event {
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
         trust_domain: TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-        capability_action_registry_digest: Hash::new(format!("sha256:{}", "9a".repeat(32)))
-            .unwrap(),
         created_at: Utc::now(),
     })
     .unwrap();
@@ -560,8 +556,6 @@ fn managed_agent_pcr_payload_is_built_from_the_public_realm_type() {
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
         trust_domain: TrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
-        capability_action_registry_digest: Hash::new(format!("sha256:{}", "9a".repeat(32)))
-            .unwrap(),
         created_at: Utc::now(),
     })
     .unwrap();

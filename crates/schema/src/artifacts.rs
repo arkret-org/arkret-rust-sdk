@@ -700,7 +700,6 @@ pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "event",
     "filter",
     "frame",
-    "franking_proof",
     "grant",
     "invite",
     "key_event",

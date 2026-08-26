@@ -355,7 +355,6 @@ event_payload_accessors! {
     event_spec::SovereignDidPolicy => (as_sovereign_did_policy, SovereignDidPolicyStatePayload),
     event_spec::RealmOwnerTransfer => (as_realm_owner_transfer, RealmOwnerTransferPayload),
     event_spec::RealmAuthorityReset => (as_realm_authority_reset, RealmAuthorityResetPayload),
-    event_spec::RealmAuthorityBasisUpdate => (as_realm_authority_basis_update, RealmAuthorityBasisUpdatePayload),
     event_spec::CapabilityRelinquish => (as_capability_relinquish, CapabilityRelinquishPayload),
 }
 

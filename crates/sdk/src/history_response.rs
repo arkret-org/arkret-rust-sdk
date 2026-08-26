@@ -670,11 +670,6 @@ fn member_history_intent(
     {
         return invalid("history traversal intent does not bind the accepted request");
     }
-    if intent.traversal_admission_registry_digest()
-        != &embedded_history_manifest_t0_registry_digest()?
-    {
-        return invalid("history traversal admission registry digest mismatch");
-    }
     Ok(intent)
 }
 
@@ -780,11 +775,6 @@ fn verify_release_attestation(
     {
         return invalid("history release attestation does not bind the exact request and chunk");
     }
-    if attestation.predicate_registry_digest
-        != embedded_history_release_predicate_registry_digest()?
-    {
-        return invalid("history release attestation predicate registry digest mismatch");
-    }
     let evidence_kind = source_evidence_kind(source, source_signer_dependencies)?;
     let profile_matches = matches!(
         (attestation.source_author_profile, evidence_kind),
@@ -839,25 +829,6 @@ fn verify_release_attestation(
         return invalid("history release authority-view vector is inconsistent");
     }
     Ok(())
-}
-
-/// Compute the only accepted manifest T0 traversal-admission registry digest
-/// from the SDK-embedded normative artifact. The registry forbids replacing it
-/// with a caller-supplied boolean or a service-local policy value.
-pub fn embedded_history_manifest_t0_registry_digest() -> Result<Hash, WireError> {
-    let registry =
-        arkret_schema::embedded_json_artifact("registry/history-release-attestation-registry.json")
-            .map_err(|error| WireError::Protocol(error.to_string()))?;
-    arkret_models_collaboration::history_key::history_manifest_t0_registry_digest(&registry)
-}
-
-/// Compute the only accepted HistoryReleaseAttestation predicate-registry
-/// digest from the SDK-embedded normative artifact.
-pub fn embedded_history_release_predicate_registry_digest() -> Result<Hash, WireError> {
-    let registry =
-        arkret_schema::embedded_json_artifact("registry/history-release-attestation-registry.json")
-            .map_err(|error| WireError::Protocol(error.to_string()))?;
-    arkret_models_collaboration::history_key::history_release_predicate_registry_digest(&registry)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
