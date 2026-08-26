@@ -414,24 +414,6 @@ pub fn validate_applet_authority_binding(
     Ok(())
 }
 
-/// Check whether `child` resource is within the scope `parent` permits.
-///
-/// v1 only supports exact match and `parent="*"`; prefix-wildcard parents
-/// (`pattern="...:*"`) accept any child sharing the prefix. Richer typed
-/// resource selectors land later (authz/resource-selector-grammar.md).
-pub fn resource_within(parent: &str, child: &str) -> bool {
-    if parent == "*" {
-        return true;
-    }
-    if parent == child {
-        return true;
-    }
-    if let Some(prefix) = parent.strip_suffix('*') {
-        return child.starts_with(prefix);
-    }
-    false
-}
-
 /// Returns `true` iff every ancestor reachable through `issuer_authority_refs`
 /// is still active (not revoked, not expired). A grant whose refs are all
 /// `realm_root` is trivially intact — a root is a terminal, not an edge.

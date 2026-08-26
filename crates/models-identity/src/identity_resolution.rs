@@ -448,6 +448,42 @@ pub enum ServiceResolutionCarrier {
 
 pub const MAX_SERVICE_CURRENT_RECORD_URL_BYTES: usize = 2_048;
 
+/// Canonical route-binding projection committed as `describe_digest` in a
+/// signed service resolution record (`zh/sync/service-surface.md` §2.6).
+///
+/// The shape is normative: exactly
+/// `{service_id, service_kind, service_resolution, http_json_base_url}`, in
+/// this field order. Producers and verifiers MUST derive the digest through
+/// [`route_binding_describe_digest`] so a projection change cannot silently
+/// diverge between the signer and any verifier.
+#[derive(Serialize)]
+struct RouteBindingProjection<'a> {
+    service_id: &'a DidCoreId,
+    service_kind: &'a str,
+    service_resolution: &'a ResolutionCommitment,
+    http_json_base_url: &'a str,
+}
+
+/// Canonical `describe_digest` over the route binding of one service.
+///
+/// `http_json_base_url` MUST already be the canonical HTTPS base URL the
+/// record advertises; this helper commits the value it is handed and performs
+/// no URL canonicalization of its own.
+pub fn route_binding_describe_digest(
+    service_id: &DidCoreId,
+    service_kind: &str,
+    service_resolution: &ResolutionCommitment,
+    http_json_base_url: &str,
+) -> arkret_wire::Result<Hash> {
+    let projection = RouteBindingProjection {
+        service_id,
+        service_kind,
+        service_resolution,
+        http_json_base_url,
+    };
+    Ok(Hash::new(arkret_canonical::canonical_sha256(&projection)?)?)
+}
+
 /// Canonical path of the unauthenticated transport locator for one service's
 /// current signed resolution record.
 #[must_use]

@@ -233,19 +233,6 @@ impl Client {
     /// this method with `Range` and consume the returned response stream
     /// directly. The convenience bytes methods below add a memory cap before
     /// materializing the response into a `Vec<u8>`.
-    pub async fn blob_download_response(
-        &self,
-        blob_ref: &BlobRef,
-        options: &BlobDownloadOptions,
-    ) -> Result<reqwest::Response> {
-        self.blob_download_response_with_options(
-            blob_ref,
-            options,
-            &ClientRequestOptions::default(),
-        )
-        .await
-    }
-
     pub async fn blob_download_response_with_options(
         &self,
         blob_ref: &BlobRef,

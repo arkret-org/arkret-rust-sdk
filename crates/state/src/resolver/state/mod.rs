@@ -304,17 +304,6 @@ impl RealmState {
         Ok(snapshot)
     }
 
-    pub fn effective_capability(&self, capability_id: &str) -> Option<&ResolvedStateEvent> {
-        self.resolved_state
-            .get(&format!("ak.capability|{}", capability_id))
-            .filter(|event| {
-                matches!(
-                    event.kind.as_str(),
-                    arkret_wire::event_kind_str::CAPABILITY_GRANT
-                )
-            })
-    }
-
     /// Compute state hash for verification.
     pub fn compute_state_digest(&self) -> String {
         canonical_sha256(&state_digest_payload(StateHashInput {
