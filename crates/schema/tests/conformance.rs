@@ -1,3 +1,4 @@
+#[cfg(feature = "embedded-artifacts")]
 use arkret_canonical::canonical;
 use arkret_schema::*;
 use arkret_wire::generated::profile_requirements::non_event_grant_authority_rule;
