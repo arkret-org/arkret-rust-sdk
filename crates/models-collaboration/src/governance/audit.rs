@@ -49,30 +49,11 @@ pub enum AuditAssurance {
     DisclosedPolicy,
 }
 
-/// Compliance profiles that MUST NOT coexist with
-/// [`ProfileId::E2EE_RELAXED_V1`]. Round R2/R3 — declaring both is rejected as
-/// `e2ee_relaxed_disallowed_in_compliance_profile`.
-pub const E2EE_RELAXED_INCOMPATIBLE_COMPLIANCE_PROFILES: &[&str] = &[
-    ProfileId::ATTESTED_AUDIT_E2EE_V1,
-    ProfileId::DISCLOSED_AUDIT_E2EE_V1,
-];
-
 /// Absolute hard ceiling on the `ak.profile.e2ee_relaxed.v1` send-pause
 /// relaxation window, in milliseconds. Round R2/R3 (2026-05-20).
 /// Implementations MUST reject any `relaxed_window_ms` exceeding this
 /// value with `relaxed_window_exceeds_ceiling`.
 pub const ABSOLUTE_HARD_CEILING_MS: u32 = 300_000;
-
-/// Round R2/R3 — true when `active_profiles` is compatible with
-/// `ak.profile.e2ee_relaxed.v1`. False if any of the compliance audit
-/// profiles is present (the two are mutually exclusive — declaring both
-/// MUST be rejected with
-/// `ErrorCode::E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE`).
-pub fn is_e2ee_relaxed_compatible_with_compliance<S: AsRef<str>>(active_profiles: &[S]) -> bool {
-    !active_profiles
-        .iter()
-        .any(|p| E2EE_RELAXED_INCOMPATIBLE_COMPLIANCE_PROFILES.contains(&p.as_ref()))
-}
 
 /// Round R2/R3 — validate a relaxed-window value against the absolute hard
 /// ceiling. Returns `Err(ReasonCode::RELAXED_WINDOW_EXCEEDS_CEILING)` when

@@ -41,7 +41,7 @@
 //! # Ok(())
 //! # }
 //! ```
-//!
+
 //! Invalid typed IDs should be constructed with validators, not assigned from
 //! raw strings:
 //!
@@ -50,6 +50,7 @@
 //! ```
 
 mod history_response;
+mod keypackage_claim_receipt;
 mod mls_governance;
 mod sdk_error;
 mod sidecar_recovery;
@@ -144,8 +145,7 @@ pub use arkret_models_collaboration::governance::agent_participation::*;
 pub use arkret_models_collaboration::governance::audit::{
     ABSOLUTE_HARD_CEILING_MS, AccessKind, AuditAssurance, AuditPolicyAccessPayload,
     AuditRywReceipt, AuditRywRecoveryReasonCode, AuditRywWitness, AuditRywWitnessAttestation,
-    E2EE_RELAXED_INCOMPATIBLE_COMPLIANCE_PROFILES, RywActorFrontierEntry, RywFrontier,
-    RywIssuerRole, is_e2ee_relaxed_compatible_with_compliance, validate_relaxed_window_ms,
+    RywActorFrontierEntry, RywFrontier, RywIssuerRole, validate_relaxed_window_ms,
 };
 pub use arkret_models_collaboration::governance::authorization::*;
 pub use arkret_models_collaboration::governance::circle::*;
@@ -403,6 +403,7 @@ pub use history_response::{
     verify_minimal_metadata_identity_link_signature,
     winning_history_epoch_suites_from_verified_checkpoint,
 };
+pub use keypackage_claim_receipt::verify_peer_keypackage_claim_receipt_signature;
 pub use mls_governance::{
     NativeAgentHistoricalTrustRequest, VerifiedMlsGovernanceClosure,
     build_native_agent_signer_resolution_evidence,

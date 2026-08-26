@@ -1070,6 +1070,124 @@ impl ArkretMlsGroup {
         Ok(leaves)
     }
 
+    /// Compute the exact post-Commit public leaf coordinates for an Add batch
+    /// by staging the transition in an isolated copy of the current RFC 9420
+    /// state. This is the author-side input to the governance proof request;
+    /// callers must not predict leaf positions from claim arrival order or by
+    /// scanning for a locally assumed blank index.
+    pub fn preview_add_members_security_frontier(
+        &self,
+        member_key_packages: &[MlsKeyPackageRecord],
+    ) -> Result<Vec<arkret_models_crypto::MlsSecurityFrontierLeaf>> {
+        if member_key_packages.is_empty() {
+            return Err(Error::Protocol(
+                "refusing to preview an empty MLS KeyPackage batch".to_owned(),
+            ));
+        }
+        self.require_complete_leaf_bindings()?;
+
+        let state = self.export_state_record()?;
+        let mut preview = Self::restore_from_state_record(&state)?;
+        preview.add_members(member_key_packages)?;
+        let post_leaves = preview.active_author_leaves();
+
+        let mut result = Vec::with_capacity(post_leaves.len());
+        let mut attributed_indices = std::collections::BTreeSet::new();
+        for binding in self.leaf_bindings.values() {
+            let leaf = post_leaves
+                .iter()
+                .find(|leaf| leaf.leaf_index == binding.leaf_index)
+                .ok_or_else(|| {
+                    Error::Protocol("MLS Add preview removed an existing occupied leaf".to_owned())
+                })?;
+            let expected_signature_key = decode(binding.signature_key.as_str())?;
+            let expected_credential = binding.credential_ref.as_bytes();
+            let crate::AuthorLeafCredential::Basic { identity } = &leaf.credential else {
+                return Err(Error::Protocol(
+                    "existing Arkret MLS leaf is not BasicCredential".to_owned(),
+                ));
+            };
+            if identity.as_slice() != expected_credential
+                || leaf.signature_key != expected_signature_key
+            {
+                return Err(Error::Protocol(
+                    "MLS Add preview changed an existing accepted leaf binding".to_owned(),
+                ));
+            }
+            attributed_indices.insert(binding.leaf_index);
+            result.push(arkret_models_crypto::MlsSecurityFrontierLeaf {
+                leaf_index: binding.leaf_index,
+                principal_id: binding.principal_id.clone(),
+                credential_ref: binding.credential_ref.clone(),
+            });
+        }
+
+        for record in member_key_packages {
+            record.endpoint.validate()?;
+            let key_package_bytes = decode(&record.keypackage)?;
+            if canonical::sha256_digest(&key_package_bytes) != record.keypackage_ref.as_str() {
+                return Err(Error::Protocol(
+                    "MLS Add preview KeyPackage bytes differ from keypackage_ref".to_owned(),
+                ));
+            }
+            let expected = crate::author_leaf_from_key_package_bytes(&key_package_bytes, 0)?;
+            let mut matches = post_leaves.iter().filter(|leaf| {
+                !attributed_indices.contains(&leaf.leaf_index)
+                    && leaf.credential == expected.credential
+                    && leaf.signature_key == expected.signature_key
+            });
+            let leaf = matches.next().ok_or_else(|| {
+                Error::Protocol(
+                    "MLS Add preview produced no leaf for an exact KeyPackage".to_owned(),
+                )
+            })?;
+            if matches.next().is_some() {
+                return Err(Error::Protocol(
+                    "MLS Add preview produced ambiguous duplicate KeyPackage leaves".to_owned(),
+                ));
+            }
+            let crate::AuthorLeafCredential::Basic { identity } = &leaf.credential else {
+                return Err(Error::Protocol(
+                    "new Arkret MLS leaf is not BasicCredential".to_owned(),
+                ));
+            };
+            let credential = std::str::from_utf8(identity).map_err(|_| {
+                Error::Protocol("new Arkret MLS credential is not UTF-8".to_owned())
+            })?;
+            let expected_credential = match &record.endpoint {
+                MlsEndpointIdentity::HumanDevice { device_id, .. } => device_id.as_str(),
+                MlsEndpointIdentity::NativeAgentRuntime { agent_id, .. } => agent_id.as_str(),
+                MlsEndpointIdentity::MinimalMetadataPairwise {
+                    pairwise_actor_id, ..
+                } => pairwise_actor_id.as_str(),
+            };
+            if credential != expected_credential {
+                return Err(Error::Protocol(
+                    "MLS Add preview credential differs from the KeyPackage endpoint".to_owned(),
+                ));
+            }
+            if !attributed_indices.insert(leaf.leaf_index) {
+                return Err(Error::Protocol(
+                    "MLS Add preview attributed one leaf to multiple members".to_owned(),
+                ));
+            }
+            result.push(arkret_models_crypto::MlsSecurityFrontierLeaf {
+                leaf_index: leaf.leaf_index,
+                principal_id: record.endpoint.actor_id().clone(),
+                credential_ref: arkret_wire::NonEmptyString::new(credential.to_owned())
+                    .map_err(|error| Error::Protocol(error.to_owned()))?,
+            });
+        }
+
+        if attributed_indices.len() != post_leaves.len() {
+            return Err(Error::Protocol(
+                "MLS Add preview left an unattributed post-Commit leaf".to_owned(),
+            ));
+        }
+        result.sort_by_key(|leaf| leaf.leaf_index);
+        Ok(result)
+    }
+
     /// Build the [`crate::AuthorGroupStateView`] for this group's current
     /// state. The caller supplies the `group_state_ref` it has verified as
     /// the winning group state for this epoch (accepted genesis / winning

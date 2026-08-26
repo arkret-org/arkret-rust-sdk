@@ -906,6 +906,65 @@ mod tests {
     }
 
     #[test]
+    fn add_frontier_preview_matches_actual_post_commit_tree_with_a_gap_and_batch() {
+        let alice = ArkretMlsIdentity::new_test_human_device(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000071").unwrap(),
+        )
+        .unwrap();
+        let bob = ArkretMlsIdentity::new_test_human_device(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000072").unwrap(),
+        )
+        .unwrap();
+        let carol = ArkretMlsIdentity::new_test_human_device(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturecarol").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000073").unwrap(),
+        )
+        .unwrap();
+        let dave = ArkretMlsIdentity::new_test_human_device(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturedave").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000074").unwrap(),
+        )
+        .unwrap();
+        let eve = ArkretMlsIdentity::new_test_human_device(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureeve").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000075").unwrap(),
+        )
+        .unwrap();
+        let bob_key_package = bob.key_package_record().unwrap();
+        let carol_key_package = carol.key_package_record().unwrap();
+        let dave_key_package = dave.key_package_record().unwrap();
+        let eve_key_package = eve.key_package_record().unwrap();
+
+        let mut group = alice
+            .create_group(b"ak:realm:Ac3z9c2L3P4p8jqa9j-FRzpW1cRpD4YTfZvHbGEmmG1k")
+            .unwrap();
+        group
+            .add_members(&[bob_key_package, carol_key_package])
+            .unwrap();
+        group
+            .remove_member_by_principal(
+                &DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+            )
+            .unwrap();
+
+        let epoch_before_preview = group.epoch();
+        let preview = group
+            .preview_add_members_security_frontier(&[
+                dave_key_package.clone(),
+                eve_key_package.clone(),
+            ])
+            .unwrap();
+        assert_eq!(group.epoch(), epoch_before_preview);
+
+        group
+            .add_members(&[dave_key_package, eve_key_package])
+            .unwrap();
+        assert_eq!(preview, group.security_frontier_leaves().unwrap());
+    }
+
+    #[test]
     fn existing_member_applies_durable_add_proposal_before_referencing_commit() {
         let alice = ArkretMlsIdentity::new_test_human_device(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),

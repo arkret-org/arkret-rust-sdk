@@ -70,18 +70,12 @@ pub fn action_grants_authority_for(holder_action: &str, child_action: &str) -> R
 }
 
 /// True when the Realm owner aggregate may sign a grant for `child_action`
-/// under the given registry basis.
-///
-/// `active_profiles` supplies the profile ids the Realm has declared in its
-/// `schema_refs`. A profile-gated action is owner-grantable exactly when its
-/// profile is declared — the declaration is the whole condition, there is no
-/// second per-action whitelist — and a grantable action still has to pass
-/// that profile's own registration / constraint / evidence gates downstream.
-pub fn owner_may_grant(
-    child_action: &str,
-    registry_basis: Option<&Hash>,
-    active_profiles: &[String],
-) -> Result<bool> {
+/// under the given registry basis. The registry-derived
+/// `grant_authority_actions` set is the complete authority surface. A
+/// descriptor carrying `profile` is intentionally excluded by the registry's
+/// `require_profile_null` rule and cannot be re-enabled through Realm
+/// `schema_refs` or an implementation-private active-profile list.
+pub fn owner_may_grant(child_action: &str, registry_basis: Option<&Hash>) -> Result<bool> {
     let basis = registry_basis.ok_or_else(|| {
         WireError::Protocol(
             "capability_registry_basis_unavailable: aggregate expansion requires a registry basis"
@@ -96,8 +90,11 @@ pub fn owner_may_grant(
     {
         return Ok(false);
     }
-    if let Some(profile) = child.get("profile").and_then(serde_json::Value::as_str) {
-        return Ok(active_profiles.iter().any(|active| active == profile));
+    if child
+        .get("profile")
+        .is_some_and(|profile| !profile.is_null())
+    {
+        return Ok(false);
     }
     snapshot_action_contains(
         &registry,
@@ -211,7 +208,7 @@ mod tests {
         let basis = basis();
         require_registry_basis(Some(&basis)).unwrap();
         assert!(owner_may_author_event_kind("ak.message.create", Some(&basis)).unwrap());
-        assert!(owner_may_grant("ak.message.create", Some(&basis), &[]).unwrap());
+        assert!(owner_may_grant("ak.message.create", Some(&basis)).unwrap());
     }
 
     #[test]
@@ -257,18 +254,18 @@ mod tests {
     #[test]
     fn owner_may_grant_core_non_event_and_key_share() {
         let basis = basis();
-        assert!(owner_may_grant("ak.audit.export", Some(&basis), &[]).unwrap());
-        assert!(owner_may_grant("ak.strand.create", Some(&basis), &[]).unwrap());
+        assert!(owner_may_grant("ak.audit.export", Some(&basis)).unwrap());
+        assert!(owner_may_grant("ak.strand.create", Some(&basis)).unwrap());
         // Owner is self-grantable: that is how a co-owner is appointed.
-        assert!(owner_may_grant(CapabilityActionId::REALM_OWNER, Some(&basis), &[]).unwrap());
+        assert!(owner_may_grant(CapabilityActionId::REALM_OWNER, Some(&basis)).unwrap());
     }
 
     #[test]
     fn owner_may_not_grant_root_control_or_reducer_only_actions() {
         let basis = basis();
-        assert!(!owner_may_grant("ak.realm.destroy", Some(&basis), &[]).unwrap());
-        assert!(!owner_may_grant("ak.realm.tombstone", Some(&basis), &[]).unwrap());
-        assert!(!owner_may_grant("ak.capability.derived", Some(&basis), &[]).unwrap());
+        assert!(!owner_may_grant("ak.realm.destroy", Some(&basis)).unwrap());
+        assert!(!owner_may_grant("ak.realm.tombstone", Some(&basis)).unwrap());
+        assert!(!owner_may_grant("ak.capability.derived", Some(&basis)).unwrap());
         // ...and they are outside operational coverage too.
         assert!(
             !action_covers_event_kinds(CapabilityActionId::REALM_OWNER, "ak.realm.destroy")
@@ -277,14 +274,9 @@ mod tests {
     }
 
     #[test]
-    fn profile_actions_need_their_profile_declared() {
+    fn profile_actions_cannot_be_enabled_by_realm_schema_refs() {
         let basis = basis();
-        assert!(!owner_may_grant("ak.agent.sidecar.write", Some(&basis), &[]).unwrap());
-        let declared = vec!["ak.profile.agent_sidecar.v1".to_owned()];
-        assert!(owner_may_grant("ak.agent.sidecar.write", Some(&basis), &declared).unwrap());
-        // Declaring an unrelated profile grants nothing.
-        let unrelated = vec!["ak.profile.calendar_event.v1".to_owned()];
-        assert!(!owner_may_grant("ak.agent.sidecar.write", Some(&basis), &unrelated).unwrap());
+        assert!(!owner_may_grant("ak.agent.sidecar.write", Some(&basis)).unwrap());
     }
 
     #[test]
@@ -303,9 +295,9 @@ mod tests {
 
     #[test]
     fn expansion_without_a_known_registry_basis_fails_closed() {
-        assert!(owner_may_grant("ak.strand.create", None, &[]).is_err());
+        assert!(owner_may_grant("ak.strand.create", None).is_err());
         let unknown = Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap();
-        assert!(owner_may_grant("ak.strand.create", Some(&unknown), &[]).is_err());
+        assert!(owner_may_grant("ak.strand.create", Some(&unknown)).is_err());
     }
 
     #[test]
