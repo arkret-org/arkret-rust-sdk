@@ -165,6 +165,124 @@ pub struct ControlProposalSnapshot {
     pub decision_overdue: bool,
 }
 
+/// Fenced ownership of one due Control Seal Realm attempt.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ControlSealScheduleClaim {
+    pub realm_id: RealmId,
+    pub generation: u64,
+    pub holder: String,
+    pub fence: u64,
+    pub claimed_at_ms: i64,
+    pub claim_until_ms: i64,
+}
+
+/// Durable classification of one bounded Control Seal attempt.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ControlSealAttemptOutcome {
+    ProgressPublished,
+    NoAcceptedMoves,
+    LocalSignerNotMember,
+    ThresholdRequiresExternalCoordinator,
+    MixedRecoveryNotYetEligible { eligible_at_ms: i64 },
+    MixedRecoveryRequiresExternalCoordinator,
+    NotaryValueUnavailable,
+    SignerSlotUnavailable,
+    ProposalPolicyUnavailable,
+    SigningLeaseBusy,
+    TransientStoreFailure,
+    SigningFailed,
+    PassTimedOut,
+}
+
+impl ControlSealAttemptOutcome {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ProgressPublished => "progress_published",
+            Self::NoAcceptedMoves => "no_accepted_moves",
+            Self::LocalSignerNotMember => "local_signer_not_member",
+            Self::ThresholdRequiresExternalCoordinator => "threshold_requires_external_coordinator",
+            Self::MixedRecoveryNotYetEligible { .. } => "mixed_recovery_not_yet_eligible",
+            Self::MixedRecoveryRequiresExternalCoordinator => {
+                "mixed_recovery_requires_external_coordinator"
+            }
+            Self::NotaryValueUnavailable => "notary_value_unavailable",
+            Self::SignerSlotUnavailable => "signer_slot_unavailable",
+            Self::ProposalPolicyUnavailable => "proposal_policy_unavailable",
+            Self::SigningLeaseBusy => "signing_lease_busy",
+            Self::TransientStoreFailure => "transient_store_failure",
+            Self::SigningFailed => "signing_failed",
+            Self::PassTimedOut => "pass_timed_out",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_failure(&self) -> bool {
+        matches!(
+            self,
+            Self::SignerSlotUnavailable
+                | Self::ProposalPolicyUnavailable
+                | Self::TransientStoreFailure
+                | Self::SigningFailed
+                | Self::PassTimedOut
+        )
+    }
+
+    /// Compute the next due time from the outcome and the post-attempt
+    /// consecutive failure count. Delays are operational, bounded, and shared
+    /// by every backend so memory and durable stores cannot drift.
+    #[must_use]
+    pub fn next_eligible_at_ms(&self, observed_at_ms: i64, consecutive_failures: u32) -> i64 {
+        let delay_ms = match self {
+            Self::ProgressPublished => 0,
+            Self::SigningLeaseBusy => 1_000,
+            Self::NoAcceptedMoves | Self::NotaryValueUnavailable => 5_000,
+            Self::MixedRecoveryNotYetEligible { eligible_at_ms } => {
+                return (*eligible_at_ms).max(observed_at_ms);
+            }
+            Self::LocalSignerNotMember
+            | Self::ThresholdRequiresExternalCoordinator
+            | Self::MixedRecoveryRequiresExternalCoordinator => 60_000,
+            Self::SignerSlotUnavailable
+            | Self::ProposalPolicyUnavailable
+            | Self::TransientStoreFailure
+            | Self::SigningFailed
+            | Self::PassTimedOut => {
+                let exponent = consecutive_failures.saturating_sub(1).min(6);
+                1_000_i64.saturating_mul(1_i64 << exponent).min(60_000)
+            }
+        };
+        observed_at_ms.saturating_add(delay_ms)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ControlSealAttemptCompletion {
+    Applied,
+    ReleasedNewGeneration,
+    StaleClaim,
+}
+
+impl ControlSealAttemptCompletion {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Applied => "applied",
+            Self::ReleasedNewGeneration => "released_new_generation",
+            Self::StaleClaim => "stale_claim",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ControlSealScheduleRepairStats {
+    pub scanned: usize,
+    pub inserted: usize,
+    pub generation_repaired: usize,
+    pub stale_deleted: usize,
+    pub cursor_wrapped: bool,
+}
+
 /// Pending + sealed control-plane Event log.
 ///
 /// A Control Move is an [`Event`] carrying `seal_basis`
@@ -236,11 +354,32 @@ pub trait ControlEventStore: Send + Sync {
         limit: usize,
     ) -> StoreResult<Vec<PendingControlEventRecord>>;
 
-    /// Canonical Realm ids with at least one pending Control Move.
-    ///
-    /// This is the reconciliation source after process restart or a lost
-    /// in-memory wakeup. Results MUST be sorted and unique.
-    fn list_pending_realms(&self, limit: usize) -> StoreResult<Vec<RealmId>>;
+    /// Atomically claim due Realm schedule rows in fair due-time order.
+    /// Callers MUST pass no more than their currently free execution slots.
+    fn claim_due_control_seal_realms(
+        &self,
+        holder: &str,
+        now_ms: i64,
+        claim_until_ms: i64,
+        limit: usize,
+    ) -> StoreResult<Vec<ControlSealScheduleClaim>>;
+
+    /// Complete one fenced attempt. A matching fence with a newer generation
+    /// releases the claim without applying the stale outcome or its backoff.
+    fn complete_control_seal_attempt(
+        &self,
+        claim: &ControlSealScheduleClaim,
+        outcome: &ControlSealAttemptOutcome,
+        observed_at_ms: i64,
+    ) -> StoreResult<ControlSealAttemptCompletion>;
+
+    /// Run one bounded page of the always-on repair scan over authoritative
+    /// pending Event state.
+    fn repair_control_seal_schedule(
+        &self,
+        now_ms: i64,
+        limit: usize,
+    ) -> StoreResult<ControlSealScheduleRepairStats>;
 
     /// Pending control-plane Event list for the notary worker, oldest first.
     fn list_pending_for_notary(

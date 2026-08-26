@@ -45,8 +45,9 @@ pub use store::memory::{
 pub use store::{
     AcklessSelfPrincipalIngress, BottomMode, CellLatticeBinding, CellRegistry, CellStore,
     ControlEventStore, ControlProposalIngress, ControlProposalIngressClass,
-    ControlProposalSnapshot, PendingControlEventRecord, SealStore, SealedControlEventRecord,
-    StoreError, StoreResult, control_event_digest,
+    ControlProposalSnapshot, ControlSealAttemptCompletion, ControlSealAttemptOutcome,
+    ControlSealScheduleClaim, ControlSealScheduleRepairStats, PendingControlEventRecord, SealStore,
+    SealedControlEventRecord, StoreError, StoreResult, control_event_digest,
 };
 pub use verify::{
     ControlMoveReject, ControlMoveVerificationContext, reject_to_error_code,

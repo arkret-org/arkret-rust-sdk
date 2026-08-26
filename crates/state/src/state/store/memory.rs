@@ -19,8 +19,9 @@ use serde_json::{Value, json};
 use super::{
     BottomMode, CellLatticeBinding, CellRegistry, CellStore, ControlEventStore,
     ControlProposalIngress, ControlProposalIngressClass, ControlProposalSnapshot,
-    PendingControlEventRecord, SealStore, SealedControlEventRecord, StoreError, StoreResult,
-    control_event_digest,
+    ControlSealAttemptCompletion, ControlSealAttemptOutcome, ControlSealScheduleClaim,
+    ControlSealScheduleRepairStats, PendingControlEventRecord, SealStore, SealedControlEventRecord,
+    StoreError, StoreResult, control_event_digest,
 };
 use crate::lattice::ordered_log::IssuedOp;
 use crate::lattice::{
@@ -49,9 +50,85 @@ struct MemoryControlEventStoreInner {
     ingress_classes: BTreeMap<String, ControlProposalIngressClass>,
     proposal_decisions: BTreeMap<String, Vec<ControlProposalDecision>>,
     decision_overdue: BTreeSet<String>,
+    control_seal_schedule: BTreeMap<RealmId, MemoryControlSealSchedule>,
+    control_seal_repair_after: Option<RealmId>,
+    control_seal_schedule_sequence: i64,
+}
+
+#[derive(Clone, Debug)]
+struct MemoryControlSealSchedule {
+    generation: u64,
+    first_pending_at_ms: i64,
+    next_attempt_at_ms: i64,
+    last_attempt_at_ms: Option<i64>,
+    claim_holder: Option<String>,
+    claim_fence: u64,
+    claim_until_ms: Option<i64>,
+    consecutive_failures: u32,
+    last_outcome: Option<String>,
 }
 
 impl MemoryControlEventStore {
+    fn realm_event_count(inner: &MemoryControlEventStoreInner, realm_id: &RealmId) -> u64 {
+        inner
+            .events
+            .values()
+            .filter(|event| event.realm_id == *realm_id)
+            .count() as u64
+    }
+
+    fn pending_realm_counts(inner: &MemoryControlEventStoreInner) -> BTreeMap<RealmId, u64> {
+        let mut counts = BTreeMap::new();
+        for (digest, event) in &inner.events {
+            if inner.sealed.contains_key(digest)
+                || inner
+                    .proposal_decisions
+                    .get(digest)
+                    .is_some_and(|decisions| {
+                        decisions.iter().any(ControlProposalDecision::is_reject)
+                    })
+            {
+                continue;
+            }
+            *counts.entry(event.realm_id.clone()).or_default() += 1;
+        }
+        counts
+    }
+
+    fn ensure_realm_schedule(inner: &mut MemoryControlEventStoreInner, realm_id: &RealmId) {
+        let generation = Self::realm_event_count(inner, realm_id);
+        let first_pending_at_ms = if inner.control_seal_schedule.contains_key(realm_id) {
+            inner.control_seal_schedule_sequence
+        } else {
+            inner.control_seal_schedule_sequence =
+                inner.control_seal_schedule_sequence.saturating_add(1);
+            inner.control_seal_schedule_sequence
+        };
+        let schedule = inner
+            .control_seal_schedule
+            .entry(realm_id.clone())
+            .or_insert_with(|| MemoryControlSealSchedule {
+                generation,
+                // The memory backend has no storage clock. A monotonic insert
+                // sequence preserves age ordering and prevents newly added
+                // low Realm ids from overtaking older work indefinitely.
+                first_pending_at_ms,
+                next_attempt_at_ms: 0,
+                last_attempt_at_ms: None,
+                claim_holder: None,
+                claim_fence: 0,
+                claim_until_ms: None,
+                consecutive_failures: 0,
+                last_outcome: None,
+            });
+        if generation > schedule.generation {
+            schedule.generation = generation;
+            schedule.next_attempt_at_ms = 0;
+            schedule.consecutive_failures = 0;
+            schedule.last_outcome = None;
+        }
+    }
+
     /// Seed a locally verified accepted Event for deterministic checkpoint
     /// replay. This bypasses pending-ingress bookkeeping only; callers still
     /// pass every Event through `apply_accepted_seal_in_context`, which repeats
@@ -174,6 +251,7 @@ impl ControlEventStore for MemoryControlEventStore {
                 }
             }
         }
+        Self::ensure_realm_schedule(&mut inner, &event.realm_id);
         Ok(())
     }
 
@@ -402,28 +480,179 @@ impl ControlEventStore for MemoryControlEventStore {
             .collect())
     }
 
-    fn list_pending_realms(&self, limit: usize) -> StoreResult<Vec<RealmId>> {
-        let inner = self
+    fn claim_due_control_seal_realms(
+        &self,
+        holder: &str,
+        now_ms: i64,
+        claim_until_ms: i64,
+        limit: usize,
+    ) -> StoreResult<Vec<ControlSealScheduleClaim>> {
+        if claim_until_ms <= now_ms {
+            return Err(StoreError::Conflict(
+                "Control Seal schedule claim must end after it starts".to_owned(),
+            ));
+        }
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+        let mut inner = self
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let mut realms = BTreeSet::new();
-        for (digest, event) in &inner.events {
-            if !inner.sealed.contains_key(digest)
-                && !inner
-                    .proposal_decisions
-                    .get(digest)
-                    .is_some_and(|decisions| {
-                        decisions.iter().any(ControlProposalDecision::is_reject)
-                    })
-            {
-                realms.insert(event.realm_id.clone());
-                if realms.len() >= limit {
-                    break;
+        let pending = Self::pending_realm_counts(&inner);
+        let mut due = inner
+            .control_seal_schedule
+            .iter()
+            .filter(|(realm_id, schedule)| {
+                pending.contains_key(*realm_id)
+                    && schedule.next_attempt_at_ms <= now_ms
+                    && (schedule.claim_holder.is_none()
+                        || schedule.claim_until_ms.is_some_and(|until| until <= now_ms))
+            })
+            .map(|(realm_id, schedule)| {
+                (
+                    schedule.next_attempt_at_ms,
+                    schedule.first_pending_at_ms,
+                    realm_id.clone(),
+                )
+            })
+            .collect::<Vec<_>>();
+        due.sort();
+        due.truncate(limit);
+        let mut claims = Vec::with_capacity(due.len());
+        for (_, _, realm_id) in due {
+            let schedule = inner
+                .control_seal_schedule
+                .get_mut(&realm_id)
+                .expect("selected Control Seal schedule exists");
+            schedule.claim_fence = schedule.claim_fence.saturating_add(1);
+            schedule.claim_holder = Some(holder.to_owned());
+            schedule.claim_until_ms = Some(claim_until_ms);
+            schedule.last_attempt_at_ms = Some(now_ms);
+            claims.push(ControlSealScheduleClaim {
+                realm_id,
+                generation: schedule.generation,
+                holder: holder.to_owned(),
+                fence: schedule.claim_fence,
+                claimed_at_ms: now_ms,
+                claim_until_ms,
+            });
+        }
+        Ok(claims)
+    }
+
+    fn complete_control_seal_attempt(
+        &self,
+        claim: &ControlSealScheduleClaim,
+        outcome: &ControlSealAttemptOutcome,
+        observed_at_ms: i64,
+    ) -> StoreResult<ControlSealAttemptCompletion> {
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let Some(schedule) = inner.control_seal_schedule.get(&claim.realm_id) else {
+            return Ok(ControlSealAttemptCompletion::StaleClaim);
+        };
+        if schedule.claim_holder.as_deref() != Some(claim.holder.as_str())
+            || schedule.claim_fence != claim.fence
+        {
+            return Ok(ControlSealAttemptCompletion::StaleClaim);
+        }
+        if schedule.generation != claim.generation {
+            let schedule = inner
+                .control_seal_schedule
+                .get_mut(&claim.realm_id)
+                .expect("checked Control Seal schedule exists");
+            schedule.claim_holder = None;
+            schedule.claim_until_ms = None;
+            schedule.next_attempt_at_ms = observed_at_ms;
+            return Ok(ControlSealAttemptCompletion::ReleasedNewGeneration);
+        }
+        let still_pending = Self::pending_realm_counts(&inner).contains_key(&claim.realm_id);
+        if !still_pending {
+            inner.control_seal_schedule.remove(&claim.realm_id);
+            return Ok(ControlSealAttemptCompletion::Applied);
+        }
+        let schedule = inner
+            .control_seal_schedule
+            .get_mut(&claim.realm_id)
+            .expect("checked Control Seal schedule exists");
+        schedule.consecutive_failures = if outcome.is_failure() {
+            schedule.consecutive_failures.saturating_add(1)
+        } else {
+            0
+        };
+        schedule.next_attempt_at_ms =
+            outcome.next_eligible_at_ms(observed_at_ms, schedule.consecutive_failures);
+        schedule.last_outcome = Some(outcome.as_str().to_owned());
+        schedule.claim_holder = None;
+        schedule.claim_until_ms = None;
+        Ok(ControlSealAttemptCompletion::Applied)
+    }
+
+    fn repair_control_seal_schedule(
+        &self,
+        _now_ms: i64,
+        limit: usize,
+    ) -> StoreResult<ControlSealScheduleRepairStats> {
+        if limit == 0 {
+            return Ok(ControlSealScheduleRepairStats::default());
+        }
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let pending = Self::pending_realm_counts(&inner);
+        let all_realms = pending.keys().cloned().collect::<Vec<_>>();
+        let mut selected = all_realms
+            .iter()
+            .filter(|realm_id| {
+                inner
+                    .control_seal_repair_after
+                    .as_ref()
+                    .is_none_or(|cursor| *realm_id > cursor)
+            })
+            .take(limit)
+            .cloned()
+            .collect::<Vec<_>>();
+        let mut cursor_wrapped = false;
+        if selected.is_empty() && !all_realms.is_empty() {
+            cursor_wrapped = inner.control_seal_repair_after.is_some();
+            selected.extend(all_realms.iter().take(limit).cloned());
+        }
+        let mut stats = ControlSealScheduleRepairStats {
+            scanned: selected.len(),
+            cursor_wrapped,
+            ..ControlSealScheduleRepairStats::default()
+        };
+        for realm_id in &selected {
+            let generation = Self::realm_event_count(&inner, realm_id);
+            match inner.control_seal_schedule.get(realm_id) {
+                None => {
+                    Self::ensure_realm_schedule(&mut inner, realm_id);
+                    stats.inserted += 1;
                 }
+                Some(schedule) if schedule.generation < generation => {
+                    Self::ensure_realm_schedule(&mut inner, realm_id);
+                    stats.generation_repaired += 1;
+                }
+                Some(_) => {}
             }
         }
-        Ok(realms.into_iter().collect())
+        inner.control_seal_repair_after = selected.last().cloned();
+        let stale = inner
+            .control_seal_schedule
+            .keys()
+            .filter(|realm_id| !pending.contains_key(*realm_id))
+            .take(limit)
+            .cloned()
+            .collect::<Vec<_>>();
+        for realm_id in stale {
+            inner.control_seal_schedule.remove(&realm_id);
+            stats.stale_deleted += 1;
+        }
+        Ok(stats)
     }
 
     fn list_pending_for_notary(
@@ -1186,11 +1415,11 @@ mod tests {
     /// A Control Move: an Event carrying `seal_basis`, distinguished from
     /// its siblings by `actor_seq` so each one hashes to a different
     /// `event_digest` (the store key).
-    fn control_move(actor_seq: u64) -> Event {
+    fn control_move_for_realm(actor_seq: u64, realm_id: RealmId) -> Event {
         let created_at = Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap();
         let mut event = arkret_wire::test_support::raw_event_at(
             "ak.member.state",
-            ScopeRef::Realm { realm_id: realm() },
+            ScopeRef::Realm { realm_id },
             DidCoreId::new("ak:did_core:webvh:z6mkfixtureadmin".to_owned()).unwrap(),
             DidCoreId::new("ak:did_core:webvh:z6mkfixtureps".to_owned()).unwrap(),
             actor_seq,
@@ -1222,6 +1451,26 @@ mod tests {
             .into(),
         );
         event
+    }
+
+    fn control_move(actor_seq: u64) -> Event {
+        control_move_for_realm(actor_seq, realm())
+    }
+
+    fn derived_realm(seed: u8) -> RealmId {
+        let event_id = arkret_identifiers::EventId::from_digest(
+            SUITE,
+            arkret_canonical::sha256_bytes(&[seed]),
+        );
+        RealmId::from_event_id(&event_id)
+    }
+
+    fn derived_realm_index(seed: u32) -> RealmId {
+        let event_id = arkret_identifiers::EventId::from_digest(
+            SUITE,
+            arkret_canonical::sha256_bytes(&seed.to_be_bytes()),
+        );
+        RealmId::from_event_id(&event_id)
     }
 
     fn dummy_seal(id: SealId, predecessors: Vec<SealId>, delta: Vec<Hash>) -> Seal {
@@ -1834,6 +2083,232 @@ mod tests {
                 .cached_state(&realm(), &cell_member(), &view)
                 .unwrap()
                 .is_none()
+        );
+    }
+
+    #[test]
+    fn control_seal_schedule_releases_stale_generation_without_backoff() {
+        let store = MemoryControlEventStore::default();
+        let first = control_move(1);
+        store
+            .put_pending_with_ingress(&first, &ackless_ingress(), SUITE)
+            .unwrap();
+        let first_claim = store
+            .claim_due_control_seal_realms("worker-a", 100, 1_000, 1)
+            .unwrap()
+            .pop()
+            .unwrap();
+        assert_eq!(first_claim.generation, 1);
+
+        let second = control_move(2);
+        store
+            .put_pending_with_ingress(&second, &ackless_ingress(), SUITE)
+            .unwrap();
+        assert_eq!(
+            store
+                .complete_control_seal_attempt(
+                    &first_claim,
+                    &ControlSealAttemptOutcome::SigningFailed,
+                    200,
+                )
+                .unwrap(),
+            ControlSealAttemptCompletion::ReleasedNewGeneration
+        );
+        let second_claim = store
+            .claim_due_control_seal_realms("worker-b", 200, 1_100, 1)
+            .unwrap()
+            .pop()
+            .unwrap();
+        assert_eq!(second_claim.generation, 2);
+        assert_eq!(second_claim.fence, 2);
+        assert_eq!(
+            store
+                .complete_control_seal_attempt(
+                    &first_claim,
+                    &ControlSealAttemptOutcome::NoAcceptedMoves,
+                    250,
+                )
+                .unwrap(),
+            ControlSealAttemptCompletion::StaleClaim
+        );
+    }
+
+    #[test]
+    fn control_seal_schedule_repair_rebuilds_missing_derived_row() {
+        let store = MemoryControlEventStore::default();
+        let event = control_move(1);
+        store
+            .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
+            .unwrap();
+        store.inner.lock().unwrap().control_seal_schedule.clear();
+
+        let repaired = store.repair_control_seal_schedule(500, 16).unwrap();
+        assert_eq!(repaired.inserted, 1);
+        assert_eq!(repaired.scanned, 1);
+        assert_eq!(
+            store
+                .claim_due_control_seal_realms("worker", 500, 1_500, 16)
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn control_seal_schedule_expired_claim_is_reclaimed_with_a_new_fence() {
+        let store = MemoryControlEventStore::default();
+        store
+            .put_pending_with_ingress(&control_move(1), &ackless_ingress(), SUITE)
+            .unwrap();
+        let first = store
+            .claim_due_control_seal_realms("worker-a", 100, 200, 1)
+            .unwrap()
+            .pop()
+            .unwrap();
+        assert!(
+            store
+                .claim_due_control_seal_realms("worker-b", 199, 300, 1)
+                .unwrap()
+                .is_empty()
+        );
+        let replacement = store
+            .claim_due_control_seal_realms("worker-b", 200, 300, 1)
+            .unwrap()
+            .pop()
+            .unwrap();
+        assert_eq!(replacement.fence, first.fence + 1);
+        assert_eq!(
+            store
+                .complete_control_seal_attempt(
+                    &first,
+                    &ControlSealAttemptOutcome::ProgressPublished,
+                    201,
+                )
+                .unwrap(),
+            ControlSealAttemptCompletion::StaleClaim
+        );
+    }
+
+    #[test]
+    fn control_seal_schedule_failed_front_page_does_not_starve_later_realms() {
+        let store = MemoryControlEventStore::default();
+        for seed in 1..=40 {
+            let event = control_move_for_realm(u64::from(seed), derived_realm(seed));
+            store
+                .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
+                .unwrap();
+        }
+
+        let first = store
+            .claim_due_control_seal_realms("worker", 0, 100, 16)
+            .unwrap();
+        assert_eq!(first.len(), 16);
+        for claim in first {
+            store
+                .complete_control_seal_attempt(
+                    &claim,
+                    &ControlSealAttemptOutcome::LocalSignerNotMember,
+                    0,
+                )
+                .unwrap();
+        }
+        let second = store
+            .claim_due_control_seal_realms("worker", 0, 100, 16)
+            .unwrap();
+        assert_eq!(second.len(), 16);
+        for claim in second {
+            store
+                .complete_control_seal_attempt(
+                    &claim,
+                    &ControlSealAttemptOutcome::LocalSignerNotMember,
+                    0,
+                )
+                .unwrap();
+        }
+        assert_eq!(
+            store
+                .claim_due_control_seal_realms("worker", 0, 100, 16)
+                .unwrap()
+                .len(),
+            8
+        );
+    }
+
+    #[test]
+    fn control_seal_schedule_serves_1025_realms_in_bounded_claim_waves() {
+        let store = MemoryControlEventStore::default();
+        for index in 0_u32..1_025 {
+            let event = control_move_for_realm(u64::from(index) + 1, derived_realm_index(index));
+            store
+                .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
+                .unwrap();
+        }
+
+        let mut claimed_realms = BTreeSet::new();
+        loop {
+            let claims = store
+                .claim_due_control_seal_realms("worker", 0, 100, 16)
+                .unwrap();
+            assert!(claims.len() <= 16);
+            if claims.is_empty() {
+                break;
+            }
+            for claim in claims {
+                assert!(claimed_realms.insert(claim.realm_id.clone()));
+                store
+                    .complete_control_seal_attempt(
+                        &claim,
+                        &ControlSealAttemptOutcome::LocalSignerNotMember,
+                        0,
+                    )
+                    .unwrap();
+            }
+        }
+        assert_eq!(claimed_realms.len(), 1_025);
+    }
+
+    #[test]
+    fn control_seal_schedule_repair_rotates_across_bounded_pages() {
+        let store = MemoryControlEventStore::default();
+        for seed in 1..=5 {
+            let event = control_move_for_realm(u64::from(seed), derived_realm(seed));
+            store
+                .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
+                .unwrap();
+        }
+        store.inner.lock().unwrap().control_seal_schedule.clear();
+
+        let first = store.repair_control_seal_schedule(100, 2).unwrap();
+        let second = store.repair_control_seal_schedule(101, 2).unwrap();
+        let third = store.repair_control_seal_schedule(102, 2).unwrap();
+        assert_eq!(first.inserted + second.inserted + third.inserted, 5);
+        assert_eq!(first.scanned + second.scanned + third.scanned, 5);
+        let wrapped = store.repair_control_seal_schedule(103, 2).unwrap();
+        assert!(wrapped.cursor_wrapped);
+        assert_eq!(wrapped.scanned, 2);
+        assert_eq!(wrapped.inserted, 0);
+    }
+
+    #[test]
+    fn control_seal_schedule_outcomes_use_bounded_and_time_aware_backoff() {
+        assert_eq!(
+            ControlSealAttemptOutcome::MixedRecoveryNotYetEligible {
+                eligible_at_ms: 42_000,
+            }
+            .next_eligible_at_ms(10_000, 0),
+            42_000
+        );
+        assert_eq!(
+            ControlSealAttemptOutcome::SigningFailed.next_eligible_at_ms(10_000, 1),
+            11_000
+        );
+        assert_eq!(
+            ControlSealAttemptOutcome::SigningFailed.next_eligible_at_ms(10_000, u32::MAX),
+            70_000
+        );
+        assert_eq!(
+            ControlSealAttemptOutcome::ProgressPublished.next_eligible_at_ms(10_000, 0),
+            10_000
         );
     }
 
