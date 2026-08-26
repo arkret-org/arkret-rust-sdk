@@ -7,6 +7,8 @@ use arkret_wire::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::events_payloads::FrankingProof;
+
 fn now_utc_canonical() -> DateTime<Utc> {
     arkret_canonical::normalize_timestamp_canonical(Utc::now())
 }
@@ -209,7 +211,7 @@ pub struct ModerationReport {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evidence_refs: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub franking_proof: Option<ModerationFrankingProof>,
+    pub franking_proof: Option<FrankingProof>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
 }
@@ -236,21 +238,6 @@ impl ModerationReport {
             created_at: now_utc_canonical(),
         }
     }
-}
-
-/// Moderation franking proof for E2EE content (moderation.md §3.4).
-///
-/// `franking_tag` MUST be a key-bound MAC of the reported ciphertext that
-/// only the reporter could have produced; spec leaves the algorithm open
-/// per profile — this struct just carries the wire shape.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ModerationFrankingProof {
-    pub algorithm: String,
-    pub franking_tag: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub epoch: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub key_ref: Option<String>,
 }
 
 #[cfg(test)]

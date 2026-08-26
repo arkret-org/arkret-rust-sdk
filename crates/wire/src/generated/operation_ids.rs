@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-25.1;
-//! sha256=6d1a72574801b9ddcd1213db6a1dce18162c910eced33590ad237fddc1769850 Entries: registered=258
+//! Input: registry/operation-registry.json; version=2026-08-26.1;
+//! sha256=4a7019893a7b8d232b7eaf839713c8603ca868a4464e6dd1f59d3d241eceb974 Entries: registered=260
 
 use serde::{Deserialize, Serialize};
 
@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 pub enum ServiceOperationId {
     EdgeAppletActorReadResolve,
     EdgeAppletCommandTransaction,
-    EdgeAppletInstallCommandAuthor,
+    EdgeAppletManagedActorCommandAuthor,
     EdgeAppletReadDescribe,
     EdgeAppletReadPing,
     EdgeAppletReadProtocolMetadata,
@@ -148,6 +148,7 @@ pub enum ServiceOperationId {
     SelfAgentSignerEvidenceReadResolve,
     SelfAppletCommandInstall,
     SelfAppletCommandRevoke,
+    SelfAppletGhostCommandPreview,
     SelfAppletGhostCommandProvision,
     SelfAppletInstallCommandPreview,
     SelfAppletRevokeCommandPreview,
@@ -223,6 +224,7 @@ pub enum ServiceOperationId {
     SelfKeysUploadCreate,
     SelfMediaReadIceConfig,
     SelfModerationCommandReport,
+    SelfModerationReadFrankingSealObservation,
     SelfMorphReadList,
     SelfMorphResourceGet,
     SelfOrganizationRecoveryArchivesReadList,
@@ -271,7 +273,7 @@ pub enum ServiceOperationId {
 pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::EDGE_APPLET_ACTOR_READ_RESOLVE,
     ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION,
-    ServiceOperationId::EDGE_APPLET_INSTALL_COMMAND_AUTHOR,
+    ServiceOperationId::EDGE_APPLET_MANAGED_ACTOR_COMMAND_AUTHOR,
     ServiceOperationId::EDGE_APPLET_READ_DESCRIBE,
     ServiceOperationId::EDGE_APPLET_READ_PING,
     ServiceOperationId::EDGE_APPLET_READ_PROTOCOL_METADATA,
@@ -409,6 +411,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_AGENT_SIGNER_EVIDENCE_READ_RESOLVE,
     ServiceOperationId::SELF_APPLET_COMMAND_INSTALL,
     ServiceOperationId::SELF_APPLET_COMMAND_REVOKE,
+    ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PREVIEW,
     ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PROVISION,
     ServiceOperationId::SELF_APPLET_INSTALL_COMMAND_PREVIEW,
     ServiceOperationId::SELF_APPLET_REVOKE_COMMAND_PREVIEW,
@@ -484,6 +487,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_KEYS_UPLOAD_CREATE,
     ServiceOperationId::SELF_MEDIA_READ_ICE_CONFIG,
     ServiceOperationId::SELF_MODERATION_COMMAND_REPORT,
+    ServiceOperationId::SELF_MODERATION_READ_FRANKING_SEAL_OBSERVATION,
     ServiceOperationId::SELF_MORPH_READ_LIST,
     ServiceOperationId::SELF_MORPH_RESOURCE_GET,
     ServiceOperationId::SELF_ORGANIZATION_RECOVERY_ARCHIVES_READ_LIST,
@@ -574,7 +578,7 @@ impl ServiceOperationId {
     pub const ALL: &'static [Self] = &[
         Self::EdgeAppletActorReadResolve,
         Self::EdgeAppletCommandTransaction,
-        Self::EdgeAppletInstallCommandAuthor,
+        Self::EdgeAppletManagedActorCommandAuthor,
         Self::EdgeAppletReadDescribe,
         Self::EdgeAppletReadPing,
         Self::EdgeAppletReadProtocolMetadata,
@@ -712,6 +716,7 @@ impl ServiceOperationId {
         Self::SelfAgentSignerEvidenceReadResolve,
         Self::SelfAppletCommandInstall,
         Self::SelfAppletCommandRevoke,
+        Self::SelfAppletGhostCommandPreview,
         Self::SelfAppletGhostCommandProvision,
         Self::SelfAppletInstallCommandPreview,
         Self::SelfAppletRevokeCommandPreview,
@@ -787,6 +792,7 @@ impl ServiceOperationId {
         Self::SelfKeysUploadCreate,
         Self::SelfMediaReadIceConfig,
         Self::SelfModerationCommandReport,
+        Self::SelfModerationReadFrankingSealObservation,
         Self::SelfMorphReadList,
         Self::SelfMorphResourceGet,
         Self::SelfOrganizationRecoveryArchivesReadList,
@@ -834,8 +840,8 @@ impl ServiceOperationId {
 
     pub const EDGE_APPLET_ACTOR_READ_RESOLVE: &'static str = "ak.edge.applet.actor.read.resolve";
     pub const EDGE_APPLET_COMMAND_TRANSACTION: &'static str = "ak.edge.applet.command.transaction";
-    pub const EDGE_APPLET_INSTALL_COMMAND_AUTHOR: &'static str =
-        "ak.edge.applet.install.command.author";
+    pub const EDGE_APPLET_MANAGED_ACTOR_COMMAND_AUTHOR: &'static str =
+        "ak.edge.applet.managed_actor.command.author";
     pub const EDGE_APPLET_READ_DESCRIBE: &'static str = "ak.edge.applet.read.describe";
     pub const EDGE_APPLET_READ_PING: &'static str = "ak.edge.applet.read.ping";
     pub const EDGE_APPLET_READ_PROTOCOL_METADATA: &'static str =
@@ -1062,6 +1068,8 @@ impl ServiceOperationId {
         "ak.self.agent_signer_evidence.read.resolve";
     pub const SELF_APPLET_COMMAND_INSTALL: &'static str = "ak.self.applet.command.install";
     pub const SELF_APPLET_COMMAND_REVOKE: &'static str = "ak.self.applet.command.revoke";
+    pub const SELF_APPLET_GHOST_COMMAND_PREVIEW: &'static str =
+        "ak.self.applet.ghost.command.preview";
     pub const SELF_APPLET_GHOST_COMMAND_PROVISION: &'static str =
         "ak.self.applet.ghost.command.provision";
     pub const SELF_APPLET_INSTALL_COMMAND_PREVIEW: &'static str =
@@ -1173,6 +1181,8 @@ impl ServiceOperationId {
     pub const SELF_KEYS_UPLOAD_CREATE: &'static str = "ak.self.keys.upload.create";
     pub const SELF_MEDIA_READ_ICE_CONFIG: &'static str = "ak.self.media.read.ice_config";
     pub const SELF_MODERATION_COMMAND_REPORT: &'static str = "ak.self.moderation.command.report";
+    pub const SELF_MODERATION_READ_FRANKING_SEAL_OBSERVATION: &'static str =
+        "ak.self.moderation.read.franking_seal_observation";
     pub const SELF_MORPH_READ_LIST: &'static str = "ak.self.morph.read.list";
     pub const SELF_MORPH_RESOURCE_GET: &'static str = "ak.self.morph.resource.get";
     pub const SELF_ORGANIZATION_RECOVERY_ARCHIVES_READ_LIST: &'static str =
@@ -1243,7 +1253,9 @@ impl ServiceOperationId {
         match self {
             Self::EdgeAppletActorReadResolve => Self::EDGE_APPLET_ACTOR_READ_RESOLVE,
             Self::EdgeAppletCommandTransaction => Self::EDGE_APPLET_COMMAND_TRANSACTION,
-            Self::EdgeAppletInstallCommandAuthor => Self::EDGE_APPLET_INSTALL_COMMAND_AUTHOR,
+            Self::EdgeAppletManagedActorCommandAuthor => {
+                Self::EDGE_APPLET_MANAGED_ACTOR_COMMAND_AUTHOR
+            }
             Self::EdgeAppletReadDescribe => Self::EDGE_APPLET_READ_DESCRIBE,
             Self::EdgeAppletReadPing => Self::EDGE_APPLET_READ_PING,
             Self::EdgeAppletReadProtocolMetadata => Self::EDGE_APPLET_READ_PROTOCOL_METADATA,
@@ -1467,6 +1479,7 @@ impl ServiceOperationId {
             }
             Self::SelfAppletCommandInstall => Self::SELF_APPLET_COMMAND_INSTALL,
             Self::SelfAppletCommandRevoke => Self::SELF_APPLET_COMMAND_REVOKE,
+            Self::SelfAppletGhostCommandPreview => Self::SELF_APPLET_GHOST_COMMAND_PREVIEW,
             Self::SelfAppletGhostCommandProvision => Self::SELF_APPLET_GHOST_COMMAND_PROVISION,
             Self::SelfAppletInstallCommandPreview => Self::SELF_APPLET_INSTALL_COMMAND_PREVIEW,
             Self::SelfAppletRevokeCommandPreview => Self::SELF_APPLET_REVOKE_COMMAND_PREVIEW,
@@ -1560,6 +1573,9 @@ impl ServiceOperationId {
             Self::SelfKeysUploadCreate => Self::SELF_KEYS_UPLOAD_CREATE,
             Self::SelfMediaReadIceConfig => Self::SELF_MEDIA_READ_ICE_CONFIG,
             Self::SelfModerationCommandReport => Self::SELF_MODERATION_COMMAND_REPORT,
+            Self::SelfModerationReadFrankingSealObservation => {
+                Self::SELF_MODERATION_READ_FRANKING_SEAL_OBSERVATION
+            }
             Self::SelfMorphReadList => Self::SELF_MORPH_READ_LIST,
             Self::SelfMorphResourceGet => Self::SELF_MORPH_RESOURCE_GET,
             Self::SelfOrganizationRecoveryArchivesReadList => {
@@ -1640,7 +1656,9 @@ impl ServiceOperationId {
         match value {
             Self::EDGE_APPLET_ACTOR_READ_RESOLVE => Some(Self::EdgeAppletActorReadResolve),
             Self::EDGE_APPLET_COMMAND_TRANSACTION => Some(Self::EdgeAppletCommandTransaction),
-            Self::EDGE_APPLET_INSTALL_COMMAND_AUTHOR => Some(Self::EdgeAppletInstallCommandAuthor),
+            Self::EDGE_APPLET_MANAGED_ACTOR_COMMAND_AUTHOR => {
+                Some(Self::EdgeAppletManagedActorCommandAuthor)
+            }
             Self::EDGE_APPLET_READ_DESCRIBE => Some(Self::EdgeAppletReadDescribe),
             Self::EDGE_APPLET_READ_PING => Some(Self::EdgeAppletReadPing),
             Self::EDGE_APPLET_READ_PROTOCOL_METADATA => Some(Self::EdgeAppletReadProtocolMetadata),
@@ -1894,6 +1912,7 @@ impl ServiceOperationId {
             }
             Self::SELF_APPLET_COMMAND_INSTALL => Some(Self::SelfAppletCommandInstall),
             Self::SELF_APPLET_COMMAND_REVOKE => Some(Self::SelfAppletCommandRevoke),
+            Self::SELF_APPLET_GHOST_COMMAND_PREVIEW => Some(Self::SelfAppletGhostCommandPreview),
             Self::SELF_APPLET_GHOST_COMMAND_PROVISION => {
                 Some(Self::SelfAppletGhostCommandProvision)
             }
@@ -2011,6 +2030,9 @@ impl ServiceOperationId {
             Self::SELF_KEYS_UPLOAD_CREATE => Some(Self::SelfKeysUploadCreate),
             Self::SELF_MEDIA_READ_ICE_CONFIG => Some(Self::SelfMediaReadIceConfig),
             Self::SELF_MODERATION_COMMAND_REPORT => Some(Self::SelfModerationCommandReport),
+            Self::SELF_MODERATION_READ_FRANKING_SEAL_OBSERVATION => {
+                Some(Self::SelfModerationReadFrankingSealObservation)
+            }
             Self::SELF_MORPH_READ_LIST => Some(Self::SelfMorphReadList),
             Self::SELF_MORPH_RESOURCE_GET => Some(Self::SelfMorphResourceGet),
             Self::SELF_ORGANIZATION_RECOVERY_ARCHIVES_READ_LIST => {
@@ -2166,11 +2188,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::EdgeAppletInstallCommandAuthor,
+        id: ServiceOperationId::EdgeAppletManagedActorCommandAuthor,
         http_method: "POST",
-        http_path: "/_arkret/edge/applet/install/author",
-        grpc: Some("EdgeApplet/InstallAuthor"),
-        mq: Some("edge.applet.install.command.author"),
+        http_path: "/_arkret/edge/applet/managed-actors/author",
+        grpc: Some("EdgeApplet/ManagedActorAuthor"),
+        mq: Some("edge.applet.managed_actor.command.author"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
@@ -2187,7 +2209,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some(
-                "The operation admits no Arkret Event and therefore has no registry-classified durable effect; independently, the Applet service MUST atomically persist request id/digest, exact bundle, and Bot key custody before returning, while Principal Server Event admission occurs only at install commit",
+                "The operation admits no Arkret Event; independently, the Applet service atomically persists the subject/request-digest ledger, exact request and bundle, actor key custody, method history, and provision state before returning",
             ),
             branch_contract_json: None,
         }),
@@ -5305,6 +5327,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfAppletGhostCommandPreview,
+        http_method: "POST",
+        http_path: "/_arkret/self/applets/{applet_id}/ghosts/provision/preview",
+        grpc: Some("SelfApplet/GhostPreview"),
+        mq: Some("self.applet.ghost.command.preview"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/applet-ghost-operations.schema.json#/$defs/ghost_preview_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/applet-ghost-operations.schema.json#/$defs/ghost_preview_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "No Event is admitted, but the Principal Server durably records the current subject generation and exact signed request before returning",
+            ),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAppletGhostCommandProvision,
         http_method: "POST",
         http_path: "/_arkret/self/applets/{applet_id}/ghosts/provision",
@@ -5349,13 +5398,15 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/applet-install-operations.schema.json#/$defs/applet_install_preview_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/applet-install-authoring.schema.json#/$defs/preview_outcome",
+            "schemas/applet-install-authoring.schema.json#/$defs/install_preview_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
             target: None,
-            rationale: Some("read_only_preview_despite_post_binding"),
+            rationale: Some(
+                "No Event is admitted, but the Principal Server atomically persists the branch-subject winner, exact unsigned payload, exact signed request, and superseded generations before returning",
+            ),
             branch_contract_json: None,
         }),
     },
@@ -7015,6 +7066,31 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.self.moderation.report"])),
             rationale: None,
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfModerationReadFrankingSealObservation,
+        http_method: "POST",
+        http_path: "/_arkret/self/moderation/franking/seal-observation",
+        grpc: Some("SelfModeration/FrankingSealObservation"),
+        mq: Some("self.moderation.read.franking_seal_observation"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/moderation-evidence.schema.json#/$defs/franking_seal_observation_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/moderation-evidence.schema.json#/$defs/franking_seal_observation_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("authorized_read_only_observation"),
             branch_contract_json: None,
         }),
     },

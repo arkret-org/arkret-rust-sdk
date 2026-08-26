@@ -1839,6 +1839,11 @@ impl ArkretMlsGroup {
                         envelope.epoch
                     )));
                 }
+                // A transition may add, remove, or replace occupied leaves.
+                // The old map is never a valid compatibility fallback; the
+                // caller must install the every-and-only accepted-transition
+                // binding before any roster/frontier API can succeed.
+                self.leaf_bindings.clear();
                 Ok(applied_epoch)
             }
             _ => Err(Error::Protocol("expected MLS Commit".to_owned())),

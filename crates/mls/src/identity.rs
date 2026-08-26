@@ -1117,7 +1117,7 @@ mod tests {
             .unwrap(),
             mls_group_id: NonEmptyString::new("pairwise-group").unwrap(),
             mls_epoch: 1,
-            welcome_ref: NonEmptyString::new(
+            welcome_ref: arkret_wire::EventId::new(
                 "ak:event:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM",
             )
             .unwrap(),

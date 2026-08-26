@@ -274,10 +274,9 @@ pub struct RetryConfig {
     pub retry_network_errors: bool,
     pub base_delay: Duration,
     pub max_delay: Duration,
-    pub respect_retry_after: bool,
     /// Apply 0–20% additive random jitter to computed backoff delays
-    /// (api-conventions.md §9 default backoff). Does not apply to
-    /// server-directed `Retry-After` values.
+    /// (api-conventions.md §9 default backoff) before taking the maximum with
+    /// a server-directed retry hint.
     pub jitter: bool,
 }
 
@@ -295,7 +294,6 @@ impl RetryConfig {
             retry_network_errors: true,
             base_delay: Duration::ZERO,
             max_delay: Duration::ZERO,
-            respect_retry_after: true,
             jitter: false,
         }
     }
@@ -310,14 +308,8 @@ impl RetryConfig {
             retry_network_errors: true,
             base_delay: Duration::from_millis(1000),
             max_delay: Duration::from_secs(60),
-            respect_retry_after: true,
             jitter: true,
         }
-    }
-
-    pub fn respect_retry_after(mut self, respect_retry_after: bool) -> Self {
-        self.respect_retry_after = respect_retry_after;
-        self
     }
 
     pub fn with_jitter(mut self, jitter: bool) -> Self {
@@ -352,17 +344,16 @@ impl RetryConfig {
 
     /// Next retry delay, honoring a server `Retry-After`.
     ///
-    /// A server-directed `Retry-After` is authoritative: it is **not**
-    /// truncated by `max_delay` and gets no jitter (api-conventions.md §9:
-    /// clients MUST prefer the server instruction).
+    /// The local exponential delay (including its additive jitter) and the
+    /// server hint are independent lower bounds. The effective delay is their
+    /// maximum, so a short or elapsed hint never accelerates the local ladder
+    /// and a long hint is never truncated by `max_delay`.
     #[cfg(any(not(target_arch = "wasm32"), test))]
     pub(crate) fn retry_delay_from_headers(&self, headers: &HeaderMap, attempt: usize) -> Duration {
-        if self.respect_retry_after
-            && let Some(retry_after_ms) = retry_after_ms(headers)
-        {
-            return Duration::from_millis(retry_after_ms);
-        }
-        self.retry_delay(attempt)
+        let local_backoff = self.retry_delay(attempt);
+        retry_after_ms(headers)
+            .map(Duration::from_millis)
+            .map_or(local_backoff, |server_hint| local_backoff.max(server_hint))
     }
 }
 

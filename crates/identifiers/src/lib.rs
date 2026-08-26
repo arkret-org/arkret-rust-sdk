@@ -832,7 +832,6 @@ declare_uuid_id_kinds! {
     DeviceMessageId, "ak:device_message:", UUID_VERSION_PRODUCER_ALLOCATED;
     FilterId, "ak:filter:", UUID_VERSION_PRODUCER_ALLOCATED;
     FrameId, "ak:frame:", UUID_VERSION_PRODUCER_ALLOCATED;
-    FrankingProofId, "ak:franking_proof:", UUID_VERSION_PRODUCER_ALLOCATED;
     MessageStreamId, "ak:message_stream:", UUID_VERSION_PRODUCER_ALLOCATED;
     InviteLocatorId, "ak:invite_locator:", UUID_VERSION_PRODUCER_ALLOCATED;
     KeyEventId, "ak:key_event:", UUID_VERSION_PRODUCER_ALLOCATED;
@@ -1569,7 +1568,6 @@ mod tests {
         assert_id!(FilterId, "ak:filter:");
         assert_id!(StrandId, "ak:strand:");
         assert_id!(FrameId, "ak:frame:");
-        assert_id!(FrankingProofId, "ak:franking_proof:");
         assert_id!(GrantId, "ak:grant:");
         assert_id!(SessionGrantId, "ak:session_grant:");
         assert_id!(InviteId, "ak:invite:");

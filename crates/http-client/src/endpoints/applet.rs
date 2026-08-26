@@ -4,11 +4,12 @@ use arkret_models_collaboration::account_lifecycle::AppletRevokeRequestBody;
 use arkret_models_collaboration::http_bodies::AppletTransactionRequestBody;
 use arkret_models_discovery::ServiceDescribe;
 use arkret_models_integration::{
-    AppletActorView, AppletInstallAuthorOutcome, AppletInstallAuthorRequestBody,
-    AppletInstallOutcome, AppletInstallPreviewOutcome, AppletInstallPreviewRequestBody,
-    AppletInstallRequestBody, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
-    AppletRevokeOutcome, AppletRevokePreviewOutcome, AppletRevokePreviewRequestBody,
-    AppletTransactionOutcome, GhostActorProvisionOutcome, GhostActorProvisionRequestBody,
+    AppletActorView, AppletInstallOutcome, AppletInstallPreviewOutcome,
+    AppletInstallPreviewRequestBody, AppletInstallRequestBody, AppletManagedActorAuthorOutcome,
+    AppletManagedActorAuthorRequestBody, AppletPingOutcome, AppletProtocolMetadata,
+    AppletRealmView, AppletRevokeOutcome, AppletRevokePreviewOutcome,
+    AppletRevokePreviewRequestBody, AppletTransactionOutcome, GhostActorProvisionOutcome,
+    GhostActorProvisionRequestBody, GhostPreviewOutcome, GhostPreviewRequestBody,
 };
 use reqwest::Method;
 use reqwest::header::CONTENT_TYPE;
@@ -36,13 +37,13 @@ impl Client {
 
     /// Relay a Principal-Server-signed authoring request to the Applet
     /// service without forwarding this client's Principal Server credentials.
-    pub async fn applet_install_author_at(
+    pub async fn applet_managed_actor_author_at(
         &self,
         applet_service_base_url: &Url,
-        request: &AppletInstallAuthorRequestBody,
-    ) -> Result<AppletInstallAuthorOutcome> {
+        request: &AppletManagedActorAuthorRequestBody,
+    ) -> Result<AppletManagedActorAuthorOutcome> {
         validate_base_url(applet_service_base_url, self.allow_insecure_localhost)?;
-        let url = applet_author_url(applet_service_base_url)?;
+        let url = applet_managed_actor_author_url(applet_service_base_url)?;
         let mut builder = self
             .http
             .request(Method::POST, url)
@@ -104,6 +105,16 @@ impl Client {
         self.post_with_options(&path, request, &options).await
     }
 
+    pub async fn ghost_actor_preview(
+        &self,
+        applet_id: &str,
+        request: &GhostPreviewRequestBody,
+    ) -> Result<GhostPreviewOutcome> {
+        reject_path_segment(applet_id)?;
+        let path = format!("/_arkret/self/applets/{applet_id}/ghosts/provision/preview");
+        self.post(&path, request).await
+    }
+
     pub async fn applet_transaction(
         &self,
         idempotency_key: &str,
@@ -140,22 +151,22 @@ fn ghost_actor_provision_path(applet_id: &str) -> Result<String> {
     ))
 }
 
-fn applet_author_url(base_url: &Url) -> Result<Url> {
+fn applet_managed_actor_author_url(base_url: &Url) -> Result<Url> {
     base_url
-        .join("/_arkret/edge/applet/install/author")
+        .join("/_arkret/edge/applet/managed-actors/author")
         .map_err(Into::into)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{applet_author_url, ghost_actor_provision_path};
+    use super::{applet_managed_actor_author_url, ghost_actor_provision_path};
 
     #[test]
     fn author_endpoint_is_origin_absolute_even_when_base_url_has_a_path() {
         let base = url::Url::parse("https://applet.example/api/v1/").unwrap();
         assert_eq!(
-            applet_author_url(&base).unwrap().as_str(),
-            "https://applet.example/_arkret/edge/applet/install/author"
+            applet_managed_actor_author_url(&base).unwrap().as_str(),
+            "https://applet.example/_arkret/edge/applet/managed-actors/author"
         );
     }
 

@@ -605,10 +605,10 @@ where
     D: Deserializer<'de>,
 {
     let value = String::deserialize(deserializer)?;
-    if value != PROTOCOL_VERSION {
+    if let Some(code) = protocol_version_bootstrap_error(&value) {
         return Err(serde::de::Error::custom(format!(
             "{}: ServiceDescribe protocol_version {value} does not match Arkret {PROTOCOL_VERSION}",
-            ErrorCode::UNSUPPORTED_PROTOCOL_VERSION
+            code.as_str()
         )));
     }
     Ok(value)

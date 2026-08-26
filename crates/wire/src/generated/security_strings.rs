@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-25.1;
-//! sha256=326c7b78eee0eafce8a7884314277aef5a16b320991f4373af0dbc23606e69f8 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-26.2;
+//! sha256=798ede590db3817d894b7422569b5535bc8c72e18e7a5144a3615ef94494d838 Input: registry/
 //! exporter-label-registry.json; version=2026-08-21.1;
 //! sha256=ce7f4a1c53b50f33ee71ba4a70e638819abfba103a3fa26560661fe516dc4d37 Input: registry/
 //! digest-suite-registry.json; version=2026-08-18;
@@ -16,8 +16,8 @@
 //! sha256=298685c15b11d75b55b1b6ece6a3674b320ae00a90f488cc4d2d3545f4888b86 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=78, exporter_labels=9, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=32, aead_profiles=2
+//! Entries: proof_contexts=80, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=33, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -32,6 +32,8 @@ pub enum ProofContextId {
     AgentRuntimeKeyPossessionProofV1,
     AgentSelectorClaimProofV1,
     AgentSessionRefreshProofV1,
+    AppletManagedActorAuthoringRequestProofV1,
+    AppletManagedActorBundleProofV1,
     AppletPackageProofV1,
     AuditReleaseAttestationProofV1,
     AuditRywReceiptProofV1,
@@ -114,6 +116,8 @@ impl ProofContextId {
         Self::AgentRuntimeKeyPossessionProofV1,
         Self::AgentSelectorClaimProofV1,
         Self::AgentSessionRefreshProofV1,
+        Self::AppletManagedActorAuthoringRequestProofV1,
+        Self::AppletManagedActorBundleProofV1,
         Self::AppletPackageProofV1,
         Self::AuditReleaseAttestationProofV1,
         Self::AuditRywReceiptProofV1,
@@ -200,6 +204,10 @@ impl ProofContextId {
         "ak.agent_runtime_key_possession_proof.v1";
     pub const AGENT_SELECTOR_CLAIM_PROOF_V1: &'static str = "ak.agent_selector_claim_proof.v1";
     pub const AGENT_SESSION_REFRESH_PROOF_V1: &'static str = "ak.agent_session_refresh_proof.v1";
+    pub const APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1: &'static str =
+        "ak.applet_managed_actor_authoring_request_proof.v1";
+    pub const APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1: &'static str =
+        "ak.applet_managed_actor_bundle_proof.v1";
     pub const APPLET_PACKAGE_PROOF_V1: &'static str = "ak.applet_package_proof.v1";
     pub const AUDIT_RELEASE_ATTESTATION_PROOF_V1: &'static str =
         "ak.audit_release_attestation_proof.v1";
@@ -337,6 +345,10 @@ impl ProofContextId {
             Self::AgentRuntimeKeyPossessionProofV1 => Self::AGENT_RUNTIME_KEY_POSSESSION_PROOF_V1,
             Self::AgentSelectorClaimProofV1 => Self::AGENT_SELECTOR_CLAIM_PROOF_V1,
             Self::AgentSessionRefreshProofV1 => Self::AGENT_SESSION_REFRESH_PROOF_V1,
+            Self::AppletManagedActorAuthoringRequestProofV1 => {
+                Self::APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1
+            }
+            Self::AppletManagedActorBundleProofV1 => Self::APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1,
             Self::AppletPackageProofV1 => Self::APPLET_PACKAGE_PROOF_V1,
             Self::AuditReleaseAttestationProofV1 => Self::AUDIT_RELEASE_ATTESTATION_PROOF_V1,
             Self::AuditRywReceiptProofV1 => Self::AUDIT_RYW_RECEIPT_PROOF_V1,
@@ -484,6 +496,12 @@ impl ProofContextId {
             }
             Self::AGENT_SELECTOR_CLAIM_PROOF_V1 => Some(Self::AgentSelectorClaimProofV1),
             Self::AGENT_SESSION_REFRESH_PROOF_V1 => Some(Self::AgentSessionRefreshProofV1),
+            Self::APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1 => {
+                Some(Self::AppletManagedActorAuthoringRequestProofV1)
+            }
+            Self::APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1 => {
+                Some(Self::AppletManagedActorBundleProofV1)
+            }
             Self::APPLET_PACKAGE_PROOF_V1 => Some(Self::AppletPackageProofV1),
             Self::AUDIT_RELEASE_ATTESTATION_PROOF_V1 => Some(Self::AuditReleaseAttestationProofV1),
             Self::AUDIT_RYW_RECEIPT_PROOF_V1 => Some(Self::AuditRywReceiptProofV1),
@@ -655,6 +673,7 @@ pub enum DomainSeparationId {
     EventsFrontierRootV1,
     EventsFrontierSignatureV1,
     FederationVerifyActorSignatureV1,
+    FrankingProofSignatureV1,
     HttpMessageSignatureV1,
     IdentityRecoveryPolicySignatureV1,
     IdentityRecoveryProofV1,
@@ -691,6 +710,7 @@ impl DomainSeparationId {
         Self::EventsFrontierRootV1,
         Self::EventsFrontierSignatureV1,
         Self::FederationVerifyActorSignatureV1,
+        Self::FrankingProofSignatureV1,
         Self::HttpMessageSignatureV1,
         Self::IdentityRecoveryPolicySignatureV1,
         Self::IdentityRecoveryProofV1,
@@ -731,6 +751,7 @@ impl DomainSeparationId {
     pub const EVENTS_FRONTIER_SIGNATURE_V1: &'static str = "ak.events.frontier.signature.v1";
     pub const FEDERATION_VERIFY_ACTOR_SIGNATURE_V1: &'static str =
         "ak.federation.verify_actor.signature.v1";
+    pub const FRANKING_PROOF_SIGNATURE_V1: &'static str = "ak.franking_proof.signature.v1";
     pub const HTTP_MESSAGE_SIGNATURE_V1: &'static str = "ak.http_message_signature.v1";
     pub const IDENTITY_RECOVERY_POLICY_SIGNATURE_V1: &'static str =
         "ak.identity.recovery_policy.signature.v1";
@@ -776,6 +797,7 @@ impl DomainSeparationId {
             Self::EventsFrontierRootV1 => Self::EVENTS_FRONTIER_ROOT_V1,
             Self::EventsFrontierSignatureV1 => Self::EVENTS_FRONTIER_SIGNATURE_V1,
             Self::FederationVerifyActorSignatureV1 => Self::FEDERATION_VERIFY_ACTOR_SIGNATURE_V1,
+            Self::FrankingProofSignatureV1 => Self::FRANKING_PROOF_SIGNATURE_V1,
             Self::HttpMessageSignatureV1 => Self::HTTP_MESSAGE_SIGNATURE_V1,
             Self::IdentityRecoveryPolicySignatureV1 => Self::IDENTITY_RECOVERY_POLICY_SIGNATURE_V1,
             Self::IdentityRecoveryProofV1 => Self::IDENTITY_RECOVERY_PROOF_V1,
@@ -827,6 +849,7 @@ impl DomainSeparationId {
             Self::FEDERATION_VERIFY_ACTOR_SIGNATURE_V1 => {
                 Some(Self::FederationVerifyActorSignatureV1)
             }
+            Self::FRANKING_PROOF_SIGNATURE_V1 => Some(Self::FrankingProofSignatureV1),
             Self::HTTP_MESSAGE_SIGNATURE_V1 => Some(Self::HttpMessageSignatureV1),
             Self::IDENTITY_RECOVERY_POLICY_SIGNATURE_V1 => {
                 Some(Self::IdentityRecoveryPolicySignatureV1)
@@ -1192,6 +1215,34 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "verification_method",
         ],
         schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/AgentSessionRefreshProof",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::AppletManagedActorAuthoringRequestProofV1,
+        context: "ak.applet_managed_actor_authoring_request_proof.v1",
+        object_family: "applet_managed_actor_authoring_request",
+        consumer_operation: None,
+        binding_fields: &[
+            "context",
+            "payload_digest",
+            "verification_method",
+            "created_at",
+            "audience",
+        ],
+        schema_ref: "schemas/applet-install-authoring.schema.json#/$defs/authoring_request",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::AppletManagedActorBundleProofV1,
+        context: "ak.applet_managed_actor_bundle_proof.v1",
+        object_family: "applet_managed_actor_bundle",
+        consumer_operation: None,
+        binding_fields: &[
+            "context",
+            "payload_digest",
+            "verification_method",
+            "created_at",
+            "audience",
+        ],
+        schema_ref: "schemas/applet-install-authoring.schema.json#/$defs/managed_actor_bundle",
     },
     ProofContextDescriptor {
         id: ProofContextId::AppletPackageProofV1,

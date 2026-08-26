@@ -89,26 +89,33 @@ pub struct PushRulesConfig {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DndDocument {
+    pub dnd: DndSettings,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DndSettings {
-    #[serde(default)]
     pub enabled: bool,
-    #[serde(default)]
     pub schedule: DndSchedule,
-    #[serde(default)]
     pub exceptions: Vec<String>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DndSchedule {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub timezone: Option<String>,
-    #[serde(default)]
+    pub timezone: String,
+    pub tzdb_version: String,
+    pub all_day: bool,
     pub periods: Vec<DndPeriod>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DndPeriod {
     pub start: String,
     pub end: String,

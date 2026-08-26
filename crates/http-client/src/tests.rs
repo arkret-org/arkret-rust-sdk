@@ -242,7 +242,6 @@ fn retry_config_defaults_match_spec_backoff_policy() {
     assert_eq!(retry.base_delay, Duration::from_millis(1000));
     assert_eq!(retry.max_delay, Duration::from_secs(60));
     assert!(retry.jitter);
-    assert!(retry.respect_retry_after);
 }
 
 #[test]
@@ -272,12 +271,20 @@ fn retry_after_overrides_max_delay_cap() {
         retry.retry_delay_from_headers(&headers, 1),
         Duration::from_secs(3)
     );
-    assert_eq!(
-        retry
-            .respect_retry_after(false)
-            .retry_delay_from_headers(&headers, 1),
-        Duration::from_millis(1000)
-    );
+}
+
+#[test]
+fn retry_after_is_combined_with_local_backoff_as_a_lower_bound() {
+    let retry = RetryConfig::standard(5).with_jitter(false);
+    for (attempt, hint, expected) in [
+        (1, "0", Duration::from_secs(1)),
+        (4, "1", Duration::from_secs(8)),
+        (4, "30", Duration::from_secs(30)),
+    ] {
+        let mut headers = HeaderMap::new();
+        headers.insert(RETRY_AFTER, HeaderValue::from_static(hint));
+        assert_eq!(retry.retry_delay_from_headers(&headers, attempt), expected);
+    }
 }
 
 #[test]

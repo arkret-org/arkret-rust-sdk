@@ -1160,7 +1160,7 @@ pub struct RecipientMlsDurableReceipt {
     pub realm_id: RealmId,
     pub mls_group_id: NonEmptyString,
     pub mls_epoch: u64,
-    pub welcome_ref: NonEmptyString,
+    pub welcome_ref: EventId,
     pub welcome_digest: Hash,
     pub durable_at: DateTime<Utc>,
     pub signature: KeyOperationSignature,
@@ -1208,7 +1208,7 @@ struct RecipientMlsDurableReceiptWire {
     realm_id: RealmId,
     mls_group_id: NonEmptyString,
     mls_epoch: u64,
-    welcome_ref: NonEmptyString,
+    welcome_ref: EventId,
     welcome_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     durable_at: DateTime<Utc>,

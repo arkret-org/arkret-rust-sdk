@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-25.4;
-//! sha256=36bf3f44eee93b55f00348a9f1e17397d5e708257e96d04b4b20bdabcd60663e Entries: error_codes=282
+//! Input: registry/error-code-registry.json; version=2026-08-26.1;
+//! sha256=d211a8306a7b0f609cfd78b142dcd3f2871581997e21dfa75d59c003ea5c50ed Entries: error_codes=283
 
 use serde::{Deserialize, Serialize};
 
@@ -55,6 +55,7 @@ pub enum ErrorCode {
     AppletInstallRequired,
     AppletNamespaceConflict,
     AppletPackageExpired,
+    AppletRegistrationEpochEvidenceDeactivated,
     AppletRegistrationEpochEvidenceMismatch,
     AppletRegistrationEpochEvidenceMissing,
     AppletRegistrationEpochSigningKeyMismatch,
@@ -351,6 +352,7 @@ impl ErrorCode {
         Self::AppletInstallRequired,
         Self::AppletNamespaceConflict,
         Self::AppletPackageExpired,
+        Self::AppletRegistrationEpochEvidenceDeactivated,
         Self::AppletRegistrationEpochEvidenceMismatch,
         Self::AppletRegistrationEpochEvidenceMissing,
         Self::AppletRegistrationEpochSigningKeyMismatch,
@@ -637,6 +639,8 @@ impl ErrorCode {
     pub const APPLET_INSTALL_REQUIRED: &'static str = "applet_install_required";
     pub const APPLET_NAMESPACE_CONFLICT: &'static str = "applet_namespace_conflict";
     pub const APPLET_PACKAGE_EXPIRED: &'static str = "applet_package_expired";
+    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_DEACTIVATED: &'static str =
+        "applet_registration_epoch_evidence_deactivated";
     pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_MISMATCH: &'static str =
         "applet_registration_epoch_evidence_mismatch";
     pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_MISSING: &'static str =
@@ -950,6 +954,9 @@ impl ErrorCode {
             Self::AppletInstallRequired => "applet_install_required",
             Self::AppletNamespaceConflict => "applet_namespace_conflict",
             Self::AppletPackageExpired => "applet_package_expired",
+            Self::AppletRegistrationEpochEvidenceDeactivated => {
+                "applet_registration_epoch_evidence_deactivated"
+            }
             Self::AppletRegistrationEpochEvidenceMismatch => {
                 "applet_registration_epoch_evidence_mismatch"
             }
@@ -1255,6 +1262,9 @@ impl ErrorCode {
             "applet_install_required" => Some(Self::AppletInstallRequired),
             "applet_namespace_conflict" => Some(Self::AppletNamespaceConflict),
             "applet_package_expired" => Some(Self::AppletPackageExpired),
+            "applet_registration_epoch_evidence_deactivated" => {
+                Some(Self::AppletRegistrationEpochEvidenceDeactivated)
+            }
             "applet_registration_epoch_evidence_mismatch" => {
                 Some(Self::AppletRegistrationEpochEvidenceMismatch)
             }
@@ -1759,6 +1769,14 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "The submitted applet package has expired.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::AppletRegistrationEpochEvidenceDeactivated,
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "The exact DID method version pinned by the Applet registration epoch evidence resolves successfully but is deactivated. Preview and authoring fail closed without unversioned refetch or service-local key fallback.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletRegistrationEpochEvidenceMismatch,

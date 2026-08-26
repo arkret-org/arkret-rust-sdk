@@ -1309,13 +1309,9 @@ mod tests {
                     .unwrap(),
             )
             .unwrap(),
-            authorization_lease_id: authorization_lease.authorization_lease_id.clone(),
             qualified_ingress_id: DidFullId::new("did:web:authority.example").unwrap(),
             received_at: issued_at,
-            ingress_basis: authorization_lease.basis_ref.clone(),
             ingress_frontier: vec![event.event_id.clone()],
-            service_id: DidCoreId::new("ak:did_core:web:authority.example").unwrap(),
-            authority_set_ref,
             proofs: Vec::new(),
         };
         let receipt_digest = receipt.receipt_digest().unwrap();

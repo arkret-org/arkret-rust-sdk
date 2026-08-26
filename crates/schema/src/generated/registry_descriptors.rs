@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-25.1;
-//! sha256=75200e6a26aa2816ff1327093309d64e6a1f44f1879cf8cd8f85198a4947c3dd Input: registry/
-//! capability-action-registry.json; version=2026-08-25.2;
-//! sha256=dfc93118a3c00f434fe686e59059604482948f422fc09b7b8e828af7a836be1c Input: registry/
-//! schema-registry.json; version=2026-08-25.2;
-//! sha256=ba437ee35c454c2944301b0954950ccb30f5bd7b24fce0709ed5fba56f721da4 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-26.1;
+//! sha256=d7a3172c7ae1d7941f1e01b7e5ff962b10e276c070fb54610500eaadcd03671e Input: registry/
+//! capability-action-registry.json; version=2026-08-26.1;
+//! sha256=702f28e7fb1c19626cb1000903d52a20cba55c37338fb614aeaf06ffd5288cd4 Input: registry/
+//! schema-registry.json; version=2026-08-26.1;
+//! sha256=f1f43edcedba7e70e5644836c090b521640487a82362467e5fb3716b52067cca Input: registry/
 //! account-data-key-registry.json; version=2026-08-25.1;
 //! sha256=bad8e54ec4b6a81e8adc1c4a294dfcba47911cba260b9b68ad3a6a06fac071e8 Entries: id_kinds=60,
-//! special_forms=14, actions=169, schemas=198, account_data_patterns=24
+//! special_forms=14, actions=169, schemas=199, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3075,15 +3075,15 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/applet-edge-operations.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::APPLET_GHOST_AUTHORING_REQUEST_BASIS_V1,
+        file: "schemas/applet-install-authoring.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::APPLET_GHOST_OPERATIONS_V1,
         file: "schemas/applet-ghost-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::APPLET_INSTALL_AUTHORING_V1,
-        file: "schemas/applet-install-authoring.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::APPLET_INSTALL_AUTHORING_REQUEST_V1,
         file: "schemas/applet-install-authoring.schema.json",
     },
     SchemaDescriptor {
@@ -3100,6 +3100,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     },
     SchemaDescriptor {
         schema_id: SchemaId::APPLET_MANAGED_ACTOR_AUTHORING_BUNDLE_V1,
+        file: "schemas/applet-install-authoring.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_V1,
         file: "schemas/applet-install-authoring.schema.json",
     },
     SchemaDescriptor {

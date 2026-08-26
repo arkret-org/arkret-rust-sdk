@@ -300,14 +300,10 @@ pub struct AuthorizationLease {
 pub struct IngressReceipt {
     pub receipt_id: ReceiptId,
     pub event_digest: Hash,
-    pub authorization_lease_id: AuthorizationLeaseId,
     pub qualified_ingress_id: DidFullId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub received_at: DateTime<Utc>,
-    pub ingress_basis: LeaseBasisRef,
     pub ingress_frontier: Vec<EventId>,
-    pub service_id: DidCoreId,
-    pub authority_set_ref: AuthoritySetRef,
     pub proofs: Vec<PayloadProof>,
 }
 
@@ -525,11 +521,15 @@ impl IngressReceipt {
     }
 
     /// Canonical bytes the ingress identified by `proof` must sign.
-    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+    pub fn proof_binding_bytes(
+        &self,
+        lease: &AuthorizationLease,
+        proof: &PayloadProof,
+    ) -> Result<Vec<u8>> {
         publication_binding_bytes(
             ProofContextId::INGRESS_RECEIPT_PROOF_V1,
             &self.receipt_digest()?,
-            &self.authority_set_ref,
+            &lease.authority_set_ref,
             &proof.verification_method,
             proof.created_at,
             proof.domain.as_deref(),
@@ -539,11 +539,7 @@ impl IngressReceipt {
 
     /// Structural validation independent of Realm issuer policy.
     pub fn validate_structural(&self) -> Result<()> {
-        if crate::project_full_id_to_core_id(&self.qualified_ingress_id)? != self.service_id {
-            return Err(WireError::Protocol(
-                "ingress receipt qualified_ingress_id does not project to service_id".to_owned(),
-            ));
-        }
+        crate::project_full_id_to_core_id(&self.qualified_ingress_id)?;
         if self.ingress_frontier.is_empty()
             || self.ingress_frontier.len() > 500
             || !strictly_ordered_unique(self.ingress_frontier.iter().map(EventId::as_str))
@@ -587,12 +583,6 @@ impl IngressReceipt {
         event_digest: &Hash,
         event_id: &EventId,
     ) -> Result<()> {
-        if self.authorization_lease_id != lease.authorization_lease_id {
-            return Err(WireError::Protocol(
-                "ingress receipt authorization_lease_id does not match the submitted lease"
-                    .to_owned(),
-            ));
-        }
         if self.event_digest != *event_digest {
             return Err(WireError::Protocol(
                 "ingress receipt event_digest does not match the submitted Event".to_owned(),
@@ -608,19 +598,8 @@ impl IngressReceipt {
                 "ingress receipt received_at is outside the lease validity window".to_owned(),
             ));
         }
-        if self.ingress_basis != lease.basis_ref {
-            return Err(WireError::Protocol(
-                "ingress receipt ingress_basis does not exactly match the submitted lease basis_ref"
-                    .to_owned(),
-            ));
-        }
-        if self.authority_set_ref != lease.authority_set_ref {
-            return Err(WireError::Protocol(
-                "ingress receipt authority_set_ref does not match the submitted lease".to_owned(),
-            ));
-        }
         let rule = lease.authority_set_policy.validate_reference_and_action(
-            &self.authority_set_ref,
+            &lease.authority_set_ref,
             &lease.scope_ref,
             &lease.authorization_rule_id,
             &lease.action,
@@ -635,6 +614,16 @@ impl IngressReceipt {
             .iter()
             .map(|proof| proof.verification_method.as_str())
             .collect::<std::collections::BTreeSet<_>>();
+        let qualified_ingress_id = self.qualified_ingress_id.as_str();
+        if proof_issuers.iter().any(|method| {
+            method
+                .split_once('#')
+                .is_none_or(|(controller, _)| controller != qualified_ingress_id)
+        }) {
+            return Err(WireError::Protocol(
+                "ingress receipt proof method is not controlled by qualified_ingress_id".to_owned(),
+            ));
+        }
         if !proof_issuers.is_subset(&accepted_issuers)
             || proof_issuers.len() < usize::try_from(rule.threshold).unwrap_or(usize::MAX)
         {
@@ -736,23 +725,19 @@ mod tests {
         lease
     }
 
-    fn receipt_for(lease: &AuthorizationLease, received_at: DateTime<Utc>) -> IngressReceipt {
+    fn receipt_for(received_at: DateTime<Utc>) -> IngressReceipt {
         let mut receipt = IngressReceipt {
             receipt_id: ReceiptId::new("ak:receipt:01904100-0000-7000-8000-cccccccccccc").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "d".repeat(64))).unwrap(),
-            authorization_lease_id: lease.authorization_lease_id.clone(),
             qualified_ingress_id: DidFullId::new(
                 "did:webvh:z6mkfixture:authority.example".to_owned(),
             )
             .unwrap(),
             received_at,
-            ingress_basis: lease.basis_ref.clone(),
             ingress_frontier: vec![
                 EventId::new("ak:event:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD".to_owned())
                     .unwrap(),
             ],
-            service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-            authority_set_ref: lease.authority_set_ref.clone(),
             proofs: Vec::new(),
         };
         let digest = receipt.receipt_digest().unwrap();
@@ -943,7 +928,7 @@ mod tests {
         let lease = lease_with(RiskTier::Medium, instant(8));
         let digest = Hash::new(format!("sha256:{}", "d".repeat(64))).unwrap();
 
-        let inside = receipt_for(&lease, instant(7));
+        let inside = receipt_for(instant(7));
         inside.validate_structural().unwrap();
         let event_id = inside.ingress_frontier[0].clone();
         inside
@@ -952,7 +937,7 @@ mod tests {
 
         // A backdated Event cannot buy an expired lease more time: only the
         // signed `received_at` decides, and it must fall inside the window.
-        let after_expiry = receipt_for(&lease, instant(9));
+        let after_expiry = receipt_for(instant(9));
         let err = after_expiry
             .validate_against_lease(&lease, &digest, &event_id)
             .unwrap_err();
@@ -960,11 +945,11 @@ mod tests {
     }
 
     #[test]
-    fn receipt_requires_exact_lease_basis_and_authority_quorum() {
+    fn receipt_requires_exact_event_and_companion_lease_authority_quorum() {
         let lease = two_issuer_lease();
         lease.validate_structural().unwrap();
         let digest = Hash::new(format!("sha256:{}", "d".repeat(64))).unwrap();
-        let mut receipt = receipt_for(&lease, instant(1));
+        let mut receipt = receipt_for(instant(1));
         let event_id = receipt.ingress_frontier[0].clone();
         assert!(
             receipt
@@ -992,23 +977,12 @@ mod tests {
                 .is_err()
         );
 
-        let mut wrong_basis = receipt.clone();
-        wrong_basis.ingress_basis =
-            LeaseBasisRef::Seal(SealId::new(format!("ak:seal:sha256:{}", "b".repeat(64))).unwrap());
+        let mut wrong_authority_lease = lease.clone();
+        wrong_authority_lease.authority_set_ref.authority_set_digest =
+            Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap();
         assert!(
-            wrong_basis
-                .validate_against_lease(&lease, &digest, &event_id)
-                .is_err()
-        );
-
-        let mut wrong_lease = receipt;
-        wrong_lease.authorization_lease_id = AuthorizationLeaseId::new(
-            "ak:authorization_lease:01904100-0000-7000-8000-dddddddddddd",
-        )
-        .unwrap();
-        assert!(
-            wrong_lease
-                .validate_against_lease(&lease, &digest, &event_id)
+            receipt
+                .validate_against_lease(&wrong_authority_lease, &digest, &event_id)
                 .is_err()
         );
     }
@@ -1016,7 +990,7 @@ mod tests {
     #[test]
     fn receipt_rejects_invalid_frontier_ingress_identity_and_duplicate_signer() {
         let lease = lease_with(RiskTier::Low, instant(12));
-        let baseline = receipt_for(&lease, instant(1));
+        let baseline = receipt_for(instant(1));
 
         let mut empty_frontier = baseline.clone();
         empty_frontier.ingress_frontier.clear();
@@ -1035,7 +1009,15 @@ mod tests {
         let mut wrong_ingress = baseline.clone();
         wrong_ingress.qualified_ingress_id =
             DidFullId::new("did:webvh:z6mkfixture:other.example").unwrap();
-        assert!(wrong_ingress.validate_structural().is_err());
+        assert!(
+            wrong_ingress
+                .validate_against_lease(
+                    &lease,
+                    &wrong_ingress.event_digest,
+                    &wrong_ingress.ingress_frontier[0]
+                )
+                .is_err()
+        );
 
         let mut duplicate_signer = baseline;
         duplicate_signer
@@ -1047,9 +1029,11 @@ mod tests {
     #[test]
     fn lease_and_receipt_bindings_use_distinct_contexts() {
         let lease = lease_with(RiskTier::Low, instant(12));
-        let receipt = receipt_for(&lease, instant(1));
+        let receipt = receipt_for(instant(1));
         let lease_bytes = lease.proof_binding_bytes(&lease.proofs[0]).unwrap();
-        let receipt_bytes = receipt.proof_binding_bytes(&receipt.proofs[0]).unwrap();
+        let receipt_bytes = receipt
+            .proof_binding_bytes(&lease, &receipt.proofs[0])
+            .unwrap();
 
         assert!(
             String::from_utf8(lease_bytes)

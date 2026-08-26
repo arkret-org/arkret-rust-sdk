@@ -2,16 +2,18 @@ use arkret_canonical as canonical;
 use arkret_models_identity::DidDocument;
 use arkret_models_integration::{
     AppletDidMethodVersionEvidence, AppletEndpointAuth, AppletEndpointEntry, AppletEndpointMethod,
-    AppletInstallAuthoringProof, AppletInstallAuthoringRequest, AppletInstallAuthoringRequestBasis,
-    AppletInstallPlan, AppletInstallPreviewRequestBody, AppletInstallRequestBody,
-    AppletManagedActorAuthoringBundle, AppletNamespaceDomain, AppletNamespaceEntry, AppletPackage,
-    AppletPingOutcome, AppletRegistrationEpochEvidence, AppletRegistrationEpochTranscript,
-    AppletRegistrationPayload, AppletTransactionOutcome, AppletWireNamespaces, DetachedProof,
-    E2eeEffect, HttpMessageSignatureAlgorithm, WebhookAuth, WidgetEffect,
+    AppletInstallAuthoringRequestBasis, AppletInstallCreateRequestBody, AppletInstallPlan,
+    AppletInstallPreviewRequestBody, AppletInstallRequestBody, AppletManagedActorAuthoringBundle,
+    AppletManagedActorAuthoringRequest, AppletManagedActorProof, AppletManagedActorPurpose,
+    AppletNamespaceDomain, AppletNamespaceEntry, AppletPackage, AppletPingOutcome,
+    AppletRegistrationEpochEvidence, AppletRegistrationEpochTranscript, AppletRegistrationPayload,
+    AppletTransactionOutcome, AppletWireNamespaces, DetachedProof, E2eeEffect,
+    HttpMessageSignatureAlgorithm, WebhookAuth, WidgetEffect,
 };
 use arkret_wire::{
-    AppletId, DidCoreId, DidFullId, DidUrl, Hash, Hlc, PayloadSignature, PayloadSigner, PlanId,
-    RealmId, Result as WireResult, ScopeRef,
+    AppletId, DidCoreId, DidFullId, DidUrl, Hash, Hlc, NotaryJoseAlgorithm, NotaryKeyKind,
+    NotarySignerDescriptor, PayloadSignature, PayloadSigner, PlanId, RealmId, Result as WireResult,
+    ScopeRef,
 };
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
@@ -77,6 +79,21 @@ fn sample_epoch() -> Hash {
 
 fn canonical_now() -> DateTime<Utc> {
     DateTime::from_timestamp_millis(Utc::now().timestamp_millis()).unwrap()
+}
+
+fn hosting_notary() -> NotarySignerDescriptor {
+    NotarySignerDescriptor {
+        actor_id: actor("principal-server"),
+        verification_method: DidUrl::new(format!("{}#notary-key", full("principal-server")))
+            .unwrap(),
+        key_kind: NotaryKeyKind::Ed25519Raw32,
+        jose_algorithm: NotaryJoseAlgorithm::Ed25519,
+        frozen_public_key_b64u: "A".repeat(43),
+        frozen_public_key_digest: Hash::new(
+            "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925",
+        )
+        .unwrap(),
+    }
 }
 
 fn sample_epoch_evidence(service_id: &DidCoreId) -> AppletRegistrationEpochEvidence {
@@ -359,6 +376,31 @@ fn closed_applet_edge_outcomes_reject_unknown_members() {
 }
 
 #[test]
+fn applet_ping_consumes_protocol_version_bootstrap() {
+    let base = json!({
+        "ok": true,
+        "applet_id": "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
+        "service_id": service("slackbridge"),
+        "protocol_version": "1.0"
+    });
+    serde_json::from_value::<AppletPingOutcome>(base.clone()).unwrap();
+
+    let mut unsupported = base.clone();
+    unsupported["protocol_version"] = json!("2.0");
+    let error = serde_json::from_value::<AppletPingOutcome>(unsupported).unwrap_err();
+    assert!(error.to_string().contains("unsupported_protocol_version"));
+
+    for malformed in [json!("1.0.0"), json!(1), json!(null)] {
+        let mut value = base.clone();
+        value["protocol_version"] = malformed;
+        let error = serde_json::from_value::<AppletPingOutcome>(value).unwrap_err();
+        if error.to_string().contains("1.0.0") {
+            assert!(error.to_string().contains("schema_violation"));
+        }
+    }
+}
+
+#[test]
 fn epoch_method_version_rules_follow_the_active_v1_adapters() {
     let web_full = DidFullId::new("did:web:applet.example".to_owned()).unwrap();
     let disguised_web =
@@ -577,6 +619,7 @@ fn install_commit_uses_each_signed_event_carrier_once() {
     .unwrap();
     let basis = AppletInstallAuthoringRequestBasis {
         schema: "ak.schema.applet_install_authoring_request_basis.v1".to_owned(),
+        purpose: AppletManagedActorPurpose::InstallBot,
         target_principal_server_id: actor("principal-server"),
         install_actor_id: actor("admin"),
         applet_id: package.applet_id.clone(),
@@ -593,8 +636,6 @@ fn install_commit_uses_each_signed_event_carrier_once() {
         actor_policy: None,
         e2ee_policy: None,
         widget_policy: None,
-        requested_at,
-        requested_expires_at,
         registration_event,
         capability_grant_events: vec![capability_grant_event],
     };
@@ -603,9 +644,11 @@ fn install_commit_uses_each_signed_event_carrier_once() {
         verification_method: DidUrl::new(format!("{}#notary-key", full("principal-server")))
             .unwrap(),
     };
-    let authoring_request = AppletInstallAuthoringRequest::sign(
+    let authoring_request = AppletManagedActorAuthoringRequest::sign(
         basis,
         package.registration_epoch.clone(),
+        hosting_notary(),
+        requested_at,
         requested_expires_at,
         &signer,
     )
@@ -652,26 +695,25 @@ fn install_commit_uses_each_signed_event_carrier_once() {
     let mut managed_actor_bundle = AppletManagedActorAuthoringBundle {
         schema: AppletManagedActorAuthoringBundle::SCHEMA.to_owned(),
         authoring_request_digest: authoring_request.canonical_digest().unwrap(),
-        bot_actor_provision_event,
-        bot_pcr_genesis_event,
-        bot_accountability_grant_event,
-        bot_profile_event,
-        proof: AppletInstallAuthoringProof {
+        managed_actor_provision_event: bot_actor_provision_event,
+        pcr_genesis_event: bot_pcr_genesis_event,
+        accountability_grant_event: bot_accountability_grant_event,
+        profile_event: bot_profile_event,
+        proof: AppletManagedActorProof {
             kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
             verification_method: signer.verification_method.clone(),
             payload_digest: sample_epoch(),
             created_at: requested_at,
-            domain: AppletManagedActorAuthoringBundle::PROOF_DOMAIN.to_owned(),
-            audience: authoring_request.basis.target_principal_server_id.clone(),
+            audience: actor("principal-server"),
             jws: "eyJhbGciOiJFZDI1NTE5In0..c2lnbmF0dXJl".to_owned(),
         },
     };
     managed_actor_bundle.proof.payload_digest = managed_actor_bundle.payload_digest().unwrap();
-    let request = AppletInstallRequestBody {
+    let request = AppletInstallRequestBody::Create(AppletInstallCreateRequestBody {
         applet_package: package,
         authoring_request,
-        managed_actor_bundle,
-    };
+        managed_actor_bundle: managed_actor_bundle.clone(),
+    });
     let value = serde_json::to_value(&request).unwrap();
     assert_eq!(
         value["authoring_request"]["basis"]["registration_event"]["kind"],
@@ -690,29 +732,32 @@ fn install_commit_uses_each_signed_event_carrier_once() {
     missing_bundle_role["managed_actor_bundle"]
         .as_object_mut()
         .unwrap()
-        .remove("bot_profile_event");
+        .remove("profile_event");
     assert!(serde_json::from_value::<AppletInstallRequestBody>(missing_bundle_role).is_err());
 
     let mut duplicate_bundle_role = value.clone();
-    duplicate_bundle_role["managed_actor_bundle"]["legacy_bot_profile_event"] =
-        duplicate_bundle_role["managed_actor_bundle"]["bot_profile_event"].clone();
+    duplicate_bundle_role["managed_actor_bundle"]["bot_profile_event"] =
+        duplicate_bundle_role["managed_actor_bundle"]["profile_event"].clone();
     assert!(serde_json::from_value::<AppletInstallRequestBody>(duplicate_bundle_role).is_err());
 
-    let mut mismatched_bundle = request.managed_actor_bundle.clone();
+    let mut mismatched_bundle = managed_actor_bundle.clone();
     mismatched_bundle.authoring_request_digest = sample_epoch();
     assert!(
         mismatched_bundle
-            .validate_bindings(&request.authoring_request)
+            .validate_bindings(match &request {
+                AppletInstallRequestBody::Create(request) => &request.authoring_request,
+                AppletInstallRequestBody::Reuse(_) => unreachable!(),
+            })
             .is_err()
     );
 
-    let mut late_bundle = request.managed_actor_bundle.clone();
-    late_bundle.proof.created_at = request.authoring_request.expires_at;
-    assert!(
-        late_bundle
-            .validate_bindings(&request.authoring_request)
-            .is_err()
-    );
+    let mut late_bundle = managed_actor_bundle;
+    let authoring_request = match &request {
+        AppletInstallRequestBody::Create(request) => &request.authoring_request,
+        AppletInstallRequestBody::Reuse(_) => unreachable!(),
+    };
+    late_bundle.proof.created_at = authoring_request.expires_at;
+    assert!(late_bundle.validate_bindings(authoring_request).is_err());
 
     let mut missing_evidence = value.clone();
     missing_evidence["authoring_request"]["basis"]["registration_event"]["payload"]["manifest"]
@@ -757,10 +802,10 @@ fn install_preview_has_only_package_and_authoring_basis() {
         json!({"grant_id": "ak:grant:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu"}),
     )
     .unwrap();
-    let requested_at = canonical_now();
     let request = AppletInstallPreviewRequestBody {
         authoring_request_basis: AppletInstallAuthoringRequestBasis {
             schema: "ak.schema.applet_install_authoring_request_basis.v1".to_owned(),
+            purpose: AppletManagedActorPurpose::InstallBot,
             target_principal_server_id: actor("principal-server"),
             install_actor_id: actor("admin"),
             applet_id: package.applet_id.clone(),
@@ -777,8 +822,6 @@ fn install_preview_has_only_package_and_authoring_basis() {
             actor_policy: None,
             e2ee_policy: None,
             widget_policy: None,
-            requested_at,
-            requested_expires_at: requested_at + chrono::Duration::minutes(5),
             registration_event,
             capability_grant_events: vec![capability_grant_event],
         },
@@ -830,6 +873,7 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
     .unwrap();
     let basis = AppletInstallAuthoringRequestBasis {
         schema: AppletInstallAuthoringRequestBasis::SCHEMA.to_owned(),
+        purpose: AppletManagedActorPurpose::InstallBot,
         target_principal_server_id: actor("principal-server"),
         install_actor_id: actor("admin"),
         applet_id: package.applet_id.clone(),
@@ -846,8 +890,6 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
         actor_policy: None,
         e2ee_policy: None,
         widget_policy: None,
-        requested_at,
-        requested_expires_at: expires_at,
         registration_event,
         capability_grant_events: vec![capability_grant_event],
     };
@@ -856,28 +898,31 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
         verification_method: DidUrl::new(format!("{}#notary-key", full("principal-server")))
             .unwrap(),
     };
-    let first = AppletInstallAuthoringRequest::sign(
+    let first = AppletManagedActorAuthoringRequest::sign(
         basis.clone(),
         package.registration_epoch.clone(),
+        hosting_notary(),
+        requested_at,
         expires_at,
         &signer,
     )
     .unwrap();
-    let mut excessive_window = basis.clone();
-    excessive_window.requested_expires_at = requested_at + chrono::Duration::minutes(6);
-    assert!(excessive_window.validate().is_err());
     assert!(
-        AppletInstallAuthoringRequest::sign(
+        AppletManagedActorAuthoringRequest::sign(
             basis.clone(),
             package.registration_epoch.clone(),
-            expires_at - chrono::Duration::seconds(1),
+            hosting_notary(),
+            requested_at,
+            requested_at + chrono::Duration::minutes(6),
             &signer,
         )
         .is_err()
     );
-    let second = AppletInstallAuthoringRequest::sign(
+    let second = AppletManagedActorAuthoringRequest::sign(
         basis,
         package.registration_epoch.clone(),
+        hosting_notary(),
+        requested_at,
         expires_at,
         &signer,
     )

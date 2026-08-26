@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-25.4;
-//! sha256=36bf3f44eee93b55f00348a9f1e17397d5e708257e96d04b4b20bdabcd60663e
-//! Entries: reason_codes=470
+//! Input: registry/error-code-registry.json; version=2026-08-26.1;
+//! sha256=d211a8306a7b0f609cfd78b142dcd3f2871581997e21dfa75d59c003ea5c50ed
+//! Entries: reason_codes=471
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -27,17 +27,20 @@ pub enum ReasonCode {
     AgentGrantExceedsRequestedScope,
     AgentGrantExpiryRequired,
     AgentKeyAuthorizationExpired,
+    AgentKeyScopeReauthorizationRequired,
     AgentParticipationCeilingUnresolved,
     AgentParticipationCeilingWiden,
     AgentPaused,
     AgentPcrGenesisAlreadyAccepted,
     AgentPcrGenesisDeclarationConflict,
     AgentPcrGenesisDeclarationMissing,
+    AgentProvisionScopeMigrationRequired,
     AgentProvisioningChallengeAlreadyConsumed,
     AgentProvisioningChallengeExpired,
     AgentReplyNotPermitted,
     AgentRequestedScopeCommitmentInvalid,
     AgentRuntimeRequestConflict,
+    AgentSessionScopeRefreshRequired,
     AppealModifyMissingLift,
     AppealOverturnMissingLift,
     AppealSelfReviewForbidden,
@@ -104,7 +107,6 @@ pub enum ReasonCode {
     ClaimGenerationMismatch,
     ClaimInvalid,
     ClaimRateLimited,
-    ConflictingE2eeProfiles,
     ConsentRevoked,
     ConsentWithdrawn,
     ContentEncryptionFloorDowngrade,
@@ -154,6 +156,7 @@ pub enum ReasonCode {
     DuplicateConflict,
     DurabilitySchemeIncompatible,
     E2eeKeySourceUnauthorised,
+    E2eeRelaxedAuditBindingConflict,
     E2eeRelaxedDisallowedInComplianceProfile,
     E2eeRelaxedFederationPolicyUnsupported,
     EffectiveScopeReducerManaged,
@@ -230,7 +233,6 @@ pub enum ReasonCode {
     KeyBackupWireSchemaRequired,
     KeypackageClaimRateLimited,
     KeypackageExpired,
-    KeypackageRefreshRequired,
     KeypackageRotated,
     KeypackageWelcomeEnvelopeMismatch,
     LastResortNotSupported,
@@ -267,7 +269,6 @@ pub enum ReasonCode {
     MlsContentSchemeImmutable,
     MlsGenesisAlreadyExists,
     MlsGovernanceBindingStale,
-    MlsSendPauseAdvisoryRequiresE2eeRelaxedProfile,
     ModerationControlLifted,
     ModerationControlPending,
     ModerationControlSplit,
@@ -510,6 +511,8 @@ impl ReasonCode {
         "agent_grant_exceeds_requested_scope";
     pub const AGENT_GRANT_EXPIRY_REQUIRED: &'static str = "agent_grant_expiry_required";
     pub const AGENT_KEY_AUTHORIZATION_EXPIRED: &'static str = "agent_key_authorization_expired";
+    pub const AGENT_KEY_SCOPE_REAUTHORIZATION_REQUIRED: &'static str =
+        "agent_key_scope_reauthorization_required";
     pub const AGENT_PARTICIPATION_CEILING_UNRESOLVED: &'static str =
         "agent_participation_ceiling_unresolved";
     pub const AGENT_PARTICIPATION_CEILING_WIDEN: &'static str = "agent_participation_ceiling_widen";
@@ -520,6 +523,8 @@ impl ReasonCode {
         "agent_pcr_genesis_declaration_conflict";
     pub const AGENT_PCR_GENESIS_DECLARATION_MISSING: &'static str =
         "agent_pcr_genesis_declaration_missing";
+    pub const AGENT_PROVISION_SCOPE_MIGRATION_REQUIRED: &'static str =
+        "agent_provision_scope_migration_required";
     pub const AGENT_PROVISIONING_CHALLENGE_ALREADY_CONSUMED: &'static str =
         "agent_provisioning_challenge_already_consumed";
     pub const AGENT_PROVISIONING_CHALLENGE_EXPIRED: &'static str =
@@ -528,6 +533,8 @@ impl ReasonCode {
     pub const AGENT_REQUESTED_SCOPE_COMMITMENT_INVALID: &'static str =
         "agent_requested_scope_commitment_invalid";
     pub const AGENT_RUNTIME_REQUEST_CONFLICT: &'static str = "agent_runtime_request_conflict";
+    pub const AGENT_SESSION_SCOPE_REFRESH_REQUIRED: &'static str =
+        "agent_session_scope_refresh_required";
     pub const APPEAL_MODIFY_MISSING_LIFT: &'static str = "appeal_modify_missing_lift";
     pub const APPEAL_OVERTURN_MISSING_LIFT: &'static str = "appeal_overturn_missing_lift";
     pub const APPEAL_SELF_REVIEW_FORBIDDEN: &'static str = "appeal_self_review_forbidden";
@@ -606,7 +613,6 @@ impl ReasonCode {
     pub const CLAIM_GENERATION_MISMATCH: &'static str = "claim_generation_mismatch";
     pub const CLAIM_INVALID: &'static str = "claim_invalid";
     pub const CLAIM_RATE_LIMITED: &'static str = "claim_rate_limited";
-    pub const CONFLICTING_E2EE_PROFILES: &'static str = "conflicting_e2ee_profiles";
     pub const CONSENT_REVOKED: &'static str = "consent_revoked";
     pub const CONSENT_WITHDRAWN: &'static str = "consent_withdrawn";
     pub const CONTENT_ENCRYPTION_FLOOR_DOWNGRADE: &'static str =
@@ -676,6 +682,8 @@ impl ReasonCode {
     pub const DUPLICATE_CONFLICT: &'static str = "duplicate_conflict";
     pub const DURABILITY_SCHEME_INCOMPATIBLE: &'static str = "durability_scheme_incompatible";
     pub const E2EE_KEY_SOURCE_UNAUTHORISED: &'static str = "e2ee_key_source_unauthorised";
+    pub const E2EE_RELAXED_AUDIT_BINDING_CONFLICT: &'static str =
+        "e2ee_relaxed_audit_binding_conflict";
     pub const E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE: &'static str =
         "e2ee_relaxed_disallowed_in_compliance_profile";
     pub const E2EE_RELAXED_FEDERATION_POLICY_UNSUPPORTED: &'static str =
@@ -766,7 +774,6 @@ impl ReasonCode {
     pub const KEY_BACKUP_WIRE_SCHEMA_REQUIRED: &'static str = "key_backup_wire_schema_required";
     pub const KEYPACKAGE_CLAIM_RATE_LIMITED: &'static str = "keypackage_claim_rate_limited";
     pub const KEYPACKAGE_EXPIRED: &'static str = "keypackage_expired";
-    pub const KEYPACKAGE_REFRESH_REQUIRED: &'static str = "keypackage_refresh_required";
     pub const KEYPACKAGE_ROTATED: &'static str = "keypackage_rotated";
     pub const KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH: &'static str =
         "keypackage_welcome_envelope_mismatch";
@@ -813,8 +820,6 @@ impl ReasonCode {
     pub const MLS_CONTENT_SCHEME_IMMUTABLE: &'static str = "mls_content_scheme_immutable";
     pub const MLS_GENESIS_ALREADY_EXISTS: &'static str = "mls_genesis_already_exists";
     pub const MLS_GOVERNANCE_BINDING_STALE: &'static str = "mls_governance_binding_stale";
-    pub const MLS_SEND_PAUSE_ADVISORY_REQUIRES_E2EE_RELAXED_PROFILE: &'static str =
-        "mls_send_pause_advisory_requires_e2ee_relaxed_profile";
     pub const MODERATION_CONTROL_LIFTED: &'static str = "moderation_control_lifted";
     pub const MODERATION_CONTROL_PENDING: &'static str = "moderation_control_pending";
     pub const MODERATION_CONTROL_SPLIT: &'static str = "moderation_control_split";
@@ -1070,6 +1075,9 @@ impl ReasonCode {
             Self::AgentGrantExceedsRequestedScope => Self::AGENT_GRANT_EXCEEDS_REQUESTED_SCOPE,
             Self::AgentGrantExpiryRequired => Self::AGENT_GRANT_EXPIRY_REQUIRED,
             Self::AgentKeyAuthorizationExpired => Self::AGENT_KEY_AUTHORIZATION_EXPIRED,
+            Self::AgentKeyScopeReauthorizationRequired => {
+                Self::AGENT_KEY_SCOPE_REAUTHORIZATION_REQUIRED
+            }
             Self::AgentParticipationCeilingUnresolved => {
                 Self::AGENT_PARTICIPATION_CEILING_UNRESOLVED
             }
@@ -1080,6 +1088,9 @@ impl ReasonCode {
                 Self::AGENT_PCR_GENESIS_DECLARATION_CONFLICT
             }
             Self::AgentPcrGenesisDeclarationMissing => Self::AGENT_PCR_GENESIS_DECLARATION_MISSING,
+            Self::AgentProvisionScopeMigrationRequired => {
+                Self::AGENT_PROVISION_SCOPE_MIGRATION_REQUIRED
+            }
             Self::AgentProvisioningChallengeAlreadyConsumed => {
                 Self::AGENT_PROVISIONING_CHALLENGE_ALREADY_CONSUMED
             }
@@ -1089,6 +1100,7 @@ impl ReasonCode {
                 Self::AGENT_REQUESTED_SCOPE_COMMITMENT_INVALID
             }
             Self::AgentRuntimeRequestConflict => Self::AGENT_RUNTIME_REQUEST_CONFLICT,
+            Self::AgentSessionScopeRefreshRequired => Self::AGENT_SESSION_SCOPE_REFRESH_REQUIRED,
             Self::AppealModifyMissingLift => Self::APPEAL_MODIFY_MISSING_LIFT,
             Self::AppealOverturnMissingLift => Self::APPEAL_OVERTURN_MISSING_LIFT,
             Self::AppealSelfReviewForbidden => Self::APPEAL_SELF_REVIEW_FORBIDDEN,
@@ -1165,7 +1177,6 @@ impl ReasonCode {
             Self::ClaimGenerationMismatch => Self::CLAIM_GENERATION_MISMATCH,
             Self::ClaimInvalid => Self::CLAIM_INVALID,
             Self::ClaimRateLimited => Self::CLAIM_RATE_LIMITED,
-            Self::ConflictingE2eeProfiles => Self::CONFLICTING_E2EE_PROFILES,
             Self::ConsentRevoked => Self::CONSENT_REVOKED,
             Self::ConsentWithdrawn => Self::CONSENT_WITHDRAWN,
             Self::ContentEncryptionFloorDowngrade => Self::CONTENT_ENCRYPTION_FLOOR_DOWNGRADE,
@@ -1239,6 +1250,7 @@ impl ReasonCode {
             Self::DuplicateConflict => Self::DUPLICATE_CONFLICT,
             Self::DurabilitySchemeIncompatible => Self::DURABILITY_SCHEME_INCOMPATIBLE,
             Self::E2eeKeySourceUnauthorised => Self::E2EE_KEY_SOURCE_UNAUTHORISED,
+            Self::E2eeRelaxedAuditBindingConflict => Self::E2EE_RELAXED_AUDIT_BINDING_CONFLICT,
             Self::E2eeRelaxedDisallowedInComplianceProfile => {
                 Self::E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE
             }
@@ -1325,7 +1337,6 @@ impl ReasonCode {
             Self::KeyBackupWireSchemaRequired => Self::KEY_BACKUP_WIRE_SCHEMA_REQUIRED,
             Self::KeypackageClaimRateLimited => Self::KEYPACKAGE_CLAIM_RATE_LIMITED,
             Self::KeypackageExpired => Self::KEYPACKAGE_EXPIRED,
-            Self::KeypackageRefreshRequired => Self::KEYPACKAGE_REFRESH_REQUIRED,
             Self::KeypackageRotated => Self::KEYPACKAGE_ROTATED,
             Self::KeypackageWelcomeEnvelopeMismatch => Self::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH,
             Self::LastResortNotSupported => Self::LAST_RESORT_NOT_SUPPORTED,
@@ -1372,9 +1383,6 @@ impl ReasonCode {
             Self::MlsContentSchemeImmutable => Self::MLS_CONTENT_SCHEME_IMMUTABLE,
             Self::MlsGenesisAlreadyExists => Self::MLS_GENESIS_ALREADY_EXISTS,
             Self::MlsGovernanceBindingStale => Self::MLS_GOVERNANCE_BINDING_STALE,
-            Self::MlsSendPauseAdvisoryRequiresE2eeRelaxedProfile => {
-                Self::MLS_SEND_PAUSE_ADVISORY_REQUIRES_E2EE_RELAXED_PROFILE
-            }
             Self::ModerationControlLifted => Self::MODERATION_CONTROL_LIFTED,
             Self::ModerationControlPending => Self::MODERATION_CONTROL_PENDING,
             Self::ModerationControlSplit => Self::MODERATION_CONTROL_SPLIT,
@@ -1630,6 +1638,9 @@ impl ReasonCode {
             Self::AGENT_GRANT_EXCEEDS_REQUESTED_SCOPE => Self::AgentGrantExceedsRequestedScope,
             Self::AGENT_GRANT_EXPIRY_REQUIRED => Self::AgentGrantExpiryRequired,
             Self::AGENT_KEY_AUTHORIZATION_EXPIRED => Self::AgentKeyAuthorizationExpired,
+            Self::AGENT_KEY_SCOPE_REAUTHORIZATION_REQUIRED => {
+                Self::AgentKeyScopeReauthorizationRequired
+            }
             Self::AGENT_PARTICIPATION_CEILING_UNRESOLVED => {
                 Self::AgentParticipationCeilingUnresolved
             }
@@ -1640,6 +1651,9 @@ impl ReasonCode {
                 Self::AgentPcrGenesisDeclarationConflict
             }
             Self::AGENT_PCR_GENESIS_DECLARATION_MISSING => Self::AgentPcrGenesisDeclarationMissing,
+            Self::AGENT_PROVISION_SCOPE_MIGRATION_REQUIRED => {
+                Self::AgentProvisionScopeMigrationRequired
+            }
             Self::AGENT_PROVISIONING_CHALLENGE_ALREADY_CONSUMED => {
                 Self::AgentProvisioningChallengeAlreadyConsumed
             }
@@ -1649,6 +1663,7 @@ impl ReasonCode {
                 Self::AgentRequestedScopeCommitmentInvalid
             }
             Self::AGENT_RUNTIME_REQUEST_CONFLICT => Self::AgentRuntimeRequestConflict,
+            Self::AGENT_SESSION_SCOPE_REFRESH_REQUIRED => Self::AgentSessionScopeRefreshRequired,
             Self::APPEAL_MODIFY_MISSING_LIFT => Self::AppealModifyMissingLift,
             Self::APPEAL_OVERTURN_MISSING_LIFT => Self::AppealOverturnMissingLift,
             Self::APPEAL_SELF_REVIEW_FORBIDDEN => Self::AppealSelfReviewForbidden,
@@ -1725,7 +1740,6 @@ impl ReasonCode {
             Self::CLAIM_GENERATION_MISMATCH => Self::ClaimGenerationMismatch,
             Self::CLAIM_INVALID => Self::ClaimInvalid,
             Self::CLAIM_RATE_LIMITED => Self::ClaimRateLimited,
-            Self::CONFLICTING_E2EE_PROFILES => Self::ConflictingE2eeProfiles,
             Self::CONSENT_REVOKED => Self::ConsentRevoked,
             Self::CONSENT_WITHDRAWN => Self::ConsentWithdrawn,
             Self::CONTENT_ENCRYPTION_FLOOR_DOWNGRADE => Self::ContentEncryptionFloorDowngrade,
@@ -1799,6 +1813,7 @@ impl ReasonCode {
             Self::DUPLICATE_CONFLICT => Self::DuplicateConflict,
             Self::DURABILITY_SCHEME_INCOMPATIBLE => Self::DurabilitySchemeIncompatible,
             Self::E2EE_KEY_SOURCE_UNAUTHORISED => Self::E2eeKeySourceUnauthorised,
+            Self::E2EE_RELAXED_AUDIT_BINDING_CONFLICT => Self::E2eeRelaxedAuditBindingConflict,
             Self::E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE => {
                 Self::E2eeRelaxedDisallowedInComplianceProfile
             }
@@ -1885,7 +1900,6 @@ impl ReasonCode {
             Self::KEY_BACKUP_WIRE_SCHEMA_REQUIRED => Self::KeyBackupWireSchemaRequired,
             Self::KEYPACKAGE_CLAIM_RATE_LIMITED => Self::KeypackageClaimRateLimited,
             Self::KEYPACKAGE_EXPIRED => Self::KeypackageExpired,
-            Self::KEYPACKAGE_REFRESH_REQUIRED => Self::KeypackageRefreshRequired,
             Self::KEYPACKAGE_ROTATED => Self::KeypackageRotated,
             Self::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH => Self::KeypackageWelcomeEnvelopeMismatch,
             Self::LAST_RESORT_NOT_SUPPORTED => Self::LastResortNotSupported,
@@ -1932,9 +1946,6 @@ impl ReasonCode {
             Self::MLS_CONTENT_SCHEME_IMMUTABLE => Self::MlsContentSchemeImmutable,
             Self::MLS_GENESIS_ALREADY_EXISTS => Self::MlsGenesisAlreadyExists,
             Self::MLS_GOVERNANCE_BINDING_STALE => Self::MlsGovernanceBindingStale,
-            Self::MLS_SEND_PAUSE_ADVISORY_REQUIRES_E2EE_RELAXED_PROFILE => {
-                Self::MlsSendPauseAdvisoryRequiresE2eeRelaxedProfile
-            }
             Self::MODERATION_CONTROL_LIFTED => Self::ModerationControlLifted,
             Self::MODERATION_CONTROL_PENDING => Self::ModerationControlPending,
             Self::MODERATION_CONTROL_SPLIT => Self::ModerationControlSplit,
@@ -2325,6 +2336,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Agent session issuance rejected because the referenced ak.agent.key.authorize declared an expires_at that has elapsed. Distinct from proof_invalid (malformed / unverifiable proof): the runtime should prompt the controller to re-authorize the same key (same-key re-authorization, zh/identity/key-management.md §3.6) rather than rebuild the proof. Never returned for non-expiring (absent expires_at) authorizations.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::AGENT_KEY_SCOPE_REAUTHORIZATION_REQUIRED,
+        applies_to: &["auth_decision", "service_call"],
+        description: "The immutable provision ceiling contains every operation required by the selected runtime capability, but the accepted Agent key authorization omits one or more of them. The operation fails with failed_precondition; the controller may re-authorize or rotate the key only within the immutable provision ceiling. See zh/identity/key-management.md §3.6.1 and agent-runtime-scope-registry.json.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PARTICIPATION_CEILING_UNRESOLVED,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
         description: "An Agent action or mention fanout requires the current target-local deployment/Realm/Circle/Strand participation policy, but one or more required layers are bottom (⊥), stale or unresolvable. The action-time gate treats the unresolved policy as all false. The controller's private selection remains stored unchanged. See zh/authz/capabilities.md §5.4.",
@@ -2355,6 +2371,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A managed_agent_control ak.realm.create was submitted without an already accepted ak.agent.provision in the controller PCR whose payload.principal_control_realm_id equals retype(this genesis event_id). The genesis carries no ref to its provision, so this reverse look-up is the whole binding: no match MUST fail closed with zero writes, and the receiver MUST NOT materialize the Realm, the agent-status transition or any partial projection. See zh/identity/key-management.md §3.6.3.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::AGENT_PROVISION_SCOPE_MIGRATION_REQUIRED,
+        applies_to: &["auth_decision", "service_call"],
+        description: "The Agent's immutable provision requested_scope omits an operation mandatory for the selected runtime capability. The operation fails with failed_precondition and recovery requires provisioning a new Agent principal; key re-pairing, Realm grants and session issuance MUST NOT widen this ceiling. See zh/identity/key-management.md §3.6.1 and agent-runtime-scope-registry.json.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PROVISIONING_CHALLENGE_ALREADY_CONSUMED,
         applies_to: &["service_call"],
         description: "The agent-provisioning abandonment challenge was already consumed and the request is not a replay of the same request_id whose canonical intent matches the stored successful outcome. The service MUST reject it before any state transition; an exact replay returns the recorded terminal outcome and never produces a second tombstone. See zh/identity/key-management.md §3.6.3.",
@@ -2378,6 +2399,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::AGENT_RUNTIME_REQUEST_CONFLICT,
         applies_to: &["service_call"],
         description: "A different stable runtime key binding was submitted while the same open pairing_request_id already has a pending runtime request. The service MUST return HTTP 409 and MUST NOT replace the current pending request, approval_request_id, or notification id. A retry with the same ak.agent.runtime_key_binding.v1 digest is idempotent and does not use this error. See zh/identity/key-management.md §3.6.2.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::AGENT_SESSION_SCOPE_REFRESH_REQUIRED,
+        applies_to: &["auth_decision", "service_call"],
+        description: "The immutable provision ceiling and accepted Agent key authorization both contain every operation required by the selected runtime capability, but the requested or current session scope omits one or more. The operation fails with failed_precondition and recovery is a new session constrained by both upper ceilings. See zh/identity/key-management.md §3.6.1 and agent-runtime-scope-registry.json.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::APPEAL_MODIFY_MISSING_LIFT,
@@ -2710,11 +2736,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Per-(requester, target, intended_realm_id) KeyPackage / one-time-key claim rate limit hit; caller MUST back off before retrying. Distinct from the global `rate_limited` HTTP code because the limit is keyed on the (target, intended use) tuple, not the caller alone.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::CONFLICTING_E2EE_PROFILES,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "Realm declares both ak.profile.e2ee_relaxed.v1 and ak.profile.mls_governance_binding.full.v1; these are mutually exclusive (encryption-and-audit.md §2.4.2).",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::CONSENT_REVOKED,
         applies_to: &["auth_decision"],
         description: "Authorization outcome when a cached consent decision is re-evaluated and the underlying consent has been revoked; the stale cache entry MUST NOT authorize the action. See zh/conformance/conformance-vectors.md §9 (ak.vector.consent.cache_invalidation.v1).",
@@ -2962,6 +2983,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::E2EE_KEY_SOURCE_UNAUTHORISED,
         applies_to: &["service_call"],
         description: "A backend media SDK supplied an SFrame / frame encryption key from a source other than the Arkret MLS exporter (label `ak.rtc-frame-key/v1`). Clients MUST reject and refuse to publish / subscribe media. Closes the attack where backend cloud key escrow could intercept ostensibly-E2EE media. See zh/crypto-media/media-service-binding.md §8.1.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::E2EE_RELAXED_AUDIT_BINDING_CONFLICT,
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "The effective Realm policy sets mls_send_pause=advisory while an Audit Applet Binding is active. The policy write or binding activation MUST fail closed; no generic Realm profile list participates. See encryption-and-audit.md §2.4.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE,
@@ -3348,11 +3374,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A reusable last-resort KeyPackage was revoked because its expires_at deadline elapsed. It MUST NOT be returned by a later claim. This is a revocation reason, not a KeyPackage lifecycle state. See zh/crypto-media/encryption-and-audit.md §2.6.2.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::KEYPACKAGE_REFRESH_REQUIRED,
-        applies_to: &["crypto", "service_call"],
-        description: "Available one-time KeyPackage count is below the Realm or service low-watermark after claim attempts. Senders MAY delay Welcome generation and the target device SHOULD publish fresh KeyPackages. See zh/crypto-media/device-lifecycle.md §14.4.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::KEYPACKAGE_ROTATED,
         applies_to: &["keypackage_lifecycle"],
         description: "A reusable last-resort KeyPackage was revoked because its holder came online and rotated it to fresh init / encryption key material. This is a revocation reason, not a KeyPackage lifecycle state. See zh/crypto-media/encryption-and-audit.md §2.6.2.",
@@ -3531,11 +3552,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::MLS_GOVERNANCE_BINDING_STALE,
         applies_to: &["state_resolution", "auth_decision"],
         description: "Current MLS epoch's security_frontier_digest does not cover key-access policy components the client wants to act on (for example media_service_decrypts and plaintext_visible_services for a decrypting media service). Receivers MUST refuse to act until a fresh Commit covers the rederived frontier. See zh/crypto-media/media-service-binding.md §8.2 and zh/crypto-media/encryption-and-audit.md §2.5.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::MLS_SEND_PAUSE_ADVISORY_REQUIRES_E2EE_RELAXED_PROFILE,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "Realm attempts to set mls_send_pause='advisory' without declaring ak.profile.e2ee_relaxed.v1; default profile MUST treat mls_send_pause as a MUST gate.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MODERATION_CONTROL_LIFTED,

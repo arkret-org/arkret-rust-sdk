@@ -1,6 +1,52 @@
 use crate::{CapabilityActionId, DomainSeparationId, ReducerProfileId};
 
 pub const PROTOCOL_VERSION: &str = "1.0";
+
+/// Classify a protocol-family bootstrap discriminator before a v1-specific
+/// response is interpreted.
+pub fn protocol_version_bootstrap_error(value: &str) -> Option<crate::ErrorCode> {
+    if value == PROTOCOL_VERSION {
+        return None;
+    }
+    if is_canonical_protocol_version(value) {
+        Some(crate::ErrorCode::UnsupportedProtocolVersion)
+    } else {
+        Some(crate::ErrorCode::SchemaViolation)
+    }
+}
+
+fn is_canonical_protocol_version(value: &str) -> bool {
+    let Some((major, minor)) = value.split_once('.') else {
+        return false;
+    };
+    !minor.contains('.') && canonical_decimal(major) && canonical_decimal(minor)
+}
+
+fn canonical_decimal(value: &str) -> bool {
+    !value.is_empty()
+        && value.bytes().all(|byte| byte.is_ascii_digit())
+        && (value == "0" || !value.starts_with('0'))
+}
+
+#[cfg(test)]
+mod protocol_version_tests {
+    use super::*;
+
+    #[test]
+    fn bootstrap_discriminator_separates_unsupported_from_malformed() {
+        assert_eq!(protocol_version_bootstrap_error("1.0"), None);
+        assert_eq!(
+            protocol_version_bootstrap_error("2.0"),
+            Some(crate::ErrorCode::UnsupportedProtocolVersion)
+        );
+        for malformed in ["1", "1.0.0", "01.0", "1.00", "", "v1"] {
+            assert_eq!(
+                protocol_version_bootstrap_error(malformed),
+                Some(crate::ErrorCode::SchemaViolation)
+            );
+        }
+    }
+}
 /// Canonical Realm reducer profile implemented by this SDK.
 pub const CORE_REDUCER_PROFILE: &str = ReducerProfileId::CORE_V1;
 pub const BUILT_IN_CONFORMANCE_FIXTURES_VERSION: &str = "arkret-sdk-builtin-v1";

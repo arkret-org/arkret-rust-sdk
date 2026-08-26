@@ -1,5 +1,7 @@
-use arkret_wire::{AppletId, AuthorizationRef, DidCoreId, Event, EventId, RealmId, Result};
+use arkret_wire::{AppletId, AuthorizationRef, DidCoreId, EventId, RealmId, Result};
 use serde::{Deserialize, Serialize};
+
+use crate::{AppletManagedActorAuthoringBundle, AppletManagedActorAuthoringRequest};
 
 /// Immutable external identity tuple for one Applet-managed Ghost.
 ///
@@ -14,83 +16,46 @@ pub struct GhostExternalTuple {
     pub external_id: String,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum GhostActorProvisionRequestSchema {
-    #[serde(rename = "ak.applet.ghost_actor.provision_request.v1")]
-    V1,
-}
-
-/// `POST /_arkret/self/applets/{applet_id}/ghosts/provision` request body.
-///
-/// An Applet service / bridge asks the Principal Server to provision (or
-/// re-validate) an Applet-managed Ghost Actor profile plus accountability
-/// grant for one external user. The bridge supplies the four complete,
-/// caller-signed provision/PCR/accountability/profile Events; the Principal
-/// Server validates their exact binding and commits one atomic unit.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct GhostActorProvisionRequestBody {
-    /// Always [`GhostActorProvisionRequestBody::SCHEMA`].
-    pub schema: GhostActorProvisionRequestSchema,
-    pub applet_id: AppletId,
-    pub service_id: DidCoreId,
-    pub ghost_actor_id: DidCoreId,
-    pub actor_principal_server_id: DidCoreId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub display_name: Option<String>,
+pub struct GhostPreviewRequestBody {
     pub realm_id: RealmId,
     pub external_ref: GhostExternalTuple,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub managed_actor_provision_event: Event,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub pcr_genesis_event: Event,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub accountability_grant_event: Event,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub profile_event: Event,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GhostPreviewOutcome {
+    pub authoring_request: AppletManagedActorAuthoringRequest,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GhostActorProvisionRequestBody {
+    pub authoring_request: AppletManagedActorAuthoringRequest,
+    pub managed_actor_bundle: AppletManagedActorAuthoringBundle,
 }
 
 impl GhostActorProvisionRequestBody {
-    /// `schema` const of `applet-ghost-operations.schema.json`
-    /// `#/$defs/ghost_actor_provision_request_body`. Fixed by the DTO schema rather than registered
-    /// as a `schema-registry.json` row.
-    pub const SCHEMA: GhostActorProvisionRequestSchema = GhostActorProvisionRequestSchema::V1;
-    /// Build a request body with `schema` stamped and no `display_name`.
-    /// Add a display name with [`with_display_name`](Self::with_display_name).
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        applet_id: AppletId,
-        service_id: DidCoreId,
-        ghost_actor_id: DidCoreId,
-        actor_principal_server_id: DidCoreId,
-        realm_id: RealmId,
-        external_ref: GhostExternalTuple,
-        managed_actor_provision_event: Event,
-        pcr_genesis_event: Event,
-        accountability_grant_event: Event,
-        profile_event: Event,
-    ) -> Self {
-        Self {
-            schema: GhostActorProvisionRequestBody::SCHEMA,
-            applet_id,
-            service_id,
-            ghost_actor_id,
-            actor_principal_server_id,
-            display_name: None,
-            realm_id,
-            external_ref,
-            managed_actor_provision_event,
-            pcr_genesis_event,
-            accountability_grant_event,
-            profile_event,
-        }
+    pub fn authoring_basis(&self) -> Option<&crate::AppletGhostAuthoringRequestBasis> {
+        self.authoring_request.basis.ghost()
     }
 
-    pub fn with_display_name(mut self, display_name: impl Into<String>) -> Self {
-        self.display_name = Some(display_name.into());
-        self
+    pub fn managed_actor_provision_payload(
+        &self,
+    ) -> Result<crate::AppletManagedActorProvisionPayload> {
+        serde_json::from_value(serde_json::to_value(
+            &self
+                .managed_actor_bundle
+                .managed_actor_provision_event
+                .payload,
+        )?)
+        .map_err(Into::into)
     }
 }
 
@@ -164,93 +129,24 @@ impl GhostActorProfileFields {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{Hlc, ScopeRef};
-
     use super::*;
 
-    fn event(kind: &str, actor: &str, suffix: &str) -> Event {
-        let scope_ref = if kind == "ak.realm.create" {
-            ScopeRef::RealmGenesis
-        } else {
-            ScopeRef::Realm {
-                realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
-                    .unwrap(),
-            }
-        };
-        arkret_wire::test_support::raw_event(
-            kind,
-            scope_ref,
-            DidCoreId::new(actor.replace("did:", "ak:did_core:")).unwrap(),
-            DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
-            0,
-            Hlc::new(format!("019041000000-0000-{suffix}")).unwrap(),
-            serde_json::json!({"object": {}}),
-        )
-        .unwrap()
-    }
-
     #[test]
-    fn ghost_provision_request_carries_both_complete_events() {
-        let accountability = event(
-            "ak.identity.accountability_grant",
-            "did:web:applet.example",
-            "00000001",
-        );
-        let profile = event("ak.profile.create", "did:web:ghost.example", "00000002");
-        let provision = event(
-            "ak.applet.managed_actor.provision",
-            "did:web:applet.example",
-            "00000003",
-        );
-        let genesis = event("ak.realm.create", "did:web:ghost.example", "00000004");
-        let request = GhostActorProvisionRequestBody::new(
-            AppletId::new("ak:applet:01904100-0000-7000-8000-000000000003").unwrap(),
-            DidCoreId::new("ak:did_core:web:applet.example").unwrap(),
-            DidCoreId::new("ak:did_core:web:ghost.example").unwrap(),
-            DidCoreId::new("ak:did_core:web:principal-server.example").unwrap(),
-            RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
-            serde_json::from_value(serde_json::json!({
-                "protocol": "slack",
-                "instance_id": "tenant-1",
-                "external_id": "user-1"
-            }))
-            .unwrap(),
-            provision,
-            genesis,
-            accountability.clone(),
-            profile.clone(),
-        );
-
-        let value = serde_json::to_value(&request).unwrap();
-        assert_eq!(
-            value["accountability_grant_event"]["event_id"],
-            accountability.event_id.as_str()
-        );
-        assert_eq!(
-            value["profile_event"]["event_id"],
-            profile.event_id.as_str()
-        );
-        assert_eq!(
-            serde_json::from_value::<GhostActorProvisionRequestBody>(value).unwrap(),
-            request
-        );
-    }
-
-    #[test]
-    fn ghost_provision_request_rejects_missing_event_pair() {
+    fn ghost_preview_request_is_closed() {
         let value = serde_json::json!({
-            "schema": GhostActorProvisionRequestBody::SCHEMA,
-            "applet_id": "ak:applet:01904100-0000-7000-8000-000000000003",
-            "service_id": "did:web:applet.example",
-            "ghost_actor_id": "did:web:ghost.example",
             "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
             "external_ref": {
                 "protocol": "slack",
                 "instance_id": "tenant-1",
                 "external_id": "user-1"
-            }
+            },
+            "display_name": "Example Ghost"
         });
+        let request: GhostPreviewRequestBody = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(request.external_ref.protocol, "slack");
 
-        assert!(serde_json::from_value::<GhostActorProvisionRequestBody>(value).is_err());
+        let mut unknown = value;
+        unknown["legacy_actor_id"] = serde_json::json!("ak:did_core:web:ghost.example");
+        assert!(serde_json::from_value::<GhostPreviewRequestBody>(unknown).is_err());
     }
 }

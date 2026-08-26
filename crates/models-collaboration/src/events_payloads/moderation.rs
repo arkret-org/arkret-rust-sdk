@@ -1,14 +1,12 @@
 //! Moderation schema artifact counterparts and event payloads.
 
-use arkret_wire::{
-    DeviceId, DidCoreId, DidFullId, DidUrl, FrankingProofId, project_full_id_to_core_id,
-};
+use arkret_wire::{DidCoreId, DidFullId, DidUrl, project_full_id_to_core_id};
 
 use crate::internal_prelude::*;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/moderation-evidence.schema.json#/$defs/evidence_package`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ModerationEvidencePackage {
@@ -44,27 +42,12 @@ impl ModerationEvidencePackage {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/moderation-evidence.schema.json#/$defs/franking_proof`.
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct FrankingProofSenderClaim {
-    pub actor_id: DidCoreId,
-    pub device_id: DeviceId,
-    pub mls_group_id_digest: Hash,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct FrankingProof {
-    pub kind: String,
-    pub franking_proof_id: FrankingProofId,
     pub realm_id: RealmId,
     pub event_id: EventId,
-    pub routing_metadata_digest: Hash,
-    pub ciphertext_digest: Hash,
-    pub aad_digest: Hash,
-    pub sender_claim: FrankingProofSenderClaim,
     pub received_by: DidCoreId,
     pub verification_method: DidUrl,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -76,41 +59,63 @@ pub struct FrankingProof {
 /// Accepted-event anchor used to constrain a franking proof `received_at`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FrankingProofEventTimeAnchor {
-    pub event_id: EventId,
+    pub target_event_id: EventId,
     pub realm_id: RealmId,
     pub received_by: DidCoreId,
-    pub received_at: DateTime<Utc>,
-    pub ciphertext_digest: Hash,
+    pub proof_event_created_at: DateTime<Utc>,
+    pub covering_seal_sealed_at: DateTime<Utc>,
 }
 
 impl FrankingProofEventTimeAnchor {
     pub fn new(
-        event_id: EventId,
+        target_event_id: EventId,
         realm_id: RealmId,
         received_by: DidCoreId,
-        received_at: DateTime<Utc>,
-        ciphertext_digest: Hash,
+        proof_event_created_at: DateTime<Utc>,
+        covering_seal_sealed_at: DateTime<Utc>,
     ) -> Self {
         Self {
-            event_id,
+            target_event_id,
             realm_id,
             received_by,
-            received_at,
-            ciphertext_digest,
+            proof_event_created_at,
+            covering_seal_sealed_at,
         }
     }
 }
 
 impl FrankingProof {
-    pub const TIME_ANCHOR_MAX_SKEW_SECS: i64 = 300;
+    pub const SIGNATURE_DOMAIN: &'static str = "ak.franking_proof.signature.v1";
+
+    pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
+        #[derive(Serialize)]
+        struct SigningInput<'a> {
+            domain: &'static str,
+            realm_id: &'a RealmId,
+            event_id: &'a EventId,
+            received_by: &'a DidCoreId,
+            verification_method: &'a DidUrl,
+            #[serde(
+                serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp"
+            )]
+            received_at: DateTime<Utc>,
+            replay_nonce: &'a str,
+        }
+
+        arkret_canonical::canonical_json_bytes(&SigningInput {
+            domain: Self::SIGNATURE_DOMAIN,
+            realm_id: &self.realm_id,
+            event_id: &self.event_id,
+            received_by: &self.received_by,
+            verification_method: &self.verification_method,
+            received_at: self.received_at,
+            replay_nonce: &self.replay_nonce,
+        })
+        .map_err(Into::into)
+    }
 
     pub fn validate_event_time_anchor(&self, anchor: &FrankingProofEventTimeAnchor) -> Result<()> {
-        if self.kind != event_kind_str::MODERATION_FRANKING_PROOF {
-            return Err(WireError::Protocol(
-                "franking proof kind must be ak.moderation.franking_proof".to_owned(),
-            ));
-        }
-        if self.event_id != anchor.event_id {
+        if self.event_id != anchor.target_event_id {
             return Err(WireError::Protocol(
                 "franking proof event_id does not match accepted event anchor".to_owned(),
             ));
@@ -123,12 +128,6 @@ impl FrankingProof {
         if self.received_by != anchor.received_by {
             return Err(WireError::Protocol(
                 "franking proof received_by does not match time anchor issuer".to_owned(),
-            ));
-        }
-        if self.ciphertext_digest != anchor.ciphertext_digest {
-            return Err(WireError::Protocol(
-                "franking proof ciphertext_digest does not match accepted encrypted event"
-                    .to_owned(),
             ));
         }
         let controller = self
@@ -145,15 +144,13 @@ impl FrankingProof {
                 "franking proof verification_method does not belong to received_by".to_owned(),
             ));
         }
-        let skew_secs = self
-            .received_at
-            .signed_duration_since(anchor.received_at)
-            .num_seconds()
-            .abs();
-        if skew_secs > Self::TIME_ANCHOR_MAX_SKEW_SECS {
-            return Err(WireError::Protocol(format!(
-                "franking proof received_at is not constrained by the accepted event time anchor: skew {skew_secs}s"
-            )));
+        if self.received_at > anchor.proof_event_created_at
+            || anchor.proof_event_created_at > anchor.covering_seal_sealed_at
+        {
+            return Err(WireError::Protocol(
+                "franking proof time anchor must satisfy received_at <= proof Event created_at <= covering Seal sealed_at"
+                    .to_owned(),
+            ));
         }
         Ok(())
     }
@@ -173,10 +170,6 @@ mod tests {
         EventId::new(value).unwrap()
     }
 
-    fn hash(ch: char) -> Hash {
-        Hash::new(format!("sha256:{}", ch.to_string().repeat(64))).unwrap()
-    }
-
     fn timestamp(value: &str) -> DateTime<Utc> {
         DateTime::parse_from_rfc3339(value)
             .unwrap()
@@ -189,21 +182,8 @@ mod tests {
 
     fn proof() -> FrankingProof {
         FrankingProof {
-            kind: EventKind::ModerationFrankingProof.to_string(),
-            franking_proof_id: FrankingProofId::new(
-                "ak:franking_proof:01904100-0000-7000-8000-000000000111",
-            )
-            .unwrap(),
             realm_id: realm_id(),
             event_id: event_id("ak:event:AY3aEHEku45kFksenyEUUeJDYGC8pcxJwaT9PypXoEZw"),
-            routing_metadata_digest: hash('c'),
-            ciphertext_digest: hash('d'),
-            aad_digest: hash('e'),
-            sender_claim: FrankingProofSenderClaim {
-                actor_id: did("did:webvh:z6mkfixturealice:alice.example"),
-                device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000333").unwrap(),
-                mls_group_id_digest: hash('f'),
-            },
             received_by: did("did:webvh:z6mkfixturesoland:soland.local"),
             verification_method: DidUrl::new(
                 "did:webvh:z6mkfixturesoland:soland.local#moderation-1",
@@ -215,13 +195,16 @@ mod tests {
         }
     }
 
-    fn anchor(received_at: DateTime<Utc>) -> FrankingProofEventTimeAnchor {
+    fn anchor(
+        proof_event_created_at: DateTime<Utc>,
+        covering_seal_sealed_at: DateTime<Utc>,
+    ) -> FrankingProofEventTimeAnchor {
         FrankingProofEventTimeAnchor::new(
             event_id("ak:event:AY3aEHEku45kFksenyEUUeJDYGC8pcxJwaT9PypXoEZw"),
             realm_id(),
             did("did:webvh:z6mkfixturesoland:soland.local"),
-            received_at,
-            hash('d'),
+            proof_event_created_at,
+            covering_seal_sealed_at,
         )
     }
 
@@ -229,15 +212,26 @@ mod tests {
     fn franking_time_anchor_accepts_matching_event_record() {
         let proof = proof();
         proof
-            .validate_event_time_anchor(&anchor(timestamp("2026-04-30T00:00:01.000Z")))
+            .validate_event_time_anchor(&anchor(
+                timestamp("2026-04-30T00:00:01.000Z"),
+                timestamp("2026-04-30T00:00:02.000Z"),
+            ))
             .unwrap();
+        assert!(
+            String::from_utf8(proof.canonical_signing_bytes().unwrap())
+                .unwrap()
+                .contains(FrankingProof::SIGNATURE_DOMAIN)
+        );
     }
 
     #[test]
     fn franking_time_anchor_rejects_backdated_received_at() {
         let proof = proof();
         let err = proof
-            .validate_event_time_anchor(&anchor(timestamp("2026-04-30T00:10:01.000Z")))
+            .validate_event_time_anchor(&anchor(
+                timestamp("2026-04-29T23:59:59.000Z"),
+                timestamp("2026-04-30T00:00:02.000Z"),
+            ))
             .unwrap_err();
         assert!(err.to_string().contains("time anchor"));
     }
