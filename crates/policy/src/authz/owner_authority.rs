@@ -215,6 +215,19 @@ mod tests {
     }
 
     #[test]
+    fn retained_registry_snapshot_preserves_existing_realm_owner_authority() {
+        let retained = Hash::new(
+            "sha256:85c4e7f01bf0744bdb47a4b340de38b5919287da00a79d80bd7fdbdcb7cfbe45".to_owned(),
+        )
+        .unwrap();
+
+        require_registry_basis(Some(&retained)).unwrap();
+        assert!(owner_may_author_action("ak.invite.create", Some(&retained)).unwrap());
+        assert!(owner_may_author_action("ak.realm.profile", Some(&retained)).unwrap());
+        assert!(owner_may_grant("ak.message.create", Some(&retained), &[]).unwrap());
+    }
+
+    #[test]
     fn unknown_registry_snapshot_still_fails_closed() {
         let unknown = Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap();
         assert!(require_registry_basis(Some(&unknown)).is_err());

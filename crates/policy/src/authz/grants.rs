@@ -11,6 +11,17 @@ use serde_json::Value;
 
 use super::*;
 
+/// Capability-action registries that remain addressable because accepted
+/// Realm authority roots and aggregate grants may still cite their digest.
+///
+/// These are exact immutable artifacts, not aliases to the current registry:
+/// aggregate expansion must retain the coverage that was signed at creation
+/// time and must never inherit actions added by a later registry revision.
+const RETAINED_CAPABILITY_ACTION_REGISTRIES: &[(&str, &str)] = &[(
+    "sha256:85c4e7f01bf0744bdb47a4b340de38b5919287da00a79d80bd7fdbdcb7cfbe45",
+    include_str!("snapshots/capability-action-registry-2026-08-26.1.json"),
+)];
+
 /// Return the JCS SHA-256 digest of the current embedded capability-action
 /// registry.
 pub fn current_capability_action_registry_digest() -> Result<Hash> {
@@ -47,13 +58,32 @@ pub(crate) fn capability_action_registry_snapshot(basis: &Hash) -> Result<Value>
                 "capability_registry_basis_unavailable: embedded registry missing".to_owned(),
             )
         })?;
-    if capability_action_registry_digest(&current)? != *basis {
-        return Err(WireError::Protocol(
-            "capability_registry_basis_unavailable: registry digest does not match current embedded registry"
-                .to_owned(),
-        ));
+    if capability_action_registry_digest(&current)? == *basis {
+        return Ok(current);
     }
-    Ok(current)
+
+    for (expected_digest, encoded) in RETAINED_CAPABILITY_ACTION_REGISTRIES {
+        if basis.as_str() != *expected_digest {
+            continue;
+        }
+        let retained: Value = serde_json::from_str(encoded).map_err(|error| {
+            WireError::Protocol(format!(
+                "capability_registry_basis_unavailable: retained registry JSON is invalid: {error}"
+            ))
+        })?;
+        if capability_action_registry_digest(&retained)? != *basis {
+            return Err(WireError::Protocol(
+                "capability_registry_basis_unavailable: retained registry digest mismatch"
+                    .to_owned(),
+            ));
+        }
+        return Ok(retained);
+    }
+
+    Err(WireError::Protocol(
+        "capability_registry_basis_unavailable: registry digest does not match a current or retained embedded registry"
+            .to_owned(),
+    ))
 }
 
 pub(crate) fn capability_action_descriptor_in<'a>(
