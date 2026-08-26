@@ -238,7 +238,8 @@ pub use arkret_models_crypto::mls_envelopes::{
 };
 pub use arkret_models_crypto::mls_payloads::*;
 pub use arkret_models_crypto::mls_records::{
-    MlsEndpointIdentity, MlsKeyPackageRecord, MlsKeyPackageState, RealmPairwiseAcceptedGroupState,
+    LocalMlsKeyPackageInventory, LocalMlsKeyPackageInventoryEntry, MlsEndpointIdentity,
+    MlsKeyPackageRecord, MlsKeyPackageState, RealmPairwiseAcceptedGroupState,
     RealmPairwiseAcceptedLeaf, RealmPairwiseAuthorState, RealmPairwiseKeyScopeLedger,
 };
 pub use arkret_models_crypto::protected_payload::{

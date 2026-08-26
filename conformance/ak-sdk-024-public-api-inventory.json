@@ -1,0 +1,25 @@
+{
+  "clause_id": "AK-SDK-024",
+  "evidence_kind": "public_api_inventory",
+  "bootstrap_field": "protocol_version",
+  "typed_carriers": [
+    {
+      "rust_type": "arkret_models_discovery::ServiceDescribe",
+      "source": "crates/models-discovery/src/service_description.rs",
+      "decoder": "serde::Deserialize",
+      "gate": "arkret_wire::deserialize_protocol_version"
+    },
+    {
+      "rust_type": "arkret_models_integration::AppletPingOutcome",
+      "source": "crates/models-integration/src/applet_models.rs",
+      "decoder": "serde::Deserialize",
+      "gate": "arkret_wire::deserialize_protocol_version"
+    },
+    {
+      "rust_type": "arkret_models_identity::IdentityDescription",
+      "source": "crates/models-identity/src/identity.rs",
+      "decoder": "serde::Deserialize",
+      "gate": "arkret_wire::deserialize_protocol_version"
+    }
+  ]
+}

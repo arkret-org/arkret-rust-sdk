@@ -424,6 +424,7 @@ dependencies = [
  "arkret-wire",
  "chrono",
  "chrono-tz",
+ "ed25519-dalek",
  "hmac 0.13.0",
  "proptest",
  "regex",
@@ -461,6 +462,7 @@ version = "0.3.0"
 dependencies = [
  "arkret-canonical",
  "arkret-models-identity",
+ "arkret-models-integration",
  "arkret-schema",
  "arkret-wire",
  "chrono",

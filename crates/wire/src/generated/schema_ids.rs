@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-26.1;
-//! sha256=f1f43edcedba7e70e5644836c090b521640487a82362467e5fb3716b52067cca Entries: schema_ids=199,
-//! active=199
+//! Input: registry/schema-registry.json; version=2026-08-26.2;
+//! sha256=2fe9ce8e57ece8a2f844a00a41a4fd45162049ec88f24dce36d0bf13b00f8321 Entries: schema_ids=200,
+//! active=200
 
 use serde::{Deserialize, Serialize};
 
@@ -88,6 +88,7 @@ pub enum SchemaId {
     DidWebvhWitnessReceiptV1,
     DirectConversationOperationsV1,
     DirectoryOperationsV1,
+    DndScheduleV1,
     DraftSyncV1,
     EncryptedEnvelopeV1,
     ErasureReceiptV1,
@@ -291,6 +292,7 @@ impl SchemaId {
         Self::DidWebvhWitnessReceiptV1,
         Self::DirectConversationOperationsV1,
         Self::DirectoryOperationsV1,
+        Self::DndScheduleV1,
         Self::DraftSyncV1,
         Self::EncryptedEnvelopeV1,
         Self::ErasureReceiptV1,
@@ -494,6 +496,7 @@ impl SchemaId {
         Self::DidWebvhWitnessReceiptV1,
         Self::DirectConversationOperationsV1,
         Self::DirectoryOperationsV1,
+        Self::DndScheduleV1,
         Self::DraftSyncV1,
         Self::EncryptedEnvelopeV1,
         Self::ErasureReceiptV1,
@@ -868,6 +871,8 @@ impl SchemaId {
     /// Closed request/response DTO bundle for Directory discovery search, resolve, private contact
     /// discovery, handle lookup, agent selector lookup, and push webhook registration operations.
     pub const DIRECTORY_OPERATIONS_V1: &'static str = "ak.schema.directory_operations.v1";
+    /// Closed decrypted plaintext shape and canonical recurring-time semantics for ak.dnd_schedule.
+    pub const DND_SCHEDULE_V1: &'static str = "ak.schema.dnd_schedule.v1";
     /// Encrypted account-data plaintext shape for cross-device draft sync.
     pub const DRAFT_SYNC_V1: &'static str = "ak.schema.draft_sync.v1";
     pub const ENCRYPTED_ENVELOPE_V1: &'static str = "ak.schema.encrypted_envelope.v1";
@@ -1269,6 +1274,7 @@ impl SchemaId {
             Self::DidWebvhWitnessReceiptV1 => Self::DID_WEBVH_WITNESS_RECEIPT_V1,
             Self::DirectConversationOperationsV1 => Self::DIRECT_CONVERSATION_OPERATIONS_V1,
             Self::DirectoryOperationsV1 => Self::DIRECTORY_OPERATIONS_V1,
+            Self::DndScheduleV1 => Self::DND_SCHEDULE_V1,
             Self::DraftSyncV1 => Self::DRAFT_SYNC_V1,
             Self::EncryptedEnvelopeV1 => Self::ENCRYPTED_ENVELOPE_V1,
             Self::ErasureReceiptV1 => Self::ERASURE_RECEIPT_V1,
@@ -1509,6 +1515,7 @@ impl SchemaId {
                 "schemas/direct-conversation-operations.schema.json"
             }
             Self::DirectoryOperationsV1 => "schemas/directory-operations.schema.json",
+            Self::DndScheduleV1 => "schemas/dnd-schedule.schema.json",
             Self::DraftSyncV1 => "schemas/draft-sync.schema.json",
             Self::EncryptedEnvelopeV1 => "schemas/encrypted-envelope.schema.json",
             Self::ErasureReceiptV1 => "schemas/erasure-receipt.schema.json",
@@ -1757,6 +1764,7 @@ impl SchemaId {
             Self::DID_WEBVH_WITNESS_RECEIPT_V1 => Some(Self::DidWebvhWitnessReceiptV1),
             Self::DIRECT_CONVERSATION_OPERATIONS_V1 => Some(Self::DirectConversationOperationsV1),
             Self::DIRECTORY_OPERATIONS_V1 => Some(Self::DirectoryOperationsV1),
+            Self::DND_SCHEDULE_V1 => Some(Self::DndScheduleV1),
             Self::DRAFT_SYNC_V1 => Some(Self::DraftSyncV1),
             Self::ENCRYPTED_ENVELOPE_V1 => Some(Self::EncryptedEnvelopeV1),
             Self::ERASURE_RECEIPT_V1 => Some(Self::ErasureReceiptV1),

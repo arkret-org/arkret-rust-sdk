@@ -41,6 +41,7 @@ pub struct IdentityDescription {
     pub registry_mode: String,
     #[serde(default)]
     pub supported_receipts: Vec<String>,
+    #[serde(deserialize_with = "arkret_wire::deserialize_protocol_version")]
     pub protocol_version: String,
     #[serde(default)]
     pub profiles: Vec<String>,

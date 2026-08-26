@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-26.1;
-//! sha256=d7a3172c7ae1d7941f1e01b7e5ff962b10e276c070fb54610500eaadcd03671e Input: registry/
-//! capability-action-registry.json; version=2026-08-26.1;
-//! sha256=702f28e7fb1c19626cb1000903d52a20cba55c37338fb614aeaf06ffd5288cd4 Input: registry/
-//! schema-registry.json; version=2026-08-26.1;
-//! sha256=f1f43edcedba7e70e5644836c090b521640487a82362467e5fb3716b52067cca Input: registry/
-//! account-data-key-registry.json; version=2026-08-25.1;
-//! sha256=bad8e54ec4b6a81e8adc1c4a294dfcba47911cba260b9b68ad3a6a06fac071e8 Entries: id_kinds=60,
-//! special_forms=14, actions=169, schemas=199, account_data_patterns=24
+//! Input: registry/id-kind-registry.json; version=2026-08-26.2;
+//! sha256=0771935a8bdc7ae98608a839ce7e3e2c550c4db83eba41b1cf32f35760ee1a3a Input: registry/
+//! capability-action-registry.json; version=2026-08-26.3;
+//! sha256=ed853ca3a70651a16c76ed1bcdea34405002067439319a1c64aad37c0d2c216a Input: registry/
+//! schema-registry.json; version=2026-08-26.2;
+//! sha256=2fe9ce8e57ece8a2f844a00a41a4fd45162049ec88f24dce36d0bf13b00f8321 Input: registry/
+//! account-data-key-registry.json; version=2026-08-26.1;
+//! sha256=f4b1ac768650134230da437063fbcffc513e923058d7ef4e100837cd9804dc7d Entries: id_kinds=59,
+//! special_forms=14, actions=169, schemas=200, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -210,11 +210,6 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         kind: "frame",
         category: "transport",
         wire_form: "ak:frame:<uuidv7>",
-    },
-    IdKindDescriptor {
-        kind: "franking_proof",
-        category: "moderation",
-        wire_form: "ak:franking_proof:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "grant",
@@ -3269,6 +3264,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::DIRECTORY_OPERATIONS_V1,
         file: "schemas/directory-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::DND_SCHEDULE_V1,
+        file: "schemas/dnd-schedule.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::DRAFT_SYNC_V1,

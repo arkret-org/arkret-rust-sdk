@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/account-data-key-registry.json; version=2026-08-25.1;
-//! sha256=bad8e54ec4b6a81e8adc1c4a294dfcba47911cba260b9b68ad3a6a06fac071e8
+//! Input: registry/account-data-key-registry.json; version=2026-08-26.1;
+//! sha256=f4b1ac768650134230da437063fbcffc513e923058d7ef4e100837cd9804dc7d
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};
@@ -110,8 +110,8 @@ impl AccountDataKey {
     /// Private local remark, note, tag, and pin metadata for a Realm.
     /// Key pattern: `ak.contacts.realm.<realm_id>`.
     pub const CONTACTS_REALM: &'static str = "ak.contacts.realm";
-    /// Principal-private do-not-disturb schedule used by notification routing.
-    /// Key pattern: `ak.dnd_schedule`.
+    /// Principal-private do-not-disturb schedule used by notification routing. Decrypted plaintext
+    /// validates as ak.schema.dnd_schedule.v1. Key pattern: `ak.dnd_schedule`.
     pub const DND_SCHEDULE: &'static str = "ak.dnd_schedule";
     /// Principal-private cross-device draft sync key. Raw target_ref MUST NOT appear in the
     /// account-data key. Key pattern: `ak.draft.v1:<kind>:<target_key>:<slot_key>`.

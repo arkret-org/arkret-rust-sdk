@@ -15,6 +15,23 @@ pub fn protocol_version_bootstrap_error(value: &str) -> Option<crate::ErrorCode>
     }
 }
 
+/// Shared serde bootstrap gate for every public typed carrier that exposes a
+/// protocol-family discriminator. Keeping this in `arkret-wire` prevents a
+/// new DTO from silently interpreting v1 fields before version selection.
+pub fn deserialize_protocol_version<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = <String as serde::Deserialize>::deserialize(deserializer)?;
+    if let Some(code) = protocol_version_bootstrap_error(&value) {
+        return Err(serde::de::Error::custom(format!(
+            "{}: protocol_version {value} does not match Arkret {PROTOCOL_VERSION}",
+            code.as_str()
+        )));
+    }
+    Ok(value)
+}
+
 fn is_canonical_protocol_version(value: &str) -> bool {
     let Some((major, minor)) = value.split_once('.') else {
         return false;

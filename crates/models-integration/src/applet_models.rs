@@ -10,8 +10,8 @@ use std::collections::BTreeMap;
 
 use arkret_wire::{
     AppletId, AppletRevokeMode, BlobRef, DidCoreId, DidUrl, Event, EventId, GrantId, Hash,
-    NotarySignerDescriptor, PROTOCOL_VERSION, PayloadSigner, ProtocolOperationId, RealmId,
-    ReasonCode, Result, ScopeRef, WireError, canonical,
+    NotarySignerDescriptor, PayloadSigner, ProtocolOperationId, RealmId, ReasonCode, Result,
+    ScopeRef, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -28,22 +28,8 @@ pub struct AppletPingOutcome {
     pub ok: bool,
     pub applet_id: AppletId,
     pub service_id: DidCoreId,
-    #[serde(deserialize_with = "deserialize_protocol_version")]
+    #[serde(deserialize_with = "arkret_wire::deserialize_protocol_version")]
     pub protocol_version: String,
-}
-
-fn deserialize_protocol_version<'de, D>(deserializer: D) -> std::result::Result<String, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let value = String::deserialize(deserializer)?;
-    if let Some(code) = arkret_wire::protocol_version_bootstrap_error(&value) {
-        return Err(serde::de::Error::custom(format!(
-            "{}: Applet ping protocol_version {value} does not match Arkret {PROTOCOL_VERSION}",
-            code.as_str()
-        )));
-    }
-    Ok(value)
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

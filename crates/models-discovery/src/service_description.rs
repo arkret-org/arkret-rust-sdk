@@ -5,7 +5,7 @@ use std::str::FromStr;
 use arkret_wire::generated::profile_requirements::requirements_for;
 use arkret_wire::{DidCoreId, DidFullId, ProfileId, SchemaId, *};
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -141,7 +141,7 @@ pub struct ServiceDescribe {
     /// expected deployment scope.
     pub trust_domain: TrustDomainId,
     pub service_kind: ServiceKind,
-    #[serde(deserialize_with = "deserialize_protocol_version")]
+    #[serde(deserialize_with = "arkret_wire::deserialize_protocol_version")]
     pub protocol_version: String,
     /// Profiles the service
     /// declares conformance to. Empty array is valid; missing is not.
@@ -598,20 +598,6 @@ impl ServiceDescribe {
         }
         Ok(())
     }
-}
-
-fn deserialize_protocol_version<'de, D>(deserializer: D) -> std::result::Result<String, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let value = String::deserialize(deserializer)?;
-    if let Some(code) = protocol_version_bootstrap_error(&value) {
-        return Err(serde::de::Error::custom(format!(
-            "{}: ServiceDescribe protocol_version {value} does not match Arkret {PROTOCOL_VERSION}",
-            code.as_str()
-        )));
-    }
-    Ok(value)
 }
 
 /// Profile-specific interoperable carrier binding.

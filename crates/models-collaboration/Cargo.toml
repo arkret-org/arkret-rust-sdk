@@ -48,6 +48,7 @@ unicode-normalization = {workspace = true}
 
 [dev-dependencies]
 arkret-wire = {workspace = true,features = ["test-support"]}
+ed25519-dalek = {workspace = true}
 proptest = {workspace = true,default-features = false,features = ["std"]}
 
 [lints]

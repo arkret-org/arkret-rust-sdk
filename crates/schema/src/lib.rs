@@ -40,7 +40,9 @@ pub use protocol::{
     SchemaValueTypeSummary,
 };
 
+pub mod agent_runtime_scope;
 mod artifacts;
+pub use artifacts::embedded_json_artifact;
 pub mod conformance;
 mod payload_validator_profiles;
 mod payloads;

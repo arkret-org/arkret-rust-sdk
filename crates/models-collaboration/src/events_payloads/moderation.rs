@@ -87,6 +87,53 @@ impl FrankingProofEventTimeAnchor {
 impl FrankingProof {
     pub const SIGNATURE_DOMAIN: &'static str = "ak.franking_proof.signature.v1";
 
+    /// Construct the sole v1 franking-proof wire shape and sign its canonical
+    /// transcript. The callback returns an unpadded-base64url Ed25519
+    /// signature; it is deliberately crypto-backend agnostic so HSM-backed
+    /// services do not need to export key material.
+    #[allow(clippy::too_many_arguments)]
+    pub fn signed(
+        realm_id: RealmId,
+        event_id: EventId,
+        received_by: DidCoreId,
+        verification_method: DidUrl,
+        received_at: DateTime<Utc>,
+        replay_nonce: String,
+        sign: impl FnOnce(&[u8]) -> Result<String>,
+    ) -> Result<Self> {
+        let mut proof = Self {
+            realm_id,
+            event_id,
+            received_by,
+            verification_method,
+            received_at,
+            replay_nonce,
+            signature: String::new(),
+        };
+        proof.signature = sign(&proof.canonical_signing_bytes()?)?;
+        if proof.signature.is_empty() {
+            return Err(WireError::Protocol(
+                "franking proof signer returned an empty signature".to_owned(),
+            ));
+        }
+        Ok(proof)
+    }
+
+    /// Verify the exact canonical transcript through a caller-provided key
+    /// resolver/backend. No digest mirror or alternate transcript is exposed.
+    pub fn verify_signature(
+        &self,
+        verify: impl FnOnce(&DidUrl, &[u8], &str) -> Result<()>,
+    ) -> Result<()> {
+        if self.signature.is_empty() {
+            return Err(WireError::Protocol(
+                "franking proof signature is empty".to_owned(),
+            ));
+        }
+        let bytes = self.canonical_signing_bytes()?;
+        verify(&self.verification_method, &bytes, &self.signature)
+    }
+
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
         #[derive(Serialize)]
         struct SigningInput<'a> {
@@ -159,6 +206,7 @@ impl FrankingProof {
 #[cfg(test)]
 mod tests {
     use arkret_wire::{DidFullId, project_full_id_to_core_id};
+    use ed25519_dalek::{Signer as _, SigningKey, Verifier as _};
 
     use super::*;
 
@@ -234,6 +282,62 @@ mod tests {
             ))
             .unwrap_err();
         assert!(err.to_string().contains("time anchor"));
+    }
+
+    #[test]
+    fn franking_transcript_fixture_matches_byte_for_byte_and_rejects_mutations() {
+        let fixture = arkret_schema::embedded_json_artifact(
+            "fixtures/franking-proof-transcript-fixture.json",
+        )
+        .unwrap();
+        let case = &fixture["case"];
+        let proof: FrankingProof = serde_json::from_value(case["source_payload"].clone()).unwrap();
+        let signing_bytes = proof.canonical_signing_bytes().unwrap();
+        assert_eq!(
+            signing_bytes,
+            case["transcript_jcs"].as_str().unwrap().as_bytes()
+        );
+
+        let seed = arkret_canonical::base64url_decode(
+            fixture["test_key"]["private_key_seed"].as_str().unwrap(),
+        )
+        .unwrap();
+        let seed: [u8; 32] = seed.try_into().unwrap();
+        let key = SigningKey::from_bytes(&seed);
+        proof
+            .verify_signature(|_, bytes, signature| {
+                let signature = arkret_canonical::base64url_decode(signature)
+                    .map_err(|error| WireError::Protocol(error.to_string()))?;
+                let signature = ed25519_dalek::Signature::from_slice(&signature)
+                    .map_err(|error| WireError::Protocol(error.to_string()))?;
+                key.verifying_key()
+                    .verify(bytes, &signature)
+                    .map_err(|error| WireError::Protocol(error.to_string()))
+            })
+            .unwrap();
+
+        let produced = FrankingProof::signed(
+            proof.realm_id.clone(),
+            proof.event_id.clone(),
+            proof.received_by.clone(),
+            proof.verification_method.clone(),
+            proof.received_at,
+            proof.replay_nonce.clone(),
+            |bytes| {
+                Ok(arkret_canonical::base64url_encode(
+                    key.sign(bytes).to_bytes(),
+                ))
+            },
+        )
+        .unwrap();
+        assert_eq!(produced, proof);
+
+        for mutation in case["bound_field_mutations"].as_array().unwrap() {
+            let bytes = arkret_canonical::canonical_json_bytes(&mutation["transcript"]).unwrap();
+            let signature = arkret_canonical::base64url_decode(&proof.signature).unwrap();
+            let signature = ed25519_dalek::Signature::from_slice(&signature).unwrap();
+            assert!(key.verifying_key().verify(&bytes, &signature).is_err());
+        }
     }
 }
 /// Counterpart for
