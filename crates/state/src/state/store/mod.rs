@@ -283,6 +283,16 @@ pub struct ControlSealScheduleRepairStats {
     pub cursor_wrapped: bool,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ControlSealScheduleStats {
+    pub pending: usize,
+    pub eligible: usize,
+    pub claimed: usize,
+    pub expired_claims: usize,
+    pub oldest_pending_at_ms: Option<i64>,
+    pub oldest_eligible_at_ms: Option<i64>,
+}
+
 /// Pending + sealed control-plane Event log.
 ///
 /// A Control Move is an [`Event`] carrying `seal_basis`
@@ -380,6 +390,10 @@ pub trait ControlEventStore: Send + Sync {
         now_ms: i64,
         limit: usize,
     ) -> StoreResult<ControlSealScheduleRepairStats>;
+
+    /// Return a bounded aggregate snapshot for scrape-time scheduling gauges.
+    /// Implementations must not enumerate Realm identifiers in the result.
+    fn control_seal_schedule_stats(&self, now_ms: i64) -> StoreResult<ControlSealScheduleStats>;
 
     /// Pending control-plane Event list for the notary worker, oldest first.
     fn list_pending_for_notary(

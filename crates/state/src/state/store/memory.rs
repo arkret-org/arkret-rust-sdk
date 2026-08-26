@@ -20,8 +20,8 @@ use super::{
     BottomMode, CellLatticeBinding, CellRegistry, CellStore, ControlEventStore,
     ControlProposalIngress, ControlProposalIngressClass, ControlProposalSnapshot,
     ControlSealAttemptCompletion, ControlSealAttemptOutcome, ControlSealScheduleClaim,
-    ControlSealScheduleRepairStats, PendingControlEventRecord, SealStore, SealedControlEventRecord,
-    StoreError, StoreResult, control_event_digest,
+    ControlSealScheduleRepairStats, ControlSealScheduleStats, PendingControlEventRecord, SealStore,
+    SealedControlEventRecord, StoreError, StoreResult, control_event_digest,
 };
 use crate::lattice::ordered_log::IssuedOp;
 use crate::lattice::{
@@ -651,6 +651,49 @@ impl ControlEventStore for MemoryControlEventStore {
         for realm_id in stale {
             inner.control_seal_schedule.remove(&realm_id);
             stats.stale_deleted += 1;
+        }
+        Ok(stats)
+    }
+
+    fn control_seal_schedule_stats(&self, now_ms: i64) -> StoreResult<ControlSealScheduleStats> {
+        let inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let pending_realms = Self::pending_realm_counts(&inner);
+        let mut stats = ControlSealScheduleStats::default();
+        for (realm_id, schedule) in &inner.control_seal_schedule {
+            if !pending_realms.contains_key(realm_id) {
+                continue;
+            }
+            stats.pending += 1;
+            stats.oldest_pending_at_ms = Some(
+                stats
+                    .oldest_pending_at_ms
+                    .map_or(schedule.first_pending_at_ms, |oldest| {
+                        oldest.min(schedule.first_pending_at_ms)
+                    }),
+            );
+            let claim_active = schedule
+                .claim_until_ms
+                .is_some_and(|claim_until_ms| claim_until_ms > now_ms)
+                && schedule.claim_holder.is_some();
+            let claim_expired = schedule
+                .claim_until_ms
+                .is_some_and(|claim_until_ms| claim_until_ms <= now_ms)
+                && schedule.claim_holder.is_some();
+            stats.claimed += usize::from(claim_active);
+            stats.expired_claims += usize::from(claim_expired);
+            if schedule.next_attempt_at_ms <= now_ms && !claim_active {
+                stats.eligible += 1;
+                stats.oldest_eligible_at_ms = Some(
+                    stats
+                        .oldest_eligible_at_ms
+                        .map_or(schedule.next_attempt_at_ms, |oldest| {
+                            oldest.min(schedule.next_attempt_at_ms)
+                        }),
+                );
+            }
         }
         Ok(stats)
     }
@@ -2165,6 +2208,28 @@ mod tests {
             .unwrap()
             .pop()
             .unwrap();
+        assert_eq!(
+            store.control_seal_schedule_stats(199).unwrap(),
+            ControlSealScheduleStats {
+                pending: 1,
+                eligible: 0,
+                claimed: 1,
+                expired_claims: 0,
+                oldest_pending_at_ms: Some(1),
+                oldest_eligible_at_ms: None,
+            }
+        );
+        assert_eq!(
+            store.control_seal_schedule_stats(200).unwrap(),
+            ControlSealScheduleStats {
+                pending: 1,
+                eligible: 1,
+                claimed: 0,
+                expired_claims: 1,
+                oldest_pending_at_ms: Some(1),
+                oldest_eligible_at_ms: Some(0),
+            }
+        );
         assert!(
             store
                 .claim_due_control_seal_realms("worker-b", 199, 300, 1)
@@ -2177,6 +2242,9 @@ mod tests {
             .pop()
             .unwrap();
         assert_eq!(replacement.fence, first.fence + 1);
+        let reclaimed_stats = store.control_seal_schedule_stats(200).unwrap();
+        assert_eq!(reclaimed_stats.claimed, 1);
+        assert_eq!(reclaimed_stats.expired_claims, 0);
         assert_eq!(
             store
                 .complete_control_seal_attempt(
