@@ -91,7 +91,8 @@ impl HlcGenerator {
         }
         self.clamp_physical();
 
-        Hlc::new(self.format()).expect("HLC format is valid")
+        Hlc::from_components(self.physical, self.logical, &self.node_id)
+            .expect("HLC generator components are valid")
     }
 
     /// Generate the next HLC value without blocking.
@@ -102,12 +103,17 @@ impl HlcGenerator {
     pub fn try_generate(&mut self) -> Result<Hlc> {
         self.advance_for_now_or_error(Self::current_time_ms())?;
         self.clamp_physical();
-        Ok(Hlc::new(self.format())?)
+        Ok(Hlc::from_components(
+            self.physical,
+            self.logical,
+            &self.node_id,
+        )?)
     }
 
     /// Get current HLC value without advancing.
     pub fn current(&self) -> Hlc {
-        Hlc::new(self.format()).expect("HLC format is valid")
+        Hlc::from_components(self.physical, self.logical, &self.node_id)
+            .expect("HLC generator components are valid")
     }
 
     /// Derive the 8-hex-char `node_id_hash` per `encoding.md` §7:
@@ -133,15 +139,6 @@ impl HlcGenerator {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |duration| duration.as_millis() as u64)
-    }
-
-    /// Format current HLC as string.
-    fn format(&self) -> String {
-        self.format_with_node(&self.node_id)
-    }
-
-    fn format_with_node(&self, node_id: &str) -> String {
-        format!("{:012x}-{:04x}-{}", self.physical, self.logical, node_id)
     }
 
     /// Spin iterations before falling back to 1 ms sleeps in

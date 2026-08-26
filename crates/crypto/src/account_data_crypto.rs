@@ -6,7 +6,6 @@ use arkret_wire::{AEAD_PROFILE_XCHACHA20_POLY1305_V1, DidCoreId, SchemaId};
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use hkdf::Hkdf;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::Sha256;
@@ -58,9 +57,16 @@ fn protocol_error(message: impl Into<String>) -> Error {
 }
 
 fn validate_account_data_key(account_data_key: &str) -> Result<()> {
-    let pattern = Regex::new(r"^ak\.[A-Za-z0-9._:-]+$")
-        .map_err(|error| Error::Protocol(format!("account-data type regex: {error}")))?;
-    if !pattern.is_match(account_data_key) {
+    let Some(rest) = account_data_key.strip_prefix("ak.") else {
+        return Err(protocol_error(
+            "account-data account_data_key is not canonical",
+        ));
+    };
+    if rest.is_empty()
+        || !rest
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b':' | b'-'))
+    {
         return Err(protocol_error(
             "account-data account_data_key is not canonical",
         ));
@@ -112,7 +118,7 @@ pub fn seal_account_data_value_with_nonce(
     let key = derive_account_data_value_key(account_secret, actor_id, account_data_key)?;
     let aad = AccountDataEncryptedValueAad::new(actor_id.clone(), account_data_key);
     let aad_bytes = canonical_aad(&aad)?;
-    let plaintext_bytes = canonical_json_bytes(plaintext)?;
+    let plaintext_bytes = arkret_canonical::canonical::canonical_json_value_bytes(plaintext)?;
     let cipher = XChaCha20Poly1305::new_from_slice(&key)
         .map_err(|error| Error::Crypto(format!("account-data cipher init failed: {error}")))?;
     let nonce_value = XNonce::from(nonce);

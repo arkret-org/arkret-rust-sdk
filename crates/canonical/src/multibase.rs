@@ -64,6 +64,12 @@ pub fn decode_multicodec_varint(bytes: &[u8]) -> Option<(u64, usize)> {
     let mut value = 0u64;
     let mut shift = 0u32;
     for (index, byte) in bytes.iter().copied().enumerate() {
+        if index == 9 {
+            if byte > 1 {
+                return None;
+            }
+            return Some((value | (u64::from(byte) << 63), index + 1));
+        }
         value |= u64::from(byte & 0x7f) << shift;
         if byte & 0x80 == 0 {
             return Some((value, index + 1));
@@ -248,5 +254,13 @@ mod tests {
         // Overlong: ten continuation bytes exceed the 64-bit ceiling.
         let overlong = [0xffu8; 10];
         assert!(decode_multicodec_varint(&overlong).is_none());
+        // The tenth byte contributes only bit 63. Any higher bit overflows u64.
+        let mut overflowing_terminal = [0xffu8; 10];
+        overflowing_terminal[9] = 0x02;
+        assert!(decode_multicodec_varint(&overflowing_terminal).is_none());
+
+        let mut max_u64 = [0xffu8; 10];
+        max_u64[9] = 0x01;
+        assert_eq!(decode_multicodec_varint(&max_u64), Some((u64::MAX, 10)));
     }
 }

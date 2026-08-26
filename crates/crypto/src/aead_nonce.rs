@@ -50,14 +50,16 @@ pub struct AeadNonceContext {
 #[derive(Clone, Debug)]
 pub struct AeadNonceReplayTracker {
     scopes: BTreeMap<[u8; 32], ReplayWindow>,
-    lru: VecDeque<[u8; 32]>,
+    lru: VecDeque<([u8; 32], u64)>,
     max_scopes: usize,
+    access_clock: u64,
 }
 
 #[derive(Clone, Copy, Debug)]
 struct ReplayWindow {
     highest_counter: u64,
     bitmap: u128,
+    last_access: u64,
 }
 
 impl Default for AeadNonceReplayTracker {
@@ -76,31 +78,60 @@ impl AeadNonceReplayTracker {
             scopes: BTreeMap::new(),
             lru: VecDeque::new(),
             max_scopes: max_scopes.max(1),
+            access_clock: 0,
         }
+    }
+
+    fn compact_lru_if_needed(&mut self) {
+        if self.lru.len() <= self.max_scopes.saturating_mul(2) {
+            return;
+        }
+        let mut current = self
+            .scopes
+            .iter()
+            .map(|(scope, window)| (*scope, window.last_access))
+            .collect::<Vec<_>>();
+        current.sort_unstable_by_key(|(_, last_access)| *last_access);
+        self.lru = current.into();
     }
 
     pub fn accept_counter(&mut self, context: &AeadNonceContext, counter: u64) -> Result<()> {
         validate_aead_nonce_context(context)?;
         let scope: [u8; 32] = Sha256::digest(canonical_json_bytes(context)?).into();
+        self.access_clock = self.access_clock.wrapping_add(1);
+        let access = self.access_clock;
         if !self.scopes.contains_key(&scope) {
-            if self.scopes.len() >= self.max_scopes
-                && let Some(evicted) = self.lru.pop_front()
-            {
-                self.scopes.remove(&evicted);
+            if self.scopes.len() >= self.max_scopes {
+                while let Some((evicted, generation)) = self.lru.pop_front() {
+                    if self
+                        .scopes
+                        .get(&evicted)
+                        .is_some_and(|window| window.last_access == generation)
+                    {
+                        self.scopes.remove(&evicted);
+                        break;
+                    }
+                }
             }
             self.scopes.insert(
                 scope,
                 ReplayWindow {
                     highest_counter: counter,
                     bitmap: 1,
+                    last_access: access,
                 },
             );
-            self.lru.push_back(scope);
+            self.lru.push_back((scope, access));
+            self.compact_lru_if_needed();
             return Ok(());
         }
 
-        self.lru.retain(|entry| entry != &scope);
-        self.lru.push_back(scope);
+        self.scopes
+            .get_mut(&scope)
+            .expect("scope was checked above")
+            .last_access = access;
+        self.lru.push_back((scope, access));
+        self.compact_lru_if_needed();
         let window = self
             .scopes
             .get_mut(&scope)
@@ -213,7 +244,9 @@ pub fn verify_aead_sender_nonce(
 
 /// Compute a SHA-256 digest over arbitrary JSON AAD using canonical JSON.
 pub fn json_aad_digest(aad: &Value) -> Result<String> {
-    Ok(sha256_prefixed(&canonical_json_bytes(aad)?))
+    Ok(sha256_prefixed(
+        &arkret_canonical::canonical_json_value_bytes(aad)?,
+    ))
 }
 
 /// Compare two strings in constant time after reducing both to fixed-size digests.

@@ -8,8 +8,6 @@
 //! defined by the event-payload schema rather than the patch container
 //! itself.
 
-use std::sync::OnceLock;
-
 use arkret_wire::patch::{Patch, PatchTargetKind, validate_patch_semantic_safety};
 use arkret_wire::{Hash, Result, WireError};
 use serde::de::{self, Deserializer};
@@ -99,14 +97,7 @@ impl<'de> Deserialize<'de> for ObjectPatchPayload {
 }
 
 fn validate_object_patch_ref(field: &str, value: &str) -> Result<()> {
-    static OBJECT_REF: OnceLock<regex::Regex> = OnceLock::new();
-    let object_ref = OBJECT_REF.get_or_init(|| {
-        regex::Regex::new(
-            r"^((?:ak:(realm|circle|space|actor_profile|strand|message|morph|relation|view|event):[A-Za-z0-9_-]{44}|ak:(policy|grant|invite|call|audit_binding|audit_session|audit_release|blob|snapshot|franking_proof|report):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})|ak:blob:(sha256|blake3):[0-9a-f]{64}|did:[^\s]+|(sha256|blake3):[0-9a-f]{64})$",
-        )
-        .expect("object_ref regex compiles")
-    });
-    if object_ref.is_match(value) {
+    if arkret_wire::is_object_ref(value) {
         Ok(())
     } else {
         Err(WireError::Protocol(format!(

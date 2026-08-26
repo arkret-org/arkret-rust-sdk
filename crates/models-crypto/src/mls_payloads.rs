@@ -927,16 +927,6 @@ impl MlsCommitPayload {
     }
 }
 
-fn object_ref_regex() -> &'static Regex {
-    static OBJECT_REF: OnceLock<Regex> = OnceLock::new();
-    OBJECT_REF.get_or_init(|| {
-        Regex::new(
-            r"^((?:ak:(realm|circle|space|actor_profile|strand|message|morph|relation|view|event):[A-Za-z0-9_-]{44}|ak:(policy|grant|invite|call|audit_binding|audit_session|audit_release|blob|snapshot|franking_proof|report):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})|ak:blob:(sha256|blake3):[0-9a-f]{64}|did:[^\s]+|(sha256|blake3):[0-9a-f]{64})$",
-        )
-        .expect("object_ref regex compiles")
-    })
-}
-
 fn profile_id_regex() -> &'static Regex {
     static PROFILE_ID: OnceLock<Regex> = OnceLock::new();
     PROFILE_ID.get_or_init(|| {
@@ -946,7 +936,7 @@ fn profile_id_regex() -> &'static Regex {
 }
 
 fn validate_object_ref(field: &str, value: &str) -> Result<()> {
-    if object_ref_regex().is_match(value) {
+    if arkret_wire::is_object_ref(value) {
         Ok(())
     } else {
         Err(WireError::Protocol(format!(

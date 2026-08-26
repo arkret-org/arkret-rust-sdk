@@ -13,6 +13,8 @@
 //!
 //! `from` / `to` values are JSON; equality is by JSON canonical form.
 
+use std::collections::HashMap;
+
 use serde_json::{Value, json};
 
 use super::{CellState, Lattice, LatticeKind, OpError, SealedOp};
@@ -84,7 +86,7 @@ impl Lattice for Fsm {
                 Ok(())
             }
             other => Err(OpError::UnsupportedOpType {
-                got: format!("{other:?}").to_lowercase(),
+                got: other.as_str().to_owned(),
                 expected_kind: "fsm",
             }),
         }
@@ -92,7 +94,7 @@ impl Lattice for Fsm {
 
     fn join(&self, cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState {
         let mut current: Option<Value> = self.initial_state.clone();
-        let mut seen_transitions: Vec<(Value, Value)> = Vec::new();
+        let mut seen_transitions: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
         for entry in sealed_ops {
             let op = &entry.op;
             // Skip ops that don't pass shape (defensive — same rule as
@@ -107,25 +109,39 @@ impl Lattice for Fsm {
                 ]));
                 return CellState::Bottom(bottom);
             }
-            let from = op.from.clone().unwrap();
-            let to = op.to.clone().unwrap();
-            if seen_transitions
-                .iter()
-                .any(|(seen_from, seen_to)| seen_from == &from && seen_to == &to)
-            {
+            let from = op.from.as_ref().unwrap();
+            let to = op.to.as_ref().unwrap();
+            let Ok(from_key) = arkret_canonical::canonical_json_value_bytes(from) else {
+                let mut bottom = Bottom::new(BottomKind::InvalidTransition, vec![cell.clone()]);
+                bottom.move_ids = vec![entry.move_id.clone()];
+                bottom.details = Some(bottom_details([
+                    ("current", current.clone().unwrap_or(Value::Null)),
+                    ("from", from.clone()),
+                    ("to", to.clone()),
+                ]));
+                return CellState::Bottom(bottom);
+            };
+            let Ok(to_key) = arkret_canonical::canonical_json_value_bytes(to) else {
+                let mut bottom = Bottom::new(BottomKind::InvalidTransition, vec![cell.clone()]);
+                bottom.move_ids = vec![entry.move_id.clone()];
+                bottom.details = Some(bottom_details([
+                    ("current", current.clone().unwrap_or(Value::Null)),
+                    ("from", from.clone()),
+                    ("to", to.clone()),
+                ]));
+                return CellState::Bottom(bottom);
+            };
+            if seen_transitions.get(&from_key) == Some(&to_key) {
                 continue;
             }
-            if seen_transitions
-                .iter()
-                .any(|(seen_from, seen_to)| seen_from == &from && seen_to != &to)
-            {
+            if seen_transitions.contains_key(&from_key) {
                 let mut bottom = Bottom::new(BottomKind::Conflict, vec![cell.clone()]);
                 bottom.move_ids = vec![entry.move_id.clone()];
                 bottom.details = Some(bottom_details([
                     ("current", current.clone().unwrap_or(Value::Null)),
-                    ("from", from),
+                    ("from", from.clone()),
                     ("reason", json!("same_from_different_to")),
-                    ("to", to),
+                    ("to", to.clone()),
                 ]));
                 return CellState::Bottom(bottom);
             }
@@ -134,20 +150,20 @@ impl Lattice for Fsm {
             // `from` only if it matches the declared initial state (if
             // any) or there is no initial state.
             if let Some(ref cur) = current
-                && cur != &from
+                && cur != from
             {
                 let mut bottom = Bottom::new(BottomKind::InvalidTransition, vec![cell.clone()]);
                 bottom.move_ids = vec![entry.move_id.clone()];
                 bottom.details = Some(bottom_details([
                     ("current", cur.clone()),
                     ("expected_from", cur.clone()),
-                    ("from", from),
-                    ("to", to),
+                    ("from", from.clone()),
+                    ("to", to.clone()),
                 ]));
                 return CellState::Bottom(bottom);
             }
-            seen_transitions.push((from.clone(), to.clone()));
-            current = Some(to);
+            seen_transitions.insert(from_key, to_key);
+            current = Some(to.clone());
         }
         match current {
             Some(v) => CellState::Value(v),

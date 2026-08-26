@@ -20,7 +20,7 @@ use arkret_models_collaboration::governance::membership_invite::{
 };
 use arkret_wire::{
     AuthorizationRef, CellRef, DidCoreId, Event, EventId, EventKind, Hash, PredicateOp,
-    REALM_AUTHORITY_ROOT_CELL, Result, ScopeRef, WireError, event_spec,
+    REALM_AUTHORITY_ROOT_CELL, RealmId, Result, ScopeRef, WireError, event_spec,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -240,8 +240,8 @@ impl std::error::Error for RealmBootstrapValidationError {}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ValidatedRealmBootstrap {
-    pub realm_id: String,
-    pub actor_id: String,
+    pub realm_id: RealmId,
+    pub actor_id: DidCoreId,
     pub authority_root: RealmAuthorityRootValue,
 }
 
@@ -305,8 +305,8 @@ pub fn validate_realm_bootstrap_unit(
             return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
         }
         return Ok(ValidatedRealmBootstrap {
-            realm_id: realm_id.to_owned(),
-            actor_id: actor_id.to_owned(),
+            realm_id: create.realm_id.clone(),
+            actor_id: create.actor_id.clone(),
             authority_root,
         });
     }
@@ -356,7 +356,7 @@ pub fn validate_realm_bootstrap_unit(
                     .map_err(|_| RealmBootstrapValidationError::EffectsPayloadMismatch)?;
                 if payload.actor_id.as_ref().map(DidCoreId::as_str) != Some(actor_id)
                     || payload.membership != MembershipPayloadState::Join
-                    || payload.realm_id.as_ref().map(arkret_wire::RealmId::as_str) != Some(realm_id)
+                    || payload.realm_id.as_ref().map(RealmId::as_str) != Some(realm_id)
                 {
                     return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
                 }
@@ -410,8 +410,8 @@ pub fn validate_realm_bootstrap_unit(
         }
     }
     Ok(ValidatedRealmBootstrap {
-        realm_id: realm_id.to_owned(),
-        actor_id: actor_id.to_owned(),
+        realm_id: create.realm_id.clone(),
+        actor_id: create.actor_id.clone(),
         authority_root,
     })
 }

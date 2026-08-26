@@ -367,6 +367,21 @@ pub enum LatticeOpType {
     Append,
 }
 
+impl LatticeOpType {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Add => "add",
+            Self::Remove => "remove",
+            Self::Set => "set",
+            Self::Transition => "transition",
+            Self::Inc => "inc",
+            Self::Dec => "dec",
+            Self::Append => "append",
+        }
+    }
+}
+
 impl LatticeOp {
     /// A `set` operation with every optional member absent.
     ///

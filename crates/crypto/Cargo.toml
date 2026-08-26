@@ -19,8 +19,8 @@ default = []
 aead = ["dep:hkdf", "dep:subtle"]
 # Principal-private Account Data value sealing (`account_data_crypto` module):
 # XChaCha20-Poly1305 + HKDF-SHA256 over canonical JSON. Pulls in the AEAD/KDF
-# stack and `regex` (canonical data-type validation) only when enabled.
-account-data = ["dep:chacha20poly1305", "dep:getrandom", "dep:hkdf", "dep:regex"]
+# stack only when enabled.
+account-data = ["dep:chacha20poly1305", "dep:getrandom", "dep:hkdf"]
 # Encrypted attachment codec (`blob_aead` module): `ak.blob.stream_aead.v1`
 # chunked streaming AEAD + `ak.blob.whole_file_aead.v1` whole-file AEAD, both
 # XChaCha20-Poly1305. Pulls in the AEAD stack only when enabled.
@@ -88,7 +88,6 @@ hkdf = {workspace = true,optional = true}
 hmac = {workspace = true,optional = true}
 hpke = {workspace = true,optional = true}
 rand_core_09 = {workspace = true,optional = true}
-regex = {workspace = true,optional = true}
 serde = {workspace = true}
 serde_json = {workspace = true}
 sha2 = {workspace = true}

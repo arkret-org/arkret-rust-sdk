@@ -1,6 +1,6 @@
 use arkret_models_collaboration::sync_frames::account_subscribe::AccountStreamInterrupt;
 use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceError;
-use arkret_wire::ErrorEnvelope;
+use arkret_wire::{ErrorCode, ErrorEnvelope, ReasonCode};
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -74,42 +74,35 @@ impl Error {
             return false;
         };
 
-        const INVALID_CURSOR_CODES: &[&str] = &[
-            "cursor_expired",
-            "cursor_integrity_invalid",
-            "cursor_unrecognized",
-            "cursor_invalid",
-            "invalid_cursor",
-        ];
-
-        let code = error.error.code.as_str();
-        if INVALID_CURSOR_CODES.contains(&code) {
+        if matches!(
+            error.error.error_code(),
+            Some(
+                ErrorCode::CursorExpired
+                    | ErrorCode::CursorIntegrityInvalid
+                    | ErrorCode::CursorUnrecognized
+                    | ErrorCode::CursorInvalid
+            )
+        ) {
             return true;
         }
-        if code != "param_invalid" {
+        if error.error.error_code() != Some(ErrorCode::ParamInvalid) {
             return false;
         }
-        if error
+        error
             .error
             .details
             .get("reason_code")
             .and_then(serde_json::Value::as_str)
-            .is_some_and(|reason| INVALID_CURSOR_CODES.contains(&reason))
-        {
-            return true;
-        }
-
-        let message = error.error.message.to_ascii_lowercase();
-        message.contains("cursor")
-            && [
-                "invalid",
-                "malformed",
-                "expired",
-                "integrity",
-                "unrecognized",
-            ]
-            .iter()
-            .any(|marker| message.contains(marker))
+            .map(ReasonCode::from_wire)
+            .is_some_and(|reason| {
+                matches!(
+                    reason,
+                    ReasonCode::CursorExpired
+                        | ReasonCode::CursorIntegrityInvalid
+                        | ReasonCode::CursorUnrecognized
+                        | ReasonCode::InvalidCursor
+                )
+            })
     }
 }
 

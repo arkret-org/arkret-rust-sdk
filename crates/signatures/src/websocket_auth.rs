@@ -401,6 +401,7 @@ mod tests {
             method: WEBSOCKET_AUTH_METHOD_TOKEN,
             htu: BASE_URL,
             access_token: Some(SESSION_GRANT),
+            expected_nonce: None,
             now: Utc.timestamp_opt(1_785_283_201, 0).unwrap(),
             max_age: chrono::Duration::seconds(300),
             max_future_skew: chrono::Duration::seconds(30),

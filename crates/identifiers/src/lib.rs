@@ -1236,6 +1236,25 @@ impl Hlc {
         Ok(Self(value))
     }
 
+    pub fn validate(value: &str) -> Result<()> {
+        Self::parse_parts(value).map(|_| ())
+    }
+
+    pub fn from_components(physical_ms: u64, logical: u32, node_id: &str) -> Result<Self> {
+        if physical_ms > 0xffff_ffff_ffff
+            || logical > 0xffff
+            || node_id.len() != 8
+            || !node_id
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+        {
+            return Err(IdentifierError::InvalidId(format!(
+                "{physical_ms:012x}-{logical:04x}-{node_id}"
+            )));
+        }
+        Ok(Self(format!("{physical_ms:012x}-{logical:04x}-{node_id}")))
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }

@@ -96,33 +96,25 @@ pub fn build_snapshot_chunks_with_nonaccepted(
 
     let mut chunks = Vec::new();
     let mut pending = Vec::new();
+    let mut pending_item_bytes = 0usize;
+    let mut empty_payload_bytes = snapshot_chunk_payload_bytes(&SnapshotChunkPayload {
+        chunk_kind: SNAPSHOT_CHUNK_TYPE.to_owned(),
+        snapshot_ref: snapshot_ref.clone(),
+        index: 0,
+        reducer_profile: reducer_profile.to_owned(),
+        items: Vec::new(),
+        conflict_records: conflict_records.clone(),
+        soft_failed: soft_failed.clone(),
+        quarantined: quarantined.clone(),
+    })?
+    .len();
     for item in items {
-        let mut candidate = pending.clone();
-        candidate.push(item.clone());
-        let candidate_payload = SnapshotChunkPayload {
-            chunk_kind: SNAPSHOT_CHUNK_TYPE.to_owned(),
-            snapshot_ref: snapshot_ref.clone(),
-            index: chunks.len() as u32,
-            reducer_profile: reducer_profile.to_owned(),
-            items: candidate,
-            conflict_records: if chunks.is_empty() {
-                conflict_records.clone()
-            } else {
-                Vec::new()
-            },
-            soft_failed: if chunks.is_empty() {
-                soft_failed.clone()
-            } else {
-                Vec::new()
-            },
-            quarantined: if chunks.is_empty() {
-                quarantined.clone()
-            } else {
-                Vec::new()
-            },
-        };
-        let candidate_bytes = snapshot_chunk_payload_bytes(&candidate_payload)?;
-        if !pending.is_empty() && candidate_bytes.len() > target_chunk_bytes {
+        let item_bytes = crate::canonical::canonical_json_bytes(&item)?.len();
+        let candidate_bytes = empty_payload_bytes
+            .saturating_add(pending_item_bytes)
+            .saturating_add(item_bytes)
+            .saturating_add(pending.len());
+        if !pending.is_empty() && candidate_bytes > target_chunk_bytes {
             let payload = SnapshotChunkPayload {
                 chunk_kind: SNAPSHOT_CHUNK_TYPE.to_owned(),
                 snapshot_ref: snapshot_ref.clone(),
@@ -147,7 +139,20 @@ pub fn build_snapshot_chunks_with_nonaccepted(
             };
             chunks.push(build_chunk_descriptor(payload)?);
             pending = vec![item];
+            pending_item_bytes = item_bytes;
+            empty_payload_bytes = snapshot_chunk_payload_bytes(&SnapshotChunkPayload {
+                chunk_kind: SNAPSHOT_CHUNK_TYPE.to_owned(),
+                snapshot_ref: snapshot_ref.clone(),
+                index: chunks.len() as u32,
+                reducer_profile: reducer_profile.to_owned(),
+                items: Vec::new(),
+                conflict_records: Vec::new(),
+                soft_failed: Vec::new(),
+                quarantined: Vec::new(),
+            })?
+            .len();
         } else {
+            pending_item_bytes = pending_item_bytes.saturating_add(item_bytes);
             pending.push(item);
         }
     }

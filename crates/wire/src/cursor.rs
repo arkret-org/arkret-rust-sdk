@@ -259,7 +259,7 @@ impl Cursor {
         }
 
         let cursor: Cursor = arkret_canonical::canonical::from_canonical_json_slice(&json)
-            .map_err(|_| WireError::Protocol("invalid cursor JSON".to_owned()))?;
+            .map_err(|error| WireError::Protocol(format!("invalid cursor JSON: {error}")))?;
 
         cursor.validate_at(now_ms)?;
 

@@ -282,6 +282,9 @@ fn classify_ipv6(ip: Ipv6Addr) -> Option<AddressClass> {
     if segments[0] == 0x2001 && segments[1] == 0x0db8 {
         return Some(AddressClass::Documentation);
     }
+    if let Some(v4) = compatible_ipv4(ip) {
+        return classify_ipv4(v4);
+    }
     if let Some(v4) = mapped_ipv4(ip) {
         return classify_ipv4(v4);
     }
@@ -295,6 +298,11 @@ fn classify_ipv6(ip: Ipv6Addr) -> Option<AddressClass> {
         return classify_ipv4(server).or_else(|| classify_ipv4(client));
     }
     None
+}
+
+fn compatible_ipv4(ip: Ipv6Addr) -> Option<Ipv4Addr> {
+    let segments = ip.segments();
+    (segments[..6] == [0; 6]).then(|| words_to_ipv4(segments[6], segments[7]))
 }
 
 fn mapped_ipv4(ip: Ipv6Addr) -> Option<Ipv4Addr> {
@@ -365,6 +373,8 @@ mod tests {
         for raw in [
             "::",
             "::1",
+            "::127.0.0.1",
+            "::10.0.0.1",
             "::ffff:10.0.0.1",
             "fc00::1",
             "fe80::1",
@@ -428,7 +438,7 @@ mod tests {
 
     #[test]
     fn transition_addresses_with_public_embedded_ips_are_public() {
-        for raw in ["64:ff9b::808:808", "2002:0808:0808::"] {
+        for raw in ["::8.8.8.8", "64:ff9b::808:808", "2002:0808:0808::"] {
             assert!(classify_ip(raw.parse().unwrap()).is_none(), "{raw}");
         }
     }

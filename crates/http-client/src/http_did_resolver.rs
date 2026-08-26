@@ -299,13 +299,15 @@ impl HttpDidResolver {
     fn cache_put(&self, did: &DidFullId, resolved: &ResolvedDid) {
         if let Ok(mut cache) = self.cache.lock() {
             let now = Utc::now();
-            let max_stale_secs = self.max_stale_secs();
-            cache.retain(|_, entry| {
-                let age = now.signed_duration_since(entry.fetched_at).num_seconds();
-                age >= 0 && age <= max_stale_secs
-            });
-            if !cache.contains_key(did)
-                && cache.len() >= self.max_cache_entries
+            if let Some(entry) = cache.get_mut(did) {
+                *entry = CacheEntry {
+                    resolved: resolved.clone(),
+                    fetched_at: now,
+                    last_accessed_at: now,
+                };
+                return;
+            }
+            if cache.len() >= self.max_cache_entries
                 && let Some(lru_did) = cache
                     .iter()
                     .min_by_key(|(_, entry)| entry.last_accessed_at)
@@ -403,11 +405,17 @@ impl HttpDidResolver {
         let (log_ct, log_body) = self
             .fetch_bytes(&log_url, DID_WEB_MAX_DOCUMENT_BYTES.saturating_mul(32))
             .await?;
-        let witness_declared = log_body
+        let mut witness_declared = false;
+        for line in log_body
             .split(|byte| *byte == b'\n')
             .filter(|line| !line.iter().all(u8::is_ascii_whitespace))
-            .filter_map(|line| serde_json::from_slice::<serde_json::Value>(line).ok())
-            .any(|entry| entry.pointer("/parameters/witness").is_some());
+        {
+            let entry = arkret_canonical::canonical::parse_json_rejecting_duplicate_keys(line)
+                .map_err(|error| {
+                    Error::Protocol(format!("invalid did:webvh log entry: {error}"))
+                })?;
+            witness_declared |= entry.pointer("/parameters/witness").is_some();
+        }
         let witness_body = if witness_declared {
             let witness_url = DidWebvhResolver::witness_url(did)?;
             let (witness_ct, witness_body) = self

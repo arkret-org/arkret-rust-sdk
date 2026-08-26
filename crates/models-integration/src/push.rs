@@ -19,19 +19,51 @@ fn list_contains_ignore_ascii_case(haystack: &[String], needle: &str) -> bool {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PushRule {
     pub rule_id: String,
-    #[serde(default)]
-    pub kind: String,
+    pub kind: PushRuleKind,
     #[serde(default = "default_push_rule_enabled")]
     pub enabled: bool,
-    #[serde(
-        default = "default_push_rule_locus",
-        deserialize_with = "deserialize_push_rule_locus"
-    )]
+    #[serde(deserialize_with = "deserialize_push_rule_locus")]
     pub evaluation_locus: String,
     #[serde(default)]
     pub conditions: Vec<PushCondition>,
     #[serde(default)]
-    pub actions: Vec<String>,
+    pub actions: Vec<PushRuleAction>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PushRuleKind {
+    Override,
+    Content,
+    Underride,
+}
+
+impl PushRuleKind {
+    pub const EVALUATION_ORDER: [Self; 3] = [Self::Override, Self::Content, Self::Underride];
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PushRuleAction {
+    Notify,
+    DontNotify,
+    SoundDefault,
+    SoundCritical,
+    Highlight,
+}
+
+impl PushRuleAction {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Notify => "notify",
+            Self::DontNotify => "dont_notify",
+            Self::SoundDefault => "sound_default",
+            Self::SoundCritical => "sound_critical",
+            Self::Highlight => "highlight",
+        }
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -80,10 +112,6 @@ pub struct DndSchedule {
 pub struct DndPeriod {
     pub start: String,
     pub end: String,
-}
-
-fn default_push_rule_locus() -> String {
-    "client".to_owned()
 }
 
 fn deserialize_push_rule_locus<'de, D>(deserializer: D) -> Result<String, D::Error>
@@ -473,10 +501,37 @@ mod tests {
             "rule_id": "client-message",
             "kind": "underride",
             "enabled": true,
+            "evaluation_locus": "client",
             "conditions": [],
             "actions": ["notify"]
         }))
         .unwrap();
         assert_eq!(client.evaluation_locus, "client");
+
+        for (field, value) in [("kind", "future"), ("actions", "future")] {
+            let mut document = serde_json::json!({
+                "rule_id": "closed-enum",
+                "kind": "underride",
+                "enabled": true,
+                "evaluation_locus": "client",
+                "conditions": [],
+                "actions": ["notify"]
+            });
+            if field == "kind" {
+                document[field] = serde_json::json!(value);
+            } else {
+                document[field] = serde_json::json!([value]);
+            }
+            assert!(serde_json::from_value::<PushRule>(document).is_err());
+        }
+
+        let missing_locus = serde_json::json!({
+            "rule_id": "missing-locus",
+            "kind": "underride",
+            "enabled": true,
+            "conditions": [],
+            "actions": ["notify"]
+        });
+        assert!(serde_json::from_value::<PushRule>(missing_locus).is_err());
     }
 }

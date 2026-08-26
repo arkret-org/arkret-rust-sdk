@@ -1,20 +1,284 @@
 use std::io::Write as _;
 
 use serde::de::DeserializeOwned;
+use serde::ser::{
+    SerializeMap, SerializeSeq, SerializeStruct, SerializeStructVariant, SerializeTuple,
+    SerializeTupleStruct, SerializeTupleVariant,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Number, Value};
 use sha2::{Digest, Sha256};
 
-use crate::{CanonicalError as Error, Result};
+use crate::CanonicalError as Error;
+
+type Result<T, E = Error> = std::result::Result<T, E>;
 
 /// Serialize a value with Arkret canonical JSON.
 ///
 /// The v1 SDK uses an integer-only number profile for signing and hashing. This
 /// rejects JSON floats even if serde_json can represent them.
 pub fn canonical_json_bytes<T: Serialize + ?Sized>(value: &T) -> Result<Vec<u8>> {
+    value
+        .serialize(NumberProfileValidator)
+        .map_err(|_| Error::NonCanonicalNumber)?;
     let value = serde_json::to_value(value)?;
+    canonical_json_value_bytes(&value)
+}
+
+#[derive(Clone, Copy, Debug)]
+struct NumberProfileValidator;
+
+#[derive(Debug)]
+struct NumberProfileError;
+
+impl std::fmt::Display for NumberProfileError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("floating-point value")
+    }
+}
+
+impl std::error::Error for NumberProfileError {}
+
+impl serde::ser::Error for NumberProfileError {
+    fn custom<T: std::fmt::Display>(_message: T) -> Self {
+        Self
+    }
+}
+
+impl serde::Serializer for NumberProfileValidator {
+    type Ok = ();
+    type Error = NumberProfileError;
+    type SerializeSeq = Self;
+    type SerializeTuple = Self;
+    type SerializeTupleStruct = Self;
+    type SerializeTupleVariant = Self;
+    type SerializeMap = Self;
+    type SerializeStruct = Self;
+    type SerializeStructVariant = Self;
+
+    fn serialize_bool(self, _value: bool) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn serialize_i8(self, _value: i8) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn serialize_i16(self, _value: i16) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn serialize_i32(self, _value: i32) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn serialize_i64(self, _value: i64) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn serialize_i128(self, _value: i128) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn serialize_u8(self, _value: u8) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn serialize_u16(self, _value: u16) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn serialize_u32(self, _value: u32) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn serialize_u64(self, _value: u64) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn serialize_u128(self, _value: u128) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn serialize_f32(self, _value: f32) -> Result<(), Self::Error> {
+        Err(NumberProfileError)
+    }
+    fn serialize_f64(self, _value: f64) -> Result<(), Self::Error> {
+        Err(NumberProfileError)
+    }
+    fn serialize_char(self, _value: char) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn serialize_str(self, _value: &str) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn serialize_bytes(self, _value: &[u8]) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn serialize_none(self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn serialize_some<T: Serialize + ?Sized>(self, value: &T) -> Result<(), Self::Error> {
+        value.serialize(self)
+    }
+    fn serialize_unit(self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn serialize_unit_struct(self, _name: &'static str) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn serialize_unit_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn serialize_newtype_struct<T: Serialize + ?Sized>(
+        self,
+        _name: &'static str,
+        value: &T,
+    ) -> Result<(), Self::Error> {
+        value.serialize(self)
+    }
+    fn serialize_newtype_variant<T: Serialize + ?Sized>(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        value: &T,
+    ) -> Result<(), Self::Error> {
+        value.serialize(self)
+    }
+    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
+        Ok(self)
+    }
+    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple, Self::Error> {
+        Ok(self)
+    }
+    fn serialize_tuple_struct(
+        self,
+        _name: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeTupleStruct, Self::Error> {
+        Ok(self)
+    }
+    fn serialize_tuple_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeTupleVariant, Self::Error> {
+        Ok(self)
+    }
+    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
+        Ok(self)
+    }
+    fn serialize_struct(
+        self,
+        _name: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeStruct, Self::Error> {
+        Ok(self)
+    }
+    fn serialize_struct_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeStructVariant, Self::Error> {
+        Ok(self)
+    }
+    fn collect_str<T: std::fmt::Display + ?Sized>(self, _value: &T) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+impl SerializeSeq for NumberProfileValidator {
+    type Ok = ();
+    type Error = NumberProfileError;
+    fn serialize_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<(), Self::Error> {
+        value.serialize(*self)
+    }
+    fn end(self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+impl SerializeTuple for NumberProfileValidator {
+    type Ok = ();
+    type Error = NumberProfileError;
+    fn serialize_element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<(), Self::Error> {
+        value.serialize(*self)
+    }
+    fn end(self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+impl SerializeTupleStruct for NumberProfileValidator {
+    type Ok = ();
+    type Error = NumberProfileError;
+    fn serialize_field<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<(), Self::Error> {
+        value.serialize(*self)
+    }
+    fn end(self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+impl SerializeTupleVariant for NumberProfileValidator {
+    type Ok = ();
+    type Error = NumberProfileError;
+    fn serialize_field<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<(), Self::Error> {
+        value.serialize(*self)
+    }
+    fn end(self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+impl SerializeMap for NumberProfileValidator {
+    type Ok = ();
+    type Error = NumberProfileError;
+    fn serialize_key<T: Serialize + ?Sized>(&mut self, key: &T) -> Result<(), Self::Error> {
+        key.serialize(*self)
+    }
+    fn serialize_value<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<(), Self::Error> {
+        value.serialize(*self)
+    }
+    fn end(self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+impl SerializeStruct for NumberProfileValidator {
+    type Ok = ();
+    type Error = NumberProfileError;
+    fn serialize_field<T: Serialize + ?Sized>(
+        &mut self,
+        _key: &'static str,
+        value: &T,
+    ) -> Result<(), Self::Error> {
+        value.serialize(*self)
+    }
+    fn end(self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+impl SerializeStructVariant for NumberProfileValidator {
+    type Ok = ();
+    type Error = NumberProfileError;
+    fn serialize_field<T: Serialize + ?Sized>(
+        &mut self,
+        _key: &'static str,
+        value: &T,
+    ) -> Result<(), Self::Error> {
+        value.serialize(*self)
+    }
+    fn end(self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+/// Serialize an existing JSON value without cloning its complete tree through
+/// `serde_json::to_value` first.
+pub fn canonical_json_value_bytes(value: &Value) -> Result<Vec<u8>> {
     let mut out = Vec::new();
-    write_canonical_value(&value, &mut out)?;
+    write_canonical_value(value, &mut out)?;
     Ok(out)
 }
 
@@ -236,7 +500,7 @@ pub fn parse_json_rejecting_duplicate_keys_within(
 
 fn validate_canonical_bytes_match(bytes: &[u8], value: &Value) -> Result<()> {
     validate_canonical_value(value)?;
-    let canonical = canonical_json_bytes(value)?;
+    let canonical = canonical_json_value_bytes(value)?;
     if canonical.as_slice() == bytes {
         return Ok(());
     }
@@ -251,8 +515,10 @@ fn validate_canonical_bytes_match(bytes: &[u8], value: &Value) -> Result<()> {
 fn canonical_parse_error(err: serde_json::Error) -> Error {
     let message = err.to_string();
     if let Some(rest) = message.strip_prefix(DUPLICATE_KEY_MARKER) {
-        let key = rest.split(" at ").next().unwrap_or(rest);
-        return Error::DuplicateObjectKey(key.to_owned());
+        let mut deserializer = serde_json::Deserializer::from_str(rest);
+        if let Ok(key) = String::deserialize(&mut deserializer) {
+            return Error::DuplicateObjectKey(key);
+        }
     }
     if message.contains(DEPTH_EXCEEDED_MARKER) {
         // Wire reason: structure_depth_exceeded (scalability-constraints.md §2).
@@ -310,8 +576,13 @@ impl<'de> serde::de::Visitor<'de> for CanonicalValueVisitor {
         Ok(Value::Number(value.into()))
     }
 
-    fn visit_f64<E>(self, value: f64) -> std::result::Result<Value, E> {
-        Ok(Number::from_f64(value).map_or(Value::Null, Value::Number))
+    fn visit_f64<E>(self, value: f64) -> std::result::Result<Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Number::from_f64(value)
+            .map(Value::Number)
+            .ok_or_else(|| E::custom("non-finite JSON number"))
     }
 
     fn visit_str<E>(self, value: &str) -> std::result::Result<Value, E>
@@ -373,8 +644,9 @@ impl<'de> serde::de::Visitor<'de> for CanonicalValueVisitor {
                 depth: self.depth + 1,
             })?;
             if object.contains_key(&key) {
+                let encoded_key = serde_json::to_string(&key).map_err(serde::de::Error::custom)?;
                 return Err(serde::de::Error::custom(format!(
-                    "{DUPLICATE_KEY_MARKER}{key}"
+                    "{DUPLICATE_KEY_MARKER}{encoded_key}"
                 )));
             }
             object.insert(key, value);
@@ -1131,6 +1403,31 @@ mod tests {
     fn parse_canonical_json_rejects_nested_duplicate_keys() {
         let err = parse_canonical_json(br#"{"outer":{"b":1,"b":2}}"#).unwrap_err();
         assert!(matches!(err, Error::DuplicateObjectKey(ref k) if k == "b"));
+    }
+
+    #[test]
+    fn duplicate_key_diagnostic_preserves_marker_like_key_text() {
+        let err = parse_canonical_json(br#"{"a at line 7":1,"a at line 7":2}"#).unwrap_err();
+        assert!(matches!(
+            err,
+            Error::DuplicateObjectKey(ref key) if key == "a at line 7"
+        ));
+    }
+
+    #[test]
+    fn canonical_value_fast_path_matches_generic_path() {
+        let value = json!({"z": [3, 2, 1], "a": {"b": true}});
+        assert_eq!(
+            canonical_json_value_bytes(&value).unwrap(),
+            canonical_json_bytes(&value).unwrap()
+        );
+    }
+
+    #[test]
+    fn canonical_generic_path_rejects_floats_before_json_erases_nonfinite_values() {
+        for value in [1.5, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(canonical_json_bytes(&value).is_err());
+        }
     }
 
     #[test]

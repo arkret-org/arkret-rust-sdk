@@ -124,6 +124,18 @@ impl EncryptedFileKeyStore {
         }
     }
 
+    fn with_shared_lock<T>(&self, operation: impl FnOnce() -> Result<T>) -> Result<T> {
+        let lock_file = open_lock_file(&self.lock_path).map_err(backend_io)?;
+        lock_file.lock_shared().map_err(backend_io)?;
+        let result = operation();
+        let unlock_result = lock_file.unlock().map_err(backend_io);
+        match (result, unlock_result) {
+            (Ok(value), Ok(())) => Ok(value),
+            (Err(error), _) => Err(error),
+            (Ok(_), Err(error)) => Err(error),
+        }
+    }
+
     fn read_entries(&self) -> Result<EntryMap> {
         let mut file = match File::open(&self.path) {
             Ok(file) => file,
@@ -224,7 +236,7 @@ impl EncryptedFileKeyStore {
 impl KeyStore for EncryptedFileKeyStore {
     fn load(&self, id: &str) -> Result<KeyBytes> {
         validate_id(id)?;
-        self.with_exclusive_lock(|| {
+        self.with_shared_lock(|| {
             self.read_entries()?
                 .get(&(self.namespace.clone(), id.to_owned()))
                 .cloned()
@@ -245,7 +257,7 @@ impl KeyStore for EncryptedFileKeyStore {
     }
 
     fn list(&self) -> Result<Vec<String>> {
-        self.with_exclusive_lock(|| {
+        self.with_shared_lock(|| {
             Ok(self
                 .read_entries()?
                 .keys()

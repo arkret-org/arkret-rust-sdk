@@ -52,7 +52,7 @@ impl IdentityReceipt {
             .as_object_mut()
             .expect("IdentityReceipt serializes to an object")
             .remove("signature");
-        let bytes = canonical::canonical_json_bytes(&value)?;
+        let bytes = canonical::canonical_json_value_bytes(&value)?;
         Ok(Hash::new(canonical::sha256_digest(&bytes))?)
     }
 
@@ -92,7 +92,7 @@ impl IdentityReceipt {
         if let Some(audience) = &self.signature.audience {
             object.insert("audience".to_owned(), serde_json::to_value(audience)?);
         }
-        canonical::canonical_json_bytes(&Value::Object(object)).map_err(Into::into)
+        canonical::canonical_json_value_bytes(&Value::Object(object)).map_err(Into::into)
     }
 
     /// Validate the receipt body and the plaintext proof bindings before JWS
@@ -187,7 +187,7 @@ impl DidWebvhWitnessReceipt {
             .expect("DidWebvhWitnessReceipt serializes to an object")
             .remove("signature");
         Ok(Hash::new(canonical::sha256_digest(
-            canonical::canonical_json_bytes(&value)?,
+            canonical::canonical_json_value_bytes(&value)?,
         ))?)
     }
 

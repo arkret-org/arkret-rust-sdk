@@ -110,7 +110,7 @@ impl AgentSelectorClaim {
             .as_object_mut()
             .expect("AgentSelectorClaim serializes as an object")
             .remove("proofs");
-        Ok(canonical::canonical_json_bytes(&value)?)
+        Ok(canonical::canonical_json_value_bytes(&value)?)
     }
 
     pub fn payload_digest(&self) -> Result<Hash> {

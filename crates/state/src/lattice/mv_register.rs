@@ -36,7 +36,7 @@ impl Lattice for MvRegister {
                 Ok(())
             }
             other => Err(OpError::UnsupportedOpType {
-                got: format!("{other:?}").to_lowercase(),
+                got: other.as_str().to_owned(),
                 expected_kind: "mv_register",
             }),
         }

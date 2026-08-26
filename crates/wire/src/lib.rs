@@ -55,6 +55,7 @@ pub mod ingress_budget;
 pub mod mls_transition;
 pub mod notary;
 pub mod object_address;
+pub mod object_ref;
 pub mod offline_publication;
 pub mod operation_types;
 pub mod organization_recovery;
@@ -167,6 +168,7 @@ pub use notary::{
     ForensicAttribution, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, NotaryValue,
 };
 pub use object_address::*;
+pub use object_ref::is_object_ref;
 pub use offline_publication::{
     AnchorUnitLeaseBasis, AnchorUnitLeaseBasisRef, AuthoritySetAuthorizationRule,
     AuthoritySetIssuer, AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicySource,

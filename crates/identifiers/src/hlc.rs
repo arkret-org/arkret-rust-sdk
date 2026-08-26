@@ -46,7 +46,12 @@ pub enum HlcFutureDrift {
 ///
 /// Format: `^[0-9a-f]{12}-[0-9a-f]{4}-[0-9a-f]{8}$`
 pub fn validate_hlc_format(hlc: &str) -> Result<()> {
-    parse_validated_hlc(hlc).map(|_| ())
+    Hlc::validate(hlc).map_err(|_| {
+        IdentifierError::Protocol(format!(
+            "schema_violation: invalid HLC format: {} (expected format: ^[0-9a-f]{{12}}-[0-9a-f]{{4}}-[0-9a-f]{{8}}$)",
+            hlc
+        ))
+    })
 }
 
 fn parse_validated_hlc(hlc: &str) -> Result<Hlc> {
@@ -108,10 +113,9 @@ pub fn validate_hlc_future_drift(hlc: &str, current_time_ms: u64) -> Result<HlcF
 /// Errors when either HLC fails the strict format validation; otherwise
 /// returns the total `(physical, logical, node)` ordering.
 pub fn compare_hlc(hlc1: &str, hlc2: &str) -> Result<std::cmp::Ordering> {
-    let left = parse_validated_hlc(hlc1)?;
-    let right = parse_validated_hlc(hlc2)?;
-
-    Ok(left.cmp(&right))
+    validate_hlc_format(hlc1)?;
+    validate_hlc_format(hlc2)?;
+    Ok(hlc1.cmp(hlc2))
 }
 
 /// Calculate time until HLC expiration (for cursors).

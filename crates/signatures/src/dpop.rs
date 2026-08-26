@@ -37,6 +37,7 @@ pub struct DpopVerificationRequest<'a> {
     pub method: &'a str,
     pub htu: &'a str,
     pub access_token: Option<&'a str>,
+    pub expected_nonce: Option<&'a str>,
     pub now: DateTime<Utc>,
     pub max_age: chrono::Duration,
     pub max_future_skew: chrono::Duration,
@@ -70,6 +71,10 @@ pub enum DpopVerificationError {
     MissingAccessTokenHash,
     #[error("DPoP ath does not match the presented access token")]
     AccessTokenHashMismatch,
+    #[error("DPoP nonce is required for this request")]
+    MissingNonce,
+    #[error("DPoP nonce does not match the server challenge")]
+    NonceMismatch,
 }
 
 #[derive(Deserialize)]
@@ -171,6 +176,15 @@ pub fn verify_dpop_proof(
             .ok_or(DpopVerificationError::MissingAccessTokenHash)?;
         if actual != dpop_access_token_hash(access_token) {
             return Err(DpopVerificationError::AccessTokenHashMismatch);
+        }
+    }
+    if let Some(expected_nonce) = request.expected_nonce {
+        let actual = claims
+            .nonce
+            .as_deref()
+            .ok_or(DpopVerificationError::MissingNonce)?;
+        if actual != expected_nonce {
+            return Err(DpopVerificationError::NonceMismatch);
         }
     }
 
@@ -374,6 +388,7 @@ mod tests {
                 "https://Account.Example/_arkret/self/events?ignored=1#fragment",
             )
             .access_token("grant-token")
+            .nonce("server-nonce")
             .issued_at(now)
             .jti("proof-1"),
             &key,
@@ -384,12 +399,22 @@ mod tests {
             method: "POST",
             htu: "https://account.example/_arkret/self/events",
             access_token: Some("grant-token"),
+            expected_nonce: Some("server-nonce"),
             now,
             max_age: chrono::Duration::seconds(300),
             max_future_skew: chrono::Duration::seconds(30),
         };
         let verified = verify_dpop_proof(&request).unwrap();
         assert_eq!(verified.jkt, proof.jkt);
+
+        let wrong_nonce = DpopVerificationRequest {
+            expected_nonce: Some("different-nonce"),
+            ..request.clone()
+        };
+        assert_eq!(
+            verify_dpop_proof(&wrong_nonce),
+            Err(DpopVerificationError::NonceMismatch)
+        );
 
         let wrong_origin = DpopVerificationRequest {
             htu: "https://other.example/_arkret/self/events",
@@ -417,6 +442,7 @@ mod tests {
             method: "GET",
             htu: "https://account.example/_arkret/self",
             access_token: None,
+            expected_nonce: None,
             now,
             max_age: chrono::Duration::seconds(300),
             max_future_skew: chrono::Duration::seconds(30),

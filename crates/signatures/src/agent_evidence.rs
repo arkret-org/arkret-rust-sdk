@@ -38,17 +38,33 @@ const OUTER_ATTESTATION_DOMAIN: &str = DomainSeparationId::AGENT_SIGNER_EVIDENCE
 const DETACHED_JWS_KIND: &str = "detached_jws";
 const MAX_SEAL_LINEAGE: usize = 4096;
 
+#[derive(Debug, thiserror::Error)]
+pub enum AgentEvidenceSigningError {
+    #[error("agent evidence JSON serialization failed: {0}")]
+    Json(#[from] serde_json::Error),
+    #[error("agent evidence canonicalization failed: {0}")]
+    Canonical(#[from] arkret_canonical::CanonicalError),
+    #[error("agent evidence detached JWS construction failed: {0}")]
+    Jws(#[from] crate::SignerError),
+    #[error("agent evidence proof shape is invalid: {0}")]
+    InvalidProofShape(&'static str),
+    #[error("agent evidence identifier is invalid: {0}")]
+    InvalidIdentifier(String),
+    #[error("agent evidence signing mode does not match the evidence variant")]
+    WrongEvidenceMode,
+    #[error("agent event admission receipt receiver does not match the signing method")]
+    ReceiverMismatch,
+}
+
 /// Canonical Account Authority signing bytes for the controller lifecycle
 /// gate. `proof.jws` is excluded while every other closed field, including
 /// the proof kind, remains covered.
 pub fn controller_account_gate_attestation_signing_bytes(
     attestation: &arkret_models_identity::agent_signer_evidence::ControllerAccountGateAttestation,
-) -> Result<Vec<u8>, AgentEvidenceRejectedReason> {
-    let mut value = serde_json::to_value(attestation)
-        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    remove_nested_jws(&mut value)?;
-    let canonical = canonical::canonical_json_bytes(&value)
-        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+) -> Result<Vec<u8>, AgentEvidenceSigningError> {
+    let mut value = serde_json::to_value(attestation)?;
+    remove_nested_jws_for_signing(&mut value)?;
+    let canonical = canonical::canonical_json_value_bytes(&value)?;
     let mut signing_bytes = Vec::with_capacity(CONTROLLER_GATE_DOMAIN.len() + 1 + canonical.len());
     signing_bytes.extend_from_slice(CONTROLLER_GATE_DOMAIN.as_bytes());
     signing_bytes.push(b'\n');
@@ -61,12 +77,11 @@ pub fn controller_account_gate_attestation_signing_bytes(
 pub fn sign_controller_account_gate_attestation(
     attestation: &mut arkret_models_identity::agent_signer_evidence::ControllerAccountGateAttestation,
     signing_key: &SigningKey,
-) -> Result<(), AgentEvidenceRejectedReason> {
+) -> Result<(), AgentEvidenceSigningError> {
     let bytes = controller_account_gate_attestation_signing_bytes(attestation)?;
-    let jws = sign_ed25519_detached_jws(signing_key, &bytes)
-        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    attestation.proof.jws =
-        NonEmptyString::new(jws).map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    let jws = sign_ed25519_detached_jws(signing_key, &bytes)?;
+    attestation.proof.jws = NonEmptyString::new(jws)
+        .map_err(|error| AgentEvidenceSigningError::InvalidIdentifier(error.to_string()))?;
     Ok(())
 }
 
@@ -75,7 +90,7 @@ pub fn sign_controller_account_gate_attestation(
 pub fn sign_agent_snapshot_lease(
     lease: &mut arkret_models_identity::agent_signer_evidence::AgentSnapshotLease,
     signing_key: &SigningKey,
-) -> Result<(), AgentEvidenceRejectedReason> {
+) -> Result<(), AgentEvidenceSigningError> {
     lease.proof.jws = domain_proof_jws(SNAPSHOT_LEASE_DOMAIN, lease, signing_key)?;
     Ok(())
 }
@@ -86,14 +101,14 @@ pub fn sign_agent_snapshot_lease(
 pub fn sign_agent_evidence_outer_attestation(
     evidence: &mut AgentSignerEvidence,
     signing_key: &SigningKey,
-) -> Result<(), AgentEvidenceRejectedReason> {
-    let digest = outer_core_digest(evidence)?;
+) -> Result<(), AgentEvidenceSigningError> {
+    let digest = outer_core_digest_for_signing(evidence)?;
     let outer = match evidence {
         AgentSignerEvidence::CurrentAdmission {
             outer_attestation, ..
         } => outer_attestation,
         AgentSignerEvidence::HistoricalEvent { .. } => {
-            return Err(AgentEvidenceRejectedReason::WrongVerificationMode);
+            return Err(AgentEvidenceSigningError::WrongEvidenceMode);
         }
     };
     outer.core_digest = digest;
@@ -104,13 +119,13 @@ pub fn sign_agent_evidence_outer_attestation(
 pub fn sign_agent_historical_evidence_outer_attestation(
     evidence: &mut AgentSignerEvidence,
     signing_key: &SigningKey,
-) -> Result<(), AgentEvidenceRejectedReason> {
-    let digest = outer_core_digest(evidence)?;
+) -> Result<(), AgentEvidenceSigningError> {
+    let digest = outer_core_digest_for_signing(evidence)?;
     let AgentSignerEvidence::HistoricalEvent {
         outer_attestation, ..
     } = evidence
     else {
-        return Err(AgentEvidenceRejectedReason::WrongVerificationMode);
+        return Err(AgentEvidenceSigningError::WrongEvidenceMode);
     };
     outer_attestation.core_digest = digest;
     outer_attestation.proof.jws =
@@ -122,9 +137,13 @@ pub fn sign_agent_event_admission_receipt(
     receipt: &mut AgentEventAdmissionReceipt,
     receiver_verification_method: &DidUrl,
     signing_key: &SigningKey,
-) -> Result<(), AgentEvidenceRejectedReason> {
-    if receipt.receiver_service_id != did_url_controller_core_id(receiver_verification_method)? {
-        return Err(AgentEvidenceRejectedReason::HistoricalReceiptMismatch);
+) -> Result<(), AgentEvidenceSigningError> {
+    let receiver_id =
+        did_url_controller_core_id(receiver_verification_method).map_err(|reason| {
+            AgentEvidenceSigningError::InvalidIdentifier(reason.as_str().to_owned())
+        })?;
+    if receipt.receiver_service_id != receiver_id {
+        return Err(AgentEvidenceSigningError::ReceiverMismatch);
     }
     receipt.proof.jws = domain_proof_jws_with_kid(
         EVENT_ADMISSION_RECEIPT_DOMAIN,
@@ -156,19 +175,17 @@ fn domain_proof_jws(
     domain: &str,
     value: &impl Serialize,
     signing_key: &SigningKey,
-) -> Result<NonEmptyString, AgentEvidenceRejectedReason> {
-    let mut value =
-        serde_json::to_value(value).map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    remove_nested_jws(&mut value)?;
-    let canonical = canonical::canonical_json_bytes(&value)
-        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+) -> Result<NonEmptyString, AgentEvidenceSigningError> {
+    let mut value = serde_json::to_value(value)?;
+    remove_nested_jws_for_signing(&mut value)?;
+    let canonical = canonical::canonical_json_value_bytes(&value)?;
     let mut bytes = Vec::with_capacity(domain.len() + 1 + canonical.len());
     bytes.extend_from_slice(domain.as_bytes());
     bytes.push(b'\n');
     bytes.extend_from_slice(&canonical);
-    let jws = sign_ed25519_detached_jws(signing_key, &bytes)
-        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    NonEmptyString::new(jws).map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
+    let jws = sign_ed25519_detached_jws(signing_key, &bytes)?;
+    NonEmptyString::new(jws)
+        .map_err(|error| AgentEvidenceSigningError::InvalidIdentifier(error.to_string()))
 }
 
 fn domain_proof_jws_with_kid(
@@ -176,22 +193,19 @@ fn domain_proof_jws_with_kid(
     value: &impl Serialize,
     kid: &str,
     signing_key: &SigningKey,
-) -> Result<NonEmptyString, AgentEvidenceRejectedReason> {
-    let mut value =
-        serde_json::to_value(value).map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    remove_nested_jws(&mut value)?;
-    let canonical = canonical::canonical_json_bytes(&value)
-        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+) -> Result<NonEmptyString, AgentEvidenceSigningError> {
+    let mut value = serde_json::to_value(value)?;
+    remove_nested_jws_for_signing(&mut value)?;
+    let canonical = canonical::canonical_json_value_bytes(&value)?;
     let mut bytes = Vec::with_capacity(domain.len() + 1 + canonical.len());
     bytes.extend_from_slice(domain.as_bytes());
     bytes.push(b'\n');
     bytes.extend_from_slice(&canonical);
-    let input = crate::proof::ed25519_detached_jws_signing_input(&bytes, Some(kid))
-        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    let input = crate::proof::ed25519_detached_jws_signing_input(&bytes, Some(kid))?;
     let signature = signing_key.sign(input.as_bytes());
-    let jws = crate::proof::ed25519_detached_jws_from_signature(&signature.to_bytes(), Some(kid))
-        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    NonEmptyString::new(jws).map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
+    let jws = crate::proof::ed25519_detached_jws_from_signature(&signature.to_bytes(), Some(kid))?;
+    NonEmptyString::new(jws)
+        .map_err(|error| AgentEvidenceSigningError::InvalidIdentifier(error.to_string()))
 }
 
 /// Independently verify the Account Authority-owned gate before an Agent PCR
@@ -1463,6 +1477,21 @@ fn outer_core_digest(evidence: &AgentSignerEvidence) -> Result<Hash, AgentEviden
     canonical_digest(&value)
 }
 
+fn outer_core_digest_for_signing(
+    evidence: &AgentSignerEvidence,
+) -> Result<Hash, AgentEvidenceSigningError> {
+    let mut value = serde_json::to_value(evidence)?;
+    value
+        .as_object_mut()
+        .and_then(|object| object.remove("outer_attestation"))
+        .ok_or(AgentEvidenceSigningError::InvalidProofShape(
+            "outer_attestation is missing",
+        ))?;
+    let digest = canonical::canonical_sha256(&value)?;
+    Hash::new(digest)
+        .map_err(|error| AgentEvidenceSigningError::InvalidIdentifier(error.to_string()))
+}
+
 fn verify_domain_proof(
     domain: &str,
     value: &impl Serialize,
@@ -1475,7 +1504,7 @@ fn verify_domain_proof(
     let mut value =
         serde_json::to_value(value).map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
     remove_nested_jws(&mut value)?;
-    let canonical = canonical::canonical_json_bytes(&value)
+    let canonical = canonical::canonical_json_value_bytes(&value)
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
     let mut signing_bytes = Vec::with_capacity(domain.len() + 1 + canonical.len());
     signing_bytes.extend_from_slice(domain.as_bytes());
@@ -1500,6 +1529,29 @@ fn remove_nested_jws(value: &mut Value) -> Result<(), AgentEvidenceRejectedReaso
     proof
         .remove("jws")
         .ok_or(AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    Ok(())
+}
+
+fn remove_nested_jws_for_signing(value: &mut Value) -> Result<(), AgentEvidenceSigningError> {
+    let object = value
+        .as_object_mut()
+        .ok_or(AgentEvidenceSigningError::InvalidProofShape(
+            "signed value is not an object",
+        ))?;
+    let proof = if object.contains_key("proof") {
+        object.get_mut("proof")
+    } else {
+        object.get_mut("controller_proof")
+    }
+    .and_then(Value::as_object_mut)
+    .ok_or(AgentEvidenceSigningError::InvalidProofShape(
+        "proof object is missing",
+    ))?;
+    proof
+        .remove("jws")
+        .ok_or(AgentEvidenceSigningError::InvalidProofShape(
+            "proof.jws is missing",
+        ))?;
     Ok(())
 }
 
