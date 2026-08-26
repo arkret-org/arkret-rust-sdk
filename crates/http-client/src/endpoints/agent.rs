@@ -1,10 +1,11 @@
 //! Personal-agent endpoint methods on [`Client`].
 
 use arkret_models_collaboration::agent_operations::{
-    AgentDeactivateRequestBody, AgentKeyPairOutcome, AgentKeyPairRequestBody,
-    AgentLifecycleOutcome, AgentList, AgentPauseRequestBody, AgentProvisionOutcome,
-    AgentProvisionRequestBody, AgentRenewPairingOutcome, AgentRenewPairingRequestBody,
-    AgentResumeRequestBody, AgentSidecarList, AgentSidecarView, AgentView,
+    AgentDeactivateRequestBody, AgentGrantDetachOutcome, AgentGrantDetachRequestBody,
+    AgentKeyPairOutcome, AgentKeyPairRequestBody, AgentLifecycleOutcome, AgentList,
+    AgentPauseRequestBody, AgentProvisionOutcome, AgentProvisionRequestBody,
+    AgentRenewPairingOutcome, AgentRenewPairingRequestBody, AgentResumeRequestBody,
+    AgentSidecarList, AgentSidecarView, AgentView,
 };
 use arkret_models_collaboration::governance::agent_participation::{
     AgentParticipationOutcome, ParticipationReplaceRequestBody,
@@ -123,6 +124,26 @@ impl Client {
             agent_path_component(agent_id)?
         );
         self.post(&path, request).await
+    }
+
+    /// `DELETE /_arkret/self/agents/{agent_id}/grants/{grant_id}`
+    /// (`ak.self.agent.grant.resource.delete`).
+    pub async fn agent_grant_detach(
+        &self,
+        agent_id: &str,
+        grant_id: &str,
+        request: &AgentGrantDetachRequestBody,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<AgentGrantDetachOutcome> {
+        request.validate(digest_suite)?;
+        let path = format!(
+            "{}/{}/grants/{}",
+            AGENTS_PATH,
+            agent_path_component(agent_id)?,
+            agent_path_component(grant_id)?
+        );
+        let builder = self.canonical_json_body(self.request(Method::DELETE, &path)?, request)?;
+        self.send_json(builder).await
     }
 
     /// `GET /_arkret/self/agents/{agent_id}/participation`
