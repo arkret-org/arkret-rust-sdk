@@ -6,7 +6,7 @@
 //! The types in this module consume and validate an Event, then expose it only
 //! immutably so the CBA shape cannot be invalidated before submission.
 
-use arkret_wire::Event;
+use arkret_wire::{CbaEffectPlane, Event};
 
 use crate::{Result, SchemaError, validate_event_for_submit};
 
@@ -51,7 +51,7 @@ impl TryFrom<Event> for PreparedDataEvent {
 
     fn try_from(event: Event) -> Result<Self> {
         validate_event_for_submit(&event)?;
-        if !event.kind.is_reducer_input()
+        if !event.kind.is_data_plane()
             || event.seal_ref.is_none()
             || event.auth_context.is_none()
             || event.seal_basis.is_some()
@@ -71,7 +71,7 @@ impl TryFrom<Event> for PreparedControlMove {
 
     fn try_from(event: Event) -> Result<Self> {
         validate_event_for_submit(&event)?;
-        if !event.kind.is_reducer_input()
+        if !event.kind.is_control_plane()
             || event.seal_ref.is_some()
             || event.auth_context.is_some()
             || event.seal_basis.is_none()
@@ -91,6 +91,7 @@ impl TryFrom<Event> for PreparedNonReducerEvent {
     fn try_from(event: Event) -> Result<Self> {
         validate_event_for_submit(&event)?;
         if event.kind.is_reducer_input()
+            || event.kind.cba_plane().is_some()
             || event.seal_ref.is_some()
             || event.auth_context.is_some()
             || event.seal_basis.is_some()
@@ -148,14 +149,14 @@ impl TryFrom<Event> for PreparedStandardEvent {
 
     fn try_from(event: Event) -> Result<Self> {
         validate_event_for_submit(&event)?;
-        if event.kind.is_reducer_input() {
-            if event.seal_ref.is_some() {
-                Ok(Self::Data(PreparedDataEvent(event)))
-            } else {
-                Ok(Self::Control(PreparedControlMove(event)))
-            }
-        } else {
-            Ok(Self::NonReducer(PreparedNonReducerEvent(event)))
+        match event.kind.cba_plane() {
+            Some(CbaEffectPlane::Data) => Ok(Self::Data(PreparedDataEvent(event))),
+            Some(CbaEffectPlane::Control) => Ok(Self::Control(PreparedControlMove(event))),
+            None if event.kind.is_reducer_input() => Err(SchemaError::Protocol(format!(
+                "reducer-input Event kind {} has no registered CBA plane",
+                event.kind
+            ))),
+            None => Ok(Self::NonReducer(PreparedNonReducerEvent(event))),
         }
     }
 }

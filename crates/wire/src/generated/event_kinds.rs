@@ -1120,7 +1120,7 @@ pub struct EventKindDescriptor {
     pub value_projection_rule: Option<EventCellRule>,
     pub lattice: Option<&'static str>,
     pub bottom: Option<&'static str>,
-    pub plane: Option<&'static str>,
+    plane: Option<CbaEffectPlane>,
     pub sealed: bool,
 }
 
@@ -2291,6 +2291,24 @@ impl EventKind {
     pub fn is_reducer_input(&self) -> bool {
         self.descriptor()
             .is_some_and(|descriptor| descriptor.reducer_input)
+    }
+
+    /// Registry-declared CBA plane for reducer-input kinds.
+    ///
+    /// Non-reducer and unknown kinds return `None`. The generator rejects
+    /// any registered reducer-input kind without exactly one closed plane.
+    pub fn cba_plane(&self) -> Option<CbaEffectPlane> {
+        self.descriptor().and_then(|descriptor| descriptor.plane)
+    }
+
+    /// Whether the registry declares this reducer-input kind on the Data plane.
+    pub fn is_data_plane(&self) -> bool {
+        self.cba_plane() == Some(CbaEffectPlane::Data)
+    }
+
+    /// Whether the registry declares this reducer-input kind on the Control plane.
+    pub fn is_control_plane(&self) -> bool {
+        self.cba_plane() == Some(CbaEffectPlane::Control)
     }
 }
 
@@ -4967,7 +4985,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -5128,7 +5146,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -5217,7 +5235,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -5373,7 +5391,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -5424,7 +5442,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -5481,7 +5499,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -5538,7 +5556,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -5588,7 +5606,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -5641,7 +5659,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -5691,7 +5709,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -5762,7 +5780,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -5854,7 +5872,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -5911,7 +5929,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -5984,7 +6002,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -6050,7 +6068,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -6100,7 +6118,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -6150,7 +6168,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -6200,7 +6218,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -6299,7 +6317,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -6528,7 +6546,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -7050,7 +7068,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -7098,7 +7116,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -7155,7 +7173,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -7243,7 +7261,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -7284,7 +7302,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -7325,7 +7343,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -7382,7 +7400,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -7470,7 +7488,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -7527,7 +7545,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -7580,7 +7598,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -7637,7 +7655,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -7705,7 +7723,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -7760,7 +7778,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -7810,7 +7828,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -7865,7 +7883,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -7913,7 +7931,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -7998,7 +8016,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -8083,7 +8101,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -8168,7 +8186,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -8253,7 +8271,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -8338,7 +8356,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -8391,7 +8409,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -8441,7 +8459,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -8501,7 +8519,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -8558,7 +8576,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -8633,7 +8651,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -8675,7 +8693,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -8732,7 +8750,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -8782,7 +8800,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -8849,7 +8867,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -8899,7 +8917,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -8956,7 +8974,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -9013,7 +9031,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -9070,7 +9088,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -9171,7 +9189,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -9254,7 +9272,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -9346,7 +9364,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -9446,7 +9464,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -9545,7 +9563,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -9637,7 +9655,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -9694,7 +9712,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -9773,7 +9791,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -9834,7 +9852,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -9882,7 +9900,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -9937,7 +9955,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -9992,7 +10010,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -10040,7 +10058,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -10090,7 +10108,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -10361,7 +10379,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -10462,7 +10480,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -10725,7 +10743,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -10777,7 +10795,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -10878,7 +10896,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -11143,7 +11161,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -11191,7 +11209,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -11246,7 +11264,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -11301,7 +11319,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -11356,7 +11374,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -11413,7 +11431,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -11463,7 +11481,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -11518,7 +11536,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -11575,7 +11593,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -11623,7 +11641,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -11680,7 +11698,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -11730,7 +11748,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -11785,7 +11803,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -11855,7 +11873,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -11925,7 +11943,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -11975,7 +11993,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -12028,7 +12046,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -12083,7 +12101,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -12138,7 +12156,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -12193,7 +12211,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -12253,7 +12271,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -12310,7 +12328,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -12360,7 +12378,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -12410,7 +12428,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -12463,7 +12481,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -12520,7 +12538,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -12575,7 +12593,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -12630,7 +12648,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -12685,7 +12703,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -12724,7 +12742,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -12765,7 +12783,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -12813,7 +12831,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -12858,7 +12876,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -13384,7 +13402,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -13425,7 +13443,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -13464,7 +13482,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -13505,7 +13523,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -13546,7 +13564,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -13585,7 +13603,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -13631,7 +13649,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -13681,7 +13699,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -13722,7 +13740,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -13799,7 +13817,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -13840,7 +13858,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -13881,7 +13899,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -13920,7 +13938,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -13999,7 +14017,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -14080,7 +14098,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -14161,7 +14179,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -14213,7 +14231,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -14254,7 +14272,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -14293,7 +14311,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -14334,7 +14352,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -14375,7 +14393,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -14414,7 +14432,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -14453,7 +14471,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -14494,7 +14512,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -14533,7 +14551,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -14574,7 +14592,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -14615,7 +14633,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -14656,7 +14674,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -14697,7 +14715,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -14754,7 +14772,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -14804,7 +14822,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -14854,7 +14872,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -14911,7 +14929,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -14963,7 +14981,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -15013,7 +15031,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -15070,7 +15088,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -15125,7 +15143,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -15180,7 +15198,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -15237,7 +15255,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -15294,7 +15312,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -15349,7 +15367,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -15399,7 +15417,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -15456,7 +15474,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -15504,7 +15522,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -15552,7 +15570,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -15609,7 +15627,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -15659,7 +15677,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -15714,7 +15732,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -15771,7 +15789,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -15819,7 +15837,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -15926,7 +15944,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -16033,7 +16051,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -16090,7 +16108,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -16140,7 +16158,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -16195,7 +16213,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -16250,7 +16268,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -16445,7 +16463,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("control"),
+        plane: Some(CbaEffectPlane::Control),
         sealed: true,
     },
     EventKindDescriptor {
@@ -16493,7 +16511,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -16541,7 +16559,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
     EventKindDescriptor {
@@ -16596,7 +16614,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         value_projection_rule: None,
         lattice: None,
         bottom: None,
-        plane: Some("data"),
+        plane: Some(CbaEffectPlane::Data),
         sealed: false,
     },
 ];
@@ -16633,11 +16651,33 @@ mod tests {
             }
             for cell_family in families {
                 assert_eq!(
-                    cba_cell_family_plane(cell_family).map(CbaEffectPlane::as_str),
+                    cba_cell_family_plane(cell_family),
                     descriptor.plane,
                     "cell family {cell_family} drifted from its event descriptor",
                 );
             }
+        }
+    }
+
+    #[test]
+    fn every_reducer_input_has_exactly_one_typed_plane() {
+        for kind in EventKind::ALL {
+            let descriptor = kind.descriptor().expect("registered kind");
+            assert_eq!(
+                kind.cba_plane().is_some(),
+                descriptor.reducer_input,
+                "{}",
+                kind.as_str()
+            );
+            assert_eq!(
+                kind.is_data_plane(),
+                kind.cba_plane() == Some(CbaEffectPlane::Data)
+            );
+            assert_eq!(
+                kind.is_control_plane(),
+                kind.cba_plane() == Some(CbaEffectPlane::Control)
+            );
+            assert!(!(kind.is_data_plane() && kind.is_control_plane()));
         }
     }
 

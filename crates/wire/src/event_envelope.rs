@@ -39,7 +39,7 @@ use serde_json::Value;
 use crate::cba::{Precondition, SealBasis};
 use crate::error::{Result, WireError};
 use crate::error_codes::ReasonCode;
-use crate::events::kinds::EventKind;
+use crate::events::kinds::{CbaEffectPlane, EventKind};
 use crate::primitives::{
     Audience, CriticalExtension, EventProof, ProofBindingRequirements, SignatureBindingPayload,
 };
@@ -1491,11 +1491,27 @@ impl Event {
                 && self.seal_ref.is_none()
                 && self.auth_context.is_none()
                 && self.seal_basis.is_none();
-            if !is_data_event && !is_control_move && !is_anchor_unit {
-                return Err(WireError::Protocol(
-                    "reducer-input events must be either DataEvent(seal_ref+auth_context) or Control Move(seal_basis)"
-                        .to_owned(),
-                ));
+            match self.kind.cba_plane() {
+                Some(CbaEffectPlane::Data) if is_data_event || is_anchor_unit => {}
+                Some(CbaEffectPlane::Control) if is_control_move || is_anchor_unit => {}
+                Some(CbaEffectPlane::Data) => {
+                    return Err(WireError::Protocol(format!(
+                        "data-plane Event kind {} requires seal_ref + auth_context and forbids seal_basis",
+                        self.kind
+                    )));
+                }
+                Some(CbaEffectPlane::Control) => {
+                    return Err(WireError::Protocol(format!(
+                        "control-plane Event kind {} requires seal_basis and forbids seal_ref + auth_context",
+                        self.kind
+                    )));
+                }
+                None => {
+                    return Err(WireError::Protocol(format!(
+                        "reducer-input Event kind {} has no registered CBA plane",
+                        self.kind
+                    )));
+                }
             }
         } else if self.seal_ref.is_some()
             || self.auth_context.is_some()
@@ -1812,6 +1828,21 @@ mod event_wire_surface_tests {
             unsigned: BTreeMap::new(),
             proofs: Vec::new(),
         }
+    }
+
+    fn producer_proof() -> EventProof {
+        EventProof::Producer(ProducerEventProof {
+            kind: "detached_jws".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
+            event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            signer_resolution_evidence_ref: None,
+            signer_resolution_evidence_digest: None,
+            created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "a..b".to_owned(),
+        })
     }
 
     #[test]
@@ -2161,6 +2192,110 @@ mod event_wire_surface_tests {
     }
 
     #[test]
+    fn standard_submit_uses_the_registry_plane_instead_of_the_envelope_shape() {
+        let seal_id = SealId::new(format!("ak:seal:sha256:{}", "1".repeat(64))).unwrap();
+
+        let mut data_kind_with_control_shape = base_event();
+        data_kind_with_control_shape.proofs.push(producer_proof());
+        data_kind_with_control_shape.seal_basis = Some(SealBasis {
+            leaves: vec![seal_id.clone()],
+        });
+        let error = data_kind_with_control_shape
+            .validate_for_submit_structural()
+            .expect_err("data kind must not be reclassified by a control-shaped envelope");
+        assert!(
+            error.to_string().contains("data-plane Event kind"),
+            "{error}"
+        );
+
+        let mut control_kind_with_data_shape = base_event();
+        control_kind_with_data_shape.kind = EventKind::RealmPolicy;
+        control_kind_with_data_shape.proofs.push(producer_proof());
+        control_kind_with_data_shape.seal_ref = Some(seal_id);
+        control_kind_with_data_shape.auth_context = Some(AuthContext {
+            key_id: OpaqueLocalId::new("device").unwrap(),
+            key_epoch: 0,
+            credential_epoch: None,
+        });
+        let error = control_kind_with_data_shape
+            .validate_for_submit_structural()
+            .expect_err("control kind must not be reclassified by a data-shaped envelope");
+        assert!(
+            error.to_string().contains("control-plane Event kind"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn every_registered_kind_accepts_only_its_declared_cba_shape() {
+        let seal_id = SealId::new(format!("ak:seal:sha256:{}", "2".repeat(64))).unwrap();
+        for kind in EventKind::ALL {
+            let mut matching = base_event();
+            matching.kind = kind.clone();
+            matching.proofs.push(producer_proof());
+            matching.seal_ref = None;
+            matching.auth_context = None;
+            matching.seal_basis = None;
+            matching.preconditions.clear();
+            if *kind == EventKind::RealmCreate {
+                matching.scope_ref = ScopeRef::RealmGenesis;
+            }
+            match kind.cba_plane() {
+                Some(CbaEffectPlane::Data) => {
+                    matching.seal_ref = Some(seal_id.clone());
+                    matching.auth_context = Some(AuthContext {
+                        key_id: OpaqueLocalId::new("device").unwrap(),
+                        key_epoch: 0,
+                        credential_epoch: None,
+                    });
+                }
+                Some(CbaEffectPlane::Control) => {
+                    matching.seal_basis = Some(SealBasis {
+                        leaves: vec![seal_id.clone()],
+                    });
+                }
+                None => {}
+            }
+            matching
+                .validate_for_submit_structural()
+                .unwrap_or_else(|error| panic!("matching shape rejected for {kind}: {error}"));
+
+            let mut mismatched = matching;
+            let expected_error = match kind.cba_plane() {
+                Some(CbaEffectPlane::Data) => {
+                    mismatched.seal_ref = None;
+                    mismatched.auth_context = None;
+                    mismatched.seal_basis = Some(SealBasis {
+                        leaves: vec![seal_id.clone()],
+                    });
+                    "data-plane Event kind"
+                }
+                Some(CbaEffectPlane::Control) => {
+                    mismatched.seal_basis = None;
+                    mismatched.seal_ref = Some(seal_id.clone());
+                    mismatched.auth_context = Some(AuthContext {
+                        key_id: OpaqueLocalId::new("device").unwrap(),
+                        key_epoch: 0,
+                        credential_epoch: None,
+                    });
+                    "control-plane Event kind"
+                }
+                None => {
+                    mismatched.seal_basis = Some(SealBasis {
+                        leaves: vec![seal_id.clone()],
+                    });
+                    "non-reducer events"
+                }
+            };
+            let error = mismatched.validate_for_submit_structural().unwrap_err();
+            assert!(
+                error.to_string().contains(expected_error),
+                "unexpected mismatch error for {kind}: {error}"
+            );
+        }
+    }
+
+    #[test]
     fn anchor_unit_allows_preconditions_without_any_cba_basis_field() {
         let mut event = base_event();
         event.kind = EventKind::RealmCreate;
@@ -2177,18 +2312,7 @@ mod event_wire_surface_tests {
                 predicate_id: None,
             },
         });
-        event.proofs.push(EventProof::Producer(ProducerEventProof {
-            kind: "detached_jws".to_owned(),
-            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
-            event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
-            signer_resolution_evidence_ref: None,
-            signer_resolution_evidence_digest: None,
-            created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: "a..b".to_owned(),
-        }));
+        event.proofs.push(producer_proof());
 
         event
             .validate_for_submit_structural_in_context(EventSubmitContext::AnchorUnit)

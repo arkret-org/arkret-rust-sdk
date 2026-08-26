@@ -13,7 +13,7 @@ use std::sync::OnceLock;
 #[cfg(test)]
 use arkret_wire::EventCellRule;
 use arkret_wire::{
-    CellRef, Event, EventId, EventKind, LatticeOp, LatticeOpType, NULL_SUBJECT,
+    CbaEffectPlane, CellRef, Event, EventId, EventKind, LatticeOp, LatticeOpType, NULL_SUBJECT,
     ObservedRemoveMatch, PredicateOp, ProjectedCellWrite, ProjectedEventInput, ProjectedOp,
 };
 use serde_json::Value;
@@ -703,8 +703,8 @@ pub fn validate_registered_cell_plane_in_context(
     event: &Event,
     context: EventCellContractContext,
 ) -> Result<(), EventCellContractError> {
-    if let Some(descriptor) = event.kind.descriptor().filter(|row| row.reducer_input) {
-        validate_plane(event, descriptor.plane, context)?;
+    if event.kind.is_reducer_input() {
+        validate_plane(event, event.kind.cba_plane(), context)?;
     }
     Ok(())
 }
@@ -1646,23 +1646,24 @@ fn projection_error(kind: &str, message: &str) -> EventCellContractError {
 
 fn validate_plane(
     event: &Event,
-    plane: Option<&str>,
+    plane: Option<CbaEffectPlane>,
     context: EventCellContractContext,
 ) -> Result<(), EventCellContractError> {
     let kind = event.kind.as_str().to_owned();
     let matches = match (plane, context) {
-        (Some("control"), EventCellContractContext::Standard) => {
+        (Some(CbaEffectPlane::Control), EventCellContractContext::Standard) => {
             event.seal_basis.is_some() && event.seal_ref.is_none() && event.auth_context.is_none()
         }
-        (Some("data"), EventCellContractContext::Standard) => {
+        (Some(CbaEffectPlane::Data), EventCellContractContext::Standard) => {
             event.seal_basis.is_none() && event.seal_ref.is_some() && event.auth_context.is_some()
         }
-        (Some("control"), EventCellContractContext::OrdinaryRealmBootstrap) => {
+        (Some(CbaEffectPlane::Control), EventCellContractContext::OrdinaryRealmBootstrap) => {
             event.seal_basis.is_none() && event.seal_ref.is_none() && event.auth_context.is_none()
         }
-        (Some("control" | "data"), EventCellContractContext::DirectConversationFounding) => {
-            event.seal_basis.is_none() && event.seal_ref.is_none() && event.auth_context.is_none()
-        }
+        (
+            Some(CbaEffectPlane::Control | CbaEffectPlane::Data),
+            EventCellContractContext::DirectConversationFounding,
+        ) => event.seal_basis.is_none() && event.seal_ref.is_none() && event.auth_context.is_none(),
         _ => false,
     };
     if matches {
@@ -1670,7 +1671,10 @@ fn validate_plane(
     } else {
         Err(EventCellContractError::PlaneMismatch {
             kind,
-            expected: plane.unwrap_or("registered").to_owned(),
+            expected: plane
+                .map(CbaEffectPlane::as_str)
+                .unwrap_or("registered")
+                .to_owned(),
         })
     }
 }
@@ -3649,14 +3653,14 @@ mod tests {
 
         validate_plane(
             &event,
-            Some("data"),
+            Some(CbaEffectPlane::Data),
             EventCellContractContext::DirectConversationFounding,
         )
         .unwrap();
         assert_eq!(
             validate_plane(
                 &event,
-                Some("data"),
+                Some(CbaEffectPlane::Data),
                 EventCellContractContext::OrdinaryRealmBootstrap,
             )
             .unwrap_err()
@@ -3673,7 +3677,7 @@ mod tests {
         assert_eq!(
             validate_plane(
                 &event,
-                Some("data"),
+                Some(CbaEffectPlane::Data),
                 EventCellContractContext::DirectConversationFounding,
             )
             .unwrap_err()

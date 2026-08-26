@@ -258,11 +258,7 @@ impl CbaProofBundle {
         }
         for control_move in &self.control_moves {
             if control_move.realm_id != *target_realm
-                || control_move
-                    .kind
-                    .descriptor()
-                    .and_then(|descriptor| descriptor.plane)
-                    != Some("control")
+                || !control_move.kind.is_control_plane()
                 || control_move.seal_basis.is_none()
             {
                 return Err(WireError::Protocol(

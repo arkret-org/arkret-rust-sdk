@@ -7,9 +7,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
-    CbaProofBundle, ControlProposalAck, ControlProposalDecision, ControlProposalDecisionPolicy,
-    DidCoreId, Event, EventFederationSubmission, EventId, Hash, MAX_ACTOR_SEQ_TOTAL_SIBLINGS,
-    RealmId, Result, Seal, SealBasis, SealId, WireError,
+    CbaEffectPlane, CbaProofBundle, ControlProposalAck, ControlProposalDecision,
+    ControlProposalDecisionPolicy, DidCoreId, Event, EventFederationSubmission, EventId, Hash,
+    MAX_ACTOR_SEQ_TOTAL_SIBLINGS, RealmId, Result, Seal, SealBasis, SealId, WireError,
 };
 #[cfg(test)]
 use arkret_wire::{DidFullId, SchemaId};
@@ -831,19 +831,15 @@ impl EventsSubmitFederationBatchRequestBody {
                     "federation Event belongs to another Realm".to_owned(),
                 ));
             }
-            match event
-                .kind
-                .descriptor()
-                .and_then(|descriptor| descriptor.plane)
-            {
-                Some("control") => {
+            match event.kind.cba_plane() {
+                Some(CbaEffectPlane::Control) => {
                     if saw_data_event {
                         return Err(WireError::Protocol(
                             "federation Control Events must precede DataEvents".to_owned(),
                         ));
                     }
                 }
-                Some("data") => saw_data_event = true,
+                Some(CbaEffectPlane::Data) => saw_data_event = true,
                 _ => {
                     return Err(WireError::Protocol(
                         "federation Event kind has no registered CBA plane".to_owned(),

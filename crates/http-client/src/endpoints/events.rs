@@ -338,7 +338,8 @@ impl Client {
                 control_proposal_ack: None,
                 membership_compensation_evidence: None,
             };
-            if (anchor_unit && collect_anchor_receipts) || event.seal_basis.is_some() {
+            let is_control_move = event.kind.is_control_plane();
+            if is_control_move && (!anchor_unit || collect_anchor_receipts) {
                 let request = ControlProposalAckIssueRequest {
                     event: event.clone(),
                     authorization_lease: submission
