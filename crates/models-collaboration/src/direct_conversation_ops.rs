@@ -201,16 +201,10 @@ impl DirectConversationFoundingPlan {
             create.actor_id
         ))
         .map_err(protocol_error)?;
-        let genesis_head_eq_registered = arkret_schema::realm_bootstrap_genesis_head_eq_registered(
-            "direct_conversation",
-            "subject_is_genesis_actor_and_membership_is_join",
-        )
-        .map_err(protocol_error)?;
         if founder_member_payload.membership
             != crate::governance::membership_invite::MembershipPayloadState::Join
             || founder_member_payload.actor_id.as_ref() != Some(&create.actor_id)
             || founder_member_payload.realm_id.as_ref() != Some(&realm_id)
-            || !genesis_head_eq_registered
             || founder_member.preconditions.len() != 1
             || founder_member.preconditions[0].cell != founder_cell
             || founder_member.preconditions[0].predicate.op != PredicateOp::HeadEq

@@ -56,7 +56,7 @@
 //! except inside `push_target_id` (which has its own opaque-pseudonym
 //! contract — see [`PushTargetId`]).
 
-use arkret_identifiers::PushTargetId;
+use arkret_models_integration::PushTargetId;
 pub use arkret_models_integration::push_vocab::{
     ALLOWED_PUSH_HINTS, ALLOWED_TIMING_PROFILE_HINTS, ALLOWED_WAKEUP_KINDS, MAX_COUNT_VALUE,
     is_valid_custom_wakeup_kind, is_valid_push_hint, is_valid_timing_profile_hint,

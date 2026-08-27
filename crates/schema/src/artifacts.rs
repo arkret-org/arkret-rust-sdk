@@ -1777,18 +1777,6 @@ mod tests {
     }
 
     #[test]
-    fn embedded_capability_action_exposes_candidate_profile_gate() {
-        let action = embedded_capability_action("ak.realm.join.review")
-            .expect("embedded registry should parse")
-            .expect("candidate action should be registered");
-        assert_eq!(
-            action.profile.as_deref(),
-            Some("ak.profile.candidate.join_policy.v1")
-        );
-        assert_eq!(action.risk_tier, CapabilityRiskTier::Medium);
-    }
-
-    #[test]
     fn live_applet_bridge_profile_parses_non_event_grant_authority_rule_when_available() {
         let Some(artifacts_dir) = local_spec_artifacts_dir() else {
             return;

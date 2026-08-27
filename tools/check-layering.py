@@ -164,12 +164,25 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-signatures",
         "arkret-crypto",
     },
-    # R4 (frozen): no crypto -> state edge.
-    "arkret-crypto": _WIRE | {"arkret-models-identity", "arkret-models-crypto", "arkret-signatures"},
+    # R4 (frozen): no crypto -> state edge. The optional secret-share machine
+    # consumes the history response capability and envelope data owned by the
+    # collaboration model crate. This remains a cycle-free behavior -> data
+    # edge and does not give crypto access to collaboration behavior.
+    "arkret-crypto": _WIRE
+    | {
+        "arkret-models-identity",
+        "arkret-models-crypto",
+        "arkret-models-collaboration",
+        "arkret-signatures",
+    },
     "arkret-mls": _WIRE
     | {
         "arkret-models-identity",
         "arkret-models-crypto",
+        # MLS verifies the typed Welcome trust-binding carrier owned alongside
+        # the collaboration event payload. This is a cycle-free behavior ->
+        # data edge; the model crate has no dependency on the MLS machine.
+        "arkret-models-collaboration",
         "arkret-crypto",
         "arkret-policy",
         "arkret-signatures",

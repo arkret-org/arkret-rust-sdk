@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-08-27.3;
-//! sha256=899aabdce5d4fe2191d45ec9fc0d5bde8e1c72f6b1c38ba865f72a38d9e5aeae Entries: registered=168
+//! Input: registry/capability-action-registry.json; version=2026-08-27.8;
+//! sha256=1313bd386093651d9f4940cb0a99c1cb76bda5ac37d83aaa65877acc6bf36b31 Entries: registered=167
 
 use serde::{Deserialize, Serialize};
 
@@ -113,7 +113,6 @@ pub enum CapabilityActionId {
     RealmDestroy,
     RealmDiscover,
     RealmFreeze,
-    RealmJoinReview,
     RealmLink,
     RealmMediaService,
     RealmModerationPolicy,
@@ -285,7 +284,6 @@ impl CapabilityActionId {
         Self::RealmDestroy,
         Self::RealmDiscover,
         Self::RealmFreeze,
-        Self::RealmJoinReview,
         Self::RealmLink,
         Self::RealmMediaService,
         Self::RealmModerationPolicy,
@@ -455,7 +453,6 @@ impl CapabilityActionId {
     pub const REALM_DESTROY: &'static str = "ak.realm.destroy";
     pub const REALM_DISCOVER: &'static str = "ak.realm.discover";
     pub const REALM_FREEZE: &'static str = "ak.realm.freeze";
-    pub const REALM_JOIN_REVIEW: &'static str = "ak.realm.join.review";
     pub const REALM_LINK: &'static str = "ak.realm.link";
     pub const REALM_MEDIA_SERVICE: &'static str = "ak.realm.media_service";
     pub const REALM_MODERATION_POLICY: &'static str = "ak.realm.moderation_policy";
@@ -638,7 +635,6 @@ impl CapabilityActionId {
             Self::RealmDestroy => Self::REALM_DESTROY,
             Self::RealmDiscover => Self::REALM_DISCOVER,
             Self::RealmFreeze => Self::REALM_FREEZE,
-            Self::RealmJoinReview => Self::REALM_JOIN_REVIEW,
             Self::RealmLink => Self::REALM_LINK,
             Self::RealmMediaService => Self::REALM_MEDIA_SERVICE,
             Self::RealmModerationPolicy => Self::REALM_MODERATION_POLICY,
@@ -819,7 +815,6 @@ impl CapabilityActionId {
             Self::REALM_DESTROY => Some(Self::RealmDestroy),
             Self::REALM_DISCOVER => Some(Self::RealmDiscover),
             Self::REALM_FREEZE => Some(Self::RealmFreeze),
-            Self::REALM_JOIN_REVIEW => Some(Self::RealmJoinReview),
             Self::REALM_LINK => Some(Self::RealmLink),
             Self::REALM_MEDIA_SERVICE => Some(Self::RealmMediaService),
             Self::REALM_MODERATION_POLICY => Some(Self::RealmModerationPolicy),

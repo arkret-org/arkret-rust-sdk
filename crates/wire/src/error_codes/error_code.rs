@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-27.4;
-//! sha256=e10e81249c3a0246fc26aacbb04e1d04d48a7e4dce82e2c89ec2d2a34cc46f1c Entries: error_codes=286
+//! Input: registry/error-code-registry.json; version=2026-08-27.5;
+//! sha256=6436f73bda0361bdb5715c2a1a18bc1726fba4fc23161b7ad7dd3415431b5153 Entries: error_codes=286
 
 use serde::{Deserialize, Serialize};
 
@@ -3167,7 +3167,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "A canonical operation carrier omitted its mandatory exact operation selector. HTTP requests, including ServiceDescribe, require Arkret-Operation before body parsing; WebSocket open frames require operation_id; TUS creation requests require Arkret-Operation. Receivers MUST NOT infer the operation from the route or payload shape.",
+        description: "A canonical operation carrier has multiple advertised versioned operation_id candidates remaining after applying its authenticated endpoint/binding context, but omitted the selector required to disambiguate them. HTTP and TUS use Arkret-Operation conditionally; WebSocket open frames use operation_id as defined by their frame schema. A selector is not required when one exact operation_id is uniquely derivable. Receivers MUST NOT infer a version from payload shape.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::OrganizationRegistrationChallengeInvalid,
@@ -4397,7 +4397,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The supplied exact versioned operation selector is unknown, is not supported on the selected carrier, or does not belong to the selected route family. Receivers MUST fail closed without version fallback, alias resolution, or payload-shape inference.",
+        description: "The supplied exact versioned operation selector is duplicated, unknown, not advertised on the selected carrier, or outside the selected endpoint family; this code also applies when the endpoint family has no advertised exact candidate. Receivers MUST fail closed without version fallback, alias resolution, or payload-shape inference.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedOrganizationRegistrationScope,

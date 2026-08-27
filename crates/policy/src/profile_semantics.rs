@@ -341,7 +341,7 @@ mod tests {
         let report = err.report().expect("missing requirements carry a report");
         assert_eq!(
             report.missing_capability_actions,
-            vec!["ak.realm.join.review".to_owned()]
+            vec!["ak.realm.admin".to_owned()]
         );
     }
 
@@ -366,7 +366,7 @@ mod tests {
                 .to_vec(),
                 schemas: vec!["ak.schema.join_policy_operations.v1".to_owned()],
                 fixtures: vec!["websocket-binding-fixture.json".to_owned()],
-                capability_actions: vec!["ak.realm.join.review".to_owned()],
+                capability_actions: vec!["ak.realm.admin".to_owned()],
                 ..ProfileSemanticSurface::default()
             },
         )

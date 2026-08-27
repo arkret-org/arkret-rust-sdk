@@ -23,6 +23,7 @@ pub use applet::*;
 pub use applet_audit_payload::*;
 pub use applet_install_plan::*;
 pub use applet_models::*;
+pub use arkret_wire::PushTargetId;
 pub use artifacts_applet::*;
 pub use integration::*;
 pub use models_push::*;
