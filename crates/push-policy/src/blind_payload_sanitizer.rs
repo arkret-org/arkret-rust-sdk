@@ -690,7 +690,7 @@ mod tests {
                 "push_target_id": "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
                 "wakeup_kind": "message",
             },
-            "operation_id": "ak.edge.push.command.notify",
+            "operation_id": "ak.edge.push.command.notify.v1",
             "context": { "trace": "did:webvh:z6mkfixture:alice.example" },
         });
         let err = sanitize_blind_payload(&payload).unwrap_err();

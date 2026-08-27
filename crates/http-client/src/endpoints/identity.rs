@@ -70,7 +70,9 @@ impl Client {
 
     pub async fn describe(&self) -> Result<ServiceDescribe> {
         let builder = self.public_request(Method::GET, "/_arkret/describe")?;
-        self.send_json(builder).await
+        let description: ServiceDescribe = self.send_json(builder).await?;
+        description.validate()?;
+        Ok(description)
     }
 
     /// Fetches the description for exactly one co-located service role.
@@ -85,6 +87,7 @@ impl Client {
             .public_request(Method::GET, "/_arkret/describe")?
             .query(&[("service_kind", service_kind.as_str())]);
         let description: ServiceDescribe = self.send_json(builder).await?;
+        description.validate()?;
         ServiceRequirements::new()
             .service_kind(service_kind)
             .verify(&description)?;
@@ -235,7 +238,7 @@ impl Client {
             .await
     }
 
-    /// R3.3 (AKP-0011, arkret-spec @ cced4b8) — `ak.find.directory.read.resolve_target`.
+    /// R3.3 (AKP-0011, arkret-spec @ cced4b8) — `ak.find.directory.read.resolve_target.v1`.
     /// Resolve a client-agnostic shareable object address (Realm / Strand /
     /// Message) to a preview. The `address` and any `token` should be derived
     /// from [`arkret_wire::parse_address`]; invite and preview tokens
@@ -285,7 +288,7 @@ impl Client {
         Ok(body)
     }
 
-    /// R3.2 (arkret-spec @ b56cab1) — `ak.find.directory.read.list_handles_for_subject`.
+    /// R3.2 (arkret-spec @ b56cab1) — `ak.find.directory.read.list_handles_for_subject.v1`.
     /// Known holder/principal DID → current visible handle claims. The
     /// response invariant `claims[].subject == subject` is enforced via
     /// [`DirectorySubjectHandleList::validate`] before returning.

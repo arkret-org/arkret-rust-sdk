@@ -98,7 +98,13 @@ def effective_operations(
     entry = requirements.get(profile_id)
     if not isinstance(entry, dict):
         raise ValueError(f"claimable profile lacks requirements: {profile_id}")
-    operations = set(entry.get("required_endpoints", []))
+    rows = entry.get("operation_requirements", [])
+    if not isinstance(rows, list) or any(
+        not isinstance(row, dict) or not isinstance(row.get("operation_id"), str)
+        for row in rows
+    ):
+        raise ValueError(f"{profile_id}.operation_requirements must be typed rows")
+    operations = {row["operation_id"] for row in rows}
     for parent in entry.get("inherits", []):
         operations.update(
             effective_operations(parent, requirements, cache, (*stack, profile_id))

@@ -62,7 +62,7 @@
       ]
     },
     {
-      "generator": "profile-requirements",
+      "generator": "typed-profile-requirements",
       "outputs": [
         "crates/wire/src/generated/profile_requirements.rs"
       ],
@@ -81,6 +81,21 @@
       "mode": "enum+descriptor",
       "artifacts": [
         "registry/operation-registry.json"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
+        "crates/wire/src/generated/capability_discovery.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "registered+descriptor",
+      "artifacts": [
+        "registry/contract-registry.json"
+      ],
+      "provides": [
+        "OPERATION_BUNDLES",
+        "FEATURES"
       ]
     },
     {

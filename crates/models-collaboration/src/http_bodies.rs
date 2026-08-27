@@ -432,7 +432,7 @@ impl EventsSubmitOutcome {
     }
 }
 
-/// `ak.edge.applet.command.transaction` request body. Carries wire `Event`s
+/// `ak.edge.applet.command.transaction.v1` request body. Carries wire `Event`s
 /// plus an optional `SignalEnvelope` batch, so it lives here rather than with
 /// the other applet DTOs in `arkret-models-integration` (which does not depend
 /// on this crate).
@@ -1148,7 +1148,7 @@ impl MimiKeyMaterialRequestBody {
     pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
         mimi_proof_binding_bytes(
             ProofContextId::MIMI_KEY_MATERIAL_REQUEST_PROOF_V1,
-            ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL,
+            ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL_V1,
             Some(serde_json::to_value(&self.requester)?),
             vec![
                 ("strand_id", serde_json::to_value(&self.strand_id)?),
@@ -1187,7 +1187,7 @@ impl MimiKeyMaterialOutcome {
     pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
         mimi_proof_binding_bytes(
             ProofContextId::MIMI_KEY_MATERIAL_OUTCOME_PROOF_V1,
-            ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL,
+            ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL_V1,
             None,
             Vec::new(),
             &self.payload_digest()?,
@@ -1291,7 +1291,7 @@ impl MimiGroupInfoOutcome {
         }
         mimi_proof_binding_bytes(
             ProofContextId::MIMI_GROUP_INFO_OUTCOME_PROOF_V1,
-            ServiceOperationId::OPEN_MIMI_READ_GROUP_INFO,
+            ServiceOperationId::OPEN_MIMI_READ_GROUP_INFO_V1,
             None,
             targets,
             &self.payload_digest()?,
@@ -1330,7 +1330,7 @@ impl MimiRequestConsentRequestBody {
     pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
         mimi_proof_binding_bytes(
             ProofContextId::MIMI_REQUEST_CONSENT_REQUEST_PROOF_V1,
-            ServiceOperationId::OPEN_MIMI_COMMAND_REQUEST_CONSENT,
+            ServiceOperationId::OPEN_MIMI_COMMAND_REQUEST_CONSENT_V1,
             Some(serde_json::to_value(&self.requester_id)?),
             vec![
                 ("target", serde_json::to_value(&self.target)?),
@@ -1425,7 +1425,7 @@ impl MimiUpdateConsentRequestBody {
     pub fn signature_binding_bytes(&self) -> Result<Vec<u8>> {
         mimi_proof_binding_bytes(
             ProofContextId::MIMI_UPDATE_CONSENT_REQUEST_PROOF_V1,
-            ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_CONSENT,
+            ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_CONSENT_V1,
             Some(serde_json::to_value(&self.actor_id)?),
             vec![
                 ("consent_id", serde_json::to_value(&self.consent_id)?),
@@ -1578,7 +1578,7 @@ impl MimiIdentifierQueryRequestBody {
         };
         mimi_proof_binding_bytes(
             ProofContextId::MIMI_IDENTIFIER_QUERY_REQUEST_PROOF_V1,
-            ServiceOperationId::OPEN_MIMI_READ_IDENTIFIERS,
+            ServiceOperationId::OPEN_MIMI_READ_IDENTIFIERS_V1,
             issuer,
             Vec::new(),
             &self.payload_digest()?,
@@ -1609,7 +1609,7 @@ impl MimiIdentifierQueryOutcome {
     pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
         mimi_proof_binding_bytes(
             ProofContextId::MIMI_IDENTIFIER_QUERY_OUTCOME_PROOF_V1,
-            ServiceOperationId::OPEN_MIMI_READ_IDENTIFIERS,
+            ServiceOperationId::OPEN_MIMI_READ_IDENTIFIERS_V1,
             None,
             Vec::new(),
             &self.payload_digest()?,
@@ -2416,7 +2416,7 @@ pub struct AccountDevicePairRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_metadata: Option<DeviceMetadata>,
     /// When the approving device recovered this pairing via the server-mediated
-    /// short-link (`ak.open.device_pairing.read.resolve`), it echoes the staged
+    /// short-link (`ak.open.device_pairing.read.resolve.v1`), it echoes the staged
     /// `device_pairing_request_id` here so the server can flip that staged row to
     /// `authorized` (carrying `device_id` + `authorized_event_ref`) for the new
     /// device's status poll to observe. Omitted for direct QR/paste pairing that
@@ -2493,12 +2493,12 @@ pub struct AccountDevicePairOutcome {
 // short `device_pairing_request_id` + `pairing_code` it encodes into a QR
 // deep-link. An already-authorized device resolves that token to recover the
 // full pairing material, then drives the existing authenticated
-// `ak.gate.account.command.pair_device`. See
+// `ak.gate.account.command.pair_device.v1`. See
 // `crypto-media/device-lifecycle.md` §2.1.
 
 /// Staging request POSTed by a not-yet-authorized device to the unauthenticated
 /// `POST /_arkret/open/device-pairing/requests`
-/// (`ak.open.device_pairing.command.stage`). The staged row is account-less and
+/// (`ak.open.device_pairing.command.stage.v1`). The staged row is account-less and
 /// inert until a verified sibling authorizes it.
 ///
 /// Mirrors `device-pairing.schema.json#/$defs/device_pairing_stage_request_body`.
@@ -2532,7 +2532,7 @@ pub struct DevicePairingStageOutcome {
 
 /// Body of the unauthenticated resolve call
 /// (`POST /_arkret/open/device-pairing/resolve`,
-/// `ak.open.device_pairing.read.resolve`). The token is the compact
+/// `ak.open.device_pairing.read.resolve.v1`). The token is the compact
 /// `base64url({"r":device_pairing_request_id,"c":pairing_code})` envelope; it
 /// MUST be carried in the body, never in the URL.
 ///
@@ -2546,7 +2546,7 @@ pub struct DevicePairingResolveRequestBody {
 
 /// The pairing material an already-authorized device recovers by resolving a
 /// device-pairing token, before it drives
-/// `ak.gate.account.command.pair_device`.
+/// `ak.gate.account.command.pair_device.v1`.
 ///
 /// Mirrors `device-pairing.schema.json#/$defs/device_pairing_bootstrap`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2586,7 +2586,7 @@ pub enum DevicePairingState {
 
 /// Body of the unauthenticated status poll
 /// (`POST /_arkret/open/device-pairing/requests/status`,
-/// `ak.open.device_pairing.read.status`) the new device calls while waiting
+/// `ak.open.device_pairing.read.status.v1`) the new device calls while waiting
 /// for a sibling to approve.
 ///
 /// Mirrors `device-pairing.schema.json#/$defs/device_pairing_status_request_body`.

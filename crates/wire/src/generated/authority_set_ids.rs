@@ -1,6 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/authority-set-policy-registry.json; version=2026-08-23.1; sha256=5feab2b465fdeaf3e51cd7e0e7a4ac07e1b602870b182a73f2c8e216ad525f43
+//! Input: registry/authority-set-policy-registry.json; version=2026-08-23.1;
+//! sha256=5feab2b465fdeaf3e51cd7e0e7a4ac07e1b602870b182a73f2c8e216ad525f43
 //! Entries: authority_sets=3
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -18,8 +19,10 @@ impl AuthoritySetId {
     ];
 
     pub const REALM_ADMISSION_V1: &'static str = "ak.authority_set.realm_admission.v1";
-    pub const RECOVERY_ACCOUNT_AUTHORITY_V1: &'static str = "ak.authority_set.recovery_account_authority.v1";
-    pub const RECOVERY_IDENTITY_REANCHOR_V1: &'static str = "ak.authority_set.recovery_identity_reanchor.v1";
+    pub const RECOVERY_ACCOUNT_AUTHORITY_V1: &'static str =
+        "ak.authority_set.recovery_account_authority.v1";
+    pub const RECOVERY_IDENTITY_REANCHOR_V1: &'static str =
+        "ak.authority_set.recovery_identity_reanchor.v1";
 
     pub const fn as_str(self) -> &'static str {
         match self {

@@ -322,6 +322,35 @@ def generate_operations(artifacts: Path) -> str:
             "        }",
             "    }",
             "",
+            "    /// Resolve the one registered operation selected by an HTTP request.",
+            "    /// Query parameters are excluded by callers; each path-template",
+            "    /// placeholder matches exactly one non-empty URL path segment.",
+            "    pub fn from_http_request(method: &str, path: &str) -> Option<Self> {",
+            "        let specificity = SERVICE_OPERATION_DESCRIPTORS",
+            "            .iter()",
+            "            .filter(|descriptor| {",
+            "                descriptor.http_method == method",
+            "                    && http_path_template_matches(descriptor.http_path, path)",
+            "            })",
+            "            .map(|descriptor| descriptor.http_path.bytes().filter(|byte| *byte == b'{').count())",
+            "            .min()?;",
+            "        let mut matches = SERVICE_OPERATION_DESCRIPTORS.iter().filter(|descriptor| {",
+            "            descriptor.http_method == method",
+            "                && http_path_template_matches(descriptor.http_path, path)",
+            "                && descriptor.http_path.bytes().filter(|byte| *byte == b'{').count() == specificity",
+            "        });",
+            "        let selected = matches.next()?.id;",
+            "        matches.next().is_none().then_some(selected)",
+            "    }",
+            "",
+            "    /// Check whether this exact versioned operation belongs to an HTTP",
+            "    /// method/path family selected by `Arkret-Operation`.",
+            "    pub fn matches_http_request(self, method: &str, path: &str) -> bool {",
+            "        let descriptor = self.descriptor();",
+            "        descriptor.http_method == method",
+            "            && http_path_template_matches(descriptor.http_path, path)",
+            "    }",
+            "",
             "    pub fn descriptor(self) -> &'static ServiceOperationDescriptor {",
             "        &SERVICE_OPERATION_DESCRIPTORS[self as usize]",
             "    }",
@@ -476,7 +505,202 @@ def generate_operations(artifacts: Path) -> str:
                 "    },",
             ]
         )
-    lines.append("];")
+    lines.extend(
+        [
+            "];",
+            "",
+            "fn http_path_template_matches(template: &str, path: &str) -> bool {",
+            "    let mut template_segments = template.split('/');",
+            "    let mut path_segments = path.split('/');",
+            "    loop {",
+            "        match (template_segments.next(), path_segments.next()) {",
+            "            (None, None) => return true,",
+            "            (Some(expected), Some(actual)) => {",
+            "                let placeholder = expected.starts_with('{')",
+            "                    && expected.ends_with('}')",
+            "                    && expected.len() > 2;",
+            "                if (placeholder && actual.is_empty())",
+            "                    || (!placeholder && expected != actual)",
+            "                {",
+            "                    return false;",
+            "                }",
+            "            }",
+            "            _ => return false,",
+            "        }",
+            "    }",
+            "}",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def generate_capability_discovery(artifacts: Path) -> str:
+    relative = "registry/contract-registry.json"
+    artifact, digest = load(artifacts / relative)
+    bundles = sorted(
+        artifact["operation_registry"]["operation_bundles"],
+        key=lambda row: row["operation_bundle_id"],
+    )
+    features = sorted(
+        artifact["feature_registry"]["features"], key=lambda row: row["feature_id"]
+    )
+    ensure_unique(bundles, "operation_bundle_id", ("ak.operation_bundle.",))
+    ensure_unique(features, "feature_id", ("ak.feature.",))
+    lines = header(
+        [(relative, artifact, digest)],
+        f"operation_bundles={len(bundles)} features={len(features)}",
+    )
+    lines.extend(
+        [
+            "use crate::{BindingKind, ServiceKind, ServiceOperationId};",
+            "",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
+            "pub struct OperationBindingPair {",
+            "    pub operation_id: ServiceOperationId,",
+            "    pub binding_kind: BindingKind,",
+            "}",
+            "",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
+            "pub struct OperationBundleDescriptor {",
+            "    pub operation_bundle_id: &'static str,",
+            "    pub service_kind: ServiceKind,",
+            "    pub members: &'static [OperationBindingPair],",
+            "}",
+            "",
+            "impl OperationBundleDescriptor {",
+            "    pub fn contains(&self, operation_id: ServiceOperationId, binding_kind: BindingKind) -> bool {",
+            "        self.members.iter().any(|pair| pair.operation_id == operation_id && pair.binding_kind == binding_kind)",
+            "    }",
+            "}",
+            "",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
+            "pub enum FeatureStatus { Active, Experimental, TestOnly }",
+            "",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
+            "pub struct FeatureDescriptor {",
+            "    pub feature_id: &'static str,",
+            "    pub status: FeatureStatus,",
+            "    pub defined_in: &'static str,",
+            "    pub service_kinds: &'static [ServiceKind],",
+            "    pub required_operation_pairs: &'static [OperationBindingPair],",
+            "    pub required_profiles: &'static [&'static str],",
+            "    pub required_limits: &'static [&'static str],",
+            "    pub semantic_guarantees: &'static [&'static str],",
+            "    pub conflicts: &'static [&'static str],",
+            "}",
+            "",
+            "pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[",
+        ]
+    )
+    binding_variants = {
+        "http_json": "BindingKind::HttpJson",
+        "tus": "BindingKind::Tus",
+        "websocket": "BindingKind::Websocket",
+    }
+    for bundle in bundles:
+        lines.extend(
+            [
+                "    OperationBundleDescriptor {",
+                f"        operation_bundle_id: {rust_string(bundle['operation_bundle_id'])},",
+                f"        service_kind: ServiceKind::{variant(bundle['service_kind'])},",
+                "        members: &[",
+            ]
+        )
+        for member in bundle["members"]:
+            binding = binding_variants.get(member["binding_kind"])
+            if binding is None:
+                raise ValueError(
+                    f"unsupported operation bundle binding kind: {member['binding_kind']}"
+                )
+            lines.extend(
+                [
+                    "            OperationBindingPair {",
+                    "                operation_id: "
+                    f"ServiceOperationId::{variant(member['operation_id'], ('ak.',))},",
+                    f"                binding_kind: {binding},",
+                    "            },",
+                ]
+            )
+        lines.extend(["        ],", "    },"])
+    lines.extend(
+        [
+            "];",
+            "",
+            "pub fn operation_bundle_descriptor(operation_bundle_id: &str) -> Option<&'static OperationBundleDescriptor> {",
+            "    OPERATION_BUNDLES.binary_search_by_key(&operation_bundle_id, |row| row.operation_bundle_id)",
+            "        .ok().map(|index| &OPERATION_BUNDLES[index])",
+            "}",
+            "",
+            "pub fn operation_bundles_for_service_kind(service_kind: ServiceKind) -> impl Iterator<Item = &'static OperationBundleDescriptor> {",
+            "    OPERATION_BUNDLES.iter().filter(move |bundle| bundle.service_kind == service_kind)",
+            "}",
+            "",
+            "pub fn role_describe_bundle_descriptor(service_kind: ServiceKind) -> Option<&'static OperationBundleDescriptor> {",
+            "    operation_bundles_for_service_kind(service_kind).find(|bundle| bundle.operation_bundle_id.ends_with(\".describe.v1\"))",
+            "}",
+            "",
+            "pub fn operation_binding_is_registered(operation_id: ServiceOperationId, binding_kind: BindingKind) -> bool {",
+            "    OPERATION_BUNDLES.iter().any(|bundle| bundle.contains(operation_id, binding_kind))",
+            "}",
+            "",
+            "pub const FEATURES: &[FeatureDescriptor] = &[",
+        ]
+    )
+    status_variants = {
+        "active": "FeatureStatus::Active",
+        "experimental": "FeatureStatus::Experimental",
+        "test_only": "FeatureStatus::TestOnly",
+    }
+    for feature in features:
+        status = status_variants.get(feature["status"])
+        if status is None:
+            raise ValueError(f"unsupported feature status: {feature['status']}")
+        service_kinds = "&[" + ", ".join(
+            f"ServiceKind::{variant(kind)}" for kind in feature["service_kinds"]
+        ) + "]"
+        lines.extend(
+            [
+                "    FeatureDescriptor {",
+                f"        feature_id: {rust_string(feature['feature_id'])},",
+                f"        status: {status},",
+                f"        defined_in: {rust_string(feature['defined_in'])},",
+                f"        service_kinds: {service_kinds},",
+                "        required_operation_pairs: &[",
+            ]
+        )
+        for pair in feature["required_operation_pairs"]:
+            binding = binding_variants.get(pair["binding_kind"])
+            if binding is None:
+                raise ValueError(f"unsupported feature binding kind: {pair['binding_kind']}")
+            lines.extend(
+                [
+                    "            OperationBindingPair {",
+                    "                operation_id: "
+                    f"ServiceOperationId::{variant(pair['operation_id'], ('ak.',))},",
+                    f"                binding_kind: {binding},",
+                    "            },",
+                ]
+            )
+        lines.extend(
+            [
+                "        ],",
+                f"        required_profiles: {rust_slice(feature['required_profiles'])},",
+                f"        required_limits: {rust_slice(feature['required_limits'])},",
+                f"        semantic_guarantees: {rust_slice(feature['semantic_guarantees'])},",
+                f"        conflicts: {rust_slice(feature['conflicts'])},",
+                "    },",
+            ]
+        )
+    lines.extend(
+        [
+            "];",
+            "",
+            "pub fn feature_descriptor(feature_id: &str) -> Option<&'static FeatureDescriptor> {",
+            "    FEATURES.binary_search_by_key(&feature_id, |row| row.feature_id)",
+            "        .ok().map(|index| &FEATURES[index])",
+            "}",
+        ]
+    )
     return "\n".join(lines) + "\n"
 
 
@@ -3135,6 +3359,7 @@ GENERATORS = {
     "crates/wire/src/error_codes/error_code.rs": generate_error_codes,
     "crates/wire/src/error_codes/reason_code.rs": generate_reason_codes,
     "crates/wire/src/generated/operation_ids.rs": generate_operations,
+    "crates/wire/src/generated/capability_discovery.rs": generate_capability_discovery,
     "crates/wire/src/generated/schema_ids.rs": generate_schema_ids,
     "crates/wire/src/generated/closed_registry_types.rs": (
         generate_closed_registry_types

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/service-kind-registry.json; version=2026-08-27.1; sha256=d965b099b6269e4f827a1920b4e7317afd4eaa660848d008f94c4883a1e97a6e
-//! Entries: active=21
+//! Input: registry/service-kind-registry.json; version=2026-08-27.2;
+//! sha256=22dcfba35fb7e2d5dcf0d889982a16e210895fc863b285b716e0dbf64fc91abd Entries: active=21
 
 use serde::{Deserialize, Serialize};
 
@@ -178,7 +178,11 @@ pub const SERVICE_KIND_DESCRIPTORS: &[ServiceKindDescriptor] = &[
     },
     ServiceKindDescriptor {
         service_kind: ServiceKind::PrincipalServer,
-        valid_in: &["service_describe", "realm_join_candidate", "service_registration_key"],
+        valid_in: &[
+            "service_describe",
+            "realm_join_candidate",
+            "service_registration_key",
+        ],
         description: "Account-owning home server: event ingestion, sync, authz projections, key backup, federation. Also acts as an embedded did:webvh host for the identities it serves, which is why it is valid_in service_registration_key both as a subject and as a Service Identity Provider.",
     },
     ServiceKindDescriptor {

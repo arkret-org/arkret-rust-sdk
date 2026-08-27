@@ -109,7 +109,7 @@ mod tests {
             "ak.capability.derived",
             "ak.invite.accept",
             "ak.read_cursor.advance",
-            "ak.self.events.read.scan",
+            "ak.self.events.read.scan.v1",
         ] {
             assert!(!owner_may_author_action(action).unwrap(), "{action}");
             assert!(!owner_may_grant(action).unwrap(), "{action}");

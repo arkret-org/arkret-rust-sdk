@@ -24,6 +24,6 @@ pub use service_description::*;
 pub use service_requirements::*;
 pub use verified_profiles::*;
 pub use websocket_binding::{
-    WebSocketBindingAuthentication, WebSocketBindingDescriptor, WebSocketBindingKind,
-    WebSocketBindingProfile, WebSocketBindingSubprotocol, select_websocket_binding,
+    WebSocketBindingAuthentication, WebSocketBindingProfile, WebSocketBindingSubprotocol,
+    select_websocket_binding, validate_websocket_transport,
 };

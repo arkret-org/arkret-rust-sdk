@@ -15,7 +15,7 @@ use serde_json::Value;
 
 use crate::internal_prelude::*;
 
-/// Query parameters for `ak.self.account.stream.subscribe`.
+/// Query parameters for `ak.self.account.stream.subscribe.v1`.
 ///
 /// The read-your-writes barrier travels in the `X-Arkret-Wait-For` header, not
 /// in this request; the closed shape keeps a stale `wait_for` member from being
@@ -533,12 +533,12 @@ pub struct SyncUpdates {
     /// Opaque acknowledgement token for the delivered to-device batch.
     ///
     /// Issued by account subscribe when `to_device.messages[]` is non-empty
-    /// and passed verbatim to `ak.self.device_messages.command.ack` after the
+    /// and passed verbatim to `ak.self.device_messages.command.ack.v1` after the
     /// client durably records the batch.
     pub to_device_ack_token: Option<String>,
     /// Whether the account-subscribe to-device batch was truncated.
     pub to_device_limited: bool,
-    /// Continuation cursor for `ak.self.device_messages.read.list` when the
+    /// Continuation cursor for `ak.self.device_messages.read.list.v1` when the
     /// account-subscribe to-device batch is limited.
     pub to_device_next_cursor: Option<String>,
     /// Whether the server reports an unacknowledged to-device queue gap.

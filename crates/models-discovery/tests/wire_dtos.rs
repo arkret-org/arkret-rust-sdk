@@ -26,6 +26,11 @@ fn service_describe_round_trips_interop_surfaces_on_the_canonical_key() {
         DidFullId::new("did:webvh:z6mkfixture:service.example").unwrap(),
         TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         ServiceKind::PrincipalServer,
+        vec!["ak.operation_bundle.principal_server.describe.v1".to_owned()],
+        vec![arkret_models_discovery::TransportBinding::HttpJson {
+            base_url: "https://service.example".to_owned(),
+            extension_profile_required: (),
+        }],
     );
     description.interop_surfaces = vec![
         InteropSurfaceEntry::delegated_resolver("auth_server_did_resolver"),

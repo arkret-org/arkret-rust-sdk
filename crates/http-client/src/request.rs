@@ -80,8 +80,8 @@ impl Client {
     ///
     /// A registered DELETE carries a body when the operation's durable effect is a
     /// signed Event: the signature has nowhere else to go, and a service MUST NOT
-    /// produce it. `ak.self.keys.backups.resource.delete` was the first such
-    /// endpoint and open-coded this; `ak.self.account_data.resource.delete` is the
+    /// produce it. `ak.self.keys.backups.resource.delete.v1` was the first such
+    /// endpoint and open-coded this; `ak.self.account_data.resource.delete.v1` is the
     /// second, so it belongs beside the other verbs instead.
     pub async fn delete_with_body<T: Serialize, R: DeserializeOwned>(
         &self,

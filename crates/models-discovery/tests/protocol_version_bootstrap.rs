@@ -5,7 +5,7 @@ use arkret_models_discovery::ServiceDescribe;
 use arkret_models_identity::IdentityDescription;
 use arkret_models_integration::AppletPingOutcome;
 use arkret_schema::embedded_json_artifact;
-use arkret_wire::{DidFullId, ServiceKind, TrustDomainId};
+use arkret_wire::{DidFullId, ServiceKind, ServiceOperationId, TrustDomainId};
 use serde_json::{Value, json};
 
 const INVENTORY: &str = include_str!("../../../conformance/ak-sdk-024-public-api-inventory.json");
@@ -19,13 +19,17 @@ fn service_describe_value() -> Value {
         DidFullId::new("did:webvh:z6mkfixture:service.example").unwrap(),
         TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         ServiceKind::PrincipalServer,
+        vec!["ak.operation_bundle.principal_server.describe.v1".to_owned()],
+        vec![arkret_models_discovery::TransportBinding::HttpJson {
+            base_url: "https://service.example".to_owned(),
+            extension_profile_required: (),
+        }],
     ))
     .unwrap()
 }
 
 fn applet_ping_value() -> Value {
     json!({
-        "ok": true,
         "applet_id": "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
         "service_id": "ak:did_core:webvh:z6mkfixture",
         "protocol_version": "1.0"
@@ -62,7 +66,7 @@ fn classify_decode(carrier: &str, value: Value) -> &'static str {
 fn ak_sdk_024_runs_all_bootstrap_vector_cases_before_side_effects() {
     let fixture = fixture();
     let cases = fixture["cases"].as_array().unwrap();
-    assert_eq!(cases.len(), 12);
+    assert_eq!(cases.len(), 15);
 
     for case in cases {
         let carrier = case["carrier"].as_str().unwrap();
@@ -85,14 +89,39 @@ fn ak_sdk_024_runs_all_bootstrap_vector_cases_before_side_effects() {
             object.extend(poison.clone());
         }
 
-        let outcome = classify_decode(carrier, value);
+        let expected_outcome = case["expected"]["outcome"].as_str().unwrap();
+        let outcome = if matches!(
+            expected_outcome,
+            "operation_selector_required" | "unsupported_operation_version"
+        ) {
+            match case.get("arkret_operation").and_then(Value::as_str) {
+                None => "operation_selector_required",
+                Some(selector) => {
+                    let matches_route = ServiceOperationId::from_wire(selector).is_some_and(|id| {
+                        let (method, path) = match carrier {
+                            "service_describe" => ("GET", "/_arkret/describe"),
+                            "applet_ping" => ("GET", "/_arkret/edge/applet/ping"),
+                            other => panic!("selector fixture has unknown carrier {other}"),
+                        };
+                        id.matches_http_request(method, path)
+                    });
+                    if matches_route {
+                        "continue_typed_validation"
+                    } else {
+                        "unsupported_operation_version"
+                    }
+                }
+            }
+        } else {
+            classify_decode(carrier, value)
+        };
         let mut route_cache_writes = 0_u64;
         let business_requests = 0_u64;
         if outcome == "continue_typed_validation" && carrier == "service_describe" {
             route_cache_writes += 1;
         }
 
-        assert_eq!(outcome, case["expected"]["outcome"], "{}", case["name"]);
+        assert_eq!(outcome, expected_outcome, "{}", case["name"]);
         assert_eq!(
             route_cache_writes, case["expected"]["route_cache_writes"],
             "{}",

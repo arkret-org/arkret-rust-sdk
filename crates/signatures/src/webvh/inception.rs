@@ -122,7 +122,7 @@ pub struct PreparedInception {
     /// attached.
     #[zeroize(skip)]
     pub log_entry: Value,
-    /// Typed request body for `ak.root.identity.command.submit_did_operation`.
+    /// Typed request body for `ak.root.identity.command.submit_did_operation.v1`.
     #[zeroize(skip)]
     pub submit_body: DidOperationSubmitRequestBody,
     /// Multibase ed25519 **public** key for the DID's verification method.

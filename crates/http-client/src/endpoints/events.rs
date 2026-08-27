@@ -458,7 +458,7 @@ impl Client {
         Ok(outcome)
     }
 
-    /// Describe the Event service via `ak.self.events.read.describe`.
+    /// Describe the Event service via `ak.self.events.read.describe.v1`.
     ///
     /// HTTP QUERY with an empty JSON object is the sole binding.
     pub async fn events_describe(&self) -> Result<ServiceDescribe> {
@@ -476,7 +476,7 @@ impl Client {
     }
 
     /// Subscribe to the Event stream for one or more Realms / actors via
-    /// `ak.self.events.stream.subscribe` (`GET /_arkret/self/events/subscribe`). The selector is
+    /// `ak.self.events.stream.subscribe.v1` (`GET /_arkret/self/events/subscribe`). The selector is
     /// `realms[]` ∪ `actors[]` repeated query args, and frames use top-level
     /// `kind` with explicit control variants.
     ///
@@ -575,7 +575,7 @@ impl Client {
     }
 
     /// Resolve the exact canonical Events identified by the closed selector
-    /// set accepted by `ak.self.events.read.resolve`.
+    /// set accepted by `ak.self.events.read.resolve.v1`.
     pub async fn events_resolve(
         &self,
         request: &EventsResolveRequestBody,
@@ -615,7 +615,7 @@ impl Client {
         Ok(outcome)
     }
 
-    /// Range-read Events via canonical `ak.self.events.read.scan` HTTP QUERY.
+    /// Range-read Events via canonical `ak.self.events.read.scan.v1` HTTP QUERY.
     pub async fn events_read(
         &self,
         request: &EventsQueryPostRequestBody,
@@ -658,7 +658,7 @@ impl Client {
         self.events_read(&request).await
     }
 
-    /// Walk every page of `ak.self.events.read.scan` for a Realm using
+    /// Walk every page of `ak.self.events.read.scan.v1` for a Realm using
     /// the standard `has_more` / `next_cursor` contract.
     pub async fn events_read_all_pages(&self, realm_id: &str) -> Result<EventsQueryOutcome> {
         self.events_read_all_pages_inner(
@@ -824,7 +824,7 @@ impl Client {
         Ok(outcome)
     }
 
-    /// Submit one initial Event publication via `ak.self.events.command.submit`
+    /// Submit one initial Event publication via `ak.self.events.command.submit.v1`
     /// (`POST /_arkret/self/events`). Wire body is `EventInitialSubmission` —
     /// the signed Event plus the publication evidence that bounds it. A bare
     /// Event Envelope is no longer a valid body.
@@ -843,7 +843,7 @@ impl Client {
     }
 
     /// Submit a batch of initial Event publications via
-    /// `ak.self.events.command.submit` (`POST /_arkret/self/events`) using the
+    /// `ak.self.events.command.submit.v1` (`POST /_arkret/self/events`) using the
     /// `EventsSubmitBatchRequestBody` body shape. Each element carries its own
     /// authority-issued lease; see [`events_submit`](Self::events_submit).
     pub async fn events_submit_batch(
@@ -884,7 +884,7 @@ impl Client {
         self.post("/_arkret/self/events", submission).await
     }
 
-    /// Submit a current-device-signed Seal (`ak.self.seals.command.submit`).
+    /// Submit a current-device-signed Seal (`ak.self.seals.command.submit.v1`).
     /// This is the finality step used by B-model principal bootstrap and
     /// recovery; it is not the implementation-private peer Seal rail.
     ///

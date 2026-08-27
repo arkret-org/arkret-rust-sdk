@@ -39,6 +39,10 @@ fn builds_relative_api_url() {
         request.url().as_str(),
         "https://alice.example/arkret/_arkret/describe"
     );
+    assert_eq!(
+        request.headers()[HEADER_OPERATION],
+        "ak.server.read.describe.v1"
+    );
 }
 
 #[test]
@@ -162,7 +166,9 @@ fn request_options_add_standard_headers() {
         .wait_for("ak:cursor:01");
     let request = client
         .apply_request_options(
-            client.request(Method::PUT, "/_arkret/self/events").unwrap(),
+            client
+                .request(Method::POST, "/_arkret/self/events")
+                .unwrap(),
             &options,
         )
         .unwrap()
@@ -173,6 +179,10 @@ fn request_options_add_standard_headers() {
     assert_eq!(request.headers()[HEADER_REQUEST_ID], "req-1");
     assert_eq!(request.headers()[HEADER_IDEMPOTENCY_KEY], "idem-1");
     assert_eq!(request.headers()[HEADER_WAIT_FOR], "ak:cursor:01");
+    assert_eq!(
+        request.headers()[HEADER_OPERATION],
+        "ak.self.events.command.submit.v1"
+    );
 }
 
 #[test]
@@ -838,6 +848,11 @@ mod events_submit_tests {
                 .lines()
                 .any(|line| line.to_ascii_lowercase().starts_with("signature-input:"))
         );
+        let signature_input = headers
+            .lines()
+            .find(|line| line.to_ascii_lowercase().starts_with("signature-input:"))
+            .expect("signature-input header");
+        assert!(signature_input.contains("\"arkret-operation\""));
         assert!(
             headers
                 .lines()
@@ -900,16 +915,14 @@ mod events_submit_tests {
                 },
                 "trust_domain":"ak:trust_domain:server.local",
                 "supported_profiles":[],
-                "operation_bindings":[],
-                "supported_bindings":[],
+                "supported_operation_bundles":["ak.operation_bundle.principal_server.describe.v1"],
+                "transport_bindings":[{"kind":"http_json","base_url":"https://server.local","extension_profile_required":null}],
                 "supported_features":[],
                 "auth_metadata":{"mode":"development","methods":[]},
                 "limits":{},
                 "plaintext_visibility":{"data_classes":[],"max_visibility":"none"},
-                "implemented_features":[],
                 "claimed_profiles":[],
                 "verified_profiles":[],
-                "experimental_features":[],
                 "interop_surfaces":[],
                 "development_mode":false,
                 "rate_limit_policy":{}
@@ -951,16 +964,14 @@ mod events_submit_tests {
                 },
                 "trust_domain":"ak:trust_domain:server.local",
                 "supported_profiles":[],
-                "operation_bindings":[],
-                "supported_bindings":[],
+                "supported_operation_bundles":["ak.operation_bundle.principal_server.describe.v1"],
+                "transport_bindings":[{"kind":"http_json","base_url":"https://server.local","extension_profile_required":null}],
                 "supported_features":[],
                 "auth_metadata":{"mode":"development","methods":[]},
                 "limits":{},
                 "plaintext_visibility":{"data_classes":[],"max_visibility":"none"},
-                "implemented_features":[],
                 "claimed_profiles":[],
                 "verified_profiles":[],
-                "experimental_features":[],
                 "interop_surfaces":[],
                 "development_mode":false,
                 "rate_limit_policy":{}

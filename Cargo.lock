@@ -466,11 +466,13 @@ dependencies = [
  "arkret-schema",
  "arkret-wire",
  "chrono",
+ "curve25519-dalek",
  "ed25519-dalek",
  "salvo-oapi",
  "serde",
  "serde_json",
  "thiserror",
+ "url",
 ]
 
 [[package]]

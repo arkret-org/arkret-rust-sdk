@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-08-27.2; sha256=bd0804c5e6786e8a6a9dfef1198be4f2e6ac5cd23e3c3550b64b0fb29fd9157e
-//! Entries: registered=168
+//! Input: registry/capability-action-registry.json; version=2026-08-27.3;
+//! sha256=899aabdce5d4fe2191d45ec9fc0d5bde8e1c72f6b1c38ba865f72a38d9e5aeae Entries: registered=168
 
 use serde::{Deserialize, Serialize};
 
@@ -133,27 +133,27 @@ pub enum CapabilityActionId {
     RelationUpdate,
     RsvpSet,
     SchemaDefine,
-    SelfAccountReadDescribe,
-    SelfAccountStreamSubscribe,
-    SelfAgentCommandAbandonProvisioning,
-    SelfAgentCommandDeactivate,
-    SelfAgentCommandIssueProvisioningAbandonmentChallenge,
-    SelfAgentCommandPause,
-    SelfAgentCommandProvision,
-    SelfAgentCommandRenewPairing,
-    SelfAgentCommandResume,
-    SelfAgentGrantCommandAttach,
-    SelfAgentGrantResourceDelete,
-    SelfAgentParticipationResourceReplace,
-    SelfAgentSidecarCommandEnsure,
-    SelfBlobCommandPresign,
-    SelfBlobResourceGet,
-    SelfBlobResourceHead,
-    SelfBlobUploadCreate,
-    SelfEventsReadScan,
-    SelfEventsStreamSubscribe,
-    SelfKeysBackupSeriesCommandErase,
-    SelfSnapshotReadManifestHead,
+    SelfAccountReadDescribeV1,
+    SelfAccountStreamSubscribeV1,
+    SelfAgentCommandAbandonProvisioningV1,
+    SelfAgentCommandDeactivateV1,
+    SelfAgentCommandIssueProvisioningAbandonmentChallengeV1,
+    SelfAgentCommandPauseV1,
+    SelfAgentCommandProvisionV1,
+    SelfAgentCommandRenewPairingV1,
+    SelfAgentCommandResumeV1,
+    SelfAgentGrantCommandAttachV1,
+    SelfAgentGrantResourceDeleteV1,
+    SelfAgentParticipationResourceReplaceV1,
+    SelfAgentSidecarCommandEnsureV1,
+    SelfBlobCommandPresignV1,
+    SelfBlobResourceGetV1,
+    SelfBlobResourceHeadV1,
+    SelfBlobUploadCreateV1,
+    SelfEventsReadScanV1,
+    SelfEventsStreamSubscribeV1,
+    SelfKeysBackupSeriesCommandEraseV1,
+    SelfSnapshotReadManifestHeadV1,
     SpaceArchive,
     SpaceCreate,
     SpaceParent,
@@ -305,27 +305,27 @@ impl CapabilityActionId {
         Self::RelationUpdate,
         Self::RsvpSet,
         Self::SchemaDefine,
-        Self::SelfAccountReadDescribe,
-        Self::SelfAccountStreamSubscribe,
-        Self::SelfAgentCommandAbandonProvisioning,
-        Self::SelfAgentCommandDeactivate,
-        Self::SelfAgentCommandIssueProvisioningAbandonmentChallenge,
-        Self::SelfAgentCommandPause,
-        Self::SelfAgentCommandProvision,
-        Self::SelfAgentCommandRenewPairing,
-        Self::SelfAgentCommandResume,
-        Self::SelfAgentGrantCommandAttach,
-        Self::SelfAgentGrantResourceDelete,
-        Self::SelfAgentParticipationResourceReplace,
-        Self::SelfAgentSidecarCommandEnsure,
-        Self::SelfBlobCommandPresign,
-        Self::SelfBlobResourceGet,
-        Self::SelfBlobResourceHead,
-        Self::SelfBlobUploadCreate,
-        Self::SelfEventsReadScan,
-        Self::SelfEventsStreamSubscribe,
-        Self::SelfKeysBackupSeriesCommandErase,
-        Self::SelfSnapshotReadManifestHead,
+        Self::SelfAccountReadDescribeV1,
+        Self::SelfAccountStreamSubscribeV1,
+        Self::SelfAgentCommandAbandonProvisioningV1,
+        Self::SelfAgentCommandDeactivateV1,
+        Self::SelfAgentCommandIssueProvisioningAbandonmentChallengeV1,
+        Self::SelfAgentCommandPauseV1,
+        Self::SelfAgentCommandProvisionV1,
+        Self::SelfAgentCommandRenewPairingV1,
+        Self::SelfAgentCommandResumeV1,
+        Self::SelfAgentGrantCommandAttachV1,
+        Self::SelfAgentGrantResourceDeleteV1,
+        Self::SelfAgentParticipationResourceReplaceV1,
+        Self::SelfAgentSidecarCommandEnsureV1,
+        Self::SelfBlobCommandPresignV1,
+        Self::SelfBlobResourceGetV1,
+        Self::SelfBlobResourceHeadV1,
+        Self::SelfBlobUploadCreateV1,
+        Self::SelfEventsReadScanV1,
+        Self::SelfEventsStreamSubscribeV1,
+        Self::SelfKeysBackupSeriesCommandEraseV1,
+        Self::SelfSnapshotReadManifestHeadV1,
         Self::SpaceArchive,
         Self::SpaceCreate,
         Self::SpaceParent,
@@ -462,7 +462,8 @@ impl CapabilityActionId {
     pub const REALM_NOTIFICATION_AUDIT: &'static str = "ak.realm.notification.audit";
     pub const REALM_OWNER: &'static str = "ak.realm.owner";
     pub const REALM_OWNER_TRANSFER: &'static str = "ak.realm.owner.transfer";
-    pub const REALM_PLAINTEXT_VISIBLE_SERVICES: &'static str = "ak.realm.plaintext_visible_services";
+    pub const REALM_PLAINTEXT_VISIBLE_SERVICES: &'static str =
+        "ak.realm.plaintext_visible_services";
     pub const REALM_PREVIEW_POLICY: &'static str = "ak.realm.preview_policy";
     pub const REALM_PROFILE: &'static str = "ak.realm.profile";
     pub const REALM_SEARCH_POLICY: &'static str = "ak.realm.search_policy";
@@ -475,27 +476,38 @@ impl CapabilityActionId {
     pub const RELATION_UPDATE: &'static str = "ak.relation.update";
     pub const RSVP_SET: &'static str = "ak.rsvp.set";
     pub const SCHEMA_DEFINE: &'static str = "ak.schema.define";
-    pub const SELF_ACCOUNT_READ_DESCRIBE: &'static str = "ak.self.account.read.describe";
-    pub const SELF_ACCOUNT_STREAM_SUBSCRIBE: &'static str = "ak.self.account.stream.subscribe";
-    pub const SELF_AGENT_COMMAND_ABANDON_PROVISIONING: &'static str = "ak.self.agent.command.abandon_provisioning";
-    pub const SELF_AGENT_COMMAND_DEACTIVATE: &'static str = "ak.self.agent.command.deactivate";
-    pub const SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE: &'static str = "ak.self.agent.command.issue_provisioning_abandonment_challenge";
-    pub const SELF_AGENT_COMMAND_PAUSE: &'static str = "ak.self.agent.command.pause";
-    pub const SELF_AGENT_COMMAND_PROVISION: &'static str = "ak.self.agent.command.provision";
-    pub const SELF_AGENT_COMMAND_RENEW_PAIRING: &'static str = "ak.self.agent.command.renew_pairing";
-    pub const SELF_AGENT_COMMAND_RESUME: &'static str = "ak.self.agent.command.resume";
-    pub const SELF_AGENT_GRANT_COMMAND_ATTACH: &'static str = "ak.self.agent.grant.command.attach";
-    pub const SELF_AGENT_GRANT_RESOURCE_DELETE: &'static str = "ak.self.agent.grant.resource.delete";
-    pub const SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE: &'static str = "ak.self.agent.participation.resource.replace";
-    pub const SELF_AGENT_SIDECAR_COMMAND_ENSURE: &'static str = "ak.self.agent.sidecar.command.ensure";
-    pub const SELF_BLOB_COMMAND_PRESIGN: &'static str = "ak.self.blob.command.presign";
-    pub const SELF_BLOB_RESOURCE_GET: &'static str = "ak.self.blob.resource.get";
-    pub const SELF_BLOB_RESOURCE_HEAD: &'static str = "ak.self.blob.resource.head";
-    pub const SELF_BLOB_UPLOAD_CREATE: &'static str = "ak.self.blob.upload.create";
-    pub const SELF_EVENTS_READ_SCAN: &'static str = "ak.self.events.read.scan";
-    pub const SELF_EVENTS_STREAM_SUBSCRIBE: &'static str = "ak.self.events.stream.subscribe";
-    pub const SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE: &'static str = "ak.self.keys.backup_series.command.erase";
-    pub const SELF_SNAPSHOT_READ_MANIFEST_HEAD: &'static str = "ak.self.snapshot.read.manifest_head";
+    pub const SELF_ACCOUNT_READ_DESCRIBE_V1: &'static str = "ak.self.account.read.describe.v1";
+    pub const SELF_ACCOUNT_STREAM_SUBSCRIBE_V1: &'static str =
+        "ak.self.account.stream.subscribe.v1";
+    pub const SELF_AGENT_COMMAND_ABANDON_PROVISIONING_V1: &'static str =
+        "ak.self.agent.command.abandon_provisioning.v1";
+    pub const SELF_AGENT_COMMAND_DEACTIVATE_V1: &'static str =
+        "ak.self.agent.command.deactivate.v1";
+    pub const SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE_V1: &'static str =
+        "ak.self.agent.command.issue_provisioning_abandonment_challenge.v1";
+    pub const SELF_AGENT_COMMAND_PAUSE_V1: &'static str = "ak.self.agent.command.pause.v1";
+    pub const SELF_AGENT_COMMAND_PROVISION_V1: &'static str = "ak.self.agent.command.provision.v1";
+    pub const SELF_AGENT_COMMAND_RENEW_PAIRING_V1: &'static str =
+        "ak.self.agent.command.renew_pairing.v1";
+    pub const SELF_AGENT_COMMAND_RESUME_V1: &'static str = "ak.self.agent.command.resume.v1";
+    pub const SELF_AGENT_GRANT_COMMAND_ATTACH_V1: &'static str =
+        "ak.self.agent.grant.command.attach.v1";
+    pub const SELF_AGENT_GRANT_RESOURCE_DELETE_V1: &'static str =
+        "ak.self.agent.grant.resource.delete.v1";
+    pub const SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE_V1: &'static str =
+        "ak.self.agent.participation.resource.replace.v1";
+    pub const SELF_AGENT_SIDECAR_COMMAND_ENSURE_V1: &'static str =
+        "ak.self.agent.sidecar.command.ensure.v1";
+    pub const SELF_BLOB_COMMAND_PRESIGN_V1: &'static str = "ak.self.blob.command.presign.v1";
+    pub const SELF_BLOB_RESOURCE_GET_V1: &'static str = "ak.self.blob.resource.get.v1";
+    pub const SELF_BLOB_RESOURCE_HEAD_V1: &'static str = "ak.self.blob.resource.head.v1";
+    pub const SELF_BLOB_UPLOAD_CREATE_V1: &'static str = "ak.self.blob.upload.create.v1";
+    pub const SELF_EVENTS_READ_SCAN_V1: &'static str = "ak.self.events.read.scan.v1";
+    pub const SELF_EVENTS_STREAM_SUBSCRIBE_V1: &'static str = "ak.self.events.stream.subscribe.v1";
+    pub const SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1: &'static str =
+        "ak.self.keys.backup_series.command.erase.v1";
+    pub const SELF_SNAPSHOT_READ_MANIFEST_HEAD_V1: &'static str =
+        "ak.self.snapshot.read.manifest_head.v1";
     pub const SPACE_ARCHIVE: &'static str = "ak.space.archive";
     pub const SPACE_CREATE: &'static str = "ak.space.create";
     pub const SPACE_PARENT: &'static str = "ak.space.parent";
@@ -646,27 +658,35 @@ impl CapabilityActionId {
             Self::RelationUpdate => Self::RELATION_UPDATE,
             Self::RsvpSet => Self::RSVP_SET,
             Self::SchemaDefine => Self::SCHEMA_DEFINE,
-            Self::SelfAccountReadDescribe => Self::SELF_ACCOUNT_READ_DESCRIBE,
-            Self::SelfAccountStreamSubscribe => Self::SELF_ACCOUNT_STREAM_SUBSCRIBE,
-            Self::SelfAgentCommandAbandonProvisioning => Self::SELF_AGENT_COMMAND_ABANDON_PROVISIONING,
-            Self::SelfAgentCommandDeactivate => Self::SELF_AGENT_COMMAND_DEACTIVATE,
-            Self::SelfAgentCommandIssueProvisioningAbandonmentChallenge => Self::SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE,
-            Self::SelfAgentCommandPause => Self::SELF_AGENT_COMMAND_PAUSE,
-            Self::SelfAgentCommandProvision => Self::SELF_AGENT_COMMAND_PROVISION,
-            Self::SelfAgentCommandRenewPairing => Self::SELF_AGENT_COMMAND_RENEW_PAIRING,
-            Self::SelfAgentCommandResume => Self::SELF_AGENT_COMMAND_RESUME,
-            Self::SelfAgentGrantCommandAttach => Self::SELF_AGENT_GRANT_COMMAND_ATTACH,
-            Self::SelfAgentGrantResourceDelete => Self::SELF_AGENT_GRANT_RESOURCE_DELETE,
-            Self::SelfAgentParticipationResourceReplace => Self::SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE,
-            Self::SelfAgentSidecarCommandEnsure => Self::SELF_AGENT_SIDECAR_COMMAND_ENSURE,
-            Self::SelfBlobCommandPresign => Self::SELF_BLOB_COMMAND_PRESIGN,
-            Self::SelfBlobResourceGet => Self::SELF_BLOB_RESOURCE_GET,
-            Self::SelfBlobResourceHead => Self::SELF_BLOB_RESOURCE_HEAD,
-            Self::SelfBlobUploadCreate => Self::SELF_BLOB_UPLOAD_CREATE,
-            Self::SelfEventsReadScan => Self::SELF_EVENTS_READ_SCAN,
-            Self::SelfEventsStreamSubscribe => Self::SELF_EVENTS_STREAM_SUBSCRIBE,
-            Self::SelfKeysBackupSeriesCommandErase => Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE,
-            Self::SelfSnapshotReadManifestHead => Self::SELF_SNAPSHOT_READ_MANIFEST_HEAD,
+            Self::SelfAccountReadDescribeV1 => Self::SELF_ACCOUNT_READ_DESCRIBE_V1,
+            Self::SelfAccountStreamSubscribeV1 => Self::SELF_ACCOUNT_STREAM_SUBSCRIBE_V1,
+            Self::SelfAgentCommandAbandonProvisioningV1 => {
+                Self::SELF_AGENT_COMMAND_ABANDON_PROVISIONING_V1
+            }
+            Self::SelfAgentCommandDeactivateV1 => Self::SELF_AGENT_COMMAND_DEACTIVATE_V1,
+            Self::SelfAgentCommandIssueProvisioningAbandonmentChallengeV1 => {
+                Self::SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE_V1
+            }
+            Self::SelfAgentCommandPauseV1 => Self::SELF_AGENT_COMMAND_PAUSE_V1,
+            Self::SelfAgentCommandProvisionV1 => Self::SELF_AGENT_COMMAND_PROVISION_V1,
+            Self::SelfAgentCommandRenewPairingV1 => Self::SELF_AGENT_COMMAND_RENEW_PAIRING_V1,
+            Self::SelfAgentCommandResumeV1 => Self::SELF_AGENT_COMMAND_RESUME_V1,
+            Self::SelfAgentGrantCommandAttachV1 => Self::SELF_AGENT_GRANT_COMMAND_ATTACH_V1,
+            Self::SelfAgentGrantResourceDeleteV1 => Self::SELF_AGENT_GRANT_RESOURCE_DELETE_V1,
+            Self::SelfAgentParticipationResourceReplaceV1 => {
+                Self::SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE_V1
+            }
+            Self::SelfAgentSidecarCommandEnsureV1 => Self::SELF_AGENT_SIDECAR_COMMAND_ENSURE_V1,
+            Self::SelfBlobCommandPresignV1 => Self::SELF_BLOB_COMMAND_PRESIGN_V1,
+            Self::SelfBlobResourceGetV1 => Self::SELF_BLOB_RESOURCE_GET_V1,
+            Self::SelfBlobResourceHeadV1 => Self::SELF_BLOB_RESOURCE_HEAD_V1,
+            Self::SelfBlobUploadCreateV1 => Self::SELF_BLOB_UPLOAD_CREATE_V1,
+            Self::SelfEventsReadScanV1 => Self::SELF_EVENTS_READ_SCAN_V1,
+            Self::SelfEventsStreamSubscribeV1 => Self::SELF_EVENTS_STREAM_SUBSCRIBE_V1,
+            Self::SelfKeysBackupSeriesCommandEraseV1 => {
+                Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1
+            }
+            Self::SelfSnapshotReadManifestHeadV1 => Self::SELF_SNAPSHOT_READ_MANIFEST_HEAD_V1,
             Self::SpaceArchive => Self::SPACE_ARCHIVE,
             Self::SpaceCreate => Self::SPACE_CREATE,
             Self::SpaceParent => Self::SPACE_PARENT,
@@ -819,27 +839,37 @@ impl CapabilityActionId {
             Self::RELATION_UPDATE => Some(Self::RelationUpdate),
             Self::RSVP_SET => Some(Self::RsvpSet),
             Self::SCHEMA_DEFINE => Some(Self::SchemaDefine),
-            Self::SELF_ACCOUNT_READ_DESCRIBE => Some(Self::SelfAccountReadDescribe),
-            Self::SELF_ACCOUNT_STREAM_SUBSCRIBE => Some(Self::SelfAccountStreamSubscribe),
-            Self::SELF_AGENT_COMMAND_ABANDON_PROVISIONING => Some(Self::SelfAgentCommandAbandonProvisioning),
-            Self::SELF_AGENT_COMMAND_DEACTIVATE => Some(Self::SelfAgentCommandDeactivate),
-            Self::SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE => Some(Self::SelfAgentCommandIssueProvisioningAbandonmentChallenge),
-            Self::SELF_AGENT_COMMAND_PAUSE => Some(Self::SelfAgentCommandPause),
-            Self::SELF_AGENT_COMMAND_PROVISION => Some(Self::SelfAgentCommandProvision),
-            Self::SELF_AGENT_COMMAND_RENEW_PAIRING => Some(Self::SelfAgentCommandRenewPairing),
-            Self::SELF_AGENT_COMMAND_RESUME => Some(Self::SelfAgentCommandResume),
-            Self::SELF_AGENT_GRANT_COMMAND_ATTACH => Some(Self::SelfAgentGrantCommandAttach),
-            Self::SELF_AGENT_GRANT_RESOURCE_DELETE => Some(Self::SelfAgentGrantResourceDelete),
-            Self::SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE => Some(Self::SelfAgentParticipationResourceReplace),
-            Self::SELF_AGENT_SIDECAR_COMMAND_ENSURE => Some(Self::SelfAgentSidecarCommandEnsure),
-            Self::SELF_BLOB_COMMAND_PRESIGN => Some(Self::SelfBlobCommandPresign),
-            Self::SELF_BLOB_RESOURCE_GET => Some(Self::SelfBlobResourceGet),
-            Self::SELF_BLOB_RESOURCE_HEAD => Some(Self::SelfBlobResourceHead),
-            Self::SELF_BLOB_UPLOAD_CREATE => Some(Self::SelfBlobUploadCreate),
-            Self::SELF_EVENTS_READ_SCAN => Some(Self::SelfEventsReadScan),
-            Self::SELF_EVENTS_STREAM_SUBSCRIBE => Some(Self::SelfEventsStreamSubscribe),
-            Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE => Some(Self::SelfKeysBackupSeriesCommandErase),
-            Self::SELF_SNAPSHOT_READ_MANIFEST_HEAD => Some(Self::SelfSnapshotReadManifestHead),
+            Self::SELF_ACCOUNT_READ_DESCRIBE_V1 => Some(Self::SelfAccountReadDescribeV1),
+            Self::SELF_ACCOUNT_STREAM_SUBSCRIBE_V1 => Some(Self::SelfAccountStreamSubscribeV1),
+            Self::SELF_AGENT_COMMAND_ABANDON_PROVISIONING_V1 => {
+                Some(Self::SelfAgentCommandAbandonProvisioningV1)
+            }
+            Self::SELF_AGENT_COMMAND_DEACTIVATE_V1 => Some(Self::SelfAgentCommandDeactivateV1),
+            Self::SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE_V1 => {
+                Some(Self::SelfAgentCommandIssueProvisioningAbandonmentChallengeV1)
+            }
+            Self::SELF_AGENT_COMMAND_PAUSE_V1 => Some(Self::SelfAgentCommandPauseV1),
+            Self::SELF_AGENT_COMMAND_PROVISION_V1 => Some(Self::SelfAgentCommandProvisionV1),
+            Self::SELF_AGENT_COMMAND_RENEW_PAIRING_V1 => Some(Self::SelfAgentCommandRenewPairingV1),
+            Self::SELF_AGENT_COMMAND_RESUME_V1 => Some(Self::SelfAgentCommandResumeV1),
+            Self::SELF_AGENT_GRANT_COMMAND_ATTACH_V1 => Some(Self::SelfAgentGrantCommandAttachV1),
+            Self::SELF_AGENT_GRANT_RESOURCE_DELETE_V1 => Some(Self::SelfAgentGrantResourceDeleteV1),
+            Self::SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE_V1 => {
+                Some(Self::SelfAgentParticipationResourceReplaceV1)
+            }
+            Self::SELF_AGENT_SIDECAR_COMMAND_ENSURE_V1 => {
+                Some(Self::SelfAgentSidecarCommandEnsureV1)
+            }
+            Self::SELF_BLOB_COMMAND_PRESIGN_V1 => Some(Self::SelfBlobCommandPresignV1),
+            Self::SELF_BLOB_RESOURCE_GET_V1 => Some(Self::SelfBlobResourceGetV1),
+            Self::SELF_BLOB_RESOURCE_HEAD_V1 => Some(Self::SelfBlobResourceHeadV1),
+            Self::SELF_BLOB_UPLOAD_CREATE_V1 => Some(Self::SelfBlobUploadCreateV1),
+            Self::SELF_EVENTS_READ_SCAN_V1 => Some(Self::SelfEventsReadScanV1),
+            Self::SELF_EVENTS_STREAM_SUBSCRIBE_V1 => Some(Self::SelfEventsStreamSubscribeV1),
+            Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1 => {
+                Some(Self::SelfKeysBackupSeriesCommandEraseV1)
+            }
+            Self::SELF_SNAPSHOT_READ_MANIFEST_HEAD_V1 => Some(Self::SelfSnapshotReadManifestHeadV1),
             Self::SPACE_ARCHIVE => Some(Self::SpaceArchive),
             Self::SPACE_CREATE => Some(Self::SpaceCreate),
             Self::SPACE_PARENT => Some(Self::SpaceParent),
@@ -874,21 +904,15 @@ impl std::fmt::Display for CapabilityActionId {
 }
 
 impl Serialize for CapabilityActionId {
-    fn serialize<S: serde::Serializer>(
-        &self,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(self.as_str())
     }
 }
 
 impl<'de> Deserialize<'de> for CapabilityActionId {
-    fn deserialize<D: serde::Deserializer<'de>>(
-        deserializer: D,
-    ) -> Result<Self, D::Error> {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let raw = String::deserialize(deserializer)?;
-        Self::from_wire(&raw).ok_or_else(|| {
-            serde::de::Error::custom(format!("unknown capability action id: {raw}"))
-        })
+        Self::from_wire(&raw)
+            .ok_or_else(|| serde::de::Error::custom(format!("unknown capability action id: {raw}")))
     }
 }

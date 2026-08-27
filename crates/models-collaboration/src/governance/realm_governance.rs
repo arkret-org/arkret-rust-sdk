@@ -842,7 +842,7 @@ pub struct RealmPolicyServerDeleteRequestBody {
     /// Closed `ak.realm.policy_server` Event authored and signed by the caller,
     /// whose payload is exactly [`RealmPolicyServerTombstonePayload::VALUE`].
     /// The removal is a signed Event, so this DELETE carries a request body the
-    /// way `ak.self.keys.backups.resource.delete` already does.
+    /// way `ak.self.keys.backups.resource.delete.v1` already does.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub policy_server_event: EventInitialSubmission,
 }
@@ -941,7 +941,7 @@ pub struct CapabilityDerived {
 }
 
 /// One projected `ak.realm.organization` relationship row surfaced by
-/// `ak.self.realm_organization.read.list`. Mirrors the canonical
+/// `ak.self.realm_organization.read.list.v1`. Mirrors the canonical
 /// `realm_organization_payload` field order; `lifecycle_phase` is
 /// reducer-derived. A row here is a projection only: an organization
 /// relationship is only verified when `lifecycle_phase=verified_active`.
@@ -977,7 +977,7 @@ pub struct RealmOrganizationRelationshipRow {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-/// Response DTO for `ak.self.realm_organization.read.list`
+/// Response DTO for `ak.self.realm_organization.read.list.v1`
 /// (`realm-organization-operations.schema.json#/$defs/realm_organization_relationship_list`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

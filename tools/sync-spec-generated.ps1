@@ -56,7 +56,10 @@ try {
     }
 
     & (Join-Path $PSScriptRoot 'generate-sdk-event-kinds.ps1') -ArtifactsDir $artifacts -OutputPath $eventOutput
-    & (Join-Path $PSScriptRoot 'generate-sdk-profile-requirements.ps1') -ArtifactsDir $artifacts -OutputPath $requirementsOutput
+    & python (Join-Path $PSScriptRoot 'generate-sdk-profile-requirements.py') --artifacts-dir $artifacts --output $requirementsOutput
+    if ($LASTEXITCODE -ne 0) {
+        throw 'profile requirement generation failed'
+    }
     & python (Join-Path $PSScriptRoot 'generate-sdk-lattice-bindings.py') --artifacts-dir $artifacts --output $latticeBindingsOutput
     if ($LASTEXITCODE -ne 0) {
         throw 'lattice binding generation failed'

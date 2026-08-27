@@ -60,7 +60,7 @@ pub struct IdempotencyIdentity {
 }
 
 impl IdempotencyIdentity {
-    /// Identity for a `ak.edge.applet.command.transaction` delivery.
+    /// Identity for a `ak.edge.applet.command.transaction.v1` delivery.
     pub fn applet_transaction(
         direction: IdempotencyDirection,
         source_service_id: impl Into<String>,
@@ -68,7 +68,7 @@ impl IdempotencyIdentity {
         idempotency_key: impl Into<String>,
     ) -> Self {
         Self {
-            operation_id: arkret_wire::ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION
+            operation_id: arkret_wire::ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION_V1
                 .to_owned(),
             direction,
             source_service_id: source_service_id.into(),

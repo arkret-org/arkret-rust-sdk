@@ -96,7 +96,7 @@ fn classify_event_submit_context_shape(events: &[Event]) -> Result<EventSubmitCo
     Ok(context)
 }
 
-/// Batch `ak.self.events.command.submit` request used by account clients.
+/// Batch `ak.self.events.command.submit.v1` request used by account clients.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

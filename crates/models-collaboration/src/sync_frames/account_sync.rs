@@ -1,6 +1,6 @@
 //! Account-subscribe sync frame artifact counterparts.
 //!
-//! Frame containers for `ak.self.account.stream.subscribe` deltas:
+//! Frame containers for `ak.self.account.stream.subscribe.v1` deltas:
 //! notification projections, device-message envelopes, event and
 //! ephemeral containers, timelines, and the per-Realm roster entry
 //! carried by account-subscribe frames.

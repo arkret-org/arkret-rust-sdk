@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{BindingKind, DomainSeparationId, ErrorCode, Result, WireError};
 
-/// `supported_bindings[].kind` of this profile, as registered in
+/// `transport_bindings[].kind` of this profile, as registered in
 /// `binding-kind-registry.json`. A media / SFU WebSocket MUST NOT reuse it.
 pub const WEBSOCKET_BINDING_KIND: BindingKind = BindingKind::Websocket;
 
@@ -91,10 +91,14 @@ impl WebSocketOperationId {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::AccountStreamSubscribe => {
-                crate::ServiceOperationId::SELF_ACCOUNT_STREAM_SUBSCRIBE
+                crate::ServiceOperationId::SELF_ACCOUNT_STREAM_SUBSCRIBE_V1
             }
-            Self::EventsStreamSubscribe => crate::ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE,
-            Self::SignalStreamSubscribe => crate::ServiceOperationId::SELF_SIGNAL_STREAM_SUBSCRIBE,
+            Self::EventsStreamSubscribe => {
+                crate::ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE_V1
+            }
+            Self::SignalStreamSubscribe => {
+                crate::ServiceOperationId::SELF_SIGNAL_STREAM_SUBSCRIBE_V1
+            }
         }
     }
 

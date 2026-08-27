@@ -72,6 +72,7 @@ pub use service_resolution_fetcher::{
 pub const HEADER_REQUEST_ID: &str = "X-Arkret-Request-Id";
 pub const HEADER_WAIT_FOR: &str = "X-Arkret-Wait-For";
 pub const HEADER_IDEMPOTENCY_KEY: &str = "Idempotency-Key";
+pub const HEADER_OPERATION: &str = "Arkret-Operation";
 
 /// Default total request timeout applied per request when
 /// [`ClientBuilder::timeout`] is not called. reqwest itself defaults to

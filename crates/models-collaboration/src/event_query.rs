@@ -8,7 +8,7 @@ use arkret_wire::{Cursor, DidCoreId, RealmId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// Canonical QUERY content for `ak.self.events.read.describe`.
+/// Canonical QUERY content for `ak.self.events.read.describe.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -19,7 +19,7 @@ pub struct EventsDescribeRequestBody {
     pub realm_id: Option<RealmId>,
 }
 
-/// Canonical QUERY content for `ak.peer.events.read.describe`.
+/// Canonical QUERY content for `ak.peer.events.read.describe.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -28,7 +28,7 @@ pub struct PeerEventsDescribeRequestBody {
     pub realm_id: Option<RealmId>,
 }
 
-/// Canonical QUERY content for `ak.self.events.read.frontier`.
+/// Canonical QUERY content for `ak.self.events.read.frontier.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -38,8 +38,8 @@ pub struct EventsFrontierRequestBody {
     pub realm_id: Option<RealmId>,
 }
 
-/// Canonical QUERY content shared by `ak.self.seals.read.frontier` and
-/// `ak.peer.seals.read.frontier`.
+/// Canonical QUERY content shared by `ak.self.seals.read.frontier.v1` and
+/// `ak.peer.seals.read.frontier.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -47,7 +47,7 @@ pub struct SealFrontierRequestBody {
     pub realm_id: RealmId,
 }
 
-/// Canonical QUERY content for `ak.peer.events.read.frontier`.
+/// Canonical QUERY content for `ak.peer.events.read.frontier.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

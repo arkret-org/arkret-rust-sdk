@@ -513,7 +513,7 @@ pub struct SessionGrantIntrospectionProofClaims {
 // `AuthSessionLogout*`, and `AccountLogout*` so callers bind to the same strong
 // types the spec/OpenAPI declare instead of hand-rolled structs.
 
-/// `ak.gate.account.command.refresh_session_grant` request.
+/// `ak.gate.account.command.refresh_session_grant.v1` request.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -764,7 +764,7 @@ pub fn session_grant_refresh_request_digest(
     Ok(Hash::new(canonical::canonical_sha256(&input)?)?)
 }
 
-/// `ak.gate.account.command.refresh_session_grant` outcome.
+/// `ak.gate.account.command.refresh_session_grant.v1` outcome.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -784,7 +784,7 @@ pub struct SessionGrantRefreshOutcome {
     pub previous_session_grant_id: SessionGrantId,
 }
 
-/// `ak.gate.account.command.logout_auth_session` request.
+/// `ak.gate.account.command.logout_auth_session.v1` request.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthSessionLogoutRequestBody {
@@ -798,7 +798,7 @@ pub struct AuthSessionLogoutRequestBody {
     pub reason_code: Option<String>,
 }
 
-/// `ak.gate.account.command.logout_auth_session` outcome.
+/// `ak.gate.account.command.logout_auth_session.v1` outcome.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthSessionLogoutOutcome {
@@ -1003,7 +1003,7 @@ impl TryFrom<SessionGrantIntrospectGrantWire> for SessionGrantIntrospectGrant {
     }
 }
 
-/// `ak.gate.account.command.introspect_session_grant` request. Exactly one of
+/// `ak.gate.account.command.introspect_session_grant.v1` request. Exactly one of
 /// `id` / `grant_jwt` identifies the grant.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1035,7 +1035,7 @@ pub struct SessionGrantIntrospectByJwt {
     pub proof: Option<SessionGrantIntrospectionProof>,
 }
 
-/// `ak.gate.account.command.introspect_session_grant` outcome. READ-ONLY:
+/// `ak.gate.account.command.introspect_session_grant.v1` outcome. READ-ONLY:
 /// introspection never consumes the grant.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1107,7 +1107,7 @@ mod session_grant_contract_tests {
         assert!(request.validate().is_err());
 
         let mut open = valid;
-        open["requested_scope"] = json!(["ak.self.events.read.scan"]);
+        open["requested_scope"] = json!(["ak.self.events.read.scan.v1"]);
         assert!(serde_json::from_value::<SessionGrantRequestBody>(open).is_err());
     }
 

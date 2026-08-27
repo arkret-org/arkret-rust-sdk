@@ -691,7 +691,7 @@ mod tests {
             requested_scope: requested_scope.clone(),
             verifier_service_id: service_id.clone(),
             audience: NonEmptyString::new(
-                arkret_wire::ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY,
+                arkret_wire::ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY_V1,
             )
             .unwrap(),
             challenge: NonEmptyString::new(pairing_request_id).unwrap(),

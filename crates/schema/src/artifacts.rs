@@ -55,7 +55,9 @@ pub struct ProfileRequirement {
     #[serde(default)]
     pub inherits: Vec<String>,
     #[serde(default)]
-    pub required_endpoints: Vec<String>,
+    pub enforcement_phases: Vec<String>,
+    #[serde(default)]
+    pub operation_requirements: Vec<ArtifactOperationRequirement>,
     #[serde(default)]
     pub required_event_kinds: Vec<String>,
     #[serde(default)]
@@ -66,8 +68,7 @@ pub struct ProfileRequirement {
     pub required_fixtures: Vec<String>,
     #[serde(default)]
     pub required_capability_actions: Vec<String>,
-    /// Sorted union of top-level `required_features` and
-    /// `feature_discovery.required` from the profile artifact.
+    /// Registered runtime features required from `ServiceDescribe`.
     #[serde(default)]
     pub required_features: Vec<String>,
     #[serde(default)]
@@ -78,6 +79,14 @@ pub struct ProfileRequirement {
     pub required_constraint_kinds: Vec<String>,
     #[serde(default)]
     pub non_event_grant_authority_rules: Vec<ParsedNonEventGrantAuthorityRule>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArtifactOperationRequirement {
+    pub direction: String,
+    pub operation_id: String,
+    pub binding_kind: String,
 }
 
 /// Closed machine rule authorizing one non-event capability grant surface.
@@ -347,7 +356,12 @@ impl SpecArtifactBundle {
         Ok(Some(ProfileRequirement {
             profile_id: profile_id.to_owned(),
             inherits: optional_string_array(entry, "inherits", profile_id)?,
-            required_endpoints: optional_string_array(entry, "required_endpoints", profile_id)?,
+            enforcement_phases: optional_string_array(entry, "enforcement_phases", profile_id)?,
+            operation_requirements: optional_typed_array(
+                entry,
+                "operation_requirements",
+                profile_id,
+            )?,
             required_event_kinds: optional_string_array(entry, "required_event_kinds", profile_id)?,
             required_schemas: optional_string_array(entry, "required_schemas", profile_id)?,
             rejected_event_kinds: optional_string_array(entry, "rejected_event_kinds", profile_id)?,
@@ -357,7 +371,7 @@ impl SpecArtifactBundle {
                 "required_capability_actions",
                 profile_id,
             )?,
-            required_features: profile_required_features(entry, profile_id)?,
+            required_features: optional_string_array(entry, "required_features", profile_id)?,
             required_cell_namespaces: optional_string_array(
                 entry,
                 "required_cell_namespaces",
@@ -457,12 +471,12 @@ impl SpecArtifactBundle {
                 .get("status")
                 .and_then(Value::as_str)
                 .unwrap_or(ACTIVE_STATUS);
-            operations.check(
-                &mut issues,
-                profile_id,
-                profile_status,
-                &requirement.required_endpoints,
-            );
+            let operation_ids = requirement
+                .operation_requirements
+                .iter()
+                .map(|row| row.operation_id.clone())
+                .collect::<Vec<_>>();
+            operations.check(&mut issues, profile_id, profile_status, &operation_ids);
             event_kinds.check(
                 &mut issues,
                 profile_id,
@@ -1149,25 +1163,6 @@ fn profile_required_constraint_kinds(value: &Value, profile_id: &str) -> Result<
     Ok(out)
 }
 
-fn profile_required_features(value: &Value, profile_id: &str) -> Result<Vec<String>> {
-    let mut out = optional_string_array(value, "required_features", profile_id)?;
-    if let Some(feature_discovery) = value.get("feature_discovery") {
-        if !feature_discovery.is_object() {
-            return Err(SchemaError::Protocol(format!(
-                "profile {profile_id} field feature_discovery must be an object"
-            )));
-        }
-        out.extend(optional_string_array(
-            feature_discovery,
-            "required",
-            profile_id,
-        )?);
-    }
-    out.sort();
-    out.dedup();
-    Ok(out)
-}
-
 /// One SDK-declared surface a profile requirement can reference, paired with
 /// the spec registry that surface is generated from.
 ///
@@ -1810,26 +1805,6 @@ mod tests {
         assert_eq!(
             rule.epoch_binding,
             "constraint.registration_epoch_exact_registration"
-        );
-    }
-
-    #[test]
-    fn live_chat_profile_includes_feature_discovery_requirements_when_available() {
-        let Some(artifacts_dir) = local_spec_artifacts_dir() else {
-            return;
-        };
-        let bundle = SpecArtifactBundle::load(artifacts_dir).unwrap();
-        let requirement = bundle
-            .profile_requirement("ak.profile.chat_mvp.v1")
-            .unwrap()
-            .expect("chat MVP profile must exist");
-        assert_eq!(
-            requirement.required_features,
-            vec![
-                "discussion_history_access",
-                "supported_event_kinds",
-                "supported_sync_profiles",
-            ]
         );
     }
 

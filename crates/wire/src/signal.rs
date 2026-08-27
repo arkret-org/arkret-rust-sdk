@@ -479,7 +479,7 @@ impl SignalEnvelope {
     }
 }
 
-/// Closed frame union for `ak.self.signal.stream.subscribe`.
+/// Closed frame union for `ak.self.signal.stream.subscribe.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -542,7 +542,7 @@ fn validate_signal_stream_reason(reason: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-/// Closed request body for `ak.peer.signal.command.relay`.
+/// Closed request body for `ak.peer.signal.command.relay.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -577,7 +577,7 @@ impl SignalRelayRequest {
     }
 }
 
-/// Opaque success body for `ak.peer.signal.command.relay`.
+/// Opaque success body for `ak.peer.signal.command.relay.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

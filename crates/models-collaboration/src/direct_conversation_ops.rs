@@ -553,7 +553,7 @@ fn domain_separated_sha256(domain: &[u8], value: &impl Serialize) -> arkret_wire
     Hash::new(arkret_canonical::sha256_digest(transcript)).map_err(protocol_error)
 }
 
-/// Closed query body for `ak.self.direct_conversation.read.resolve`.
+/// Closed query body for `ak.self.direct_conversation.read.resolve.v1`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -629,7 +629,7 @@ impl DirectConversationClientLocalBlocker {
     }
 }
 
-/// Closed tagged outcome of `ak.self.direct_conversation.read.resolve`.
+/// Closed tagged outcome of `ak.self.direct_conversation.read.resolve.v1`.
 ///
 /// Evaluation order is fixed: `TemporarilyUnavailable` when the current contact_round or founder
 /// cannot be verified; then `CreationBlocked`/`CreationRequired`/`AwaitingFounder` while no Realm

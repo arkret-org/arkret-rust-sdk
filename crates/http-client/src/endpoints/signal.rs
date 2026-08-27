@@ -15,7 +15,7 @@ type BoxSignalSubscribeFrameStream =
 type BoxSignalSubscribeFrameStream =
     std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<SignalStreamFrame>>>>;
 
-/// Validated frame stream for `ak.self.signal.stream.subscribe`.
+/// Validated frame stream for `ak.self.signal.stream.subscribe.v1`.
 pub struct SignalSubscribeFrameStream {
     inner: BoxSignalSubscribeFrameStream,
     terminal: bool,

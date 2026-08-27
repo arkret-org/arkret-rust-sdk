@@ -60,7 +60,7 @@ fn every_write_operation_has_a_closed_durable_effect_descriptor() {
 
 #[test]
 fn moderation_report_operation_names_its_durable_event() {
-    let effect = ServiceOperationId::SelfModerationCommandReport
+    let effect = ServiceOperationId::SelfModerationCommandReportV1
         .descriptor()
         .durable_effect
         .unwrap();

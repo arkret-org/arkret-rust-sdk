@@ -378,7 +378,6 @@ fn closed_applet_edge_outcomes_reject_unknown_members() {
 #[test]
 fn applet_ping_consumes_protocol_version_bootstrap() {
     let base = json!({
-        "ok": true,
         "applet_id": "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
         "service_id": service("slackbridge"),
         "protocol_version": "1.0"

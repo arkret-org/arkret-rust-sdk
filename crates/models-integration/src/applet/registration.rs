@@ -1181,7 +1181,7 @@ pub fn applet_did_document_digest(document: &DidDocument) -> Result<Hash> {
 // Package is a controller-signed *distribution* object: it is NOT Realm
 // history and NOT a grant. The Principal Server / authz service derives a
 // canonical `ak.applet.registration` and capability grants during
-// `ak.self.applet.command.install`.
+// `ak.self.applet.command.install.v1`.
 
 /// Controller-signed installable Applet package (`ak.schema.applet_package.v1`).
 ///

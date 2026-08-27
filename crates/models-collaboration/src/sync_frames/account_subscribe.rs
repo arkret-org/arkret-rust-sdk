@@ -1,11 +1,11 @@
-//! `ak.self.account.stream.subscribe` NDJSON frame family and validated
+//! `ak.self.account.stream.subscribe.v1` NDJSON frame family and validated
 //! batch results.
 
 use arkret_wire::SchemaId;
 
 use crate::internal_prelude::*;
 
-/// One NDJSON frame on `ak.self.account.stream.subscribe`.
+/// One NDJSON frame on `ak.self.account.stream.subscribe.v1`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountSubscribeFrame {

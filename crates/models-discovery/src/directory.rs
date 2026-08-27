@@ -218,7 +218,7 @@ impl RealmJoinCandidate {
             || !self
                 .operations
                 .iter()
-                .any(|operation| operation == ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT)
+                .any(|operation| operation == ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT_V1)
             || self.join_methods.is_empty()
             || self.expires_at <= self.as_of
         {
@@ -305,7 +305,7 @@ pub enum TargetKind {
     Message,
 }
 
-/// R3.3 (AKP-0011) — request body for `ak.find.directory.read.resolve_target`.
+/// R3.3 (AKP-0011) — request body for `ak.find.directory.read.resolve_target.v1`.
 ///
 /// `address` is a client-agnostic shareable object address in either the
 /// `web+arkret:` URI form or the HTTPS-landing fragment form (see
@@ -344,7 +344,7 @@ impl DirectoryResolveTargetRequestBody {
     pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
         directory_proof_binding_bytes(
             ProofContextId::DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1,
-            ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_TARGET,
+            ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_TARGET_V1,
             Some(directory_required_issuer(self.requester.as_ref())?),
             vec![("address", Value::String(self.address.clone()))],
             &self.payload_digest()?,
@@ -353,7 +353,7 @@ impl DirectoryResolveTargetRequestBody {
     }
 }
 
-/// R3.3 (AKP-0011) — response body for `ak.find.directory.read.resolve_target`.
+/// R3.3 (AKP-0011) — response body for `ak.find.directory.read.resolve_target.v1`.
 ///
 /// Common §9.1 directory fields (`as_of`, `source_refs`, `join_candidates`,
 /// `policy_revision`, `stale`, `divergent`) mirror the other directory
@@ -468,7 +468,7 @@ impl DirectoryResolveOrganizationRequestBody {
     pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
         directory_proof_binding_bytes(
             ProofContextId::DIRECTORY_RESOLVE_ORGANIZATION_REQUEST_PROOF_V1,
-            ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_ORGANIZATION,
+            ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_ORGANIZATION_V1,
             None,
             Vec::new(),
             &self.payload_digest()?,
@@ -657,7 +657,7 @@ impl DirectoryResolveHandleRequestBody {
     pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
         directory_proof_binding_bytes(
             ProofContextId::DIRECTORY_RESOLVE_HANDLE_REQUEST_PROOF_V1,
-            ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_HANDLE,
+            ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_HANDLE_V1,
             Some(directory_required_issuer(self.requester.as_ref())?),
             vec![("handle", Value::String(self.handle.clone()))],
             &self.payload_digest()?,
@@ -666,7 +666,7 @@ impl DirectoryResolveHandleRequestBody {
     }
 }
 
-/// Request body for `ak.find.directory.read.resolve_agent_selector`.
+/// Request body for `ak.find.directory.read.resolve_agent_selector.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryResolveAgentSelectorRequestBody {
@@ -697,7 +697,7 @@ impl DirectoryResolveAgentSelectorRequestBody {
     pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
         directory_proof_binding_bytes(
             ProofContextId::DIRECTORY_RESOLVE_AGENT_SELECTOR_REQUEST_PROOF_V1,
-            ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_AGENT_SELECTOR,
+            ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_AGENT_SELECTOR_V1,
             Some(serde_json::to_value(&self.requester)?),
             vec![
                 (
@@ -712,7 +712,7 @@ impl DirectoryResolveAgentSelectorRequestBody {
     }
 }
 
-/// Response body for `ak.find.directory.read.resolve_agent_selector`.
+/// Response body for `ak.find.directory.read.resolve_agent_selector.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryAgentSelectorResolutionOutcome {
@@ -760,7 +760,7 @@ impl DirectoryAgentSelectorResolutionOutcome {
 }
 
 /// R3.2 (arkret-spec @ b56cab1) — request body for
-/// `ak.find.directory.read.list_handles_for_subject`. Known holder/principal DID +
+/// `ak.find.directory.read.list_handles_for_subject.v1`. Known holder/principal DID +
 /// context → current visible handle claims (inverse of `resolve_handle`).
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -799,7 +799,7 @@ impl DirectoryListHandlesForSubjectRequestBody {
     pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
         directory_proof_binding_bytes(
             ProofContextId::DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1,
-            ServiceOperationId::FIND_DIRECTORY_READ_LIST_HANDLES_FOR_SUBJECT,
+            ServiceOperationId::FIND_DIRECTORY_READ_LIST_HANDLES_FOR_SUBJECT_V1,
             Some(directory_required_issuer(self.requester.as_ref())?),
             vec![("subject", serde_json::to_value(&self.subject)?)],
             &self.payload_digest()?,
@@ -844,7 +844,7 @@ fn directory_required_issuer(requester: Option<&DidCoreId>) -> Result<Value> {
 /// `context` is the request family's own registered context, so a signature
 /// valid for one family can never be accepted by another. `audience` is
 /// mandatory and MUST be the target Directory `service_id` published by
-/// `ak.find.directory.read.describe`, in single-valued `did_core_id` form;
+/// `ak.find.directory.read.describe.v1`, in single-valued `did_core_id` form;
 /// `domain` and `proof_purpose` MUST be absent — `governance_authorization`
 /// belongs to the §8.7.1 write surface only.
 fn directory_proof_binding_bytes(
@@ -881,7 +881,7 @@ fn directory_proof_binding_bytes(
         ));
     };
     // Section 9.0.1 pins the target Directory service DID to the `service_id`
-    // published by `ak.find.directory.read.describe`, which is a `did_core_id`.
+    // published by `ak.find.directory.read.describe.v1`, which is a `did_core_id`.
     // The full `did:<method>:<msi>` form is not an accepted alternative: it
     // would produce different signed bytes and the mismatch is swallowed by the
     // section 9.2 indistinguishable rejection, so it fails closed here instead.
@@ -1126,7 +1126,7 @@ fn directory_governance_unsigned_request<T: Serialize>(request: &T) -> Result<Va
     Ok(value)
 }
 
-/// `ak.find.directory.command.withdraw` request. Mirrors
+/// `ak.find.directory.command.withdraw.v1` request. Mirrors
 /// `service-operation-dtos.schema.json#/$defs/DirectoryWithdrawRequestBody`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1153,7 +1153,7 @@ impl DirectoryWithdrawRequestBody {
 
     pub fn proof_binding_bytes(&self) -> Result<Vec<u8>> {
         self.governance_proof.binding_bytes(
-            ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW,
+            ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW_V1,
             &self.resource_id,
             &self.payload_digest()?,
         )
@@ -1178,7 +1178,7 @@ pub enum DirectoryTakedownAppealOutcomeRequest {
     Reinstate,
 }
 
-/// `ak.find.directory.command.takedown_appeal` request — resource-side appeal
+/// `ak.find.directory.command.takedown_appeal.v1` request — resource-side appeal
 /// of an operator takedown. Mirrors
 /// `service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealRequestBody`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1211,14 +1211,14 @@ impl DirectoryTakedownAppealRequestBody {
 
     pub fn proof_binding_bytes(&self) -> Result<Vec<u8>> {
         self.governance_proof.binding_bytes(
-            ServiceOperationId::FIND_DIRECTORY_COMMAND_TAKEDOWN_APPEAL,
+            ServiceOperationId::FIND_DIRECTORY_COMMAND_TAKEDOWN_APPEAL_V1,
             &self.resource_id,
             &self.payload_digest()?,
         )
     }
 }
 
-/// `ak.find.directory.command.takedown_appeal` outcome — signed decision
+/// `ak.find.directory.command.takedown_appeal.v1` outcome — signed decision
 /// receipt. Mirrors
 /// `service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealOutcome`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1233,7 +1233,7 @@ pub struct DirectoryTakedownAppealOutcome {
     pub decision_receipt: BTreeMap<String, Value>,
 }
 
-/// A single `ak.find.directory.read.search_users` result row.
+/// A single `ak.find.directory.read.search_users.v1` result row.
 ///
 /// Embeds the collaboration `DeliveryBindingHint` (now owned by
 /// `arkret-models-identity`) and the discovery-local [`UserSearchMembership`];
@@ -1318,7 +1318,7 @@ pub struct DirectoryHandleResolutionOutcome {
     pub via_services: Vec<String>,
 }
 
-/// R3.2 — response body for `ak.find.directory.read.list_handles_for_subject`.
+/// R3.2 — response body for `ak.find.directory.read.list_handles_for_subject.v1`.
 /// Schema `ak.schema.list_handles_for_subject_response.v1`. Every
 /// `claims[].subject` MUST equal [`Self::subject`] (byte-equal); use
 /// [`Self::validate`] to enforce.
@@ -1467,7 +1467,7 @@ mod directory_requester_proof_binding_tests {
     }
 
     /// `discovery-directory.md` §9.0.1 pins the binding `audience` to the target
-    /// Directory `service_id` published by `ak.find.directory.read.describe`,
+    /// Directory `service_id` published by `ak.find.directory.read.describe.v1`,
     /// which is a `did_core_id`. A full `did:<method>:<msi>` audience is not an
     /// accepted alternative shape: it would only surface as a signature
     /// mismatch that §9.2 collapses into an indistinguishable rejection, so the
@@ -1552,7 +1552,7 @@ mod directory_governance_proof_tests {
         );
         assert_eq!(
             transcript["operation_id"],
-            Value::from(ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW)
+            Value::from(ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW_V1)
         );
         assert_eq!(transcript["resource_id"], Value::from(RESOURCE_ID));
         assert_eq!(transcript["verification_method"], VERIFICATION_METHOD);
@@ -1592,7 +1592,7 @@ mod directory_governance_proof_tests {
         let appeal_transcript: Value = serde_json::from_slice(
             &proof
                 .binding_bytes(
-                    ServiceOperationId::FIND_DIRECTORY_COMMAND_TAKEDOWN_APPEAL,
+                    ServiceOperationId::FIND_DIRECTORY_COMMAND_TAKEDOWN_APPEAL_V1,
                     RESOURCE_ID,
                     &digest,
                 )
@@ -1601,11 +1601,11 @@ mod directory_governance_proof_tests {
         .unwrap();
         assert_eq!(
             withdraw_transcript["operation_id"],
-            "ak.find.directory.command.withdraw"
+            "ak.find.directory.command.withdraw.v1"
         );
         assert_eq!(
             appeal_transcript["operation_id"],
-            "ak.find.directory.command.takedown_appeal"
+            "ak.find.directory.command.takedown_appeal.v1"
         );
     }
 
@@ -1634,7 +1634,7 @@ mod directory_governance_proof_tests {
         wrong_kind.kind = "attached_jws".to_owned();
         wrong_kind
             .binding_bytes(
-                ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW,
+                ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW_V1,
                 RESOURCE_ID,
                 &digest,
             )
@@ -1644,7 +1644,7 @@ mod directory_governance_proof_tests {
         empty_jws.jws = String::new();
         empty_jws
             .binding_bytes(
-                ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW,
+                ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW_V1,
                 RESOURCE_ID,
                 &digest,
             )
@@ -1653,7 +1653,7 @@ mod directory_governance_proof_tests {
         let other_digest = Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap();
         body.governance_proof
             .binding_bytes(
-                ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW,
+                ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW_V1,
                 RESOURCE_ID,
                 &other_digest,
             )

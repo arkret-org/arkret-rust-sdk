@@ -118,7 +118,7 @@ DOS against the controller's automated workflows.
 request to a signed envelope binding the agent's S-1 key, the calling
 `agent_session_id` (S-2), and the controller DID; the verifier rejects any
 envelope whose `agent_key_id` is not in the active rotation window from
-`ak.self.agent.command.rotate_key`. `ak.self.agent.command.pause` / `ak.self.agent.command.deactivate` are gated on the
+`ak.self.agent.command.rotate_key`. `ak.self.agent.command.pause.v1` / `ak.self.agent.command.deactivate.v1` are gated on the
 controller's session grant (`ak.profile.agent_delegation_policy.v1`), so a
 stolen agent key cannot deactivate itself or extend its own scope. Durable
 agent writes remain accountable through the ordinary signed Event envelope,
@@ -148,7 +148,7 @@ that its events or private locators leak into the source Strand, or that a
 caller fabricates a Sidecar identity or participation list.
 
 *Mitigations.* `ak.profile.agent_sidecar.v1` exposes only the self-scoped
-`ak.self.agent.sidecar.command.ensure` aggregate and dedicated get/list reads.
+`ak.self.agent.sidecar.command.ensure.v1` aggregate and dedicated get/list reads.
 The reducer derives the Sidecar singleton from the create Event and binds an
 independent MLS group directly to the native Sidecar scope. Participants are
 the controller plus ownership-derived Agents and cannot be edited through a

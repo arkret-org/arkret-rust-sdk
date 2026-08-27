@@ -11,13 +11,13 @@ mod tests {
     #[test]
     fn paths_match_generated_operation_registry() {
         assert_eq!(
-            ServiceOperationId::PeerPrincipalGenesisCommandSubmit
+            ServiceOperationId::PeerPrincipalGenesisCommandSubmitV1
                 .descriptor()
                 .http_path,
             PATH_PEER_PRINCIPAL_GENESIS
         );
         assert_eq!(
-            ServiceOperationId::PeerDeviceRevocationsCommandCheck
+            ServiceOperationId::PeerDeviceRevocationsCommandCheckV1
                 .descriptor()
                 .http_path,
             PATH_PEER_DEVICE_REVOCATIONS_CHECK

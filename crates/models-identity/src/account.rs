@@ -159,7 +159,7 @@ pub struct AccountRegistrationAudit {
     pub retry_after_ms: Option<u64>,
 }
 
-/// Body of `ak.self.account_data.resource.replace`.
+/// Body of `ak.self.account_data.resource.replace.v1`.
 ///
 /// `ak.account_data.set`'s actor-private cell subject is
 /// `composite[envelope.actor_id, payload.key]`, so the subject *is* the holder:
@@ -181,11 +181,11 @@ pub struct AccountDataReplaceRequestBody {
     pub set_event: arkret_wire::EventInitialSubmission,
 }
 
-/// Body of `ak.self.account_data.resource.delete`.
+/// Body of `ak.self.account_data.resource.delete.v1`.
 ///
 /// Same signer rule as [`AccountDataReplaceRequestBody`]; the payload MUST carry
 /// `tombstone`. The DELETE takes a body because that is the only place the
-/// holder's signature can go — `ak.self.keys.backups.resource.delete` already
+/// holder's signature can go — `ak.self.keys.backups.resource.delete.v1` already
 /// shows a DELETE may carry one — and `expected_revision` moved into the payload
 /// rather than staying a query parameter, so one CAS precondition has one source.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -479,19 +479,19 @@ fn account_handoff_proof_signing_bytes(value: &Value) -> Result<Vec<u8>> {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum AccountHandoffAllowedOperation {
-    #[serde(rename = "ak.gate.account.command.issue_did_binding_challenge")]
+    #[serde(rename = "ak.gate.account.command.issue_did_binding_challenge.v1")]
     IssueDidBindingChallenge,
-    #[serde(rename = "ak.gate.account.command.issue_identity_binding_challenge")]
+    #[serde(rename = "ak.gate.account.command.issue_identity_binding_challenge.v1")]
     IssueIdentityBindingChallenge,
-    #[serde(rename = "ak.gate.account.command.register")]
+    #[serde(rename = "ak.gate.account.command.register.v1")]
     Register,
-    #[serde(rename = "ak.gate.account.command.issue_session_grant")]
+    #[serde(rename = "ak.gate.account.command.issue_session_grant.v1")]
     IssueSessionGrant,
-    #[serde(rename = "ak.gate.account.command.issue_recovery_completion_grant")]
+    #[serde(rename = "ak.gate.account.command.issue_recovery_completion_grant.v1")]
     IssueRecoveryCompletionGrant,
-    #[serde(rename = "ak.gate.account.command.issue_identity_abandonment_challenge")]
+    #[serde(rename = "ak.gate.account.command.issue_identity_abandonment_challenge.v1")]
     IssueIdentityAbandonmentChallenge,
-    #[serde(rename = "ak.gate.account.command.abandon_identity_creation")]
+    #[serde(rename = "ak.gate.account.command.abandon_identity_creation.v1")]
     AbandonIdentityCreation,
 }
 
@@ -1068,7 +1068,7 @@ pub struct IdentityAbandonmentOutcome {
     pub abandoned_at: DateTime<Utc>,
 }
 
-/// Request body of `ak.gate.account.command.request_erasure`
+/// Request body of `ak.gate.account.command.request_erasure.v1`
 /// (`POST /_arkret/gate/account/erasure-requests`; account-lifecycle.md
 /// section 8.1). Acceptance records the erasure intent only; it is neither
 /// the signed `erasure_pending` AccountStatusRecord nor a completion receipt.
@@ -1346,9 +1346,9 @@ pub const PCR_GENESIS_UNIT_KINDS: [PcrGenesisUnitEventKind; 2] = [
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum InitialSessionGrantOperation {
-    #[serde(rename = "ak.self.account.read.describe")]
+    #[serde(rename = "ak.self.account.read.describe.v1")]
     AccountReadDescribe,
-    #[serde(rename = "ak.self.events.read.scan")]
+    #[serde(rename = "ak.self.events.read.scan.v1")]
     EventsReadScan,
 }
 
@@ -1356,9 +1356,9 @@ impl InitialSessionGrantOperation {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::AccountReadDescribe => {
-                arkret_wire::ServiceOperationId::SELF_ACCOUNT_READ_DESCRIBE
+                arkret_wire::ServiceOperationId::SELF_ACCOUNT_READ_DESCRIBE_V1
             }
-            Self::EventsReadScan => arkret_wire::ServiceOperationId::SELF_EVENTS_READ_SCAN,
+            Self::EventsReadScan => arkret_wire::ServiceOperationId::SELF_EVENTS_READ_SCAN_V1,
         }
     }
 }
@@ -1376,19 +1376,19 @@ pub fn standard_initial_session_grant_scope() -> Vec<String> {
 }
 
 pub const RECOVERY_SESSION_GRANT_OPERATIONS: [&str; 13] = [
-    arkret_wire::ServiceOperationId::ROOT_IDENTITY_LOG_READ_LIST,
-    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET,
-    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE,
-    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF,
-    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET,
-    arkret_wire::ServiceOperationId::SELF_EVENTS_READ_FRONTIER,
-    arkret_wire::ServiceOperationId::SELF_EVENTS_READ_SCAN,
-    arkret_wire::ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK,
-    arkret_wire::ServiceOperationId::SELF_KEYS_BACKUPS_READ_LIST,
-    arkret_wire::ServiceOperationId::SELF_KEYS_READ_LOOKUP,
-    arkret_wire::ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE,
-    arkret_wire::ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CREATE,
-    arkret_wire::ServiceOperationId::SELF_SECURITY_TRANSACTION_RESOURCE_GET,
+    arkret_wire::ServiceOperationId::ROOT_IDENTITY_LOG_READ_LIST_V1,
+    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET_V1,
+    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE_V1,
+    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF_V1,
+    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET_V1,
+    arkret_wire::ServiceOperationId::SELF_EVENTS_READ_FRONTIER_V1,
+    arkret_wire::ServiceOperationId::SELF_EVENTS_READ_SCAN_V1,
+    arkret_wire::ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK_V1,
+    arkret_wire::ServiceOperationId::SELF_KEYS_BACKUPS_READ_LIST_V1,
+    arkret_wire::ServiceOperationId::SELF_KEYS_READ_LOOKUP_V1,
+    arkret_wire::ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1,
+    arkret_wire::ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CREATE_V1,
+    arkret_wire::ServiceOperationId::SELF_SECURITY_TRANSACTION_RESOURCE_GET_V1,
 ];
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

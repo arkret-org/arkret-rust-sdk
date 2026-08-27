@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::generated::profile_requirements::{
-    ProfileRequirements, ProfileRequirementsError, requirements_for,
+    ProfileOperationRequirement, ProfileRequirements, ProfileRequirementsError, requirements_for,
 };
 
 /// Implementation surface used to validate a set of claimed profiles.
@@ -12,7 +12,7 @@ use arkret_wire::generated::profile_requirements::{
 /// semantically backed by the advertised wire surface.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ProfileSemanticSurface {
-    pub operations: Vec<String>,
+    pub operation_requirements: Vec<ProfileOperationRequirement>,
     pub event_kinds: Vec<String>,
     pub schemas: Vec<String>,
     pub fixtures: Vec<String>,
@@ -28,7 +28,7 @@ pub struct ProfileSemanticSurface {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ProfileSemanticRequirements {
     pub profile_ids: Vec<String>,
-    pub required_operations: Vec<String>,
+    pub operation_requirements: Vec<ProfileOperationRequirement>,
     pub required_event_kinds: Vec<String>,
     pub required_schemas: Vec<String>,
     pub rejected_event_kinds: Vec<String>,
@@ -45,7 +45,7 @@ pub struct ProfileSemanticRequirements {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProfileSemanticCoverageReport {
     pub requirements: ProfileSemanticRequirements,
-    pub missing_operations: Vec<String>,
+    pub missing_operation_requirements: Vec<ProfileOperationRequirement>,
     pub missing_event_kinds: Vec<String>,
     pub missing_schemas: Vec<String>,
     pub rejected_event_kinds_present: Vec<String>,
@@ -59,7 +59,7 @@ pub struct ProfileSemanticCoverageReport {
 
 impl ProfileSemanticCoverageReport {
     pub fn is_compliant(&self) -> bool {
-        self.missing_operations.is_empty()
+        self.missing_operation_requirements.is_empty()
             && self.missing_event_kinds.is_empty()
             && self.missing_schemas.is_empty()
             && self.rejected_event_kinds_present.is_empty()
@@ -97,29 +97,6 @@ impl From<ProfileRequirementsError> for ProfileSemanticCoverageError {
             ProfileRequirementsError::UnknownProfile { profile_id } => {
                 Self::UnknownProfile { profile_id }
             }
-            ProfileRequirementsError::MissingRequirements {
-                profile_id,
-                missing_operations,
-                missing_event_kinds,
-                missing_schemas,
-            } => Self::MissingRequirements {
-                report: Box::new(ProfileSemanticCoverageReport {
-                    requirements: ProfileSemanticRequirements {
-                        profile_ids: vec![profile_id],
-                        ..ProfileSemanticRequirements::default()
-                    },
-                    missing_operations,
-                    missing_event_kinds,
-                    missing_schemas,
-                    rejected_event_kinds_present: Vec::new(),
-                    missing_fixtures: Vec::new(),
-                    missing_capability_actions: Vec::new(),
-                    missing_features: Vec::new(),
-                    missing_cell_namespaces: Vec::new(),
-                    missing_cells: Vec::new(),
-                    missing_constraint_kinds: Vec::new(),
-                }),
-            },
         }
     }
 }
@@ -132,9 +109,9 @@ impl std::fmt::Display for ProfileSemanticCoverageError {
             }
             Self::MissingRequirements { report } => write!(
                 f,
-                "profile semantic coverage missing requirements for {:?}: ops={:?} event_kinds={:?} schemas={:?} rejected_event_kinds_present={:?} fixtures={:?} capability_actions={:?} features={:?} cell_namespaces={:?} cells={:?} constraint_kinds={:?}",
+                "profile semantic coverage missing requirements for {:?}: operation_requirements={:?} event_kinds={:?} schemas={:?} rejected_event_kinds_present={:?} fixtures={:?} capability_actions={:?} features={:?} cell_namespaces={:?} cells={:?} constraint_kinds={:?}",
                 report.requirements.profile_ids,
-                report.missing_operations,
+                report.missing_operation_requirements,
                 report.missing_event_kinds,
                 report.missing_schemas,
                 report.rejected_event_kinds_present,
@@ -167,18 +144,24 @@ pub fn profile_semantic_coverage_report(
     surface: &ProfileSemanticSurface,
 ) -> Result<ProfileSemanticCoverageReport, ProfileRequirementsError> {
     let requirements = collect_profile_semantic_requirements(profile_ids)?;
-    let implemented_operations = set(&surface.operations);
+    let implemented_operation_requirements: BTreeSet<_> =
+        surface.operation_requirements.iter().copied().collect();
     let implemented_event_kinds = set(&surface.event_kinds);
     let implemented_schemas = set(&surface.schemas);
     let implemented_fixtures = set(&surface.fixtures);
     let implemented_capability_actions = set(&surface.capability_actions);
-    let implemented_features = set(&surface.features);
+    let advertised_features = set(&surface.features);
     let implemented_cell_namespaces = set(&surface.cell_namespaces);
     let implemented_cells = set(&surface.cells);
     let implemented_constraint_kinds = set(&surface.constraint_kinds);
 
     Ok(ProfileSemanticCoverageReport {
-        missing_operations: missing(&requirements.required_operations, &implemented_operations),
+        missing_operation_requirements: requirements
+            .operation_requirements
+            .iter()
+            .filter(|item| !implemented_operation_requirements.contains(item))
+            .copied()
+            .collect(),
         missing_event_kinds: missing(&requirements.required_event_kinds, &implemented_event_kinds),
         missing_schemas: missing(&requirements.required_schemas, &implemented_schemas),
         rejected_event_kinds_present: present(
@@ -190,7 +173,7 @@ pub fn profile_semantic_coverage_report(
             &requirements.required_capability_actions,
             &implemented_capability_actions,
         ),
-        missing_features: missing(&requirements.required_features, &implemented_features),
+        missing_features: missing(&requirements.required_features, &advertised_features),
         missing_cell_namespaces: missing(
             &requirements.required_cell_namespaces,
             &implemented_cell_namespaces,
@@ -233,7 +216,7 @@ pub fn profile_capability_action_coverage_report(
 #[derive(Default)]
 struct RequirementsAccumulator {
     profile_ids: BTreeSet<String>,
-    required_operations: BTreeSet<String>,
+    operation_requirements: BTreeSet<ProfileOperationRequirement>,
     required_event_kinds: BTreeSet<String>,
     required_schemas: BTreeSet<String>,
     rejected_event_kinds: BTreeSet<String>,
@@ -248,7 +231,8 @@ struct RequirementsAccumulator {
 impl RequirementsAccumulator {
     fn insert(&mut self, req: &ProfileRequirements) {
         self.profile_ids.insert(req.profile_id.to_owned());
-        extend(&mut self.required_operations, req.required_operations);
+        self.operation_requirements
+            .extend(req.operation_requirements.iter().copied());
         extend(&mut self.required_event_kinds, req.required_event_kinds);
         extend(&mut self.required_schemas, req.required_schemas);
         extend(&mut self.rejected_event_kinds, req.rejected_event_kinds);
@@ -272,7 +256,7 @@ impl RequirementsAccumulator {
     fn finish(self) -> ProfileSemanticRequirements {
         ProfileSemanticRequirements {
             profile_ids: into_vec(self.profile_ids),
-            required_operations: into_vec(self.required_operations),
+            operation_requirements: self.operation_requirements.into_iter().collect(),
             required_event_kinds: into_vec(self.required_event_kinds),
             required_schemas: into_vec(self.required_schemas),
             rejected_event_kinds: into_vec(self.rejected_event_kinds),
@@ -343,6 +327,8 @@ fn into_vec(values: BTreeSet<String>) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::{BindingKind, ProfileOperationDirection, ServiceOperationId};
+
     use super::*;
 
     #[test]
@@ -360,45 +346,27 @@ mod tests {
     }
 
     #[test]
-    fn chat_mvp_collects_feature_discovery_requirements() {
-        let requirements =
-            collect_profile_semantic_requirements(&["ak.profile.chat_mvp.v1"]).unwrap();
-        for feature in [
-            "discussion_history_access",
-            "supported_event_kinds",
-            "supported_sync_profiles",
-        ] {
-            assert!(
-                requirements
-                    .required_features
-                    .iter()
-                    .any(|required| required == feature),
-                "chat MVP requirements dropped feature-discovery token {feature}"
-            );
-        }
-    }
-
-    #[test]
     fn candidate_join_policy_requires_complete_private_carrier_surface() {
         validate_profile_semantic_coverage(
             &["ak.profile.candidate.join_policy.v1"],
             &ProfileSemanticSurface {
-                operations: vec![
-                    "ak.self.realm.join_application.audit.read.list".to_owned(),
-                    "ak.self.realm.join_application.command.cancel".to_owned(),
-                    "ak.self.realm.join_application.command.review".to_owned(),
-                    "ak.self.realm.join_application.command.submit".to_owned(),
-                    "ak.self.realm.join_application.read.list".to_owned(),
-                    "ak.self.realm.join_application.resource.get".to_owned(),
-                ],
+                operation_requirements: [
+                    ServiceOperationId::SelfRealmJoinApplicationAuditReadListV1,
+                    ServiceOperationId::SelfRealmJoinApplicationCommandCancelV1,
+                    ServiceOperationId::SelfRealmJoinApplicationCommandReviewV1,
+                    ServiceOperationId::SelfRealmJoinApplicationCommandSubmitV1,
+                    ServiceOperationId::SelfRealmJoinApplicationReadListV1,
+                    ServiceOperationId::SelfRealmJoinApplicationResourceGetV1,
+                ]
+                .map(|operation_id| ProfileOperationRequirement {
+                    direction: ProfileOperationDirection::Provide,
+                    operation_id,
+                    binding_kind: BindingKind::HttpJson,
+                })
+                .to_vec(),
                 schemas: vec!["ak.schema.join_policy_operations.v1".to_owned()],
                 fixtures: vec!["websocket-binding-fixture.json".to_owned()],
                 capability_actions: vec!["ak.realm.join.review".to_owned()],
-                features: vec![
-                    "candidate_join_policy_reviewer".to_owned(),
-                    "candidate_member_application_intake".to_owned(),
-                    "profile_private_http_receipt_v1".to_owned(),
-                ],
                 ..ProfileSemanticSurface::default()
             },
         )

@@ -170,17 +170,17 @@ mod tests {
         assert!(
             required
                 .iter()
-                .any(|id| id == "ak.self.events.read.frontier")
+                .any(|id| id == "ak.self.events.read.frontier.v1")
         );
         assert!(
             required
                 .iter()
-                .any(|id| id == "ak.self.seals.read.frontier")
+                .any(|id| id == "ak.self.seals.read.frontier.v1")
         );
         assert!(
             required
                 .iter()
-                .any(|id| id == "ak.self.keys.keypackages.upload.create")
+                .any(|id| id == "ak.self.keys.keypackages.upload.create.v1")
         );
 
         for (layer, reason) in [

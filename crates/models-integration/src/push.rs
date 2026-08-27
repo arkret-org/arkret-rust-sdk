@@ -374,7 +374,7 @@ mod tests {
     fn bridge_notify_descriptor_exposes_dedup_and_rate_limit_windows() {
         let descriptor = PushBridgeDescribeNotifyDescriptor {
             notify_path: "/_arkret/edge/push/notify".to_owned(),
-            operation_id: "ak.edge.push.command.notify".to_owned(),
+            operation_id: "ak.edge.push.command.notify.v1".to_owned(),
             request_id_header: "X-Arkret-Request-Id".to_owned(),
             idempotency_key_header: "X-Arkret-Idempotency-Key".to_owned(),
             source_service_id_header: "Source-Service-ID".to_owned(),
@@ -432,7 +432,7 @@ mod tests {
             "gateway": {},
             "notify": {
                 "notify_path": "/_arkret/edge/push/notify",
-                "operation_id": "ak.edge.push.command.notify",
+                "operation_id": "ak.edge.push.command.notify.v1",
                 "request_id_header": "X-Arkret-Request-Id",
                 "idempotency_key_header": "X-Arkret-Idempotency-Key",
                 "source_service_id_header": "Source-Service-ID",

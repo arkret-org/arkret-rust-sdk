@@ -190,7 +190,7 @@ impl AccountLifecycleProof {
     ) -> Result<Hash> {
         let request = json!({
             "schema": SchemaId::ACCOUNT_OPERATIONS_V1,
-            "operation": ServiceOperationId::GATE_ACCOUNT_COMMAND_REVOKE_SESSION,
+            "operation": ServiceOperationId::GATE_ACCOUNT_COMMAND_REVOKE_SESSION_V1,
             "actor_id": actor_id,
             "service_id": service_id,
             "session_device_id": session_device_id,
@@ -1489,7 +1489,7 @@ pub struct SessionRevokeOutcome {
     pub revoked_session_grant_ids: Vec<SessionGrantId>,
 }
 
-/// `ak.self.applet.command.revoke` request body. Binds the account-lifecycle
+/// `ak.self.applet.command.revoke.v1` request body. Binds the account-lifecycle
 /// proof (`AccountLifecycleProof`) alongside the applet revoke mode
 /// (`AppletRevokeMode`, `arkret-wire`), so it lives in the collaboration domain
 /// which reaches both. the `arkret` umbrella re-exports it for path stability.

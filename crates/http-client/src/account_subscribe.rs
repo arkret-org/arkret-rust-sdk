@@ -1,4 +1,4 @@
-//! Incremental folding for `ak.self.account.stream.subscribe` frames.
+//! Incremental folding for `ak.self.account.stream.subscribe.v1` frames.
 //!
 //! The frame family and validated batch result types live in
 //! `arkret-models-collaboration` (`sync_frames::account_subscribe`,

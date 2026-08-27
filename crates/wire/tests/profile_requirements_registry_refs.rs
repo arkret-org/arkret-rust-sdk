@@ -16,7 +16,7 @@
 //! have no closed registry to resolve against.
 
 use arkret_wire::generated::profile_requirements::PROFILE_REQUIREMENTS;
-use arkret_wire::{CapabilityActionId, EventKind, ProfileId, SchemaId, ServiceOperationId};
+use arkret_wire::{CapabilityActionId, EventKind, ProfileId, SchemaId};
 
 /// `schemas.py` exempts `wire_scope:` pseudo-kinds from the event-kind registry
 /// check; they name a wire scope, not a registered `Event.kind`.
@@ -63,14 +63,18 @@ fn inherited_profiles_are_registered_and_present_in_the_table() {
 }
 
 #[test]
-fn required_operations_resolve_to_registered_operation_ids() {
+fn operation_requirements_are_typed_and_enforcement_is_explicit() {
     for (profile_id, requirements) in PROFILE_REQUIREMENTS.iter() {
-        for operation in requirements.required_operations {
-            assert!(
-                ServiceOperationId::from_wire(operation).is_some(),
-                "{profile_id}.required_operations references unregistered operation: {operation}"
-            );
-        }
+        assert!(
+            !requirements.enforcement_phases.is_empty(),
+            "{profile_id} has no enforcement phase"
+        );
+        assert!(
+            requirements
+                .operation_requirements
+                .iter()
+                .all(|requirement| !requirement.operation_id.as_str().is_empty())
+        );
     }
 }
 

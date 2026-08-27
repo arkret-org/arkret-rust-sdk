@@ -129,7 +129,7 @@ mod tests {
         let seed = std::array::from_fn(|index| index as u8);
         let public_key = SigningKey::from_bytes(&seed).verifying_key().to_bytes();
         let input = concat!(
-            "ak.self.keys.keypackages.command.revoke\n",
+            "ak.self.keys.keypackages.command.revoke.v1\n",
             "{\"device_id\":\"ak:device:01964137-0000-7000-8000-00000000000d\",",
             "\"keypackage_refs\":[\"sha256:1111111111111111111111111111111111111111111111111111111111111111\"],",
             "\"reason\":\"authorization_superseded\"}"
@@ -143,7 +143,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             signature.sig.as_str(),
-            "xfcHcRB3y3_b4MqQQ8k2n9hOJVV-9O7ERtiK3ah7R648G4QOZsOmL8AWMgP1c39WGunNB_u1Qg5K7tScRpr0Ag"
+            "MSNSXkOn8sYj6vDzAR5gLB_wYstyPNSCgHHKhnJO5qt-ZiYHIlL_ErLtBiv8n81Cn7asi4OCTzKK0wVej-pTAQ"
         );
         verify_keypackage_signing_input(
             &public_key,

@@ -5,8 +5,14 @@ use std::str::FromStr;
 use arkret_wire::generated::profile_requirements::requirements_for;
 use arkret_wire::{DidCoreId, DidFullId, ProfileId, SchemaId, *};
 use chrono::{DateTime, Utc};
+use curve25519_dalek::ristretto::CompressedRistretto;
+use curve25519_dalek::traits::Identity;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+use crate::websocket_binding::{
+    WebSocketBindingAuthentication, WebSocketBindingProfile, WebSocketBindingSubprotocol,
+};
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -129,158 +135,291 @@ pub struct PrivacyDerivation {
     pub push_target_id: Option<PushTargetPrivacyDerivation>,
 }
 
-/// Closed success-carrier classes registered by the current Arkret v1
-/// operation catalog.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum OperationSuccessShapeKind {
-    BinaryStream,
-    EmptyResponse,
-    EventStream,
-    MetadataHeaders,
-    SchemaResource,
-    ServiceDescribe,
-    TypedResponse,
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TusVersion {
+    #[serde(rename = "1.0.0")]
+    V1_0_0,
 }
 
-impl OperationSuccessShapeKind {
-    pub fn from_registry(value: &str) -> Option<Self> {
-        match value {
-            "binary_stream" => Some(Self::BinaryStream),
-            "empty_response" => Some(Self::EmptyResponse),
-            "event_stream" => Some(Self::EventStream),
-            "metadata_headers" => Some(Self::MetadataHeaders),
-            "schema_resource" => Some(Self::SchemaResource),
-            "service_describe" => Some(Self::ServiceDescribe),
-            "typed_response" => Some(Self::TypedResponse),
-            _ => None,
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum TusExtension {
+    Creation,
+    CreationWithUpload,
+    Checksum,
+    Expiration,
+    Termination,
+}
+
+/// Closed transport endpoint union. Operation membership is intentionally
+/// absent and comes only from registered operation bundles.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum TransportBinding {
+    HttpJson {
+        base_url: String,
+        extension_profile_required: (),
+    },
+    Tus {
+        base_url: String,
+        extension_profile_required: (),
+        tus_version: Vec<TusVersion>,
+        tus_extensions: Vec<TusExtension>,
+    },
+    Websocket {
+        base_url: String,
+        extension_profile_required: WebSocketBindingProfile,
+        subprotocol: WebSocketBindingSubprotocol,
+        authentication: WebSocketBindingAuthentication,
+        max_frame_bytes: u32,
+        max_channels: u32,
+    },
+}
+
+impl TransportBinding {
+    pub fn http_json(base_url: impl Into<String>) -> Self {
+        Self::HttpJson {
+            base_url: base_url.into(),
+            extension_profile_required: (),
         }
     }
 
-    pub const fn as_str(self) -> &'static str {
+    pub fn tus(base_url: impl Into<String>, tus_extensions: Vec<TusExtension>) -> Self {
+        Self::Tus {
+            base_url: base_url.into(),
+            extension_profile_required: (),
+            tus_version: vec![TusVersion::V1_0_0],
+            tus_extensions,
+        }
+    }
+
+    pub fn websocket(base_url: impl Into<String>, max_frame_bytes: u32, max_channels: u32) -> Self {
+        Self::Websocket {
+            base_url: base_url.into(),
+            extension_profile_required: WebSocketBindingProfile::BindingWebsocketV1,
+            subprotocol: WebSocketBindingSubprotocol::ArkretV1,
+            authentication: WebSocketBindingAuthentication::ChallengeDpopSessionV1,
+            max_frame_bytes,
+            max_channels,
+        }
+    }
+
+    pub const fn kind(&self) -> BindingKind {
         match self {
-            Self::BinaryStream => "binary_stream",
-            Self::EmptyResponse => "empty_response",
-            Self::EventStream => "event_stream",
-            Self::MetadataHeaders => "metadata_headers",
-            Self::SchemaResource => "schema_resource",
-            Self::ServiceDescribe => "service_describe",
-            Self::TypedResponse => "typed_response",
+            Self::HttpJson { .. } => BindingKind::HttpJson,
+            Self::Tus { .. } => BindingKind::Tus,
+            Self::Websocket { .. } => BindingKind::Websocket,
+        }
+    }
+
+    pub fn base_url(&self) -> &str {
+        match self {
+            Self::HttpJson { base_url, .. }
+            | Self::Tus { base_url, .. }
+            | Self::Websocket { base_url, .. } => base_url,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        let parsed = url::Url::parse(self.base_url())
+            .map_err(|error| WireError::Protocol(format!("invalid transport base_url: {error}")))?;
+        if parsed.cannot_be_a_base() || parsed.host_str().is_none() {
+            return Err(WireError::Protocol(
+                "transport base_url must be an absolute hierarchical URI".to_owned(),
+            ));
+        }
+        match self {
+            Self::HttpJson { .. } => Ok(()),
+            Self::Tus {
+                tus_version,
+                tus_extensions,
+                ..
+            } => {
+                if tus_version != &[TusVersion::V1_0_0]
+                    || tus_extensions.is_empty()
+                    || tus_extensions
+                        .iter()
+                        .enumerate()
+                        .any(|(index, item)| tus_extensions[..index].contains(item))
+                {
+                    return Err(WireError::Protocol(
+                        "tus transport requires version 1.0.0 and unique non-empty extensions"
+                            .to_owned(),
+                    ));
+                }
+                Ok(())
+            }
+            Self::Websocket { .. } => crate::websocket_binding::validate_websocket_transport(self),
         }
     }
 }
 
-/// One exact operation/carrier/schema combination advertised by a
-/// role-scoped [`ServiceDescribe`]. No field is a compatibility range.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct OperationBinding {
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub operation_id: ServiceOperationId,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub binding_kind: BindingKind,
-    pub preference: u16,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub request_schema_ref: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub response_schema_ref: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub error_schema_ref: Option<String>,
-    pub success_shape_kind: OperationSuccessShapeKind,
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InviteIntroductionKind {
+    LocatorRef,
+    ConsentGrant,
 }
 
-impl OperationBinding {
-    pub fn current_http_json(operation_id: ServiceOperationId) -> Result<Self> {
-        let descriptor = operation_id.descriptor();
-        let success_shape_kind = OperationSuccessShapeKind::from_registry(
-            descriptor.success_shape_kind,
-        )
-        .ok_or_else(|| {
-            WireError::Protocol(format!(
-                "operation registry contains unsupported success_shape_kind={} ({})",
-                descriptor.success_shape_kind,
-                ErrorCode::SCHEMA_VIOLATION
-            ))
-        })?;
-        Ok(Self {
-            operation_id,
-            binding_kind: BindingKind::HttpJson,
-            preference: 100,
-            request_schema_ref: descriptor.request_schema_ref.map(str::to_owned),
-            response_schema_ref: descriptor.response_schema_ref.map(str::to_owned),
-            error_schema_ref: Some("schemas/http-problem-details.schema.json".to_owned()),
-            success_shape_kind,
-        })
-    }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InviteMaxBehavior {
+    Drop,
+    Quarantine,
+    Notify,
+}
 
-    pub fn current_tus_blob_upload() -> Self {
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InviteAddressing {
+    pub supported_introduction_kinds: Vec<InviteIntroductionKind>,
+    pub handle_claim_max_behavior: InviteMaxBehavior,
+    pub explicit_address_max_behavior: InviteMaxBehavior,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PrivateContactDiscoveryProfile {
+    #[serde(rename = "ak.private_contact_discovery.v1")]
+    V1,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PrivateContactDiscoveryOprfMode {
+    #[serde(rename = "VOPRF")]
+    Voprf,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PrivateContactDiscoveryCiphersuite {
+    #[serde(rename = "ristretto255-SHA512")]
+    Ristretto255Sha512,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PrivateContactDiscoveryProofShape {
+    SingleBatchedDleq,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PrivateContactDiscoveryHandoffStubsMode {
+    Always,
+    Never,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AntiEnumerationDelayDistribution {
+    Uniform,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AntiEnumerationDelay {
+    pub minimum_ms: u32,
+    pub jitter_ms: u32,
+    pub distribution: AntiEnumerationDelayDistribution,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PrivateContactDiscovery {
+    pub profile: PrivateContactDiscoveryProfile,
+    pub oprf_mode: PrivateContactDiscoveryOprfMode,
+    pub ciphersuite: PrivateContactDiscoveryCiphersuite,
+    pub public_key: String,
+    pub key_epoch: u64,
+    pub batch_item_count: u16,
+    pub derived_prefix_bytes: u8,
+    pub proof_shape: PrivateContactDiscoveryProofShape,
+    pub handoff_stubs_mode: PrivateContactDiscoveryHandoffStubsMode,
+    pub response_size_buckets_bytes: [u32; 4],
+    pub blind_response_bucket_bytes: u32,
+    pub match_response_bucket_bytes: u32,
+    pub batch_completion_ttl_seconds: u32,
+    pub max_psi_queries_per_window: u64,
+    pub quota_window_seconds: u32,
+    pub anti_enumeration_delay: AntiEnumerationDelay,
+}
+
+impl PrivateContactDiscovery {
+    pub const RESPONSE_SIZE_BUCKETS_BYTES: [u32; 4] = [4096, 16384, 65536, 262144];
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        public_key: impl Into<String>,
+        key_epoch: u64,
+        batch_item_count: u16,
+        handoff_stubs_mode: PrivateContactDiscoveryHandoffStubsMode,
+        blind_response_bucket_bytes: u32,
+        match_response_bucket_bytes: u32,
+        batch_completion_ttl_seconds: u32,
+        max_psi_queries_per_window: u64,
+        quota_window_seconds: u32,
+        anti_enumeration_delay: AntiEnumerationDelay,
+    ) -> Self {
         Self {
-            operation_id: ServiceOperationId::SelfBlobUploadCreate,
-            binding_kind: BindingKind::Tus,
-            preference: 10,
-            request_schema_ref: None,
-            response_schema_ref: None,
-            error_schema_ref: None,
-            success_shape_kind: OperationSuccessShapeKind::MetadataHeaders,
+            profile: PrivateContactDiscoveryProfile::V1,
+            oprf_mode: PrivateContactDiscoveryOprfMode::Voprf,
+            ciphersuite: PrivateContactDiscoveryCiphersuite::Ristretto255Sha512,
+            public_key: public_key.into(),
+            key_epoch,
+            batch_item_count,
+            derived_prefix_bytes: 16,
+            proof_shape: PrivateContactDiscoveryProofShape::SingleBatchedDleq,
+            handoff_stubs_mode,
+            response_size_buckets_bytes: Self::RESPONSE_SIZE_BUCKETS_BYTES,
+            blind_response_bucket_bytes,
+            match_response_bucket_bytes,
+            batch_completion_ttl_seconds,
+            max_psi_queries_per_window,
+            quota_window_seconds,
+            anti_enumeration_delay,
         }
     }
 
-    pub fn current_websocket(operation_id: ServiceOperationId) -> Result<Self> {
-        let (request_schema_ref, response_schema_ref) = match operation_id {
-            ServiceOperationId::SelfAccountStreamSubscribe => (
-                "schemas/websocket-frame.schema.json#/$defs/open_account",
-                "schemas/account-subscribe-frame.schema.json",
-            ),
-            ServiceOperationId::SelfEventsStreamSubscribe => (
-                "schemas/websocket-frame.schema.json#/$defs/open_events",
-                "schemas/events-subscribe-frame.schema.json",
-            ),
-            ServiceOperationId::SelfSignalStreamSubscribe => (
-                "schemas/websocket-frame.schema.json#/$defs/open_signal",
-                "schemas/signal-stream-frame.schema.json",
-            ),
-            _ => {
-                return Err(WireError::Protocol(format!(
-                    "operation {operation_id} has no current-v1 WebSocket carrier ({})",
-                    ErrorCode::SCHEMA_VIOLATION
-                )));
-            }
-        };
-        Ok(Self {
-            operation_id,
-            binding_kind: BindingKind::Websocket,
-            preference: 10,
-            request_schema_ref: Some(request_schema_ref.to_owned()),
-            response_schema_ref: Some(response_schema_ref.to_owned()),
-            error_schema_ref: Some("schemas/websocket-frame.schema.json#/$defs/error".to_owned()),
-            success_shape_kind: OperationSuccessShapeKind::EventStream,
-        })
-    }
-
-    fn current_for_identity(&self) -> Result<Self> {
-        match self.binding_kind {
-            BindingKind::HttpJson => Self::current_http_json(self.operation_id),
-            BindingKind::Tus if self.operation_id == ServiceOperationId::SelfBlobUploadCreate => {
-                Ok(Self::current_tus_blob_upload())
-            }
-            BindingKind::Tus => Err(WireError::Protocol(format!(
-                "operation {} has no current-v1 TUS carrier ({})",
-                self.operation_id,
-                ErrorCode::SCHEMA_VIOLATION
-            ))),
-            BindingKind::Websocket => Self::current_websocket(self.operation_id),
+    pub fn validate(&self) -> Result<()> {
+        let public_key = arkret_canonical::base64url_decode(&self.public_key).map_err(|_| {
+            WireError::Protocol("private contact discovery public_key is not base64url".to_owned())
+        })?;
+        let public_key_bytes: Option<[u8; 32]> = public_key.as_slice().try_into().ok();
+        let public_key_point =
+            public_key_bytes.and_then(|bytes| CompressedRistretto(bytes).decompress());
+        if public_key.len() != 32
+            || arkret_canonical::base64url_encode(&public_key) != self.public_key
+            || public_key_point
+                .is_none_or(|point| point == curve25519_dalek::RistrettoPoint::identity())
+            || !(1..=1024).contains(&self.batch_item_count)
+            || self.derived_prefix_bytes != 16
+            || self.response_size_buckets_bytes != Self::RESPONSE_SIZE_BUCKETS_BYTES
+            || !Self::RESPONSE_SIZE_BUCKETS_BYTES.contains(&self.blind_response_bucket_bytes)
+            || !Self::RESPONSE_SIZE_BUCKETS_BYTES.contains(&self.match_response_bucket_bytes)
+            || !(60..=86_400).contains(&self.batch_completion_ttl_seconds)
+            || self.max_psi_queries_per_window == 0
+            || !(300..=604_800).contains(&self.quota_window_seconds)
+            || self.anti_enumeration_delay.minimum_ms > 10_000
+            || !(1..=10_000).contains(&self.anti_enumeration_delay.jitter_ms)
+        {
+            return Err(WireError::Protocol(
+                "invalid private_contact_discovery configuration".to_owned(),
+            ));
         }
-    }
-
-    fn identity_eq(&self, other: &Self) -> bool {
-        self.operation_id == other.operation_id
-            && self.binding_kind == other.binding_kind
-            && self.request_schema_ref == other.request_schema_ref
-            && self.response_schema_ref == other.response_schema_ref
-            && self.error_schema_ref == other.error_schema_ref
-            && self.success_shape_kind == other.success_shape_kind
+        Ok(())
     }
 }
 
@@ -304,10 +443,11 @@ pub struct ServiceDescribe {
     /// Profile-specific carrier declarations keyed by profile id.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub profile_bindings: BTreeMap<String, ProfileBinding>,
-    /// Complete role-scoped set of exact operation carriers. The removed
-    /// flat operation list is intentionally not accepted by this model.
-    pub operation_bindings: Vec<OperationBinding>,
-    pub supported_bindings: Vec<SupportedBinding>,
+    /// Canonical-sorted registered bundles fully implemented by this role
+    /// endpoint. Unknown or partial bundles are rejected.
+    pub supported_operation_bundles: Vec<String>,
+    /// Transport endpoints in descending server preference.
+    pub transport_bindings: Vec<TransportBinding>,
     pub supported_features: Vec<String>,
     /// Exact IANA TZDB releases this service can execute for Calendar
     /// schedules. Required whenever a Calendar profile is claimed.
@@ -332,10 +472,6 @@ pub struct ServiceDescribe {
         salvo(schema(value_type = Option<serde_json::Value>))
     )]
     pub receive_policy_constraints: Option<ReceivePolicyConstraints>,
-    /// Features the service has actually implemented (subset
-    /// of `supported_features`). Tracks the difference between
-    /// announce and run-time implementation.
-    pub implemented_features: Vec<String>,
     /// Profiles the service claims (self-declared). Wire
     /// shape per
     /// `service-describe.schema.json#/properties/claimed_profiles`:
@@ -348,14 +484,15 @@ pub struct ServiceDescribe {
     /// shape per
     /// `service-describe.schema.json#/properties/verified_profiles`.
     pub verified_profiles: Vec<VerifiedProfileEntry>,
-    /// Non-final extension features. Treated as opt-in by
-    /// peers.
-    pub experimental_features: Vec<String>,
     /// External-interop surfaces this service
     /// exposes outside its claimed v1 conformance (e.g. MIMI/Matrix
     /// passthrough). Wire shape per
     /// `service-describe.schema.json#/properties/interop_surfaces`.
     pub interop_surfaces: Vec<InteropSurfaceEntry>,
+    /// Registered invite-addressing negotiation. Required exactly when the
+    /// corresponding feature is advertised.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invite_addressing: Option<InviteAddressing>,
     /// When `true` the service is in development
     /// mode; receivers MUST refuse to advertise `verified_profiles`
     /// and SHOULD warn on connection.
@@ -377,14 +514,14 @@ pub struct ServiceDescribe {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub egress_network_policy: Option<EgressNetworkPolicy>,
     /// Directory-service overlay: resource classes indexed by
-    /// `ak.find.directory.read.describe`. Required when
+    /// `ak.find.directory.read.describe.v1`. Required when
     /// `service_kind == "directory_service"`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub resource_kinds: Vec<DirectoryResourceKind>,
-    /// Directory-service overlay: discovery profiles and extension
-    /// profile ids advertised by the directory surface.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub discovery_profiles: Vec<String>,
+    /// Closed VOPRF private-contact-discovery configuration. Its presence is
+    /// exactly coupled to the registered directory PCD operation bundle.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub private_contact_discovery: Option<PrivateContactDiscovery>,
     /// Directory-service overlay: whether restricted or privacy-sensitive
     /// queries require holder-approved proof.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -492,6 +629,8 @@ impl ServiceDescribe {
         full_id: DidFullId,
         trust_domain: TrustDomainId,
         service_kind: ServiceKind,
+        supported_operation_bundles: Vec<String>,
+        transport_bindings: Vec<TransportBinding>,
     ) -> Self {
         let service_id = project_full_id_to_core_id(&full_id)
             .expect("development service full id must use a registered adapter");
@@ -507,8 +646,8 @@ impl ServiceDescribe {
             protocol_version: PROTOCOL_VERSION.to_owned(),
             supported_profiles: Vec::new(),
             profile_bindings: BTreeMap::new(),
-            operation_bindings: Vec::new(),
-            supported_bindings: Vec::new(),
+            supported_operation_bundles,
+            transport_bindings,
             supported_features: Vec::new(),
             calendar_tzdb_versions: Vec::new(),
             auth_metadata: AuthMetadata::minimal("development"),
@@ -516,17 +655,16 @@ impl ServiceDescribe {
             plaintext_visibility: PlaintextVisibility::none(),
             privacy_derivation: None,
             receive_policy_constraints: None,
-            implemented_features: Vec::new(),
             claimed_profiles: Vec::new(),
             verified_profiles: Vec::new(),
-            experimental_features: Vec::new(),
             interop_surfaces: Vec::new(),
+            invite_addressing: None,
             development_mode: true,
             rate_limit_policy: Some(RateLimitPolicy::unspecified()),
             rate_limit_policy_id: None,
             egress_network_policy: None,
             resource_kinds: Vec::new(),
-            discovery_profiles: Vec::new(),
+            private_contact_discovery: None,
             restricted_query_proof: None,
             ingest_modes: Vec::new(),
             accept_policy_kind: None,
@@ -575,95 +713,157 @@ impl ServiceDescribe {
                 ErrorCode::SCHEMA_VIOLATION
             )));
         }
-        let unique_operation_binding_identities = self
-            .operation_bindings
-            .iter()
-            .map(|binding| {
-                (
-                    binding.operation_id,
-                    binding.binding_kind,
-                    binding.request_schema_ref.as_deref(),
-                    binding.response_schema_ref.as_deref(),
-                    binding.error_schema_ref.as_deref(),
-                    binding.success_shape_kind,
-                )
-            })
-            .collect::<BTreeSet<_>>()
-            .len()
-            == self.operation_bindings.len();
-        if !unique_operation_binding_identities {
+        if self.supported_operation_bundles.is_empty()
+            || self
+                .supported_operation_bundles
+                .windows(2)
+                .any(|pair| pair[0] >= pair[1])
+        {
             return Err(WireError::Protocol(format!(
-                "ServiceDescribe: duplicate operation binding identity ({})",
+                "ServiceDescribe: supported_operation_bundles must be non-empty, unique and canonical-sorted ({})",
                 ErrorCode::SCHEMA_VIOLATION
             )));
         }
-        for binding in &self.operation_bindings {
-            let expected = binding.current_for_identity()?;
-            if !binding.identity_eq(&expected) {
-                return Err(WireError::Protocol(format!(
-                    "ServiceDescribe: carrier for {} does not match the current-v1 operation registry ({})",
-                    binding.operation_id,
+        let describe_bundle_id = role_describe_bundle_descriptor(self.service_kind)
+            .map(|bundle| bundle.operation_bundle_id)
+            .ok_or_else(|| {
+                WireError::Protocol(format!(
+                    "ServiceDescribe: service kind {} has no registered describe bundle ({})",
+                    self.service_kind,
                     ErrorCode::SCHEMA_VIOLATION
-                )));
-            }
-        }
-        let transport_operations = self
-            .supported_bindings
+                ))
+            })?;
+        if !self
+            .supported_operation_bundles
             .iter()
-            .map(|transport| {
-                let operations = transport
-                    .extra
-                    .get("operations")
-                    .and_then(Value::as_array)
-                    .ok_or_else(|| {
-                        WireError::Protocol(format!(
-                            "ServiceDescribe: transport binding {} lacks operations ({})",
-                            transport.kind,
-                            ErrorCode::SCHEMA_VIOLATION
-                        ))
-                    })?;
-                operations
-                    .iter()
-                    .map(|operation| {
-                        let operation = operation.as_str().ok_or_else(|| {
-                            WireError::Protocol(format!(
-                                "ServiceDescribe: transport operation must be a string ({})",
-                                ErrorCode::SCHEMA_VIOLATION
-                            ))
-                        })?;
-                        ServiceOperationId::from_wire(operation).ok_or_else(|| {
-                            WireError::Protocol(format!(
-                                "ServiceDescribe: unknown transport operation {operation} ({})",
-                                ErrorCode::SCHEMA_VIOLATION
-                            ))
-                        })
-                    })
-                    .collect::<Result<Vec<_>>>()
-                    .map(|operations| (transport.kind, operations))
-            })
-            .collect::<Result<Vec<_>>>()?;
-        for binding in &self.operation_bindings {
-            if !transport_operations.iter().any(|(kind, operations)| {
-                *kind == binding.binding_kind && operations.contains(&binding.operation_id)
-            }) {
+            .any(|bundle_id| bundle_id == describe_bundle_id)
+        {
+            return Err(WireError::Protocol(format!(
+                "ServiceDescribe: missing mandatory role describe bundle {describe_bundle_id} ({})",
+                ErrorCode::SCHEMA_VIOLATION
+            )));
+        }
+        let mut operation_pairs = BTreeSet::new();
+        for bundle_id in &self.supported_operation_bundles {
+            let bundle = operation_bundle_descriptor(bundle_id).ok_or_else(|| {
+                WireError::Protocol(format!(
+                    "ServiceDescribe: unknown operation bundle {bundle_id} ({})",
+                    ErrorCode::SCHEMA_VIOLATION
+                ))
+            })?;
+            if bundle.service_kind != self.service_kind {
                 return Err(WireError::Protocol(format!(
-                    "ServiceDescribe: operation binding {} is not covered by its transport binding ({})",
-                    binding.operation_id,
+                    "ServiceDescribe: bundle {bundle_id} belongs to {}, not {} ({})",
+                    bundle.service_kind,
+                    self.service_kind,
+                    ErrorCode::SCHEMA_VIOLATION
+                )));
+            }
+            operation_pairs.extend(bundle.members.iter().copied());
+        }
+        let has_private_contact_discovery_configuration = self.private_contact_discovery.is_some();
+        let provides_private_contact_discovery = operation_pairs.contains(&OperationBindingPair {
+            operation_id: ServiceOperationId::FindDirectoryReadPrivateContactDiscoveryV1,
+            binding_kind: BindingKind::HttpJson,
+        });
+        if has_private_contact_discovery_configuration != provides_private_contact_discovery
+            || self
+                .private_contact_discovery
+                .as_ref()
+                .is_some_and(|configuration| configuration.validate().is_err())
+        {
+            return Err(WireError::Protocol(format!(
+                "ServiceDescribe: private_contact_discovery must be valid and appear exactly with its registered HTTP operation pair ({})",
+                ErrorCode::SCHEMA_VIOLATION
+            )));
+        }
+        let transport_kinds = self
+            .transport_bindings
+            .iter()
+            .map(TransportBinding::kind)
+            .collect::<BTreeSet<_>>();
+        if self
+            .transport_bindings
+            .iter()
+            .enumerate()
+            .any(|(index, transport)| {
+                transport.validate().is_err()
+                    || self.transport_bindings[..index].contains(transport)
+            })
+        {
+            return Err(WireError::Protocol(format!(
+                "ServiceDescribe: transport_bindings contain an invalid or duplicate entry ({})",
+                ErrorCode::SCHEMA_VIOLATION
+            )));
+        }
+        if operation_pairs
+            .iter()
+            .any(|pair| !transport_kinds.contains(&pair.binding_kind))
+            || transport_kinds.iter().any(|kind| {
+                !operation_pairs
+                    .iter()
+                    .any(|pair| pair.binding_kind == *kind)
+            })
+        {
+            return Err(WireError::Protocol(format!(
+                "ServiceDescribe: transport_bindings must exactly cover bundle binding kinds ({})",
+                ErrorCode::SCHEMA_VIOLATION
+            )));
+        }
+        if self
+            .supported_features
+            .windows(2)
+            .any(|pair| pair[0] >= pair[1])
+        {
+            return Err(WireError::Protocol(format!(
+                "ServiceDescribe: supported_features must be unique and canonical-sorted ({})",
+                ErrorCode::SCHEMA_VIOLATION
+            )));
+        }
+        for feature_id in &self.supported_features {
+            let feature = feature_descriptor(feature_id).ok_or_else(|| {
+                WireError::Protocol(format!(
+                    "ServiceDescribe: unknown feature {feature_id} ({})",
+                    ErrorCode::SCHEMA_VIOLATION
+                ))
+            })?;
+            if feature.status == FeatureStatus::TestOnly
+                || (!feature.service_kinds.is_empty()
+                    && !feature.service_kinds.contains(&self.service_kind))
+                || feature
+                    .required_operation_pairs
+                    .iter()
+                    .any(|pair| !operation_pairs.contains(pair))
+                || feature.required_profiles.iter().any(|profile| {
+                    !self
+                        .supported_profiles
+                        .iter()
+                        .any(|actual| actual == profile)
+                })
+                || feature
+                    .required_limits
+                    .iter()
+                    .any(|limit| !self.limits.extensions.contains_key(*limit))
+                || feature
+                    .conflicts
+                    .iter()
+                    .any(|conflict| self.supported_features.iter().any(|id| id == conflict))
+            {
+                return Err(WireError::Protocol(format!(
+                    "ServiceDescribe: feature {feature_id} prerequisites are not satisfied ({})",
                     ErrorCode::SCHEMA_VIOLATION
                 )));
             }
         }
-        for (kind, operations) in &transport_operations {
-            for operation in operations {
-                if !self.operation_bindings.iter().any(|binding| {
-                    binding.binding_kind == *kind && binding.operation_id == *operation
-                }) {
-                    return Err(WireError::Protocol(format!(
-                        "ServiceDescribe: transport binding advertises {operation} without an exact operation binding ({})",
-                        ErrorCode::SCHEMA_VIOLATION
-                    )));
-                }
-            }
+        let advertises_invite_addressing = self
+            .supported_features
+            .iter()
+            .any(|feature| feature == "ak.feature.invite_addressing.v1");
+        if advertises_invite_addressing != self.invite_addressing.is_some() {
+            return Err(WireError::Protocol(format!(
+                "ServiceDescribe: invite_addressing and ak.feature.invite_addressing.v1 must appear together ({})",
+                ErrorCode::SCHEMA_VIOLATION
+            )));
         }
         if let Some(push_target) = self
             .privacy_derivation
@@ -758,11 +958,10 @@ impl ServiceDescribe {
                         profileid_candidate_join_policy_v1 = ProfileId::CANDIDATE_JOIN_POLICY_V1
                     ))
                 })?;
-            if requirements.required_operations.iter().any(|required| {
-                !ServiceOperationId::from_wire(required).is_some_and(|required| {
-                    self.operation_bindings
-                        .iter()
-                        .any(|binding| binding.operation_id == required)
+            if requirements.provide_requirements().any(|required| {
+                !operation_pairs.contains(&OperationBindingPair {
+                    operation_id: required.operation_id,
+                    binding_kind: required.binding_kind,
                 })
             }) || requirements.required_features.iter().any(|required| {
                 !self
@@ -797,19 +996,7 @@ impl ServiceDescribe {
             )));
         }
         if self.service_kind == ServiceKind::DirectoryService {
-            if !self
-                .supported_profiles
-                .iter()
-                .any(|profile| profile == ProfileId::DIRECTORY_SERVICE_V1)
-            {
-                return Err(WireError::Protocol(format!(
-                    "ServiceDescribe: service_kind=directory_service requires \
-                     supported_profiles to include ak.profile.directory_service.v1 ({})",
-                    ErrorCode::SCHEMA_VIOLATION
-                )));
-            }
             if self.resource_kinds.is_empty()
-                || self.discovery_profiles.is_empty()
                 || self.ingest_modes.is_empty()
                 || self.accept_policy_kind.is_none()
                 || self.default_ttl_seconds.is_none()
@@ -849,34 +1036,38 @@ impl ServiceDescribe {
         Ok(())
     }
 
-    /// Whether the role advertises any carrier for the operation.
+    /// Whether any advertised bundle contains this operation.
     pub fn supports_operation(&self, operation_id: ServiceOperationId) -> bool {
-        self.operation_bindings
+        self.supported_operation_bundles
             .iter()
-            .any(|binding| binding.operation_id == operation_id)
+            .filter_map(|id| operation_bundle_descriptor(id))
+            .flat_map(|bundle| bundle.members)
+            .any(|pair| pair.operation_id == operation_id)
     }
 
-    /// Select the deterministic exact intersection with a caller-owned
-    /// carrier set. Lower server preference wins; the derived ordering of the
-    /// remaining identity fields provides the canonical tie-break.
-    pub fn select_operation_binding<'a>(
+    pub fn supports_operation_binding(
+        &self,
+        operation_id: ServiceOperationId,
+        binding_kind: BindingKind,
+    ) -> bool {
+        self.supported_operation_bundles
+            .iter()
+            .filter_map(|id| operation_bundle_descriptor(id))
+            .flat_map(|bundle| bundle.members)
+            .any(|pair| pair.operation_id == operation_id && pair.binding_kind == binding_kind)
+    }
+
+    /// Select the first server-preferred transport which both the exact
+    /// operation bundle and the caller support.
+    pub fn select_transport_binding<'a>(
         &'a self,
         operation_id: ServiceOperationId,
-        locally_supported: &[OperationBinding],
-    ) -> Option<&'a OperationBinding> {
-        self.operation_bindings
-            .iter()
-            .filter(|server| {
-                server.operation_id == operation_id
-                    && locally_supported
-                        .iter()
-                        .any(|local| server.identity_eq(local))
-            })
-            .min_by(|left, right| {
-                left.preference
-                    .cmp(&right.preference)
-                    .then_with(|| left.cmp(right))
-            })
+        locally_supported: &[BindingKind],
+    ) -> Option<&'a TransportBinding> {
+        self.transport_bindings.iter().find(|transport| {
+            let kind = transport.kind();
+            locally_supported.contains(&kind) && self.supports_operation_binding(operation_id, kind)
+        })
     }
 }
 
@@ -905,6 +1096,22 @@ mod tests {
 
     use super::*;
 
+    fn principal_description() -> ServiceDescribe {
+        ServiceDescribe::development(
+            DidFullId::new("did:webvh:z6mkfixture:service.example").unwrap(),
+            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+            ServiceKind::PrincipalServer,
+            vec![
+                "ak.operation_bundle.principal_server.describe.v1".to_owned(),
+                "ak.operation_bundle.principal_server.http_core.v1".to_owned(),
+            ],
+            vec![TransportBinding::HttpJson {
+                base_url: "https://service.example".to_owned(),
+                extension_profile_required: (),
+            }],
+        )
+    }
+
     #[test]
     fn directory_resource_kind_tokens_are_closed_and_round_trip() {
         let tokens = ["realm", "organization", "actor", "applet", "handle"];
@@ -921,11 +1128,7 @@ mod tests {
 
     #[test]
     fn sdk_build_identity_round_trips_through_shared_type() {
-        let mut description = ServiceDescribe::development(
-            DidFullId::new("did:webvh:z6mkfixture:service.example").unwrap(),
-            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-            ServiceKind::PrincipalServer,
-        );
+        let mut description = principal_description();
         description.install_current_arkret_build_identity().unwrap();
 
         assert_eq!(
@@ -939,78 +1142,33 @@ mod tests {
 
     #[test]
     fn removed_flat_operation_field_is_rejected_during_decode() {
-        let description = ServiceDescribe::development(
-            DidFullId::new("did:webvh:z6mkfixture:service.example").unwrap(),
-            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-            ServiceKind::PrincipalServer,
-        );
+        let description = principal_description();
         let mut wire = serde_json::to_value(description).unwrap();
         wire.as_object_mut().unwrap().insert(
             "supported_operations".to_owned(),
-            json!([ServiceOperationId::SELF_EVENTS_READ_SCAN]),
+            json!([ServiceOperationId::SELF_EVENTS_READ_SCAN_V1]),
         );
 
         assert!(serde_json::from_value::<ServiceDescribe>(wire).is_err());
     }
 
     #[test]
-    fn operation_carrier_selection_requires_an_exact_schema_identity() {
-        let operation = ServiceOperationId::SelfEventsStreamSubscribe;
-        let mut description = ServiceDescribe::development(
-            DidFullId::new("did:webvh:z6mkfixture:service.example").unwrap(),
-            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-            ServiceKind::PrincipalServer,
-        );
-        let http = OperationBinding::current_http_json(operation).unwrap();
-        let websocket = OperationBinding::current_websocket(operation).unwrap();
-        description.operation_bindings = vec![http.clone(), websocket.clone()];
-
-        assert_eq!(
-            description
-                .select_operation_binding(operation, &[http.clone(), websocket.clone()])
-                .unwrap()
-                .binding_kind,
-            BindingKind::Websocket
-        );
-
-        let mut unknown_schema = websocket;
-        unknown_schema.response_schema_ref = Some("schemas/unknown.schema.json".to_owned());
+    fn bundle_driven_transport_selection_is_exact() {
+        let description = principal_description();
         assert!(
             description
-                .select_operation_binding(operation, &[unknown_schema])
-                .is_none()
-        );
-        assert!(
-            description
-                .select_operation_binding(operation, &[http])
-                .is_some()
-        );
-    }
-
-    #[test]
-    fn operation_rows_are_isolated_to_the_described_role() {
-        let operation = ServiceOperationId::SelfEventsReadScan;
-        let local = OperationBinding::current_http_json(operation).unwrap();
-        let mut member = ServiceDescribe::development(
-            DidFullId::new("did:webvh:z6mkfixture:member.example").unwrap(),
-            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-            ServiceKind::PrincipalServer,
-        );
-        member.operation_bindings.push(local.clone());
-        let anonymous = ServiceDescribe::development(
-            DidFullId::new("did:webvh:z6mkfixture:anonymous.example").unwrap(),
-            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-            ServiceKind::PrincipalServer,
-        );
-
-        assert!(
-            member
-                .select_operation_binding(operation, std::slice::from_ref(&local))
+                .select_transport_binding(
+                    ServiceOperationId::SelfEventsReadScanV1,
+                    &[BindingKind::HttpJson],
+                )
                 .is_some()
         );
         assert!(
-            anonymous
-                .select_operation_binding(operation, std::slice::from_ref(&local))
+            description
+                .select_transport_binding(
+                    ServiceOperationId::SelfEventsReadScanV1,
+                    &[BindingKind::Websocket],
+                )
                 .is_none()
         );
     }
@@ -1039,21 +1197,16 @@ mod tests {
             trust_domain: TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_kind: ServiceKind::DirectoryService,
             protocol_version: PROTOCOL_VERSION.to_owned(),
-            supported_profiles: vec![ProfileId::DIRECTORY_SERVICE_V1.to_owned()],
+            supported_profiles: vec![],
             profile_bindings: BTreeMap::new(),
-            operation_bindings: vec![
-                OperationBinding::current_http_json(ServiceOperationId::FindDirectoryReadDescribe)
-                    .unwrap(),
+            supported_operation_bundles: vec![
+                "ak.operation_bundle.directory_service.describe.v1".to_owned(),
+                "ak.operation_bundle.directory_service.http_core.v1".to_owned(),
             ],
-            supported_bindings: vec![
-                SupportedBinding::new(BindingKind::HttpJson)
-                    .with_base_url("https://directory.example")
-                    .with_extra(
-                        "operations",
-                        json!([ServiceOperationId::FIND_DIRECTORY_READ_DESCRIBE]),
-                    )
-                    .with_extra("extension_profile_required", Value::Null),
-            ],
+            transport_bindings: vec![TransportBinding::HttpJson {
+                base_url: "https://directory.example".to_owned(),
+                extension_profile_required: (),
+            }],
             supported_features: vec![],
             calendar_tzdb_versions: vec![],
             auth_metadata: AuthMetadata::minimal("development"),
@@ -1061,13 +1214,10 @@ mod tests {
             plaintext_visibility: PlaintextVisibility::none(),
             privacy_derivation: None,
             receive_policy_constraints: None,
-            implemented_features: vec![],
-            claimed_profiles: vec![ClaimedProfileEntry::self_claimed(
-                ProfileId::DIRECTORY_SERVICE_V1,
-            )],
+            claimed_profiles: vec![],
             verified_profiles: vec![],
-            experimental_features: vec![],
             interop_surfaces: vec![],
+            invite_addressing: None,
             development_mode: false,
             rate_limit_policy: Some(RateLimitPolicy::unspecified()),
             rate_limit_policy_id: None,
@@ -1079,7 +1229,7 @@ mod tests {
                 DirectoryResourceKind::Applet,
                 DirectoryResourceKind::Handle,
             ],
-            discovery_profiles: vec![ProfileId::DIRECTORY_SERVICE_V1.to_owned()],
+            private_contact_discovery: None,
             restricted_query_proof: Some(true),
             ingest_modes: vec![DirectoryIngestMode::Push],
             accept_policy_kind: Some(DirectoryAcceptPolicyKind::Open),
@@ -1110,11 +1260,7 @@ mod tests {
 
     #[test]
     fn candidate_join_policy_requires_complete_private_carrier_claim() {
-        let mut description = ServiceDescribe::development(
-            DidFullId::new("did:webvh:z6mkfixture:service.example").unwrap(),
-            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-            ServiceKind::PrincipalServer,
-        );
+        let mut description = principal_description();
         description
             .supported_profiles
             .push(ProfileId::CANDIDATE_JOIN_POLICY_V1.to_owned());
@@ -1125,56 +1271,16 @@ mod tests {
                 carrier: "profile_private_http_receipt_v1".to_owned(),
             },
         );
-        description.operation_bindings.extend(
-            [
-                ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_SUBMIT,
-                ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_REVIEW,
-                ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL,
-                ServiceOperationId::SELF_REALM_JOIN_APPLICATION_READ_LIST,
-                ServiceOperationId::SELF_REALM_JOIN_APPLICATION_RESOURCE_GET,
-                ServiceOperationId::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST,
-            ]
-            .map(|operation| {
-                OperationBinding::current_http_json(
-                    ServiceOperationId::from_wire(operation).unwrap(),
-                )
-                .unwrap()
-            }),
-        );
-        description.supported_bindings.push(
-            SupportedBinding::new(BindingKind::HttpJson)
-                .with_base_url("https://service.example")
-                .with_extra(
-                    "operations",
-                    json!([
-                        ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_SUBMIT,
-                        ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_REVIEW,
-                        ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL,
-                        ServiceOperationId::SELF_REALM_JOIN_APPLICATION_READ_LIST,
-                        ServiceOperationId::SELF_REALM_JOIN_APPLICATION_RESOURCE_GET,
-                        ServiceOperationId::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST,
-                    ]),
-                )
-                .with_extra("extension_profile_required", Value::Null),
-        );
-        description.supported_features.extend(
-            [
-                "candidate_join_policy_reviewer",
-                "candidate_member_application_intake",
-                "profile_private_http_receipt_v1",
-            ]
-            .map(ToOwned::to_owned),
-        );
-        assert!(description.validate().is_ok());
+        description
+            .supported_operation_bundles
+            .push("ak.operation_bundle.principal_server.candidate_join_policy.v1".to_owned());
+        description.supported_operation_bundles.sort();
+        description.validate().unwrap();
     }
 
     #[test]
     fn calendar_profile_claim_requires_an_executable_tzdb_release() {
-        let mut description = ServiceDescribe::development(
-            DidFullId::new("did:webvh:z6mkfixture:service.example").unwrap(),
-            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-            ServiceKind::PrincipalServer,
-        );
+        let mut description = principal_description();
         description
             .supported_profiles
             .push("ak.profile.calendar_notification_dispatch.v1".to_owned());
@@ -1219,6 +1325,64 @@ mod tests {
 
         let error = description.validate().unwrap_err().to_string();
         assert!(error.contains("default_ttl_seconds <= max_ttl_seconds"));
+    }
+
+    #[test]
+    fn private_contact_discovery_configuration_and_bundle_are_bidirectional() {
+        let configuration = PrivateContactDiscovery::new(
+            arkret_canonical::base64url_encode(
+                curve25519_dalek::constants::RISTRETTO_BASEPOINT_COMPRESSED.as_bytes(),
+            ),
+            4,
+            256,
+            PrivateContactDiscoveryHandoffStubsMode::Never,
+            16_384,
+            65_536,
+            3_600,
+            20,
+            86_400,
+            AntiEnumerationDelay {
+                minimum_ms: 20,
+                jitter_ms: 50,
+                distribution: AntiEnumerationDelayDistribution::Uniform,
+            },
+        );
+
+        let mut configuration_only = directory_description();
+        configuration_only.private_contact_discovery = Some(configuration.clone());
+        configuration_only.validate().unwrap_err();
+
+        let mut bundle_only = directory_description();
+        bundle_only
+            .supported_operation_bundles
+            .push("ak.operation_bundle.directory_service.private_contact_discovery.v1".to_owned());
+        bundle_only.supported_operation_bundles.sort();
+        bundle_only.validate().unwrap_err();
+
+        bundle_only.private_contact_discovery = Some(configuration);
+        bundle_only.validate().unwrap();
+    }
+
+    #[test]
+    fn private_contact_discovery_rejects_invalid_ristretto_public_key() {
+        let configuration = PrivateContactDiscovery::new(
+            arkret_canonical::base64url_encode([0xff_u8; 32]),
+            4,
+            256,
+            PrivateContactDiscoveryHandoffStubsMode::Never,
+            16_384,
+            65_536,
+            3_600,
+            20,
+            86_400,
+            AntiEnumerationDelay {
+                minimum_ms: 20,
+                jitter_ms: 50,
+                distribution: AntiEnumerationDelayDistribution::Uniform,
+            },
+        );
+
+        assert!(configuration.validate().is_err());
     }
 }
 
@@ -1597,42 +1761,6 @@ pub enum InteropSurfaceKind {
     MimiPassthrough,
     ExternalInterop,
     DelegatedResolver,
-}
-
-/// Strongly-typed entry of [`ServiceDescribe::supported_bindings`].
-/// Mirrors `service-describe.schema.json#/properties/supported_bindings/items`:
-/// `kind` is required, `base_url` optional, and the item is
-/// `additionalProperties: true` so the `extra` flatten round-trips any
-/// transport-specific keys without loss.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SupportedBinding {
-    pub kind: BindingKind,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub base_url: Option<String>,
-    #[serde(default, flatten)]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub extra: BTreeMap<String, Value>,
-}
-
-impl SupportedBinding {
-    pub fn new(kind: BindingKind) -> Self {
-        Self {
-            kind,
-            base_url: None,
-            extra: BTreeMap::new(),
-        }
-    }
-
-    pub fn with_base_url(mut self, base_url: impl Into<String>) -> Self {
-        self.base_url = Some(base_url.into());
-        self
-    }
-
-    pub fn with_extra(mut self, key: impl Into<String>, value: Value) -> Self {
-        self.extra.insert(key.into(), value);
-        self
-    }
 }
 
 /// Strongly-typed [`ServiceDescribe::plaintext_visibility`]. Mirrors

@@ -1,7 +1,7 @@
 {
   "schema": "arkret.sdk-operation-coverage-evidence.v1",
   "operations": {
-    "ak.edge.applet.read.ping": {
+    "ak.edge.applet.read.ping.v1": {
       "api": [
         "crates/server/src/applet.rs::AppletHandler::ping"
       ],
@@ -12,7 +12,7 @@
         "crates/server/src/applet.rs::applet_service_constructs_with_handler_and_idempotency_window"
       ]
     },
-    "ak.edge.applet.read.describe": {
+    "ak.edge.applet.read.describe.v1": {
       "api": [
         "crates/server/src/applet.rs::AppletHandler::describe"
       ],
@@ -21,7 +21,7 @@
       ],
       "test": []
     },
-    "ak.edge.applet.command.transaction": {
+    "ak.edge.applet.command.transaction.v1": {
       "api": [
         "crates/server/src/applet.rs::AppletHandler::handle_transaction"
       ],
@@ -32,7 +32,7 @@
         "crates/server/src/applet.rs::dispatch_replays_duplicates_and_fails_closed_on_conflicts"
       ]
     },
-    "ak.edge.applet.actor.read.resolve": {
+    "ak.edge.applet.actor.read.resolve.v1": {
       "api": [
         "crates/server/src/applet.rs::AppletHandler::resolve_actor"
       ],
@@ -41,7 +41,7 @@
       ],
       "test": []
     },
-    "ak.edge.applet.realm.read.resolve": {
+    "ak.edge.applet.realm.read.resolve.v1": {
       "api": [
         "crates/server/src/applet.rs::AppletHandler::resolve_realm"
       ],
@@ -50,7 +50,7 @@
       ],
       "test": []
     },
-    "ak.edge.applet.read.protocol_metadata": {
+    "ak.edge.applet.read.protocol_metadata.v1": {
       "api": [
         "crates/server/src/applet.rs::AppletHandler::resolve_protocol"
       ],

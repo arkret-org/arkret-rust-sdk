@@ -1,6 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/reducer-managed-path-registry.json; version=2026-08-23.1; sha256=b6d410d48df7f9a16ddcf22df622e72ea1cbc90fb1c8d8b1c169789763e81015
+//! Input: registry/reducer-managed-path-registry.json; version=2026-08-23.1;
+//! sha256=b6d410d48df7f9a16ddcf22df622e72ea1cbc90fb1c8d8b1c169789763e81015
 //! Entries: universal_paths=9, object_kinds=7, any_object_paths=17
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -81,14 +82,12 @@ pub const REDUCER_MANAGED_UNIVERSAL_PATHS: &[ReducerManagedPathDescriptor] = &[
 pub const REDUCER_MANAGED_OBJECTS: &[ReducerManagedObjectDescriptor] = &[
     ReducerManagedObjectDescriptor {
         object_kind: "actor_profile",
-        forbidden_paths: &[
-            ReducerManagedObjectPathDescriptor {
-                path: "resolution",
-                basis: "cell_projection",
-                reason_code: "patch_path_reducer_managed",
-                schema_enforced: true,
-            },
-        ],
+        forbidden_paths: &[ReducerManagedObjectPathDescriptor {
+            path: "resolution",
+            basis: "cell_projection",
+            reason_code: "patch_path_reducer_managed",
+            schema_enforced: true,
+        }],
         universal_exemptions: &[],
     },
     ReducerManagedObjectDescriptor {
@@ -141,14 +140,12 @@ pub const REDUCER_MANAGED_OBJECTS: &[ReducerManagedObjectDescriptor] = &[
     },
     ReducerManagedObjectDescriptor {
         object_kind: "relation",
-        forbidden_paths: &[
-            ReducerManagedObjectPathDescriptor {
-                path: "effective_scope",
-                basis: "reducer_derived",
-                reason_code: "effective_scope_reducer_managed",
-                schema_enforced: true,
-            },
-        ],
+        forbidden_paths: &[ReducerManagedObjectPathDescriptor {
+            path: "effective_scope",
+            basis: "reducer_derived",
+            reason_code: "effective_scope_reducer_managed",
+            schema_enforced: true,
+        }],
         universal_exemptions: &[],
     },
     ReducerManagedObjectDescriptor {

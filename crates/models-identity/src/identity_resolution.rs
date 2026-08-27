@@ -96,7 +96,7 @@ impl PrincipalResolutionProjectionAttestation {
 /// field for `principal_control_realm_id`, the PCR genesis Event or receipt,
 /// resolution Events, the accepted Seal or the cell proof: that material is
 /// account-internal and reachable only through
-/// `ak.self.identity.read.resolution_audit`.
+/// `ak.self.identity.read.resolution_audit.v1`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

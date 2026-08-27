@@ -120,7 +120,7 @@ impl WebSocketAccountFilter {
     }
 }
 
-/// `open.parameters` for `ak.self.account.stream.subscribe` (§5).
+/// `open.parameters` for `ak.self.account.stream.subscribe.v1` (§5).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WebSocketAccountOpenParameters {
@@ -135,7 +135,7 @@ pub struct WebSocketAccountOpenParameters {
     pub wait_for: Option<Cursor>,
 }
 
-/// `open.parameters` for `ak.self.events.stream.subscribe` (§5). At least one
+/// `open.parameters` for `ak.self.events.stream.subscribe.v1` (§5). At least one
 /// of `realms` / `actors` MUST be present.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -843,7 +843,7 @@ mod tests {
         assert_eq!(
             encoded,
             "{\"kind\":\"open\",\"channel_id\":\"signal-1\",\
-             \"operation_id\":\"ak.self.signal.stream.subscribe\",\"parameters\":{}}"
+             \"operation_id\":\"ak.self.signal.stream.subscribe.v1\",\"parameters\":{}}"
         );
         WebSocketOpenParameters::parse(
             WebSocketOperationId::SignalStreamSubscribe,

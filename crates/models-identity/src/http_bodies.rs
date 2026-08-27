@@ -9,13 +9,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::identity::{IdentityDescription, IdentityDocumentView};
 
-/// `ak.gate.account.command.logout` request (Principal Server device logout).
+/// `ak.gate.account.command.logout.v1` request (Principal Server device logout).
 /// Empty body — the session bearer identifies the device session to terminate.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct AccountLogoutRequestBody {}
 
-/// `ak.gate.account.command.logout` outcome.
+/// `ak.gate.account.command.logout.v1` outcome.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AccountLogoutOutcome {

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/did-freshness-profile-registry.json; version=2026-08-15.1; sha256=a0b4a65b575e2ad4d8c454e07bcf9042be1d8c671d390da4eda97a14297ccd0a
-//! Entries: registered=6
+//! Input: registry/did-freshness-profile-registry.json; version=2026-08-27.1;
+//! sha256=eb4848d130e63e9996da51eb18d93633cbcf285acd1589da7e7784afbb1b026c Entries: registered=6
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DidFreshnessProfileId {
@@ -32,12 +32,15 @@ impl DidFreshnessProfileId {
         Self::UnregisteredFailClosedV1,
     ];
 
-    pub const CURRENT_EXTERNAL_CLAIM_V1: &'static str = "ak.did_freshness.current_external_claim.v1";
+    pub const CURRENT_EXTERNAL_CLAIM_V1: &'static str =
+        "ak.did_freshness.current_external_claim.v1";
     pub const METHOD_SUCCESSOR_V1: &'static str = "ak.did_freshness.method_successor.v1";
     pub const ONGOING_GOVERNANCE_V1: &'static str = "ak.did_freshness.ongoing_governance.v1";
-    pub const OPTIONAL_DID_ROOT_RECOVERY_V1: &'static str = "ak.did_freshness.optional_did_root_recovery.v1";
+    pub const OPTIONAL_DID_ROOT_RECOVERY_V1: &'static str =
+        "ak.did_freshness.optional_did_root_recovery.v1";
     pub const REGISTRATION_CURRENT_V1: &'static str = "ak.did_freshness.registration_current.v1";
-    pub const UNREGISTERED_FAIL_CLOSED_V1: &'static str = "ak.did_freshness.unregistered_fail_closed.v1";
+    pub const UNREGISTERED_FAIL_CLOSED_V1: &'static str =
+        "ak.did_freshness.unregistered_fail_closed.v1";
 
     pub const fn as_str(self) -> &'static str {
         match self {

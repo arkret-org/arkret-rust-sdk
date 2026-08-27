@@ -96,7 +96,7 @@ impl AccountSubscribeFrameStream {
 
 impl Client {
     /// `POST /_arkret/gate/account/authentication-handoffs`
-    /// (`ak.gate.account.exchange.create_handoff`): exchange an OIDC
+    /// (`ak.gate.account.exchange.create_handoff.v1`): exchange an OIDC
     /// authorization code for a short-lived DPoP-bound account handoff.
     pub async fn auth_create_account_handoff(
         &self,
@@ -120,7 +120,7 @@ impl Client {
     }
 
     /// `POST /_arkret/gate/account/identity-binding-challenges`
-    /// (`ak.gate.account.command.issue_identity_binding_challenge`). The
+    /// (`ak.gate.account.command.issue_identity_binding_challenge.v1`). The
     /// client must use `Authorization: DPoP <account_handoff_grant>` and a
     /// matching per-request DPoP proof.
     pub async fn auth_issue_identity_binding_challenge(
@@ -132,7 +132,7 @@ impl Client {
     }
 
     /// `POST /_arkret/gate/account/session-grants`
-    /// (`ak.gate.account.command.issue_session_grant`): exchange a body-borne
+    /// (`ak.gate.account.command.issue_session_grant.v1`): exchange a body-borne
     /// passkey / OIDC / device / DID proof for a session grant. This is
     /// the only session-grant issuance path registered in the spec HTTP
     /// binding (`x-arkret-auth.proof_in_body: true`); challenge
@@ -146,7 +146,7 @@ impl Client {
     }
 
     /// `POST /_arkret/gate/account/session-grants/refresh`
-    /// (`ak.gate.account.command.refresh_session_grant`): rotate a
+    /// (`ak.gate.account.command.refresh_session_grant.v1`): rotate a
     /// DPoP-bound session grant without changing the grant audience.
     pub async fn auth_refresh_session_grant(
         &self,
@@ -157,7 +157,7 @@ impl Client {
     }
 
     /// `POST /_arkret/gate/account/logout`
-    /// (`ak.gate.account.command.logout`): terminate the current
+    /// (`ak.gate.account.command.logout.v1`): terminate the current
     /// DPoP-bound account session at the Account Authority.
     pub async fn auth_account_logout(&self) -> Result<AccountLogoutOutcome> {
         self.post(
@@ -229,7 +229,7 @@ impl Client {
     }
 
     /// `POST /_arkret/open/device-pairing/requests`
-    /// (`ak.open.device_pairing.command.stage`). Unauthenticated: the
+    /// (`ak.open.device_pairing.command.stage.v1`). Unauthenticated: the
     /// not-yet-authorized device stages its device key and gets back a short
     /// `device_pairing_request_id` + `pairing_code` to encode into its QR.
     pub async fn device_pairing_stage(
@@ -241,7 +241,7 @@ impl Client {
     }
 
     /// `POST /_arkret/open/device-pairing/resolve`
-    /// (`ak.open.device_pairing.read.resolve`). Unauthenticated, body-only: an
+    /// (`ak.open.device_pairing.read.resolve.v1`). Unauthenticated, body-only: an
     /// already-authorized device exchanges a scanned/pasted pairing token for the
     /// staged `DevicePairingBootstrap`, then drives `account_device_pair`.
     pub async fn device_pairing_resolve(
@@ -253,7 +253,7 @@ impl Client {
     }
 
     /// `POST /_arkret/open/device-pairing/requests/status`
-    /// (`ak.open.device_pairing.read.status`). Unauthenticated, body-only: the
+    /// (`ak.open.device_pairing.read.status.v1`). Unauthenticated, body-only: the
     /// new device polls whether a sibling has authorized its staged request.
     pub async fn device_pairing_status(
         &self,
@@ -268,7 +268,7 @@ impl Client {
         request: &SyncRequestBody,
         accept: &str,
     ) -> Result<RequestBuilder> {
-        // `ak.self.account.stream.subscribe` has no request body; its query
+        // `ak.self.account.stream.subscribe.v1` has no request body; its query
         // surface is `after` / `catchup` / `filter.*` (client-sync.md §2
         // request-parameter table). `subscriptions` and `wait_for` are not
         // part of this transport — fail loudly instead of silently dropping

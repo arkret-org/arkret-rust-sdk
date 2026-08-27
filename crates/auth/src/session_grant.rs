@@ -147,7 +147,7 @@ mod tests {
             "principal_id": "ak:did_core:web:alice.example",
             "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
             "audience": "ak:did_core:web:service.example",
-            "requested_scope": ["ak.self.account.read.viewer"],
+            "requested_scope": ["ak.self.account.read.viewer.v1"],
             "accepted_device_possession_proof": {}
         });
         assert!(serde_json::from_value::<SessionGrantRequestBody>(value).is_err());

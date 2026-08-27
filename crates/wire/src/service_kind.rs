@@ -34,7 +34,7 @@ impl ServiceKind {
             Self::IdentityRegistry => &["ak.root.identity.", "ak.identity."],
             Self::AuthServer => &[
                 "ak.gate.account.",
-                crate::ServiceOperationId::SELF_POLICY_READ_CHECK,
+                crate::ServiceOperationId::SELF_POLICY_READ_CHECK_V1,
             ],
             Self::BlobNode => &["ak.self.blob."],
             Self::MediaService => &["ak.self.media.", "ak.self.call.media."],
@@ -47,10 +47,10 @@ impl ServiceKind {
             Self::AppletService => &["ak.edge.applet."],
             Self::AgentRuntime => &[
                 "ak.self.agent.",
-                crate::ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY,
+                crate::ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY_V1,
             ],
             Self::SfuService => &["ak.self.call.media.", "ak.self.media."],
-            Self::TurnService => &[crate::ServiceOperationId::SELF_MEDIA_READ_ICE_CONFIG],
+            Self::TurnService => &[crate::ServiceOperationId::SELF_MEDIA_READ_ICE_CONFIG_V1],
             Self::ModerationService => &["ak.self.moderation."],
             Self::Notary | Self::SearchService | Self::ArchiveNode => &[],
             Self::KeyRecoveryService | Self::RecoveryService => &[

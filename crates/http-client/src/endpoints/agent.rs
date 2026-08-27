@@ -29,7 +29,7 @@ const AGENT_SIDECAR_ENSURE_PATH: &str = "/_arkret/self/agent-sidecars:ensure";
 
 impl Client {
     /// `POST /_arkret/self/agent-signer-evidence/query`
-    /// (`ak.self.agent_signer_evidence.read.resolve`).
+    /// (`ak.self.agent_signer_evidence.read.resolve.v1`).
     pub async fn agent_signer_evidence_query(
         &self,
         request: &AgentSignerEvidenceQueryRequestBody,
@@ -41,7 +41,7 @@ impl Client {
     }
 
     /// `POST /_arkret/gate/account/agent-key-pair`
-    /// (`ak.gate.account.command.pair_agent_key`).
+    /// (`ak.gate.account.command.pair_agent_key.v1`).
     pub async fn agent_key_pair(
         &self,
         request: &AgentKeyPairRequestBody,
@@ -54,7 +54,7 @@ impl Client {
         self.send_json(builder).await
     }
 
-    /// `POST /_arkret/self/agents` (`ak.self.agent.command.provision`).
+    /// `POST /_arkret/self/agents` (`ak.self.agent.command.provision.v1`).
     pub async fn agent_provision(
         &self,
         request: &AgentProvisionRequestBody,
@@ -63,7 +63,7 @@ impl Client {
     }
 
     /// `POST /_arkret/self/agents/{agent_id}/renew-pairing`
-    /// (`ak.self.agent.command.renew_pairing`).
+    /// (`ak.self.agent.command.renew_pairing.v1`).
     pub async fn agent_renew_pairing(
         &self,
         agent_id: &str,
@@ -77,20 +77,20 @@ impl Client {
         self.post(&path, request).await
     }
 
-    /// `GET /_arkret/self/agents` (`ak.self.agent.read.list`).
+    /// `GET /_arkret/self/agents` (`ak.self.agent.read.list.v1`).
     pub async fn agent_list(&self) -> Result<AgentList> {
         self.get(AGENTS_PATH).await
     }
 
     /// `GET /_arkret/self/agents/{agent_id}`
-    /// (`ak.self.agent.resource.get`).
+    /// (`ak.self.agent.resource.get.v1`).
     pub async fn agent_get(&self, agent_id: &str) -> Result<AgentView> {
         let path = format!("{}/{}", AGENTS_PATH, agent_path_component(agent_id)?);
         self.get(&path).await
     }
 
     /// `POST /_arkret/self/agents/{agent_id}/pause`
-    /// (`ak.self.agent.command.pause`).
+    /// (`ak.self.agent.command.pause.v1`).
     pub async fn agent_pause(
         &self,
         agent_id: &str,
@@ -101,7 +101,7 @@ impl Client {
     }
 
     /// `POST /_arkret/self/agents/{agent_id}/resume`
-    /// (`ak.self.agent.command.resume`).
+    /// (`ak.self.agent.command.resume.v1`).
     pub async fn agent_resume(
         &self,
         agent_id: &str,
@@ -112,7 +112,7 @@ impl Client {
     }
 
     /// `POST /_arkret/self/agents/{agent_id}/deactivate`
-    /// (`ak.self.agent.command.deactivate`).
+    /// (`ak.self.agent.command.deactivate.v1`).
     pub async fn agent_deactivate(
         &self,
         agent_id: &str,
@@ -127,7 +127,7 @@ impl Client {
     }
 
     /// `DELETE /_arkret/self/agents/{agent_id}/grants/{grant_id}`
-    /// (`ak.self.agent.grant.resource.delete`).
+    /// (`ak.self.agent.grant.resource.delete.v1`).
     pub async fn agent_grant_detach(
         &self,
         agent_id: &str,
@@ -147,7 +147,7 @@ impl Client {
     }
 
     /// `GET /_arkret/self/agents/{agent_id}/participation`
-    /// (`ak.self.agent.participation.resource.get`).
+    /// (`ak.self.agent.participation.resource.get.v1`).
     pub async fn agent_participation_get(
         &self,
         agent_id: &str,
@@ -161,7 +161,7 @@ impl Client {
     }
 
     /// `PUT /_arkret/self/agents/{agent_id}/participation`
-    /// (`ak.self.agent.participation.resource.replace`).
+    /// (`ak.self.agent.participation.resource.replace.v1`).
     pub async fn agent_participation_replace(
         &self,
         agent_id: &str,
@@ -176,7 +176,7 @@ impl Client {
     }
 
     /// `POST /_arkret/self/agent-sidecars:ensure`
-    /// (`ak.self.agent.sidecar.command.ensure`).
+    /// (`ak.self.agent.sidecar.command.ensure.v1`).
     pub async fn agent_sidecar_ensure(
         &self,
         request: &SidecarEnsureRequestBody,
@@ -185,14 +185,14 @@ impl Client {
     }
 
     /// `GET /_arkret/self/agent-sidecars/{sidecar_id}`
-    /// (`ak.self.agent.sidecar.resource.get`).
+    /// (`ak.self.agent.sidecar.resource.get.v1`).
     pub async fn agent_sidecar_get(&self, sidecar_id: &SidecarId) -> Result<AgentSidecarView> {
         self.get(&format!("{AGENT_SIDECARS_PATH}/{sidecar_id}"))
             .await
     }
 
     /// `GET /_arkret/self/agent-sidecars`
-    /// (`ak.self.agent.sidecar.read.list`).
+    /// (`ak.self.agent.sidecar.read.list.v1`).
     pub async fn agent_sidecar_list(
         &self,
         realm_id: Option<&RealmId>,

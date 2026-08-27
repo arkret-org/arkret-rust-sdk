@@ -10,7 +10,7 @@ use arkret_signatures::http_signature::{
     format_signature_header, format_signature_input_component_list, parse_signature_input,
     sign_message,
 };
-use arkret_wire::ErrorEnvelope;
+use arkret_wire::{ErrorEnvelope, ServiceOperationId};
 use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
 use reqwest::{Method, RequestBuilder, Response};
 use serde::Serialize;
@@ -21,7 +21,7 @@ use url::Url;
 
 use crate::{
     Auth, Client, ClientBuilder, ClientRequestOptions, Error, HEADER_IDEMPOTENCY_KEY,
-    HEADER_REQUEST_ID, HEADER_WAIT_FOR, Result, RetryConfig, retry_after_ms,
+    HEADER_OPERATION, HEADER_REQUEST_ID, HEADER_WAIT_FOR, Result, RetryConfig, retry_after_ms,
 };
 
 /// Wrap a reqwest transport error into the crate [`Error::Http`] variant at
@@ -112,12 +112,31 @@ impl Client {
         reject_absolute_path(path)?;
         let url = self.base_url.join(path.trim_start_matches('/'))?;
         reject_query_auth_in_url(&url)?;
+        // Resolve against the protocol path supplied by the endpoint method,
+        // not `url.path()`: deployments may mount Arkret below a base-path
+        // prefix which is not part of the operation registry template.
+        let selector_path = path.split(['?', '#']).next().unwrap_or(path);
+        let canonical_selector_path;
+        let selector_path = if selector_path.starts_with('/') {
+            selector_path
+        } else {
+            canonical_selector_path = format!("/{selector_path}");
+            canonical_selector_path.as_str()
+        };
+        let operation = ServiceOperationId::from_http_request(method.as_str(), selector_path)
+            .ok_or_else(|| {
+                Error::Protocol(format!(
+                    "no registered Arkret operation for {} {}",
+                    method, selector_path
+                ))
+            })?;
         let method_for_auth = method.clone();
         let url_for_auth = url.clone();
         let mut builder = self
             .http
             .request(method, url)
-            .header("Accept", "application/json");
+            .header("Accept", "application/json")
+            .header(HEADER_OPERATION, operation.as_str());
         if let Some(user_agent) = &self.user_agent {
             builder = builder.header(USER_AGENT, user_agent);
         }
@@ -294,7 +313,7 @@ impl Client {
             covered_components.push(Component::Header("content-digest".to_owned()));
         }
         let mut signed_headers = Vec::new();
-        for header_name in [HEADER_IDEMPOTENCY_KEY, HEADER_WAIT_FOR] {
+        for header_name in [HEADER_OPERATION, HEADER_IDEMPOTENCY_KEY, HEADER_WAIT_FOR] {
             if let Some(value) = request.headers().get(header_name) {
                 let value = value.to_str().map_err(|_| {
                     Error::Protocol(format!(

@@ -47,7 +47,7 @@ pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Resu
     Ok(())
 }
 
-/// Client helper that builds a `ak.self.call.media.exchange.issue_token` request body.
+/// Client helper that builds a `ak.self.call.media.exchange.issue_token.v1` request body.
 ///
 /// The reqwest-backed transport (`arkret_http_client::Client::media_token_exchange`)
 /// POSTs this body to `/_arkret/self/rtc/token` and returns the raw

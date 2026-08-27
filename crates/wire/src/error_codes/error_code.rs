@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-27.3; sha256=c6047e89fe0f3a2f612ccb9000616055cf571141d6055579a360acae49ee715a
-//! Entries: error_codes=284
+//! Input: registry/error-code-registry.json; version=2026-08-27.4;
+//! sha256=e10e81249c3a0246fc26aacbb04e1d04d48a7e4dce82e2c89ec2d2a34cc46f1c Entries: error_codes=286
 
 use serde::{Deserialize, Serialize};
 
@@ -13,10 +13,7 @@ pub enum ErrorStatusContext {
 }
 
 impl ErrorStatusContext {
-    pub const ALL: &'static [Self] = &[
-        Self::ProtectedResource,
-        Self::SessionIssuanceOrRefresh,
-    ];
+    pub const ALL: &'static [Self] = &[Self::ProtectedResource, Self::SessionIssuanceOrRefresh];
 
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -190,6 +187,7 @@ pub enum ErrorCode {
     NotMember,
     NotaryRecoveryMissing,
     OneTimeKeysExhausted,
+    OperationSelectorRequired,
     OrganizationRegistrationChallengeInvalid,
     OrganizationRegistrationControlProofInvalid,
     OrganizationRegistrationQuorumNotMet,
@@ -312,6 +310,7 @@ pub enum ErrorCode {
     UnsupportedLatticeType,
     UnsupportedMediaPolicy,
     UnsupportedOperationBinding,
+    UnsupportedOperationVersion,
     UnsupportedOrganizationRegistrationScope,
     UnsupportedProfile,
     UnsupportedProfilePatchPath,
@@ -490,6 +489,7 @@ impl ErrorCode {
         Self::NotMember,
         Self::NotaryRecoveryMissing,
         Self::OneTimeKeysExhausted,
+        Self::OperationSelectorRequired,
         Self::OrganizationRegistrationChallengeInvalid,
         Self::OrganizationRegistrationControlProofInvalid,
         Self::OrganizationRegistrationQuorumNotMet,
@@ -612,6 +612,7 @@ impl ErrorCode {
         Self::UnsupportedLatticeType,
         Self::UnsupportedMediaPolicy,
         Self::UnsupportedOperationBinding,
+        Self::UnsupportedOperationVersion,
         Self::UnsupportedOrganizationRegistrationScope,
         Self::UnsupportedProfile,
         Self::UnsupportedProfilePatchPath,
@@ -632,7 +633,8 @@ impl ErrorCode {
     pub const AGENT_AUTHORIZATION_CONFLICTED: &'static str = "agent_authorization_conflicted";
     pub const AGENT_AUTHORIZATION_INACTIVE: &'static str = "agent_authorization_inactive";
     pub const AGENT_MLS_LEAF_BINDING_MISMATCH: &'static str = "agent_mls_leaf_binding_mismatch";
-    pub const AGENT_PROVISION_FANOUT_UNAVAILABLE: &'static str = "agent_provision_fanout_unavailable";
+    pub const AGENT_PROVISION_FANOUT_UNAVAILABLE: &'static str =
+        "agent_provision_fanout_unavailable";
     pub const AGENT_SIGNER_EVIDENCE_MISSING: &'static str = "agent_signer_evidence_missing";
     pub const AGENT_SIGNER_EVIDENCE_STALE: &'static str = "agent_signer_evidence_stale";
     pub const AGENT_SIGNING_KEY_MISMATCH: &'static str = "agent_signing_key_mismatch";
@@ -640,14 +642,19 @@ impl ErrorCode {
     pub const APPLET_E2EE_JOIN_UNAUTHORIZED: &'static str = "applet_e2ee_join_unauthorized";
     pub const APPLET_EFFECTIVE_SCOPE_MISMATCH: &'static str = "applet_effective_scope_mismatch";
     pub const APPLET_INSTALL_PLAN_MISMATCH: &'static str = "applet_install_plan_mismatch";
-    pub const APPLET_INSTALL_PROJECTION_INCOMPLETE: &'static str = "applet_install_projection_incomplete";
+    pub const APPLET_INSTALL_PROJECTION_INCOMPLETE: &'static str =
+        "applet_install_projection_incomplete";
     pub const APPLET_INSTALL_REQUIRED: &'static str = "applet_install_required";
     pub const APPLET_NAMESPACE_CONFLICT: &'static str = "applet_namespace_conflict";
     pub const APPLET_PACKAGE_EXPIRED: &'static str = "applet_package_expired";
-    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_DEACTIVATED: &'static str = "applet_registration_epoch_evidence_deactivated";
-    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_MISMATCH: &'static str = "applet_registration_epoch_evidence_mismatch";
-    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_MISSING: &'static str = "applet_registration_epoch_evidence_missing";
-    pub const APPLET_REGISTRATION_EPOCH_SIGNING_KEY_MISMATCH: &'static str = "applet_registration_epoch_signing_key_mismatch";
+    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_DEACTIVATED: &'static str =
+        "applet_registration_epoch_evidence_deactivated";
+    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_MISMATCH: &'static str =
+        "applet_registration_epoch_evidence_mismatch";
+    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_MISSING: &'static str =
+        "applet_registration_epoch_evidence_missing";
+    pub const APPLET_REGISTRATION_EPOCH_SIGNING_KEY_MISMATCH: &'static str =
+        "applet_registration_epoch_signing_key_mismatch";
     pub const APPLET_REGISTRATION_UNAUTHORIZED: &'static str = "applet_registration_unauthorized";
     pub const APPLET_REVOKED: &'static str = "applet_revoked";
     pub const APPLET_TRANSACTION_IN_PROGRESS: &'static str = "applet_transaction_in_progress";
@@ -694,12 +701,15 @@ impl ErrorCode {
     pub const DEPENDENCY_MISSING: &'static str = "dependency_missing";
     pub const DEVICE_ALREADY_AUTHORIZED: &'static str = "device_already_authorized";
     pub const DEVICE_GENERATION_FENCED: &'static str = "device_generation_fenced";
-    pub const DEVICE_REANCHOR_AUTHORITY_MISMATCH: &'static str = "device_reanchor_authority_mismatch";
-    pub const DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &'static str = "device_reanchor_authorize_mismatch";
+    pub const DEVICE_REANCHOR_AUTHORITY_MISMATCH: &'static str =
+        "device_reanchor_authority_mismatch";
+    pub const DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &'static str =
+        "device_reanchor_authorize_mismatch";
     pub const DEVICE_REANCHOR_CONFLICT: &'static str = "device_reanchor_conflict";
     pub const DEVICE_REANCHOR_ENTRY_NOT_HEAD: &'static str = "device_reanchor_entry_not_head";
     pub const DEVICE_REANCHOR_FRONTIER_MISMATCH: &'static str = "device_reanchor_frontier_mismatch";
-    pub const DEVICE_RECOVERY_GENERATION_MISMATCH: &'static str = "device_recovery_generation_mismatch";
+    pub const DEVICE_RECOVERY_GENERATION_MISMATCH: &'static str =
+        "device_recovery_generation_mismatch";
     pub const DEVICE_REVOCATION_PENDING: &'static str = "device_revocation_pending";
     pub const DEVICE_REVOKED: &'static str = "device_revoked";
     pub const DEVICE_UNAUTHORIZED: &'static str = "device_unauthorized";
@@ -712,14 +722,16 @@ impl ErrorCode {
     pub const DID_UNKNOWN: &'static str = "did_unknown";
     pub const DIGEST_MISMATCH: &'static str = "digest_mismatch";
     pub const DIRECT_CONVERSATION_UNAVAILABLE: &'static str = "direct_conversation_unavailable";
-    pub const DIRECTORY_GOVERNANCE_PROOF_SIGNATURE_INVALID: &'static str = "directory_governance_proof_signature_invalid";
+    pub const DIRECTORY_GOVERNANCE_PROOF_SIGNATURE_INVALID: &'static str =
+        "directory_governance_proof_signature_invalid";
     pub const DIRECTORY_UNAUTHORIZED: &'static str = "directory_unauthorized";
     pub const DISCOVERY_FAILED: &'static str = "discovery_failed";
     pub const DISCUSSION_TRACK_DISABLED: &'static str = "discussion_track_disabled";
     pub const DUPLICATE_CLAUSE_CLAIM: &'static str = "duplicate_clause_claim";
     pub const DUPLICATE_CONFLICT: &'static str = "duplicate_conflict";
     pub const E2EE_REQUIRED: &'static str = "e2ee_required";
-    pub const ENCLAVE_NO_UPSTREAM_PROXY_FOR_EXTERNAL: &'static str = "enclave_no_upstream_proxy_for_external";
+    pub const ENCLAVE_NO_UPSTREAM_PROXY_FOR_EXTERNAL: &'static str =
+        "enclave_no_upstream_proxy_for_external";
     pub const ENCLAVE_NOT_TRUSTED: &'static str = "enclave_not_trusted";
     pub const EPOCH_MISMATCH: &'static str = "epoch_mismatch";
     pub const EXTERNAL_INVITE_ACTOR_MISMATCH: &'static str = "external_invite_actor_mismatch";
@@ -730,7 +742,8 @@ impl ErrorCode {
     pub const FEDERATION_ACTOR_ORIGIN_DENIED: &'static str = "federation_actor_origin_denied";
     pub const FEDERATION_INTEROP_TRACK_ONLY: &'static str = "federation_interop_track_only";
     pub const FEDERATION_ORIGIN_DENIED: &'static str = "federation_origin_denied";
-    pub const FEDERATION_PRIVATE_READ_RAIL_LOCAL_ONLY: &'static str = "federation_private_read_rail_local_only";
+    pub const FEDERATION_PRIVATE_READ_RAIL_LOCAL_ONLY: &'static str =
+        "federation_private_read_rail_local_only";
     pub const FIRST_BACKUP_GATE_UNSATISFIED: &'static str = "first_backup_gate_unsatisfied";
     pub const FRANKING_PROOF_UNAVAILABLE: &'static str = "franking_proof_unavailable";
     pub const FRANKING_TAMPERED: &'static str = "franking_tampered";
@@ -767,8 +780,10 @@ impl ErrorCode {
     pub const MIMI_ROOM_BINDING_EVENT_INVALID: &'static str = "mimi_room_binding_event_invalid";
     pub const MLS_GENESIS_ALREADY_EXISTS: &'static str = "mls_genesis_already_exists";
     pub const MLS_GOVERNANCE_ANCHOR_UNREACHABLE: &'static str = "mls_governance_anchor_unreachable";
-    pub const MLS_GOVERNANCE_PROOF_BOUNDS_EXCEEDED: &'static str = "mls_governance_proof_bounds_exceeded";
-    pub const MLS_KEYPACKAGE_CLAIM_REQUEST_EXPIRED: &'static str = "mls_keypackage_claim_request_expired";
+    pub const MLS_GOVERNANCE_PROOF_BOUNDS_EXCEEDED: &'static str =
+        "mls_governance_proof_bounds_exceeded";
+    pub const MLS_KEYPACKAGE_CLAIM_REQUEST_EXPIRED: &'static str =
+        "mls_keypackage_claim_request_expired";
     pub const MORPH_KIND_IMMUTABLE: &'static str = "morph_kind_immutable";
     pub const MORPH_PROFILE_WIDENS_SCHEMA_REF: &'static str = "morph_profile_widens_schema_ref";
     pub const NOT_FOUND: &'static str = "not_found";
@@ -776,9 +791,13 @@ impl ErrorCode {
     pub const NOT_MEMBER: &'static str = "not_member";
     pub const NOTARY_RECOVERY_MISSING: &'static str = "notary_recovery_missing";
     pub const ONE_TIME_KEYS_EXHAUSTED: &'static str = "one_time_keys_exhausted";
-    pub const ORGANIZATION_REGISTRATION_CHALLENGE_INVALID: &'static str = "organization_registration_challenge_invalid";
-    pub const ORGANIZATION_REGISTRATION_CONTROL_PROOF_INVALID: &'static str = "organization_registration_control_proof_invalid";
-    pub const ORGANIZATION_REGISTRATION_QUORUM_NOT_MET: &'static str = "organization_registration_quorum_not_met";
+    pub const OPERATION_SELECTOR_REQUIRED: &'static str = "operation_selector_required";
+    pub const ORGANIZATION_REGISTRATION_CHALLENGE_INVALID: &'static str =
+        "organization_registration_challenge_invalid";
+    pub const ORGANIZATION_REGISTRATION_CONTROL_PROOF_INVALID: &'static str =
+        "organization_registration_control_proof_invalid";
+    pub const ORGANIZATION_REGISTRATION_QUORUM_NOT_MET: &'static str =
+        "organization_registration_quorum_not_met";
     pub const ORGANIZATION_REGISTRATION_REVOKED: &'static str = "organization_registration_revoked";
     pub const ORGANIZATION_REGISTRATION_STALE: &'static str = "organization_registration_stale";
     pub const OVERBROAD_REQUEST: &'static str = "overbroad_request";
@@ -810,29 +829,40 @@ impl ErrorCode {
     pub const QUOTA_EXCEEDED: &'static str = "quota_exceeded";
     pub const RANK_EXHAUSTED: &'static str = "rank_exhausted";
     pub const RATE_LIMITED: &'static str = "rate_limited";
-    pub const READ_RECEIPT_COMPLIANCE_FLOOR_VIOLATED: &'static str = "read_receipt_compliance_floor_violated";
+    pub const READ_RECEIPT_COMPLIANCE_FLOOR_VIOLATED: &'static str =
+        "read_receipt_compliance_floor_violated";
     pub const REALM_FEDERATION_POLICY_CLOSED: &'static str = "realm_federation_policy_closed";
     pub const REALM_FEDERATION_POLICY_INVALID: &'static str = "realm_federation_policy_invalid";
-    pub const REALM_FEDERATION_POLICY_QUARANTINE: &'static str = "realm_federation_policy_quarantine";
-    pub const REALM_FEDERATION_POLICY_RESTRICTED: &'static str = "realm_federation_policy_restricted";
+    pub const REALM_FEDERATION_POLICY_QUARANTINE: &'static str =
+        "realm_federation_policy_quarantine";
+    pub const REALM_FEDERATION_POLICY_RESTRICTED: &'static str =
+        "realm_federation_policy_restricted";
     pub const REALM_FROZEN: &'static str = "realm_frozen";
     pub const REALM_MODERATION_POLICY_DENIED: &'static str = "realm_moderation_policy_denied";
     pub const REAUTHENTICATION_REQUIRED: &'static str = "reauthentication_required";
     pub const RECORDING_DENIED: &'static str = "recording_denied";
-    pub const RECOVERY_AUTHORIZATION_DEVICE_MISMATCH: &'static str = "recovery_authorization_device_mismatch";
-    pub const RECOVERY_AUTHORIZATION_PRINCIPAL_MISMATCH: &'static str = "recovery_authorization_principal_mismatch";
-    pub const RECOVERY_AUTHORIZATION_SESSION_MISMATCH: &'static str = "recovery_authorization_session_mismatch";
-    pub const RECOVERY_CONTROL_EVENT_KIND_MISMATCH: &'static str = "recovery_control_event_kind_mismatch";
+    pub const RECOVERY_AUTHORIZATION_DEVICE_MISMATCH: &'static str =
+        "recovery_authorization_device_mismatch";
+    pub const RECOVERY_AUTHORIZATION_PRINCIPAL_MISMATCH: &'static str =
+        "recovery_authorization_principal_mismatch";
+    pub const RECOVERY_AUTHORIZATION_SESSION_MISMATCH: &'static str =
+        "recovery_authorization_session_mismatch";
+    pub const RECOVERY_CONTROL_EVENT_KIND_MISMATCH: &'static str =
+        "recovery_control_event_kind_mismatch";
     pub const RECOVERY_CONTROL_EVENT_NOT_FOUND: &'static str = "recovery_control_event_not_found";
-    pub const RECOVERY_LIST_UPDATE_DEVICE_MISMATCH: &'static str = "recovery_list_update_device_mismatch";
-    pub const RECOVERY_LIST_UPDATE_PRINCIPAL_MISMATCH: &'static str = "recovery_list_update_principal_mismatch";
+    pub const RECOVERY_LIST_UPDATE_DEVICE_MISMATCH: &'static str =
+        "recovery_list_update_device_mismatch";
+    pub const RECOVERY_LIST_UPDATE_PRINCIPAL_MISMATCH: &'static str =
+        "recovery_list_update_principal_mismatch";
     pub const RECOVERY_POLICY_CONFLICT: &'static str = "recovery_policy_conflict";
-    pub const RECOVERY_POLICY_DEVICE_UNAUTHORIZED: &'static str = "recovery_policy_device_unauthorized";
+    pub const RECOVERY_POLICY_DEVICE_UNAUTHORIZED: &'static str =
+        "recovery_policy_device_unauthorized";
     pub const RECOVERY_POLICY_ID_MISMATCH: &'static str = "recovery_policy_id_mismatch";
     pub const RECOVERY_POLICY_MISMATCH: &'static str = "recovery_policy_mismatch";
     pub const RECOVERY_POLICY_MISSING: &'static str = "recovery_policy_missing";
     pub const RECOVERY_POLICY_REVOKED: &'static str = "recovery_policy_revoked";
-    pub const RECOVERY_POLICY_TRUST_DOMAIN_MISMATCH: &'static str = "recovery_policy_trust_domain_mismatch";
+    pub const RECOVERY_POLICY_TRUST_DOMAIN_MISMATCH: &'static str =
+        "recovery_policy_trust_domain_mismatch";
     pub const RECOVERY_POLICY_VERSION_MISMATCH: &'static str = "recovery_policy_version_mismatch";
     pub const RECOVERY_PROOF_AUTHORITY_INVALID: &'static str = "recovery_proof_authority_invalid";
     pub const RECOVERY_PROOF_KIND_NOT_ALLOWED: &'static str = "recovery_proof_kind_not_allowed";
@@ -851,13 +881,15 @@ impl ErrorCode {
     pub const SEAL_SIGNER_UNAUTHORIZED: &'static str = "seal_signer_unauthorized";
     pub const SELECTOR_TOO_COMPLEX: &'static str = "selector_too_complex";
     pub const SERVICE_IDENTITY_CONFLICT: &'static str = "service_identity_conflict";
-    pub const SERVICE_IDENTITY_PROVIDER_UNAVAILABLE: &'static str = "service_identity_provider_unavailable";
+    pub const SERVICE_IDENTITY_PROVIDER_UNAVAILABLE: &'static str =
+        "service_identity_provider_unavailable";
     pub const SERVICE_IDENTITY_UNAVAILABLE: &'static str = "service_identity_unavailable";
     pub const SERVICE_REGISTRATION_DENIED: &'static str = "service_registration_denied";
     pub const SERVICE_UNAVAILABLE: &'static str = "service_unavailable";
     pub const SESSION_GRANT_NOT_FOUND: &'static str = "session_grant_not_found";
     pub const SESSION_GRANT_REPLAY_EXPIRED: &'static str = "session_grant_replay_expired";
-    pub const SESSION_GRANT_REPLAY_INDETERMINATE: &'static str = "session_grant_replay_indeterminate";
+    pub const SESSION_GRANT_REPLAY_INDETERMINATE: &'static str =
+        "session_grant_replay_indeterminate";
     pub const SESSION_GRANT_REPLAY_TERMINAL: &'static str = "session_grant_replay_terminal";
     pub const SESSION_LOGGED_OUT: &'static str = "session_logged_out";
     pub const SESSION_REVOKE_SELECTOR_CONFLICT: &'static str = "session_revoke_selector_conflict";
@@ -898,7 +930,9 @@ impl ErrorCode {
     pub const UNSUPPORTED_LATTICE_TYPE: &'static str = "unsupported_lattice_type";
     pub const UNSUPPORTED_MEDIA_POLICY: &'static str = "unsupported_media_policy";
     pub const UNSUPPORTED_OPERATION_BINDING: &'static str = "unsupported_operation_binding";
-    pub const UNSUPPORTED_ORGANIZATION_REGISTRATION_SCOPE: &'static str = "unsupported_organization_registration_scope";
+    pub const UNSUPPORTED_OPERATION_VERSION: &'static str = "unsupported_operation_version";
+    pub const UNSUPPORTED_ORGANIZATION_REGISTRATION_SCOPE: &'static str =
+        "unsupported_organization_registration_scope";
     pub const UNSUPPORTED_PROFILE: &'static str = "unsupported_profile";
     pub const UNSUPPORTED_PROFILE_PATCH_PATH: &'static str = "unsupported_profile_patch_path";
     pub const UNSUPPORTED_PROOF_PROFILE: &'static str = "unsupported_proof_profile";
@@ -931,10 +965,18 @@ impl ErrorCode {
             Self::AppletInstallRequired => "applet_install_required",
             Self::AppletNamespaceConflict => "applet_namespace_conflict",
             Self::AppletPackageExpired => "applet_package_expired",
-            Self::AppletRegistrationEpochEvidenceDeactivated => "applet_registration_epoch_evidence_deactivated",
-            Self::AppletRegistrationEpochEvidenceMismatch => "applet_registration_epoch_evidence_mismatch",
-            Self::AppletRegistrationEpochEvidenceMissing => "applet_registration_epoch_evidence_missing",
-            Self::AppletRegistrationEpochSigningKeyMismatch => "applet_registration_epoch_signing_key_mismatch",
+            Self::AppletRegistrationEpochEvidenceDeactivated => {
+                "applet_registration_epoch_evidence_deactivated"
+            }
+            Self::AppletRegistrationEpochEvidenceMismatch => {
+                "applet_registration_epoch_evidence_mismatch"
+            }
+            Self::AppletRegistrationEpochEvidenceMissing => {
+                "applet_registration_epoch_evidence_missing"
+            }
+            Self::AppletRegistrationEpochSigningKeyMismatch => {
+                "applet_registration_epoch_signing_key_mismatch"
+            }
             Self::AppletRegistrationUnauthorized => "applet_registration_unauthorized",
             Self::AppletRevoked => "applet_revoked",
             Self::AppletTransactionInProgress => "applet_transaction_in_progress",
@@ -999,7 +1041,9 @@ impl ErrorCode {
             Self::DidUnknown => "did_unknown",
             Self::DigestMismatch => "digest_mismatch",
             Self::DirectConversationUnavailable => "direct_conversation_unavailable",
-            Self::DirectoryGovernanceProofSignatureInvalid => "directory_governance_proof_signature_invalid",
+            Self::DirectoryGovernanceProofSignatureInvalid => {
+                "directory_governance_proof_signature_invalid"
+            }
             Self::DirectoryUnauthorized => "directory_unauthorized",
             Self::DiscoveryFailed => "discovery_failed",
             Self::DiscussionTrackDisabled => "discussion_track_disabled",
@@ -1063,9 +1107,16 @@ impl ErrorCode {
             Self::NotMember => "not_member",
             Self::NotaryRecoveryMissing => "notary_recovery_missing",
             Self::OneTimeKeysExhausted => "one_time_keys_exhausted",
-            Self::OrganizationRegistrationChallengeInvalid => "organization_registration_challenge_invalid",
-            Self::OrganizationRegistrationControlProofInvalid => "organization_registration_control_proof_invalid",
-            Self::OrganizationRegistrationQuorumNotMet => "organization_registration_quorum_not_met",
+            Self::OperationSelectorRequired => "operation_selector_required",
+            Self::OrganizationRegistrationChallengeInvalid => {
+                "organization_registration_challenge_invalid"
+            }
+            Self::OrganizationRegistrationControlProofInvalid => {
+                "organization_registration_control_proof_invalid"
+            }
+            Self::OrganizationRegistrationQuorumNotMet => {
+                "organization_registration_quorum_not_met"
+            }
             Self::OrganizationRegistrationRevoked => "organization_registration_revoked",
             Self::OrganizationRegistrationStale => "organization_registration_stale",
             Self::OverbroadRequest => "overbroad_request",
@@ -1107,7 +1158,9 @@ impl ErrorCode {
             Self::ReauthenticationRequired => "reauthentication_required",
             Self::RecordingDenied => "recording_denied",
             Self::RecoveryAuthorizationDeviceMismatch => "recovery_authorization_device_mismatch",
-            Self::RecoveryAuthorizationPrincipalMismatch => "recovery_authorization_principal_mismatch",
+            Self::RecoveryAuthorizationPrincipalMismatch => {
+                "recovery_authorization_principal_mismatch"
+            }
             Self::RecoveryAuthorizationSessionMismatch => "recovery_authorization_session_mismatch",
             Self::RecoveryControlEventKindMismatch => "recovery_control_event_kind_mismatch",
             Self::RecoveryControlEventNotFound => "recovery_control_event_not_found",
@@ -1185,7 +1238,10 @@ impl ErrorCode {
             Self::UnsupportedLatticeType => "unsupported_lattice_type",
             Self::UnsupportedMediaPolicy => "unsupported_media_policy",
             Self::UnsupportedOperationBinding => "unsupported_operation_binding",
-            Self::UnsupportedOrganizationRegistrationScope => "unsupported_organization_registration_scope",
+            Self::UnsupportedOperationVersion => "unsupported_operation_version",
+            Self::UnsupportedOrganizationRegistrationScope => {
+                "unsupported_organization_registration_scope"
+            }
             Self::UnsupportedProfile => "unsupported_profile",
             Self::UnsupportedProfilePatchPath => "unsupported_profile_patch_path",
             Self::UnsupportedProofProfile => "unsupported_proof_profile",
@@ -1220,10 +1276,18 @@ impl ErrorCode {
             "applet_install_required" => Some(Self::AppletInstallRequired),
             "applet_namespace_conflict" => Some(Self::AppletNamespaceConflict),
             "applet_package_expired" => Some(Self::AppletPackageExpired),
-            "applet_registration_epoch_evidence_deactivated" => Some(Self::AppletRegistrationEpochEvidenceDeactivated),
-            "applet_registration_epoch_evidence_mismatch" => Some(Self::AppletRegistrationEpochEvidenceMismatch),
-            "applet_registration_epoch_evidence_missing" => Some(Self::AppletRegistrationEpochEvidenceMissing),
-            "applet_registration_epoch_signing_key_mismatch" => Some(Self::AppletRegistrationEpochSigningKeyMismatch),
+            "applet_registration_epoch_evidence_deactivated" => {
+                Some(Self::AppletRegistrationEpochEvidenceDeactivated)
+            }
+            "applet_registration_epoch_evidence_mismatch" => {
+                Some(Self::AppletRegistrationEpochEvidenceMismatch)
+            }
+            "applet_registration_epoch_evidence_missing" => {
+                Some(Self::AppletRegistrationEpochEvidenceMissing)
+            }
+            "applet_registration_epoch_signing_key_mismatch" => {
+                Some(Self::AppletRegistrationEpochSigningKeyMismatch)
+            }
             "applet_registration_unauthorized" => Some(Self::AppletRegistrationUnauthorized),
             "applet_revoked" => Some(Self::AppletRevoked),
             "applet_transaction_in_progress" => Some(Self::AppletTransactionInProgress),
@@ -1288,14 +1352,18 @@ impl ErrorCode {
             "did_unknown" => Some(Self::DidUnknown),
             "digest_mismatch" => Some(Self::DigestMismatch),
             "direct_conversation_unavailable" => Some(Self::DirectConversationUnavailable),
-            "directory_governance_proof_signature_invalid" => Some(Self::DirectoryGovernanceProofSignatureInvalid),
+            "directory_governance_proof_signature_invalid" => {
+                Some(Self::DirectoryGovernanceProofSignatureInvalid)
+            }
             "directory_unauthorized" => Some(Self::DirectoryUnauthorized),
             "discovery_failed" => Some(Self::DiscoveryFailed),
             "discussion_track_disabled" => Some(Self::DiscussionTrackDisabled),
             "duplicate_clause_claim" => Some(Self::DuplicateClauseClaim),
             "duplicate_conflict" => Some(Self::DuplicateConflict),
             "e2ee_required" => Some(Self::E2eeRequired),
-            "enclave_no_upstream_proxy_for_external" => Some(Self::EnclaveNoUpstreamProxyForExternal),
+            "enclave_no_upstream_proxy_for_external" => {
+                Some(Self::EnclaveNoUpstreamProxyForExternal)
+            }
             "enclave_not_trusted" => Some(Self::EnclaveNotTrusted),
             "epoch_mismatch" => Some(Self::EpochMismatch),
             "external_invite_actor_mismatch" => Some(Self::ExternalInviteActorMismatch),
@@ -1306,7 +1374,9 @@ impl ErrorCode {
             "federation_actor_origin_denied" => Some(Self::FederationActorOriginDenied),
             "federation_interop_track_only" => Some(Self::FederationInteropTrackOnly),
             "federation_origin_denied" => Some(Self::FederationOriginDenied),
-            "federation_private_read_rail_local_only" => Some(Self::FederationPrivateReadRailLocalOnly),
+            "federation_private_read_rail_local_only" => {
+                Some(Self::FederationPrivateReadRailLocalOnly)
+            }
             "first_backup_gate_unsatisfied" => Some(Self::FirstBackupGateUnsatisfied),
             "franking_proof_unavailable" => Some(Self::FrankingProofUnavailable),
             "franking_tampered" => Some(Self::FrankingTampered),
@@ -1352,9 +1422,16 @@ impl ErrorCode {
             "not_member" => Some(Self::NotMember),
             "notary_recovery_missing" => Some(Self::NotaryRecoveryMissing),
             "one_time_keys_exhausted" => Some(Self::OneTimeKeysExhausted),
-            "organization_registration_challenge_invalid" => Some(Self::OrganizationRegistrationChallengeInvalid),
-            "organization_registration_control_proof_invalid" => Some(Self::OrganizationRegistrationControlProofInvalid),
-            "organization_registration_quorum_not_met" => Some(Self::OrganizationRegistrationQuorumNotMet),
+            "operation_selector_required" => Some(Self::OperationSelectorRequired),
+            "organization_registration_challenge_invalid" => {
+                Some(Self::OrganizationRegistrationChallengeInvalid)
+            }
+            "organization_registration_control_proof_invalid" => {
+                Some(Self::OrganizationRegistrationControlProofInvalid)
+            }
+            "organization_registration_quorum_not_met" => {
+                Some(Self::OrganizationRegistrationQuorumNotMet)
+            }
             "organization_registration_revoked" => Some(Self::OrganizationRegistrationRevoked),
             "organization_registration_stale" => Some(Self::OrganizationRegistrationStale),
             "overbroad_request" => Some(Self::OverbroadRequest),
@@ -1386,7 +1463,9 @@ impl ErrorCode {
             "quota_exceeded" => Some(Self::QuotaExceeded),
             "rank_exhausted" => Some(Self::RankExhausted),
             "rate_limited" => Some(Self::RateLimited),
-            "read_receipt_compliance_floor_violated" => Some(Self::ReadReceiptComplianceFloorViolated),
+            "read_receipt_compliance_floor_violated" => {
+                Some(Self::ReadReceiptComplianceFloorViolated)
+            }
             "realm_federation_policy_closed" => Some(Self::RealmFederationPolicyClosed),
             "realm_federation_policy_invalid" => Some(Self::RealmFederationPolicyInvalid),
             "realm_federation_policy_quarantine" => Some(Self::RealmFederationPolicyQuarantine),
@@ -1395,20 +1474,30 @@ impl ErrorCode {
             "realm_moderation_policy_denied" => Some(Self::RealmModerationPolicyDenied),
             "reauthentication_required" => Some(Self::ReauthenticationRequired),
             "recording_denied" => Some(Self::RecordingDenied),
-            "recovery_authorization_device_mismatch" => Some(Self::RecoveryAuthorizationDeviceMismatch),
-            "recovery_authorization_principal_mismatch" => Some(Self::RecoveryAuthorizationPrincipalMismatch),
-            "recovery_authorization_session_mismatch" => Some(Self::RecoveryAuthorizationSessionMismatch),
+            "recovery_authorization_device_mismatch" => {
+                Some(Self::RecoveryAuthorizationDeviceMismatch)
+            }
+            "recovery_authorization_principal_mismatch" => {
+                Some(Self::RecoveryAuthorizationPrincipalMismatch)
+            }
+            "recovery_authorization_session_mismatch" => {
+                Some(Self::RecoveryAuthorizationSessionMismatch)
+            }
             "recovery_control_event_kind_mismatch" => Some(Self::RecoveryControlEventKindMismatch),
             "recovery_control_event_not_found" => Some(Self::RecoveryControlEventNotFound),
             "recovery_list_update_device_mismatch" => Some(Self::RecoveryListUpdateDeviceMismatch),
-            "recovery_list_update_principal_mismatch" => Some(Self::RecoveryListUpdatePrincipalMismatch),
+            "recovery_list_update_principal_mismatch" => {
+                Some(Self::RecoveryListUpdatePrincipalMismatch)
+            }
             "recovery_policy_conflict" => Some(Self::RecoveryPolicyConflict),
             "recovery_policy_device_unauthorized" => Some(Self::RecoveryPolicyDeviceUnauthorized),
             "recovery_policy_id_mismatch" => Some(Self::RecoveryPolicyIdMismatch),
             "recovery_policy_mismatch" => Some(Self::RecoveryPolicyMismatch),
             "recovery_policy_missing" => Some(Self::RecoveryPolicyMissing),
             "recovery_policy_revoked" => Some(Self::RecoveryPolicyRevoked),
-            "recovery_policy_trust_domain_mismatch" => Some(Self::RecoveryPolicyTrustDomainMismatch),
+            "recovery_policy_trust_domain_mismatch" => {
+                Some(Self::RecoveryPolicyTrustDomainMismatch)
+            }
             "recovery_policy_version_mismatch" => Some(Self::RecoveryPolicyVersionMismatch),
             "recovery_proof_authority_invalid" => Some(Self::RecoveryProofAuthorityInvalid),
             "recovery_proof_kind_not_allowed" => Some(Self::RecoveryProofKindNotAllowed),
@@ -1427,7 +1516,9 @@ impl ErrorCode {
             "seal_signer_unauthorized" => Some(Self::SealSignerUnauthorized),
             "selector_too_complex" => Some(Self::SelectorTooComplex),
             "service_identity_conflict" => Some(Self::ServiceIdentityConflict),
-            "service_identity_provider_unavailable" => Some(Self::ServiceIdentityProviderUnavailable),
+            "service_identity_provider_unavailable" => {
+                Some(Self::ServiceIdentityProviderUnavailable)
+            }
             "service_identity_unavailable" => Some(Self::ServiceIdentityUnavailable),
             "service_registration_denied" => Some(Self::ServiceRegistrationDenied),
             "service_unavailable" => Some(Self::ServiceUnavailable),
@@ -1474,7 +1565,10 @@ impl ErrorCode {
             "unsupported_lattice_type" => Some(Self::UnsupportedLatticeType),
             "unsupported_media_policy" => Some(Self::UnsupportedMediaPolicy),
             "unsupported_operation_binding" => Some(Self::UnsupportedOperationBinding),
-            "unsupported_organization_registration_scope" => Some(Self::UnsupportedOrganizationRegistrationScope),
+            "unsupported_operation_version" => Some(Self::UnsupportedOperationVersion),
+            "unsupported_organization_registration_scope" => {
+                Some(Self::UnsupportedOrganizationRegistrationScope)
+            }
             "unsupported_profile" => Some(Self::UnsupportedProfile),
             "unsupported_profile_patch_path" => Some(Self::UnsupportedProfilePatchPath),
             "unsupported_proof_profile" => Some(Self::UnsupportedProofProfile),
@@ -1544,7 +1638,10 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         type_uri: "https://arkret.org/problems/account_deactivated",
         title: "Account deactivated",
         http_status: 401,
-        http_status_by_context: &[(ErrorStatusContext::ProtectedResource, 401), (ErrorStatusContext::SessionIssuanceOrRefresh, 403)],
+        http_status_by_context: &[
+            (ErrorStatusContext::ProtectedResource, 401),
+            (ErrorStatusContext::SessionIssuanceOrRefresh, 403),
+        ],
         scope: "both",
         applies_to: &[],
         description: "The principal account is deactivated. Existing session grants are invalidated and protected requests MUST fail closed; new session issuance MAY surface the same code with a 403 policy-denial status.",
@@ -1564,7 +1661,10 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         type_uri: "https://arkret.org/problems/account_locked",
         title: "Account locked",
         http_status: 401,
-        http_status_by_context: &[(ErrorStatusContext::ProtectedResource, 401), (ErrorStatusContext::SessionIssuanceOrRefresh, 403)],
+        http_status_by_context: &[
+            (ErrorStatusContext::ProtectedResource, 401),
+            (ErrorStatusContext::SessionIssuanceOrRefresh, 403),
+        ],
         scope: "both",
         applies_to: &[],
         description: "The principal account is locked. Existing session grants are invalidated and protected requests MUST fail closed; new session issuance MAY surface the same code with a 403 policy-denial status.",
@@ -1697,7 +1797,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["service_call"],
-        description: "ak.self.applet.command.install recomputed the canonical InstallPlan from the submitted Applet Package, caller-signed registration/capability-grant Events, effective_scope, and current Realm/Circle policy, and the recomputed plan_digest did not exactly match the submitted plan_digest. Server MUST fail closed and require a fresh preview/approval before formal Event admission. See zh/extensions/applet-integration.md §4b.",
+        description: "ak.self.applet.command.install.v1 recomputed the canonical InstallPlan from the submitted Applet Package, caller-signed registration/capability-grant Events, effective_scope, and current Realm/Circle policy, and the recomputed plan_digest did not exactly match the submitted plan_digest. Server MUST fail closed and require a fresh preview/approval before formal Event admission. See zh/extensions/applet-integration.md §4b.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletInstallProjectionIncomplete,
@@ -1797,7 +1897,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["service_call", "auth_decision"],
-        description: "A revoked effective Applet install attempted a future write, transaction push side effect, delegated action, widget token use, or E2EE join. Reducers and service-call handlers MUST fail closed after ak.self.applet.command.revoke / ak.capability.revoke has taken effect. See zh/extensions/applet-integration.md §4b.",
+        description: "A revoked effective Applet install attempted a future write, transaction push side effect, delegated action, widget token use, or E2EE join. Reducers and service-call handlers MUST fail closed after ak.self.applet.command.revoke.v1 / ak.capability.revoke has taken effect. See zh/extensions/applet-integration.md §4b.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletTransactionInProgress,
@@ -1877,7 +1977,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["schema_validation", "service_call"],
-        description: "`ak.self.account.command.update_profile` received an `avatar_blob_ref` that is not a valid Arkret Blob reference, does not resolve under the caller's profile/avatar policy, or points to a blob the server cannot authorize for profile display. Protocol profile updates MUST use `avatar_blob_ref`; `avatar_url` is not a protocol field.",
+        description: "`ak.self.account.command.update_profile.v1` received an `avatar_blob_ref` that is not a valid Arkret Blob reference, does not resolve under the caller's profile/avatar policy, or points to a blob the server cannot authorize for profile display. Protocol profile updates MUST use `avatar_blob_ref`; `avatar_url` is not a protocol field.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::BlobDigestMismatch,
@@ -2047,7 +2147,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "Sub-reason for failed_precondition when ak.self.contact.command.respond or ak.self.contact.command.reject targets a contact request older than contact_request_pending_ttl. The request projection is expired and no terminal response may be authored from it.",
+        description: "Sub-reason for failed_precondition when ak.self.contact.command.respond.v1 or ak.self.contact.command.reject.v1 targets a contact request older than contact_request_pending_ttl. The request projection is expired and no terminal response may be authored from it.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ContactRequestNotPending,
@@ -2057,7 +2157,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "Sub-reason for failed_precondition when ak.self.contact.command.respond or ak.self.contact.command.reject targets a request that has already been accepted, rejected, tombstoned, withdrawn, or otherwise left the pending state.",
+        description: "Sub-reason for failed_precondition when ak.self.contact.command.respond.v1 or ak.self.contact.command.reject.v1 targets a request that has already been accepted, rejected, tombstoned, withdrawn, or otherwise left the pending state.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ContactScopeStale,
@@ -2197,7 +2297,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "Federation sender used an obsolete member delivery binding frontier; response carries new_recipient_service_id and handover_frontier so the sender can retry at the current service. Dual-registered as a per-device reason_code for ak.edge.push.command.notify (see reason_codes[]).",
+        description: "Federation sender used an obsolete member delivery binding frontier; response carries new_recipient_service_id and handover_frontier so the sender can retry at the current service. Dual-registered as a per-device reason_code for ak.edge.push.command.notify.v1 (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeliveryBindingUnresolvable,
@@ -3060,6 +3160,16 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "No suitable one-time key or KeyPackage remains available for the requested device, principal, cipher suite, or profile.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::OperationSelectorRequired,
+        type_uri: "https://arkret.org/problems/operation_selector_required",
+        title: "Operation selector required",
+        http_status: 400,
+        http_status_by_context: &[],
+        scope: "both",
+        applies_to: &[],
+        description: "A canonical operation carrier omitted its mandatory exact operation selector. HTTP requests, including ServiceDescribe, require Arkret-Operation before body parsing; WebSocket open frames require operation_id; TUS creation requests require Arkret-Operation. Receivers MUST NOT infer the operation from the route or payload shape.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::OrganizationRegistrationChallengeInvalid,
         type_uri: "https://arkret.org/problems/organization_registration_challenge_invalid",
         title: "Organization registration challenge invalid",
@@ -3307,7 +3417,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The push gateway or downstream push provider could not be reached or is unavailable for this route. Dual-registered as a per-device reason_code for ak.edge.push.command.notify (see reason_codes[]).",
+        description: "The push gateway or downstream push provider could not be reached or is unavailable for this route. Dual-registered as a per-device reason_code for ak.edge.push.command.notify.v1 (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PushPayloadTooLarge,
@@ -3317,7 +3427,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The notification payload exceeds the push profile, provider, or deployment size limit. Dual-registered as a per-device reason_code for ak.edge.push.command.notify (see reason_codes[]).",
+        description: "The notification payload exceeds the push profile, provider, or deployment size limit. Dual-registered as a per-device reason_code for ak.edge.push.command.notify.v1 (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PushTargetUnknown,
@@ -3327,7 +3437,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The requested push target, device route, or notification subscription is unknown or no longer visible. Dual-registered as a per-device reason_code for ak.edge.push.command.notify (see reason_codes[]).",
+        description: "The requested push target, device route, or notification subscription is unknown or no longer visible. Dual-registered as a per-device reason_code for ak.edge.push.command.notify.v1 (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PushTokenInvalid,
@@ -3337,7 +3447,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The supplied push token is malformed, fails provider validation, or is not bound to the authenticated principal/device. Dual-registered as a per-device reason_code for ak.edge.push.command.notify (see reason_codes[]).",
+        description: "The supplied push token is malformed, fails provider validation, or is not bound to the authenticated principal/device. Dual-registered as a per-device reason_code for ak.edge.push.command.notify.v1 (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PushTokenUnknown,
@@ -3347,7 +3457,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The push token or registration id is unknown, revoked, expired, or already unregistered. Dual-registered as a per-device reason_code for ak.edge.push.command.notify (see reason_codes[]).",
+        description: "The push token or registration id is unknown, revoked, expired, or already unregistered. Dual-registered as a per-device reason_code for ak.edge.push.command.notify.v1 (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::Quarantine,
@@ -3397,7 +3507,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The caller exceeded the current rate limit policy. Dual-registered as a per-device reason_code for ak.edge.push.command.notify (see reason_codes[]).",
+        description: "The caller exceeded the current rate limit policy. Dual-registered as a per-device reason_code for ak.edge.push.command.notify.v1 (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ReadReceiptComplianceFloorViolated,
@@ -3477,7 +3587,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "A high-risk self-service action (for example ak.gate.account.command.request_erasure) requires fresh high-risk action authentication — recent login, WebAuthn, recovery key or a deployment equivalent — and the presented session does not satisfy the deployment policy. The caller MUST re-authenticate and retry with new request material; the strength of the required proof is deployment governance. See zh/identity/account-lifecycle.md section 8.1 and section 10.",
+        description: "A high-risk self-service action (for example ak.gate.account.command.request_erasure.v1) requires fresh high-risk action authentication — recent login, WebAuthn, recovery key or a deployment equivalent — and the presented session does not satisfy the deployment policy. The caller MUST re-authenticate and retry with new request material; the strength of the required proof is deployment governance. See zh/identity/account-lifecycle.md section 8.1 and section 10.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecordingDenied,
@@ -3857,7 +3967,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["auth_decision", "service_call"],
-        description: "`ak.gate.account.command.revoke_session` targeted a session grant that is unknown, already inactive, or not owned by the current principal. Implementations SHOULD use a uniform response shape that does not disclose another principal's session grant existence.",
+        description: "`ak.gate.account.command.revoke_session.v1` targeted a session grant that is unknown, already inactive, or not owned by the current principal. Implementations SHOULD use a uniform response shape that does not disclose another principal's session grant existence.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SessionGrantReplayExpired,
@@ -3907,7 +4017,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["schema_validation", "service_call"],
-        description: "`ak.gate.account.command.revoke_session` supplied more than one mutually exclusive selector (`target_session_grant_id`, `target_device_id`, `all_sessions=true`) or otherwise failed selector closure. Receivers MUST reject instead of choosing one selector implicitly.",
+        description: "`ak.gate.account.command.revoke_session.v1` supplied more than one mutually exclusive selector (`target_session_grant_id`, `target_device_id`, `all_sessions=true`) or otherwise failed selector closure. Receivers MUST reject instead of choosing one selector implicitly.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SfuNotAllowed,
@@ -3927,7 +4037,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "service_call",
         applies_to: &[],
-        description: "ak.self.signal.command.send rejected the envelope because the actor lacks the kind-specific broadcast capability or Realm policy disables that signal kind.",
+        description: "ak.self.signal.command.send.v1 rejected the envelope because the actor lacks the kind-specific broadcast capability or Realm policy disables that signal kind.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SignalRailUnavailable,
@@ -3937,7 +4047,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "service_call",
         applies_to: &[],
-        description: "ak.self.signal.command.send could not enqueue or fan out the transient signal because the signal channel is temporarily unavailable; durable Event history is not affected.",
+        description: "ak.self.signal.command.send.v1 could not enqueue or fan out the transient signal because the signal channel is temporarily unavailable; durable Event history is not affected.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SignalTtlOutOfRange,
@@ -3947,7 +4057,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "service_call",
         applies_to: &[],
-        description: "ak.self.signal.command.send rejected ttl_ms because it is absent when required or outside the service's advertised kind-specific range.",
+        description: "ak.self.signal.command.send.v1 rejected ttl_ms because it is absent when required or outside the service's advertised kind-specific range.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SignatureInvalid,
@@ -4247,7 +4357,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "A third-party (3PID) invite claim targeted a join-rule Realm whose continuation profile is outside v1 base conformance (e.g. knock_restricted) and the deployment has not declared the required candidate profile in ak.find.directory.read.describe / ak.account.describe. The verification service MUST reject the token claim instead of silently downgrading. See zh/sync/third-party-invites.md §4.3.",
+        description: "A third-party (3PID) invite claim targeted a join-rule Realm whose continuation profile is outside v1 base conformance (e.g. knock_restricted) and the deployment has not declared the required candidate profile in ak.find.directory.read.describe.v1 / ak.account.describe. The verification service MUST reject the token claim instead of silently downgrading. See zh/sync/third-party-invites.md §4.3.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedLatticeType,
@@ -4280,6 +4390,16 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The caller and role-scoped ServiceDescribe have no exact operation carrier/schema intersection. This disables only the selected operation and MUST NOT be translated to an authorization, account, Realm, or service-wide failure. Dual-registered as a top-level service code and a reason_code (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::UnsupportedOperationVersion,
+        type_uri: "https://arkret.org/problems/unsupported_operation_version",
+        title: "Unsupported operation version",
+        http_status: 422,
+        http_status_by_context: &[],
+        scope: "both",
+        applies_to: &[],
+        description: "The supplied exact versioned operation selector is unknown, is not supported on the selected carrier, or does not belong to the selected route family. Receivers MUST fail closed without version fallback, alias resolution, or payload-shape inference.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedOrganizationRegistrationScope,
         type_uri: "https://arkret.org/problems/unsupported_organization_registration_scope",
         title: "Unsupported organization registration scope",
@@ -4297,7 +4417,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The selected operation, portable artifact, Realm genesis, or Realm reducer-profile control state requires a profile or feature the service does not implement. Reducer support is advertised in ServiceDescribe.supported_reducer_profiles; other capabilities use supported_features / supported_profiles. The server MUST fail closed and MUST NOT substitute a local default or permissive interpretation. Dual-registered as a per-device reason_code for ak.edge.push.command.notify (see reason_codes[]).",
+        description: "The selected operation, portable artifact, Realm genesis, or Realm reducer-profile control state requires a profile or feature the service does not implement. Reducer support is advertised in ServiceDescribe.supported_reducer_profiles; other capabilities use supported_features / supported_profiles. The server MUST fail closed and MUST NOT substitute a local default or permissive interpretation. Dual-registered as a per-device reason_code for ak.edge.push.command.notify.v1 (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedProfilePatchPath,
@@ -4307,7 +4427,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["schema_validation", "service_call"],
-        description: "`ak.self.account.command.update_profile` received a patch path outside the account self-service allowlist (`display_name`, `avatar_blob_ref`, `profile_fields.<key>`). Handle, lifecycle, principal, actor_kind, accountability, authorization, and handle-claim paths MUST be rejected instead of silently ignored.",
+        description: "`ak.self.account.command.update_profile.v1` received a patch path outside the account self-service allowlist (`display_name`, `avatar_blob_ref`, `profile_fields.<key>`). Handle, lifecycle, principal, actor_kind, accountability, authorization, and handle-claim paths MUST be rejected instead of silently ignored.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedProofProfile,

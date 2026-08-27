@@ -1,6 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-27.3; sha256=c6047e89fe0f3a2f612ccb9000616055cf571141d6055579a360acae49ee715a
+//! Input: registry/error-code-registry.json; version=2026-08-27.4;
+//! sha256=e10e81249c3a0246fc26aacbb04e1d04d48a7e4dce82e2c89ec2d2a34cc46f1c
 //! Entries: reason_codes=471
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -492,7 +493,8 @@ impl ReasonCode {
     pub const ABUSE_CLUSTER: &'static str = "abuse_cluster";
     pub const ABUSE_NETWORK: &'static str = "abuse_network";
     pub const ABUSE_REVIEW: &'static str = "abuse_review";
-    pub const ACCOUNT_BINDING_PRINCIPAL_MISMATCH: &'static str = "account_binding_principal_mismatch";
+    pub const ACCOUNT_BINDING_PRINCIPAL_MISMATCH: &'static str =
+        "account_binding_principal_mismatch";
     pub const ACCOUNT_STATUS_BINDING_ROLLBACK: &'static str = "account_status_binding_rollback";
     pub const ACCOUNT_STATUS_RECORD_FORK: &'static str = "account_status_record_fork";
     pub const ACCOUNT_STATUS_RECORD_STALE: &'static str = "account_status_record_stale";
@@ -505,23 +507,34 @@ impl ReasonCode {
     pub const AEAD_NONCE_DERIVATION_INVALID: &'static str = "aead_nonce_derivation_invalid";
     pub const AGENT_DEACTIVATED: &'static str = "agent_deactivated";
     pub const AGENT_GRANT_CONSTRAINT_MISSING: &'static str = "agent_grant_constraint_missing";
-    pub const AGENT_GRANT_EXCEEDS_REQUESTED_SCOPE: &'static str = "agent_grant_exceeds_requested_scope";
+    pub const AGENT_GRANT_EXCEEDS_REQUESTED_SCOPE: &'static str =
+        "agent_grant_exceeds_requested_scope";
     pub const AGENT_GRANT_EXPIRY_REQUIRED: &'static str = "agent_grant_expiry_required";
     pub const AGENT_KEY_AUTHORIZATION_EXPIRED: &'static str = "agent_key_authorization_expired";
-    pub const AGENT_KEY_SCOPE_REAUTHORIZATION_REQUIRED: &'static str = "agent_key_scope_reauthorization_required";
-    pub const AGENT_PARTICIPATION_CEILING_UNRESOLVED: &'static str = "agent_participation_ceiling_unresolved";
+    pub const AGENT_KEY_SCOPE_REAUTHORIZATION_REQUIRED: &'static str =
+        "agent_key_scope_reauthorization_required";
+    pub const AGENT_PARTICIPATION_CEILING_UNRESOLVED: &'static str =
+        "agent_participation_ceiling_unresolved";
     pub const AGENT_PARTICIPATION_CEILING_WIDEN: &'static str = "agent_participation_ceiling_widen";
     pub const AGENT_PAUSED: &'static str = "agent_paused";
-    pub const AGENT_PCR_GENESIS_ALREADY_ACCEPTED: &'static str = "agent_pcr_genesis_already_accepted";
-    pub const AGENT_PCR_GENESIS_DECLARATION_CONFLICT: &'static str = "agent_pcr_genesis_declaration_conflict";
-    pub const AGENT_PCR_GENESIS_DECLARATION_MISSING: &'static str = "agent_pcr_genesis_declaration_missing";
-    pub const AGENT_PROVISION_SCOPE_MIGRATION_REQUIRED: &'static str = "agent_provision_scope_migration_required";
-    pub const AGENT_PROVISIONING_CHALLENGE_ALREADY_CONSUMED: &'static str = "agent_provisioning_challenge_already_consumed";
-    pub const AGENT_PROVISIONING_CHALLENGE_EXPIRED: &'static str = "agent_provisioning_challenge_expired";
+    pub const AGENT_PCR_GENESIS_ALREADY_ACCEPTED: &'static str =
+        "agent_pcr_genesis_already_accepted";
+    pub const AGENT_PCR_GENESIS_DECLARATION_CONFLICT: &'static str =
+        "agent_pcr_genesis_declaration_conflict";
+    pub const AGENT_PCR_GENESIS_DECLARATION_MISSING: &'static str =
+        "agent_pcr_genesis_declaration_missing";
+    pub const AGENT_PROVISION_SCOPE_MIGRATION_REQUIRED: &'static str =
+        "agent_provision_scope_migration_required";
+    pub const AGENT_PROVISIONING_CHALLENGE_ALREADY_CONSUMED: &'static str =
+        "agent_provisioning_challenge_already_consumed";
+    pub const AGENT_PROVISIONING_CHALLENGE_EXPIRED: &'static str =
+        "agent_provisioning_challenge_expired";
     pub const AGENT_REPLY_NOT_PERMITTED: &'static str = "agent_reply_not_permitted";
-    pub const AGENT_REQUESTED_SCOPE_COMMITMENT_INVALID: &'static str = "agent_requested_scope_commitment_invalid";
+    pub const AGENT_REQUESTED_SCOPE_COMMITMENT_INVALID: &'static str =
+        "agent_requested_scope_commitment_invalid";
     pub const AGENT_RUNTIME_REQUEST_CONFLICT: &'static str = "agent_runtime_request_conflict";
-    pub const AGENT_SESSION_SCOPE_REFRESH_REQUIRED: &'static str = "agent_session_scope_refresh_required";
+    pub const AGENT_SESSION_SCOPE_REFRESH_REQUIRED: &'static str =
+        "agent_session_scope_refresh_required";
     pub const APPEAL_MODIFY_MISSING_LIFT: &'static str = "appeal_modify_missing_lift";
     pub const APPEAL_OVERTURN_MISSING_LIFT: &'static str = "appeal_overturn_missing_lift";
     pub const APPEAL_SELF_REVIEW_FORBIDDEN: &'static str = "appeal_self_review_forbidden";
@@ -532,28 +545,37 @@ impl ReasonCode {
     pub const ATTESTATION_MISSING: &'static str = "attestation_missing";
     pub const AUDIENCE_MISMATCH: &'static str = "audience_mismatch";
     pub const AUDIT_AGENT_ATTESTATION_MISMATCH: &'static str = "audit_agent_attestation_mismatch";
-    pub const AUDIT_AGENT_DESTRUCTION_NOT_PAIRED_WITH_REMOVE: &'static str = "audit_agent_destruction_not_paired_with_remove";
-    pub const AUDIT_AGENT_DESTRUCTION_PROOF_NOT_ENCLAVE_SIGNED: &'static str = "audit_agent_destruction_proof_not_enclave_signed";
-    pub const AUDIT_AGENT_EPOCH_RANGE_INCOMPLETE: &'static str = "audit_agent_epoch_range_incomplete";
-    pub const AUDIT_AGENT_KEY_DESTRUCTION_ATTESTATION_MISSING: &'static str = "audit_agent_key_destruction_attestation_missing";
-    pub const AUDIT_AGENT_REMOVE_REQUIRES_PAIRED_DESTRUCTION_ATTESTATION: &'static str = "audit_agent_remove_requires_paired_destruction_attestation";
+    pub const AUDIT_AGENT_DESTRUCTION_NOT_PAIRED_WITH_REMOVE: &'static str =
+        "audit_agent_destruction_not_paired_with_remove";
+    pub const AUDIT_AGENT_DESTRUCTION_PROOF_NOT_ENCLAVE_SIGNED: &'static str =
+        "audit_agent_destruction_proof_not_enclave_signed";
+    pub const AUDIT_AGENT_EPOCH_RANGE_INCOMPLETE: &'static str =
+        "audit_agent_epoch_range_incomplete";
+    pub const AUDIT_AGENT_KEY_DESTRUCTION_ATTESTATION_MISSING: &'static str =
+        "audit_agent_key_destruction_attestation_missing";
+    pub const AUDIT_AGENT_REMOVE_REQUIRES_PAIRED_DESTRUCTION_ATTESTATION: &'static str =
+        "audit_agent_remove_requires_paired_destruction_attestation";
     pub const AUDIT_CAPABILITY_INCOMPLETE: &'static str = "audit_capability_incomplete";
     pub const AUDIT_PURPOSE_MISMATCH: &'static str = "audit_purpose_mismatch";
     pub const AUDIT_RECEIPT_INVALIDATED: &'static str = "audit_receipt_invalidated";
     pub const AUDIT_RELEASE_ATTESTATION_INVALID: &'static str = "audit_release_attestation_invalid";
-    pub const AUDIT_RELEASE_ATTESTATION_MISMATCH: &'static str = "audit_release_attestation_mismatch";
+    pub const AUDIT_RELEASE_ATTESTATION_MISMATCH: &'static str =
+        "audit_release_attestation_mismatch";
     pub const AUDIT_RELEASE_BINDING_INACTIVE: &'static str = "audit_release_binding_inactive";
     pub const AUDIT_RELEASE_BINDING_MISSING: &'static str = "audit_release_binding_missing";
-    pub const AUDIT_RELEASE_CURRENT_EPOCH_FORBIDDEN: &'static str = "audit_release_current_epoch_forbidden";
+    pub const AUDIT_RELEASE_CURRENT_EPOCH_FORBIDDEN: &'static str =
+        "audit_release_current_epoch_forbidden";
     pub const AUDIT_RELEASE_MANIFEST_INVALID: &'static str = "audit_release_manifest_invalid";
     pub const AUDIT_RELEASE_NOTICE_MISSING: &'static str = "audit_release_notice_missing";
-    pub const AUDIT_RELEASE_RETROACTIVE_SCOPE_FORBIDDEN: &'static str = "audit_release_retroactive_scope_forbidden";
+    pub const AUDIT_RELEASE_RETROACTIVE_SCOPE_FORBIDDEN: &'static str =
+        "audit_release_retroactive_scope_forbidden";
     pub const AUDIT_RELEASE_SCOPE_MISMATCH: &'static str = "audit_release_scope_mismatch";
     pub const AUTH_INCOMPLETE: &'static str = "auth_incomplete";
     pub const AUTHORITY_CYCLE: &'static str = "authority_cycle";
     pub const AUTHORITY_EXPIRY_WIDENING: &'static str = "authority_expiry_widening";
     pub const AUTHORITY_REGRANT_DENIED: &'static str = "authority_regrant_denied";
-    pub const AUTHORITY_SCOPE_CUSTOM_UNSUPPORTED: &'static str = "authority_scope_custom_unsupported";
+    pub const AUTHORITY_SCOPE_CUSTOM_UNSUPPORTED: &'static str =
+        "authority_scope_custom_unsupported";
     pub const AUTHORITY_SCOPE_MISMATCH: &'static str = "authority_scope_mismatch";
     pub const AUTHORIZED_GRANT_REVOKED: &'static str = "authorized_grant_revoked";
     pub const BACKEND_UNAVAILABLE: &'static str = "backend_unavailable";
@@ -578,8 +600,10 @@ impl ReasonCode {
     pub const CHALLENGE_PROOF_INVALID: &'static str = "challenge_proof_invalid";
     pub const CIRCLE_ALREADY_TERMINAL: &'static str = "circle_already_terminal";
     pub const CIRCLE_COUNT_EXCEEDED: &'static str = "circle_count_exceeded";
-    pub const CIRCLE_ENCRYPTION_BELOW_REALM_FLOOR: &'static str = "circle_encryption_below_realm_floor";
-    pub const CIRCLE_MEMBER_MUST_BE_REALM_MEMBER: &'static str = "circle_member_must_be_realm_member";
+    pub const CIRCLE_ENCRYPTION_BELOW_REALM_FLOOR: &'static str =
+        "circle_encryption_below_realm_floor";
+    pub const CIRCLE_MEMBER_MUST_BE_REALM_MEMBER: &'static str =
+        "circle_member_must_be_realm_member";
     pub const CIRCLE_NOT_ACTIVE: &'static str = "circle_not_active";
     pub const CIRCLE_NOT_ARCHIVED: &'static str = "circle_not_archived";
     pub const CIRCLE_REALM_MISMATCH: &'static str = "circle_realm_mismatch";
@@ -589,13 +613,16 @@ impl ReasonCode {
     pub const CLAIM_RATE_LIMITED: &'static str = "claim_rate_limited";
     pub const CONSENT_REVOKED: &'static str = "consent_revoked";
     pub const CONSENT_WITHDRAWN: &'static str = "consent_withdrawn";
-    pub const CONTENT_ENCRYPTION_FLOOR_DOWNGRADE: &'static str = "content_encryption_floor_downgrade";
-    pub const CONTENT_ENCRYPTION_FLOOR_VIOLATION: &'static str = "content_encryption_floor_violation";
+    pub const CONTENT_ENCRYPTION_FLOOR_DOWNGRADE: &'static str =
+        "content_encryption_floor_downgrade";
+    pub const CONTENT_ENCRYPTION_FLOOR_VIOLATION: &'static str =
+        "content_encryption_floor_violation";
     pub const CONTROL_PROPOSAL_DECISION_OVERDUE: &'static str = "control_proposal_decision_overdue";
     pub const COUNTER_BOUND_EXCEEDED: &'static str = "counter_bound_exceeded";
     pub const COVERED_SET_MISMATCH: &'static str = "covered_set_mismatch";
     pub const CREATED_AT_BEFORE_BASIS_SEAL: &'static str = "created_at_before_basis_seal";
-    pub const CREATED_AT_BEFORE_CAUSAL_PREDECESSOR: &'static str = "created_at_before_causal_predecessor";
+    pub const CREATED_AT_BEFORE_CAUSAL_PREDECESSOR: &'static str =
+        "created_at_before_causal_predecessor";
     pub const CROSS_DOMAIN_REPLAY_REJECTED: &'static str = "cross_domain_replay_rejected";
     pub const CROSS_REALM_STRUCTURAL_RELATION: &'static str = "cross_realm_structural_relation";
     pub const CROSS_SPACE_STRUCTURAL_RELATION: &'static str = "cross_space_structural_relation";
@@ -603,50 +630,72 @@ impl ReasonCode {
     pub const CURSOR_INTEGRITY_INVALID: &'static str = "cursor_integrity_invalid";
     pub const CURSOR_REVOKED: &'static str = "cursor_revoked";
     pub const CURSOR_UNRECOGNIZED: &'static str = "cursor_unrecognized";
-    pub const DEACTIVATION_FEDERATION_INCOMPLETE: &'static str = "deactivation_federation_incomplete";
+    pub const DEACTIVATION_FEDERATION_INCOMPLETE: &'static str =
+        "deactivation_federation_incomplete";
     pub const DECRYPTION_FAILED: &'static str = "decryption_failed";
     pub const DECRYPTION_PENDING: &'static str = "decryption_pending";
     pub const DELEGATION_REVOKED: &'static str = "delegation_revoked";
-    pub const DELIVERY_BINDING_HANDOVER_PROOF_INVALID: &'static str = "delivery_binding_handover_proof_invalid";
-    pub const DELIVERY_BINDING_HANDOVER_RATE_LIMITED: &'static str = "delivery_binding_handover_rate_limited";
+    pub const DELIVERY_BINDING_HANDOVER_PROOF_INVALID: &'static str =
+        "delivery_binding_handover_proof_invalid";
+    pub const DELIVERY_BINDING_HANDOVER_RATE_LIMITED: &'static str =
+        "delivery_binding_handover_rate_limited";
     pub const DELIVERY_BINDING_INVALID: &'static str = "delivery_binding_invalid";
     pub const DELIVERY_BINDING_POLICY_MISMATCH: &'static str = "delivery_binding_policy_mismatch";
     pub const DELIVERY_BINDING_STALE: &'static str = "delivery_binding_stale";
     pub const DELIVERY_TARGET_UNREACHABLE: &'static str = "delivery_target_unreachable";
     pub const DELTA_CONTAINS_DATA_EVENT: &'static str = "delta_contains_data_event";
     pub const DEPENDENCY_MISSING: &'static str = "dependency_missing";
-    pub const DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH: &'static str = "device_authorized_principal_control_realm_mismatch";
+    pub const DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH: &'static str =
+        "device_authorized_principal_control_realm_mismatch";
     pub const DEVICE_GENERATION_FENCED: &'static str = "device_generation_fenced";
     pub const DEVICE_MESSAGE_ID_CONFLICT: &'static str = "device_message_id_conflict";
-    pub const DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &'static str = "device_reanchor_authorize_mismatch";
+    pub const DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &'static str =
+        "device_reanchor_authorize_mismatch";
     pub const DEVICE_REANCHOR_ENTRY_NOT_HEAD: &'static str = "device_reanchor_entry_not_head";
     pub const DEVICE_REANCHOR_FRONTIER_MISMATCH: &'static str = "device_reanchor_frontier_mismatch";
-    pub const DIRECT_CONVERSATION_BINDING_INVALID: &'static str = "direct_conversation_binding_invalid";
-    pub const DIRECT_CONVERSATION_FOUNDING_UNIT_INVALID: &'static str = "direct_conversation_founding_unit_invalid";
-    pub const DIRECT_CONVERSATION_INVITE_FORBIDDEN: &'static str = "direct_conversation_invite_forbidden";
-    pub const DIRECT_CONVERSATION_MEMBER_COUNT_INVALID: &'static str = "direct_conversation_member_count_invalid";
-    pub const DIRECT_CONVERSATION_PAIR_MATERIALIZATION_CONFLICT: &'static str = "direct_conversation_pair_materialization_conflict";
-    pub const DIRECT_CONVERSATION_PARTICIPANT_AUTHORITY_DENIED: &'static str = "direct_conversation_participant_authority_denied";
-    pub const DIRECT_CONVERSATION_ROOT_MASK_VIOLATION: &'static str = "direct_conversation_root_mask_violation";
-    pub const DIRECT_CONVERSATION_SLOT_ALREADY_COMMITTED: &'static str = "direct_conversation_slot_already_committed";
-    pub const DIRECT_CONVERSATION_SPACE_FORBIDDEN: &'static str = "direct_conversation_space_forbidden";
-    pub const DIRECT_CONVERSATION_TERMINAL_FORBIDDEN: &'static str = "direct_conversation_terminal_forbidden";
-    pub const DIRECT_CONVERSATION_THIRD_PARTY_MEMBER_FORBIDDEN: &'static str = "direct_conversation_third_party_member_forbidden";
-    pub const DIRECT_DOWNLOAD_DISALLOWED_PRESIGN_FORBIDDEN: &'static str = "direct_download_disallowed_presign_forbidden";
+    pub const DIRECT_CONVERSATION_BINDING_INVALID: &'static str =
+        "direct_conversation_binding_invalid";
+    pub const DIRECT_CONVERSATION_FOUNDING_UNIT_INVALID: &'static str =
+        "direct_conversation_founding_unit_invalid";
+    pub const DIRECT_CONVERSATION_INVITE_FORBIDDEN: &'static str =
+        "direct_conversation_invite_forbidden";
+    pub const DIRECT_CONVERSATION_MEMBER_COUNT_INVALID: &'static str =
+        "direct_conversation_member_count_invalid";
+    pub const DIRECT_CONVERSATION_PAIR_MATERIALIZATION_CONFLICT: &'static str =
+        "direct_conversation_pair_materialization_conflict";
+    pub const DIRECT_CONVERSATION_PARTICIPANT_AUTHORITY_DENIED: &'static str =
+        "direct_conversation_participant_authority_denied";
+    pub const DIRECT_CONVERSATION_ROOT_MASK_VIOLATION: &'static str =
+        "direct_conversation_root_mask_violation";
+    pub const DIRECT_CONVERSATION_SLOT_ALREADY_COMMITTED: &'static str =
+        "direct_conversation_slot_already_committed";
+    pub const DIRECT_CONVERSATION_SPACE_FORBIDDEN: &'static str =
+        "direct_conversation_space_forbidden";
+    pub const DIRECT_CONVERSATION_TERMINAL_FORBIDDEN: &'static str =
+        "direct_conversation_terminal_forbidden";
+    pub const DIRECT_CONVERSATION_THIRD_PARTY_MEMBER_FORBIDDEN: &'static str =
+        "direct_conversation_third_party_member_forbidden";
+    pub const DIRECT_DOWNLOAD_DISALLOWED_PRESIGN_FORBIDDEN: &'static str =
+        "direct_download_disallowed_presign_forbidden";
     pub const DUPLICATE_CONFLICT: &'static str = "duplicate_conflict";
     pub const DURABILITY_SCHEME_INCOMPATIBLE: &'static str = "durability_scheme_incompatible";
     pub const E2EE_KEY_SOURCE_UNAUTHORISED: &'static str = "e2ee_key_source_unauthorised";
-    pub const E2EE_RELAXED_AUDIT_BINDING_CONFLICT: &'static str = "e2ee_relaxed_audit_binding_conflict";
-    pub const E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE: &'static str = "e2ee_relaxed_disallowed_in_compliance_profile";
-    pub const E2EE_RELAXED_FEDERATION_POLICY_UNSUPPORTED: &'static str = "e2ee_relaxed_federation_policy_unsupported";
+    pub const E2EE_RELAXED_AUDIT_BINDING_CONFLICT: &'static str =
+        "e2ee_relaxed_audit_binding_conflict";
+    pub const E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE: &'static str =
+        "e2ee_relaxed_disallowed_in_compliance_profile";
+    pub const E2EE_RELAXED_FEDERATION_POLICY_UNSUPPORTED: &'static str =
+        "e2ee_relaxed_federation_policy_unsupported";
     pub const EFFECTIVE_SCOPE_REDUCER_MANAGED: &'static str = "effective_scope_reducer_managed";
     pub const EGRESS_POLICY_DENIED: &'static str = "egress_policy_denied";
     pub const EPOCH_UPDATE_REQUIRED: &'static str = "epoch_update_required";
     pub const ERASURE_PENDING_IS_TERMINAL: &'static str = "erasure_pending_is_terminal";
     pub const ERASURE_RECEIPT_AUTHORITY_INVALID: &'static str = "erasure_receipt_authority_invalid";
     pub const ERASURE_RECEIPT_PROOF_INVALID: &'static str = "erasure_receipt_proof_invalid";
-    pub const ERASURE_RECEIPT_STUB_BINDING_MISMATCH: &'static str = "erasure_receipt_stub_binding_mismatch";
-    pub const ERASURE_RECEIPT_STUB_DIGEST_MISMATCH: &'static str = "erasure_receipt_stub_digest_mismatch";
+    pub const ERASURE_RECEIPT_STUB_BINDING_MISMATCH: &'static str =
+        "erasure_receipt_stub_binding_mismatch";
+    pub const ERASURE_RECEIPT_STUB_DIGEST_MISMATCH: &'static str =
+        "erasure_receipt_stub_digest_mismatch";
     pub const ERASURE_REQUEST_ALREADY_PENDING: &'static str = "erasure_request_already_pending";
     pub const EVENT_ID_DIGEST_MISMATCH: &'static str = "event_id_digest_mismatch";
     pub const EVIDENCE_RECIPIENT_MISMATCH: &'static str = "evidence_recipient_mismatch";
@@ -658,7 +707,8 @@ impl ReasonCode {
     pub const FOCUS_MISMATCH: &'static str = "focus_mismatch";
     pub const FOCUS_UNAVAILABLE_FOR_CLIENT: &'static str = "focus_unavailable_for_client";
     pub const FORENSIC_ATTRIBUTION_MISMATCH: &'static str = "forensic_attribution_mismatch";
-    pub const FOUNDING_DEVICE_COMMITMENT_MISMATCH: &'static str = "founding_device_commitment_mismatch";
+    pub const FOUNDING_DEVICE_COMMITMENT_MISMATCH: &'static str =
+        "founding_device_commitment_mismatch";
     pub const GATE_CHECK_FAILED: &'static str = "gate_check_failed";
     pub const GENESIS_CREATED_AT_TOO_OLD: &'static str = "genesis_created_at_too_old";
     pub const GENESIS_SEAL_INVALID: &'static str = "genesis_seal_invalid";
@@ -666,7 +716,8 @@ impl ReasonCode {
     pub const GRANT_EXCEEDS_ISSUER_AUTHORITY: &'static str = "grant_exceeds_issuer_authority";
     pub const GRANT_RELINQUISH_NOT_SUBJECT: &'static str = "grant_relinquish_not_subject";
     pub const GRANT_REVOKE_NOT_AUTHORIZED: &'static str = "grant_revoke_not_authorized";
-    pub const GRANT_REVOKED_BEFORE_EVENT_FRONTIER: &'static str = "grant_revoked_before_event_frontier";
+    pub const GRANT_REVOKED_BEFORE_EVENT_FRONTIER: &'static str =
+        "grant_revoked_before_event_frontier";
     pub const GRANT_REVOKED_UPSTREAM: &'static str = "grant_revoked_upstream";
     pub const GRANT_VALIDITY_WINDOW_EMPTY: &'static str = "grant_validity_window_empty";
     pub const HANDLE_HOLDER_ACCEPTANCE_MISSING: &'static str = "handle_holder_acceptance_missing";
@@ -674,12 +725,17 @@ impl ReasonCode {
     pub const HANDLE_SUBJECT_MISMATCH: &'static str = "handle_subject_mismatch";
     pub const HARASSMENT: &'static str = "harassment";
     pub const HATE_SPEECH: &'static str = "hate_speech";
-    pub const HISTORY_ACCESS_REQUIRES_HISTORY_CAPABLE_SCHEME: &'static str = "history_access_requires_history_capable_scheme";
-    pub const HISTORY_TRAVERSAL_ANCHOR_UNREACHABLE: &'static str = "history_traversal_anchor_unreachable";
+    pub const HISTORY_ACCESS_REQUIRES_HISTORY_CAPABLE_SCHEME: &'static str =
+        "history_access_requires_history_capable_scheme";
+    pub const HISTORY_TRAVERSAL_ANCHOR_UNREACHABLE: &'static str =
+        "history_traversal_anchor_unreachable";
     pub const HUMAN_APPROVAL_REQUIRED: &'static str = "human_approval_required";
-    pub const IDENTITY_CREATION_ALREADY_ACCEPTED: &'static str = "identity_creation_already_accepted";
-    pub const IDENTITY_CREATION_CHALLENGE_ALREADY_CONSUMED: &'static str = "identity_creation_challenge_already_consumed";
-    pub const IDENTITY_CREATION_CHALLENGE_EXPIRED: &'static str = "identity_creation_challenge_expired";
+    pub const IDENTITY_CREATION_ALREADY_ACCEPTED: &'static str =
+        "identity_creation_already_accepted";
+    pub const IDENTITY_CREATION_CHALLENGE_ALREADY_CONSUMED: &'static str =
+        "identity_creation_challenge_already_consumed";
+    pub const IDENTITY_CREATION_CHALLENGE_EXPIRED: &'static str =
+        "identity_creation_challenge_expired";
     pub const IDENTITY_CREATION_LEASE_FENCED: &'static str = "identity_creation_lease_fenced";
     pub const IDENTITY_LINK_NO_LONGER_VISIBLE: &'static str = "identity_link_no_longer_visible";
     pub const IDENTITY_LINK_POLICY_TIGHTENED: &'static str = "identity_link_policy_tightened";
@@ -704,47 +760,60 @@ impl ReasonCode {
     pub const INVITE_KIND_REQUIRES_REVOKE: &'static str = "invite_kind_requires_revoke";
     pub const INVITE_OOB_ENTROPY_TOO_LOW: &'static str = "invite_oob_entropy_too_low";
     pub const JOIN_AUTHORISATION_INVALID: &'static str = "join_authorisation_invalid";
-    pub const JOIN_POLICY_DUPLICATE_ANSWER_REFERENCE: &'static str = "join_policy_duplicate_answer_reference";
+    pub const JOIN_POLICY_DUPLICATE_ANSWER_REFERENCE: &'static str =
+        "join_policy_duplicate_answer_reference";
     pub const JOIN_POLICY_DUPLICATE_GATE_ID: &'static str = "join_policy_duplicate_gate_id";
-    pub const JOIN_POLICY_QUESTION_BUDGET_EXCEEDED: &'static str = "join_policy_question_budget_exceeded";
-    pub const JOIN_POLICY_UNKNOWN_ANSWER_REFERENCE: &'static str = "join_policy_unknown_answer_reference";
+    pub const JOIN_POLICY_QUESTION_BUDGET_EXCEEDED: &'static str =
+        "join_policy_question_budget_exceeded";
+    pub const JOIN_POLICY_UNKNOWN_ANSWER_REFERENCE: &'static str =
+        "join_policy_unknown_answer_reference";
     pub const JOIN_RULE_POLICY_MISMATCH: &'static str = "join_rule_policy_mismatch";
     pub const JOIN_RULE_TIGHTENED: &'static str = "join_rule_tightened";
     pub const KEY_BACKUP_WIRE_SCHEMA_REQUIRED: &'static str = "key_backup_wire_schema_required";
     pub const KEYPACKAGE_CLAIM_RATE_LIMITED: &'static str = "keypackage_claim_rate_limited";
     pub const KEYPACKAGE_EXPIRED: &'static str = "keypackage_expired";
     pub const KEYPACKAGE_ROTATED: &'static str = "keypackage_rotated";
-    pub const KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH: &'static str = "keypackage_welcome_envelope_mismatch";
+    pub const KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH: &'static str =
+        "keypackage_welcome_envelope_mismatch";
     pub const LAST_RESORT_NOT_SUPPORTED: &'static str = "last_resort_not_supported";
-    pub const LAST_RESORT_REALM_AFFINITY_VIOLATION: &'static str = "last_resort_realm_affinity_violation";
+    pub const LAST_RESORT_REALM_AFFINITY_VIOLATION: &'static str =
+        "last_resort_realm_affinity_violation";
     pub const LAST_RESORT_ROTATION_REQUIRED: &'static str = "last_resort_rotation_required";
     pub const LATE_RECOVERY_REJECTED_MEMBERSHIP: &'static str = "late_recovery_rejected_membership";
     pub const LEGAL_HOLD_ACTIVE: &'static str = "legal_hold_active";
-    pub const LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND: &'static str = "lite_profile_writes_disallowed_event_kind";
+    pub const LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND: &'static str =
+        "lite_profile_writes_disallowed_event_kind";
     pub const MEDIA_NEGOTIATION_TIMEOUT: &'static str = "media_negotiation_timeout";
-    pub const MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED: &'static str = "media_plaintext_service_not_authorised";
+    pub const MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED: &'static str =
+        "media_plaintext_service_not_authorised";
     pub const MEDIA_PLAINTEXT_WARNING_REQUIRED: &'static str = "media_plaintext_warning_required";
     pub const MEDIA_SERVICE_BINDING_UNCOVERED: &'static str = "media_service_binding_uncovered";
     pub const MEDIA_SERVICE_FOCI_REQUIRED: &'static str = "media_service_foci_required";
     pub const MEDIA_SOURCE_UNAVAILABLE: &'static str = "media_source_unavailable";
     pub const MEMBER_IDENTITY_PROOF_INVALID: &'static str = "member_identity_proof_invalid";
-    pub const MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH: &'static str = "member_identity_replacement_digest_mismatch";
+    pub const MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH: &'static str =
+        "member_identity_replacement_digest_mismatch";
     pub const MEMBER_IDENTITY_STATE_MISMATCH: &'static str = "member_identity_state_mismatch";
     pub const MEMBER_IDENTITY_UNKNOWN_SEGMENT: &'static str = "member_identity_unknown_segment";
     pub const MESSAGE_ALREADY_TERMINAL: &'static str = "message_already_terminal";
-    pub const METADATA_ENCRYPTION_FLOOR_DOWNGRADE: &'static str = "metadata_encryption_floor_downgrade";
-    pub const METADATA_ENCRYPTION_FLOOR_VIOLATION: &'static str = "metadata_encryption_floor_violation";
+    pub const METADATA_ENCRYPTION_FLOOR_DOWNGRADE: &'static str =
+        "metadata_encryption_floor_downgrade";
+    pub const METADATA_ENCRYPTION_FLOOR_VIOLATION: &'static str =
+        "metadata_encryption_floor_violation";
     pub const MIMI_DRAFT_UNSUPPORTED: &'static str = "mimi_draft_unsupported";
     pub const MIMI_GOVERNANCE_BINDING_MISMATCH: &'static str = "mimi_governance_binding_mismatch";
     pub const MIMI_GOVERNANCE_BINDING_MISSING: &'static str = "mimi_governance_binding_missing";
     pub const MIMI_OBSERVER_WRITE_FORBIDDEN: &'static str = "mimi_observer_write_forbidden";
     pub const MIMI_POLICY_ROOT_MISMATCH: &'static str = "mimi_policy_root_mismatch";
     pub const MIMI_PROVIDER_UNREACHABLE: &'static str = "mimi_provider_unreachable";
-    pub const MIMI_ROOM_BINDING_STATUS_TRANSITION_INVALID: &'static str = "mimi_room_binding_status_transition_invalid";
+    pub const MIMI_ROOM_BINDING_STATUS_TRANSITION_INVALID: &'static str =
+        "mimi_room_binding_status_transition_invalid";
     pub const MIMI_ROOM_STATE_INCOMPATIBLE: &'static str = "mimi_room_state_incompatible";
     pub const MINIMAL_DISCLOSURE_VIOLATION: &'static str = "minimal_disclosure_violation";
-    pub const MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID: &'static str = "minimal_metadata_author_credential_invalid";
-    pub const MINIMAL_METADATA_PRESIGN_FORBIDDEN: &'static str = "minimal_metadata_presign_forbidden";
+    pub const MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID: &'static str =
+        "minimal_metadata_author_credential_invalid";
+    pub const MINIMAL_METADATA_PRESIGN_FORBIDDEN: &'static str =
+        "minimal_metadata_presign_forbidden";
     pub const MISINFORMATION: &'static str = "misinformation";
     pub const MLS_CONTENT_SCHEME_IMMUTABLE: &'static str = "mls_content_scheme_immutable";
     pub const MLS_GENESIS_ALREADY_EXISTS: &'static str = "mls_genesis_already_exists";
@@ -788,10 +857,12 @@ impl ReasonCode {
     pub const PRESIGN_SCOPE_MISMATCH: &'static str = "presign_scope_mismatch";
     pub const PREV_REFS_TOO_LARGE: &'static str = "prev_refs_too_large";
     pub const PRIMARY_TRACK_REQUIRED: &'static str = "primary_track_required";
-    pub const PRINCIPAL_CONTROL_EVENT_KIND_FORBIDDEN: &'static str = "principal_control_event_kind_forbidden";
+    pub const PRINCIPAL_CONTROL_EVENT_KIND_FORBIDDEN: &'static str =
+        "principal_control_event_kind_forbidden";
     pub const PRINCIPAL_DEACTIVATED: &'static str = "principal_deactivated";
     pub const PRIVATE_ATTACHMENT: &'static str = "private_attachment";
-    pub const PRIVATE_VIEW_REQUIRES_ACCOUNT_DATA: &'static str = "private_view_requires_account_data";
+    pub const PRIVATE_VIEW_REQUIRES_ACCOUNT_DATA: &'static str =
+        "private_view_requires_account_data";
     pub const PROFILE_UNAVAILABLE: &'static str = "profile_unavailable";
     pub const PROJECTION_INCOMPLETE: &'static str = "projection_incomplete";
     pub const PROOF_BINDING_MISSING: &'static str = "proof_binding_missing";
@@ -800,7 +871,8 @@ impl ReasonCode {
     pub const PUSH_GATEWAY_UNREACHABLE: &'static str = "push_gateway_unreachable";
     pub const PUSH_PAYLOAD_TOO_LARGE: &'static str = "push_payload_too_large";
     pub const PUSH_ROUTE_LIMIT_EXCEEDED: &'static str = "push_route_limit_exceeded";
-    pub const PUSH_ROUTE_REGISTRATION_RATE_LIMITED: &'static str = "push_route_registration_rate_limited";
+    pub const PUSH_ROUTE_REGISTRATION_RATE_LIMITED: &'static str =
+        "push_route_registration_rate_limited";
     pub const PUSH_TARGET_UNKNOWN: &'static str = "push_target_unknown";
     pub const PUSH_TOKEN_INVALID: &'static str = "push_token_invalid";
     pub const PUSH_TOKEN_UNKNOWN: &'static str = "push_token_unknown";
@@ -816,33 +888,42 @@ impl ReasonCode {
     pub const REALM_ALIAS_HOMOGRAPH_FORBIDDEN: &'static str = "realm_alias_homograph_forbidden";
     pub const REALM_ALIAS_TAKEN: &'static str = "realm_alias_taken";
     pub const REALM_ALREADY_EXISTS: &'static str = "realm_already_exists";
-    pub const REALM_AUTHORITY_CONTROLLER_MISMATCH: &'static str = "realm_authority_controller_mismatch";
+    pub const REALM_AUTHORITY_CONTROLLER_MISMATCH: &'static str =
+        "realm_authority_controller_mismatch";
     pub const REALM_AUTHORITY_ROOT_CONFLICT: &'static str = "realm_authority_root_conflict";
     pub const REALM_AUTHORITY_ROOT_MISSING: &'static str = "realm_authority_root_missing";
     pub const REALM_ID_NOT_EVENT_DERIVED: &'static str = "realm_id_not_event_derived";
     pub const REALM_LINK_INVALID_TRANSITION: &'static str = "realm_link_invalid_transition";
     pub const REALM_LINK_SELF_REFERENCE: &'static str = "realm_link_self_reference";
-    pub const REALM_ORGANIZATION_AUTHORIZATION_INVALID: &'static str = "realm_organization_authorization_invalid";
-    pub const REALM_ORGANIZATION_DELEGATION_MISSING: &'static str = "realm_organization_delegation_missing";
+    pub const REALM_ORGANIZATION_AUTHORIZATION_INVALID: &'static str =
+        "realm_organization_authorization_invalid";
+    pub const REALM_ORGANIZATION_DELEGATION_MISSING: &'static str =
+        "realm_organization_delegation_missing";
     pub const REALM_ORGANIZATION_EXPIRED: &'static str = "realm_organization_expired";
-    pub const REALM_ORGANIZATION_REALM_ACCEPTANCE_MISSING: &'static str = "realm_organization_realm_acceptance_missing";
+    pub const REALM_ORGANIZATION_REALM_ACCEPTANCE_MISSING: &'static str =
+        "realm_organization_realm_acceptance_missing";
     pub const REALM_ORGANIZATION_SCOPE_MISSING: &'static str = "realm_organization_scope_missing";
     pub const REALM_TERMINAL_STATE: &'static str = "realm_terminal_state";
     pub const REALM_UNAVAILABLE: &'static str = "realm_unavailable";
     pub const RECIPIENT_UNAVAILABLE: &'static str = "recipient_unavailable";
-    pub const RECORDING_ARTIFACT_PIPELINE_BYPASSED: &'static str = "recording_artifact_pipeline_bypassed";
+    pub const RECORDING_ARTIFACT_PIPELINE_BYPASSED: &'static str =
+        "recording_artifact_pipeline_bypassed";
     pub const RECORDING_CONSENT_REQUIRED: &'static str = "recording_consent_required";
-    pub const RECORDING_STATE_TRANSITION_INVALID: &'static str = "recording_state_transition_invalid";
+    pub const RECORDING_STATE_TRANSITION_INVALID: &'static str =
+        "recording_state_transition_invalid";
     pub const RECOVERY_CAPABILITY_NOT_SEALED: &'static str = "recovery_capability_not_sealed";
     pub const RECOVERY_EVIDENCE_UNBOUND: &'static str = "recovery_evidence_unbound";
     pub const RECOVERY_POLICY_GENESIS_NOT_V1: &'static str = "recovery_policy_genesis_not_v1";
     pub const RECOVERY_POLICY_MISMATCH: &'static str = "recovery_policy_mismatch";
-    pub const RECOVERY_POLICY_SUPERSEDES_INVALID: &'static str = "recovery_policy_supersedes_invalid";
-    pub const RECOVERY_POLICY_VERSION_NOT_MONOTONIC: &'static str = "recovery_policy_version_not_monotonic";
+    pub const RECOVERY_POLICY_SUPERSEDES_INVALID: &'static str =
+        "recovery_policy_supersedes_invalid";
+    pub const RECOVERY_POLICY_VERSION_NOT_MONOTONIC: &'static str =
+        "recovery_policy_version_not_monotonic";
     pub const RECOVERY_PRINCIPAL_ISOLATION: &'static str = "recovery_principal_isolation";
     pub const RECOVERY_PROOF_KIND_UNKNOWN: &'static str = "recovery_proof_kind_unknown";
     pub const RECOVERY_REQUIRED: &'static str = "recovery_required";
-    pub const RECOVERY_SESSION_CHALLENGE_MISMATCH: &'static str = "recovery_session_challenge_mismatch";
+    pub const RECOVERY_SESSION_CHALLENGE_MISMATCH: &'static str =
+        "recovery_session_challenge_mismatch";
     pub const RECOVERY_SESSION_TERMINAL: &'static str = "recovery_session_terminal";
     pub const RECOVERY_TARGET_NOT_IN_BOTTOM: &'static str = "recovery_target_not_in_bottom";
     pub const RECOVERY_WITNESS_INVALID: &'static str = "recovery_witness_invalid";
@@ -855,13 +936,16 @@ impl ReasonCode {
     pub const RELATION_CONFLICT_FANOUT_EXCEEDED: &'static str = "relation_conflict_fanout_exceeded";
     pub const RELATION_KIND_CONTAINS_DERIVED: &'static str = "relation_kind_contains_derived";
     pub const RELATION_KIND_WATCHES_DERIVED: &'static str = "relation_kind_watches_derived";
-    pub const RELATION_PROFILE_CARDINALITY_CONFLICT: &'static str = "relation_profile_cardinality_conflict";
+    pub const RELATION_PROFILE_CARDINALITY_CONFLICT: &'static str =
+        "relation_profile_cardinality_conflict";
     pub const RELATION_SCOPE_UNRESOLVED: &'static str = "relation_scope_unresolved";
     pub const RELAXED_WINDOW_EXCEEDS_CEILING: &'static str = "relaxed_window_exceeds_ceiling";
     pub const REQUIRES_ORGANIZATION_APPROVAL: &'static str = "requires_organization_approval";
-    pub const RESOLUTION_HISTORY_ANCESTOR_UNKNOWN: &'static str = "resolution_history_ancestor_unknown";
+    pub const RESOLUTION_HISTORY_ANCESTOR_UNKNOWN: &'static str =
+        "resolution_history_ancestor_unknown";
     pub const REVOCATION_FRESHNESS_UNKNOWN: &'static str = "revocation_freshness_unknown";
-    pub const REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW: &'static str = "revoke_order_unknown_requires_backfill_or_review";
+    pub const REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW: &'static str =
+        "revoke_order_unknown_requires_backfill_or_review";
     pub const REVOKE_UNDO_INVALID_SIGNATURE: &'static str = "revoke_undo_invalid_signature";
     pub const RISK_POLICY: &'static str = "risk_policy";
     pub const RSVP_BASIS_NOT_CAUSAL: &'static str = "rsvp_basis_not_causal";
@@ -879,7 +963,8 @@ impl ReasonCode {
     pub const SEGMENT_SEQUENCE_INVALID: &'static str = "segment_sequence_invalid";
     pub const SEGMENT_STREAM_TRUNCATED: &'static str = "segment_stream_truncated";
     pub const SELECTOR_ACTOR_WILDCARD_FORBIDDEN: &'static str = "selector_actor_wildcard_forbidden";
-    pub const SELECTOR_GOVERNANCE_WILDCARD_FORBIDDEN: &'static str = "selector_governance_wildcard_forbidden";
+    pub const SELECTOR_GOVERNANCE_WILDCARD_FORBIDDEN: &'static str =
+        "selector_governance_wildcard_forbidden";
     pub const SELECTOR_MISSING_REALM_SCOPE: &'static str = "selector_missing_realm_scope";
     pub const SELECTOR_TOO_COMPLEX: &'static str = "selector_too_complex";
     pub const SEND_FAILED: &'static str = "send_failed";
@@ -889,14 +974,17 @@ impl ReasonCode {
     pub const SERVICE_KEY_REVOKED: &'static str = "service_key_revoked";
     pub const SERVICE_NOT_PLAINTEXT_VISIBLE: &'static str = "service_not_plaintext_visible";
     pub const SERVICE_PREROTATION_INVALID: &'static str = "service_prerotation_invalid";
-    pub const SERVICE_RESOLUTION_MIRROR_RESPONSE_GAP: &'static str = "service_resolution_mirror_response_gap";
-    pub const SERVICE_RESOLUTION_MIRROR_RESPONSE_LIMIT: &'static str = "service_resolution_mirror_response_limit";
+    pub const SERVICE_RESOLUTION_MIRROR_RESPONSE_GAP: &'static str =
+        "service_resolution_mirror_response_gap";
+    pub const SERVICE_RESOLUTION_MIRROR_RESPONSE_LIMIT: &'static str =
+        "service_resolution_mirror_response_limit";
     pub const SERVICE_ROUTE_FORK: &'static str = "service_route_fork";
     pub const SERVICE_ROUTE_NOTICE_BASIS_STALE: &'static str = "service_route_notice_basis_stale";
     pub const SERVICE_ROUTE_NOTICE_CANCELLED: &'static str = "service_route_notice_cancelled";
     pub const SERVICE_ROUTE_NOTICE_CONFLICT: &'static str = "service_route_notice_conflict";
     pub const SERVICE_ROUTE_NOTICE_EXPIRED: &'static str = "service_route_notice_expired";
-    pub const SERVICE_ROUTE_SUCCESSOR_UNAVAILABLE: &'static str = "service_route_successor_unavailable";
+    pub const SERVICE_ROUTE_SUCCESSOR_UNAVAILABLE: &'static str =
+        "service_route_successor_unavailable";
     pub const SESSION_FOCUS_ALREADY_COMMITTED: &'static str = "session_focus_already_committed";
     pub const SESSION_FOCUS_NO_SPLIT_BRAIN: &'static str = "session_focus_no_split_brain";
     pub const SESSION_MISSING: &'static str = "session_missing";
@@ -909,7 +997,8 @@ impl ReasonCode {
     pub const SPACE_HAS_LIVE_DEPENDENTS: &'static str = "space_has_live_dependents";
     pub const SPACE_NOT_ACTIVE: &'static str = "space_not_active";
     pub const SPACE_NOT_ARCHIVED: &'static str = "space_not_archived";
-    pub const SPACE_PARENT_CHAIN_IN_BOTTOM_STATE: &'static str = "space_parent_chain_in_bottom_state";
+    pub const SPACE_PARENT_CHAIN_IN_BOTTOM_STATE: &'static str =
+        "space_parent_chain_in_bottom_state";
     pub const SPACE_PARENT_CYCLE: &'static str = "space_parent_cycle";
     pub const SPACE_PARENT_UNREADABLE: &'static str = "space_parent_unreadable";
     pub const SPAM: &'static str = "spam";
@@ -924,7 +1013,8 @@ impl ReasonCode {
     pub const THIRD_PARTY_INVITE_TOKEN_IN_QUERY: &'static str = "third_party_invite_token_in_query";
     pub const TOKEN_EXPIRED: &'static str = "token_expired";
     pub const TOKEN_ISSUER_UNAUTHORISED: &'static str = "token_issuer_unauthorised";
-    pub const TRANSCRIPTION_ARTIFACT_PIPELINE_BYPASSED: &'static str = "transcription_artifact_pipeline_bypassed";
+    pub const TRANSCRIPTION_ARTIFACT_PIPELINE_BYPASSED: &'static str =
+        "transcription_artifact_pipeline_bypassed";
     pub const TRANSCRIPTION_DENIED: &'static str = "transcription_denied";
     pub const TTL_EXPIRED: &'static str = "ttl_expired";
     pub const UNKNOWN_EVENT_KIND: &'static str = "unknown_event_kind";
@@ -944,7 +1034,8 @@ impl ReasonCode {
     pub const UNSUPPORTED_PROTOCOL_VERSION: &'static str = "unsupported_protocol_version";
     pub const UNSUPPORTED_SIGNATURE_ALG: &'static str = "unsupported_signature_alg";
     pub const UNTRUSTED_BACKUP_SIGNATURE: &'static str = "untrusted_backup_signature";
-    pub const VERIFICATION_METHOD_PRINCIPAL_MISMATCH: &'static str = "verification_method_principal_mismatch";
+    pub const VERIFICATION_METHOD_PRINCIPAL_MISMATCH: &'static str =
+        "verification_method_principal_mismatch";
     pub const VIEW_ALREADY_TERMINAL: &'static str = "view_already_terminal";
     pub const WATCH_LEVEL_PUBLIC_MUST_BE_SELF: &'static str = "watch_level_public_must_be_self";
     pub const WATCH_MUST_BE_SELF: &'static str = "watch_must_be_self";
@@ -952,7 +1043,8 @@ impl ReasonCode {
     pub const WATCH_SET_OTHERS_AUDIT_MISSING: &'static str = "watch_set_others_audit_missing";
     pub const WEBVH_CACHE_TOO_STALE: &'static str = "webvh_cache_too_stale";
     pub const WEBVH_CACHE_UNAVAILABLE: &'static str = "webvh_cache_unavailable";
-    pub const WEBVH_WITNESS_CONTROLLING_ORGANIZATION_UNVERIFIED: &'static str = "webvh_witness_controlling_organization_unverified";
+    pub const WEBVH_WITNESS_CONTROLLING_ORGANIZATION_UNVERIFIED: &'static str =
+        "webvh_witness_controlling_organization_unverified";
     pub const WEBVH_WITNESS_EVIDENCE_STALE: &'static str = "webvh_witness_evidence_stale";
     pub const WEBVH_WITNESS_PARAMETER_MALFORMED: &'static str = "webvh_witness_parameter_malformed";
     pub const WEBVH_WITNESS_PROOF_INVALID: &'static str = "webvh_witness_proof_invalid";
@@ -982,18 +1074,30 @@ impl ReasonCode {
             Self::AgentGrantExceedsRequestedScope => Self::AGENT_GRANT_EXCEEDS_REQUESTED_SCOPE,
             Self::AgentGrantExpiryRequired => Self::AGENT_GRANT_EXPIRY_REQUIRED,
             Self::AgentKeyAuthorizationExpired => Self::AGENT_KEY_AUTHORIZATION_EXPIRED,
-            Self::AgentKeyScopeReauthorizationRequired => Self::AGENT_KEY_SCOPE_REAUTHORIZATION_REQUIRED,
-            Self::AgentParticipationCeilingUnresolved => Self::AGENT_PARTICIPATION_CEILING_UNRESOLVED,
+            Self::AgentKeyScopeReauthorizationRequired => {
+                Self::AGENT_KEY_SCOPE_REAUTHORIZATION_REQUIRED
+            }
+            Self::AgentParticipationCeilingUnresolved => {
+                Self::AGENT_PARTICIPATION_CEILING_UNRESOLVED
+            }
             Self::AgentParticipationCeilingWiden => Self::AGENT_PARTICIPATION_CEILING_WIDEN,
             Self::AgentPaused => Self::AGENT_PAUSED,
             Self::AgentPcrGenesisAlreadyAccepted => Self::AGENT_PCR_GENESIS_ALREADY_ACCEPTED,
-            Self::AgentPcrGenesisDeclarationConflict => Self::AGENT_PCR_GENESIS_DECLARATION_CONFLICT,
+            Self::AgentPcrGenesisDeclarationConflict => {
+                Self::AGENT_PCR_GENESIS_DECLARATION_CONFLICT
+            }
             Self::AgentPcrGenesisDeclarationMissing => Self::AGENT_PCR_GENESIS_DECLARATION_MISSING,
-            Self::AgentProvisionScopeMigrationRequired => Self::AGENT_PROVISION_SCOPE_MIGRATION_REQUIRED,
-            Self::AgentProvisioningChallengeAlreadyConsumed => Self::AGENT_PROVISIONING_CHALLENGE_ALREADY_CONSUMED,
+            Self::AgentProvisionScopeMigrationRequired => {
+                Self::AGENT_PROVISION_SCOPE_MIGRATION_REQUIRED
+            }
+            Self::AgentProvisioningChallengeAlreadyConsumed => {
+                Self::AGENT_PROVISIONING_CHALLENGE_ALREADY_CONSUMED
+            }
             Self::AgentProvisioningChallengeExpired => Self::AGENT_PROVISIONING_CHALLENGE_EXPIRED,
             Self::AgentReplyNotPermitted => Self::AGENT_REPLY_NOT_PERMITTED,
-            Self::AgentRequestedScopeCommitmentInvalid => Self::AGENT_REQUESTED_SCOPE_COMMITMENT_INVALID,
+            Self::AgentRequestedScopeCommitmentInvalid => {
+                Self::AGENT_REQUESTED_SCOPE_COMMITMENT_INVALID
+            }
             Self::AgentRuntimeRequestConflict => Self::AGENT_RUNTIME_REQUEST_CONFLICT,
             Self::AgentSessionScopeRefreshRequired => Self::AGENT_SESSION_SCOPE_REFRESH_REQUIRED,
             Self::AppealModifyMissingLift => Self::APPEAL_MODIFY_MISSING_LIFT,
@@ -1006,11 +1110,19 @@ impl ReasonCode {
             Self::AttestationMissing => Self::ATTESTATION_MISSING,
             Self::AudienceMismatch => Self::AUDIENCE_MISMATCH,
             Self::AuditAgentAttestationMismatch => Self::AUDIT_AGENT_ATTESTATION_MISMATCH,
-            Self::AuditAgentDestructionNotPairedWithRemove => Self::AUDIT_AGENT_DESTRUCTION_NOT_PAIRED_WITH_REMOVE,
-            Self::AuditAgentDestructionProofNotEnclaveSigned => Self::AUDIT_AGENT_DESTRUCTION_PROOF_NOT_ENCLAVE_SIGNED,
+            Self::AuditAgentDestructionNotPairedWithRemove => {
+                Self::AUDIT_AGENT_DESTRUCTION_NOT_PAIRED_WITH_REMOVE
+            }
+            Self::AuditAgentDestructionProofNotEnclaveSigned => {
+                Self::AUDIT_AGENT_DESTRUCTION_PROOF_NOT_ENCLAVE_SIGNED
+            }
             Self::AuditAgentEpochRangeIncomplete => Self::AUDIT_AGENT_EPOCH_RANGE_INCOMPLETE,
-            Self::AuditAgentKeyDestructionAttestationMissing => Self::AUDIT_AGENT_KEY_DESTRUCTION_ATTESTATION_MISSING,
-            Self::AuditAgentRemoveRequiresPairedDestructionAttestation => Self::AUDIT_AGENT_REMOVE_REQUIRES_PAIRED_DESTRUCTION_ATTESTATION,
+            Self::AuditAgentKeyDestructionAttestationMissing => {
+                Self::AUDIT_AGENT_KEY_DESTRUCTION_ATTESTATION_MISSING
+            }
+            Self::AuditAgentRemoveRequiresPairedDestructionAttestation => {
+                Self::AUDIT_AGENT_REMOVE_REQUIRES_PAIRED_DESTRUCTION_ATTESTATION
+            }
             Self::AuditCapabilityIncomplete => Self::AUDIT_CAPABILITY_INCOMPLETE,
             Self::AuditPurposeMismatch => Self::AUDIT_PURPOSE_MISMATCH,
             Self::AuditReceiptInvalidated => Self::AUDIT_RECEIPT_INVALIDATED,
@@ -1021,7 +1133,9 @@ impl ReasonCode {
             Self::AuditReleaseCurrentEpochForbidden => Self::AUDIT_RELEASE_CURRENT_EPOCH_FORBIDDEN,
             Self::AuditReleaseManifestInvalid => Self::AUDIT_RELEASE_MANIFEST_INVALID,
             Self::AuditReleaseNoticeMissing => Self::AUDIT_RELEASE_NOTICE_MISSING,
-            Self::AuditReleaseRetroactiveScopeForbidden => Self::AUDIT_RELEASE_RETROACTIVE_SCOPE_FORBIDDEN,
+            Self::AuditReleaseRetroactiveScopeForbidden => {
+                Self::AUDIT_RELEASE_RETROACTIVE_SCOPE_FORBIDDEN
+            }
             Self::AuditReleaseScopeMismatch => Self::AUDIT_RELEASE_SCOPE_MISMATCH,
             Self::AuthIncomplete => Self::AUTH_INCOMPLETE,
             Self::AuthorityCycle => Self::AUTHORITY_CYCLE,
@@ -1081,38 +1195,66 @@ impl ReasonCode {
             Self::DecryptionFailed => Self::DECRYPTION_FAILED,
             Self::DecryptionPending => Self::DECRYPTION_PENDING,
             Self::DelegationRevoked => Self::DELEGATION_REVOKED,
-            Self::DeliveryBindingHandoverProofInvalid => Self::DELIVERY_BINDING_HANDOVER_PROOF_INVALID,
-            Self::DeliveryBindingHandoverRateLimited => Self::DELIVERY_BINDING_HANDOVER_RATE_LIMITED,
+            Self::DeliveryBindingHandoverProofInvalid => {
+                Self::DELIVERY_BINDING_HANDOVER_PROOF_INVALID
+            }
+            Self::DeliveryBindingHandoverRateLimited => {
+                Self::DELIVERY_BINDING_HANDOVER_RATE_LIMITED
+            }
             Self::DeliveryBindingInvalid => Self::DELIVERY_BINDING_INVALID,
             Self::DeliveryBindingPolicyMismatch => Self::DELIVERY_BINDING_POLICY_MISMATCH,
             Self::DeliveryBindingStale => Self::DELIVERY_BINDING_STALE,
             Self::DeliveryTargetUnreachable => Self::DELIVERY_TARGET_UNREACHABLE,
             Self::DeltaContainsDataEvent => Self::DELTA_CONTAINS_DATA_EVENT,
             Self::DependencyMissing => Self::DEPENDENCY_MISSING,
-            Self::DeviceAuthorizedPrincipalControlRealmMismatch => Self::DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH,
+            Self::DeviceAuthorizedPrincipalControlRealmMismatch => {
+                Self::DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH
+            }
             Self::DeviceGenerationFenced => Self::DEVICE_GENERATION_FENCED,
             Self::DeviceMessageIdConflict => Self::DEVICE_MESSAGE_ID_CONFLICT,
             Self::DeviceReanchorAuthorizeMismatch => Self::DEVICE_REANCHOR_AUTHORIZE_MISMATCH,
             Self::DeviceReanchorEntryNotHead => Self::DEVICE_REANCHOR_ENTRY_NOT_HEAD,
             Self::DeviceReanchorFrontierMismatch => Self::DEVICE_REANCHOR_FRONTIER_MISMATCH,
             Self::DirectConversationBindingInvalid => Self::DIRECT_CONVERSATION_BINDING_INVALID,
-            Self::DirectConversationFoundingUnitInvalid => Self::DIRECT_CONVERSATION_FOUNDING_UNIT_INVALID,
+            Self::DirectConversationFoundingUnitInvalid => {
+                Self::DIRECT_CONVERSATION_FOUNDING_UNIT_INVALID
+            }
             Self::DirectConversationInviteForbidden => Self::DIRECT_CONVERSATION_INVITE_FORBIDDEN,
-            Self::DirectConversationMemberCountInvalid => Self::DIRECT_CONVERSATION_MEMBER_COUNT_INVALID,
-            Self::DirectConversationPairMaterializationConflict => Self::DIRECT_CONVERSATION_PAIR_MATERIALIZATION_CONFLICT,
-            Self::DirectConversationParticipantAuthorityDenied => Self::DIRECT_CONVERSATION_PARTICIPANT_AUTHORITY_DENIED,
-            Self::DirectConversationRootMaskViolation => Self::DIRECT_CONVERSATION_ROOT_MASK_VIOLATION,
-            Self::DirectConversationSlotAlreadyCommitted => Self::DIRECT_CONVERSATION_SLOT_ALREADY_COMMITTED,
+            Self::DirectConversationMemberCountInvalid => {
+                Self::DIRECT_CONVERSATION_MEMBER_COUNT_INVALID
+            }
+            Self::DirectConversationPairMaterializationConflict => {
+                Self::DIRECT_CONVERSATION_PAIR_MATERIALIZATION_CONFLICT
+            }
+            Self::DirectConversationParticipantAuthorityDenied => {
+                Self::DIRECT_CONVERSATION_PARTICIPANT_AUTHORITY_DENIED
+            }
+            Self::DirectConversationRootMaskViolation => {
+                Self::DIRECT_CONVERSATION_ROOT_MASK_VIOLATION
+            }
+            Self::DirectConversationSlotAlreadyCommitted => {
+                Self::DIRECT_CONVERSATION_SLOT_ALREADY_COMMITTED
+            }
             Self::DirectConversationSpaceForbidden => Self::DIRECT_CONVERSATION_SPACE_FORBIDDEN,
-            Self::DirectConversationTerminalForbidden => Self::DIRECT_CONVERSATION_TERMINAL_FORBIDDEN,
-            Self::DirectConversationThirdPartyMemberForbidden => Self::DIRECT_CONVERSATION_THIRD_PARTY_MEMBER_FORBIDDEN,
-            Self::DirectDownloadDisallowedPresignForbidden => Self::DIRECT_DOWNLOAD_DISALLOWED_PRESIGN_FORBIDDEN,
+            Self::DirectConversationTerminalForbidden => {
+                Self::DIRECT_CONVERSATION_TERMINAL_FORBIDDEN
+            }
+            Self::DirectConversationThirdPartyMemberForbidden => {
+                Self::DIRECT_CONVERSATION_THIRD_PARTY_MEMBER_FORBIDDEN
+            }
+            Self::DirectDownloadDisallowedPresignForbidden => {
+                Self::DIRECT_DOWNLOAD_DISALLOWED_PRESIGN_FORBIDDEN
+            }
             Self::DuplicateConflict => Self::DUPLICATE_CONFLICT,
             Self::DurabilitySchemeIncompatible => Self::DURABILITY_SCHEME_INCOMPATIBLE,
             Self::E2eeKeySourceUnauthorised => Self::E2EE_KEY_SOURCE_UNAUTHORISED,
             Self::E2eeRelaxedAuditBindingConflict => Self::E2EE_RELAXED_AUDIT_BINDING_CONFLICT,
-            Self::E2eeRelaxedDisallowedInComplianceProfile => Self::E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE,
-            Self::E2eeRelaxedFederationPolicyUnsupported => Self::E2EE_RELAXED_FEDERATION_POLICY_UNSUPPORTED,
+            Self::E2eeRelaxedDisallowedInComplianceProfile => {
+                Self::E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE
+            }
+            Self::E2eeRelaxedFederationPolicyUnsupported => {
+                Self::E2EE_RELAXED_FEDERATION_POLICY_UNSUPPORTED
+            }
             Self::EffectiveScopeReducerManaged => Self::EFFECTIVE_SCOPE_REDUCER_MANAGED,
             Self::EgressPolicyDenied => Self::EGRESS_POLICY_DENIED,
             Self::EpochUpdateRequired => Self::EPOCH_UPDATE_REQUIRED,
@@ -1148,11 +1290,15 @@ impl ReasonCode {
             Self::HandleSubjectMismatch => Self::HANDLE_SUBJECT_MISMATCH,
             Self::Harassment => Self::HARASSMENT,
             Self::HateSpeech => Self::HATE_SPEECH,
-            Self::HistoryAccessRequiresHistoryCapableScheme => Self::HISTORY_ACCESS_REQUIRES_HISTORY_CAPABLE_SCHEME,
+            Self::HistoryAccessRequiresHistoryCapableScheme => {
+                Self::HISTORY_ACCESS_REQUIRES_HISTORY_CAPABLE_SCHEME
+            }
             Self::HistoryTraversalAnchorUnreachable => Self::HISTORY_TRAVERSAL_ANCHOR_UNREACHABLE,
             Self::HumanApprovalRequired => Self::HUMAN_APPROVAL_REQUIRED,
             Self::IdentityCreationAlreadyAccepted => Self::IDENTITY_CREATION_ALREADY_ACCEPTED,
-            Self::IdentityCreationChallengeAlreadyConsumed => Self::IDENTITY_CREATION_CHALLENGE_ALREADY_CONSUMED,
+            Self::IdentityCreationChallengeAlreadyConsumed => {
+                Self::IDENTITY_CREATION_CHALLENGE_ALREADY_CONSUMED
+            }
             Self::IdentityCreationChallengeExpired => Self::IDENTITY_CREATION_CHALLENGE_EXPIRED,
             Self::IdentityCreationLeaseFenced => Self::IDENTITY_CREATION_LEASE_FENCED,
             Self::IdentityLinkNoLongerVisible => Self::IDENTITY_LINK_NO_LONGER_VISIBLE,
@@ -1178,7 +1324,9 @@ impl ReasonCode {
             Self::InviteKindRequiresRevoke => Self::INVITE_KIND_REQUIRES_REVOKE,
             Self::InviteOobEntropyTooLow => Self::INVITE_OOB_ENTROPY_TOO_LOW,
             Self::JoinAuthorisationInvalid => Self::JOIN_AUTHORISATION_INVALID,
-            Self::JoinPolicyDuplicateAnswerReference => Self::JOIN_POLICY_DUPLICATE_ANSWER_REFERENCE,
+            Self::JoinPolicyDuplicateAnswerReference => {
+                Self::JOIN_POLICY_DUPLICATE_ANSWER_REFERENCE
+            }
             Self::JoinPolicyDuplicateGateId => Self::JOIN_POLICY_DUPLICATE_GATE_ID,
             Self::JoinPolicyQuestionBudgetExceeded => Self::JOIN_POLICY_QUESTION_BUDGET_EXCEEDED,
             Self::JoinPolicyUnknownAnswerReference => Self::JOIN_POLICY_UNKNOWN_ANSWER_REFERENCE,
@@ -1194,15 +1342,21 @@ impl ReasonCode {
             Self::LastResortRotationRequired => Self::LAST_RESORT_ROTATION_REQUIRED,
             Self::LateRecoveryRejectedMembership => Self::LATE_RECOVERY_REJECTED_MEMBERSHIP,
             Self::LegalHoldActive => Self::LEGAL_HOLD_ACTIVE,
-            Self::LiteProfileWritesDisallowedEventKind => Self::LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND,
+            Self::LiteProfileWritesDisallowedEventKind => {
+                Self::LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND
+            }
             Self::MediaNegotiationTimeout => Self::MEDIA_NEGOTIATION_TIMEOUT,
-            Self::MediaPlaintextServiceNotAuthorised => Self::MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED,
+            Self::MediaPlaintextServiceNotAuthorised => {
+                Self::MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED
+            }
             Self::MediaPlaintextWarningRequired => Self::MEDIA_PLAINTEXT_WARNING_REQUIRED,
             Self::MediaServiceBindingUncovered => Self::MEDIA_SERVICE_BINDING_UNCOVERED,
             Self::MediaServiceFociRequired => Self::MEDIA_SERVICE_FOCI_REQUIRED,
             Self::MediaSourceUnavailable => Self::MEDIA_SOURCE_UNAVAILABLE,
             Self::MemberIdentityProofInvalid => Self::MEMBER_IDENTITY_PROOF_INVALID,
-            Self::MemberIdentityReplacementDigestMismatch => Self::MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH,
+            Self::MemberIdentityReplacementDigestMismatch => {
+                Self::MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH
+            }
             Self::MemberIdentityStateMismatch => Self::MEMBER_IDENTITY_STATE_MISMATCH,
             Self::MemberIdentityUnknownSegment => Self::MEMBER_IDENTITY_UNKNOWN_SEGMENT,
             Self::MessageAlreadyTerminal => Self::MESSAGE_ALREADY_TERMINAL,
@@ -1214,10 +1368,14 @@ impl ReasonCode {
             Self::MimiObserverWriteForbidden => Self::MIMI_OBSERVER_WRITE_FORBIDDEN,
             Self::MimiPolicyRootMismatch => Self::MIMI_POLICY_ROOT_MISMATCH,
             Self::MimiProviderUnreachable => Self::MIMI_PROVIDER_UNREACHABLE,
-            Self::MimiRoomBindingStatusTransitionInvalid => Self::MIMI_ROOM_BINDING_STATUS_TRANSITION_INVALID,
+            Self::MimiRoomBindingStatusTransitionInvalid => {
+                Self::MIMI_ROOM_BINDING_STATUS_TRANSITION_INVALID
+            }
             Self::MimiRoomStateIncompatible => Self::MIMI_ROOM_STATE_INCOMPATIBLE,
             Self::MinimalDisclosureViolation => Self::MINIMAL_DISCLOSURE_VIOLATION,
-            Self::MinimalMetadataAuthorCredentialInvalid => Self::MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID,
+            Self::MinimalMetadataAuthorCredentialInvalid => {
+                Self::MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID
+            }
             Self::MinimalMetadataPresignForbidden => Self::MINIMAL_METADATA_PRESIGN_FORBIDDEN,
             Self::Misinformation => Self::MISINFORMATION,
             Self::MlsContentSchemeImmutable => Self::MLS_CONTENT_SCHEME_IMMUTABLE,
@@ -1262,7 +1420,9 @@ impl ReasonCode {
             Self::PresignScopeMismatch => Self::PRESIGN_SCOPE_MISMATCH,
             Self::PrevRefsTooLarge => Self::PREV_REFS_TOO_LARGE,
             Self::PrimaryTrackRequired => Self::PRIMARY_TRACK_REQUIRED,
-            Self::PrincipalControlEventKindForbidden => Self::PRINCIPAL_CONTROL_EVENT_KIND_FORBIDDEN,
+            Self::PrincipalControlEventKindForbidden => {
+                Self::PRINCIPAL_CONTROL_EVENT_KIND_FORBIDDEN
+            }
             Self::PrincipalDeactivated => Self::PRINCIPAL_DEACTIVATED,
             Self::PrivateAttachment => Self::PRIVATE_ATTACHMENT,
             Self::PrivateViewRequiresAccountData => Self::PRIVATE_VIEW_REQUIRES_ACCOUNT_DATA,
@@ -1296,10 +1456,14 @@ impl ReasonCode {
             Self::RealmIdNotEventDerived => Self::REALM_ID_NOT_EVENT_DERIVED,
             Self::RealmLinkInvalidTransition => Self::REALM_LINK_INVALID_TRANSITION,
             Self::RealmLinkSelfReference => Self::REALM_LINK_SELF_REFERENCE,
-            Self::RealmOrganizationAuthorizationInvalid => Self::REALM_ORGANIZATION_AUTHORIZATION_INVALID,
+            Self::RealmOrganizationAuthorizationInvalid => {
+                Self::REALM_ORGANIZATION_AUTHORIZATION_INVALID
+            }
             Self::RealmOrganizationDelegationMissing => Self::REALM_ORGANIZATION_DELEGATION_MISSING,
             Self::RealmOrganizationExpired => Self::REALM_ORGANIZATION_EXPIRED,
-            Self::RealmOrganizationRealmAcceptanceMissing => Self::REALM_ORGANIZATION_REALM_ACCEPTANCE_MISSING,
+            Self::RealmOrganizationRealmAcceptanceMissing => {
+                Self::REALM_ORGANIZATION_REALM_ACCEPTANCE_MISSING
+            }
             Self::RealmOrganizationScopeMissing => Self::REALM_ORGANIZATION_SCOPE_MISSING,
             Self::RealmTerminalState => Self::REALM_TERMINAL_STATE,
             Self::RealmUnavailable => Self::REALM_UNAVAILABLE,
@@ -1335,7 +1499,9 @@ impl ReasonCode {
             Self::RequiresOrganizationApproval => Self::REQUIRES_ORGANIZATION_APPROVAL,
             Self::ResolutionHistoryAncestorUnknown => Self::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN,
             Self::RevocationFreshnessUnknown => Self::REVOCATION_FRESHNESS_UNKNOWN,
-            Self::RevokeOrderUnknownRequiresBackfillOrReview => Self::REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW,
+            Self::RevokeOrderUnknownRequiresBackfillOrReview => {
+                Self::REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW
+            }
             Self::RevokeUndoInvalidSignature => Self::REVOKE_UNDO_INVALID_SIGNATURE,
             Self::RiskPolicy => Self::RISK_POLICY,
             Self::RsvpBasisNotCausal => Self::RSVP_BASIS_NOT_CAUSAL,
@@ -1353,7 +1519,9 @@ impl ReasonCode {
             Self::SegmentSequenceInvalid => Self::SEGMENT_SEQUENCE_INVALID,
             Self::SegmentStreamTruncated => Self::SEGMENT_STREAM_TRUNCATED,
             Self::SelectorActorWildcardForbidden => Self::SELECTOR_ACTOR_WILDCARD_FORBIDDEN,
-            Self::SelectorGovernanceWildcardForbidden => Self::SELECTOR_GOVERNANCE_WILDCARD_FORBIDDEN,
+            Self::SelectorGovernanceWildcardForbidden => {
+                Self::SELECTOR_GOVERNANCE_WILDCARD_FORBIDDEN
+            }
             Self::SelectorMissingRealmScope => Self::SELECTOR_MISSING_REALM_SCOPE,
             Self::SelectorTooComplex => Self::SELECTOR_TOO_COMPLEX,
             Self::SendFailed => Self::SEND_FAILED,
@@ -1363,8 +1531,12 @@ impl ReasonCode {
             Self::ServiceKeyRevoked => Self::SERVICE_KEY_REVOKED,
             Self::ServiceNotPlaintextVisible => Self::SERVICE_NOT_PLAINTEXT_VISIBLE,
             Self::ServicePrerotationInvalid => Self::SERVICE_PREROTATION_INVALID,
-            Self::ServiceResolutionMirrorResponseGap => Self::SERVICE_RESOLUTION_MIRROR_RESPONSE_GAP,
-            Self::ServiceResolutionMirrorResponseLimit => Self::SERVICE_RESOLUTION_MIRROR_RESPONSE_LIMIT,
+            Self::ServiceResolutionMirrorResponseGap => {
+                Self::SERVICE_RESOLUTION_MIRROR_RESPONSE_GAP
+            }
+            Self::ServiceResolutionMirrorResponseLimit => {
+                Self::SERVICE_RESOLUTION_MIRROR_RESPONSE_LIMIT
+            }
             Self::ServiceRouteFork => Self::SERVICE_ROUTE_FORK,
             Self::ServiceRouteNoticeBasisStale => Self::SERVICE_ROUTE_NOTICE_BASIS_STALE,
             Self::ServiceRouteNoticeCancelled => Self::SERVICE_ROUTE_NOTICE_CANCELLED,
@@ -1398,7 +1570,9 @@ impl ReasonCode {
             Self::ThirdPartyInviteTokenInQuery => Self::THIRD_PARTY_INVITE_TOKEN_IN_QUERY,
             Self::TokenExpired => Self::TOKEN_EXPIRED,
             Self::TokenIssuerUnauthorised => Self::TOKEN_ISSUER_UNAUTHORISED,
-            Self::TranscriptionArtifactPipelineBypassed => Self::TRANSCRIPTION_ARTIFACT_PIPELINE_BYPASSED,
+            Self::TranscriptionArtifactPipelineBypassed => {
+                Self::TRANSCRIPTION_ARTIFACT_PIPELINE_BYPASSED
+            }
             Self::TranscriptionDenied => Self::TRANSCRIPTION_DENIED,
             Self::TtlExpired => Self::TTL_EXPIRED,
             Self::UnknownEventKind => Self::UNKNOWN_EVENT_KIND,
@@ -1418,7 +1592,9 @@ impl ReasonCode {
             Self::UnsupportedProtocolVersion => Self::UNSUPPORTED_PROTOCOL_VERSION,
             Self::UnsupportedSignatureAlg => Self::UNSUPPORTED_SIGNATURE_ALG,
             Self::UntrustedBackupSignature => Self::UNTRUSTED_BACKUP_SIGNATURE,
-            Self::VerificationMethodPrincipalMismatch => Self::VERIFICATION_METHOD_PRINCIPAL_MISMATCH,
+            Self::VerificationMethodPrincipalMismatch => {
+                Self::VERIFICATION_METHOD_PRINCIPAL_MISMATCH
+            }
             Self::ViewAlreadyTerminal => Self::VIEW_ALREADY_TERMINAL,
             Self::WatchLevelPublicMustBeSelf => Self::WATCH_LEVEL_PUBLIC_MUST_BE_SELF,
             Self::WatchMustBeSelf => Self::WATCH_MUST_BE_SELF,
@@ -1426,7 +1602,9 @@ impl ReasonCode {
             Self::WatchSetOthersAuditMissing => Self::WATCH_SET_OTHERS_AUDIT_MISSING,
             Self::WebvhCacheTooStale => Self::WEBVH_CACHE_TOO_STALE,
             Self::WebvhCacheUnavailable => Self::WEBVH_CACHE_UNAVAILABLE,
-            Self::WebvhWitnessControllingOrganizationUnverified => Self::WEBVH_WITNESS_CONTROLLING_ORGANIZATION_UNVERIFIED,
+            Self::WebvhWitnessControllingOrganizationUnverified => {
+                Self::WEBVH_WITNESS_CONTROLLING_ORGANIZATION_UNVERIFIED
+            }
             Self::WebvhWitnessEvidenceStale => Self::WEBVH_WITNESS_EVIDENCE_STALE,
             Self::WebvhWitnessParameterMalformed => Self::WEBVH_WITNESS_PARAMETER_MALFORMED,
             Self::WebvhWitnessProofInvalid => Self::WEBVH_WITNESS_PROOF_INVALID,
@@ -1459,18 +1637,30 @@ impl ReasonCode {
             Self::AGENT_GRANT_EXCEEDS_REQUESTED_SCOPE => Self::AgentGrantExceedsRequestedScope,
             Self::AGENT_GRANT_EXPIRY_REQUIRED => Self::AgentGrantExpiryRequired,
             Self::AGENT_KEY_AUTHORIZATION_EXPIRED => Self::AgentKeyAuthorizationExpired,
-            Self::AGENT_KEY_SCOPE_REAUTHORIZATION_REQUIRED => Self::AgentKeyScopeReauthorizationRequired,
-            Self::AGENT_PARTICIPATION_CEILING_UNRESOLVED => Self::AgentParticipationCeilingUnresolved,
+            Self::AGENT_KEY_SCOPE_REAUTHORIZATION_REQUIRED => {
+                Self::AgentKeyScopeReauthorizationRequired
+            }
+            Self::AGENT_PARTICIPATION_CEILING_UNRESOLVED => {
+                Self::AgentParticipationCeilingUnresolved
+            }
             Self::AGENT_PARTICIPATION_CEILING_WIDEN => Self::AgentParticipationCeilingWiden,
             Self::AGENT_PAUSED => Self::AgentPaused,
             Self::AGENT_PCR_GENESIS_ALREADY_ACCEPTED => Self::AgentPcrGenesisAlreadyAccepted,
-            Self::AGENT_PCR_GENESIS_DECLARATION_CONFLICT => Self::AgentPcrGenesisDeclarationConflict,
+            Self::AGENT_PCR_GENESIS_DECLARATION_CONFLICT => {
+                Self::AgentPcrGenesisDeclarationConflict
+            }
             Self::AGENT_PCR_GENESIS_DECLARATION_MISSING => Self::AgentPcrGenesisDeclarationMissing,
-            Self::AGENT_PROVISION_SCOPE_MIGRATION_REQUIRED => Self::AgentProvisionScopeMigrationRequired,
-            Self::AGENT_PROVISIONING_CHALLENGE_ALREADY_CONSUMED => Self::AgentProvisioningChallengeAlreadyConsumed,
+            Self::AGENT_PROVISION_SCOPE_MIGRATION_REQUIRED => {
+                Self::AgentProvisionScopeMigrationRequired
+            }
+            Self::AGENT_PROVISIONING_CHALLENGE_ALREADY_CONSUMED => {
+                Self::AgentProvisioningChallengeAlreadyConsumed
+            }
             Self::AGENT_PROVISIONING_CHALLENGE_EXPIRED => Self::AgentProvisioningChallengeExpired,
             Self::AGENT_REPLY_NOT_PERMITTED => Self::AgentReplyNotPermitted,
-            Self::AGENT_REQUESTED_SCOPE_COMMITMENT_INVALID => Self::AgentRequestedScopeCommitmentInvalid,
+            Self::AGENT_REQUESTED_SCOPE_COMMITMENT_INVALID => {
+                Self::AgentRequestedScopeCommitmentInvalid
+            }
             Self::AGENT_RUNTIME_REQUEST_CONFLICT => Self::AgentRuntimeRequestConflict,
             Self::AGENT_SESSION_SCOPE_REFRESH_REQUIRED => Self::AgentSessionScopeRefreshRequired,
             Self::APPEAL_MODIFY_MISSING_LIFT => Self::AppealModifyMissingLift,
@@ -1483,11 +1673,19 @@ impl ReasonCode {
             Self::ATTESTATION_MISSING => Self::AttestationMissing,
             Self::AUDIENCE_MISMATCH => Self::AudienceMismatch,
             Self::AUDIT_AGENT_ATTESTATION_MISMATCH => Self::AuditAgentAttestationMismatch,
-            Self::AUDIT_AGENT_DESTRUCTION_NOT_PAIRED_WITH_REMOVE => Self::AuditAgentDestructionNotPairedWithRemove,
-            Self::AUDIT_AGENT_DESTRUCTION_PROOF_NOT_ENCLAVE_SIGNED => Self::AuditAgentDestructionProofNotEnclaveSigned,
+            Self::AUDIT_AGENT_DESTRUCTION_NOT_PAIRED_WITH_REMOVE => {
+                Self::AuditAgentDestructionNotPairedWithRemove
+            }
+            Self::AUDIT_AGENT_DESTRUCTION_PROOF_NOT_ENCLAVE_SIGNED => {
+                Self::AuditAgentDestructionProofNotEnclaveSigned
+            }
             Self::AUDIT_AGENT_EPOCH_RANGE_INCOMPLETE => Self::AuditAgentEpochRangeIncomplete,
-            Self::AUDIT_AGENT_KEY_DESTRUCTION_ATTESTATION_MISSING => Self::AuditAgentKeyDestructionAttestationMissing,
-            Self::AUDIT_AGENT_REMOVE_REQUIRES_PAIRED_DESTRUCTION_ATTESTATION => Self::AuditAgentRemoveRequiresPairedDestructionAttestation,
+            Self::AUDIT_AGENT_KEY_DESTRUCTION_ATTESTATION_MISSING => {
+                Self::AuditAgentKeyDestructionAttestationMissing
+            }
+            Self::AUDIT_AGENT_REMOVE_REQUIRES_PAIRED_DESTRUCTION_ATTESTATION => {
+                Self::AuditAgentRemoveRequiresPairedDestructionAttestation
+            }
             Self::AUDIT_CAPABILITY_INCOMPLETE => Self::AuditCapabilityIncomplete,
             Self::AUDIT_PURPOSE_MISMATCH => Self::AuditPurposeMismatch,
             Self::AUDIT_RECEIPT_INVALIDATED => Self::AuditReceiptInvalidated,
@@ -1498,7 +1696,9 @@ impl ReasonCode {
             Self::AUDIT_RELEASE_CURRENT_EPOCH_FORBIDDEN => Self::AuditReleaseCurrentEpochForbidden,
             Self::AUDIT_RELEASE_MANIFEST_INVALID => Self::AuditReleaseManifestInvalid,
             Self::AUDIT_RELEASE_NOTICE_MISSING => Self::AuditReleaseNoticeMissing,
-            Self::AUDIT_RELEASE_RETROACTIVE_SCOPE_FORBIDDEN => Self::AuditReleaseRetroactiveScopeForbidden,
+            Self::AUDIT_RELEASE_RETROACTIVE_SCOPE_FORBIDDEN => {
+                Self::AuditReleaseRetroactiveScopeForbidden
+            }
             Self::AUDIT_RELEASE_SCOPE_MISMATCH => Self::AuditReleaseScopeMismatch,
             Self::AUTH_INCOMPLETE => Self::AuthIncomplete,
             Self::AUTHORITY_CYCLE => Self::AuthorityCycle,
@@ -1558,38 +1758,66 @@ impl ReasonCode {
             Self::DECRYPTION_FAILED => Self::DecryptionFailed,
             Self::DECRYPTION_PENDING => Self::DecryptionPending,
             Self::DELEGATION_REVOKED => Self::DelegationRevoked,
-            Self::DELIVERY_BINDING_HANDOVER_PROOF_INVALID => Self::DeliveryBindingHandoverProofInvalid,
-            Self::DELIVERY_BINDING_HANDOVER_RATE_LIMITED => Self::DeliveryBindingHandoverRateLimited,
+            Self::DELIVERY_BINDING_HANDOVER_PROOF_INVALID => {
+                Self::DeliveryBindingHandoverProofInvalid
+            }
+            Self::DELIVERY_BINDING_HANDOVER_RATE_LIMITED => {
+                Self::DeliveryBindingHandoverRateLimited
+            }
             Self::DELIVERY_BINDING_INVALID => Self::DeliveryBindingInvalid,
             Self::DELIVERY_BINDING_POLICY_MISMATCH => Self::DeliveryBindingPolicyMismatch,
             Self::DELIVERY_BINDING_STALE => Self::DeliveryBindingStale,
             Self::DELIVERY_TARGET_UNREACHABLE => Self::DeliveryTargetUnreachable,
             Self::DELTA_CONTAINS_DATA_EVENT => Self::DeltaContainsDataEvent,
             Self::DEPENDENCY_MISSING => Self::DependencyMissing,
-            Self::DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH => Self::DeviceAuthorizedPrincipalControlRealmMismatch,
+            Self::DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH => {
+                Self::DeviceAuthorizedPrincipalControlRealmMismatch
+            }
             Self::DEVICE_GENERATION_FENCED => Self::DeviceGenerationFenced,
             Self::DEVICE_MESSAGE_ID_CONFLICT => Self::DeviceMessageIdConflict,
             Self::DEVICE_REANCHOR_AUTHORIZE_MISMATCH => Self::DeviceReanchorAuthorizeMismatch,
             Self::DEVICE_REANCHOR_ENTRY_NOT_HEAD => Self::DeviceReanchorEntryNotHead,
             Self::DEVICE_REANCHOR_FRONTIER_MISMATCH => Self::DeviceReanchorFrontierMismatch,
             Self::DIRECT_CONVERSATION_BINDING_INVALID => Self::DirectConversationBindingInvalid,
-            Self::DIRECT_CONVERSATION_FOUNDING_UNIT_INVALID => Self::DirectConversationFoundingUnitInvalid,
+            Self::DIRECT_CONVERSATION_FOUNDING_UNIT_INVALID => {
+                Self::DirectConversationFoundingUnitInvalid
+            }
             Self::DIRECT_CONVERSATION_INVITE_FORBIDDEN => Self::DirectConversationInviteForbidden,
-            Self::DIRECT_CONVERSATION_MEMBER_COUNT_INVALID => Self::DirectConversationMemberCountInvalid,
-            Self::DIRECT_CONVERSATION_PAIR_MATERIALIZATION_CONFLICT => Self::DirectConversationPairMaterializationConflict,
-            Self::DIRECT_CONVERSATION_PARTICIPANT_AUTHORITY_DENIED => Self::DirectConversationParticipantAuthorityDenied,
-            Self::DIRECT_CONVERSATION_ROOT_MASK_VIOLATION => Self::DirectConversationRootMaskViolation,
-            Self::DIRECT_CONVERSATION_SLOT_ALREADY_COMMITTED => Self::DirectConversationSlotAlreadyCommitted,
+            Self::DIRECT_CONVERSATION_MEMBER_COUNT_INVALID => {
+                Self::DirectConversationMemberCountInvalid
+            }
+            Self::DIRECT_CONVERSATION_PAIR_MATERIALIZATION_CONFLICT => {
+                Self::DirectConversationPairMaterializationConflict
+            }
+            Self::DIRECT_CONVERSATION_PARTICIPANT_AUTHORITY_DENIED => {
+                Self::DirectConversationParticipantAuthorityDenied
+            }
+            Self::DIRECT_CONVERSATION_ROOT_MASK_VIOLATION => {
+                Self::DirectConversationRootMaskViolation
+            }
+            Self::DIRECT_CONVERSATION_SLOT_ALREADY_COMMITTED => {
+                Self::DirectConversationSlotAlreadyCommitted
+            }
             Self::DIRECT_CONVERSATION_SPACE_FORBIDDEN => Self::DirectConversationSpaceForbidden,
-            Self::DIRECT_CONVERSATION_TERMINAL_FORBIDDEN => Self::DirectConversationTerminalForbidden,
-            Self::DIRECT_CONVERSATION_THIRD_PARTY_MEMBER_FORBIDDEN => Self::DirectConversationThirdPartyMemberForbidden,
-            Self::DIRECT_DOWNLOAD_DISALLOWED_PRESIGN_FORBIDDEN => Self::DirectDownloadDisallowedPresignForbidden,
+            Self::DIRECT_CONVERSATION_TERMINAL_FORBIDDEN => {
+                Self::DirectConversationTerminalForbidden
+            }
+            Self::DIRECT_CONVERSATION_THIRD_PARTY_MEMBER_FORBIDDEN => {
+                Self::DirectConversationThirdPartyMemberForbidden
+            }
+            Self::DIRECT_DOWNLOAD_DISALLOWED_PRESIGN_FORBIDDEN => {
+                Self::DirectDownloadDisallowedPresignForbidden
+            }
             Self::DUPLICATE_CONFLICT => Self::DuplicateConflict,
             Self::DURABILITY_SCHEME_INCOMPATIBLE => Self::DurabilitySchemeIncompatible,
             Self::E2EE_KEY_SOURCE_UNAUTHORISED => Self::E2eeKeySourceUnauthorised,
             Self::E2EE_RELAXED_AUDIT_BINDING_CONFLICT => Self::E2eeRelaxedAuditBindingConflict,
-            Self::E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE => Self::E2eeRelaxedDisallowedInComplianceProfile,
-            Self::E2EE_RELAXED_FEDERATION_POLICY_UNSUPPORTED => Self::E2eeRelaxedFederationPolicyUnsupported,
+            Self::E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE => {
+                Self::E2eeRelaxedDisallowedInComplianceProfile
+            }
+            Self::E2EE_RELAXED_FEDERATION_POLICY_UNSUPPORTED => {
+                Self::E2eeRelaxedFederationPolicyUnsupported
+            }
             Self::EFFECTIVE_SCOPE_REDUCER_MANAGED => Self::EffectiveScopeReducerManaged,
             Self::EGRESS_POLICY_DENIED => Self::EgressPolicyDenied,
             Self::EPOCH_UPDATE_REQUIRED => Self::EpochUpdateRequired,
@@ -1625,11 +1853,15 @@ impl ReasonCode {
             Self::HANDLE_SUBJECT_MISMATCH => Self::HandleSubjectMismatch,
             Self::HARASSMENT => Self::Harassment,
             Self::HATE_SPEECH => Self::HateSpeech,
-            Self::HISTORY_ACCESS_REQUIRES_HISTORY_CAPABLE_SCHEME => Self::HistoryAccessRequiresHistoryCapableScheme,
+            Self::HISTORY_ACCESS_REQUIRES_HISTORY_CAPABLE_SCHEME => {
+                Self::HistoryAccessRequiresHistoryCapableScheme
+            }
             Self::HISTORY_TRAVERSAL_ANCHOR_UNREACHABLE => Self::HistoryTraversalAnchorUnreachable,
             Self::HUMAN_APPROVAL_REQUIRED => Self::HumanApprovalRequired,
             Self::IDENTITY_CREATION_ALREADY_ACCEPTED => Self::IdentityCreationAlreadyAccepted,
-            Self::IDENTITY_CREATION_CHALLENGE_ALREADY_CONSUMED => Self::IdentityCreationChallengeAlreadyConsumed,
+            Self::IDENTITY_CREATION_CHALLENGE_ALREADY_CONSUMED => {
+                Self::IdentityCreationChallengeAlreadyConsumed
+            }
             Self::IDENTITY_CREATION_CHALLENGE_EXPIRED => Self::IdentityCreationChallengeExpired,
             Self::IDENTITY_CREATION_LEASE_FENCED => Self::IdentityCreationLeaseFenced,
             Self::IDENTITY_LINK_NO_LONGER_VISIBLE => Self::IdentityLinkNoLongerVisible,
@@ -1655,7 +1887,9 @@ impl ReasonCode {
             Self::INVITE_KIND_REQUIRES_REVOKE => Self::InviteKindRequiresRevoke,
             Self::INVITE_OOB_ENTROPY_TOO_LOW => Self::InviteOobEntropyTooLow,
             Self::JOIN_AUTHORISATION_INVALID => Self::JoinAuthorisationInvalid,
-            Self::JOIN_POLICY_DUPLICATE_ANSWER_REFERENCE => Self::JoinPolicyDuplicateAnswerReference,
+            Self::JOIN_POLICY_DUPLICATE_ANSWER_REFERENCE => {
+                Self::JoinPolicyDuplicateAnswerReference
+            }
             Self::JOIN_POLICY_DUPLICATE_GATE_ID => Self::JoinPolicyDuplicateGateId,
             Self::JOIN_POLICY_QUESTION_BUDGET_EXCEEDED => Self::JoinPolicyQuestionBudgetExceeded,
             Self::JOIN_POLICY_UNKNOWN_ANSWER_REFERENCE => Self::JoinPolicyUnknownAnswerReference,
@@ -1671,15 +1905,21 @@ impl ReasonCode {
             Self::LAST_RESORT_ROTATION_REQUIRED => Self::LastResortRotationRequired,
             Self::LATE_RECOVERY_REJECTED_MEMBERSHIP => Self::LateRecoveryRejectedMembership,
             Self::LEGAL_HOLD_ACTIVE => Self::LegalHoldActive,
-            Self::LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND => Self::LiteProfileWritesDisallowedEventKind,
+            Self::LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND => {
+                Self::LiteProfileWritesDisallowedEventKind
+            }
             Self::MEDIA_NEGOTIATION_TIMEOUT => Self::MediaNegotiationTimeout,
-            Self::MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED => Self::MediaPlaintextServiceNotAuthorised,
+            Self::MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED => {
+                Self::MediaPlaintextServiceNotAuthorised
+            }
             Self::MEDIA_PLAINTEXT_WARNING_REQUIRED => Self::MediaPlaintextWarningRequired,
             Self::MEDIA_SERVICE_BINDING_UNCOVERED => Self::MediaServiceBindingUncovered,
             Self::MEDIA_SERVICE_FOCI_REQUIRED => Self::MediaServiceFociRequired,
             Self::MEDIA_SOURCE_UNAVAILABLE => Self::MediaSourceUnavailable,
             Self::MEMBER_IDENTITY_PROOF_INVALID => Self::MemberIdentityProofInvalid,
-            Self::MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH => Self::MemberIdentityReplacementDigestMismatch,
+            Self::MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH => {
+                Self::MemberIdentityReplacementDigestMismatch
+            }
             Self::MEMBER_IDENTITY_STATE_MISMATCH => Self::MemberIdentityStateMismatch,
             Self::MEMBER_IDENTITY_UNKNOWN_SEGMENT => Self::MemberIdentityUnknownSegment,
             Self::MESSAGE_ALREADY_TERMINAL => Self::MessageAlreadyTerminal,
@@ -1691,10 +1931,14 @@ impl ReasonCode {
             Self::MIMI_OBSERVER_WRITE_FORBIDDEN => Self::MimiObserverWriteForbidden,
             Self::MIMI_POLICY_ROOT_MISMATCH => Self::MimiPolicyRootMismatch,
             Self::MIMI_PROVIDER_UNREACHABLE => Self::MimiProviderUnreachable,
-            Self::MIMI_ROOM_BINDING_STATUS_TRANSITION_INVALID => Self::MimiRoomBindingStatusTransitionInvalid,
+            Self::MIMI_ROOM_BINDING_STATUS_TRANSITION_INVALID => {
+                Self::MimiRoomBindingStatusTransitionInvalid
+            }
             Self::MIMI_ROOM_STATE_INCOMPATIBLE => Self::MimiRoomStateIncompatible,
             Self::MINIMAL_DISCLOSURE_VIOLATION => Self::MinimalDisclosureViolation,
-            Self::MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID => Self::MinimalMetadataAuthorCredentialInvalid,
+            Self::MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID => {
+                Self::MinimalMetadataAuthorCredentialInvalid
+            }
             Self::MINIMAL_METADATA_PRESIGN_FORBIDDEN => Self::MinimalMetadataPresignForbidden,
             Self::MISINFORMATION => Self::Misinformation,
             Self::MLS_CONTENT_SCHEME_IMMUTABLE => Self::MlsContentSchemeImmutable,
@@ -1739,7 +1983,9 @@ impl ReasonCode {
             Self::PRESIGN_SCOPE_MISMATCH => Self::PresignScopeMismatch,
             Self::PREV_REFS_TOO_LARGE => Self::PrevRefsTooLarge,
             Self::PRIMARY_TRACK_REQUIRED => Self::PrimaryTrackRequired,
-            Self::PRINCIPAL_CONTROL_EVENT_KIND_FORBIDDEN => Self::PrincipalControlEventKindForbidden,
+            Self::PRINCIPAL_CONTROL_EVENT_KIND_FORBIDDEN => {
+                Self::PrincipalControlEventKindForbidden
+            }
             Self::PRINCIPAL_DEACTIVATED => Self::PrincipalDeactivated,
             Self::PRIVATE_ATTACHMENT => Self::PrivateAttachment,
             Self::PRIVATE_VIEW_REQUIRES_ACCOUNT_DATA => Self::PrivateViewRequiresAccountData,
@@ -1773,10 +2019,14 @@ impl ReasonCode {
             Self::REALM_ID_NOT_EVENT_DERIVED => Self::RealmIdNotEventDerived,
             Self::REALM_LINK_INVALID_TRANSITION => Self::RealmLinkInvalidTransition,
             Self::REALM_LINK_SELF_REFERENCE => Self::RealmLinkSelfReference,
-            Self::REALM_ORGANIZATION_AUTHORIZATION_INVALID => Self::RealmOrganizationAuthorizationInvalid,
+            Self::REALM_ORGANIZATION_AUTHORIZATION_INVALID => {
+                Self::RealmOrganizationAuthorizationInvalid
+            }
             Self::REALM_ORGANIZATION_DELEGATION_MISSING => Self::RealmOrganizationDelegationMissing,
             Self::REALM_ORGANIZATION_EXPIRED => Self::RealmOrganizationExpired,
-            Self::REALM_ORGANIZATION_REALM_ACCEPTANCE_MISSING => Self::RealmOrganizationRealmAcceptanceMissing,
+            Self::REALM_ORGANIZATION_REALM_ACCEPTANCE_MISSING => {
+                Self::RealmOrganizationRealmAcceptanceMissing
+            }
             Self::REALM_ORGANIZATION_SCOPE_MISSING => Self::RealmOrganizationScopeMissing,
             Self::REALM_TERMINAL_STATE => Self::RealmTerminalState,
             Self::REALM_UNAVAILABLE => Self::RealmUnavailable,
@@ -1812,7 +2062,9 @@ impl ReasonCode {
             Self::REQUIRES_ORGANIZATION_APPROVAL => Self::RequiresOrganizationApproval,
             Self::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN => Self::ResolutionHistoryAncestorUnknown,
             Self::REVOCATION_FRESHNESS_UNKNOWN => Self::RevocationFreshnessUnknown,
-            Self::REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW => Self::RevokeOrderUnknownRequiresBackfillOrReview,
+            Self::REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW => {
+                Self::RevokeOrderUnknownRequiresBackfillOrReview
+            }
             Self::REVOKE_UNDO_INVALID_SIGNATURE => Self::RevokeUndoInvalidSignature,
             Self::RISK_POLICY => Self::RiskPolicy,
             Self::RSVP_BASIS_NOT_CAUSAL => Self::RsvpBasisNotCausal,
@@ -1830,7 +2082,9 @@ impl ReasonCode {
             Self::SEGMENT_SEQUENCE_INVALID => Self::SegmentSequenceInvalid,
             Self::SEGMENT_STREAM_TRUNCATED => Self::SegmentStreamTruncated,
             Self::SELECTOR_ACTOR_WILDCARD_FORBIDDEN => Self::SelectorActorWildcardForbidden,
-            Self::SELECTOR_GOVERNANCE_WILDCARD_FORBIDDEN => Self::SelectorGovernanceWildcardForbidden,
+            Self::SELECTOR_GOVERNANCE_WILDCARD_FORBIDDEN => {
+                Self::SelectorGovernanceWildcardForbidden
+            }
             Self::SELECTOR_MISSING_REALM_SCOPE => Self::SelectorMissingRealmScope,
             Self::SELECTOR_TOO_COMPLEX => Self::SelectorTooComplex,
             Self::SEND_FAILED => Self::SendFailed,
@@ -1840,8 +2094,12 @@ impl ReasonCode {
             Self::SERVICE_KEY_REVOKED => Self::ServiceKeyRevoked,
             Self::SERVICE_NOT_PLAINTEXT_VISIBLE => Self::ServiceNotPlaintextVisible,
             Self::SERVICE_PREROTATION_INVALID => Self::ServicePrerotationInvalid,
-            Self::SERVICE_RESOLUTION_MIRROR_RESPONSE_GAP => Self::ServiceResolutionMirrorResponseGap,
-            Self::SERVICE_RESOLUTION_MIRROR_RESPONSE_LIMIT => Self::ServiceResolutionMirrorResponseLimit,
+            Self::SERVICE_RESOLUTION_MIRROR_RESPONSE_GAP => {
+                Self::ServiceResolutionMirrorResponseGap
+            }
+            Self::SERVICE_RESOLUTION_MIRROR_RESPONSE_LIMIT => {
+                Self::ServiceResolutionMirrorResponseLimit
+            }
             Self::SERVICE_ROUTE_FORK => Self::ServiceRouteFork,
             Self::SERVICE_ROUTE_NOTICE_BASIS_STALE => Self::ServiceRouteNoticeBasisStale,
             Self::SERVICE_ROUTE_NOTICE_CANCELLED => Self::ServiceRouteNoticeCancelled,
@@ -1875,7 +2133,9 @@ impl ReasonCode {
             Self::THIRD_PARTY_INVITE_TOKEN_IN_QUERY => Self::ThirdPartyInviteTokenInQuery,
             Self::TOKEN_EXPIRED => Self::TokenExpired,
             Self::TOKEN_ISSUER_UNAUTHORISED => Self::TokenIssuerUnauthorised,
-            Self::TRANSCRIPTION_ARTIFACT_PIPELINE_BYPASSED => Self::TranscriptionArtifactPipelineBypassed,
+            Self::TRANSCRIPTION_ARTIFACT_PIPELINE_BYPASSED => {
+                Self::TranscriptionArtifactPipelineBypassed
+            }
             Self::TRANSCRIPTION_DENIED => Self::TranscriptionDenied,
             Self::TTL_EXPIRED => Self::TtlExpired,
             Self::UNKNOWN_EVENT_KIND => Self::UnknownEventKind,
@@ -1895,7 +2155,9 @@ impl ReasonCode {
             Self::UNSUPPORTED_PROTOCOL_VERSION => Self::UnsupportedProtocolVersion,
             Self::UNSUPPORTED_SIGNATURE_ALG => Self::UnsupportedSignatureAlg,
             Self::UNTRUSTED_BACKUP_SIGNATURE => Self::UntrustedBackupSignature,
-            Self::VERIFICATION_METHOD_PRINCIPAL_MISMATCH => Self::VerificationMethodPrincipalMismatch,
+            Self::VERIFICATION_METHOD_PRINCIPAL_MISMATCH => {
+                Self::VerificationMethodPrincipalMismatch
+            }
             Self::VIEW_ALREADY_TERMINAL => Self::ViewAlreadyTerminal,
             Self::WATCH_LEVEL_PUBLIC_MUST_BE_SELF => Self::WatchLevelPublicMustBeSelf,
             Self::WATCH_MUST_BE_SELF => Self::WatchMustBeSelf,
@@ -1903,7 +2165,9 @@ impl ReasonCode {
             Self::WATCH_SET_OTHERS_AUDIT_MISSING => Self::WatchSetOthersAuditMissing,
             Self::WEBVH_CACHE_TOO_STALE => Self::WebvhCacheTooStale,
             Self::WEBVH_CACHE_UNAVAILABLE => Self::WebvhCacheUnavailable,
-            Self::WEBVH_WITNESS_CONTROLLING_ORGANIZATION_UNVERIFIED => Self::WebvhWitnessControllingOrganizationUnverified,
+            Self::WEBVH_WITNESS_CONTROLLING_ORGANIZATION_UNVERIFIED => {
+                Self::WebvhWitnessControllingOrganizationUnverified
+            }
             Self::WEBVH_WITNESS_EVIDENCE_STALE => Self::WebvhWitnessEvidenceStale,
             Self::WEBVH_WITNESS_PARAMETER_MALFORMED => Self::WebvhWitnessParameterMalformed,
             Self::WEBVH_WITNESS_PROOF_INVALID => Self::WebvhWitnessProofInvalid,
@@ -1920,9 +2184,7 @@ impl ReasonCode {
         matches!(characters.next(), Some('a'..='z'))
             && value.len() <= 64
             && characters.all(|character| {
-                character.is_ascii_lowercase()
-                    || character.is_ascii_digit()
-                    || character == '_'
+                character.is_ascii_lowercase() || character.is_ascii_digit() || character == '_'
             })
     }
 
@@ -2020,7 +2282,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::ACCOUNTABILITY_GRANT_MISSING,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
-        description: "Returned in three surfaces. (1) `event_envelope` / `auth_decision`: an Actor Profile update declares an `accountable_principal_ids[]` entry without a corresponding active `ak.identity.accountability_grant` (issuer=that DID, subject=profile.principal_id, grant_status=active, within validity window). Reducer MUST reject the entire Event with this reason and MUST NOT accept a field-stripped projection. See zh/models/actor.md §3.3.1. (2) `service_call`: returned by orchestrator HTTP operations that fan-out an accountability grant — `ak.self.agent.command.provision` rejects when the controller cannot present an issuable accountability grant for the new agent principal, and `ak.self.agent.command.resume` rejects when the controller's accountability grant over the agent has been revoked or has lapsed its freshness window since `ak.self.agent.command.pause`. HTTP callers MUST treat this as a precondition-class failure, not transient.",
+        description: "Returned in three surfaces. (1) `event_envelope` / `auth_decision`: an Actor Profile update declares an `accountable_principal_ids[]` entry without a corresponding active `ak.identity.accountability_grant` (issuer=that DID, subject=profile.principal_id, grant_status=active, within validity window). Reducer MUST reject the entire Event with this reason and MUST NOT accept a field-stripped projection. See zh/models/actor.md §3.3.1. (2) `service_call`: returned by orchestrator HTTP operations that fan-out an accountability grant — `ak.self.agent.command.provision.v1` rejects when the controller cannot present an issuable accountability grant for the new agent principal, and `ak.self.agent.command.resume.v1` rejects when the controller's accountability grant over the agent has been revoked or has lapsed its freshness window since `ak.self.agent.command.pause.v1`. HTTP callers MUST treat this as a precondition-class failure, not transient.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::ACTOR_KIND_REDUCER_MANAGED,
@@ -2035,7 +2297,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::ACTOR_SIGNATURE_REVOKED,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "An event was signed with a device key that the deactivation/lock fanout has marked revoked. Subsequent ak.self.events.command.submit signed by that device MUST be rejected. See zh/identity/account-lifecycle.md §7.1.",
+        description: "An event was signed with a device key that the deactivation/lock fanout has marked revoked. Subsequent ak.self.events.command.submit.v1 signed by that device MUST be rejected. See zh/identity/account-lifecycle.md §7.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AEAD_NONCE_COUNTER_REPLAY,
@@ -2090,12 +2352,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PAUSED,
         applies_to: &["auth_decision", "service_call", "event_envelope"],
-        description: "A request targeted an agent principal whose current `ak.component.agent.status.v1` cell is `paused`. Auth Server MUST reject new agent session grants, and any submit / sidecar / grant-management call by or for the paused agent MUST fail closed until `ak.self.agent.command.resume` lands. Distinct from `capability_denied` so callers can surface the recoverable lifecycle state. See zh/identity/key-management.md §3.6 §4.11.",
+        description: "A request targeted an agent principal whose current `ak.component.agent.status.v1` cell is `paused`. Auth Server MUST reject new agent session grants, and any submit / sidecar / grant-management call by or for the paused agent MUST fail closed until `ak.self.agent.command.resume.v1` lands. Distinct from `capability_denied` so callers can surface the recoverable lifecycle state. See zh/identity/key-management.md §3.6 §4.11.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PCR_GENESIS_ALREADY_ACCEPTED,
         applies_to: &["service_call", "pcr_genesis"],
-        description: "The managed Agent PCR genesis for the declared principal_control_realm_id was accepted between abandonment-challenge issuance and the abandonment confirmation, so the Agent now exists and its provisioning MUST NOT be abandoned. The service decides this from the principal_control_realm_id and allocation pinned by the challenge, MUST return this stable terminal outcome with zero writes, and MUST NOT release the slug or realm-id claim, record a tombstone or consume the challenge. Retiring an established Agent is ak.self.agent.command.deactivate. See zh/identity/key-management.md §3.6.3.",
+        description: "The managed Agent PCR genesis for the declared principal_control_realm_id was accepted between abandonment-challenge issuance and the abandonment confirmation, so the Agent now exists and its provisioning MUST NOT be abandoned. The service decides this from the principal_control_realm_id and allocation pinned by the challenge, MUST return this stable terminal outcome with zero writes, and MUST NOT release the slug or realm-id claim, record a tombstone or consume the challenge. Retiring an established Agent is ak.self.agent.command.deactivate.v1. See zh/identity/key-management.md §3.6.3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PCR_GENESIS_DECLARATION_CONFLICT,
@@ -2400,7 +2662,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CHALLENGE_EXPIRED,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "A Policy Server challenge obligation was not satisfied within `max_proof_age`, or a challenge_proof was submitted whose issuance is older than `max_proof_age`. The reducer / Policy Server MUST reject with failed_precondition and MUST NOT auto-renew; the applicant must re-run ak.self.policy.read.check to obtain a fresh challenge_id. See zh/governance/join-policy.md §11.",
+        description: "A Policy Server challenge obligation was not satisfied within `max_proof_age`, or a challenge_proof was submitted whose issuance is older than `max_proof_age`. The reducer / Policy Server MUST reject with failed_precondition and MUST NOT auto-renew; the applicant must re-run ak.self.policy.read.check.v1 to obtain a fresh challenge_id. See zh/governance/join-policy.md §11.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CHALLENGE_FAILED,
@@ -2549,7 +2811,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DEACTIVATION_FEDERATION_INCOMPLETE,
-        applies_to: &["account_status", "federation_transaction", "state_resolution"],
+        applies_to: &[
+            "account_status",
+            "federation_transaction",
+            "state_resolution",
+        ],
         description: "Account deactivation could not be acknowledged by every peer Principal Server inside deactivation_propagation_window_ms. Source services MUST keep deactivation fanout retrying and pause new Realm onboard, session/device grant, and KeyPackage publication for the principal.",
     },
     ReasonCodeDescriptor {
@@ -2590,7 +2856,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DELIVERY_BINDING_STALE,
         applies_to: &["push_notify_outcome"],
-        description: "Per-device rejection reason in ak.edge.push.command.notify: the receiver's delivery-binding frontier has advanced past the route this notify was built against. Terminal for this attempt; the caller MUST re-resolve the route rather than retry the same one. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
+        description: "Per-device rejection reason in ak.edge.push.command.notify.v1: the receiver's delivery-binding frontier has advanced past the route this notify was built against. Terminal for this attempt; the caller MUST re-resolve the route rather than retry the same one. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DELIVERY_TARGET_UNREACHABLE,
@@ -2675,7 +2941,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_SLOT_ALREADY_COMMITTED,
         applies_to: &["service_call", "federation_transaction"],
-        description: "The founder's current Principal Server already closed its local (founder_id, trust_domain_id, pair_key) founding slot with a different unit, so this unit is refused with zero writes. Carried under conflict. The caller MUST re-resolve the existing coordinates through ak.self.direct_conversation.read.resolve instead of authoring another unit; the service MUST NOT accept a second unit, degrade it to a partial acceptance or quarantine it. A byte-identical replay of the committed unit is not this code: it returns the stored byte-identical receipt. See zh/identity/contact-and-direct-conversation.md section 5.5.",
+        description: "The founder's current Principal Server already closed its local (founder_id, trust_domain_id, pair_key) founding slot with a different unit, so this unit is refused with zero writes. Carried under conflict. The caller MUST re-resolve the existing coordinates through ak.self.direct_conversation.read.resolve.v1 instead of authoring another unit; the service MUST NOT accept a second unit, degrade it to a partial acceptance or quarantine it. A byte-identical replay of the committed unit is not this code: it returns the stored byte-identical receipt. See zh/identity/contact-and-direct-conversation.md section 5.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_SPACE_FORBIDDEN,
@@ -2770,7 +3036,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::ERASURE_REQUEST_ALREADY_PENDING,
         applies_to: &["account_status"],
-        description: "Sub-reason for failed_precondition on ak.gate.account.command.request_erasure: the account already holds a live self-initiated erasure intent whose erasure_pending AccountStatusRecord has not yet been signed. The client MUST NOT submit a second distinct request; it either awaits the recorded intent or withdraws it inside the deployment-granted withdrawal window. Once the record is signed, requests fail at authentication with account_erased instead. See zh/identity/account-lifecycle.md section 8.1.",
+        description: "Sub-reason for failed_precondition on ak.gate.account.command.request_erasure.v1: the account already holds a live self-initiated erasure intent whose erasure_pending AccountStatusRecord has not yet been signed. The client MUST NOT submit a second distinct request; it either awaits the recorded intent or withdraws it inside the deployment-granted withdrawal window. Once the record is signed, requests fail at authentication with account_erased instead. See zh/identity/account-lifecycle.md section 8.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::EVENT_ID_DIGEST_MISMATCH,
@@ -2810,7 +3076,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::FOCUS_MISMATCH,
         applies_to: &["service_call", "auth_decision"],
-        description: "Media token exchange (ak.self.call.media.exchange.issue_token) requested a `focus_id` different from the already-committed `ak.call.state.session_focus`. Token issuer MUST reject; clients MUST re-target the established focus rather than retrying with the original preference. See zh/crypto-media/media-service-binding.md §3 and §5.",
+        description: "Media token exchange (ak.self.call.media.exchange.issue_token.v1) requested a `focus_id` different from the already-committed `ak.call.state.session_focus`. Token issuer MUST reject; clients MUST re-target the established focus rather than retrying with the original preference. See zh/crypto-media/media-service-binding.md §3 and §5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::FOCUS_UNAVAILABLE_FOR_CLIENT,
@@ -2844,7 +3110,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     },
     ReasonCodeDescriptor {
         code: ReasonCode::GOVERNANCE_BINDING_MISMATCH,
-        applies_to: &["event_envelope", "state_resolution", "federation_transaction"],
+        applies_to: &[
+            "event_envelope",
+            "state_resolution",
+            "federation_transaction",
+        ],
         description: "An MLS Commit's mls_governance_binding GroupContext extension does not match the accepted key-access state or active epoch chain: group/epoch/profile fields disagree, security_frontier_digest is not the deterministic digest of the registered membership/leaf-key/MLS-membership/encryption-history frontier, or extension bytes differ from the Event payload. The receiver MUST reject the Commit - and, on a federation push, the batch - rather than advance an epoch under a forged or stale binding. See zh/crypto-media/encryption-and-audit.md §2.5.",
     },
     ReasonCodeDescriptor {
@@ -3030,12 +3300,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::INVITE_EVENT_ACTOR_MISMATCH,
         applies_to: &["service_call"],
-        description: "Sub-reason for failed_precondition when ak.self.invites.command.dispatch resolves invite_event_id to an accepted Event whose signing actor is not the authenticated session actor. The request carries only the Event ID; the service MUST NOT co-sign or re-author the resolved Event; see zh/sync/invite-addressing.md §7.",
+        description: "Sub-reason for failed_precondition when ak.self.invites.command.dispatch.v1 resolves invite_event_id to an accepted Event whose signing actor is not the authenticated session actor. The request carries only the Event ID; the service MUST NOT co-sign or re-author the resolved Event; see zh/sync/invite-addressing.md §7.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INVITE_EVENT_UNACCEPTED,
         applies_to: &["service_call"],
-        description: "Sub-reason for failed_precondition when ak.self.invites.command.dispatch supplies an invite_event_id that this Principal Server cannot resolve to an accepted durable ak.invite.create Event. Private delivery only starts from that resolved accepted Event; see zh/sync/invite-addressing.md §7.",
+        description: "Sub-reason for failed_precondition when ak.self.invites.command.dispatch.v1 supplies an invite_event_id that this Principal Server cannot resolve to an accepted durable ak.invite.create Event. Private delivery only starts from that resolved accepted Event; see zh/sync/invite-addressing.md §7.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INVITE_KIND_REQUIRES_REVOKE,
@@ -3130,7 +3400,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::LEGAL_HOLD_ACTIVE,
         applies_to: &["auth_decision"],
-        description: "Requested operation targets a blob / object currently under legal hold. ak.self.blob.command.presign / ak.blob.delete / redaction-equivalent operations MUST be rejected with this code; legal hold takes precedence over capability and TTL. See zh/crypto-media/media-and-blob.md §5.4.4.1.",
+        description: "Requested operation targets a blob / object currently under legal hold. ak.self.blob.command.presign.v1 / ak.blob.delete / redaction-equivalent operations MUST be rejected with this code; legal hold takes precedence over capability and TTL. See zh/crypto-media/media-and-blob.md §5.4.4.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND,
@@ -3360,7 +3630,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PAIRING_REQUEST_EXPIRED,
         applies_to: &["auth_decision", "service_call"],
-        description: "A `ak.gate.account.command.pair_agent_key` pairing request was presented after its `pairing_expires_at` (or the runtime key-pairing session id has been retired). The endpoint MUST fail closed; the controller MUST initiate a fresh pairing strand. See zh/identity/key-management.md §3.6 §4.5.",
+        description: "A `ak.gate.account.command.pair_agent_key.v1` pairing request was presented after its `pairing_expires_at` (or the runtime key-pairing session id has been retired). The endpoint MUST fail closed; the controller MUST initiate a fresh pairing strand. See zh/identity/key-management.md §3.6 §4.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PARTIAL_AUTH_STATE,
@@ -3450,17 +3720,17 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PRESIGN_EXPIRED,
         applies_to: &["service_call", "auth_decision"],
-        description: "A ak.self.blob.command.presign bearer URL was presented outside its nbf / exp window or after its nonce was revoked. Wire response remains non-enumerating not_found where required; audit logs may record this reason. See zh/crypto-media/media-and-blob.md §5.4.",
+        description: "A ak.self.blob.command.presign.v1 bearer URL was presented outside its nbf / exp window or after its nonce was revoked. Wire response remains non-enumerating not_found where required; audit logs may record this reason. See zh/crypto-media/media-and-blob.md §5.4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PRESIGN_INVALID,
         applies_to: &["service_call", "auth_decision"],
-        description: "A ak.self.blob.command.presign bearer envelope is syntactically invalid, has an unrecognised scheme, fails signature verification, mixes with Authorization header auth, or otherwise cannot be validated. Wire response remains non-enumerating not_found where required; audit logs may record this reason. See zh/crypto-media/media-and-blob.md §5.4.",
+        description: "A ak.self.blob.command.presign.v1 bearer envelope is syntactically invalid, has an unrecognised scheme, fails signature verification, mixes with Authorization header auth, or otherwise cannot be validated. Wire response remains non-enumerating not_found where required; audit logs may record this reason. See zh/crypto-media/media-and-blob.md §5.4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PRESIGN_SCOPE_MISMATCH,
         applies_to: &["service_call", "auth_decision"],
-        description: "A ak.self.blob.command.presign envelope scope does not match the requested blob_ref, method, byte range, purpose, Realm, issuer trust state, or current blob visibility. Wire response remains non-enumerating not_found where required; audit logs may record this reason. See zh/crypto-media/media-and-blob.md §5.4.",
+        description: "A ak.self.blob.command.presign.v1 envelope scope does not match the requested blob_ref, method, byte range, purpose, Realm, issuer trust state, or current blob visibility. Wire response remains non-enumerating not_found where required; audit logs may record this reason. See zh/crypto-media/media-and-blob.md §5.4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PREV_REFS_TOO_LARGE,
@@ -3479,7 +3749,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PRINCIPAL_DEACTIVATED,
-        applies_to: &["auth_decision", "event_envelope", "service_call", "state_resolution"],
+        applies_to: &[
+            "auth_decision",
+            "event_envelope",
+            "service_call",
+            "state_resolution",
+        ],
         description: "The account status frontier contains a deactivation for the principal acting as actor, subject, issuer, recipient, or device owner. New device/session grants, KeyPackage operations, capability delegation, delivery binding writes, push routes, and to-device enqueue MUST fail closed. See zh/identity/account-lifecycle.md §7.1 and zh/sync/federation.md §4.4.1.",
     },
     ReasonCodeDescriptor {
@@ -3495,7 +3770,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PROFILE_UNAVAILABLE,
         applies_to: &["service_call"],
-        description: "Per-actor outcome of ak.self.actor_profile.read.resolve. Unknown actor, actor without an accepted global profile, actor that is not an effective joined member of the request realm_id, and a caller not authorized for that actor MUST all report this single value, so the only outward carrier for PCR-resident ak.profile.create / ak.profile.update cannot be used to probe membership or account existence. See zh/discovery/profiles-presence.md §2.3.",
+        description: "Per-actor outcome of ak.self.actor_profile.read.resolve.v1. Unknown actor, actor without an accepted global profile, actor that is not an effective joined member of the request realm_id, and a caller not authorized for that actor MUST all report this single value, so the only outward carrier for PCR-resident ak.profile.create / ak.profile.update cannot be used to probe membership or account existence. See zh/discovery/profiles-presence.md §2.3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PROJECTION_INCOMPLETE,
@@ -3520,12 +3795,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_GATEWAY_UNREACHABLE,
         applies_to: &["push_notify_outcome"],
-        description: "Per-device rejection reason in ak.edge.push.command.notify: the gateway could not durably take the route over. One of exactly two caller-retryable notify reasons; it MAY carry retry_after_ms, and its presence is the wire signal that the caller — not the gateway — owns the next attempt. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
+        description: "Per-device rejection reason in ak.edge.push.command.notify.v1: the gateway could not durably take the route over. One of exactly two caller-retryable notify reasons; it MAY carry retry_after_ms, and its presence is the wire signal that the caller — not the gateway — owns the next attempt. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_PAYLOAD_TOO_LARGE,
         applies_to: &["push_notify_outcome"],
-        description: "Per-device rejection reason in ak.edge.push.command.notify: the notification exceeds the push profile, provider, or deployment size limit. Target-level, so the gateway MUST expand it into one same-reason rejected outcome per input device. Terminal until the caller shrinks the payload; MUST NOT carry retry_after_ms. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
+        description: "Per-device rejection reason in ak.edge.push.command.notify.v1: the notification exceeds the push profile, provider, or deployment size limit. Target-level, so the gateway MUST expand it into one same-reason rejected outcome per input device. Terminal until the caller shrinks the payload; MUST NOT carry retry_after_ms. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_ROUTE_LIMIT_EXCEEDED,
@@ -3540,17 +3815,17 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_TARGET_UNKNOWN,
         applies_to: &["push_notify_outcome"],
-        description: "Per-device rejection reason in ak.edge.push.command.notify: the push target is unknown or no longer visible. Target-level, so the gateway MUST expand it into one same-reason rejected outcome per input device. Terminal; not caller-retryable and MUST NOT carry retry_after_ms. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
+        description: "Per-device rejection reason in ak.edge.push.command.notify.v1: the push target is unknown or no longer visible. Target-level, so the gateway MUST expand it into one same-reason rejected outcome per input device. Terminal; not caller-retryable and MUST NOT carry retry_after_ms. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_TOKEN_INVALID,
         applies_to: &["push_notify_outcome"],
-        description: "Per-device rejection reason in ak.edge.push.command.notify: the registered route failed provider validation or is no longer bound to this device. Terminal; the caller SHOULD drop the device registration. Cleanup is addressed by the composite identity — the response never returns the raw push_key. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
+        description: "Per-device rejection reason in ak.edge.push.command.notify.v1: the registered route failed provider validation or is no longer bound to this device. Terminal; the caller SHOULD drop the device registration. Cleanup is addressed by the composite identity — the response never returns the raw push_key. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_TOKEN_UNKNOWN,
         applies_to: &["push_notify_outcome"],
-        description: "Per-device rejection reason in ak.edge.push.command.notify: no active push registration exists for this (push_target_id, device_id). Terminal; the caller SHOULD drop the device registration. Cleanup is addressed by the composite identity — the response never returns the raw push_key. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
+        description: "Per-device rejection reason in ak.edge.push.command.notify.v1: no active push registration exists for this (push_target_id, device_id). Terminal; the caller SHOULD drop the device registration. Cleanup is addressed by the composite identity — the response never returns the raw push_key. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::QUARANTINED,
@@ -3580,7 +3855,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::RATE_LIMITED,
         applies_to: &["push_notify_outcome"],
-        description: "Per-device rejection reason in ak.edge.push.command.notify: gateway-side admission limiting refused durable takeover of this route. One of exactly two caller-retryable notify reasons; it MAY carry retry_after_ms. A route the gateway already accepted is retried by the gateway and never surfaces this reason. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
+        description: "Per-device rejection reason in ak.edge.push.command.notify.v1: gateway-side admission limiting refused durable takeover of this route. One of exactly two caller-retryable notify reasons; it MAY carry retry_after_ms. A route the gateway already accepted is retried by the gateway and never surfaces this reason. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::REACTION_SCOPE_MISMATCH,
@@ -3670,7 +3945,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_TERMINAL_STATE,
         applies_to: &["state_resolution", "auth_decision"],
-        description: "Realm has accepted ak.realm.tombstone or ak.realm.destroy and cannot accept new ordinary writes. Only audit-class events (ak.audit.*, ak.audit.erasure_receipt) are still acceptable. Receivers MUST reject ak.self.events.command.submit for any other kind targeting this Realm. See zh/models/realm-and-space.md §2.6.",
+        description: "Realm has accepted ak.realm.tombstone or ak.realm.destroy and cannot accept new ordinary writes. Only audit-class events (ak.audit.*, ak.audit.erasure_receipt) are still acceptable. Receivers MUST reject ak.self.events.command.submit.v1 for any other kind targeting this Realm. See zh/models/realm-and-space.md §2.6.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_UNAVAILABLE,
@@ -3830,11 +4105,15 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN,
         applies_to: &["service_call"],
-        description: "Sub-reason for param_invalid when ak.self.identity.read.resolution_audit receives an after_resolution_event_ref that is neither the genesis Event nor an accepted ak.identity.resolution.update in this account's current resolution lineage. The audit surface is already exact-current-holder authorized, so a stale or foreign cursor is reported as an invalid parameter rather than folded into the anti-enumeration outcome. See zh/identity/identity-did.md §4.2.",
+        description: "Sub-reason for param_invalid when ak.self.identity.read.resolution_audit.v1 receives an after_resolution_event_ref that is neither the genesis Event nor an accepted ak.identity.resolution.update in this account's current resolution lineage. The audit surface is already exact-current-holder authorized, so a stale or foreign cursor is reported as an invalid parameter rather than folded into the anti-enumeration outcome. See zh/identity/identity-did.md §4.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::REVOCATION_FRESHNESS_UNKNOWN,
-        applies_to: &["auth_decision", "federation_transaction", "state_resolution"],
+        applies_to: &[
+            "auth_decision",
+            "federation_transaction",
+            "state_resolution",
+        ],
         description: "Revocation / grant freshness cannot be established for a high-risk, cross-domain, or delegated action. Receiver MUST fail closed and return freshness diagnostics instead of treating missing revoke evidence as allow.",
     },
     ReasonCodeDescriptor {
@@ -3995,7 +4274,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::SERVICE_ROUTE_NOTICE_BASIS_STALE,
         applies_to: &["identity_resolution", "federation_transaction"],
-        description: "Internal route evaluator diagnosis for a notice whose exact record basis is not the receiver's durable floor. It MUST NOT be serialized by ak.peer.service_resolution.read.resolve; the outward response is the blinded not_found/capability-denied or universal failure surface.",
+        description: "Internal route evaluator diagnosis for a notice whose exact record basis is not the receiver's durable floor. It MUST NOT be serialized by ak.peer.service_resolution.read.resolve.v1; the outward response is the blinded not_found/capability-denied or universal failure surface.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SERVICE_ROUTE_NOTICE_CANCELLED,
@@ -4235,7 +4514,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::UNSUPPORTED_PROFILE,
         applies_to: &["push_notify_outcome"],
-        description: "Per-device rejection reason in ak.edge.push.command.notify: the device has not opted in to the requested notification profile (for example a visible notification sent to a device without visible_notification_opt_in). Terminal; the caller falls back to the blind_wakeup form and MUST NOT resend the same shape. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
+        description: "Per-device rejection reason in ak.edge.push.command.notify.v1: the device has not opted in to the requested notification profile (for example a visible notification sent to a device without visible_notification_opt_in). Terminal; the caller falls back to the blind_wakeup form and MUST NOT resend the same shape. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::UNSUPPORTED_PROTOCOL_VERSION,
@@ -4255,7 +4534,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::VERIFICATION_METHOD_PRINCIPAL_MISMATCH,
         applies_to: &["auth_decision", "service_call"],
-        description: "A request supplied a `verification_method` whose DID component does not bit-identically match the target principal id after stripping fragment/query. Surfaces in two places. (1) `ak.gate.account.command.pair_agent_key`: `verification_method` vs `agent_id`. (2) `ak.gate.account.command.issue_session_grant` agent branch (`proof.proof_kind=\"agent_key_proof\"`): `proof.verification_method` vs request `principal_id`. Endpoints MUST fail closed before invoking the proof validator so that mismatch is reported as this code rather than as a generic signature failure. See zh/identity/key-management.md §3.6.1.",
+        description: "A request supplied a `verification_method` whose DID component does not bit-identically match the target principal id after stripping fragment/query. Surfaces in two places. (1) `ak.gate.account.command.pair_agent_key.v1`: `verification_method` vs `agent_id`. (2) `ak.gate.account.command.issue_session_grant.v1` agent branch (`proof.proof_kind=\"agent_key_proof\"`): `proof.verification_method` vs request `principal_id`. Endpoints MUST fail closed before invoking the proof validator so that mismatch is reported as this code rather than as a generic signature failure. See zh/identity/key-management.md §3.6.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::VIEW_ALREADY_TERMINAL,

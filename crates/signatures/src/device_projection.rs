@@ -1,7 +1,7 @@
 //! Origin-Principal-Server device projection attestation
 //! (`crypto-media/device-lifecycle.md` §8.2).
 //!
-//! `ak.self.keys.read.lookup` is a relationship-gated **cross principal**
+//! `ak.self.keys.read.lookup.v1` is a relationship-gated **cross principal**
 //! surface. Its prose used to require the receiver to replay a PCR
 //! authorization chain from an identity-root anchored genesis receipt, while
 //! the schema carried no genesis receipt, no chain and no Seal — so the stated
@@ -11,7 +11,7 @@
 //!
 //! v1 resolves that the other way round: the origin Principal Server signs the
 //! exact device projection, and that signature is the whole closure. PCR
-//! material stays behind `ak.self.identity.read.resolution_audit`.
+//! material stays behind `ak.self.identity.read.resolution_audit.v1`.
 
 use arkret_models_crypto::{
     DeviceProjectionAttestation, DeviceProjectionAttestationCore, DeviceStatus,

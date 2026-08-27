@@ -93,7 +93,7 @@ impl Client {
     }
 
     /// Provision an Applet-managed Ghost actor through the canonical self
-    /// operation `ak.self.applet.ghost.command.provision`.
+    /// operation `ak.self.applet.ghost.command.provision.v1`.
     pub async fn ghost_actor_provision(
         &self,
         applet_id: &str,

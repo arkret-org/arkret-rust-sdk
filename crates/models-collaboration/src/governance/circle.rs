@@ -335,7 +335,7 @@ pub struct CircleMemberRequestBody {
     pub member_event: EventInitialSubmission,
 }
 
-/// Request body for `ak.self.circle.member.resource.delete`.
+/// Request body for `ak.self.circle.member.resource.delete.v1`.
 ///
 /// The signed Event is the sole source of the durable leave transition. The
 /// service verifies its Circle and target actor against the DELETE path and

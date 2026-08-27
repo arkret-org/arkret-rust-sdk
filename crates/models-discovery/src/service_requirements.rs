@@ -7,8 +7,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DeviceId, DidCoreId, ErrorCode, OperationId, PROTOCOL_VERSION, RealmId, Result, ServiceKind,
-    ServiceOperationId, WireError,
+    BindingKind, DeviceId, DidCoreId, ErrorCode, OperationId, PROTOCOL_VERSION, RealmId, Result,
+    ServiceKind, ServiceOperationId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -149,7 +149,7 @@ pub struct ServiceRequirements {
     service_kind: Option<ServiceKind>,
     profiles: Vec<String>,
     reducer_profiles: Vec<String>,
-    operations: Vec<String>,
+    operation_pairs: Vec<(ServiceOperationId, BindingKind)>,
 }
 
 impl ServiceRequirements {
@@ -172,8 +172,12 @@ impl ServiceRequirements {
         self
     }
 
-    pub fn operation(mut self, operation: impl Into<String>) -> Self {
-        self.operations.push(operation.into());
+    pub fn operation_binding(
+        mut self,
+        operation_id: ServiceOperationId,
+        binding_kind: BindingKind,
+    ) -> Self {
+        self.operation_pairs.push((operation_id, binding_kind));
         self
     }
 
@@ -195,17 +199,8 @@ impl ServiceRequirements {
                     description.service_kind, service_kind
                 )));
             }
-            // Cross-check the service-kind capability matrix (T3-10):
-            // refuse a description that advertises operations forbidden
-            // for its declared `service_kind`.
-            for binding in &description.operation_bindings {
-                if !service_kind.permits_operation(binding.operation_id.as_str()) {
-                    return Err(WireError::Protocol(format!(
-                        "service_kind {} must not advertise operation {}",
-                        service_kind, binding.operation_id
-                    )));
-                }
-            }
+            // `ServiceDescribe::validate` checks canonical bundle ownership;
+            // the bundle registry, not operation-name prefixes, is authoritative.
         }
 
         for profile in &self.profiles {
@@ -232,15 +227,10 @@ impl ServiceRequirements {
             }
         }
 
-        for operation in &self.operations {
-            if !ServiceOperationId::from_wire(operation).is_some_and(|required| {
-                description
-                    .operation_bindings
-                    .iter()
-                    .any(|actual| actual.operation_id == required)
-            }) {
+        for &(operation_id, binding_kind) in &self.operation_pairs {
+            if !description.supports_operation_binding(operation_id, binding_kind) {
                 return Err(WireError::Protocol(format!(
-                    "service does not support operation {operation}"
+                    "service does not support operation {operation_id} over {binding_kind}"
                 )));
             }
         }
@@ -251,13 +241,12 @@ impl ServiceRequirements {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{DidCoreId, DidFullId, ProfileId, ServiceOperationId, TrustDomainId};
+    use arkret_wire::{DidCoreId, DidFullId, ServiceOperationId, TrustDomainId};
 
     use super::*;
     use crate::service_description::{
-        AuthMetadata, ClaimedProfileEntry, DirectoryAcceptPolicyKind, DirectoryIngestMode,
-        DirectoryResourceKind, EgressNetworkPolicy, OperationBinding, PlaintextVisibility,
-        RateLimitPolicy, ServerLimits,
+        AuthMetadata, DirectoryAcceptPolicyKind, DirectoryIngestMode, DirectoryResourceKind,
+        EgressNetworkPolicy, PlaintextVisibility, RateLimitPolicy, ServerLimits, TransportBinding,
     };
 
     #[test]
@@ -272,29 +261,27 @@ mod tests {
             trust_domain: TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_kind: ServiceKind::DirectoryService,
             protocol_version: "1.0".to_owned(),
-            supported_profiles: vec![ProfileId::DIRECTORY_SERVICE_V1.to_owned()],
+            supported_profiles: vec![],
             profile_bindings: Default::default(),
             supported_features: vec![],
             calendar_tzdb_versions: vec![],
-            operation_bindings: vec![
-                OperationBinding::current_http_json(
-                    ServiceOperationId::FindDirectoryReadSearchRealms,
-                )
-                .unwrap(),
+            supported_operation_bundles: vec![
+                "ak.operation_bundle.directory_service.describe.v1".to_owned(),
+                "ak.operation_bundle.directory_service.http_core.v1".to_owned(),
             ],
-            supported_bindings: vec![],
+            transport_bindings: vec![TransportBinding::HttpJson {
+                base_url: "https://directory.example".to_owned(),
+                extension_profile_required: (),
+            }],
             auth_metadata: AuthMetadata::minimal("development"),
             limits: ServerLimits::default(),
             plaintext_visibility: PlaintextVisibility::none(),
             privacy_derivation: None,
             receive_policy_constraints: None,
-            implemented_features: vec![],
-            claimed_profiles: vec![ClaimedProfileEntry::self_claimed(
-                ProfileId::DIRECTORY_SERVICE_V1,
-            )],
+            claimed_profiles: vec![],
             verified_profiles: vec![],
-            experimental_features: vec![],
             interop_surfaces: vec![],
+            invite_addressing: None,
             development_mode: false,
             rate_limit_policy: Some(RateLimitPolicy::unspecified()),
             rate_limit_policy_id: None,
@@ -306,7 +293,7 @@ mod tests {
                 DirectoryResourceKind::Applet,
                 DirectoryResourceKind::Handle,
             ],
-            discovery_profiles: vec![ProfileId::DIRECTORY_SERVICE_V1.to_owned()],
+            private_contact_discovery: None,
             restricted_query_proof: Some(true),
             ingest_modes: vec![DirectoryIngestMode::Push],
             accept_policy_kind: Some(DirectoryAcceptPolicyKind::Open),
@@ -333,9 +320,11 @@ mod tests {
 
         ServiceRequirements::new()
             .service_kind(ServiceKind::DirectoryService)
-            .profile(ProfileId::DIRECTORY_SERVICE_V1)
             .reducer_profile(arkret_wire::CORE_REDUCER_PROFILE)
-            .operation("ak.find.directory.read.search_realms")
+            .operation_binding(
+                ServiceOperationId::FindDirectoryReadSearchRealmsV1,
+                BindingKind::HttpJson,
+            )
             .verify(&description)
             .unwrap();
 
@@ -365,9 +354,9 @@ mod tests {
         let service_kind = ServiceKind::PushGateway;
         // The three `ak.edge.push.*` operations registered in
         // `operation-registry.json` MUST all be advertisable by a push gateway.
-        assert!(service_kind.permits_operation("ak.edge.push.command.register_device"));
-        assert!(service_kind.permits_operation("ak.edge.push.command.unregister_device"));
-        assert!(service_kind.permits_operation("ak.edge.push.command.notify"));
+        assert!(service_kind.permits_operation("ak.edge.push.command.register_device.v1"));
+        assert!(service_kind.permits_operation("ak.edge.push.command.unregister_device.v1"));
+        assert!(service_kind.permits_operation("ak.edge.push.command.notify.v1"));
         // Operations outside the `ak.edge.push.` surface (e.g. applet or
         // self-API operations) MUST NOT be advertisable by a push gateway.
         assert!(!service_kind.permits_operation("ak.edge.applet.command.invoke"));

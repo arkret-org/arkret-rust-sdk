@@ -31,7 +31,7 @@ mod base64_url {
     }
 }
 
-/// Full `ak.schema.snapshot.v1` manifest returned by `ak.self.snapshot.read.manifest_head`.
+/// Full `ak.schema.snapshot.v1` manifest returned by `ak.self.snapshot.read.manifest_head.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SnapshotManifest {

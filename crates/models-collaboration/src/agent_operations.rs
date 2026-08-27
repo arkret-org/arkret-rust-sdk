@@ -924,7 +924,7 @@ pub struct AgentGrantAttachOutcome {
     pub grant_id: GrantId,
 }
 
-/// Request body for `ak.self.agent.grant.resource.delete`.
+/// Request body for `ak.self.agent.grant.resource.delete.v1`.
 ///
 /// The controller supplies the complete signed revoke Move. The service only
 /// checks its path/target bindings and forwards it through ordinary Event
@@ -2430,7 +2430,7 @@ mod tests {
                 "resources": []
             },
             "verifier_service_id": "ak:did_core:webvh:z6mkfixture",
-            "audience": "ak.gate.account.command.pair_agent_key",
+            "audience": "ak.gate.account.command.pair_agent_key.v1",
             "challenge": "0123456789abcdef",
             "issued_at": "2026-08-03T00:00:00.000Z",
             "expires_at": "2026-08-03T00:05:00.000Z",
@@ -2881,12 +2881,12 @@ mod tests {
         let requested_scope: AgentKeyScope = serde_json::from_value(serde_json::json!({
             "actions": [
                 "ak.event.read",
-                "ak.self.events.stream.subscribe"
+                "ak.self.events.stream.subscribe.v1"
             ],
             "resources": [
                 {
                     "kind": "operation",
-                    "operation": "ak.self.events.stream.subscribe"
+                    "operation": "ak.self.events.stream.subscribe.v1"
                 }
             ]
         }))
@@ -2896,7 +2896,7 @@ mod tests {
 
         assert_eq!(
             digest.as_str(),
-            "sha256:774ff4cc2f724fc735e6dba7f5b6031f180fac5fd77299df736e087ece69c133"
+            "sha256:c9aeb7698bf2ba946fd9b83e60eb6e792d29fa48a7a78922016aca0a9e747bec"
         );
         assert_eq!(
             digest,

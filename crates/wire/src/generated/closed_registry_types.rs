@@ -1,9 +1,12 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/track-name-registry.json; version=2026-08-26.3; sha256=072eb59c45ee84bd25cc299c7bcd052d29732c59a568e7483273d529672a7a1b
-//! Input: registry/binding-kind-registry.json; version=2026-08-26.3; sha256=58fb5c3a8b0446ab4f5a7435ad5c6220ac9b06a4777b8c0362487d4dccd54063
-//! Input: registry/authority-set-policy-registry.json; version=2026-08-23.1; sha256=5feab2b465fdeaf3e51cd7e0e7a4ac07e1b602870b182a73f2c8e216ad525f43
-//! Entries: track_names=2, binding_kinds=3, authority_policy_kinds=3, authority_source_kinds=2
+//! Input: registry/track-name-registry.json; version=2026-08-26.3;
+//! sha256=072eb59c45ee84bd25cc299c7bcd052d29732c59a568e7483273d529672a7a1b Input: registry/
+//! binding-kind-registry.json; version=2026-08-27.6;
+//! sha256=84532b111d582cf916583e6d3ab0e5bc23baa1bcf766679e4ce31c12e41dcfbe Input: registry/
+//! authority-set-policy-registry.json; version=2026-08-23.1;
+//! sha256=5feab2b465fdeaf3e51cd7e0e7a4ac07e1b602870b182a73f2c8e216ad525f43 Entries: track_names=2,
+//! binding_kinds=3, authority_policy_kinds=3, authority_source_kinds=2
 
 use serde::{Deserialize, Serialize};
 
@@ -16,10 +19,7 @@ pub enum TrackName {
 }
 
 impl TrackName {
-    pub const ALL: &'static [Self] = &[
-        Self::Discussion,
-        Self::Synthesis,
-    ];
+    pub const ALL: &'static [Self] = &[Self::Discussion, Self::Synthesis];
 
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -53,11 +53,7 @@ pub enum BindingKind {
 }
 
 impl BindingKind {
-    pub const ALL: &'static [Self] = &[
-        Self::HttpJson,
-        Self::Tus,
-        Self::Websocket,
-    ];
+    pub const ALL: &'static [Self] = &[Self::HttpJson, Self::Tus, Self::Websocket];
 
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -132,10 +128,7 @@ pub enum AuthoritySetSourceKind {
 }
 
 impl AuthoritySetSourceKind {
-    pub const ALL: &'static [Self] = &[
-        Self::RealmControl,
-        Self::RecoveryPolicy,
-    ];
+    pub const ALL: &'static [Self] = &[Self::RealmControl, Self::RecoveryPolicy];
 
     pub const fn as_str(self) -> &'static str {
         match self {

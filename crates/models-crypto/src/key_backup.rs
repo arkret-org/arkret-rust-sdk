@@ -100,7 +100,7 @@ pub const VECTOR_ID_KEY_BACKUP_UNLOCK_PROOF: &str = "ak.vector.key_backup.unlock
 /// (`key-management.md` §7.8.1). `high-risk-authority-proof.schema.json` is one
 /// wire leaf shared by several consumers, so the leaf itself owns no context:
 /// this row is registered with
-/// `consumer_operation = ak.self.keys.backups.resource.delete`, and reusing
+/// `consumer_operation = ak.self.keys.backups.resource.delete.v1`, and reusing
 /// another consumer's context MUST fail closed even when the JWS verifies.
 pub const KEY_BACKUP_DELETE_TRANSCRIPT_CONTEXT: &str = ProofContextId::KEY_BACKUP_DELETE_PROOF_V1;
 
@@ -156,7 +156,7 @@ pub struct KeyBackupDeleteQuorumSignature {
     pub proof: PayloadProof,
 }
 
-/// Request body of `ak.self.keys.backups.command.issue_delete_challenge`.
+/// Request body of `ak.self.keys.backups.command.issue_delete_challenge.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -207,7 +207,7 @@ impl KeysBackupsDeleteChallenge {
     pub fn delete_intent_transcript(&self, reason: Option<&str>) -> Value {
         json!({
             "context": KEY_BACKUP_DELETE_TRANSCRIPT_CONTEXT,
-            "operation": ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_DELETE,
+            "operation": ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_DELETE_V1,
             "request_id": self.request_id.as_str(),
             "principal_id": self.principal_id.as_str(),
             "backup_id": self.backup_id.as_str(),
@@ -398,7 +398,7 @@ impl BackupSeriesEraseRequestBody {
         }
         self.authorization_lease.validate_structural()?;
         if self.authorization_lease.action
-            != arkret_wire::CapabilityActionId::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE
+            != arkret_wire::CapabilityActionId::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1
         {
             return Err(WireError::Protocol(
                 "backup-series erase requires the exact erase authorization action".to_owned(),
@@ -2245,7 +2245,7 @@ pub struct RecoveryControlFrontier {
     pub observed_at: Option<DateTime<Utc>>,
 }
 
-/// Response for `ak.root.identity.recovery_policy.resource.get`.
+/// Response for `ak.root.identity.recovery_policy.resource.get.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -2287,7 +2287,7 @@ impl RecoveryPolicySetPayload {
     }
 }
 
-/// Request for `ak.root.identity.recovery_policy.command.publish`.
+/// Request for `ak.root.identity.recovery_policy.command.publish.v1`.
 ///
 /// This has the same transport members as [`EventInitialSubmission`], while
 /// its validation narrows the Event kind and payload to the recovery-policy
@@ -2341,7 +2341,7 @@ impl From<RecoveryPolicyPublishRequest> for EventInitialSubmission {
     }
 }
 
-/// Response for `ak.root.identity.recovery_policy.command.publish`.
+/// Response for `ak.root.identity.recovery_policy.command.publish.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -3067,7 +3067,7 @@ mod closed_outcome_tests {
 // ─── DID-proof session grant strand ──────────────────────────────────────────
 //
 // The wire shapes for `POST /_arkret/gate/account/session-grants`
-// (`ak.gate.account.command.issue_session_grant`) live in `crate::http` as
+// (`ak.gate.account.command.issue_session_grant.v1`) live in `crate::http` as
 // `SessionGrantRequestBody` / `SessionGrantOutcome`, mirroring
 // `service-operation-dtos.schema.json#/$defs/SessionGrantRequestBody`.
 // The spec HTTP binding registers exactly one operation (proof in body,

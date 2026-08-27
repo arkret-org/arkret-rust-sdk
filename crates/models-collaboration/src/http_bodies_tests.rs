@@ -135,7 +135,7 @@ mod mimi_consent_tests {
                 "decision": "accept",
                 "domain": "ak:trust_domain:example.com",
                 "issuer": "ak:did_core:webvh:z6mkfixture",
-                "operation_id": "ak.open.mimi.command.update_consent",
+                "operation_id": "ak.open.mimi.command.update_consent.v1",
                 "payload_digest": request.payload_digest().unwrap(),
                 "verification_method": "did:webvh:z6mkfixture:example.com:users:alice#device-1"
             })

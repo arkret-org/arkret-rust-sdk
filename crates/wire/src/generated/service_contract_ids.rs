@@ -1,6 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/contract-registry.json; version=2026-08-27.6; sha256=84bdb0b85c0d254643d0722c10909d30c1a56e0471cd85747d7d58896b8820f5
+//! Input: registry/contract-registry.json; version=2026-08-27.7;
+//! sha256=d2b3d0c9e4b4ac0dee5f77376da2ef4cbf51e565e0c95f29cdefadd206e99d75
 //! Entries: service_contracts=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -11,10 +12,7 @@ pub enum ServiceContractId {
 }
 
 impl ServiceContractId {
-    pub const ALL: &'static [Self] = &[
-        Self::IntegrationManifestV1,
-        Self::PushBridgeV1,
-    ];
+    pub const ALL: &'static [Self] = &[Self::IntegrationManifestV1, Self::PushBridgeV1];
 
     pub const INTEGRATION_MANIFEST_V1: &'static str = "ak.integration.manifest.v1";
     pub const PUSH_BRIDGE_V1: &'static str = "ak.push.bridge.v1";

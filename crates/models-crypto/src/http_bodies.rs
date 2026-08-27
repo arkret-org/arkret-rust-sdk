@@ -50,7 +50,7 @@ pub struct KeyPackagesUploadRequestBody {
 }
 
 /// Canonical unsigned projection for
-/// `ak.self.keys.keypackages.upload.create`.
+/// `ak.self.keys.keypackages.upload.create.v1`.
 ///
 /// The request-level signature is absent by construction, so producers and
 /// verifiers cannot accidentally sign different upload shapes.
@@ -189,9 +189,11 @@ pub fn mls_key_package_record_upload_entry(
     })
 }
 
-pub const KEYPACKAGES_UPLOAD_SIGNATURE_DOMAIN: &str = "ak.self.keys.keypackages.upload.create\n";
-pub const KEYPACKAGES_CONSUME_SIGNATURE_DOMAIN: &str = "ak.self.keys.keypackages.command.consume\n";
-pub const KEYPACKAGES_REVOKE_SIGNATURE_DOMAIN: &str = "ak.self.keys.keypackages.command.revoke\n";
+pub const KEYPACKAGES_UPLOAD_SIGNATURE_DOMAIN: &str = "ak.self.keys.keypackages.upload.create.v1\n";
+pub const KEYPACKAGES_CONSUME_SIGNATURE_DOMAIN: &str =
+    "ak.self.keys.keypackages.command.consume.v1\n";
+pub const KEYPACKAGES_REVOKE_SIGNATURE_DOMAIN: &str =
+    "ak.self.keys.keypackages.command.revoke.v1\n";
 
 fn keypackage_signing_input<T: Serialize>(
     domain: &str,

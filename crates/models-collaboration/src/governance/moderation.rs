@@ -48,7 +48,7 @@ pub enum ModerationAction {
     ShadowCollapse,
 }
 
-/// `ak.self.moderation.command.report` request body.
+/// `ak.self.moderation.command.report.v1` request body.
 ///
 /// The service forwards this exact caller-authored and caller-signed DataEvent
 /// through ordinary Event admission. It never constructs a report Event from

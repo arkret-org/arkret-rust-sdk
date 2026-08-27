@@ -19,9 +19,9 @@ use serde_json::Value;
 
 // ── EventsFrontier 3-way split ──────────────────────────────────────────
 
-/// `ak.self.events.read.frontier` account-client response
+/// `ak.self.events.read.frontier.v1` account-client response
 /// (`service-operation-dtos.schema.json#/$defs/EventsFrontierState`). Realm
-/// Seal discovery is exclusively `ak.self.seals.read.frontier`.
+/// Seal discovery is exclusively `ak.self.seals.read.frontier.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -645,7 +645,7 @@ impl RealmSealFrontierView {
     }
 }
 
-/// `ak.peer.events.read.frontier` federation-peer response
+/// `ak.peer.events.read.frontier.v1` federation-peer response
 /// (`service-operation-dtos.schema.json#/$defs/EventsFrontierFederationPeerState`).
 /// Returned to an authorized federation peer over signed S2S trust-domain
 /// headers: the realm's federation-visible head Event IDs, the
@@ -680,7 +680,7 @@ pub struct EventsFrontierFederationPeerState {
 // ── FederationServiceBindingRef ─────────────────────────────────────────
 
 /// Typed binding reference for federation transport. Carried inside
-/// `ak.self.events.command.submit` (federation variant) and the
+/// `ak.self.events.command.submit.v1` (federation variant) and the
 /// `events/frontier` federation-peer response so a receiver can verify
 /// the request is bound to the sender's policy and delivery frontiers.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1038,7 +1038,7 @@ impl EventsSubmitFederationBatchRequestBody {
     }
 }
 
-/// Closed request union for `ak.peer.events.command.submit`.
+/// Closed request union for `ak.peer.events.command.submit.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]

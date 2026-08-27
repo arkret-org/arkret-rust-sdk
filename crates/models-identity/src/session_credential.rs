@@ -749,7 +749,7 @@ mod tests {
             )
             .unwrap(),
             audience: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
-            scopes: vec!["ak.self.events.command.submit".to_owned()],
+            scopes: vec!["ak.self.events.command.submit.v1".to_owned()],
             not_before: "2026-07-18T00:00:00.000Z".parse().unwrap(),
             expires_at: "2026-07-18T00:15:00.000Z".parse().unwrap(),
             session_id: "session-1".to_owned(),

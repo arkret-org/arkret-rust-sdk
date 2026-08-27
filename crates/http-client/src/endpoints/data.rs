@@ -18,7 +18,7 @@ use arkret_models_crypto::{
     KeysClaimRequestBody, KeysQueryOutcome, KeysQueryRequestBody, KeysUploadOutcome,
     KeysUploadRequestBody,
 };
-use arkret_models_discovery::ServiceDescribe;
+use arkret_models_discovery::{ServiceDescribe, TransportBinding};
 use arkret_models_identity::account::{
     AccountDataDeleteOutcome, AccountDataDeleteRequestBody, AccountDataReplaceRequestBody,
     AccountDataRow,
@@ -88,34 +88,13 @@ pub fn blob_resumable_upload_base_url(description: &ServiceDescribe) -> Option<U
     {
         return None;
     }
-    let local_tus = arkret_models_discovery::OperationBinding {
-        operation_id: arkret_wire::ServiceOperationId::SelfBlobUploadCreate,
-        binding_kind: arkret_wire::BindingKind::Tus,
-        preference: 0,
-        request_schema_ref: None,
-        response_schema_ref: None,
-        error_schema_ref: None,
-        success_shape_kind: arkret_models_discovery::OperationSuccessShapeKind::MetadataHeaders,
-    };
-    description.select_operation_binding(
-        arkret_wire::ServiceOperationId::SelfBlobUploadCreate,
-        &[local_tus],
+    let binding = description.select_transport_binding(
+        arkret_wire::ServiceOperationId::SelfBlobUploadCreateV1,
+        &[arkret_wire::BindingKind::Tus],
     )?;
-    let binding = description
-        .supported_bindings
-        .iter()
-        .find(|binding| binding.kind == arkret_wire::BindingKind::Tus)?;
-    if let Some(operations) = binding
-        .extra
-        .get("operations")
-        .and_then(|value| value.as_array())
-        && !operations.iter().any(|operation| {
-            operation.as_str() == Some(arkret_wire::ServiceOperationId::SELF_BLOB_UPLOAD_CREATE)
-        })
-    {
+    let TransportBinding::Tus { base_url, .. } = binding else {
         return None;
-    }
-    let base_url = binding.base_url.as_deref()?;
+    };
     Url::parse(base_url).ok()
 }
 
@@ -699,25 +678,27 @@ mod tests {
             },
             "trust_domain": "ak:trust_domain:server.local",
             "supported_profiles": [],
-            "operation_bindings": [{
-                "operation_id": "ak.self.blob.upload.create",
-                "binding_kind": "tus",
-                "preference": 10,
-                "success_shape_kind": "metadata_headers"
-            }],
-            "supported_bindings": [{
+            "supported_operation_bundles": [
+                "ak.operation_bundle.principal_server.describe.v1",
+                "ak.operation_bundle.principal_server.tus_upload.v1"
+            ],
+            "transport_bindings": [{
+                "kind": "http_json",
+                "base_url": "https://server.local",
+                "extension_profile_required": null
+            }, {
                 "kind": "tus",
                 "base_url": "https://server.local/uploads/",
-                "operations": ["ak.self.blob.upload.create"]
+                "extension_profile_required": null,
+                "tus_version": ["1.0.0"],
+                "tus_extensions": ["creation"]
             }],
             "supported_features": [RESUMABLE_UPLOAD_FEATURE],
             "auth_metadata": {"mode": "development", "methods": []},
             "limits": {},
             "plaintext_visibility": {"data_classes": [], "max_visibility": "none"},
-            "implemented_features": [],
             "claimed_profiles": [],
             "verified_profiles": [],
-            "experimental_features": [],
             "interop_surfaces": [],
             "development_mode": false,
             "rate_limit_policy": {}
