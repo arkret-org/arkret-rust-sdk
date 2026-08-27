@@ -14,12 +14,12 @@ use arkret_models_identity::{
     AuthenticatedServiceResolution, ServiceResolutionCarrier, ServiceResolutionRecord,
     validate_service_current_record_url,
 };
-use arkret_wire::{DidCoreId, Hash, ServiceKind};
+use arkret_wire::{DidCoreId, Hash, ServiceKind, ServiceOperationId};
 use reqwest::StatusCode;
 use reqwest::header::{ACCEPT_ENCODING, CONTENT_ENCODING, HeaderMap};
 
 use crate::client_internals::read_body_limited;
-use crate::{Error, Result};
+use crate::{Error, HEADER_OPERATION, Result};
 
 pub const SERVICE_RESOLUTION_FETCH_MAX_BYTES: usize = 1024 * 1024;
 pub const SERVICE_DESCRIBE_FETCH_MAX_BYTES: usize = 1024 * 1024;
@@ -183,6 +183,7 @@ impl ServiceResolutionFetcher {
                 timeout,
                 "service describe",
                 SERVICE_DESCRIBE_FETCH_MAX_BYTES,
+                ServiceOperationId::ServerReadDescribeV1,
             ),
         )
         .await
@@ -205,6 +206,7 @@ impl ServiceResolutionFetcher {
                 SERVICE_RESOLUTION_FETCH_TIMEOUT,
                 "service resolution",
                 SERVICE_RESOLUTION_FETCH_MAX_BYTES,
+                ServiceOperationId::OpenServiceReadResolutionV1,
             )
             .await?;
         let resolution: AuthenticatedServiceResolution =
@@ -239,6 +241,7 @@ impl ServiceResolutionFetcher {
         timeout: Duration,
         purpose: &str,
         max_bytes: usize,
+        operation: ServiceOperationId,
     ) -> Result<Vec<u8>> {
         let target = EgressGuard::new(self.egress_policy)
             .lock_url_async(&parsed, purpose)
@@ -261,6 +264,7 @@ impl ServiceResolutionFetcher {
         let response = client
             .get(target.url().clone())
             .header(ACCEPT_ENCODING, "identity")
+            .header(HEADER_OPERATION, operation.as_str())
             .send()
             .await
             .map_err(crate::client_internals::transport_error)?;
@@ -344,6 +348,7 @@ mod tests {
     use reqwest::header::HeaderValue;
     use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
     use tokio::net::TcpListener;
+    use tokio::sync::oneshot;
 
     use super::*;
 
@@ -435,6 +440,49 @@ mod tests {
             let _ = stream.write_all(response.as_bytes()).await;
         });
         format!("http://{address}/")
+    }
+
+    async fn serve_once_and_capture(response: String) -> (reqwest::Url, oneshot::Receiver<String>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let (request_tx, request_rx) = oneshot::channel();
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = [0_u8; 4_096];
+            let read = stream.read(&mut request).await.unwrap();
+            request_tx
+                .send(String::from_utf8_lossy(&request[..read]).into_owned())
+                .unwrap();
+            stream.write_all(response.as_bytes()).await.unwrap();
+        });
+        (
+            reqwest::Url::parse(&format!("http://{address}/")).unwrap(),
+            request_rx,
+        )
+    }
+
+    #[tokio::test]
+    async fn bounded_fetch_sends_exact_operation_selector() {
+        let fetcher =
+            ServiceResolutionFetcher::with_egress_policy(OutboundPolicy::local_development());
+        for operation in [
+            ServiceOperationId::OpenServiceReadResolutionV1,
+            ServiceOperationId::ServerReadDescribeV1,
+        ] {
+            let (url, request_rx) =
+                serve_once_and_capture("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}".to_owned())
+                    .await;
+            fetcher
+                .fetch_bounded(url, Duration::from_secs(1), "test fetch", 2, operation)
+                .await
+                .unwrap();
+            let request = request_rx.await.unwrap().to_ascii_lowercase();
+            assert!(request.contains(&format!(
+                "{}: {}\r\n",
+                HEADER_OPERATION.to_ascii_lowercase(),
+                operation.as_str()
+            )));
+        }
     }
 
     #[tokio::test]
