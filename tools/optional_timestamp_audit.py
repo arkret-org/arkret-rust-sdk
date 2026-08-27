@@ -220,8 +220,7 @@ def main() -> int:
     sites = run(args.spec_root)
     counts = Counter(site.classification for site in sites)
     inventory = {
-        "version": 1,
-        "spec_root": str(args.spec_root),
+        "version": 2,
         "total": len(sites),
         "counts": dict(sorted(counts.items())),
         "sites": [asdict(site) for site in sites],
