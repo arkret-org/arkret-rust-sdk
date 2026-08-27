@@ -172,7 +172,6 @@ pub struct PushRegisterDeviceRequestBody {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PushRegisterDeviceOutcome {
-    pub ok: bool,
     /// Server-derived pairwise pseudonym for this registration
     /// (`push-operations.schema.json#/$defs/push_target_id`); the caller and the
     /// device MUST use this exact value as the notify target and MUST NOT mint
@@ -200,11 +199,8 @@ pub struct PushUnregisterDeviceRequestBody {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PushUnregisterDeviceOutcome {
-    pub ok: bool,
-}
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct PushUnregisterDeviceOutcome;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -970,7 +966,6 @@ pub enum PushOperations {
     PushRegisterDeviceRequestBody(PushRegisterDeviceRequestBody),
     PushRegisterDeviceOutcome(PushRegisterDeviceOutcome),
     PushUnregisterDeviceRequestBody(PushUnregisterDeviceRequestBody),
-    PushUnregisterDeviceOutcome(PushUnregisterDeviceOutcome),
     PushNotifyRequestBody(PushNotifyRequestBody),
     PushNotifyOutcome(PushNotifyOutcome),
 }

@@ -153,8 +153,7 @@ impl Client {
         let outcome: RecoveryPolicyPublishOutcome = self
             .post("/_arkret/root/identity/recovery-policy", request)
             .await?;
-        if !outcome.ok
-            || outcome.policy_id != payload.policy_id
+        if outcome.policy_id != payload.policy_id
             || outcome.principal_id != payload.value.principal_id
             || outcome.version != payload.value.version
         {

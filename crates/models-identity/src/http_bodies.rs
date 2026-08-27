@@ -19,7 +19,6 @@ pub struct AccountLogoutRequestBody {}
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AccountLogoutOutcome {
-    pub ok: bool,
     pub revoked: bool,
 }
 

@@ -42,7 +42,6 @@ pub enum ConsentState {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ConsentCellView {
-    pub ok: bool,
     pub cell_id: String,
     pub holder_principal_id: DidCoreId,
     pub peer_principal_id: DidCoreId,
@@ -72,7 +71,6 @@ pub struct ConsentCellView {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ConsentCellList {
-    pub ok: bool,
     #[serde(default)]
     pub cells: Vec<ConsentCellView>,
 }
@@ -123,7 +121,6 @@ pub struct ConsentRequestRequestBody {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ConsentRequestOutcome {
-    pub ok: bool,
     pub accepted_for_processing: bool,
 }
 
@@ -134,7 +131,6 @@ mod consent_request_tests {
     #[test]
     fn opaque_request_outcome_is_closed_and_minimal() {
         let value = serde_json::json!({
-            "ok": true,
             "accepted_for_processing": true
         });
         let outcome: ConsentRequestOutcome =

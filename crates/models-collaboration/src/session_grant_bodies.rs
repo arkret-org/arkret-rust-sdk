@@ -802,7 +802,6 @@ pub struct AuthSessionLogoutRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthSessionLogoutOutcome {
-    pub ok: bool,
     pub grant_chain_terminated: bool,
     pub auth_session_logged_out: bool,
 }

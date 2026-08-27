@@ -25,7 +25,6 @@ use crate::artifacts_applet::{
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletPingOutcome {
-    pub ok: bool,
     pub applet_id: AppletId,
     pub service_id: DidCoreId,
     #[serde(deserialize_with = "arkret_wire::deserialize_protocol_version")]
@@ -33,10 +32,19 @@ pub struct AppletPingOutcome {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AppletTransactionStatus {
+    Accepted,
+    Partial,
+    Rejected,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletTransactionOutcome {
-    pub ok: bool,
+    pub status: AppletTransactionStatus,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rejected: Vec<RejectedItem>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -222,7 +230,6 @@ pub struct AppletRevokeStep {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletRevokeOutcome {
-    pub ok: bool,
     pub operation_id: ProtocolOperationId,
     pub revoke_plan_digest: Hash,
     pub status: AppletRevokeSagaStatus,

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: profiles/conformance-profiles.json; version=2026-08-27.2;
-//! sha256=ea4e590409c8da1b2e0dbfffb79dbfb3ece7f52ddac209376603afc5fb0ac287 Entries: profile_ids=99
+//! Input: profiles/conformance-profiles.json; version=2026-08-27.2; sha256=b9e6d162dbaf617de070c8335763e4ca7d024c512784b84e73f2b4797f549d40
+//! Entries: profile_ids=99
 
 use serde::{Deserialize, Serialize};
 
@@ -255,8 +255,7 @@ impl ProfileId {
 
     pub const AGENT_AUTH_V1: &'static str = "ak.profile.agent_auth.v1";
     pub const AGENT_DELEGATION_POLICY_V1: &'static str = "ak.profile.agent_delegation_policy.v1";
-    pub const AGENT_PARTICIPATION_POLICY_V1: &'static str =
-        "ak.profile.agent_participation_policy.v1";
+    pub const AGENT_PARTICIPATION_POLICY_V1: &'static str = "ak.profile.agent_participation_policy.v1";
     pub const AGENT_RUNTIME_V1: &'static str = "ak.profile.agent_runtime.v1";
     pub const AGENT_SIDECAR_V1: &'static str = "ak.profile.agent_sidecar.v1";
     pub const AGENT_SIGNER_EVIDENCE_V1: &'static str = "ak.profile.agent_signer_evidence.v1";
@@ -270,28 +269,20 @@ impl ProfileId {
     pub const BINDING_WEBSOCKET_V1: &'static str = "ak.profile.binding.websocket.v1";
     pub const BLOB_NODE_V1: &'static str = "ak.profile.blob_node.v1";
     pub const CALENDAR_EVENT_V1: &'static str = "ak.profile.calendar_event.v1";
-    pub const CALENDAR_NOTIFICATION_DISPATCH_V1: &'static str =
-        "ak.profile.calendar_notification_dispatch.v1";
+    pub const CALENDAR_NOTIFICATION_DISPATCH_V1: &'static str = "ak.profile.calendar_notification_dispatch.v1";
     pub const CANDIDATE_JOIN_POLICY_V1: &'static str = "ak.profile.candidate.join_policy.v1";
     pub const CHAT_MVP_V1: &'static str = "ak.profile.chat_mvp.v1";
     pub const CIRCLE_CONFORMANCE_V1: &'static str = "ak.profile.circle_conformance.v1";
-    pub const CIRCLE_SEAL_CADENCE_FIXED_5M_V1: &'static str =
-        "ak.profile.circle_seal_cadence.fixed_5m.v1";
-    pub const CONSTRAINT_APPROVAL_WORKFLOW_V1: &'static str =
-        "ak.profile.constraint.approval_workflow.v1";
+    pub const CIRCLE_SEAL_CADENCE_FIXED_5M_V1: &'static str = "ak.profile.circle_seal_cadence.fixed_5m.v1";
+    pub const CONSTRAINT_APPROVAL_WORKFLOW_V1: &'static str = "ak.profile.constraint.approval_workflow.v1";
     pub const CONSTRAINT_CLAIM_BASED_V1: &'static str = "ak.profile.constraint.claim_based.v1";
-    pub const CONSTRAINT_ENCRYPTION_REQUIREMENT_V1: &'static str =
-        "ak.profile.constraint.encryption_requirement.v1";
-    pub const CONSTRAINT_RESOURCE_LIMIT_V1: &'static str =
-        "ak.profile.constraint.resource_limit.v1";
-    pub const CONSTRAINT_VISIBILITY_CONTROL_V1: &'static str =
-        "ak.profile.constraint.visibility_control.v1";
+    pub const CONSTRAINT_ENCRYPTION_REQUIREMENT_V1: &'static str = "ak.profile.constraint.encryption_requirement.v1";
+    pub const CONSTRAINT_RESOURCE_LIMIT_V1: &'static str = "ak.profile.constraint.resource_limit.v1";
+    pub const CONSTRAINT_VISIBILITY_CONTROL_V1: &'static str = "ak.profile.constraint.visibility_control.v1";
     pub const CORE_EVENT_STORE_V1: &'static str = "ak.profile.core_event_store.v1";
     pub const CRDT_TEXT_V1: &'static str = "ak.profile.crdt.text.v1";
-    pub const DIRECT_CONVERSATION_REALM_V1: &'static str =
-        "ak.profile.direct_conversation_realm.v1";
-    pub const DIRECT_CONVERSATION_REPAIR_V1: &'static str =
-        "ak.profile.direct_conversation_repair.v1";
+    pub const DIRECT_CONVERSATION_REALM_V1: &'static str = "ak.profile.direct_conversation_realm.v1";
+    pub const DIRECT_CONVERSATION_REPAIR_V1: &'static str = "ak.profile.direct_conversation_repair.v1";
     pub const DIRECTORY_SERVICE_V1: &'static str = "ak.profile.directory_service.v1";
     pub const DISCLOSED_AUDIT_E2EE_V1: &'static str = "ak.profile.disclosed_audit.e2ee.v1";
     pub const DRAFT_SYNC_V1: &'static str = "ak.profile.draft_sync.v1";
@@ -300,74 +291,56 @@ impl ProfileId {
     pub const ENCODING_CBOR_V1: &'static str = "ak.profile.encoding.cbor.v1";
     pub const ENCODING_MULTIHASH_V1: &'static str = "ak.profile.encoding.multihash.v1";
     pub const ENTERPRISE_CLIENT_V1: &'static str = "ak.profile.enterprise_client.v1";
-    pub const EPHEMERAL_PAIRWISE_PRINCIPAL_V1: &'static str =
-        "ak.profile.ephemeral_pairwise_principal.v1";
-    pub const FEDERATION_HIGH_ASSURANCE_V1: &'static str =
-        "ak.profile.federation.high_assurance.v1";
-    pub const FEDERATION_RBSR_NEGENTROPY_V1: &'static str =
-        "ak.profile.federation.rbsr.negentropy.v1";
+    pub const EPHEMERAL_PAIRWISE_PRINCIPAL_V1: &'static str = "ak.profile.ephemeral_pairwise_principal.v1";
+    pub const FEDERATION_HIGH_ASSURANCE_V1: &'static str = "ak.profile.federation.high_assurance.v1";
+    pub const FEDERATION_RBSR_NEGENTROPY_V1: &'static str = "ak.profile.federation.rbsr.negentropy.v1";
     pub const FEDERATION_MINIMAL_V1: &'static str = "ak.profile.federation_minimal.v1";
     pub const FILE_TRANSFER_V1: &'static str = "ak.profile.file_transfer.v1";
     pub const FRANKING_V1: &'static str = "ak.profile.franking.v1";
     pub const FULL_CLIENT_V1: &'static str = "ak.profile.full_client.v1";
     pub const HASH_BLAKE3_V1: &'static str = "ak.profile.hash.blake3.v1";
     pub const HASH_TRANSITION_V1: &'static str = "ak.profile.hash_transition.v1";
-    pub const HIGH_SECURITY_ORGANIZATION_V1: &'static str =
-        "ak.profile.high_security_organization.v1";
+    pub const HIGH_SECURITY_ORGANIZATION_V1: &'static str = "ak.profile.high_security_organization.v1";
     pub const HPKE_P256_V1: &'static str = "ak.profile.hpke.p256.v1";
     pub const IDENTITY_REGISTRY_V1: &'static str = "ak.profile.identity_registry.v1";
-    pub const ISOLATED_SOVEREIGN_NETWORK_V1: &'static str =
-        "ak.profile.isolated_sovereign_network.v1";
+    pub const ISOLATED_SOVEREIGN_NETWORK_V1: &'static str = "ak.profile.isolated_sovereign_network.v1";
     pub const KANBAN_MVP_V1: &'static str = "ak.profile.kanban_mvp.v1";
     pub const KEM_HYBRID_XWING_V1: &'static str = "ak.profile.kem.hybrid_xwing.v1";
     pub const KEY_BACKUP_MEMORY_HARD_V1: &'static str = "ak.profile.key_backup.memory_hard.v1";
     pub const KEY_TRANSPARENCY_V1: &'static str = "ak.profile.key_transparency.v1";
     pub const MATRIX_COMPAT_V1: &'static str = "ak.profile.matrix_compat.v1";
-    pub const MEDIA_SERVICE_BINDING_ARKRET_NATIVE_V1: &'static str =
-        "ak.profile.media_service_binding.arkret_native.v1";
-    pub const MEDIA_SERVICE_BINDING_LIVEKIT_V1: &'static str =
-        "ak.profile.media_service_binding.livekit.v1";
+    pub const MEDIA_SERVICE_BINDING_ARKRET_NATIVE_V1: &'static str = "ak.profile.media_service_binding.arkret_native.v1";
+    pub const MEDIA_SERVICE_BINDING_LIVEKIT_V1: &'static str = "ak.profile.media_service_binding.livekit.v1";
     pub const MEDIA_SERVICE_BINDING_V1: &'static str = "ak.profile.media_service_binding.v1";
-    pub const MEMBERSHIP_JOIN_COMPENSATION_V1: &'static str =
-        "ak.profile.membership_join_compensation.v1";
+    pub const MEMBERSHIP_JOIN_COMPENSATION_V1: &'static str = "ak.profile.membership_join_compensation.v1";
     pub const MIMI_INTEROP_V1: &'static str = "ak.profile.mimi_interop.v1";
     pub const MINIMAL_CLIENT_V1: &'static str = "ak.profile.minimal_client.v1";
-    pub const MLS_MINIMAL_METADATA_REALM_V1: &'static str =
-        "ak.profile.mls.minimal_metadata_realm.v1";
-    pub const MLS_CIPHERSUITE_CHACHA20POLY1305_V1: &'static str =
-        "ak.profile.mls_ciphersuite.chacha20poly1305.v1";
+    pub const MLS_MINIMAL_METADATA_REALM_V1: &'static str = "ak.profile.mls.minimal_metadata_realm.v1";
+    pub const MLS_CIPHERSUITE_CHACHA20POLY1305_V1: &'static str = "ak.profile.mls_ciphersuite.chacha20poly1305.v1";
     pub const MLS_CIPHERSUITE_PQ_AUTH_V1: &'static str = "ak.profile.mls_ciphersuite.pq_auth.v1";
-    pub const MLS_GOVERNANCE_BINDING_FULL_V1: &'static str =
-        "ak.profile.mls_governance_binding.full.v1";
+    pub const MLS_GOVERNANCE_BINDING_FULL_V1: &'static str = "ak.profile.mls_governance_binding.full.v1";
     pub const NOTARY_MIXED_RECOVERY_V1: &'static str = "ak.profile.notary.mixed_recovery.v1";
     pub const NOTARY_OPEN_SET_V1: &'static str = "ak.profile.notary.open_set.v1";
     pub const NOTARY_SINGLE_SIGNER_V1: &'static str = "ak.profile.notary.single_signer.v1";
     pub const NOTARY_THRESHOLD_V1: &'static str = "ak.profile.notary.threshold.v1";
     pub const ORGANIZATION_V1: &'static str = "ak.profile.organization.v1";
-    pub const ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1: &'static str =
-        "ak.profile.organization_high_assurance_identity.v1";
-    pub const PERSONAL_AGENT_PROVISIONING_V1: &'static str =
-        "ak.profile.personal_agent_provisioning.v1";
+    pub const ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1: &'static str = "ak.profile.organization_high_assurance_identity.v1";
+    pub const PERSONAL_AGENT_PROVISIONING_V1: &'static str = "ak.profile.personal_agent_provisioning.v1";
     pub const PERSONAL_NODE_V1: &'static str = "ak.profile.personal_node.v1";
     pub const PERSONAL_PRODUCTIVITY_V1: &'static str = "ak.profile.personal_productivity.v1";
     pub const PINNED_ITEMS_V1: &'static str = "ak.profile.pinned_items.v1";
     pub const PRINCIPAL_CONTROL_REALM_V1: &'static str = "ak.profile.principal_control_realm.v1";
     pub const PRINCIPAL_SERVER_V1: &'static str = "ak.profile.principal_server.v1";
-    pub const PRINCIPAL_SERVER_EVENTS_API_V1: &'static str =
-        "ak.profile.principal_server_events_api.v1";
+    pub const PRINCIPAL_SERVER_EVENTS_API_V1: &'static str = "ak.profile.principal_server_events_api.v1";
     pub const PUBLIC_NETWORK_IDENTITY_V1: &'static str = "ak.profile.public_network_identity.v1";
-    pub const PUSH_GATEWAY_BLIND_WAKEUP_V1: &'static str =
-        "ak.profile.push_gateway.blind_wakeup.v1";
-    pub const PUSH_GATEWAY_MATRIX_PASSTHROUGH_V1: &'static str =
-        "ak.profile.push_gateway.matrix_passthrough.v1";
+    pub const PUSH_GATEWAY_BLIND_WAKEUP_V1: &'static str = "ak.profile.push_gateway.blind_wakeup.v1";
+    pub const PUSH_GATEWAY_MATRIX_PASSTHROUGH_V1: &'static str = "ak.profile.push_gateway.matrix_passthrough.v1";
     pub const PUSH_GATEWAY_V1: &'static str = "ak.profile.push_gateway.v1";
-    pub const PUSH_GATEWAY_VISIBLE_NOTIFICATION_V1: &'static str =
-        "ak.profile.push_gateway.visible_notification.v1";
+    pub const PUSH_GATEWAY_VISIBLE_NOTIFICATION_V1: &'static str = "ak.profile.push_gateway.visible_notification.v1";
     pub const SEARCH_BLIND_INDEX_V1: &'static str = "ak.profile.search.blind_index.v1";
     pub const SEARCH_CLIENT_INDEX_V1: &'static str = "ak.profile.search.client_index.v1";
     pub const SEARCH_FORWARD_PRIVATE_V1: &'static str = "ak.profile.search.forward_private.v1";
-    pub const SERVICE_RESOLUTION_MIRROR_V1: &'static str =
-        "ak.profile.service_resolution_mirror.v1";
+    pub const SERVICE_RESOLUTION_MIRROR_V1: &'static str = "ak.profile.service_resolution_mirror.v1";
     pub const SIGNAL_MESSAGE_STREAM_V1: &'static str = "ak.profile.signal_message_stream.v1";
     pub const SIGNAL_PEER_RELAY_V1: &'static str = "ak.profile.signal_peer_relay.v1";
     pub const SIGNATURE_ECDSA_P256_V1: &'static str = "ak.profile.signature.ecdsa_p256.v1";
@@ -376,8 +349,7 @@ impl ProfileId {
     pub const SOVEREIGN_CLIENT_V1: &'static str = "ak.profile.sovereign_client.v1";
     pub const SOVEREIGN_DEPLOYMENT_V1: &'static str = "ak.profile.sovereign_deployment.v1";
     pub const SOVEREIGN_ENCLAVE_V1: &'static str = "ak.profile.sovereign_enclave.v1";
-    pub const TRAFFIC_METADATA_HARDENED_V1: &'static str =
-        "ak.profile.traffic_metadata_hardened.v1";
+    pub const TRAFFIC_METADATA_HARDENED_V1: &'static str = "ak.profile.traffic_metadata_hardened.v1";
     pub const UCAN_INTEROP_V1: &'static str = "ak.profile.ucan_interop.v1";
     pub const WEBRTC_MEDIA_V1: &'static str = "ak.profile.webrtc_media.v1";
 
@@ -454,9 +426,7 @@ impl ProfileId {
             Self::NotarySingleSignerV1 => Self::NOTARY_SINGLE_SIGNER_V1,
             Self::NotaryThresholdV1 => Self::NOTARY_THRESHOLD_V1,
             Self::OrganizationV1 => Self::ORGANIZATION_V1,
-            Self::OrganizationHighAssuranceIdentityV1 => {
-                Self::ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1
-            }
+            Self::OrganizationHighAssuranceIdentityV1 => Self::ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1,
             Self::PersonalAgentProvisioningV1 => Self::PERSONAL_AGENT_PROVISIONING_V1,
             Self::PersonalNodeV1 => Self::PERSONAL_NODE_V1,
             Self::PersonalProductivityV1 => Self::PERSONAL_PRODUCTIVITY_V1,
@@ -595,10 +565,7 @@ impl ProfileId {
 
     /// Every profile whose spec role is `role`, in declaration order.
     pub fn with_role(role: ProfileRole) -> impl Iterator<Item = Self> {
-        Self::ALL
-            .iter()
-            .copied()
-            .filter(move |id| id.role() == role)
+        Self::ALL.iter().copied().filter(move |id| id.role() == role)
     }
 
     pub fn from_wire(value: &str) -> Option<Self> {
@@ -626,9 +593,7 @@ impl ProfileId {
             Self::CIRCLE_SEAL_CADENCE_FIXED_5M_V1 => Some(Self::CircleSealCadenceFixed5mV1),
             Self::CONSTRAINT_APPROVAL_WORKFLOW_V1 => Some(Self::ConstraintApprovalWorkflowV1),
             Self::CONSTRAINT_CLAIM_BASED_V1 => Some(Self::ConstraintClaimBasedV1),
-            Self::CONSTRAINT_ENCRYPTION_REQUIREMENT_V1 => {
-                Some(Self::ConstraintEncryptionRequirementV1)
-            }
+            Self::CONSTRAINT_ENCRYPTION_REQUIREMENT_V1 => Some(Self::ConstraintEncryptionRequirementV1),
             Self::CONSTRAINT_RESOURCE_LIMIT_V1 => Some(Self::ConstraintResourceLimitV1),
             Self::CONSTRAINT_VISIBILITY_CONTROL_V1 => Some(Self::ConstraintVisibilityControlV1),
             Self::CORE_EVENT_STORE_V1 => Some(Self::CoreEventStoreV1),
@@ -661,18 +626,14 @@ impl ProfileId {
             Self::KEY_BACKUP_MEMORY_HARD_V1 => Some(Self::KeyBackupMemoryHardV1),
             Self::KEY_TRANSPARENCY_V1 => Some(Self::KeyTransparencyV1),
             Self::MATRIX_COMPAT_V1 => Some(Self::MatrixCompatV1),
-            Self::MEDIA_SERVICE_BINDING_ARKRET_NATIVE_V1 => {
-                Some(Self::MediaServiceBindingArkretNativeV1)
-            }
+            Self::MEDIA_SERVICE_BINDING_ARKRET_NATIVE_V1 => Some(Self::MediaServiceBindingArkretNativeV1),
             Self::MEDIA_SERVICE_BINDING_LIVEKIT_V1 => Some(Self::MediaServiceBindingLivekitV1),
             Self::MEDIA_SERVICE_BINDING_V1 => Some(Self::MediaServiceBindingV1),
             Self::MEMBERSHIP_JOIN_COMPENSATION_V1 => Some(Self::MembershipJoinCompensationV1),
             Self::MIMI_INTEROP_V1 => Some(Self::MimiInteropV1),
             Self::MINIMAL_CLIENT_V1 => Some(Self::MinimalClientV1),
             Self::MLS_MINIMAL_METADATA_REALM_V1 => Some(Self::MlsMinimalMetadataRealmV1),
-            Self::MLS_CIPHERSUITE_CHACHA20POLY1305_V1 => {
-                Some(Self::MlsCiphersuiteChacha20poly1305V1)
-            }
+            Self::MLS_CIPHERSUITE_CHACHA20POLY1305_V1 => Some(Self::MlsCiphersuiteChacha20poly1305V1),
             Self::MLS_CIPHERSUITE_PQ_AUTH_V1 => Some(Self::MlsCiphersuitePqAuthV1),
             Self::MLS_GOVERNANCE_BINDING_FULL_V1 => Some(Self::MlsGovernanceBindingFullV1),
             Self::NOTARY_MIXED_RECOVERY_V1 => Some(Self::NotaryMixedRecoveryV1),
@@ -680,9 +641,7 @@ impl ProfileId {
             Self::NOTARY_SINGLE_SIGNER_V1 => Some(Self::NotarySingleSignerV1),
             Self::NOTARY_THRESHOLD_V1 => Some(Self::NotaryThresholdV1),
             Self::ORGANIZATION_V1 => Some(Self::OrganizationV1),
-            Self::ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1 => {
-                Some(Self::OrganizationHighAssuranceIdentityV1)
-            }
+            Self::ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1 => Some(Self::OrganizationHighAssuranceIdentityV1),
             Self::PERSONAL_AGENT_PROVISIONING_V1 => Some(Self::PersonalAgentProvisioningV1),
             Self::PERSONAL_NODE_V1 => Some(Self::PersonalNodeV1),
             Self::PERSONAL_PRODUCTIVITY_V1 => Some(Self::PersonalProductivityV1),
@@ -694,9 +653,7 @@ impl ProfileId {
             Self::PUSH_GATEWAY_BLIND_WAKEUP_V1 => Some(Self::PushGatewayBlindWakeupV1),
             Self::PUSH_GATEWAY_MATRIX_PASSTHROUGH_V1 => Some(Self::PushGatewayMatrixPassthroughV1),
             Self::PUSH_GATEWAY_V1 => Some(Self::PushGatewayV1),
-            Self::PUSH_GATEWAY_VISIBLE_NOTIFICATION_V1 => {
-                Some(Self::PushGatewayVisibleNotificationV1)
-            }
+            Self::PUSH_GATEWAY_VISIBLE_NOTIFICATION_V1 => Some(Self::PushGatewayVisibleNotificationV1),
             Self::SEARCH_BLIND_INDEX_V1 => Some(Self::SearchBlindIndexV1),
             Self::SEARCH_CLIENT_INDEX_V1 => Some(Self::SearchClientIndexV1),
             Self::SEARCH_FORWARD_PRIVATE_V1 => Some(Self::SearchForwardPrivateV1),
@@ -724,13 +681,18 @@ impl std::fmt::Display for ProfileId {
 }
 
 impl Serialize for ProfileId {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(self.as_str())
     }
 }
 
 impl<'de> Deserialize<'de> for ProfileId {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Self, D::Error> {
         let raw = String::deserialize(deserializer)?;
         Self::from_wire(&raw)
             .ok_or_else(|| serde::de::Error::custom(format!("unknown profile id: {raw}")))

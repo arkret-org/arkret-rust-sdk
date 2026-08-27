@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/relation-kind-registry.json; version=2026-08-15.1;
-//! sha256=b4fd18086575d95d1e44462394674f92235095dbb04e871f504fd23eedeb03e4 Entries: standard=15
+//! Input: registry/relation-kind-registry.json; version=2026-08-15.1; sha256=f4d6bd14c7a893cd3ffb862c5b4272f070602db1636e36f0e500c7ed9ba31b4e
+//! Entries: standard=15
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 

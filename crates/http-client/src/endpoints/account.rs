@@ -708,13 +708,15 @@ mod tests {
                 }
                 ReplayTrigger::ServiceUnavailable => {
                     let body = serde_json::json!({
-                        "ok": false,
-                        "error": {"code": "frontier_unavailable", "message": "retry"},
-                        "request_id": "attempt-1"
+                        "type": "https://arkret.org/problems/frontier_unavailable",
+                        "title": "Frontier unavailable",
+                        "status": 503,
+                        "detail": "retry",
+                        "instance": "attempt-1"
                     })
                     .to_string();
                     let response = format!(
-                        "HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                        "HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/problem+json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
                         body.len(),
                         body
                     );
@@ -922,20 +924,17 @@ mod tests {
             let (mut socket, _) = listener.accept().await.unwrap();
             let _ = read_http_request(&mut socket).await;
             let body = serde_json::json!({
-                "ok": false,
-                "error": {
-                    "code": "session_grant_replay_terminal",
-                    "message": "recorded grant is superseded",
-                    "details": {
-                        "session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
-                        "state": "superseded"
-                    }
-                },
-                "request_id": "request-1"
+                "type": "https://arkret.org/problems/session_grant_replay_terminal",
+                "title": "Session grant replay terminal",
+                "status": 409,
+                "detail": "recorded grant is superseded",
+                "instance": "request-1",
+                "session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
+                "state": "superseded"
             })
             .to_string();
             let response = format!(
-                "HTTP/1.1 409 Conflict\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                "HTTP/1.1 409 Conflict\r\nContent-Type: application/problem+json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
                 body.len(),
                 body
             );
@@ -1074,7 +1073,6 @@ mod tests {
             .unwrap();
 
         let outcome = client.auth_account_logout().await.unwrap();
-        assert!(outcome.ok);
         assert!(outcome.revoked);
 
         let raw = capture.await.unwrap();

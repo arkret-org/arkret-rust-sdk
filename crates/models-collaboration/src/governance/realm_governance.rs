@@ -423,7 +423,6 @@ pub struct RealmEffectivePolicyOutcome {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmLifecycleView {
-    pub ok: bool,
     pub realm_id: RealmId,
     pub owner_id: DidCoreId,
     #[serde(default)]

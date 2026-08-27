@@ -210,7 +210,7 @@ impl OperationBinding {
             preference: 100,
             request_schema_ref: descriptor.request_schema_ref.map(str::to_owned),
             response_schema_ref: descriptor.response_schema_ref.map(str::to_owned),
-            error_schema_ref: Some("schemas/http-error-envelope.schema.json".to_owned()),
+            error_schema_ref: Some("schemas/http-problem-details.schema.json".to_owned()),
             success_shape_kind,
         })
     }

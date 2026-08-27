@@ -244,28 +244,174 @@ impl ErrorDetail {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+/// Compatibility-facing Rust representation for Arkret HTTP failures.
+///
+/// The public fields remain available during the source migration, but its
+/// serde implementation is RFC 9457 only: no legacy `{ok,error,request_id}`
+/// JSON is accepted or emitted.
+#[derive(Clone, Debug, PartialEq)]
 pub struct ErrorEnvelope {
     pub ok: bool,
     pub error: ErrorDetail,
     pub request_id: String,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+/// Canonical RFC 9457 Problem Details wire object.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Problem {
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
-    pub problem_type: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub title: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub status: Option<u16>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub detail: Option<String>,
+    #[serde(rename = "type")]
+    pub problem_type: String,
+    pub title: String,
+    pub status: u16,
+    pub detail: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instance: Option<String>,
     #[serde(default, flatten)]
-    pub extra: BTreeMap<String, Value>,
+    pub extensions: BTreeMap<String, Value>,
+}
+
+#[cfg(feature = "openapi")]
+impl salvo_oapi::ToSchema for Problem {
+    fn to_schema(
+        _components: &mut salvo_oapi::Components,
+    ) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {
+        use salvo_oapi::schema::{BasicType, Object};
+
+        let string = || Object::new().schema_type(BasicType::String);
+        Object::new()
+            .property("type", string())
+            .property("title", string())
+            .property("status", Object::new().schema_type(BasicType::Integer))
+            .property("detail", string())
+            .property("instance", string())
+            .required("type")
+            .required("title")
+            .required("status")
+            .required("detail")
+            .additional_properties(Object::new())
+            .into()
+    }
+}
+
+#[cfg(feature = "openapi")]
+impl salvo_oapi::ComposeSchema for Problem {
+    fn compose(
+        components: &mut salvo_oapi::Components,
+        _generics: Vec<salvo_oapi::RefOr<salvo_oapi::schema::Schema>>,
+    ) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {
+        <Self as salvo_oapi::ToSchema>::to_schema(components)
+    }
+}
+
+const PROBLEM_TYPE_BASE: &str = "https://arkret.org/problems/";
+
+fn problem_title(code: &str) -> String {
+    let mut title = code.replace('_', " ");
+    if let Some(first) = title.get_mut(0..1) {
+        first.make_ascii_uppercase();
+    }
+    title
+}
+
+impl Problem {
+    pub fn new(code: impl Into<String>, status: u16, detail: impl Into<String>) -> Self {
+        let code = code.into();
+        let registered = crate::error_codes::ErrorCode::from_wire(&code);
+        let problem_type = registered.map_or_else(
+            || {
+                if code.starts_with("https://") || code.starts_with("http://") {
+                    code.clone()
+                } else {
+                    format!("{PROBLEM_TYPE_BASE}{code}")
+                }
+            },
+            |entry| entry.type_uri().to_owned(),
+        );
+        Self {
+            problem_type,
+            title: registered
+                .map_or_else(|| problem_title(&code), |entry| entry.title().to_owned()),
+            status,
+            detail: detail.into(),
+            instance: None,
+            extensions: BTreeMap::new(),
+        }
+    }
+
+    pub fn code(&self) -> &str {
+        self.problem_type
+            .strip_prefix(PROBLEM_TYPE_BASE)
+            .unwrap_or(&self.problem_type)
+    }
+
+    pub fn with_instance(mut self, instance: impl Into<String>) -> Self {
+        self.instance = Some(instance.into());
+        self
+    }
+
+    pub fn with_extension(mut self, key: impl Into<String>, value: Value) -> Self {
+        self.extensions.insert(key.into(), value);
+        self
+    }
+
+    pub fn from_error_envelope(envelope: &ErrorEnvelope, status: u16) -> Self {
+        let mut problem = Self::new(envelope.code(), status, envelope.message());
+        if envelope.request_id != "unknown" && !envelope.request_id.is_empty() {
+            problem.instance = Some(envelope.request_id.clone());
+        }
+        problem.extensions = envelope.error.details.clone();
+        if let Some(retry_after_ms) = envelope.error.retry_after_ms {
+            problem.extensions.insert(
+                "retry_after_ms".to_owned(),
+                Value::Number(retry_after_ms.into()),
+            );
+        }
+        problem
+    }
+}
+
+impl Serialize for ErrorEnvelope {
+    fn serialize<S>(&self, serializer: S) -> StdResult<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let status = self
+            .error
+            .error_code()
+            .map(crate::error_codes::ErrorCode::http_status)
+            .unwrap_or(500);
+        Problem::from_error_envelope(self, status).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for ErrorEnvelope {
+    fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let mut problem = Problem::deserialize(deserializer)?;
+        let retry_after_ms = match problem.extensions.remove("retry_after_ms") {
+            Some(Value::Number(value)) => value.as_u64().ok_or_else(|| {
+                serde::de::Error::custom("retry_after_ms must be a non-negative integer")
+            })?,
+            Some(_) => {
+                return Err(serde::de::Error::custom(
+                    "retry_after_ms must be a non-negative integer",
+                ));
+            }
+            None => 0,
+        };
+        Ok(Self {
+            ok: false,
+            error: ErrorDetail {
+                code: problem.code().to_owned(),
+                message: problem.detail,
+                retry_after_ms: (retry_after_ms != 0).then_some(retry_after_ms),
+                details: problem.extensions,
+            },
+            request_id: problem.instance.unwrap_or_else(|| "unknown".to_owned()),
+        })
+    }
 }
 
 impl ErrorEnvelope {
@@ -372,8 +518,12 @@ mod tests {
             Some(details)
         );
         assert_eq!(
-            serde_json::to_value(&envelope).unwrap()["error"]["details"],
+            serde_json::to_value(&envelope).unwrap(),
             json!({
+                "type": "https://arkret.org/problems/claim_required",
+                "title": "Claim required",
+                "status": 403,
+                "detail": "controller approval required",
                 "reason_code": "human_approval_required",
                 "approval_request_id": "approval-opaque-01",
             })
@@ -422,7 +572,7 @@ mod tests {
     }
 
     #[test]
-    fn error_envelope_serializes_to_spec_canonical_shape() {
+    fn compatibility_envelope_serializes_to_rfc_9457_shape() {
         let envelope = ErrorEnvelope::new("capability_denied", "session grant is revoked")
             .with_request_id("ak:request:test")
             .with_retry_after_ms(None);
@@ -430,14 +580,37 @@ mod tests {
         assert_eq!(
             serde_json::to_value(envelope).unwrap(),
             json!({
-                "ok": false,
-                "error": {
-                    "code": "capability_denied",
-                    "message": "session grant is revoked"
-                },
-                "request_id": "ak:request:test"
+                "type": "https://arkret.org/problems/capability_denied",
+                "title": "Capability denied",
+                "status": 403,
+                "detail": "session grant is revoked",
+                "instance": "ak:request:test"
             })
         );
+    }
+
+    #[test]
+    fn compatibility_envelope_rejects_legacy_wire_and_accepts_problem_details() {
+        assert!(
+            serde_json::from_value::<ErrorEnvelope>(json!({
+                "ok": false,
+                "error": {"code": "not_found", "message": "not found"}
+            }))
+            .is_err()
+        );
+
+        let decoded = serde_json::from_value::<ErrorEnvelope>(json!({
+            "type": "https://arkret.org/problems/not_found",
+            "title": "Not found",
+            "status": 404,
+            "detail": "not found",
+            "instance": "ak:request:test",
+            "reason_code": "hidden"
+        }))
+        .unwrap();
+        assert_eq!(decoded.code(), "not_found");
+        assert_eq!(decoded.request_id, "ak:request:test");
+        assert_eq!(decoded.details()["reason_code"], "hidden");
     }
 
     #[test]

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/digest-suite-registry.json; version=2026-08-18;
-//! sha256=7b9f5368e30cebd43c509db7815b9a01681f8cf11147600f6be16bddcc74657f Entries: active=2
+//! Input: registry/digest-suite-registry.json; version=2026-08-18; sha256=8158db89e76f82d05f68535dd92f3f43cf5176e6144cb871972772ceafd6510b
+//! Entries: active=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
@@ -11,9 +11,7 @@ pub enum DigestSuiteCode {
 }
 
 impl DigestSuiteCode {
-    pub const fn as_u8(self) -> u8 {
-        self as u8
-    }
+    pub const fn as_u8(self) -> u8 { self as u8 }
 
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -50,3 +48,4 @@ impl TryFrom<u8> for DigestSuiteCode {
         }
     }
 }
+

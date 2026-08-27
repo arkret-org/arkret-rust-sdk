@@ -367,7 +367,6 @@ pub enum AgentKeyPairActivationState {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentKeyPairOutcome {
-    pub ok: bool,
     pub activation_state: AgentKeyPairActivationState,
     pub authorize_event_ref: EventId,
     pub signing_key_binding: AgentSigningKeyBinding,
@@ -416,7 +415,6 @@ pub struct AgentRuntimeApprovalControllerProjection {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentRuntimeApprovalOutcome {
-    pub ok: bool,
     pub approval_request_id: OpaqueLocalId,
     pub status: AgentLifecycleState,
 }
@@ -445,7 +443,6 @@ pub struct AgentRuntimeApprovalStatusRequestBody {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentRuntimeApprovalStatusOutcome {
-    pub ok: bool,
     pub status: AgentLifecycleState,
     pub runtime_state: AgentRuntimeState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -794,7 +791,6 @@ impl AgentLifecycleState {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentLifecycleOutcome {
-    pub ok: bool,
     pub status: AgentLifecycleState,
 }
 
@@ -925,7 +921,6 @@ impl AgentGrantAttachRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentGrantAttachOutcome {
-    pub ok: bool,
     pub grant_id: GrantId,
 }
 
@@ -998,7 +993,6 @@ impl AgentGrantDetachRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentGrantDetachOutcome {
-    pub ok: bool,
     #[serde(with = "canonical_timestamp")]
     pub revoked_at: DateTime<Utc>,
 }

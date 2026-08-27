@@ -233,7 +233,6 @@ pub struct AccountDataList {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataDeleteOutcome {
-    pub ok: bool,
     pub account_data_key: String,
     pub revision: u64,
 }

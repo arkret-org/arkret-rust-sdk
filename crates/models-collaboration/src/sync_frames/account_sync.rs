@@ -949,10 +949,7 @@ impl Serialize for MlsWelcomeProjectedDeviceMessage {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DeviceMessagesSendOutcome {
-    pub ok: bool,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub delivered: BTreeMap<String, Value>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub unknown_devices: BTreeMap<String, Value>,
 }
 
@@ -982,9 +979,7 @@ pub struct DeviceMessagesAckRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DeviceMessagesAckOutcome {
-    pub ok: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pruned_count: Option<u64>,
+    pub pruned_count: u64,
 }
 
 #[cfg(test)]

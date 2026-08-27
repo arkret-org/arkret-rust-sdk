@@ -352,7 +352,6 @@ fn lifecycle_optional_timestamps_pass_spec_schemas() {
         SchemaId::REALM_READ_OPERATIONS_V1
     );
     let mut view = arkret_models_collaboration::governance::realm_governance::RealmLifecycleView {
-        ok: true,
         realm_id: RealmId::new("ak:realm:ARkAfriCBkEJNgK9UxfUciMBt-L3mtRcFLO8ICOBW_9K").unwrap(),
         owner_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
         members: vec![DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap()],

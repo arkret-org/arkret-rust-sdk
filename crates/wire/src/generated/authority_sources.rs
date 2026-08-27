@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/authority-source-registry.json; version=2026-08-26.3;
-//! sha256=229d7ec338b2591a8c88e7ccbd529eb46957c4b481bb8b95cf9821a31b77847e Entries: registered=4
+//! Input: registry/authority-source-registry.json; version=2026-08-26.3; sha256=229d7ec338b2591a8c88e7ccbd529eb46957c4b481bb8b95cf9821a31b77847e
+//! Entries: registered=4
 
 use serde::{Deserialize, Serialize};
 
@@ -21,13 +21,10 @@ impl AuthoritySourceId {
         Self::SidecarParentBootstrapV1,
     ];
 
-    pub const DIRECT_CONVERSATION_PARTICIPANT_V1: &'static str =
-        "ak.authority.direct_conversation_participant.v1";
-    pub const DIRECT_CONVERSATION_REPAIR_V1: &'static str =
-        "ak.authority.direct_conversation_repair.v1";
+    pub const DIRECT_CONVERSATION_PARTICIPANT_V1: &'static str = "ak.authority.direct_conversation_participant.v1";
+    pub const DIRECT_CONVERSATION_REPAIR_V1: &'static str = "ak.authority.direct_conversation_repair.v1";
     pub const MEMBERSHIP_COMPENSATION_V1: &'static str = "ak.authority.membership_compensation.v1";
-    pub const SIDECAR_PARENT_BOOTSTRAP_V1: &'static str =
-        "ak.authority.sidecar_parent_bootstrap.v1";
+    pub const SIDECAR_PARENT_BOOTSTRAP_V1: &'static str = "ak.authority.sidecar_parent_bootstrap.v1";
 
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -56,15 +53,21 @@ impl std::fmt::Display for AuthoritySourceId {
 }
 
 impl Serialize for AuthoritySourceId {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(self.as_str())
     }
 }
 
 impl<'de> Deserialize<'de> for AuthoritySourceId {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Self, D::Error> {
         let raw = String::deserialize(deserializer)?;
-        Self::from_wire(&raw)
-            .ok_or_else(|| serde::de::Error::custom(format!("unknown authority source id: {raw}")))
+        Self::from_wire(&raw).ok_or_else(|| {
+            serde::de::Error::custom(format!("unknown authority source id: {raw}"))
+        })
     }
 }

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-27.2;
-//! sha256=a4acbd8c1192d1883897ac66d2acf06487c78dd8a5f793334d50fcc6cd40b313 Entries: error_codes=284
+//! Input: registry/error-code-registry.json; version=2026-08-27.3; sha256=c6047e89fe0f3a2f612ccb9000616055cf571141d6055579a360acae49ee715a
+//! Entries: error_codes=284
 
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +13,10 @@ pub enum ErrorStatusContext {
 }
 
 impl ErrorStatusContext {
-    pub const ALL: &'static [Self] = &[Self::ProtectedResource, Self::SessionIssuanceOrRefresh];
+    pub const ALL: &'static [Self] = &[
+        Self::ProtectedResource,
+        Self::SessionIssuanceOrRefresh,
+    ];
 
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -322,6 +325,8 @@ pub enum ErrorCode {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ErrorCodeDescriptor {
     pub code: ErrorCode,
+    pub type_uri: &'static str,
+    pub title: &'static str,
     pub http_status: u16,
     pub http_status_by_context: &'static [(ErrorStatusContext, u16)],
     pub scope: &'static str,
@@ -627,8 +632,7 @@ impl ErrorCode {
     pub const AGENT_AUTHORIZATION_CONFLICTED: &'static str = "agent_authorization_conflicted";
     pub const AGENT_AUTHORIZATION_INACTIVE: &'static str = "agent_authorization_inactive";
     pub const AGENT_MLS_LEAF_BINDING_MISMATCH: &'static str = "agent_mls_leaf_binding_mismatch";
-    pub const AGENT_PROVISION_FANOUT_UNAVAILABLE: &'static str =
-        "agent_provision_fanout_unavailable";
+    pub const AGENT_PROVISION_FANOUT_UNAVAILABLE: &'static str = "agent_provision_fanout_unavailable";
     pub const AGENT_SIGNER_EVIDENCE_MISSING: &'static str = "agent_signer_evidence_missing";
     pub const AGENT_SIGNER_EVIDENCE_STALE: &'static str = "agent_signer_evidence_stale";
     pub const AGENT_SIGNING_KEY_MISMATCH: &'static str = "agent_signing_key_mismatch";
@@ -636,19 +640,14 @@ impl ErrorCode {
     pub const APPLET_E2EE_JOIN_UNAUTHORIZED: &'static str = "applet_e2ee_join_unauthorized";
     pub const APPLET_EFFECTIVE_SCOPE_MISMATCH: &'static str = "applet_effective_scope_mismatch";
     pub const APPLET_INSTALL_PLAN_MISMATCH: &'static str = "applet_install_plan_mismatch";
-    pub const APPLET_INSTALL_PROJECTION_INCOMPLETE: &'static str =
-        "applet_install_projection_incomplete";
+    pub const APPLET_INSTALL_PROJECTION_INCOMPLETE: &'static str = "applet_install_projection_incomplete";
     pub const APPLET_INSTALL_REQUIRED: &'static str = "applet_install_required";
     pub const APPLET_NAMESPACE_CONFLICT: &'static str = "applet_namespace_conflict";
     pub const APPLET_PACKAGE_EXPIRED: &'static str = "applet_package_expired";
-    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_DEACTIVATED: &'static str =
-        "applet_registration_epoch_evidence_deactivated";
-    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_MISMATCH: &'static str =
-        "applet_registration_epoch_evidence_mismatch";
-    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_MISSING: &'static str =
-        "applet_registration_epoch_evidence_missing";
-    pub const APPLET_REGISTRATION_EPOCH_SIGNING_KEY_MISMATCH: &'static str =
-        "applet_registration_epoch_signing_key_mismatch";
+    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_DEACTIVATED: &'static str = "applet_registration_epoch_evidence_deactivated";
+    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_MISMATCH: &'static str = "applet_registration_epoch_evidence_mismatch";
+    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_MISSING: &'static str = "applet_registration_epoch_evidence_missing";
+    pub const APPLET_REGISTRATION_EPOCH_SIGNING_KEY_MISMATCH: &'static str = "applet_registration_epoch_signing_key_mismatch";
     pub const APPLET_REGISTRATION_UNAUTHORIZED: &'static str = "applet_registration_unauthorized";
     pub const APPLET_REVOKED: &'static str = "applet_revoked";
     pub const APPLET_TRANSACTION_IN_PROGRESS: &'static str = "applet_transaction_in_progress";
@@ -695,15 +694,12 @@ impl ErrorCode {
     pub const DEPENDENCY_MISSING: &'static str = "dependency_missing";
     pub const DEVICE_ALREADY_AUTHORIZED: &'static str = "device_already_authorized";
     pub const DEVICE_GENERATION_FENCED: &'static str = "device_generation_fenced";
-    pub const DEVICE_REANCHOR_AUTHORITY_MISMATCH: &'static str =
-        "device_reanchor_authority_mismatch";
-    pub const DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &'static str =
-        "device_reanchor_authorize_mismatch";
+    pub const DEVICE_REANCHOR_AUTHORITY_MISMATCH: &'static str = "device_reanchor_authority_mismatch";
+    pub const DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &'static str = "device_reanchor_authorize_mismatch";
     pub const DEVICE_REANCHOR_CONFLICT: &'static str = "device_reanchor_conflict";
     pub const DEVICE_REANCHOR_ENTRY_NOT_HEAD: &'static str = "device_reanchor_entry_not_head";
     pub const DEVICE_REANCHOR_FRONTIER_MISMATCH: &'static str = "device_reanchor_frontier_mismatch";
-    pub const DEVICE_RECOVERY_GENERATION_MISMATCH: &'static str =
-        "device_recovery_generation_mismatch";
+    pub const DEVICE_RECOVERY_GENERATION_MISMATCH: &'static str = "device_recovery_generation_mismatch";
     pub const DEVICE_REVOCATION_PENDING: &'static str = "device_revocation_pending";
     pub const DEVICE_REVOKED: &'static str = "device_revoked";
     pub const DEVICE_UNAUTHORIZED: &'static str = "device_unauthorized";
@@ -716,16 +712,14 @@ impl ErrorCode {
     pub const DID_UNKNOWN: &'static str = "did_unknown";
     pub const DIGEST_MISMATCH: &'static str = "digest_mismatch";
     pub const DIRECT_CONVERSATION_UNAVAILABLE: &'static str = "direct_conversation_unavailable";
-    pub const DIRECTORY_GOVERNANCE_PROOF_SIGNATURE_INVALID: &'static str =
-        "directory_governance_proof_signature_invalid";
+    pub const DIRECTORY_GOVERNANCE_PROOF_SIGNATURE_INVALID: &'static str = "directory_governance_proof_signature_invalid";
     pub const DIRECTORY_UNAUTHORIZED: &'static str = "directory_unauthorized";
     pub const DISCOVERY_FAILED: &'static str = "discovery_failed";
     pub const DISCUSSION_TRACK_DISABLED: &'static str = "discussion_track_disabled";
     pub const DUPLICATE_CLAUSE_CLAIM: &'static str = "duplicate_clause_claim";
     pub const DUPLICATE_CONFLICT: &'static str = "duplicate_conflict";
     pub const E2EE_REQUIRED: &'static str = "e2ee_required";
-    pub const ENCLAVE_NO_UPSTREAM_PROXY_FOR_EXTERNAL: &'static str =
-        "enclave_no_upstream_proxy_for_external";
+    pub const ENCLAVE_NO_UPSTREAM_PROXY_FOR_EXTERNAL: &'static str = "enclave_no_upstream_proxy_for_external";
     pub const ENCLAVE_NOT_TRUSTED: &'static str = "enclave_not_trusted";
     pub const EPOCH_MISMATCH: &'static str = "epoch_mismatch";
     pub const EXTERNAL_INVITE_ACTOR_MISMATCH: &'static str = "external_invite_actor_mismatch";
@@ -736,8 +730,7 @@ impl ErrorCode {
     pub const FEDERATION_ACTOR_ORIGIN_DENIED: &'static str = "federation_actor_origin_denied";
     pub const FEDERATION_INTEROP_TRACK_ONLY: &'static str = "federation_interop_track_only";
     pub const FEDERATION_ORIGIN_DENIED: &'static str = "federation_origin_denied";
-    pub const FEDERATION_PRIVATE_READ_RAIL_LOCAL_ONLY: &'static str =
-        "federation_private_read_rail_local_only";
+    pub const FEDERATION_PRIVATE_READ_RAIL_LOCAL_ONLY: &'static str = "federation_private_read_rail_local_only";
     pub const FIRST_BACKUP_GATE_UNSATISFIED: &'static str = "first_backup_gate_unsatisfied";
     pub const FRANKING_PROOF_UNAVAILABLE: &'static str = "franking_proof_unavailable";
     pub const FRANKING_TAMPERED: &'static str = "franking_tampered";
@@ -774,10 +767,8 @@ impl ErrorCode {
     pub const MIMI_ROOM_BINDING_EVENT_INVALID: &'static str = "mimi_room_binding_event_invalid";
     pub const MLS_GENESIS_ALREADY_EXISTS: &'static str = "mls_genesis_already_exists";
     pub const MLS_GOVERNANCE_ANCHOR_UNREACHABLE: &'static str = "mls_governance_anchor_unreachable";
-    pub const MLS_GOVERNANCE_PROOF_BOUNDS_EXCEEDED: &'static str =
-        "mls_governance_proof_bounds_exceeded";
-    pub const MLS_KEYPACKAGE_CLAIM_REQUEST_EXPIRED: &'static str =
-        "mls_keypackage_claim_request_expired";
+    pub const MLS_GOVERNANCE_PROOF_BOUNDS_EXCEEDED: &'static str = "mls_governance_proof_bounds_exceeded";
+    pub const MLS_KEYPACKAGE_CLAIM_REQUEST_EXPIRED: &'static str = "mls_keypackage_claim_request_expired";
     pub const MORPH_KIND_IMMUTABLE: &'static str = "morph_kind_immutable";
     pub const MORPH_PROFILE_WIDENS_SCHEMA_REF: &'static str = "morph_profile_widens_schema_ref";
     pub const NOT_FOUND: &'static str = "not_found";
@@ -785,12 +776,9 @@ impl ErrorCode {
     pub const NOT_MEMBER: &'static str = "not_member";
     pub const NOTARY_RECOVERY_MISSING: &'static str = "notary_recovery_missing";
     pub const ONE_TIME_KEYS_EXHAUSTED: &'static str = "one_time_keys_exhausted";
-    pub const ORGANIZATION_REGISTRATION_CHALLENGE_INVALID: &'static str =
-        "organization_registration_challenge_invalid";
-    pub const ORGANIZATION_REGISTRATION_CONTROL_PROOF_INVALID: &'static str =
-        "organization_registration_control_proof_invalid";
-    pub const ORGANIZATION_REGISTRATION_QUORUM_NOT_MET: &'static str =
-        "organization_registration_quorum_not_met";
+    pub const ORGANIZATION_REGISTRATION_CHALLENGE_INVALID: &'static str = "organization_registration_challenge_invalid";
+    pub const ORGANIZATION_REGISTRATION_CONTROL_PROOF_INVALID: &'static str = "organization_registration_control_proof_invalid";
+    pub const ORGANIZATION_REGISTRATION_QUORUM_NOT_MET: &'static str = "organization_registration_quorum_not_met";
     pub const ORGANIZATION_REGISTRATION_REVOKED: &'static str = "organization_registration_revoked";
     pub const ORGANIZATION_REGISTRATION_STALE: &'static str = "organization_registration_stale";
     pub const OVERBROAD_REQUEST: &'static str = "overbroad_request";
@@ -822,40 +810,29 @@ impl ErrorCode {
     pub const QUOTA_EXCEEDED: &'static str = "quota_exceeded";
     pub const RANK_EXHAUSTED: &'static str = "rank_exhausted";
     pub const RATE_LIMITED: &'static str = "rate_limited";
-    pub const READ_RECEIPT_COMPLIANCE_FLOOR_VIOLATED: &'static str =
-        "read_receipt_compliance_floor_violated";
+    pub const READ_RECEIPT_COMPLIANCE_FLOOR_VIOLATED: &'static str = "read_receipt_compliance_floor_violated";
     pub const REALM_FEDERATION_POLICY_CLOSED: &'static str = "realm_federation_policy_closed";
     pub const REALM_FEDERATION_POLICY_INVALID: &'static str = "realm_federation_policy_invalid";
-    pub const REALM_FEDERATION_POLICY_QUARANTINE: &'static str =
-        "realm_federation_policy_quarantine";
-    pub const REALM_FEDERATION_POLICY_RESTRICTED: &'static str =
-        "realm_federation_policy_restricted";
+    pub const REALM_FEDERATION_POLICY_QUARANTINE: &'static str = "realm_federation_policy_quarantine";
+    pub const REALM_FEDERATION_POLICY_RESTRICTED: &'static str = "realm_federation_policy_restricted";
     pub const REALM_FROZEN: &'static str = "realm_frozen";
     pub const REALM_MODERATION_POLICY_DENIED: &'static str = "realm_moderation_policy_denied";
     pub const REAUTHENTICATION_REQUIRED: &'static str = "reauthentication_required";
     pub const RECORDING_DENIED: &'static str = "recording_denied";
-    pub const RECOVERY_AUTHORIZATION_DEVICE_MISMATCH: &'static str =
-        "recovery_authorization_device_mismatch";
-    pub const RECOVERY_AUTHORIZATION_PRINCIPAL_MISMATCH: &'static str =
-        "recovery_authorization_principal_mismatch";
-    pub const RECOVERY_AUTHORIZATION_SESSION_MISMATCH: &'static str =
-        "recovery_authorization_session_mismatch";
-    pub const RECOVERY_CONTROL_EVENT_KIND_MISMATCH: &'static str =
-        "recovery_control_event_kind_mismatch";
+    pub const RECOVERY_AUTHORIZATION_DEVICE_MISMATCH: &'static str = "recovery_authorization_device_mismatch";
+    pub const RECOVERY_AUTHORIZATION_PRINCIPAL_MISMATCH: &'static str = "recovery_authorization_principal_mismatch";
+    pub const RECOVERY_AUTHORIZATION_SESSION_MISMATCH: &'static str = "recovery_authorization_session_mismatch";
+    pub const RECOVERY_CONTROL_EVENT_KIND_MISMATCH: &'static str = "recovery_control_event_kind_mismatch";
     pub const RECOVERY_CONTROL_EVENT_NOT_FOUND: &'static str = "recovery_control_event_not_found";
-    pub const RECOVERY_LIST_UPDATE_DEVICE_MISMATCH: &'static str =
-        "recovery_list_update_device_mismatch";
-    pub const RECOVERY_LIST_UPDATE_PRINCIPAL_MISMATCH: &'static str =
-        "recovery_list_update_principal_mismatch";
+    pub const RECOVERY_LIST_UPDATE_DEVICE_MISMATCH: &'static str = "recovery_list_update_device_mismatch";
+    pub const RECOVERY_LIST_UPDATE_PRINCIPAL_MISMATCH: &'static str = "recovery_list_update_principal_mismatch";
     pub const RECOVERY_POLICY_CONFLICT: &'static str = "recovery_policy_conflict";
-    pub const RECOVERY_POLICY_DEVICE_UNAUTHORIZED: &'static str =
-        "recovery_policy_device_unauthorized";
+    pub const RECOVERY_POLICY_DEVICE_UNAUTHORIZED: &'static str = "recovery_policy_device_unauthorized";
     pub const RECOVERY_POLICY_ID_MISMATCH: &'static str = "recovery_policy_id_mismatch";
     pub const RECOVERY_POLICY_MISMATCH: &'static str = "recovery_policy_mismatch";
     pub const RECOVERY_POLICY_MISSING: &'static str = "recovery_policy_missing";
     pub const RECOVERY_POLICY_REVOKED: &'static str = "recovery_policy_revoked";
-    pub const RECOVERY_POLICY_TRUST_DOMAIN_MISMATCH: &'static str =
-        "recovery_policy_trust_domain_mismatch";
+    pub const RECOVERY_POLICY_TRUST_DOMAIN_MISMATCH: &'static str = "recovery_policy_trust_domain_mismatch";
     pub const RECOVERY_POLICY_VERSION_MISMATCH: &'static str = "recovery_policy_version_mismatch";
     pub const RECOVERY_PROOF_AUTHORITY_INVALID: &'static str = "recovery_proof_authority_invalid";
     pub const RECOVERY_PROOF_KIND_NOT_ALLOWED: &'static str = "recovery_proof_kind_not_allowed";
@@ -874,15 +851,13 @@ impl ErrorCode {
     pub const SEAL_SIGNER_UNAUTHORIZED: &'static str = "seal_signer_unauthorized";
     pub const SELECTOR_TOO_COMPLEX: &'static str = "selector_too_complex";
     pub const SERVICE_IDENTITY_CONFLICT: &'static str = "service_identity_conflict";
-    pub const SERVICE_IDENTITY_PROVIDER_UNAVAILABLE: &'static str =
-        "service_identity_provider_unavailable";
+    pub const SERVICE_IDENTITY_PROVIDER_UNAVAILABLE: &'static str = "service_identity_provider_unavailable";
     pub const SERVICE_IDENTITY_UNAVAILABLE: &'static str = "service_identity_unavailable";
     pub const SERVICE_REGISTRATION_DENIED: &'static str = "service_registration_denied";
     pub const SERVICE_UNAVAILABLE: &'static str = "service_unavailable";
     pub const SESSION_GRANT_NOT_FOUND: &'static str = "session_grant_not_found";
     pub const SESSION_GRANT_REPLAY_EXPIRED: &'static str = "session_grant_replay_expired";
-    pub const SESSION_GRANT_REPLAY_INDETERMINATE: &'static str =
-        "session_grant_replay_indeterminate";
+    pub const SESSION_GRANT_REPLAY_INDETERMINATE: &'static str = "session_grant_replay_indeterminate";
     pub const SESSION_GRANT_REPLAY_TERMINAL: &'static str = "session_grant_replay_terminal";
     pub const SESSION_LOGGED_OUT: &'static str = "session_logged_out";
     pub const SESSION_REVOKE_SELECTOR_CONFLICT: &'static str = "session_revoke_selector_conflict";
@@ -923,8 +898,7 @@ impl ErrorCode {
     pub const UNSUPPORTED_LATTICE_TYPE: &'static str = "unsupported_lattice_type";
     pub const UNSUPPORTED_MEDIA_POLICY: &'static str = "unsupported_media_policy";
     pub const UNSUPPORTED_OPERATION_BINDING: &'static str = "unsupported_operation_binding";
-    pub const UNSUPPORTED_ORGANIZATION_REGISTRATION_SCOPE: &'static str =
-        "unsupported_organization_registration_scope";
+    pub const UNSUPPORTED_ORGANIZATION_REGISTRATION_SCOPE: &'static str = "unsupported_organization_registration_scope";
     pub const UNSUPPORTED_PROFILE: &'static str = "unsupported_profile";
     pub const UNSUPPORTED_PROFILE_PATCH_PATH: &'static str = "unsupported_profile_patch_path";
     pub const UNSUPPORTED_PROOF_PROFILE: &'static str = "unsupported_proof_profile";
@@ -957,18 +931,10 @@ impl ErrorCode {
             Self::AppletInstallRequired => "applet_install_required",
             Self::AppletNamespaceConflict => "applet_namespace_conflict",
             Self::AppletPackageExpired => "applet_package_expired",
-            Self::AppletRegistrationEpochEvidenceDeactivated => {
-                "applet_registration_epoch_evidence_deactivated"
-            }
-            Self::AppletRegistrationEpochEvidenceMismatch => {
-                "applet_registration_epoch_evidence_mismatch"
-            }
-            Self::AppletRegistrationEpochEvidenceMissing => {
-                "applet_registration_epoch_evidence_missing"
-            }
-            Self::AppletRegistrationEpochSigningKeyMismatch => {
-                "applet_registration_epoch_signing_key_mismatch"
-            }
+            Self::AppletRegistrationEpochEvidenceDeactivated => "applet_registration_epoch_evidence_deactivated",
+            Self::AppletRegistrationEpochEvidenceMismatch => "applet_registration_epoch_evidence_mismatch",
+            Self::AppletRegistrationEpochEvidenceMissing => "applet_registration_epoch_evidence_missing",
+            Self::AppletRegistrationEpochSigningKeyMismatch => "applet_registration_epoch_signing_key_mismatch",
             Self::AppletRegistrationUnauthorized => "applet_registration_unauthorized",
             Self::AppletRevoked => "applet_revoked",
             Self::AppletTransactionInProgress => "applet_transaction_in_progress",
@@ -1033,9 +999,7 @@ impl ErrorCode {
             Self::DidUnknown => "did_unknown",
             Self::DigestMismatch => "digest_mismatch",
             Self::DirectConversationUnavailable => "direct_conversation_unavailable",
-            Self::DirectoryGovernanceProofSignatureInvalid => {
-                "directory_governance_proof_signature_invalid"
-            }
+            Self::DirectoryGovernanceProofSignatureInvalid => "directory_governance_proof_signature_invalid",
             Self::DirectoryUnauthorized => "directory_unauthorized",
             Self::DiscoveryFailed => "discovery_failed",
             Self::DiscussionTrackDisabled => "discussion_track_disabled",
@@ -1099,15 +1063,9 @@ impl ErrorCode {
             Self::NotMember => "not_member",
             Self::NotaryRecoveryMissing => "notary_recovery_missing",
             Self::OneTimeKeysExhausted => "one_time_keys_exhausted",
-            Self::OrganizationRegistrationChallengeInvalid => {
-                "organization_registration_challenge_invalid"
-            }
-            Self::OrganizationRegistrationControlProofInvalid => {
-                "organization_registration_control_proof_invalid"
-            }
-            Self::OrganizationRegistrationQuorumNotMet => {
-                "organization_registration_quorum_not_met"
-            }
+            Self::OrganizationRegistrationChallengeInvalid => "organization_registration_challenge_invalid",
+            Self::OrganizationRegistrationControlProofInvalid => "organization_registration_control_proof_invalid",
+            Self::OrganizationRegistrationQuorumNotMet => "organization_registration_quorum_not_met",
             Self::OrganizationRegistrationRevoked => "organization_registration_revoked",
             Self::OrganizationRegistrationStale => "organization_registration_stale",
             Self::OverbroadRequest => "overbroad_request",
@@ -1149,9 +1107,7 @@ impl ErrorCode {
             Self::ReauthenticationRequired => "reauthentication_required",
             Self::RecordingDenied => "recording_denied",
             Self::RecoveryAuthorizationDeviceMismatch => "recovery_authorization_device_mismatch",
-            Self::RecoveryAuthorizationPrincipalMismatch => {
-                "recovery_authorization_principal_mismatch"
-            }
+            Self::RecoveryAuthorizationPrincipalMismatch => "recovery_authorization_principal_mismatch",
             Self::RecoveryAuthorizationSessionMismatch => "recovery_authorization_session_mismatch",
             Self::RecoveryControlEventKindMismatch => "recovery_control_event_kind_mismatch",
             Self::RecoveryControlEventNotFound => "recovery_control_event_not_found",
@@ -1229,9 +1185,7 @@ impl ErrorCode {
             Self::UnsupportedLatticeType => "unsupported_lattice_type",
             Self::UnsupportedMediaPolicy => "unsupported_media_policy",
             Self::UnsupportedOperationBinding => "unsupported_operation_binding",
-            Self::UnsupportedOrganizationRegistrationScope => {
-                "unsupported_organization_registration_scope"
-            }
+            Self::UnsupportedOrganizationRegistrationScope => "unsupported_organization_registration_scope",
             Self::UnsupportedProfile => "unsupported_profile",
             Self::UnsupportedProfilePatchPath => "unsupported_profile_patch_path",
             Self::UnsupportedProofProfile => "unsupported_proof_profile",
@@ -1266,18 +1220,10 @@ impl ErrorCode {
             "applet_install_required" => Some(Self::AppletInstallRequired),
             "applet_namespace_conflict" => Some(Self::AppletNamespaceConflict),
             "applet_package_expired" => Some(Self::AppletPackageExpired),
-            "applet_registration_epoch_evidence_deactivated" => {
-                Some(Self::AppletRegistrationEpochEvidenceDeactivated)
-            }
-            "applet_registration_epoch_evidence_mismatch" => {
-                Some(Self::AppletRegistrationEpochEvidenceMismatch)
-            }
-            "applet_registration_epoch_evidence_missing" => {
-                Some(Self::AppletRegistrationEpochEvidenceMissing)
-            }
-            "applet_registration_epoch_signing_key_mismatch" => {
-                Some(Self::AppletRegistrationEpochSigningKeyMismatch)
-            }
+            "applet_registration_epoch_evidence_deactivated" => Some(Self::AppletRegistrationEpochEvidenceDeactivated),
+            "applet_registration_epoch_evidence_mismatch" => Some(Self::AppletRegistrationEpochEvidenceMismatch),
+            "applet_registration_epoch_evidence_missing" => Some(Self::AppletRegistrationEpochEvidenceMissing),
+            "applet_registration_epoch_signing_key_mismatch" => Some(Self::AppletRegistrationEpochSigningKeyMismatch),
             "applet_registration_unauthorized" => Some(Self::AppletRegistrationUnauthorized),
             "applet_revoked" => Some(Self::AppletRevoked),
             "applet_transaction_in_progress" => Some(Self::AppletTransactionInProgress),
@@ -1342,18 +1288,14 @@ impl ErrorCode {
             "did_unknown" => Some(Self::DidUnknown),
             "digest_mismatch" => Some(Self::DigestMismatch),
             "direct_conversation_unavailable" => Some(Self::DirectConversationUnavailable),
-            "directory_governance_proof_signature_invalid" => {
-                Some(Self::DirectoryGovernanceProofSignatureInvalid)
-            }
+            "directory_governance_proof_signature_invalid" => Some(Self::DirectoryGovernanceProofSignatureInvalid),
             "directory_unauthorized" => Some(Self::DirectoryUnauthorized),
             "discovery_failed" => Some(Self::DiscoveryFailed),
             "discussion_track_disabled" => Some(Self::DiscussionTrackDisabled),
             "duplicate_clause_claim" => Some(Self::DuplicateClauseClaim),
             "duplicate_conflict" => Some(Self::DuplicateConflict),
             "e2ee_required" => Some(Self::E2eeRequired),
-            "enclave_no_upstream_proxy_for_external" => {
-                Some(Self::EnclaveNoUpstreamProxyForExternal)
-            }
+            "enclave_no_upstream_proxy_for_external" => Some(Self::EnclaveNoUpstreamProxyForExternal),
             "enclave_not_trusted" => Some(Self::EnclaveNotTrusted),
             "epoch_mismatch" => Some(Self::EpochMismatch),
             "external_invite_actor_mismatch" => Some(Self::ExternalInviteActorMismatch),
@@ -1364,9 +1306,7 @@ impl ErrorCode {
             "federation_actor_origin_denied" => Some(Self::FederationActorOriginDenied),
             "federation_interop_track_only" => Some(Self::FederationInteropTrackOnly),
             "federation_origin_denied" => Some(Self::FederationOriginDenied),
-            "federation_private_read_rail_local_only" => {
-                Some(Self::FederationPrivateReadRailLocalOnly)
-            }
+            "federation_private_read_rail_local_only" => Some(Self::FederationPrivateReadRailLocalOnly),
             "first_backup_gate_unsatisfied" => Some(Self::FirstBackupGateUnsatisfied),
             "franking_proof_unavailable" => Some(Self::FrankingProofUnavailable),
             "franking_tampered" => Some(Self::FrankingTampered),
@@ -1412,15 +1352,9 @@ impl ErrorCode {
             "not_member" => Some(Self::NotMember),
             "notary_recovery_missing" => Some(Self::NotaryRecoveryMissing),
             "one_time_keys_exhausted" => Some(Self::OneTimeKeysExhausted),
-            "organization_registration_challenge_invalid" => {
-                Some(Self::OrganizationRegistrationChallengeInvalid)
-            }
-            "organization_registration_control_proof_invalid" => {
-                Some(Self::OrganizationRegistrationControlProofInvalid)
-            }
-            "organization_registration_quorum_not_met" => {
-                Some(Self::OrganizationRegistrationQuorumNotMet)
-            }
+            "organization_registration_challenge_invalid" => Some(Self::OrganizationRegistrationChallengeInvalid),
+            "organization_registration_control_proof_invalid" => Some(Self::OrganizationRegistrationControlProofInvalid),
+            "organization_registration_quorum_not_met" => Some(Self::OrganizationRegistrationQuorumNotMet),
             "organization_registration_revoked" => Some(Self::OrganizationRegistrationRevoked),
             "organization_registration_stale" => Some(Self::OrganizationRegistrationStale),
             "overbroad_request" => Some(Self::OverbroadRequest),
@@ -1452,9 +1386,7 @@ impl ErrorCode {
             "quota_exceeded" => Some(Self::QuotaExceeded),
             "rank_exhausted" => Some(Self::RankExhausted),
             "rate_limited" => Some(Self::RateLimited),
-            "read_receipt_compliance_floor_violated" => {
-                Some(Self::ReadReceiptComplianceFloorViolated)
-            }
+            "read_receipt_compliance_floor_violated" => Some(Self::ReadReceiptComplianceFloorViolated),
             "realm_federation_policy_closed" => Some(Self::RealmFederationPolicyClosed),
             "realm_federation_policy_invalid" => Some(Self::RealmFederationPolicyInvalid),
             "realm_federation_policy_quarantine" => Some(Self::RealmFederationPolicyQuarantine),
@@ -1463,30 +1395,20 @@ impl ErrorCode {
             "realm_moderation_policy_denied" => Some(Self::RealmModerationPolicyDenied),
             "reauthentication_required" => Some(Self::ReauthenticationRequired),
             "recording_denied" => Some(Self::RecordingDenied),
-            "recovery_authorization_device_mismatch" => {
-                Some(Self::RecoveryAuthorizationDeviceMismatch)
-            }
-            "recovery_authorization_principal_mismatch" => {
-                Some(Self::RecoveryAuthorizationPrincipalMismatch)
-            }
-            "recovery_authorization_session_mismatch" => {
-                Some(Self::RecoveryAuthorizationSessionMismatch)
-            }
+            "recovery_authorization_device_mismatch" => Some(Self::RecoveryAuthorizationDeviceMismatch),
+            "recovery_authorization_principal_mismatch" => Some(Self::RecoveryAuthorizationPrincipalMismatch),
+            "recovery_authorization_session_mismatch" => Some(Self::RecoveryAuthorizationSessionMismatch),
             "recovery_control_event_kind_mismatch" => Some(Self::RecoveryControlEventKindMismatch),
             "recovery_control_event_not_found" => Some(Self::RecoveryControlEventNotFound),
             "recovery_list_update_device_mismatch" => Some(Self::RecoveryListUpdateDeviceMismatch),
-            "recovery_list_update_principal_mismatch" => {
-                Some(Self::RecoveryListUpdatePrincipalMismatch)
-            }
+            "recovery_list_update_principal_mismatch" => Some(Self::RecoveryListUpdatePrincipalMismatch),
             "recovery_policy_conflict" => Some(Self::RecoveryPolicyConflict),
             "recovery_policy_device_unauthorized" => Some(Self::RecoveryPolicyDeviceUnauthorized),
             "recovery_policy_id_mismatch" => Some(Self::RecoveryPolicyIdMismatch),
             "recovery_policy_mismatch" => Some(Self::RecoveryPolicyMismatch),
             "recovery_policy_missing" => Some(Self::RecoveryPolicyMissing),
             "recovery_policy_revoked" => Some(Self::RecoveryPolicyRevoked),
-            "recovery_policy_trust_domain_mismatch" => {
-                Some(Self::RecoveryPolicyTrustDomainMismatch)
-            }
+            "recovery_policy_trust_domain_mismatch" => Some(Self::RecoveryPolicyTrustDomainMismatch),
             "recovery_policy_version_mismatch" => Some(Self::RecoveryPolicyVersionMismatch),
             "recovery_proof_authority_invalid" => Some(Self::RecoveryProofAuthorityInvalid),
             "recovery_proof_kind_not_allowed" => Some(Self::RecoveryProofKindNotAllowed),
@@ -1505,9 +1427,7 @@ impl ErrorCode {
             "seal_signer_unauthorized" => Some(Self::SealSignerUnauthorized),
             "selector_too_complex" => Some(Self::SelectorTooComplex),
             "service_identity_conflict" => Some(Self::ServiceIdentityConflict),
-            "service_identity_provider_unavailable" => {
-                Some(Self::ServiceIdentityProviderUnavailable)
-            }
+            "service_identity_provider_unavailable" => Some(Self::ServiceIdentityProviderUnavailable),
             "service_identity_unavailable" => Some(Self::ServiceIdentityUnavailable),
             "service_registration_denied" => Some(Self::ServiceRegistrationDenied),
             "service_unavailable" => Some(Self::ServiceUnavailable),
@@ -1554,9 +1474,7 @@ impl ErrorCode {
             "unsupported_lattice_type" => Some(Self::UnsupportedLatticeType),
             "unsupported_media_policy" => Some(Self::UnsupportedMediaPolicy),
             "unsupported_operation_binding" => Some(Self::UnsupportedOperationBinding),
-            "unsupported_organization_registration_scope" => {
-                Some(Self::UnsupportedOrganizationRegistrationScope)
-            }
+            "unsupported_organization_registration_scope" => Some(Self::UnsupportedOrganizationRegistrationScope),
             "unsupported_profile" => Some(Self::UnsupportedProfile),
             "unsupported_profile_patch_path" => Some(Self::UnsupportedProfilePatchPath),
             "unsupported_proof_profile" => Some(Self::UnsupportedProofProfile),
@@ -1574,6 +1492,14 @@ impl ErrorCode {
 
     pub fn http_status(self) -> u16 {
         self.descriptor().http_status
+    }
+
+    pub fn type_uri(self) -> &'static str {
+        self.descriptor().type_uri
+    }
+
+    pub fn title(self) -> &'static str {
+        self.descriptor().title
     }
 
     pub fn http_status_in(self, context: ErrorStatusContext) -> u16 {
@@ -1595,6 +1521,8 @@ impl std::fmt::Display for ErrorCode {
 pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     ErrorCodeDescriptor {
         code: ErrorCode::AadDigestMismatch,
+        type_uri: "https://arkret.org/problems/aad_digest_mismatch",
+        title: "Aad digest mismatch",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -1603,6 +1531,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AcceptPolicyDenied,
+        type_uri: "https://arkret.org/problems/accept_policy_denied",
+        title: "Accept policy denied",
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
@@ -1611,17 +1541,18 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AccountDeactivated,
+        type_uri: "https://arkret.org/problems/account_deactivated",
+        title: "Account deactivated",
         http_status: 401,
-        http_status_by_context: &[
-            (ErrorStatusContext::ProtectedResource, 401),
-            (ErrorStatusContext::SessionIssuanceOrRefresh, 403),
-        ],
+        http_status_by_context: &[(ErrorStatusContext::ProtectedResource, 401), (ErrorStatusContext::SessionIssuanceOrRefresh, 403)],
         scope: "both",
         applies_to: &[],
         description: "The principal account is deactivated. Existing session grants are invalidated and protected requests MUST fail closed; new session issuance MAY surface the same code with a 403 policy-denial status.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AccountErased,
+        type_uri: "https://arkret.org/problems/account_erased",
+        title: "Account erased",
         http_status: 401,
         http_status_by_context: &[],
         scope: "both",
@@ -1630,17 +1561,18 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AccountLocked,
+        type_uri: "https://arkret.org/problems/account_locked",
+        title: "Account locked",
         http_status: 401,
-        http_status_by_context: &[
-            (ErrorStatusContext::ProtectedResource, 401),
-            (ErrorStatusContext::SessionIssuanceOrRefresh, 403),
-        ],
+        http_status_by_context: &[(ErrorStatusContext::ProtectedResource, 401), (ErrorStatusContext::SessionIssuanceOrRefresh, 403)],
         scope: "both",
         applies_to: &[],
         description: "The principal account is locked. Existing session grants are invalidated and protected requests MUST fail closed; new session issuance MAY surface the same code with a 403 policy-denial status.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AccountSuspended,
+        type_uri: "https://arkret.org/problems/account_suspended",
+        title: "Account suspended",
         http_status: 403,
         http_status_by_context: &[],
         scope: "both",
@@ -1649,6 +1581,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ActorSeqInvalid,
+        type_uri: "https://arkret.org/problems/actor_seq_invalid",
+        title: "Actor seq invalid",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -1657,6 +1591,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AgentAuthorizationConflicted,
+        type_uri: "https://arkret.org/problems/agent_authorization_conflicted",
+        title: "Agent authorization conflicted",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -1665,6 +1601,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AgentAuthorizationInactive,
+        type_uri: "https://arkret.org/problems/agent_authorization_inactive",
+        title: "Agent authorization inactive",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -1673,6 +1611,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AgentMlsLeafBindingMismatch,
+        type_uri: "https://arkret.org/problems/agent_mls_leaf_binding_mismatch",
+        title: "Agent mls leaf binding mismatch",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -1681,6 +1621,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AgentProvisionFanoutUnavailable,
+        type_uri: "https://arkret.org/problems/agent_provision_fanout_unavailable",
+        title: "Agent provision fanout unavailable",
         http_status: 501,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1689,6 +1631,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AgentSignerEvidenceMissing,
+        type_uri: "https://arkret.org/problems/agent_signer_evidence_missing",
+        title: "Agent signer evidence missing",
         http_status: 404,
         http_status_by_context: &[],
         scope: "both",
@@ -1697,6 +1641,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AgentSignerEvidenceStale,
+        type_uri: "https://arkret.org/problems/agent_signer_evidence_stale",
+        title: "Agent signer evidence stale",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -1705,6 +1651,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AgentSigningKeyMismatch,
+        type_uri: "https://arkret.org/problems/agent_signing_key_mismatch",
+        title: "Agent signing key mismatch",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -1713,6 +1661,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletAlreadyRegistered,
+        type_uri: "https://arkret.org/problems/applet_already_registered",
+        title: "Applet already registered",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1721,6 +1671,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletE2eeJoinUnauthorized,
+        type_uri: "https://arkret.org/problems/applet_e2ee_join_unauthorized",
+        title: "Applet e2ee join unauthorized",
         http_status: 403,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1729,6 +1681,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletEffectiveScopeMismatch,
+        type_uri: "https://arkret.org/problems/applet_effective_scope_mismatch",
+        title: "Applet effective scope mismatch",
         http_status: 404,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1737,6 +1691,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletInstallPlanMismatch,
+        type_uri: "https://arkret.org/problems/applet_install_plan_mismatch",
+        title: "Applet install plan mismatch",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1745,6 +1701,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletInstallProjectionIncomplete,
+        type_uri: "https://arkret.org/problems/applet_install_projection_incomplete",
+        title: "Applet install projection incomplete",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1753,6 +1711,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletInstallRequired,
+        type_uri: "https://arkret.org/problems/applet_install_required",
+        title: "Applet install required",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1761,6 +1721,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletNamespaceConflict,
+        type_uri: "https://arkret.org/problems/applet_namespace_conflict",
+        title: "Applet namespace conflict",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1769,6 +1731,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletPackageExpired,
+        type_uri: "https://arkret.org/problems/applet_package_expired",
+        title: "Applet package expired",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1777,6 +1741,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletRegistrationEpochEvidenceDeactivated,
+        type_uri: "https://arkret.org/problems/applet_registration_epoch_evidence_deactivated",
+        title: "Applet registration epoch evidence deactivated",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1785,6 +1751,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletRegistrationEpochEvidenceMismatch,
+        type_uri: "https://arkret.org/problems/applet_registration_epoch_evidence_mismatch",
+        title: "Applet registration epoch evidence mismatch",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1793,6 +1761,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletRegistrationEpochEvidenceMissing,
+        type_uri: "https://arkret.org/problems/applet_registration_epoch_evidence_missing",
+        title: "Applet registration epoch evidence missing",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1801,6 +1771,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletRegistrationEpochSigningKeyMismatch,
+        type_uri: "https://arkret.org/problems/applet_registration_epoch_signing_key_mismatch",
+        title: "Applet registration epoch signing key mismatch",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1809,6 +1781,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletRegistrationUnauthorized,
+        type_uri: "https://arkret.org/problems/applet_registration_unauthorized",
+        title: "Applet registration unauthorized",
         http_status: 403,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1817,6 +1791,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletRevoked,
+        type_uri: "https://arkret.org/problems/applet_revoked",
+        title: "Applet revoked",
         http_status: 403,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1825,6 +1801,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletTransactionInProgress,
+        type_uri: "https://arkret.org/problems/applet_transaction_in_progress",
+        title: "Applet transaction in progress",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1833,6 +1811,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AudienceMismatch,
+        type_uri: "https://arkret.org/problems/audience_mismatch",
+        title: "Audience mismatch",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1841,6 +1821,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AudienceUnknown,
+        type_uri: "https://arkret.org/problems/audience_unknown",
+        title: "Audience unknown",
         http_status: 404,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1849,6 +1831,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AuditReceiptInvalidated,
+        type_uri: "https://arkret.org/problems/audit_receipt_invalidated",
+        title: "Audit receipt invalidated",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -1857,6 +1841,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AuthExpired,
+        type_uri: "https://arkret.org/problems/auth_expired",
+        title: "Auth expired",
         http_status: 401,
         http_status_by_context: &[],
         scope: "both",
@@ -1865,6 +1851,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AuthoringRequestExpired,
+        type_uri: "https://arkret.org/problems/authoring_request_expired",
+        title: "Authoring request expired",
         http_status: 410,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1873,6 +1861,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AuthorizedGrantRevoked,
+        type_uri: "https://arkret.org/problems/authorized_grant_revoked",
+        title: "Authorized grant revoked",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -1881,6 +1871,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AvatarBlobRefInvalid,
+        type_uri: "https://arkret.org/problems/avatar_blob_ref_invalid",
+        title: "Avatar blob ref invalid",
         http_status: 422,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1889,6 +1881,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::BlobDigestMismatch,
+        type_uri: "https://arkret.org/problems/blob_digest_mismatch",
+        title: "Blob digest mismatch",
         http_status: 422,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1897,6 +1891,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::BlobExpired,
+        type_uri: "https://arkret.org/problems/blob_expired",
+        title: "Blob expired",
         http_status: 410,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1905,6 +1901,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::BlobPresignInvalid,
+        type_uri: "https://arkret.org/problems/blob_presign_invalid",
+        title: "Blob presign invalid",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1913,6 +1911,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::BlobQuotaExceeded,
+        type_uri: "https://arkret.org/problems/blob_quota_exceeded",
+        title: "Blob quota exceeded",
         http_status: 403,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1921,6 +1921,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CallAlreadyAnswered,
+        type_uri: "https://arkret.org/problems/call_already_answered",
+        title: "Call already answered",
         http_status: 409,
         http_status_by_context: &[],
         scope: "service_call",
@@ -1929,6 +1931,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CallExpired,
+        type_uri: "https://arkret.org/problems/call_expired",
+        title: "Call expired",
         http_status: 410,
         http_status_by_context: &[],
         scope: "service_call",
@@ -1937,6 +1941,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CallNotFound,
+        type_uri: "https://arkret.org/problems/call_not_found",
+        title: "Call not found",
         http_status: 404,
         http_status_by_context: &[],
         scope: "service_call",
@@ -1945,6 +1951,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CannotPairCurrentDevice,
+        type_uri: "https://arkret.org/problems/cannot_pair_current_device",
+        title: "Cannot pair current device",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1953,6 +1961,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CapabilityDenied,
+        type_uri: "https://arkret.org/problems/capability_denied",
+        title: "Capability denied",
         http_status: 403,
         http_status_by_context: &[],
         scope: "both",
@@ -1961,6 +1971,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CasConflict,
+        type_uri: "https://arkret.org/problems/cas_conflict",
+        title: "Cas conflict",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -1969,6 +1981,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CausalConflict,
+        type_uri: "https://arkret.org/problems/causal_conflict",
+        title: "Causal conflict",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -1977,6 +1991,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ClaimFailed,
+        type_uri: "https://arkret.org/problems/claim_failed",
+        title: "Claim failed",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -1985,6 +2001,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ClaimRequired,
+        type_uri: "https://arkret.org/problems/claim_required",
+        title: "Claim required",
         http_status: 403,
         http_status_by_context: &[],
         scope: "both",
@@ -1993,6 +2011,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::Conflict,
+        type_uri: "https://arkret.org/problems/conflict",
+        title: "Conflict",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2001,6 +2021,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ConsentRequired,
+        type_uri: "https://arkret.org/problems/consent_required",
+        title: "Consent required",
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
@@ -2009,6 +2031,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ContactLineageConflict,
+        type_uri: "https://arkret.org/problems/contact_lineage_conflict",
+        title: "Contact lineage conflict",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2017,6 +2041,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ContactRequestExpired,
+        type_uri: "https://arkret.org/problems/contact_request_expired",
+        title: "Contact request expired",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2025,6 +2051,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ContactRequestNotPending,
+        type_uri: "https://arkret.org/problems/contact_request_not_pending",
+        title: "Contact request not pending",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2033,6 +2061,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ContactScopeStale,
+        type_uri: "https://arkret.org/problems/contact_scope_stale",
+        title: "Contact scope stale",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2041,6 +2071,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ContinuityEvidenceUnavailable,
+        type_uri: "https://arkret.org/problems/continuity_evidence_unavailable",
+        title: "Continuity evidence unavailable",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2049,6 +2081,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ContinuityInvalid,
+        type_uri: "https://arkret.org/problems/continuity_invalid",
+        title: "Continuity invalid",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2057,6 +2091,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ControllerSignedEventRequired,
+        type_uri: "https://arkret.org/problems/controller_signed_event_required",
+        title: "Controller signed event required",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2065,6 +2101,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CredentialExpired,
+        type_uri: "https://arkret.org/problems/credential_expired",
+        title: "Credential expired",
         http_status: 410,
         http_status_by_context: &[],
         scope: "service_call",
@@ -2073,6 +2111,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CredentialNotFound,
+        type_uri: "https://arkret.org/problems/credential_not_found",
+        title: "Credential not found",
         http_status: 404,
         http_status_by_context: &[],
         scope: "service_call",
@@ -2081,6 +2121,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CurrentDidAuthorityUnavailable,
+        type_uri: "https://arkret.org/problems/current_did_authority_unavailable",
+        title: "Current did authority unavailable",
         http_status: 503,
         http_status_by_context: &[],
         scope: "both",
@@ -2089,6 +2131,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CursorExpired,
+        type_uri: "https://arkret.org/problems/cursor_expired",
+        title: "Cursor expired",
         http_status: 410,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2097,6 +2141,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CursorIntegrityInvalid,
+        type_uri: "https://arkret.org/problems/cursor_integrity_invalid",
+        title: "Cursor integrity invalid",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2105,6 +2151,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CursorInvalid,
+        type_uri: "https://arkret.org/problems/cursor_invalid",
+        title: "Cursor invalid",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2113,6 +2161,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CursorRevoked,
+        type_uri: "https://arkret.org/problems/cursor_revoked",
+        title: "Cursor revoked",
         http_status: 410,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2121,6 +2171,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CursorUnrecognized,
+        type_uri: "https://arkret.org/problems/cursor_unrecognized",
+        title: "Cursor unrecognized",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2129,6 +2181,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeliveryBindingHandedOver,
+        type_uri: "https://arkret.org/problems/delivery_binding_handed_over",
+        title: "Delivery binding handed over",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2137,6 +2191,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeliveryBindingStale,
+        type_uri: "https://arkret.org/problems/delivery_binding_stale",
+        title: "Delivery binding stale",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2145,6 +2201,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeliveryBindingUnresolvable,
+        type_uri: "https://arkret.org/problems/delivery_binding_unresolvable",
+        title: "Delivery binding unresolvable",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2153,6 +2211,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DependencyMissing,
+        type_uri: "https://arkret.org/problems/dependency_missing",
+        title: "Dependency missing",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2161,6 +2221,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceAlreadyAuthorized,
+        type_uri: "https://arkret.org/problems/device_already_authorized",
+        title: "Device already authorized",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2169,6 +2231,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceGenerationFenced,
+        type_uri: "https://arkret.org/problems/device_generation_fenced",
+        title: "Device generation fenced",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2177,6 +2241,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceReanchorAuthorityMismatch,
+        type_uri: "https://arkret.org/problems/device_reanchor_authority_mismatch",
+        title: "Device reanchor authority mismatch",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2185,6 +2251,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceReanchorAuthorizeMismatch,
+        type_uri: "https://arkret.org/problems/device_reanchor_authorize_mismatch",
+        title: "Device reanchor authorize mismatch",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2193,6 +2261,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceReanchorConflict,
+        type_uri: "https://arkret.org/problems/device_reanchor_conflict",
+        title: "Device reanchor conflict",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2201,6 +2271,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceReanchorEntryNotHead,
+        type_uri: "https://arkret.org/problems/device_reanchor_entry_not_head",
+        title: "Device reanchor entry not head",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2209,6 +2281,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceReanchorFrontierMismatch,
+        type_uri: "https://arkret.org/problems/device_reanchor_frontier_mismatch",
+        title: "Device reanchor frontier mismatch",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2217,6 +2291,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceRecoveryGenerationMismatch,
+        type_uri: "https://arkret.org/problems/device_recovery_generation_mismatch",
+        title: "Device recovery generation mismatch",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2225,6 +2301,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceRevocationPending,
+        type_uri: "https://arkret.org/problems/device_revocation_pending",
+        title: "Device revocation pending",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2233,6 +2311,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceRevoked,
+        type_uri: "https://arkret.org/problems/device_revoked",
+        title: "Device revoked",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2241,6 +2321,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceUnauthorized,
+        type_uri: "https://arkret.org/problems/device_unauthorized",
+        title: "Device unauthorized",
         http_status: 403,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2249,6 +2331,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceUnknown,
+        type_uri: "https://arkret.org/problems/device_unknown",
+        title: "Device unknown",
         http_status: 404,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2257,6 +2341,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DidAlreadyExists,
+        type_uri: "https://arkret.org/problems/did_already_exists",
+        title: "Did already exists",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2265,6 +2351,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DidMethodSuccessorInvalid,
+        type_uri: "https://arkret.org/problems/did_method_successor_invalid",
+        title: "Did method successor invalid",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2273,6 +2361,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DidNotFound,
+        type_uri: "https://arkret.org/problems/did_not_found",
+        title: "Did not found",
         http_status: 404,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2281,6 +2371,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DidProofRequired,
+        type_uri: "https://arkret.org/problems/did_proof_required",
+        title: "Did proof required",
         http_status: 401,
         http_status_by_context: &[],
         scope: "both",
@@ -2289,6 +2381,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DidRevoked,
+        type_uri: "https://arkret.org/problems/did_revoked",
+        title: "Did revoked",
         http_status: 410,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2297,6 +2391,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DidUnknown,
+        type_uri: "https://arkret.org/problems/did_unknown",
+        title: "Did unknown",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -2305,6 +2401,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DigestMismatch,
+        type_uri: "https://arkret.org/problems/digest_mismatch",
+        title: "Digest mismatch",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -2313,6 +2411,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DirectConversationUnavailable,
+        type_uri: "https://arkret.org/problems/direct_conversation_unavailable",
+        title: "Direct conversation unavailable",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2321,6 +2421,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DirectoryGovernanceProofSignatureInvalid,
+        type_uri: "https://arkret.org/problems/directory_governance_proof_signature_invalid",
+        title: "Directory governance proof signature invalid",
         http_status: 400,
         http_status_by_context: &[],
         scope: "service_call",
@@ -2329,6 +2431,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DirectoryUnauthorized,
+        type_uri: "https://arkret.org/problems/directory_unauthorized",
+        title: "Directory unauthorized",
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
@@ -2337,6 +2441,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DiscoveryFailed,
+        type_uri: "https://arkret.org/problems/discovery_failed",
+        title: "Discovery failed",
         http_status: 404,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2345,6 +2451,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DiscussionTrackDisabled,
+        type_uri: "https://arkret.org/problems/discussion_track_disabled",
+        title: "Discussion track disabled",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2353,6 +2461,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DuplicateClauseClaim,
+        type_uri: "https://arkret.org/problems/duplicate_clause_claim",
+        title: "Duplicate clause claim",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -2361,6 +2471,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DuplicateConflict,
+        type_uri: "https://arkret.org/problems/duplicate_conflict",
+        title: "Duplicate conflict",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2369,6 +2481,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::E2eeRequired,
+        type_uri: "https://arkret.org/problems/e2ee_required",
+        title: "E2ee required",
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
@@ -2377,6 +2491,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::EnclaveNoUpstreamProxyForExternal,
+        type_uri: "https://arkret.org/problems/enclave_no_upstream_proxy_for_external",
+        title: "Enclave no upstream proxy for external",
         http_status: 403,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2385,6 +2501,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::EnclaveNotTrusted,
+        type_uri: "https://arkret.org/problems/enclave_not_trusted",
+        title: "Enclave not trusted",
         http_status: 403,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2393,6 +2511,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::EpochMismatch,
+        type_uri: "https://arkret.org/problems/epoch_mismatch",
+        title: "Epoch mismatch",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2401,6 +2521,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ExternalInviteActorMismatch,
+        type_uri: "https://arkret.org/problems/external_invite_actor_mismatch",
+        title: "External invite actor mismatch",
         http_status: 403,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2409,6 +2531,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ExternalUserNoMainAccess,
+        type_uri: "https://arkret.org/problems/external_user_no_main_access",
+        title: "External user no main access",
         http_status: 403,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2417,6 +2541,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FailedBottom,
+        type_uri: "https://arkret.org/problems/failed_bottom",
+        title: "Failed bottom",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2425,6 +2551,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FailedPlane,
+        type_uri: "https://arkret.org/problems/failed_plane",
+        title: "Failed plane",
         http_status: 412,
         http_status_by_context: &[],
         scope: "both",
@@ -2433,6 +2561,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FailedPrecondition,
+        type_uri: "https://arkret.org/problems/failed_precondition",
+        title: "Failed precondition",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2441,6 +2571,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FederationActorOriginDenied,
+        type_uri: "https://arkret.org/problems/federation_actor_origin_denied",
+        title: "Federation actor origin denied",
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
@@ -2449,6 +2581,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FederationInteropTrackOnly,
+        type_uri: "https://arkret.org/problems/federation_interop_track_only",
+        title: "Federation interop track only",
         http_status: 501,
         http_status_by_context: &[],
         scope: "service_call",
@@ -2457,6 +2591,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FederationOriginDenied,
+        type_uri: "https://arkret.org/problems/federation_origin_denied",
+        title: "Federation origin denied",
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
@@ -2465,6 +2601,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FederationPrivateReadRailLocalOnly,
+        type_uri: "https://arkret.org/problems/federation_private_read_rail_local_only",
+        title: "Federation private read rail local only",
         http_status: 501,
         http_status_by_context: &[],
         scope: "service_call",
@@ -2473,6 +2611,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FirstBackupGateUnsatisfied,
+        type_uri: "https://arkret.org/problems/first_backup_gate_unsatisfied",
+        title: "First backup gate unsatisfied",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2481,6 +2621,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FrankingProofUnavailable,
+        type_uri: "https://arkret.org/problems/franking_proof_unavailable",
+        title: "Franking proof unavailable",
         http_status: 503,
         http_status_by_context: &[],
         scope: "both",
@@ -2489,6 +2631,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FrankingTampered,
+        type_uri: "https://arkret.org/problems/franking_tampered",
+        title: "Franking tampered",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2497,6 +2641,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FrontierSequenceExhausted,
+        type_uri: "https://arkret.org/problems/frontier_sequence_exhausted",
+        title: "Frontier sequence exhausted",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2505,6 +2651,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FrontierStale,
+        type_uri: "https://arkret.org/problems/frontier_stale",
+        title: "Frontier stale",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2513,6 +2661,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FrontierUnavailable,
+        type_uri: "https://arkret.org/problems/frontier_unavailable",
+        title: "Frontier unavailable",
         http_status: 503,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2521,6 +2671,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::GenesisSealInvalid,
+        type_uri: "https://arkret.org/problems/genesis_seal_invalid",
+        title: "Genesis seal invalid",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -2529,6 +2681,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::GovernanceKeyInvalid,
+        type_uri: "https://arkret.org/problems/governance_key_invalid",
+        title: "Governance key invalid",
         http_status: 400,
         http_status_by_context: &[],
         scope: "service_call",
@@ -2537,6 +2691,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::GrantAlreadyConsumed,
+        type_uri: "https://arkret.org/problems/grant_already_consumed",
+        title: "Grant already consumed",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2545,6 +2701,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::HandleUnverified,
+        type_uri: "https://arkret.org/problems/handle_unverified",
+        title: "Handle unverified",
         http_status: 403,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2553,6 +2711,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::HistoricalDidEvidenceInvalid,
+        type_uri: "https://arkret.org/problems/historical_did_evidence_invalid",
+        title: "Historical did evidence invalid",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -2561,6 +2721,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::HistoricalOnly,
+        type_uri: "https://arkret.org/problems/historical_only",
+        title: "Historical only",
         http_status: 200,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2569,6 +2731,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::HistoryNotVisible,
+        type_uri: "https://arkret.org/problems/history_not_visible",
+        title: "History not visible",
         http_status: 403,
         http_status_by_context: &[],
         scope: "both",
@@ -2577,6 +2741,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::HlcLogicalOverflow,
+        type_uri: "https://arkret.org/problems/hlc_logical_overflow",
+        title: "Hlc logical overflow",
         http_status: 503,
         http_status_by_context: &[],
         scope: "both",
@@ -2585,6 +2751,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::HttpSignatureInvalid,
+        type_uri: "https://arkret.org/problems/http_signature_invalid",
+        title: "Http signature invalid",
         http_status: 401,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2593,6 +2761,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::HttpSignatureRequired,
+        type_uri: "https://arkret.org/problems/http_signature_required",
+        title: "Http signature required",
         http_status: 401,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2601,6 +2771,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::IceConfigDenied,
+        type_uri: "https://arkret.org/problems/ice_config_denied",
+        title: "Ice config denied",
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
@@ -2609,6 +2781,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::InternalError,
+        type_uri: "https://arkret.org/problems/internal_error",
+        title: "Internal error",
         http_status: 500,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2617,6 +2791,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::JsonInvalid,
+        type_uri: "https://arkret.org/problems/json_invalid",
+        title: "Json invalid",
         http_status: 400,
         http_status_by_context: &[],
         scope: "both",
@@ -2625,6 +2801,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::KeyReplay,
+        type_uri: "https://arkret.org/problems/key_replay",
+        title: "Key replay",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2633,6 +2811,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::KeyTransparencyProofMissing,
+        type_uri: "https://arkret.org/problems/key_transparency_proof_missing",
+        title: "Key transparency proof missing",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -2641,6 +2821,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::KeyUnavailable,
+        type_uri: "https://arkret.org/problems/key_unavailable",
+        title: "Key unavailable",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2649,6 +2831,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::KeypackageAlreadyConsumed,
+        type_uri: "https://arkret.org/problems/keypackage_already_consumed",
+        title: "Keypackage already consumed",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2657,6 +2841,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::KeypackageUnknown,
+        type_uri: "https://arkret.org/problems/keypackage_unknown",
+        title: "Keypackage unknown",
         http_status: 404,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2665,6 +2851,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::LimitExceeded,
+        type_uri: "https://arkret.org/problems/limit_exceeded",
+        title: "Limit exceeded",
         http_status: 413,
         http_status_by_context: &[],
         scope: "both",
@@ -2673,6 +2861,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MediaNegotiationFailed,
+        type_uri: "https://arkret.org/problems/media_negotiation_failed",
+        title: "Media negotiation failed",
         http_status: 409,
         http_status_by_context: &[],
         scope: "service_call",
@@ -2681,6 +2871,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MediaPermissionDenied,
+        type_uri: "https://arkret.org/problems/media_permission_denied",
+        title: "Media permission denied",
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
@@ -2689,6 +2881,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MembershipCompensationConflict,
+        type_uri: "https://arkret.org/problems/membership_compensation_conflict",
+        title: "Membership compensation conflict",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2697,6 +2891,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MethodNotAllowed,
+        type_uri: "https://arkret.org/problems/method_not_allowed",
+        title: "Method not allowed",
         http_status: 405,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2705,6 +2901,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MimiE2eeBoundaryUnmarked,
+        type_uri: "https://arkret.org/problems/mimi_e2ee_boundary_unmarked",
+        title: "Mimi e2ee boundary unmarked",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2713,6 +2911,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MimiPayloadDigestMismatch,
+        type_uri: "https://arkret.org/problems/mimi_payload_digest_mismatch",
+        title: "Mimi payload digest mismatch",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2721,6 +2921,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MimiPayloadInvalid,
+        type_uri: "https://arkret.org/problems/mimi_payload_invalid",
+        title: "Mimi payload invalid",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2729,6 +2931,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MimiReporterResolutionRequired,
+        type_uri: "https://arkret.org/problems/mimi_reporter_resolution_required",
+        title: "Mimi reporter resolution required",
         http_status: 403,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2737,6 +2941,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MimiRoomBindingEventInvalid,
+        type_uri: "https://arkret.org/problems/mimi_room_binding_event_invalid",
+        title: "Mimi room binding event invalid",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2745,6 +2951,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MlsGenesisAlreadyExists,
+        type_uri: "https://arkret.org/problems/mls_genesis_already_exists",
+        title: "Mls genesis already exists",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2753,6 +2961,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MlsGovernanceAnchorUnreachable,
+        type_uri: "https://arkret.org/problems/mls_governance_anchor_unreachable",
+        title: "Mls governance anchor unreachable",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2761,6 +2971,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MlsGovernanceProofBoundsExceeded,
+        type_uri: "https://arkret.org/problems/mls_governance_proof_bounds_exceeded",
+        title: "Mls governance proof bounds exceeded",
         http_status: 422,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2769,6 +2981,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MlsKeypackageClaimRequestExpired,
+        type_uri: "https://arkret.org/problems/mls_keypackage_claim_request_expired",
+        title: "Mls keypackage claim request expired",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2777,6 +2991,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MorphKindImmutable,
+        type_uri: "https://arkret.org/problems/morph_kind_immutable",
+        title: "Morph kind immutable",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -2785,6 +3001,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MorphProfileWidensSchemaRef,
+        type_uri: "https://arkret.org/problems/morph_profile_widens_schema_ref",
+        title: "Morph profile widens schema ref",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -2793,6 +3011,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::NotFound,
+        type_uri: "https://arkret.org/problems/not_found",
+        title: "Not found",
         http_status: 404,
         http_status_by_context: &[],
         scope: "both",
@@ -2801,6 +3021,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::NotImplemented,
+        type_uri: "https://arkret.org/problems/not_implemented",
+        title: "Not implemented",
         http_status: 501,
         http_status_by_context: &[],
         scope: "both",
@@ -2809,6 +3031,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::NotMember,
+        type_uri: "https://arkret.org/problems/not_member",
+        title: "Not member",
         http_status: 403,
         http_status_by_context: &[],
         scope: "both",
@@ -2817,6 +3041,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::NotaryRecoveryMissing,
+        type_uri: "https://arkret.org/problems/notary_recovery_missing",
+        title: "Notary recovery missing",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -2825,6 +3051,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::OneTimeKeysExhausted,
+        type_uri: "https://arkret.org/problems/one_time_keys_exhausted",
+        title: "One time keys exhausted",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2833,6 +3061,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::OrganizationRegistrationChallengeInvalid,
+        type_uri: "https://arkret.org/problems/organization_registration_challenge_invalid",
+        title: "Organization registration challenge invalid",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2841,6 +3071,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::OrganizationRegistrationControlProofInvalid,
+        type_uri: "https://arkret.org/problems/organization_registration_control_proof_invalid",
+        title: "Organization registration control proof invalid",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2849,6 +3081,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::OrganizationRegistrationQuorumNotMet,
+        type_uri: "https://arkret.org/problems/organization_registration_quorum_not_met",
+        title: "Organization registration quorum not met",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2857,6 +3091,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::OrganizationRegistrationRevoked,
+        type_uri: "https://arkret.org/problems/organization_registration_revoked",
+        title: "Organization registration revoked",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2865,6 +3101,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::OrganizationRegistrationStale,
+        type_uri: "https://arkret.org/problems/organization_registration_stale",
+        title: "Organization registration stale",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2873,6 +3111,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::OverbroadRequest,
+        type_uri: "https://arkret.org/problems/overbroad_request",
+        title: "Overbroad request",
         http_status: 422,
         http_status_by_context: &[],
         scope: "service_call",
@@ -2881,6 +3121,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ParamInvalid,
+        type_uri: "https://arkret.org/problems/param_invalid",
+        title: "Param invalid",
         http_status: 400,
         http_status_by_context: &[],
         scope: "both",
@@ -2889,6 +3131,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ParamMissing,
+        type_uri: "https://arkret.org/problems/param_missing",
+        title: "Param missing",
         http_status: 400,
         http_status_by_context: &[],
         scope: "both",
@@ -2897,6 +3141,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PayloadDigestMismatch,
+        type_uri: "https://arkret.org/problems/payload_digest_mismatch",
+        title: "Payload digest mismatch",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -2905,6 +3151,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PayloadTooLarge,
+        type_uri: "https://arkret.org/problems/payload_too_large",
+        title: "Payload too large",
         http_status: 413,
         http_status_by_context: &[],
         scope: "both",
@@ -2913,6 +3161,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PcrAuthorityStale,
+        type_uri: "https://arkret.org/problems/pcr_authority_stale",
+        title: "Pcr authority stale",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2921,6 +3171,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PeerStale,
+        type_uri: "https://arkret.org/problems/peer_stale",
+        title: "Peer stale",
         http_status: 409,
         http_status_by_context: &[],
         scope: "service_call",
@@ -2929,6 +3181,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PeerStateStaleUnavailable,
+        type_uri: "https://arkret.org/problems/peer_state_stale_unavailable",
+        title: "Peer state stale unavailable",
         http_status: 503,
         http_status_by_context: &[],
         scope: "service_call",
@@ -2937,6 +3191,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PolicyCombinationInvalid,
+        type_uri: "https://arkret.org/problems/policy_combination_invalid",
+        title: "Policy combination invalid",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -2945,6 +3201,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PolicyDenied,
+        type_uri: "https://arkret.org/problems/policy_denied",
+        title: "Policy denied",
         http_status: 403,
         http_status_by_context: &[],
         scope: "both",
@@ -2953,6 +3211,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PolicyRevisionRollback,
+        type_uri: "https://arkret.org/problems/policy_revision_rollback",
+        title: "Policy revision rollback",
         http_status: 409,
         http_status_by_context: &[],
         scope: "service_call",
@@ -2961,6 +3221,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PolicyStale,
+        type_uri: "https://arkret.org/problems/policy_stale",
+        title: "Policy stale",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2969,6 +3231,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PolicyUnavailable,
+        type_uri: "https://arkret.org/problems/policy_unavailable",
+        title: "Policy unavailable",
         http_status: 503,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2977,6 +3241,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PolicyViolation,
+        type_uri: "https://arkret.org/problems/policy_violation",
+        title: "Policy violation",
         http_status: 403,
         http_status_by_context: &[],
         scope: "both",
@@ -2985,6 +3251,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PreviewPolicyDenied,
+        type_uri: "https://arkret.org/problems/preview_policy_denied",
+        title: "Preview policy denied",
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
@@ -2993,6 +3261,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PrincipalUnknown,
+        type_uri: "https://arkret.org/problems/principal_unknown",
+        title: "Principal unknown",
         http_status: 404,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3001,6 +3271,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ProjectionIncomplete,
+        type_uri: "https://arkret.org/problems/projection_incomplete",
+        title: "Projection incomplete",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3009,22 +3281,28 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PsiBatchUnavailable,
+        type_uri: "https://arkret.org/problems/psi_batch_unavailable",
+        title: "Psi batch unavailable",
         http_status: 410,
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The private-contact-discovery batch is unavailable for match or replay because it is unknown, belongs to another authenticated device credential, or exceeded batch_completion_ttl_seconds (after which its pinned VOPRF epoch may be released). These causes intentionally share one response. A conforming provider MUST retain the pinned epoch for the full completion TTL. Returned as a padded PSI Class B ErrorEnvelope; callers must start a new blind batch, subject to the existing PSI quota. See zh/discovery/discovery-directory.md §6.4.",
+        description: "The private-contact-discovery batch is unavailable for match or replay because it is unknown, belongs to another authenticated device credential, or exceeded batch_completion_ttl_seconds (after which its pinned VOPRF epoch may be released). These causes intentionally share one response. A conforming provider MUST retain the pinned epoch for the full completion TTL. Returned as a padded PSI Class B RFC 9457 Problem Details; callers must start a new blind batch, subject to the existing PSI quota. See zh/discovery/discovery-directory.md §6.4.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PsiQuotaExhausted,
+        type_uri: "https://arkret.org/problems/psi_quota_exhausted",
+        title: "Psi quota exhausted",
         http_status: 429,
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The authenticated device exhausted `max_psi_queries_per_window` for private contact discovery in the current quota window. Returned only at first blind admission, before any target is evaluated; admitted match and exact retries MUST NOT be quota-denied. The response is a PSI Class B ErrorEnvelope with required top-level ASCII-SP padding, exact phase Content-Length bucket, no Content-Encoding/content coding, and the advertised anti-enumeration delay distribution. It MUST carry a decimal-seconds `Retry-After` rounded up to a 300s multiple (minimum 300). Distinct from generic `rate_limited` and from 403 `quota_exceeded`. See zh/discovery/discovery-directory.md §6.3/§6.4.",
+        description: "The authenticated device exhausted `max_psi_queries_per_window` for private contact discovery in the current quota window. Returned only at first blind admission, before any target is evaluated; admitted match and exact retries MUST NOT be quota-denied. The response is a PSI Class B RFC 9457 Problem Details with required top-level ASCII-SP padding, exact phase Content-Length bucket, no Content-Encoding/content coding, and the advertised anti-enumeration delay distribution. It MUST carry a decimal-seconds `Retry-After` rounded up to a 300s multiple (minimum 300). Distinct from generic `rate_limited` and from 403 `quota_exceeded`. See zh/discovery/discovery-directory.md §6.3/§6.4.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PushGatewayUnreachable,
+        type_uri: "https://arkret.org/problems/push_gateway_unreachable",
+        title: "Push gateway unreachable",
         http_status: 503,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3033,6 +3311,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PushPayloadTooLarge,
+        type_uri: "https://arkret.org/problems/push_payload_too_large",
+        title: "Push payload too large",
         http_status: 413,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3041,6 +3321,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PushTargetUnknown,
+        type_uri: "https://arkret.org/problems/push_target_unknown",
+        title: "Push target unknown",
         http_status: 404,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3049,6 +3331,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PushTokenInvalid,
+        type_uri: "https://arkret.org/problems/push_token_invalid",
+        title: "Push token invalid",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3057,6 +3341,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PushTokenUnknown,
+        type_uri: "https://arkret.org/problems/push_token_unknown",
+        title: "Push token unknown",
         http_status: 404,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3065,6 +3351,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::Quarantine,
+        type_uri: "https://arkret.org/problems/quarantine",
+        title: "Quarantine",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -3073,6 +3361,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::QueryInvalid,
+        type_uri: "https://arkret.org/problems/query_invalid",
+        title: "Query invalid",
         http_status: 400,
         http_status_by_context: &[],
         scope: "both",
@@ -3081,6 +3371,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::QuotaExceeded,
+        type_uri: "https://arkret.org/problems/quota_exceeded",
+        title: "Quota exceeded",
         http_status: 403,
         http_status_by_context: &[],
         scope: "both",
@@ -3089,6 +3381,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RankExhausted,
+        type_uri: "https://arkret.org/problems/rank_exhausted",
+        title: "Rank exhausted",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -3097,6 +3391,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RateLimited,
+        type_uri: "https://arkret.org/problems/rate_limited",
+        title: "Rate limited",
         http_status: 429,
         http_status_by_context: &[],
         scope: "both",
@@ -3105,6 +3401,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ReadReceiptComplianceFloorViolated,
+        type_uri: "https://arkret.org/problems/read_receipt_compliance_floor_violated",
+        title: "Read receipt compliance floor violated",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -3113,6 +3411,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RealmFederationPolicyClosed,
+        type_uri: "https://arkret.org/problems/realm_federation_policy_closed",
+        title: "Realm federation policy closed",
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
@@ -3121,6 +3421,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RealmFederationPolicyInvalid,
+        type_uri: "https://arkret.org/problems/realm_federation_policy_invalid",
+        title: "Realm federation policy invalid",
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
@@ -3129,6 +3431,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RealmFederationPolicyQuarantine,
+        type_uri: "https://arkret.org/problems/realm_federation_policy_quarantine",
+        title: "Realm federation policy quarantine",
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
@@ -3137,6 +3441,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RealmFederationPolicyRestricted,
+        type_uri: "https://arkret.org/problems/realm_federation_policy_restricted",
+        title: "Realm federation policy restricted",
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
@@ -3145,6 +3451,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RealmFrozen,
+        type_uri: "https://arkret.org/problems/realm_frozen",
+        title: "Realm frozen",
         http_status: 403,
         http_status_by_context: &[],
         scope: "both",
@@ -3153,6 +3461,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RealmModerationPolicyDenied,
+        type_uri: "https://arkret.org/problems/realm_moderation_policy_denied",
+        title: "Realm moderation policy denied",
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
@@ -3161,6 +3471,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ReauthenticationRequired,
+        type_uri: "https://arkret.org/problems/reauthentication_required",
+        title: "Reauthentication required",
         http_status: 401,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3169,6 +3481,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecordingDenied,
+        type_uri: "https://arkret.org/problems/recording_denied",
+        title: "Recording denied",
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
@@ -3177,6 +3491,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryAuthorizationDeviceMismatch,
+        type_uri: "https://arkret.org/problems/recovery_authorization_device_mismatch",
+        title: "Recovery authorization device mismatch",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3185,6 +3501,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryAuthorizationPrincipalMismatch,
+        type_uri: "https://arkret.org/problems/recovery_authorization_principal_mismatch",
+        title: "Recovery authorization principal mismatch",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3193,6 +3511,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryAuthorizationSessionMismatch,
+        type_uri: "https://arkret.org/problems/recovery_authorization_session_mismatch",
+        title: "Recovery authorization session mismatch",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3201,6 +3521,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryControlEventKindMismatch,
+        type_uri: "https://arkret.org/problems/recovery_control_event_kind_mismatch",
+        title: "Recovery control event kind mismatch",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3209,6 +3531,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryControlEventNotFound,
+        type_uri: "https://arkret.org/problems/recovery_control_event_not_found",
+        title: "Recovery control event not found",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3217,6 +3541,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryListUpdateDeviceMismatch,
+        type_uri: "https://arkret.org/problems/recovery_list_update_device_mismatch",
+        title: "Recovery list update device mismatch",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3225,6 +3551,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryListUpdatePrincipalMismatch,
+        type_uri: "https://arkret.org/problems/recovery_list_update_principal_mismatch",
+        title: "Recovery list update principal mismatch",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3233,6 +3561,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryPolicyConflict,
+        type_uri: "https://arkret.org/problems/recovery_policy_conflict",
+        title: "Recovery policy conflict",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3241,6 +3571,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryPolicyDeviceUnauthorized,
+        type_uri: "https://arkret.org/problems/recovery_policy_device_unauthorized",
+        title: "Recovery policy device unauthorized",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3249,6 +3581,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryPolicyIdMismatch,
+        type_uri: "https://arkret.org/problems/recovery_policy_id_mismatch",
+        title: "Recovery policy id mismatch",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3257,6 +3591,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryPolicyMismatch,
+        type_uri: "https://arkret.org/problems/recovery_policy_mismatch",
+        title: "Recovery policy mismatch",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -3265,6 +3601,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryPolicyMissing,
+        type_uri: "https://arkret.org/problems/recovery_policy_missing",
+        title: "Recovery policy missing",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3273,6 +3611,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryPolicyRevoked,
+        type_uri: "https://arkret.org/problems/recovery_policy_revoked",
+        title: "Recovery policy revoked",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3281,6 +3621,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryPolicyTrustDomainMismatch,
+        type_uri: "https://arkret.org/problems/recovery_policy_trust_domain_mismatch",
+        title: "Recovery policy trust domain mismatch",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3289,6 +3631,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryPolicyVersionMismatch,
+        type_uri: "https://arkret.org/problems/recovery_policy_version_mismatch",
+        title: "Recovery policy version mismatch",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3297,6 +3641,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryProofAuthorityInvalid,
+        type_uri: "https://arkret.org/problems/recovery_proof_authority_invalid",
+        title: "Recovery proof authority invalid",
         http_status: 401,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3305,6 +3651,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryProofKindNotAllowed,
+        type_uri: "https://arkret.org/problems/recovery_proof_kind_not_allowed",
+        title: "Recovery proof kind not allowed",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3313,6 +3661,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryProofKindUnimplemented,
+        type_uri: "https://arkret.org/problems/recovery_proof_kind_unimplemented",
+        title: "Recovery proof kind unimplemented",
         http_status: 501,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3321,6 +3671,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryReceiptConflict,
+        type_uri: "https://arkret.org/problems/recovery_receipt_conflict",
+        title: "Recovery receipt conflict",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3329,6 +3681,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoverySessionConflict,
+        type_uri: "https://arkret.org/problems/recovery_session_conflict",
+        title: "Recovery session conflict",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3337,6 +3691,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoverySessionIdReused,
+        type_uri: "https://arkret.org/problems/recovery_session_id_reused",
+        title: "Recovery session id reused",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3345,6 +3701,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoverySessionNotPending,
+        type_uri: "https://arkret.org/problems/recovery_session_not_pending",
+        title: "Recovery session not pending",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3353,6 +3711,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ResponseInvalid,
+        type_uri: "https://arkret.org/problems/response_invalid",
+        title: "Response invalid",
         http_status: 400,
         http_status_by_context: &[],
         scope: "service_call",
@@ -3361,6 +3721,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ReviewerCapabilityRevoked,
+        type_uri: "https://arkret.org/problems/reviewer_capability_revoked",
+        title: "Reviewer capability revoked",
         http_status: 403,
         http_status_by_context: &[],
         scope: "delivery",
@@ -3369,6 +3731,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SchemaViolation,
+        type_uri: "https://arkret.org/problems/schema_violation",
+        title: "Schema violation",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -3377,6 +3741,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SealDeferredFutureSkew,
+        type_uri: "https://arkret.org/problems/seal_deferred_future_skew",
+        title: "Seal deferred future skew",
         http_status: 425,
         http_status_by_context: &[],
         scope: "both",
@@ -3385,6 +3751,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SealIncomplete,
+        type_uri: "https://arkret.org/problems/seal_incomplete",
+        title: "Seal incomplete",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -3393,6 +3761,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SealRefStale,
+        type_uri: "https://arkret.org/problems/seal_ref_stale",
+        title: "Seal ref stale",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -3401,6 +3771,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SealRefUnknown,
+        type_uri: "https://arkret.org/problems/seal_ref_unknown",
+        title: "Seal ref unknown",
         http_status: 404,
         http_status_by_context: &[],
         scope: "both",
@@ -3409,6 +3781,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SealSignerUnauthorized,
+        type_uri: "https://arkret.org/problems/seal_signer_unauthorized",
+        title: "Seal signer unauthorized",
         http_status: 403,
         http_status_by_context: &[],
         scope: "both",
@@ -3417,6 +3791,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SelectorTooComplex,
+        type_uri: "https://arkret.org/problems/selector_too_complex",
+        title: "Selector too complex",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -3425,6 +3801,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ServiceIdentityConflict,
+        type_uri: "https://arkret.org/problems/service_identity_conflict",
+        title: "Service identity conflict",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -3433,6 +3811,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ServiceIdentityProviderUnavailable,
+        type_uri: "https://arkret.org/problems/service_identity_provider_unavailable",
+        title: "Service identity provider unavailable",
         http_status: 503,
         http_status_by_context: &[],
         scope: "service_call",
@@ -3441,6 +3821,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ServiceIdentityUnavailable,
+        type_uri: "https://arkret.org/problems/service_identity_unavailable",
+        title: "Service identity unavailable",
         http_status: 503,
         http_status_by_context: &[],
         scope: "both",
@@ -3449,6 +3831,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ServiceRegistrationDenied,
+        type_uri: "https://arkret.org/problems/service_registration_denied",
+        title: "Service registration denied",
         http_status: 400,
         http_status_by_context: &[],
         scope: "both",
@@ -3457,6 +3841,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ServiceUnavailable,
+        type_uri: "https://arkret.org/problems/service_unavailable",
+        title: "Service unavailable",
         http_status: 503,
         http_status_by_context: &[],
         scope: "both",
@@ -3465,6 +3851,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SessionGrantNotFound,
+        type_uri: "https://arkret.org/problems/session_grant_not_found",
+        title: "Session grant not found",
         http_status: 404,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3473,6 +3861,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SessionGrantReplayExpired,
+        type_uri: "https://arkret.org/problems/session_grant_replay_expired",
+        title: "Session grant replay expired",
         http_status: 410,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3481,6 +3871,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SessionGrantReplayIndeterminate,
+        type_uri: "https://arkret.org/problems/session_grant_replay_indeterminate",
+        title: "Session grant replay indeterminate",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3489,6 +3881,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SessionGrantReplayTerminal,
+        type_uri: "https://arkret.org/problems/session_grant_replay_terminal",
+        title: "Session grant replay terminal",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3497,6 +3891,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SessionLoggedOut,
+        type_uri: "https://arkret.org/problems/session_logged_out",
+        title: "Session logged out",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3505,6 +3901,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SessionRevokeSelectorConflict,
+        type_uri: "https://arkret.org/problems/session_revoke_selector_conflict",
+        title: "Session revoke selector conflict",
         http_status: 422,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3513,6 +3911,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SfuNotAllowed,
+        type_uri: "https://arkret.org/problems/sfu_not_allowed",
+        title: "Sfu not allowed",
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
@@ -3521,6 +3921,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SignalClassDenied,
+        type_uri: "https://arkret.org/problems/signal_class_denied",
+        title: "Signal class denied",
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
@@ -3529,6 +3931,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SignalRailUnavailable,
+        type_uri: "https://arkret.org/problems/signal_rail_unavailable",
+        title: "Signal rail unavailable",
         http_status: 503,
         http_status_by_context: &[],
         scope: "service_call",
@@ -3537,6 +3941,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SignalTtlOutOfRange,
+        type_uri: "https://arkret.org/problems/signal_ttl_out_of_range",
+        title: "Signal ttl out of range",
         http_status: 400,
         http_status_by_context: &[],
         scope: "service_call",
@@ -3545,6 +3951,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SignatureInvalid,
+        type_uri: "https://arkret.org/problems/signature_invalid",
+        title: "Signature invalid",
         http_status: 401,
         http_status_by_context: &[],
         scope: "both",
@@ -3553,6 +3961,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SignatureStale,
+        type_uri: "https://arkret.org/problems/signature_stale",
+        title: "Signature stale",
         http_status: 400,
         http_status_by_context: &[],
         scope: "service_call",
@@ -3561,6 +3971,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SignatureWindowInvalid,
+        type_uri: "https://arkret.org/problems/signature_window_invalid",
+        title: "Signature window invalid",
         http_status: 401,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3569,6 +3981,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SnapshotAuthorityUnverified,
+        type_uri: "https://arkret.org/problems/snapshot_authority_unverified",
+        title: "Snapshot authority unverified",
         http_status: 403,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3577,6 +3991,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SnapshotChunkDigestMismatch,
+        type_uri: "https://arkret.org/problems/snapshot_chunk_digest_mismatch",
+        title: "Snapshot chunk digest mismatch",
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3585,6 +4001,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SnapshotUnavailable,
+        type_uri: "https://arkret.org/problems/snapshot_unavailable",
+        title: "Snapshot unavailable",
         http_status: 503,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3593,6 +4011,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SoftLoggedOut,
+        type_uri: "https://arkret.org/problems/soft_logged_out",
+        title: "Soft logged out",
         http_status: 401,
         http_status_by_context: &[],
         scope: "both",
@@ -3601,6 +4021,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SourceRefsUnverifiable,
+        type_uri: "https://arkret.org/problems/source_refs_unverifiable",
+        title: "Source refs unverifiable",
         http_status: 400,
         http_status_by_context: &[],
         scope: "service_call",
@@ -3609,6 +4031,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::StateMismatch,
+        type_uri: "https://arkret.org/problems/state_mismatch",
+        title: "State mismatch",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -3617,6 +4041,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::StatusUnavailable,
+        type_uri: "https://arkret.org/problems/status_unavailable",
+        title: "Status unavailable",
         http_status: 503,
         http_status_by_context: &[],
         scope: "service_call",
@@ -3625,6 +4051,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::StreamDropped,
+        type_uri: "https://arkret.org/problems/stream_dropped",
+        title: "Stream dropped",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3633,6 +4061,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::StreamResyncRequired,
+        type_uri: "https://arkret.org/problems/stream_resync_required",
+        title: "Stream resync required",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3641,6 +4071,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::TakedownInForce,
+        type_uri: "https://arkret.org/problems/takedown_in_force",
+        title: "Takedown in force",
         http_status: 409,
         http_status_by_context: &[],
         scope: "service_call",
@@ -3649,6 +4081,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::TemporarilyUnavailable,
+        type_uri: "https://arkret.org/problems/temporarily_unavailable",
+        title: "Temporarily unavailable",
         http_status: 503,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3657,6 +4091,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::Timeout,
+        type_uri: "https://arkret.org/problems/timeout",
+        title: "Timeout",
         http_status: 504,
         http_status_by_context: &[],
         scope: "both",
@@ -3665,6 +4101,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::TooLarge,
+        type_uri: "https://arkret.org/problems/too_large",
+        title: "Too large",
         http_status: 413,
         http_status_by_context: &[],
         scope: "both",
@@ -3673,6 +4111,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::TrackDisabled,
+        type_uri: "https://arkret.org/problems/track_disabled",
+        title: "Track disabled",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -3681,6 +4121,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::TransportPrivacyRequired,
+        type_uri: "https://arkret.org/problems/transport_privacy_required",
+        title: "Transport privacy required",
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
@@ -3689,6 +4131,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::TtlOutOfRange,
+        type_uri: "https://arkret.org/problems/ttl_out_of_range",
+        title: "Ttl out of range",
         http_status: 400,
         http_status_by_context: &[],
         scope: "service_call",
@@ -3697,6 +4141,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::TurnCredentialExpired,
+        type_uri: "https://arkret.org/problems/turn_credential_expired",
+        title: "Turn credential expired",
         http_status: 401,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3705,6 +4151,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::Unauthenticated,
+        type_uri: "https://arkret.org/problems/unauthenticated",
+        title: "Unauthenticated",
         http_status: 401,
         http_status_by_context: &[],
         scope: "both",
@@ -3713,6 +4161,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnrecognizedEndpoint,
+        type_uri: "https://arkret.org/problems/unrecognized_endpoint",
+        title: "Unrecognized endpoint",
         http_status: 404,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3721,6 +4171,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedCiphersuite,
+        type_uri: "https://arkret.org/problems/unsupported_ciphersuite",
+        title: "Unsupported ciphersuite",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -3729,6 +4181,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedContentEncoding,
+        type_uri: "https://arkret.org/problems/unsupported_content_encoding",
+        title: "Unsupported content encoding",
         http_status: 415,
         http_status_by_context: &[],
         scope: "both",
@@ -3737,6 +4191,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedDidMethod,
+        type_uri: "https://arkret.org/problems/unsupported_did_method",
+        title: "Unsupported did method",
         http_status: 422,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3745,6 +4201,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedDigestAlgorithm,
+        type_uri: "https://arkret.org/problems/unsupported_digest_algorithm",
+        title: "Unsupported digest algorithm",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -3753,6 +4211,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedEventKind,
+        type_uri: "https://arkret.org/problems/unsupported_event_kind",
+        title: "Unsupported event kind",
         http_status: 501,
         http_status_by_context: &[],
         scope: "both",
@@ -3761,6 +4221,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedFeature,
+        type_uri: "https://arkret.org/problems/unsupported_feature",
+        title: "Unsupported feature",
         http_status: 501,
         http_status_by_context: &[],
         scope: "both",
@@ -3769,6 +4231,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedHpkeSuite,
+        type_uri: "https://arkret.org/problems/unsupported_hpke_suite",
+        title: "Unsupported hpke suite",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -3777,6 +4241,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedJoinRule,
+        type_uri: "https://arkret.org/problems/unsupported_join_rule",
+        title: "Unsupported join rule",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -3785,6 +4251,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedLatticeType,
+        type_uri: "https://arkret.org/problems/unsupported_lattice_type",
+        title: "Unsupported lattice type",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -3793,6 +4261,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedMediaPolicy,
+        type_uri: "https://arkret.org/problems/unsupported_media_policy",
+        title: "Unsupported media policy",
         http_status: 422,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3801,6 +4271,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedOperationBinding,
+        type_uri: "https://arkret.org/problems/unsupported_operation_binding",
+        title: "Unsupported operation binding",
         http_status: 422,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3809,6 +4281,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedOrganizationRegistrationScope,
+        type_uri: "https://arkret.org/problems/unsupported_organization_registration_scope",
+        title: "Unsupported organization registration scope",
         http_status: 422,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3817,6 +4291,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedProfile,
+        type_uri: "https://arkret.org/problems/unsupported_profile",
+        title: "Unsupported profile",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -3825,6 +4301,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedProfilePatchPath,
+        type_uri: "https://arkret.org/problems/unsupported_profile_patch_path",
+        title: "Unsupported profile patch path",
         http_status: 422,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3833,6 +4311,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedProofProfile,
+        type_uri: "https://arkret.org/problems/unsupported_proof_profile",
+        title: "Unsupported proof profile",
         http_status: 422,
         http_status_by_context: &[],
         scope: "service_call",
@@ -3841,6 +4321,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedProtocolVersion,
+        type_uri: "https://arkret.org/problems/unsupported_protocol_version",
+        title: "Unsupported protocol version",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -3849,6 +4331,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedSignatureAlg,
+        type_uri: "https://arkret.org/problems/unsupported_signature_alg",
+        title: "Unsupported signature alg",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
@@ -3857,6 +4341,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UpstreamUnavailable,
+        type_uri: "https://arkret.org/problems/upstream_unavailable",
+        title: "Upstream unavailable",
         http_status: 503,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -3865,6 +4351,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::VerifierUnauthorized,
+        type_uri: "https://arkret.org/problems/verifier_unauthorized",
+        title: "Verifier unauthorized",
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",

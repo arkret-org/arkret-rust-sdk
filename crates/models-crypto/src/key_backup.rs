@@ -2346,7 +2346,6 @@ impl From<RecoveryPolicyPublishRequest> for EventInitialSubmission {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryPolicyPublishOutcome {
-    pub ok: bool,
     pub policy_id: PolicyId,
     pub principal_id: DidCoreId,
     pub version: u64,

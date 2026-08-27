@@ -1,7 +1,6 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/reducer-profile-registry.json; version=2026-08-25.1;
-//! sha256=0fde5d1bda803d7e4600b2f7386f957fa933e7f37b3a1eb912d042127b9dd632
+//! Input: registry/reducer-profile-registry.json; version=2026-08-25.1; sha256=103758b403caf4c27688df713a04ecb0a59626d99006f7809bc46c1f6f95cd40
 //! Entries: reducer_profiles=1, upgrade_edges=0
 
 /// Active Realm reducer profiles. A Realm selects exactly one through
@@ -13,7 +12,9 @@ pub enum ReducerProfileId {
 }
 
 impl ReducerProfileId {
-    pub const ALL: &'static [Self] = &[Self::CoreV1];
+    pub const ALL: &'static [Self] = &[
+        Self::CoreV1,
+    ];
 
     pub const CORE_V1: &'static str = "ak.reducer.core.v1";
 
@@ -38,7 +39,8 @@ impl ReducerProfileId {
 }
 
 /// Directed reducer-profile upgrades registered by the source profile.
-pub const REDUCER_PROFILE_UPGRADE_EDGES: &[(ReducerProfileId, ReducerProfileId)] = &[];
+pub const REDUCER_PROFILE_UPGRADE_EDGES: &[(ReducerProfileId, ReducerProfileId)] = &[
+];
 
 /// Whether `value` names an active Realm reducer profile.
 pub fn is_reducer_profile_id(value: &str) -> bool {
