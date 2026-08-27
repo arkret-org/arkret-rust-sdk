@@ -30,6 +30,32 @@ class EmbeddedArtifactGeneratorTests(unittest.TestCase):
             self.assertIn('"z.json":{"n":1.0}', snapshot)
             self.assertEqual(json.loads(snapshot)["z.json"]["n"], 1.0)
 
+    def test_manifest_binds_relative_source_tree_and_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "openapi").mkdir()
+            (root / "z.json").write_text('{"n":1.0}\n', encoding="utf-8")
+            (root / "a.json").write_text('{"n":1}\n', encoding="utf-8")
+            openapi = "openapi: 3.1.0\n"
+            snapshot = MODULE.build_snapshot(root)
+            manifest = json.loads(MODULE.build_manifest(root, snapshot, openapi))
+
+            self.assertEqual(manifest["source"]["root"], "spec/v1/artifacts")
+            self.assertEqual(manifest["source"]["json_file_count"], 2)
+            self.assertRegex(
+                manifest["source"]["json_tree_digest"], r"^sha256:[0-9a-f]{64}$"
+            )
+            self.assertEqual(
+                manifest["outputs"][MODULE.TARGET.name],
+                MODULE.sha256_digest(snapshot.encode("utf-8")),
+            )
+            self.assertNotIn(temporary, json.dumps(manifest))
+
+            first_digest = manifest["source"]["json_tree_digest"]
+            (root / "a.json").write_text('{"n":2}\n', encoding="utf-8")
+            changed = json.loads(MODULE.build_manifest(root, MODULE.build_snapshot(root), openapi))
+            self.assertNotEqual(changed["source"]["json_tree_digest"], first_digest)
+
 
 if __name__ == "__main__":
     unittest.main()

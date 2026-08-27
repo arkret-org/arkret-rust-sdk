@@ -24,6 +24,7 @@ Usage:
   python tools/refresh-embedded-artifacts.py --openapi-only [path-to-spec-artifacts]
 """
 import argparse
+import hashlib
 import json
 import sys
 import tempfile
@@ -34,6 +35,9 @@ DEFAULT_ARTIFACTS = REPO.parent / "arkret-spec" / "spec" / "v1" / "artifacts"
 TARGET = REPO / "crates" / "schema" / "src" / "embedded_artifacts.json"
 OPENAPI_RELATIVE_PATH = Path("openapi") / "arkret-service-api.openapi.yaml"
 OPENAPI_TARGET = REPO / "crates" / "schema" / "src" / "embedded_openapi.yaml"
+MANIFEST_TARGET = (
+    REPO / "crates" / "schema" / "src" / "embedded_artifacts.manifest.json"
+)
 
 
 def minify_json_preserving_number_lexemes(raw: str) -> str:
@@ -71,6 +75,42 @@ def build_snapshot(artifacts: Path) -> str:
             f"{minify_json_preserving_number_lexemes(raw)}"
         )
     return "{" + ",".join(entries) + "}"
+
+
+def sha256_digest(content: bytes) -> str:
+    return "sha256:" + hashlib.sha256(content).hexdigest()
+
+
+def json_tree_digest(artifacts: Path) -> tuple[int, str]:
+    digest = hashlib.sha256()
+    paths = sorted(artifacts.rglob("*.json"))
+    for path in paths:
+        relative = path.relative_to(artifacts).as_posix().encode("utf-8")
+        digest.update(relative)
+        digest.update(b"\0")
+        digest.update(hashlib.sha256(path.read_bytes()).digest())
+        digest.update(b"\n")
+    return len(paths), "sha256:" + digest.hexdigest()
+
+
+def build_manifest(artifacts: Path, snapshot: str, openapi_output: str) -> str:
+    artifact_count, tree_digest = json_tree_digest(artifacts)
+    payload = {
+        "version": 1,
+        "source": {
+            "root": "spec/v1/artifacts",
+            "json_file_count": artifact_count,
+            "json_tree_digest": tree_digest,
+            "openapi_path": OPENAPI_RELATIVE_PATH.as_posix(),
+            "openapi_digest": sha256_digest(openapi_output.encode("utf-8")),
+        },
+        "outputs": {
+            TARGET.name: sha256_digest(snapshot.encode("utf-8")),
+            OPENAPI_TARGET.name: sha256_digest(openapi_output.encode("utf-8")),
+        },
+        "generated_by": "tools/refresh-embedded-artifacts.py",
+    }
+    return json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
 
 
 def write_atomic(target: Path, content: str) -> None:
@@ -120,6 +160,7 @@ def main(argv: list[str] | None = None) -> int:
 
     output = build_snapshot(artifacts)
     artifact_count = sum(1 for _ in artifacts.rglob("*.json"))
+    manifest_output = build_manifest(artifacts, output, openapi_output)
     if args.check:
         json_drifted = (
             not TARGET.is_file() or TARGET.read_text(encoding="utf-8") != output
@@ -128,7 +169,11 @@ def main(argv: list[str] | None = None) -> int:
             not OPENAPI_TARGET.is_file()
             or OPENAPI_TARGET.read_text(encoding="utf-8") != openapi_output
         )
-        if json_drifted or openapi_drifted:
+        manifest_drifted = (
+            not MANIFEST_TARGET.is_file()
+            or MANIFEST_TARGET.read_text(encoding="utf-8") != manifest_output
+        )
+        if json_drifted or openapi_drifted or manifest_drifted:
             print(
                 "embedded artifact resources drifted; run "
                 "python tools/refresh-embedded-artifacts.py",
@@ -143,8 +188,10 @@ def main(argv: list[str] | None = None) -> int:
 
     write_atomic(TARGET, output)
     write_atomic(OPENAPI_TARGET, openapi_output)
+    write_atomic(MANIFEST_TARGET, manifest_output)
     print(f"embedded {artifact_count} JSON artifacts -> {TARGET}")
     print(f"embedded OpenAPI artifact -> {OPENAPI_TARGET}")
+    print(f"embedded artifact manifest -> {MANIFEST_TARGET}")
     return 0
 
 
