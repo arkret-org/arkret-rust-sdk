@@ -12,11 +12,11 @@ use arkret_models_crypto::{
     BackupSeriesEraseOutcome, BackupSeriesEraseRequestBody, KeyBackup, KeyBackupSummary,
     KeyBackupsListQuery, KeyPackagesClaimOutcome, KeyPackagesClaimRequestBody,
     KeyPackagesConsumeOutcome, KeyPackagesConsumeRequestBody, KeyPackagesUploadOutcome,
-    KeyPackagesUploadRequestBody, KeysBackupsDeleteChallenge, KeysBackupsDeleteOutcome,
-    KeysBackupsDeleteRequestBody, KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsList,
-    KeysBackupsReplaceOutcome, KeysBackupsUnlockRequestBody, KeysClaimOutcome,
-    KeysClaimRequestBody, KeysQueryOutcome, KeysQueryRequestBody, KeysUploadOutcome,
-    KeysUploadRequestBody,
+    KeyPackagesUploadRequestBody, KeyPackagesRevokeOutcome, KeyPackagesRevokeRequestBody,
+    KeysBackupsDeleteChallenge, KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody,
+    KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsList, KeysBackupsReplaceOutcome,
+    KeysBackupsUnlockRequestBody, KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome,
+    KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody,
 };
 use arkret_models_discovery::{ServiceDescribe, TransportBinding};
 use arkret_models_identity::account::{
@@ -455,6 +455,14 @@ impl Client {
         request: &KeyPackagesConsumeRequestBody,
     ) -> Result<KeyPackagesConsumeOutcome> {
         self.post("/_arkret/self/keys/keypackages/consume", request)
+            .await
+    }
+
+    pub async fn keypackages_revoke(
+        &self,
+        request: &KeyPackagesRevokeRequestBody,
+    ) -> Result<KeyPackagesRevokeOutcome> {
+        self.post("/_arkret/self/keys/keypackages/revoke", request)
             .await
     }
 

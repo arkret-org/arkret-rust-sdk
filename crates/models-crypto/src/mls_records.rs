@@ -376,12 +376,6 @@ impl LocalMlsKeyPackageInventory {
     pub fn maintenance_deficit(&self, now: DateTime<Utc>, low_water: usize) -> usize {
         low_water.saturating_sub(self.usable_single_use_count(now))
     }
-
-    /// A diagnostic refill is deliberately independent of the estimated
-    /// remote state and remains bounded to one low-water-sized batch.
-    pub fn manual_refill_count(low_water: usize) -> usize {
-        low_water
-    }
 }
 
 #[cfg(test)]
