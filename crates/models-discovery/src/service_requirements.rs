@@ -238,8 +238,7 @@ impl ServiceRequirements {
                     .operation_bindings
                     .iter()
                     .any(|actual| actual.operation_id == required)
-            })
-            {
+            }) {
                 return Err(WireError::Protocol(format!(
                     "service does not support operation {operation}"
                 )));
@@ -277,10 +276,12 @@ mod tests {
             profile_bindings: Default::default(),
             supported_features: vec![],
             calendar_tzdb_versions: vec![],
-            operation_bindings: vec![OperationBinding::current_http_json(
-                ServiceOperationId::FindDirectoryReadSearchRealms,
-            )
-            .unwrap()],
+            operation_bindings: vec![
+                OperationBinding::current_http_json(
+                    ServiceOperationId::FindDirectoryReadSearchRealms,
+                )
+                .unwrap(),
+            ],
             supported_bindings: vec![],
             auth_metadata: AuthMetadata::minimal("development"),
             limits: ServerLimits::default(),
