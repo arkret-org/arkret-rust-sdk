@@ -2,7 +2,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use arkret_models_discovery::ServiceDescribe;
-use arkret_models_identity::IdentityDescription;
 use arkret_models_integration::AppletPingOutcome;
 use arkret_schema::embedded_json_artifact;
 use arkret_wire::{DidFullId, ServiceKind, ServiceOperationId, TrustDomainId};
@@ -36,21 +35,26 @@ fn applet_ping_value() -> Value {
     })
 }
 
-fn identity_describe_value() -> Value {
-    json!({
-        "service_id": "ak:did_core:webvh:z6mkfixture",
-        "registry_mode": "writer",
-        "supported_receipts": [],
-        "protocol_version": "1.0",
-        "profiles": []
-    })
+fn identity_registry_describe_value() -> Value {
+    serde_json::to_value(ServiceDescribe::development(
+        DidFullId::new("did:webvh:z6mkfixture:identity.example").unwrap(),
+        TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        ServiceKind::IdentityRegistry,
+        vec!["ak.operation_bundle.identity_registry.describe.v1".to_owned()],
+        vec![arkret_models_discovery::TransportBinding::HttpJson {
+            base_url: "https://identity.example".to_owned(),
+            extension_profile_required: (),
+        }],
+    ))
+    .unwrap()
 }
 
 fn classify_decode(carrier: &str, value: Value) -> &'static str {
     let result = match carrier {
-        "service_describe" => serde_json::from_value::<ServiceDescribe>(value).map(|_| ()),
+        "service_describe" | "identity_describe" => {
+            serde_json::from_value::<ServiceDescribe>(value).map(|_| ())
+        }
         "applet_ping" => serde_json::from_value::<AppletPingOutcome>(value).map(|_| ()),
-        "identity_describe" => serde_json::from_value::<IdentityDescription>(value).map(|_| ()),
         other => panic!("unknown protocol-version fixture carrier {other}"),
     };
     match result {
@@ -73,7 +77,7 @@ fn ak_sdk_024_runs_all_bootstrap_vector_cases_before_side_effects() {
         let mut value = match carrier {
             "service_describe" => service_describe_value(),
             "applet_ping" => applet_ping_value(),
-            "identity_describe" => identity_describe_value(),
+            "identity_describe" => identity_registry_describe_value(),
             other => panic!("unknown carrier {other}"),
         };
         let object = value.as_object_mut().unwrap();

@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use arkret_wire::{DidCoreId, DidFullId, Hash, NonEmptyString, Result, WireError};
+use arkret_wire::{DidFullId, Hash, NonEmptyString, Result, WireError};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -32,19 +32,6 @@ pub enum DidMethodUri {
     Webvh,
     #[serde(rename = "did:web")]
     Web,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct IdentityDescription {
-    pub service_id: DidCoreId,
-    pub registry_mode: String,
-    #[serde(default)]
-    pub supported_receipts: Vec<String>,
-    #[serde(deserialize_with = "arkret_wire::deserialize_protocol_version")]
-    pub protocol_version: String,
-    #[serde(default)]
-    pub profiles: Vec<String>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
