@@ -661,7 +661,32 @@ impl Client {
     /// Walk every page of `ak.self.events.read.scan` for a Realm using
     /// the standard `has_more` / `next_cursor` contract.
     pub async fn events_read_all_pages(&self, realm_id: &str) -> Result<EventsQueryOutcome> {
-        self.events_read_all_pages_inner(realm_id, false).await
+        self.events_read_all_pages_inner(
+            vec![RealmId::new(realm_id)?],
+            Vec::new(),
+            false,
+            format!("realm {realm_id}"),
+        )
+        .await
+    }
+
+    /// Walk every durable Event page for one actor.
+    ///
+    /// Actor-scoped reads are required when a caller must reproduce a complete
+    /// principal control history. Realm-scoped projection scans can omit
+    /// canonical anchor Events that do not have an independently visible
+    /// projection row.
+    pub async fn events_read_all_pages_for_actor(
+        &self,
+        actor_id: &DidCoreId,
+    ) -> Result<EventsQueryOutcome> {
+        self.events_read_all_pages_inner(
+            Vec::new(),
+            vec![actor_id.clone()],
+            false,
+            format!("actor {actor_id}"),
+        )
+        .await
     }
 
     /// Walk every page and request range-completeness evidence for each page.
@@ -674,23 +699,33 @@ impl Client {
         &self,
         realm_id: &str,
     ) -> Result<EventsQueryOutcome> {
-        self.events_read_all_pages_inner(realm_id, true).await
+        self.events_read_all_pages_inner(
+            vec![RealmId::new(realm_id)?],
+            Vec::new(),
+            true,
+            format!("realm {realm_id}"),
+        )
+        .await
     }
 
     async fn events_read_all_pages_inner(
         &self,
-        realm_id: &str,
+        realms: Vec<RealmId>,
+        actors: Vec<DidCoreId>,
         include_completeness: bool,
+        selector_label: String,
     ) -> Result<EventsQueryOutcome> {
         let mut combined = self
-            .events_read_outcome(
-                realm_id,
-                None,
-                None,
-                None,
-                None,
-                include_completeness.then_some(true),
-            )
+            .events_read(&EventsQueryPostRequestBody {
+                realms: realms.clone(),
+                actors: actors.clone(),
+                before: None,
+                after: None,
+                order: None,
+                limit: None,
+                filters: None,
+                include_completeness: include_completeness.then_some(true),
+            })
             .await?;
         let mut completeness = combined.range_completeness.take();
         let mut pages = 1usize;
@@ -704,28 +739,30 @@ impl Client {
                 .map(ToOwned::to_owned)
             else {
                 return Err(Error::Protocol(format!(
-                    "events query for realm {realm_id} reported has_more but no next_cursor"
+                    "events query for {selector_label} reported has_more but no next_cursor"
                 )));
             };
             if last_cursor.as_deref() == Some(next.as_str()) {
                 return Err(Error::Protocol(format!(
-                    "events query for realm {realm_id} did not advance next_cursor ({next}); aborting to avoid a pagination loop"
+                    "events query for {selector_label} did not advance next_cursor ({next}); aborting to avoid a pagination loop"
                 )));
             }
             if pages >= MAX_EVENTS_QUERY_PAGES {
                 return Err(Error::Protocol(format!(
-                    "events query for realm {realm_id} exceeded {MAX_EVENTS_QUERY_PAGES} pages; aborting"
+                    "events query for {selector_label} exceeded {MAX_EVENTS_QUERY_PAGES} pages; aborting"
                 )));
             }
             let page = self
-                .events_read_outcome(
-                    realm_id,
-                    None,
-                    Some(&next),
-                    None,
-                    None,
-                    include_completeness.then_some(true),
-                )
+                .events_read(&EventsQueryPostRequestBody {
+                    realms: realms.clone(),
+                    actors: actors.clone(),
+                    before: None,
+                    after: Some(Cursor::new(next.clone())?),
+                    order: None,
+                    limit: None,
+                    filters: None,
+                    include_completeness: include_completeness.then_some(true),
+                })
                 .await?;
             combined.events.extend(page.events);
             combined.has_more = page.has_more;
