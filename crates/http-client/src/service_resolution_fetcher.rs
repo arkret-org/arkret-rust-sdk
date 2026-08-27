@@ -22,7 +22,7 @@ use crate::client_internals::read_body_limited;
 use crate::{Error, Result};
 
 pub const SERVICE_RESOLUTION_FETCH_MAX_BYTES: usize = 1024 * 1024;
-const SERVICE_DESCRIBE_FETCH_MAX_BYTES: usize = 64 * 1024;
+pub const SERVICE_DESCRIBE_FETCH_MAX_BYTES: usize = 1024 * 1024;
 pub const SERVICE_RESOLUTION_FETCH_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// A bounded canonical record whose transport locator was checked, but whose
@@ -178,7 +178,12 @@ impl ServiceResolutionFetcher {
             .append_pair("service_kind", service_kind.as_str());
         let bytes = tokio::time::timeout(
             timeout,
-            self.fetch_bounded(url, timeout, "describe", SERVICE_DESCRIBE_FETCH_MAX_BYTES),
+            self.fetch_bounded(
+                url,
+                timeout,
+                "service describe",
+                SERVICE_DESCRIBE_FETCH_MAX_BYTES,
+            ),
         )
         .await
         .map_err(|_| Error::Protocol("service describe fetch exceeded 5 seconds".to_owned()))??;
@@ -259,7 +264,7 @@ impl ServiceResolutionFetcher {
             .send()
             .await
             .map_err(crate::client_internals::transport_error)?;
-        validate_response_metadata(&response, max_bytes)?;
+        validate_response_metadata(&response, purpose, max_bytes)?;
         read_body_limited(response, max_bytes).await
     }
 }
@@ -293,11 +298,16 @@ fn apply_explicit_tls_roots(builder: reqwest::ClientBuilder) -> Result<reqwest::
     Ok(builder)
 }
 
-fn validate_response_metadata(response: &reqwest::Response, max_bytes: usize) -> Result<()> {
+fn validate_response_metadata(
+    response: &reqwest::Response,
+    purpose: &str,
+    max_bytes: usize,
+) -> Result<()> {
     validate_response_shape(
         response.status(),
         response.headers(),
         response.content_length(),
+        purpose,
         max_bytes,
     )
 }
@@ -306,22 +316,22 @@ fn validate_response_shape(
     status: StatusCode,
     headers: &HeaderMap,
     content_length: Option<u64>,
+    purpose: &str,
     max_bytes: usize,
 ) -> Result<()> {
     if status.is_redirection() || !status.is_success() {
         return Err(Error::Protocol(format!(
-            "service resolution fetch returned HTTP {}",
-            status
+            "{purpose} fetch returned HTTP {status}"
         )));
     }
     if headers.contains_key(CONTENT_ENCODING) {
-        return Err(Error::Protocol(
-            "service resolution response must not carry Content-Encoding".to_owned(),
-        ));
+        return Err(Error::Protocol(format!(
+            "{purpose} response must not carry Content-Encoding"
+        )));
     }
     if content_length.is_some_and(|length| length > max_bytes as u64) {
         return Err(Error::Protocol(format!(
-            "service resolution response exceeds {max_bytes} bytes"
+            "{purpose} response exceeds {max_bytes} bytes"
         )));
     }
     Ok(())
@@ -357,7 +367,7 @@ mod tests {
     #[test]
     fn transport_limits_are_protocol_hard_bounds() {
         assert_eq!(SERVICE_RESOLUTION_FETCH_MAX_BYTES, 1_048_576);
-        assert_eq!(SERVICE_DESCRIBE_FETCH_MAX_BYTES, 65_536);
+        assert_eq!(SERVICE_DESCRIBE_FETCH_MAX_BYTES, 1_048_576);
         assert_eq!(SERVICE_RESOLUTION_FETCH_TIMEOUT, Duration::from_secs(5));
     }
 
@@ -369,6 +379,7 @@ mod tests {
                 StatusCode::FOUND,
                 &empty,
                 Some(0),
+                "service resolution",
                 SERVICE_RESOLUTION_FETCH_MAX_BYTES,
             )
             .unwrap_err()
@@ -383,6 +394,7 @@ mod tests {
                 StatusCode::OK,
                 &compressed,
                 Some(32),
+                "service resolution",
                 SERVICE_RESOLUTION_FETCH_MAX_BYTES,
             )
             .unwrap_err()
@@ -395,6 +407,7 @@ mod tests {
                 StatusCode::OK,
                 &empty,
                 Some(SERVICE_RESOLUTION_FETCH_MAX_BYTES as u64 + 1),
+                "service resolution",
                 SERVICE_RESOLUTION_FETCH_MAX_BYTES,
             )
             .unwrap_err()
@@ -405,6 +418,7 @@ mod tests {
             StatusCode::OK,
             &empty,
             Some(SERVICE_RESOLUTION_FETCH_MAX_BYTES as u64),
+            "service resolution",
             SERVICE_RESOLUTION_FETCH_MAX_BYTES,
         )
         .unwrap();
@@ -442,7 +456,7 @@ mod tests {
         let oversize = serve_once(
             format!(
                 "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n",
-                SERVICE_RESOLUTION_FETCH_MAX_BYTES + 1
+                SERVICE_DESCRIBE_FETCH_MAX_BYTES + 1
             ),
             Duration::ZERO,
         )
@@ -451,7 +465,11 @@ mod tests {
             .fetch_describe(&oversize, ServiceKind::PrincipalServer)
             .await
             .unwrap_err();
-        assert!(error.to_string().contains("65536"));
+        assert!(
+            error
+                .to_string()
+                .contains("service describe response exceeds 1048576 bytes")
+        );
     }
 
     #[tokio::test]
