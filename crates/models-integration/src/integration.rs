@@ -75,28 +75,22 @@ mod tests {
             "service_kind": "push_gateway",
             "api_base_path": "/_floria",
             "describe_path": "/_floria/integration/describe",
-            "dependencies": [{
-                "service": "soland",
-                "purpose": "principal_outbound_push_delivery",
-                "required_contract": "ak.push.bridge.v1",
-                "discovery_path": "/_floria/push/bridge/describe",
-                "mode": "remote_principal_contract"
-            }],
+            "dependencies": [],
             "surfaces": [{
-                "name": "push_bridge",
+                "name": "gateway_describe",
                 "method": "GET",
-                "path": "/_floria/push/bridge/describe",
-                "contract": "ak.push.bridge.v1",
+                "path": "/_arkret/describe",
+                "contract": "ak.server.read.describe.v1",
                 "stability": "active",
-                "todo": "pin provider_capabilities_version"
+                "todo": ""
             }],
             "examples": {"compose_strand": {"step_1": {"service": "soland"}}}
         });
 
         let manifest: IntegrationDescribeOutcome =
             serde_json::from_value(value).expect("integration manifest decodes");
-        assert!(manifest.requires("soland", "principal_outbound_push_delivery"));
-        assert_eq!(manifest.surface("push_bridge").unwrap().method, "GET");
+        assert!(manifest.dependencies.is_empty());
+        assert_eq!(manifest.surface("gateway_describe").unwrap().method, "GET");
 
         let encoded = serde_json::to_value(manifest).expect("integration manifest encodes");
         assert!(encoded.get("todos").is_none());
