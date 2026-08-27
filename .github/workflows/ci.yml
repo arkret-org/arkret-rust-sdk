@@ -19,7 +19,7 @@ jobs:
           components: rustfmt
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.97"
+          toolchain: "1.98"
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo +nightly fmt --all -- --check
@@ -135,7 +135,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.97"
+          toolchain: "1.98"
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       - run: rustup target add wasm32-unknown-unknown
@@ -163,7 +163,7 @@ jobs:
           # secrets.SPEC_READ_TOKEN and pass `token: ${{ secrets.SPEC_READ_TOKEN }}`.
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.97"
+          toolchain: "1.98"
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: arkret-rust-sdk
@@ -181,7 +181,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.97"
+          toolchain: "1.98"
       - uses: Swatinem/rust-cache@v2
       - name: Build docs
         env:
@@ -198,7 +198,7 @@ jobs:
         with:
           # Pinned MSRV — bumping requires a workspace Cargo.toml change and
           # a CHANGELOG entry. Keeping a separate job documents the contract.
-          toolchain: "1.97"
+          toolchain: "1.98"
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace --all-features --locked
 
@@ -221,7 +221,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.97"
+          toolchain: "1.98"
       - uses: Swatinem/rust-cache@v2
       - name: Install cargo-semver-checks
         run: cargo install cargo-semver-checks --locked
@@ -235,7 +235,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.97"
+          toolchain: "1.98"
       - uses: Swatinem/rust-cache@v2
       - name: Install cargo-tarpaulin
         run: cargo install cargo-tarpaulin --locked
@@ -254,7 +254,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.97"
+          toolchain: "1.98"
       - uses: Swatinem/rust-cache@v2
       - run: python tools/check-publish-order.py
       - run: cargo package --workspace --locked --no-verify
@@ -285,7 +285,7 @@ jobs:
           components: rustfmt
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.97"
+          toolchain: "1.98"
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: arkret-rust-sdk

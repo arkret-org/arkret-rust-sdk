@@ -67,7 +67,7 @@ resolver = "3"
 
 [workspace.package]
 version = "0.3.0"
-rust-version = "1.97"
+rust-version = "1.98"
 
 [workspace.dependencies]
 # AES-128-GCM: the AEAD of the only ACTIVE MLS ciphersuite row

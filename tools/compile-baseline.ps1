@@ -22,7 +22,7 @@ New-Item -ItemType Directory -Force -Path $output | Out-Null
 $env:CARGO_INCREMENTAL = "1"
 $env:CARGO_PROFILE_DEV_DEBUG = "0"
 $env:CARGO_TERM_COLOR = "never"
-$env:RUSTUP_TOOLCHAIN = "1.97"
+$env:RUSTUP_TOOLCHAIN = "1.98"
 
 $scenarios = @{
     "umbrella" = @{
