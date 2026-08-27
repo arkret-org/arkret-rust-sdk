@@ -122,10 +122,9 @@ pub const MEDIA_TOKEN_TTL_MAX_SECS: u64 = 600;
 /// AKP-0010 — SHOULD-bound (recommended) TTL for media tokens.
 pub const MEDIA_TOKEN_TTL_SHOULD_SECS: u64 = 300;
 
-/// Round 4 (2026-05-20) — federation S2S HTTP message-signature headers.
+/// Federation S2S HTTP message-signature headers.
 /// MUST be present on every cross-trust-domain federation request and
 /// MUST be included in the canonical signing transcript so a sender from
 /// trust domain A cannot replay the same signed bytes into trust domain B.
-/// Spec commit f9bd7eb (`harden protocol review closures`).
 pub const HEADER_SOURCE_TRUST_DOMAIN: &str = "Source-Trust-Domain";
 pub const HEADER_DESTINATION_TRUST_DOMAIN: &str = "Destination-Trust-Domain";

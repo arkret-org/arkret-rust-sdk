@@ -1623,7 +1623,7 @@ pub enum DirectoryAcceptPolicyKind {
     OperatorReview,
 }
 
-/// Round 4 — wire-level entry in
+/// Wire-level entry in
 /// [`ServiceDescribe::claimed_profiles`]. Mirrors
 /// `service-describe.schema.json#/properties/claimed_profiles/items`:
 /// `profile_id` + `claim_kind = "self_claimed"` are required, the rest
@@ -1656,7 +1656,7 @@ impl ClaimedProfileEntry {
     }
 }
 
-/// Round 4 — `claim_kind` discriminant for
+/// `claim_kind` discriminant for
 /// [`ClaimedProfileEntry`]. The spec restricts this slot to
 /// `self_claimed`; verified-by-cotest claims belong in
 /// [`VerifiedProfileEntry`].
@@ -1667,7 +1667,7 @@ pub enum SelfClaimedKind {
     SelfClaimed,
 }
 
-/// Round 4 — wire-level entry in
+/// Wire-level entry in
 /// [`ServiceDescribe::verified_profiles`]. Mirrors
 /// `service-describe.schema.json#/properties/verified_profiles/items`:
 /// requires a verification run id, artifact hash, artifact reference,
@@ -1703,7 +1703,7 @@ pub enum ConformanceVerifiedKind {
     ConformanceVerified,
 }
 
-/// Round 4 — wire-level entry in
+/// Wire-level entry in
 /// [`ServiceDescribe::interop_surfaces`]. Mirrors
 /// `service-describe.schema.json#/properties/interop_surfaces/items`:
 /// `name` + `kind` are required and `kind` is restricted to a closed
@@ -1752,7 +1752,7 @@ impl InteropSurfaceEntry {
     }
 }
 
-/// Round 4 — closed enum of interop-surface kinds the spec recognises.
+/// Closed enum of interop-surface kinds the spec recognises.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

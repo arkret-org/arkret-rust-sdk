@@ -697,7 +697,7 @@ pub struct FederationServiceBindingRef {
 
 pub const MAX_FEDERATED_EVENTS: usize = 500;
 
-/// Round 4 — federation `/events/submit` request. Used when a remote
+/// Federation `/events/submit` request. Used when a remote
 /// service forwards events from another principal server. MUST carry
 /// the full [`FederationServiceBindingRef`] so the receiver can verify
 /// origin policy and delivery state. The reducer profile is resolved from

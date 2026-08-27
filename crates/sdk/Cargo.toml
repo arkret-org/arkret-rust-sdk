@@ -23,9 +23,9 @@ signer = ["arkret-signatures/signer"]
 server = ["dep:arkret-server"]
 mls = ["dep:arkret-mls"]
 mls-test-utils = ["mls", "arkret-mls/test-utils"]
-# Round 23 (2026-05-09): expose the platform KeyStore feature gates so apps
-# embedding the umbrella `arkret` crate can opt into OS-native key storage
-# without a direct arkret-keystore dependency.
+# Expose the platform KeyStore feature gates so apps embedding the umbrella
+# `arkret` crate can opt into OS-native key storage without a direct
+# arkret-keystore dependency.
 keystore-macos = ["arkret-keystore/keystore-macos"]
 keystore-linux = ["arkret-keystore/keystore-linux"]
 keystore-windows = ["arkret-keystore/keystore-windows"]

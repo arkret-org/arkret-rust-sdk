@@ -408,7 +408,6 @@ dependencies = [
  "tls_codec",
  "unicode-normalization",
  "uuid",
- "x25519-dalek",
  "zeroize",
 ]
 
@@ -452,7 +451,6 @@ dependencies = [
  "salvo-oapi",
  "serde",
  "serde_json",
- "sha2 0.11.0",
  "thiserror",
 ]
 
@@ -567,7 +565,6 @@ dependencies = [
  "arkret-models-discovery",
  "arkret-models-integration",
  "arkret-rate-limit",
- "arkret-schema",
  "arkret-signatures",
  "arkret-wire",
  "chrono",

@@ -42,11 +42,11 @@ pub trait AppletHandler: Send + Sync + 'static {
         verification_method: &DidUrl,
     ) -> Result<VerificationMethodDocument>;
 
-    /// `GET /_arkret/edge/applet/ping`
+    /// `ak.edge.applet.read.ping.v1` — `GET /_arkret/edge/applet/ping`
     fn ping(&self) -> Result<AppletPingOutcome>;
-    /// `GET /_arkret/edge/applet/describe`
+    /// `ak.edge.applet.read.describe.v1` — `GET /_arkret/edge/applet/describe`
     fn describe(&self) -> Result<ServiceDescribe>;
-    /// `POST /_arkret/edge/applet/transactions`
+    /// `ak.edge.applet.command.transaction.v1` — `POST /_arkret/edge/applet/transactions`
     ///
     /// The `router` factory only dispatches here **after** it has
     /// verified the inbound HTTP message signature against the source
@@ -62,10 +62,11 @@ pub trait AppletHandler: Send + Sync + 'static {
         idempotency_key: &str,
         req: AppletTransactionRequestBody,
     ) -> Result<AppletTransactionOutcome>;
-    /// `GET /_arkret/edge/applet/actors/{actor_id}`
+    /// `ak.edge.applet.actor.read.resolve.v1` — `GET /_arkret/edge/applet/actors/{actor_id}`
     fn resolve_actor(&self, actor_id: &str) -> Result<AppletActorView>;
-    /// `GET /_arkret/edge/applet/realms/{realm_id_or_alias}`
+    /// `ak.edge.applet.realm.read.resolve.v1` — `GET
+    /// /_arkret/edge/applet/realms/{realm_id_or_alias}`
     fn resolve_realm(&self, realm_id_or_alias: &str) -> Result<AppletRealmView>;
-    /// `GET /_arkret/edge/applet/protocols/{protocol}`
+    /// `ak.edge.applet.read.protocol_metadata.v1` — `GET /_arkret/edge/applet/protocols/{protocol}`
     fn resolve_protocol(&self, protocol: &str) -> Result<AppletProtocolMetadata>;
 }

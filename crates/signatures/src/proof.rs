@@ -1,9 +1,8 @@
 //! Canonical proof builders, Event proof verification, and signing primitives.
 //!
-//! T5.1 (Round 22, 2026-05-19) — `coauth`, `soland`, and `inkson` each
-//! grew their own canonical JSON + detached JWS plumbing for signing
-//! Event Envelopes. This module is the single pipeline they should all
-//! converge on: canonical-bytes computation, the `EventSigner` /
+//! Single canonical JSON + detached JWS pipeline for signing Event
+//! Envelopes, shared by `coauth`, `soland`, and `inkson`:
+//! canonical-bytes computation, the `EventSigner` /
 //! `EventVerifier` traits, the `PublicKeyMaterial` carrier, and a
 //! generic `Ed25519DetachedJwsSigner` / `Ed25519DetachedJwsVerifier` primitives.
 //! Arkret Event proofs are signed through [`crate::sign_event`], which constructs

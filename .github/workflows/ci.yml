@@ -268,7 +268,8 @@ jobs:
     # kinds (ak.agent.draft.propose, ak.agent.action_request,
     # ak.agent.action_{approve,reject}), the ak.self.call.media.exchange.issue_token.v1
     # operation, and the new media-service-binding / accountable_to.strict_reject
-    # profiles. See docs/architecture.md#spec-drift-coverage-ci for the runbook.
+    # profiles. See CONTRIBUTING.md ("Coverage gates layered on top") for the
+    # list of coverage gates and how to run them locally.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -313,7 +314,7 @@ jobs:
       # crates/schema/src/artifacts.rs against the live registries in both
       # directions. The example this invokes did not exist until 2026-08-01, so
       # despite the job being declared a hard gate it had never once executed —
-      # see _review_code/review_code.md.
+      # see review_code.md in the sibling arkret-work repository.
       - name: Run spec_drift_report
         working-directory: arkret-rust-sdk
         env:

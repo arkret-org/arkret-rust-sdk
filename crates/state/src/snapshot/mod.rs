@@ -19,7 +19,7 @@
 //!   trusting any chunks; chunks themselves don't need per-chunk signatures because their digests
 //!   are committed in the Merkle root that the proof signs.
 //!
-//! Wire shape (round 8): the snapshot manifest endpoint
+//! The snapshot manifest endpoint
 //! (`/_arkret/self/snapshot/head`) returns `chunk_count`, `merkle_root`,
 //! and `generator_proof`. Receivers fetch chunks through the manifest's
 //! `chunks[]` download descriptors and verify each chunk against its

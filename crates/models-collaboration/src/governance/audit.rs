@@ -148,7 +148,7 @@ pub struct AuditRywReceipt {
     pub issuer_role: RywIssuerRole,
     pub audit_event_id: EventId,
     pub realm_id: RealmId,
-    /// Round 4 (2026-05-20, spec a77b995) — REQUIRED trust domain
+    /// REQUIRED trust domain
     /// binding. Mixed into the canonical `audit_policy_version_digest`
     /// 4-tuple so receipts cannot be replayed across deployments.
     pub trust_domain: TrustDomainId,

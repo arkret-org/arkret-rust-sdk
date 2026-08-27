@@ -1,6 +1,6 @@
 //! Ed25519 backend for the [`PayloadSigner`] trait.
 //!
-//! Round 21 (2026-05-09): production Move/Seal signer. Wraps an
+//! Production Move/Seal signer. Wraps an
 //! `ed25519_dalek::SigningKey` and produces detached JWS strings whose
 //! payload is the canonical bytes of the Move/Seal body. Available
 //! behind the `signer` feature.

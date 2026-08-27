@@ -56,7 +56,6 @@ arkret-crypto = {workspace = true,features = ["aead", "secret-share"]}
 # embedded_json_artifact loads the private-kdf spec fixture in group.rs tests.
 arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
 hex = {workspace = true}
-x25519-dalek = {workspace = true}
 
 [lints]
 workspace = true

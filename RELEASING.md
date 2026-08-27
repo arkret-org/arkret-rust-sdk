@@ -1,6 +1,6 @@
 # Local Release Readiness
 
-The Arkret Rust SDK is a 26-crate Cargo workspace. This repository's release
+The Arkret Rust SDK is a 30-crate Cargo workspace. This repository's release
 readiness strand is local-only: it validates the coordinated crate set without
 publishing to crates.io, creating GitHub releases, or pushing tags.
 
@@ -69,17 +69,16 @@ python tools/check-publish-order.py
 cargo package --workspace --locked --no-verify
 cargo doc --no-deps --all-features --workspace
 cargo deny check --config .deny.toml
-cargo audit --deny warnings --ignore RUSTSEC-2024-0384 --ignore RUSTSEC-2026-0124
-cargo run --example spec_drift_report
+cargo audit --deny warnings --ignore RUSTSEC-2026-0124
+cargo run -p arkret-schema --example spec_drift_report
 ```
 
 Do not run `cargo publish`, do not create/push release tags, and do not create
 GitHub releases as part of this local readiness workflow.
 
-The two `cargo audit` ignores are tracked upstream-dependency exceptions for
-packages that are present in `Cargo.lock` but have no current upstream upgrade
-path: `RUSTSEC-2024-0384` is `instant` via OpenMLS's wasm timer dependency,
-and `RUSTSEC-2026-0124` is the optional `hpke-rs-libcrux` backend recorded in
+The `cargo audit` ignore is a tracked upstream-dependency exception for a
+package that is present in `Cargo.lock` but has no current upstream upgrade
+path: `RUSTSEC-2026-0124` is the optional `hpke-rs-libcrux` backend recorded in
 the lockfile while Arkret uses the RustCrypto HPKE backend.
 
 ## Compatibility notes

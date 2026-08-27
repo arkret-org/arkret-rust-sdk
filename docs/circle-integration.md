@@ -4,7 +4,7 @@
 > `artifacts/schemas/circle.schema.json`).
 >
 > Normative language in this document follows
-> [`spec/v1/zh/conformance/normative-language.md`](https://github.com/arkret-spec/spec/blob/main/v1/zh/conformance/normative-language.md)
+> [`spec/v1/zh/conformance/normative-language.md`](https://github.com/arkret-org/arkret-spec/blob/main/spec/v1/zh/conformance/normative-language.md)
 > (RFC 2119 / 8174 keywords).
 
 This guide explains when and how to use `Circle` in services that

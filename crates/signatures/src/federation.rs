@@ -4,7 +4,7 @@ use arkret_wire::TrustDomainId;
 use arkret_wire::constants::{HEADER_DESTINATION_TRUST_DOMAIN, HEADER_SOURCE_TRUST_DOMAIN};
 
 // ── HTTP message-signature transcript extension ────────────────────────
-/// Round 4 — build the canonical signing-transcript fragment for the
+/// Build the canonical signing-transcript fragment for the
 /// two federation trust-domain headers. Callers append this fragment
 /// to the existing RFC 9421 signature base produced by
 /// the RFC 9421 helpers in `crates/signatures/src/http_signature.rs` and

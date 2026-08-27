@@ -415,9 +415,9 @@ fn morph_restore_rejected_when_active() {
     assert_eq!(morph.state, Some(crate::ObjectState::Active));
 }
 
-// ── Round 10 (2026-05-15): archive / tombstone / update source-state guards ──
-// Per spec common-fields.md §5.1 canonical state-transition table. Mirror
-// the round 9 restore guards but for the rest of the transition matrix.
+// ── Archive / tombstone / update source-state guards ──
+// Per spec common-fields.md §5.1 canonical state-transition table. These
+// complement the restore guards for the rest of the transition matrix.
 
 #[test]
 fn space_archive_rejected_when_already_archived() {

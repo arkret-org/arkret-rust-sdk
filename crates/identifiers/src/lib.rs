@@ -377,7 +377,7 @@ macro_rules! declare_special_form_id_kinds {
     };
 }
 
-/// Validate a DID scalar against the Round 4 tightened pattern. Method name
+/// Validate a DID scalar. Method name
 /// MUST be lowercase ASCII alpha + digits only (no `.`/`-`/`_`/`:`);
 /// method-specific-id MUST be non-empty and contain no whitespace, fragment,
 /// or query marker. DID URL fields use a separate string surface and require a
@@ -1401,7 +1401,7 @@ mod tests {
         assert!(serde_json::from_str::<AppletId>(r#""applet.example""#).is_err());
     }
 
-    /// Round 4 (spec a77b995): method-name segment is `[a-z0-9]+` only;
+    /// Method-name segment is `[a-z0-9]+` only;
     /// `.`/`-`/`_`/`:` and whitespace MUST be rejected. DID scalar fields
     /// also reject DID URL query / fragment markers.
     #[test]

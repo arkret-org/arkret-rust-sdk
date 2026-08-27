@@ -5,58 +5,48 @@
       "api": [
         "crates/server/src/applet.rs::AppletHandler::ping"
       ],
-      "handler": [
-        "crates/server/src/applet.rs::ping_handler"
-      ],
-      "test": [
-        "crates/server/src/applet.rs::applet_service_constructs_with_handler_and_idempotency_window"
-      ]
+      "handler": [],
+      "test": []
     },
     "ak.edge.applet.read.describe.v1": {
       "api": [
         "crates/server/src/applet.rs::AppletHandler::describe"
       ],
-      "handler": [
-        "crates/server/src/applet.rs::describe_handler"
-      ],
+      "handler": [],
       "test": []
     },
     "ak.edge.applet.command.transaction.v1": {
       "api": [
+        "crates/models-collaboration/src/http_bodies.rs::AppletTransactionRequestBody",
         "crates/server/src/applet.rs::AppletHandler::handle_transaction"
       ],
       "handler": [
-        "crates/server/src/applet.rs::transactions_handler"
+        "crates/server/src/idempotency.rs::IdempotencyIdentity::applet_transaction"
       ],
       "test": [
-        "crates/server/src/applet.rs::dispatch_replays_duplicates_and_fails_closed_on_conflicts"
+        "crates/server/src/idempotency.rs::completed_claim_replays_outcome_to_exact_duplicates",
+        "crates/server/src/idempotency.rs::mismatched_body_digest_or_anchor_is_duplicate_conflict"
       ]
     },
     "ak.edge.applet.actor.read.resolve.v1": {
       "api": [
         "crates/server/src/applet.rs::AppletHandler::resolve_actor"
       ],
-      "handler": [
-        "crates/server/src/applet.rs::actor_handler"
-      ],
+      "handler": [],
       "test": []
     },
     "ak.edge.applet.realm.read.resolve.v1": {
       "api": [
         "crates/server/src/applet.rs::AppletHandler::resolve_realm"
       ],
-      "handler": [
-        "crates/server/src/applet.rs::realm_handler"
-      ],
+      "handler": [],
       "test": []
     },
     "ak.edge.applet.read.protocol_metadata.v1": {
       "api": [
         "crates/server/src/applet.rs::AppletHandler::resolve_protocol"
       ],
-      "handler": [
-        "crates/server/src/applet.rs::protocol_handler"
-      ],
+      "handler": [],
       "test": []
     }
   }

@@ -128,7 +128,7 @@ record the affected repos in the `CHANGELOG.md` entry.
 Adding a "downstream compile smoke test" job that checks out and builds the
 downstream repositories in `.github/workflows/` was evaluated and rejected.
 Cross-repo checkout itself is supported (the `embedded-snapshot` and
-`spec-drift` jobs already check out `arkret/arkret-spec` into a sibling path),
+`spec-drift` jobs already check out `arkret-org/arkret-spec` into a sibling path),
 but a *reliable, cheap* downstream compile job is not practical here:
 
 - **Version-pin noise defeats the signal.** Downstream manifests pin
@@ -140,7 +140,7 @@ but a *reliable, cheap* downstream compile job is not practical here:
   meaningful requires bumping the downstream pins in lockstep, which is the very
   local discipline above.
 - **`inkson` is not a cheap check.** It pulls custom git forks of Dioxus
-  (`github.com/arkret/dioxus*` at pinned revs) plus a full wasm + UI + crypto
+  (`github.com/arkret-org/dioxus*` at pinned revs) plus a full wasm + UI + crypto
   (OpenMLS/HPKE) stack; `cargo check` there is a heavy, fork-availability-
   dependent build. `soland` similarly carries a server/DB/Docker surface.
 - **Access and duplication cost.** The downstream consumers are separate GitHub

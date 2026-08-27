@@ -525,9 +525,9 @@ impl ThresholdAggregator {
 /// so the `sign_*` constructors don't need a public surface for the
 /// hashing-only struct.
 ///
-/// MAL-11 round 8: `kind` participates in the hashed bytes (forgery
-/// defense — Normal vs Compaction seals with otherwise identical
-/// fields MUST hash differently).
+/// MAL-11: `kind` participates in the hashed bytes (forgery defense —
+/// Normal vs Compaction seals with otherwise identical fields MUST hash
+/// differently).
 #[derive(serde::Serialize)]
 struct SealBodyView<'a> {
     realm_id: &'a RealmId,

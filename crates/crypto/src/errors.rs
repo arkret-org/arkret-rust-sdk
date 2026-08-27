@@ -39,12 +39,11 @@ pub enum Error {
 
 /// Typed crypto-machine validation errors.
 ///
-/// Round 2 (post-improve): introduced so call sites can branch on the
-/// specific validation failure (bounds vs replay vs key mismatch)
-/// instead of inspecting the free-form `Error::Protocol` string. The
-/// `From<CryptoError> for Error` impl below preserves the existing wire
-/// surface — every `CryptoError` still renders as
-/// `Error::Protocol(<message>)` for callers that haven't migrated.
+/// Lets call sites branch on the specific validation failure (bounds vs
+/// replay vs key mismatch) instead of inspecting the free-form
+/// `Error::Protocol` string. The `From<CryptoError> for Error` impl below
+/// preserves the wire surface — every `CryptoError` renders as
+/// `Error::Protocol(<message>)` when converted into [`Error`].
 ///
 /// New code SHOULD return `CryptoError` directly; bridge to [`Error`]
 /// only at the crate boundary using `?` or `Into::into`.

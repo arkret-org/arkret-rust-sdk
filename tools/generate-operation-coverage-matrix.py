@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -19,7 +20,7 @@ REPO = Path(__file__).resolve().parent.parent
 DEFAULT_ARTIFACTS = REPO.parent / "arkret-spec" / "spec" / "v1" / "artifacts"
 DEFAULT_EVIDENCE = REPO / "tools" / "operation-coverage-evidence.json"
 DEFAULT_OUTPUT = REPO / "docs" / "operation-coverage-matrix.md"
-AUDITED_CLAIMABLE_PROFILES = 69
+AUDITED_CLAIMABLE_PROFILES = 68
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -33,6 +34,25 @@ def load_json(path: Path) -> dict[str, Any]:
 def evidence_path(reference: str) -> Path:
     relative = reference.split("::", 1)[0]
     return REPO / relative
+
+
+RUST_ITEM_DECLARATION = re.compile(
+    r"\b(?:fn|struct|enum|trait|type|const|static|mod)\s+([A-Za-z_][A-Za-z0-9_]*)\b"
+)
+
+
+def evidence_symbol(reference: str) -> str:
+    parts = reference.split("::")
+    if len(parts) < 2 or not parts[-1]:
+        raise ValueError(f"evidence reference must end in a symbol: {reference}")
+    return parts[-1]
+
+
+def validate_evidence_symbol(reference: str, source: str) -> None:
+    symbol = evidence_symbol(reference)
+    declared = {match.group(1) for match in RUST_ITEM_DECLARATION.finditer(source)}
+    if symbol not in declared:
+        raise ValueError(f"evidence symbol does not exist: {reference}")
 
 
 def operation_id_spellings(operation_id: str) -> tuple[str, str]:
@@ -74,6 +94,8 @@ def validate_evidence(
                 if not path.is_file():
                     raise ValueError(f"evidence path does not exist: {reference}")
                 source = path.read_text(encoding="utf-8")
+                if path.suffix == ".rs":
+                    validate_evidence_symbol(reference, source)
                 if not any(
                     spelling in source
                     for spelling in operation_id_spellings(operation_id)
@@ -136,7 +158,9 @@ def generate(artifacts: Path, evidence_path_value: Path) -> str:
     requirements = profiles.get("profile_requirements", {})
     roles = profiles.get("profile_roles", {})
     # Audited claimable catalog size. It dropped from 70 to 69 when the Spec
-    # deleted ak.profile.disappearing.v1 along with Disappearing Messages; the
+    # deleted ak.profile.disappearing.v1 along with Disappearing Messages, and
+    # from 69 to 68 when the Spec deleted
+    # ak.profile.morph.schema_migration_transformations.v1 (26ff6ab2); the
     # guard is here so a silent catalog change cannot slip into the matrix, not
     # to pin a number forever, so it moves with a reviewed deletion.
     if len(claimable) != AUDITED_CLAIMABLE_PROFILES:

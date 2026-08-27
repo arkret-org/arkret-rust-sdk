@@ -4,7 +4,7 @@ use arkret_wire::{DidCoreId, Hash, Result, WireError};
 use serde::{Deserialize, Serialize};
 
 // ── ThirdPartyInvite (3PID) ─────────────────────────────────────────────
-/// Round 4 — discriminator for the 3PID invite OOB mode.
+/// Discriminator for the 3PID invite OOB mode.
 ///
 /// `ak.schema.invite.v1` carries a `oneOf` of:
 /// - `offline_token`: token_commitment + token_salt_id + token_entropy_bits (>= 128).
@@ -18,7 +18,7 @@ pub enum ThirdPartyInviteOobKind {
 
     Lookup,
 }
-/// Round 4 — `ak.schema.invite.v1` third_party_invite (3PID) carrier.
+/// `ak.schema.invite.v1` third_party_invite (3PID) carrier.
 ///
 /// Two-mode `oneOf`:
 /// - `offline_token` requires `token_commitment` + `token_salt_id` + `token_entropy_bits >= 128`.
@@ -64,7 +64,7 @@ pub struct ThirdPartyInvite {
 
 impl ThirdPartyInvite {
     /// Reject envelopes whose `oob_code_kind` is incompatible with the
-    /// populated fields. Round 4 (spec a77b995 §third_party_invite).
+    /// populated fields.
     pub fn validate_minimal(&self) -> Result<()> {
         if self.max_claims != 1
             || self

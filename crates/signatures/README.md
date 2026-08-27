@@ -16,8 +16,8 @@ This crate is the single source of truth for:
 ## Migrating downstream services
 
 `coauth`, `soland`, and `inkson` historically grew their own canonical JSON
-plumbing and detached-JWS construction. Round 22 (T5.1, 2026-05-19)
-consolidates them into one pipeline. Migration steps:
+plumbing and detached-JWS construction. These are consolidated into one
+pipeline. Migration steps:
 
 1. Replace local `canonical_*` helpers with `EventProofBuilder::canonical_bytes`.
 2. Replace local Event proof signers with `sign_event` and verification with

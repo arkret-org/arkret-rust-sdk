@@ -31,8 +31,5 @@ chrono = {workspace = true}
 serde = {workspace = true}
 serde_json = {workspace = true}
 
-[dev-dependencies]
-arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
-
 [lints]
 workspace = true

@@ -41,7 +41,7 @@ pub struct Realm {
     pub summary: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub security_class: Option<SecurityClass>,
-    /// Round 4 (2026-05-20, spec a77b995) — REQUIRED trust domain binding.
+    /// REQUIRED trust domain binding.
     /// Captured at create time (`ak.realm.create`) and immutable; any
     /// later event whose `trust_domain` mismatches MUST be rejected with
     /// `cross_domain_replay_rejected`. Mixed into the canonical signing
