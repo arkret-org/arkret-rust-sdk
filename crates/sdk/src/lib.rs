@@ -51,6 +51,7 @@
 
 mod history_response;
 mod keypackage_claim_receipt;
+mod managed_actor_authoring;
 mod mls_governance;
 mod sdk_error;
 mod sidecar_recovery;
@@ -336,6 +337,9 @@ pub use arkret_signatures::keypackages::{
 };
 pub use arkret_signatures::service_resolution::{
     sign_service_resolution_record, verify_authenticated_service_resolution,
+};
+pub use managed_actor_authoring::{
+    AppletManagedActorBundleAuthoringInput, author_applet_managed_actor_bundle,
 };
 // Shared `did:webvh` inception builder + organization statement signer, surfaced
 // at the SDK root so clients (sodmin / inkson) and servers (soland / coauth)
