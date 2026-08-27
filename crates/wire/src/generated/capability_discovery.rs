@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/contract-registry.json; version=2026-08-27.9;
-//! sha256=d22005ea5d584592906371af0dd93df9367f540b659a8dc3d81afffcd2df4ba7
-//! Entries: operation_bundles=38 features=22
+//! Input: registry/contract-registry.json; version=2026-08-27.12;
+//! sha256=29316c94b4552e6b41fd4d06c46555d0f6d1a42dcb50d65248ee7c2abb8f316d
+//! Entries: operation_bundles=39 features=22
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -71,6 +71,38 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             operation_id: ServiceOperationId::ServerReadDescribeV1,
             binding_kind: BindingKind::HttpJson,
         }],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.auth_server.account_authority.v1",
+        service_kind: ServiceKind::AuthServer,
+        members: &[
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountCommandAbandonIdentityCreationV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id:
+                    ServiceOperationId::GateAccountCommandIssueControllerGateAttestationV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountCommandIssueDidBindingChallengeV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id:
+                    ServiceOperationId::GateAccountCommandIssueIdentityAbandonmentChallengeV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountCommandRequestErasureV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountReadOnboardingV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+        ],
     },
     OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.auth_server.describe.v1",
