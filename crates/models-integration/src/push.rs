@@ -3,7 +3,6 @@
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PushRule {

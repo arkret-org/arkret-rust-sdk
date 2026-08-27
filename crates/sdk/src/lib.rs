@@ -338,9 +338,6 @@ pub use arkret_signatures::keypackages::{
 pub use arkret_signatures::service_resolution::{
     sign_service_resolution_record, verify_authenticated_service_resolution,
 };
-pub use managed_actor_authoring::{
-    AppletManagedActorBundleAuthoringInput, author_applet_managed_actor_bundle,
-};
 // Shared `did:webvh` inception builder + organization statement signer, surfaced
 // at the SDK root so clients (sodmin / inkson) and servers (soland / coauth)
 // reach one implementation: `arkret_sdk::webvh::prepare_principal_inception`,
@@ -407,6 +404,9 @@ pub use history_response::{
     winning_history_epoch_suites_from_verified_checkpoint,
 };
 pub use keypackage_claim_receipt::verify_peer_keypackage_claim_receipt_signature;
+pub use managed_actor_authoring::{
+    AppletManagedActorBundleAuthoringInput, author_applet_managed_actor_bundle,
+};
 pub use mls_governance::{
     NativeAgentHistoricalTrustRequest, VerifiedMlsGovernanceClosure,
     build_native_agent_signer_resolution_evidence,

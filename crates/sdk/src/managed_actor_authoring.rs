@@ -30,7 +30,8 @@ use arkret_wire::{
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
-use crate::{Result, sdk_error::Error};
+use crate::Result;
+use crate::sdk_error::Error;
 
 /// Runtime inputs that are deliberately outside the signed author request.
 ///
