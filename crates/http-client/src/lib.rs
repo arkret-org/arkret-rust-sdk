@@ -65,8 +65,8 @@ pub use endpoints::{
 pub use error::{Error, Result};
 #[cfg(not(target_arch = "wasm32"))]
 pub use service_resolution_fetcher::{
-    MaterializedServiceResolution, SERVICE_RESOLUTION_FETCH_MAX_BYTES,
-    SERVICE_RESOLUTION_FETCH_TIMEOUT, ServiceResolutionFetcher,
+    MaterializedServiceResolution, SERVICE_DESCRIBE_FETCH_MAX_BYTES,
+    SERVICE_RESOLUTION_FETCH_MAX_BYTES, SERVICE_RESOLUTION_FETCH_TIMEOUT, ServiceResolutionFetcher,
 };
 
 pub const HEADER_REQUEST_ID: &str = "X-Arkret-Request-Id";
