@@ -35,7 +35,7 @@ fn applet_ping_value() -> Value {
     })
 }
 
-fn identity_registry_describe_value() -> Value {
+fn identity_service_describe_value() -> Value {
     serde_json::to_value(ServiceDescribe::development(
         DidFullId::new("did:webvh:z6mkfixture:identity.example").unwrap(),
         TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
@@ -51,7 +51,7 @@ fn identity_registry_describe_value() -> Value {
 
 fn classify_decode(carrier: &str, value: Value) -> &'static str {
     let result = match carrier {
-        "service_describe" | "identity_describe" => {
+        "service_describe" | "identity_service_describe" => {
             serde_json::from_value::<ServiceDescribe>(value).map(|_| ())
         }
         "applet_ping" => serde_json::from_value::<AppletPingOutcome>(value).map(|_| ()),
@@ -77,7 +77,7 @@ fn ak_sdk_024_runs_all_bootstrap_vector_cases_before_side_effects() {
         let mut value = match carrier {
             "service_describe" => service_describe_value(),
             "applet_ping" => applet_ping_value(),
-            "identity_describe" => identity_registry_describe_value(),
+            "identity_service_describe" => identity_service_describe_value(),
             other => panic!("unknown carrier {other}"),
         };
         let object = value.as_object_mut().unwrap();
