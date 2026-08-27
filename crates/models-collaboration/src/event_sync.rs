@@ -649,8 +649,9 @@ impl RealmSealFrontierView {
 /// (`service-operation-dtos.schema.json#/$defs/EventsFrontierFederationPeerState`).
 /// Returned to an authorized federation peer over signed S2S trust-domain
 /// headers: the realm's federation-visible head Event IDs, the
-/// `frontier_root` hash commitment, per-actor sequence upper bounds, and a
-/// service signature over the observed frontier. This is the single
+/// `frontier_root` hash commitment, optional actor-scoped authorization roots,
+/// per-actor sequence upper bounds, and a service signature over the observed
+/// frontier. This is the single
 /// canonical shape shared by the spec artifacts, the producing service, and
 /// every consumer.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -664,6 +665,15 @@ pub struct EventsFrontierFederationPeerState {
     pub max_hlc: Option<String>,
     /// Hash commitment returned to an authorized federation peer.
     pub frontier_root: Hash,
+    /// Issuer-local authorization-state commitment for `request.actor_id`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth_state_root: Option<Hash>,
+    /// Filtered policy-cell state root for the requested Realm.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_frontier_root: Option<Hash>,
+    /// Filtered membership/role state root for `request.actor_id`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub membership_frontier_root: Option<Hash>,
     /// Per-actor sequence upper bounds returned to an authorized peer.
     #[serde(default)]
     pub actor_seq_upper_bounds: BTreeMap<DidCoreId, u64>,

@@ -53,6 +53,10 @@ pub struct SealFrontierRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct PeerEventsFrontierRequestBody {
     pub realm_id: RealmId,
+    /// Actor whose policy-check frontiers are requested. Generic federation
+    /// probes omit this field and receive only the replication frontier.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor_id: Option<DidCoreId>,
 }
 
 /// Ordering for event query scans.
