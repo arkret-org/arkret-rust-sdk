@@ -220,6 +220,67 @@ pub(crate) fn seal_merkle_root_from_leaf_data(
     seal_merkle_root_from_leaf_hashes(leaves, digest_suite)
 }
 
+/// Build an RFC 6962 audit path for one leaf in the shared Seal Merkle
+/// family. `leaf_data` must already be in the domain-defined canonical order.
+pub(crate) fn seal_merkle_audit_path_from_leaf_data(
+    leaf_data: &[Vec<u8>],
+    leaf_index: usize,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<Vec<Hash>, crate::WireError> {
+    if leaf_index >= leaf_data.len() {
+        return Err(crate::WireError::Protocol(
+            "Seal Merkle inclusion target is absent".to_owned(),
+        ));
+    }
+    let mut layer = leaf_data
+        .iter()
+        .map(|data| {
+            canonical::digest_bytes_from_slices(
+                digest_suite,
+                &[&[LEAF_PREFIX][..], data.as_slice()],
+            )
+        })
+        .collect::<Vec<_>>();
+    let mut index = leaf_index;
+    let mut branch = Vec::new();
+    while layer.len() > 1 {
+        if index.is_multiple_of(2) {
+            if index + 1 < layer.len() {
+                branch.push(hash_from_raw(layer[index + 1], digest_suite)?);
+            }
+        } else {
+            branch.push(hash_from_raw(layer[index - 1], digest_suite)?);
+        }
+        layer = next_seal_merkle_layer(&layer, digest_suite);
+        index /= 2;
+    }
+    Ok(branch)
+}
+
+/// Verify an audit path whose public leaf value is the raw domain leaf data,
+/// rather than the already domain-separated leaf hash.
+pub(crate) fn verify_seal_merkle_audit_path_from_leaf_data(
+    leaf_data: &[u8],
+    leaf_index: u64,
+    leaf_count: u64,
+    audit_path: &[Hash],
+    expected_root: &Hash,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<bool, crate::WireError> {
+    let leaf_digest = hash_from_raw(
+        canonical::digest_bytes_from_slices(digest_suite, &[&[LEAF_PREFIX][..], leaf_data]),
+        digest_suite,
+    )?;
+    verify_state_inclusion_proof(
+        &leaf_digest,
+        leaf_index,
+        leaf_count,
+        audit_path,
+        expected_root,
+        digest_suite,
+    )
+}
+
 fn seal_merkle_root_from_leaf_hashes(
     mut layer: Vec<[u8; 32]>,
     digest_suite: arkret_canonical::DigestSuite,

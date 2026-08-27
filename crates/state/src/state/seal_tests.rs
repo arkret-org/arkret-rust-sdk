@@ -467,6 +467,24 @@ fn control_event_set_root_uses_seal_merkle_domain_separation() {
     );
 }
 
+#[test]
+fn event_digest_set_inclusion_proof_covers_every_leaf_and_rejects_tampering() {
+    let digests = [move_id(0x11), move_id(0x22), move_id(0x33)]
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+    let root = event_digest_set_root(&digests, SUITE).unwrap();
+    for digest in &digests {
+        let proof = event_digest_set_inclusion_proof(&digests, digest, SUITE).unwrap();
+        assert!(
+            verify_event_digest_set_inclusion_proof(&proof, &root, SUITE).unwrap(),
+            "proof must cover {digest}"
+        );
+        let mut wrong_index = proof.clone();
+        wrong_index.leaf_index = (wrong_index.leaf_index + 1) % wrong_index.leaf_count;
+        assert!(!verify_event_digest_set_inclusion_proof(&wrong_index, &root, SUITE).unwrap());
+    }
+}
+
 fn completeness_event(
     event_id: &str,
     actor_id: &str,

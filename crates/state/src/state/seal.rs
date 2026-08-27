@@ -7,7 +7,10 @@ use arkret_wire::event_envelope::{Event, EventSubmitContext};
 use serde_json::Value;
 use thiserror::Error;
 
-use super::state_root::{compute_state_root, seal_merkle_root_from_leaf_data};
+use super::state_root::{
+    compute_state_root, seal_merkle_audit_path_from_leaf_data, seal_merkle_root_from_leaf_data,
+    verify_seal_merkle_audit_path_from_leaf_data,
+};
 use super::store::{CellRegistry, CellStore, ControlEventStore, SealStore};
 use super::verify::{
     ControlMoveReject, ControlMoveVerificationContext, recovery_capability_is_active,
@@ -1157,41 +1160,109 @@ fn collect_covered_events(
     Ok(())
 }
 
-pub fn control_event_set_root(
-    covered: &BTreeSet<Hash>,
-    digest_suite: arkret_canonical::DigestSuite,
-) -> Result<Hash, SealReject> {
-    let leaves: Result<Vec<Vec<u8>>, SealReject> = covered
+/// Portable inclusion proof for one canonical Event digest in a Seal
+/// observational/control digest set root.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EventDigestSetInclusionProof {
+    /// The canonical Event digest used as the Merkle leaf data.
+    pub leaf_digest: Hash,
+    pub leaf_index: u64,
+    pub leaf_count: u64,
+    /// Sibling hashes ordered from the leaf layer toward the root.
+    pub audit_path: Vec<Hash>,
+}
+
+fn event_digest_leaf_data(digests: &BTreeSet<Hash>) -> Result<Vec<Vec<u8>>, SealReject> {
+    digests
         .iter()
-        .map(|m| {
-            let (_, digest) = m.as_str().split_once(':').ok_or_else(|| {
-                SealReject::Structural(format!("control event digest has no suite: {m}"))
+        .map(|digest| {
+            let (suite, encoded) = digest.as_str().split_once(':').ok_or_else(|| {
+                SealReject::Structural(format!("Event digest has no suite: {digest}"))
             })?;
-            let suite = m
-                .as_str()
-                .split_once(':')
-                .map(|(suite, _)| suite)
-                .expect("split checked above");
             arkret_canonical::digest_suite(suite).map_err(|error| {
-                SealReject::Structural(format!("unsupported control event digest suite: {error}"))
+                SealReject::Structural(format!("unsupported Event digest suite: {error}"))
             })?;
-            hex::decode(digest)
-                .map_err(|e| {
-                    SealReject::Structural(format!("invalid control event digest {m}: {e}"))
+            hex::decode(encoded)
+                .map_err(|error| {
+                    SealReject::Structural(format!("invalid Event digest {digest}: {error}"))
                 })
                 .and_then(|decoded| {
                     if decoded.len() == 32 {
                         Ok(decoded)
                     } else {
                         Err(SealReject::Structural(format!(
-                            "control event digest {m} must decode to 32 bytes"
+                            "Event digest {digest} must decode to 32 bytes"
                         )))
                     }
                 })
         })
-        .collect();
-    seal_merkle_root_from_leaf_data(&leaves?, digest_suite)
-        .map_err(|e| SealReject::Store(format!("control_event_set_root: {e}")))
+        .collect()
+}
+
+/// Compute the shared Seal Merkle root for a canonical ordered set of Event
+/// digests. This is the single implementation used by both
+/// `control_event_set_root` and `data_event_set_root`.
+pub fn event_digest_set_root(
+    digests: &BTreeSet<Hash>,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<Hash, SealReject> {
+    seal_merkle_root_from_leaf_data(&event_digest_leaf_data(digests)?, digest_suite)
+        .map_err(|error| SealReject::Store(format!("event_digest_set_root: {error}")))
+}
+
+pub fn control_event_set_root(
+    covered: &BTreeSet<Hash>,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<Hash, SealReject> {
+    event_digest_set_root(covered, digest_suite)
+}
+
+/// Build an RFC 6962 audit path for `target` in a canonical Event digest set.
+pub fn event_digest_set_inclusion_proof(
+    digests: &BTreeSet<Hash>,
+    target: &Hash,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<EventDigestSetInclusionProof, SealReject> {
+    let leaf_index = digests
+        .iter()
+        .position(|digest| digest == target)
+        .ok_or_else(|| {
+            SealReject::Structural(format!("Event digest set does not contain target {target}"))
+        })?;
+    let leaf_data = event_digest_leaf_data(digests)?;
+    let audit_path = seal_merkle_audit_path_from_leaf_data(&leaf_data, leaf_index, digest_suite)
+        .map_err(|error| SealReject::Store(format!("event digest audit path: {error}")))?;
+    Ok(EventDigestSetInclusionProof {
+        leaf_digest: target.clone(),
+        leaf_index: u64::try_from(leaf_index).map_err(|_| {
+            SealReject::Structural("Event digest leaf index exceeds u64".to_owned())
+        })?,
+        leaf_count: u64::try_from(digests.len()).map_err(|_| {
+            SealReject::Structural("Event digest leaf count exceeds u64".to_owned())
+        })?,
+        audit_path,
+    })
+}
+
+/// Verify one Event digest-set audit path against its signed Seal root.
+pub fn verify_event_digest_set_inclusion_proof(
+    proof: &EventDigestSetInclusionProof,
+    expected_root: &Hash,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<bool, SealReject> {
+    let leaf_data = event_digest_leaf_data(&BTreeSet::from([proof.leaf_digest.clone()]))?
+        .into_iter()
+        .next()
+        .expect("single digest produces one leaf");
+    verify_seal_merkle_audit_path_from_leaf_data(
+        &leaf_data,
+        proof.leaf_index,
+        proof.leaf_count,
+        &proof.audit_path,
+        expected_root,
+        digest_suite,
+    )
+    .map_err(|error| SealReject::Store(format!("event digest inclusion proof: {error}")))
 }
 
 #[derive(serde::Serialize)]

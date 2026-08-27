@@ -1,6 +1,7 @@
 //! Moderation schema artifact counterparts and event payloads.
 
-use arkret_wire::{DidCoreId, DidFullId, DidUrl, project_full_id_to_core_id};
+use arkret_models_identity::AuthenticatedSignerResolutionEvidence;
+use arkret_wire::{DidCoreId, DidFullId, DidUrl, Event, Seal, project_full_id_to_core_id};
 
 use crate::internal_prelude::*;
 
@@ -54,6 +55,108 @@ pub struct FrankingProof {
     pub received_at: DateTime<Utc>,
     pub replay_nonce: String,
     pub signature: String,
+}
+
+/// Request for the first accepted Seal observation of one durable franking
+/// proof Event.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct FrankingSealObservationRequest {
+    pub realm_id: RealmId,
+    pub proof_event_id: EventId,
+    pub target_event_id: EventId,
+}
+
+/// RFC 6962 path proving that the durable proof Event digest is present in
+/// `covering_seal.data_event_set_root`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct FrankingDataEventInclusionProof {
+    pub leaf_digest: Hash,
+    pub leaf_index: u64,
+    pub leaf_count: u64,
+    pub audit_path: Vec<Hash>,
+}
+
+/// Complete, independently verifiable observation material for one durable
+/// franking proof Event.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct FrankingSealObservationOutcome {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub proof_event: Event,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub target_event: Event,
+    pub covering_seal: Seal,
+    pub data_event_inclusion_proof: FrankingDataEventInclusionProof,
+    pub service_signer_evidence: AuthenticatedSignerResolutionEvidence,
+}
+
+impl FrankingSealObservationOutcome {
+    /// Validate all non-Merkle cross-object bindings. Transport clients should
+    /// additionally verify `data_event_inclusion_proof` against the signed
+    /// `covering_seal.data_event_set_root`.
+    pub fn validate_binding(
+        &self,
+        request: &FrankingSealObservationRequest,
+    ) -> Result<FrankingProof> {
+        if self.proof_event.event_id != request.proof_event_id
+            || self.target_event.event_id != request.target_event_id
+            || self.proof_event.realm_id != request.realm_id
+            || self.target_event.realm_id != request.realm_id
+            || self.covering_seal.realm_id != request.realm_id
+            || self.proof_event.kind != EventKind::ModerationFrankingProof
+            || self.data_event_inclusion_proof.leaf_count == 0
+            || self.data_event_inclusion_proof.leaf_index
+                >= self.data_event_inclusion_proof.leaf_count
+            || self.data_event_inclusion_proof.audit_path.len() > 64
+        {
+            return Err(WireError::Protocol(
+                "franking Seal observation does not match the requested Event binding".to_owned(),
+            ));
+        }
+        let proof: FrankingProof = serde_json::from_value(
+            serde_json::to_value(&self.proof_event.payload).map_err(|error| {
+                WireError::Protocol(format!("franking proof Event payload is invalid: {error}"))
+            })?,
+        )
+        .map_err(|error| {
+            WireError::Protocol(format!("franking proof Event payload is invalid: {error}"))
+        })?;
+        if proof.realm_id != request.realm_id
+            || proof.event_id != request.target_event_id
+            || proof.received_by != self.proof_event.actor_id
+        {
+            return Err(WireError::Protocol(
+                "franking proof payload does not bind the requested target".to_owned(),
+            ));
+        }
+        match &self.service_signer_evidence {
+            AuthenticatedSignerResolutionEvidence::Service {
+                signer_id,
+                verification_method,
+                ..
+            } if signer_id == &proof.received_by
+                && verification_method == &proof.verification_method => {}
+            _ => {
+                return Err(WireError::Protocol(
+                    "franking signer evidence does not bind the proof service method".to_owned(),
+                ));
+            }
+        }
+        let proof_created_at = self.proof_event.created_at;
+        proof.validate_event_time_anchor(&FrankingProofEventTimeAnchor::new(
+            request.target_event_id.clone(),
+            request.realm_id.clone(),
+            proof.received_by.clone(),
+            proof_created_at,
+            self.covering_seal.sealed_at,
+        ))?;
+        Ok(proof)
+    }
 }
 
 /// Accepted-event anchor used to constrain a franking proof `received_at`.
