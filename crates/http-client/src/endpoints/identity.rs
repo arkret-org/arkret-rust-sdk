@@ -18,7 +18,7 @@ use arkret_models_identity::service_identity::{
 };
 use arkret_models_identity::{
     AuthenticatedServiceResolution, DidOperationSubmitOutcome, DidOperationSubmitRequestBody,
-    IdentityDescription, IdentityDocumentView, IdentityLogListOutcome, IdentityReceiptListOutcome,
+    IdentityDocumentView, IdentityLogListOutcome, IdentityReceiptListOutcome,
     IdentityResolveOutcome, IdentityResolveRequestBody, PublicPrincipalResolution,
 };
 use arkret_wire::{DidCoreId, ServiceKind};
@@ -94,8 +94,13 @@ impl Client {
         Ok(description)
     }
 
-    pub async fn identity_describe(&self) -> Result<IdentityDescription> {
-        self.get("/_arkret/root/identity/describe").await
+    pub async fn identity_describe(&self) -> Result<ServiceDescribe> {
+        let description: ServiceDescribe = self.get("/_arkret/root/identity/describe").await?;
+        description.validate()?;
+        ServiceRequirements::new()
+            .service_kind(ServiceKind::IdentityRegistry)
+            .verify(&description)?;
+        Ok(description)
     }
 
     pub async fn identity_resolve(
