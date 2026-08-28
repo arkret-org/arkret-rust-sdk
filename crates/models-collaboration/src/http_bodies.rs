@@ -1059,8 +1059,8 @@ pub enum EventsSubscribeFrameKind {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
 pub enum EventsSubscribeFrame {
     Event {
         realm_id: RealmId,
@@ -1095,6 +1095,135 @@ pub enum EventsSubscribeFrame {
         realm_id: Option<RealmId>,
     },
     Heartbeat,
+}
+
+impl<'de> Deserialize<'de> for EventsSubscribeFrame {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct EventFields {
+            realm_id: RealmId,
+            cursor: Cursor,
+            payload: Box<Event>,
+        }
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct EpochFields {
+            realm_id: RealmId,
+            payload: EpochRotationPayload,
+        }
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct CursorFields {
+            cursor: Cursor,
+        }
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct DroppedFields {
+            realm_id: RealmId,
+            cursor: Cursor,
+            reconnect_after_ms: Option<u64>,
+        }
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct ResyncFields {
+            realm_id: Option<RealmId>,
+            reconnect_after_ms: Option<u64>,
+        }
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct UnauthorizedFields {
+            realm_id: Option<RealmId>,
+        }
+
+        let mut value = Value::deserialize(deserializer)?;
+        let object = value
+            .as_object_mut()
+            .ok_or_else(|| serde::de::Error::custom("events subscribe frame must be an object"))?;
+        let kind = object
+            .remove("kind")
+            .and_then(|value| value.as_str().map(ToOwned::to_owned))
+            .ok_or_else(|| {
+                serde::de::Error::custom("events subscribe frame requires string kind")
+            })?;
+        fn decode<T, E>(value: Value) -> std::result::Result<T, E>
+        where
+            T: serde::de::DeserializeOwned,
+            E: serde::de::Error,
+        {
+            serde_json::from_value(value).map_err(E::custom)
+        }
+
+        let fields = Value::Object(std::mem::take(object));
+        match kind.as_str() {
+            "event" => {
+                let f: EventFields = decode::<_, D::Error>(fields)?;
+                Ok(Self::Event {
+                    realm_id: f.realm_id,
+                    cursor: f.cursor,
+                    payload: f.payload,
+                })
+            }
+            "epoch_rotation" => {
+                let f: EpochFields = decode::<_, D::Error>(fields)?;
+                Ok(Self::EpochRotation {
+                    realm_id: f.realm_id,
+                    payload: f.payload,
+                })
+            }
+            "frontier" => {
+                let f: CursorFields = decode::<_, D::Error>(fields)?;
+                Ok(Self::Frontier { cursor: f.cursor })
+            }
+            "catchup_complete" => {
+                let f: CursorFields = decode::<_, D::Error>(fields)?;
+                Ok(Self::CatchupComplete { cursor: f.cursor })
+            }
+            "dropped" => {
+                let f: DroppedFields = decode::<_, D::Error>(fields)?;
+                validate_reconnect(f.reconnect_after_ms).map_err(serde::de::Error::custom)?;
+                Ok(Self::Dropped {
+                    realm_id: f.realm_id,
+                    cursor: f.cursor,
+                    reconnect_after_ms: f.reconnect_after_ms,
+                })
+            }
+            "resync_required" => {
+                let f: ResyncFields = decode::<_, D::Error>(fields)?;
+                validate_reconnect(f.reconnect_after_ms).map_err(serde::de::Error::custom)?;
+                Ok(Self::ResyncRequired {
+                    realm_id: f.realm_id,
+                    reconnect_after_ms: f.reconnect_after_ms,
+                })
+            }
+            "unauthorized" => {
+                let f: UnauthorizedFields = decode::<_, D::Error>(fields)?;
+                Ok(Self::Unauthorized {
+                    realm_id: f.realm_id,
+                })
+            }
+            "heartbeat" if fields.as_object().is_some_and(serde_json::Map::is_empty) => {
+                Ok(Self::Heartbeat)
+            }
+            "heartbeat" => Err(serde::de::Error::custom(
+                "heartbeat forbids all fields except kind",
+            )),
+            _ => Err(serde::de::Error::custom(format!(
+                "unknown events subscribe frame kind {kind}"
+            ))),
+        }
+    }
+}
+
+fn validate_reconnect(value: Option<u64>) -> std::result::Result<(), &'static str> {
+    if value.is_some_and(|value| !(1..=300_000).contains(&value)) {
+        Err("reconnect_after_ms must be in 1..=300000")
+    } else {
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

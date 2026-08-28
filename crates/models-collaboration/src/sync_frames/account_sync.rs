@@ -1069,14 +1069,26 @@ mod device_message_dto_tests {
         let valid = json!({
             "device_message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
             "kind": "ak.key.verification.request",
-            "content": {"transaction_id": "txn"},
+            "content": {
+                "transaction_id": "txn",
+                "from_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
+                "methods": ["ak.key.verification.sas_v1"],
+                "timestamp": "2026-07-15T00:00:00.000Z",
+                "expires_at": "2026-07-15T00:10:00.000Z"
+            },
             "expires_at": "2026-07-15T01:00:00.000Z"
         });
         assert!(serde_json::from_value::<DeviceMessageTarget>(valid).is_ok());
 
         let missing_device_message_id = json!({
             "kind": "ak.key.verification.request",
-            "content": {"transaction_id": "txn"},
+            "content": {
+                "transaction_id": "txn",
+                "from_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
+                "methods": ["ak.key.verification.sas_v1"],
+                "timestamp": "2026-07-15T00:00:00.000Z",
+                "expires_at": "2026-07-15T00:10:00.000Z"
+            },
             "expires_at": "2026-07-15T01:00:00.000Z"
         });
         assert!(serde_json::from_value::<DeviceMessageTarget>(missing_device_message_id).is_err());
@@ -1115,7 +1127,13 @@ mod device_message_tests {
             "recipient_device_id": "ak:device:01904100-0000-7000-8000-000000000002",
             "sent_at": "2026-07-15T00:00:00.000Z",
             "expires_at": "2026-07-15T00:10:00.000Z",
-            "content": {"transaction_id": "txn"},
+            "content": {
+                "transaction_id": "txn",
+                "from_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
+                "methods": ["ak.key.verification.sas_v1"],
+                "timestamp": "2026-07-15T00:00:00.000Z",
+                "expires_at": "2026-07-15T00:10:00.000Z"
+            },
             "device_proof": {
                 "kind": "detached_jws",
                 "verification_method": "did:webvh:z6mkfixture:example.test#device-1",
@@ -1201,7 +1219,7 @@ mod device_message_tests {
                 .unwrap()
                 .insert(key.clone(), value.clone());
         }
-        assert!(serde_json::from_value::<DeviceMessageEnvelope>(agent.clone()).is_ok());
+        serde_json::from_value::<DeviceMessageEnvelope>(agent.clone()).expect("agent envelope");
 
         let mut both = agent.clone();
         both.as_object_mut().unwrap().insert(
@@ -1233,6 +1251,13 @@ mod device_message_tests {
         let mut service = envelope_value();
         service.as_object_mut().unwrap().remove("sender_device_id");
         service["kind"] = json!(ActorPrivateUpdateKind::ACCOUNT_DATA_UPDATE);
+        service["content"] = json!({
+            "operation": "put",
+            "account_data_key": "ak.account.invite_delivery",
+            "revision": 1,
+            "content": {},
+            "updated_at": "2026-07-15T00:00:00.000Z"
+        });
         for (key, value) in service_sender_fields().as_object().unwrap() {
             service
                 .as_object_mut()
@@ -1311,7 +1336,7 @@ mod device_message_tests {
 
     #[test]
     fn device_message_envelope_enforces_closed_object_shape_and_expiry_order() {
-        assert!(serde_json::from_value::<DeviceMessageEnvelope>(envelope_value()).is_ok());
+        serde_json::from_value::<DeviceMessageEnvelope>(envelope_value()).expect("device envelope");
 
         let mut expired = envelope_value();
         expired["expires_at"] = expired["sent_at"].clone();
@@ -1324,6 +1349,13 @@ mod device_message_tests {
         let mut unknown_root_field = envelope_value();
         unknown_root_field["unexpected"] = json!(true);
         assert!(serde_json::from_value::<DeviceMessageEnvelope>(unknown_root_field).is_err());
+
+        let mut incomplete_known_content = envelope_value();
+        incomplete_known_content["content"] = json!({
+            "transaction_id": "txn",
+            "from_device_id": "ak:device:01904100-0000-7000-8000-000000000001"
+        });
+        assert!(serde_json::from_value::<DeviceMessageEnvelope>(incomplete_known_content).is_err());
 
         let mut missing_device_message_id = envelope_value();
         missing_device_message_id

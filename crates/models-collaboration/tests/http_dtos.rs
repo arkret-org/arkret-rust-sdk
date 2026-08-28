@@ -145,6 +145,17 @@ fn events_subscribe_frame_control_helpers() {
         EventsSubscribeFrame::from_ndjson_line(r#"{"kind":"heartbeat","kind":"heartbeat"}"#)
             .is_err()
     );
+    for invalid in [
+        r#"{"kind":"heartbeat","payload":{}}"#,
+        r#"{"kind":"event","realm_id":"ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs","cursor":"ak:cursor:resume"}"#,
+        r#"{"kind":"frontier","cursor":"ak:cursor:resume","extra":true}"#,
+        r#"{"kind":"unknown"}"#,
+    ] {
+        assert!(
+            EventsSubscribeFrame::from_ndjson_line(invalid).is_err(),
+            "accepted {invalid}"
+        );
+    }
 }
 
 #[test]

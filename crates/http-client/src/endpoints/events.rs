@@ -1241,7 +1241,7 @@ mod tests {
 
         assert_eq!(got.len(), 2, "expected 2 frames, got {got:?}");
         assert_eq!(
-            got[0].kind,
+            got[0].kind(),
             arkret_models_collaboration::http_bodies::EventsSubscribeFrameKind::Event
         );
         assert!(got[1].is_catchup_complete());
