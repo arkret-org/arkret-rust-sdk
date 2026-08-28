@@ -40,9 +40,6 @@ unicode-security = {workspace = true}
 web-time = {workspace = true}
 url = {workspace = true}
 
-[build-dependencies]
-sha2 = {workspace = true}
-
 [lints]
 workspace = true
 

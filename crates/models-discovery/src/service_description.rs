@@ -588,42 +588,6 @@ pub struct ServiceDescribe {
 impl ServiceDescribe {
     pub const SCHEMA: &'static str = SchemaId::SERVICE_DESCRIBE_V1;
 
-    /// Publish the exact shared SDK build compiled into this service.
-    pub fn install_current_arkret_build_identity(&mut self) -> Result<()> {
-        self.extensions
-            .insert(
-                ARKRET_BUILD_IDENTITY_EXTENSION.to_owned(),
-                serde_json::to_value(ArkretBuildIdentity::current())?,
-            )
-            .map_err(|message| WireError::Protocol(message.to_owned()))?;
-        Ok(())
-    }
-
-    /// Decode the SDK-owned build identity extension without a local DTO.
-    pub fn arkret_build_identity(&self) -> Result<Option<ArkretBuildIdentity>> {
-        self.extensions
-            .get(ARKRET_BUILD_IDENTITY_EXTENSION)
-            .cloned()
-            .map(serde_json::from_value)
-            .transpose()
-            .map_err(WireError::from)
-    }
-
-    /// Development/test-only assertion that this description comes from the
-    /// exact SDK source compiled into the caller.
-    ///
-    /// This is deliberately named as an exact-build assertion so callers do
-    /// not mistake it for a production protocol compatibility check.
-    #[cfg(any(debug_assertions, test))]
-    pub fn validate_exact_development_build_identity(&self) -> Result<()> {
-        let identity = self.arkret_build_identity()?.ok_or_else(|| {
-            WireError::Protocol(format!(
-                "ServiceDescribe: missing {ARKRET_BUILD_IDENTITY_EXTENSION}"
-            ))
-        })?;
-        identity.validate_exact_development_build()
-    }
-
     /// Build a complete development-mode description for a service surface.
     pub fn development(
         full_id: DidFullId,
@@ -1124,20 +1088,6 @@ mod tests {
             assert_eq!(serde_json::to_value(value).unwrap(), token);
         }
         assert!(DirectoryResourceKind::from_str("space").is_err());
-    }
-
-    #[test]
-    fn sdk_build_identity_round_trips_through_shared_type() {
-        let mut description = principal_description();
-        description.install_current_arkret_build_identity().unwrap();
-
-        assert_eq!(
-            description.arkret_build_identity().unwrap(),
-            Some(ArkretBuildIdentity::current())
-        );
-        description
-            .validate_exact_development_build_identity()
-            .unwrap();
     }
 
     #[test]
