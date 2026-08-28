@@ -4,7 +4,8 @@ use arkret_models_collaboration::history_key::{
     HistoryKeyRequest, HistoryKeyRequestCreateOutcome, HistoryKeyRequestListOutcome,
     HistoryKeyRequestListQuery, HistoryKeyResponseAckOutcome, HistoryKeyResponseAckRequest,
     HistoryKeyResponseListOutcome, HistoryKeyResponseListQuery, HistoryKeyResponseSendReceipt,
-    HistoryKeyResponseSendRequest, HistoryKeySourceRelay,
+    HistoryKeyResponseSendRequest, HistoryKeySourceRelay, OrganizationRecoveryArchiveListOutcome,
+    OrganizationRecoveryArchiveListQuery,
 };
 use reqwest::Method;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue};
@@ -16,6 +17,8 @@ const PATH_SELF_HISTORY_KEY_REQUESTS_READ: &str = "/_arkret/self/history-key-req
 const PATH_SELF_HISTORY_KEY_RESPONSES: &str = "/_arkret/self/history-key-responses";
 const PATH_SELF_HISTORY_KEY_RESPONSES_READ: &str = "/_arkret/self/history-key-responses/read";
 const PATH_SELF_HISTORY_KEY_RESPONSES_ACK: &str = "/_arkret/self/history-key-responses/ack";
+const PATH_SELF_ORGANIZATION_RECOVERY_ARCHIVES_READ: &str =
+    "/_arkret/self/organization-recovery-archives/read";
 const PATH_PEER_HISTORY_KEY_RESPONSES_RELAY: &str = "/_arkret/peer/history-key-responses/relay";
 
 fn history_response_authorization(capability_b64u: &str) -> Result<HeaderValue> {
@@ -124,6 +127,18 @@ impl Client {
                 "history response ack outcome changed the high-water cursor".to_owned(),
             ));
         }
+        Ok(outcome)
+    }
+
+    pub async fn organization_recovery_archive_list(
+        &self,
+        query: &OrganizationRecoveryArchiveListQuery,
+    ) -> Result<OrganizationRecoveryArchiveListOutcome> {
+        query.validate()?;
+        let outcome: OrganizationRecoveryArchiveListOutcome = self
+            .post(PATH_SELF_ORGANIZATION_RECOVERY_ARCHIVES_READ, query)
+            .await?;
+        outcome.validate()?;
         Ok(outcome)
     }
 

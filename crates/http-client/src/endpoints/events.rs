@@ -23,8 +23,8 @@ use arkret_models_collaboration::governance_dependencies::{
 use arkret_models_collaboration::http_bodies::{
     EventDeliveryStatusOutcome, EventDeliveryStatusRequestBody, EventSealSubmitOutcome,
     EventsQueryOutcome, EventsRangeCompleteness, EventsResolveOutcome, EventsResolveRequestBody,
-    EventsSubmitOutcome, EventsSubscribeFrame, ProjectionStrandList, SealResolveOutcome,
-    SelfSealResolveRequestBody,
+    EventsSubmitOutcome, EventsSubscribeFrame, ProjectionSpaceList, ProjectionStrandList,
+    SealResolveOutcome, SelfSealResolveRequestBody,
 };
 use arkret_models_collaboration::objects::query_projection::{
     CollectionProjectionView, ViewProjectionRequestBody,
@@ -954,6 +954,12 @@ impl Client {
         reject_path_segment(view_id)?;
         let path = format!("/_arkret/self/views/{view_id}/projection");
         self.post(&path, request).await
+    }
+
+    pub async fn realm_spaces(&self, realm_id: &str) -> Result<ProjectionSpaceList> {
+        reject_path_segment(realm_id)?;
+        let path = format!("/_arkret/self/realms/{realm_id}/spaces");
+        self.get(&path).await
     }
 
     pub async fn realm_strands(&self, realm_id: &str) -> Result<ProjectionStrandList> {

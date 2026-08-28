@@ -20,15 +20,16 @@
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_models_collaboration::history_key::{
-    HistoryResponseCapabilityPlaintext, HistoryResponseCapabilitySealContext,
-    SealedHistoryResponseCapability, response_capability_commitment,
+    HistoryChunkPlaintext, HistoryResponseCapabilityPlaintext,
+    HistoryResponseCapabilitySealContext, HistorySecretChunkSealContext, SealedHistoryChunk,
+    SealedHistoryChunkKind, SealedHistoryResponseCapability, response_capability_commitment,
 };
 pub use arkret_models_crypto::{SecretShareRequestContent, SecretShareSendContent};
-use arkret_wire::DeviceId;
 #[cfg(test)]
 use arkret_wire::HPKE_SUITE_X25519_CHACHA20POLY1305_V1;
 #[cfg(test)]
 use arkret_wire::OrganizationRecoveryArchiveSealContext;
+use arkret_wire::{DeviceId, EpochRange, Hash};
 use hpke::aead::ChaCha20Poly1305;
 use hpke::kdf::HkdfSha256;
 use hpke::kem::X25519HkdfSha256;
@@ -253,6 +254,20 @@ fn split_hpke_seal(sealed: &str) -> Result<(String, String)> {
     ))
 }
 
+fn combine_hpke_seal(enc: &str, ciphertext: &str) -> Result<String> {
+    let enc = decode_x25519_key("HPKE enc", enc)?;
+    let ciphertext_bytes = base64url_decode(ciphertext.as_bytes())?;
+    if ciphertext_bytes.is_empty() || base64url_encode(&ciphertext_bytes) != ciphertext {
+        return Err(Error::Protocol(
+            "HPKE ciphertext must be non-empty canonical base64url".to_owned(),
+        ));
+    }
+    let mut blob = Vec::with_capacity(enc.len() + ciphertext_bytes.len());
+    blob.extend(enc);
+    blob.extend(ciphertext_bytes);
+    Ok(base64url_encode(blob))
+}
+
 /// Seal a 32-byte history response stream capability with the registered
 /// RFC 9180 base-mode profile. The exact closed context JCS bytes are passed
 /// byte-for-byte as both `info` and single-shot AEAD `aad`.
@@ -279,6 +294,112 @@ pub fn seal_history_response_capability(
     let sealed = SealedHistoryResponseCapability { enc, ciphertext };
     sealed.validate()?;
     Ok(sealed)
+}
+
+/// Open and fully validate a registered history response stream capability.
+pub fn open_history_response_capability(
+    recipient_private_key_b64u: &str,
+    context: &HistoryResponseCapabilitySealContext,
+    sealed: &SealedHistoryResponseCapability,
+) -> Result<HistoryResponseCapabilityPlaintext> {
+    context.validate()?;
+    sealed.validate()?;
+    let private = decode_x25519_key("recipient_private_key_b64u", recipient_private_key_b64u)?;
+    let binding = context.canonical_bytes()?;
+    let combined = combine_hpke_seal(&sealed.enc, &sealed.ciphertext)?;
+    let plaintext_bytes =
+        open_base_mode_with_x25519_privkey(&private, &combined, &binding, &binding)?;
+    let plaintext: HistoryResponseCapabilityPlaintext = serde_json::from_slice(&plaintext_bytes)?;
+    if arkret_canonical::canonical_json_bytes(&plaintext)? != plaintext_bytes {
+        return Err(Error::Protocol(
+            "history response capability plaintext is not canonical JSON".to_owned(),
+        ));
+    }
+    plaintext.validate()?;
+    if response_capability_commitment(&plaintext.response_capability_b64u)?
+        != context.response_capability_commitment
+    {
+        return Err(Error::Protocol(
+            "opened history response capability does not match the context commitment".to_owned(),
+        ));
+    }
+    Ok(plaintext)
+}
+
+/// Seal one history-secret chunk with its exact registered context as both
+/// RFC 9180 `info` and single-shot AEAD `aad`.
+pub fn seal_history_secret_chunk(
+    recipient_public_key_b64u: &str,
+    context: &HistorySecretChunkSealContext,
+    manifest_digest: &Hash,
+    covered_epoch_range: &EpochRange,
+    plaintext: &HistoryChunkPlaintext,
+) -> Result<SealedHistoryChunk> {
+    context.validate()?;
+    covered_epoch_range.validate()?;
+    plaintext.validate()?;
+    if plaintext.secret_range.from_epoch != covered_epoch_range.from_epoch
+        || plaintext.secret_range.to_epoch != covered_epoch_range.to_epoch
+    {
+        return Err(Error::Protocol(
+            "history chunk plaintext range does not match its manifest descriptor".to_owned(),
+        ));
+    }
+    let recipient = decode_x25519_key("recipient_public_key_b64u", recipient_public_key_b64u)?;
+    let binding = context.canonical_bytes()?;
+    let plaintext_bytes = arkret_canonical::canonical_json_bytes(plaintext)?;
+    let combined =
+        seal_base_mode_to_x25519_pubkey(&recipient, &plaintext_bytes, &binding, &binding)?;
+    let (enc, ciphertext) = split_hpke_seal(&combined)?;
+    let sealed = SealedHistoryChunk {
+        kind: SealedHistoryChunkKind::Value,
+        manifest_digest: manifest_digest.clone(),
+        manifest_admission_digest: context.manifest_admission_digest.clone(),
+        chunk_index: context.chunk_index,
+        enc,
+        ciphertext,
+    };
+    sealed.validate()?;
+    Ok(sealed)
+}
+
+/// Open and fully validate one registered history-secret chunk.
+pub fn open_history_secret_chunk(
+    recipient_private_key_b64u: &str,
+    context: &HistorySecretChunkSealContext,
+    expected_range: &EpochRange,
+    sealed: &SealedHistoryChunk,
+) -> Result<HistoryChunkPlaintext> {
+    context.validate()?;
+    expected_range.validate()?;
+    sealed.validate()?;
+    if sealed.manifest_admission_digest != context.manifest_admission_digest
+        || sealed.chunk_index != context.chunk_index
+    {
+        return Err(Error::Protocol(
+            "sealed history chunk does not match its verified seal context".to_owned(),
+        ));
+    }
+    let private = decode_x25519_key("recipient_private_key_b64u", recipient_private_key_b64u)?;
+    let binding = context.canonical_bytes()?;
+    let combined = combine_hpke_seal(&sealed.enc, &sealed.ciphertext)?;
+    let plaintext_bytes =
+        open_base_mode_with_x25519_privkey(&private, &combined, &binding, &binding)?;
+    let plaintext: HistoryChunkPlaintext = serde_json::from_slice(&plaintext_bytes)?;
+    if arkret_canonical::canonical_json_bytes(&plaintext)? != plaintext_bytes {
+        return Err(Error::Protocol(
+            "history chunk plaintext is not canonical JSON".to_owned(),
+        ));
+    }
+    plaintext.validate()?;
+    if plaintext.secret_range.from_epoch != expected_range.from_epoch
+        || plaintext.secret_range.to_epoch != expected_range.to_epoch
+    {
+        return Err(Error::Protocol(
+            "opened history chunk range does not match its verified manifest descriptor".to_owned(),
+        ));
+    }
+    Ok(plaintext)
 }
 
 #[cfg(test)]
@@ -565,6 +686,70 @@ mod tests {
         // Wrong recipient key fails.
         let (wrong_priv, _) = hpke_keypair();
         assert!(open_base_mode_with_x25519_privkey(&wrong_priv, &sealed, info, aad).is_err());
+    }
+
+    #[test]
+    fn history_secret_chunk_roundtrips_with_exact_context_and_range() {
+        let (recipient_priv, recipient_pub) = hpke_keypair();
+        let admission = Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap();
+        let manifest = Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap();
+        let response_id = arkret_models_collaboration::history_key::HistoryResponseId::new(
+            "ak:history_response:01964137-0000-7000-8000-000000000001".to_owned(),
+        )
+        .unwrap();
+        let context = HistorySecretChunkSealContext {
+            purpose: arkret_models_collaboration::history_key::HistorySecretChunkSealPurpose::Value,
+            manifest_admission_digest: admission,
+            chunk_response_id: response_id,
+            chunk_index: 0,
+            source_actor_id: arkret_wire::DidCoreId::new(
+                "ak:did_core:webvh:z6mkhistorysource".to_owned(),
+            )
+            .unwrap(),
+            source_sender_domain: device().to_string(),
+        };
+        let range = EpochRange {
+            from_epoch: 7,
+            to_epoch: 7,
+        };
+        let plaintext = HistoryChunkPlaintext {
+            kind: arkret_models_collaboration::history_key::HistoryChunkPlaintextKind::Value,
+            secret_range: arkret_wire::HistorySecretRange {
+                from_epoch: 7,
+                to_epoch: 7,
+                secrets_b64u: base64url_encode([9_u8; 32]),
+            },
+        };
+        let sealed = seal_history_secret_chunk(
+            &base64url_encode(&recipient_pub),
+            &context,
+            &manifest,
+            &range,
+            &plaintext,
+        )
+        .unwrap();
+        let opened = open_history_secret_chunk(
+            &base64url_encode(&recipient_priv),
+            &context,
+            &range,
+            &sealed,
+        )
+        .unwrap();
+        assert_eq!(opened, plaintext);
+
+        let wrong_range = EpochRange {
+            from_epoch: 8,
+            to_epoch: 8,
+        };
+        assert!(
+            open_history_secret_chunk(
+                &base64url_encode(&recipient_priv),
+                &context,
+                &wrong_range,
+                &sealed,
+            )
+            .is_err()
+        );
     }
 }
 
