@@ -101,11 +101,11 @@ impl IssuerAuthorityRef {
 pub struct Grant {
     pub grant_id: String,
     pub realm_id: String,
-    pub issuer: String,
-    pub issuer_principal_server_id: String,
-    pub subject: String,
+    pub issuer: DidCoreId,
+    pub issuer_principal_server_id: DidCoreId,
+    pub subject: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subject_principal_server_id: Option<String>,
+    pub subject_principal_server_id: Option<DidCoreId>,
     pub resource: String,
     pub actions: Vec<String>,
     #[serde(default)]
@@ -464,8 +464,8 @@ where
                 return false;
             };
             if parent_grant.subject != grant.issuer
-                || parent_grant.subject_principal_server_id.as_deref()
-                    != Some(grant.issuer_principal_server_id.as_str())
+                || parent_grant.subject_principal_server_id.as_ref()
+                    != Some(&grant.issuer_principal_server_id)
             {
                 return false;
             }
@@ -485,10 +485,13 @@ mod tests {
         Grant {
             grant_id: id.to_owned(),
             realm_id: "ak:realm:1".to_owned(),
-            issuer: "did:webvh:z6mkfixture:alice".to_owned(),
-            issuer_principal_server_id: "did:webvh:z6mkfixture:server".to_owned(),
-            subject: "did:webvh:z6mkfixture:bob".to_owned(),
-            subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
+            issuer: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+            issuer_principal_server_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver")
+                .unwrap(),
+            subject: DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+            subject_principal_server_id: Some(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
+            ),
             resource: resource.to_owned(),
             actions: actions.iter().map(|s| (*s).to_owned()).collect(),
             constraints: Vec::new(),
@@ -517,10 +520,13 @@ mod tests {
         Grant {
             grant_id: id.to_owned(),
             realm_id: "ak:realm:1".to_owned(),
-            issuer: issuer.to_owned(),
-            issuer_principal_server_id: "did:webvh:z6mkfixture:server".to_owned(),
-            subject: subject.to_owned(),
-            subject_principal_server_id: Some("did:webvh:z6mkfixture:server".to_owned()),
+            issuer: DidCoreId::new(issuer).unwrap(),
+            issuer_principal_server_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver")
+                .unwrap(),
+            subject: DidCoreId::new(subject).unwrap(),
+            subject_principal_server_id: Some(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
+            ),
             resource: resource.to_owned(),
             actions: actions.iter().map(|s| (*s).to_owned()).collect(),
             constraints: expires_at
@@ -563,8 +569,8 @@ mod tests {
         let child = child_grant(
             "g2",
             "g1",
-            "did:webvh:z6mkfixture:bob",
-            "did:webvh:z6mkfixture:carol",
+            "ak:did_core:webvh:z6mkfixturebob",
+            "ak:did_core:webvh:z6mkfixturecarol",
             &["read"],
             "ak:realm:1",
             None,
@@ -582,8 +588,8 @@ mod tests {
         let child = child_grant(
             "g2",
             "g1",
-            "did:webvh:z6mkfixture:bob",
-            "did:webvh:z6mkfixture:carol",
+            "ak:did_core:webvh:z6mkfixturebob",
+            "ak:did_core:webvh:z6mkfixturecarol",
             &["read"],
             "ak:realm:1",
             None,
@@ -602,8 +608,8 @@ mod tests {
         let child = child_grant(
             "g2",
             "g1",
-            "did:webvh:z6mkfixture:bob",
-            "did:webvh:z6mkfixture:carol",
+            "ak:did_core:webvh:z6mkfixturebob",
+            "ak:did_core:webvh:z6mkfixturecarol",
             &["read"],
             "ak:realm:1",
             None,
@@ -636,8 +642,8 @@ mod tests {
         let mut middle = child_grant(
             "g2",
             "g1",
-            "did:webvh:z6mkfixture:bob",
-            "did:webvh:z6mkfixture:carol",
+            "ak:did_core:webvh:z6mkfixturebob",
+            "ak:did_core:webvh:z6mkfixturecarol",
             &["read"],
             "ak:realm:1",
             None,
@@ -645,8 +651,8 @@ mod tests {
         let leaf = child_grant(
             "g3",
             "g2",
-            "did:webvh:z6mkfixture:carol",
-            "did:webvh:z6mkfixture:dave",
+            "ak:did_core:webvh:z6mkfixturecarol",
+            "ak:did_core:webvh:z6mkfixturedave",
             &["read"],
             "ak:realm:1",
             None,
@@ -672,13 +678,14 @@ mod tests {
         let mut forged = child_grant(
             "g2",
             "g1",
-            "did:webvh:z6mkfixture:bob",
-            "did:webvh:z6mkfixture:carol",
+            "ak:did_core:webvh:z6mkfixturebob",
+            "ak:did_core:webvh:z6mkfixturecarol",
             &["read"],
             "ak:realm:1",
             None,
         );
-        forged.issuer_principal_server_id = "did:webvh:z6mkfixture:other-server".to_owned();
+        forged.issuer_principal_server_id =
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureotherserver").unwrap();
 
         assert!(!authority_chain_intact(&[root, forged], "g2", now));
     }

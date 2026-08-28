@@ -18,16 +18,16 @@
       "seed_hex": "0202020202020202020202020202020202020202020202020202020202020202",
       "public_key_hex": "8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
       "value": {
-        "actor_id": "did:web:alice.example",
+        "actor_id": "ak:did_core:web:alice.example",
         "kind": "ak.message.posted.v1",
         "payload": {
           "text": "hi"
         }
       },
-      "canonical_bytes": "{\"actor_id\":\"did:web:alice.example\",\"kind\":\"ak.message.posted.v1\",\"payload\":{\"text\":\"hi\"}}",
-      "payload_digest": "sha256:2b8e967ff1ef5b3856a2efa04618436314d6ed995866267baddc4dc9336dc9be",
-      "signature_hex": "13f81fc3110852669625d57013ab3367c6f561831ca3df140d6c8e59e8b88fbeb8bc6517ca1f140c9bfb521de8ef5e5f379e8a2602a5a20208d307115c48b800",
-      "detached_jws": "eyJhbGciOiJFZDI1NTE5In0..E_gfwxEIUmaWJdVwE6szZ8b1YYMco98UDWyOWei4j764vGUXyh8UDJv7Uh3o715fN56KJgKlogII0wcRXEi4AA"
+      "canonical_bytes": "{\"actor_id\":\"ak:did_core:web:alice.example\",\"kind\":\"ak.message.posted.v1\",\"payload\":{\"text\":\"hi\"}}",
+      "payload_digest": "sha256:f3c8b46a0e89f80da81c06890861b34bcd8419e90f4f2480f958b5270a084b11",
+      "signature_hex": "5d8b464151e9b64ac7a94234a4b530f98904fdacf2c1ebe5ea410e4f61d1e6bcda6be4fa77adbd8b02d452c8f416b28f25e971ccd7dec2d886829c2a40bce500",
+      "detached_jws": "eyJhbGciOiJFZDI1NTE5In0..XYtGQVHptkrHqUI0pLUw-YkE_azywevl6kEOT2HR5rzaa-T6d629iwLUUsj0FrKPJelxzNfewtiGgpwqQLzlAA"
     },
     {
       "name": "seed_three_integer_array",

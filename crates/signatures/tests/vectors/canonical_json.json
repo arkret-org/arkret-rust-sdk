@@ -43,7 +43,7 @@
     {
       "name": "event_envelope_like_payload",
       "value": {
-        "actor_id": "did:web:alice.example",
+        "actor_id": "ak:did_core:web:alice.example",
         "actor_seq": 7,
         "created_at": "2026-05-19T00:00:00.000Z",
         "event_id": "ak:event:Ad0MolIiDydrY3uC5MFmNn6gRHYt05bqcaly_BmaNeer",
@@ -56,8 +56,8 @@
         "refs": [],
         "space_id": "ak:space:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN"
       },
-      "canonical_bytes": "{\"actor_id\":\"did:web:alice.example\",\"actor_seq\":7,\"created_at\":\"2026-05-19T00:00:00.000Z\",\"event_id\":\"ak:event:Ad0MolIiDydrY3uC5MFmNn6gRHYt05bqcaly_BmaNeer\",\"hlc\":\"0189c4d2af00-0000-aabbccdd\",\"kind\":\"ak.message.posted.v1\",\"payload\":{\"text\":\"hi\"},\"prev_refs\":[],\"refs\":[],\"space_id\":\"ak:space:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN\"}",
-      "payload_digest": "sha256:78ef19b4aa3d2f46a099410cc34ecadd334914e48c403f2f95cfddb100893424"
+      "canonical_bytes": "{\"actor_id\":\"ak:did_core:web:alice.example\",\"actor_seq\":7,\"created_at\":\"2026-05-19T00:00:00.000Z\",\"event_id\":\"ak:event:Ad0MolIiDydrY3uC5MFmNn6gRHYt05bqcaly_BmaNeer\",\"hlc\":\"0189c4d2af00-0000-aabbccdd\",\"kind\":\"ak.message.posted.v1\",\"payload\":{\"text\":\"hi\"},\"prev_refs\":[],\"refs\":[],\"space_id\":\"ak:space:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN\"}",
+      "payload_digest": "sha256:dda8189473b93a8e230d093f7e0fbc127e9bfbd2526d7066fdbda67bd4e1bb03"
     }
   ]
 }

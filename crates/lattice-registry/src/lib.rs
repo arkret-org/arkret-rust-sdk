@@ -390,7 +390,7 @@ mod tests {
         );
 
         let payload = json!({
-            "recipient_service_id": "did:webvh:z6mkfixture:service.example",
+            "recipient_service_id": "ak:did_core:webvh:z6mkfixtureservice",
             "principal_id": "ak:did_core:webvh:z6mkfixture",
             "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
             "push_route": "fcm"
@@ -399,12 +399,12 @@ mod tests {
             private
                 .derive_subject(
                     "ak.device.push_route",
-                    "did:webvh:z6mkfixture:alice.example",
+                    "ak:did_core:webvh:z6mkfixture",
                     &payload
                 )
                 .unwrap(),
             composite_subject(&[
-                "did:webvh:z6mkfixture:service.example",
+                "ak:did_core:webvh:z6mkfixtureservice",
                 "ak:did_core:webvh:z6mkfixture",
                 "ak:device:01904100-0000-7000-8000-000000000001",
                 "fcm",
@@ -1139,7 +1139,7 @@ mod tests {
         let kind = registry
             .lookup(arkret_wire::CellFamilyId::AGENT_KEY_V1)
             .unwrap();
-        let agent_id = "did:webvh:z6mkfixture:agent.example";
+        let agent_id = "ak:did_core:webvh:z6mkfixture";
         let key_id = "did:webvh:z6mkfixture:agent.example#runtime-1";
         let expected = composite_subject(&[agent_id, key_id]).unwrap();
         assert_eq!(

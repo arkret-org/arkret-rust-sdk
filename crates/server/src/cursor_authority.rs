@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
+use arkret_wire::DidCoreId;
 use arkret_wire::cursor::{Cursor, CursorPurpose};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -11,23 +12,25 @@ use serde_json::Value;
 /// Fields bound server-side to a stream cursor handle.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CursorBindingContext {
-    pub principal_id: String,
+    /// Opaque request subject bound to the cursor. This may be a stable
+    /// principal id, a handle-claim subject, or the literal anonymous scope.
+    pub binding_subject: String,
     pub device_id: Option<String>,
-    pub service_id: String,
+    pub service_id: DidCoreId,
     pub filter_digest: String,
 }
 
 impl CursorBindingContext {
     pub fn new(
-        principal_id: impl Into<String>,
+        binding_subject: impl Into<String>,
         device_id: Option<String>,
-        service_id: impl Into<String>,
+        service_id: DidCoreId,
         filter_digest: impl Into<String>,
     ) -> Self {
         Self {
-            principal_id: principal_id.into(),
+            binding_subject: binding_subject.into(),
             device_id,
-            service_id: service_id.into(),
+            service_id,
             filter_digest: filter_digest.into(),
         }
     }
@@ -206,7 +209,12 @@ mod tests {
     use super::*;
 
     fn context(subject: &str, filter: &str) -> CursorBindingContext {
-        CursorBindingContext::new(subject, None, "did:web:directory.example", filter)
+        CursorBindingContext::new(
+            subject,
+            None,
+            DidCoreId::new("ak:did_core:web:directory.example").unwrap(),
+            filter,
+        )
     }
 
     #[test]

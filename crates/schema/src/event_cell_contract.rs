@@ -2523,13 +2523,13 @@ mod tests {
         for (kind, payload, expected) in [
             (
                 "ak.organization.discovery",
-                json!({"organization_principal_id": "did:webvh:z6mkfixture:org.example"}),
-                "did:webvh:z6mkfixture:org.example",
+                json!({"organization_principal_id": "ak:did_core:webvh:z6mkfixture"}),
+                "ak:did_core:webvh:z6mkfixture",
             ),
             (
                 "ak.actor.discovery",
-                json!({"resource_id": "did:webvh:z6mkfixture:actor.example"}),
-                "did:webvh:z6mkfixture:actor.example",
+                json!({"resource_id": "ak:did_core:webvh:z6mkfixture"}),
+                "ak:did_core:webvh:z6mkfixture",
             ),
             (
                 "ak.applet.discovery",

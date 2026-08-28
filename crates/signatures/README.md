@@ -40,7 +40,7 @@ use serde_json::json;
 
 let signer = Ed25519DetachedJwsSigner::from_seed([1u8; 32], "did:webvh:z6mkfixture:alice.example#key-1");
 let builder = EventProofBuilder::new();
-let bytes = builder.canonical_bytes(&json!({"actor_id": "did:webvh:z6mkfixture:alice.example"})).unwrap();
+let bytes = builder.canonical_bytes(&json!({"actor_id": "ak:did_core:webvh:z6mkfixture"})).unwrap();
 let signature = signer.sign(&bytes).unwrap();
 
 let verifier = Ed25519DetachedJwsVerifier::new();

@@ -23,7 +23,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use arkret_wire::{Hash, WireError};
+use arkret_wire::{DidCoreId, Hash, WireError};
 
 /// Delivery direction component of the idempotency identity
 /// (`applet-integration.md` §7.3.1).
@@ -54,8 +54,8 @@ impl IdempotencyDirection {
 pub struct IdempotencyIdentity {
     pub operation_id: String,
     pub direction: IdempotencyDirection,
-    pub source_service_id: String,
-    pub destination_service_id: String,
+    pub source_service_id: DidCoreId,
+    pub destination_service_id: DidCoreId,
     pub idempotency_key: String,
 }
 
@@ -63,16 +63,16 @@ impl IdempotencyIdentity {
     /// Identity for a `ak.edge.applet.command.transaction.v1` delivery.
     pub fn applet_transaction(
         direction: IdempotencyDirection,
-        source_service_id: impl Into<String>,
-        destination_service_id: impl Into<String>,
+        source_service_id: DidCoreId,
+        destination_service_id: DidCoreId,
         idempotency_key: impl Into<String>,
     ) -> Self {
         Self {
             operation_id: arkret_wire::ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION_V1
                 .to_owned(),
             direction,
-            source_service_id: source_service_id.into(),
-            destination_service_id: destination_service_id.into(),
+            source_service_id,
+            destination_service_id,
             idempotency_key: idempotency_key.into(),
         }
     }
@@ -353,8 +353,8 @@ mod tests {
     fn identity(key: &str) -> IdempotencyIdentity {
         IdempotencyIdentity::applet_transaction(
             IdempotencyDirection::NodeToApplet,
-            "did:webvh:QmSrc:source.example",
-            "did:webvh:QmDst:applet.example",
+            DidCoreId::new("ak:did_core:webvh:QmSrc").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:QmDst").unwrap(),
             key,
         )
     }
@@ -437,8 +437,8 @@ mod tests {
         // identity, not a duplicate.
         let other_destination = IdempotencyIdentity::applet_transaction(
             IdempotencyDirection::NodeToApplet,
-            "did:webvh:QmSrc:source.example",
-            "did:webvh:QmOther:applet.example",
+            DidCoreId::new("ak:did_core:webvh:QmSrc").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:QmOther").unwrap(),
             "key-1",
         );
         assert_eq!(
@@ -448,8 +448,8 @@ mod tests {
         // Same key but the opposite direction is also distinct.
         let other_direction = IdempotencyIdentity::applet_transaction(
             IdempotencyDirection::AppletToArkretInbound,
-            "did:webvh:QmSrc:source.example",
-            "did:webvh:QmDst:applet.example",
+            DidCoreId::new("ak:did_core:webvh:QmSrc").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:QmDst").unwrap(),
             "key-1",
         );
         assert_eq!(

@@ -10,15 +10,15 @@ arkret = { path = "crates/sdk" }
 Create validated protocol identifiers:
 
 ```rust
-use arkret::{DeviceId, Did, RealmId};
+use arkret::{DeviceId, DidCoreId, RealmId};
 
-let actor_id = Did::new("did:webvh:z6mkexample:alice.example")?;
+let actor_id = DidCoreId::new("ak:did_core:webvh:z6mkexample")?;
 let device_id =
     DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001")?;
 let realm_id =
     RealmId::new("ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir")?;
 
-assert_eq!(actor_id.as_str(), "did:webvh:z6mkexample:alice.example");
+assert_eq!(actor_id.as_str(), "ak:did_core:webvh:z6mkexample");
 assert!(device_id.as_str().starts_with("ak:device:"));
 assert!(realm_id.as_str().starts_with("ak:realm:"));
 # Ok::<(), arkret::WireError>(())

@@ -1,15 +1,15 @@
 //! Key-transparency evidence wire shapes (`ak.schema.key_transparency.v1`):
 //! log head, inclusion/consistency proofs, and witness signatures.
 
-use arkret_wire::DidUrl;
+use arkret_wire::{Did, DidCoreId, DidUrl};
 use serde::{Deserialize, Serialize};
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KeyTransparencyEvidence {
     pub schema: String,
-    pub log_service_id: String,
-    pub principal_id: String,
+    pub log_service_id: DidCoreId,
+    pub principal_id: DidCoreId,
     pub key_material_digest: String,
     pub log_head: TransparencyLogHead,
     pub inclusion_proof: TransparencyInclusionProof,
@@ -44,7 +44,7 @@ pub struct TransparencyConsistencyProof {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransparencyWitnessSignature {
-    pub witness_did: String,
+    pub witness_did: Did,
     pub verification_method: DidUrl,
     pub signature: String,
 }
