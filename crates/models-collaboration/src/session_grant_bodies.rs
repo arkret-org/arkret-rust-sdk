@@ -1066,6 +1066,7 @@ mod session_grant_contract_tests {
     fn issue_outcome_requires_identity_key_and_audience() {
         let valid = json!({
             "principal_id": "ak:did_core:web:alice.example",
+            "service_account_id": "account-1",
             "session_grant": "signed.jwt",
             "expires_at": "2026-08-08T12:00:00.000Z",
             "session_grant_id": GRANT_ID,
@@ -1074,7 +1075,12 @@ mod session_grant_contract_tests {
         });
         assert!(serde_json::from_value::<SessionGrantOutcome>(valid.clone()).is_ok());
 
-        for field in ["session_grant_id", "session_public_key", "audience_id"] {
+        for field in [
+            "service_account_id",
+            "session_grant_id",
+            "session_public_key",
+            "audience_id",
+        ] {
             let mut missing = valid.clone();
             missing.as_object_mut().unwrap().remove(field);
             assert!(
@@ -1299,6 +1305,7 @@ mod session_grant_contract_tests {
 
         let mut refresh = json!({
             "session_grant_id": GRANT_ID,
+            "service_account_id": "account-1",
             "grant_jwt": "successor.jwt",
             "session_public_key": CANONICAL_JWK,
             "expires_at": "2026-08-08T12:04:00.000Z",

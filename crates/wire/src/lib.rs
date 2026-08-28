@@ -14,6 +14,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+#[cfg(feature = "diesel")]
+mod diesel_support;
 mod error;
 mod extension_map;
 mod genesis_salt;

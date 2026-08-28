@@ -1060,16 +1060,23 @@ pub enum EventsSubscribeFrameKind {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct EventsSubscribeFrame {
-    pub kind: EventsSubscribeFrameKind,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<RealmId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub cursor: Option<Cursor>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub payload: Option<BTreeMap<String, Value>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reconnect_after_ms: Option<u64>,
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum EventsSubscribeFrame {
+    Event { realm_id: RealmId, cursor: Cursor, payload: Box<Event> },
+    EpochRotation { realm_id: RealmId, payload: EpochRotationPayload },
+    Frontier { cursor: Cursor },
+    CatchupComplete { cursor: Cursor },
+    Dropped { realm_id: RealmId, cursor: Cursor, #[serde(skip_serializing_if = "Option::is_none")] reconnect_after_ms: Option<u64> },
+    ResyncRequired { #[serde(skip_serializing_if = "Option::is_none")] realm_id: Option<RealmId>, #[serde(skip_serializing_if = "Option::is_none")] reconnect_after_ms: Option<u64> },
+    Unauthorized { #[serde(skip_serializing_if = "Option::is_none")] realm_id: Option<RealmId> },
+    Heartbeat,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EpochRotationPayload {
+    pub new_epoch: u32,
 }
 
 impl EventsSubscribeFrame {
@@ -1087,21 +1094,38 @@ impl EventsSubscribeFrame {
     /// True iff this frame requires the client to reset or rebuild its
     /// subscription state.
     pub fn requires_resubscribe(&self) -> bool {
-        matches!(
-            self.kind,
-            EventsSubscribeFrameKind::Dropped | EventsSubscribeFrameKind::ResyncRequired
-        )
+        matches!(self, Self::Dropped { .. } | Self::ResyncRequired { .. })
     }
 
     /// True iff catch-up replay has reached the live frontier.
     pub fn is_catchup_complete(&self) -> bool {
-        matches!(self.kind, EventsSubscribeFrameKind::CatchupComplete)
+        matches!(self, Self::CatchupComplete { .. })
+    }
+
+    pub fn kind(&self) -> EventsSubscribeFrameKind {
+        match self {
+            Self::Event { .. } => EventsSubscribeFrameKind::Event,
+            Self::Frontier { .. } => EventsSubscribeFrameKind::Frontier,
+            Self::Heartbeat => EventsSubscribeFrameKind::Heartbeat,
+            Self::CatchupComplete { .. } => EventsSubscribeFrameKind::CatchupComplete,
+            Self::EpochRotation { .. } => EventsSubscribeFrameKind::EpochRotation,
+            Self::Dropped { .. } => EventsSubscribeFrameKind::Dropped,
+            Self::ResyncRequired { .. } => EventsSubscribeFrameKind::ResyncRequired,
+            Self::Unauthorized { .. } => EventsSubscribeFrameKind::Unauthorized,
+        }
+    }
+
+    pub fn cursor(&self) -> Option<&Cursor> {
+        match self {
+            Self::Event { cursor, .. } | Self::Frontier { cursor } | Self::CatchupComplete { cursor } | Self::Dropped { cursor, .. } => Some(cursor),
+            _ => None,
+        }
     }
 }
 
 impl StreamTraceFrame for EventsSubscribeFrame {
     fn trace_kind(&self) -> StreamTraceFrameKind {
-        match self.kind {
+        match self.kind() {
             EventsSubscribeFrameKind::Event => StreamTraceFrameKind::Data,
             EventsSubscribeFrameKind::Frontier => StreamTraceFrameKind::Frontier,
             EventsSubscribeFrameKind::Heartbeat => StreamTraceFrameKind::Heartbeat,
@@ -1114,7 +1138,7 @@ impl StreamTraceFrame for EventsSubscribeFrame {
     }
 
     fn trace_cursor(&self) -> Option<&str> {
-        self.cursor.as_ref().map(|cursor| cursor.as_str())
+        self.cursor().map(|cursor| cursor.as_str())
     }
 }
 

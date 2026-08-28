@@ -635,6 +635,7 @@ mod tests {
     fn session_grant_outcome_json() -> String {
         serde_json::json!({
             "principal_id": "ak:did_core:web:alice.example",
+            "service_account_id": "account-fixture-1",
             "session_grant": "signed.jwt",
             "expires_at": "2026-08-08T12:04:00.000Z",
             "session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
@@ -666,6 +667,7 @@ mod tests {
     fn session_grant_refresh_outcome_json() -> String {
         serde_json::json!({
             "session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
+            "service_account_id": "account-fixture-1",
             "grant_jwt": "successor.jwt",
             "session_public_key": r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
             "expires_at": "2026-08-08T12:04:00.000Z",

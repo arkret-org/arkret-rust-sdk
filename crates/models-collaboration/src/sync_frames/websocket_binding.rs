@@ -290,7 +290,7 @@ impl WebSocketDataPayload {
                 frame.validate()
             }
             Self::Events(frame) => {
-                if !matches!(frame.kind, EventsSubscribeFrameKind::Event) {
+                if !matches!(frame.kind(), EventsSubscribeFrameKind::Event) {
                     return Err(WireError::Protocol(
                         "a WebSocket data frame only carries the events event kind".to_owned(),
                     ));
@@ -364,7 +364,7 @@ impl WebSocketChannelControlPayload {
                 frame.validate()
             }
             Self::Events(frame) => {
-                if matches!(frame.kind, EventsSubscribeFrameKind::Event) {
+                if matches!(frame.kind(), EventsSubscribeFrameKind::Event) {
                     return Err(WireError::Protocol(
                         "the events event kind belongs in a WebSocket data frame".to_owned(),
                     ));

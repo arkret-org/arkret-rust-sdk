@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-08-29.1;
-//! sha256=361191d58fbb752239fea824168e3477c62fc8058e1a317b18e97299e596072a Entries: error_codes=286
+//! sha256=90dc058e2c5001937b623f5aa530d3f4bace53ad3a2aa03612bda7013e0d03e9 Entries: error_codes=286
 
 use serde::{Deserialize, Serialize};
 
@@ -3167,7 +3167,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "A canonical operation carrier has multiple advertised versioned operation_id candidates remaining after applying its authenticated endpoint/binding context, but omitted the selector required to disambiguate them. HTTP and TUS use Arkret-Operation conditionally; WebSocket open frames use operation_id as defined by their frame schema. A selector is not required when one exact operation_id is uniquely derivable. Receivers MUST NOT infer a version from payload shape.",
+        description: "Every canonical Arkret HTTP or TUS request MUST carry exactly one Arkret-Operation selector naming the exact locally advertised operation_id before body parsing, including endpoint families with one candidate. A missing selector fails with operation_selector_required. Endpoint uniqueness, payload shape, SDK version, defaults, and fallback MUST NOT replace the selector. WebSocket open frames carry the operation_id required by their frame schema.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::OrganizationRegistrationChallengeInvalid,

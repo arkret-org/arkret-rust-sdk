@@ -92,10 +92,7 @@ pub fn blob_resumable_upload_base_url(description: &ServiceDescribe) -> Option<U
         arkret_wire::ServiceOperationId::SelfBlobUploadCreateV1,
         &[arkret_wire::BindingKind::Tus],
     )?;
-    let TransportBinding::Tus {
-        base_url: base_url, ..
-    } = binding
-    else {
+    let TransportBinding::Tus { base_url, .. } = binding else {
         return None;
     };
     Url::parse(base_url).ok()

@@ -629,6 +629,7 @@ dependencies = [
  "arkret-canonical",
  "arkret-identifiers",
  "chrono",
+ "diesel",
  "getrandom 0.4.2",
  "hex",
  "idna",

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/proof-context-registry.json; version=2026-08-29.1;
-//! sha256=d1821d27bcdad0686d179320b5152cdff3f9f3295470f2b7aa78e0405bd52f27 Input: registry/
+//! sha256=737e6e0a4807010454f074d293a197269d0831bac07cc8aa8bf11ecc210de35b Input: registry/
 //! exporter-label-registry.json; version=2026-08-21.1;
 //! sha256=6cb34e722ce41df3c91204d48f6cdf66b68640e9d86a379a9267cefce484bb02 Input: registry/
 //! digest-suite-registry.json; version=2026-08-18;
@@ -1088,7 +1088,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "principal_id",
             "verification_method",
             "created_at",
-            "audience",
+            "audience_id",
         ],
         schema_ref: "schemas/account-operations.schema.json#/$defs/account_handoff_authentication_proof",
     },
@@ -1226,7 +1226,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "payload_digest",
             "verification_method",
             "created_at",
-            "audience_id",
+            "audience",
         ],
         schema_ref: "schemas/applet-install-authoring.schema.json#/$defs/authoring_request",
     },

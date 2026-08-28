@@ -676,8 +676,7 @@ fn data_payload_cursor(payload: &WebSocketDataPayload) -> Option<String> {
     match payload {
         WebSocketDataPayload::Account(frame) => frame.cursor.clone(),
         WebSocketDataPayload::Events(frame) => frame
-            .cursor
-            .as_ref()
+            .cursor()
             .map(|cursor| cursor.as_str().to_owned()),
         WebSocketDataPayload::Signal(_) => None,
     }

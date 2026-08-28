@@ -74,8 +74,8 @@ impl AccountStatus {
             | (SoftLoggedOut, Active | Locked | Suspended | Deactivated | ErasurePending)
             | (Locked, Active | SoftLoggedOut | Suspended | Deactivated | ErasurePending)
             | (Suspended, Active | SoftLoggedOut | Locked | Deactivated | ErasurePending)
-            | (Deactivated, ErasurePending) => true,
-            (Deactivated, Active | SoftLoggedOut | Locked | Suspended)
+            | (Deactivated, Active | ErasurePending) => true,
+            (Deactivated, SoftLoggedOut | Locked | Suspended)
             | (ErasurePending, Active | SoftLoggedOut | Locked | Suspended | Deactivated) => false,
             _ => false,
         }
@@ -91,6 +91,29 @@ impl AccountStatus {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deactivated_may_transition_to_active_or_erasure_pending() {
+        assert!(AccountStatus::Deactivated.can_transition_to(AccountStatus::Active));
+        assert!(AccountStatus::Deactivated.can_transition_to(AccountStatus::ErasurePending));
+        assert!(!AccountStatus::Deactivated.can_transition_to(AccountStatus::SoftLoggedOut));
+        assert!(!AccountStatus::Deactivated.can_transition_to(AccountStatus::Locked));
+        assert!(!AccountStatus::Deactivated.can_transition_to(AccountStatus::Suspended));
+    }
+
+    #[test]
+    fn erasure_pending_remains_terminal() {
+        assert!(AccountStatus::ErasurePending.is_terminal());
+        assert_eq!(
+            AccountStatus::ErasurePending.validate_transition_to(AccountStatus::Active),
+            Err(AccountStatusTransitionRejection::ErasurePendingIsTerminal)
+        );
     }
 }
 
