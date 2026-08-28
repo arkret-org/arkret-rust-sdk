@@ -1109,7 +1109,7 @@ mod tests {
             recipient: RecipientMlsDurableSigner::MinimalMetadataPairwise {
                 recipient_pairwise_verification_method: verification_method.clone(),
             },
-            recipient_service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureservice".to_owned())
+            recipient_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureservice".to_owned())
                 .unwrap(),
             realm_id: RealmId::new(
                 "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5".to_owned(),

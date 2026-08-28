@@ -399,7 +399,7 @@ pub struct MembershipCompensationCasToken {
     pub admission_id: ProtocolOpaqueId,
     pub delegation_digest: Hash,
     pub expected_state: MembershipCompensationExpectedState,
-    pub destination_service_id: DidCoreId,
+    pub destination_id: DidCoreId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
@@ -431,7 +431,7 @@ impl MembershipCompensationSubmissionEvidence {
             || self.terminal_certificate.delegation_digest != *digest
             || self.single_use_cas_token.admission_id != core.admission_id
             || self.single_use_cas_token.delegation_digest != *digest
-            || self.single_use_cas_token.destination_service_id != core.executor_service_id
+            || self.single_use_cas_token.destination_id != core.executor_service_id
         {
             return Err(crate::WireError::Protocol(
                 "membership compensation evidence cross-binding mismatch".to_owned(),

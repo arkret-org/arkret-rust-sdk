@@ -266,7 +266,7 @@ impl<'de> Deserialize<'de> for VisibleCaptureNotice {
 pub struct CallRecordingStartPayload {
     pub call_id: CallId,
     pub recording_id: CallRecordingId,
-    pub recording_agent: DidCoreId,
+    pub recording_agent_id: DidCoreId,
     pub capture_kind: RecordingCaptureKind,
     pub mode: RecordingMode,
     pub visible_notice: VisibleCaptureNotice,
@@ -1057,7 +1057,7 @@ mod tests {
         let value = json!({
             "call_id": "ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7",
             "recording_id": "capture-1",
-            "recording_agent": "ak:did_core:webvh:z6mkfixture",
+            "recording_agent_id": "ak:did_core:webvh:z6mkfixture",
             "capture_kind": "recording",
             "mode": "audio_video",
             "visible_notice": true,
@@ -1084,7 +1084,7 @@ mod tests {
         let cyclic_identity = json!({
             "call_id": "ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7",
             "recording_id": "capture-1",
-            "recording_agent": "ak:did_core:webvh:z6mkfixture",
+            "recording_agent_id": "ak:did_core:webvh:z6mkfixture",
             "capture_kind": "recording",
             "mode": "audio_video",
             "visible_notice": true,

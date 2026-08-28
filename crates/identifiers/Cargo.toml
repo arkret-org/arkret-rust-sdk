@@ -18,6 +18,9 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
+# PostgreSQL `text` persistence for `DidCoreId`. Kept optional so protocol-only
+# and wasm consumers do not pull Diesel or libpq into their dependency graph.
+diesel = ["dep:diesel"]
 # OpenAPI `ToSchema` derives on the string-newtype identifiers. Off by default
 # so the data-layer graph stays framework-free; service crates opt in.
 openapi = ["dep:salvo-oapi"]
@@ -25,6 +28,7 @@ openapi = ["dep:salvo-oapi"]
 [dependencies]
 arkret-canonical = {workspace = true}
 base64 = {workspace = true}
+diesel = {workspace = true,features = ["postgres"],optional = true}
 
 # wasm32 randomness for this crate: the workspace getrandom 0.4 line needs
 # `wasm_js`, the legacy getrandom 0.2 line needs `js`, and uuid needs its own

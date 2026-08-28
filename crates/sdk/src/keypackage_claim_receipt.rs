@@ -15,7 +15,7 @@ pub fn verify_peer_keypackage_claim_receipt_signature(
 ) -> Result<(), WireError> {
     let document = arkret_identity::authenticated_service_document_at(
         authenticated_resolution,
-        &receipt.destination_service_id,
+        &receipt.destination_id,
         receipt.claimed_at,
     )
     .map_err(|error| WireError::Protocol(error.to_string()))?;

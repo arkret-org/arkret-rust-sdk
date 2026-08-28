@@ -56,7 +56,7 @@ pub struct SessionGrantDeviceBinding {
 
 impl SessionGrantDeviceBinding {
     /// Build the grant binding from the origin Principal Server's allow
-    /// receipt, which is its only lawful source. The issuer never derives the
+    /// receipt, which is its only lawful source. The issuer_id never derives the
     /// authorization Event or the generation itself and never accepts them
     /// from client input.
     pub fn from_gate_outcome(
@@ -93,7 +93,7 @@ impl SessionGrantDeviceBinding {
     }
 }
 
-/// Canonical unpadded Base64URL encoding of the issuer-generated 256-bit nonce.
+/// Canonical unpadded Base64URL encoding of the issuer_id-generated 256-bit nonce.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
@@ -369,16 +369,16 @@ where
     T::deserialize(deserializer).map(Some)
 }
 
-/// Closed immutable issuer-record preimage used to derive SessionGrantId.
+/// Closed immutable issuer_id-record preimage used to derive SessionGrantId.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SessionGrantIssuancePreimage {
     pub schema: String,
-    pub issuer: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub issuance_nonce: SessionGrantIssuanceNonce,
-    pub subject: DidCoreId,
+    pub subject_id: DidCoreId,
     pub session_public_key: CanonicalSessionPublicJwk,
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
     pub scopes: Vec<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub not_before: DateTime<Utc>,
@@ -428,7 +428,7 @@ impl SessionGrantIssuancePreimage {
     pub fn validate(&self) -> Result<()> {
         validate_issuance_fields(
             &self.schema,
-            &self.audience,
+            &self.audience_id,
             &self.scopes,
             self.not_before,
             self.expires_at,
@@ -448,11 +448,11 @@ pub struct SignedSessionGrantClaims {
     pub kind: String,
     #[serde(rename = "jti")]
     pub grant_id: SessionGrantId,
-    pub issuer: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub issuance_nonce: SessionGrantIssuanceNonce,
-    pub subject: DidCoreId,
+    pub subject_id: DidCoreId,
     pub session_public_key: CanonicalSessionPublicJwk,
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
     pub scopes: Vec<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub not_before: DateTime<Utc>,
@@ -489,11 +489,11 @@ struct RawSignedSessionGrantClaims {
     kind: String,
     #[serde(rename = "jti")]
     grant_id: SessionGrantId,
-    issuer: DidCoreId,
+    issuer_id: DidCoreId,
     issuance_nonce: SessionGrantIssuanceNonce,
-    subject: DidCoreId,
+    subject_id: DidCoreId,
     session_public_key: CanonicalSessionPublicJwk,
-    audience: DidCoreId,
+    audience_id: DidCoreId,
     scopes: Vec<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     not_before: DateTime<Utc>,
@@ -516,7 +516,7 @@ impl TryFrom<RawSignedSessionGrantClaims> for SignedSessionGrantClaims {
     fn try_from(raw: RawSignedSessionGrantClaims) -> Result<Self> {
         validate_issuance_fields(
             SESSION_GRANT_ISSUANCE_SCHEMA,
-            &raw.audience,
+            &raw.audience_id,
             &raw.scopes,
             raw.not_before,
             raw.expires_at,
@@ -529,11 +529,11 @@ impl TryFrom<RawSignedSessionGrantClaims> for SignedSessionGrantClaims {
         Ok(Self {
             kind: raw.kind,
             grant_id: raw.grant_id,
-            issuer: raw.issuer,
+            issuer_id: raw.issuer_id,
             issuance_nonce: raw.issuance_nonce,
-            subject: raw.subject,
+            subject_id: raw.subject_id,
             session_public_key: raw.session_public_key,
-            audience: raw.audience,
+            audience_id: raw.audience_id,
             scopes: raw.scopes,
             not_before: raw.not_before,
             expires_at: raw.expires_at,
@@ -551,11 +551,11 @@ impl SignedSessionGrantClaims {
     pub fn issuance_preimage(&self) -> SessionGrantIssuancePreimage {
         SessionGrantIssuancePreimage {
             schema: SESSION_GRANT_ISSUANCE_SCHEMA.to_owned(),
-            issuer: self.issuer.clone(),
+            issuer_id: self.issuer_id.clone(),
             issuance_nonce: self.issuance_nonce.clone(),
-            subject: self.subject.clone(),
+            subject_id: self.subject_id.clone(),
             session_public_key: self.session_public_key.clone(),
-            audience: self.audience.clone(),
+            audience_id: self.audience_id.clone(),
             scopes: self.scopes.clone(),
             not_before: self.not_before,
             expires_at: self.expires_at,
@@ -573,7 +573,7 @@ impl SignedSessionGrantClaims {
     }
 
     /// Validate claim shape and require `jti` to equal the ID recomputed from
-    /// every signed issuance claim. Signature and accepted-at issuer-key
+    /// every signed issuance claim. Signature and accepted-at issuer_id-key
     /// verification remains the host verifier's preceding responsibility.
     pub fn validate(&self) -> Result<()> {
         if self.kind != SESSION_GRANT_CREDENTIAL_KIND {
@@ -599,7 +599,7 @@ impl SignedSessionGrantClaims {
 #[allow(clippy::too_many_arguments)]
 fn validate_issuance_fields(
     schema: &str,
-    audience: &DidCoreId,
+    audience_id: &DidCoreId,
     scopes: &[String],
     not_before: DateTime<Utc>,
     expires_at: DateTime<Utc>,
@@ -691,7 +691,7 @@ fn validate_issuance_fields(
             ));
         }
     }
-    let _ = (audience, holder_binding, device_binding, scope_details);
+    let _ = (audience_id, holder_binding, device_binding, scope_details);
     Ok(())
 }
 
@@ -741,14 +741,14 @@ mod tests {
         let mut claims = SignedSessionGrantClaims {
             kind: SESSION_GRANT_CREDENTIAL_KIND.to_owned(),
             grant_id: SessionGrantId::from_issuance_digest([0; 32]),
-            issuer: DidCoreId::new("ak:did_core:web:issuer.example").unwrap(),
+            issuer_id: DidCoreId::new("ak:did_core:web:issuer_id.example").unwrap(),
             issuance_nonce: SessionGrantIssuanceNonce::from_bytes([0x11; 32]),
-            subject: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            subject_id: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
             session_public_key: CanonicalSessionPublicJwk::new(
                 r#"{ "x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "kty":"OKP", "crv":"Ed25519" }"#,
             )
             .unwrap(),
-            audience: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
+            audience_id: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
             scopes: vec!["ak.self.events.command.submit.v1".to_owned()],
             not_before: "2026-07-18T00:00:00.000Z".parse().unwrap(),
             expires_at: "2026-07-18T00:15:00.000Z".parse().unwrap(),
@@ -830,7 +830,7 @@ mod tests {
     #[test]
     fn rejects_tampered_claim_and_explicit_null_optional() {
         let mut tampered = claims();
-        tampered.audience = DidCoreId::new("ak:did_core:web:other.example").unwrap();
+        tampered.audience_id = DidCoreId::new("ak:did_core:web:other.example").unwrap();
         assert!(tampered.validate().is_err());
 
         let mut value = serde_json::to_value(claims()).unwrap();
@@ -902,8 +902,8 @@ mod tests {
                         SessionGrantIssuanceNonce::from_bytes([0x22; 32]).to_string(),
                     );
                 }
-                "audience" => {
-                    value["audience"] =
+                "audience_id" => {
+                    value["audience_id"] =
                         Value::String("ak:did_core:webvh:z6mkfixtureotherservice".to_owned());
                 }
                 "holder_binding.device_binding" => {

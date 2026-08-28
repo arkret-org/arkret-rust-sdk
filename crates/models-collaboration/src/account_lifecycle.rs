@@ -571,7 +571,7 @@ pub struct AccountStatusReceipt {
     pub account_authority_id: DidCoreId,
     pub account_id: NonEmptyString,
     pub status_seq: u64,
-    pub receiver_service_id: DidCoreId,
+    pub receiver_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub proof: PayloadProof,
@@ -585,7 +585,7 @@ pub struct UnsignedAccountStatusReceipt {
     pub account_authority_id: DidCoreId,
     pub account_id: NonEmptyString,
     pub status_seq: u64,
-    pub receiver_service_id: DidCoreId,
+    pub receiver_id: DidCoreId,
     pub accepted_at: DateTime<Utc>,
     pub verification_method: DidUrl,
 }
@@ -599,7 +599,7 @@ impl UnsignedAccountStatusReceipt {
             "account_authority_id": self.account_authority_id,
             "account_id": self.account_id,
             "status_seq": self.status_seq,
-            "receiver_service_id": self.receiver_service_id,
+            "receiver_id": self.receiver_id,
             "accepted_at": arkret_canonical::format_timestamp_canonical(self.accepted_at),
         }))?)
         .map_err(Into::into)
@@ -648,7 +648,7 @@ impl UnsignedAccountStatusReceipt {
             account_authority_id: self.account_authority_id,
             account_id: self.account_id,
             status_seq: self.status_seq,
-            receiver_service_id: self.receiver_service_id,
+            receiver_id: self.receiver_id,
             accepted_at: self.accepted_at,
             proof,
         };
@@ -687,7 +687,7 @@ impl AccountStatusReceipt {
             .map(|(controller, _)| controller)
             .and_then(|controller| Did::new(controller.to_owned()).ok())
             .and_then(|controller| project_did_to_core_id(&controller).ok());
-        if proof_controller.as_ref() != Some(&self.receiver_service_id) {
+        if proof_controller.as_ref() != Some(&self.receiver_id) {
             return Err(arkret_wire::WireError::Protocol(
                 "account status receipt proof controller mismatch".to_owned(),
             ));
@@ -703,7 +703,7 @@ impl AccountStatusReceipt {
             account_authority_id: self.account_authority_id.clone(),
             account_id: self.account_id.clone(),
             status_seq: self.status_seq,
-            receiver_service_id: self.receiver_service_id.clone(),
+            receiver_id: self.receiver_id.clone(),
             accepted_at: self.accepted_at,
             verification_method: self.proof.verification_method.clone(),
         }

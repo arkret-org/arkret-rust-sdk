@@ -1,21 +1,21 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/proof-context-registry.json; version=2026-08-27.1;
-//! sha256=94e68dcd683592a8c044459f22ff5e567e3254ff5fa0f50bd834d744ad21ce31 Input: registry/
+//! sha256=d83d2717623355c3d2ac33724a8c3e395d5ae66d8af718f2ed6ca05fb90c455c Input: registry/
 //! exporter-label-registry.json; version=2026-08-21.1;
-//! sha256=6cb34e722ce41df3c91204d48f6cdf66b68640e9d86a379a9267cefce484bb02 Input: registry/
+//! sha256=7e959c121558ccbff100ff9fc7d8c599a0fbb9e3409e044d5abf86f05088b21a Input: registry/
 //! digest-suite-registry.json; version=2026-08-18;
-//! sha256=7b9f5368e30cebd43c509db7815b9a01681f8cf11147600f6be16bddcc74657f Input: registry/
+//! sha256=8158db89e76f82d05f68535dd92f3f43cf5176e6144cb871972772ceafd6510b Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
-//! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
+//! sha256=87d9838de9d1155cb6d2466b0f189b2d7006573847d9087cb99169e5716cfb80 Input: registry/
 //! hpke-suite-registry.json; version=2026-08-25.1;
-//! sha256=c91e5a1fa8e86b1a3db4dad362cf3d28128b168c8e9b5cbb3c7f297159fec231 Input: registry/
+//! sha256=5014582a19660666d846b43b5a60a86e559a0c65a20bf1b2531207ae8bbfb718 Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-08-25;
-//! sha256=68619d8db1de222c9d032fdc96e92be32e85fdc0a3a0befdf4b21d135a57075d Input: registry/
+//! sha256=26d8e76c166e7295bc8327a232314d48638a7f4ca7b2fd3da9e53e46da4145b4 Input: registry/
 //! mls-extension-registry.json; version=2026-08-25;
-//! sha256=298685c15b11d75b55b1b6ece6a3674b320ae00a90f488cc4d2d3545f4888b86 Input: registry/
+//! sha256=51518dc2ea4b9fa6f4c491b24558c0663f172157e955bc7ae75d78559158fcb0 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
-//! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
+//! sha256=b8bba95405eeb37909c1037f64e933cbb8e237753e7cae88bbc27020bcc39a71
 //! Entries: proof_contexts=80, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=33, aead_profiles=2
 
@@ -1434,7 +1434,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         consumer_operation: None,
         binding_fields: &[
             "payload_digest",
-            "issuer_service_id",
+            "issuer_id",
             "subject_did",
             "version_id",
             "witness_did",
@@ -1629,7 +1629,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "requester_authorization_incarnation",
             "trusted_history_base_basis",
             "trusted_current_basis",
-            "release_service_id",
+            "release_id",
             "release_service_binding_ref",
             "release_service_resolution_ref",
             "release_service_resolution_sequence",
@@ -1653,7 +1653,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "kind",
             "request",
             "request_receipt",
-            "destination_service_id",
+            "destination_id",
             "destination_authorization",
             "replicated_at",
             "expires_at",
@@ -1670,7 +1670,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "payload_digest",
             "request_digest",
-            "destination_service_id",
+            "destination_id",
             "accepted_at",
             "verification_method",
             "created_at",
@@ -1776,9 +1776,9 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "source_kind",
             "source_author_profile?",
             "source_authorization_incarnation?",
-            "source_service_id",
+            "source_id",
             "source_authority_locator",
-            "destination_release_service_id",
+            "destination_release_id",
             "relayed_at",
             "expires_at",
             "verification_method",
@@ -1822,7 +1822,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         consumer_operation: None,
         binding_fields: &[
             "payload_digest",
-            "registry_service_id",
+            "registry_id",
             "subject_did",
             "verification_method",
             "created_at",
@@ -1924,7 +1924,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "payload_digest",
             "subject_id",
-            "recipient_service_id",
+            "recipient_id",
             "verification_method",
             "created_at",
             "domain?",
@@ -2076,8 +2076,8 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "archive",
             "container_event_ref",
             "history_traversal_retention",
-            "source_service_id",
-            "holder_service_id",
+            "source_id",
+            "holder_id",
             "replicated_at",
             "verification_method",
             "created_at",
@@ -2092,7 +2092,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "payload_digest",
             "archive_replica_digest",
-            "holder_service_id",
+            "holder_id",
             "archive_sequence",
             "accepted_at",
             "verification_method",
@@ -2123,7 +2123,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "challenge_id",
             "organization_id",
-            "local_admin_subject",
+            "local_admin_subject_id",
             "version_id",
             "log_head_digest",
             "verification_method",
@@ -2138,7 +2138,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         consumer_operation: None,
         binding_fields: &[
             "payload_digest",
-            "issuer_service_id",
+            "issuer_id",
             "registration_receipt_id",
             "organization_id",
             "verification_method",
@@ -2164,7 +2164,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "payload_digest",
             "subject_id",
-            "recipient_service_id",
+            "recipient_id",
             "verification_method",
             "created_at",
             "domain?",
@@ -2279,7 +2279,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         consumer_operation: None,
         binding_fields: &[
             "payload_digest",
-            "provider_service_id",
+            "provider_id",
             "registration_receipt_id",
             "verification_method",
             "created_at",
@@ -2296,8 +2296,8 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "payload_digest",
             "request_id",
-            "source_service_id",
-            "receiver_service_id",
+            "source_id",
+            "receiver_id",
             "realm_id",
             "request_digest",
             "artifact_key",

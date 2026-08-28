@@ -554,7 +554,7 @@ mod tests {
         assert_eq!(rule.payload_schema_id, SchemaId::AGENT_SELECTOR_CLAIM_V1);
         assert!(
             rule.required_fields
-                .contains(&"controller_subject".to_owned())
+                .contains(&"controller_subject_id".to_owned())
         );
         assert!(rule.required_fields.contains(&"proofs".to_owned()));
         assert!(

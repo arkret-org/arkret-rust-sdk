@@ -637,7 +637,7 @@ mod tests {
                 "holder_principal_id": "ak:did_core:webvh:z6mkfixtureholder",
                 "audience": {
                     "represented_organization_id": "ak:did_core:webvh:z6mkfixtureorganization",
-                    "verifier_service_ids": ["ak:did_core:webvh:z6mkfixtureverifier"]
+                    "verifier_ids": ["ak:did_core:webvh:z6mkfixtureverifier"]
                 },
                 "allowed_claims": [],
                 "denied_fields": ["credential_id"],

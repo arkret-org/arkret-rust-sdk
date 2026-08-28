@@ -694,7 +694,7 @@ impl<'de> Deserialize<'de> for DeviceRevocationReason {
 /// active MLS generation rather than the founding group.
 pub struct DirectConversationBoundPayload {
     pub pair_key: Hash,
-    pub participants_unordered: Vec<DidCoreId>,
+    pub unordered_participant_ids: Vec<DidCoreId>,
     pub realm_id: RealmId,
     pub main_strand_id: StrandId,
     pub founding_unit_digest: Hash,
@@ -709,7 +709,7 @@ impl DirectConversationBoundPayload {
     pub fn validate_pair_key(&self, trust_domain: TrustDomainId) -> Result<()> {
         self.authorization_basis.validate_shape()?;
         let [left, right]: [DidCoreId; 2] = self
-            .participants_unordered
+            .unordered_participant_ids
             .clone()
             .try_into()
             .map_err(|_| {
@@ -736,14 +736,14 @@ impl DirectConversationBoundPayload {
     /// closed binding object under the registered v1 domain separator.
     pub fn binding_digest(&self) -> Result<Hash> {
         self.authorization_basis.validate_shape()?;
-        if self.participants_unordered.len() != 2 {
+        if self.unordered_participant_ids.len() != 2 {
             return Err(WireError::Protocol(
                 "direct conversation requires two participants".to_owned(),
             ));
         }
 
         let mut participants = self
-            .participants_unordered
+            .unordered_participant_ids
             .iter()
             .map(DidCoreId::as_str)
             .collect::<Vec<_>>();
@@ -758,7 +758,7 @@ impl DirectConversationBoundPayload {
 
         let binding_object = serde_json::json!({
             "pair_key": self.pair_key.as_str(),
-            "participants_unordered": participants,
+            "unordered_participant_ids": participants,
             "realm_id": self.realm_id.as_str(),
             "main_strand_id": self.main_strand_id.as_str(),
             "founding_unit_digest": self.founding_unit_digest.as_str(),
@@ -1141,7 +1141,7 @@ mod tests {
     fn direct_conversation_binding_digest_matches_registered_kat_and_normalizes_sets() {
         let payload = json!({
             "pair_key": "sha256:e8c24c1badc48eefa472a1700e87a6597a95aedfab8cbe3173f1622b9ad427b5",
-            "participants_unordered": [
+            "unordered_participant_ids": [
                 "ak:did_core:webvh:z6mkfixturebob",
                 "ak:did_core:webvh:z6mkfixturealice"
             ],
@@ -1162,7 +1162,7 @@ mod tests {
         let expected = "sha256:bbac7fb0e474a60aac7e5e9f486ef21356641d2d5c50f3a71cb88160398a490e";
         assert_eq!(parsed.binding_digest().unwrap().as_str(), expected);
 
-        parsed.participants_unordered.reverse();
+        parsed.unordered_participant_ids.reverse();
         parsed.authorization_basis.event_refs.reverse();
         parsed.created_at = DateTime::parse_from_rfc3339("2027-01-01T00:00:00.000Z")
             .unwrap()

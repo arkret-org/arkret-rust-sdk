@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AgentKeyProofSigningInput {
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
     pub challenge: String,
     pub nonce: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -41,14 +41,14 @@ pub fn human_session_grant_request(
     request_id: RequestId,
     principal_id: DidCoreId,
     device_id: DeviceId,
-    audience: DidCoreId,
+    audience_id: DidCoreId,
     accepted_device_possession_proof: AcceptedDeviceIssuePossessionProof,
 ) -> crate::Result<SessionGrantRequestBody> {
     let request = HumanSessionGrantRequest {
         request_id,
         principal_id,
         device_id,
-        audience,
+        audience_id,
         accepted_device_possession_proof,
     };
     request.validate()?;
@@ -57,13 +57,13 @@ pub fn human_session_grant_request(
 
 pub fn human_session_grant_refresh_request(
     grant_jwt: impl Into<String>,
-    audience: Option<DidCoreId>,
+    audience_id: Option<DidCoreId>,
     device_id: DeviceId,
     accepted_device_possession_proof: AcceptedDeviceRefreshPossessionProof,
 ) -> crate::Result<SessionGrantRefreshRequestBody> {
     let request = HumanSessionGrantRefreshRequest {
         grant_jwt: grant_jwt.into(),
-        audience,
+        audience_id,
         device_id,
         accepted_device_possession_proof,
     };
@@ -83,7 +83,7 @@ pub fn agent_key_proof_session_grant_request(
     verification_method: DidUrl,
     challenge: impl Into<String>,
     nonce: impl Into<String>,
-    audience: DidCoreId,
+    audience_id: DidCoreId,
     expires_at: DateTime<Utc>,
     signature: impl Into<String>,
 ) -> crate::Result<SessionGrantRequestBody> {
@@ -98,7 +98,7 @@ pub fn agent_key_proof_session_grant_request(
         None,
         UnsignedAgentSessionGrantProof {
             challenge: challenge.into(),
-            audience,
+            audience_id,
             expires_at,
             verification_method,
             nonce: nonce.into(),
@@ -146,7 +146,7 @@ mod tests {
             "request_id": "ak:request:01970000-0000-7000-8000-000000000021",
             "principal_id": "ak:did_core:web:alice.example",
             "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
-            "audience": "ak:did_core:web:service.example",
+            "audience_id": "ak:did_core:web:service.example",
             "requested_scope": ["ak.self.account.read.viewer.v1"],
             "accepted_device_possession_proof": {}
         });

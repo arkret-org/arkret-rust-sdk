@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KeyTransparencyEvidence {
     pub schema: String,
-    pub log_service_id: DidCoreId,
+    pub log_id: DidCoreId,
     pub principal_id: DidCoreId,
     pub key_material_digest: String,
     pub log_head: TransparencyLogHead,

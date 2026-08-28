@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/schema-registry.json; version=2026-08-27.7;
-//! sha256=ebfa3331e2a08c7f1aef3903b009656e5271a071982e8a4e9b19d2a7d9e24e5e Entries: schema_ids=199,
+//! sha256=46df36a755ab8bb2bcc11fba6d7513408b809bf96a57591256b00f95baf88944 Entries: schema_ids=199,
 //! active=199
 
 use serde::{Deserialize, Serialize};
@@ -828,8 +828,8 @@ impl SchemaId {
         "ak.schema.controller_account_gate_attestation_issue_request.v1";
     pub const CURSOR_V1: &'static str = "ak.schema.cursor.v1";
     /// Canonical response body for the delivery_binding_stale federation signal (member
-    /// delivery-binding rebind handover): new_recipient_service_id, handover_frontier, and the
-    /// verifiable handover_proof. See zh/sync/federation.md §4.1 and error-code-registry.json
+    /// delivery-binding rebind handover): new_recipient_id, handover_frontier, and the verifiable
+    /// handover_proof. See zh/sync/federation.md §4.1 and error-code-registry.json
     /// (delivery_binding_stale / delivery_binding_handover_proof_invalid).
     pub const DELIVERY_BINDING_STALE_V1: &'static str = "ak.schema.delivery_binding_stale.v1";
     pub const DEVICE_MESSAGE_V1: &'static str = "ak.schema.device_message.v1";
@@ -995,8 +995,8 @@ impl SchemaId {
     /// Payload schemas for shared pin events.
     pub const PIN_V1: &'static str = "ak.schema.pin.v1";
     pub const POLICY_V1: &'static str = "ak.schema.policy.v1";
-    /// Signed online invite locator asserting subject_id and recipient_service_id for private
-    /// invite delivery.
+    /// Signed online invite locator asserting subject_id and recipient_id for private invite
+    /// delivery.
     pub const PRINCIPAL_LOCATOR_V1: &'static str = "ak.schema.principal_locator.v1";
     /// Closed wire carriers scoped to a single principal: PCR genesis, participation replacement,
     /// history ingress contracts, KeyPackage terminal handling, Sidecar staging and shared

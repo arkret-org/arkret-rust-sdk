@@ -2,7 +2,7 @@
 //! §7.3.1).
 //!
 //! The idempotency identity is the spec 5-tuple `(operation_id, direction,
-//! source_service_id, destination_service_id, idempotency_key)`
+//! source_id, destination_id, idempotency_key)`
 //! (`operation-registry.json` `idempotency_identity_fields`). Each record
 //! additionally pins the canonical body digest and the per-delivery
 //! `delivery_authentication_record_digest` formed at verification time, so a rotated key
@@ -54,8 +54,8 @@ impl IdempotencyDirection {
 pub struct IdempotencyIdentity {
     pub operation_id: String,
     pub direction: IdempotencyDirection,
-    pub source_service_id: DidCoreId,
-    pub destination_service_id: DidCoreId,
+    pub source_id: DidCoreId,
+    pub destination_id: DidCoreId,
     pub idempotency_key: String,
 }
 
@@ -63,16 +63,16 @@ impl IdempotencyIdentity {
     /// Identity for a `ak.edge.applet.command.transaction.v1` delivery.
     pub fn applet_transaction(
         direction: IdempotencyDirection,
-        source_service_id: DidCoreId,
-        destination_service_id: DidCoreId,
+        source_id: DidCoreId,
+        destination_id: DidCoreId,
         idempotency_key: impl Into<String>,
     ) -> Self {
         Self {
             operation_id: arkret_wire::ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION_V1
                 .to_owned(),
             direction,
-            source_service_id,
-            destination_service_id,
+            source_id,
+            destination_id,
             idempotency_key: idempotency_key.into(),
         }
     }

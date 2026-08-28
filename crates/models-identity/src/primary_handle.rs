@@ -433,7 +433,7 @@ mod tests {
             handle_aliases: Vec::new(),
             subject: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap()),
             issuer: Some(DidCoreId::new(issuer_did).unwrap()),
-            issuer_service_id: None,
+            vouching_id: None,
             binding_state: Some(HandleBindingState::Verified),
             claim_kind: None,
             visibility: None,

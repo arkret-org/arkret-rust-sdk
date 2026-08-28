@@ -27,7 +27,7 @@ struct HumanSessionGrantIntent<'a> {
     request_id: &'a RequestId,
     principal_id: &'a DidCoreId,
     device_id: &'a DeviceId,
-    audience: &'a DidCoreId,
+    audience_id: &'a DidCoreId,
     holder_jkt: &'a str,
 }
 
@@ -35,7 +35,7 @@ pub fn human_session_grant_intent_digest(
     request_id: &RequestId,
     principal_id: &DidCoreId,
     device_id: &DeviceId,
-    audience: &DidCoreId,
+    audience_id: &DidCoreId,
     holder_jkt: &str,
 ) -> Result<Hash> {
     Ok(Hash::new(canonical::canonical_sha256(
@@ -44,7 +44,7 @@ pub fn human_session_grant_intent_digest(
             request_id,
             principal_id,
             device_id,
-            audience,
+            audience_id,
             holder_jkt,
         },
     )?)?)
@@ -82,7 +82,7 @@ pub struct RecoverySessionGrantRequest {
     pub request_id: RequestId,
     pub principal_id: DidCoreId,
     pub device_id: DeviceId,
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
 }
 
 impl RecoverySessionGrantRequest {
@@ -99,7 +99,7 @@ impl RecoverySessionGrantRequest {
 
 /// Returning human session issuance authenticated by an account-handoff
 /// credential and a long-term accepted-device possession proof. Human scope is
-/// issuer-owned and therefore deliberately absent from this wire shape.
+/// issuer_id-owned and therefore deliberately absent from this wire shape.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -107,7 +107,7 @@ pub struct HumanSessionGrantRequest {
     pub request_id: RequestId,
     pub principal_id: DidCoreId,
     pub device_id: DeviceId,
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
     pub accepted_device_possession_proof: AcceptedDeviceIssuePossessionProof,
 }
 
@@ -118,7 +118,7 @@ impl HumanSessionGrantRequest {
         if proof.request_id != self.request_id
             || proof.principal_id != self.principal_id
             || proof.device_id != self.device_id
-            || proof.audience != self.audience
+            || proof.audience_id != self.audience_id
         {
             return Err(WireError::Protocol(
                 "accepted-device issue proof does not bind the session request".to_owned(),
@@ -128,7 +128,7 @@ impl HumanSessionGrantRequest {
             &self.request_id,
             &self.principal_id,
             &self.device_id,
-            &self.audience,
+            &self.audience_id,
             &proof.holder_jkt,
         )?;
         if proof.session_intent_digest != expected_intent {
@@ -233,7 +233,7 @@ pub struct AgentSessionGrantProof {
     pub proof_kind: AgentSessionGrantProofKind,
     pub challenge: String,
     pub request_canonical_digest: Hash,
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub signature: String,
@@ -264,7 +264,7 @@ pub enum AgentSessionGrantProofKind {
 #[derive(Clone, Debug)]
 pub struct UnsignedAgentSessionGrantProof {
     pub challenge: String,
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
     pub expires_at: DateTime<Utc>,
     pub verification_method: DidUrl,
     pub nonce: String,
@@ -351,7 +351,7 @@ impl UnsignedAgentSessionGrantRequest {
                 proof_kind: AgentSessionGrantProofKind::AgentKeyProof,
                 challenge: self.proof.challenge,
                 request_canonical_digest,
-                audience: self.proof.audience,
+                audience_id: self.proof.audience_id,
                 expires_at: self.proof.expires_at,
                 signature: signature.into_string(),
                 verification_method: self.proof.verification_method,
@@ -388,7 +388,7 @@ impl UnsignedAgentSessionGrantRequest {
             "proof_kind": AgentSessionGrantProofKind::AgentKeyProof,
             "challenge": &self.proof.challenge,
             "request_canonical_digest": digest,
-            "audience": &self.proof.audience,
+            "audience_id": &self.proof.audience_id,
             "expires_at": canonical::format_timestamp_canonical(self.proof.expires_at),
             "verification_method": &self.proof.verification_method,
             "nonce": &self.proof.nonce,
@@ -432,8 +432,8 @@ pub struct SessionGrantOutcome {
     /// requests, returned at issue time to avoid a mandatory introspect
     /// round-trip. Mirrors `SessionGrantRefreshOutcome.session_public_key`.
     pub session_public_key: CanonicalSessionPublicJwk,
-    /// Audience the grant is bound to. Mirrors `SessionGrantRefreshOutcome.audience`.
-    pub audience: DidCoreId,
+    /// Audience the grant is bound to. Mirrors `SessionGrantRefreshOutcome.audience_id`.
+    pub audience_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub granted_scope: Vec<String>,
     /// `ak.profile.agent_auth.v1` overlay (AKP-0008 §4.6). Materialized narrow
@@ -496,7 +496,7 @@ pub struct SessionGrantIntrospectionProofClaims {
     pub kind: String,
     pub session_grant_id: String,
     pub grant_jwt_digest: String,
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
     pub challenge: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -537,7 +537,7 @@ impl SessionGrantRefreshRequestBody {
 pub struct HumanSessionGrantRefreshRequest {
     pub grant_jwt: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audience: Option<DidCoreId>,
+    pub audience_id: Option<DidCoreId>,
     pub device_id: DeviceId,
     pub accepted_device_possession_proof: AcceptedDeviceRefreshPossessionProof,
 }
@@ -553,9 +553,9 @@ impl HumanSessionGrantRefreshRequest {
         AcceptedDevicePossessionProof::Refresh(proof.clone()).validate()?;
         if proof.device_id != self.device_id
             || self
-                .audience
+                .audience_id
                 .as_ref()
-                .is_some_and(|audience| audience != &proof.audience)
+                .is_some_and(|audience_id| audience_id != &proof.audience_id)
         {
             return Err(WireError::Protocol(
                 "accepted-device refresh proof does not bind the refresh request".to_owned(),
@@ -571,7 +571,7 @@ impl HumanSessionGrantRefreshRequest {
 pub struct AgentSessionGrantRefreshRequest {
     pub grant_jwt: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audience: Option<DidCoreId>,
+    pub audience_id: Option<DidCoreId>,
     pub device_id: DeviceId,
     pub agent_session_refresh_proof: AgentSessionRefreshProof,
 }
@@ -585,12 +585,12 @@ impl AgentSessionGrantRefreshRequest {
         }
         self.agent_session_refresh_proof.validate()?;
         if self
-            .audience
+            .audience_id
             .as_ref()
-            .is_some_and(|audience| audience != &self.agent_session_refresh_proof.audience)
+            .is_some_and(|audience_id| audience_id != &self.agent_session_refresh_proof.audience_id)
         {
             return Err(WireError::Protocol(
-                "agent session refresh proof audience mismatch".to_owned(),
+                "agent session refresh proof audience_id mismatch".to_owned(),
             ));
         }
         Ok(())
@@ -610,7 +610,7 @@ pub enum AgentSessionRefreshProofContext {
 pub struct AgentSessionRefreshProof {
     pub context: AgentSessionRefreshProofContext,
     pub request_canonical_digest: Hash,
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -639,7 +639,7 @@ impl AgentSessionRefreshProof {
 pub struct UnsignedAgentSessionRefreshProof {
     pub context: AgentSessionRefreshProofContext,
     pub request_canonical_digest: Hash,
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -658,7 +658,7 @@ impl UnsignedAgentSessionRefreshProof {
         let proof = AgentSessionRefreshProof {
             context: self.context,
             request_canonical_digest: self.request_canonical_digest,
-            audience: self.audience,
+            audience_id: self.audience_id,
             issued_at: self.issued_at,
             expires_at: self.expires_at,
             signature,
@@ -704,7 +704,7 @@ struct AgentSessionRefreshRequestDigestInput<'a> {
     grant_jwt_digest: String,
     principal_id: &'a DidCoreId,
     device_id: &'a DeviceId,
-    audience: &'a DidCoreId,
+    audience_id: &'a DidCoreId,
     verification_method: &'a DidUrl,
 }
 
@@ -712,7 +712,7 @@ pub fn agent_session_refresh_request_digest(
     grant_jwt: &str,
     principal_id: &DidCoreId,
     device_id: &DeviceId,
-    audience: &DidCoreId,
+    audience_id: &DidCoreId,
     verification_method: &DidUrl,
 ) -> Result<Hash> {
     Ok(Hash::new(canonical::canonical_sha256(
@@ -721,7 +721,7 @@ pub fn agent_session_refresh_request_digest(
             grant_jwt_digest: canonical::sha256_digest(grant_jwt.as_bytes()),
             principal_id,
             device_id,
-            audience,
+            audience_id,
             verification_method,
         },
     )?)?)
@@ -736,7 +736,7 @@ struct SessionGrantRefreshRequestDigestInput<'a> {
     predecessor_session_grant_id: &'a SessionGrantId,
     principal_id: &'a DidCoreId,
     device_id: &'a DeviceId,
-    audience: &'a str,
+    audience_id: &'a str,
     holder_jkt: &'a str,
 }
 
@@ -749,7 +749,7 @@ pub fn session_grant_refresh_request_digest(
     predecessor_session_grant_id: &SessionGrantId,
     principal_id: &DidCoreId,
     device_id: &DeviceId,
-    audience: &DidCoreId,
+    audience_id: &DidCoreId,
     holder_jkt: &str,
 ) -> Result<Hash> {
     let input = SessionGrantRefreshRequestDigestInput {
@@ -758,7 +758,7 @@ pub fn session_grant_refresh_request_digest(
         predecessor_session_grant_id,
         principal_id,
         device_id,
-        audience: audience.as_str(),
+        audience_id: audience_id.as_str(),
         holder_jkt,
     };
     Ok(Hash::new(canonical::canonical_sha256(&input)?)?)
@@ -776,7 +776,7 @@ pub struct SessionGrantRefreshOutcome {
     pub session_public_key: CanonicalSessionPublicJwk,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
     pub scopes: Vec<String>,
     /// RFC 7638 thumbprint of the holder key (equals the grant's `cnf.jkt`).
     pub dpop_jkt: String,
@@ -830,12 +830,12 @@ pub enum SessionGrantIntrospectStatus {
 #[serde(try_from = "SessionGrantIntrospectGrantWire")]
 pub struct SessionGrantIntrospectGrant {
     pub id: SessionGrantId,
-    pub issuer: String,
-    pub subject: DidCoreId,
+    pub issuer_id: String,
+    pub subject_id: DidCoreId,
     pub service_account_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
     pub scopes: Vec<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -860,12 +860,12 @@ pub struct SessionGrantIntrospectGrant {
 #[serde(deny_unknown_fields)]
 struct SessionGrantIntrospectGrantWire {
     id: SessionGrantId,
-    issuer: String,
-    subject: DidCoreId,
+    issuer_id: String,
+    subject_id: DidCoreId,
     service_account_id: String,
     #[serde(default)]
     device_id: Option<DeviceId>,
-    audience: DidCoreId,
+    audience_id: DidCoreId,
     scopes: Vec<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     expires_at: DateTime<Utc>,
@@ -882,12 +882,12 @@ struct SessionGrantIntrospectGrantWire {
 }
 
 impl SessionGrantIntrospectGrant {
-    /// Exact online request-context authority pair. The audience is the
+    /// Exact online request-context authority pair. The audience_id is the
     /// Principal Server named by the producer-signed Event; callers compare
     /// both fields byte-for-byte rather than guessing from current DID state.
     #[must_use]
     pub fn principal_authority_key(&self) -> arkret_wire::PrincipalAuthorityKey {
-        arkret_wire::PrincipalAuthorityKey::new(self.subject.clone(), self.audience.clone())
+        arkret_wire::PrincipalAuthorityKey::new(self.subject_id.clone(), self.audience_id.clone())
     }
 
     /// Typed selector for replaying the accepted device authorization row in
@@ -983,11 +983,11 @@ impl TryFrom<SessionGrantIntrospectGrantWire> for SessionGrantIntrospectGrant {
     fn try_from(wire: SessionGrantIntrospectGrantWire) -> std::result::Result<Self, Self::Error> {
         let grant = Self {
             id: wire.id,
-            issuer: wire.issuer,
-            subject: wire.subject,
+            issuer_id: wire.issuer_id,
+            subject_id: wire.subject_id,
             service_account_id: wire.service_account_id,
             device_id: wire.device_id,
-            audience: wire.audience,
+            audience_id: wire.audience_id,
             scopes: wire.scopes,
             expires_at: wire.expires_at,
             revoked_at: wire.revoked_at,
@@ -1019,7 +1019,7 @@ pub enum SessionGrantIntrospectRequestBody {
 pub struct SessionGrantIntrospectById {
     pub id: SessionGrantId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audience: Option<DidCoreId>,
+    pub audience_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof: Option<SessionGrantIntrospectionProof>,
 }
@@ -1030,7 +1030,7 @@ pub struct SessionGrantIntrospectById {
 pub struct SessionGrantIntrospectByJwt {
     pub grant_jwt: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audience: Option<DidCoreId>,
+    pub audience_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof: Option<SessionGrantIntrospectionProof>,
 }
@@ -1068,11 +1068,11 @@ mod session_grant_contract_tests {
             "expires_at": "2026-08-08T12:00:00.000Z",
             "session_grant_id": GRANT_ID,
             "session_public_key": CANONICAL_JWK,
-            "audience": "ak:did_core:web:service.example"
+            "audience_id": "ak:did_core:web:service.example"
         });
         assert!(serde_json::from_value::<SessionGrantOutcome>(valid.clone()).is_ok());
 
-        for field in ["session_grant_id", "session_public_key", "audience"] {
+        for field in ["session_grant_id", "session_public_key", "audience_id"] {
             let mut missing = valid.clone();
             missing.as_object_mut().unwrap().remove(field);
             assert!(
@@ -1095,7 +1095,7 @@ mod session_grant_contract_tests {
             "request_id": "ak:request:01964137-0000-7000-8000-000000000040",
             "principal_id": "ak:did_core:web:alice.example",
             "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
-            "audience": "ak:did_core:web:service.example"
+            "audience_id": "ak:did_core:web:service.example"
         });
         let request = serde_json::from_value::<SessionGrantRequestBody>(valid.clone()).unwrap();
         assert!(matches!(request, SessionGrantRequestBody::Recovery(_)));
@@ -1119,7 +1119,7 @@ mod session_grant_contract_tests {
             "agent_session_refresh_proof": {
                 "context": "ak.agent_session_refresh_proof.v1",
                 "request_canonical_digest": format!("sha256:{}", "00".repeat(32)),
-                "audience": "ak:did_core:web:service.example",
+                "audience_id": "ak:did_core:web:service.example",
                 "issued_at": "2026-08-08T11:59:00.000Z",
                 "expires_at": "2026-08-08T12:04:00.000Z",
                 "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
@@ -1145,7 +1145,7 @@ mod session_grant_contract_tests {
         let unsigned = UnsignedAgentSessionRefreshProof {
             context: AgentSessionRefreshProofContext::V1,
             request_canonical_digest: Hash::new(format!("sha256:{}", "00".repeat(32))).unwrap(),
-            audience: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
+            audience_id: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
             issued_at: "2026-08-08T11:59:00Z".parse().unwrap(),
             expires_at: "2026-08-08T12:04:00Z".parse().unwrap(),
             verification_method: DidUrl::new("did:web:agent.example#runtime-key-1").unwrap(),
@@ -1160,7 +1160,7 @@ mod session_grant_contract_tests {
 
     #[test]
     fn introspection_selector_is_exactly_one_and_status_includes_superseded() {
-        let by_id = json!({"id": GRANT_ID, "audience": "ak:did_core:web:service.example"});
+        let by_id = json!({"id": GRANT_ID, "audience_id": "ak:did_core:web:service.example"});
         let by_jwt = json!({"grant_jwt": "signed.jwt"});
         assert!(serde_json::from_value::<SessionGrantIntrospectRequestBody>(by_id).is_ok());
         assert!(serde_json::from_value::<SessionGrantIntrospectRequestBody>(by_jwt).is_ok());
@@ -1181,11 +1181,11 @@ mod session_grant_contract_tests {
     fn introspect_grant_base(credential_class: &str) -> Value {
         json!({
             "id": GRANT_ID,
-            "issuer": "did:example:issuer",
-            "subject": "ak:did_core:web:alice.example",
+            "issuer_id": "did:example:issuer_id",
+            "subject_id": "ak:did_core:web:alice.example",
             "service_account_id": "account-1",
             "device_id": "ak:device:019a6aa0-0000-7000-8000-000000000000",
-            "audience": "ak:did_core:web:service.example",
+            "audience_id": "ak:did_core:web:service.example",
             "scopes": [],
             "expires_at": "2026-08-08T12:04:00.000Z",
             "revocation_ref": "ledger-row-1",
@@ -1212,10 +1212,10 @@ mod session_grant_contract_tests {
         let mut valid = introspect_grant_base("standard");
         valid["holder_binding"] = holder_binding();
         let grant = serde_json::from_value::<SessionGrantIntrospectGrant>(valid.clone()).unwrap();
-        assert_eq!(grant.principal_authority_key().principal_id, grant.subject);
+        assert_eq!(grant.principal_authority_key().principal_id, grant.subject_id);
         assert_eq!(
             grant.principal_authority_key().principal_server_id,
-            grant.audience
+            grant.audience_id
         );
         assert_eq!(
             grant
@@ -1292,7 +1292,7 @@ mod session_grant_contract_tests {
             "grant_jwt": "successor.jwt",
             "session_public_key": CANONICAL_JWK,
             "expires_at": "2026-08-08T12:04:00.000Z",
-            "audience": "ak:did_core:web:service.example",
+            "audience_id": "ak:did_core:web:service.example",
             "scopes": [],
             "dpop_jkt": "holder-thumbprint",
             "previous_session_grant_id": GRANT_ID

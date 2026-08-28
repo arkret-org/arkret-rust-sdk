@@ -390,7 +390,7 @@ mod tests {
         );
 
         let payload = json!({
-            "recipient_service_id": "ak:did_core:webvh:z6mkfixtureservice",
+            "recipient_id": "ak:did_core:webvh:z6mkfixtureservice",
             "principal_id": "ak:did_core:webvh:z6mkfixture",
             "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
             "push_route": "fcm"
@@ -854,7 +854,7 @@ mod tests {
         assert_eq!(selector.bottom_policy(), BottomPolicy::Expose);
         let subject = selector
             .subject_for_effect(&json!({
-                "controller_subject": "did:web:alice.example",
+                "controller_subject_id": "did:web:alice.example",
                 "agent_slug": "research"
             }))
             .unwrap()

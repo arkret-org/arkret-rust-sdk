@@ -25,8 +25,8 @@ pub enum ThirdPartyInviteOobKind {
 /// - `lookup` requires `lookup_table_ref` + `pepper_id`.
 ///
 /// Both modes ALWAYS carry `max_claims`,
-/// `verification_service_id`, and `verification_public_key`. Internal
-/// verifier chain (`verification_service_id` chain of trust + replay
+/// `verification_id`, and `verification_public_key`. Internal
+/// verifier chain (`verification_id` chain of trust + replay
 /// guard against `pepper_id` reuse) is handled by verifier/reducer layers;
 /// the SDK model carries the wire shape.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -57,7 +57,7 @@ pub struct ThirdPartyInvite {
     #[serde(default = "single_claim")]
     pub max_claims: u32,
     /// DID of the auth server expected to verify the OOB code.
-    pub verification_service_id: DidCoreId,
+    pub verification_id: DidCoreId,
     /// Verifying public key for the verification proof chain.
     pub verification_public_key: String,
 }

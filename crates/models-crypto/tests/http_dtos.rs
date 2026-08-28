@@ -45,8 +45,8 @@ fn pairwise_claim_evidence_binds_every_signed_target_selector() {
         claim_request_id: request.claim_request_id.clone(),
         request_digest: Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
         claims_digest: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
-        source_service_id: request.service_binding.source_service_id.clone(),
-        destination_service_id: request.service_binding.destination_service_id.clone(),
+        source_id: request.service_binding.source_id.clone(),
+        destination_id: request.service_binding.destination_id.clone(),
         request: request.unsigned_request(),
         claimed_at: chrono::DateTime::parse_from_rfc3339("2026-08-24T00:00:01.000Z")
             .unwrap()
@@ -140,8 +140,8 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
             "claim_request_id": "Y2xhaW0tbm9uY2U",
             "request_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             "claims_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-            "source_service_id": "ak:did_core:webvh:z6mkfixtureservice",
-            "destination_service_id": "ak:did_core:webvh:z6mkfixtureservice",
+            "source_id": "ak:did_core:webvh:z6mkfixtureservice",
+            "destination_id": "ak:did_core:webvh:z6mkfixtureservice",
             "request": {
                 "claim_request_id": "Y2xhaW0tbm9uY2U",
                 "target_principal_id": "ak:did_core:webvh:z6mkfixture",
@@ -212,7 +212,7 @@ fn consume_receipt_coordinates_have_one_nested_carrier() {
         "realm_id",
         "mls_group_id",
         "mls_epoch",
-        "source_service_id",
+        "source_id",
     ] {
         let mut legacy = receipt.clone();
         legacy

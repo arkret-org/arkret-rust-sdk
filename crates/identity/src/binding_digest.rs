@@ -477,7 +477,7 @@ pub struct ResolverPolicySnapshot {
     profile: ResolverPolicyProfile,
     accepted_did_methods: Vec<String>,
     fail_mode: ResolverFailMode,
-    trust_roots: Vec<String>,
+    trust_root_ids: Vec<String>,
 }
 
 impl ResolverPolicySnapshot {
@@ -490,7 +490,7 @@ impl ResolverPolicySnapshot {
         profile: ResolverPolicyProfile,
         accepted_did_methods: impl IntoIterator<Item = String>,
         fail_mode: ResolverFailMode,
-        trust_roots: impl IntoIterator<Item = String>,
+        trust_root_ids: impl IntoIterator<Item = String>,
     ) -> Result<Self, DigestError> {
         let accepted_did_methods = sorted_unique(
             "resolver_policy_snapshot.accepted_did_methods",
@@ -508,9 +508,9 @@ impl ResolverPolicySnapshot {
             profile,
             accepted_did_methods,
             fail_mode,
-            trust_roots: sorted_unique(
-                "resolver_policy_snapshot.trust_roots",
-                trust_roots.into_iter().map(|root| root.trim().to_owned()),
+            trust_root_ids: sorted_unique(
+                "resolver_policy_snapshot.trust_root_ids",
+                trust_root_ids.into_iter().map(|root| root.trim().to_owned()),
             )?,
         })
     }
@@ -531,8 +531,8 @@ impl ResolverPolicySnapshot {
     }
 
     /// The sorted, deduplicated trust roots.
-    pub fn trust_roots(&self) -> &[String] {
-        &self.trust_roots
+    pub fn trust_root_ids(&self) -> &[String] {
+        &self.trust_root_ids
     }
 
     /// The canonical object this snapshot digests.
@@ -559,7 +559,7 @@ impl ResolverPolicySnapshot {
             "fail_mode".to_owned(),
             Value::String(self.fail_mode.as_str().to_owned()),
         );
-        object.insert("trust_roots".to_owned(), string_array(&self.trust_roots));
+        object.insert("trust_root_ids".to_owned(), string_array(&self.trust_root_ids));
         object.insert("profile_policy".to_owned(), self.profile.profile_policy());
         Value::Object(object)
     }
@@ -591,7 +591,7 @@ impl ResolverPolicy {
             ResolverPolicyProfile::Base,
             self.allowed_methods.iter().cloned(),
             self.fail_mode,
-            self.trust_roots.iter().cloned(),
+            self.trust_root_ids.iter().cloned(),
         )
     }
 
@@ -678,7 +678,7 @@ mod tests {
             serde_json::json!(["did:key:", "did:web:", "did:webvh:"]),
             "normalized, sorted, deduplicated"
         );
-        assert_eq!(value["trust_roots"], serde_json::json!([]));
+        assert_eq!(value["trust_root_ids"], serde_json::json!([]));
         assert_eq!(
             value.as_object().expect("object").len(),
             6,
@@ -710,13 +710,13 @@ mod tests {
         let mut methods = base.clone();
         methods.allowed_methods = vec!["did:key:".to_owned()];
         let mut roots = base.clone();
-        roots.trust_roots = vec!["https://root.example".to_owned()];
+        roots.trust_root_ids = vec!["https://root.example".to_owned()];
         let mut fail_mode = base;
         fail_mode.fail_mode = ResolverFailMode::AllowCachedOnError;
 
         for (label, mutated) in [
             ("accepted_did_methods", methods),
-            ("trust_roots", roots),
+            ("trust_root_ids", roots),
             ("fail_mode", fail_mode),
         ] {
             assert_ne!(

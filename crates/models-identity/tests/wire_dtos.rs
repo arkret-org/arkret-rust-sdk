@@ -53,7 +53,7 @@ fn service_registration_receipt_uses_the_spec_field_and_typed_id() {
         "log_head_digest": format!("sha256:{}", "b".repeat(64)),
         "control_key_digest": format!("sha256:{}", "c".repeat(64)),
         "issued_at": "2026-08-01T00:00:00.000Z",
-        "provider_service_id": "ak:did_core:webvh:z6mkfixtureprovider",
+        "provider_id": "ak:did_core:webvh:z6mkfixtureprovider",
         "proof": {
             "kind": "detached_jws",
             "verification_method": "did:webvh:z6mkfixtureprovider:provider.example#key-1",

@@ -95,8 +95,8 @@ pub struct ErasureReceiptAcceptance {
     pub status: ErasureReceiptAcceptanceStatus,
     pub receipt_id: String,
     pub receipt_digest: Hash,
-    pub issuer_service_id: DidCoreId,
-    pub receiver_service_id: DidCoreId,
+    pub issuer_id: DidCoreId,
+    pub receiver_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub proof: ProtocolSignature,

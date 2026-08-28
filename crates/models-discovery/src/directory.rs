@@ -101,7 +101,7 @@ pub struct RealmPreview {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub owning_organizations: Vec<DidCoreId>,
+    pub owning_organization_ids: Vec<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preview_ref: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -716,7 +716,7 @@ impl DirectoryResolveAgentSelectorRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryAgentSelectorResolutionOutcome {
-    pub controller_subject: DidCoreId,
+    pub controller_subject_id: DidCoreId,
     pub subject: DidCoreId,
     pub agent_slug: String,
     pub verified: bool,
@@ -739,9 +739,9 @@ impl DirectoryAgentSelectorResolutionOutcome {
         }
         validate_agent_slug(&self.agent_slug)?;
         self.selector_claim.validate()?;
-        if self.selector_claim.controller_subject != self.controller_subject {
+        if self.selector_claim.controller_subject_id != self.controller_subject_id {
             return Err(WireError::Protocol(
-                "selector_claim.controller_subject must match response.controller_subject"
+                "selector_claim.controller_subject_id must match response.controller_subject_id"
                     .to_owned(),
             ));
         }
@@ -976,7 +976,7 @@ pub struct DirectoryAnnounceRequestBody {
     pub source_refs: Vec<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
-    pub principal_server_service_id: DidCoreId,
+    pub principal_server_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ttl_seconds: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1392,11 +1392,11 @@ mod agent_selector_outcome_tests {
     fn selector_claim() -> AgentSelectorClaim {
         AgentSelectorClaim {
             schema: SchemaId::AGENT_SELECTOR_CLAIM_V1.to_owned(),
-            controller_subject: principal("did:webvh:z6mkfixture:example.com:users:alice"),
+            controller_subject_id: principal("did:webvh:z6mkfixture:example.com:users:alice"),
             agent_slug: "summary".to_owned(),
             subject: principal("did:webvh:z6mkfixture:agent.example"),
             issuer: actor("did:webvh:z6mkfixture:example.com"),
-            issuer_service_id: Some(service("did:webvh:z6mkfixture:example.com")),
+            vouching_id: Some(service("did:webvh:z6mkfixture:example.com")),
             binding_state: HandleBindingState::Verified,
             visibility: HandleVisibility::Restricted,
             audience: Some("ak:realm:ASOikrLmQRDmUfDmMaw1Bx-NCkNptz9Sw2olIhr_M_23".to_owned()),
@@ -1423,7 +1423,7 @@ mod agent_selector_outcome_tests {
     fn validates_selector_outcome_matches_claim() {
         let selector_claim = selector_claim();
         let outcome = DirectoryAgentSelectorResolutionOutcome {
-            controller_subject: selector_claim.controller_subject.clone(),
+            controller_subject_id: selector_claim.controller_subject_id.clone(),
             subject: selector_claim.subject.clone(),
             agent_slug: selector_claim.agent_slug.clone(),
             verified: true,

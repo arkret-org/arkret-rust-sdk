@@ -349,7 +349,7 @@ fn federation_request(events: Vec<Event>) -> EventsSubmitFederationBatchRequestB
             realm_policy_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
             membership_frontier: Vec::new(),
             delivery_binding_frontier: Vec::new(),
-            destination_service_kind: "principal_server".to_owned(),
+            destination_kind: "principal_server".to_owned(),
         },
         events: events.into_iter().map(federation_submission).collect(),
         cba_proof_bundles: Vec::new(),

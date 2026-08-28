@@ -100,9 +100,9 @@ pub struct RoomBindingPayload {
     pub profile: String,
     pub mimi_room_uri: MimiRoomUri,
     pub binding_scope: RoomBindingPayloadBindingScope,
-    pub hub_provider: DidCoreId,
+    pub hub_provider_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub follower_providers: Option<Vec<DidCoreId>>,
+    pub follower_provider_ids: Option<Vec<DidCoreId>>,
     pub local_provider_role: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,

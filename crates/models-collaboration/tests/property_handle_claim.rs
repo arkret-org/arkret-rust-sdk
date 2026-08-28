@@ -51,7 +51,7 @@ fn base_claim() -> HandleClaim {
         handle_aliases: Vec::new(),
         subject: None,
         issuer: None,
-        issuer_service_id: None,
+        vouching_id: None,
         binding_state: None,
         claim_kind: None,
         visibility: None,
@@ -139,8 +139,8 @@ proptest! {
     ) {
         let mut claim = HandleClaim {
             member_delivery_binding: Some(DeliveryBindingHint {
-                recipient_service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap(),
-                recipient_service_kind: RecipientServiceKind::PrincipalServer,
+                recipient_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap(),
+                recipient_kind: RecipientServiceKind::PrincipalServer,
                 binding_source: HandleHintBindingSource::Explicit,
                 delivery_modes: Default::default(),
                 service_acceptance_ref: None,

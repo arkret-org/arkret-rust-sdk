@@ -52,7 +52,7 @@ pub struct DidRegistryReceipt {
     /// Witnessed `head_event_digest` (§3.1.3 self-digest rule).
     pub head_event_digest: Hash,
     /// Issuing registry service DID.
-    pub registry_service_id: DidCoreId,
+    pub registry_id: DidCoreId,
     pub witness_role: IdentityReceiptWitnessRole,
     /// Optional audience binding; verifiers MUST reject the receipt
     /// outside this audience context when present.
@@ -76,7 +76,7 @@ impl DidRegistryReceipt {
         did: Did,
         seq: u64,
         head_event_digest: Hash,
-        registry_service_id: DidCoreId,
+        registry_id: DidCoreId,
         witness_role: IdentityReceiptWitnessRole,
         signing_key: &ed25519_dalek::SigningKey,
         verification_method: &DidUrl,
@@ -88,7 +88,7 @@ impl DidRegistryReceipt {
             did,
             seq,
             head_event_digest,
-            registry_service_id,
+            registry_id,
             witness_role,
             audience: None,
             created_at,
@@ -136,8 +136,8 @@ impl DidRegistryReceipt {
             Value::String(self.signature.payload_digest.as_str().to_owned()),
         );
         object.insert(
-            "registry_service_id".to_owned(),
-            Value::String(self.registry_service_id.as_str().to_owned()),
+            "registry_id".to_owned(),
+            Value::String(self.registry_id.as_str().to_owned()),
         );
         object.insert(
             "did".to_owned(),
@@ -169,9 +169,9 @@ impl DidRegistryReceipt {
     pub fn verify(&self, resolver: &dyn DidResolver) -> Result<()> {
         let registry_did = verification_method_did(self.signature.verification_method.as_str())?;
         let projected = project_did_to_core_id(&registry_did)?;
-        if projected.as_str() != self.registry_service_id.as_str() {
+        if projected.as_str() != self.registry_id.as_str() {
             return Err(IdentityError::Protocol(
-                "identity receipt registry_service_id does not match proof controller".to_owned(),
+                "identity receipt registry_id does not match proof controller".to_owned(),
             ));
         }
         let document = resolver.resolve_did_document(&registry_did)?;
@@ -182,7 +182,7 @@ impl DidRegistryReceipt {
     ///
     /// The method must be active in `assertionMethod`. An externally-named
     /// method is accepted only when its verification-method object explicitly
-    /// declares `controller == registry_service_id`.
+    /// declares `controller == registry_id`.
     pub fn verify_with_document(&self, document: &DidDocument) -> Result<()> {
         let registry_did = document.id.clone();
         self.verify_with_document_and_did(document, &registry_did)
@@ -193,9 +193,9 @@ impl DidRegistryReceipt {
         document: &DidDocument,
         registry_did: &Did,
     ) -> Result<()> {
-        if project_did_to_core_id(registry_did)?.as_str() != self.registry_service_id.as_str() {
+        if project_did_to_core_id(registry_did)?.as_str() != self.registry_id.as_str() {
             return Err(IdentityError::Protocol(
-                "identity receipt registry_service_id does not match proof controller".to_owned(),
+                "identity receipt registry_id does not match proof controller".to_owned(),
             ));
         }
         if self.schema != arkret_wire::SchemaId::IDENTITY_RECEIPT_V1 {

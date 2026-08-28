@@ -421,7 +421,7 @@ impl EventsSubmitOutcome {
                         .to_owned(),
                 ));
             }
-            let key = (&receipt.event_id, &receipt.receiver_service_id);
+            let key = (&receipt.event_id, &receipt.receiver_id);
             if !receipt_keys.insert(key) {
                 return Err(WireError::Protocol(
                     "Agent Event admission receipts contain a duplicate selector".to_owned(),
@@ -441,7 +441,7 @@ impl EventsSubmitOutcome {
 #[serde(deny_unknown_fields)]
 pub struct AppletTransactionRequestBody {
     pub applet_id: AppletId,
-    pub source_service_id: DidCoreId,
+    pub source_id: DidCoreId,
     #[serde(default)]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub events: Vec<Event>,
@@ -1227,7 +1227,7 @@ pub struct MimiRoomUpdateOutcome {
 pub struct MimiNotifyRequestBody {
     pub notification: MimiNotification,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub origin_provider: Option<DidCoreId>,
+    pub origin_provider_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub routing: Option<MimiNotificationRouting>,
 }
@@ -1759,7 +1759,7 @@ pub struct ContactListRow {
     /// responses/invites to the peer's home server. Omitted for
     /// same-Principal-Server contacts (spec contact-operations.schema.json).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub peer_service_id: Option<DidCoreId>,
+    pub peer_host_id: Option<DidCoreId>,
     /// Portable checkpoint plus the exact remaining tail. Present only after
     /// both participant Principal Servers have committed the same checkpoint.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1795,7 +1795,7 @@ struct ContactListRowWire {
     #[serde(default)]
     effective_scopes: Option<Vec<ContactScope>>,
     #[serde(default)]
-    peer_service_id: Option<DidCoreId>,
+    peer_host_id: Option<DidCoreId>,
     #[serde(default)]
     continuity_evidence: Option<ContactContinuityEvidence>,
     #[serde(default)]
@@ -1820,7 +1820,7 @@ impl TryFrom<ContactListRowWire> for ContactListRow {
             granted_by_peer_scopes: wire.granted_by_peer_scopes,
             bidirectional_scopes: wire.bidirectional_scopes,
             effective_scopes: wire.effective_scopes,
-            peer_service_id: wire.peer_service_id,
+            peer_host_id: wire.peer_host_id,
             continuity_evidence: wire.continuity_evidence,
             direct_conversation: wire.direct_conversation,
             agents: wire.agents,

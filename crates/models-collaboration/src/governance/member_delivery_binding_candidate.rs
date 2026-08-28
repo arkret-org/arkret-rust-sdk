@@ -85,8 +85,8 @@ pub enum CandidateError {
     },
     #[error(
         "candidate proofs[] missing or empty; at least one proof MUST bind \
-         handle / subject_id / member_delivery_binding.recipient_service_id / audience / \
-         issuer_service_id / expires_at"
+         handle / subject_id / member_delivery_binding.recipient_id / audience / \
+         issuer_id / expires_at"
     )]
     MissingProof,
     #[error(
@@ -101,8 +101,8 @@ pub enum CandidateError {
     )]
     ForbiddenBindingSource,
     #[error(
-        "candidate recipient_service_id ({outer}) does not match \
-         member_delivery_binding.recipient_service_id ({inner})"
+        "candidate recipient_id ({outer}) does not match \
+         member_delivery_binding.recipient_id ({inner})"
     )]
     RecipientDidCoreIdMismatch { outer: String, inner: String },
     #[error("candidate source_refs MUST NOT be empty")]
@@ -128,7 +128,7 @@ pub struct MemberDeliveryBindingCandidate {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub handle_aliases: Vec<String>,
     pub member_delivery_binding: DeliveryBindingHint,
-    pub issuer_service_id: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub audience: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -148,13 +148,13 @@ impl MemberDeliveryBindingCandidate {
     pub fn validate(&self, context: &CandidateValidationContext) -> Result<(), CandidateError> {
         if self.principal_authority.principal_id != self.subject_id
             || self.principal_authority.principal_server_id
-                != self.member_delivery_binding.recipient_service_id
+                != self.member_delivery_binding.recipient_id
         {
             return Err(CandidateError::RecipientDidCoreIdMismatch {
                 outer: self.principal_authority.principal_server_id.to_string(),
                 inner: self
                     .member_delivery_binding
-                    .recipient_service_id
+                    .recipient_id
                     .to_string(),
             });
         }
@@ -263,8 +263,8 @@ mod tests {
         modes.insert(DeliveryMode::Events);
         modes.insert(DeliveryMode::Sync);
         DeliveryBindingHint {
-            recipient_service_id: rs.clone(),
-            recipient_service_kind: RecipientServiceKind::PrincipalServer,
+            recipient_id: rs.clone(),
+            recipient_kind: RecipientServiceKind::PrincipalServer,
             binding_source: HandleHintBindingSource::OrganizationPolicy,
             delivery_modes: modes,
             service_acceptance_ref: Some(
@@ -287,7 +287,7 @@ mod tests {
             handle: Handle::parse("alice:acme.example").unwrap(),
             handle_aliases: vec!["acct:alice@acme.example".to_owned()],
             member_delivery_binding: sample_hint(&rs),
-            issuer_service_id: fake_service("principal"),
+            issuer_id: fake_service("principal"),
             audience: "ak:realm:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j".to_owned(),
             expires_at: Utc::now() + chrono::Duration::hours(1),
             issued_at: Utc::now(),

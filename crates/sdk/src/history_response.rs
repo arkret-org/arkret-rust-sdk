@@ -618,7 +618,7 @@ fn verify_release_service_proof(
         dependencies,
         evidence_ref,
         evidence_digest,
-        &receipt.release_service_id,
+        &receipt.release_id,
         &proof.verification_method,
     )?;
     if !matches!(

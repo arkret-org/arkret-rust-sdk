@@ -112,13 +112,13 @@ macro_rules! id_type {
 ///   unchanged.
 /// - [`from_uuid()`](#method.from_uuid) — rebuild the typed id from a bare DB uuid + this type's
 ///   kind prefix.
-/// - feature `diesel`: `ToSql`/`FromSql` against PostgreSQL `uuid`, so these ids persist as native
-///   `uuid` columns (bare) and reload as the prefixed wire form. Gated so the wasm/protocol build
-///   never pulls diesel.
 ///
 /// Hash-bearing kinds (`BlobRef`, `SealId`, `Hash`), `OperationId`, DIDs,
 /// cursors and `trust_domain` MUST stay on plain [`id_type!`] — they have no
 /// bare-uuid form.
+/// Database mappings are deliberately type-specific: the optional `diesel`
+/// feature currently maps [`DidCoreId`] to PostgreSQL `text`; it does not
+/// implicitly map these uuid-backed identifiers to PostgreSQL `uuid`.
 /// `ak:realm:` is not declared here because it uses the derivation-tagged
 /// 33-byte Realm token rather than a UUID.
 ///
@@ -736,6 +736,11 @@ pub fn is_lowercase_typed_uuid(value: &str, version_nibble: u8) -> bool {
 }
 
 id_type!(
+    #[cfg_attr(
+        feature = "diesel",
+        derive(diesel::expression::AsExpression, diesel::deserialize::FromSqlRow)
+    )]
+    #[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Text))]
     /// Stable DID-derived identity core used for subject equality, historical
     /// attribution, identity references, membership indexes, and the identity
     /// component of business hash preimages.
@@ -744,9 +749,16 @@ id_type!(
     /// resolution input. It answers only "who" and is not, by itself, an
     /// authorization proof; authorization must bind the applicable PCR,
     /// registration, MLS, service, or Agent authority lineage.
+    ///
+    /// With feature `diesel`, this type binds to and reads from PostgreSQL
+    /// `text`. Database reads pass through the same authoritative validation as
+    /// [`DidCoreId::new`] and therefore reject malformed stored values.
     DidCoreId,
     is_core_id
 );
+
+#[cfg(feature = "diesel")]
+mod diesel_support;
 
 impl DidCoreId {
     /// Borrow this already-normalized identity core.

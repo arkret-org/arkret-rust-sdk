@@ -12,7 +12,7 @@
 //!   resolution (`delivery_binding_stale` / `delivery_binding_handed_over` responses, fail-closed
 //!   after leave).
 //! * The policy-evaluation half of `policy_mismatch.v1` — evaluating
-//!   `delivery_binding_policy.allowed_binding_sources` / `allowed_recipient_services` against a
+//!   `delivery_binding_policy.allowed_binding_sources` / `allowed_recipient_ids` against a
 //!   landing `ak.member.state` needs the Realm policy reducer; the SDK asserts the binding is
 //!   structurally valid (the rejection is policy-level, not schema-level) plus the promised reason
 //!   code registration.
@@ -52,7 +52,7 @@ fn assert_route_projects_to_binding(binding: &MemberDeliveryBinding, route: &str
     let route = Did::new(route).expect("fixture route must be a DID");
     let projected =
         project_did_to_core_id(&route).expect("fixture route method must have an active adapter");
-    assert_eq!(binding.recipient_service_id, projected);
+    assert_eq!(binding.recipient_id, projected);
 }
 
 #[test]
@@ -196,14 +196,14 @@ fn policy_mismatch_binding_is_structurally_valid_but_policy_rejected() {
     // The mismatch the reducer must reject: the offered recipient service is
     // outside the policy allow-list and the binding source is not allowed.
     let policy = &vector["given_state"]["delivery_binding_policy"];
-    let allowed_services: Vec<&str> = policy["allowed_recipient_services"]
+    let allowed_services: Vec<&str> = policy["allowed_recipient_ids"]
         .as_array()
-        .expect("allowed_recipient_services")
+        .expect("allowed_recipient_ids")
         .iter()
         .map(|service| service.as_str().expect("service DID"))
         .collect();
     assert!(
-        !allowed_services.contains(&binding.recipient_service_id.as_str()),
+        !allowed_services.contains(&binding.recipient_id.as_str()),
         "fixture premise: recipient service must be outside the policy allow-list"
     );
 }

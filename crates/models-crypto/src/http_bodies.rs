@@ -303,8 +303,8 @@ pub struct PeerKeyPackagesClaimUnsignedRequest {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesClaimServiceBinding {
-    pub source_service_id: DidCoreId,
-    pub destination_service_id: DidCoreId,
+    pub source_id: DidCoreId,
+    pub destination_id: DidCoreId,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -529,8 +529,8 @@ pub struct PeerKeyPackageClaimReceipt {
     pub claim_request_id: Base64UrlString,
     pub request_digest: Hash,
     pub claims_digest: Hash,
-    pub source_service_id: DidCoreId,
-    pub destination_service_id: DidCoreId,
+    pub source_id: DidCoreId,
+    pub destination_id: DidCoreId,
     pub request: PeerKeyPackagesClaimUnsignedRequest,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub claimed_at: DateTime<Utc>,
@@ -674,8 +674,8 @@ pub struct KeyPackageClaimTerminalReceipt {
         skip_serializing_if = "Option::is_none"
     )]
     pub key_package_refs: Option<Vec<String>>,
-    pub source_service_id: DidCoreId,
-    pub destination_service_id: DidCoreId,
+    pub source_id: DidCoreId,
+    pub destination_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub terminal_at: DateTime<Utc>,
     pub signature: KeyOperationSignature,
@@ -1122,8 +1122,8 @@ struct PeerKeyPackageClaimReceiptUnsigned<'a> {
     claim_request_id: &'a Base64UrlString,
     request_digest: &'a Hash,
     claims_digest: &'a Hash,
-    source_service_id: &'a DidCoreId,
-    destination_service_id: &'a DidCoreId,
+    source_id: &'a DidCoreId,
+    destination_id: &'a DidCoreId,
     request: &'a PeerKeyPackagesClaimUnsignedRequest,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     claimed_at: DateTime<Utc>,
@@ -1138,8 +1138,8 @@ pub fn peer_keypackage_claim_receipt_signing_bytes(
         claim_request_id: &receipt.claim_request_id,
         request_digest: &receipt.request_digest,
         claims_digest: &receipt.claims_digest,
-        source_service_id: &receipt.source_service_id,
-        destination_service_id: &receipt.destination_service_id,
+        source_id: &receipt.source_id,
+        destination_id: &receipt.destination_id,
         request: &receipt.request,
         claimed_at: receipt.claimed_at,
         expires_at: receipt.expires_at,
@@ -1158,7 +1158,7 @@ pub struct RecipientMlsDurableReceipt {
     pub key_package_ref: NonEmptyString,
     pub recipient_principal_id: DidCoreId,
     pub recipient: RecipientMlsDurableSigner,
-    pub recipient_service_id: DidCoreId,
+    pub recipient_id: DidCoreId,
     pub realm_id: RealmId,
     pub mls_group_id: NonEmptyString,
     pub mls_epoch: u64,
@@ -1206,7 +1206,7 @@ struct RecipientMlsDurableReceiptWire {
     agent_key_authorize_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     recipient_pairwise_verification_method: Option<DidUrl>,
-    recipient_service_id: DidCoreId,
+    recipient_id: DidCoreId,
     realm_id: RealmId,
     mls_group_id: NonEmptyString,
     mls_epoch: u64,
@@ -1275,7 +1275,7 @@ impl Serialize for RecipientMlsDurableReceipt {
             recipient_agent_verification_method,
             agent_key_authorize_event_id,
             recipient_pairwise_verification_method,
-            recipient_service_id: self.recipient_service_id.clone(),
+            recipient_id: self.recipient_id.clone(),
             realm_id: self.realm_id.clone(),
             mls_group_id: self.mls_group_id.clone(),
             mls_epoch: self.mls_epoch,
@@ -1332,7 +1332,7 @@ impl<'de> Deserialize<'de> for RecipientMlsDurableReceipt {
             key_package_ref: wire.key_package_ref,
             recipient_principal_id: wire.recipient_principal_id,
             recipient,
-            recipient_service_id: wire.recipient_service_id,
+            recipient_id: wire.recipient_id,
             realm_id: wire.realm_id,
             mls_group_id: wire.mls_group_id,
             mls_epoch: wire.mls_epoch,

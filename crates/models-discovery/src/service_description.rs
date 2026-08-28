@@ -1630,7 +1630,7 @@ pub struct VerifiedProfileEntry {
     pub verification_run_id: String,
     pub artifact_digest: String,
     pub artifact_ref: String,
-    pub verifier_service_id: DidCoreId,
+    pub verifier_id: DidCoreId,
     pub signature: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub timestamp: DateTime<Utc>,

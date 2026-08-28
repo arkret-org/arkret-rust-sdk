@@ -412,7 +412,7 @@ mod signed_request_tests {
             serde_json::Value::String("mimi_facade".to_owned()),
         );
         mimi.report_event.event.payload.insert(
-            "source_provider".to_owned(),
+            "source_provider_id".to_owned(),
             serde_json::Value::String(OTHER_ACTOR.to_owned()),
         );
         assert!(mimi.validate(SUITE).is_err());

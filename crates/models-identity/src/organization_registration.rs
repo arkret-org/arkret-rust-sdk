@@ -93,7 +93,7 @@ impl OrganizationControlProof {
         challenge_id: &str,
         organization_id: &DidCoreId,
         did: &Did,
-        local_admin_subject: &DidCoreId,
+        local_admin_subject_id: &DidCoreId,
         version_id: &str,
         log_head_digest: &Hash,
     ) -> Result<()> {
@@ -104,7 +104,7 @@ impl OrganizationControlProof {
                 "challenge_id": challenge_id,
                 "organization_id": organization_id,
                 "did": did,
-                "local_admin_subject": local_admin_subject,
+                "local_admin_subject_id": local_admin_subject_id,
                 "version_id": version_id,
                 "log_head_digest": log_head_digest,
                 "verification_method": proof.verification_method,
@@ -137,7 +137,7 @@ fn validate_scopes(scopes: &[OrganizationRegistrationScope]) -> Result<()> {
 pub struct OrganizationRegistrationChallengeRequestBody {
     pub organization_id: DidCoreId,
     pub did: Did,
-    pub local_admin_subject: DidCoreId,
+    pub local_admin_subject_id: DidCoreId,
     pub requested_scopes: Vec<OrganizationRegistrationScope>,
 }
 
@@ -165,7 +165,7 @@ pub struct OrganizationRegistrationChallenge {
     pub audience: DidCoreId,
     pub origin: String,
     pub trust_domain: TrustDomainId,
-    pub local_admin_subject: DidCoreId,
+    pub local_admin_subject_id: DidCoreId,
     pub requested_scopes: Vec<OrganizationRegistrationScope>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -192,7 +192,7 @@ impl OrganizationRegistrationChallenge {
         request.validate()?;
         if self.organization_id != request.organization_id
             || self.did != request.did
-            || self.local_admin_subject != request.local_admin_subject
+            || self.local_admin_subject_id != request.local_admin_subject_id
             || self.requested_scopes != request.requested_scopes
             || self.purpose != ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1
         {
@@ -266,7 +266,7 @@ pub struct OrganizationRegistrationEnsureRequestBody {
     pub version_id: String,
     pub log_head_digest: Hash,
     pub control_proof: OrganizationControlProof,
-    pub local_admin_subject: DidCoreId,
+    pub local_admin_subject_id: DidCoreId,
     pub requested_scopes: Vec<OrganizationRegistrationScope>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle_attestation: Option<OrganizationHandleAttestation>,
@@ -308,7 +308,7 @@ impl OrganizationRegistrationEnsureRequestBody {
         let challenge_request = OrganizationRegistrationChallengeRequestBody {
             organization_id: self.organization_id.clone(),
             did: self.did.clone(),
-            local_admin_subject: self.local_admin_subject.clone(),
+            local_admin_subject_id: self.local_admin_subject_id.clone(),
             requested_scopes: self.requested_scopes.clone(),
         };
         challenge.validate_for_at(&challenge_request, now)?;
@@ -321,7 +321,7 @@ impl OrganizationRegistrationEnsureRequestBody {
             &self.challenge_id,
             &self.organization_id,
             &self.did,
-            &self.local_admin_subject,
+            &self.local_admin_subject_id,
             &self.version_id,
             &self.log_head_digest,
         )?;
@@ -384,7 +384,7 @@ impl OrganizationRegistrationRefreshRequestBody {
         let challenge_request = OrganizationRegistrationChallengeRequestBody {
             organization_id: self.organization_id.clone(),
             did: self.did.clone(),
-            local_admin_subject: current_local_admin_subject.clone(),
+            local_admin_subject_id: current_local_admin_subject.clone(),
             requested_scopes: current_scopes.to_vec(),
         };
         challenge.validate_for_at(&challenge_request, now)?;
@@ -458,14 +458,14 @@ pub struct OrganizationRegistrationReceipt {
     pub log_head_digest: Hash,
     pub control_proof_kind: OrganizationControlProofKind,
     pub control_key_digest: Hash,
-    pub local_admin_subject: DidCoreId,
+    pub local_admin_subject_id: DidCoreId,
     pub delegated_scopes: Vec<OrganizationRegistrationScope>,
     pub status: OrganizationRegistrationStatus,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub issuer_service_id: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub proof: PayloadProof,
 }
 
@@ -501,7 +501,7 @@ impl OrganizationRegistrationReceipt {
         let binding = serde_json::json!({
             "context": ProofContextId::ORGANIZATION_REGISTRATION_RECEIPT_PROOF_V1,
             "payload_digest": self.proof.payload_digest,
-            "issuer_service_id": self.issuer_service_id,
+            "issuer_id": self.issuer_id,
             "registration_receipt_id": self.registration_receipt_id,
             "organization_id": self.organization_id,
             "did": self.did,
@@ -532,7 +532,7 @@ impl OrganizationRegistrationReceipt {
             || self.proof.payload_digest != self.expected_payload_digest()?
             || self.proof.created_at != self.issued_at
             || project_verification_method_to_core(&self.proof.verification_method)?
-                != self.issuer_service_id
+                != self.issuer_id
         {
             return Err(WireError::Protocol(
                 "organization registration receipt binding is invalid".to_owned(),
@@ -680,7 +680,7 @@ mod tests {
         OrganizationRegistrationChallengeRequestBody {
             organization_id: core("did:webvh:zOrg:org.example"),
             did: did("did:webvh:zOrg:org.example"),
-            local_admin_subject: core("did:webvh:zAdmin:admin.example"),
+            local_admin_subject_id: core("did:webvh:zAdmin:admin.example"),
             requested_scopes: vec![OrganizationRegistrationScope::OrganizationProfileManage],
         }
     }
@@ -713,7 +713,7 @@ mod tests {
             audience: service("did:webvh:zService:service.example"),
             origin: "https://service.example/".to_owned(),
             trust_domain: TrustDomainId::new("ak:trust_domain:example").unwrap(),
-            local_admin_subject: request.local_admin_subject.clone(),
+            local_admin_subject_id: request.local_admin_subject_id.clone(),
             requested_scopes: request.requested_scopes.clone(),
             created_at: now - chrono::Duration::seconds(60),
             expires_at: now,
@@ -743,7 +743,7 @@ mod tests {
                 serde_json::json!({
                     "organization_id": "ak:did_core:webvh:zOrg",
                     "did": "did:webvh:zOrg:org.example",
-                    "local_admin_subject": "ak:did_core:webvh:zAdmin",
+                    "local_admin_subject_id": "ak:did_core:webvh:zAdmin",
                     "requested_scopes": ["organization_profile_manage"],
                     "unexpected": true
                 })
@@ -767,7 +767,7 @@ mod tests {
             audience: service("did:webvh:zService:service.example"),
             origin: "https://service.example/".to_owned(),
             trust_domain: TrustDomainId::new("ak:trust_domain:example").unwrap(),
-            local_admin_subject: request.local_admin_subject.clone(),
+            local_admin_subject_id: request.local_admin_subject_id.clone(),
             requested_scopes: request.requested_scopes.clone(),
             created_at,
             expires_at: created_at + chrono::Duration::seconds(300),
@@ -781,7 +781,7 @@ mod tests {
             "challenge_id": challenge.challenge_id,
             "organization_id": request.organization_id,
             "did": request.did,
-            "local_admin_subject": request.local_admin_subject,
+            "local_admin_subject_id": request.local_admin_subject_id,
             "version_id": version_id,
             "log_head_digest": log_head_digest,
             "verification_method": verification_method,
@@ -801,7 +801,7 @@ mod tests {
                 quorum_threshold: None,
                 proofs: vec![proof],
             },
-            local_admin_subject: request.local_admin_subject.clone(),
+            local_admin_subject_id: request.local_admin_subject_id.clone(),
             requested_scopes: request.requested_scopes,
             handle_attestation: None,
         };
@@ -812,7 +812,7 @@ mod tests {
         );
 
         let mut transferred = ensure;
-        transferred.local_admin_subject = core("did:webvh:zAttacker:attacker.example");
+        transferred.local_admin_subject_id = core("did:webvh:zAttacker:attacker.example");
         assert!(
             transferred
                 .validate_for_challenge_at(&challenge, created_at + chrono::Duration::seconds(1))
@@ -836,12 +836,12 @@ mod tests {
             log_head_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
             control_proof_kind: OrganizationControlProofKind::ResolvedVerificationMethod,
             control_key_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
-            local_admin_subject: core("did:webvh:zAdmin:admin.example"),
+            local_admin_subject_id: core("did:webvh:zAdmin:admin.example"),
             delegated_scopes: vec![OrganizationRegistrationScope::OrganizationProfileManage],
             status: OrganizationRegistrationStatus::Active,
             issued_at,
             expires_at: issued_at + chrono::Duration::days(30),
-            issuer_service_id: issuer,
+            issuer_id: issuer,
             proof: payload_proof(
                 issued_at,
                 &DidUrl::new(format!("{issuer_did}#notary-key")).unwrap(),
@@ -872,12 +872,12 @@ mod tests {
             log_head_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
             control_proof_kind: OrganizationControlProofKind::ResolvedVerificationMethod,
             control_key_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
-            local_admin_subject: core("did:webvh:zAdmin:admin.example"),
+            local_admin_subject_id: core("did:webvh:zAdmin:admin.example"),
             delegated_scopes: vec![OrganizationRegistrationScope::OrganizationProfileManage],
             status: OrganizationRegistrationStatus::Active,
             issued_at,
             expires_at: issued_at + chrono::Duration::days(30),
-            issuer_service_id: issuer,
+            issuer_id: issuer,
             proof: payload_proof(
                 issued_at,
                 &DidUrl::new(format!("{issuer_did}#notary-key")).unwrap(),
@@ -915,12 +915,12 @@ mod tests {
             log_head_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
             control_proof_kind: OrganizationControlProofKind::ResolvedVerificationMethod,
             control_key_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
-            local_admin_subject: core("did:webvh:zAdmin:admin.example"),
+            local_admin_subject_id: core("did:webvh:zAdmin:admin.example"),
             delegated_scopes: vec![OrganizationRegistrationScope::OrganizationRealmEndorse],
             status: OrganizationRegistrationStatus::Active,
             issued_at,
             expires_at: issued_at + chrono::Duration::days(30),
-            issuer_service_id: issuer,
+            issuer_id: issuer,
             proof: payload_proof(
                 issued_at,
                 &DidUrl::new(format!("{issuer_did}#notary-key")).unwrap(),

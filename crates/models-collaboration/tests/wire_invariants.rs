@@ -83,7 +83,7 @@ fn applet_transaction(signal: SignalEnvelope) -> AppletTransactionRequestBody {
     AppletTransactionRequestBody {
         applet_id: arkret_wire::AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa")
             .unwrap(),
-        source_service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        source_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         events: Vec::new(),
         signals: Some(vec![signal]),
     }
@@ -204,7 +204,7 @@ fn third_party_invite_rejects_mode_mismatch() {
         lookup_table_ref: None,
         pepper_id: None,
         max_claims: 1,
-        verification_service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        verification_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         verification_public_key: "z6MkVK".to_owned(),
     };
     assert!(invite.validate_minimal().is_err());

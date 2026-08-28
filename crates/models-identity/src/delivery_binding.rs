@@ -19,9 +19,9 @@ use crate::ServiceResolutionCarrier;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MemberDeliveryBinding {
-    pub recipient_service_id: DidCoreId,
-    #[serde(default = "default_recipient_service_kind")]
-    pub recipient_service_kind: RecipientServiceKind,
+    pub recipient_id: DidCoreId,
+    #[serde(default = "default_recipient_kind")]
+    pub recipient_kind: RecipientServiceKind,
     #[serde(default = "default_binding_scope")]
     pub binding_scope: BindingScope,
     pub binding_source: BindingSource,
@@ -45,7 +45,7 @@ pub struct MemberDeliveryBinding {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
-fn default_recipient_service_kind() -> RecipientServiceKind {
+fn default_recipient_kind() -> RecipientServiceKind {
     RecipientServiceKind::PrincipalServer
 }
 
@@ -97,7 +97,7 @@ impl MemberDeliveryBinding {
     /// `event-payload.schema.json` (`binding_source`-driven `allOf`).
     pub fn validate(&self) -> Result<()> {
         self.service_resolution
-            .validate_shape(&self.recipient_service_id)?;
+            .validate_shape(&self.recipient_id)?;
         if self.delivery_modes.is_empty() {
             return Err(WireError::Protocol(
                 "member_delivery_binding.delivery_modes MUST NOT be empty".to_owned(),
@@ -152,12 +152,12 @@ pub enum DeliveryStatus {
 
 /// Composite cell-subject key for `ak.device.push_route` events.
 ///
-/// Scope: `(recipient_service_id, principal_id, device_id, push_route)`.
+/// Scope: `(recipient_id, principal_id, device_id, push_route)`.
 /// `push_target_id` MUST be derived against this scope; push registration
 /// MUST be scoped to the current Principal Server's service DID.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PushRouteScope {
-    pub recipient_service_id: DidCoreId,
+    pub recipient_id: DidCoreId,
     pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub push_route: String,
@@ -174,13 +174,13 @@ pub enum DevicePushRoutePayload {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DevicePushRouteActivePayload {
-    pub recipient_service_id: DidCoreId,
+    pub recipient_id: DidCoreId,
     pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub push_route: String,
     pub expected_revision: u64,
     pub push_target_id: PushTargetId,
-    pub push_gateway_service_id: DidCoreId,
+    pub push_gateway_id: DidCoreId,
     pub encryption_key: String,
     pub capabilities: Vec<String>,
     #[serde(
@@ -200,7 +200,7 @@ pub struct DevicePushRouteActivePayload {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DevicePushRouteRevokedPayload {
-    pub recipient_service_id: DidCoreId,
+    pub recipient_id: DidCoreId,
     pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub push_route: String,
@@ -241,22 +241,22 @@ impl<'de> Deserialize<'de> for PushRouteRevokedMarker {
 
 impl DevicePushRoutePayload {
     pub fn scope(&self) -> PushRouteScope {
-        let (recipient_service_id, principal_id, device_id, push_route) = match self {
+        let (recipient_id, principal_id, device_id, push_route) = match self {
             Self::Active(value) => (
-                &value.recipient_service_id,
+                &value.recipient_id,
                 &value.principal_id,
                 &value.device_id,
                 &value.push_route,
             ),
             Self::Revoked(value) => (
-                &value.recipient_service_id,
+                &value.recipient_id,
                 &value.principal_id,
                 &value.device_id,
                 &value.push_route,
             ),
         };
         PushRouteScope {
-            recipient_service_id: recipient_service_id.clone(),
+            recipient_id: recipient_id.clone(),
             principal_id: principal_id.clone(),
             device_id: device_id.clone(),
             push_route: push_route.clone(),
@@ -297,8 +297,8 @@ mod tests {
     #[test]
     fn binding_requires_modes() {
         let mut b = MemberDeliveryBinding {
-            recipient_service_id: fake_service("rs"),
-            recipient_service_kind: RecipientServiceKind::PrincipalServer,
+            recipient_id: fake_service("rs"),
+            recipient_kind: RecipientServiceKind::PrincipalServer,
             binding_scope: BindingScope::Realm,
             binding_source: BindingSource::Explicit,
             delivery_modes: BTreeSet::new(),
@@ -318,8 +318,8 @@ mod tests {
     #[test]
     fn binding_source_explicit_requires_acceptance_ref() {
         let b = MemberDeliveryBinding {
-            recipient_service_id: fake_service("rs"),
-            recipient_service_kind: RecipientServiceKind::PrincipalServer,
+            recipient_id: fake_service("rs"),
+            recipient_kind: RecipientServiceKind::PrincipalServer,
             binding_scope: BindingScope::Realm,
             binding_source: BindingSource::Explicit,
             delivery_modes: [DeliveryMode::Events].into_iter().collect(),
@@ -368,8 +368,8 @@ mod tests {
     #[test]
     fn member_delivery_binding_rejects_space_binding_scope() {
         let payload = serde_json::json!({
-            "recipient_service_id": "ak:did_core:webvh:z6mkfixturers",
-            "recipient_service_kind": "principal_server",
+            "recipient_id": "ak:did_core:webvh:z6mkfixturers",
+            "recipient_kind": "principal_server",
             "binding_scope": "space",
             "binding_source": "explicit",
             "delivery_modes": ["events"],
@@ -389,8 +389,8 @@ mod tests {
     #[test]
     fn binding_source_did_document_default_requires_hash() {
         let b = MemberDeliveryBinding {
-            recipient_service_id: fake_service("rs"),
-            recipient_service_kind: RecipientServiceKind::PrincipalServer,
+            recipient_id: fake_service("rs"),
+            recipient_kind: RecipientServiceKind::PrincipalServer,
             binding_scope: BindingScope::Realm,
             binding_source: BindingSource::DidDocumentDefault,
             delivery_modes: [DeliveryMode::Events].into_iter().collect(),

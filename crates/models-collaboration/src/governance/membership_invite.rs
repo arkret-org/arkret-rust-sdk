@@ -75,7 +75,7 @@ pub struct MembershipPayload {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gate_proofs: Vec<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub via_service_ids: Vec<DidCoreId>,
+    pub via_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -111,7 +111,7 @@ impl MembershipPayload {
             delivery_status: None,
             delivery_binding: None,
             gate_proofs: Vec::new(),
-            via_service_ids: Vec::new(),
+            via_ids: Vec::new(),
             reason: Some(reason.into()),
             membership_cause: None,
             agent_controller_binding: None,
@@ -135,7 +135,7 @@ impl MembershipPayload {
             delivery_status: Some(delivery_status),
             delivery_binding: None,
             gate_proofs: Vec::new(),
-            via_service_ids: Vec::new(),
+            via_ids: Vec::new(),
             reason: Some(reason.into()),
             membership_cause: None,
             agent_controller_binding: None,
@@ -409,7 +409,7 @@ pub const INVITE_SUBJECT_PROOF_TRANSCRIPT_DOMAIN: &str = "ak.invite.claim.subjec
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InviteClaimBindingProof {
-    pub verification_service_id: DidCoreId,
+    pub verification_id: DidCoreId,
     pub verification_method: DidUrl,
     pub subject_id: DidCoreId,
     pub realm_id: RealmId,
@@ -422,7 +422,7 @@ pub struct InviteClaimBindingProof {
 impl InviteClaimBindingProof {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        verification_service_id: DidCoreId,
+        verification_id: DidCoreId,
         subject_id: DidCoreId,
         realm_id: RealmId,
         claim_nonce: impl Into<String>,
@@ -431,7 +431,7 @@ impl InviteClaimBindingProof {
         signature: impl Into<String>,
     ) -> Self {
         Self {
-            verification_service_id,
+            verification_id,
             subject_id,
             realm_id,
             audience: INVITE_CLAIM_AUDIENCE.to_owned(),
@@ -468,7 +468,7 @@ impl InviteClaimBindingProof {
 
     pub fn unsigned(&self) -> InviteClaimUnsignedBindingProof {
         InviteClaimUnsignedBindingProof {
-            verification_service_id: self.verification_service_id.clone(),
+            verification_id: self.verification_id.clone(),
             subject_id: self.subject_id.clone(),
             realm_id: self.realm_id.clone(),
             audience: self.audience.clone(),
@@ -488,7 +488,7 @@ impl InviteClaimBindingProof {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InviteClaimUnsignedBindingProof {
-    pub verification_service_id: DidCoreId,
+    pub verification_id: DidCoreId,
     pub subject_id: DidCoreId,
     pub realm_id: RealmId,
     pub audience: String,
@@ -509,7 +509,7 @@ pub struct InviteClaimBindingProofBody {
     pub realm_id: RealmId,
     pub subject_id: DidCoreId,
     pub token_commitment: Hash,
-    pub verification_service_id: DidCoreId,
+    pub verification_id: DidCoreId,
 }
 
 impl InviteClaimBindingProofBody {
@@ -539,7 +539,7 @@ impl InviteClaimBindingProofBody {
             realm_id: binding_proof.realm_id.clone(),
             subject_id: binding_proof.subject_id.clone(),
             token_commitment,
-            verification_service_id: binding_proof.verification_service_id.clone(),
+            verification_id: binding_proof.verification_id.clone(),
         })
     }
 
@@ -676,7 +676,7 @@ pub struct InviteSubjectProofBody {
     pub token_commitment: Hash,
     pub claim_nonce: String,
     pub audience: String,
-    pub verification_service_id: DidCoreId,
+    pub verification_id: DidCoreId,
     pub binding_proof_digest: Hash,
 }
 
@@ -687,7 +687,7 @@ impl InviteSubjectProofBody {
         realm_id: RealmId,
         token_commitment: Hash,
         claim_nonce: impl Into<String>,
-        verification_service_id: DidCoreId,
+        verification_id: DidCoreId,
         binding_proof_digest: Hash,
     ) -> Self {
         Self {
@@ -697,7 +697,7 @@ impl InviteSubjectProofBody {
             token_commitment,
             claim_nonce: claim_nonce.into(),
             audience: INVITE_CLAIM_AUDIENCE.to_owned(),
-            verification_service_id,
+            verification_id,
             binding_proof_digest,
         }
     }
@@ -708,7 +708,7 @@ impl InviteSubjectProofBody {
         realm_id: impl Into<String>,
         token_commitment: impl Into<String>,
         claim_nonce: impl Into<String>,
-        verification_service_id: impl Into<String>,
+        verification_id: impl Into<String>,
         binding_proof_digest: impl Into<String>,
     ) -> Result<Self> {
         Ok(Self::new(
@@ -717,7 +717,7 @@ impl InviteSubjectProofBody {
             RealmId::new(realm_id.into())?,
             Hash::new(token_commitment.into())?,
             claim_nonce,
-            DidCoreId::new(verification_service_id.into())?,
+            DidCoreId::new(verification_id.into())?,
             Hash::new(binding_proof_digest.into())?,
         ))
     }
@@ -766,7 +766,7 @@ pub fn invite_subject_proof_transcript_bytes(
     realm_id: &str,
     token_commitment: &str,
     claim_nonce: &str,
-    verification_service_id: &str,
+    verification_id: &str,
     binding_proof_digest: &str,
 ) -> Result<Vec<u8>> {
     InviteSubjectProofBody::from_wire_parts(
@@ -775,7 +775,7 @@ pub fn invite_subject_proof_transcript_bytes(
         realm_id,
         token_commitment,
         claim_nonce,
-        verification_service_id,
+        verification_id,
         binding_proof_digest,
     )?
     .canonical_bytes()
@@ -787,7 +787,7 @@ pub fn invite_subject_proof_transcript_digest(
     realm_id: &str,
     token_commitment: &str,
     claim_nonce: &str,
-    verification_service_id: &str,
+    verification_id: &str,
     binding_proof_digest: &str,
 ) -> Result<Hash> {
     Ok(Hash::new(canonical::sha256_digest(
@@ -797,7 +797,7 @@ pub fn invite_subject_proof_transcript_digest(
             realm_id,
             token_commitment,
             claim_nonce,
-            verification_service_id,
+            verification_id,
             binding_proof_digest,
         )?,
     ))?)
@@ -933,7 +933,7 @@ mod tests {
                 "\"realm_id\":\"ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-\",",
                 "\"subject_id\":\"ak:did_core:webvh:z6mkfixturebob\",",
                 "\"token_commitment\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",",
-                "\"verification_service_id\":\"ak:did_core:web:verify.example\"}"
+                "\"verification_id\":\"ak:did_core:web:verify.example\"}"
             )
         );
     }

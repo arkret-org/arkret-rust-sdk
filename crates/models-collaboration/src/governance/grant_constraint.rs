@@ -206,7 +206,7 @@ pub struct GrantConstraintClaimRequirement {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub issuer: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub trusted_issuers: Vec<DidCoreId>,
+    pub trusted_issuer_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub subject_matches_actor: Option<bool>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -414,7 +414,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_authority_depth: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub authority_path: Vec<DidCoreId>,
+    pub authority_path_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authority_regrant_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -472,7 +472,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub required_claims: Vec<GrantConstraintClaimRequirement>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub trusted_claim_issuers: Vec<DidCoreId>,
+    pub trusted_claim_issuer_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub claim_refresh_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -496,7 +496,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_backup_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub approved_key_issuers: Vec<DidCoreId>,
+    pub approved_key_issuer_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub depends_on_moderation_state: Option<bool>,
     #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
@@ -559,7 +559,7 @@ impl GrantConstraint {
             allowed_data_labels: Vec::new(),
             allowed_endpoints: Vec::new(),
             max_authority_depth: None,
-            authority_path: Vec::new(),
+            authority_path_ids: Vec::new(),
             authority_regrant_allowed: None,
             authority_scope: None,
             applet_id: None,
@@ -588,7 +588,7 @@ impl GrantConstraint {
             guardian_approval_required: None,
             controller_approval_required: None,
             required_claims: Vec::new(),
-            trusted_claim_issuers: Vec::new(),
+            trusted_claim_issuer_ids: Vec::new(),
             claim_refresh_required: None,
             claim_max_age: None,
             allowed_history_access_values: Vec::new(),
@@ -600,7 +600,7 @@ impl GrantConstraint {
             key_rotation_period: None,
             max_key_age: None,
             key_backup_required: None,
-            approved_key_issuers: Vec::new(),
+            approved_key_issuer_ids: Vec::new(),
             depends_on_moderation_state: None,
             extensions: XExtensionMap::default(),
         }

@@ -84,7 +84,7 @@ pub struct MimiNotificationRouting {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mimi_room_uri: Option<MimiRoomUri>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub target_providers: Vec<DidCoreId>,
+    pub target_provider_ids: Vec<DidCoreId>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -174,7 +174,7 @@ pub struct MimiOhttpContext {
     pub context_id: NonEmptyString,
     pub request_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub relay_provider: Option<DidCoreId>,
+    pub relay_provider_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encapsulated_request: Option<Base64UrlString>,
 }

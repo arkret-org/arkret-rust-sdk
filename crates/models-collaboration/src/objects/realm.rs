@@ -51,7 +51,7 @@ pub struct Realm {
     /// `Space`.
     pub trust_domain: TrustDomainId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub owning_organizations: Vec<DidCoreId>,
+    pub owning_organization_ids: Vec<DidCoreId>,
     pub schema_refs: Vec<String>,
     /// Product/profile fields carried by `realm.schema.json`. Security
     /// discriminators such as `purpose=principal_control` and
@@ -275,7 +275,7 @@ impl Realm {
             summary: None,
             security_class: None,
             trust_domain,
-            owning_organizations: Vec::new(),
+            owning_organization_ids: Vec::new(),
             schema_refs: Vec::new(),
             fields: BTreeMap::new(),
             relation_profiles: Vec::new(),

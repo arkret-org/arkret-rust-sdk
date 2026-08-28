@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-08-28.1;
-//! sha256=8aff1fe9c3f7ecf80931cccec01d5d1a680c75726c7af70fdc059e631e8f0caa
+//! sha256=bcf43055f375a547b9779f60a3b64aaf12be8e3e08f88288507140f97b2c02b0
 //! Entries: reason_codes=471
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2836,7 +2836,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DELIVERY_BINDING_HANDOVER_PROOF_INVALID,
         applies_to: &["service_call", "auth_decision"],
-        description: "A federation delivery-binding handover response carried a proof that does not verify against the Realm Event graph, handover_frontier, actor_id, new_recipient_service_id, or effective delivery binding policy. Sender MUST stop redirection and MUST NOT fall back to DID Document routing. See zh/sync/federation.md §4.1.",
+        description: "A federation delivery-binding handover response carried a proof that does not verify against the Realm Event graph, handover_frontier, actor_id, new_recipient_id, or effective delivery binding policy. Sender MUST stop redirection and MUST NOT fall back to DID Document routing. See zh/sync/federation.md §4.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DELIVERY_BINDING_HANDOVER_RATE_LIMITED,
@@ -2851,7 +2851,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DELIVERY_BINDING_POLICY_MISMATCH,
         applies_to: &["event_envelope", "auth_decision", "state_resolution"],
-        description: "The resolved member delivery binding source, recipient_service_id, endorsement set, unroutable-membership status, or selected source priority conflicts with the Realm delivery_binding_policy allowlist / priority rules. Reducers MUST NOT fall through to a lower-priority binding source after this mismatch. See zh/governance/member-delivery-binding.md §2 and §3.1.",
+        description: "The resolved member delivery binding source, recipient_id, endorsement set, unroutable-membership status, or selected source priority conflicts with the Realm delivery_binding_policy allowlist / priority rules. Reducers MUST NOT fall through to a lower-priority binding source after this mismatch. See zh/governance/member-delivery-binding.md §2 and §3.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DELIVERY_BINDING_STALE,
@@ -3805,12 +3805,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_ROUTE_LIMIT_EXCEEDED,
         applies_to: &["event_envelope", "service_call"],
-        description: "A `ak.device.push_route` registration would exceed the v1 wire limit of 16 active push_route entries per `(recipient_service_id, principal_id, device_id)`. The server MUST reject the new registration. See zh/crypto-media/device-lifecycle.md §5.6.2 and zh/conformance/scalability-constraints.md §6.1.",
+        description: "A `ak.device.push_route` registration would exceed the v1 wire limit of 16 active push_route entries per `(recipient_id, principal_id, device_id)`. The server MUST reject the new registration. See zh/crypto-media/device-lifecycle.md §5.6.2 and zh/conformance/scalability-constraints.md §6.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_ROUTE_REGISTRATION_RATE_LIMITED,
         applies_to: &["service_call"],
-        description: "Internal audit reason recorded when push-route registration / rotation writes for a `(recipient_service_id, principal_id, device_id)` exceed the default rate (8 writes per 60s). The outward response uses a generic rate-limited envelope; this reason is for server-side abuse detection only. See zh/crypto-media/device-lifecycle.md §5.6.2 and zh/conformance/scalability-constraints.md §6.1.",
+        description: "Internal audit reason recorded when push-route registration / rotation writes for a `(recipient_id, principal_id, device_id)` exceed the default rate (8 writes per 60s). The outward response uses a generic rate-limited envelope; this reason is for server-side abuse detection only. See zh/crypto-media/device-lifecycle.md §5.6.2 and zh/conformance/scalability-constraints.md §6.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_TARGET_UNKNOWN,

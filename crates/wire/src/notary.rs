@@ -132,9 +132,9 @@ pub enum NotaryValue {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         recovery_members: Vec<NotarySignerDescriptor>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        controller_organization: Option<DidCoreId>,
+        controller_organization_id: Option<DidCoreId>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        recovery_controller_organizations: Vec<DidCoreId>,
+        recovery_controller_organization_ids: Vec<DidCoreId>,
     },
     Threshold {
         members: Vec<NotarySignerDescriptor>,
@@ -148,9 +148,9 @@ pub enum NotaryValue {
         signer: NotarySignerDescriptor,
         recovery_members: Vec<NotarySignerDescriptor>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        controller_organization: Option<DidCoreId>,
+        controller_organization_id: Option<DidCoreId>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        recovery_controller_organizations: Vec<DidCoreId>,
+        recovery_controller_organization_ids: Vec<DidCoreId>,
     },
 }
 
@@ -159,8 +159,8 @@ impl NotaryValue {
         Self::SingleSigner {
             signer,
             recovery_members: Vec::new(),
-            controller_organization: None,
-            recovery_controller_organizations: Vec::new(),
+            controller_organization_id: None,
+            recovery_controller_organization_ids: Vec::new(),
         }
     }
 
@@ -169,18 +169,18 @@ impl NotaryValue {
             Self::SingleSigner {
                 signer,
                 recovery_members,
-                controller_organization,
-                recovery_controller_organizations,
+                controller_organization_id,
+                recovery_controller_organization_ids,
             } => {
-                if controller_organization.is_some()
-                    && (recovery_members.is_empty() || recovery_controller_organizations.is_empty())
+                if controller_organization_id.is_some()
+                    && (recovery_members.is_empty() || recovery_controller_organization_ids.is_empty())
                 {
                     return Err(WireError::Protocol(
                         "organization-controlled single_signer requires recovery members and recovery controller organizations"
                             .to_owned(),
                     ));
                 }
-                validate_unique_organizations(recovery_controller_organizations)?;
+                validate_unique_organizations(recovery_controller_organization_ids)?;
                 (std::slice::from_ref(signer), recovery_members.as_slice())
             }
             Self::Threshold {
@@ -218,22 +218,22 @@ impl NotaryValue {
             Self::Mixed {
                 signer,
                 recovery_members,
-                controller_organization,
-                recovery_controller_organizations,
+                controller_organization_id,
+                recovery_controller_organization_ids,
             } => {
                 if recovery_members.is_empty() {
                     return Err(WireError::Protocol(
                         "mixed notary requires at least one recovery member".to_owned(),
                     ));
                 }
-                if controller_organization.is_some() && recovery_controller_organizations.is_empty()
+                if controller_organization_id.is_some() && recovery_controller_organization_ids.is_empty()
                 {
                     return Err(WireError::Protocol(
                         "organization-controlled mixed notary requires recovery controller organizations"
                             .to_owned(),
                     ));
                 }
-                validate_unique_organizations(recovery_controller_organizations)?;
+                validate_unique_organizations(recovery_controller_organization_ids)?;
                 (std::slice::from_ref(signer), recovery_members.as_slice())
             }
         };

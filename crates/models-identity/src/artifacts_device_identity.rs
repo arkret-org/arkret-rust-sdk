@@ -33,7 +33,7 @@ pub struct IdentityReceipt {
     pub subject_did: Did,
     pub seq: u64,
     pub head_event_digest: Hash,
-    pub registry_service_id: DidCoreId,
+    pub registry_id: DidCoreId,
     pub witness_role: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audience: Option<String>,
@@ -68,8 +68,8 @@ impl IdentityReceipt {
             Value::String(self.signature.payload_digest.as_str().to_owned()),
         );
         object.insert(
-            "registry_service_id".to_owned(),
-            Value::String(self.registry_service_id.as_str().to_owned()),
+            "registry_id".to_owned(),
+            Value::String(self.registry_id.as_str().to_owned()),
         );
         object.insert(
             "subject_did".to_owned(),
@@ -117,10 +117,10 @@ impl IdentityReceipt {
             ));
         }
         if verification_method_controller_core(&self.signature.verification_method)?
-            != self.registry_service_id
+            != self.registry_id
         {
             return Err(WireError::Protocol(
-                "identity receipt verification_method must be controlled by registry_service_id"
+                "identity receipt verification_method must be controlled by registry_id"
                     .to_owned(),
             ));
         }
@@ -162,7 +162,7 @@ pub struct DidWebvhWitnessReceipt {
     pub observed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
-    pub issuer_service_id: DidCoreId,
+    pub issuer_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trust_domain: Option<TrustDomainId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -201,8 +201,8 @@ impl DidWebvhWitnessReceipt {
             Value::String(self.signature.payload_digest.as_str().to_owned()),
         );
         object.insert(
-            "issuer_service_id".to_owned(),
-            Value::String(self.issuer_service_id.as_str().to_owned()),
+            "issuer_id".to_owned(),
+            Value::String(self.issuer_id.as_str().to_owned()),
         );
         object.insert(
             "subject_did".to_owned(),
@@ -295,10 +295,10 @@ impl DidWebvhWitnessReceipt {
             ));
         }
         if verification_method_controller_core(&self.signature.verification_method)?
-            != self.issuer_service_id
+            != self.issuer_id
         {
             return Err(WireError::Protocol(
-                "did:webvh witness receipt proof must be controlled by issuer_service_id"
+                "did:webvh witness receipt proof must be controlled by issuer_id"
                     .to_owned(),
             ));
         }
@@ -387,7 +387,7 @@ mod tests {
             controlling_organization_did: Did::new("did:web:org.example").unwrap(),
             observed_at: created_at,
             source: Some("https://subject.example/.well-known/did-witness.json".to_owned()),
-            issuer_service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             trust_domain: Some(TrustDomainId::new("ak:trust_domain:example").unwrap()),
             audience: None,
             expires_at: created_at + chrono::Duration::hours(24),
@@ -438,7 +438,7 @@ mod tests {
             "seq": 1,
             "head_event_digest":
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "registry_service_id": "ak:did_core:webvh:z6mkfixture",
+            "registry_id": "ak:did_core:webvh:z6mkfixture",
             "witness_role": "writer",
             "created_at": "2026-07-15T00:00:00.000Z",
             "signature": {
@@ -471,7 +471,7 @@ mod tests {
             "seq": 1,
             "head_event_digest":
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "registry_service_id": "ak:did_core:webvh:z6mkfixture",
+            "registry_id": "ak:did_core:webvh:z6mkfixture",
             "witness_role": "writer",
             "created_at": "2026-07-15T00:00:00.000Z",
             "signature": {
@@ -490,8 +490,8 @@ mod tests {
             serde_json::from_slice(&receipt.proof_binding_bytes().unwrap()).unwrap();
         assert_eq!(binding["context"], IDENTITY_RECEIPT_PROOF_BINDING_CONTEXT);
         assert_eq!(
-            binding["registry_service_id"],
-            receipt.registry_service_id.as_str()
+            binding["registry_id"],
+            receipt.registry_id.as_str()
         );
         assert_eq!(binding["subject_did"], receipt.subject_did.as_str());
 
@@ -508,7 +508,7 @@ mod tests {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeliveryBindingStaleHandoverProof {
     pub frontier: Vec<EventId>,
-    pub recipient_service_id: DidCoreId,
+    pub recipient_id: DidCoreId,
     pub actor_id: DidCoreId,
     pub witness: NonEmptyJsonObject,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
@@ -517,7 +517,7 @@ pub struct DeliveryBindingStaleHandoverProof {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeliveryBindingStale {
-    pub new_recipient_service_id: DidCoreId,
+    pub new_recipient_id: DidCoreId,
     pub new_service_resolution: crate::ServiceResolutionCarrier,
     pub handover_frontier: Vec<EventId>,
     pub handover_proof: DeliveryBindingStaleHandoverProof,
@@ -822,14 +822,14 @@ mod key_verification_tests {
 
     fn delivery_binding_stale_value() -> Value {
         json!({
-            "new_recipient_service_id": "ak:did_core:web:principal.example",
+            "new_recipient_id": "ak:did_core:web:principal.example",
             "new_service_resolution": {
                 "current_record_url": "https://principal.example/_arkret/open/services/ak%3Adid_core%3Aweb%3Aprincipal.example/resolution"
             },
             "handover_frontier": ["ak:event:ATYeQ_3uy7u8Z1cbK6nfFvEpFMXMcbNvQJsXqt-4f03A"],
             "handover_proof": {
                 "frontier": ["ak:event:ATYeQ_3uy7u8Z1cbK6nfFvEpFMXMcbNvQJsXqt-4f03A"],
-                "recipient_service_id": "ak:did_core:web:principal.example",
+                "recipient_id": "ak:did_core:web:principal.example",
                 "actor_id": "ak:did_core:web:alice.example",
                 "witness": {"event_digest": format!("sha256:{}", "0".repeat(64))}
             }
@@ -849,7 +849,7 @@ mod key_verification_tests {
         assert!(serde_json::from_value::<DeliveryBindingStale>(missing_resolution).is_err());
 
         let mut did_in_service_id = valid;
-        did_in_service_id["new_recipient_service_id"] = json!("did:web:principal.example");
+        did_in_service_id["new_recipient_id"] = json!("did:web:principal.example");
         assert!(serde_json::from_value::<DeliveryBindingStale>(did_in_service_id).is_err());
     }
 

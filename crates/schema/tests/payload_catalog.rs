@@ -219,8 +219,8 @@ fn invite_create_payload_shape_is_enforced() {
     let payload = json!({
         "invitee": "ak:did_core:webvh:z6mkfixture",
         "invite_delivery_target": {
-            "recipient_service_id": "ak:did_core:webvh:z6mkserver",
-            "recipient_service_kind": "principal_server",
+            "recipient_id": "ak:did_core:webvh:z6mkserver",
+            "recipient_kind": "principal_server",
             "service_resolution": {
                 "current_record_url": "https://server.example/.well-known/arkret/service-resolution.json"
             }

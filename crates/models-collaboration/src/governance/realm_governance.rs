@@ -672,7 +672,7 @@ pub struct RealmPolicyServerPolicySource {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_policy_server_declaration`.
 pub struct RealmPolicyServerDeclarationPayload {
-    pub policy_server_service_id: DidCoreId,
+    pub policy_server_id: DidCoreId,
     pub policy_server_url: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub public_keys: Vec<DidUrl>,
@@ -807,7 +807,7 @@ impl RealmAliasPayload {
 #[serde(deny_unknown_fields)]
 pub struct RealmPolicyServerView {
     pub realm_id: RealmId,
-    pub policy_server_service_id: DidCoreId,
+    pub policy_server_id: DidCoreId,
     pub policy_server_url: String,
     pub cache_ttl_seconds: u64,
     pub timeout_ms: u64,
@@ -986,11 +986,11 @@ pub struct RealmOrganizationRelationshipList {
     pub realm_id: RealmId,
     #[serde(default)]
     pub relationships: Vec<RealmOrganizationRelationshipRow>,
-    /// `owning_organizations` declared hints with no verified statement. These
+    /// `owning_organization_ids` declared hints with no verified statement. These
     /// are unverified claims and MUST NOT be rendered as official / governed /
     /// endorsed.
     #[serde(default)]
-    pub declared_organization_hints: Vec<DidCoreId>,
+    pub declared_organization_hint_ids: Vec<DidCoreId>,
 }
 
 #[cfg(test)]
@@ -1302,7 +1302,7 @@ mod tests {
         assert!(
             serde_json::from_value::<RealmPolicyServerPayload>(serde_json::json!({
                 "tombstone": true,
-                "policy_server_service_id": "ak:did_core:web:policy.example"
+                "policy_server_id": "ak:did_core:web:policy.example"
             }))
             .is_err()
         );

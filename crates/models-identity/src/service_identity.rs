@@ -480,7 +480,7 @@ pub struct ServiceRegistrationReceipt {
     pub control_key_digest: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
-    pub provider_service_id: DidCoreId,
+    pub provider_id: DidCoreId,
     pub proof: PayloadProof,
 }
 
@@ -496,7 +496,7 @@ impl ServiceRegistrationReceipt {
             "log_head_digest": &self.log_head_digest,
             "control_key_digest": &self.control_key_digest,
             "issued_at": canonical::format_timestamp_canonical(self.issued_at),
-            "provider_service_id": &self.provider_service_id,
+            "provider_id": &self.provider_id,
         });
         let digest = sha256_canonical(&claims)?;
         Ok(ServiceRegistrationReceiptId::new(format!(
@@ -525,7 +525,7 @@ impl ServiceRegistrationReceipt {
         struct Transcript<'a> {
             context: &'static str,
             payload_digest: &'a Hash,
-            provider_service_id: &'a DidCoreId,
+            provider_id: &'a DidCoreId,
             registration_receipt_id: &'a ServiceRegistrationReceiptId,
             verification_method: &'a DidUrl,
             #[serde(
@@ -540,7 +540,7 @@ impl ServiceRegistrationReceipt {
         Ok(canonical::canonical_json_bytes(&Transcript {
             context: arkret_wire::ProofContextId::SERVICE_REGISTRATION_RECEIPT_PROOF_V1,
             payload_digest: &self.proof.payload_digest,
-            provider_service_id: &self.provider_service_id,
+            provider_id: &self.provider_id,
             registration_receipt_id: &self.registration_receipt_id,
             verification_method: &self.proof.verification_method,
             created_at: self.proof.created_at,
@@ -571,7 +571,7 @@ impl ServiceRegistrationReceipt {
     pub fn validate_provider_did(&self, provider_did: &Did) -> Result<()> {
         let projected = project_did_to_core_id(provider_did)?;
         let provider_prefix = format!("{}#", provider_did);
-        if projected != self.provider_service_id
+        if projected != self.provider_id
             || !self.proof.verification_method.starts_with(&provider_prefix)
         {
             return Err(WireError::Protocol(

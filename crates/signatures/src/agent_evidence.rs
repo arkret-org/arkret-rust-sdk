@@ -142,7 +142,7 @@ pub fn sign_agent_event_admission_receipt(
         did_url_controller_core_id(receiver_verification_method).map_err(|reason| {
             AgentEvidenceSigningError::InvalidIdentifier(reason.as_str().to_owned())
         })?;
-    if receipt.receiver_service_id != receiver_id {
+    if receipt.receiver_id != receiver_id {
         return Err(AgentEvidenceSigningError::ReceiverMismatch);
     }
     receipt.proof.jws = domain_proof_jws_with_kid(
@@ -159,7 +159,7 @@ pub fn verify_agent_event_admission_receipt(
     receiver_public_key: &PublicKeyMaterial,
 ) -> Result<(), AgentEvidenceRejectedReason> {
     let method = historical_receipt_verification_method(receipt)?;
-    if did_url_controller_core_id(&method)? != receipt.receiver_service_id {
+    if did_url_controller_core_id(&method)? != receipt.receiver_id {
         return Err(AgentEvidenceRejectedReason::HistoricalReceiptMismatch);
     }
     verify_domain_proof(
@@ -216,7 +216,7 @@ fn domain_proof_jws_with_kid(
 pub fn verify_controller_account_gate_attestation(
     attestation: &arkret_models_identity::agent_signer_evidence::ControllerAccountGateAttestation,
     expected_principal_id: &DidCoreId,
-    expected_authority_service_id: &DidCoreId,
+    expected_authority_id: &DidCoreId,
     authority_public_key: &PublicKeyMaterial,
     now: DateTime<Utc>,
 ) -> Result<(), AgentEvidenceRejectedReason> {
@@ -234,8 +234,8 @@ pub fn verify_controller_account_gate_attestation(
     let eligibility_active = attestation.eligibility == ControllerAccountEligibility::Active;
     if attestation.schema.as_str() != SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1
         || &attestation.principal_id != expected_principal_id
-        || &attestation.authority_service_id != expected_authority_service_id
-        || projected != attestation.authority_service_id
+        || &attestation.authority_id != expected_authority_id
+        || projected != attestation.authority_id
         || status_active != eligibility_active
         || attestation.issued_at >= attestation.expires_at
         || attestation.expires_at - attestation.issued_at > chrono::Duration::minutes(5)
@@ -257,7 +257,7 @@ pub fn verify_controller_account_gate_attestation(
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedAgentSigningKey {
     signer: DidCoreId,
-    authority_service_id: DidCoreId,
+    authority_id: DidCoreId,
     key: [u8; 32],
     authorization_ref: EventId,
     snapshot_digest: Hash,
@@ -273,8 +273,8 @@ impl VerifiedAgentSigningKey {
         &self.key
     }
 
-    pub fn authority_service_id(&self) -> &DidCoreId {
-        &self.authority_service_id
+    pub fn authority_id(&self) -> &DidCoreId {
+        &self.authority_id
     }
 
     pub fn authorization_ref(&self) -> &EventId {
@@ -370,9 +370,9 @@ pub struct AgentEvidenceCommonContext<'a> {
     pub agent_key_authorize_event_id: &'a EventId,
     pub authorize_public_key_digest: &'a Hash,
     pub authorize_signing_key_binding_digest: &'a Hash,
-    pub expected_authority_service_id: &'a DidCoreId,
+    pub expected_authority_id: &'a DidCoreId,
     pub expected_authority_verification_method: &'a DidUrl,
-    pub expected_account_authority_service_id: &'a DidCoreId,
+    pub expected_account_authority_id: &'a DidCoreId,
     pub expected_account_authority_verification_method: &'a DidUrl,
     pub controller_public_key: &'a PublicKeyMaterial,
     pub authority_public_key: &'a PublicKeyMaterial,
@@ -399,7 +399,7 @@ pub struct HistoricalAgentSignerEvidenceValidationContext<'a> {
     pub producer_accepted_at: DateTime<Utc>,
     pub producer_signer_resolution_evidence_ref: &'a SignerEvidenceRef,
     pub producer_signer_resolution_evidence_digest: &'a Hash,
-    pub receiver_service_id: &'a DidCoreId,
+    pub receiver_id: &'a DidCoreId,
     /// Resolve the exact receiver assertion key identified by the detached
     /// JWS protected `kid` at the receipt acceptance time.
     pub resolve_receiver_historical_key:
@@ -927,7 +927,7 @@ pub fn validate_historical_agent_signer_evidence(
         Err(reason) => return rejected(reason),
     };
     if !did_url_controller_core_id(&receipt_method)
-        .is_ok_and(|service_id| service_id == *context.receiver_service_id)
+        .is_ok_and(|service_id| service_id == *context.receiver_id)
     {
         return rejected(AgentEvidenceRejectedReason::HistoricalReceiptMismatch);
     }
@@ -1001,24 +1001,24 @@ fn validate_common_evidence(
     let expected_snapshot_digest = canonical_digest(&snapshot.core)?;
     let expected_admission_digest = agent_admission_evidence_digest(snapshot, gate)?;
     let expected_outer_core_digest = outer_core_digest(evidence)?;
-    let (outer_domain, outer_core_digest_value, outer_source_service_id_value, outer_method) =
+    let (outer_domain, outer_core_digest_value, outer_source_id_value, outer_method) =
         match outer {
             OuterAttestationRef::Current(value) => (
                 &value.domain,
                 &value.core_digest,
-                &value.source_service_id,
+                &value.source_id,
                 &value.verification_method,
             ),
             OuterAttestationRef::Historical(value) => (
                 &value.domain,
                 &value.core_digest,
-                &value.source_service_id,
+                &value.source_id,
                 &value.verification_method,
             ),
         };
-    let lease_authority_service_id =
+    let lease_authority_id =
         did_url_controller_core_id(&snapshot.lease.verification_method)?;
-    let outer_source_service_id = did_url_controller_core_id(outer_method)?;
+    let outer_source_id = did_url_controller_core_id(outer_method)?;
     let outer_time_valid = match outer {
         OuterAttestationRef::Current(value) => {
             value.issued_at < value.expires_at && context.now >= value.issued_at
@@ -1045,17 +1045,17 @@ fn validate_common_evidence(
     if snapshot.snapshot_digest != expected_snapshot_digest
         || admission.admission_evidence_digest != expected_admission_digest
         || snapshot.lease.authority_kind.as_str() != "agent_authority"
-        || snapshot.lease.authority_service_id != core.authority_service_id
-        || snapshot.lease.authority_service_id != *context.expected_authority_service_id
+        || snapshot.lease.authority_id != core.authority_id
+        || snapshot.lease.authority_id != *context.expected_authority_id
         || snapshot.lease.verification_method != *context.expected_authority_verification_method
         || snapshot.lease.snapshot_digest != snapshot.snapshot_digest
-        || lease_authority_service_id != snapshot.lease.authority_service_id
+        || lease_authority_id != snapshot.lease.authority_id
         || snapshot.lease.issued_at >= snapshot.lease.expires_at
         || outer_domain.as_str() != OUTER_ATTESTATION_DOMAIN
         || *outer_core_digest_value != expected_outer_core_digest
-        || *outer_source_service_id_value != *context.expected_authority_service_id
+        || *outer_source_id_value != *context.expected_authority_id
         || *outer_method != *context.expected_authority_verification_method
-        || outer_source_service_id != *outer_source_service_id_value
+        || outer_source_id != *outer_source_id_value
         || !outer_time_valid
         || basis_time < snapshot.lease.issued_at
         || verify_domain_proof(
@@ -1113,7 +1113,7 @@ fn validate_common_evidence(
         || lifecycle.cell_value != AgentLifecycleStatus::Active
         || gate.schema.as_str() != SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1
         || gate.principal_id.as_str() != context.controller_id.as_str()
-        || gate.authority_service_id != *context.expected_account_authority_service_id
+        || gate.authority_id != *context.expected_account_authority_id
         || gate.verification_method != *context.expected_account_authority_verification_method
         || gate.eligibility != ControllerAccountEligibility::Active
         || gate.status != ControllerAccountStatus::Active
@@ -1138,7 +1138,7 @@ fn validate_common_evidence(
         )
         .map_err(|_| {
             CommonEvidenceFailure::Rejected(AgentEvidenceRejectedReason::SigningKeyMismatch)
-        })? != gate.authority_service_id
+        })? != gate.authority_id
         || verify_domain_proof(
             CONTROLLER_GATE_DOMAIN,
             gate,
@@ -1168,7 +1168,7 @@ fn validate_common_evidence(
     }
     Ok(VerifiedAgentSigningKey {
         signer: context.signer_id.clone(),
-        authority_service_id: context.expected_authority_service_id.clone(),
+        authority_id: context.expected_authority_id.clone(),
         key,
         authorization_ref: context.agent_key_authorize_event_id.clone(),
         snapshot_digest: snapshot.snapshot_digest.clone(),
@@ -1251,7 +1251,7 @@ fn historical_receipt_matches(
             == *context.producer_signer_resolution_evidence_ref
         && receipt.producer_signer_resolution_evidence_digest
             == *context.producer_signer_resolution_evidence_digest
-        && receipt.receiver_service_id == *context.receiver_service_id
+        && receipt.receiver_id == *context.receiver_id
         && receipt.proof.kind.as_str() == DETACHED_JWS_KIND
 }
 
@@ -1628,7 +1628,7 @@ mod producer_tests {
         let signing_key = SigningKey::from_bytes(&[29_u8; 32]);
         let mut lease: AgentSnapshotLease = serde_json::from_value(json!({
             "authority_kind": "agent_authority",
-            "authority_service_id": "ak:did_core:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
+            "authority_id": "ak:did_core:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
             "verification_method": "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
             "snapshot_digest": format!("sha256:{}", "11".repeat(32)),
             "issued_at": "2026-08-10T00:00:00.000Z",

@@ -348,13 +348,13 @@ pub struct IdentityPresentationClaimRequest {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityPresentationRequestDocument {
-    pub verifier_service_id: DidCoreId,
+    pub verifier_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub represented_organization_id: Option<DidCoreId>,
     pub domain: String,
     pub challenge: NonEmptyString,
     pub purpose: NonEmptyString,
-    pub accepted_issuers: Vec<DidCoreId>,
+    pub accepted_issuer_ids: Vec<DidCoreId>,
     pub required_claims: Vec<IdentityPresentationClaimRequest>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub optional_claims: Vec<IdentityPresentationClaimRequest>,
@@ -381,7 +381,7 @@ pub struct IdentityPresentationRequestStatePayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityPresentationResponseDocument {
-    pub holder_subject: DidCoreId,
+    pub holder_subject_id: DidCoreId,
     pub proof_profile: IdentityDisclosureProofProfile,
     pub presentation: BTreeMap<String, Value>,
     pub disclosed_fields: Vec<NonEmptyString>,
@@ -410,7 +410,7 @@ fn values_are_unique<T: Ord>(values: &[T]) -> bool {
 pub struct OrganizationRecoveryKeyTuple {
     pub recovery_key_id: String,
     pub holder_principal_id: DidCoreId,
-    pub holder_service_id: DidCoreId,
+    pub holder_id: DidCoreId,
     pub key_agreement_ref: DidUrl,
     pub holder_signing_ref: DidUrl,
     pub hpke_suite: OrganizationRecoveryHpkeSuite,
@@ -680,19 +680,19 @@ impl IdentityDisclosurePolicyClaim {
 #[serde(deny_unknown_fields)]
 pub struct IdentityDisclosureAudience {
     pub represented_organization_id: DidCoreId,
-    pub verifier_service_ids: Vec<DidCoreId>,
+    pub verifier_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tsp_vids: Vec<TspVid>,
 }
 
 impl IdentityDisclosureAudience {
     fn validate(&self) -> Result<()> {
-        if self.verifier_service_ids.is_empty()
-            || !values_are_unique(&self.verifier_service_ids)
+        if self.verifier_ids.is_empty()
+            || !values_are_unique(&self.verifier_ids)
             || !values_are_unique(&self.tsp_vids)
         {
             return schema_violation(
-                "disclosure audience identifiers must be unique and verifier_service_ids must be non-empty",
+                "disclosure audience identifiers must be unique and verifier_ids must be non-empty",
             );
         }
         Ok(())

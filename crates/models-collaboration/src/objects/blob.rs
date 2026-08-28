@@ -29,7 +29,7 @@ pub struct UploadReceipt {
     pub size_bytes: u64,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub received_at: DateTime<Utc>,
-    pub issuer_service_id: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub signature: SignatureValue,
 }
 
@@ -162,7 +162,7 @@ pub struct BlobPresignPayload {
     pub blob_ref: BlobRef,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    pub issuer_service_id: DidCoreId,
+    pub issuer_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]

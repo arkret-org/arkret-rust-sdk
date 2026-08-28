@@ -814,7 +814,7 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
 fn did_registry_receipt_verifies_detached_jws_binding() {
     let registry_key = SigningKey::from_bytes(&[24u8; 32]);
     let registry_did = did_web("registry");
-    let registry_service_id = project_did_to_core_id(&registry_did).unwrap();
+    let registry_id = project_did_to_core_id(&registry_did).unwrap();
     let verification_method = DidUrl::new(format!("{registry_did}#key-1")).unwrap();
     let mut resolver = DidWebResolver::new();
     resolver
@@ -831,7 +831,7 @@ fn did_registry_receipt_verifies_detached_jws_binding() {
         alice,
         7,
         Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap(),
-        registry_service_id,
+        registry_id,
         IdentityReceiptWitnessRole::Writer,
         &registry_key,
         &verification_method,
@@ -860,7 +860,7 @@ fn did_registry_receipt_verifies_detached_jws_binding() {
 #[test]
 fn did_registry_receipt_binds_current_assertion_authority_and_explicit_controller() {
     let registry = did_web("registry-authority");
-    let registry_service_id = project_did_to_core_id(&registry).unwrap();
+    let registry_id = project_did_to_core_id(&registry).unwrap();
     let delegate = did_web("registry-delegate");
     let host = did_web("registry-host");
     let delegate_key = SigningKey::from_bytes(&[35u8; 32]);
@@ -871,7 +871,7 @@ fn did_registry_receipt_binds_current_assertion_authority_and_explicit_controlle
         did("alice"),
         8,
         Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap(),
-        registry_service_id.clone(),
+        registry_id.clone(),
         IdentityReceiptWitnessRole::Witness,
         &delegate_key,
         &delegate_method,
@@ -897,7 +897,7 @@ fn did_registry_receipt_binds_current_assertion_authority_and_explicit_controlle
         did("alice"),
         9,
         Hash::new(format!("sha256:{}", "ef".repeat(32))).unwrap(),
-        registry_service_id,
+        registry_id,
         IdentityReceiptWitnessRole::Writer,
         &delegate_key,
         &host_method,

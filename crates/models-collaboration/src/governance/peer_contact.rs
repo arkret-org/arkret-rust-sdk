@@ -13,12 +13,12 @@ use crate::governance::invite_addressing::PrincipalLocator;
 pub struct PeerContactAddress {
     pub subject_id: DidCoreId,
     pub principal_authority: PrincipalAuthorityKey,
-    pub recipient_service_id: DidCoreId,
+    pub recipient_id: DidCoreId,
     pub service_resolution: ServiceResolutionCarrier,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub route_assistance: Option<RouteAssistance>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recipient_service_kind: Option<String>,
+    pub recipient_kind: Option<String>,
 }
 
 impl PeerContactAddress {
@@ -27,16 +27,16 @@ impl PeerContactAddress {
     pub fn principal_server(
         subject_id: DidCoreId,
         principal_authority: PrincipalAuthorityKey,
-        recipient_service_id: DidCoreId,
+        recipient_id: DidCoreId,
         service_resolution: ServiceResolutionCarrier,
     ) -> Self {
         Self {
             subject_id,
             principal_authority,
-            recipient_service_id,
+            recipient_id,
             service_resolution,
             route_assistance: None,
-            recipient_service_kind: None,
+            recipient_kind: None,
         }
     }
 
@@ -47,9 +47,9 @@ impl PeerContactAddress {
     /// fetched/supplied signed resolution record before routing.
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
         self.service_resolution
-            .validate_shape(&self.recipient_service_id)?;
+            .validate_shape(&self.recipient_id)?;
         if self.principal_authority.principal_id != self.subject_id
-            || self.principal_authority.principal_server_id != self.recipient_service_id
+            || self.principal_authority.principal_server_id != self.recipient_id
         {
             return Err(arkret_wire::WireError::Protocol(
                 "Contact address principal authority pair does not bind subject and recipient service"
@@ -58,7 +58,7 @@ impl PeerContactAddress {
         }
         if let ServiceResolutionCarrier::Inline { inline } = &self.service_resolution {
             let projected = arkret_wire::project_did_to_core_id(&inline.record.did)?;
-            if projected != self.recipient_service_id
+            if projected != self.recipient_id
                 || inline.record.service_kind != Self::RECIPIENT_SERVICE_KIND
             {
                 return Err(arkret_wire::WireError::Protocol(
@@ -71,12 +71,12 @@ impl PeerContactAddress {
             route_assistance.validate_shape()?;
         }
         if self
-            .recipient_service_kind
+            .recipient_kind
             .as_deref()
             .is_some_and(|kind| kind != Self::RECIPIENT_SERVICE_KIND)
         {
             return Err(arkret_wire::WireError::Protocol(
-                "contact_address.recipient_service_kind MUST be principal_server".to_owned(),
+                "contact_address.recipient_kind MUST be principal_server".to_owned(),
             ));
         }
         Ok(())
@@ -133,16 +133,16 @@ mod tests {
         let value = serde_json::json!({
             "subject_id": "ak:did_core:webvh:z6mkSubject",
             "principal_authority": principal_authority,
-            "recipient_service_id": "ak:did_core:webvh:z6mkService",
+            "recipient_id": "ak:did_core:webvh:z6mkService",
             "service_resolution": {
                 "current_record_url": "https://service.example/_arkret/open/services/ak%3Adid_core%3Awebvh%3Az6mkService/resolution"
             },
-            "recipient_service_kind": "principal_server"
+            "recipient_kind": "principal_server"
         });
         let address: PeerContactAddress = serde_json::from_value(value.clone()).unwrap();
         assert_eq!(address.subject_id.as_str(), "ak:did_core:webvh:z6mkSubject");
         assert_eq!(
-            address.recipient_service_id.as_str(),
+            address.recipient_id.as_str(),
             "ak:did_core:webvh:z6mkService"
         );
         address.validate_shape().unwrap();
@@ -154,7 +154,7 @@ mod tests {
         let full_subject = serde_json::json!({
             "subject_id": "did:webvh:z6mkSubject:subject.example",
             "principal_authority": authority(),
-            "recipient_service_id": "ak:did_core:webvh:z6mkService",
+            "recipient_id": "ak:did_core:webvh:z6mkService",
             "service_resolution": {
                 "current_record_url": "https://service.example/_arkret/open/services/ak%3Adid_core%3Awebvh%3Az6mkService/resolution"
             }
@@ -164,11 +164,11 @@ mod tests {
         let wrong_kind: PeerContactAddress = serde_json::from_value(serde_json::json!({
             "subject_id": "ak:did_core:webvh:z6mkSubject",
             "principal_authority": authority(),
-            "recipient_service_id": "ak:did_core:webvh:z6mkService",
+            "recipient_id": "ak:did_core:webvh:z6mkService",
             "service_resolution": {
                 "current_record_url": "https://service.example/_arkret/open/services/ak%3Adid_core%3Awebvh%3Az6mkService/resolution"
             },
-            "recipient_service_kind": "relay"
+            "recipient_kind": "relay"
         }))
         .unwrap();
         assert!(wrong_kind.validate_shape().is_err());

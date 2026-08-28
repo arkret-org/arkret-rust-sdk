@@ -1057,12 +1057,12 @@ impl LatticeKind for AgentSelectorClaim {
         &self,
         effect_payload: &Value,
     ) -> Result<Option<String>, LatticeKindError> {
-        let controller_subject = effect_payload
-            .get("controller_subject")
+        let controller_subject_id = effect_payload
+            .get("controller_subject_id")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
                 cell_family: self.cell_family(),
-                field: "controller_subject",
+                field: "controller_subject_id",
             })?;
         let agent_slug = effect_payload
             .get("agent_slug")
@@ -1071,7 +1071,7 @@ impl LatticeKind for AgentSelectorClaim {
                 cell_family: self.cell_family(),
                 field: "agent_slug",
             })?;
-        arkret_wire::composite_subject(&[controller_subject, agent_slug])
+        arkret_wire::composite_subject(&[controller_subject_id, agent_slug])
             .map(Some)
             .map_err(|error| LatticeKindError::InvalidCompositeSubject {
                 cell_family: self.cell_family(),

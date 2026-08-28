@@ -146,7 +146,7 @@ impl PreparedEventUnit {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PreparedDidPublication {
-    pub registry_service_id: DidCoreId,
+    pub registry_id: DidCoreId,
     pub registry_endpoint: String,
     pub previous_entry_ref: String,
     pub expected_entry_ref: String,
@@ -286,7 +286,7 @@ pub struct SecurityTransaction {
     pub transaction_id: TransactionId,
     pub kind: SecurityTransactionKind,
     pub principal_id: DidCoreId,
-    pub coordinator_service_id: DidCoreId,
+    pub coordinator_id: DidCoreId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
@@ -500,7 +500,7 @@ impl SecurityTransactionCreateRequest {
     /// executing the first external side effect.
     pub fn into_initial_resource(
         self,
-        coordinator_service_id: DidCoreId,
+        coordinator_id: DidCoreId,
         created_at: DateTime<Utc>,
     ) -> Result<(SecurityTransaction, Vec<u8>)> {
         let canonical_request = arkret_canonical::canonical::canonical_json_bytes(&self)?;
@@ -530,7 +530,7 @@ impl SecurityTransactionCreateRequest {
             transaction_id,
             kind,
             principal_id,
-            coordinator_service_id,
+            coordinator_id,
             expires_at,
             created_at,
             request_digest,
@@ -928,7 +928,7 @@ impl SecurityTransaction {
                         || attestation.transaction_request_digest != self.request_digest
                         || attestation.prepared_plan_digest != self.prepared_plan_digest
                         || attestation.principal_id != self.principal_id
-                        || attestation.coordinator_service_id != self.coordinator_service_id
+                        || attestation.coordinator_id != self.coordinator_id
                         || attestation.recovery_session_id != binding.recovery_session_id
                         || attestation.terminal_receipt_id != binding.terminal_receipt_id
                         || receipt_step.output_ref != attestation.terminal_receipt_id.as_str()

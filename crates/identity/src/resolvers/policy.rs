@@ -7,7 +7,7 @@ use crate::*;
 ///
 /// `allowed_methods` and `default_principal_method` MUST be applied
 /// before dispatching a resolver, so a misconfigured peer can't smuggle
-/// a `did:bogus:` through. `trust_roots` is method-specific (e.g. for
+/// a `did:bogus:` through. `trust_root_ids` is method-specific (e.g. for
 /// `did:web` it's a list of accepted authorities; for `did:keri` it's
 /// a list of witness DIDs). `ttl` bounds the cache lifetime; `fail_mode`
 /// decides whether to return stale cache entries when the upstream is
@@ -23,7 +23,7 @@ pub struct ResolverPolicy {
     pub default_principal_method: Option<String>,
     /// Trust roots accepted for the active method. Interpretation is
     /// up to the underlying resolver implementation.
-    pub trust_roots: Vec<String>,
+    pub trust_root_ids: Vec<String>,
     /// Maximum lifetime of a cached resolution. `None` disables caching.
     pub ttl: Option<chrono::Duration>,
     /// Fail-mode for upstream errors.
@@ -82,7 +82,7 @@ impl Default for ResolverPolicy {
                 "did:key:".to_owned(),
             ],
             default_principal_method: Some("did:webvh:".to_owned()),
-            trust_roots: Vec::new(),
+            trust_root_ids: Vec::new(),
             ttl: Some(chrono::Duration::days(7)),
             fail_mode: ResolverFailMode::FailClosed,
         }

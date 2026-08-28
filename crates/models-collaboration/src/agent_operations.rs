@@ -246,7 +246,7 @@ pub struct AgentRequestedScopeDisclosure {
     pub agent_id: DidCoreId,
     pub controller_id: DidCoreId,
     pub requested_scope: AgentKeyScope,
-    pub verifier_service_id: DidCoreId,
+    pub verifier_id: DidCoreId,
     pub audience: NonEmptyString,
     pub challenge: NonEmptyString,
     #[serde(with = "canonical_timestamp")]
@@ -286,7 +286,7 @@ impl AgentRequestedScopeDisclosure {
             "payload_digest": payload_digest,
             "agent_id": self.agent_id,
             "controller_id": self.controller_id,
-            "verifier_service_id": self.verifier_service_id,
+            "verifier_id": self.verifier_id,
             "audience": self.audience,
             "challenge": self.challenge,
             "verification_method": proof.verification_method,
@@ -2466,7 +2466,7 @@ mod tests {
                 "actions": ["ak.message.create"],
                 "resources": []
             },
-            "verifier_service_id": "ak:did_core:webvh:z6mkfixture",
+            "verifier_id": "ak:did_core:webvh:z6mkfixture",
             "audience": "ak.gate.account.command.pair_agent_key.v1",
             "challenge": "0123456789abcdef",
             "issued_at": "2026-08-03T00:00:00.000Z",

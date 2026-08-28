@@ -309,7 +309,7 @@ pub fn build_native_agent_signer_resolution_evidence(
                 (
                     binding.agent_id.clone(),
                     binding.verification_method.clone(),
-                    event_admission_receipt.receiver_service_id.clone(),
+                    event_admission_receipt.receiver_id.clone(),
                     Some(
                         arkret_signatures::agent_evidence::historical_receipt_verification_method(
                             event_admission_receipt,
@@ -338,12 +338,12 @@ pub fn build_native_agent_signer_resolution_evidence(
     ] {
         evidence.validate_attester_binding()?;
     }
-    if authority_evidence.signer_id() != &snapshot.core.authority_service_id
+    if authority_evidence.signer_id() != &snapshot.core.authority_id
         || authority_evidence.verification_method() != &snapshot.lease.verification_method
         || controller_evidence.signer_id() != &binding.controller_id
         || controller_evidence.verification_method()
             != &binding.controller_proof.verification_method
-        || account_authority_evidence.signer_id() != &gate.authority_service_id
+        || account_authority_evidence.signer_id() != &gate.authority_id
         || account_authority_evidence.verification_method() != &gate.verification_method
         || receiver_evidence.signer_id() != &receiver_id
         || receiver_method
@@ -438,7 +438,7 @@ where
         dependencies,
         attester_signer_evidence_ref,
         attester_signer_evidence_digest,
-        &core.authority_service_id,
+        &core.authority_id,
         &snapshot.lease.verification_method,
     )?;
     let controller_evidence = bound_evidence_by_digest(
@@ -456,7 +456,7 @@ where
         dependencies,
         account_authority_signer_evidence_ref,
         account_authority_signer_evidence_digest,
-        &gate.authority_service_id,
+        &gate.authority_id,
         &gate.verification_method,
     )?;
     let account_authority_public_key =
@@ -469,7 +469,7 @@ where
         dependencies,
         receiver_signer_evidence_ref,
         receiver_signer_evidence_digest,
-        &event_admission_receipt.receiver_service_id,
+        &event_admission_receipt.receiver_id,
         &receipt_method,
     )?;
     let receiver_public_key = authenticated_document_key(
@@ -552,9 +552,9 @@ where
                 agent_key_authorize_event_id: &binding.agent_key_authorize_event_id,
                 authorize_public_key_digest: &public_key_digest,
                 authorize_signing_key_binding_digest: &binding_digest,
-                expected_authority_service_id: &core.authority_service_id,
+                expected_authority_id: &core.authority_id,
                 expected_authority_verification_method: &snapshot.lease.verification_method,
-                expected_account_authority_service_id: &gate.authority_service_id,
+                expected_account_authority_id: &gate.authority_id,
                 expected_account_authority_verification_method: &gate.verification_method,
                 controller_public_key: &controller_public_key,
                 authority_public_key: &authority_public_key,
@@ -569,7 +569,7 @@ where
             producer_accepted_at: origin_admission.accepted_at,
             producer_signer_resolution_evidence_ref: producer_evidence_ref,
             producer_signer_resolution_evidence_digest: producer_evidence_digest,
-            receiver_service_id: &event_admission_receipt.receiver_service_id,
+            receiver_id: &event_admission_receipt.receiver_id,
             resolve_receiver_historical_key: &resolve_receiver,
         },
     );
@@ -650,7 +650,7 @@ where
         dependencies,
         attester_signer_evidence_ref,
         attester_signer_evidence_digest,
-        &core.authority_service_id,
+        &core.authority_id,
         &snapshot.lease.verification_method,
     )?;
     let controller_evidence = bound_evidence_by_digest(
@@ -664,7 +664,7 @@ where
         dependencies,
         account_authority_signer_evidence_ref,
         account_authority_signer_evidence_digest,
-        &gate.authority_service_id,
+        &gate.authority_id,
         &gate.verification_method,
     )?;
     let receiver_evidence = evidence_by_digest(dependencies, receiver_signer_evidence_digest)?;
@@ -741,9 +741,9 @@ where
                 agent_key_authorize_event_id: &binding.agent_key_authorize_event_id,
                 authorize_public_key_digest: &public_key_digest,
                 authorize_signing_key_binding_digest: &binding_digest,
-                expected_authority_service_id: &core.authority_service_id,
+                expected_authority_id: &core.authority_id,
                 expected_authority_verification_method: &snapshot.lease.verification_method,
-                expected_account_authority_service_id: &gate.authority_service_id,
+                expected_account_authority_id: &gate.authority_id,
                 expected_account_authority_verification_method: &gate.verification_method,
                 controller_public_key: &controller_public_key,
                 authority_public_key: &authority_public_key,

@@ -36,10 +36,10 @@ pub struct MimiRoomBindingPayload {
     pub profile: MimiInteropProfileId,
     pub mimi_room_uri: MimiRoomUri,
     pub binding_scope: MimiRoomBindingPayloadBindingScope,
-    pub hub_provider: DidCoreId,
+    pub hub_provider_id: DidCoreId,
     pub local_provider_role: MimiLocalProviderRole,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub follower_providers: Option<Vec<DidCoreId>>,
+    pub follower_provider_ids: Option<Vec<DidCoreId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<MlsGroupId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -206,7 +206,7 @@ pub enum DidCoreIdentityState {
     },
     Conflict {
         stored_service_id: DidCoreId,
-        provider_service_id: DidCoreId,
+        provider_id: DidCoreId,
     },
     Faulted {
         diagnostic: DidCoreIdentityDiagnostic,
@@ -260,8 +260,8 @@ impl DidCoreIdentityState {
             }
             Self::Conflict {
                 stored_service_id,
-                provider_service_id,
-            } if stored_service_id == provider_service_id => {
+                provider_id,
+            } if stored_service_id == provider_id => {
                 return Err(IdentityError::Protocol(
                     "service identity conflict requires distinct stored and Provider DIDs"
                         .to_owned(),
@@ -452,7 +452,7 @@ fn io_protocol_error(action: &str, path: &Path, error: std::io::Error) -> Identi
 /// delivered either input.
 ///
 /// The steps follow the normative order: method-native history verification,
-/// `project(provider_did) == provider_service_id` together with the bare
+/// `project(provider_did) == provider_id` together with the bare
 /// controller DID of `verificationMethod`, `assertionMethod` membership in the
 /// DID Document that was effective at `issued_at`, then the Ed25519 detached
 /// JWS itself. The verified history is returned so callers can additionally
@@ -572,7 +572,7 @@ mod tests {
 
     fn receipt(operation: &ServiceWebvhInceptionOperation) -> ServiceRegistrationReceipt {
         let provider_did = Did::new("did:webvh:QmProvider:identity.example:webvh:service").unwrap();
-        let provider_service_id = project_did_to_core_id(&provider_did).unwrap();
+        let provider_id = project_did_to_core_id(&provider_did).unwrap();
         let service_id = project_did_to_core_id(&operation.state.id).unwrap();
         let mut receipt = ServiceRegistrationReceipt {
             registration_receipt_id: arkret_wire::ServiceRegistrationReceiptId::new(format!(
@@ -587,7 +587,7 @@ mod tests {
             log_head_digest: operation.log_head_digest().unwrap(),
             control_key_digest: operation.control_key_digest().unwrap(),
             issued_at: "2026-07-15T00:00:01.000Z".parse().unwrap(),
-            provider_service_id,
+            provider_id,
             proof: PayloadProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new(format!("{provider_did}#service-key")).unwrap(),
@@ -787,7 +787,7 @@ mod tests {
     fn conflicting_provider_mapping_fails_closed() {
         let state = DidCoreIdentityState::Conflict {
             stored_service_id: DidCoreId::new("ak:did_core:webvh:QmStored").unwrap(),
-            provider_service_id: DidCoreId::new("ak:did_core:webvh:QmProvider").unwrap(),
+            provider_id: DidCoreId::new("ak:did_core:webvh:QmProvider").unwrap(),
         };
         assert!(state.identity().is_none());
         assert!(!state.is_ready());
@@ -802,7 +802,7 @@ mod tests {
         assert!(
             DidCoreIdentityState::Conflict {
                 stored_service_id: same_id.clone(),
-                provider_service_id: same_id,
+                provider_id: same_id,
             }
             .validate()
             .is_err()
@@ -879,7 +879,7 @@ mod tests {
             log_head_digest: operation.log_head_digest().unwrap(),
             control_key_digest: operation.control_key_digest().unwrap(),
             issued_at,
-            provider_service_id: project_did_to_core_id(&provider_did).unwrap(),
+            provider_id: project_did_to_core_id(&provider_did).unwrap(),
             proof: PayloadProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new(format!(
@@ -906,7 +906,7 @@ mod tests {
 
     /// `identity-did.md` §3.7 transcript step 4: the Provider proof is only
     /// accepted after its method-native history has been verified and the
-    /// receipt's `provider_service_id` projects from the resolved DID.
+    /// receipt's `provider_id` projects from the resolved DID.
     #[test]
     fn provider_proof_verifies_against_the_resolved_method_native_history() {
         let seed = [11_u8; 32];

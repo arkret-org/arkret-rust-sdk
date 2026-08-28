@@ -918,7 +918,7 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                     object.remove("created_at");
                     object.remove("binding_digest");
                     if let Some(participants) = object
-                        .get_mut("participants_unordered")
+                        .get_mut("unordered_participant_ids")
                         .and_then(Value::as_array_mut)
                     {
                         participants.sort_by(|left, right| {

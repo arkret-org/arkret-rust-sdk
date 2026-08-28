@@ -272,7 +272,7 @@ pub struct AgentDetachedJws {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentSnapshotLease {
     pub authority_kind: NonEmptyString,
-    pub authority_service_id: DidCoreId,
+    pub authority_id: DidCoreId,
     pub verification_method: DidUrl,
     pub snapshot_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -286,7 +286,7 @@ pub struct AgentSnapshotLease {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentAuthoritySnapshotCore {
-    pub authority_service_id: DidCoreId,
+    pub authority_id: DidCoreId,
     pub principal_control_realm_id: RealmId,
     pub frontier_seal_id: SealId,
     pub frontier_state_root: Hash,
@@ -352,7 +352,7 @@ pub struct ControllerAccountGateAttestation {
     pub status: ControllerAccountStatus,
     pub basis: ControllerAccountGateBasis,
     pub basis_digest: Hash,
-    pub authority_service_id: DidCoreId,
+    pub authority_id: DidCoreId,
     pub verification_method: DidUrl,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -369,7 +369,7 @@ pub struct ControllerAccountGateAttestation {
 pub struct ControllerAccountGateAttestationIssueRequestBody {
     pub request_id: RequestId,
     pub principal_id: DidCoreId,
-    pub agent_authority_service_id: DidCoreId,
+    pub agent_authority_id: DidCoreId,
     pub agent_authority_service_resolution: crate::AuthenticatedServiceResolution,
 }
 
@@ -425,7 +425,7 @@ pub struct AgentEventAdmissionReceipt {
     pub verification_method: DidUrl,
     pub producer_signer_resolution_evidence_ref: SignerEvidenceRef,
     pub producer_signer_resolution_evidence_digest: Hash,
-    pub receiver_service_id: DidCoreId,
+    pub receiver_id: DidCoreId,
     pub proof: AgentDetachedJws,
 }
 
@@ -441,7 +441,7 @@ impl AgentEventAdmissionReceipt {
 pub struct AgentEvidenceOuterAttestation {
     pub domain: NonEmptyString,
     pub core_digest: Hash,
-    pub source_service_id: DidCoreId,
+    pub source_id: DidCoreId,
     pub verification_method: DidUrl,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -456,7 +456,7 @@ pub struct AgentEvidenceOuterAttestation {
 pub struct AgentHistoricalEvidenceOuterAttestation {
     pub domain: NonEmptyString,
     pub core_digest: Hash,
-    pub source_service_id: DidCoreId,
+    pub source_id: DidCoreId,
     pub verification_method: DidUrl,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub attested_at: DateTime<Utc>,
@@ -556,7 +556,7 @@ pub enum AgentSignerEvidenceQuerySelector {
         agent_id: DidCoreId,
         verification_method: DidUrl,
         event_id: EventId,
-        receiver_service_id: DidCoreId,
+        receiver_id: DidCoreId,
     },
 }
 
@@ -679,7 +679,7 @@ impl AgentSignerEvidenceQueryOutcome {
                     agent_id: signer_id.clone(),
                     verification_method: verification_method.clone(),
                     event_id: event_admission_receipt.event_id.clone(),
-                    receiver_service_id: event_admission_receipt.receiver_service_id.clone(),
+                    receiver_id: event_admission_receipt.receiver_id.clone(),
                 },
             };
             let key = arkret_canonical::canonical_json_bytes(&selector)?;

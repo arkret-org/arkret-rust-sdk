@@ -198,12 +198,12 @@ pub struct ContactRoundRequestRef {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ContactRound {
     Normal {
-        sorted_pair_members: [DidCoreId; 2],
+        sorted_pair_member_ids: [DidCoreId; 2],
         request_event_ref: EventId,
         request_acceptance_receipt_digest: Hash,
     },
     Glare {
-        sorted_pair_members: [DidCoreId; 2],
+        sorted_pair_member_ids: [DidCoreId; 2],
         requests: [ContactRoundRequestRef; 2],
     },
 }
@@ -719,13 +719,13 @@ pub fn validate_recontact_continuity(
 fn contact_round_participants(round: &ContactRound) -> [DidCoreId; 2] {
     match round {
         ContactRound::Normal {
-            sorted_pair_members,
+            sorted_pair_member_ids,
             ..
         }
         | ContactRound::Glare {
-            sorted_pair_members,
+            sorted_pair_member_ids,
             ..
-        } => sorted_pair_members.clone(),
+        } => sorted_pair_member_ids.clone(),
     }
 }
 
@@ -1104,7 +1104,7 @@ pub struct PeerContactMirrorReceipt {
     pub request_digest: Hash,
     pub signed_event_ref: EventId,
     pub outcome: PeerContactOutcome,
-    pub recipient_service_id: DidCoreId,
+    pub recipient_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub received_at: DateTime<Utc>,
     pub issuer: DidCoreId,
@@ -1159,7 +1159,7 @@ pub struct PeerContactControlReceipt {
     pub outcome: PeerContactOutcome,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub result_digest: Option<Hash>,
-    pub recipient_service_id: DidCoreId,
+    pub recipient_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub received_at: DateTime<Utc>,
     pub issuer: DidCoreId,
@@ -1342,7 +1342,7 @@ mod event_digest_derivation_tests {
             request_digest: hash('f'),
             signed_event_ref: EventId::new(EVENT_REF).unwrap(),
             outcome: PeerContactOutcome::Accepted,
-            recipient_service_id: DidCoreId::new("ak:did_core:web:peer.example").unwrap(),
+            recipient_id: DidCoreId::new("ak:did_core:web:peer.example").unwrap(),
             received_at: timestamp(),
             issuer: DidCoreId::new("ak:did_core:web:peer.example").unwrap(),
             signature: signature(),

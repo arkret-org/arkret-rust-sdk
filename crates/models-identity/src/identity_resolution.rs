@@ -874,8 +874,8 @@ impl ServiceResolutionPublishRequest {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceResolutionPublishAckCore {
     pub request_id: RequestId,
-    pub source_service_id: DidCoreId,
-    pub receiver_service_id: DidCoreId,
+    pub source_id: DidCoreId,
+    pub receiver_id: DidCoreId,
     pub realm_id: RealmId,
     pub request_digest: Hash,
     pub artifact_key: ServiceResolutionArtifactKey,
@@ -899,8 +899,8 @@ impl ServiceResolutionPublishAck {
             "context": arkret_wire::ProofContextId::SERVICE_RESOLUTION_PUBLISH_ACK_PROOF_V1,
             "payload_digest": payload_digest,
             "request_id": self.ack.request_id,
-            "source_service_id": self.ack.source_service_id,
-            "receiver_service_id": self.ack.receiver_service_id,
+            "source_id": self.ack.source_id,
+            "receiver_id": self.ack.receiver_id,
             "realm_id": self.ack.realm_id,
             "request_digest": self.ack.request_digest,
             "artifact_key": self.ack.artifact_key,
@@ -914,11 +914,11 @@ impl ServiceResolutionPublishAck {
 
     pub fn validate_request_binding(
         &self,
-        source_service_id: &DidCoreId,
+        source_id: &DidCoreId,
         request: &ServiceResolutionPublishRequest,
     ) -> arkret_wire::Result<()> {
         let key = request.validate()?;
-        if &self.ack.source_service_id != source_service_id
+        if &self.ack.source_id != source_id
             || self.ack.request_id != request.request_id
             || self.ack.realm_id != request.realm_id
             || self.ack.request_digest != request.canonical_digest()?
@@ -946,8 +946,8 @@ pub struct ServiceResolutionPublishOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceResolutionResolveRequest {
     pub realm_id: RealmId,
-    pub target_service_id: DidCoreId,
-    pub target_service_kind: String,
+    pub target_id: DidCoreId,
+    pub target_kind: String,
     pub known_record_sequence: u64,
     pub known_record_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1000,8 +1000,8 @@ impl ServiceResolutionResolveOutcome {
         let mut sequence = request.known_record_sequence;
         let mut digest = request.known_record_digest.clone();
         for record in &self.successor_records {
-            if record.record.service_id != request.target_service_id
-                || record.record.service_kind != request.target_service_kind
+            if record.record.service_id != request.target_id
+                || record.record.service_kind != request.target_kind
                 || record.record.record_sequence != sequence + 1
                 || record.record.previous_record_digest.as_ref() != Some(&digest)
             {
@@ -1087,7 +1087,7 @@ impl ServiceRouteCacheEntry {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct RouteMirrorHint {
-    pub mirror_service_id: DidCoreId,
+    pub mirror_id: DidCoreId,
     pub service_resolution: ServiceResolutionCarrier,
 }
 
@@ -1159,8 +1159,8 @@ mod resolution_contract_tests {
         ServiceResolutionResolveRequest {
             realm_id: RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI")
                 .unwrap(),
-            target_service_id: record.record.service_id.clone(),
-            target_service_kind: record.record.service_kind.clone(),
+            target_id: record.record.service_id.clone(),
+            target_kind: record.record.service_kind.clone(),
             known_record_sequence: record.record.record_sequence,
             known_record_digest: Hash::new(arkret_canonical::canonical_sha256(record).unwrap())
                 .unwrap(),
@@ -1285,8 +1285,8 @@ mod resolution_contract_tests {
         let ack = ServiceResolutionPublishAck {
             ack: ServiceResolutionPublishAckCore {
                 request_id: request.request_id.clone(),
-                source_service_id: source.clone(),
-                receiver_service_id: source.clone(),
+                source_id: source.clone(),
+                receiver_id: source.clone(),
                 realm_id: request.realm_id.clone(),
                 request_digest: request.canonical_digest().unwrap(),
                 artifact_key: request.validate().unwrap(),

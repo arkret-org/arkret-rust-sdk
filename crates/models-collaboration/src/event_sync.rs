@@ -700,7 +700,7 @@ pub struct FederationServiceBindingRef {
     pub realm_policy_digest: Hash,
     pub membership_frontier: Vec<EventId>,
     pub delivery_binding_frontier: Vec<EventId>,
-    pub destination_service_kind: String,
+    pub destination_kind: String,
 }
 
 // ── EventsSubmit variants ───────────────────────────────────────────────

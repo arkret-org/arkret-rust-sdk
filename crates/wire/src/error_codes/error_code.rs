@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-08-28.1;
-//! sha256=8aff1fe9c3f7ecf80931cccec01d5d1a680c75726c7af70fdc059e631e8f0caa Entries: error_codes=286
+//! sha256=bcf43055f375a547b9779f60a3b64aaf12be8e3e08f88288507140f97b2c02b0 Entries: error_codes=286
 
 use serde::{Deserialize, Serialize};
 
@@ -2287,7 +2287,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "Federation sender continued using a previous recipient_service_id after the handover grace window expired; sender MUST resolve the current binding and retry there.",
+        description: "Federation sender continued using a previous recipient_id after the handover grace window expired; sender MUST resolve the current binding and retry there.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeliveryBindingStale,
@@ -2297,7 +2297,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "Federation sender used an obsolete member delivery binding frontier; response carries new_recipient_service_id and handover_frontier so the sender can retry at the current service. Dual-registered as a per-device reason_code for ak.edge.push.command.notify.v1 (see reason_codes[]).",
+        description: "Federation sender used an obsolete member delivery binding frontier; response carries new_recipient_id and handover_frontier so the sender can retry at the current service. Dual-registered as a per-device reason_code for ak.edge.push.command.notify.v1 (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeliveryBindingUnresolvable,
@@ -2307,7 +2307,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "An accepted member delivery binding could not be resolved to a reachable recipient_service_id after the bounded retry limit; sender MUST NOT fall back to the DID Document ArkretPrincipalServer entry. Surfaced to the upstream sender as a diagnostic after the second failure so it can quarantine pending events and await rebind. See zh/governance/join-policy.md §5.1.4.",
+        description: "An accepted member delivery binding could not be resolved to a reachable recipient_id after the bounded retry limit; sender MUST NOT fall back to the DID Document ArkretPrincipalServer entry. Surfaced to the upstream sender as a diagnostic after the second failure so it can quarantine pending events and await rebind. See zh/governance/join-policy.md §5.1.4.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DependencyMissing,
@@ -2857,7 +2857,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["service_call", "auth_decision"],
-        description: "A per-delivery RFC 9421 HTTP Message Signature failed verification; the Content-Digest header profile, exact-content digest, or canonical-JSON wire check failed; or source_service_id disagreed with the Source-Service-ID header / signature transcript. Applies to Applet transaction push and to MIMI provider-to-provider writes (zh/extensions/mimi-interop.md §5). See zh/extensions/applet-integration.md §7.3.1.",
+        description: "A per-delivery RFC 9421 HTTP Message Signature failed verification; the Content-Digest header profile, exact-content digest, or canonical-JSON wire check failed; or source_id disagreed with the Source-Service-ID header / signature transcript. Applies to Applet transaction push and to MIMI provider-to-provider writes (zh/extensions/mimi-interop.md §5). See zh/extensions/applet-integration.md §7.3.1.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::HttpSignatureRequired,
@@ -3177,7 +3177,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The referenced organization registration challenge is unknown, expired, already consumed without an exact successful-replay ledger match, or its purpose / audience / origin / trust_domain / local_admin_subject / requested_scopes binding does not match the submitted request. On first success the registry atomically records (challenge_id, canonical_request_digest, outcome): a byte-identical retry returns that outcome, while the same challenge with a different digest fails here rather than authorising a second intent.",
+        description: "The referenced organization registration challenge is unknown, expired, already consumed without an exact successful-replay ledger match, or its purpose / audience / origin / trust_domain / local_admin_subject_id / requested_scopes binding does not match the submitted request. On first success the registry atomically records (challenge_id, canonical_request_digest, outcome): a byte-identical retry returns that outcome, while the same challenge with a different digest fails here rather than authorising a second intent.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::OrganizationRegistrationControlProofInvalid,

@@ -137,7 +137,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
             .validate()
             .map_err(|error| Error::Protocol(error.to_string()))?;
         if requested_scope_disclosure.agent_id != self.bootstrap.agent_id
-            || requested_scope_disclosure.verifier_service_id != self.bootstrap.service_id
+            || requested_scope_disclosure.verifier_id != self.bootstrap.service_id
         {
             return Err(Error::Protocol(
                 "agent requested-scope disclosure is not bound to this pairing".to_owned(),
@@ -684,7 +684,7 @@ mod tests {
             agent_id: agent_actor_id.clone(),
             controller_id: controller_id.clone(),
             requested_scope: requested_scope.clone(),
-            verifier_service_id: service_id.clone(),
+            verifier_id: service_id.clone(),
             audience: NonEmptyString::new(
                 arkret_wire::ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY_V1,
             )

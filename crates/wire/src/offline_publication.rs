@@ -451,7 +451,7 @@ impl AuthorizationLease {
             &self.authorization_rule_id,
             &self.action,
         )?;
-        let accepted_issuers = rule
+        let accepted_issuer_ids = rule
             .issuers
             .iter()
             .map(|issuer| issuer.verification_method.as_str())
@@ -461,7 +461,7 @@ impl AuthorizationLease {
             .iter()
             .map(|proof| proof.verification_method.as_str())
             .collect::<std::collections::BTreeSet<_>>();
-        if !proof_issuers.is_subset(&accepted_issuers)
+        if !proof_issuers.is_subset(&accepted_issuer_ids)
             || proof_issuers.len() < usize::try_from(rule.threshold).unwrap_or(usize::MAX)
         {
             return Err(WireError::Protocol(
@@ -604,7 +604,7 @@ impl IngressReceipt {
             &lease.authorization_rule_id,
             &lease.action,
         )?;
-        let accepted_issuers = rule
+        let accepted_issuer_ids = rule
             .issuers
             .iter()
             .map(|issuer| issuer.verification_method.as_str())
@@ -625,7 +625,7 @@ impl IngressReceipt {
                     .to_owned(),
             ));
         }
-        if !proof_issuers.is_subset(&accepted_issuers)
+        if !proof_issuers.is_subset(&accepted_issuer_ids)
             || proof_issuers.len() < usize::try_from(rule.threshold).unwrap_or(usize::MAX)
         {
             return Err(WireError::Protocol(

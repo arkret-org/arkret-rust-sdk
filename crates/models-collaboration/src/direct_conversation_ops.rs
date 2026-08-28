@@ -280,14 +280,14 @@ impl DirectConversationFoundingAuthorityEvidence {
                 });
                 let (participants, request_ref) = match &root.contact_round {
                     crate::contact_operations::ContactRound::Normal {
-                        sorted_pair_members,
+                        sorted_pair_member_ids,
                         request_event_ref,
                         ..
-                    } => (sorted_pair_members.clone(), request_event_ref),
+                    } => (sorted_pair_member_ids.clone(), request_event_ref),
                     crate::contact_operations::ContactRound::Glare {
-                        sorted_pair_members,
+                        sorted_pair_member_ids,
                         requests,
-                    } => (sorted_pair_members.clone(), &requests[0].request_event_ref),
+                    } => (sorted_pair_member_ids.clone(), &requests[0].request_event_ref),
                 };
                 if participants[0].as_str() >= participants[1].as_str() {
                     return Err(arkret_wire::WireError::Protocol(
@@ -385,13 +385,13 @@ fn validate_contact_contact_round_evidence_shape(
     }
     let participants = match &bundle.contact_round {
         crate::contact_operations::ContactRound::Normal {
-            sorted_pair_members,
+            sorted_pair_member_ids,
             ..
         }
         | crate::contact_operations::ContactRound::Glare {
-            sorted_pair_members,
+            sorted_pair_member_ids,
             ..
-        } => sorted_pair_members,
+        } => sorted_pair_member_ids,
     };
     if participants[0].as_str() >= participants[1].as_str()
         || bundle.current_proofs.iter().any(|proof| {
@@ -763,7 +763,7 @@ pub struct DirectConversationFoundingAcceptanceReceipt {
     pub main_strand_id: StrandId,
     pub founding_unit_digest: Hash,
     pub authorization_core: DirectConversationFoundingAuthorizationCore,
-    pub issuer_service_id: DidCoreId,
+    pub issuer_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub proof: ProtocolSignature,
@@ -790,7 +790,7 @@ impl DirectConversationFoundingAcceptanceReceipt {
             main_strand_id: &'a StrandId,
             founding_unit_digest: &'a Hash,
             authorization_core: &'a DirectConversationFoundingAuthorizationCore,
-            issuer_service_id: &'a DidCoreId,
+            issuer_id: &'a DidCoreId,
             #[serde(
                 serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp"
             )]
@@ -803,7 +803,7 @@ impl DirectConversationFoundingAcceptanceReceipt {
             main_strand_id: &self.main_strand_id,
             founding_unit_digest: &self.founding_unit_digest,
             authorization_core: &self.authorization_core,
-            issuer_service_id: &self.issuer_service_id,
+            issuer_id: &self.issuer_id,
             accepted_at: self.accepted_at,
         })
         .map_err(protocol_error)
@@ -844,7 +844,7 @@ mod tests {
             (
                 json!({
                     "kind": "normal",
-                    "sorted_pair_members": [
+                    "sorted_pair_member_ids": [
                         "ak:did_core:webvh:z6mkfixturealice",
                         "ak:did_core:webvh:z6mkfixturebob"
                     ],
@@ -856,7 +856,7 @@ mod tests {
             (
                 json!({
                     "kind": "glare",
-                    "sorted_pair_members": [
+                    "sorted_pair_member_ids": [
                         "ak:did_core:webvh:z6mkfixturealice",
                         "ak:did_core:webvh:z6mkfixturebob"
                     ],
@@ -934,7 +934,7 @@ mod tests {
                 "root_contact_round_id": "sha256:55e2bdad8a06d2503f04e1d0cb5046a918f1002eab53e560ce399fe5aaf10c82",
                 "accepted_contact_evidence_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
             },
-            "issuer_service_id": "ak:did_core:web:ps.example",
+            "issuer_id": "ak:did_core:web:ps.example",
             "accepted_at": "2026-08-08T00:00:00.000Z",
             "proof": {
                 "verification_method": "did:web:ps.example#key-1",

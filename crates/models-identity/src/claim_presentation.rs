@@ -19,8 +19,8 @@ pub const DIRECTORY_RESTRICTED_CLAIM_PRESENTATION_KIND: &str =
 #[serde(deny_unknown_fields)]
 pub struct DirectoryPresentedClaim {
     pub claim_id: String,
-    pub subject: DidCoreId,
-    pub issuer: DidCoreId,
+    pub subject_id: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub claim_kind: String,
     pub value: BTreeMap<String, Value>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -47,9 +47,9 @@ pub struct DirectoryPresentedClaim {
 #[serde(deny_unknown_fields)]
 pub struct DirectoryRestrictedClaimPresentation {
     pub kind: String,
-    pub iss: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub verification_method: DidUrl,
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
     pub nonce: String,
     pub claim: DirectoryPresentedClaim,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -74,12 +74,12 @@ fn default_agent_selector_claim_schema() -> String {
 pub struct AgentSelectorClaim {
     #[serde(default = "default_agent_selector_claim_schema")]
     pub schema: String,
-    pub controller_subject: DidCoreId,
+    pub controller_subject_id: DidCoreId,
     pub agent_slug: String,
-    pub subject: DidCoreId,
-    pub issuer: DidCoreId,
+    pub subject_id: DidCoreId,
+    pub issuer_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub issuer_service_id: Option<DidCoreId>,
+    pub vouching_id: Option<DidCoreId>,
     pub binding_state: HandleBindingState,
     pub visibility: HandleVisibility,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -139,10 +139,10 @@ impl AgentSelectorClaim {
                 serde_json::to_value(&payload_digest)?,
             ),
             (
-                "controller_subject".to_owned(),
-                serde_json::to_value(&self.controller_subject)?,
+                "controller_subject_id".to_owned(),
+                serde_json::to_value(&self.controller_subject_id)?,
             ),
-            ("subject".to_owned(), serde_json::to_value(&self.subject)?),
+            ("subject_id".to_owned(), serde_json::to_value(&self.subject_id)?),
             (
                 "agent_slug".to_owned(),
                 Value::String(self.agent_slug.clone()),

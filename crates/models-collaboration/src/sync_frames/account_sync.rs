@@ -211,7 +211,7 @@ pub enum DeviceMessageSender {
         sender_agent_key_authorize_event_id: EventId,
     },
     Service {
-        sender_service_id: DidCoreId,
+        sender_id: DidCoreId,
     },
 }
 
@@ -231,7 +231,7 @@ struct DeviceMessageSenderWire {
     #[serde(default)]
     sender_agent_key_authorize_event_id: Option<EventId>,
     #[serde(default)]
-    sender_service_id: Option<DidCoreId>,
+    sender_id: Option<DidCoreId>,
 }
 
 impl<'de> Deserialize<'de> for DeviceMessageSender {
@@ -249,7 +249,7 @@ impl<'de> Deserialize<'de> for DeviceMessageSender {
             wire.sender_agent_id,
             wire.sender_agent_verification_method,
             wire.sender_agent_key_authorize_event_id,
-            wire.sender_service_id,
+            wire.sender_id,
         )
         .map_err(serde::de::Error::custom)
     }
@@ -267,14 +267,14 @@ impl DeviceMessageSender {
         sender_agent_id: Option<DidCoreId>,
         sender_agent_verification_method: Option<DidUrl>,
         sender_agent_key_authorize_event_id: Option<EventId>,
-        sender_service_id: Option<DidCoreId>,
+        sender_id: Option<DidCoreId>,
     ) -> std::result::Result<Self, &'static str> {
         match (
             sender_device_id,
             sender_agent_id,
             sender_agent_verification_method,
             sender_agent_key_authorize_event_id,
-            sender_service_id,
+            sender_id,
         ) {
             (Some(sender_device_id), None, None, None, None) => {
                 Ok(Self::Device { sender_device_id })
@@ -290,8 +290,8 @@ impl DeviceMessageSender {
                 sender_agent_verification_method,
                 sender_agent_key_authorize_event_id,
             }),
-            (None, None, None, None, Some(sender_service_id)) => {
-                Ok(Self::Service { sender_service_id })
+            (None, None, None, None, Some(sender_id)) => {
+                Ok(Self::Service { sender_id })
             }
             _ => Err(
                 "device message sender must contain exactly one complete device, Native Agent, or Service branch",
@@ -311,7 +311,7 @@ impl DeviceMessageSender {
             Self::NativeAgent {
                 sender_agent_id, ..
             } => sender_agent_id.as_str(),
-            Self::Service { sender_service_id } => sender_service_id.as_str(),
+            Self::Service { sender_id } => sender_id.as_str(),
         }
     }
 
@@ -327,7 +327,7 @@ impl DeviceMessageSender {
     /// branch.
     pub fn service_id(&self) -> Option<&DidCoreId> {
         match self {
-            Self::Service { sender_service_id } => Some(sender_service_id),
+            Self::Service { sender_id } => Some(sender_id),
             Self::Device { .. } | Self::NativeAgent { .. } => None,
         }
     }
@@ -379,7 +379,7 @@ struct DeviceMessageEnvelopeWire {
     #[serde(default)]
     sender_agent_key_authorize_event_id: Option<EventId>,
     #[serde(default)]
-    sender_service_id: Option<DidCoreId>,
+    sender_id: Option<DidCoreId>,
     recipient_principal_id: DidCoreId,
     recipient_device_id: DeviceId,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
@@ -409,7 +409,7 @@ impl<'de> Deserialize<'de> for DeviceMessageEnvelope {
             wire.sender_agent_id,
             wire.sender_agent_verification_method,
             wire.sender_agent_key_authorize_event_id,
-            wire.sender_service_id,
+            wire.sender_id,
         )
         .map_err(serde::de::Error::custom)?;
         if matches!(&sender, DeviceMessageSender::Service { .. }) {
@@ -742,7 +742,7 @@ enum ActorPrivateDeviceUpdateWire {
         #[serde(default)]
         sender_agent_key_authorize_event_id: Option<EventId>,
         #[serde(default)]
-        sender_service_id: Option<DidCoreId>,
+        sender_id: Option<DidCoreId>,
         content: ActorPrivateAccountDataUpdate,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         created_at: DateTime<Utc>,
@@ -758,7 +758,7 @@ enum ActorPrivateDeviceUpdateWire {
         #[serde(default)]
         sender_agent_key_authorize_event_id: Option<EventId>,
         #[serde(default)]
-        sender_service_id: Option<DidCoreId>,
+        sender_id: Option<DidCoreId>,
         content: ActorPrivateAccountDataUpdate,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         created_at: DateTime<Utc>,
@@ -774,7 +774,7 @@ enum ActorPrivateDeviceUpdateWire {
         #[serde(default)]
         sender_agent_key_authorize_event_id: Option<EventId>,
         #[serde(default)]
-        sender_service_id: Option<DidCoreId>,
+        sender_id: Option<DidCoreId>,
         content: ActorPrivateReadCursorUpdate,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         created_at: DateTime<Utc>,
@@ -787,14 +787,14 @@ impl ActorPrivateDeviceUpdateWire {
         sender_agent_id: Option<DidCoreId>,
         sender_agent_verification_method: Option<DidUrl>,
         sender_agent_key_authorize_event_id: Option<EventId>,
-        sender_service_id: Option<DidCoreId>,
+        sender_id: Option<DidCoreId>,
     ) -> std::result::Result<DeviceMessageSender, &'static str> {
         DeviceMessageSender::from_slots(
             sender_device_id,
             sender_agent_id,
             sender_agent_verification_method,
             sender_agent_key_authorize_event_id,
-            sender_service_id,
+            sender_id,
         )
     }
 }
@@ -810,7 +810,7 @@ impl<'de> Deserialize<'de> for ActorPrivateDeviceUpdate {
                 sender_agent_id,
                 sender_agent_verification_method,
                 sender_agent_key_authorize_event_id,
-                sender_service_id,
+                sender_id,
                 content,
                 created_at,
             } => Ok(Self::AccountData {
@@ -819,7 +819,7 @@ impl<'de> Deserialize<'de> for ActorPrivateDeviceUpdate {
                     sender_agent_id,
                     sender_agent_verification_method,
                     sender_agent_key_authorize_event_id,
-                    sender_service_id,
+                    sender_id,
                 )
                 .map_err(serde::de::Error::custom)?,
                 content,
@@ -830,7 +830,7 @@ impl<'de> Deserialize<'de> for ActorPrivateDeviceUpdate {
                 sender_agent_id,
                 sender_agent_verification_method,
                 sender_agent_key_authorize_event_id,
-                sender_service_id,
+                sender_id,
                 content,
                 created_at,
             } => Ok(Self::Blocklist {
@@ -839,7 +839,7 @@ impl<'de> Deserialize<'de> for ActorPrivateDeviceUpdate {
                     sender_agent_id,
                     sender_agent_verification_method,
                     sender_agent_key_authorize_event_id,
-                    sender_service_id,
+                    sender_id,
                 )
                 .map_err(serde::de::Error::custom)?,
                 content,
@@ -850,7 +850,7 @@ impl<'de> Deserialize<'de> for ActorPrivateDeviceUpdate {
                 sender_agent_id,
                 sender_agent_verification_method,
                 sender_agent_key_authorize_event_id,
-                sender_service_id,
+                sender_id,
                 content,
                 created_at,
             } => Ok(Self::ReadCursor {
@@ -859,7 +859,7 @@ impl<'de> Deserialize<'de> for ActorPrivateDeviceUpdate {
                     sender_agent_id,
                     sender_agent_verification_method,
                     sender_agent_key_authorize_event_id,
-                    sender_service_id,
+                    sender_id,
                 )
                 .map_err(serde::de::Error::custom)?,
                 content,
@@ -1063,7 +1063,7 @@ mod device_message_tests {
 
     fn service_sender_fields() -> Value {
         json!({
-            "sender_service_id": "ak:did_core:webvh:z6mkfixtureservice"
+            "sender_id": "ak:did_core:webvh:z6mkfixtureservice"
         })
     }
 
@@ -1088,7 +1088,7 @@ mod device_message_tests {
         assert!(
             serde_json::from_value::<DeviceMessageSender>(json!({
                 "sender_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
-                "sender_service_id": "ak:did_core:webvh:z6mkfixtureservice"
+                "sender_id": "ak:did_core:webvh:z6mkfixtureservice"
             }))
             .is_err(),
             "a mixed device/service branch is not a sender"
@@ -1195,7 +1195,7 @@ mod device_message_tests {
     fn actor_private_service_update_round_trips_without_a_fake_device() {
         let value = json!({
             "type": ActorPrivateUpdateKind::ACCOUNT_DATA_UPDATE,
-            "sender_service_id": "ak:did_core:webvh:z6mkfixtureservice",
+            "sender_id": "ak:did_core:webvh:z6mkfixtureservice",
             "content": {
                 "operation": "put",
                 "account_data_key": "ak.account.invite_delivery",
@@ -1228,7 +1228,7 @@ mod device_message_tests {
         half_agent
             .as_object_mut()
             .unwrap()
-            .remove("sender_service_id");
+            .remove("sender_id");
         half_agent["sender_agent_id"] = json!("ak:did_core:webvh:z6mkfixtureagent");
         assert!(
             serde_json::from_value::<ActorPrivateDeviceUpdate>(half_agent).is_err(),

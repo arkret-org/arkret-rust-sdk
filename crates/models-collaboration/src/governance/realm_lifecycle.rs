@@ -136,7 +136,7 @@ pub struct RealmDiscoveryValue {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_discoverers: Vec<RealmAllowedDiscoverer>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub directory_services: Vec<DidCoreId>,
+    pub directory_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub anti_enumeration: Option<RealmAntiEnumerationPolicy>,
 }
@@ -161,7 +161,7 @@ impl RealmDiscoveryPayload {
                 discoverability,
                 directory_visibility: None,
                 allowed_discoverers: Vec::new(),
-                directory_services: Vec::new(),
+                directory_ids: Vec::new(),
                 anti_enumeration: None,
             },
             state: None,
@@ -225,9 +225,9 @@ pub struct RealmAssetPrivacyPolicyValue {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub upload_services: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub download_proxy_services: Vec<DidCoreId>,
+    pub download_proxy_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub ohttp_gateway_services: Vec<DidCoreId>,
+    pub ohttp_gateway_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub max_plaintext_metadata: Vec<AssetPlaintextMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

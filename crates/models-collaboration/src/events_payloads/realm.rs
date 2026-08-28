@@ -82,7 +82,7 @@ pub enum RebindAuthorization {
     Any,
 }
 
-/// `allowed_recipient_services` value of [`RealmDeliveryBindingPolicyPayload`].
+/// `allowed_recipient_ids` value of [`RealmDeliveryBindingPolicyPayload`].
 ///
 /// The spec models this as a `oneOf`: either an allow-list of recipient
 /// service DIDs — where the **empty** list means "reject every recipient
@@ -93,7 +93,7 @@ pub enum RebindAuthorization {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AllowedRecipientServices {
     /// The explicit `["*"]` sentinel. Lifts only the recipient-service
-    /// allow-list dimension; `required_endorsers` still applies.
+    /// allow-list dimension; `required_endorser_ids` still applies.
     Unrestricted,
     /// Closed allow-list. Empty = reject every recipient service.
     Allowlist(Vec<DidCoreId>),
@@ -125,7 +125,7 @@ impl<'de> Deserialize<'de> for AllowedRecipientServices {
         {
             if entries.len() != 1 {
                 return Err(serde::de::Error::custom(
-                    "allowed_recipient_services sentinel must be exactly [\"*\"]",
+                    "allowed_recipient_ids sentinel must be exactly [\"*\"]",
                 ));
             }
             return Ok(Self::Unrestricted);
@@ -281,7 +281,7 @@ pub struct RealmPolicyBundlePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preauth: Option<RealmPreauthPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allowed_third_party_invite_verification_service_ids: Option<Vec<DidCoreId>>,
+    pub allowed_third_party_invite_verification_ids: Option<Vec<DidCoreId>>,
 }
 
 impl RealmPolicyBundlePayload {
@@ -318,7 +318,7 @@ impl RealmPolicyBundlePayload {
             bottom_escalation_after_ms: None,
             cell_lattices: None,
             preauth: None,
-            allowed_third_party_invite_verification_service_ids: None,
+            allowed_third_party_invite_verification_ids: None,
         }
     }
 
@@ -365,7 +365,7 @@ impl RealmPolicyBundlePayload {
                     .to_owned(),
             ));
         }
-        if let Some(service_ids) = &self.allowed_third_party_invite_verification_service_ids {
+        if let Some(service_ids) = &self.allowed_third_party_invite_verification_ids {
             if service_ids.len() > 256 {
                 return Err(WireError::Protocol(
                     "realm policy third-party invite verification allowset exceeds 256 services"
@@ -461,14 +461,14 @@ pub struct RealmDeliveryBindingPolicyPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub did_document_default_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allowed_recipient_services: Option<AllowedRecipientServices>,
+    pub allowed_recipient_ids: Option<AllowedRecipientServices>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub required_endorsers: Option<BTreeSet<DidCoreId>>,
+    pub required_endorser_ids: Option<BTreeSet<DidCoreId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unroutable_membership_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rebind_authorization: Option<RebindAuthorization>,
-    /// Window, in seconds, during which the previous `recipient_service_id`
+    /// Window, in seconds, during which the previous `recipient_id`
     /// keeps accepting late events that precede or are concurrent with the
     /// rebind frontier. Absent means the registered `86400` default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -488,8 +488,8 @@ impl RealmDeliveryBindingPolicyPayload {
         if self.realm_id.is_none()
             && self.allowed_binding_sources.is_none()
             && self.did_document_default_allowed.is_none()
-            && self.allowed_recipient_services.is_none()
-            && self.required_endorsers.is_none()
+            && self.allowed_recipient_ids.is_none()
+            && self.required_endorser_ids.is_none()
             && self.unroutable_membership_allowed.is_none()
             && self.rebind_authorization.is_none()
             && self.handover_grace_seconds.is_none()

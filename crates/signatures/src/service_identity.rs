@@ -84,7 +84,7 @@ mod tests {
 
     fn receipt() -> ServiceRegistrationReceipt {
         let provider_did = Did::new("did:webvh:QmProvider:identity.example:webvh:service").unwrap();
-        let provider_service_id = project_did_to_core_id(&provider_did).unwrap();
+        let provider_id = project_did_to_core_id(&provider_did).unwrap();
         let did = Did::new("did:webvh:QmService:identity.example:webvh:auth").unwrap();
         let mut receipt = ServiceRegistrationReceipt {
             registration_receipt_id: arkret_wire::ServiceRegistrationReceiptId::new(format!(
@@ -103,7 +103,7 @@ mod tests {
             log_head_digest: format!("sha256:{}", "a".repeat(64)),
             control_key_digest: format!("sha256:{}", "b".repeat(64)),
             issued_at: "2026-07-15T00:00:01.000Z".parse().unwrap(),
-            provider_service_id,
+            provider_id,
             proof: PayloadProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new(format!("{provider_did}#service-key")).unwrap(),

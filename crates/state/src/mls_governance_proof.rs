@@ -2282,7 +2282,7 @@ fn add_joined_holder_from_event(
         ));
     };
     if let Some(binding) = payload.delivery_binding {
-        eligible_holder_ids.insert(binding.recipient_service_id);
+        eligible_holder_ids.insert(binding.recipient_id);
     }
     Ok(())
 }
@@ -2723,7 +2723,7 @@ fn project_frontier_value(
                     "recovery_key_id",
                     "key_agreement_ref",
                     "holder_principal_id",
-                    "holder_service_id",
+                    "holder_id",
                     "holder_signing_ref",
                     "hpke_suite",
                     "frozen_public_key_b64u",

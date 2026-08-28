@@ -152,7 +152,7 @@ pub struct AuditRywReceipt {
     /// binding. Mixed into the canonical `audit_policy_version_digest`
     /// 4-tuple so receipts cannot be replayed across deployments.
     pub trust_domain: TrustDomainId,
-    pub realm_operator_organization: DidCoreId,
+    pub realm_operator_organization_id: DidCoreId,
     pub audit_actor_id: DidCoreId,
     pub frontier: RywFrontier,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]

@@ -34,7 +34,7 @@ pub enum MessageTrackName {
 #[serde(deny_unknown_fields)]
 pub struct MimiMessageProvenance {
     pub provenance: MimiMessageProvenanceKind,
-    pub source_provider: DidCoreId,
+    pub source_provider_id: DidCoreId,
     pub attributed_sender_actor_id: DidCoreId,
     pub attributed_sender_device_id: DeviceId,
     pub source_envelope_digest: Hash,
