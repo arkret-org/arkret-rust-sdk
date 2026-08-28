@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-08-28.1;
-//! sha256=bcf43055f375a547b9779f60a3b64aaf12be8e3e08f88288507140f97b2c02b0
+//! sha256=dff1bb354f09933ac1640b4c33c12c5e7231fff38bd7f2d07b55bb7b66f6c9bf
 //! Entries: reason_codes=471
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2452,7 +2452,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::AUDIT_AGENT_ATTESTATION_MISMATCH,
         applies_to: &["event_envelope", "audit_decision"],
-        description: "Audit Agent attestation evidence does not match the expected binding: realm_id, service_id, audit_service_actor_id, measurement, audit_purpose, policy digest, validity, or operator DID diverge from the registered audit binding. Join and release paths MUST fail closed. See zh/crypto-media/audited-e2ee.md §6 and artifacts/schemas/audit-release-attestation.schema.json.",
+        description: "Audit Agent attestation evidence does not match the expected binding: realm_id, service_id, audit_actor_id, measurement, audit_purpose, policy digest, validity, or operator DID diverge from the registered audit binding. Join and release paths MUST fail closed. See zh/crypto-media/audited-e2ee.md §6 and artifacts/schemas/audit-release-attestation.schema.json.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AUDIT_AGENT_DESTRUCTION_NOT_PAIRED_WITH_REMOVE,
@@ -3360,7 +3360,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::KEYPACKAGE_CLAIM_RATE_LIMITED,
         applies_to: &["service_call"],
-        description: "Internal server-side audit reason recorded when an MLS KeyPackage claim exceeds the per-(requester_service_id, target_principal_id) rate limit. The outward response MUST stay anti-enumeration (generic `claim_failed` or rate-limited envelope) and MUST NOT leak target existence; this reason is the canonical audit-log token only. See zh/conformance/scalability-constraints.md §6 and zh/identity/key-management.md.",
+        description: "Internal server-side audit reason recorded when an MLS KeyPackage claim exceeds the per-(requester_id, target_principal_id) rate limit. The outward response MUST stay anti-enumeration (generic `claim_failed` or rate-limited envelope) and MUST NOT leak target existence; this reason is the canonical audit-log token only. See zh/conformance/scalability-constraints.md §6 and zh/identity/key-management.md.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::KEYPACKAGE_EXPIRED,

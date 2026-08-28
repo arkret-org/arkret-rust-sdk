@@ -1349,7 +1349,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         consumer_operation: None,
         binding_fields: &[
             "device_id",
-            "device_public_key_did",
+            "device_public_key",
             "hpke_key",
             "algorithms",
             "device_key_algorithm",
@@ -1366,7 +1366,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "principal_id",
             "device_id",
-            "device_public_key_did",
+            "device_public_key",
             "hpke_key",
             "algorithms",
             "device_key_algorithm",
@@ -1387,7 +1387,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "principal_id",
             "device_id",
-            "device_public_key_did",
+            "device_public_key",
             "hpke_key",
             "algorithms",
             "device_key_algorithm",
@@ -1407,7 +1407,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "principal_id",
             "principal_server_id",
             "device_id",
-            "device_signing_key_did",
+            "device_signing_key",
             "hpke_key",
             "device_authorize_event_id",
             "authorized_generation_ref",
@@ -2123,7 +2123,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "challenge_id",
             "organization_id",
-            "local_admin_subject_id",
+            "local_admin_subject",
             "version_id",
             "log_head_digest",
             "verification_method",
@@ -2199,7 +2199,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "event_digest",
             "producer_proof_digest",
             "producer_verification_method",
-            "producer_signing_key_did",
+            "producer_signing_key",
             "signer_resolution_evidence_ref",
             "signer_resolution_evidence_digest",
             "accepted_at",

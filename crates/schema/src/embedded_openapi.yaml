@@ -6028,7 +6028,7 @@ paths:
       summary: Replace the authenticated subject's invite-receive policy.
       description: |
         The request body MUST set subject_id equal to the session actor. The
-        override shares the same store as the denied_subject_ids written by
+        override shares the same store as the denied_subjects written by
         ak.self.contact.command.tombstone.v1(block_peer).
       requestBody:
         required: true

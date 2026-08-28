@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-08-28.1;
-//! sha256=bcf43055f375a547b9779f60a3b64aaf12be8e3e08f88288507140f97b2c02b0 Entries: error_codes=286
+//! sha256=dff1bb354f09933ac1640b4c33c12c5e7231fff38bd7f2d07b55bb7b66f6c9bf Entries: error_codes=286
 
 use serde::{Deserialize, Serialize};
 
@@ -3177,7 +3177,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The referenced organization registration challenge is unknown, expired, already consumed without an exact successful-replay ledger match, or its purpose / audience / origin / trust_domain / local_admin_subject_id / requested_scopes binding does not match the submitted request. On first success the registry atomically records (challenge_id, canonical_request_digest, outcome): a byte-identical retry returns that outcome, while the same challenge with a different digest fails here rather than authorising a second intent.",
+        description: "The referenced organization registration challenge is unknown, expired, already consumed without an exact successful-replay ledger match, or its purpose / audience / origin / trust_domain / local_admin_subject / requested_scopes binding does not match the submitted request. On first success the registry atomically records (challenge_id, canonical_request_digest, outcome): a byte-identical retry returns that outcome, while the same challenge with a different digest fails here rather than authorising a second intent.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::OrganizationRegistrationControlProofInvalid,
