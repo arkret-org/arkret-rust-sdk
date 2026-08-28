@@ -1723,6 +1723,104 @@ impl HistoryKeySourceRelay {
     }
 }
 
+/// Durable source disposition of one rejected `send` / `relay` attempt.
+///
+/// `history-visibility.md` 6.2 makes this a closed partition of the operation's
+/// error surface so two sources cannot diverge between exact retry, manifest
+/// replacement and giving up on a request. The classification is keyed on the
+/// registered error code alone; HTTP status classes, `title` and `detail` are
+/// never inputs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HistorySourceSendDisposition {
+    /// The rejection is not attributable to the frozen bytes. The attempt stays
+    /// unfinished and the exact staged bytes are resent with bounded backoff
+    /// until a receipt arrives or the request expires.
+    RetrySameAttempt,
+    /// These exact bytes are permanently unacceptable. The attempt must move to
+    /// `replacement_required` -- never `completed` -- and a fresh manifest for
+    /// the same request may be authored within the concurrency ceiling.
+    ReplaceManifest,
+    /// No attempt from this source can be accepted for this request under the
+    /// current authorization or policy. Both retry and replacement stop.
+    RequestTerminal,
+}
+
+impl HistorySourceSendDisposition {
+    /// Codes whose rejection leaves the frozen bytes still acceptable later.
+    pub const RETRY_SAME_ATTEMPT: &'static [&'static str] = &[
+        "account_locked",
+        "account_suspended",
+        "auth_expired",
+        "dependency_missing",
+        "did_proof_required",
+        "frontier_unavailable",
+        "internal_error",
+        "operation_selector_required",
+        "rate_limited",
+        "service_unavailable",
+        "soft_logged_out",
+        "temporarily_unavailable",
+        "unauthenticated",
+    ];
+
+    /// Codes attributable to the exact submitted bytes or the frozen attempt
+    /// identity, so only a differently authored manifest can succeed.
+    pub const REPLACE_MANIFEST: &'static [&'static str] = &[
+        "conflict",
+        "duplicate_conflict",
+        "failed_precondition",
+        "json_invalid",
+        "limit_exceeded",
+        "param_invalid",
+        "param_missing",
+        "query_invalid",
+        "schema_violation",
+        "signature_invalid",
+        "state_mismatch",
+        "too_large",
+    ];
+
+    /// Codes that end this source's participation in the request entirely.
+    pub const REQUEST_TERMINAL: &'static [&'static str] = &[
+        "account_deactivated",
+        "account_erased",
+        "capability_denied",
+        "history_not_visible",
+        "not_implemented",
+        "unsupported_event_kind",
+        "unsupported_feature",
+        "unsupported_operation_version",
+        "unsupported_protocol_version",
+    ];
+
+    /// Classify one closed error reply.
+    ///
+    /// An unregistered code is a peer protocol violation; it is classified as
+    /// `RetrySameAttempt` because that branch creates no response-id or outbox
+    /// churn and is still bounded by request expiry, whereas guessing
+    /// replacement would.
+    pub fn classify(code: &str) -> Self {
+        if Self::REPLACE_MANIFEST.contains(&code) {
+            Self::ReplaceManifest
+        } else if Self::REQUEST_TERMINAL.contains(&code) {
+            Self::RequestTerminal
+        } else {
+            Self::RetrySameAttempt
+        }
+    }
+
+    /// Whether the attempt keeps resending the exact staged bytes.
+    pub const fn retries_same_bytes(self) -> bool {
+        matches!(self, Self::RetrySameAttempt)
+    }
+
+    /// Whether a replacement manifest for the same request may be authored.
+    pub const fn allows_replacement_manifest(self) -> bool {
+        matches!(self, Self::ReplaceManifest)
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -3456,4 +3554,62 @@ fn require_sha256(value: &Hash, field: &str) -> Result<()> {
         return Err(WireError::Protocol(format!("{field} must use sha256")));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod history_source_send_disposition_tests {
+    use super::HistorySourceSendDisposition;
+
+    #[test]
+    fn disposition_lists_are_sorted_and_pairwise_disjoint() {
+        let lists = [
+            HistorySourceSendDisposition::RETRY_SAME_ATTEMPT,
+            HistorySourceSendDisposition::REPLACE_MANIFEST,
+            HistorySourceSendDisposition::REQUEST_TERMINAL,
+        ];
+        for list in lists {
+            assert!(
+                list.windows(2).all(|pair| pair[0] < pair[1]),
+                "disposition list must be sorted and duplicate-free: {list:?}"
+            );
+        }
+        for (index, list) in lists.iter().enumerate() {
+            for other in &lists[index + 1..] {
+                for code in *list {
+                    assert!(
+                        !other.contains(code),
+                        "{code} appears in two disposition classes"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn unregistered_codes_never_churn_the_outbox() {
+        let disposition = HistorySourceSendDisposition::classify("ak_unregistered_experimental");
+        assert_eq!(
+            disposition,
+            HistorySourceSendDisposition::RetrySameAttempt,
+            "an unknown code must not be guessed into a manifest replacement"
+        );
+        assert!(disposition.retries_same_bytes());
+        assert!(!disposition.allows_replacement_manifest());
+    }
+
+    #[test]
+    fn classification_is_keyed_on_the_registered_code() {
+        assert_eq!(
+            HistorySourceSendDisposition::classify("dependency_missing"),
+            HistorySourceSendDisposition::RetrySameAttempt
+        );
+        assert_eq!(
+            HistorySourceSendDisposition::classify("state_mismatch"),
+            HistorySourceSendDisposition::ReplaceManifest
+        );
+        assert_eq!(
+            HistorySourceSendDisposition::classify("history_not_visible"),
+            HistorySourceSendDisposition::RequestTerminal
+        );
+    }
 }

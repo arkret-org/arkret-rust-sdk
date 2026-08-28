@@ -68,8 +68,10 @@ pub const WEBSOCKET_MAX_SESSION_GRANT_BYTES: usize = 16_384;
 
 /// The three operations the first version of this profile covers (§1).
 ///
-/// The set is closed and complete: a descriptor that lists a subset is not
-/// this profile.
+/// The set is closed and complete. Reachability is advertised through
+/// `ServiceDescribe.supported_operation_bundles`, not through the transport
+/// descriptor: a describe whose bundle closure omits any of these operations
+/// over the `websocket` binding is a partial claim and MUST fall back to HTTP.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(into = "String", try_from = "String")]
 pub enum WebSocketOperationId {

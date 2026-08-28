@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-27.5;
-//! sha256=6436f73bda0361bdb5715c2a1a18bc1726fba4fc23161b7ad7dd3415431b5153 Entries: error_codes=286
+//! Input: registry/error-code-registry.json; version=2026-08-28.1;
+//! sha256=fcef46485cc281088a811985ae8702c3010edafeae8daab9a0f722a25dd0eed3 Entries: error_codes=286
 
 use serde::{Deserialize, Serialize};
 
@@ -2857,7 +2857,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["service_call", "auth_decision"],
-        description: "A per-delivery RFC 9421 HTTP Message Signature failed verification; the Content-Digest header profile, exact-content digest, or canonical-JSON wire check failed; or source_service_id disagreed with the Source-Service-ID header / signature transcript. See zh/extensions/applet-integration.md §7.3.1.",
+        description: "A per-delivery RFC 9421 HTTP Message Signature failed verification; the Content-Digest header profile, exact-content digest, or canonical-JSON wire check failed; or source_service_id disagreed with the Source-Service-ID header / signature transcript. Applies to Applet transaction push and to MIMI provider-to-provider writes (zh/extensions/mimi-interop.md §5). See zh/extensions/applet-integration.md §7.3.1.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::HttpSignatureRequired,
@@ -2867,7 +2867,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["service_call", "auth_decision"],
-        description: "A service-to-service request that MUST carry a per-delivery RFC 9421 HTTP Message Signature presented only Authorization: Bearer with no Signature. Applies to Applet transaction push in both directions (node->Applet and app/bridge->arkret edge inbound). See zh/extensions/applet-integration.md §7.3.1.",
+        description: "A service-to-service request that MUST carry a per-delivery RFC 9421 HTTP Message Signature presented only Authorization: Bearer with no Signature. Applies to Applet transaction push in both directions (node->Applet and app/bridge->arkret edge inbound) and to MIMI provider-to-provider writes (zh/extensions/mimi-interop.md §5). See zh/extensions/applet-integration.md §7.3.1.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::IceConfigDenied,
@@ -4087,7 +4087,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["service_call", "auth_decision"],
-        description: "A per-delivery HTTP Message Signature created/expires parameters fell outside the protocol freshness window (expires-created over 300s, created skew over +/-30s, or expires already past), including byte-identical replays after the bounded replay cache evicted the entry. Window judged per zh/sync/federation.md §3.2. See zh/extensions/applet-integration.md §7.3.1.",
+        description: "A per-delivery HTTP Message Signature created/expires parameters fell outside the protocol freshness window (expires-created over 300s, created skew over +/-30s, or expires already past), including byte-identical replays after the bounded replay cache evicted the entry. Window judged per zh/sync/federation.md §3.2. Applies to Applet transaction push and to MIMI provider-to-provider writes (zh/extensions/mimi-interop.md §5). See zh/extensions/applet-integration.md §7.3.1.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SnapshotAuthorityUnverified,

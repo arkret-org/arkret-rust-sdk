@@ -1,8 +1,13 @@
 //! Typed helpers for the WebSocket member of
 //! `ServiceDescribe.transport_bindings`.
 
-use arkret_wire::websocket_binding::{WEBSOCKET_HARD_MAX_FRAME_BYTES, validate_websocket_base_url};
-use arkret_wire::{Result, WireError};
+use arkret_wire::websocket_binding::{
+    WEBSOCKET_HARD_MAX_FRAME_BYTES, WebSocketOperationId, validate_websocket_base_url,
+};
+use arkret_wire::{
+    BindingKind, OPERATION_BUNDLES, OperationBundleDescriptor, Result, ServiceOperationId,
+    WireError,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::service_description::{ServiceDescribe, TransportBinding};
@@ -59,11 +64,43 @@ pub fn validate_websocket_transport(binding: &TransportBinding) -> Result<()> {
     Ok(())
 }
 
+/// Whether the advertised bundle closure makes every profile operation
+/// reachable over the WebSocket binding.
+///
+/// `websocket-binding.md` 2 moves operation reachability out of the transport
+/// descriptor and onto `ServiceDescribe.supported_operation_bundles`: the
+/// descriptor is a closed object with no `operations[]`, so the only way to
+/// learn whether all three streaming operations are callable over WebSocket is
+/// to expand the advertised bundles. A describe that advertises the transport
+/// without the bundle is a partial claim and MUST fall back to HTTP.
+pub fn websocket_operations_reachable(description: &ServiceDescribe) -> bool {
+    let advertised: Vec<&OperationBundleDescriptor> = OPERATION_BUNDLES
+        .iter()
+        .filter(|bundle| {
+            description
+                .supported_operation_bundles
+                .iter()
+                .any(|id| id == bundle.operation_bundle_id)
+        })
+        .collect();
+    WebSocketOperationId::ALL.iter().all(|operation| {
+        let Some(operation_id) = ServiceOperationId::from_wire(operation.as_str()) else {
+            return false;
+        };
+        advertised
+            .iter()
+            .any(|bundle| bundle.contains(operation_id, BindingKind::Websocket))
+    })
+}
+
 /// Select a usable canonical WebSocket transport, otherwise remain on HTTP.
 pub fn select_websocket_binding(
     description: &ServiceDescribe,
     client_max_frame_bytes: u32,
 ) -> Option<&TransportBinding> {
+    if !websocket_operations_reachable(description) {
+        return None;
+    }
     description.transport_bindings.iter().find(|binding| {
         let TransportBinding::Websocket {
             max_frame_bytes, ..
