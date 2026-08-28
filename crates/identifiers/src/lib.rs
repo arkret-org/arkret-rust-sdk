@@ -757,6 +757,105 @@ id_type!(
     is_core_id
 );
 
+id_type!(
+    #[cfg_attr(
+        feature = "diesel",
+        derive(diesel::expression::AsExpression, diesel::deserialize::FromSqlRow)
+    )]
+    #[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Text))]
+    /// Durable service-local account key scoped by its owning Principal
+    /// Server. This is neither an Arkret typed identifier nor a DID/DID URL.
+    ServiceAccountId,
+    |value: &str| {
+        !value.is_empty()
+            && value.chars().count() <= 255
+            && !value.starts_with("ak:")
+            && !value.starts_with("did:")
+    }
+);
+
+/// Canonical HTTP(S) Web Origin. Wire construction requires the already
+/// canonical origin tuple: lowercase scheme/host, no trailing slash, no
+/// explicit default port, and no userinfo, path, query, or fragment.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(
+    feature = "diesel",
+    derive(diesel::expression::AsExpression, diesel::deserialize::FromSqlRow)
+)]
+#[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Text))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct WebOrigin(String);
+
+impl WebOrigin {
+    pub fn new(value: impl AsRef<str>) -> Result<Self> {
+        let value = value.as_ref();
+        let parsed =
+            url::Url::parse(value).map_err(|_| IdentifierError::InvalidId(value.to_owned()))?;
+        if !matches!(parsed.scheme(), "http" | "https")
+            || parsed.host().is_none()
+            || !parsed.username().is_empty()
+            || parsed.password().is_some()
+            || parsed.path() != "/"
+            || parsed.query().is_some()
+            || parsed.fragment().is_some()
+        {
+            return Err(IdentifierError::InvalidId(value.to_owned()));
+        }
+        let canonical = parsed.origin().ascii_serialization();
+        if canonical == "null" || value != canonical {
+            return Err(IdentifierError::InvalidId(value.to_owned()));
+        }
+        Ok(Self(canonical))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl fmt::Display for WebOrigin {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+impl AsRef<str> for WebOrigin {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl FromStr for WebOrigin {
+    type Err = IdentifierError;
+
+    fn from_str(value: &str) -> Result<Self> {
+        Self::new(value)
+    }
+}
+
+impl Serialize for WebOrigin {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for WebOrigin {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::new(value).map_err(de::Error::custom)
+    }
+}
+
 #[cfg(feature = "diesel")]
 mod diesel_support;
 
@@ -1908,5 +2007,42 @@ mod tests {
         assert!(Did::new(format!("did:web:{}", "a".repeat(2041))).is_err());
         assert!(DidCoreId::new("ak:did_core:web:peer-ps.example").is_ok());
         assert!(DidCoreId::new("ak:did_core:web:peer-ps.example/path").is_err());
+    }
+
+    #[test]
+    fn service_account_id_rejects_global_identifier_namespaces() {
+        assert!(ServiceAccountId::new("account-1").is_ok());
+        assert!(ServiceAccountId::new("").is_err());
+        assert!(ServiceAccountId::new("ak:account:0192f3a1").is_err());
+        assert!(ServiceAccountId::new("ak:did_core:web:alice.example").is_err());
+        assert!(ServiceAccountId::new("did:web:alice.example").is_err());
+        assert!(ServiceAccountId::new("did:web:alice.example#key-1").is_err());
+        assert!(ServiceAccountId::new("a".repeat(256)).is_err());
+    }
+
+    #[test]
+    fn web_origin_requires_canonical_origin_tuple() {
+        assert_eq!(
+            WebOrigin::new("https://example.com").unwrap().as_str(),
+            "https://example.com"
+        );
+        assert_eq!(
+            WebOrigin::new("http://example.com:8080").unwrap().as_str(),
+            "http://example.com:8080"
+        );
+        for invalid in [
+            "wss://example.com",
+            "https://Example.COM",
+            "https://example.com/",
+            "https://example.com:443",
+            "http://example.com:80",
+            "https://example.com:65536",
+            "https://user@example.com",
+            "https://example.com/path",
+            "https://example.com/?query=1",
+            "https://example.com/#fragment",
+        ] {
+            assert!(WebOrigin::new(invalid).is_err(), "{invalid} must fail");
+        }
     }
 }

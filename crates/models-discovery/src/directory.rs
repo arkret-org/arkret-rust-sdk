@@ -51,7 +51,7 @@ pub struct DirectorySearchRealmsRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryRealmSearchOutcome {
     #[serde(default)]
-    pub realm_previews: Vec<RealmPreview>,
+    pub realms: Vec<RealmPreview>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     pub has_more: bool,
@@ -400,7 +400,7 @@ pub struct DirectorySearchOrganizationsRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryOrganizationSearchOutcome {
     #[serde(default)]
-    pub organization_previews: Vec<OrganizationPreview>,
+    pub organizations: Vec<OrganizationPreview>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     pub has_more: bool,
@@ -506,7 +506,7 @@ pub struct DirectorySearchActorsRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryActorSearchOutcome {
     #[serde(default)]
-    pub actor_previews: Vec<ActorPreview>,
+    pub actors: Vec<ActorPreview>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     pub has_more: bool,
@@ -948,7 +948,7 @@ pub struct DirectoryPushRegisterResourceFilter {
 pub struct DirectoryPushRegisterRequestBody {
     pub subscriber_principal_id: DidCoreId,
     pub resource_filter: DirectoryPushRegisterResourceFilter,
-    pub webhook_uri: String,
+    pub webhook_url: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub secret: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1561,7 +1561,7 @@ mod directory_governance_proof_tests {
         assert_eq!(transcript["resource_id"], Value::from(RESOURCE_ID));
         assert_eq!(transcript["verification_method"], VERIFICATION_METHOD);
         assert_eq!(transcript["proof_purpose"], "governance_authorization");
-        assert_eq!(transcript["audience"], DIRECTORY_SERVICE_ID);
+        assert_eq!(transcript["audience_id"], DIRECTORY_SERVICE_ID);
         let mut keys: Vec<String> = transcript
             .as_object()
             .unwrap()
@@ -1572,7 +1572,7 @@ mod directory_governance_proof_tests {
         assert_eq!(
             keys,
             vec![
-                "audience",
+                "audience_id",
                 "context",
                 "created_at",
                 "operation_id",

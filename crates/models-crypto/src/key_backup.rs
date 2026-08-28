@@ -2673,7 +2673,7 @@ impl RecoveryProofKind {
 /// Required surface: `schema`, `receipt_id`, `transaction_id`,
 /// `transaction_request_digest`, `principal_id`,
 /// `recovery_session_id`, `policy_id`, `policy_version`, `trust_domain`,
-/// `new_device_id`, `proof_summary`, `backup_classes_unlocked`,
+/// `new_device_id`, `proof_summary`, `unlocked_backups`,
 /// `welcome_count`, `outcome`, `started_at`, `completed_at`, `auth_data`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2703,7 +2703,7 @@ pub struct RecoveryReceipt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reanchor_batch_receipt_id: Option<ReceiptId>,
     pub proof_summary: RecoveryProofSummary,
-    pub unlocked_backup_classes: Vec<RecoveryBackupClassUnlocked>,
+    pub unlocked_backups: Vec<RecoveryBackupClassUnlocked>,
     /// MLS Welcomes successfully replayed for the recovering device.
     pub welcome_count: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2791,9 +2791,9 @@ pub struct UnsignedRecoveryReceiptBody {
     pub reanchor_event_id: Option<EventId>,
     pub reanchor_batch_receipt_id: Option<ReceiptId>,
     pub proof_summary: RecoveryProofSummary,
-    pub backup_classes_unlocked: Vec<RecoveryBackupClassUnlocked>,
+    pub unlocked_backups: Vec<RecoveryBackupClassUnlocked>,
     pub welcome_count: u64,
-    pub welcome_realm_summary: Option<Vec<RecoveryWelcomeRealmSummary>>,
+    pub welcome_realm_summaries: Option<Vec<RecoveryWelcomeRealmSummary>>,
     pub outcome: RecoveryReceiptOutcome,
     pub outcome_reason_code: Option<String>,
     pub started_at: DateTime<Utc>,
@@ -2856,9 +2856,9 @@ impl UnsignedRecoveryReceipt {
             reanchor_event_id: body.reanchor_event_id,
             reanchor_batch_receipt_id: body.reanchor_batch_receipt_id,
             proof_summary: body.proof_summary,
-            unlocked_backup_classes: body.backup_classes_unlocked,
+            unlocked_backups: body.unlocked_backups,
             welcome_count: body.welcome_count,
-            welcome_realm_summaries: body.welcome_realm_summary,
+            welcome_realm_summaries: body.welcome_realm_summaries,
             outcome: body.outcome,
             outcome_reason_code: body.outcome_reason_code,
             started_at: body.started_at,
@@ -2949,9 +2949,9 @@ fn recovery_receipt_unsigned_value(body: &UnsignedRecoveryReceiptBody) -> Value 
         "reanchor_event_id": &body.reanchor_event_id,
         "reanchor_batch_receipt_id": &body.reanchor_batch_receipt_id,
         "proof_summary": &body.proof_summary,
-        "backup_classes_unlocked": &body.backup_classes_unlocked,
+        "unlocked_backups": &body.unlocked_backups,
         "welcome_count": body.welcome_count,
-        "welcome_realm_summary": &body.welcome_realm_summary,
+        "welcome_realm_summaries": &body.welcome_realm_summaries,
         "outcome": body.outcome,
         "outcome_reason_code": &body.outcome_reason_code,
         "started_at": arkret_canonical::canonical::format_timestamp_canonical(body.started_at),
@@ -2969,8 +2969,8 @@ fn recovery_receipt_unsigned_value(body: &UnsignedRecoveryReceiptBody) -> Value 
             "reanchor_batch_receipt_id",
         ),
         (
-            body.welcome_realm_summary.is_some(),
-            "welcome_realm_summary",
+            body.welcome_realm_summaries.is_some(),
+            "welcome_realm_summaries",
         ),
         (body.outcome_reason_code.is_some(), "outcome_reason_code"),
     ] {
@@ -2998,7 +2998,7 @@ pub struct RecoveryProofSummary {
     pub share_ids: Option<Vec<String>>,
 }
 
-/// `recovery-receipt.schema.json#/properties/backup_classes_unlocked[]`.
+/// `recovery-receipt.schema.json#/properties/unlocked_backups[]`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RecoveryBackupClassUnlocked {
@@ -3010,7 +3010,7 @@ pub struct RecoveryBackupClassUnlocked {
     pub ciphertext_digest: Hash,
 }
 
-/// `recovery-receipt.schema.json#/properties/welcome_realm_summary[]`.
+/// `recovery-receipt.schema.json#/properties/welcome_realm_summaries[]`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RecoveryWelcomeRealmSummary {

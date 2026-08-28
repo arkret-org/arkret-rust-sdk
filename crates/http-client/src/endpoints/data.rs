@@ -93,7 +93,7 @@ pub fn blob_resumable_upload_base_url(description: &ServiceDescribe) -> Option<U
         &[arkret_wire::BindingKind::Tus],
     )?;
     let TransportBinding::Tus {
-        base_uri: base_url, ..
+        base_url: base_url, ..
     } = binding
     else {
         return None;
@@ -695,11 +695,11 @@ mod tests {
             ],
             "transport_bindings": [{
                 "kind": "http_json",
-                "base_uri": "https://server.local",
+                "base_url": "https://server.local",
                 "extension_profile_required": null
             }, {
                 "kind": "tus",
-                "base_uri": "https://server.local/uploads/",
+                "base_url": "https://server.local/uploads/",
                 "extension_profile_required": null,
                 "tus_version": ["1.0.0"],
                 "tus_extensions": ["creation"]

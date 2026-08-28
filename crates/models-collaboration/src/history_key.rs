@@ -2024,7 +2024,7 @@ pub struct CircleSealViewLocator {
 #[serde(deny_unknown_fields)]
 pub struct AccountStatusViewLocator {
     pub account_authority_id: DidCoreId,
-    pub account_id: String,
+    pub account_id: arkret_wire::ServiceAccountId,
     pub account_status_record_id: String,
     pub status_sequence: u64,
     pub record_digest: Hash,
@@ -2554,7 +2554,7 @@ impl HistoryResponsePageEntry {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HistoryKeyResponseListOutcome {
-    pub history_response_page_entries: Vec<HistoryResponsePageEntry>,
+    pub entries: Vec<HistoryResponsePageEntry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ack_token: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2564,7 +2564,7 @@ pub struct HistoryKeyResponseListOutcome {
 
 impl HistoryKeyResponseListOutcome {
     pub fn validate(&self) -> Result<()> {
-        if self.history_response_page_entries.is_empty() {
+        if self.entries.is_empty() {
             if self.ack_token.is_some() {
                 return Err(WireError::Protocol(
                     "empty history response page must omit ack_token".to_owned(),
@@ -2581,13 +2581,13 @@ impl HistoryKeyResponseListOutcome {
             )?;
         }
         validate_pagination(self.limited, self.cursor.as_deref())?;
-        for entry in &self.history_response_page_entries {
+        for entry in &self.entries {
             match entry {
                 HistoryResponsePageEntry::Record { record } => record.validate()?,
                 HistoryResponsePageEntry::Lost { lost_record } => lost_record.validate()?,
             }
         }
-        for pair in self.history_response_page_entries.windows(2) {
+        for pair in self.entries.windows(2) {
             if pair[0].sequence() >= pair[1].sequence() {
                 return Err(WireError::Protocol(
                     "history response entries must be strictly sequence ascending".to_owned(),
@@ -2668,19 +2668,19 @@ impl HistoryResponseAckEntry {
 pub struct HistoryKeyResponseAckRequest {
     pub ack_token: String,
     pub high_water_cursor: String,
-    pub history_response_ack_entries: Vec<HistoryResponseAckEntry>,
+    pub entries: Vec<HistoryResponseAckEntry>,
 }
 
 impl HistoryKeyResponseAckRequest {
     pub fn validate(&self) -> Result<()> {
         validate_non_empty(&self.ack_token, "ack_token")?;
         validate_non_empty(&self.high_water_cursor, "high_water_cursor")?;
-        if self.history_response_ack_entries.is_empty() {
+        if self.entries.is_empty() {
             return Err(WireError::Protocol(
                 "history ack requires entries".to_owned(),
             ));
         }
-        for pair in self.history_response_ack_entries.windows(2) {
+        for pair in self.entries.windows(2) {
             if pair[0].sequence() >= pair[1].sequence() {
                 return Err(WireError::Protocol(
                     "history ack entries must be strictly sequence ascending".to_owned(),

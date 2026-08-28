@@ -916,7 +916,7 @@ mod events_submit_tests {
                 "trust_domain":"ak:trust_domain:server.local",
                 "supported_profiles":[],
                 "supported_operation_bundles":["ak.operation_bundle.principal_server.describe.v1"],
-                "transport_bindings":[{"kind":"http_json","base_uri":"https://server.local","extension_profile_required":null}],
+                "transport_bindings":[{"kind":"http_json","base_url":"https://server.local","extension_profile_required":null}],
                 "supported_features":[],
                 "auth_metadata":{"methods":[]},
                 "limits":{},
@@ -965,7 +965,7 @@ mod events_submit_tests {
                 "trust_domain":"ak:trust_domain:server.local",
                 "supported_profiles":[],
                 "supported_operation_bundles":["ak.operation_bundle.principal_server.describe.v1"],
-                "transport_bindings":[{"kind":"http_json","base_uri":"https://server.local","extension_profile_required":null}],
+                "transport_bindings":[{"kind":"http_json","base_url":"https://server.local","extension_profile_required":null}],
                 "supported_features":[],
                 "auth_metadata":{"methods":[]},
                 "limits":{},
@@ -1044,8 +1044,7 @@ mod events_submit_tests {
 
     #[tokio::test]
     async fn events_read_queries_canonical_events_collection_with_json_content() {
-        let canned =
-            r#"{"event_read_rows":[],"prev_cursor":null,"next_cursor":null,"has_more":false}"#;
+        let canned = r#"{"events":[],"has_more":false}"#;
         let (client, capture) = spawn_capture_server(canned).await;
 
         let response = client
@@ -1059,7 +1058,7 @@ mod events_submit_tests {
             )
             .await
             .unwrap();
-        assert!(response.event_read_rows.is_empty());
+        assert!(response.events.is_empty());
 
         let raw = capture.await.unwrap();
         let (request_line, headers, body) = split_request(&raw);
@@ -1113,7 +1112,8 @@ mod events_submit_tests {
 
     #[tokio::test]
     async fn events_query_outcome_uses_standard_shape_and_completeness_query() {
-        let canned = r#"{"event_read_rows":[],"prev_cursor":null,"next_cursor":null,"has_more":false,"range_completeness":{"attestation_refs":[]}}"#;
+        let canned =
+            r#"{"events":[],"has_more":false,"range_completeness":{"attestation_refs":[]}}"#;
         let (client, capture) = spawn_capture_server(canned).await;
 
         let response = client
@@ -1127,7 +1127,7 @@ mod events_submit_tests {
             )
             .await
             .unwrap();
-        assert!(response.event_read_rows.is_empty());
+        assert!(response.events.is_empty());
         assert!(!response.has_more);
         assert_eq!(
             response
@@ -1270,7 +1270,7 @@ mod events_submit_tests {
                         "content_draft":"draft-ietf-mimi-content-04",
                         "room_policy_draft":"draft-ietf-mimi-room-policy-03",
                         "identifier_draft":"draft-kohbrok-mimi-identifiers-01",
-                        "base_uri":"https://mimi.example.test",
+                        "base_url":"https://mimi.example.test",
                         "provider_id":"mimi://provider-a.example",
                         "endpoints":[{"endpoint_id":"mimi_v1","relative_path":"/messages"}],
                         "features":["mimi_v1"],

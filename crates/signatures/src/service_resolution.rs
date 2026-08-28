@@ -304,7 +304,7 @@ mod tests {
                 current_record_url: format!(
                     "https://agent-authority.example/_arkret/open/services/{service_id}/resolution"
                 ),
-                base_uri: "https://agent-authority.example/".to_owned(),
+                base_url: "https://agent-authority.example/".to_owned(),
                 describe_digest: hash('2'),
                 issued_at,
                 refresh_after: issued_at + chrono::Duration::minutes(5),
@@ -346,7 +346,7 @@ mod tests {
         let (mut resolution, service_id) = fixture();
         let now = resolution.service_resolution_record.record.issued_at;
         assert!(verify_authenticated_service_resolution(&resolution, &service_id, now).is_ok());
-        resolution.service_resolution_record.record.base_uri =
+        resolution.service_resolution_record.record.base_url =
             "https://attacker.example/".to_owned();
         assert!(verify_authenticated_service_resolution(&resolution, &service_id, now).is_err());
     }

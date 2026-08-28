@@ -213,10 +213,10 @@ pub use security_transaction::{
     PcrPolicyRecoveryBinding, PcrPolicyRecoveryPlan, PreparedEventUnit, RecoveryIdentityModel,
     RecoveryPreparedPlan, RecoveryTransactionCreateRequest, SECURITY_ROTATION_STEP_ORDER,
     SecurityRotationPlan, SecurityRotationTransactionCreateRequest, SecurityTransaction,
-    SecurityTransactionCreateRequest, SecurityTransactionKind, SecurityTransactionPreparedPlan,
-    SecurityTransactionResultKind, SecurityTransactionStep, SecurityTransactionTerminalResult,
-    UnsignedClientStepAttestation, security_rotation_erase_confirmation_digest,
-    security_rotation_local_commit_digest,
+    SecurityTransactionAcceptor, SecurityTransactionCreateRequest, SecurityTransactionKind,
+    SecurityTransactionPreparedPlan, SecurityTransactionResultKind, SecurityTransactionStep,
+    SecurityTransactionTerminalResult, UnsignedClientStepAttestation,
+    security_rotation_erase_confirmation_digest, security_rotation_local_commit_digest,
 };
 pub use self_contact_paths::*;
 pub use service_kind::{EvaluationClass, ServiceKind};

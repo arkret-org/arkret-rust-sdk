@@ -2123,7 +2123,7 @@ pub struct ReferenceLockedEventStub {
 pub struct EventsQueryOutcome {
     // Required by the schema; an absent array is not an empty result page.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub event_read_rows: Vec<EventReadRow>,
+    pub events: Vec<EventReadRow>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prev_cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2553,7 +2553,7 @@ pub struct DevicePairingResolveRequestBody {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DevicePairingBootstrap {
-    pub arkret_base_uri: String,
+    pub arkret_base_url: String,
     pub device_pairing_request_id: DevicePairingRequestId,
     pub pairing_code: DevicePairingCode,
     pub new_device_pubkey: PublicKey,

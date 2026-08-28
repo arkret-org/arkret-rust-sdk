@@ -191,7 +191,7 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
                 "gates": [{ "gate_id": "open", "kind": "allow_all" }],
                 "combinator": "all"
             },
-            "handle_issuer_policy": [{
+            "handle_issuer_policies": [{
                 "issuer_id": "ak:did_core:web:issuer.example",
                 "authorized_handle_domains": ["issuer.example"],
                 "issuer_class": "domain_authority"

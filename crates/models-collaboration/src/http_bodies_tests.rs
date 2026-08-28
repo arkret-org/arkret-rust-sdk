@@ -486,7 +486,7 @@ mod contact_projection_tests {
                     "accepted_at": "2026-08-08T00:00:00.000Z",
                     "issuer_id": "ak:did_core:web:ps.example"
                 },
-                "receipt_digest": "sha256:7a885d00ba1fc8e9c0e2858d2f5c49d98e1f38ed108e31620e05cfbc795f7fcc",
+                "receipt_digest": "sha256:83d70a37aff054bda05d83b680eb7335c19e6c58fa2b7e234ad75a8ee7474524",
                 "signature": {
                     "verification_method": "did:web:ps.example#key-1",
                     "created_at": "2026-08-08T00:00:00.000Z",

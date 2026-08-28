@@ -11,8 +11,8 @@ use arkret_models_identity::{
 pub use arkret_wire::{AcceptedDeviceIssuePossessionProof, AcceptedDeviceRefreshPossessionProof};
 use arkret_wire::{
     AcceptedDevicePossessionProof, AppletId, Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash,
-    NonEmptyString, RealmId, RequestId, Result, ScopeRef, SessionGrantId, StrandId, WireError,
-    canonical,
+    NonEmptyString, RealmId, RequestId, Result, ScopeRef, ServiceAccountId, SessionGrantId,
+    StrandId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -419,6 +419,7 @@ fn session_grant_proof_signing_bytes(value: &Value) -> Result<Vec<u8>> {
 #[serde(deny_unknown_fields)]
 pub struct SessionGrantOutcome {
     pub principal_id: DidCoreId,
+    pub service_account_id: ServiceAccountId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     pub session_grant: String,
@@ -770,6 +771,7 @@ pub fn session_grant_refresh_request_digest(
 #[serde(deny_unknown_fields)]
 pub struct SessionGrantRefreshOutcome {
     pub session_grant_id: SessionGrantId,
+    pub service_account_id: ServiceAccountId,
     pub grant_jwt: String,
     /// JWK the rotated grant is bound to (the device holder key); the server
     /// does not mint a fresh session private key on rotation.
@@ -830,9 +832,9 @@ pub enum SessionGrantIntrospectStatus {
 #[serde(try_from = "SessionGrantIntrospectGrantWire")]
 pub struct SessionGrantIntrospectGrant {
     pub id: SessionGrantId,
-    pub issuer_id: String,
+    pub issuer_id: DidCoreId,
     pub subject_id: DidCoreId,
-    pub service_account_id: String,
+    pub service_account_id: ServiceAccountId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     pub audience_id: DidCoreId,
@@ -860,9 +862,9 @@ pub struct SessionGrantIntrospectGrant {
 #[serde(deny_unknown_fields)]
 struct SessionGrantIntrospectGrantWire {
     id: SessionGrantId,
-    issuer_id: String,
+    issuer_id: DidCoreId,
     subject_id: DidCoreId,
-    service_account_id: String,
+    service_account_id: ServiceAccountId,
     #[serde(default)]
     device_id: Option<DeviceId>,
     audience_id: DidCoreId,
@@ -1181,7 +1183,7 @@ mod session_grant_contract_tests {
     fn introspect_grant_base(credential_class: &str) -> Value {
         json!({
             "id": GRANT_ID,
-            "issuer_id": "did:example:issuer_id",
+            "issuer_id": "ak:did_core:web:account-authority.example",
             "subject_id": "ak:did_core:web:alice.example",
             "service_account_id": "account-1",
             "device_id": "ak:device:019a6aa0-0000-7000-8000-000000000000",
@@ -1230,6 +1232,11 @@ mod session_grant_contract_tests {
 
         valid.as_object_mut().unwrap().remove("holder_binding");
         assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(valid).is_err());
+
+        let mut bare_did_issuer = introspect_grant_base("standard");
+        bare_did_issuer["holder_binding"] = holder_binding();
+        bare_did_issuer["issuer_id"] = json!("did:web:account-authority.example");
+        assert!(serde_json::from_value::<SessionGrantIntrospectGrant>(bare_did_issuer).is_err());
     }
 
     #[test]

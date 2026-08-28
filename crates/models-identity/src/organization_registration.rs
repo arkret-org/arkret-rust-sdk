@@ -1,8 +1,8 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    Did, DidCoreId, Hash, PayloadProof, ProofContextId, Result, TrustDomainId, WireError,
-    project_did_to_core_id,
+    Did, DidCoreId, Hash, PayloadProof, ProofContextId, Result, TrustDomainId, WebOrigin,
+    WireError, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -163,7 +163,7 @@ pub struct OrganizationRegistrationChallenge {
     pub purpose: String,
     pub nonce: String,
     pub audience_id: DidCoreId,
-    pub origin_uri: String,
+    pub origin: WebOrigin,
     pub trust_domain: TrustDomainId,
     pub local_admin_subject_id: DidCoreId,
     pub requested_scopes: Vec<OrganizationRegistrationScope>,
@@ -216,14 +216,7 @@ impl OrganizationRegistrationChallenge {
                 "organization registration challenge contains an invalid id or binding".to_owned(),
             ));
         }
-        let origin = url::Url::parse(&self.origin_uri).map_err(|_| {
-            WireError::Protocol("organization challenge origin is invalid".to_owned())
-        })?;
-        if !matches!(origin.scheme(), "http" | "https")
-            || origin.query().is_some()
-            || origin.fragment().is_some()
-            || !self.origin_uri.ends_with('/')
-            || self.expires_at <= self.created_at
+        if self.expires_at <= self.created_at
             || self.expires_at <= now
             || self.expires_at - self.created_at > chrono::Duration::seconds(300)
         {
@@ -711,7 +704,7 @@ mod tests {
             purpose: ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1.to_owned(),
             nonce: "0123456789abcdefghijkl".to_owned(),
             audience_id: service("did:webvh:zService:service.example"),
-            origin_uri: "https://service.example/".to_owned(),
+            origin: WebOrigin::new("https://service.example").unwrap(),
             trust_domain: TrustDomainId::new("ak:trust_domain:example").unwrap(),
             local_admin_subject_id: request.local_admin_subject_id.clone(),
             requested_scopes: request.requested_scopes.clone(),
@@ -765,7 +758,7 @@ mod tests {
             purpose: ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1.to_owned(),
             nonce: "0123456789abcdefghijkl".to_owned(),
             audience_id: service("did:webvh:zService:service.example"),
-            origin_uri: "https://service.example/".to_owned(),
+            origin: WebOrigin::new("https://service.example").unwrap(),
             trust_domain: TrustDomainId::new("ak:trust_domain:example").unwrap(),
             local_admin_subject_id: request.local_admin_subject_id.clone(),
             requested_scopes: request.requested_scopes.clone(),

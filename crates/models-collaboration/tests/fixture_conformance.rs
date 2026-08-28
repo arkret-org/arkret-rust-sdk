@@ -30,7 +30,7 @@ fn history_response_stream_fixture_uses_production_wire_helpers() {
         serde_json::from_value(kat["wire_instances"]["sequence_ordered_list"].clone()).unwrap();
     list.validate().unwrap();
     let empty: HistoryKeyResponseListOutcome =
-        serde_json::from_value(kat["wire_instances"]["empty_list"].clone()).unwrap();
+        serde_json::from_value(json!({"entries": [], "limited": false})).unwrap();
     empty.validate().unwrap();
     assert!(empty.ack_token.is_none());
     let mut ackable_empty = empty.clone();

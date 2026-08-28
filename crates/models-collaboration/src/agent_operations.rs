@@ -602,7 +602,7 @@ pub struct AgentRenewPairingOutcome {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentPairingBootstrap {
-    pub arkret_base_uri: String,
+    pub arkret_base_url: String,
     pub service_id: DidCoreId,
     pub agent_id: DidCoreId,
     pub pairing_request_id: OpaqueLocalId,

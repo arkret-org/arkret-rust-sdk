@@ -156,7 +156,7 @@ impl<'de> Deserialize<'de> for PushKey {
 #[serde(deny_unknown_fields)]
 pub struct PushRegisterDeviceRequestBody {
     pub device_id: DeviceId,
-    pub push_gateway_uri: String,
+    pub push_gateway_url: String,
     pub push_key: PushKey,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub platform: Option<String>,
@@ -614,7 +614,7 @@ impl PushNotifyReasonCode {
             Self::DeliveryBindingStale => "delivery_binding_stale",
             Self::PushTokenUnknown => "push_token_unknown",
             Self::PushTokenInvalid => "push_token_invalid",
-            Self::PushGatewayUnreachable => "push_gateway_uri_unreachable",
+            Self::PushGatewayUnreachable => "push_gateway_url_unreachable",
             Self::RateLimited => "rate_limited",
         }
     }

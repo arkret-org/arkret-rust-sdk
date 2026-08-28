@@ -159,11 +159,11 @@ impl<'de> Deserialize<'de> for CanonicalServiceUrl {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceRegistrationKey {
     service_kind: ServiceKind,
-    public_base: CanonicalServiceUrl,
+    public_base_url: CanonicalServiceUrl,
 }
 
 impl ServiceRegistrationKey {
-    pub fn new(service_kind: ServiceKind, public_base: CanonicalServiceUrl) -> Result<Self> {
+    pub fn new(service_kind: ServiceKind, public_base_url: CanonicalServiceUrl) -> Result<Self> {
         if !matches!(
             service_kind,
             ServiceKind::PrincipalServer | ServiceKind::AuthServer | ServiceKind::IdentityRegistry
@@ -175,7 +175,7 @@ impl ServiceRegistrationKey {
         }
         Ok(Self {
             service_kind,
-            public_base,
+            public_base_url,
         })
     }
 
@@ -183,8 +183,8 @@ impl ServiceRegistrationKey {
         &self.service_kind
     }
 
-    pub fn public_base(&self) -> &CanonicalServiceUrl {
-        &self.public_base
+    pub fn public_base_url(&self) -> &CanonicalServiceUrl {
+        &self.public_base_url
     }
 }
 
@@ -192,7 +192,7 @@ impl ServiceRegistrationKey {
 #[serde(deny_unknown_fields)]
 struct ServiceRegistrationKeyWire {
     service_kind: ServiceKind,
-    public_base: CanonicalServiceUrl,
+    public_base_url: CanonicalServiceUrl,
 }
 
 impl<'de> Deserialize<'de> for ServiceRegistrationKey {
@@ -201,7 +201,7 @@ impl<'de> Deserialize<'de> for ServiceRegistrationKey {
         D: Deserializer<'de>,
     {
         let wire = ServiceRegistrationKeyWire::deserialize(deserializer)?;
-        Self::new(wire.service_kind, wire.public_base).map_err(serde::de::Error::custom)
+        Self::new(wire.service_kind, wire.public_base_url).map_err(serde::de::Error::custom)
     }
 }
 
@@ -317,12 +317,12 @@ impl ServiceDidDocument {
             .filter(|entry| {
                 entry.endpoint_type == "ArkretService"
                     && entry.service_kind == *key.service_kind()
-                    && entry.service_endpoint == *key.public_base()
+                    && entry.service_endpoint == *key.public_base_url()
             })
             .count();
         if bindings != 1 {
             return Err(WireError::Protocol(
-                "signed inception must contain exactly one ArkretService endpoint matching service_kind and public_base"
+                "signed inception must contain exactly one ArkretService endpoint matching service_kind and public_base_url"
                     .to_owned(),
             ));
         }
@@ -612,15 +612,15 @@ impl ServiceRegistrationReceipt {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceRegistrationEnsureRequestBody {
     pub service_kind: ServiceKind,
-    pub public_base: CanonicalServiceUrl,
+    pub public_base_url: CanonicalServiceUrl,
     pub did: Did,
     pub inception_operation: ServiceWebvhInceptionOperation,
     /// Bounded opaque caller-chosen correlation string. It relates audit
     /// records for one ensure attempt and nothing else: it is outside the `ak:`
     /// typed-ID namespace, is never parsed by the typed-ID parser, and never
     /// establishes an object identity. Registration identity is the canonical
-    /// `(service_kind, public_base)` key that provider persistence enforces
-    /// with `UNIQUE(service_kind, public_base)`; the single idempotency
+    /// `(service_kind, public_base_url)` key that provider persistence enforces
+    /// with `UNIQUE(service_kind, public_base_url)`; the single idempotency
     /// authority for this operation is the operation registry's
     /// `idempotency_mechanism=object_id`.
     pub idempotency_key: String,
@@ -649,7 +649,7 @@ impl ServiceRegistrationEnsureRequestBody {
         validate_service_registration_idempotency_key(&idempotency_key)?;
         Ok(Self {
             service_kind: key.service_kind,
-            public_base: key.public_base,
+            public_base_url: key.public_base_url,
             did,
             inception_operation,
             idempotency_key,
@@ -658,7 +658,7 @@ impl ServiceRegistrationEnsureRequestBody {
     }
 
     pub fn registration_key(&self) -> Result<ServiceRegistrationKey> {
-        ServiceRegistrationKey::new(self.service_kind, self.public_base.clone())
+        ServiceRegistrationKey::new(self.service_kind, self.public_base_url.clone())
     }
 
     pub fn validate(&self) -> Result<()> {

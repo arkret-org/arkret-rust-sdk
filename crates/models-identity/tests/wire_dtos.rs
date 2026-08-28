@@ -45,7 +45,7 @@ fn service_registration_receipt_uses_the_spec_field_and_typed_id() {
         ),
         "registration_key": {
             "service_kind": "auth_server",
-            "public_base": "https://auth.example/"
+            "public_base_url": "https://auth.example/"
         },
         "service_id": "ak:did_core:webvh:z6mkfixtureauth",
         "did": "did:webvh:z6mkfixtureauth:auth.example",

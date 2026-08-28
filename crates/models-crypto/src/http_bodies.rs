@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 
 use arkret_wire::{
     AuditReasonText, Base64UrlString, DeviceId, DidCoreId, DidUrl, DomainSeparationId, EventId,
-    Hash, KeyPackageRef, NonEmptyString, RealmId, StrandId,
+    Hash, KeyPackageRef, NonEmptyString, RealmId, ServiceAccountId, StrandId,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -1517,7 +1517,7 @@ pub struct KeyPackagesConsumeOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesRevokeRequestBody {
-    pub owner_account_id: DidCoreId,
+    pub owner_account_id: ServiceAccountId,
     #[serde(rename = "keypackage_refs")]
     pub key_package_refs: Vec<String>,
     pub device_id: DeviceId,
@@ -1530,7 +1530,7 @@ pub struct KeyPackagesRevokeRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesRevokeUnsignedRequest {
-    pub owner_account_id: DidCoreId,
+    pub owner_account_id: ServiceAccountId,
     #[serde(rename = "keypackage_refs")]
     pub key_package_refs: Vec<String>,
     pub device_id: DeviceId,

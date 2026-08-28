@@ -16,7 +16,7 @@ pub struct ParticipantBinding {
     pub focus_id: String,
     pub actor_id: DidCoreId,
     pub device_id: String,
-    pub participant_identity: String,
+    pub participant_id: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -51,7 +51,7 @@ pub struct CallParticipant {
     pub joined_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub foci_preferred: Option<Vec<String>>,
-    pub participant_identity: String,
+    pub participant_id: String,
     pub participant_binding: ParticipantBinding,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub media: Option<CallParticipantMedia>,

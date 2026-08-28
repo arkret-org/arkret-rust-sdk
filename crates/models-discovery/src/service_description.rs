@@ -160,17 +160,17 @@ pub enum TusExtension {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum TransportBinding {
     HttpJson {
-        base_uri: String,
+        base_url: String,
         extension_profile_required: (),
     },
     Tus {
-        base_uri: String,
+        base_url: String,
         extension_profile_required: (),
         tus_version: Vec<TusVersion>,
         tus_extensions: Vec<TusExtension>,
     },
     Websocket {
-        base_uri: String,
+        base_url: String,
         extension_profile_required: WebSocketBindingProfile,
         subprotocol: WebSocketBindingSubprotocol,
         authentication: WebSocketBindingAuthentication,
@@ -180,25 +180,25 @@ pub enum TransportBinding {
 }
 
 impl TransportBinding {
-    pub fn http_json(base_uri: impl Into<String>) -> Self {
+    pub fn http_json(base_url: impl Into<String>) -> Self {
         Self::HttpJson {
-            base_uri: base_uri.into(),
+            base_url: base_url.into(),
             extension_profile_required: (),
         }
     }
 
-    pub fn tus(base_uri: impl Into<String>, tus_extensions: Vec<TusExtension>) -> Self {
+    pub fn tus(base_url: impl Into<String>, tus_extensions: Vec<TusExtension>) -> Self {
         Self::Tus {
-            base_uri: base_uri.into(),
+            base_url: base_url.into(),
             extension_profile_required: (),
             tus_version: vec![TusVersion::V1_0_0],
             tus_extensions,
         }
     }
 
-    pub fn websocket(base_uri: impl Into<String>, max_frame_bytes: u32, max_channels: u32) -> Self {
+    pub fn websocket(base_url: impl Into<String>, max_frame_bytes: u32, max_channels: u32) -> Self {
         Self::Websocket {
-            base_uri: base_uri.into(),
+            base_url: base_url.into(),
             extension_profile_required: WebSocketBindingProfile::BindingWebsocketV1,
             subprotocol: WebSocketBindingSubprotocol::ArkretV1,
             authentication: WebSocketBindingAuthentication::ChallengeDpopSessionV1,
@@ -215,20 +215,20 @@ impl TransportBinding {
         }
     }
 
-    pub fn base_uri(&self) -> &str {
+    pub fn base_url(&self) -> &str {
         match self {
-            Self::HttpJson { base_uri, .. }
-            | Self::Tus { base_uri, .. }
-            | Self::Websocket { base_uri, .. } => base_uri,
+            Self::HttpJson { base_url, .. }
+            | Self::Tus { base_url, .. }
+            | Self::Websocket { base_url, .. } => base_url,
         }
     }
 
     pub fn validate(&self) -> Result<()> {
-        let parsed = url::Url::parse(self.base_uri())
-            .map_err(|error| WireError::Protocol(format!("invalid transport base_uri: {error}")))?;
+        let parsed = url::Url::parse(self.base_url())
+            .map_err(|error| WireError::Protocol(format!("invalid transport base_url: {error}")))?;
         if parsed.cannot_be_a_base() || parsed.host_str().is_none() {
             return Err(WireError::Protocol(
-                "transport base_uri must be an absolute hierarchical URI".to_owned(),
+                "transport base_url must be an absolute hierarchical URI".to_owned(),
             ));
         }
         match self {
@@ -1070,7 +1070,7 @@ mod tests {
                 "ak.operation_bundle.principal_server.http_core.v1".to_owned(),
             ],
             vec![TransportBinding::HttpJson {
-                base_uri: "https://service.example".to_owned(),
+                base_url: "https://service.example".to_owned(),
                 extension_profile_required: (),
             }],
         )
@@ -1154,7 +1154,7 @@ mod tests {
                 "ak.operation_bundle.directory_service.http_core.v1".to_owned(),
             ],
             transport_bindings: vec![TransportBinding::HttpJson {
-                base_uri: "https://directory.example".to_owned(),
+                base_url: "https://directory.example".to_owned(),
                 extension_profile_required: (),
             }],
             supported_features: vec![],
@@ -1380,8 +1380,8 @@ impl AuthMetadata {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AccountAuthority {
-    pub origin_uri: String,
-    pub gate_account_base: String,
+    pub origin: WebOrigin,
+    pub gate_account_base_url: String,
 }
 
 /// Mirrors `service-describe.schema.json#/$defs/auth_method`. Describes a
@@ -1396,7 +1396,7 @@ pub struct AuthMethod {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provider_uri: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub openid_configuration_uri: Option<String>,
+    pub openid_configuration_url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client_id: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

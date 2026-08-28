@@ -370,7 +370,7 @@ pub struct ControllerAccountGateAttestationIssueRequestBody {
     pub request_id: RequestId,
     pub principal_id: DidCoreId,
     pub agent_authority_id: DidCoreId,
-    pub agent_authority_service_resolution: crate::AuthenticatedServiceResolution,
+    pub agent_authority_resolution: crate::AuthenticatedServiceResolution,
 }
 
 /// Byte-stable result of controller gate attestation issuance.

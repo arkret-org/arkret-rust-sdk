@@ -213,7 +213,7 @@ impl Client {
             .request(Method::GET, SERVICE_REGISTRATION_GET_PATH)?
             .query(&[
                 ("service_kind", key.service_kind().as_str()),
-                ("public_base", key.public_base().as_str()),
+                ("public_base_url", key.public_base_url().as_str()),
             ]);
         let outcome: ServiceRegistrationOutcome = self.send_json(builder).await?;
         outcome.validate_for(key)?;

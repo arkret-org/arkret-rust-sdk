@@ -706,7 +706,7 @@ pub struct DirectConversationBoundPayload {
     pub founding_unit_digest: Hash,
     pub authorization_basis: DirectConversationAuthorizationBasis,
     /// `generation 1` activation Event: the first exact-pair active MLS generation.
-    pub initial_exact_pair_generation_ref: EventId,
+    pub initial_exact_pair_group_state_ref: EventId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
 }
@@ -772,7 +772,7 @@ impl DirectConversationBoundPayload {
                 "kind": self.authorization_basis.kind,
                 "event_refs": event_refs,
             },
-            "initial_exact_pair_generation_ref": self.initial_exact_pair_generation_ref.as_str(),
+            "initial_exact_pair_group_state_ref": self.initial_exact_pair_group_state_ref.as_str(),
         });
         let canonical = arkret_canonical::canonical_json_bytes(&binding_object)?;
         let mut preimage = b"ak.direct-conversation.binding-digest.v1\n".to_vec();
@@ -1161,11 +1161,11 @@ mod tests {
                     "ak:event:ARbUzETAsZ3suuQ0GSmBWTsNjmUnTEEl_ZnDOUWRPm-N"
                 ]
             },
-            "initial_exact_pair_generation_ref": "ak:event:AV1bzsPGpTD74Cq12d9EOrCkieTddiSndS0kDtK1W2hM",
+            "initial_exact_pair_group_state_ref": "ak:event:AV1bzsPGpTD74Cq12d9EOrCkieTddiSndS0kDtK1W2hM",
             "created_at": "2026-08-07T12:34:56.000Z"
         });
         let mut parsed: DirectConversationBoundPayload = serde_json::from_value(payload).unwrap();
-        let expected = "sha256:bbac7fb0e474a60aac7e5e9f486ef21356641d2d5c50f3a71cb88160398a490e";
+        let expected = "sha256:f0a12a2e712ad2de56f6a6f3ef7dc5dbe1b0e078f6ce5439b7c206d30a23c67c";
         assert_eq!(parsed.binding_digest().unwrap().as_str(), expected);
 
         parsed.unordered_participant_ids.reverse();

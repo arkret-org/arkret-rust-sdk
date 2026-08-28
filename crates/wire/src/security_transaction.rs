@@ -13,8 +13,8 @@ use serde_json::Value;
 use crate::error::{Result, WireError};
 use crate::recovery_authority::{CanonicalPublicMaterial, RecoveryCompletionAttestation};
 use crate::{
-    BackupId, BackupSeriesId, DeviceId, Did, DidCoreId, DidUrl, EventId,
-    EventsSubmitBatchRequestBody, Hash, ReceiptId, RecoverySessionId, TransactionId,
+    BackupId, BackupSeriesId, DeviceId, DidCoreId, DidUrl, EventId, EventsSubmitBatchRequestBody,
+    Hash, ReceiptId, RecoverySessionId, TransactionId,
 };
 
 pub const MAX_SECURITY_TRANSACTION_TTL: Duration = Duration::hours(24);
@@ -78,11 +78,19 @@ pub enum SecurityTransactionStep {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum SecurityTransactionAcceptor {
+    Principal { principal_id: DidCoreId },
+    Device { device_id: DeviceId },
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AcceptedStep {
     pub prepared_material_digest: Hash,
-    pub acceptor_id: String,
+    pub acceptor: SecurityTransactionAcceptor,
     pub output_ref: String,
     pub output_digest: Hash,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
@@ -855,13 +863,6 @@ impl SecurityTransaction {
         }
         for accepted in &self.accepted_steps {
             validate_step_output_ref("accepted_steps[].output_ref", &accepted.output_ref)?;
-            if Did::new(accepted.acceptor_id.clone()).is_err()
-                && DeviceId::new(accepted.acceptor_id.clone()).is_err()
-            {
-                return Err(WireError::Protocol(
-                    "accepted_steps[].acceptor_id must be a DID or DeviceId".to_owned(),
-                ));
-            }
         }
 
         if let Some(outcome) = self.terminal_result.as_ref() {
@@ -1191,6 +1192,37 @@ impl SecurityTransaction {
 #[cfg(test)]
 mod untagged_contract_tests {
     use super::*;
+
+    #[test]
+    fn acceptor_is_a_closed_stable_identity_union() {
+        let principal = serde_json::from_value::<SecurityTransactionAcceptor>(serde_json::json!({
+            "kind": "principal",
+            "principal_id": "ak:did_core:web:principal.example"
+        }))
+        .unwrap();
+        assert!(matches!(
+            principal,
+            SecurityTransactionAcceptor::Principal { .. }
+        ));
+
+        let device = serde_json::from_value::<SecurityTransactionAcceptor>(serde_json::json!({
+            "kind": "device",
+            "device_id": "ak:device:0196419b-0000-7000-8000-000000000001"
+        }))
+        .unwrap();
+        assert!(matches!(device, SecurityTransactionAcceptor::Device { .. }));
+
+        assert!(
+            serde_json::from_value::<SecurityTransactionAcceptor>(serde_json::json!(
+                "did:web:principal.example"
+            ))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<SecurityTransactionAcceptor>(serde_json::json!("opaque"))
+                .is_err()
+        );
+    }
 
     #[test]
     fn recovery_step_order_is_the_closed_pcr_policy_pair() {

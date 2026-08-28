@@ -1455,7 +1455,7 @@ fn recovery_witness_fixture() -> RecoveryWitnessFixture {
     let target_value = json!({"policy_revision": 7});
     let grant_value = json!({
         "grant_id": grant_id,
-        "subject_id": actor,
+        "subject": actor,
         "actions": ["ak.conflict.recovery"],
         "resources": [{"kind": "realm", "realm_id": realm()}]
     });

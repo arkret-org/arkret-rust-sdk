@@ -62,7 +62,7 @@ pub enum ConcurrencyClass {
 
 /// Digest-pinned reference to registry content.
 ///
-/// `registry_id` plus `digest` identify the content; `retrieval_uri` is a hint
+/// `registry_id` plus `digest` identify the content; `retrieval_url` is a hint
 /// only, so a moved or hostile mirror cannot change what was referenced.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -71,7 +71,7 @@ pub struct RegistryContentRef {
     pub registry_id: String,
     pub digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub retrieval_uri: Option<String>,
+    pub retrieval_url: Option<String>,
 }
 
 /// Digest-pinned reducer contract plus its declared lattice and concurrency
@@ -307,10 +307,10 @@ fn validate_namespace(namespace: &str) -> Result<()> {
 
 fn validate_content_ref(name: &str, reference: &RegistryContentRef) -> Result<()> {
     validate_registry_symbol(name, &reference.registry_id)?;
-    if let Some(url) = &reference.retrieval_uri {
+    if let Some(url) = &reference.retrieval_url {
         url::Url::parse(url).map_err(|error| {
             WireError::Protocol(format!(
-                "extension manifest {name} retrieval_uri is invalid: {error}"
+                "extension manifest {name} retrieval_url is invalid: {error}"
             ))
         })?;
     }
@@ -721,7 +721,7 @@ pub fn load_extension_manifests(
             let content_reference = RegistryContentRef {
                 registry_id: reference.reducer_contract_id.clone(),
                 digest: reference.digest.clone(),
-                retrieval_uri: None,
+                retrieval_url: None,
             };
             require_content(
                 catalog,
@@ -892,7 +892,7 @@ mod tests {
         RegistryContentRef {
             registry_id: registry_id.to_owned(),
             digest,
-            retrieval_uri: None,
+            retrieval_url: None,
         }
     }
 
@@ -1246,7 +1246,7 @@ mod tests {
         assert!(duplicate.to_string().contains("duplicate"));
 
         manifest.required_actions.pop();
-        manifest.payload_schema_refs[0].retrieval_uri = Some("not a valid URI".to_owned());
+        manifest.payload_schema_refs[0].retrieval_url = Some("not a valid URI".to_owned());
         manifest.manifest_digest = manifest
             .expected_manifest_digest()
             .expect("manifest digest");
@@ -1254,6 +1254,6 @@ mod tests {
         let url = manifest
             .validate_structural()
             .expect_err("non-network retrieval hints must fail closed");
-        assert!(url.to_string().contains("retrieval_uri is invalid"));
+        assert!(url.to_string().contains("retrieval_url is invalid"));
     }
 }

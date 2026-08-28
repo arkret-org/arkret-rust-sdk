@@ -174,7 +174,7 @@ pub struct CallMediaTokenVerification {
     /// The anchored media-service DID that issued the participant binding.
     pub issuer_did: Did,
     /// The verified participant identity (SFU-local handle).
-    pub participant_identity: String,
+    pub participant_id: String,
 }
 
 /// Extract the bare DID from a `kid` of the form `did:...#fragment`.
@@ -195,7 +195,7 @@ struct ParticipantBindingSigningFields<'a> {
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     expires_at: DateTime<Utc>,
     focus_id: &'a str,
-    participant_identity: &'a str,
+    participant_id: &'a str,
     realm_id: &'a RealmId,
 }
 
@@ -204,7 +204,7 @@ struct ParticipantBindingSigningFields<'a> {
 /// ```text
 /// "ak.media.participant_binding.v1" || 0x00 ||
 /// canonical_json({ actor_id, call_id, device_id, expires_at,
-///                  focus_id, participant_identity, realm_id })
+///                  focus_id, participant_id, realm_id })
 /// ```
 ///
 /// The first segment is the fixed ASCII label, then a single `0x00`, then the
@@ -222,7 +222,7 @@ pub fn participant_binding_signing_input(binding: &CallMediaParticipantBinding) 
         device_id: &binding.device_id,
         expires_at: binding.expires_at,
         focus_id: &binding.focus_id,
-        participant_identity: &binding.participant_identity,
+        participant_id: &binding.participant_id,
         realm_id: &binding.realm_id,
     };
     let mut input = Vec::new();
@@ -275,12 +275,12 @@ fn verify_issuer_signature(
 /// realm media-service anchors (`media-service-binding.md` §3 client rules).
 ///
 /// Checks performed (all fail closed):
-/// - required fields present (`connect_uri`, `backend_token`, `participant_identity`,
+/// - required fields present (`connect_url`, `backend_token`, `participant_id`,
 ///   `participant_binding.sig`, `issuer_kid`);
 /// - `participant_binding.issuer_kid` resolves to an anchored `ak.realm.media_service.service_id` →
 ///   else `token_issuer_unauthorised`;
 /// - the binding's `(realm_id, call_id, focus_id, actor_id, device_id)` six-tuple matches the
-///   request and `participant_identity` matches the top-level one;
+///   request and `participant_id` matches the top-level one;
 /// - the binding's `expires_at` is after its `issued_at`;
 /// - TTL ≤ 600s and not already expired (via [`validate_token_ttl`]);
 /// - `participant_binding.sig` verifies as Ed25519(ed25519) signatures over the normative
@@ -301,9 +301,9 @@ pub fn verify_call_media_token_outcome(
 ) -> Result<CallMediaTokenVerification> {
     let binding = &outcome.participant_binding;
 
-    if outcome.connect_uri.trim().is_empty()
+    if outcome.connect_url.trim().is_empty()
         || matches!(&outcome.backend_token, MediaBackendToken::Opaque(token) if token.trim().is_empty())
-        || outcome.participant_identity.trim().is_empty()
+        || outcome.participant_id.trim().is_empty()
         || binding.sig.trim().is_empty()
         || binding.issuer_kid.trim().is_empty()
     {
@@ -339,9 +339,9 @@ pub fn verify_call_media_token_outcome(
             "participant_binding_invalid: binding tuple does not match the request".to_owned(),
         ));
     }
-    if binding.participant_identity != outcome.participant_identity {
+    if binding.participant_id != outcome.participant_id {
         return Err(Error::Protocol(
-            "participant_binding_invalid: participant_identity mismatch between binding and outcome"
+            "participant_binding_invalid: participant_id mismatch between binding and outcome"
                 .to_owned(),
         ));
     }
@@ -373,7 +373,7 @@ pub fn verify_call_media_token_outcome(
 
     Ok(CallMediaTokenVerification {
         issuer_did: Did::new(issuer_did.to_owned())?,
-        participant_identity: outcome.participant_identity.clone(),
+        participant_id: outcome.participant_id.clone(),
     })
 }
 
@@ -425,9 +425,9 @@ mod tests {
         CallMediaTokenExchangeOutcome {
             focus_id: request.focus_id.clone(),
             backend_kind: MediaBackendKind::Livekit,
-            connect_uri: "wss://livekit-fra.example.com".to_owned(),
+            connect_url: "wss://livekit-fra.example.com".to_owned(),
             backend_token: MediaBackendToken::Opaque("opaque-backend-token".to_owned()),
-            participant_identity: identity.clone(),
+            participant_id: identity.clone(),
             participant_binding: CallMediaParticipantBinding {
                 scheme: ParticipantBinding::SCHEMA.to_owned(),
                 sig: String::new(),
@@ -437,7 +437,7 @@ mod tests {
                 focus_id: request.focus_id.clone(),
                 actor_id: request.actor_id.clone(),
                 device_id: request.device_id.clone(),
-                participant_identity: identity,
+                participant_id: identity,
                 issued_at: expires_at - chrono::Duration::minutes(5),
                 expires_at,
             },
@@ -481,15 +481,12 @@ mod tests {
         let outcome_json = serde_json::to_string(&outcome).unwrap();
         let outcome_back: CallMediaTokenExchangeOutcome =
             serde_json::from_str(&outcome_json).unwrap();
-        assert_eq!(
-            outcome_back.participant_identity,
-            outcome.participant_identity
-        );
+        assert_eq!(outcome_back.participant_id, outcome.participant_id);
 
         let anchors = anchors_with_issuer_key(&key);
         let verified = verify_call_media_token_outcome(&request, &outcome, &anchors, now).unwrap();
         assert_eq!(verified.issuer_did, did("media"));
-        assert_eq!(verified.participant_identity, outcome.participant_identity);
+        assert_eq!(verified.participant_id, outcome.participant_id);
 
         // Anchor: the signing input is label-prefixed (`media-service-binding.md`
         // §3). soland's cross-implementation lock asserts byte equality against
@@ -515,7 +512,7 @@ mod tests {
             "payload": {
                 "call_id": request.call_id,
                 "focus_id": request.focus_id,
-                "participant_identity": "ak:rtc_participant:0198c2f4-0000-7000-8000-000000000000",
+                "participant_id": "ak:rtc_participant:0198c2f4-0000-7000-8000-000000000000",
                 "issued_at": "2026-08-16T00:00:00.000Z",
                 "expires_at": "2026-08-16T00:05:00.000Z",
                 "media": {"audio": true, "video": true, "screen": false}
@@ -574,12 +571,11 @@ mod tests {
 
         // Tamper each of the seven authoritative fields AFTER signing → the
         // recomputed signing_input no longer matches the signature.
-        // participant_identity: also update the top-level field so the
+        // participant_id: also update the top-level field so the
         // structural cross-check passes and the failure is signature-only.
         let mut t_identity = signed_outcome(&request, &key, expires_at);
-        t_identity.participant_binding.participant_identity =
-            "ak:rtc_participant:tampered".to_owned();
-        t_identity.participant_identity = "ak:rtc_participant:tampered".to_owned();
+        t_identity.participant_binding.participant_id = "ak:rtc_participant:tampered".to_owned();
+        t_identity.participant_id = "ak:rtc_participant:tampered".to_owned();
         assert!(
             verify_call_media_token_outcome(&request, &t_identity, &anchors, now)
                 .unwrap_err()
@@ -627,9 +623,9 @@ mod tests {
         let err = verify_call_media_token_outcome(&request, &tampered, &anchors, now).unwrap_err();
         assert!(err.to_string().contains("participant_binding_invalid"));
 
-        // participant_identity mismatch between binding and outcome.
+        // participant_id mismatch between binding and outcome.
         let mut id_mismatch = signed_outcome(&request, &key, now + chrono::Duration::minutes(5));
-        id_mismatch.participant_identity = "ak:rtc_participant:elsewhere".to_owned();
+        id_mismatch.participant_id = "ak:rtc_participant:elsewhere".to_owned();
         assert!(verify_call_media_token_outcome(&request, &id_mismatch, &anchors, now).is_err());
     }
 }

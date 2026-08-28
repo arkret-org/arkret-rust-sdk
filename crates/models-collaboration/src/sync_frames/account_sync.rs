@@ -587,6 +587,15 @@ pub struct AccountSubscribeUnreadCounts {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct MemberRoster {
+    pub entries: Vec<MemberRosterEntry>,
+    pub limited: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RealmSyncEntryEventStatesItem {
     pub event_id: EventId,
     pub event_state: String,
@@ -618,11 +627,7 @@ pub struct RealmSyncEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<AccountSubscribeRealmSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub member_roster_entries: Option<Vec<MemberRosterEntry>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub member_roster_entries_limited: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub member_roster_entries_next_cursor: Option<String>,
+    pub member_roster: Option<MemberRoster>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unread_notifications: Option<AccountSubscribeUnreadCounts>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1392,6 +1397,29 @@ mod tests {
         let decoded: MemberRosterEntry = serde_json::from_value(json).unwrap();
         assert_eq!(decoded, entry);
         entry.validate().unwrap();
+    }
+
+    #[test]
+    fn member_roster_uses_nested_collection_boundary() {
+        let raw = serde_json::json!({
+            "entries": [],
+            "limited": true,
+            "next_cursor": "ak:cursor:roster-page-2"
+        });
+        let roster: MemberRoster = serde_json::from_value(raw.clone()).unwrap();
+        assert!(roster.entries.is_empty());
+        assert!(roster.limited);
+        assert_eq!(
+            roster.next_cursor.as_deref(),
+            Some("ak:cursor:roster-page-2")
+        );
+        assert_eq!(serde_json::to_value(roster).unwrap(), raw);
+
+        let legacy_flat = serde_json::json!({
+            "member_roster_entries": [],
+            "member_roster_entries_limited": true
+        });
+        assert!(serde_json::from_value::<MemberRoster>(legacy_flat).is_err());
     }
 
     #[test]

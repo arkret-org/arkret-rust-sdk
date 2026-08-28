@@ -149,13 +149,13 @@ fn sample_wire_registration() -> AppletRegistrationPayload {
 #[test]
 fn exclusive_namespace_claims_conflict_only_within_the_same_domain() {
     let exclusive_pattern = AppletWireNamespaces {
-        actor_namespace_entries: vec![AppletNamespaceEntry::exclusive(
+        actors: vec![AppletNamespaceEntry::exclusive(
             "did:webvh:z6mkmanagedfixture:actors.example:managed:*",
         )],
         ..Default::default()
     };
     let exclusive_concrete = AppletWireNamespaces {
-        actor_namespace_entries: vec![AppletNamespaceEntry::exclusive(
+        actors: vec![AppletNamespaceEntry::exclusive(
             "did:webvh:z6mkmanagedfixture:actors.example:managed:u1",
         )],
         ..Default::default()
@@ -165,13 +165,13 @@ fn exclusive_namespace_claims_conflict_only_within_the_same_domain() {
     assert_eq!(conflicts[0].domain, AppletNamespaceDomain::Actors);
 
     let shared_pattern = AppletWireNamespaces {
-        actor_namespace_entries: vec![AppletNamespaceEntry::shared(
+        actors: vec![AppletNamespaceEntry::shared(
             "did:webvh:z6mkmanagedfixture:actors.example:managed:*",
         )],
         ..Default::default()
     };
     let shared_concrete = AppletWireNamespaces {
-        actor_namespace_entries: vec![AppletNamespaceEntry::shared(
+        actors: vec![AppletNamespaceEntry::shared(
             "did:webvh:z6mkmanagedfixture:actors.example:managed:u1",
         )],
         ..Default::default()
@@ -179,7 +179,7 @@ fn exclusive_namespace_claims_conflict_only_within_the_same_domain() {
     assert!(shared_pattern.conflicts_with(&shared_concrete).is_empty());
 
     let realm_only = AppletWireNamespaces {
-        realm_namespace_entries: vec![AppletNamespaceEntry::exclusive("slack:team:*")],
+        realms: vec![AppletNamespaceEntry::exclusive("slack:team:*")],
         ..Default::default()
     };
     assert!(exclusive_pattern.conflicts_with(&realm_only).is_empty());
@@ -196,24 +196,21 @@ fn package_with_required_fields() -> AppletPackage {
         actor("bot"),
         vec!["slack".to_owned()],
         AppletWireNamespaces {
-            actor_namespace_entries: vec![AppletNamespaceEntry::exclusive(
+            actors: vec![AppletNamespaceEntry::exclusive(
                 "did:webvh:z6mkmanagedfixture:actors.example:managed:*",
             )],
-            realm_namespace_entries: vec![],
-            handle_namespace_entries: vec![],
+            realms: vec![],
+            handles: vec![],
         },
     );
     package.requested_scopes = vec!["ak.message.create".to_owned()];
-    package
-        .endpoint_policy
-        .endpoint_entries
-        .push(AppletEndpointEntry {
-            method: AppletEndpointMethod::Post,
-            path: "/_arkret/edge/applet/transactions".to_owned(),
-            auth: Some(AppletEndpointAuth::WebhookSignature),
-            description: None,
-            extra: Default::default(),
-        });
+    package.endpoint_policy.endpoints.push(AppletEndpointEntry {
+        method: AppletEndpointMethod::Post,
+        path: "/_arkret/edge/applet/transactions".to_owned(),
+        auth: Some(AppletEndpointAuth::WebhookSignature),
+        description: None,
+        extra: Default::default(),
+    });
     package.webhook_auth = WebhookAuth::http_message_signature(
         DidUrl::new(format!("{}#key-1", did("slackbridge"))).unwrap(),
         vec![HttpMessageSignatureAlgorithm::Ed25519],
@@ -245,10 +242,7 @@ fn wire_registration_round_trips_with_the_exact_package_proof() {
     assert!(value.get("kind").is_none());
     let round_trip: AppletRegistrationPayload = serde_json::from_value(value).unwrap();
     assert_eq!(round_trip.applet_id, registration.applet_id);
-    assert_eq!(
-        round_trip.namespaces.actor_namespace_entries,
-        registration.namespaces.actor_namespace_entries
-    );
+    assert_eq!(round_trip.namespaces.actors, registration.namespaces.actors);
     assert_eq!(round_trip.proof, registration.proof);
 }
 
@@ -310,7 +304,7 @@ fn applet_package_derives_registration_and_rejects_stale_epoch() {
         .unwrap();
 
     let mut stale = package;
-    stale.base_uri = "https://other.example/cx".to_owned();
+    stale.base_url = "https://other.example/cx".to_owned();
     assert!(stale.validate().is_err());
     assert!(stale.validate_with_epoch_evidence(&evidence).is_err());
 }

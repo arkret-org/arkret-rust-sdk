@@ -584,7 +584,7 @@ mod tests {
         let agent_did = Did::new("did:webvh:z6mkfixture:runtime-builder.agent.example").unwrap();
         let agent_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
         let bootstrap = AgentPairingBootstrap {
-            arkret_base_uri: "https://arkret.example".to_owned(),
+            arkret_base_url: "https://arkret.example".to_owned(),
             service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             agent_id,
             pairing_request_id: arkret_wire::OpaqueLocalId::new(
@@ -634,7 +634,7 @@ mod tests {
         let agent_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
         let pairing_expires_at = Utc::now() + chrono::Duration::minutes(10);
         let bootstrap = AgentPairingBootstrap {
-            arkret_base_uri: "https://arkret.example".to_owned(),
+            arkret_base_url: "https://arkret.example".to_owned(),
             service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             agent_id,
             pairing_request_id: arkret_wire::OpaqueLocalId::new(
@@ -710,7 +710,7 @@ mod tests {
         tampered_disclosure.requested_scope.actions.clear();
         assert!(tampered_disclosure.validate().is_err());
         let bootstrap = AgentPairingBootstrap {
-            arkret_base_uri: "https://arkret.example".to_owned(),
+            arkret_base_url: "https://arkret.example".to_owned(),
             service_id,
             agent_id: agent_actor_id.clone(),
             pairing_request_id: arkret_wire::OpaqueLocalId::new(pairing_request_id).unwrap(),

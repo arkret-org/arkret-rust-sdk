@@ -72,7 +72,7 @@ mod tests {
 
     const REQUEST_EVENT_REF: &str = "ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD";
     const CORE_DIGEST: &str =
-        "sha256:954956d6a6cff74c828d11f7f2d03d8f1dafb28de93f823444caaa392a2e2b98";
+        "sha256:11ff04e6e4af7378c00596cd23776904400e3da158ea34fc0ccdc5e3795c1285";
 
     fn hash(fill: char) -> Hash {
         Hash::new(format!("sha256:{}", fill.to_string().repeat(64))).unwrap()
@@ -128,12 +128,12 @@ mod tests {
             concat!(
                 "{\"core\":{\"accepted_at\":\"2026-08-08T00:00:00.000Z\",",
                 "\"holder\":{\"kind\":\"human\",\"principal_id\":\"ak:did_core:webvh:z6mkfixturealice\"},",
-                "\"issuer\":\"ak:did_core:web:ps.example\",",
+                "\"issuer_id\":\"ak:did_core:web:ps.example\",",
                 "\"peer\":{\"kind\":\"human\",\"principal_id\":\"ak:did_core:webvh:z6mkfixturebob\"},",
                 "\"request_event_ref\":\"ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD\",",
                 "\"slot_version\":1,",
                 "\"source_checkpoint\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},",
-                "\"receipt_digest\":\"sha256:954956d6a6cff74c828d11f7f2d03d8f1dafb28de93f823444caaa392a2e2b98\"}"
+                "\"receipt_digest\":\"sha256:11ff04e6e4af7378c00596cd23776904400e3da158ea34fc0ccdc5e3795c1285\"}"
             )
         );
         verify_contact_request_acceptance_receipt(

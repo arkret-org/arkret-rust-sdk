@@ -413,7 +413,7 @@ pub struct ServiceResolutionRecordCore {
     pub record_sequence: u64,
     pub previous_record_digest: Option<Hash>,
     pub current_record_url: String,
-    pub base_uri: String,
+    pub base_url: String,
     pub describe_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -452,7 +452,7 @@ pub const MAX_SERVICE_CURRENT_RECORD_URL_BYTES: usize = 2_048;
 /// signed service resolution record (`zh/sync/service-surface.md` §2.6).
 ///
 /// The shape is normative: exactly
-/// `{service_id, service_kind, service_resolution, http_json_base_uri}`, in
+/// `{service_id, service_kind, service_resolution, http_json_base_url}`, in
 /// this field order. Producers and verifiers MUST derive the digest through
 /// [`route_binding_describe_digest`] so a projection change cannot silently
 /// diverge between the signer and any verifier.
@@ -461,25 +461,25 @@ struct RouteBindingProjection<'a> {
     service_id: &'a DidCoreId,
     service_kind: &'a str,
     service_resolution: &'a ResolutionCommitment,
-    http_json_base_uri: &'a str,
+    http_json_base_url: &'a str,
 }
 
 /// Canonical `describe_digest` over the route binding of one service.
 ///
-/// `http_json_base_uri` MUST already be the canonical HTTPS base URL the
+/// `http_json_base_url` MUST already be the canonical HTTPS base URL the
 /// record advertises; this helper commits the value it is handed and performs
 /// no URL canonicalization of its own.
 pub fn route_binding_describe_digest(
     service_id: &DidCoreId,
     service_kind: &str,
     service_resolution: &ResolutionCommitment,
-    http_json_base_uri: &str,
+    http_json_base_url: &str,
 ) -> arkret_wire::Result<Hash> {
     let projection = RouteBindingProjection {
         service_id,
         service_kind,
         service_resolution,
-        http_json_base_uri,
+        http_json_base_url,
     };
     Ok(Hash::new(arkret_canonical::canonical_sha256(&projection)?)?)
 }
@@ -572,7 +572,7 @@ impl ServiceResolutionRecord {
             record_sequence: u64,
             previous_record_digest: &'a Option<Hash>,
             current_record_url: &'a str,
-            base_uri: &'a str,
+            base_url: &'a str,
             describe_digest: &'a Hash,
             #[serde(
                 serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp"
@@ -605,7 +605,7 @@ impl ServiceResolutionRecord {
             record_sequence: self.record.record_sequence,
             previous_record_digest: &self.record.previous_record_digest,
             current_record_url: &self.record.current_record_url,
-            base_uri: &self.record.base_uri,
+            base_url: &self.record.base_url,
             describe_digest: &self.record.describe_digest,
             issued_at: self.record.issued_at,
             refresh_after: self.record.refresh_after,
@@ -691,7 +691,7 @@ pub struct ServiceRouteHandoverNoticeCore {
     pub from_record_sequence: u64,
     pub from_record_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub candidate_base_uri: Option<String>,
+    pub candidate_base_url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub candidate_record_url: Option<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -726,7 +726,7 @@ impl ServiceRouteHandoverNoticeCore {
                         "scheduled handover notice omits its time window".to_owned(),
                     ));
                 };
-                self.candidate_base_uri.is_some()
+                self.candidate_base_url.is_some()
                     && self.candidate_record_url.is_some()
                     && self.issued_at <= not_before
                     && not_before <= cutover_at
@@ -735,7 +735,7 @@ impl ServiceRouteHandoverNoticeCore {
             }
             ServiceRouteHandoverState::Cancelled => {
                 self.notice_revision > 0
-                    && self.candidate_base_uri.is_none()
+                    && self.candidate_base_url.is_none()
                     && self.candidate_record_url.is_none()
                     && self.not_before.is_none()
                     && self.cutover_at.is_none()
@@ -1058,7 +1058,7 @@ pub struct ServiceRouteCacheEntry {
     pub version_id: String,
     pub record_sequence: u64,
     pub record_digest: Hash,
-    pub base_uri: String,
+    pub base_url: String,
     pub current_record_url: String,
     pub describe_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1141,7 +1141,7 @@ mod resolution_contract_tests {
                 previous_record_digest,
                 current_record_url: "https://service.example/_arkret/open/services/id/resolution"
                     .to_owned(),
-                base_uri: "https://service.example/".to_owned(),
+                base_url: "https://service.example/".to_owned(),
                 describe_digest: hash('d'),
                 issued_at,
                 refresh_after: issued_at + Duration::minutes(5),
@@ -1192,7 +1192,7 @@ mod resolution_contract_tests {
             version_id: record.record.version_id,
             record_sequence: record.record.record_sequence,
             record_digest: hash('e'),
-            base_uri: record.record.base_uri,
+            base_url: record.record.base_url,
             current_record_url: record.record.current_record_url,
             describe_digest: record.record.describe_digest,
             verified_at: now,

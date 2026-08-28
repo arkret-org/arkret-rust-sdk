@@ -269,7 +269,7 @@ pub fn validate_invite_create_wire_keys(value: &Value) -> Result<()> {
     for key in object.keys() {
         if matches!(
             key.as_str(),
-            "invitee" | "invite_delivery_target" | "introduction_evidence_digest" | "expires_at"
+            "invitee_id" | "invite_delivery_target" | "introduction_evidence_digest" | "expires_at"
         ) || valid_invite_create_extension_key(key)
         {
             continue;

@@ -18,8 +18,9 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
-# PostgreSQL `text` persistence for `DidCoreId`. Kept optional so protocol-only
-# and wasm consumers do not pull Diesel or libpq into their dependency graph.
+# PostgreSQL `text` persistence for canonical text-backed identifiers. Kept
+# optional so protocol-only and wasm consumers do not pull Diesel or libpq into
+# their dependency graph.
 diesel = ["dep:diesel"]
 # OpenAPI `ToSchema` derives on the string-newtype identifiers. Off by default
 # so the data-layer graph stays framework-free; service crates opt in.
@@ -37,6 +38,7 @@ diesel = {workspace = true,features = ["postgres"],optional = true}
 salvo-oapi = {workspace = true,optional = true}
 serde = {workspace = true}
 thiserror = {workspace = true}
+url = {workspace = true}
 uuid = {workspace = true}
 web-time = {workspace = true}
 [target.'cfg(target_arch = "wasm32")'.dependencies]

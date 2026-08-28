@@ -662,7 +662,7 @@ mod tests {
         );
         let json = serde_json::json!({
             "service_kind": "media_service",
-            "public_base": "https://media.example/"
+            "public_base_url": "https://media.example/"
         });
         assert!(serde_json::from_value::<ServiceRegistrationKey>(json).is_err());
     }
@@ -698,7 +698,7 @@ mod tests {
         outcome.validate_ensure_response(&request).unwrap();
 
         let mut wrong = request;
-        wrong.public_base = CanonicalServiceUrl::new("https://other.example/").unwrap();
+        wrong.public_base_url = CanonicalServiceUrl::new("https://other.example/").unwrap();
         assert!(wrong.validate().is_err());
     }
 

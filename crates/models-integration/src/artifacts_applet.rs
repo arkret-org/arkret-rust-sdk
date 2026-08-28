@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 
 use arkret_wire::{
     AppletId, CircleId, DidCoreId, DidUrl, EventId, EventProofAudience, Hash, RealmId, ReasonCode,
-    SchemaId, WireResourceSelector, XExtensionMap,
+    SchemaId, WebOrigin, WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -282,10 +282,37 @@ pub struct WidgetTokenScope {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Widget {
     pub schema: String,
-    pub widget_origin: String,
+    #[serde(deserialize_with = "deserialize_https_web_origin")]
+    pub widget_origin: WebOrigin,
     pub csp: String,
     pub token_scope: WidgetTokenScope,
     pub consent_required: bool,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
+}
+
+impl Widget {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        if self.widget_origin.as_str().starts_with("https://") {
+            Ok(())
+        } else {
+            Err(arkret_wire::WireError::Protocol(
+                "widget_origin must be a canonical HTTPS Web Origin".to_owned(),
+            ))
+        }
+    }
+}
+
+fn deserialize_https_web_origin<'de, D>(deserializer: D) -> Result<WebOrigin, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let origin = WebOrigin::deserialize(deserializer)?;
+    if origin.as_str().starts_with("https://") {
+        Ok(origin)
+    } else {
+        Err(serde::de::Error::custom(
+            "widget_origin must be a canonical HTTPS Web Origin",
+        ))
+    }
 }

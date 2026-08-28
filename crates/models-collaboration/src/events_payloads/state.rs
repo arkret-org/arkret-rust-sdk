@@ -154,7 +154,7 @@ pub struct MediaServiceFocus {
     )]
     pub region: Option<NonEmptyString>,
     pub token_endpoint: String,
-    pub connect_uri: String,
+    pub connect_url: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capabilities: Vec<NonEmptyString>,
     #[serde(
@@ -179,8 +179,8 @@ impl MediaServiceFocus {
         if !is_url_with_scheme(&self.token_endpoint, "https://") {
             return schema_violation("media service token_endpoint must be an https URL");
         }
-        if !is_url_with_allowed_schemes(&self.connect_uri, &["https://", "wss://"]) {
-            return schema_violation("media service connect_uri must be an https or wss URL");
+        if !is_url_with_allowed_schemes(&self.connect_url, &["https://", "wss://"]) {
+            return schema_violation("media service connect_url must be an https or wss URL");
         }
         if self
             .health_endpoint
@@ -1534,7 +1534,7 @@ mod tests {
                     "focus_kind": "livekit",
                     "region": "eu-central",
                     "token_endpoint": "https://media.example/_arkret/self/rtc/token",
-                    "connect_uri": "wss://media.example/livekit",
+                    "connect_url": "wss://media.example/livekit",
                     "capabilities": ["simulcast"],
                     "health_endpoint": "https://media.example/health",
                     "cascade_group": "eu"

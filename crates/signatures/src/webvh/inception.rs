@@ -1671,7 +1671,7 @@ fn prepare_service_registration_inception_internal<R: RngCore + ?Sized>(
     prepare_service_inception_parts(
         rng,
         input.provider_endpoint,
-        input.registration_key.public_base(),
+        input.registration_key.public_base_url(),
         *input.registration_key.service_kind(),
         &local_id,
         input.also_known_as,
@@ -1686,12 +1686,12 @@ fn prepare_service_inception_internal<R: RngCore + ?Sized>(
     input: &ServiceInceptionInput<'_>,
     supplied_did_key_seed: Option<&[u8; SECRET_KEY_LENGTH]>,
 ) -> Result<PreparedInception, WebvhInceptionError> {
-    let public_base = CanonicalServiceUrl::canonicalize(input.principal_endpoint.as_str())
+    let public_base_url = CanonicalServiceUrl::canonicalize(input.principal_endpoint.as_str())
         .map_err(|error| WebvhInceptionError::InvalidRegistration(error.to_string()))?;
     prepare_service_inception_parts(
         rng,
         input.principal_endpoint,
-        &public_base,
+        &public_base_url,
         ServiceKind::PrincipalServer,
         input.local_id,
         input.also_known_as,
@@ -1705,7 +1705,7 @@ fn prepare_service_inception_internal<R: RngCore + ?Sized>(
 fn prepare_service_inception_parts<R: RngCore + ?Sized>(
     rng: &mut R,
     provider_endpoint: &Url,
-    public_base: &CanonicalServiceUrl,
+    public_base_url: &CanonicalServiceUrl,
     service_kind: ServiceKind,
     local_id: &str,
     also_known_as: &[String],
@@ -1736,7 +1736,7 @@ fn prepare_service_inception_parts<R: RngCore + ?Sized>(
         normalize_key_fragment("update-key-1").ok_or(WebvhInceptionError::InvalidKeyFragment)?;
     let placeholder_did = webvh_placeholder_did(&method_authority, &local_id);
     let placeholder_key_id = format!("{placeholder_did}#{did_key_fragment}");
-    let service_endpoint = public_base.as_str();
+    let service_endpoint = public_base_url.as_str();
     let version_time = version_time.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
     let document_skeleton = embedded_webvh_document_value_without_enrollment(
         &placeholder_did,

@@ -1,6 +1,6 @@
 use arkret_wire::{
     DeviceId, Did, DidCoreId, DidUrl, EventId, Hash, PayloadProof, RealmId, ReasonCode, RequestId,
-    Result, TrustDomainId, WireError, canonical, project_did_to_core_id,
+    Result, TrustDomainId, WebOrigin, WireError, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -981,7 +981,7 @@ pub struct IdentityAbandonmentChallengeOutcome {
     pub consequence_disclosure: [IdentityAbandonmentConsequence; 4],
     pub dpop_jkt: String,
     pub audience_id: DidCoreId,
-    pub origin_uri: String,
+    pub origin: WebOrigin,
     pub trust_domain: TrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -998,7 +998,6 @@ impl IdentityAbandonmentChallengeOutcome {
             || self.lease_fence == 0
             || self.consequence_disclosure != IDENTITY_ABANDONMENT_CONSEQUENCE_DISCLOSURE
             || self.dpop_jkt.is_empty()
-            || self.origin_uri.is_empty()
             || self.expires_at <= self.issued_at
             || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
         {
@@ -1220,7 +1219,7 @@ pub struct DidBindingChallengeOutcome {
     pub witness_evidence: Option<String>,
     pub dpop_jkt: String,
     pub audience_id: DidCoreId,
-    pub origin_uri: String,
+    pub origin: WebOrigin,
     pub trust_domain: TrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -1234,7 +1233,6 @@ impl DidBindingChallengeOutcome {
             || self.challenge.len() < 22
             || self.did_version_id.is_empty()
             || self.dpop_jkt.is_empty()
-            || self.origin_uri.is_empty()
             || self.expires_at <= self.issued_at
             || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
             || project_did_to_core_id(&self.did)?.as_str() != self.principal_id.as_str()
@@ -1271,7 +1269,7 @@ pub struct AccountRegistrationControlProof {
     pub control_key_digest: Hash,
     pub dpop_jkt: String,
     pub audience_id: DidCoreId,
-    pub origin_uri: String,
+    pub origin: WebOrigin,
     pub trust_domain: TrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -1293,7 +1291,6 @@ impl AccountRegistrationControlProof {
         if self.challenge.len() < 22
             || self.did_version_id.is_empty()
             || self.dpop_jkt.is_empty()
-            || self.origin_uri.is_empty()
             || self.signature.is_empty()
             || self.expires_at <= self.issued_at
             || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
@@ -1431,7 +1428,7 @@ pub struct IdentityBindingChallengeOutcome {
     pub lease_fence: u64,
     pub dpop_jkt: String,
     pub audience_id: DidCoreId,
-    pub origin_uri: String,
+    pub origin: WebOrigin,
     pub trust_domain: TrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -1470,7 +1467,7 @@ pub struct IdentityCreationControlProof {
     pub lease_fence: u64,
     pub dpop_jkt: String,
     pub audience_id: DidCoreId,
-    pub origin_uri: String,
+    pub origin: WebOrigin,
     pub trust_domain: TrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -1513,7 +1510,7 @@ impl IdentityCreationControlProof {
             lease_fence: self.lease_fence,
             dpop_jkt: self.dpop_jkt.clone(),
             audience_id: self.audience_id.clone(),
-            origin_uri: self.origin_uri.clone(),
+            origin: self.origin.clone(),
             trust_domain: self.trust_domain.clone(),
             issued_at: self.issued_at,
             expires_at: self.expires_at,
@@ -1544,7 +1541,7 @@ pub struct UnsignedIdentityCreationControlProofBody {
     pub lease_fence: u64,
     pub dpop_jkt: String,
     pub audience_id: DidCoreId,
-    pub origin_uri: String,
+    pub origin: WebOrigin,
     pub trust_domain: TrustDomainId,
     pub issued_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
@@ -1593,7 +1590,7 @@ impl UnsignedIdentityCreationControlProof {
             lease_fence: body.lease_fence,
             dpop_jkt: body.dpop_jkt,
             audience_id: body.audience_id,
-            origin_uri: body.origin_uri,
+            origin: body.origin,
             trust_domain: body.trust_domain,
             issued_at: body.issued_at,
             expires_at: body.expires_at,
@@ -1647,7 +1644,7 @@ fn identity_creation_control_proof_signing_bytes(
         "lease_fence": body.lease_fence,
         "dpop_jkt": &body.dpop_jkt,
         "audience_id": &body.audience_id,
-        "origin_uri": &body.origin_uri,
+        "origin": &body.origin,
         "trust_domain": &body.trust_domain,
         "issued_at": canonical::format_timestamp_canonical(body.issued_at),
         "expires_at": canonical::format_timestamp_canonical(body.expires_at),

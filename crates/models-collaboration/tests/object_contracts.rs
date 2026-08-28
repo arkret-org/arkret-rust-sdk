@@ -201,7 +201,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
 
     realm.notary = NotaryValue::Threshold {
         threshold: 2,
-        notary_signer_descriptors: vec![
+        signers: vec![
             signer("did:webvh:z6mkfixturea:a.example"),
             signer("did:webvh:z6mkfixtureb:b.example"),
             signer("did:webvh:z6mkfixturec:c.example"),
@@ -490,10 +490,8 @@ fn morph_schema_refs_are_required_non_empty_and_unique() {
 
 #[test]
 fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
-    let created_by_did = actor("did:webvh:z6mkfixture:alice.example");
-    let updated_by_did = actor("did:webvh:z6mkfixture:bob.example");
-    let created_by = actor(created_by_did.as_str());
-    let updated_by = actor(updated_by_did.as_str());
+    let created_by = actor("did:webvh:z6mkfixture:alice.example");
+    let updated_by = actor("did:webvh:z6mkfixture:bob.example");
     let now = Utc::now();
 
     // Strand — id, schema, …, state, state_changed_at, stage, stage_changed_at, audit.
@@ -505,7 +503,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     );
     strand.state_changed_at = Some(now);
     strand.stage_changed_at = Some(now);
-    strand.updated_by = Some(updated_by);
+    strand.updated_by = Some(updated_by.clone());
     strand.updated_at = Some(now);
     assert_field_order(
         "Strand",
@@ -515,7 +513,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     let mut realm = Realm::new(
         RealmId::new("ak:realm:ATz4yMg8D3eSMJ7kiPNr0BF70hg3o_DBZklFZd5GZSuJ").unwrap(),
         "Order guard realm",
-        created_by_did,
+        created_by.clone(),
         TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
         single_signer_notary("did:webvh:z6mkfixture:notary.example"),
@@ -534,7 +532,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
         lattice: "cas_register".to_owned(),
         bottom: Some("reject".to_owned()),
     });
-    realm.updated_by = Some(updated_by_did);
+    realm.updated_by = Some(updated_by);
     realm.updated_at = Some(now);
     let realm_keys = top_level_keys(&serde_json::to_string(&realm).unwrap());
     assert_field_order("Realm", &realm_keys);

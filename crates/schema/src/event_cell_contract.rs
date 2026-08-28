@@ -2705,17 +2705,19 @@ mod tests {
 
         let baseline = accountability_subject(json!("employment"), "active").unwrap();
         let mut different_issuer = accountability_event(json!("employment"), "active");
-        different_issuer
-            .payload
-            .insert("issuer".to_owned(), json!("did:web:other-issuer.example"));
+        different_issuer.payload.insert(
+            "issuer_id".to_owned(),
+            json!("ak:did_core:web:other-issuer.example"),
+        );
         assert_ne!(
             derive_subject(&different_issuer, subject_rule(&different_issuer)).unwrap(),
             baseline
         );
         let mut different_subject = accountability_event(json!("employment"), "active");
-        different_subject
-            .payload
-            .insert("subject".to_owned(), json!("did:web:other-subject.example"));
+        different_subject.payload.insert(
+            "subject_id".to_owned(),
+            json!("ak:did_core:web:other-subject.example"),
+        );
         assert_ne!(
             derive_subject(&different_subject, subject_rule(&different_subject)).unwrap(),
             baseline
@@ -2824,7 +2826,7 @@ mod tests {
     fn invite_create_event(invitee: Option<&str>) -> Event {
         let mut payload = json!({});
         if let Some(invitee) = invitee {
-            payload["invitee"] = json!(invitee);
+            payload["invitee_id"] = json!(invitee);
         }
         serde_json::from_value(json!({
             "event_id": "ak:event:AVcbARXDOZuMaYlp1-g60cl4c6Y5NzY10J6VMsgtrakA",

@@ -222,7 +222,7 @@ pub struct CallMediaParticipantBinding {
     pub focus_id: String,
     pub actor_id: DidCoreId,
     pub device_id: DeviceId,
-    pub participant_identity: String,
+    pub participant_id: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -267,7 +267,7 @@ pub struct ArkretNativeMediaPermissions {
 pub struct ArkretNativeMediaTokenPayload {
     pub call_id: CallId,
     pub focus_id: String,
-    pub participant_identity: String,
+    pub participant_id: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -308,9 +308,9 @@ pub enum MediaBackendToken {
 #[serde(deny_unknown_fields)]
 struct CallMediaTokenExchangeOutcomeWire {
     focus_id: String,
-    connect_uri: String,
+    connect_url: String,
     backend_token: MediaBackendToken,
-    participant_identity: String,
+    participant_id: String,
     participant_binding: CallMediaParticipantBinding,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     expires_at: DateTime<Utc>,
@@ -322,9 +322,9 @@ struct CallMediaTokenExchangeOutcomeWire {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CallMediaTokenExchangeOutcome {
     pub focus_id: String,
-    pub connect_uri: String,
+    pub connect_url: String,
     pub backend_token: MediaBackendToken,
-    pub participant_identity: String,
+    pub participant_id: String,
     pub participant_binding: CallMediaParticipantBinding,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -350,9 +350,9 @@ impl TryFrom<CallMediaTokenExchangeOutcomeWire> for CallMediaTokenExchangeOutcom
         }
         Ok(Self {
             focus_id: value.focus_id,
-            connect_uri: value.connect_uri,
+            connect_url: value.connect_url,
             backend_token: value.backend_token,
-            participant_identity: value.participant_identity,
+            participant_id: value.participant_id,
             participant_binding: value.participant_binding,
             expires_at: value.expires_at,
             backend_kind: value.backend_kind,

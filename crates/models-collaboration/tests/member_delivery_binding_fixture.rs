@@ -12,10 +12,10 @@
 //!   resolution (`delivery_binding_stale` / `delivery_binding_handed_over` responses, fail-closed
 //!   after leave).
 //! * The policy-evaluation half of `policy_mismatch.v1` — evaluating
-//!   `delivery_binding_policy.allowed_binding_sources` / `allowed_recipient_ids` against a landing
-//!   `ak.member.state` needs the Realm policy reducer; the SDK asserts the binding is structurally
-//!   valid (the rejection is policy-level, not schema-level) plus the promised reason code
-//!   registration.
+//!   `delivery_binding_policy.allowed_binding_sources` / `allowed_recipient_services` against a
+//!   landing `ak.member.state` needs the Realm policy reducer; the SDK asserts the binding is
+//!   structurally valid (the rejection is policy-level, not schema-level) plus the promised reason
+//!   code registration.
 //! * `unroutable.v1` delivery-side effects (skipping notifications / sync / push / to-device /
 //!   key-packages) — server delivery pipeline conduct.
 use arkret_models_identity::{BindingSource, DeliveryStatus, MemberDeliveryBinding};
@@ -196,9 +196,9 @@ fn policy_mismatch_binding_is_structurally_valid_but_policy_rejected() {
     // The mismatch the reducer must reject: the offered recipient service is
     // outside the policy allow-list and the binding source is not allowed.
     let policy = &vector["given_state"]["delivery_binding_policy"];
-    let allowed_services: Vec<&str> = policy["allowed_recipient_ids"]
+    let allowed_services: Vec<&str> = policy["allowed_recipient_services"]
         .as_array()
-        .expect("allowed_recipient_ids")
+        .expect("allowed_recipient_services")
         .iter()
         .map(|service| service.as_str().expect("service DID"))
         .collect();

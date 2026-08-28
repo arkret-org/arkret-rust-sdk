@@ -238,7 +238,7 @@ pub fn verify_websocket_auth_proof(
     }
     let socket_origin = canonical_http_origin(request.socket_origin)
         .map_err(|_| WebSocketAuthError::OriginMismatch)?;
-    if socket_origin != request.challenge.canonical_origin {
+    if socket_origin != request.challenge.canonical_origin.as_str() {
         return Err(WebSocketAuthError::OriginMismatch);
     }
     if proof.claims.htu != request.challenge.canonical_base_url {
@@ -330,7 +330,7 @@ mod tests {
         WebSocketChallengeRecord {
             connection_id: CONNECTION_ID.to_owned(),
             nonce: NONCE.to_owned(),
-            canonical_origin: ORIGIN.to_owned(),
+            canonical_origin: arkret_wire::WebOrigin::new(ORIGIN).unwrap(),
             canonical_base_url: BASE_URL.to_owned(),
             issued_at: Utc.timestamp_opt(1_785_283_200, 0).unwrap(),
             expires_at: Utc.timestamp_opt(1_785_283_205, 0).unwrap(),

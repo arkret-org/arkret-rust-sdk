@@ -17,7 +17,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{BindingKind, DomainSeparationId, ErrorCode, Result, WireError};
+use crate::{BindingKind, DomainSeparationId, ErrorCode, Result, WebOrigin, WireError};
 
 /// `transport_bindings[].kind` of this profile, as registered in
 /// `binding-kind-registry.json`. A media / SFU WebSocket MUST NOT reuse it.
@@ -698,7 +698,7 @@ impl WebSocketDpopProof {
 pub struct WebSocketChallengeRecord {
     pub connection_id: String,
     pub nonce: String,
-    pub canonical_origin: String,
+    pub canonical_origin: WebOrigin,
     pub canonical_base_url: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -716,7 +716,6 @@ impl WebSocketChallengeRecord {
     pub fn validate(&self) -> Result<()> {
         validate_websocket_opaque_id(&self.connection_id, "connection_id")?;
         validate_websocket_opaque_id(&self.nonce, "nonce")?;
-        canonical_http_origin(&self.canonical_origin)?;
         validate_websocket_base_url(&self.canonical_base_url)?;
         let window = self.expires_at - self.issued_at;
         if window <= chrono::Duration::zero()

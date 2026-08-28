@@ -96,10 +96,10 @@ pub struct PrimaryHandleSelectInput<'a> {
     /// constraint applies.
     pub context: Option<&'a str>,
     pub claim_set_snapshot: &'a [HandleClaim],
-    /// Realm policy `handle_issuer_policy` in trust order. Claims whose issuer
+    /// Realm policy `handle_issuer_policies` in trust order. Claims whose issuer
     /// is absent or whose handle domain is outside the entry's declared scope
     /// are dropped in Step 0.
-    pub handle_issuer_policy: &'a [HandleIssuerPolicyEntry],
+    pub handle_issuer_policies: &'a [HandleIssuerPolicyEntry],
     /// `metadata.primary_handle` value at `resolution_as_of` (already
     /// materialised from the DID Document snapshot). `None` skips the
     /// holder-flagged layer.
@@ -147,7 +147,7 @@ pub fn select_primary_handle(input: &PrimaryHandleSelectInput<'_>) -> Option<Han
 
     // Step 2 — deterministic tie-breaker.
     let winner = layer.into_iter().reduce(|best, candidate| {
-        if tie_break_prefers(candidate, best, input.handle_issuer_policy) {
+        if tie_break_prefers(candidate, best, input.handle_issuer_policies) {
             candidate
         } else {
             best
@@ -178,7 +178,7 @@ fn candidate_passes_step0(c: &HandleClaim, input: &PrimaryHandleSelectInput<'_>)
         _ => return false,
     }
     // issuer trust filter (mandatory pre-filter).
-    match policy_entry(c, input.handle_issuer_policy) {
+    match policy_entry(c, input.handle_issuer_policies) {
         Some(_) => {}
         _ => return false,
     }
@@ -204,16 +204,16 @@ fn holder_flagged(c: &HandleClaim, holder_primary: Option<&str>) -> bool {
 }
 
 /// Returns `true` if `candidate` should win over `best` per the Step 2
-/// tie-breaker ordering: authority class → handle_issuer_policy position →
+/// tie-breaker ordering: authority class → handle_issuer_policies position →
 /// created_at (later wins) → `claim_digest` (lexicographically smaller
 /// wins).
 fn tie_break_prefers(
     candidate: &HandleClaim,
     best: &HandleClaim,
-    handle_issuer_policy: &[HandleIssuerPolicyEntry],
+    handle_issuer_policies: &[HandleIssuerPolicyEntry],
 ) -> bool {
-    let cand_entry = policy_entry(candidate, handle_issuer_policy);
-    let best_entry = policy_entry(best, handle_issuer_policy);
+    let cand_entry = policy_entry(candidate, handle_issuer_policies);
+    let best_entry = policy_entry(best, handle_issuer_policies);
     let cand_class = cand_entry.map_or(u8::MAX, |(_, entry)| entry.issuer_class.priority());
     let best_class = best_entry.map_or(u8::MAX, |(_, entry)| entry.issuer_class.priority());
     if cand_class != best_class {
@@ -474,7 +474,7 @@ mod tests {
             subject_id: s.as_str(),
             context: None,
             claim_set_snapshot: &[],
-            handle_issuer_policy: &[],
+            handle_issuer_policies: &[],
             holder_primary_handle_at_as_of: None,
             resolution_as_of: Utc::now(),
         };
@@ -512,7 +512,7 @@ mod tests {
             subject_id: s.as_str(),
             context: Some("ak:realm:r1"),
             claim_set_snapshot: &snapshot,
-            handle_issuer_policy: &acc,
+            handle_issuer_policies: &acc,
             holder_primary_handle_at_as_of: None,
             resolution_as_of: now,
         };
@@ -537,7 +537,7 @@ mod tests {
             subject_id: s.as_str(),
             context: None,
             claim_set_snapshot: &snapshot,
-            handle_issuer_policy: &[issuer_policy(
+            handle_issuer_policies: &[issuer_policy(
                 "ak:did_core:webvh:z6mkfixtureacme",
                 "acme.example",
             )],
@@ -567,7 +567,7 @@ mod tests {
                 subject_id: s.as_str(),
                 context: None,
                 claim_set_snapshot: &snapshot,
-                handle_issuer_policy: &policy,
+                handle_issuer_policies: &policy,
                 holder_primary_handle_at_as_of: None,
                 resolution_as_of: now,
             })
@@ -604,7 +604,7 @@ mod tests {
             subject_id: s.as_str(),
             context: None,
             claim_set_snapshot: &[],
-            handle_issuer_policy: &[],
+            handle_issuer_policies: &[],
             holder_primary_handle_at_as_of: None,
             resolution_as_of: Utc::now(),
         };
@@ -628,7 +628,7 @@ mod tests {
             subject_id: s.as_str(),
             context: None,
             claim_set_snapshot: &[],
-            handle_issuer_policy: &[],
+            handle_issuer_policies: &[],
             holder_primary_handle_at_as_of: None,
             resolution_as_of: Utc::now(),
         };

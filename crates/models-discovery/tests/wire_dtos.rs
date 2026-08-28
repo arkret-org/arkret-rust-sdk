@@ -28,7 +28,7 @@ fn service_describe_round_trips_interop_surfaces_on_the_canonical_key() {
         ServiceKind::PrincipalServer,
         vec!["ak.operation_bundle.principal_server.describe.v1".to_owned()],
         vec![arkret_models_discovery::TransportBinding::HttpJson {
-            base_uri: "https://service.example".to_owned(),
+            base_url: "https://service.example".to_owned(),
             extension_profile_required: (),
         }],
     );
@@ -83,13 +83,13 @@ fn directory_realm_search_outcome_decodes_typed_preview_fields() {
 
     assert!(!outcome.has_more);
     assert!(matches!(
-        outcome.realm_previews[0].member_count_bucket,
+        outcome.realms[0].member_count_bucket,
         Some(RealmMemberCountBucket::Bucket(
             RealmMemberCountBucketLabel::FiftyOneToOneHundred
         ))
     ));
     assert!(matches!(
-        outcome.realm_previews[1].member_count_bucket,
+        outcome.realms[1].member_count_bucket,
         Some(RealmMemberCountBucket::Exact(342))
     ));
 }

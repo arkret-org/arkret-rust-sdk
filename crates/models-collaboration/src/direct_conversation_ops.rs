@@ -854,7 +854,7 @@ mod tests {
                     "request_event_ref": "ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD",
                     "request_acceptance_receipt_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                 }),
-                "sha256:55e2bdad8a06d2503f04e1d0cb5046a918f1002eab53e560ce399fe5aaf10c82",
+                "sha256:f6b2399820ef57c62ae5dc0d919c77e74027a5b4a36300c79624d8612433e681",
             ),
             (
                 json!({
@@ -874,7 +874,7 @@ mod tests {
                         }
                     ]
                 }),
-                "sha256:4c0fa7e71411764bfa71af12c350b37b34ad128e81d46152219b65d5780995de",
+                "sha256:ff61c3443124b8d102e70a65c3a47817c28421b3c6aeb7aed79107c47168be4d",
             ),
         ];
 
@@ -933,8 +933,8 @@ mod tests {
             "founding_unit_digest": "sha256:3cd20dd09f6c8bc93757a03640c1612a6b85599eeb702cc488e2cc083ebfa46e",
             "authorization_core": {
                 "kind": "human",
-                "current_contact_round_id": "sha256:55e2bdad8a06d2503f04e1d0cb5046a918f1002eab53e560ce399fe5aaf10c82",
-                "root_contact_round_id": "sha256:55e2bdad8a06d2503f04e1d0cb5046a918f1002eab53e560ce399fe5aaf10c82",
+                "current_contact_round_id": "sha256:f6b2399820ef57c62ae5dc0d919c77e74027a5b4a36300c79624d8612433e681",
+                "root_contact_round_id": "sha256:f6b2399820ef57c62ae5dc0d919c77e74027a5b4a36300c79624d8612433e681",
                 "accepted_contact_evidence_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
             },
             "issuer_id": "ak:did_core:web:ps.example",
@@ -953,11 +953,11 @@ mod tests {
         let receipt = receipt();
         assert_eq!(
             receipt.transcript_digest().unwrap().as_str(),
-            "sha256:788ad86b03e38f2e67f3f5b6aaea16ae8cd92ab1befc723d8d0415b799921496"
+            "sha256:b256c1789389d5a10f99c5d8a2e9204933874809f63533527b403fbcfa7df663"
         );
         assert_eq!(
             receipt.signing_input_bytes().unwrap(),
-            b"sha256:788ad86b03e38f2e67f3f5b6aaea16ae8cd92ab1befc723d8d0415b799921496"
+            b"sha256:b256c1789389d5a10f99c5d8a2e9204933874809f63533527b403fbcfa7df663"
         );
         let mut changed_proof = receipt.clone();
         changed_proof.proof.jws = Base64UrlString::new("ZGlmZmVyZW50".to_owned()).unwrap();

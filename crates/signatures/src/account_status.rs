@@ -72,7 +72,7 @@ mod tests {
         AccountStatusPrincipalAuthority, UnsignedAccountStatusReceipt, UnsignedAccountStatusRecord,
     };
     use arkret_models_collaboration::objects::account_status::AccountStatus;
-    use arkret_wire::{DidCoreId, DidUrl, NonEmptyString, RealmId, ReceiptId, SchemaId};
+    use arkret_wire::{DidCoreId, DidUrl, RealmId, ReceiptId, SchemaId, ServiceAccountId};
 
     use super::*;
 
@@ -80,7 +80,7 @@ mod tests {
         UnsignedAccountStatusRecord {
             schema: SchemaId::ACCOUNT_STATUS_RECORD_V1.to_owned(),
             account_authority_id: DidCoreId::new("ak:did_core:web:authority.example").unwrap(),
-            account_id: NonEmptyString::new("account-1").unwrap(),
+            account_id: ServiceAccountId::new("account-1").unwrap(),
             principal_authority: AccountStatusPrincipalAuthority {
                 principal_id: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
                 principal_server_id: DidCoreId::new("ak:did_core:web:principal.example").unwrap(),

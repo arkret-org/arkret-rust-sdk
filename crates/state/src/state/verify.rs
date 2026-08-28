@@ -631,10 +631,6 @@ struct CapabilityGrantCellValue {
     #[serde(default)]
     id: Option<String>,
     #[serde(default)]
-    grant_id: Option<String>,
-    #[serde(default)]
-    capability_id: Option<String>,
-    #[serde(default)]
     subject: Option<String>,
     #[serde(default)]
     actions: Vec<String>,
@@ -650,13 +646,7 @@ struct CapabilityGrantCellValue {
 
 impl CapabilityGrantCellValue {
     fn grant_ids(&self) -> impl Iterator<Item = &str> {
-        [
-            self.id.as_deref(),
-            self.grant_id.as_deref(),
-            self.capability_id.as_deref(),
-        ]
-        .into_iter()
-        .flatten()
+        self.id.iter().map(String::as_str)
     }
 
     fn subject(&self) -> Option<&str> {
@@ -1099,7 +1089,7 @@ mod tests {
                 "value": {
                     "id": grant_id,
                     "issuer_id": "ak:did_core:webvh:z6mkfixture",
-                    "subject_id": subject,
+                    "subject": subject,
                     "actions": ["ak.member.state"],
                     "resources": [{"kind": "Realm", "realm_id": realm().as_str()}]
                 }

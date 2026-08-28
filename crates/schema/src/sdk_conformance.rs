@@ -72,7 +72,7 @@ pub enum SdkConformanceProofAlgorithm {
 pub struct SdkClauseClaim {
     pub clause_id: String,
     pub result: SdkClauseResult,
-    pub evidence_items: Vec<SdkConformanceEvidence>,
+    pub evidence: Vec<SdkConformanceEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rationale: Option<String>,
 }
@@ -196,7 +196,7 @@ impl SdkConformanceClaim {
                     claim.clause_id.clone(),
                 ));
             }
-            if claim.evidence_items.len() > 32 {
+            if claim.evidence.len() > 32 {
                 return Err(SdkConformanceClaimError::InvalidField(format!(
                     "{}.evidence",
                     claim.clause_id
@@ -210,9 +210,7 @@ impl SdkConformanceClaim {
                         claim.clause_id.clone(),
                     ));
                 }
-                SdkClauseResult::Pass | SdkClauseResult::Fail
-                    if claim.evidence_items.is_empty() =>
-                {
+                SdkClauseResult::Pass | SdkClauseResult::Fail if claim.evidence.is_empty() => {
                     return Err(SdkConformanceClaimError::MissingEvidence(
                         claim.clause_id.clone(),
                     ));
@@ -222,7 +220,7 @@ impl SdkConformanceClaim {
             if let Some(rationale) = &claim.rationale {
                 validate_text("clause_claim.rationale", rationale, 2048)?;
             }
-            for evidence in &claim.evidence_items {
+            for evidence in &claim.evidence {
                 validate_text("evidence.evidence_ref", &evidence.evidence_ref, 2048)?;
                 validate_nonzero_digest("evidence.digest", &evidence.digest)?;
             }
@@ -295,7 +293,7 @@ impl SdkConformanceClaim {
             .find(|claim| claim.clause_id == "AK-SDK-015")
             .and_then(|claim| {
                 claim
-                    .evidence_items
+                    .evidence
                     .iter()
                     .find(|evidence| evidence.kind == SdkEvidenceKind::BuildVariantInventory)
             })
@@ -479,7 +477,7 @@ mod tests {
             clause_claims: vec![SdkClauseClaim {
                 clause_id: "AK-SDK-001".to_owned(),
                 result: SdkClauseResult::Pass,
-                evidence_items: vec![SdkConformanceEvidence {
+                evidence: vec![SdkConformanceEvidence {
                     kind: SdkEvidenceKind::VectorResult,
                     evidence_ref: "ci://run/1".to_owned(),
                     digest: format!("sha256:{}", "4".repeat(64)),
@@ -509,7 +507,7 @@ mod tests {
         claim.clause_claims.push(SdkClauseClaim {
             clause_id: "AK-SDK-015".to_owned(),
             result: SdkClauseResult::Pass,
-            evidence_items: vec![SdkConformanceEvidence {
+            evidence: vec![SdkConformanceEvidence {
                 kind: SdkEvidenceKind::BuildVariantInventory,
                 evidence_ref: "ci://run/1/build-variants".to_owned(),
                 digest: inventory_digest,
@@ -583,7 +581,7 @@ mod tests {
             .iter_mut()
             .find(|clause| clause.clause_id == "AK-SDK-015")
             .unwrap()
-            .evidence_items[0]
+            .evidence[0]
             .digest = format!("sha256:{}", "9".repeat(64));
         assert!(matches!(
             claim.validate(["AK-SDK-001", "AK-SDK-015"]),

@@ -201,11 +201,11 @@ impl AppletNamespaceEntry {
 #[serde(deny_unknown_fields)]
 pub struct AppletWireNamespaces {
     #[serde(default)]
-    pub actor_namespace_entries: Vec<AppletNamespaceEntry>,
+    pub actors: Vec<AppletNamespaceEntry>,
     #[serde(default)]
-    pub realm_namespace_entries: Vec<AppletNamespaceEntry>,
+    pub realms: Vec<AppletNamespaceEntry>,
     #[serde(default)]
-    pub handle_namespace_entries: Vec<AppletNamespaceEntry>,
+    pub handles: Vec<AppletNamespaceEntry>,
 }
 
 impl AppletWireNamespaces {
@@ -216,20 +216,12 @@ impl AppletWireNamespaces {
     pub fn conflicts_with(&self, other: &AppletWireNamespaces) -> Vec<AppletNamespaceConflict> {
         let mut conflicts = Vec::new();
         for (domain, mine, theirs) in [
-            (
-                AppletNamespaceDomain::Actors,
-                &self.actor_namespace_entries,
-                &other.actor_namespace_entries,
-            ),
-            (
-                AppletNamespaceDomain::Realms,
-                &self.realm_namespace_entries,
-                &other.realm_namespace_entries,
-            ),
+            (AppletNamespaceDomain::Actors, &self.actors, &other.actors),
+            (AppletNamespaceDomain::Realms, &self.realms, &other.realms),
             (
                 AppletNamespaceDomain::Handles,
-                &self.handle_namespace_entries,
-                &other.handle_namespace_entries,
+                &self.handles,
+                &other.handles,
             ),
         ] {
             for a in mine {
@@ -362,7 +354,7 @@ pub struct AppletEndpointEntry {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppletEndpointPolicy {
     #[serde(default)]
-    pub endpoint_entries: Vec<AppletEndpointEntry>,
+    pub endpoints: Vec<AppletEndpointEntry>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
 }
@@ -516,7 +508,7 @@ pub struct AppletRegistrationEpochDerivedRegistration {
     pub applet_id: AppletId,
     pub service_id: DidCoreId,
     pub controller_id: DidCoreId,
-    pub base_uri: String,
+    pub base_url: String,
     pub bot_actor_id: DidCoreId,
     pub protocols: Vec<String>,
     pub namespaces: AppletWireNamespaces,
@@ -549,7 +541,7 @@ pub struct AppletRegistrationPayload {
     pub applet_id: AppletId,
     pub service_id: DidCoreId,
     pub controller_id: DidCoreId,
-    pub base_uri: String,
+    pub base_url: String,
     pub bot_actor_id: DidCoreId,
     pub claimed_profiles: Vec<String>,
     pub protocols: Vec<String>,
@@ -599,7 +591,7 @@ struct AppletRegistrationPayloadWire {
     applet_id: AppletId,
     service_id: DidCoreId,
     controller_id: DidCoreId,
-    base_uri: String,
+    base_url: String,
     bot_actor_id: DidCoreId,
     claimed_profiles: Vec<String>,
     protocols: Vec<String>,
@@ -626,7 +618,7 @@ impl<'de> Deserialize<'de> for AppletRegistrationPayload {
             applet_id: wire.applet_id,
             service_id: wire.service_id,
             controller_id: wire.controller_id,
-            base_uri: wire.base_uri,
+            base_url: wire.base_url,
             bot_actor_id: wire.bot_actor_id,
             claimed_profiles: wire.claimed_profiles,
             protocols: wire.protocols,
@@ -894,7 +886,7 @@ impl AppletRegistrationEpochTranscript {
                 applet_id: package.applet_id.clone(),
                 service_id: package.service_id.clone(),
                 controller_id: package.controller_id.clone(),
-                base_uri: package.base_uri.clone(),
+                base_url: package.base_url.clone(),
                 bot_actor_id: package.bot_actor_id.clone(),
                 protocols: package.protocols.clone(),
                 namespaces: package.namespaces.clone(),
@@ -930,18 +922,15 @@ impl AppletRegistrationEpochTranscript {
         sort_unique_strings("protocols", &mut self.derived_registration.protocols)?;
         sort_namespace_entries(
             "namespaces.actors",
-            &mut self.derived_registration.namespaces.actor_namespace_entries,
+            &mut self.derived_registration.namespaces.actors,
         )?;
         sort_namespace_entries(
             "namespaces.realms",
-            &mut self.derived_registration.namespaces.realm_namespace_entries,
+            &mut self.derived_registration.namespaces.realms,
         )?;
         sort_namespace_entries(
             "namespaces.handles",
-            &mut self
-                .derived_registration
-                .namespaces
-                .handle_namespace_entries,
+            &mut self.derived_registration.namespaces.handles,
         )?;
         sort_unique_strings(
             "requested_scopes",
@@ -970,18 +959,16 @@ impl AppletRegistrationEpochTranscript {
             &self.webhook_auth.accepted_signature_algorithms,
             |left, right| left == right,
         )?;
-        self.endpoint_policy
-            .endpoint_entries
-            .sort_by(|left, right| {
-                (left.method, left.path.as_bytes(), left.auth).cmp(&(
-                    right.method,
-                    right.path.as_bytes(),
-                    right.auth,
-                ))
-            });
+        self.endpoint_policy.endpoints.sort_by(|left, right| {
+            (left.method, left.path.as_bytes(), left.auth).cmp(&(
+                right.method,
+                right.path.as_bytes(),
+                right.auth,
+            ))
+        });
         reject_duplicate_adjacent_by(
             "endpoint_policy.endpoints",
-            &self.endpoint_policy.endpoint_entries,
+            &self.endpoint_policy.endpoints,
             |left, right| {
                 left.method == right.method && left.path == right.path && left.auth == right.auth
             },
@@ -1036,18 +1023,15 @@ impl AppletRegistrationEpochTranscript {
         validate_strictly_sorted_strings("protocols", &self.derived_registration.protocols)?;
         validate_namespace_entries(
             "namespaces.actors",
-            &self.derived_registration.namespaces.actor_namespace_entries,
+            &self.derived_registration.namespaces.actors,
         )?;
         validate_namespace_entries(
             "namespaces.realms",
-            &self.derived_registration.namespaces.realm_namespace_entries,
+            &self.derived_registration.namespaces.realms,
         )?;
         validate_namespace_entries(
             "namespaces.handles",
-            &self
-                .derived_registration
-                .namespaces
-                .handle_namespace_entries,
+            &self.derived_registration.namespaces.handles,
         )?;
         validate_strictly_sorted_strings(
             "requested_scopes",
@@ -1073,7 +1057,7 @@ impl AppletRegistrationEpochTranscript {
         )?;
         validate_strictly_sorted_by(
             "endpoint_policy.endpoints",
-            &self.endpoint_policy.endpoint_entries,
+            &self.endpoint_policy.endpoints,
             |left, right| {
                 (left.method, left.path.as_bytes(), left.auth).cmp(&(
                     right.method,
@@ -1083,7 +1067,7 @@ impl AppletRegistrationEpochTranscript {
             },
         )?;
         if self.accepted_signing_keys.is_empty()
-            || self.endpoint_policy.endpoint_entries.is_empty()
+            || self.endpoint_policy.endpoints.is_empty()
             || self.webhook_auth.accepted_signature_algorithms.is_empty()
             || self.security_policy.claimed_profiles.is_empty()
         {
@@ -1215,7 +1199,7 @@ pub struct AppletPackage {
     pub applet_id: AppletId,
     pub service_id: DidCoreId,
     pub controller_id: DidCoreId,
-    pub base_uri: String,
+    pub base_url: String,
     /// Visible bot actor DID; MUST NOT carry a `#fragment`.
     pub bot_actor_id: DidCoreId,
     /// MUST contain at least `ak.profile.applet_service.v1`.
@@ -1277,7 +1261,7 @@ impl AppletPackage {
         service_id: DidCoreId,
         service_did: Did,
         controller_id: DidCoreId,
-        base_uri: impl Into<String>,
+        base_url: impl Into<String>,
         bot_actor_id: DidCoreId,
         protocols: Vec<String>,
         namespaces: AppletWireNamespaces,
@@ -1290,7 +1274,7 @@ impl AppletPackage {
             applet_id,
             service_id,
             controller_id,
-            base_uri: base_uri.into(),
+            base_url: base_url.into(),
             bot_actor_id,
             claimed_profiles: vec![ProfileId::APPLET_SERVICE_V1.to_owned()],
             protocols,
@@ -1409,7 +1393,7 @@ impl AppletPackage {
                 "applet package schema mismatch".to_owned(),
             ));
         }
-        if self.package_id.is_empty() || self.base_uri.is_empty() {
+        if self.package_id.is_empty() || self.base_url.is_empty() {
             return Err(WireError::Protocol(
                 "applet package missing required fields".to_owned(),
             ));
@@ -1434,7 +1418,7 @@ impl AppletPackage {
             ));
         }
         validate_applet_extension_fields("endpoint_policy", &self.endpoint_policy.extra)?;
-        for endpoint in &self.endpoint_policy.endpoint_entries {
+        for endpoint in &self.endpoint_policy.endpoints {
             validate_applet_extension_fields("endpoint_policy.endpoints", &endpoint.extra)?;
         }
         validate_applet_extension_fields("limits", &self.limits.extra)?;
@@ -1514,7 +1498,7 @@ impl AppletPackage {
             applet_id: self.applet_id.clone(),
             service_id: self.service_id.clone(),
             controller_id: self.controller_id.clone(),
-            base_uri: self.base_uri.clone(),
+            base_url: self.base_url.clone(),
             bot_actor_id: self.bot_actor_id.clone(),
             claimed_profiles: self.claimed_profiles.clone(),
             protocols: self.protocols.clone(),

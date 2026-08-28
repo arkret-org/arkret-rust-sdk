@@ -1,5 +1,7 @@
+use arkret_models_integration::Widget;
 use arkret_models_integration::applet::AppletRegistrationEpochTranscript;
 use arkret_schema::embedded_json_artifact;
+use serde_json::json;
 
 #[test]
 fn applet_registration_epoch_fixture_executes_against_owner() {
@@ -39,7 +41,7 @@ fn applet_registration_epoch_fixture_executes_against_owner() {
     assert!(invalid_version_branch.registration_epoch().is_err());
 
     let mut changed_security_field = transcript;
-    changed_security_field.derived_registration.base_uri = "https://other.example/cx".to_owned();
+    changed_security_field.derived_registration.base_url = "https://other.example/cx".to_owned();
     assert_ne!(
         changed_security_field
             .registration_epoch()
@@ -47,4 +49,32 @@ fn applet_registration_epoch_fixture_executes_against_owner() {
             .as_str(),
         positive["expected_registration_epoch"].as_str().unwrap()
     );
+}
+
+#[test]
+fn widget_origin_is_a_canonical_https_web_origin() {
+    let widget = json!({
+        "schema": "ak.schema.applet_widget_declaration.v1",
+        "widget_origin": "https://widget.example:8443",
+        "csp": "default-src 'none'",
+        "token_scope": {
+            "actions": ["ak.message.create"],
+            "resources": [{"kind": "*"}],
+            "expires_at": "2026-08-29T00:00:00.000Z"
+        },
+        "consent_required": true
+    });
+    let parsed: Widget = serde_json::from_value(widget.clone()).unwrap();
+    parsed.validate().unwrap();
+
+    for invalid in [
+        "http://widget.example",
+        "https://widget.example/",
+        "https://widget.example:443",
+        "https://widget.example/path",
+    ] {
+        let mut invalid_widget = widget.clone();
+        invalid_widget["widget_origin"] = json!(invalid);
+        assert!(serde_json::from_value::<Widget>(invalid_widget).is_err());
+    }
 }

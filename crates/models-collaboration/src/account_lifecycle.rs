@@ -20,8 +20,8 @@ use arkret_models_identity::actor_profile::{AccountMaterializedProfile, ActorPro
 use arkret_wire::{
     ActorProfileId, AppletId, AppletRevokeMode, AuditReasonText, ConsentScope, Cursor, DeviceId,
     Did, DidCoreId, DidUrl, EventBatchReceipt, EventInitialSubmission, EventKind, Hash,
-    NonEmptyString, PayloadProof, ProofContextId, RealmId, ReasonCode, ReceiptId, Result, SchemaId,
-    ScopeRef, ServiceOperationId, SessionGrantId, UnsignedPayloadProof, canonical,
+    PayloadProof, ProofContextId, RealmId, ReasonCode, ReceiptId, Result, SchemaId, ScopeRef,
+    ServiceAccountId, ServiceOperationId, SessionGrantId, UnsignedPayloadProof, canonical,
     project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -234,7 +234,7 @@ pub struct AccountStatusPrincipalAuthority {
 pub struct UnsignedAccountStatusRecord {
     pub schema: String,
     pub account_authority_id: DidCoreId,
-    pub account_id: NonEmptyString,
+    pub account_id: ServiceAccountId,
     pub principal_authority: AccountStatusPrincipalAuthority,
     pub principal_control_realm_id: RealmId,
     pub binding_version: u64,
@@ -394,7 +394,7 @@ pub struct AccountStatusRecord {
     pub schema: String,
     pub account_status_record_id: arkret_wire::AccountStatusRecordId,
     pub account_authority_id: DidCoreId,
-    pub account_id: NonEmptyString,
+    pub account_id: ServiceAccountId,
     pub principal_authority: AccountStatusPrincipalAuthority,
     pub principal_control_realm_id: RealmId,
     pub binding_version: u64,
@@ -494,7 +494,7 @@ impl AccountStatusRecord {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountStatusResolveRequestBody {
     pub account_authority_id: DidCoreId,
-    pub account_id: NonEmptyString,
+    pub account_id: ServiceAccountId,
     pub from_status_seq: u64,
     pub limit: u16,
 }
@@ -518,7 +518,7 @@ impl AccountStatusResolveRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountStatusResolveOutcome {
     pub account_authority_id: DidCoreId,
-    pub account_id: NonEmptyString,
+    pub account_id: ServiceAccountId,
     pub records: Vec<AccountStatusRecord>,
     pub has_more: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -569,7 +569,7 @@ pub struct AccountStatusReceipt {
     pub account_status_record_id: arkret_wire::AccountStatusRecordId,
     pub record_digest: Hash,
     pub account_authority_id: DidCoreId,
-    pub account_id: NonEmptyString,
+    pub account_id: ServiceAccountId,
     pub status_seq: u64,
     pub receiver_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -583,7 +583,7 @@ pub struct UnsignedAccountStatusReceipt {
     pub account_status_record_id: arkret_wire::AccountStatusRecordId,
     pub record_digest: Hash,
     pub account_authority_id: DidCoreId,
-    pub account_id: NonEmptyString,
+    pub account_id: ServiceAccountId,
     pub status_seq: u64,
     pub receiver_id: DidCoreId,
     pub accepted_at: DateTime<Utc>,
@@ -810,7 +810,7 @@ pub struct AccountStatusPublicationOutcome {
     pub status: AccountStatusPublicationStatus,
     pub account_status_record_id: arkret_wire::AccountStatusRecordId,
     pub status_seq: u64,
-    pub account_id: NonEmptyString,
+    pub account_id: ServiceAccountId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub current_account_status_record_id: Option<arkret_wire::AccountStatusRecordId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

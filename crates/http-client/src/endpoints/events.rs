@@ -58,8 +58,8 @@ fn query_method() -> Method {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct EventsSubscribeOptions {
-    pub realms: Vec<String>,
-    pub actors: Vec<String>,
+    pub realm_ids: Vec<RealmId>,
+    pub actor_ids: Vec<DidCoreId>,
     pub after: Option<String>,
     pub catchup: Option<bool>,
     pub max_duration_ms: Option<u64>,
@@ -73,14 +73,14 @@ impl EventsSubscribeOptions {
     }
 
     #[must_use]
-    pub fn realm(mut self, realm_id: impl Into<String>) -> Self {
-        self.realms.push(realm_id.into());
+    pub fn realm(mut self, realm_id: RealmId) -> Self {
+        self.realm_ids.push(realm_id);
         self
     }
 
     #[must_use]
-    pub fn actor(mut self, actor_id: impl Into<String>) -> Self {
-        self.actors.push(actor_id.into());
+    pub fn actor(mut self, actor_id: DidCoreId) -> Self {
+        self.actor_ids.push(actor_id);
         self
     }
 
@@ -542,7 +542,7 @@ impl Client {
     }
 
     fn events_subscribe_request(&self, options: &EventsSubscribeOptions) -> Result<RequestBuilder> {
-        if options.realms.is_empty() && options.actors.is_empty() {
+        if options.realm_ids.is_empty() && options.actor_ids.is_empty() {
             return Err(Error::Protocol(
                 "events subscribe requires at least one realm or actor selector".to_owned(),
             ));
@@ -553,11 +553,11 @@ impl Client {
         let mut builder = self
             .request_unbounded(Method::GET, "/_arkret/self/events/subscribe")?
             .header("accept", "application/x-ndjson");
-        for realm_id in &options.realms {
-            builder = builder.query(&[("realms", realm_id)]);
+        for realm_id in &options.realm_ids {
+            builder = builder.query(&[("realm_ids", realm_id.as_str())]);
         }
-        for actor_id in &options.actors {
-            builder = builder.query(&[("actors", actor_id)]);
+        for actor_id in &options.actor_ids {
+            builder = builder.query(&[("actor_ids", actor_id.as_str())]);
         }
         if let Some(after) = options.after.as_deref() {
             builder = builder.query(&[("after", after)]);
@@ -765,7 +765,7 @@ impl Client {
                     include_completeness: include_completeness.then_some(true),
                 })
                 .await?;
-            combined.event_read_rows.extend(page.event_read_rows);
+            combined.events.extend(page.events);
             combined.has_more = page.has_more;
             combined.next_cursor = page.next_cursor;
             merge_range_completeness(&mut completeness, page.range_completeness)?;
@@ -1126,8 +1126,8 @@ mod tests {
     #[test]
     fn events_subscribe_request_serializes_stream_options() {
         let options = EventsSubscribeOptions::new()
-            .realm("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
-            .actor("did:webvh:z6mkfixture:alice.example")
+            .realm(RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap())
+            .actor(DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap())
             .after("ak:cursor:stored")
             .catchup(true)
             .max_duration_ms(30_000)
@@ -1141,11 +1141,11 @@ mod tests {
         let query = built.url().query().unwrap().to_owned();
 
         assert!(
-            query.contains("realms=ak%3Arealm%3AAdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"),
+            query.contains("realm_ids=ak%3Arealm%3AAdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"),
             "query: {query}"
         );
         assert!(
-            query.contains("actors=did%3Awebvh%3Az6mkfixture%3Aalice.example"),
+            query.contains("actor_ids=ak%3Adid_core%3Awebvh%3Az6mkfixture%3Aalice.example"),
             "query: {query}"
         );
         assert!(
@@ -1225,7 +1225,10 @@ mod tests {
             .await
             .events_subscribe_frames(
                 &EventsSubscribeOptions::new()
-                    .realm("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
+                    .realm(
+                        RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
+                            .unwrap(),
+                    )
                     .catchup(true),
             )
             .await
