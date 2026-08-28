@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/history-recovery-scalability-registry.json; version=2026-08-24.1;
-//! sha256=fe0da5a3e8c7f734196cf0a55d0da9302067183ba3a8e290f0b15a4920e126c5
+//! sha256=aa7fc7ae7b9c6ee28a6a5be7cb907d74d3c11421b99fbe44fa39e136157c26e8
 //! Entries: history_store_limits=7
 
 /// Machine-readable `history_store` section of

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/reducer-managed-path-registry.json; version=2026-08-23.1;
-//! sha256=b6d410d48df7f9a16ddcf22df622e72ea1cbc90fb1c8d8b1c169789763e81015
+//! sha256=75297988c57dad283781a3d477d68341375d448a3f7f12c3c6937b2e4b32f457
 //! Entries: universal_paths=9, object_kinds=7, any_object_paths=17
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

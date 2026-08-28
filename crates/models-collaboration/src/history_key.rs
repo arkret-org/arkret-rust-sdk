@@ -2457,7 +2457,8 @@ impl HistoryResponsePageEntry {
 #[serde(deny_unknown_fields)]
 pub struct HistoryKeyResponseListOutcome {
     pub ack_entries: Vec<HistoryResponsePageEntry>,
-    pub ack_token: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ack_token: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
     pub limited: bool,
@@ -2465,7 +2466,22 @@ pub struct HistoryKeyResponseListOutcome {
 
 impl HistoryKeyResponseListOutcome {
     pub fn validate(&self) -> Result<()> {
-        validate_non_empty(&self.ack_token, "ack_token")?;
+        if self.ack_entries.is_empty() {
+            if self.ack_token.is_some() {
+                return Err(WireError::Protocol(
+                    "empty history response page must omit ack_token".to_owned(),
+                ));
+            }
+        } else {
+            validate_non_empty(
+                self.ack_token.as_deref().ok_or_else(|| {
+                    WireError::Protocol(
+                        "non-empty history response page requires ack_token".to_owned(),
+                    )
+                })?,
+                "ack_token",
+            )?;
+        }
         validate_pagination(self.limited, self.cursor.as_deref())?;
         for entry in &self.ack_entries {
             match entry {
