@@ -1771,7 +1771,7 @@ pub struct ContactListRow {
     /// fail-closed projection; clients must not infer it from public selector
     /// claims.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub agents: Vec<ContactAgentProjection>,
+    pub contact_agent_projections: Vec<ContactAgentProjection>,
 }
 
 #[derive(Deserialize)]
@@ -1801,7 +1801,7 @@ struct ContactListRowWire {
     #[serde(default)]
     direct_conversation: Option<DirectConversationSummary>,
     #[serde(default)]
-    agents: Vec<ContactAgentProjection>,
+    contact_agent_projections: Vec<ContactAgentProjection>,
 }
 
 impl TryFrom<ContactListRowWire> for ContactListRow {
@@ -1823,7 +1823,7 @@ impl TryFrom<ContactListRowWire> for ContactListRow {
             peer_host_id: wire.peer_host_id,
             continuity_evidence: wire.continuity_evidence,
             direct_conversation: wire.direct_conversation,
-            agents: wire.agents,
+            contact_agent_projections: wire.contact_agent_projections,
         };
         row.validate_shape()?;
         Ok(row)
@@ -1871,7 +1871,7 @@ impl ContactListRow {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ContactList {
-    pub contacts: Vec<ContactListRow>,
+    pub contact_list_rows: Vec<ContactListRow>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<arkret_wire::cursor::Cursor>,
     pub has_more: bool,

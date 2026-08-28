@@ -46,7 +46,7 @@ pub enum AppletTransactionStatus {
 pub struct AppletTransactionOutcome {
     pub status: AppletTransactionStatus,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rejected: Vec<RejectedItem>,
+    pub rejections: Vec<RejectedItem>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
 }
@@ -120,7 +120,7 @@ pub struct AppletInstallOutcome {
     pub e2ee_authorization_refs: Vec<EventId>,
     pub widget_policy_ref: Option<EventId>,
     pub effective_status: AppletInstallEffectiveStatus,
-    pub rejected: Vec<AppletRejectedItem>,
+    pub rejections: Vec<AppletRejectedItem>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -237,7 +237,7 @@ pub struct AppletRevokeOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub revoked_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rejected: Vec<AppletRejectedItem>,
+    pub rejections: Vec<AppletRejectedItem>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

@@ -265,7 +265,7 @@ impl<'de> Deserialize<'de> for AgentParticipationEntry {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentParticipationOutcome {
     pub agent_id: String,
-    pub entries: Vec<AgentParticipationEntry>,
+    pub agent_participation_entries: Vec<AgentParticipationEntry>,
 }
 
 #[cfg(test)]

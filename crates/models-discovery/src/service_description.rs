@@ -132,7 +132,7 @@ impl PushTargetPrivacyDerivation {
 #[serde(deny_unknown_fields)]
 pub struct PrivacyDerivation {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub push_target_id: Option<PushTargetPrivacyDerivation>,
+    pub push_target_id_derivation: Option<PushTargetPrivacyDerivation>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

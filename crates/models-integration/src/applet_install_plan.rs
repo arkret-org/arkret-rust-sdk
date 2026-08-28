@@ -21,7 +21,7 @@ pub struct AppletInstallPlan {
     pub requested_scopes: Vec<String>,
     pub approved_scopes: Vec<ScopeGrant>,
     pub denied_scopes: Vec<DeniedScope>,
-    pub events_to_submit: Vec<EventSubmission>,
+    pub event_submissions: Vec<EventSubmission>,
     pub capability_constraints: Vec<CapabilityConstraint>,
     pub namespace_conflicts: Vec<NamespaceConflict>,
     pub e2ee_effect: E2eeEffect,

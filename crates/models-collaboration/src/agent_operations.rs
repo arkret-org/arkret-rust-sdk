@@ -799,7 +799,7 @@ pub struct AgentLifecycleOutcome {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentList {
-    pub agents: Vec<AgentProjection>,
+    pub agent_projections: Vec<AgentProjection>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<cursor::Cursor>,
     pub has_more: bool,
@@ -1332,7 +1332,7 @@ impl AgentSidecarView {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarList {
-    pub items: Vec<AgentSidecarView>,
+    pub agent_sidecar_views: Vec<AgentSidecarView>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<NonEmptyString>,
 }

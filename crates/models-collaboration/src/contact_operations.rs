@@ -449,7 +449,7 @@ pub struct BilateralContinuityCheckpoint {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactContinuityEvidence {
     pub checkpoint: BilateralContinuityCheckpoint,
-    pub uncompressed_tail: Vec<ContactRoundEvidenceBundle>,
+    pub uncompressed_tail_entries: Vec<ContactRoundEvidenceBundle>,
 }
 
 /// Holder-authorized request to compact the oldest contiguous terminal prefix

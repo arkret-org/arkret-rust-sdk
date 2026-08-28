@@ -2554,7 +2554,7 @@ impl HistoryResponsePageEntry {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HistoryKeyResponseListOutcome {
-    pub ack_entries: Vec<HistoryResponsePageEntry>,
+    pub history_response_page_entries: Vec<HistoryResponsePageEntry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ack_token: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2668,7 +2668,7 @@ impl HistoryResponseAckEntry {
 pub struct HistoryKeyResponseAckRequest {
     pub ack_token: String,
     pub high_water_cursor: String,
-    pub ack_entries: Vec<HistoryResponseAckEntry>,
+    pub history_response_ack_entries: Vec<HistoryResponseAckEntry>,
 }
 
 impl HistoryKeyResponseAckRequest {

@@ -51,7 +51,7 @@ pub struct DirectorySearchRealmsRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryRealmSearchOutcome {
     #[serde(default)]
-    pub realms: Vec<RealmPreview>,
+    pub realm_previews: Vec<RealmPreview>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     pub has_more: bool,
@@ -282,7 +282,7 @@ pub struct DirectoryRealmResolutionOutcome {
         feature = "openapi",
         salvo(schema(value_type = Vec<serde_json::Value>))
     )]
-    pub stripped_state: Vec<Event>,
+    pub stripped_state_entries: Vec<Event>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(
         feature = "openapi",
@@ -400,7 +400,7 @@ pub struct DirectorySearchOrganizationsRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryOrganizationSearchOutcome {
     #[serde(default)]
-    pub organizations: Vec<OrganizationPreview>,
+    pub organization_previews: Vec<OrganizationPreview>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     pub has_more: bool,
@@ -506,7 +506,7 @@ pub struct DirectorySearchActorsRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryActorSearchOutcome {
     #[serde(default)]
-    pub actor_ids: Vec<ActorPreview>,
+    pub actor_previews: Vec<ActorPreview>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     pub has_more: bool,

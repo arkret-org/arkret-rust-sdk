@@ -72,7 +72,7 @@ pub struct ConsentCellView {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ConsentCellList {
     #[serde(default)]
-    pub cells: Vec<ConsentCellView>,
+    pub consent_cell_views: Vec<ConsentCellView>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

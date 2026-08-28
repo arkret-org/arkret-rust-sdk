@@ -296,7 +296,7 @@ pub struct AgentAuthoritySnapshotCore {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_transition_witness: Option<AgentAuthorizationTransitionWitness>,
     pub agent_lifecycle_witness: AgentLifecycleWitness,
-    pub seal_lineage: Vec<Seal>,
+    pub seal_lineages: Vec<Seal>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -609,21 +609,22 @@ pub struct AgentSignerEvidenceQueryFailure {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentSignerEvidenceQueryOutcome {
-    pub evidence: Vec<crate::AuthenticatedSignerResolutionEvidence>,
+    pub evidence_items: Vec<crate::AuthenticatedSignerResolutionEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failures: Option<Vec<AgentSignerEvidenceQueryFailure>>,
 }
 
 impl AgentSignerEvidenceQueryOutcome {
     pub fn validate(&self) -> arkret_wire::Result<()> {
-        if self.evidence.len() > 64 || self.failures.as_ref().is_some_and(|items| items.len() > 64)
+        if self.evidence_items.len() > 64
+            || self.failures.as_ref().is_some_and(|items| items.len() > 64)
         {
             return Err(arkret_wire::WireError::Protocol(
                 "Agent signer evidence query outcome exceeds 64 items".to_owned(),
             ));
         }
         let mut digests = std::collections::BTreeSet::new();
-        for evidence in &self.evidence {
+        for evidence in &self.evidence_items {
             if !matches!(
                 evidence,
                 crate::AuthenticatedSignerResolutionEvidence::NativeAgent { .. }
@@ -649,7 +650,7 @@ impl AgentSignerEvidenceQueryOutcome {
         request.validate()?;
         self.validate()?;
         let mut accounted = std::collections::BTreeMap::new();
-        for evidence in &self.evidence {
+        for evidence in &self.evidence_items {
             let crate::AuthenticatedSignerResolutionEvidence::NativeAgent {
                 signer_id,
                 verification_method,
@@ -725,7 +726,7 @@ impl AgentSignerEvidenceQueryOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentSignerEvidenceBundle {
     pub schema: SchemaId,
-    pub evidence: Vec<AgentSignerEvidence>,
+    pub evidence_items: Vec<AgentSignerEvidence>,
 }
 
 impl AgentSignerEvidenceBundle {

@@ -594,7 +594,7 @@ pub struct InviteDelivery {
     #[serde(with = "canonical_timestamp")]
     pub updated_at: DateTime<Utc>,
     /// Delivered invite credentials, oldest first.
-    pub entries: Vec<InviteDeliveryEntry>,
+    pub delivery_entries: Vec<InviteDeliveryEntry>,
 }
 
 impl InviteDelivery {

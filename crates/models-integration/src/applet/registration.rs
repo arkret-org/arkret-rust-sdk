@@ -201,11 +201,11 @@ impl AppletNamespaceEntry {
 #[serde(deny_unknown_fields)]
 pub struct AppletWireNamespaces {
     #[serde(default)]
-    pub actors: Vec<AppletNamespaceEntry>,
+    pub actor_namespace_entries: Vec<AppletNamespaceEntry>,
     #[serde(default)]
-    pub realms: Vec<AppletNamespaceEntry>,
+    pub realm_namespace_entries: Vec<AppletNamespaceEntry>,
     #[serde(default)]
-    pub handles: Vec<AppletNamespaceEntry>,
+    pub handle_namespace_entries: Vec<AppletNamespaceEntry>,
 }
 
 impl AppletWireNamespaces {
@@ -354,7 +354,7 @@ pub struct AppletEndpointEntry {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppletEndpointPolicy {
     #[serde(default)]
-    pub endpoints: Vec<AppletEndpointEntry>,
+    pub endpoint_entries: Vec<AppletEndpointEntry>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
 }

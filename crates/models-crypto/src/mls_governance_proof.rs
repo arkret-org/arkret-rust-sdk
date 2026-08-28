@@ -362,7 +362,7 @@ impl MlsGovernanceFrontierRangeWitness {
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceFrontierProjection {
     pub frontier_registry_digest: Hash,
-    pub branches: Vec<MlsGovernanceFrontierBranchProjection>,
+    pub frontier_branch_projections: Vec<MlsGovernanceFrontierBranchProjection>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -371,7 +371,7 @@ pub struct MlsGovernanceFrontierProjection {
 pub struct MlsGovernanceFrontierBranchProjection {
     pub target_seal_ref: SealId,
     pub state_root: Hash,
-    pub entries: Vec<MlsGovernanceFrontierCellEntry>,
+    pub frontier_cell_entries: Vec<MlsGovernanceFrontierCellEntry>,
     pub range_witnesses: Vec<MlsGovernanceFrontierRangeWitness>,
 }
 

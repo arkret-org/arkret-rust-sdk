@@ -1758,11 +1758,11 @@ pub struct RecoveryPolicy {
     /// Recovery signing keys a `recovery_unlock` proof resolves against;
     /// required when `allowed_proof_kinds` contains `recovery_unlock`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recovery_keys: Option<Vec<RecoveryKeyEntry>>,
+    pub recovery_key_entries: Option<Vec<RecoveryKeyEntry>>,
     /// Dedicated backup-only HPKE recipients referenced by
     /// `recovery_keys[].key_agreement_ref` and key-backup envelopes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recovery_key_agreements: Option<Vec<RecoveryKeyAgreementEntry>>,
+    pub recovery_key_agreement_entries: Option<Vec<RecoveryKeyAgreementEntry>>,
     /// Two-person-rule / cooldown enforcement layered on the proofs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_requirement: Option<RecoveryApprovalRequirement>,
@@ -2071,8 +2071,8 @@ pub struct UnsignedRecoveryPolicyBody {
     pub threshold: Option<RecoveryThresholdConfig>,
     pub device_quorum: Option<RecoveryDeviceQuorumConfig>,
     pub trusted_recovery_services: Option<Vec<RecoveryTrustedService>>,
-    pub recovery_keys: Option<Vec<RecoveryKeyEntry>>,
-    pub recovery_key_agreements: Option<Vec<RecoveryKeyAgreementEntry>>,
+    pub recovery_key_entries: Option<Vec<RecoveryKeyEntry>>,
+    pub recovery_key_agreement_entries: Option<Vec<RecoveryKeyAgreementEntry>>,
     pub approval_requirement: Option<RecoveryApprovalRequirement>,
     pub audit: Option<RecoveryAuditConfig>,
     pub issued_at: DateTime<Utc>,

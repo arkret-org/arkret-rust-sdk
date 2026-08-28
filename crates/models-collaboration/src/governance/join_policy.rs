@@ -633,7 +633,7 @@ pub struct JoinApplicationEntry {
 pub struct JoinApplicationListOutcome {
     pub realm_id: RealmId,
     pub viewer_is_reviewer: bool,
-    pub applications: Vec<JoinApplicationEntry>,
+    pub application_entries: Vec<JoinApplicationEntry>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
 }
@@ -673,7 +673,7 @@ pub struct JoinApplicationAuditEntry {
 pub struct JoinApplicationAuditOutcome {
     pub realm_id: RealmId,
     pub application_ref: Hash,
-    pub entries: Vec<JoinApplicationAuditEntry>,
+    pub application_audit_entries: Vec<JoinApplicationAuditEntry>,
 }
 
 fn canonical_hash(value: &impl Serialize) -> Result<Hash> {

@@ -226,7 +226,7 @@ pub struct AccountDataCasConflictDetails {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataList {
     #[serde(default)]
-    pub entries: Vec<AccountDataRow>,
+    pub account_data_entries: Vec<AccountDataRow>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

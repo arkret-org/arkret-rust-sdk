@@ -294,7 +294,7 @@ pub struct CircleCreateRequestBody {
 pub struct CircleList {
     pub realm_id: RealmId,
     #[serde(default)]
-    pub circles: Vec<CircleView>,
+    pub circle_views: Vec<CircleView>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
