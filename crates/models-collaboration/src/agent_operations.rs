@@ -11,7 +11,7 @@ use std::collections::BTreeSet;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
     AuditReasonText, DidCoreId, DidFullId, DidUrl, EventInitialSubmission, IdempotencyKey,
-    PrincipalAuthorityKey, SchemaId, project_full_id_to_core_id,
+    SchemaId, project_full_id_to_core_id,
 };
 
 use crate::agent_signer_evidence::AgentSigningKeyBinding;
@@ -467,8 +467,9 @@ pub enum AgentProvisionRequestBody {
         /// Controller-authored, already accepted PCR-independent Agent
         /// inception. The Principal Server verifies and pins its exact head.
         full_id: DidFullId,
-        /// Public controller account authority selected by this authenticated operation.
-        controller_authority: PrincipalAuthorityKey,
+        /// Principal Server half of the controller authority selected by this
+        /// authenticated operation. The principal half comes from the session.
+        controller_principal_server_id: DidCoreId,
         slug: String,
         requested_scope: AgentKeyScope,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -2367,6 +2368,42 @@ mod tests {
         let value = serde_json::to_value(outcome).unwrap();
         assert_eq!(value["status"], "awaiting_controller_event");
         assert_eq!(value["full_id"], "did:webvh:z6mkfixtureagent:agent.example");
+    }
+
+    #[test]
+    fn agent_provision_prepare_uses_the_spec_controller_server_coordinate() {
+        let request = AgentProvisionRequestBody::Prepare {
+            operation_id: ProtocolOperationId::new("ak:operation:agent-provision-wire").unwrap(),
+            idempotency_key: IdempotencyKey::new("agent-provision-wire").unwrap(),
+            full_id: DidFullId::new("did:webvh:z6mkfixtureagent:agent.example").unwrap(),
+            controller_principal_server_id: DidCoreId::new("ak:did_core:web:principal.example")
+                .unwrap(),
+            slug: "summary".to_owned(),
+            requested_scope: AgentKeyScope {
+                actions: Vec::new(),
+                resources: Vec::new(),
+                constraints: Vec::new(),
+            },
+            pairing_ttl_ms: None,
+        };
+
+        let value = serde_json::to_value(&request).unwrap();
+        assert_eq!(
+            value["controller_principal_server_id"],
+            "ak:did_core:web:principal.example"
+        );
+        assert!(value.get("controller_authority").is_none());
+
+        let mut stale = value;
+        stale
+            .as_object_mut()
+            .unwrap()
+            .remove("controller_principal_server_id");
+        stale["controller_authority"] = serde_json::json!({
+            "principal_id": "ak:did_core:web:alice.example",
+            "principal_server_id": "ak:did_core:web:principal.example"
+        });
+        assert!(serde_json::from_value::<AgentProvisionRequestBody>(stale).is_err());
     }
 
     #[test]
