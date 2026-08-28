@@ -140,6 +140,40 @@ impl Seal {
         control_event_set_root: Hash,
         state_root: Hash,
         hlc: Hlc,
+        kind: crate::SealKind,
+        digest_suite: arkret_canonical::DigestSuite,
+        signer: &S,
+    ) -> Result<Seal> {
+        let completeness_root = control_event_set_root.clone();
+        Self::sign_single_kind_with_roots(
+            realm_id,
+            predecessor_refs,
+            delta,
+            control_event_set_root,
+            completeness_root,
+            state_root,
+            hlc,
+            kind,
+            digest_suite,
+            signer,
+        )
+    }
+
+    /// Build + single-sign a Seal with independently computed cumulative
+    /// control-set and actor-sequence completeness roots.
+    ///
+    /// Current CBA runtimes must use this form after resolving the covered
+    /// Events. The two roots use different Merkle domains and are not
+    /// interchangeable even when the Seal has no predecessors.
+    #[allow(clippy::too_many_arguments)]
+    pub fn sign_single_kind_with_roots<S: PayloadSigner + ?Sized>(
+        realm_id: RealmId,
+        predecessor_refs: Vec<SealId>,
+        delta: Vec<Hash>,
+        control_event_set_root: Hash,
+        completeness_root: Hash,
+        state_root: Hash,
+        hlc: Hlc,
         _kind: crate::SealKind,
         digest_suite: arkret_canonical::DigestSuite,
         signer: &S,
@@ -148,7 +182,6 @@ impl Seal {
         let sealed_at = Utc::now();
         let previous_state_root = None;
         let previous_digest_algorithm = None;
-        let completeness_root = control_event_set_root.clone();
         let notary_seq = 0;
         let data_view_root = None;
         let data_event_set_root = None;
@@ -656,6 +689,28 @@ mod tests {
             NotarySig::Single(sig) => assert!(!sig.jws.is_empty()),
             other => panic!("expected single sig, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn seal_sign_single_preserves_independent_completeness_root() {
+        let seal = Seal::sign_single_kind_with_roots(
+            realm(),
+            Vec::new(),
+            vec![hash(0x11)],
+            hash(0x22),
+            hash(0x33),
+            hash(0x44),
+            hlc(),
+            crate::SealKind::Normal,
+            arkret_canonical::DigestSuite::Sha256,
+            &signer(),
+        )
+        .unwrap();
+
+        assert_eq!(seal.control_event_set_root, hash(0x22));
+        assert_eq!(seal.completeness_root, hash(0x33));
+        seal.validate_id(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
     }
 
     #[test]
