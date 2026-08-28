@@ -90,4 +90,18 @@ mod caching_tests {
         cache.clear();
         assert!(cache.is_empty());
     }
+
+    #[test]
+    fn did_key_resolution_is_deterministic_and_has_no_synthetic_update_time() {
+        let did = sample_did("");
+        let first = DidKeyResolver::new()
+            .resolve_did(&did)
+            .expect("first resolution");
+        let second = DidKeyResolver::new()
+            .resolve_did(&did)
+            .expect("second resolution");
+
+        assert_eq!(first.document, second.document);
+        assert!(first.document.updated_at.is_none());
+    }
 }

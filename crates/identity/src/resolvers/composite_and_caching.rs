@@ -73,11 +73,12 @@ impl DidResolver for DidKeyResolver {
         // `did:key` is self-describing: there is no log, no witness set and
         // nothing to prove beyond the identifier, so the receipt degrades to an
         // empty proof array rather than to an invented placeholder.
-        Ok(ResolvedDid::proofless(DidDocument::new(
-            did.clone(),
-            format!("{}#{key}", did.as_str()),
-            key,
-        )))
+        let mut document = DidDocument::new(did.clone(), format!("{}#{key}", did.as_str()), key);
+        // did:key is self-certifying and immutable. A resolver-local wall-clock
+        // timestamp would make the same DID expand to different canonical
+        // documents and break retained-history verification.
+        document.updated_at = None;
+        Ok(ResolvedDid::proofless(document))
     }
 }
 
