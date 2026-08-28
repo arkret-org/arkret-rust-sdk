@@ -184,8 +184,7 @@ impl HandleClaim {
         }
         if let Some(expected_recipient_id) = expected_recipient_id {
             match self.member_delivery_binding.as_ref() {
-                Some(binding) if &binding.recipient_id == expected_recipient_id => {
-                }
+                Some(binding) if &binding.recipient_id == expected_recipient_id => {}
                 Some(_) => {
                     return Err(WireError::Protocol(
                         "handle claim delivery binding mismatch".to_owned(),
@@ -245,7 +244,8 @@ mod tests {
     fn placeholder_payload_proof() -> PayloadProof {
         PayloadProof {
             kind: "detached_jws".to_owned(),
-            verification_method: DidUrl::new("did:webvh:z6mkfixture:issuer_id.example#key-1").unwrap(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:issuer_id.example#key-1")
+                .unwrap(),
             payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             created_at: Utc::now(),
             domain: None,
@@ -269,8 +269,7 @@ mod tests {
         let claim = HandleClaim {
             handle: Some(Handle::parse("alice:example.com").unwrap()),
             member_delivery_binding: Some(DeliveryBindingHint {
-                recipient_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned())
-                    .unwrap(),
+                recipient_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap(),
                 recipient_kind: RecipientServiceKind::PrincipalServer,
                 binding_source: HandleHintBindingSource::Explicit,
                 delivery_modes: BTreeSet::new(),
@@ -295,8 +294,7 @@ mod tests {
             expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
             proofs: vec![placeholder_payload_proof()],
             member_delivery_binding: Some(DeliveryBindingHint {
-                recipient_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned())
-                    .unwrap(),
+                recipient_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap(),
                 recipient_kind: RecipientServiceKind::PrincipalServer,
                 binding_source: HandleHintBindingSource::OrganizationPolicy,
                 delivery_modes: BTreeSet::from([DeliveryMode::Events]),

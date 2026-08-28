@@ -152,10 +152,7 @@ impl MemberDeliveryBindingCandidate {
         {
             return Err(CandidateError::RecipientDidCoreIdMismatch {
                 outer: self.principal_authority.principal_server_id.to_string(),
-                inner: self
-                    .member_delivery_binding
-                    .recipient_id
-                    .to_string(),
+                inner: self.member_delivery_binding.recipient_id.to_string(),
             });
         }
         // (2) handle canonical — `Handle::parse` already accepted only

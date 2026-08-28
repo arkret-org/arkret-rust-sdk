@@ -1001,23 +1001,21 @@ fn validate_common_evidence(
     let expected_snapshot_digest = canonical_digest(&snapshot.core)?;
     let expected_admission_digest = agent_admission_evidence_digest(snapshot, gate)?;
     let expected_outer_core_digest = outer_core_digest(evidence)?;
-    let (outer_domain, outer_core_digest_value, outer_source_id_value, outer_method) =
-        match outer {
-            OuterAttestationRef::Current(value) => (
-                &value.domain,
-                &value.core_digest,
-                &value.source_id,
-                &value.verification_method,
-            ),
-            OuterAttestationRef::Historical(value) => (
-                &value.domain,
-                &value.core_digest,
-                &value.source_id,
-                &value.verification_method,
-            ),
-        };
-    let lease_authority_id =
-        did_url_controller_core_id(&snapshot.lease.verification_method)?;
+    let (outer_domain, outer_core_digest_value, outer_source_id_value, outer_method) = match outer {
+        OuterAttestationRef::Current(value) => (
+            &value.domain,
+            &value.core_digest,
+            &value.source_id,
+            &value.verification_method,
+        ),
+        OuterAttestationRef::Historical(value) => (
+            &value.domain,
+            &value.core_digest,
+            &value.source_id,
+            &value.verification_method,
+        ),
+    };
+    let lease_authority_id = did_url_controller_core_id(&snapshot.lease.verification_method)?;
     let outer_source_id = did_url_controller_core_id(outer_method)?;
     let outer_time_valid = match outer {
         OuterAttestationRef::Current(value) => {

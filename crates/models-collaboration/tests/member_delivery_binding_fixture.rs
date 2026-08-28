@@ -12,10 +12,10 @@
 //!   resolution (`delivery_binding_stale` / `delivery_binding_handed_over` responses, fail-closed
 //!   after leave).
 //! * The policy-evaluation half of `policy_mismatch.v1` — evaluating
-//!   `delivery_binding_policy.allowed_binding_sources` / `allowed_recipient_ids` against a
-//!   landing `ak.member.state` needs the Realm policy reducer; the SDK asserts the binding is
-//!   structurally valid (the rejection is policy-level, not schema-level) plus the promised reason
-//!   code registration.
+//!   `delivery_binding_policy.allowed_binding_sources` / `allowed_recipient_ids` against a landing
+//!   `ak.member.state` needs the Realm policy reducer; the SDK asserts the binding is structurally
+//!   valid (the rejection is policy-level, not schema-level) plus the promised reason code
+//!   registration.
 //! * `unroutable.v1` delivery-side effects (skipping notifications / sync / push / to-device /
 //!   key-packages) — server delivery pipeline conduct.
 use arkret_models_identity::{BindingSource, DeliveryStatus, MemberDeliveryBinding};

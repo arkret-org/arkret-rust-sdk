@@ -120,8 +120,7 @@ impl IdentityReceipt {
             != self.registry_id
         {
             return Err(WireError::Protocol(
-                "identity receipt verification_method must be controlled by registry_id"
-                    .to_owned(),
+                "identity receipt verification_method must be controlled by registry_id".to_owned(),
             ));
         }
         match (&self.audience, &self.signature.audience) {
@@ -298,8 +297,7 @@ impl DidWebvhWitnessReceipt {
             != self.issuer_id
         {
             return Err(WireError::Protocol(
-                "did:webvh witness receipt proof must be controlled by issuer_id"
-                    .to_owned(),
+                "did:webvh witness receipt proof must be controlled by issuer_id".to_owned(),
             ));
         }
         match (&self.audience, &self.signature.audience) {
@@ -489,10 +487,7 @@ mod tests {
         let binding: Value =
             serde_json::from_slice(&receipt.proof_binding_bytes().unwrap()).unwrap();
         assert_eq!(binding["context"], IDENTITY_RECEIPT_PROOF_BINDING_CONTEXT);
-        assert_eq!(
-            binding["registry_id"],
-            receipt.registry_id.as_str()
-        );
+        assert_eq!(binding["registry_id"], receipt.registry_id.as_str());
         assert_eq!(binding["subject_did"], receipt.subject_did.as_str());
 
         receipt.signature.created_at = "2026-07-15T00:00:01.000Z".parse().unwrap();

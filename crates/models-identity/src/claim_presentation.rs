@@ -142,7 +142,10 @@ impl AgentSelectorClaim {
                 "controller_subject_id".to_owned(),
                 serde_json::to_value(&self.controller_subject_id)?,
             ),
-            ("subject_id".to_owned(), serde_json::to_value(&self.subject_id)?),
+            (
+                "subject_id".to_owned(),
+                serde_json::to_value(&self.subject_id)?,
+            ),
             (
                 "agent_slug".to_owned(),
                 Value::String(self.agent_slug.clone()),

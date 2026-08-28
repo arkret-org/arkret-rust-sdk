@@ -1212,7 +1212,10 @@ mod session_grant_contract_tests {
         let mut valid = introspect_grant_base("standard");
         valid["holder_binding"] = holder_binding();
         let grant = serde_json::from_value::<SessionGrantIntrospectGrant>(valid.clone()).unwrap();
-        assert_eq!(grant.principal_authority_key().principal_id, grant.subject_id);
+        assert_eq!(
+            grant.principal_authority_key().principal_id,
+            grant.subject_id
+        );
         assert_eq!(
             grant.principal_authority_key().principal_server_id,
             grant.audience_id

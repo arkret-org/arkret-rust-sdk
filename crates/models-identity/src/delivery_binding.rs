@@ -96,8 +96,7 @@ impl MemberDeliveryBinding {
     /// Validate the schema-level conditional required fields enforced by
     /// `event-payload.schema.json` (`binding_source`-driven `allOf`).
     pub fn validate(&self) -> Result<()> {
-        self.service_resolution
-            .validate_shape(&self.recipient_id)?;
+        self.service_resolution.validate_shape(&self.recipient_id)?;
         if self.delivery_modes.is_empty() {
             return Err(WireError::Protocol(
                 "member_delivery_binding.delivery_modes MUST NOT be empty".to_owned(),

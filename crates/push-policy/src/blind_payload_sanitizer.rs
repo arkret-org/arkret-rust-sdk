@@ -187,8 +187,8 @@ pub enum SanitizerMode {
 /// * a "notification" object (allow-listed fields at the top level), or
 /// * a wrapper object that contains a `notification` field — only the `notification` sub-object is
 ///   checked against the allow-list; the wrapper itself may carry routing metadata (`operation_id`,
-///   `destination_id`, `devices`, …) and is recursively scanned only for sensitive literals
-///   and forbidden keys, not against the allow-list.
+///   `destination_id`, `devices`, …) and is recursively scanned only for sensitive literals and
+///   forbidden keys, not against the allow-list.
 ///
 /// Use [`sanitize_blind_payload_strict`] for the gateway ingress / push
 /// provider variant that also requires `push_target_id` + `wakeup_kind` +

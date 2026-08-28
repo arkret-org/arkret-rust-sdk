@@ -32,7 +32,7 @@ pub struct DirectorySearchRealmsRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub requester: Option<DidCoreId>,
+    pub requester_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -262,7 +262,7 @@ pub struct DirectoryResolveRealmRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signed_link: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub requester: Option<DidCoreId>,
+    pub requester_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -317,7 +317,7 @@ pub enum TargetKind {
 pub struct DirectoryResolveTargetRequestBody {
     pub address: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub requester: Option<DidCoreId>,
+    pub requester_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -345,7 +345,7 @@ impl DirectoryResolveTargetRequestBody {
         directory_proof_binding_bytes(
             ProofContextId::DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1,
             ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_TARGET_V1,
-            Some(directory_required_issuer(self.requester.as_ref())?),
+            Some(directory_required_issuer(self.requester_id.as_ref())?),
             vec![("address", Value::String(self.address.clone()))],
             &self.payload_digest()?,
             proof,
@@ -506,7 +506,7 @@ pub struct DirectorySearchActorsRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryActorSearchOutcome {
     #[serde(default)]
-    pub actors: Vec<ActorPreview>,
+    pub actor_ids: Vec<ActorPreview>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     pub has_more: bool,
@@ -633,7 +633,7 @@ pub struct DirectoryResolveHandleRequestBody {
     /// DID or service DID of the requester. Required by directory policy for
     /// `member_add` / `invite` disclosure.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub requester: Option<DidCoreId>,
+    pub requester_id: Option<DidCoreId>,
     /// Target Realm ID or inviting service DID the result must be bound to.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audience: Option<String>,
@@ -658,7 +658,7 @@ impl DirectoryResolveHandleRequestBody {
         directory_proof_binding_bytes(
             ProofContextId::DIRECTORY_RESOLVE_HANDLE_REQUEST_PROOF_V1,
             ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_HANDLE_V1,
-            Some(directory_required_issuer(self.requester.as_ref())?),
+            Some(directory_required_issuer(self.requester_id.as_ref())?),
             vec![("handle", Value::String(self.handle.clone()))],
             &self.payload_digest()?,
             proof,
@@ -680,7 +680,7 @@ pub struct DirectoryResolveAgentSelectorRequestBody {
     pub intent: DirectoryIntent,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    pub requester: DidCoreId,
+    pub requester_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub proofs: Vec<PayloadProof>,
 }
@@ -698,7 +698,7 @@ impl DirectoryResolveAgentSelectorRequestBody {
         directory_proof_binding_bytes(
             ProofContextId::DIRECTORY_RESOLVE_AGENT_SELECTOR_REQUEST_PROOF_V1,
             ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_AGENT_SELECTOR_V1,
-            Some(serde_json::to_value(&self.requester)?),
+            Some(serde_json::to_value(&self.requester_id)?),
             vec![
                 (
                     "controller_handle",
@@ -717,7 +717,7 @@ impl DirectoryResolveAgentSelectorRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryAgentSelectorResolutionOutcome {
     pub controller_subject_id: DidCoreId,
-    pub subject: DidCoreId,
+    pub subject_id: DidCoreId,
     pub agent_slug: String,
     pub verified: bool,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -745,9 +745,9 @@ impl DirectoryAgentSelectorResolutionOutcome {
                     .to_owned(),
             ));
         }
-        if self.selector_claim.subject != self.subject {
+        if self.selector_claim.subject_id != self.subject_id {
             return Err(WireError::Protocol(
-                "selector_claim.subject must match response.subject".to_owned(),
+                "selector_claim.subject_id must match response.subject_id".to_owned(),
             ));
         }
         if self.selector_claim.agent_slug != self.agent_slug {
@@ -766,13 +766,13 @@ impl DirectoryAgentSelectorResolutionOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryListHandlesForSubjectRequestBody {
     /// Holder/principal DID reverse-lookup key. NOT a Realm actor_id.
-    pub subject: DidCoreId,
+    pub subject_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub intent: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub requester: Option<DidCoreId>,
+    pub requester_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -800,8 +800,8 @@ impl DirectoryListHandlesForSubjectRequestBody {
         directory_proof_binding_bytes(
             ProofContextId::DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1,
             ServiceOperationId::FIND_DIRECTORY_READ_LIST_HANDLES_FOR_SUBJECT_V1,
-            Some(directory_required_issuer(self.requester.as_ref())?),
-            vec![("subject", serde_json::to_value(&self.subject)?)],
+            Some(directory_required_issuer(self.requester_id.as_ref())?),
+            vec![("subject_id", serde_json::to_value(&self.subject_id)?)],
             &self.payload_digest()?,
             proof,
         )
@@ -948,7 +948,7 @@ pub struct DirectoryPushRegisterResourceFilter {
 pub struct DirectoryPushRegisterRequestBody {
     pub subscriber_principal_id: DidCoreId,
     pub resource_filter: DirectoryPushRegisterResourceFilter,
-    pub webhook_endpoint: String,
+    pub webhook_uri: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub secret: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1030,7 +1030,7 @@ pub struct DirectoryGovernanceProof {
     /// Target Directory `service_id` in `did_core_id` form. Typed `DidCoreId`
     /// so the DID, DID-URL and array shapes fail closed at
     /// deserialization (§8.7.1 audience shape paragraph).
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
     pub jws: String,
 }
 
@@ -1102,7 +1102,10 @@ impl DirectoryGovernanceProof {
             "proof_purpose".to_owned(),
             serde_json::to_value(self.proof_purpose)?,
         );
-        binding.insert("audience".to_owned(), serde_json::to_value(&self.audience)?);
+        binding.insert(
+            "audience_id".to_owned(),
+            serde_json::to_value(&self.audience_id)?,
+        );
         Ok(arkret_canonical::canonical::canonical_json_bytes(
             &Value::Object(binding),
         )?)
@@ -1279,6 +1282,7 @@ pub struct DirectoryUserSearchOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryHandleResolutionOutcome {
     pub principal_id: DidCoreId,
+    pub subject_id: DidCoreId,
     pub handle: String,
     #[serde(default)]
     pub verified: bool,
@@ -1325,7 +1329,7 @@ pub struct DirectoryHandleResolutionOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectorySubjectHandleList {
-    pub subject: DidCoreId,
+    pub subject_id: DidCoreId,
     #[serde(default)]
     #[cfg_attr(
         feature = "openapi",
@@ -1348,11 +1352,11 @@ impl DirectorySubjectHandleList {
     /// response closed; this validator fails closed.
     pub fn validate(&self) -> Result<()> {
         for claim in &self.claims {
-            match &claim.subject {
-                Some(s) if *s == self.subject => {}
+            match &claim.subject_id {
+                Some(s) if *s == self.subject_id => {}
                 _ => {
                     return Err(WireError::Protocol(
-                        "list_handles_for_subject: claims[].subject must equal response.subject"
+                        "list_handles_for_subject: claims[].subject_id must equal response.subject_id"
                             .to_owned(),
                     ));
                 }
@@ -1394,8 +1398,8 @@ mod agent_selector_outcome_tests {
             schema: SchemaId::AGENT_SELECTOR_CLAIM_V1.to_owned(),
             controller_subject_id: principal("did:webvh:z6mkfixture:example.com:users:alice"),
             agent_slug: "summary".to_owned(),
-            subject: principal("did:webvh:z6mkfixture:agent.example"),
-            issuer: actor("did:webvh:z6mkfixture:example.com"),
+            subject_id: principal("did:webvh:z6mkfixture:agent.example"),
+            issuer_id: actor("did:webvh:z6mkfixture:example.com"),
             vouching_id: Some(service("did:webvh:z6mkfixture:example.com")),
             binding_state: HandleBindingState::Verified,
             visibility: HandleVisibility::Restricted,
@@ -1424,7 +1428,7 @@ mod agent_selector_outcome_tests {
         let selector_claim = selector_claim();
         let outcome = DirectoryAgentSelectorResolutionOutcome {
             controller_subject_id: selector_claim.controller_subject_id.clone(),
-            subject: selector_claim.subject.clone(),
+            subject_id: selector_claim.subject_id.clone(),
             agent_slug: selector_claim.agent_slug.clone(),
             verified: true,
             selector_claim,
@@ -1445,7 +1449,7 @@ mod directory_requester_proof_binding_tests {
     fn body() -> DirectoryResolveTargetRequestBody {
         DirectoryResolveTargetRequestBody {
             address: "ak://realm/release".to_owned(),
-            requester: Some(DidCoreId::new("ak:did_core:web:alice.example").unwrap()),
+            requester_id: Some(DidCoreId::new("ak:did_core:web:alice.example").unwrap()),
             proof_challenge: None,
             claim_presentations: Vec::new(),
             proofs: Vec::new(),
@@ -1521,7 +1525,7 @@ mod directory_governance_proof_tests {
             payload_digest,
             created_at: Utc.timestamp_millis_opt(1_777_777_777_000).unwrap(),
             proof_purpose: DirectoryGovernanceProofPurpose::GovernanceAuthorization,
-            audience: DidCoreId::new(DIRECTORY_SERVICE_ID).unwrap(),
+            audience_id: DidCoreId::new(DIRECTORY_SERVICE_ID).unwrap(),
             jws: "aaa..bbb".to_owned(),
         }
     }

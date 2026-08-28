@@ -46,8 +46,7 @@ impl PeerContactAddress {
     /// material, never authorization. Consumers must independently verify the
     /// fetched/supplied signed resolution record before routing.
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
-        self.service_resolution
-            .validate_shape(&self.recipient_id)?;
+        self.service_resolution.validate_shape(&self.recipient_id)?;
         if self.principal_authority.principal_id != self.subject_id
             || self.principal_authority.principal_server_id != self.recipient_id
         {

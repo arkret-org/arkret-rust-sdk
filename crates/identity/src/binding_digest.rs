@@ -510,7 +510,9 @@ impl ResolverPolicySnapshot {
             fail_mode,
             trust_root_ids: sorted_unique(
                 "resolver_policy_snapshot.trust_root_ids",
-                trust_root_ids.into_iter().map(|root| root.trim().to_owned()),
+                trust_root_ids
+                    .into_iter()
+                    .map(|root| root.trim().to_owned()),
             )?,
         })
     }
@@ -559,7 +561,10 @@ impl ResolverPolicySnapshot {
             "fail_mode".to_owned(),
             Value::String(self.fail_mode.as_str().to_owned()),
         );
-        object.insert("trust_root_ids".to_owned(), string_array(&self.trust_root_ids));
+        object.insert(
+            "trust_root_ids".to_owned(),
+            string_array(&self.trust_root_ids),
+        );
         object.insert("profile_policy".to_owned(), self.profile.profile_policy());
         Value::Object(object)
     }

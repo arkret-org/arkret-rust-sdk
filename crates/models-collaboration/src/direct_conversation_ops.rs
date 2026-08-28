@@ -287,7 +287,10 @@ impl DirectConversationFoundingAuthorityEvidence {
                     crate::contact_operations::ContactRound::Glare {
                         sorted_pair_member_ids,
                         requests,
-                    } => (sorted_pair_member_ids.clone(), &requests[0].request_event_ref),
+                    } => (
+                        sorted_pair_member_ids.clone(),
+                        &requests[0].request_event_ref,
+                    ),
                 };
                 if participants[0].as_str() >= participants[1].as_str() {
                     return Err(arkret_wire::WireError::Protocol(

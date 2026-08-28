@@ -290,9 +290,7 @@ impl DeviceMessageSender {
                 sender_agent_verification_method,
                 sender_agent_key_authorize_event_id,
             }),
-            (None, None, None, None, Some(sender_id)) => {
-                Ok(Self::Service { sender_id })
-            }
+            (None, None, None, None, Some(sender_id)) => Ok(Self::Service { sender_id }),
             _ => Err(
                 "device message sender must contain exactly one complete device, Native Agent, or Service branch",
             ),
@@ -1225,10 +1223,7 @@ mod device_message_tests {
         );
 
         let mut half_agent = value;
-        half_agent
-            .as_object_mut()
-            .unwrap()
-            .remove("sender_id");
+        half_agent.as_object_mut().unwrap().remove("sender_id");
         half_agent["sender_agent_id"] = json!("ak:did_core:webvh:z6mkfixtureagent");
         assert!(
             serde_json::from_value::<ActorPrivateDeviceUpdate>(half_agent).is_err(),

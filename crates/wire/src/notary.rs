@@ -173,7 +173,8 @@ impl NotaryValue {
                 recovery_controller_organization_ids,
             } => {
                 if controller_organization_id.is_some()
-                    && (recovery_members.is_empty() || recovery_controller_organization_ids.is_empty())
+                    && (recovery_members.is_empty()
+                        || recovery_controller_organization_ids.is_empty())
                 {
                     return Err(WireError::Protocol(
                         "organization-controlled single_signer requires recovery members and recovery controller organizations"
@@ -226,7 +227,8 @@ impl NotaryValue {
                         "mixed notary requires at least one recovery member".to_owned(),
                     ));
                 }
-                if controller_organization_id.is_some() && recovery_controller_organization_ids.is_empty()
+                if controller_organization_id.is_some()
+                    && recovery_controller_organization_ids.is_empty()
                 {
                     return Err(WireError::Protocol(
                         "organization-controlled mixed notary requires recovery controller organizations"
