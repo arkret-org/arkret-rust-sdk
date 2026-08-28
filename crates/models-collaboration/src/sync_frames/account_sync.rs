@@ -5,9 +5,9 @@
 //! ephemeral containers, timelines, and the per-Realm roster entry
 //! carried by account-subscribe frames.
 
-use arkret_wire::{ActorPrivateUpdateKind, DidCoreId};
 use arkret_models_crypto::secret_share::{SecretShareRequestContent, SecretShareSendContent};
 use arkret_models_identity::artifacts_device_identity::KeyVerificationContent;
+use arkret_wire::{ActorPrivateUpdateKind, DidCoreId};
 use serde::Serializer;
 
 use crate::internal_prelude::*;
@@ -357,6 +357,7 @@ pub struct DeviceMessageEnvelope {
     pub sent_at: DateTime<Utc>,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub content: DeviceMessageContent,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_proof: Option<PayloadProof>,
@@ -456,7 +457,10 @@ impl<'de> Deserialize<'de> for DeviceMessageEnvelope {
     }
 }
 
-pub fn decode_device_message_content(kind: &ProtocolKind, content: Value) -> Result<DeviceMessageContent> {
+pub fn decode_device_message_content(
+    kind: &ProtocolKind,
+    content: Value,
+) -> Result<DeviceMessageContent> {
     fn decode<T: serde::de::DeserializeOwned>(content: Value) -> Result<T> {
         serde_json::from_value(content).map_err(WireError::from)
     }
@@ -486,7 +490,9 @@ pub fn decode_device_message_content(kind: &ProtocolKind, content: Value) -> Res
 
 fn validate_key_verification_content(kind: &str, value: &KeyVerificationContent) -> Result<()> {
     let present = match kind {
-        "ak.key.verification.request" => value.methods.is_some() && value.timestamp.is_some() && value.expires_at.is_some(),
+        "ak.key.verification.request" => {
+            value.methods.is_some() && value.timestamp.is_some() && value.expires_at.is_some()
+        }
         "ak.key.verification.ready" => value.methods.is_some(),
         "ak.key.verification.start" => value.method.is_some(),
         "ak.key.verification.accept" => value.commitment.is_some(),
@@ -496,7 +502,13 @@ fn validate_key_verification_content(kind: &str, value: &KeyVerificationContent)
         "ak.key.verification.cancel" => value.code.is_some(),
         _ => false,
     };
-    if present { Ok(()) } else { Err(WireError::Protocol(format!("{kind} content is missing required fields"))) }
+    if present {
+        Ok(())
+    } else {
+        Err(WireError::Protocol(format!(
+            "{kind} content is missing required fields"
+        )))
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

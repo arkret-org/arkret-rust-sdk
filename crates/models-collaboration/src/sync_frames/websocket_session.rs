@@ -675,9 +675,9 @@ impl WebSocketConnectionState {
 fn data_payload_cursor(payload: &WebSocketDataPayload) -> Option<String> {
     match payload {
         WebSocketDataPayload::Account(frame) => frame.cursor.clone(),
-        WebSocketDataPayload::Events(frame) => frame
-            .cursor()
-            .map(|cursor| cursor.as_str().to_owned()),
+        WebSocketDataPayload::Events(frame) => {
+            frame.cursor().map(|cursor| cursor.as_str().to_owned())
+        }
         WebSocketDataPayload::Signal(_) => None,
     }
 }

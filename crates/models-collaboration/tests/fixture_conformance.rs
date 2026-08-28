@@ -2,13 +2,12 @@ use arkret_models_collaboration::history_key::{
     HistoryKeyResponseAckRequest, HistoryKeyResponseListOutcome, HistoryKeyResponseSendReceipt,
     HistoryKeyResponseSendRequest,
 };
-use arkret_models_collaboration::http_bodies::{EventsSubscribeFrame, EventsSubscribeFrameKind};
+use arkret_models_collaboration::http_bodies::EventsSubscribeFrameKind;
 use arkret_models_collaboration::sync_frames::account_subscribe::AccountSubscribeFrame;
 use arkret_models_collaboration::sync_frames::stream_trace::{
     StreamTraceFrame, StreamTraceFrameKind, StreamTraceValidator,
 };
 use arkret_schema::embedded_json_artifact;
-use arkret_wire::Cursor;
 use serde_json::{Value, json};
 
 #[test]
@@ -175,21 +174,31 @@ enum Surface {
 
 enum SurfaceFrame {
     Account(Box<AccountSubscribeFrame>),
-    Events(EventsSubscribeFrame),
+    Events(EventsSubscribeFrameKind, Option<String>),
 }
 
 impl StreamTraceFrame for SurfaceFrame {
     fn trace_kind(&self) -> StreamTraceFrameKind {
         match self {
             Self::Account(frame) => frame.trace_kind(),
-            Self::Events(frame) => frame.trace_kind(),
+            Self::Events(kind, _) => match kind {
+                EventsSubscribeFrameKind::Event => StreamTraceFrameKind::Data,
+                EventsSubscribeFrameKind::Frontier => StreamTraceFrameKind::Frontier,
+                EventsSubscribeFrameKind::Heartbeat => StreamTraceFrameKind::Heartbeat,
+                EventsSubscribeFrameKind::CatchupComplete => StreamTraceFrameKind::CatchupComplete,
+                EventsSubscribeFrameKind::EpochRotation => StreamTraceFrameKind::EpochRotation,
+                EventsSubscribeFrameKind::Dropped => StreamTraceFrameKind::Dropped,
+                EventsSubscribeFrameKind::ResyncRequired => StreamTraceFrameKind::ResyncRequired,
+                EventsSubscribeFrameKind::Unauthorized => StreamTraceFrameKind::Unauthorized,
+                _ => panic!("unregistered events subscribe frame kind"),
+            },
         }
     }
 
     fn trace_cursor(&self) -> Option<&str> {
         match self {
             Self::Account(frame) => frame.trace_cursor(),
-            Self::Events(frame) => frame.trace_cursor(),
+            Self::Events(_, cursor) => cursor.as_deref(),
         }
     }
 }
@@ -210,15 +219,7 @@ fn surface_frame(surface: Surface, value: &Value) -> SurfaceFrame {
                 "unauthorized" => EventsSubscribeFrameKind::Unauthorized,
                 other => panic!("unknown fixture frame kind {other}"),
             };
-            SurfaceFrame::Events(EventsSubscribeFrame {
-                kind,
-                realm_id: None,
-                cursor: value["cursor"]
-                    .as_str()
-                    .map(|cursor| Cursor::new(cursor.to_owned()).unwrap()),
-                payload: None,
-                reconnect_after_ms: value["reconnect_after_ms"].as_u64(),
-            })
+            SurfaceFrame::Events(kind, value["cursor"].as_str().map(ToOwned::to_owned))
         }
     }
 }

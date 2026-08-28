@@ -1062,13 +1062,38 @@ pub enum EventsSubscribeFrameKind {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum EventsSubscribeFrame {
-    Event { realm_id: RealmId, cursor: Cursor, payload: Box<Event> },
-    EpochRotation { realm_id: RealmId, payload: EpochRotationPayload },
-    Frontier { cursor: Cursor },
-    CatchupComplete { cursor: Cursor },
-    Dropped { realm_id: RealmId, cursor: Cursor, #[serde(skip_serializing_if = "Option::is_none")] reconnect_after_ms: Option<u64> },
-    ResyncRequired { #[serde(skip_serializing_if = "Option::is_none")] realm_id: Option<RealmId>, #[serde(skip_serializing_if = "Option::is_none")] reconnect_after_ms: Option<u64> },
-    Unauthorized { #[serde(skip_serializing_if = "Option::is_none")] realm_id: Option<RealmId> },
+    Event {
+        realm_id: RealmId,
+        cursor: Cursor,
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+        payload: Box<Event>,
+    },
+    EpochRotation {
+        realm_id: RealmId,
+        payload: EpochRotationPayload,
+    },
+    Frontier {
+        cursor: Cursor,
+    },
+    CatchupComplete {
+        cursor: Cursor,
+    },
+    Dropped {
+        realm_id: RealmId,
+        cursor: Cursor,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        reconnect_after_ms: Option<u64>,
+    },
+    ResyncRequired {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        realm_id: Option<RealmId>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        reconnect_after_ms: Option<u64>,
+    },
+    Unauthorized {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        realm_id: Option<RealmId>,
+    },
     Heartbeat,
 }
 
@@ -1117,7 +1142,10 @@ impl EventsSubscribeFrame {
 
     pub fn cursor(&self) -> Option<&Cursor> {
         match self {
-            Self::Event { cursor, .. } | Self::Frontier { cursor } | Self::CatchupComplete { cursor } | Self::Dropped { cursor, .. } => Some(cursor),
+            Self::Event { cursor, .. }
+            | Self::Frontier { cursor }
+            | Self::CatchupComplete { cursor }
+            | Self::Dropped { cursor, .. } => Some(cursor),
             _ => None,
         }
     }

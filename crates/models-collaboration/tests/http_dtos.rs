@@ -101,21 +101,13 @@ fn mimi_submit_message_wire_uses_sender_actor_id_only() {
 
 #[test]
 fn events_subscribe_frame_parses_ndjson_line() {
-    let line = r#"{"cursor":"ak:cursor:resume","kind":"event","payload":{"event_id":"ak:event:AUqXOT9Lj7xeL7HUnhfi7zyJzW1Z59QIVz7exmpHN2N6"},"realm_id":"ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs"}"#;
+    let line = r#"{"cursor":"ak:cursor:resume","kind":"frontier"}"#;
     let frame = EventsSubscribeFrame::from_ndjson_line(line)
         .unwrap()
         .unwrap();
 
-    assert_eq!(frame.kind, EventsSubscribeFrameKind::Event);
-    assert_eq!(
-        frame.realm_id.as_ref().unwrap().as_str(),
-        "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs"
-    );
-    assert_eq!(frame.cursor.as_ref().unwrap().as_str(), "ak:cursor:resume");
-    assert_eq!(
-        frame.payload.as_ref().unwrap()["event_id"],
-        "ak:event:AUqXOT9Lj7xeL7HUnhfi7zyJzW1Z59QIVz7exmpHN2N6"
-    );
+    assert_eq!(frame.kind(), EventsSubscribeFrameKind::Frontier);
+    assert_eq!(frame.cursor().unwrap().as_str(), "ak:cursor:resume");
     assert!(!frame.requires_resubscribe());
     assert!(!frame.is_catchup_complete());
 }
@@ -127,8 +119,14 @@ fn events_subscribe_frame_control_helpers() {
     )
     .unwrap()
     .unwrap();
-    assert_eq!(dropped.kind, EventsSubscribeFrameKind::Dropped);
-    assert_eq!(dropped.reconnect_after_ms, Some(10_000));
+    assert_eq!(dropped.kind(), EventsSubscribeFrameKind::Dropped);
+    assert!(matches!(
+        dropped,
+        EventsSubscribeFrame::Dropped {
+            reconnect_after_ms: Some(10_000),
+            ..
+        }
+    ));
     assert!(dropped.requires_resubscribe());
 
     let catchup = EventsSubscribeFrame::from_ndjson_line(
