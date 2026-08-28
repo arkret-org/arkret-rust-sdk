@@ -2467,7 +2467,7 @@ mod tests {
                 "resources": []
             },
             "verifier_id": "ak:did_core:webvh:z6mkfixture",
-            "audience_id": "ak.gate.account.command.pair_agent_key.v1",
+            "audience": "ak.gate.account.command.pair_agent_key.v1",
             "challenge": "0123456789abcdef",
             "issued_at": "2026-08-03T00:00:00.000Z",
             "expires_at": "2026-08-03T00:05:00.000Z",
