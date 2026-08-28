@@ -614,7 +614,7 @@ impl ServiceDescribe {
             transport_bindings,
             supported_features: Vec::new(),
             calendar_tzdb_versions: Vec::new(),
-            auth_metadata: AuthMetadata::minimal("development"),
+            auth_metadata: AuthMetadata::minimal(),
             limits: ServerLimits::default(),
             plaintext_visibility: PlaintextVisibility::none(),
             privacy_derivation: None,
@@ -1159,7 +1159,7 @@ mod tests {
             }],
             supported_features: vec![],
             calendar_tzdb_versions: vec![],
-            auth_metadata: AuthMetadata::minimal("development"),
+            auth_metadata: AuthMetadata::minimal(),
             limits: ServerLimits::default(),
             plaintext_visibility: PlaintextVisibility::none(),
             privacy_derivation: None,
@@ -1338,13 +1338,13 @@ mod tests {
 
 /// Strongly-typed `auth_metadata` block of the service-describe response.
 /// Mirrors `service-describe.schema.json#/properties/auth_metadata`. Every
-/// field other than `mode` is optional or defaulted so older / sparser wire
-/// payloads still deserialize; the `extra` flatten captures `x_*` and any
-/// future unknown keys (`additionalProperties: true`) without data loss.
+/// declared field is optional or defaulted so a conforming service that sends
+/// only what the schema declares still deserializes; the `extra` flatten
+/// captures `x_*` and any other unknown keys (`additionalProperties: true`)
+/// without data loss.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthMetadata {
-    pub mode: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_authority: Option<AccountAuthority>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1361,11 +1361,10 @@ pub struct AuthMetadata {
 }
 
 impl AuthMetadata {
-    /// Convenience constructor for tests / mocks: fills `mode` and leaves
-    /// every other field empty / `None`.
-    pub fn minimal(mode: impl Into<String>) -> Self {
+    /// Convenience constructor for tests / mocks: leaves every field
+    /// empty / `None`.
+    pub fn minimal() -> Self {
         Self {
-            mode: mode.into(),
             account_authority: None,
             methods: Vec::new(),
             did_binding_methods: Vec::new(),

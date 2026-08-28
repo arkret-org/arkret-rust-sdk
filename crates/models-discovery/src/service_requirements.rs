@@ -273,7 +273,7 @@ mod tests {
                 base_url: "https://directory.example".to_owned(),
                 extension_profile_required: (),
             }],
-            auth_metadata: AuthMetadata::minimal("development"),
+            auth_metadata: AuthMetadata::minimal(),
             limits: ServerLimits::default(),
             plaintext_visibility: PlaintextVisibility::none(),
             privacy_derivation: None,

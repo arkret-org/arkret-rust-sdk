@@ -702,7 +702,7 @@ mod tests {
                 "tus_extensions": ["creation"]
             }],
             "supported_features": [RESUMABLE_UPLOAD_FEATURE],
-            "auth_metadata": {"mode": "development", "methods": []},
+            "auth_metadata": {"methods": []},
             "limits": {},
             "plaintext_visibility": {"data_classes": [], "max_visibility": "none"},
             "claimed_profiles": [],
