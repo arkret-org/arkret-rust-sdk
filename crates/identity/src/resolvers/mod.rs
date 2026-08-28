@@ -103,5 +103,14 @@ mod caching_tests {
 
         assert_eq!(first.document, second.document);
         assert!(first.document.updated_at.is_none());
+        let verification_method = format!(
+            "{}#{}",
+            did.as_str(),
+            did.as_str().strip_prefix("did:key:").unwrap()
+        );
+        assert_eq!(
+            first.document.raw_properties.get("assertionMethod"),
+            Some(&serde_json::json!([verification_method]))
+        );
     }
 }
