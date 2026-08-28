@@ -1,8 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-27.7;
-//! sha256=d4afc298e3f36a07345fe8acadc0e21af76d8cb1935bb345b16559de792b51f4 Entries: schema_ids=199,
-//! active=199
+//! Input: registry/schema-registry.json; version=2026-08-27.7; sha256=d4afc298e3f36a07345fe8acadc0e21af76d8cb1935bb345b16559de792b51f4
+//! Entries: schema_ids=199, active=199
 
 use serde::{Deserialize, Serialize};
 
@@ -622,251 +621,168 @@ impl SchemaId {
     /// Closed XChaCha20-Poly1305 envelope for principal-private encrypted Account Data values.
     pub const ACCOUNT_DATA_ENCRYPTED_VALUE_V1: &'static str =
         "ak.schema.account_data_encrypted_value.v1";
-    /// Closed request/response DTO bundle for self-surface actor-private account_data operations
-    /// (ak.self.account_data.*); see zh/discovery/client-preferences.md.
+    /// Closed request/response DTO bundle for self-surface actor-private account_data operations (ak.self.account_data.*); see zh/discovery/client-preferences.md.
     pub const ACCOUNT_DATA_OPERATIONS_V1: &'static str = "ak.schema.account_data_operations.v1";
-    /// Closed request/response DTO bundle for account self-service operations: viewer, register,
-    /// profile update, and session revocation.
+    /// Closed request/response DTO bundle for account self-service operations: viewer, register, profile update, and session revocation.
     pub const ACCOUNT_OPERATIONS_V1: &'static str = "ak.schema.account_operations.v1";
-    /// Immutable Account Authority issuer-ledger lifecycle record with a suite-tagged full-digest
-    /// identity and detached proof.
+    /// Immutable Account Authority issuer-ledger lifecycle record with a suite-tagged full-digest identity and detached proof.
     pub const ACCOUNT_STATUS_RECORD_V1: &'static str = "ak.schema.account_status_record.v1";
     pub const ACCOUNT_SUBSCRIBE_FRAME_V1: &'static str = "ak.schema.account_subscribe_frame.v1";
-    /// Issuer-signed accountability endorsement for Actor Profile accountable_principal_ids
-    /// verification.
+    /// Issuer-signed accountability endorsement for Actor Profile accountable_principal_ids verification.
     pub const ACCOUNTABILITY_GRANT_V1: &'static str = "ak.schema.accountability_grant.v1";
     pub const ACTOR_PROFILE_V1: &'static str = "ak.schema.actor_profile.v1";
-    /// Authorized shared-Realm projection of another principal's global Actor Profile. It is the
-    /// only outward carrier for the PCR-resident ak.profile.create / ak.profile.update facts.
+    /// Authorized shared-Realm projection of another principal's global Actor Profile. It is the only outward carrier for the PCR-resident ak.profile.create / ak.profile.update facts.
     pub const ACTOR_PROFILE_OPERATIONS_V1: &'static str = "ak.schema.actor_profile_operations.v1";
-    /// Closed Native Personal Agent controller-membership binding and durable exact-set emergency
-    /// cleanup state.
+    /// Closed Native Personal Agent controller-membership binding and durable exact-set emergency cleanup state.
     pub const AGENT_MEMBERSHIP_CASCADE_V1: &'static str = "ak.schema.agent_membership_cascade.v1";
-    /// Closed request/response DTO bundle for account pairing and native personal agent management
-    /// operations.
+    /// Closed request/response DTO bundle for account pairing and native personal agent management operations.
     pub const AGENT_OPERATIONS_V1: &'static str = "ak.schema.agent_operations.v1";
-    /// One-time bootstrap DTO for personal agent runtime pairing. Resolves to the sub-schema at
-    /// file + fragment (agent-operations.schema.json#/$defs/agent_pairing_bootstrap), not the
-    /// top-level oneOf DTO bundle that ak.schema.agent_operations.v1 maps to.
+    /// One-time bootstrap DTO for personal agent runtime pairing. Resolves to the sub-schema at file + fragment (agent-operations.schema.json#/$defs/agent_pairing_bootstrap), not the top-level oneOf DTO bundle that ak.schema.agent_operations.v1 maps to.
     pub const AGENT_PAIRING_BOOTSTRAP_V1: &'static str = "ak.schema.agent_pairing_bootstrap.v1";
-    /// Single controller-authored native personal Agent provisioning payload with atomic
-    /// accountability and selector projections.
+    /// Single controller-authored native personal Agent provisioning payload with atomic accountability and selector projections.
     pub const AGENT_PROVISION_V1: &'static str = "ak.schema.agent_provision.v1";
-    /// Controller-signed, verifier-bound private disclosure of a managed Agent's immutable
-    /// requested_scope; the public Agent DID carries only its commitment digest.
+    /// Controller-signed, verifier-bound private disclosure of a managed Agent's immutable requested_scope; the public Agent DID carries only its commitment digest.
     pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_V1: &'static str =
         "ak.schema.agent_requested_scope_disclosure.v1";
-    /// Signed controller-scoped native personal agent selector claim for
-    /// @&lt;controller-handle&gt;/&lt;agent_slug&gt; resolution.
+    /// Signed controller-scoped native personal agent selector claim for @&lt;controller-handle&gt;/&lt;agent_slug&gt; resolution.
     pub const AGENT_SELECTOR_CLAIM_V1: &'static str = "ak.schema.agent_selector_claim.v1";
-    /// Controller-owned private AI workspace with native Sidecar scope and ownership-derived Agent
-    /// access. It is not a Circle profile and has no backing Circle or editable membership. See
-    /// zh/models/sidecar.md.
+    /// Controller-owned private AI workspace with native Sidecar scope and ownership-derived Agent access. It is not a Circle profile and has no backing Circle or editable membership. See zh/models/sidecar.md.
     pub const AGENT_SIDECAR_V1: &'static str = "ak.schema.agent_sidecar.v1";
-    /// Closed exchange binding inside the encrypted metadata plaintext of Sidecar-scoped Message
-    /// events. Sole normative declaration of explicit user-facing/internal response disposition.
-    /// Never legal in plaintext metadata or shared Realm/Circle events. See zh/models/sidecar.md
-    /// section 7.2.1.
+    /// Closed exchange binding inside the encrypted metadata plaintext of Sidecar-scoped Message events. Sole normative declaration of explicit user-facing/internal response disposition. Never legal in plaintext metadata or shared Realm/Circle events. See zh/models/sidecar.md section 7.2.1.
     pub const AGENT_SIDECAR_EVENT_EXCHANGE_BINDING_V1: &'static str =
         "ak.schema.agent_sidecar_event_exchange_binding.v1";
-    /// Closed plaintext encrypted by ak.agent.sidecar.exchange.control. Sole durable source of
-    /// Sidecar exchange coordinator reassignment and terminal state.
+    /// Closed plaintext encrypted by ak.agent.sidecar.exchange.control. Sole durable source of Sidecar exchange coordinator reassignment and terminal state.
     pub const AGENT_SIDECAR_EXCHANGE_CONTROL_V1: &'static str =
         "ak.schema.agent_sidecar_exchange_control.v1";
-    /// Disposable controller-device-local Event-fold cache for one source-routed Sidecar exchange.
-    /// Not Account Data or wire truth.
+    /// Disposable controller-device-local Event-fold cache for one source-routed Sidecar exchange. Not Account Data or wire truth.
     pub const AGENT_SIDECAR_EXCHANGE_PROJECTION_V1: &'static str =
         "ak.schema.agent_sidecar_exchange_projection.v1";
-    /// Controller-private encrypted account-data plaintext for per-context Sidecar display mode and
-    /// hosted-view state.
+    /// Controller-private encrypted account-data plaintext for per-context Sidecar display mode and hosted-view state.
     pub const AGENT_SIDECAR_VIEW_STATE_V1: &'static str = "ak.schema.agent_sidecar_view_state.v1";
-    /// Destination-signed immutable receipt for the exact Native Agent signer evidence used when
-    /// one Event was accepted.
+    /// Destination-signed immutable receipt for the exact Native Agent signer evidence used when one Event was accepted.
     pub const AGENT_SIGNER_ADMISSION_RECEIPT_V1: &'static str =
         "ak.schema.agent_signer_admission_receipt.v1";
-    /// Portable Native Agent signer authorization, state-witness, and freshness evidence used
-    /// outside the ordinary device directory.
+    /// Portable Native Agent signer authorization, state-witness, and freshness evidence used outside the ordinary device directory.
     pub const AGENT_SIGNER_EVIDENCE_V1: &'static str = "ak.schema.agent_signer_evidence.v1";
-    /// Deduplicated transport-level Agent signer evidence bundle shared by sync, backfill, and
-    /// federation.
+    /// Deduplicated transport-level Agent signer evidence bundle shared by sync, backfill, and federation.
     pub const AGENT_SIGNER_EVIDENCE_BUNDLE_V1: &'static str =
         "ak.schema.agent_signer_evidence_bundle.v1";
-    /// Closed outcome carrying portable Agent signer evidence or non-enumerating per-selector
-    /// failures.
+    /// Closed outcome carrying portable Agent signer evidence or non-enumerating per-selector failures.
     pub const AGENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1: &'static str =
         "ak.schema.agent_signer_evidence_query_outcome.v1";
     /// Authenticated shared-context Agent signer evidence query request.
     pub const AGENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1: &'static str =
         "ak.schema.agent_signer_evidence_query_request.v1";
-    /// Controller-signed minimal public binding from a Native Agent verification method to raw
-    /// Ed25519 key material and one accepted Agent key authorization.
+    /// Controller-signed minimal public binding from a Native Agent verification method to raw Ed25519 key material and one accepted Agent key authorization.
     pub const AGENT_SIGNING_KEY_BINDING_V1: &'static str = "ak.schema.agent_signing_key_binding.v1";
-    /// Schema-registry object for applet protocol metadata snapshots. Event payloads for
-    /// ak.applet.* use typed payload definitions in event-payload.schema.json.
+    /// Schema-registry object for applet protocol metadata snapshots. Event payloads for ak.applet.* use typed payload definitions in event-payload.schema.json.
     pub const APPLET_V1: &'static str = "ak.schema.applet.v1";
     /// Closed request/response DTO bundle for Applet edge and bridge operations.
     pub const APPLET_EDGE_OPERATIONS_V1: &'static str = "ak.schema.applet_edge_operations.v1";
-    /// Principal Server-derived Ghost basis binding the exact target server, active installation
-    /// coordinates, Realm and external tuple.
+    /// Principal Server-derived Ghost basis binding the exact target server, active installation coordinates, Realm and external tuple.
     pub const APPLET_GHOST_AUTHORING_REQUEST_BASIS_V1: &'static str =
         "ak.schema.applet_ghost_authoring_request_basis.v1";
-    /// Closed request/response DTO bundle for ak.self.applet.ghost.command.provision.v1
-    /// (Applet-managed Ghost Actor provisioning by an installed bridge Applet).
+    /// Closed request/response DTO bundle for ak.self.applet.ghost.command.provision.v1 (Applet-managed Ghost Actor provisioning by an installed bridge Applet).
     pub const APPLET_GHOST_OPERATIONS_V1: &'static str = "ak.schema.applet_ghost_operations.v1";
-    /// Closed Principal Server preview, Applet authoring request, and managed-actor creation bundle
-    /// DTOs for the durable co-sign handshake.
+    /// Closed Principal Server preview, Applet authoring request, and managed-actor creation bundle DTOs for the durable co-sign handshake.
     pub const APPLET_INSTALL_AUTHORING_V1: &'static str = "ak.schema.applet_install_authoring.v1";
-    /// Canonical unsigned basis frozen by the Principal Server preview and covered by the install
-    /// authoring request signature.
+    /// Canonical unsigned basis frozen by the Principal Server preview and covered by the install authoring request signature.
     pub const APPLET_INSTALL_AUTHORING_REQUEST_BASIS_V1: &'static str =
         "ak.schema.applet_install_authoring_request_basis.v1";
-    /// Closed request/response DTO bundle for ak.self.applet.install.command.preview.v1 and
-    /// ak.applet.install.
+    /// Closed request/response DTO bundle for ak.self.applet.install.command.preview.v1 and ak.applet.install.
     pub const APPLET_INSTALL_OPERATIONS_V1: &'static str = "ak.schema.applet_install_operations.v1";
-    /// Canonical Applet InstallPlan nested in the Principal Server-signed authoring request and
-    /// recomputed by install commit before admission. plan_digest is calculated over this object
-    /// with plan_digest omitted.
+    /// Canonical Applet InstallPlan nested in the Principal Server-signed authoring request and recomputed by install commit before admission. plan_digest is calculated over this object with plan_digest omitted.
     pub const APPLET_INSTALL_PLAN_V1: &'static str = "ak.schema.applet_install_plan.v1";
-    /// Exact four-Event service-authored managed-actor creation bundle returned by the Applet
-    /// service after validating an authoring request.
+    /// Exact four-Event service-authored managed-actor creation bundle returned by the Applet service after validating an authoring request.
     pub const APPLET_MANAGED_ACTOR_AUTHORING_BUNDLE_V1: &'static str =
         "ak.schema.applet_managed_actor_authoring_bundle.v1";
-    /// Principal Server-signed, expiry-bounded install_bot or provision_ghost managed-actor
-    /// authoring request.
+    /// Principal Server-signed, expiry-bounded install_bot or provision_ghost managed-actor authoring request.
     pub const APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_V1: &'static str =
         "ak.schema.applet_managed_actor_authoring_request.v1";
-    /// Immutable service-authored Bot/Ghost creation authority cross-bound to an
-    /// applet_managed_control PCR genesis.
+    /// Immutable service-authored Bot/Ghost creation authority cross-bound to an applet_managed_control PCR genesis.
     pub const APPLET_MANAGED_ACTOR_PROVISION_V1: &'static str =
         "ak.schema.applet_managed_actor_provision.v1";
-    /// Controller-signed package used by ak.self.applet.command.install.v1 preview/commit to derive
-    /// ak.applet.registration and capability grants. Distribution object only; not Realm history
-    /// truth and not authorization.
+    /// Controller-signed package used by ak.self.applet.command.install.v1 preview/commit to derive ak.applet.registration and capability grants. Distribution object only; not Realm history truth and not authorization.
     pub const APPLET_PACKAGE_V1: &'static str = "ak.schema.applet_package.v1";
-    /// Closed install-time service DID document, method-version and accepted signing-key snapshot
-    /// carried only by the caller-signed Applet registration Event manifest.
+    /// Closed install-time service DID document, method-version and accepted signing-key snapshot carried only by the caller-signed Applet registration Event manifest.
     pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_V1: &'static str =
         "ak.schema.applet_registration_epoch_evidence.v1";
-    /// Closed normalized transcript for deterministic recomputation of Applet registration_epoch
-    /// from derived registration, DID document/version, signing-key, endpoint/auth, and
-    /// security-policy evidence.
+    /// Closed normalized transcript for deterministic recomputation of Applet registration_epoch from derived registration, DID document/version, signing-key, endpoint/auth, and security-policy evidence.
     pub const APPLET_REGISTRATION_EPOCH_TRANSCRIPT_V1: &'static str =
         "ak.schema.applet_registration_epoch_transcript.v1";
-    /// Closed declaration for Applet UI widget origin, CSP, scoped token capability scope, and
-    /// consent gate.
+    /// Closed declaration for Applet UI widget origin, CSP, scoped token capability scope, and consent gate.
     pub const APPLET_WIDGET_DECLARATION_V1: &'static str = "ak.schema.applet_widget_declaration.v1";
     pub const AUDIT_RELEASE_ATTESTATION_V1: &'static str = "ak.schema.audit_release_attestation.v1";
     pub const AUDIT_RYW_RECEIPT_V1: &'static str = "ak.schema.audit_ryw_receipt.v1";
-    /// Content-addressed historical signer-resolution evidence pinned for Event, Principal Server
-    /// and AvailabilityReceipt signature verification.
+    /// Content-addressed historical signer-resolution evidence pinned for Event, Principal Server and AvailabilityReceipt signature verification.
     pub const AUTHENTICATED_SIGNER_RESOLUTION_EVIDENCE_V1: &'static str =
         "ak.schema.authenticated_signer_resolution_evidence.v1";
-    /// Canonical concrete authority policy rederived from accepted CBA control state and bound by
-    /// AuthoritySetRef.
+    /// Canonical concrete authority policy rederived from accepted CBA control state and bound by AuthoritySetRef.
     pub const AUTHORITY_SET_POLICY_V1: &'static str = "ak.schema.authority_set_policy.v1";
     /// Closed response DTO bundle for authorization query operations.
     pub const AUTHZ_OPERATIONS_V1: &'static str = "ak.schema.authz_operations.v1";
-    /// Signed holder commitment that exact Event bytes are available until retention_expires_at. A
-    /// Seal commits every-and-only required receipt through its canonical
-    /// availability_receipt_digests array.
+    /// Signed holder commitment that exact Event bytes are available until retention_expires_at. A Seal commits every-and-only required receipt through its canonical availability_receipt_digests array.
     pub const AVAILABILITY_RECEIPT_V1: &'static str = "ak.schema.availability_receipt.v1";
-    /// Immutable transaction-bound completion artifact proving all planned old secret_storage and
-    /// mls_history backup objects were erased after authoritative pointer switch.
+    /// Immutable transaction-bound completion artifact proving all planned old secret_storage and mls_history backup objects were erased after authoritative pointer switch.
     pub const BACKUP_SERIES_ERASE_CONFIRMATION_V1: &'static str =
         "ak.schema.backup_series_erase_confirmation.v1";
     pub const BLOB_V1: &'static str = "ak.schema.blob.v1";
     /// Closed request/response DTO bundle for Blob service operations.
     pub const BLOB_OPERATIONS_V1: &'static str = "ak.schema.blob_operations.v1";
-    /// Structured Bottom (⊥) diagnostic surfaced on /account/subscribe, /events, and state query
-    /// responses when a cell's effective Lattice value is undefined
+    /// Structured Bottom (⊥) diagnostic surfaced on /account/subscribe, /events, and state query responses when a cell's effective Lattice value is undefined
     pub const BOTTOM_V1: &'static str = "ak.schema.bottom.v1";
     /// Profile fields for calendar-event Strands.
     pub const CALENDAR_EVENT_V1: &'static str = "ak.schema.calendar_event.v1";
-    /// Canonical metadata for call recording artifacts after Arkret blob pipeline ingestion,
-    /// including recording exporter context, retention policy and deletion audit binding.
+    /// Canonical metadata for call recording artifacts after Arkret blob pipeline ingestion, including recording exporter context, retention policy and deletion audit binding.
     pub const CALL_RECORDING_ARTIFACT_V1: &'static str = "ak.schema.call_recording_artifact.v1";
-    /// Closed top-level E2EE plaintext for ak.call.signal, with signal_kind-specific data
-    /// validation defined by the WebRTC signaling profile.
+    /// Closed top-level E2EE plaintext for ak.call.signal, with signal_kind-specific data validation defined by the WebRTC signaling profile.
     pub const CALL_SIGNAL_PLAINTEXT_V1: &'static str = "ak.schema.call_signal_plaintext.v1";
     pub const CAPABILITY_V1: &'static str = "ak.schema.capability.v1";
     /// Unsigned, independently verified CBA dependency bundle.
     pub const CBA_PROOF_BUNDLE_V1: &'static str = "ak.schema.cba_proof_bundle.v1";
-    /// Circle — intra-Realm scoped event/message boundary. Subset membership, independent history
-    /// visibility, delivery/query/projection boundary, and optional independent MLS group. Does NOT
-    /// carry federation identity or policy server. see zh/models/circle.md.
+    /// Circle — intra-Realm scoped event/message boundary. Subset membership, independent history visibility, delivery/query/projection boundary, and optional independent MLS group. Does NOT carry federation identity or policy server. see zh/models/circle.md.
     pub const CIRCLE_V1: &'static str = "ak.schema.circle.v1";
-    /// Closed request/response DTO bundle for self-surface Circle administration operations
-    /// (ak.self.circle.*); see zh/models/circle.md.
+    /// Closed request/response DTO bundle for self-surface Circle administration operations (ak.self.circle.*); see zh/models/circle.md.
     pub const CIRCLE_OPERATIONS_V1: &'static str = "ak.schema.circle_operations.v1";
-    /// Defs-only shared typed-ID patterns (e.g. circle_id) referenced cross-file by morph and
-    /// relation schemas so a single id-form change propagates without inline drift. Not an
-    /// object/event schema. See zh/models/common-fields.md §6.
+    /// Defs-only shared typed-ID patterns (e.g. circle_id) referenced cross-file by morph and relation schemas so a single id-form change propagates without inline drift. Not an object/event schema. See zh/models/common-fields.md §6.
     pub const COMMON_IDS_V1: &'static str = "ak.schema.common_ids.v1";
-    /// Closed request/response DTO bundle for self-surface holder-private consent cell operations
-    /// (ak.self.consent.*); see zh/identity/consent-model.md.
+    /// Closed request/response DTO bundle for self-surface holder-private consent cell operations (ak.self.consent.*); see zh/identity/consent-model.md.
     pub const CONSENT_OPERATIONS_V1: &'static str = "ak.schema.consent_operations.v1";
-    /// Closed request/response DTO bundle for the Contact lifecycle: request, respond, reject,
-    /// scope replacement, tombstone, the portable Contact round evidence bundle, acceptance
-    /// receipts and the peer Contact carrier, plus the contact-list projection.
+    /// Closed request/response DTO bundle for the Contact lifecycle: request, respond, reject, scope replacement, tombstone, the portable Contact round evidence bundle, acceptance receipts and the peer Contact carrier, plus the contact-list projection.
     pub const CONTACT_OPERATIONS_V1: &'static str = "ak.schema.contact_operations.v1";
-    /// Closed holder-signed Contact scope replacement payload, including the peer XOR, stable
-    /// basis, version, predecessor and full granted-scope set.
+    /// Closed holder-signed Contact scope replacement payload, including the peer XOR, stable basis, version, predecessor and full granted-scope set.
     pub const CONTACT_SCOPE_UPDATE_V1: &'static str = "ak.schema.contact_scope_update.v1";
     /// Canonical content-block schema for ak.content.poll and ak.content.poll.response.
     pub const CONTENT_BLOCK_POLL_V1: &'static str = "ak.schema.content_block_poll.v1";
-    /// Privacy-minimal Account Authority attestation of the controller principal lifecycle gate;
-    /// never carries service-local account identity or a raw account cell.
+    /// Privacy-minimal Account Authority attestation of the controller principal lifecycle gate; never carries service-local account identity or a raw account cell.
     pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1: &'static str =
         "ak.schema.controller_account_gate_attestation.v1";
-    /// Closed issuance outcome carrying one privacy-minimal controller Account Authority gate
-    /// attestation.
+    /// Closed issuance outcome carrying one privacy-minimal controller Account Authority gate attestation.
     pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_OUTCOME_V1: &'static str =
         "ak.schema.controller_account_gate_attestation_issue_outcome.v1";
-    /// Authenticated S2S request from a Native Agent PCR authority for the controller Account
-    /// Authority lifecycle gate needed to assemble signer evidence.
+    /// Authenticated S2S request from a Native Agent PCR authority for the controller Account Authority lifecycle gate needed to assemble signer evidence.
     pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1: &'static str =
         "ak.schema.controller_account_gate_attestation_issue_request.v1";
     pub const CURSOR_V1: &'static str = "ak.schema.cursor.v1";
-    /// Canonical response body for the delivery_binding_stale federation signal (member
-    /// delivery-binding rebind handover): new_recipient_service_id, handover_frontier, and the
-    /// verifiable handover_proof. See zh/sync/federation.md §4.1 and error-code-registry.json
-    /// (delivery_binding_stale / delivery_binding_handover_proof_invalid).
+    /// Canonical response body for the delivery_binding_stale federation signal (member delivery-binding rebind handover): new_recipient_service_id, handover_frontier, and the verifiable handover_proof. See zh/sync/federation.md §4.1 and error-code-registry.json (delivery_binding_stale / delivery_binding_handover_proof_invalid).
     pub const DELIVERY_BINDING_STALE_V1: &'static str = "ak.schema.delivery_binding_stale.v1";
     pub const DEVICE_MESSAGE_V1: &'static str = "ak.schema.device_message.v1";
-    /// Pairing material DTO handed to an already-authorized device after resolving a device-pairing
-    /// short link. Resolves to the sub-schema at file + fragment
-    /// (device-pairing.schema.json#/$defs/device_pairing_bootstrap), not the top-level oneOf DTO
-    /// bundle that ak.schema.device_pairing_operations.v1 maps to.
+    /// Pairing material DTO handed to an already-authorized device after resolving a device-pairing short link. Resolves to the sub-schema at file + fragment (device-pairing.schema.json#/$defs/device_pairing_bootstrap), not the top-level oneOf DTO bundle that ak.schema.device_pairing_operations.v1 maps to.
     pub const DEVICE_PAIRING_BOOTSTRAP_V1: &'static str = "ak.schema.device_pairing_bootstrap.v1";
-    /// Closed request/response DTO bundle for the server-mediated device-pairing short-link handoff
-    /// (stage / resolve / status). See device-lifecycle.md §2.1.1.
+    /// Closed request/response DTO bundle for the server-mediated device-pairing short-link handoff (stage / resolve / status). See device-lifecycle.md §2.1.1.
     pub const DEVICE_PAIRING_OPERATIONS_V1: &'static str = "ak.schema.device_pairing_operations.v1";
-    /// Closed PCR-policy recovery payload binding one account-local lineage, accepted
-    /// policy/session, monotonic PCR generation CAS, complete pre-fence Seal frontier and
-    /// replacement authorization digest.
+    /// Closed PCR-policy recovery payload binding one account-local lineage, accepted policy/session, monotonic PCR generation CAS, complete pre-fence Seal frontier and replacement authorization digest.
     pub const DEVICE_REANCHOR_V1: &'static str = "ak.schema.device_reanchor.v1";
-    /// Reducer-owned durable state machine for accepted ak.device.revoke proposals: mandatory Ack,
-    /// exact authority/device/generation binding, universal revocation_pending gates, exact
-    /// signed-reject release, overdue fault retention and covering-Seal finality.
+    /// Reducer-owned durable state machine for accepted ak.device.revoke proposals: mandatory Ack, exact authority/device/generation binding, universal revocation_pending gates, exact signed-reject release, overdue fault retention and covering-Seal finality.
     pub const DEVICE_REVOCATION_STATE_V1: &'static str = "ak.schema.device_revocation_state.v1";
-    /// Verified DID binding contracts behind identity/did-usage-and-verification.md §5: canonical
-    /// evidence receipt (evidence_digest), canonical resolver policy snapshot (policy_digest),
-    /// mechanically extracted evidence dependency record, per-pin limited-trust record, and the
-    /// freshness profile row every authority call site references.
+    /// Verified DID binding contracts behind identity/did-usage-and-verification.md §5: canonical evidence receipt (evidence_digest), canonical resolver policy snapshot (policy_digest), mechanically extracted evidence dependency record, per-pin limited-trust record, and the freshness profile row every authority call site references.
     pub const DID_BINDING_CONTRACTS_V1: &'static str = "ak.schema.did_binding_contracts.v1";
-    /// Arkret-layer record that a named did:webvh witness was observed attesting a specific log
-    /// versionId. Separate object family from ak.schema.identity_receipt.v1, whose witness_role
-    /// describes a DID registry consensus role rather than a method-native witness; both are
-    /// returned by ak.root.identity.receipts.read.list.v1 as a tagged union discriminated on
-    /// schema. Never substitutes for verifying the standard did-witness.json proofs.
+    /// Arkret-layer record that a named did:webvh witness was observed attesting a specific log versionId. Separate object family from ak.schema.identity_receipt.v1, whose witness_role describes a DID registry consensus role rather than a method-native witness; both are returned by ak.root.identity.receipts.read.list.v1 as a tagged union discriminated on schema. Never substitutes for verifying the standard did-witness.json proofs.
     pub const DID_WEBVH_WITNESS_RECEIPT_V1: &'static str = "ak.schema.did_webvh_witness_receipt.v1";
-    /// Closed carriers for the Direct Conversation resolver and single-sided founding: the
-    /// query-only resolve request and tagged outcome, permanent coordinates, the resolver blocker
-    /// set and the source founding acceptance receipt.
+    /// Closed carriers for the Direct Conversation resolver and single-sided founding: the query-only resolve request and tagged outcome, permanent coordinates, the resolver blocker set and the source founding acceptance receipt.
     pub const DIRECT_CONVERSATION_OPERATIONS_V1: &'static str =
         "ak.schema.direct_conversation_operations.v1";
-    /// Closed request/response DTO bundle for Directory discovery search, resolve, private contact
-    /// discovery, handle lookup, agent selector lookup, and push webhook registration operations.
+    /// Closed request/response DTO bundle for Directory discovery search, resolve, private contact discovery, handle lookup, agent selector lookup, and push webhook registration operations.
     pub const DIRECTORY_OPERATIONS_V1: &'static str = "ak.schema.directory_operations.v1";
     /// Closed decrypted plaintext shape and canonical recurring-time semantics for ak.dnd_schedule.
     pub const DND_SCHEDULE_V1: &'static str = "ak.schema.dnd_schedule.v1";
@@ -875,8 +791,7 @@ impl SchemaId {
     pub const ENCRYPTED_ENVELOPE_V1: &'static str = "ak.schema.encrypted_envelope.v1";
     /// Signed hard-erasure receipt payload for ak.audit.erasure_receipt
     pub const ERASURE_RECEIPT_V1: &'static str = "ak.schema.erasure_receipt.v1";
-    /// Closed service-to-service submission, signed acceptance and retrieval carriers for erasure
-    /// receipts
+    /// Closed service-to-service submission, signed acceptance and retrieval carriers for erasure receipts
     pub const ERASURE_RECEIPT_OPERATIONS_V1: &'static str =
         "ak.schema.erasure_receipt_operations.v1";
     /// Minimal retained verification stub bound by erasure-receipt.retained_stub_digest
@@ -888,69 +803,47 @@ impl SchemaId {
     pub const EVENTS_SUBSCRIBE_FRAME_V1: &'static str = "ak.schema.events_subscribe_frame.v1";
     /// Declarative extension loading and conformance manifest.
     pub const EXTENSION_MANIFEST_V1: &'static str = "ak.schema.extension_manifest.v1";
-    /// Encrypted account-data plaintext shape and to-device key message content for
-    /// principal-private cross-device file transfer.
+    /// Encrypted account-data plaintext shape and to-device key message content for principal-private cross-device file transfer.
     pub const FILE_TRANSFER_V1: &'static str = "ak.schema.file_transfer.v1";
     pub const GRANT_CONSTRAINT_V1: &'static str = "ak.schema.grant_constraint.v1";
     pub const HANDLE_CLAIM_V1: &'static str = "ak.schema.handle_claim.v1";
-    /// Shared high-risk authority proof family (principal_signing / device_quorum /
-    /// trusted_recovery_service) over an operation's canonical transcript, each branch reusing the
-    /// common detached-JWS leaf. First consumer: active-series key backup tail deletion
-    /// (key-management.md §7.8).
+    /// Shared high-risk authority proof family (principal_signing / device_quorum / trusted_recovery_service) over an operation's canonical transcript, each branch reusing the common detached-JWS leaf. First consumer: active-series key backup tail deletion (key-management.md §7.8).
     pub const HIGH_RISK_AUTHORITY_PROOF_V1: &'static str = "ak.schema.high_risk_authority_proof.v1";
-    /// Closed private history-key request, response stream, source relay, response record,
-    /// organization-recovery archive, and HPKE plaintext DTO family
+    /// Closed private history-key request, response stream, source relay, response record, organization-recovery archive, and HPKE plaintext DTO family
     pub const HISTORY_KEY_V1: &'static str = "ak.schema.history_key.v1";
-    /// Canonical RFC 9457 application/problem+json HTTP error response from sync/api-conventions.md
-    /// section 5.
+    /// Canonical RFC 9457 application/problem+json HTTP error response from sync/api-conventions.md section 5.
     pub const HTTP_PROBLEM_DETAILS_V1: &'static str = "ak.schema.http_problem_details.v1";
     pub const ICE_CONFIG_RESPONSE_V1: &'static str = "ak.schema.ice_config_response.v1";
-    /// Encrypted minimal-metadata binding from Realm-scoped pairwise DID to principal DID, scoped
-    /// by realm_id and trust_domain.
+    /// Encrypted minimal-metadata binding from Realm-scoped pairwise DID to principal DID, scoped by realm_id and trust_domain.
     pub const IDENTITY_LINK_V1: &'static str = "ak.schema.identity_link.v1";
     pub const IDENTITY_RECEIPT_V1: &'static str = "ak.schema.identity_receipt.v1";
-    /// Principal resolution projection/update/evidence and signed service resolution record
-    /// contracts for the did_core_id/full_id model.
+    /// Principal resolution projection/update/evidence and signed service resolution record contracts for the did_core_id/full_id model.
     pub const IDENTITY_RESOLUTION_V1: &'static str = "ak.schema.identity_resolution.v1";
-    /// FOCIL-style control-plane inclusion list signed by a non-proposer notary signer; the next
-    /// Seal MUST include, signed-reject, or prove verification failure for every listed digest
+    /// FOCIL-style control-plane inclusion list signed by a non-proposer notary signer; the next Seal MUST include, signed-reject, or prove verification failure for every listed digest
     pub const INCLUSION_LIST_V1: &'static str = "ak.schema.inclusion_list.v1";
     pub const INVITE_V1: &'static str = "ak.schema.invite.v1";
-    /// Actor-private plaintext account-data cell value of ak.account.invite_delivery, the
-    /// holder-private delivered invite credential carrier written by the recipient Principal Server
-    /// on the notify branch. See zh/sync/invite-addressing.md section 7.
+    /// Actor-private plaintext account-data cell value of ak.account.invite_delivery, the holder-private delivered invite credential carrier written by the recipient Principal Server on the notify branch. See zh/sync/invite-addressing.md section 7.
     pub const INVITE_DELIVERY_V1: &'static str = "ak.schema.invite_delivery.v1";
-    /// Private service-to-service invite delivery request carrying invite_address and
-    /// introduction_evidence.
+    /// Private service-to-service invite delivery request carrying invite_address and introduction_evidence.
     pub const INVITE_DELIVERY_REQUEST_V1: &'static str = "ak.schema.invite_delivery_request.v1";
-    /// Actor-private plaintext account-data cell value of ak.account.invite_quarantine, written
-    /// only by the recipient Principal Server CAS materializer. See zh/identity/consent-model.md
-    /// and zh/sync/client-sync.md.
+    /// Actor-private plaintext account-data cell value of ak.account.invite_quarantine, written only by the recipient Principal Server CAS materializer. See zh/identity/consent-model.md and zh/sync/client-sync.md.
     pub const INVITE_QUARANTINE_V1: &'static str = "ak.schema.invite_quarantine.v1";
-    /// Subject-private invite receive policy controlling which introduction evidence kinds may
-    /// notify the holder.
+    /// Subject-private invite receive policy controlling which introduction evidence kinds may notify the holder.
     pub const INVITE_RECEIVE_POLICY_V1: &'static str = "ak.schema.invite_receive_policy.v1";
-    /// Closed profile-private request/response and signed receipt DTO bundle for
-    /// ak.profile.candidate.join_policy.v1. Candidate receipts never become Event.kind values or
-    /// shared Realm history.
+    /// Closed profile-private request/response and signed receipt DTO bundle for ak.profile.candidate.join_policy.v1. Candidate receipts never become Event.kind values or shared Realm history.
     pub const JOIN_POLICY_OPERATIONS_V1: &'static str = "ak.schema.join_policy_operations.v1";
     pub const KEY_BACKUP_V1: &'static str = "ak.schema.key_backup.v1";
-    /// Signed principal-control record selecting the active backup series for one (actor_id,
-    /// backup_kind).
+    /// Signed principal-control record selecting the active backup series for one (actor_id, backup_kind).
     pub const KEY_BACKUP_ACTIVE_SERIES_V1: &'static str = "ak.schema.key_backup_active_series.v1";
     /// Canonical plaintext keybag opened from a ak.schema.key_backup.v1 envelope.
     pub const KEY_BACKUP_PLAINTEXT_V1: &'static str = "ak.schema.key_backup_plaintext.v1";
-    /// Proof binding a key-backup read/decrypt action to one recovery session, requesting device,
-    /// backup object, selected series, ciphertext digest, and accepted proof transcript.
+    /// Proof binding a key-backup read/decrypt action to one recovery session, requesting device, backup object, selected series, ciphertext digest, and accepted proof transcript.
     pub const KEY_BACKUP_UNLOCK_PROOF_V1: &'static str = "ak.schema.key_backup_unlock_proof.v1";
-    /// Canonical log head, inclusion proof, consistency proof and witness evidence for
-    /// ak.profile.key_transparency.v1 and high-security log-backed identity checks.
+    /// Canonical log head, inclusion proof, consistency proof and witness evidence for ak.profile.key_transparency.v1 and high-security log-backed identity checks.
     pub const KEY_TRANSPARENCY_V1: &'static str = "ak.schema.key_transparency.v1";
-    /// Closed request/response DTO bundle for self KeyPackage upload/claim/consume/revoke and
-    /// atomic peer claim/outcome-query operations.
+    /// Closed request/response DTO bundle for self KeyPackage upload/claim/consume/revoke and atomic peer claim/outcome-query operations.
     pub const KEYPACKAGE_OPERATIONS_V1: &'static str = "ak.schema.keypackage_operations.v1";
-    /// Closed request/response DTO bundle for ak.self.keys.upload.create.v1, query, claim, and key
-    /// backup put/list/delete responses.
+    /// Closed request/response DTO bundle for ak.self.keys.upload.create.v1, query, claim, and key backup put/list/delete responses.
     pub const KEYS_OPERATIONS_V1: &'static str = "ak.schema.keys_operations.v1";
     /// Directory response listing currently visible handle claims for a disclosed subject DID.
     pub const LIST_HANDLES_FOR_SUBJECT_RESPONSE_V1: &'static str =
@@ -958,29 +851,23 @@ impl SchemaId {
     pub const MEDIA_METADATA_V1: &'static str = "ak.schema.media_metadata.v1";
     /// Closed request DTO bundle for realtime media service operations.
     pub const MEDIA_OPERATIONS_V1: &'static str = "ak.schema.media_operations.v1";
-    /// Builder-side candidate object for Handle resolution intent=member_add | invite
-    /// (identity-handles.md §3.7); produces a Realm-scoped member_delivery_binding only after Join
-    /// Policy re-validation.
+    /// Builder-side candidate object for Handle resolution intent=member_add | invite (identity-handles.md §3.7); produces a Realm-scoped member_delivery_binding only after Join Policy re-validation.
     pub const MEMBER_DELIVERY_BINDING_CANDIDATE_V1: &'static str =
         "ak.schema.member_delivery_binding_candidate.v1";
-    /// Realm-scoped member display/subject projection carried by ak.member.identity.update; handle
-    /// lifecycle is carried by ak.schema.handle_claim.v1.
+    /// Realm-scoped member display/subject projection carried by ak.member.identity.update; handle lifecycle is carried by ak.schema.handle_claim.v1.
     pub const MEMBER_IDENTITY_V1: &'static str = "ak.schema.member_identity.v1";
     pub const MESSAGE_V1: &'static str = "ak.schema.message.v1";
     pub const MIMI_INTEROP_V1: &'static str = "ak.schema.mimi_interop.v1";
     /// Closed request/response DTO bundle for MIMI provider interop operations.
     pub const MIMI_OPERATIONS_V1: &'static str = "ak.schema.mimi_operations.v1";
-    /// Closed near-current stateless MLS group-security frontier query carrier. Bulk and old
-    /// history use receipt-bound direct accepted-Seal traversal through standard resolve surfaces.
+    /// Closed near-current stateless MLS group-security frontier query carrier. Bulk and old history use receipt-bound direct accepted-Seal traversal through standard resolve surfaces.
     pub const MLS_GOVERNANCE_PROOF_BUNDLE_V1: &'static str =
         "ak.schema.mls_governance_proof_bundle.v1";
     pub const MODERATION_APPEAL_V1: &'static str = "ak.schema.moderation_appeal.v1";
     pub const MODERATION_EVIDENCE_V1: &'static str = "ak.schema.moderation_evidence.v1";
     pub const MODERATION_QUEUE_ITEM_V1: &'static str = "ak.schema.moderation_queue_item.v1";
     pub const MODERATION_REPORT_V1: &'static str = "ak.schema.moderation_report.v1";
-    /// Reference business-field schema used by the Morph type-system example. It validates the
-    /// customer_risk fields.status / fields.severity payload carried inside ak.schema.morph.v1
-    /// containers.
+    /// Reference business-field schema used by the Morph type-system example. It validates the customer_risk fields.status / fields.severity payload carried inside ak.schema.morph.v1 containers.
     pub const MORPH_CUSTOMER_RISK_V1: &'static str = "ak.schema.morph.customer_risk.v1";
     pub const MORPH_V1: &'static str = "ak.schema.morph.v1";
     pub const NOTIFICATION_V1: &'static str = "ak.schema.notification.v1";
@@ -995,73 +882,46 @@ impl SchemaId {
     /// Payload schemas for shared pin events.
     pub const PIN_V1: &'static str = "ak.schema.pin.v1";
     pub const POLICY_V1: &'static str = "ak.schema.policy.v1";
-    /// Signed online invite locator asserting subject_id and recipient_service_id for private
-    /// invite delivery.
+    /// Signed online invite locator asserting subject_id and recipient_service_id for private invite delivery.
     pub const PRINCIPAL_LOCATOR_V1: &'static str = "ak.schema.principal_locator.v1";
-    /// Closed wire carriers scoped to a single principal: PCR genesis, participation replacement,
-    /// history ingress contracts, KeyPackage terminal handling, Sidecar staging and shared
-    /// primitives.
+    /// Closed wire carriers scoped to a single principal: PCR genesis, participation replacement, history ingress contracts, KeyPackage terminal handling, Sidecar staging and shared primitives.
     pub const PRINCIPAL_OPERATIONS_V1: &'static str = "ak.schema.principal_operations.v1";
-    /// Defs-only canonical PublicKey DTO (kty/kid/algorithm/key, optional key_digest). Owned by its
-    /// own document so device, agent, account and to-device surfaces reference one shared
-    /// definition instead of reverse-referencing each other's bundles. The {kid, alg, public_key}
-    /// spelling is not canonical wire and MUST be rejected.
+    /// Defs-only canonical PublicKey DTO (kty/kid/algorithm/key, optional key_digest). Owned by its own document so device, agent, account and to-device surfaces reference one shared definition instead of reverse-referencing each other's bundles. The {kid, alg, public_key} spelling is not canonical wire and MUST be rejected.
     pub const PUBLIC_KEY_V1: &'static str = "ak.schema.public_key.v1";
     /// Closed request/response DTO bundle for push device registration and push wakeup delivery.
     pub const PUSH_OPERATIONS_V1: &'static str = "ak.schema.push_operations.v1";
-    /// Canonical wire schema for client query / projection (query_request) and search
-    /// (search_request) request bodies plus reusable filter / sort / relation-query $defs. The
-    /// OpenAPI QueryRequestBody / SearchRequestBody / QueryFilter / FieldFilter / BooleanFilter /
-    /// SortSpec / RelationQuery components $ref this file so there is a single source of truth.
-    /// Human-readable semantics: zh/conformance/query-schema.md.
+    /// Canonical wire schema for client query / projection (query_request) and search (search_request) request bodies plus reusable filter / sort / relation-query $defs. The OpenAPI QueryRequestBody / SearchRequestBody / QueryFilter / FieldFilter / BooleanFilter / SortSpec / RelationQuery components $ref this file so there is a single source of truth. Human-readable semantics: zh/conformance/query-schema.md.
     pub const QUERY_V1: &'static str = "ak.schema.query.v1";
     pub const RANGE_COMPLETENESS_ATTESTATION_V1: &'static str =
         "ak.schema.range_completeness_attestation.v1";
     pub const READ_CURSOR_V1: &'static str = "ak.schema.read_cursor.v1";
-    /// Closed request/response DTO bundle for self-surface read cursor operations
-    /// (ak.self.read_cursor.*); see zh/discovery/read-receipts.md.
+    /// Closed request/response DTO bundle for self-surface read cursor operations (ak.self.read_cursor.*); see zh/discovery/read-receipts.md.
     pub const READ_CURSOR_OPERATIONS_V1: &'static str = "ak.schema.read_cursor_operations.v1";
     /// Closed decrypted Signal payload profile for ak.receipt.read timeline read hints.
     pub const READ_RECEIPT_V1: &'static str = "ak.schema.read_receipt.v1";
     pub const REALM_V1: &'static str = "ak.schema.realm.v1";
     pub const REALM_GENESIS_V1: &'static str = "ak.schema.realm_genesis.v1";
-    /// Time-bounded routing hint returned by Realm discovery / resolve paths for selecting a
-    /// qualified service to receive join, invite-accept, knock, or restricted-join submissions. Not
-    /// an authorization grant and not a member_delivery_binding.
+    /// Time-bounded routing hint returned by Realm discovery / resolve paths for selecting a qualified service to receive join, invite-accept, knock, or restricted-join submissions. Not an authorization grant and not a member_delivery_binding.
     pub const REALM_JOIN_CANDIDATE_V1: &'static str = "ak.schema.realm_join_candidate.v1";
-    /// Closed request/response DTO bundle for self-surface cross-Realm link operations
-    /// (ak.self.realm_link.*); see zh/models/realm-links.md.
+    /// Closed request/response DTO bundle for self-surface cross-Realm link operations (ak.self.realm_link.*); see zh/models/realm-links.md.
     pub const REALM_LINK_OPERATIONS_V1: &'static str = "ak.schema.realm_link_operations.v1";
-    /// Closed response DTO bundle for self-surface Realm organization relationship reads
-    /// (ak.self.realm_organization.*); see zh/models/realm-and-space.md.
+    /// Closed response DTO bundle for self-surface Realm organization relationship reads (ak.self.realm_organization.*); see zh/models/realm-and-space.md.
     pub const REALM_ORGANIZATION_OPERATIONS_V1: &'static str =
         "ak.schema.realm_organization_operations.v1";
-    /// Closed request/response DTO bundle for self-surface Realm policy-server config operations
-    /// (ak.self.realm_policy_server.*); see zh/authz/policy-server.md.
+    /// Closed request/response DTO bundle for self-surface Realm policy-server config operations (ak.self.realm_policy_server.*); see zh/authz/policy-server.md.
     pub const REALM_POLICY_SERVER_OPERATIONS_V1: &'static str =
         "ak.schema.realm_policy_server_operations.v1";
     pub const REALM_PROFILE_V1: &'static str = "ak.schema.realm_profile.v1";
-    /// Closed request/response DTO bundle for self-surface Realm read and moderation-policy
-    /// operations (ak.self.realm.*); see zh/models/realm-and-space.md and
-    /// zh/governance/content-moderation.md.
+    /// Closed request/response DTO bundle for self-surface Realm read and moderation-policy operations (ak.self.realm.*); see zh/models/realm-and-space.md and zh/governance/content-moderation.md.
     pub const REALM_READ_OPERATIONS_V1: &'static str = "ak.schema.realm_read_operations.v1";
-    /// Coordinator-signed proof of a durably completed RecoveryTransaction for recovery grant
-    /// promotion.
+    /// Coordinator-signed proof of a durably completed RecoveryTransaction for recovery grant promotion.
     pub const RECOVERY_COMPLETION_ATTESTATION_V1: &'static str =
         "ak.schema.recovery_completion_attestation.v1";
-    /// Wire payload schema for the principal recovery policy. Bound to the Principal Control Realm;
-    /// receivers reject recovery and device authorization evidence whose proof family is not
-    /// allowed by current accepted policy.
+    /// Wire payload schema for the principal recovery policy. Bound to the Principal Control Realm; receivers reject recovery and device authorization evidence whose proof family is not allowed by current accepted policy.
     pub const RECOVERY_POLICY_V1: &'static str = "ak.schema.recovery_policy.v1";
-    /// Signed completion receipt for a principal recovery strand. Bound to recovery_session_id used
-    /// by every proof, backup unlock, and MLS Welcome replay during the recovery. See
-    /// identity/security-transactions.md §2 and crypto-media/device-lifecycle.md §14.
+    /// Signed completion receipt for a principal recovery strand. Bound to recovery_session_id used by every proof, backup unlock, and MLS Welcome replay during the recovery. See identity/security-transactions.md §2 and crypto-media/device-lifecycle.md §14.
     pub const RECOVERY_RECEIPT_V1: &'static str = "ak.schema.recovery_receipt.v1";
-    /// Wire contract for the device recovery session state machine, including create/get session
-    /// shape, proof submit request and response helpers, the closed publication-authority snapshot,
-    /// and did_root plus generic recovery proof transcripts. Session completion is owned
-    /// exclusively by the bound RecoveryTransaction terminal commit. See
-    /// identity/security-transactions.md §2 and crypto-media/device-lifecycle.md §14.
+    /// Wire contract for the device recovery session state machine, including create/get session shape, proof submit request and response helpers, the closed publication-authority snapshot, and did_root plus generic recovery proof transcripts. Session completion is owned exclusively by the bound RecoveryTransaction terminal commit. See identity/security-transactions.md §2 and crypto-media/device-lifecycle.md §14.
     pub const RECOVERY_SESSION_V1: &'static str = "ak.schema.recovery_session.v1";
     /// Account-local registration DID evidence retained for onboarding and recovery audit.
     pub const REGISTRATION_DID_EVIDENCE_V1: &'static str = "ak.schema.registration_did_evidence.v1";
@@ -1082,30 +942,19 @@ impl SchemaId {
         "ak.schema.security_rotation_local_commit.v1";
     /// Closed RecoveryTransaction and SecurityRotationTransaction resource.
     pub const SECURITY_TRANSACTION_V1: &'static str = "ak.schema.security_transaction.v1";
-    /// Canonical ServiceDescribe response for ak.server.read.describe.v1 and per-surface describe
-    /// operations: base service metadata plus exact supported_operation_bundles and claim-level
-    /// partitions (supported_features / claimed_profiles / verified_profiles / interop_surfaces),
-    /// with the registered directory_service overlay fields used by
-    /// ak.find.directory.read.describe.v1. Enforces development_mode=true =&gt;
-    /// verified_profiles=[]. interop_surfaces is limited to external interop surfaces. See
-    /// service-surface.md §3.0 and discovery-directory.md §8.9.
+    /// Canonical ServiceDescribe response for ak.server.read.describe.v1 and per-surface describe operations: base service metadata plus exact supported_operation_bundles and claim-level partitions (supported_features / claimed_profiles / verified_profiles / interop_surfaces), with the registered directory_service overlay fields used by ak.find.directory.read.describe.v1. Enforces development_mode=true =&gt; verified_profiles=[]. interop_surfaces is limited to external interop surfaces. See service-surface.md §3.0 and discovery-directory.md §8.9.
     pub const SERVICE_DESCRIBE_V1: &'static str = "ak.schema.service_describe.v1";
-    /// Verifiable service DID disaster-recovery bundle containing public DID history, receipts and
-    /// key references but no private key bytes.
+    /// Verifiable service DID disaster-recovery bundle containing public DID history, receipts and key references but no private key bytes.
     pub const SERVICE_IDENTITY_BUNDLE_V1: &'static str = "ak.schema.service_identity_bundle.v1";
-    /// Canonical DTO bundle for service operation request/response shapes migrated out of OpenAPI
-    /// inline components.
+    /// Canonical DTO bundle for service operation request/response shapes migrated out of OpenAPI inline components.
     pub const SERVICE_OPERATION_DTOS_V1: &'static str = "ak.schema.service_operation_dtos.v1";
     /// Encrypted-only Signal Extension envelope; product payload types remain inside ciphertext.
     pub const SIGNAL_ENVELOPE_V1: &'static str = "ak.schema.signal_envelope.v1";
-    /// Closed decrypted Signal payload profile for transient Message generation keyframe, delta,
-    /// and abort frames.
+    /// Closed decrypted Signal payload profile for transient Message generation keyframe, delta, and abort frames.
     pub const SIGNAL_MESSAGE_STREAM_V1: &'static str = "ak.schema.signal_message_stream.v1";
-    /// Closed decrypted Signal payload profile for ak.presence state, status message and activity
-    /// bucket.
+    /// Closed decrypted Signal payload profile for ak.presence state, status message and activity bucket.
     pub const SIGNAL_PRESENCE_V1: &'static str = "ak.schema.signal_presence.v1";
-    /// Bounded single-hop peer relay request and opaque outcome for encrypted SignalEnvelope
-    /// values.
+    /// Bounded single-hop peer relay request and opaque outcome for encrypted SignalEnvelope values.
     pub const SIGNAL_RELAY_V1: &'static str = "ak.schema.signal_relay.v1";
     /// Closed data/control frame union for ak.self.signal.stream.subscribe.v1.
     pub const SIGNAL_STREAM_FRAME_V1: &'static str = "ak.schema.signal_stream_frame.v1";
@@ -1114,15 +963,11 @@ impl SchemaId {
     pub const SNAPSHOT_V1: &'static str = "ak.schema.snapshot.v1";
     pub const SPACE_V1: &'static str = "ak.schema.space.v1";
     pub const STRAND_V1: &'static str = "ak.schema.strand.v1";
-    /// Shared coarse JSON Schema shapes for Arkret human identifiers, IDNA domains, handles, acct
-    /// URIs, and human-readable text profiles.
+    /// Shared coarse JSON Schema shapes for Arkret human identifiers, IDNA domains, handles, acct URIs, and human-readable text profiles.
     pub const STRING_PROFILES_V1: &'static str = "ak.schema.string_profiles.v1";
-    /// Defs-only shared canonical Arkret timestamp profile. Arkret-owned absolute instants use
-    /// fixed UTC milliseconds (YYYY-MM-DDTHH:MM:SS.sssZ); external protocol time, local wall time,
-    /// durations, and algorithm-internal epochs remain separate semantic types.
+    /// Defs-only shared canonical Arkret timestamp profile. Arkret-owned absolute instants use fixed UTC milliseconds (YYYY-MM-DDTHH:MM:SS.sssZ); external protocol time, local wall time, durations, and algorithm-internal epochs remain separate semantic types.
     pub const TIME_V1: &'static str = "ak.schema.time.v1";
-    /// Closed ServiceDescribe transport_bindings union for registered HTTP companion and extension
-    /// transports.
+    /// Closed ServiceDescribe transport_bindings union for registered HTTP companion and extension transports.
     pub const TRANSPORT_BINDING_V1: &'static str = "ak.schema.transport_binding.v1";
     pub const VIEW_V1: &'static str = "ak.schema.view.v1";
     /// Client authentication and reauthentication response frame.
@@ -1142,8 +987,7 @@ impl SchemaId {
     pub const WEBSOCKET_DATA_FRAME_V1: &'static str = "ak.schema.websocket_data_frame.v1";
     /// Closed htm, wss htu, ath, nonce, iat and jti claim set for a WebSocket authentication proof.
     pub const WEBSOCKET_DPOP_CLAIMS_V1: &'static str = "ak.schema.websocket_dpop_claims.v1";
-    /// Decoded protected header and claim set for the application-level challenge_dpop_session_v1
-    /// proof.
+    /// Decoded protected header and claim set for the application-level challenge_dpop_session_v1 proof.
     pub const WEBSOCKET_DPOP_PROOF_V1: &'static str = "ak.schema.websocket_dpop_proof.v1";
     /// Closed Ed25519 JOSE protected header for a WebSocket authentication proof.
     pub const WEBSOCKET_DPOP_PROTECTED_HEADER_V1: &'static str =

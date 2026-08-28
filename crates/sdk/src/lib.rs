@@ -415,7 +415,7 @@ pub use mls_governance::{
     signed_event_digest_claim, verify_event_derived_genesis_checkpoint,
     verify_mls_governance_checkpoint, verify_mls_governance_closure, verify_mls_governance_cut,
     verify_mls_governance_frontier, verify_native_agent_historical_event_key,
-    verify_native_agent_history_source_key,
+    verify_native_agent_history_source_key, verify_seal_availability_dependencies_default,
 };
 pub use sdk_error::{Error, Result};
 pub use sidecar_recovery::{AgentSidecarContextLocator, recover_agent_sidecar_context_locators};

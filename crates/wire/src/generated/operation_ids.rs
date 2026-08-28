@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-27.12;
-//! sha256=561dac5dae75acf37e6984d6b2a967c7e3c7ddd37c574437ebf40e1795a63f60 Entries: registered=260
+//! Input: registry/operation-registry.json; version=2026-08-28.2; sha256=4b93e11558d79f2e64564b3685807c6a8ead20346807ff4119b52bd9945f497e
+//! Entries: registered=261
 
 use serde::{Deserialize, Serialize};
 
@@ -253,6 +253,7 @@ pub enum ServiceOperationId {
     SelfRealmPolicyServerResourceDeleteV1,
     SelfRealmPolicyServerResourceGetV1,
     SelfRealmPolicyServerResourceReplaceV1,
+    SelfSealsCommandIssueAvailabilityReceiptsV1,
     SelfSealsCommandSubmitV1,
     SelfSealsReadFrontierV1,
     SelfSealsReadGovernanceDependenciesV1,
@@ -516,6 +517,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_REALM_POLICY_SERVER_RESOURCE_DELETE_V1,
     ServiceOperationId::SELF_REALM_POLICY_SERVER_RESOURCE_GET_V1,
     ServiceOperationId::SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE_V1,
+    ServiceOperationId::SELF_SEALS_COMMAND_ISSUE_AVAILABILITY_RECEIPTS_V1,
     ServiceOperationId::SELF_SEALS_COMMAND_SUBMIT_V1,
     ServiceOperationId::SELF_SEALS_READ_FRONTIER_V1,
     ServiceOperationId::SELF_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1,
@@ -821,6 +823,7 @@ impl ServiceOperationId {
         Self::SelfRealmPolicyServerResourceDeleteV1,
         Self::SelfRealmPolicyServerResourceGetV1,
         Self::SelfRealmPolicyServerResourceReplaceV1,
+        Self::SelfSealsCommandIssueAvailabilityReceiptsV1,
         Self::SelfSealsCommandSubmitV1,
         Self::SelfSealsReadFrontierV1,
         Self::SelfSealsReadGovernanceDependenciesV1,
@@ -1252,6 +1255,8 @@ impl ServiceOperationId {
         "ak.self.realm_policy_server.resource.get.v1";
     pub const SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE_V1: &'static str =
         "ak.self.realm_policy_server.resource.replace.v1";
+    pub const SELF_SEALS_COMMAND_ISSUE_AVAILABILITY_RECEIPTS_V1: &'static str =
+        "ak.self.seals.command.issue_availability_receipts.v1";
     pub const SELF_SEALS_COMMAND_SUBMIT_V1: &'static str = "ak.self.seals.command.submit.v1";
     pub const SELF_SEALS_READ_FRONTIER_V1: &'static str = "ak.self.seals.read.frontier.v1";
     pub const SELF_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1: &'static str =
@@ -1687,6 +1692,9 @@ impl ServiceOperationId {
             }
             Self::SelfRealmPolicyServerResourceReplaceV1 => {
                 Self::SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE_V1
+            }
+            Self::SelfSealsCommandIssueAvailabilityReceiptsV1 => {
+                Self::SELF_SEALS_COMMAND_ISSUE_AVAILABILITY_RECEIPTS_V1
             }
             Self::SelfSealsCommandSubmitV1 => Self::SELF_SEALS_COMMAND_SUBMIT_V1,
             Self::SelfSealsReadFrontierV1 => Self::SELF_SEALS_READ_FRONTIER_V1,
@@ -2212,6 +2220,9 @@ impl ServiceOperationId {
             }
             Self::SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE_V1 => {
                 Some(Self::SelfRealmPolicyServerResourceReplaceV1)
+            }
+            Self::SELF_SEALS_COMMAND_ISSUE_AVAILABILITY_RECEIPTS_V1 => {
+                Some(Self::SelfSealsCommandIssueAvailabilityReceiptsV1)
             }
             Self::SELF_SEALS_COMMAND_SUBMIT_V1 => Some(Self::SelfSealsCommandSubmitV1),
             Self::SELF_SEALS_READ_FRONTIER_V1 => Some(Self::SelfSealsReadFrontierV1),
@@ -7864,6 +7875,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.realm.policy_server"])),
             rationale: None,
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfSealsCommandIssueAvailabilityReceiptsV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/seals/availability-receipts",
+        grpc: Some("SelfSeals/IssueAvailabilityReceipts"),
+        mq: Some("self.seals.command.issue_availability_receipts"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/SealAvailabilityReceiptIssueRequest",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/SealAvailabilityReceiptIssueOutcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "stores_content_addressed_governance_dependencies_but_does_not_commit_an_event_or_seal",
+            ),
             branch_contract_json: None,
         }),
     },

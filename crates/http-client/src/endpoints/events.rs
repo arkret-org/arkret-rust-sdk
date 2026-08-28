@@ -18,7 +18,8 @@ use arkret_models_collaboration::governance::authorization::{
 };
 use arkret_models_collaboration::governance::realm_governance::RealmOrganizationRelationshipList;
 use arkret_models_collaboration::governance_dependencies::{
-    GovernanceDependencyResolveOutcome, SelfGovernanceDependencyResolveRequest,
+    GovernanceDependencyResolveOutcome, SealAvailabilityReceiptIssueOutcome,
+    SealAvailabilityReceiptIssueRequest, SelfGovernanceDependencyResolveRequest,
 };
 use arkret_models_collaboration::http_bodies::{
     EventDeliveryStatusOutcome, EventDeliveryStatusRequestBody, EventSealSubmitOutcome,
@@ -804,6 +805,21 @@ impl Client {
                 "governance dependency resolution is incomplete".to_owned(),
             ));
         }
+        Ok(outcome)
+    }
+
+    /// Ask the create-locked Principal Server holder to issue and persist the
+    /// exact availability dependency closure before a device signs a PCR
+    /// successor Seal.
+    pub async fn seal_availability_receipts_issue(
+        &self,
+        request: &SealAvailabilityReceiptIssueRequest,
+    ) -> Result<SealAvailabilityReceiptIssueOutcome> {
+        request.validate()?;
+        let outcome: SealAvailabilityReceiptIssueOutcome = self
+            .post("/_arkret/self/seals/availability-receipts", request)
+            .await?;
+        outcome.validate_for_request(request)?;
         Ok(outcome)
     }
 

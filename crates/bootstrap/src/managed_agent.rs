@@ -5,6 +5,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_event_draft::EventPayloadExt;
 use arkret_models_collaboration::events_payloads::{RealmCreatePayload, RealmGenesis};
+use arkret_models_collaboration::governance_dependencies::{
+    SealAvailabilityReceiptIssueOutcome, SealAvailabilityReceiptIssueRequest,
+};
 use arkret_models_identity::ResolutionCommitment;
 use arkret_state::lattice::ordered_log::{IssuedOp, OrderedLog, ensure_unique_ordered_log_slots};
 use arkret_state::{
@@ -479,6 +482,7 @@ impl ManagedAgentPcrGenesisAuthority {
 pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
     events: &[Event],
     predecessor: Option<&Seal>,
+    availability: Option<&SealAvailabilityReceiptIssueOutcome>,
     hlc: Hlc,
     signer: &S,
     project: CellWriteProjector<'_>,
@@ -542,7 +546,30 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
     .map_err(|error| {
         WireError::Protocol(format!("managed Agent PCR completeness root: {error}"))
     })?;
-    let sealed_at = Utc::now();
+    let (sealed_at, availability_receipt_digests) = match (predecessor, availability) {
+        (None, None) => (Utc::now(), Vec::new()),
+        (Some(_), Some(availability)) => {
+            availability.validate_for_request(&SealAvailabilityReceiptIssueRequest {
+                realm_id: material.realm_id.clone(),
+                predecessor_refs: predecessor_refs.clone(),
+                event_digests: delta.clone(),
+            })?;
+            (
+                availability.sealed_at,
+                availability.availability_receipt_digests.clone(),
+            )
+        }
+        (None, Some(_)) => {
+            return Err(WireError::Protocol(
+                "managed Agent PCR genesis Seal forbids availability preparation".to_owned(),
+            ));
+        }
+        (Some(_), None) => {
+            return Err(WireError::Protocol(
+                "managed Agent PCR successor Seal requires availability preparation".to_owned(),
+            ));
+        }
+    };
     let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
     let mut seal = Seal {
         id: SealId::new(format!("ak:seal:sha256:{}", "00".repeat(32)))?,
@@ -555,7 +582,7 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
         notary_seq,
         data_view_root: None,
         data_event_set_root: None,
-        availability_receipt_digests: Vec::new(),
+        availability_receipt_digests,
         covered_event_digests: material.covered_event_digests,
         previous_state_root: None,
         previous_digest_algorithm: None,

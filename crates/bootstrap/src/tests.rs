@@ -716,39 +716,26 @@ fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
     let first = build_managed_agent_pcr_event_seal(
         std::slice::from_ref(&create),
         None,
+        None,
         Hlc::new("01970e589d21-0009-a13f9c2e").unwrap(),
         &signer,
         &project,
     )
     .unwrap();
-    let successor = build_managed_agent_pcr_event_seal(
+    let error = build_managed_agent_pcr_event_seal(
         &[create, anchor.clone()],
         Some(&first),
+        None,
         Hlc::new("01970e589d21-000a-a13f9c2e").unwrap(),
         &signer,
         &project,
     )
-    .unwrap();
-
-    assert_eq!(successor.predecessor_refs, vec![first.id.clone()]);
-    assert_eq!(successor.notary_seq, 1);
-    assert_eq!(successor.delta.len(), 1);
-    assert_eq!(
-        successor.delta[0].as_str(),
-        anchor
-            .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-            .unwrap()
+    .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("successor Seal requires availability preparation")
     );
-    assert_eq!(successor.covered_event_digests.len(), 2);
-    assert_eq!(successor.state_root, first.state_root);
-    assert_ne!(
-        successor.control_event_set_root,
-        first.control_event_set_root
-    );
-    let NotarySig::Single(signature) = successor.notary_signature else {
-        panic!("managed Agent PCR Seal must use one controller signature")
-    };
-    assert_eq!(signature.verification_method, signer.verification_method);
 }
 
 #[test]

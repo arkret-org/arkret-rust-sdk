@@ -898,7 +898,7 @@ where
     }
 }
 
-fn verify_seal_dependencies_default(
+pub fn verify_seal_availability_dependencies_default(
     seal: &Seal,
     events: &BTreeMap<Hash, Event>,
     replay_context: &SealDependencyReplayContext,
@@ -906,7 +906,7 @@ fn verify_seal_dependencies_default(
 ) -> Result<(), WireError> {
     let SealAvailabilityReplayAuthority::Predecessor {
         policy: availability_policy,
-        joined_member_principal_server_ids,
+        eligible_holder_ids,
     } = &replay_context.availability_authority
     else {
         return verify_genesis_availability_commitment(
@@ -1027,7 +1027,7 @@ fn verify_seal_dependencies_default(
     let mut holders_by_event = BTreeMap::<_, BTreeSet<_>>::new();
     for (_, receipt) in &receipts {
         let holder_id = &receipt.holder_id;
-        if !joined_member_principal_server_ids.contains(holder_id) {
+        if !eligible_holder_ids.contains(holder_id) {
             return Err(WireError::Protocol(
                 "availability receipt holder has no accepted predecessor role".to_owned(),
             ));
@@ -1129,7 +1129,12 @@ where
             )
         },
         |seal, _, replay_context, dependencies| {
-            verify_seal_dependencies_default(seal, &event_map, replay_context, dependencies)
+            verify_seal_availability_dependencies_default(
+                seal,
+                &event_map,
+                replay_context,
+                dependencies,
+            )
         },
         |event, digest_suite| {
             project_governance_cell_writes(event, digest_suite, &authority_audits)
@@ -1187,7 +1192,12 @@ where
                 )
             },
             |seal, _, replay_context, dependencies| {
-                verify_seal_dependencies_default(seal, &event_map, replay_context, dependencies)
+                verify_seal_availability_dependencies_default(
+                    seal,
+                    &event_map,
+                    replay_context,
+                    dependencies,
+                )
             },
             |event, digest_suite| {
                 project_governance_cell_writes(event, digest_suite, &authority_audits)
@@ -1246,7 +1256,12 @@ where
                 )
             },
             |seal, _, replay_context, dependencies| {
-                verify_seal_dependencies_default(seal, &event_map, replay_context, dependencies)
+                verify_seal_availability_dependencies_default(
+                    seal,
+                    &event_map,
+                    replay_context,
+                    dependencies,
+                )
             },
             |event, digest_suite| {
                 project_governance_cell_writes(event, digest_suite, &authority_audits)
@@ -1433,7 +1448,12 @@ where
             )
         },
         |seal, _, replay_context, dependencies| {
-            verify_seal_dependencies_default(seal, &event_map, replay_context, dependencies)
+            verify_seal_availability_dependencies_default(
+                seal,
+                &event_map,
+                replay_context,
+                dependencies,
+            )
         },
         |event, digest_suite| {
             project_governance_cell_writes(event, digest_suite, &authority_audits)
@@ -1508,7 +1528,12 @@ where
             )
         },
         |seal, _, replay_context, dependencies| {
-            verify_seal_dependencies_default(seal, &event_map, replay_context, dependencies)
+            verify_seal_availability_dependencies_default(
+                seal,
+                &event_map,
+                replay_context,
+                dependencies,
+            )
         },
         |event, digest_suite| {
             project_governance_cell_writes(event, digest_suite, &authority_audits)
@@ -1622,7 +1647,12 @@ where
             )
         },
         |seal, _, replay_context, dependencies| {
-            verify_seal_dependencies_default(seal, &event_map, replay_context, dependencies)
+            verify_seal_availability_dependencies_default(
+                seal,
+                &event_map,
+                replay_context,
+                dependencies,
+            )
         },
         |event, digest_suite| {
             project_governance_cell_writes(event, digest_suite, &authority_audits)

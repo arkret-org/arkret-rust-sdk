@@ -3,6 +3,9 @@
 
 use std::collections::BTreeSet;
 
+use arkret_models_collaboration::governance_dependencies::{
+    SealAvailabilityReceiptIssueOutcome, SealAvailabilityReceiptIssueRequest,
+};
 use arkret_state::control_event_set_root;
 use arkret_wire::{
     DidCoreId, DidFullId, Event, EventKind, Hash, Hlc, NotarySig, PayloadSigner, Result, Seal,
@@ -122,11 +125,13 @@ pub fn build_self_principal_bootstrap_seal<S: PayloadSigner + ?Sized>(
 /// accepted here: its roots are a service hint, and
 /// `event-auth-state-resolution.md` requires the consumer to resolve and verify
 /// every leaf Seal before citing it.
+#[allow(clippy::too_many_arguments)]
 pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
     create: &Event,
     authorize: &Event,
     successor: &Event,
     predecessor: &Seal,
+    availability: &SealAvailabilityReceiptIssueOutcome,
     hlc: Hlc,
     signer: &S,
     project: CellWriteProjector<'_>,
@@ -214,7 +219,13 @@ pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
             "self principal successor completeness root: {error}"
         ))
     })?;
-    let sealed_at = Utc::now();
+    validate_successor_availability(
+        availability,
+        &create.realm_id,
+        std::slice::from_ref(&predecessor.id),
+        std::slice::from_ref(&successor_digest),
+    )?;
+    let sealed_at = availability.sealed_at;
     let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
     let mut seal = Seal {
         id: SealId::new(format!("ak:seal:sha256:{}", "00".repeat(32)))?,
@@ -227,7 +238,7 @@ pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
         notary_seq: 1,
         data_view_root: None,
         data_event_set_root: None,
-        availability_receipt_digests: Vec::new(),
+        availability_receipt_digests: availability.availability_receipt_digests.clone(),
         covered_event_digests: covered.into_iter().collect(),
         previous_state_root: None,
         previous_digest_algorithm: None,
@@ -262,6 +273,7 @@ pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
 pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
     events: &[Event],
     predecessor: &Seal,
+    availability: &SealAvailabilityReceiptIssueOutcome,
     hlc: Hlc,
     signer: &S,
     project: CellWriteProjector<'_>,
@@ -343,7 +355,13 @@ pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
         SELF_PRINCIPAL_PCR_DIGEST_SUITE,
     )
     .map_err(|error| WireError::Protocol(format!("self principal completeness root: {error}")))?;
-    let sealed_at = Utc::now();
+    validate_successor_availability(
+        availability,
+        &first.realm_id,
+        std::slice::from_ref(&predecessor.id),
+        &delta,
+    )?;
+    let sealed_at = availability.sealed_at;
     let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
     let mut seal = Seal {
         id: SealId::new(format!("ak:seal:sha256:{}", "00".repeat(32)))?,
@@ -358,7 +376,7 @@ pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
         })?,
         data_view_root: None,
         data_event_set_root: None,
-        availability_receipt_digests: Vec::new(),
+        availability_receipt_digests: availability.availability_receipt_digests.clone(),
         covered_event_digests: target.into_iter().collect(),
         previous_state_root: None,
         previous_digest_algorithm: None,
@@ -392,6 +410,7 @@ pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
 pub fn build_self_principal_linear_successor_seal<S: PayloadSigner + ?Sized>(
     events: &[Event],
     predecessor: &Seal,
+    availability: &SealAvailabilityReceiptIssueOutcome,
     hlc: Hlc,
     signer: &S,
     project: CellWriteProjector<'_>,
@@ -445,7 +464,20 @@ pub fn build_self_principal_linear_successor_seal<S: PayloadSigner + ?Sized>(
         ));
     }
 
-    build_self_principal_event_seal(events, predecessor, hlc, signer, project)
+    build_self_principal_event_seal(events, predecessor, availability, hlc, signer, project)
+}
+
+fn validate_successor_availability(
+    availability: &SealAvailabilityReceiptIssueOutcome,
+    realm_id: &arkret_wire::RealmId,
+    predecessor_refs: &[SealId],
+    event_digests: &[Hash],
+) -> Result<()> {
+    availability.validate_for_request(&SealAvailabilityReceiptIssueRequest {
+        realm_id: realm_id.clone(),
+        predecessor_refs: predecessor_refs.to_vec(),
+        event_digests: event_digests.to_vec(),
+    })
 }
 
 fn self_principal_bootstrap_state_root(

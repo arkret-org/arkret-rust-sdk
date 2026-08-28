@@ -4,8 +4,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_identity::AuthenticatedSignerResolutionEvidence;
 use arkret_wire::{
-    AvailabilityReceipt, Event, EventProof, Hash, RealmId, Result, Seal, WireError, canonical,
+    AvailabilityReceipt, Event, EventProof, Hash, RealmId, Result, Seal, SealId, WireError,
+    canonical,
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::history_key::{
@@ -983,6 +985,148 @@ impl GovernanceDependencyResolveOutcome {
         }
         Ok(())
     }
+}
+
+/// Exact PCR-only request for the availability dependencies needed before a
+/// device signs one successor Seal.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SealAvailabilityReceiptIssueRequest {
+    pub realm_id: RealmId,
+    pub predecessor_refs: Vec<SealId>,
+    pub event_digests: Vec<Hash>,
+}
+
+impl SealAvailabilityReceiptIssueRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_sorted_unique_nonempty(&self.predecessor_refs, 64, "predecessor_refs")?;
+        validate_sorted_unique_nonempty(&self.event_digests, 1_024, "event_digests")?;
+        Ok(())
+    }
+}
+
+/// Server-timestamped PCR availability preparation copied verbatim into the
+/// prospective successor Seal after the client verifies the complete typed
+/// dependency closure.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SealAvailabilityReceiptIssueOutcome {
+    pub realm_id: RealmId,
+    pub predecessor_refs: Vec<SealId>,
+    pub event_digests: Vec<Hash>,
+    pub sealed_at: DateTime<Utc>,
+    pub availability_receipt_digests: Vec<Hash>,
+    pub governance_dependencies: Vec<GovernanceDependency>,
+}
+
+impl Eq for SealAvailabilityReceiptIssueOutcome {}
+
+impl SealAvailabilityReceiptIssueOutcome {
+    pub fn validate_for_request(
+        &self,
+        request: &SealAvailabilityReceiptIssueRequest,
+    ) -> Result<()> {
+        request.validate()?;
+        if self.realm_id != request.realm_id
+            || self.predecessor_refs != request.predecessor_refs
+            || self.event_digests != request.event_digests
+        {
+            return Err(WireError::Protocol(
+                "availability receipt issue outcome does not exactly echo the request basis"
+                    .to_owned(),
+            ));
+        }
+        validate_sorted_unique_nonempty(
+            &self.availability_receipt_digests,
+            1_024,
+            "availability_receipt_digests",
+        )?;
+        if self.governance_dependencies.len() < 2 || self.governance_dependencies.len() > 2_048 {
+            return Err(WireError::Protocol(
+                "availability receipt issue outcome must contain 2..=2048 dependencies".to_owned(),
+            ));
+        }
+
+        GovernanceDependencyResolveOutcome {
+            items: self.governance_dependencies.clone(),
+            missing_selectors: Vec::new(),
+        }
+        .validate()?;
+
+        let requested_event_digests = request
+            .event_digests
+            .iter()
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        let mut receipt_digests = BTreeSet::new();
+        let mut receipt_event_digests = BTreeSet::new();
+        let mut required_evidence_digests = BTreeSet::new();
+        let mut returned_evidence_digests = BTreeSet::new();
+        for dependency in &self.governance_dependencies {
+            match dependency {
+                GovernanceDependency::AvailabilityReceipt {
+                    selector: GovernanceDependencySelector::AvailabilityReceipt { content_digest },
+                    availability_receipt,
+                } => {
+                    if availability_receipt.realm_id != request.realm_id {
+                        return Err(WireError::Protocol(
+                            "availability receipt belongs to a different Realm".to_owned(),
+                        ));
+                    }
+                    receipt_digests.insert(content_digest.clone());
+                    receipt_event_digests.insert(availability_receipt.event_id.event_digest());
+                    required_evidence_digests
+                        .insert(availability_receipt.holder_signer_evidence_digest.clone());
+                }
+                GovernanceDependency::AuthenticatedSignerResolutionEvidence {
+                    selector:
+                        GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
+                            content_digest,
+                        },
+                    ..
+                } => {
+                    returned_evidence_digests.insert(content_digest.clone());
+                }
+                _ => {
+                    return Err(WireError::Protocol(
+                        "availability preparation contains an unrelated dependency kind".to_owned(),
+                    ));
+                }
+            }
+        }
+        let declared_receipt_digests = self
+            .availability_receipt_digests
+            .iter()
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        if receipt_digests != declared_receipt_digests
+            || receipt_event_digests != requested_event_digests
+            || receipt_digests.len() != request.event_digests.len()
+            || required_evidence_digests != returned_evidence_digests
+        {
+            return Err(WireError::Protocol(
+                "availability preparation is not every-and-only the requested receipts and signer evidence"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_sorted_unique_nonempty<T: Ord>(values: &[T], max: usize, field: &str) -> Result<()> {
+    if values.is_empty() || values.len() > max {
+        return Err(WireError::Protocol(format!(
+            "{field} must contain 1..={max} values"
+        )));
+    }
+    if values.windows(2).any(|pair| pair[0] >= pair[1]) {
+        return Err(WireError::Protocol(format!(
+            "{field} must be byte-wise sorted and duplicate-free"
+        )));
+    }
+    Ok(())
 }
 
 #[cfg(test)]

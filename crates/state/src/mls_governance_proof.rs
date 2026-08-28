@@ -7,7 +7,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::DigestSuite;
-use arkret_models_collaboration::events_payloads::RealmPolicyBundlePayload;
+use arkret_models_collaboration::events_payloads::{
+    RealmCreatePayload, RealmPolicyBundlePayload, RealmPurpose,
+};
 use arkret_models_collaboration::governance::membership_invite::{
     MembershipPayload, MembershipPayloadState,
 };
@@ -121,11 +123,13 @@ pub enum SealAvailabilityReplayAuthority {
     /// commitment must be empty; the policy it materializes governs only its
     /// successors.
     Genesis,
-    /// Availability policy and holder eligibility frozen at the joined
-    /// predecessor view.
+    /// Availability policy and holder eligibility frozen at the predecessor
+    /// view. Ordinary/DC Realms derive this set from effective joined member
+    /// delivery bindings; PCRs derive the singleton from the accepted genesis
+    /// create's admitted `principal_server_id`.
     Predecessor {
         policy: RealmAvailabilityPolicy,
-        joined_member_principal_server_ids: BTreeSet<DidCoreId>,
+        eligible_holder_ids: BTreeSet<DidCoreId>,
     },
 }
 
@@ -2065,12 +2069,30 @@ fn predecessor_notary_and_state(
         .ok_or_else(|| WireError::Protocol("predecessor view has no notary state".to_owned()))
 }
 
+pub fn derive_seal_dependency_replay_context(
+    seal: &Seal,
+    predecessor_state: &BTreeMap<CellRef, CellState>,
+    all_events: &dyn ReplayEventLookup,
+    seal_store: &dyn SealStore,
+    cell_store: &dyn CellStore,
+    digest_suites: SealDigestSuites,
+) -> arkret_wire::Result<SealDependencyReplayContext> {
+    seal_dependency_replay_context(
+        seal,
+        predecessor_state,
+        all_events,
+        seal_store,
+        cell_store,
+        digest_suites,
+    )
+}
+
 fn seal_dependency_replay_context(
     seal: &Seal,
     predecessor_state: &BTreeMap<CellRef, CellState>,
     all_events: &dyn ReplayEventLookup,
-    seal_store: &MemorySealStore,
-    cell_store: &MemoryCellStore,
+    seal_store: &dyn SealStore,
+    cell_store: &dyn CellStore,
     digest_suites: SealDigestSuites,
 ) -> arkret_wire::Result<SealDependencyReplayContext> {
     let mut availability_policy = None;
@@ -2114,7 +2136,7 @@ fn seal_dependency_replay_context(
         } else {
             SealAvailabilityReplayAuthority::Predecessor {
                 policy: availability_policy.unwrap_or_default(),
-                joined_member_principal_server_ids: BTreeSet::new(),
+                eligible_holder_ids: BTreeSet::new(),
             }
         },
     };
@@ -2124,7 +2146,9 @@ fn seal_dependency_replay_context(
         union_predecessor_covered_events(&seal.predecessor_refs, seal_store)
             .map_err(replay_reject_error)?
     };
-    if !seal.predecessor_refs.is_empty() {
+    if !seal.predecessor_refs.is_empty()
+        && !add_pcr_holder_from_accepted_create(&covered, all_events, &mut context)?
+    {
         for (cell, state) in predecessor_state {
             let cell_id = CellId::from_ref(cell)?;
             if cell_id.component() != arkret_wire::CellFamilyId::MEMBER_STATE_V1
@@ -2146,6 +2170,54 @@ fn seal_dependency_replay_context(
         }
     }
     Ok(context)
+}
+
+fn add_pcr_holder_from_accepted_create(
+    covered: &BTreeSet<Hash>,
+    all_events: &dyn ReplayEventLookup,
+    context: &mut SealDependencyReplayContext,
+) -> arkret_wire::Result<bool> {
+    let mut create = None;
+    for digest in covered {
+        let event = all_events.event(digest)?.ok_or_else(|| {
+            WireError::Protocol("predecessor-covered Event is unresolved".to_owned())
+        })?;
+        if event.kind != arkret_wire::EventKind::RealmCreate {
+            continue;
+        }
+        if create.replace(event).is_some() {
+            return frontier_rejected("predecessor closure contains multiple Realm create Events");
+        }
+    }
+    let Some(create) = create else {
+        return frontier_rejected("predecessor closure has no Realm create Event");
+    };
+    let payload: RealmCreatePayload =
+        serde_json::from_value(serde_json::to_value(&create.payload)?)?;
+    if !matches!(
+        payload.object.purpose,
+        RealmPurpose::PrincipalControl
+            | RealmPurpose::ManagedAgentControl
+            | RealmPurpose::AppletManagedControl
+    ) {
+        return Ok(false);
+    }
+    create
+        .validate_principal_server_admission_binding(DigestSuite::Sha256)
+        .map_err(|error| {
+            WireError::Protocol(format!(
+                "MLS governance frontier rejected (state_mismatch): PCR create Principal Server admission binding is invalid: {error}"
+            ))
+        })?;
+    let SealAvailabilityReplayAuthority::Predecessor {
+        eligible_holder_ids,
+        ..
+    } = &mut context.availability_authority
+    else {
+        return frontier_rejected("genesis replay cannot acquire PCR availability holder");
+    };
+    eligible_holder_ids.insert(create.principal_server_id);
+    Ok(true)
 }
 
 fn winning_membership_join(
@@ -2201,7 +2273,7 @@ fn add_joined_holder_from_event(
         return Ok(());
     }
     let SealAvailabilityReplayAuthority::Predecessor {
-        joined_member_principal_server_ids,
+        eligible_holder_ids,
         ..
     } = &mut context.availability_authority
     else {
@@ -2210,7 +2282,7 @@ fn add_joined_holder_from_event(
         ));
     };
     if let Some(binding) = payload.delivery_binding {
-        joined_member_principal_server_ids.insert(binding.recipient_service_id);
+        eligible_holder_ids.insert(binding.recipient_service_id);
     }
     Ok(())
 }
