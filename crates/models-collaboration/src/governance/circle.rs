@@ -1,8 +1,8 @@
 //! Circle primitive (AKP-0007, spec b7d35be..2b0d70d).
 //!
 //! A `Circle` is an intra-Realm scoped event/message boundary. It hosts
-//! its own member_idship (which MUST be a strict subset of the parent
-//! Realm's member_idship), history access and delivery/query/projection
+//! its own membership (which MUST be a strict subset of the parent
+//! Realm's membership), history access and delivery/query/projection
 //! boundary. A Circle may be plaintext delivery-only
 //! (`encryption_profile=none`) or MLS-backed (`mls_rfc9420`) depending on
 //! the parent Realm policy floor.
@@ -258,7 +258,7 @@ pub struct CircleView {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub member_count: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub viewer_member_idship: Option<CircleMembership>,
+    pub viewer_membership: Option<CircleMembership>,
     #[serde(default)]
     pub member_ids: Vec<DidCoreId>,
     pub created_by: DidCoreId,
@@ -326,7 +326,7 @@ impl CircleMembership {
 pub struct CircleMemberRequestBody {
     /// Initial publication of the caller-signed `ak.circle.member.state` Event.
     ///
-    /// The target actor and the member_idship value live in
+    /// The target actor and the membership value live in
     /// `member_event.event.payload`, and the Circle is `payload.circle_id`, which
     /// must equal the path `circle_id`. Nothing else belongs here: the payload is
     /// closed, and the `ak.circle.member.manage` decision is the admission path's,
@@ -354,7 +354,7 @@ pub struct CircleMemberDeleteRequestBody {
 pub struct CircleMembershipOutcome {
     pub circle_id: CircleId,
     pub actor_id: DidCoreId,
-    pub member_idship: CircleMembership,
+    pub membership: CircleMembership,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -445,11 +445,11 @@ pub enum CircleState {
     Tombstoned,
 }
 
-/// Per-actor Circle member_idship state. Mirrors AKP-0007 §3.6
-/// `ak.circle.member.state` `member_idship` enum.
+/// Per-actor Circle membership state. Mirrors AKP-0007 §3.6
+/// `ak.circle.member.state` `membership` enum.
 ///
 /// The transition table is encoded in [`validate_member_transition`];
-/// Circle member_idship reuses the Realm `member_idship_state` enum exactly:
+/// Circle membership reuses the Realm `membership_state` enum exactly:
 /// `invite`, `join`, `knock`, `leave`, and `ban`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -462,7 +462,7 @@ pub enum CircleMemberState {
 }
 
 impl CircleMemberState {
-    /// Wire identifier (snake_case) for this member_idship state. Mirrors the
+    /// Wire identifier (snake_case) for this membership state. Mirrors the
     /// canonical strings in `ak.circle.member.state` payloads.
     pub fn as_str(self) -> &'static str {
         match self {
@@ -480,7 +480,7 @@ impl CircleMemberState {
 /// [`CircleJoinRule`] (AKP-0007 §3.6).
 ///
 /// `prev = None` denotes the `none` pseudo-state — an actor who has never
-/// had a Circle member_idship row. The full transition table:
+/// had a Circle membership row. The full transition table:
 ///
 /// ```text
 ///   none / leave                         → invite
@@ -714,7 +714,7 @@ pub enum CircleScopeError {
     )]
     MemberNotInRealm { circle_member: DidCoreId },
     #[error(
-        "circle member_idship is not a strict subset of realm member_idship \
+        "circle membership is not a strict subset of realm membership \
          (reducer reason=circle_member_must_be_realm_member, AKP-0007)"
     )]
     NotStrictSubset,

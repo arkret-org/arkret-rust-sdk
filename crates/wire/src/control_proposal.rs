@@ -1404,7 +1404,7 @@ mod tests {
         second.signature.payload_digest = second.authority_ack_digest().unwrap();
         let profile = NotaryValue::Threshold {
             threshold: 2,
-            members: vec![
+            notary_signer_descriptors: vec![
                 descriptor("z6mkfixture", "authority.example"),
                 descriptor("z6mkfixtureb", "authority-b.example"),
                 descriptor("z6mkfixturec", "authority-c.example"),

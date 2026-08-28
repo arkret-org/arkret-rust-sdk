@@ -1044,7 +1044,8 @@ mod events_submit_tests {
 
     #[tokio::test]
     async fn events_read_queries_canonical_events_collection_with_json_content() {
-        let canned = r#"{"events":[],"prev_cursor":null,"next_cursor":null,"has_more":false}"#;
+        let canned =
+            r#"{"event_read_rows":[],"prev_cursor":null,"next_cursor":null,"has_more":false}"#;
         let (client, capture) = spawn_capture_server(canned).await;
 
         let response = client
@@ -1058,7 +1059,7 @@ mod events_submit_tests {
             )
             .await
             .unwrap();
-        assert!(response.events.is_empty());
+        assert!(response.event_read_rows.is_empty());
 
         let raw = capture.await.unwrap();
         let (request_line, headers, body) = split_request(&raw);
@@ -1073,7 +1074,7 @@ mod events_submit_tests {
         );
         let parsed: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(
-            parsed["realms"],
+            parsed["realm_ids"],
             json!(["ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI"])
         );
         assert_eq!(parsed["before"], "ak:cursor:older");
@@ -1112,7 +1113,7 @@ mod events_submit_tests {
 
     #[tokio::test]
     async fn events_query_outcome_uses_standard_shape_and_completeness_query() {
-        let canned = r#"{"events":[],"prev_cursor":null,"next_cursor":null,"has_more":false,"range_completeness":{"attestation_refs":[]}}"#;
+        let canned = r#"{"event_read_rows":[],"prev_cursor":null,"next_cursor":null,"has_more":false,"range_completeness":{"attestation_refs":[]}}"#;
         let (client, capture) = spawn_capture_server(canned).await;
 
         let response = client
@@ -1126,7 +1127,7 @@ mod events_submit_tests {
             )
             .await
             .unwrap();
-        assert!(response.events.is_empty());
+        assert!(response.event_read_rows.is_empty());
         assert!(!response.has_more);
         assert_eq!(
             response
@@ -1181,10 +1182,11 @@ mod events_submit_tests {
 
     #[tokio::test]
     async fn contacts_list_gets_spec_path() {
-        let (client, capture) = spawn_capture_server(r#"{"contacts":[],"has_more":false}"#).await;
+        let (client, capture) =
+            spawn_capture_server(r#"{"contact_list_rows":[],"has_more":false}"#).await;
 
         let response = client.contacts_list().await.unwrap();
-        assert!(response.contacts.is_empty());
+        assert!(response.contact_list_rows.is_empty());
         assert!(!response.has_more);
 
         let raw = capture.await.unwrap();
@@ -1343,7 +1345,7 @@ mod events_submit_tests {
         );
         let parsed: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(parsed["abuse_reason_code"], "spam");
-        assert_eq!(parsed["reporter"], "ak:did_core:webvh:z6mkfixture");
+        assert_eq!(parsed["reporter_id"], "ak:did_core:webvh:z6mkfixture");
     }
 
     #[tokio::test]
@@ -1352,7 +1354,7 @@ mod events_submit_tests {
                 "status": "partial",
                 "pending_delivery_count": 0,
                 "accepted": ["ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6"],
-                "rejected": [
+                "events_submit_rejected_rows": [
                     {"id": "ak:event:Adoyyx1AqvJH02hYxuUtpzuC-zpV8GxwFQ8XInZLbu3s", "reason_code": "schema_violation"}
                 ]
             }"#;
@@ -1372,9 +1374,9 @@ mod events_submit_tests {
             response.status
         );
         assert_eq!(response.accepted.len(), 1);
-        assert_eq!(response.rejected.len(), 1);
+        assert_eq!(response.events_submit_rejected_rows.len(), 1);
         assert_eq!(
-            response.rejected[0].reason_code.as_str(),
+            response.events_submit_rejected_rows[0].reason_code.as_str(),
             "schema_violation"
         );
     }

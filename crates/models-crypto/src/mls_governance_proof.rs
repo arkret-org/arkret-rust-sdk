@@ -377,15 +377,15 @@ pub struct MlsGovernanceFrontierBranchProjection {
 
 impl MlsGovernanceFrontierProjection {
     pub fn validate(&self) -> Result<()> {
-        if self.branches.is_empty()
+        if self.frontier_branch_projections.is_empty()
             || self
-                .branches
+                .frontier_branch_projections
                 .windows(2)
                 .any(|pair| pair[0].target_seal_ref >= pair[1].target_seal_ref)
         {
             return schema("MLS governance frontier branches are not canonical");
         }
-        for branch in &self.branches {
+        for branch in &self.frontier_branch_projections {
             branch.validate()?;
         }
         Ok(())
@@ -395,7 +395,7 @@ impl MlsGovernanceFrontierProjection {
 impl MlsGovernanceFrontierBranchProjection {
     pub fn validate(&self) -> Result<()> {
         if self
-            .entries
+            .frontier_cell_entries
             .windows(2)
             .any(|pair| pair[0].cell_id.as_str() >= pair[1].cell_id.as_str())
             || self.range_witnesses.windows(2).any(|pair| {
@@ -410,7 +410,7 @@ impl MlsGovernanceFrontierBranchProjection {
         {
             return schema("MLS governance frontier projection is not canonical");
         }
-        for entry in &self.entries {
+        for entry in &self.frontier_cell_entries {
             entry.validate(&self.state_root)?;
             if entry.inclusion_witness.root_seal_ref != self.target_seal_ref {
                 return state("MLS governance branch entry names a different target Seal");
@@ -453,7 +453,7 @@ impl MlsGovernanceProofBundle {
         self.proof_material.validate()?;
         let branch_seals = self
             .frontier_projection
-            .branches
+            .frontier_branch_projections
             .iter()
             .map(|branch| &branch.target_seal_ref)
             .collect::<BTreeSet<_>>();
@@ -463,7 +463,8 @@ impl MlsGovernanceProofBundle {
             .iter()
             .collect::<BTreeSet<_>>();
         if branch_seals != target_seals
-            || self.frontier_projection.branches.len() != request.proof_target_basis.leaves.len()
+            || self.frontier_projection.frontier_branch_projections.len()
+                != request.proof_target_basis.leaves.len()
         {
             return state(
                 "MLS governance frontier branches are not every-and-only the target basis",
@@ -536,18 +537,21 @@ impl MlsGovernanceProofBundle {
     }
 
     pub fn all_entries(&self) -> impl Iterator<Item = &MlsGovernanceFrontierCellEntry> {
-        self.frontier_projection.branches.iter().flat_map(|branch| {
-            branch
-                .entries
-                .iter()
-                .chain(branch.range_witnesses.iter().flat_map(|witness| {
-                    witness
-                        .left_boundary
-                        .entry
-                        .iter()
-                        .chain(witness.right_boundary.entry.iter())
-                }))
-        })
+        self.frontier_projection
+            .frontier_branch_projections
+            .iter()
+            .flat_map(|branch| {
+                branch
+                    .frontier_cell_entries
+                    .iter()
+                    .chain(branch.range_witnesses.iter().flat_map(|witness| {
+                        witness
+                            .left_boundary
+                            .entry
+                            .iter()
+                            .chain(witness.right_boundary.entry.iter())
+                    }))
+            })
     }
 }
 

@@ -620,9 +620,9 @@ pub struct RealmSyncEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub member_roster_entries: Option<Vec<MemberRosterEntry>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub members_limited: Option<bool>,
+    pub member_roster_entries_limited: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub members_next_cursor: Option<String>,
+    pub member_roster_entries_next_cursor: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unread_notifications: Option<AccountSubscribeUnreadCounts>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -360,13 +360,13 @@ pub struct EventsSubmitOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub duplicate: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rejected: Vec<EventsSubmitRejectedRow>,
+    pub events_submit_rejected_rows: Vec<EventsSubmitRejectedRow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub quarantine: Vec<EventId>,
     /// Post-submit actor authoring frontiers sorted and unique by
     /// `(realm_id, actor_id)`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub realm_actor_frontiers: Vec<RealmActorFrontierView>,
+    pub realm_actor_frontier_views: Vec<RealmActorFrontierView>,
     /// Visible post-submit Realm Seal frontiers sorted and unique by Realm.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub realm_frontiers: Vec<RealmSealFrontierView>,
@@ -916,7 +916,7 @@ pub struct ProjectionSpaceRow {
 pub struct ProjectionSpaceList {
     pub realm_id: RealmId,
     #[serde(default)]
-    pub spaces: Vec<ProjectionSpaceRow>,
+    pub projection_space_rows: Vec<ProjectionSpaceRow>,
     pub total: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
@@ -990,7 +990,7 @@ pub struct ProjectionAssignedToRelation {
 pub struct ProjectionStrandList {
     pub realm_id: RealmId,
     #[serde(default)]
-    pub strands: Vec<ProjectionStrandRow>,
+    pub projection_strand_rows: Vec<ProjectionStrandRow>,
     pub total: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
@@ -1029,7 +1029,7 @@ pub struct ProjectionMorphRow {
 pub struct ProjectionMorphList {
     pub realm_id: RealmId,
     #[serde(default)]
-    pub morphs: Vec<ProjectionMorphRow>,
+    pub projection_morph_rows: Vec<ProjectionMorphRow>,
     pub total: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
@@ -1219,7 +1219,7 @@ pub struct MimiRoomUpdateOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub room_state_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rejected: Vec<MimiFailure>,
+    pub rejections: Vec<MimiFailure>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1262,7 +1262,7 @@ pub struct MimiSubmitMessageOutcome {
     pub event_ref: Option<EventId>,
     pub delivery: MimiDelivery,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rejected: Vec<MimiFailure>,
+    pub rejections: Vec<MimiFailure>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2123,7 +2123,7 @@ pub struct ReferenceLockedEventStub {
 pub struct EventsQueryOutcome {
     // Required by the schema; an absent array is not an empty result page.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub events: Vec<EventReadRow>,
+    pub event_read_rows: Vec<EventReadRow>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prev_cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

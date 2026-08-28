@@ -116,7 +116,7 @@ impl AccountSubscribeFrame {
         }
         if let Some(bundle) = &self.agent_signer_evidence_bundle
             && (bundle.schema.as_str() != SchemaId::AGENT_SIGNER_EVIDENCE_BUNDLE_V1
-                || bundle.evidence.len() > 256)
+                || bundle.evidence_items.len() > 256)
         {
             return Err(WireError::Protocol(
                 "agent_signer_evidence_bundle is invalid".to_owned(),

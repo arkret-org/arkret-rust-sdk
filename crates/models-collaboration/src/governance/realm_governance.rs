@@ -387,7 +387,7 @@ pub struct RealmLinkList {
     pub realm_id: RealmId,
     pub direction: RealmLinkDirection,
     #[serde(default)]
-    pub links: Vec<RealmLinkEntry>,
+    pub realm_link_entries: Vec<RealmLinkEntry>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -985,7 +985,7 @@ pub struct RealmOrganizationRelationshipRow {
 pub struct RealmOrganizationRelationshipList {
     pub realm_id: RealmId,
     #[serde(default)]
-    pub relationships: Vec<RealmOrganizationRelationshipRow>,
+    pub realm_organization_relationship_rows: Vec<RealmOrganizationRelationshipRow>,
     /// `owning_organization_ids` declared hints with no verified statement. These
     /// are unverified claims and MUST NOT be rendered as official / governed /
     /// endorsed.

@@ -130,23 +130,23 @@ pub enum NotaryValue {
     SingleSigner {
         signer: NotarySignerDescriptor,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        recovery_members: Vec<NotarySignerDescriptor>,
+        recovery_notary_signer_descriptors: Vec<NotarySignerDescriptor>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         controller_organization_id: Option<DidCoreId>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         recovery_controller_organization_ids: Vec<DidCoreId>,
     },
     Threshold {
-        members: Vec<NotarySignerDescriptor>,
+        notary_signer_descriptors: Vec<NotarySignerDescriptor>,
         threshold: u32,
         forensic_attribution: ForensicAttribution,
     },
     OpenSet {
-        members: Vec<NotarySignerDescriptor>,
+        notary_signer_descriptors: Vec<NotarySignerDescriptor>,
     },
     Mixed {
         signer: NotarySignerDescriptor,
-        recovery_members: Vec<NotarySignerDescriptor>,
+        recovery_notary_signer_descriptors: Vec<NotarySignerDescriptor>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         controller_organization_id: Option<DidCoreId>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -158,7 +158,7 @@ impl NotaryValue {
     pub fn single_signer(signer: NotarySignerDescriptor) -> Self {
         Self::SingleSigner {
             signer,
-            recovery_members: Vec::new(),
+            recovery_notary_signer_descriptors: Vec::new(),
             controller_organization_id: None,
             recovery_controller_organization_ids: Vec::new(),
         }
@@ -168,12 +168,12 @@ impl NotaryValue {
         let (primary, recovery) = match self {
             Self::SingleSigner {
                 signer,
-                recovery_members,
+                recovery_notary_signer_descriptors,
                 controller_organization_id,
                 recovery_controller_organization_ids,
             } => {
                 if controller_organization_id.is_some()
-                    && (recovery_members.is_empty()
+                    && (recovery_notary_signer_descriptors.is_empty()
                         || recovery_controller_organization_ids.is_empty())
                 {
                     return Err(WireError::Protocol(
@@ -182,19 +182,25 @@ impl NotaryValue {
                     ));
                 }
                 validate_unique_organizations(recovery_controller_organization_ids)?;
-                (std::slice::from_ref(signer), recovery_members.as_slice())
+                (
+                    std::slice::from_ref(signer),
+                    recovery_notary_signer_descriptors.as_slice(),
+                )
             }
             Self::Threshold {
-                members,
+                notary_signer_descriptors,
                 threshold,
                 forensic_attribution,
             } => {
-                if members.is_empty() || *threshold == 0 || *threshold as usize > members.len() {
+                if notary_signer_descriptors.is_empty()
+                    || *threshold == 0
+                    || *threshold as usize > notary_signer_descriptors.len()
+                {
                     return Err(WireError::Protocol(
                         "threshold notary requires 1 <= threshold <= members.len()".to_owned(),
                     ));
                 }
-                let intersection = 2 * (*threshold as usize) > members.len();
+                let intersection = 2 * (*threshold as usize) > notary_signer_descriptors.len();
                 if intersection
                     != matches!(
                         forensic_attribution,
@@ -206,23 +212,25 @@ impl NotaryValue {
                             .to_owned(),
                     ));
                 }
-                (members.as_slice(), &[][..])
+                (notary_signer_descriptors.as_slice(), &[][..])
             }
-            Self::OpenSet { members } => {
-                if members.is_empty() {
+            Self::OpenSet {
+                notary_signer_descriptors,
+            } => {
+                if notary_signer_descriptors.is_empty() {
                     return Err(WireError::Protocol(
                         "open_set notary requires at least one member".to_owned(),
                     ));
                 }
-                (members.as_slice(), &[][..])
+                (notary_signer_descriptors.as_slice(), &[][..])
             }
             Self::Mixed {
                 signer,
-                recovery_members,
+                recovery_notary_signer_descriptors,
                 controller_organization_id,
                 recovery_controller_organization_ids,
             } => {
-                if recovery_members.is_empty() {
+                if recovery_notary_signer_descriptors.is_empty() {
                     return Err(WireError::Protocol(
                         "mixed notary requires at least one recovery member".to_owned(),
                     ));
@@ -236,7 +244,10 @@ impl NotaryValue {
                     ));
                 }
                 validate_unique_organizations(recovery_controller_organization_ids)?;
-                (std::slice::from_ref(signer), recovery_members.as_slice())
+                (
+                    std::slice::from_ref(signer),
+                    recovery_notary_signer_descriptors.as_slice(),
+                )
             }
         };
         validate_descriptor_set(primary, recovery)
@@ -248,32 +259,36 @@ impl NotaryValue {
                 signers.len() == 1 && signers.contains(&signer.verification_method)
             }
             Self::Threshold {
-                members, threshold, ..
+                notary_signer_descriptors,
+                threshold,
+                ..
             } => {
                 signers.len() >= *threshold as usize
                     && signers.iter().all(|method| {
-                        members
+                        notary_signer_descriptors
                             .iter()
                             .any(|member| &member.verification_method == method)
                     })
             }
-            Self::OpenSet { members } => {
+            Self::OpenSet {
+                notary_signer_descriptors,
+            } => {
                 signers.len() == 1
                     && signers.iter().all(|method| {
-                        members
+                        notary_signer_descriptors
                             .iter()
                             .any(|member| &member.verification_method == method)
                     })
             }
             Self::Mixed {
                 signer,
-                recovery_members,
+                recovery_notary_signer_descriptors,
                 ..
             } => {
                 (signers.len() == 1 && signers.contains(&signer.verification_method))
-                    || (signers.len() == recovery_members.len()
+                    || (signers.len() == recovery_notary_signer_descriptors.len()
                         && signers.iter().all(|method| {
-                            recovery_members
+                            recovery_notary_signer_descriptors
                                 .iter()
                                 .any(|member| &member.verification_method == method)
                         }))
@@ -288,21 +303,27 @@ impl NotaryValue {
         match self {
             Self::SingleSigner {
                 signer,
-                recovery_members,
+                recovery_notary_signer_descriptors,
                 ..
             }
             | Self::Mixed {
                 signer,
-                recovery_members,
+                recovery_notary_signer_descriptors,
                 ..
             } => (&signer.verification_method == verification_method)
                 .then_some(signer)
                 .or_else(|| {
-                    recovery_members
+                    recovery_notary_signer_descriptors
                         .iter()
                         .find(|member| &member.verification_method == verification_method)
                 }),
-            Self::Threshold { members, .. } | Self::OpenSet { members } => members
+            Self::Threshold {
+                notary_signer_descriptors,
+                ..
+            }
+            | Self::OpenSet {
+                notary_signer_descriptors,
+            } => notary_signer_descriptors
                 .iter()
                 .find(|member| &member.verification_method == verification_method),
         }

@@ -123,8 +123,8 @@ impl StoredDidCoreIdentity {
 pub struct DidCoreIdentityBundle {
     pub schema: String,
     pub identity: StoredDidCoreIdentity,
-    pub webvh_history: Vec<ServiceWebvhInceptionOperation>,
-    pub receipt_chain: Vec<ServiceRegistrationReceipt>,
+    pub webvh_history_entries: Vec<ServiceWebvhInceptionOperation>,
+    pub receipt_chains: Vec<ServiceRegistrationReceipt>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub exported_at: DateTime<Utc>,
 }
@@ -134,8 +134,8 @@ impl DidCoreIdentityBundle {
 
     pub fn validate(&self) -> Result<()> {
         if self.schema != Self::SCHEMA
-            || self.webvh_history.is_empty()
-            || self.receipt_chain.is_empty()
+            || self.webvh_history_entries.is_empty()
+            || self.receipt_chains.is_empty()
         {
             return Err(IdentityError::Protocol(
                 "identity bundle schema, WebVH history, or receipt chain is incomplete".to_owned(),
@@ -143,12 +143,12 @@ impl DidCoreIdentityBundle {
         }
         self.identity.validate()?;
         let key = &self.identity.identity.registration_key;
-        self.webvh_history
+        self.webvh_history_entries
             .first()
             .expect("checked non-empty")
             .validate_for(key)?;
         if self
-            .webvh_history
+            .webvh_history_entries
             .first()
             .expect("checked non-empty")
             .state
@@ -159,7 +159,7 @@ impl DidCoreIdentityBundle {
                 "identity bundle history belongs to a different service DID".to_owned(),
             ));
         }
-        for receipt in &self.receipt_chain {
+        for receipt in &self.receipt_chains {
             receipt.validate_for(
                 key,
                 &self.identity.identity.service_id,
@@ -733,9 +733,9 @@ mod tests {
         let stored = stored_identity();
         let bundle = DidCoreIdentityBundle {
             schema: DidCoreIdentityBundle::SCHEMA.to_owned(),
-            receipt_chain: vec![stored.registration_receipt.clone()],
+            receipt_chains: vec![stored.registration_receipt.clone()],
             identity: stored,
-            webvh_history: vec![operation],
+            webvh_history_entries: vec![operation],
             exported_at: "2026-07-15T00:00:02.000Z".parse().unwrap(),
         };
         let backend = KeyStoreIdentityBundleBackend::new(

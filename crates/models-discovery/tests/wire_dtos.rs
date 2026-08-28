@@ -83,13 +83,13 @@ fn directory_realm_search_outcome_decodes_typed_preview_fields() {
 
     assert!(!outcome.has_more);
     assert!(matches!(
-        outcome.realms[0].member_count_bucket,
+        outcome.realm_previews[0].member_count_bucket,
         Some(RealmMemberCountBucket::Bucket(
             RealmMemberCountBucketLabel::FiftyOneToOneHundred
         ))
     ));
     assert!(matches!(
-        outcome.realms[1].member_count_bucket,
+        outcome.realm_previews[1].member_count_bucket,
         Some(RealmMemberCountBucket::Exact(342))
     ));
 }

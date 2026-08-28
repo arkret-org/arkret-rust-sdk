@@ -832,7 +832,7 @@ impl ServiceDescribe {
         if let Some(push_target) = self
             .privacy_derivation
             .as_ref()
-            .and_then(|derivation| derivation.push_target_id.as_ref())
+            .and_then(|derivation| derivation.push_target_id_derivation.as_ref())
         {
             push_target.validate()?;
         }

@@ -609,7 +609,7 @@ impl InviteDelivery {
         Self {
             schema: SchemaId::INVITE_DELIVERY_V1.to_owned(),
             updated_at,
-            entries,
+            delivery_entries: entries,
         }
     }
 
@@ -619,20 +619,21 @@ impl InviteDelivery {
                 "invite_delivery.schema mismatch".to_owned(),
             ));
         }
-        if self.entries.len() > Self::MAX_ENTRIES {
+        if self.delivery_entries.len() > Self::MAX_ENTRIES {
             return Err(WireError::Protocol(format!(
-                "invite_delivery.entries exceeds {} entries",
+                "invite_delivery.delivery_entries exceeds {} entries",
                 Self::MAX_ENTRIES
             )));
         }
-        for (index, entry) in self.entries.iter().enumerate() {
+        for (index, entry) in self.delivery_entries.iter().enumerate() {
             entry.validate()?;
-            if self.entries[..index]
+            if self.delivery_entries[..index]
                 .iter()
                 .any(|prior| prior.invite_id == entry.invite_id)
             {
                 return Err(WireError::Protocol(
-                    "invite_delivery.entries must carry at most one entry per invite_id".to_owned(),
+                    "invite_delivery.delivery_entries must carry at most one entry per invite_id"
+                        .to_owned(),
                 ));
             }
         }
@@ -1174,7 +1175,7 @@ mod tests {
             .with_timezone(&Utc);
 
         let mut oversized = InviteDelivery::new(updated_at, Vec::new());
-        oversized.entries = (0..=InviteDelivery::MAX_ENTRIES)
+        oversized.delivery_entries = (0..=InviteDelivery::MAX_ENTRIES)
             .map(|_| invite_delivery_entry_fixture())
             .collect();
         assert!(oversized.validate().is_err());
@@ -1188,16 +1189,16 @@ mod tests {
             }],
         );
         assert!(duplicated.validate().is_err());
-        duplicated.entries[1].invite_id =
+        duplicated.delivery_entries[1].invite_id =
             InviteId::new("ak:invite:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G").unwrap();
         duplicated.validate().unwrap();
 
         let mut empty_token =
             InviteDelivery::new(updated_at, vec![invite_delivery_entry_fixture()]);
-        empty_token.entries[0].invite_token = String::new();
+        empty_token.delivery_entries[0].invite_token = String::new();
         assert!(empty_token.validate().is_err());
         let mut long_token = InviteDelivery::new(updated_at, vec![invite_delivery_entry_fixture()]);
-        long_token.entries[0].invite_token =
+        long_token.delivery_entries[0].invite_token =
             "t".repeat(InviteDelivery::INVITE_TOKEN_MAX_LENGTH + 1);
         assert!(long_token.validate().is_err());
     }

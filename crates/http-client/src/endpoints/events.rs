@@ -765,7 +765,7 @@ impl Client {
                     include_completeness: include_completeness.then_some(true),
                 })
                 .await?;
-            combined.events.extend(page.events);
+            combined.event_read_rows.extend(page.event_read_rows);
             combined.has_more = page.has_more;
             combined.next_cursor = page.next_cursor;
             merge_range_completeness(&mut completeness, page.range_completeness)?;

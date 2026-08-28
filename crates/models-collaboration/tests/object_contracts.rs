@@ -201,7 +201,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
 
     realm.notary = NotaryValue::Threshold {
         threshold: 2,
-        members: vec![
+        notary_signer_descriptors: vec![
             signer("did:webvh:z6mkfixturea:a.example"),
             signer("did:webvh:z6mkfixtureb:b.example"),
             signer("did:webvh:z6mkfixturec:c.example"),

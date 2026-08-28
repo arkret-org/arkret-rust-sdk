@@ -276,7 +276,7 @@ impl RealmActorFrontierView {
 pub struct ActorAggregateFrontierView {
     pub kind: ActorAggregateFrontierKind,
     pub actor_id: DidCoreId,
-    pub realms: Vec<RealmActorFrontierView>,
+    pub realm_actor_frontier_views: Vec<RealmActorFrontierView>,
 }
 
 /// Closed `error.details` for an explicit actor-chain CAS conflict.
@@ -301,7 +301,7 @@ impl EventsActorCasConflictProblem {
 
 impl ActorAggregateFrontierView {
     pub fn validate(&self) -> Result<()> {
-        for frontier in &self.realms {
+        for frontier in &self.realm_actor_frontier_views {
             if frontier.actor_id != self.actor_id {
                 return Err(WireError::Protocol(
                     "actor aggregate contains a different actor_id".to_owned(),
@@ -310,7 +310,7 @@ impl ActorAggregateFrontierView {
             frontier.validate()?;
         }
         if self
-            .realms
+            .realm_actor_frontier_views
             .windows(2)
             .any(|pair| pair[0].realm_id.as_str() >= pair[1].realm_id.as_str())
         {

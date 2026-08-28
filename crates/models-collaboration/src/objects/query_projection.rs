@@ -345,7 +345,7 @@ pub struct DocumentMorphProjectionOutcome {
     #[serde(default)]
     pub comments: Vec<BTreeMap<String, Value>>,
     #[serde(default)]
-    pub cursor_presence: Vec<BTreeMap<String, Value>>,
+    pub cursor_presence_entries: Vec<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(
         feature = "openapi",

@@ -1760,7 +1760,7 @@ pub struct RecoveryPolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_key_entries: Option<Vec<RecoveryKeyEntry>>,
     /// Dedicated backup-only HPKE recipients referenced by
-    /// `recovery_keys[].key_agreement_ref` and key-backup envelopes.
+    /// `recovery_key_entries[].key_agreement_ref` and key-backup envelopes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_key_agreement_entries: Option<Vec<RecoveryKeyAgreementEntry>>,
     /// Two-person-rule / cooldown enforcement layered on the proofs.
@@ -1864,16 +1864,19 @@ impl RecoveryPolicy {
                 RecoveryProofKind::RecoveryUnlock | RecoveryProofKind::ThresholdRecovery
             )
         });
-        let recovery_keys = self.recovery_keys.as_deref().unwrap_or_default();
-        let agreements = self.recovery_key_agreements.as_deref().unwrap_or_default();
+        let recovery_keys = self.recovery_key_entries.as_deref().unwrap_or_default();
+        let agreements = self
+            .recovery_key_agreement_entries
+            .as_deref()
+            .unwrap_or_default();
         if recovery_signing_key_enabled && (recovery_keys.is_empty() || agreements.is_empty()) {
             return Err(WireError::Protocol(
-                "recovery_unlock and threshold_recovery require recovery_keys and recovery_key_agreements".to_owned(),
+                "recovery_unlock and threshold_recovery require recovery_key_entries and recovery_key_agreement_entries".to_owned(),
             ));
         }
         if !recovery_keys.is_empty() && agreements.is_empty() {
             return Err(WireError::Protocol(
-                "recovery_keys require recovery_key_agreements".to_owned(),
+                "recovery_key_entries require recovery_key_agreement_entries".to_owned(),
             ));
         }
 
@@ -1883,7 +1886,7 @@ impl RecoveryPolicy {
             .collect::<BTreeSet<_>>();
         if agreement_refs.len() != agreements.len() {
             return Err(WireError::Protocol(
-                "recovery_key_agreements key_agreement_ref values must be unique".to_owned(),
+                "recovery_key_agreement_entries key_agreement_ref values must be unique".to_owned(),
             ));
         }
         for entry in agreements {
@@ -1896,7 +1899,7 @@ impl RecoveryPolicy {
             .collect::<BTreeSet<_>>();
         if verification_methods.len() != recovery_keys.len() {
             return Err(WireError::Protocol(
-                "recovery_keys verification_method values must be unique".to_owned(),
+                "recovery_key_entries verification_method values must be unique".to_owned(),
             ));
         }
         for entry in recovery_keys {
@@ -1924,7 +1927,7 @@ impl RecoveryPolicy {
         }
 
         let active_recovery_methods = self
-            .recovery_keys
+            .recovery_key_entries
             .as_deref()
             .unwrap_or_default()
             .iter()
@@ -2122,8 +2125,8 @@ impl UnsignedRecoveryPolicy {
             threshold: body.threshold,
             device_quorum: body.device_quorum,
             trusted_recovery_services: body.trusted_recovery_services,
-            recovery_keys: body.recovery_keys,
-            recovery_key_agreements: body.recovery_key_agreements,
+            recovery_key_entries: body.recovery_key_entries,
+            recovery_key_agreement_entries: body.recovery_key_agreement_entries,
             approval_requirement: body.approval_requirement,
             audit: body.audit,
             issued_at: body.issued_at,
@@ -2158,8 +2161,8 @@ fn recovery_policy_unsigned_value(body: &UnsignedRecoveryPolicyBody) -> Result<V
         "threshold": &body.threshold,
         "device_quorum": &body.device_quorum,
         "trusted_recovery_services": &body.trusted_recovery_services,
-        "recovery_keys": &body.recovery_keys,
-        "recovery_key_agreements": &body.recovery_key_agreements,
+        "recovery_key_entries": &body.recovery_key_entries,
+        "recovery_key_agreement_entries": &body.recovery_key_agreement_entries,
         "approval_requirement": &body.approval_requirement,
         "audit": &body.audit,
         "issued_at": arkret_canonical::canonical::format_timestamp_canonical(body.issued_at),
@@ -2174,10 +2177,10 @@ fn recovery_policy_unsigned_value(body: &UnsignedRecoveryPolicyBody) -> Result<V
             body.trusted_recovery_services.is_some(),
             "trusted_recovery_services",
         ),
-        (body.recovery_keys.is_some(), "recovery_keys"),
+        (body.recovery_key_entries.is_some(), "recovery_key_entries"),
         (
-            body.recovery_key_agreements.is_some(),
-            "recovery_key_agreements",
+            body.recovery_key_agreement_entries.is_some(),
+            "recovery_key_agreement_entries",
         ),
         (body.approval_requirement.is_some(), "approval_requirement"),
         (body.audit.is_some(), "audit"),
@@ -2455,7 +2458,7 @@ pub struct RecoveryTrustedService {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RecoveryKeyEntry {
     /// DID URL identifying this recovery signing key
-    /// (e.g. `did:webvh:...#recovery-1`). Unique within `recovery_keys[]`.
+    /// (e.g. `did:webvh:...#recovery-1`). Unique within `recovery_key_entries[]`.
     pub verification_method: DidUrl,
     /// Signing public multikey. This is never the paired HPKE public key.
     pub public_key_multibase: NonEmptyString,
@@ -2700,11 +2703,11 @@ pub struct RecoveryReceipt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reanchor_batch_receipt_id: Option<ReceiptId>,
     pub proof_summary: RecoveryProofSummary,
-    pub backup_classes_unlocked: Vec<RecoveryBackupClassUnlocked>,
+    pub unlocked_backup_classes: Vec<RecoveryBackupClassUnlocked>,
     /// MLS Welcomes successfully replayed for the recovering device.
     pub welcome_count: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub welcome_realm_summary: Option<Vec<RecoveryWelcomeRealmSummary>>,
+    pub welcome_realm_summaries: Option<Vec<RecoveryWelcomeRealmSummary>>,
     pub outcome: RecoveryReceiptOutcome,
     /// MUST be present when `outcome != completed`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2853,9 +2856,9 @@ impl UnsignedRecoveryReceipt {
             reanchor_event_id: body.reanchor_event_id,
             reanchor_batch_receipt_id: body.reanchor_batch_receipt_id,
             proof_summary: body.proof_summary,
-            backup_classes_unlocked: body.backup_classes_unlocked,
+            unlocked_backup_classes: body.backup_classes_unlocked,
             welcome_count: body.welcome_count,
-            welcome_realm_summary: body.welcome_realm_summary,
+            welcome_realm_summaries: body.welcome_realm_summary,
             outcome: body.outcome,
             outcome_reason_code: body.outcome_reason_code,
             started_at: body.started_at,

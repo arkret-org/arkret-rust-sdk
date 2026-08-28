@@ -1312,11 +1312,11 @@ fn validate_seal_lineage(
 ) -> Result<bool, AgentEvidenceRejectedReason> {
     let snapshot = &admission.agent_authority_snapshot;
     let core = &snapshot.core;
-    if core.seal_lineage.is_empty() || core.seal_lineage.len() > MAX_SEAL_LINEAGE {
+    if core.seal_lineages.is_empty() || core.seal_lineages.len() > MAX_SEAL_LINEAGE {
         return Ok(false);
     }
     let mut seals = BTreeMap::<String, &Seal>::new();
-    for seal in &core.seal_lineage {
+    for seal in &core.seal_lineages {
         if seal.realm_id != core.principal_control_realm_id
             || seal.validate_structural().is_err()
             || (context.verify_seal_signature)(seal).is_err()

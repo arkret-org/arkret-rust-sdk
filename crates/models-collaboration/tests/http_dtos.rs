@@ -152,7 +152,7 @@ fn events_subscribe_frame_control_helpers() {
 #[test]
 fn events_query_outcome_serializes_has_more_even_when_false() {
     let body = EventsQueryOutcome {
-        events: Vec::new(),
+        event_read_rows: Vec::new(),
         snapshot_bootstrap: None,
         next_cursor: None,
         prev_cursor: None,

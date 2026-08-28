@@ -249,7 +249,7 @@ pub struct RealmPolicyBundlePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub join_policy: Option<JoinPolicyPayload>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub handle_issuer_policy: Option<Vec<HandleIssuerPolicyEntry>>,
+    pub handle_issuer_policies: Option<Vec<HandleIssuerPolicyEntry>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_participation: Option<AgentParticipationPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -302,7 +302,7 @@ impl RealmPolicyBundlePayload {
             relaxed_window_max_ms: None,
             media_service_decrypts: None,
             join_policy: None,
-            handle_issuer_policy: None,
+            handle_issuer_policies: None,
             agent_participation: None,
             account_deactivation: None,
             availability_policy: None,

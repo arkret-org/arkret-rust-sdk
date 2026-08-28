@@ -371,7 +371,7 @@ impl ArkretMlsIdentity {
             intended_realm_id,
             agent_verification_method,
             agent_key_authorize_event_id,
-            keypackages,
+            keypackage_upload_entries: keypackages,
             expires_at: None,
             strand_id: None,
             mls_group_id: None,

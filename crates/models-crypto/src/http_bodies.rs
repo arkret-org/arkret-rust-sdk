@@ -37,7 +37,7 @@ pub struct KeyPackagesUploadRequestBody {
     pub agent_verification_method: Option<DidUrl>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_key_authorize_event_id: Option<EventId>,
-    pub keypackages: Vec<KeyPackageUploadEntry>,
+    pub keypackage_upload_entries: Vec<KeyPackageUploadEntry>,
     pub endpoint_signature: KeyOperationSignature,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
@@ -69,7 +69,7 @@ pub struct KeyPackagesUploadUnsignedRequest {
     pub agent_verification_method: Option<DidUrl>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_key_authorize_event_id: Option<EventId>,
-    pub keypackages: Vec<KeyPackageUploadEntry>,
+    pub keypackage_upload_entries: Vec<KeyPackageUploadEntry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
@@ -115,7 +115,7 @@ impl KeyPackagesUploadRequestBody {
             intended_realm_id: self.intended_realm_id.clone(),
             agent_verification_method: self.agent_verification_method.clone(),
             agent_key_authorize_event_id: self.agent_key_authorize_event_id.clone(),
-            keypackages: self.keypackages.clone(),
+            keypackage_upload_entries: self.keypackage_upload_entries.clone(),
             expires_at: self.expires_at,
             strand_id: self.strand_id.clone(),
             mls_group_id: self.mls_group_id.clone(),
@@ -157,7 +157,7 @@ impl KeyPackagesUploadUnsignedRequest {
             intended_realm_id: self.intended_realm_id,
             agent_verification_method: self.agent_verification_method,
             agent_key_authorize_event_id: self.agent_key_authorize_event_id,
-            keypackages: self.keypackages,
+            keypackage_upload_entries: self.keypackage_upload_entries,
             endpoint_signature,
             expires_at: self.expires_at,
             strand_id: self.strand_id,
@@ -218,7 +218,7 @@ pub fn keypackages_upload_signing_input(
 pub struct KeyPackagesUploadOutcome {
     pub accepted: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rejected: Vec<Failure>,
+    pub rejections: Vec<Failure>,
     #[serde(
         rename = "keypackage_refs",
         default,

@@ -82,9 +82,15 @@ fn notary_primary_projects_to_actor(notary: &NotaryValue, actor_id: &DidCoreId) 
         NotaryValue::SingleSigner { signer, .. } | NotaryValue::Mixed { signer, .. } => {
             Ok(&signer.actor_id == actor_id)
         }
-        NotaryValue::Threshold { members, .. } | NotaryValue::OpenSet { members } => {
-            Ok(members.iter().any(|member| &member.actor_id == actor_id))
+        NotaryValue::Threshold {
+            notary_signer_descriptors,
+            ..
         }
+        | NotaryValue::OpenSet {
+            notary_signer_descriptors,
+        } => Ok(notary_signer_descriptors
+            .iter()
+            .any(|member| &member.actor_id == actor_id)),
     }
 }
 

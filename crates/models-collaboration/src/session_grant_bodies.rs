@@ -463,7 +463,7 @@ pub struct SessionGrantScopeDetails {
     /// `ak.profile.agent_participation_policy.v1` overlay (AKP-0016). Each entry
     /// is isomorphic to `agent_participation_entry`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub participation: Vec<AgentParticipationEntry>,
+    pub agent_participation_entries: Vec<AgentParticipationEntry>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

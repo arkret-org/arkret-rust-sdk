@@ -263,10 +263,10 @@ mod tests {
         }))
         .unwrap_err();
 
-        assert!(error.to_string().contains("agents"));
+        assert!(error.to_string().contains("agent_projections"));
 
         let error = serde_json::from_value::<AgentList>(serde_json::json!({
-            "agents": []
+            "agent_projections": []
         }))
         .unwrap_err();
 

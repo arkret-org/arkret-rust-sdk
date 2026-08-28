@@ -39,7 +39,7 @@ pub const CONTACT_ROUND_DOMAIN: &[u8] = b"ak.contact.round.v1\n";
 pub enum DirectConversationFoundingAuthorityEvidence {
     Human {
         contact_round_evidence: ContactRoundEvidenceBundle,
-        contact_round_continuity_chain: Vec<ContactRoundEvidenceBundle>,
+        contact_round_continuity_chains: Vec<ContactRoundEvidenceBundle>,
     },
     ControllerAgent {
         agent_provision_ref: EventId,
@@ -252,21 +252,21 @@ impl DirectConversationFoundingAuthorityEvidence {
             )),
             Self::Human {
                 contact_round_evidence,
-                contact_round_continuity_chain,
+                contact_round_continuity_chains,
             } => {
                 validate_contact_contact_round_evidence_shape(contact_round_evidence)?;
-                if contact_round_continuity_chain.len() > 64 {
+                if contact_round_continuity_chains.len() > 64 {
                     return Err(arkret_wire::WireError::Protocol(
                         "direct conversation root contact_round continuity chain exceeds 64 entries"
                             .to_owned(),
                     ));
                 }
-                for predecessor in contact_round_continuity_chain {
+                for predecessor in contact_round_continuity_chains {
                     validate_contact_contact_round_evidence_shape(predecessor)?;
                 }
                 crate::contact_operations::validate_recontact_continuity(
                     contact_round_evidence,
-                    contact_round_continuity_chain,
+                    contact_round_continuity_chains,
                 )?;
                 let checkpoint_root = contact_round_evidence
                     .continuity_checkpoint
@@ -274,7 +274,7 @@ impl DirectConversationFoundingAuthorityEvidence {
                     .map(|checkpoint| checkpoint.validate_contact_shape())
                     .transpose()?;
                 let root = checkpoint_root.as_ref().unwrap_or_else(|| {
-                    contact_round_continuity_chain
+                    contact_round_continuity_chains
                         .last()
                         .unwrap_or(contact_round_evidence)
                 });
@@ -334,7 +334,7 @@ impl DirectConversationFoundingAuthorityEvidence {
     ) -> arkret_wire::Result<(Hash, DidCoreId, DirectConversationFoundingAuthorizationCore)> {
         let Self::Human {
             contact_round_evidence,
-            contact_round_continuity_chain,
+            contact_round_continuity_chains,
         } = self
         else {
             return Err(arkret_wire::WireError::Protocol(
@@ -348,7 +348,7 @@ impl DirectConversationFoundingAuthorityEvidence {
             .map(|checkpoint| checkpoint.validate_contact_shape())
             .transpose()?;
         let root = checkpoint_root.as_ref().unwrap_or_else(|| {
-            contact_round_continuity_chain
+            contact_round_continuity_chains
                 .last()
                 .unwrap_or(contact_round_evidence)
         });

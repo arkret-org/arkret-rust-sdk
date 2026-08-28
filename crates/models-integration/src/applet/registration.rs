@@ -216,12 +216,20 @@ impl AppletWireNamespaces {
     pub fn conflicts_with(&self, other: &AppletWireNamespaces) -> Vec<AppletNamespaceConflict> {
         let mut conflicts = Vec::new();
         for (domain, mine, theirs) in [
-            (AppletNamespaceDomain::Actors, &self.actors, &other.actors),
-            (AppletNamespaceDomain::Realms, &self.realms, &other.realms),
+            (
+                AppletNamespaceDomain::Actors,
+                &self.actor_namespace_entries,
+                &other.actor_namespace_entries,
+            ),
+            (
+                AppletNamespaceDomain::Realms,
+                &self.realm_namespace_entries,
+                &other.realm_namespace_entries,
+            ),
             (
                 AppletNamespaceDomain::Handles,
-                &self.handles,
-                &other.handles,
+                &self.handle_namespace_entries,
+                &other.handle_namespace_entries,
             ),
         ] {
             for a in mine {
@@ -922,15 +930,18 @@ impl AppletRegistrationEpochTranscript {
         sort_unique_strings("protocols", &mut self.derived_registration.protocols)?;
         sort_namespace_entries(
             "namespaces.actors",
-            &mut self.derived_registration.namespaces.actors,
+            &mut self.derived_registration.namespaces.actor_namespace_entries,
         )?;
         sort_namespace_entries(
             "namespaces.realms",
-            &mut self.derived_registration.namespaces.realms,
+            &mut self.derived_registration.namespaces.realm_namespace_entries,
         )?;
         sort_namespace_entries(
             "namespaces.handles",
-            &mut self.derived_registration.namespaces.handles,
+            &mut self
+                .derived_registration
+                .namespaces
+                .handle_namespace_entries,
         )?;
         sort_unique_strings(
             "requested_scopes",
@@ -959,16 +970,18 @@ impl AppletRegistrationEpochTranscript {
             &self.webhook_auth.accepted_signature_algorithms,
             |left, right| left == right,
         )?;
-        self.endpoint_policy.endpoints.sort_by(|left, right| {
-            (left.method, left.path.as_bytes(), left.auth).cmp(&(
-                right.method,
-                right.path.as_bytes(),
-                right.auth,
-            ))
-        });
+        self.endpoint_policy
+            .endpoint_entries
+            .sort_by(|left, right| {
+                (left.method, left.path.as_bytes(), left.auth).cmp(&(
+                    right.method,
+                    right.path.as_bytes(),
+                    right.auth,
+                ))
+            });
         reject_duplicate_adjacent_by(
             "endpoint_policy.endpoints",
-            &self.endpoint_policy.endpoints,
+            &self.endpoint_policy.endpoint_entries,
             |left, right| {
                 left.method == right.method && left.path == right.path && left.auth == right.auth
             },
@@ -1023,15 +1036,18 @@ impl AppletRegistrationEpochTranscript {
         validate_strictly_sorted_strings("protocols", &self.derived_registration.protocols)?;
         validate_namespace_entries(
             "namespaces.actors",
-            &self.derived_registration.namespaces.actors,
+            &self.derived_registration.namespaces.actor_namespace_entries,
         )?;
         validate_namespace_entries(
             "namespaces.realms",
-            &self.derived_registration.namespaces.realms,
+            &self.derived_registration.namespaces.realm_namespace_entries,
         )?;
         validate_namespace_entries(
             "namespaces.handles",
-            &self.derived_registration.namespaces.handles,
+            &self
+                .derived_registration
+                .namespaces
+                .handle_namespace_entries,
         )?;
         validate_strictly_sorted_strings(
             "requested_scopes",
@@ -1057,7 +1073,7 @@ impl AppletRegistrationEpochTranscript {
         )?;
         validate_strictly_sorted_by(
             "endpoint_policy.endpoints",
-            &self.endpoint_policy.endpoints,
+            &self.endpoint_policy.endpoint_entries,
             |left, right| {
                 (left.method, left.path.as_bytes(), left.auth).cmp(&(
                     right.method,
@@ -1067,7 +1083,7 @@ impl AppletRegistrationEpochTranscript {
             },
         )?;
         if self.accepted_signing_keys.is_empty()
-            || self.endpoint_policy.endpoints.is_empty()
+            || self.endpoint_policy.endpoint_entries.is_empty()
             || self.webhook_auth.accepted_signature_algorithms.is_empty()
             || self.security_policy.claimed_profiles.is_empty()
         {
@@ -1418,7 +1434,7 @@ impl AppletPackage {
             ));
         }
         validate_applet_extension_fields("endpoint_policy", &self.endpoint_policy.extra)?;
-        for endpoint in &self.endpoint_policy.endpoints {
+        for endpoint in &self.endpoint_policy.endpoint_entries {
             validate_applet_extension_fields("endpoint_policy.endpoints", &endpoint.extra)?;
         }
         validate_applet_extension_fields("limits", &self.limits.extra)?;
