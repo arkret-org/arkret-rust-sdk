@@ -487,6 +487,35 @@ impl ArkretMlsGroup {
         Ok(self.leaf_bindings.values().cloned().collect())
     }
 
+    /// Return the previously verified bindings that still match occupied
+    /// leaves after staging a membership transition. A newly added leaf is
+    /// deliberately absent until the caller supplies its independently
+    /// verified authority evidence and installs the complete post-transition
+    /// map with [`Self::install_verified_leaf_bindings`].
+    pub fn retained_verified_leaf_bindings(&self) -> Result<Vec<MlsVerifiedLeafBinding>> {
+        let members = self
+            .group
+            .members()
+            .map(|member| (member.index.u32(), member))
+            .collect::<BTreeMap<_, _>>();
+        let mut retained = Vec::with_capacity(self.leaf_bindings.len());
+        for binding in self.leaf_bindings.values() {
+            let Some(member) = members.get(&binding.leaf_index) else {
+                continue;
+            };
+            if member.credential.serialized_content() != binding.credential_ref.as_bytes()
+                || member.signature_key.as_slice()
+                    != base64url_decode(binding.signature_key.as_str())?.as_slice()
+            {
+                return Err(Error::Protocol(
+                    "retained MLS leaf binding differs from the occupied leaf".to_owned(),
+                ));
+            }
+            retained.push(binding.clone());
+        }
+        Ok(retained)
+    }
+
     fn require_complete_leaf_bindings(&self) -> Result<()> {
         let occupied = self
             .group

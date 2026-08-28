@@ -19,7 +19,8 @@ use arkret_models_identity::service_identity::{
 use arkret_models_identity::{
     AuthenticatedServiceResolution, DidOperationSubmitOutcome, DidOperationSubmitRequestBody,
     IdentityDocumentView, IdentityLogListOutcome, IdentityReceiptListOutcome,
-    IdentityResolveOutcome, IdentityResolveRequestBody, PublicPrincipalResolution,
+    IdentityResolveOutcome, IdentityResolveRequestBody, PrincipalResolutionAuditEvidence,
+    PrincipalResolutionAuditRequest, PublicPrincipalResolution,
 };
 use arkret_wire::{DidCoreId, ServiceKind};
 use reqwest::Method;
@@ -27,6 +28,22 @@ use reqwest::Method;
 use crate::{Client, Error, Result};
 
 impl Client {
+    /// Read the authenticated account's exact Principal Control Realm lineage.
+    ///
+    /// The authority pair is an explicit selector: the server must not choose
+    /// an implicit current PCR when more than one lineage exists.
+    pub async fn principal_resolution_audit(
+        &self,
+        request: &PrincipalResolutionAuditRequest,
+    ) -> Result<PrincipalResolutionAuditEvidence> {
+        request.validate()?;
+        let evidence: PrincipalResolutionAuditEvidence = self
+            .post("/_arkret/self/identity/resolution-audit/query", request)
+            .await?;
+        evidence.validate_history_continuation()?;
+        Ok(evidence)
+    }
+
     /// Fetch the current public principal resolution projection without
     /// persisting a remote binding.
     ///
