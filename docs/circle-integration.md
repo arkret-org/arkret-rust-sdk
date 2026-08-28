@@ -1,8 +1,5 @@
 # Circle integration guide (AKP-0007)
 
-> Spec baseline: `arkret-spec` 2b0d70d (`zh/models/circle.md`,
-> `artifacts/schemas/circle.schema.json`).
->
 > Normative language in this document follows
 > [`spec/v1/zh/conformance/normative-language.md`](https://github.com/arkret-org/arkret-spec/blob/main/spec/v1/zh/conformance/normative-language.md)
 > (RFC 2119 / 8174 keywords).
