@@ -233,7 +233,7 @@ mod tests {
             "payload": {
                 "object": {
                     "initial_resolution": {
-                        "full_id": "did:webvh:z6mkfixture:alice.example",
+                        "did": "did:webvh:z6mkfixture:alice.example",
                         "method_history_head": format!("sha256:{}", "a".repeat(64)),
                         "version_id": "1-fixture"
                     }

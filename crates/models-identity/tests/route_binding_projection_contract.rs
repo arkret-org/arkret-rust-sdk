@@ -7,15 +7,14 @@
 //! member here silently invalidates every signed service resolution record.
 //! Pin the canonical JCS bytes so that can only happen deliberately.
 use arkret_models_identity::{ResolutionCommitment, route_binding_describe_digest};
-use arkret_wire::{DidFullId, ServiceKind};
+use arkret_wire::{Did, ServiceKind};
 
 #[test]
 fn route_binding_projection_is_byte_exact() {
-    let full_id =
-        DidFullId::new("did:webvh:QmExampleScidValue123456:media.example".to_owned()).unwrap();
-    let service_id = arkret_wire::project_full_id_to_core_id(&full_id).unwrap();
+    let did = Did::new("did:webvh:QmExampleScidValue123456:media.example".to_owned()).unwrap();
+    let service_id = arkret_wire::project_did_to_core_id(&did).unwrap();
     let commitment = ResolutionCommitment {
-        full_id,
+        did,
         method_history_head: format!("sha256:{}", "1".repeat(64)),
         version_id: "fixture-route-v1".to_owned(),
     };
@@ -30,7 +29,7 @@ fn route_binding_projection_is_byte_exact() {
 
     assert_eq!(
         digest.as_str(),
-        "sha256:3b951dbb8416fcfd1a6fb4ed63c3ea5c7f005af5690cecd41c641eca3e6f3230",
+        "sha256:f8494350acf39bc9d240531451c4770b20f9776dcf10703299b985e73f6d81ea",
         "route-binding projection digest changed"
     );
 }

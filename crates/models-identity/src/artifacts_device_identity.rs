@@ -3,10 +3,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    Audience, DeviceId, DeviceMessageTransactionId, DidCoreId, DidFullId, DidUrl, EventId, Hash,
+    Audience, DeviceId, DeviceMessageTransactionId, Did, DidCoreId, DidUrl, EventId, Hash,
     NonEmptyJsonObject, NonEmptyString, PayloadProof, ProofContextId, ProtocolKind, ReceiptId,
-    Result, SchemaId, TrustDomainId, WireError, XExtensionMap, canonical,
-    project_full_id_to_core_id,
+    Result, SchemaId, TrustDomainId, WireError, XExtensionMap, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -23,7 +22,7 @@ fn verification_method_controller_core(verification_method: &DidUrl) -> Result<D
         .ok_or_else(|| {
             WireError::Protocol("verification_method requires a DID URL fragment".to_owned())
         })?;
-    project_full_id_to_core_id(&DidFullId::new(controller)?).map_err(Into::into)
+    project_did_to_core_id(&Did::new(controller)?).map_err(Into::into)
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -31,7 +30,7 @@ fn verification_method_controller_core(verification_method: &DidUrl) -> Result<D
 pub struct IdentityReceipt {
     pub schema: String,
     pub receipt_id: String,
-    pub did: DidFullId,
+    pub subject_did: Did,
     pub seq: u64,
     pub head_event_digest: Hash,
     pub registry_service_id: DidCoreId,
@@ -73,8 +72,8 @@ impl IdentityReceipt {
             Value::String(self.registry_service_id.as_str().to_owned()),
         );
         object.insert(
-            "did".to_owned(),
-            Value::String(self.did.as_str().to_owned()),
+            "subject_did".to_owned(),
+            Value::String(self.subject_did.as_str().to_owned()),
         );
         object.insert(
             "verification_method".to_owned(),
@@ -152,13 +151,13 @@ impl IdentityReceipt {
 pub struct DidWebvhWitnessReceipt {
     pub schema: String,
     pub receipt_id: String,
-    pub did: DidFullId,
+    pub subject_did: Did,
     pub version_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub log_head_digest: Option<Hash>,
-    pub witness_did: DidFullId,
+    pub witness_did: Did,
     pub witness_verification_method: DidUrl,
-    pub controlling_organization: DidFullId,
+    pub controlling_organization_did: Did,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -206,8 +205,8 @@ impl DidWebvhWitnessReceipt {
             Value::String(self.issuer_service_id.as_str().to_owned()),
         );
         object.insert(
-            "did".to_owned(),
-            Value::String(self.did.as_str().to_owned()),
+            "subject_did".to_owned(),
+            Value::String(self.subject_did.as_str().to_owned()),
         );
         object.insert(
             "version_id".to_owned(),
@@ -245,7 +244,7 @@ impl DidWebvhWitnessReceipt {
             )));
         }
         ReceiptId::new(self.receipt_id.clone())?;
-        if self.did.method() != "webvh" {
+        if self.subject_did.method() != "webvh" {
             return Err(WireError::Protocol(
                 "did:webvh witness receipt subject must use did:webvh".to_owned(),
             ));
@@ -375,17 +374,17 @@ mod tests {
         let mut receipt = DidWebvhWitnessReceipt {
             schema: SchemaId::DID_WEBVH_WITNESS_RECEIPT_V1.to_owned(),
             receipt_id: "ak:receipt:01984e00-0000-7000-8000-000000000001".to_owned(),
-            did: DidFullId::new("did:webvh:z6mkfixture:subject.example").unwrap(),
+            subject_did: Did::new("did:webvh:z6mkfixture:subject.example").unwrap(),
             version_id: "1-QmFixtureVersion".to_owned(),
             log_head_digest: Some(
                 Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             ),
-            witness_did: DidFullId::new(
+            witness_did: Did::new(
                 "did:key:z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L",
             )
             .unwrap(),
             witness_verification_method: DidUrl::new("did:key:z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L#z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L").unwrap(),
-            controlling_organization: DidFullId::new("did:web:org.example").unwrap(),
+            controlling_organization_did: Did::new("did:web:org.example").unwrap(),
             observed_at: created_at,
             source: Some("https://subject.example/.well-known/did-witness.json".to_owned()),
             issuer_service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
@@ -435,7 +434,7 @@ mod tests {
         let receipt = json!({
             "schema": "ak.schema.identity_receipt.v1",
             "receipt_id": "ak:receipt:019a6aa0-0000-7000-8000-0000000000cc",
-            "did": "did:webvh:z6mkfixture:alice.example",
+            "subject_did": "did:webvh:z6mkfixture:alice.example",
             "seq": 1,
             "head_event_digest":
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -468,7 +467,7 @@ mod tests {
         let mut receipt: IdentityReceipt = serde_json::from_value(json!({
             "schema": "ak.schema.identity_receipt.v1",
             "receipt_id": "ak:receipt:019a6aa0-0000-7000-8000-0000000000cc",
-            "did": "did:webvh:z6mkfixture:alice.example",
+            "subject_did": "did:webvh:z6mkfixture:alice.example",
             "seq": 1,
             "head_event_digest":
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -494,7 +493,7 @@ mod tests {
             binding["registry_service_id"],
             receipt.registry_service_id.as_str()
         );
-        assert_eq!(binding["did"], receipt.did.as_str());
+        assert_eq!(binding["subject_did"], receipt.subject_did.as_str());
 
         receipt.signature.created_at = "2026-07-15T00:00:01.000Z".parse().unwrap();
         assert!(receipt.validate_proof_binding().is_err());
@@ -849,9 +848,9 @@ mod key_verification_tests {
             .remove("new_service_resolution");
         assert!(serde_json::from_value::<DeliveryBindingStale>(missing_resolution).is_err());
 
-        let mut full_did_service = valid;
-        full_did_service["new_recipient_service_id"] = json!("did:web:principal.example");
-        assert!(serde_json::from_value::<DeliveryBindingStale>(full_did_service).is_err());
+        let mut did_in_service_id = valid;
+        did_in_service_id["new_recipient_service_id"] = json!("did:web:principal.example");
+        assert!(serde_json::from_value::<DeliveryBindingStale>(did_in_service_id).is_err());
     }
 
     #[test]

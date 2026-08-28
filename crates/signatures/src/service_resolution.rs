@@ -6,7 +6,7 @@ use arkret_models_identity::{
     ServiceResolutionPublishAck, ServiceResolutionPublishAckCore, ServiceResolutionRecord,
     ServiceResolutionRecordCore, ServiceRouteHandoverNotice,
 };
-use arkret_wire::{Base64UrlString, DidCoreId, DidFullId, DidUrl, ProtocolSignature};
+use arkret_wire::{Base64UrlString, Did, DidCoreId, DidUrl, ProtocolSignature};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, Signer as _, SigningKey, Verifier as _, VerifyingKey};
 
@@ -131,13 +131,13 @@ pub fn verify_service_route_handover_notice(
 }
 
 pub fn verify_full_to_core_binding(
-    full_id: &DidFullId,
+    did: &Did,
     expected_service_id: &DidCoreId,
 ) -> arkret_wire::Result<()> {
-    let projected = arkret_wire::project_full_id_to_core_id(full_id)?;
+    let projected = arkret_wire::project_did_to_core_id(did)?;
     if &projected != expected_service_id {
         return Err(arkret_wire::WireError::Protocol(
-            "full_id does not project to expected service core id".to_owned(),
+            "did does not project to expected service core id".to_owned(),
         ));
     }
     Ok(())
@@ -274,14 +274,14 @@ mod tests {
 
     fn fixture() -> (AuthenticatedServiceResolution, DidCoreId) {
         let signing_key = SigningKey::from_bytes(&[31_u8; 32]);
-        let full_id = DidFullId::new("did:web:agent-authority.example").unwrap();
-        let service_id = arkret_wire::project_full_id_to_core_id(&full_id).unwrap();
-        let method = DidUrl::new(format!("{full_id}#signing-1")).unwrap();
+        let did = Did::new("did:web:agent-authority.example").unwrap();
+        let service_id = arkret_wire::project_did_to_core_id(&did).unwrap();
+        let method = DidUrl::new(format!("{did}#signing-1")).unwrap();
         let multibase = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
             signing_key.verifying_key().as_bytes(),
         );
         let document = DidDocument {
-            id: full_id.clone(),
+            id: did.clone(),
             verification_methods: BTreeMap::from([(method.to_string(), multibase)]),
             also_known_as: Vec::new(),
             updated_at: None,
@@ -295,7 +295,7 @@ mod tests {
             ServiceResolutionRecordCore {
                 service_id: service_id.clone(),
                 service_kind: "principal_server".to_owned(),
-                full_id,
+                did,
                 method_history_head: "did-web-document-sha256:fixture".to_owned(),
                 version_id: "did-web-document-sha256:fixture".to_owned(),
                 resolution_event_ref: format!("did-web-document-sha256:{}", "1".repeat(64)),

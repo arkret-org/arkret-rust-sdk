@@ -57,7 +57,7 @@ impl PeerContactAddress {
             ));
         }
         if let ServiceResolutionCarrier::Inline { inline } = &self.service_resolution {
-            let projected = arkret_wire::project_full_id_to_core_id(&inline.record.full_id)?;
+            let projected = arkret_wire::project_did_to_core_id(&inline.record.did)?;
             if projected != self.recipient_service_id
                 || inline.record.service_kind != Self::RECIPIENT_SERVICE_KIND
             {

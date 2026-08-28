@@ -522,7 +522,7 @@ mod tests {
     fn rejects_creator_member_with_wrong_subject() {
         let mut events = complete_unit();
         // A well-formed `did_core_id` that is simply a different actor. A bare
-        // full DID would fail the typed payload parse first and never reach the
+        // DID would fail the typed payload parse first and never reach the
         // subject comparison this test exists to pin.
         events.last_mut().unwrap().payload.insert(
             "actor_id".to_owned(),

@@ -19,8 +19,8 @@ use std::collections::BTreeSet;
 use chrono::Utc;
 
 use crate::{
-    DidFullId, DidUrl, Hash, Hlc, MultiSigKind, MultiSignature, NotarySig, PayloadSignature,
-    RealmId, Result, Seal, SealId, SealSignature, WireError, canonical,
+    Did, DidUrl, Hash, Hlc, MultiSigKind, MultiSignature, NotarySig, PayloadSignature, RealmId,
+    Result, Seal, SealId, SealSignature, WireError, canonical,
 };
 
 /// Trait implemented by Seal / notary signers (Ed25519 keypair, HSM,
@@ -28,7 +28,7 @@ use crate::{
 pub trait PayloadSigner {
     /// DID of the signing identity. For Seals this is one of the notary-set
     /// members.
-    fn signer_did(&self) -> &DidFullId;
+    fn signer_did(&self) -> &Did;
 
     /// The verification method id (e.g. `did:webvh:z6mkfixture:alice.example#key-1`)
     /// the signer will publish as `PayloadSignature.verification_method`.
@@ -409,13 +409,13 @@ fn seal_signature(signature: PayloadSignature) -> SealSignature {
 /// trusting the partial body alone.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PartialSignature {
-    pub signer_did: DidFullId,
+    pub signer_did: Did,
     pub signature: Vec<u8>,
     pub kid: DidUrl,
 }
 
 impl PartialSignature {
-    pub fn new(signer_did: DidFullId, signature: Vec<u8>, kid: DidUrl) -> Self {
+    pub fn new(signer_did: Did, signature: Vec<u8>, kid: DidUrl) -> Self {
         Self {
             signer_did,
             signature,
@@ -600,8 +600,8 @@ mod tests {
         RealmId::new("ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN".to_owned()).unwrap()
     }
 
-    fn alice() -> DidFullId {
-        DidFullId::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()
+    fn alice() -> Did {
+        Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()
     }
 
     fn alice_kid() -> DidUrl {
@@ -628,12 +628,12 @@ mod tests {
     /// so test vectors don't need real ed25519. Real signers live in
     /// `arkret-signatures::signer`.
     struct StubSigner {
-        did: DidFullId,
+        did: Did,
         kid: DidUrl,
     }
 
     impl PayloadSigner for StubSigner {
-        fn signer_did(&self) -> &DidFullId {
+        fn signer_did(&self) -> &Did {
             &self.did
         }
 
@@ -717,7 +717,7 @@ mod tests {
     fn seal_sign_multi_collects_one_sig_per_signer() {
         let alice = signer();
         let bob = StubSigner {
-            did: DidFullId::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
+            did: Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
             kid: bob_kid(),
         };
         let signers: &[&dyn PayloadSigner] = &[&alice, &bob];
@@ -756,8 +756,8 @@ mod tests {
     // Threshold aggregator
     // -------------------------------------------------------------------
 
-    fn bob() -> DidFullId {
-        DidFullId::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap()
+    fn bob() -> Did {
+        Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap()
     }
 
     fn bob_kid() -> DidUrl {

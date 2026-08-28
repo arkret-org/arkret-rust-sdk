@@ -1,7 +1,7 @@
 //! Moderation schema artifact counterparts and event payloads.
 
 use arkret_models_identity::AuthenticatedSignerResolutionEvidence;
-use arkret_wire::{DidCoreId, DidFullId, DidUrl, Event, Seal, project_full_id_to_core_id};
+use arkret_wire::{Did, DidCoreId, DidUrl, Event, Seal, project_did_to_core_id};
 
 use crate::internal_prelude::*;
 
@@ -288,8 +288,7 @@ impl FrankingProof {
             .ok_or_else(|| {
                 WireError::Protocol("franking proof verification_method has no fragment".to_owned())
             })?;
-        if project_full_id_to_core_id(&DidFullId::new(controller.to_owned())?)? != self.received_by
-        {
+        if project_did_to_core_id(&Did::new(controller.to_owned())?)? != self.received_by {
             return Err(WireError::Protocol(
                 "franking proof verification_method does not belong to received_by".to_owned(),
             ));
@@ -308,13 +307,13 @@ impl FrankingProof {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{DidFullId, project_full_id_to_core_id};
+    use arkret_wire::{Did, project_did_to_core_id};
     use ed25519_dalek::{Signer as _, SigningKey, Verifier as _};
 
     use super::*;
 
-    fn did(value: &str) -> DidCoreId {
-        project_full_id_to_core_id(&DidFullId::new(value).unwrap()).unwrap()
+    fn core_id(value: &str) -> DidCoreId {
+        project_did_to_core_id(&Did::new(value).unwrap()).unwrap()
     }
 
     fn event_id(value: &str) -> EventId {
@@ -335,7 +334,7 @@ mod tests {
         FrankingProof {
             realm_id: realm_id(),
             event_id: event_id("ak:event:AY3aEHEku45kFksenyEUUeJDYGC8pcxJwaT9PypXoEZw"),
-            received_by: did("did:webvh:z6mkfixturesoland:soland.local"),
+            received_by: core_id("did:webvh:z6mkfixturesoland:soland.local"),
             verification_method: DidUrl::new(
                 "did:webvh:z6mkfixturesoland:soland.local#moderation-1",
             )
@@ -353,7 +352,7 @@ mod tests {
         FrankingProofEventTimeAnchor::new(
             event_id("ak:event:AY3aEHEku45kFksenyEUUeJDYGC8pcxJwaT9PypXoEZw"),
             realm_id(),
-            did("did:webvh:z6mkfixturesoland:soland.local"),
+            core_id("did:webvh:z6mkfixturesoland:soland.local"),
             proof_event_created_at,
             covering_seal_sealed_at,
         )

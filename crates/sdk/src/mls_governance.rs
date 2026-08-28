@@ -213,7 +213,7 @@ pub(crate) fn authenticated_document_key(
             };
             if public_resolution.principal_server_id != *attester_id
                 || public_resolution.principal_id != *signer_id
-                || public_resolution.resolution_projection.full_id != normalized_did_document.id
+                || public_resolution.resolution_projection.did != normalized_did_document.id
                 || public_resolution
                     .method_history_evidence
                     .evidence()

@@ -175,7 +175,7 @@ pub fn build_agent_deactivate_intent(
 
 #[cfg(test)]
 mod tests {
-    use arkret_identifiers::{DidFullId, project_full_id_to_core_id};
+    use arkret_identifiers::{Did, project_did_to_core_id};
     use arkret_models_collaboration::events_payloads::agent::{
         AgentKeyApprovalEvidence, AgentKeyApprovalEvidenceKind, AgentKeyScope,
     };
@@ -190,12 +190,12 @@ mod tests {
 
     use super::*;
 
-    fn did(name: &str) -> DidCoreId {
-        project_full_id_to_core_id(&full_id(name)).unwrap()
+    fn core_id(name: &str) -> DidCoreId {
+        project_did_to_core_id(&did(name)).unwrap()
     }
 
-    fn full_id(name: &str) -> DidFullId {
-        DidFullId::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
+    fn did(name: &str) -> Did {
+        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
     }
 
     fn realm() -> RealmId {
@@ -261,13 +261,13 @@ mod tests {
 
     fn key_authorize_payload(
         agent_id: DidCoreId,
-        agent_full_id: &DidFullId,
+        agent_did: &Did,
         controller_id: DidCoreId,
     ) -> AgentKeyAuthorizePayload {
         AgentKeyAuthorizePayload {
             agent_id,
             key_id: arkret_wire::NonEmptyString::new("runtime-key-1").unwrap(),
-            verification_method: DidUrl::new(format!("{agent_full_id}#runtime-key-1")).unwrap(),
+            verification_method: DidUrl::new(format!("{agent_did}#runtime-key-1")).unwrap(),
             public_key_digest: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
             signing_key_binding_digest: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
             accountable_principal_id: controller_id.clone(),
@@ -296,17 +296,17 @@ mod tests {
 
     #[test]
     fn key_authorize_event_binds_controller_execution() {
-        let agent_id = did("agent");
-        let agent_full_id = full_id("agent");
-        let controller_id = did("controller");
+        let agent_id = core_id("agent");
+        let agent_did = did("agent");
+        let controller_id = core_id("controller");
         let controller_principal_id = DidCoreId::new(controller_id.as_str()).unwrap();
         let event = authored(
             build_agent_key_authorize_intent(
-                &key_authorize_payload(agent_id.clone(), &agent_full_id, controller_principal_id),
+                &key_authorize_payload(agent_id.clone(), &agent_did, controller_principal_id),
                 scope(),
                 agent_id.clone(),
                 controller_id.clone(),
-                DidUrl::new(format!("{agent_full_id}#managed-controller")).unwrap(),
+                DidUrl::new(format!("{agent_did}#managed-controller")).unwrap(),
                 Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
             )
             .unwrap(),
@@ -327,17 +327,17 @@ mod tests {
     /// cell, so the add's dot is at `write_index` 1.
     #[test]
     fn key_authorize_projects_atomic_replacement_pair() {
-        let agent_id = did("agent");
-        let agent_full_id = full_id("agent");
-        let controller_id = did("controller");
+        let agent_id = core_id("agent");
+        let agent_did = did("agent");
+        let controller_id = core_id("controller");
         let controller_principal_id = DidCoreId::new(controller_id.as_str()).unwrap();
         let event = authored(
             build_agent_key_authorize_intent(
-                &key_authorize_payload(agent_id.clone(), &agent_full_id, controller_principal_id),
+                &key_authorize_payload(agent_id.clone(), &agent_did, controller_principal_id),
                 scope(),
                 agent_id.clone(),
                 controller_id,
-                DidUrl::new(format!("{agent_full_id}#managed-controller")).unwrap(),
+                DidUrl::new(format!("{agent_did}#managed-controller")).unwrap(),
                 Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
             )
             .unwrap(),
@@ -370,8 +370,8 @@ mod tests {
 
     #[test]
     fn key_revoke_projects_remove_and_revocation_fact() {
-        let agent_id = did("agent");
-        let controller_id = did("controller");
+        let agent_id = core_id("agent");
+        let controller_id = core_id("controller");
         let event = authored(
             build_agent_key_revoke_intent(
                 &AgentKeyRevokePayload {
@@ -421,11 +421,11 @@ mod tests {
 
     #[test]
     fn lifecycle_events_bind_payload_and_status_transition() {
-        let agent_id = did("agent");
-        let agent_full_id = full_id("agent");
-        let controller_id = did("controller");
+        let agent_id = core_id("agent");
+        let agent_did = did("agent");
+        let controller_id = core_id("controller");
         let changed_at = Utc.with_ymd_and_hms(2026, 7, 19, 8, 0, 0).unwrap();
-        let authorization_ref = DidUrl::new(format!("{agent_full_id}#managed-controller")).unwrap();
+        let authorization_ref = DidUrl::new(format!("{agent_did}#managed-controller")).unwrap();
 
         let status_cell = agent_status_cell(&agent_id);
 

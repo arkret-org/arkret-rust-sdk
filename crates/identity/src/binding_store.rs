@@ -28,7 +28,7 @@
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
-use arkret_wire::{DidFullId, DidUrl, Hash, TrustDomainId};
+use arkret_wire::{Did, DidUrl, Hash, TrustDomainId};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -51,11 +51,8 @@ pub enum BindingStoreError {
     #[error("pinned document digest {actual} does not match the binding digest {expected}")]
     DocumentDigestMismatch { expected: Hash, actual: Hash },
     /// The supplied document belongs to a different DID than the binding.
-    #[error("pinned document id `{document_id}` does not match the bound DID `{did}`")]
-    DocumentIdMismatch {
-        document_id: DidFullId,
-        did: DidFullId,
-    },
+    #[error("pinned document DID `{document_did}` does not match the bound DID `{did}`")]
+    DocumentIdMismatch { document_did: Did, did: Did },
     /// The retained evidence receipt does not re-digest to the binding's
     /// `evidence_digest`, so the acceptance is not recomputable.
     #[error("retained evidence receipt digests to {actual}, not the binding digest {expected}")]
@@ -129,7 +126,7 @@ impl AcceptedDidBinding {
     ) -> Result<Self, BindingStoreError> {
         if &document.id != binding.did() {
             return Err(BindingStoreError::DocumentIdMismatch {
-                document_id: document.id,
+                document_did: document.id,
                 did: binding.did().clone(),
             });
         }
@@ -226,7 +223,7 @@ pub enum BindingFreshness {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct BindingInvalidation {
     /// Match the bound DID.
-    pub did: Option<DidFullId>,
+    pub did: Option<Did>,
     /// Match the accepted concrete verification method (key rotation).
     pub verification_method: Option<DidUrl>,
     /// Match the pinned history head (witness fork).
@@ -237,9 +234,9 @@ pub struct BindingInvalidation {
     /// witness revocation arrives as a witness DID, and `evidence_digest` is
     /// one-way, so without this the only safe response is the `for_did` sweep
     /// that also invalidates every unaffected binding of that DID.
-    pub evidence_witness_did: Option<DidFullId>,
+    pub evidence_witness_did: Option<Did>,
     /// Match a witness controlling organization the evidence depends on (§5.6).
-    pub evidence_witness_organization: Option<DidFullId>,
+    pub evidence_witness_organization_did: Option<Did>,
     /// Match the local trust domain.
     pub trust_domain: Option<TrustDomainId>,
     /// Match the acceptance purpose (controller / service delegation change).
@@ -250,7 +247,7 @@ pub struct BindingInvalidation {
 
 impl BindingInvalidation {
     /// Selector constrained to one DID.
-    pub fn for_did(did: DidFullId) -> Self {
+    pub fn for_did(did: Did) -> Self {
         Self {
             did: Some(did),
             ..Self::default()
@@ -296,7 +293,7 @@ impl BindingInvalidation {
     }
 
     /// Narrow the selector to one DID.
-    pub fn with_did(mut self, did: DidFullId) -> Self {
+    pub fn with_did(mut self, did: Did) -> Self {
         self.did = Some(did);
         self
     }
@@ -308,7 +305,7 @@ impl BindingInvalidation {
             && self.verification_method.is_none()
             && self.history_head.is_none()
             && self.evidence_witness_did.is_none()
-            && self.evidence_witness_organization.is_none()
+            && self.evidence_witness_organization_did.is_none()
             && self.trust_domain.is_none()
             && self.purpose.is_none()
             && self.policy_digest.is_none()
@@ -342,10 +339,10 @@ impl BindingInvalidation {
         {
             return false;
         }
-        if let Some(organization) = &self.evidence_witness_organization
+        if let Some(organization) = &self.evidence_witness_organization_did
             && !binding
                 .evidence_dependencies()
-                .witness_controlling_organizations
+                .witness_controlling_organization_dids
                 .contains(organization)
         {
             return false;
@@ -520,7 +517,7 @@ impl VerifiedDidBindingStore for InMemoryVerifiedDidBindingStore {
         }
         if &accepted.document().id != accepted.binding().did() {
             return Err(BindingStoreError::DocumentIdMismatch {
-                document_id: accepted.document().id.clone(),
+                document_did: accepted.document().id.clone(),
                 did: accepted.binding().did().clone(),
             });
         }
@@ -585,11 +582,11 @@ mod tests {
         TrustDomainId::new(format!("ak:trust_domain:{scope}")).expect("valid trust domain")
     }
 
-    fn did() -> DidFullId {
-        DidFullId::new("did:webvh:z6mkfixture:store.example".to_owned()).expect("valid did")
+    fn did() -> Did {
+        Did::new("did:webvh:z6mkfixture:store.example".to_owned()).expect("valid did")
     }
 
-    fn document_for(did: &DidFullId, fragment: &str) -> DidDocument {
+    fn document_for(did: &Did, fragment: &str) -> DidDocument {
         DidDocument {
             id: did.clone(),
             verification_methods: BTreeMap::from([(
@@ -604,7 +601,7 @@ mod tests {
     }
 
     struct Fixture {
-        did: DidFullId,
+        did: Did,
         trust_domain: TrustDomainId,
         purpose: DidBindingPurpose,
         fragment: &'static str,
@@ -707,7 +704,7 @@ mod tests {
     fn accept_rejects_a_document_belonging_to_another_did() {
         let fixture = Fixture::new();
         let other_did =
-            DidFullId::new("did:webvh:z6mkfixture:other.example".to_owned()).expect("valid did");
+            Did::new("did:webvh:z6mkfixture:other.example".to_owned()).expect("valid did");
         let accepted = fixture.accepted();
         let error = AcceptedDidBinding::new(
             accepted.binding().clone(),
@@ -770,7 +767,7 @@ mod tests {
     fn deserialization_rejects_a_document_for_another_did() {
         let accepted = Fixture::new().accepted();
         let other_did =
-            DidFullId::new("did:webvh:z6mkfixture:other.example".to_owned()).expect("valid did");
+            Did::new("did:webvh:z6mkfixture:other.example".to_owned()).expect("valid did");
         let mut value = serde_json::to_value(&accepted).expect("serialize");
         value["document"]["id"] = serde_json::json!(other_did.as_str());
         assert!(serde_json::from_value::<AcceptedDidBinding>(value).is_err());

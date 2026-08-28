@@ -9,7 +9,7 @@ use arkret_models_crypto::{KeyOperationSignature, KeyPackageClaimRecord};
 use arkret_wire::{Base64UrlString, DidCoreId, DidUrl, Hash, NonEmptyString};
 use serde_json::json;
 
-fn did(_name: &str) -> DidCoreId {
+fn core_id(_name: &str) -> DidCoreId {
     DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
 }
 
@@ -162,7 +162,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
         }
     });
     let parsed: KeyPackagesClaimOutcome = serde_json::from_value(outcome).unwrap();
-    assert_eq!(parsed.claims[0].principal_id, did("alice"));
+    assert_eq!(parsed.claims[0].principal_id, core_id("alice"));
     assert!(parsed.claims[0].device_authorize_event_id.is_some());
 
     let malformed_claim = json!({

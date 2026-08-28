@@ -353,7 +353,7 @@ macro_rules! declare_uuid_id_kinds {
 /// types are generated from, so neither direction can drift unnoticed.
 ///
 /// Identifiers that are not registry `special_forms` rows stay on plain
-/// [`id_type!`]: [`DidFullId`], [`Hash`] (a bare `<algo>:<hex>` digest with no `ak:`
+/// [`id_type!`]: [`Did`], [`Hash`] (a bare `<algo>:<hex>` digest with no `ak:`
 /// prefix), [`OperationId`] (producer-allocated, but with no bare-uuid form)
 /// and [`DeviceMessageTransactionId`] (a payload field charset, not an id
 /// kind).
@@ -384,8 +384,8 @@ macro_rules! declare_special_form_id_kinds {
 /// `#key` fragment.
 ///
 /// Zero-allocation public validator for the DID scalar form. This is the same
-/// predicate used by `id_type!(DidFullId, is_did)`, exposed for downstream callers
-/// that need validation without constructing a [`DidFullId`].
+/// predicate used by `id_type!(Did, is_did)`, exposed for downstream callers
+/// that need validation without constructing a [`Did`].
 pub fn is_did(value: &str) -> bool {
     if value.len() > 2048 {
         return false;
@@ -415,7 +415,7 @@ pub fn is_did(value: &str) -> bool {
 
 /// Validate the stable DID-derived identity-core form registered by the
 /// protocol. A core id is deliberately not a DID and cannot be sent to a DID
-/// resolver without a separately verified current [`DidFullId`].
+/// resolver without a separately verified current [`Did`].
 pub fn is_core_id(value: &str) -> bool {
     let Some(remainder) = value.strip_prefix("ak:did_core:") else {
         return false;
@@ -752,7 +752,7 @@ impl DidCoreId {
     /// Borrow this already-normalized identity core.
     ///
     /// This is a shape-neutral convenience for APIs that also accept projected
-    /// full DIDs; it performs no role or authority admission.
+    /// DIDs; it performs no role or authority admission.
     pub const fn as_core_id(&self) -> &Self {
         self
     }
@@ -764,7 +764,7 @@ id_type!(
     ///
     /// It may legitimately change as resolution state evolves. It must not be
     /// used for subject equality and is not, by itself, a business authority.
-    DidFullId,
+    Did,
     is_did
 );
 
@@ -772,8 +772,8 @@ id_type!(
 ///
 /// This deliberately implements only registry-active adapters. Generic code
 /// must never manufacture a core id by prefix substitution.
-pub fn project_full_id_to_core_id(full_id: &DidFullId) -> Result<DidCoreId> {
-    let value = full_id.as_str();
+pub fn project_did_to_core_id(did: &Did) -> Result<DidCoreId> {
+    let value = did.as_str();
     if let Some(remainder) = value.strip_prefix("did:webvh:") {
         let scid = remainder
             .split_once(':')
@@ -1214,7 +1214,7 @@ fn sha256_digest(bytes: &[u8]) -> String {
     arkret_canonical::canonical::sha256_digest(bytes)
 }
 
-impl DidFullId {
+impl Did {
     /// Return the DID method name.
     pub fn method(&self) -> &str {
         self.0
@@ -1362,13 +1362,13 @@ mod tests {
 
     #[test]
     fn did_validation_rejects_handles() {
-        assert!(DidFullId::new("did:webvh:z6mkfixture:alice.example").is_ok());
-        assert!(DidFullId::new("alice.example").is_err());
+        assert!(Did::new("did:webvh:z6mkfixture:alice.example").is_ok());
+        assert!(Did::new("alice.example").is_err());
     }
 
     #[test]
     fn did_validation_accepts_uuid_method() {
-        assert!(DidFullId::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").is_ok());
+        assert!(Did::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").is_ok());
     }
 
     #[test]
@@ -1407,18 +1407,18 @@ mod tests {
     #[test]
     fn did_validation_rejects_method_punctuation() {
         // Method-segment with dot/dash/underscore/colon — all rejected.
-        assert!(DidFullId::new("did:web.test:example").is_err()); // DRIFT-ALLOW: negative test
-        assert!(DidFullId::new("did:web-test:example").is_err()); // DRIFT-ALLOW: negative test
-        assert!(DidFullId::new("did:web_test:example").is_err()); // DRIFT-ALLOW: negative test
+        assert!(Did::new("did:web.test:example").is_err()); // DRIFT-ALLOW: negative test
+        assert!(Did::new("did:web-test:example").is_err()); // DRIFT-ALLOW: negative test
+        assert!(Did::new("did:web_test:example").is_err()); // DRIFT-ALLOW: negative test
         // Method-specific-id containing whitespace — rejected.
-        assert!(DidFullId::new("did:webvh:z6mkfixture:exa mple").is_err());
-        assert!(DidFullId::new("did:webvh:z6mkfixture:exa\tmple").is_err());
+        assert!(Did::new("did:webvh:z6mkfixture:exa mple").is_err());
+        assert!(Did::new("did:webvh:z6mkfixture:exa\tmple").is_err());
         // Pure alnum method — accepted.
-        assert!(DidFullId::new("did:webvh:example").is_ok());
+        assert!(Did::new("did:webvh:example").is_ok());
         // A bare resolvable DID excludes DID URL path/query/fragment components.
-        assert!(DidFullId::new("did:webvh:z6mkfixture:host.example/path").is_err());
-        assert!(DidFullId::new("did:webvh:z6mkfixture:host.example/path#frag").is_err());
-        assert!(DidFullId::new("did:webvh:z6mkfixture:host.example/path?versionId=1").is_err());
+        assert!(Did::new("did:webvh:z6mkfixture:host.example/path").is_err());
+        assert!(Did::new("did:webvh:z6mkfixture:host.example/path#frag").is_err());
+        assert!(Did::new("did:webvh:z6mkfixture:host.example/path?versionId=1").is_err());
     }
 
     #[test]
@@ -1865,22 +1865,22 @@ mod tests {
     }
 
     #[test]
-    fn full_and_core_id_method_adapter_kats() {
-        let webvh = DidFullId::new("did:webvh:zQ3shExampleScid:alice.example:webvh:user").unwrap();
+    fn did_and_core_id_method_adapter_kats() {
+        let webvh = Did::new("did:webvh:zQ3shExampleScid:alice.example:webvh:user").unwrap();
         assert_eq!(
-            project_full_id_to_core_id(&webvh).unwrap().as_str(),
+            project_did_to_core_id(&webvh).unwrap().as_str(),
             "ak:did_core:webvh:zQ3shExampleScid"
         );
 
-        let web = DidFullId::new("did:web:peer-ps.example:users:alice").unwrap();
+        let web = Did::new("did:web:peer-ps.example:users:alice").unwrap();
         assert_eq!(
-            project_full_id_to_core_id(&web).unwrap().as_str(),
+            project_did_to_core_id(&web).unwrap().as_str(),
             "ak:did_core:web:peer-ps.example:users:alice"
         );
 
-        let key = DidFullId::new("did:key:z6MkruntimeExample").unwrap();
+        let key = Did::new("did:key:z6MkruntimeExample").unwrap();
         assert_eq!(
-            project_full_id_to_core_id(&key).unwrap().as_str(),
+            project_did_to_core_id(&key).unwrap().as_str(),
             "ak:did_core:key:z6MkruntimeExample"
         );
 
@@ -1890,10 +1890,10 @@ mod tests {
             "did:web:example.test#key-1",
             "did:Web:example.test",
         ] {
-            assert!(DidFullId::new(invalid).is_err(), "{invalid} must fail");
+            assert!(Did::new(invalid).is_err(), "{invalid} must fail");
         }
-        assert!(DidFullId::new(format!("did:web:{}", "a".repeat(2040))).is_ok());
-        assert!(DidFullId::new(format!("did:web:{}", "a".repeat(2041))).is_err());
+        assert!(Did::new(format!("did:web:{}", "a".repeat(2040))).is_ok());
+        assert!(Did::new(format!("did:web:{}", "a".repeat(2041))).is_err());
         assert!(DidCoreId::new("ak:did_core:web:peer-ps.example").is_ok());
         assert!(DidCoreId::new("ak:did_core:web:peer-ps.example/path").is_err());
     }

@@ -19,7 +19,7 @@ fn realm() -> RealmId {
     RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap()
 }
 
-fn did() -> DidCoreId {
+fn core_id() -> DidCoreId {
     DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap()
 }
 
@@ -41,7 +41,7 @@ fn signal_envelope(signal_class: SignalClass, ttl_seconds: i64) -> SignalEnvelop
     let mut envelope = SignalEnvelope {
         realm_id: realm(),
         scope_ref: ScopeRef::Realm { realm_id: realm() },
-        sender_actor_id: did(),
+        sender_actor_id: core_id(),
         sender_device_id: device_id(),
         seal_ref: SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
         signal_class,
@@ -145,7 +145,7 @@ fn moderation_appeal_decision_modify_requires_ref() {
         appeal_id: TypedAppealId::new("ak:appeal:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
             .unwrap(),
         realm_id: realm(),
-        reviewer: did(),
+        reviewer: core_id(),
         decision: AppealDecision::Modify,
         reason_text_ref: "blob:reason".to_owned(),
         modify_decision_ref: None,
@@ -161,7 +161,7 @@ fn moderation_appeal_submit_omits_event_derived_appeal_id() {
         decision_ref: EventId::new("ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1")
             .unwrap(),
         target_ref: "ak:message:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1".to_owned(),
-        appellant: did(),
+        appellant: core_id(),
         reason_text_ref: "blob:reason".to_owned(),
         evidence_refs: Vec::new(),
         evidence_visibility: None,
@@ -182,7 +182,7 @@ fn moderation_appeal_decision_uphold_rejects_modify_ref() {
         appeal_id: TypedAppealId::new("ak:appeal:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
             .unwrap(),
         realm_id: realm(),
-        reviewer: did(),
+        reviewer: core_id(),
         decision: AppealDecision::Uphold,
         reason_text_ref: "blob:reason".to_owned(),
         modify_decision_ref: Some(
@@ -236,7 +236,7 @@ fn third_party_invite_rejects_mode_mismatch() {
 fn audit_policy_access_payload_validates_late_recovery_pairing() {
     let payload = AuditPolicyAccessPayload {
         realm_id: realm(),
-        actor: did(),
+        actor: core_id(),
         access_kind: AccessKind::E2EELateRecovery,
         late_recovery_original_event_id: None,
         observed_at: Utc::now(),

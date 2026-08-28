@@ -398,10 +398,10 @@ mod events_submit_tests {
         AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
         AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
         AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, Base64UrlString, BlobRef,
-        DeviceId, DidCoreId, DidFullId, DidUrl, Event, EventId, EventInitialSubmission,
+        DeviceId, Did, DidCoreId, DidUrl, Event, EventId, EventInitialSubmission,
         EventRequirements, Hash, Hlc, LeaseBasisRef, MimiRoomUri, NonEmptyString, PayloadProof,
         RealmId, RiskTier, ScopeRef, SealBasis, SealId, ServiceKind, StrandId,
-        project_full_id_to_core_id, proof_kind,
+        project_did_to_core_id, proof_kind,
     };
     use serde_json::{Value, json};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -423,12 +423,12 @@ mod events_submit_tests {
             kind: "ak.message.create".into(),
             realm_id: realm_id.clone(),
             scope_ref: ScopeRef::Realm { realm_id },
-            actor_id: project_full_id_to_core_id(
-                &DidFullId::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            actor_id: project_did_to_core_id(
+                &Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             )
             .unwrap(),
-            principal_server_id: project_full_id_to_core_id(
-                &DidFullId::new("did:webvh:z6mkfixture:principal.example").unwrap(),
+            principal_server_id: project_did_to_core_id(
+                &Did::new("did:webvh:z6mkfixture:principal.example").unwrap(),
             )
             .unwrap(),
             actor_seq: 1,
@@ -909,7 +909,7 @@ mod events_submit_tests {
                 "service_kind":"principal_server",
                 "service_id":"ak:did_core:web:server.local",
                 "service_resolution":{
-                    "full_id":"did:web:server.local",
+                    "did":"did:web:server.local",
                     "method_history_head":"sha256:fixture",
                     "version_id":"fixture-v1"
                 },
@@ -958,7 +958,7 @@ mod events_submit_tests {
                 "service_kind":"principal_server",
                 "service_id":"ak:did_core:web:server.local",
                 "service_resolution":{
-                    "full_id":"did:web:server.local",
+                    "did":"did:web:server.local",
                     "method_history_head":"sha256:fixture",
                     "version_id":"fixture-v1"
                 },

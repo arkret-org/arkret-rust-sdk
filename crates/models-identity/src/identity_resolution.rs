@@ -2,7 +2,7 @@
 //! high-risk service-to-service authentication.
 
 use arkret_wire::{
-    DidCoreId, DidFullId, Event, EventBatchReceipt, EventId, Hash, PrincipalAuthorityKey,
+    Did, DidCoreId, Event, EventBatchReceipt, EventId, Hash, PrincipalAuthorityKey,
     ProtocolSignature, RealmId, RequestId, Seal,
 };
 use chrono::{DateTime, Utc};
@@ -15,7 +15,7 @@ use crate::DidDocument;
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ResolutionCommitment {
-    pub full_id: DidFullId,
+    pub did: Did,
     pub method_history_head: String,
     pub version_id: String,
 }
@@ -24,7 +24,7 @@ pub struct ResolutionCommitment {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalResolutionProjection {
-    pub full_id: DidFullId,
+    pub did: Did,
     pub method_history_head: String,
     pub version_id: String,
     pub resolution_event_ref: String,
@@ -267,8 +267,8 @@ pub enum ResolutionDidBindingMethodProofKind {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ResolutionDidBindingWitness {
-    pub witness_did: DidFullId,
-    pub controlling_organization: DidFullId,
+    pub witness_did: Did,
+    pub controlling_organization_did: Did,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -406,7 +406,7 @@ impl ResolutionMethodHistoryEvidence {
 pub struct ServiceResolutionRecordCore {
     pub service_id: DidCoreId,
     pub service_kind: String,
-    pub full_id: DidFullId,
+    pub did: Did,
     pub method_history_head: String,
     pub version_id: String,
     pub resolution_event_ref: String,
@@ -565,7 +565,7 @@ impl ServiceResolutionRecord {
             payload_digest: Hash,
             service_id: &'a DidCoreId,
             service_kind: &'a str,
-            full_id: &'a DidFullId,
+            did: &'a Did,
             method_history_head: &'a str,
             version_id: &'a str,
             resolution_event_ref: &'a str,
@@ -598,7 +598,7 @@ impl ServiceResolutionRecord {
             payload_digest,
             service_id: &self.record.service_id,
             service_kind: &self.record.service_kind,
-            full_id: &self.record.full_id,
+            did: &self.record.did,
             method_history_head: &self.record.method_history_head,
             version_id: &self.record.version_id,
             resolution_event_ref: &self.record.resolution_event_ref,
@@ -639,7 +639,7 @@ impl AuthenticatedServiceResolution {
         }
         let record = &self.service_resolution_record.record;
         self.method_history_evidence.validate_shape()?;
-        let projected = arkret_wire::project_full_id_to_core_id(&record.full_id)?;
+        let projected = arkret_wire::project_did_to_core_id(&record.did)?;
         let boundary = self.method_history_evidence.boundary();
         let proof_controller = self
             .service_resolution_record
@@ -650,7 +650,7 @@ impl AuthenticatedServiceResolution {
             .map(|(controller, _)| controller);
         if &record.service_id != expected_service_id
             || projected != record.service_id
-            || self.normalized_did_document.id != record.full_id
+            || self.normalized_did_document.id != record.did
             || boundary.to_method_history_head != record.method_history_head
             || boundary.to_version_id != record.version_id
             || self.method_history_evidence.evidence().document_digest
@@ -661,7 +661,7 @@ impl AuthenticatedServiceResolution {
             || record.refresh_after >= record.expires_at
             || now >= record.refresh_after
             || self.service_resolution_record.proof.created_at != record.issued_at
-            || proof_controller != Some(record.full_id.as_str())
+            || proof_controller != Some(record.did.as_str())
         {
             return Err(arkret_wire::WireError::Protocol(
                 "invalid or stale authenticated service resolution".to_owned(),
@@ -1052,7 +1052,7 @@ pub struct ServiceRouteNoticeState {
 pub struct ServiceRouteCacheEntry {
     pub service_id: DidCoreId,
     pub service_kind: String,
-    pub full_id: DidFullId,
+    pub did: Did,
     pub method_history_head: String,
     /// Native DID-method version coordinate from the verified signed record.
     pub version_id: String,
@@ -1127,13 +1127,13 @@ mod resolution_contract_tests {
 
     fn record(sequence: u64, previous_record_digest: Option<Hash>) -> ServiceResolutionRecord {
         let issued_at = Utc.with_ymd_and_hms(2026, 8, 10, 1, 0, 0).unwrap();
-        let full_id = DidFullId::new("did:webvh:z6mkfixture:service.example").unwrap();
-        let service_id = arkret_wire::project_full_id_to_core_id(&full_id).unwrap();
+        let did = Did::new("did:webvh:z6mkfixture:service.example").unwrap();
+        let service_id = arkret_wire::project_did_to_core_id(&did).unwrap();
         ServiceResolutionRecord {
             record: ServiceResolutionRecordCore {
                 service_id,
                 service_kind: "principal_server".to_owned(),
-                full_id: full_id.clone(),
+                did: did.clone(),
                 method_history_head: "head-1".to_owned(),
                 version_id: "1-head-1".to_owned(),
                 resolution_event_ref: format!("ak:event:{}", "A".repeat(44)),
@@ -1148,7 +1148,7 @@ mod resolution_contract_tests {
                 expires_at: issued_at + Duration::minutes(10),
             },
             proof: ProtocolSignature {
-                verification_method: DidUrl::new(format!("{full_id}#route-1")).unwrap(),
+                verification_method: DidUrl::new(format!("{did}#route-1")).unwrap(),
                 created_at: issued_at,
                 jws: Base64UrlString::new("AA".to_owned()).unwrap(),
             },
@@ -1172,11 +1172,11 @@ mod resolution_contract_tests {
 
     #[test]
     fn webvh_scid_projection_ignores_mutable_location_suffix() {
-        let old = DidFullId::new("did:webvh:z6mkfixture:old.example:user").unwrap();
-        let new = DidFullId::new("did:webvh:z6mkfixture:new.example:user").unwrap();
+        let old = Did::new("did:webvh:z6mkfixture:old.example:user").unwrap();
+        let new = Did::new("did:webvh:z6mkfixture:new.example:user").unwrap();
         assert_eq!(
-            arkret_wire::project_full_id_to_core_id(&old).unwrap(),
-            arkret_wire::project_full_id_to_core_id(&new).unwrap()
+            arkret_wire::project_did_to_core_id(&old).unwrap(),
+            arkret_wire::project_did_to_core_id(&new).unwrap()
         );
     }
 
@@ -1187,7 +1187,7 @@ mod resolution_contract_tests {
         let entry = ServiceRouteCacheEntry {
             service_id: record.record.service_id,
             service_kind: record.record.service_kind,
-            full_id: record.record.full_id,
+            did: record.record.did,
             method_history_head: record.record.method_history_head,
             version_id: record.record.version_id,
             record_sequence: record.record.record_sequence,

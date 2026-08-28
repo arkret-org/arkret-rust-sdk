@@ -19,10 +19,10 @@ use arkret_models_identity::account::{
 use arkret_models_identity::actor_profile::{AccountMaterializedProfile, ActorProfile};
 use arkret_wire::{
     ActorProfileId, AppletId, AppletRevokeMode, AuditReasonText, ConsentScope, Cursor, DeviceId,
-    DidCoreId, DidFullId, DidUrl, EventBatchReceipt, EventInitialSubmission, EventKind, Hash,
+    Did, DidCoreId, DidUrl, EventBatchReceipt, EventInitialSubmission, EventKind, Hash,
     NonEmptyString, PayloadProof, ProofContextId, RealmId, ReasonCode, ReceiptId, Result, SchemaId,
     ScopeRef, ServiceOperationId, SessionGrantId, UnsignedPayloadProof, canonical,
-    project_full_id_to_core_id,
+    project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -473,8 +473,8 @@ impl AccountStatusRecord {
             .as_str()
             .rsplit_once('#')
             .map(|(controller, _)| controller)
-            .and_then(|controller| DidFullId::new(controller.to_owned()).ok())
-            .and_then(|controller| project_full_id_to_core_id(&controller).ok());
+            .and_then(|controller| Did::new(controller.to_owned()).ok())
+            .and_then(|controller| project_did_to_core_id(&controller).ok());
         if proof_controller.as_ref() != Some(&self.account_authority_id) {
             return Err(arkret_wire::WireError::Protocol(
                 "account status record proof controller mismatch".to_owned(),
@@ -685,8 +685,8 @@ impl AccountStatusReceipt {
             .as_str()
             .rsplit_once('#')
             .map(|(controller, _)| controller)
-            .and_then(|controller| DidFullId::new(controller.to_owned()).ok())
-            .and_then(|controller| project_full_id_to_core_id(&controller).ok());
+            .and_then(|controller| Did::new(controller.to_owned()).ok())
+            .and_then(|controller| project_did_to_core_id(&controller).ok());
         if proof_controller.as_ref() != Some(&self.receiver_service_id) {
             return Err(arkret_wire::WireError::Protocol(
                 "account status receipt proof controller mismatch".to_owned(),
@@ -857,7 +857,7 @@ pub struct AccountView {
 #[serde(deny_unknown_fields)]
 pub struct AccountRegisterRequestBody {
     pub principal_id: DidCoreId,
-    pub full_id: DidFullId,
+    pub did: Did,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -880,14 +880,14 @@ impl AccountRegisterRequestBody {
                     .to_owned(),
             ));
         }
-        if project_full_id_to_core_id(&self.full_id)? != *self.principal_id.as_core_id() {
+        if project_did_to_core_id(&self.did)? != *self.principal_id.as_core_id() {
             return Err(arkret_wire::WireError::Protocol(
-                "account register full_id does not project to principal_id".to_owned(),
+                "account register did does not project to principal_id".to_owned(),
             ));
         }
         if let Some(proof) = &self.proof {
             proof.validate_shape()?;
-            if proof.principal_id != self.principal_id || proof.full_id != self.full_id {
+            if proof.principal_id != self.principal_id || proof.did != self.did {
                 return Err(arkret_wire::WireError::Protocol(
                     "account register published-DID proof binding mismatch".to_owned(),
                 ));
@@ -905,9 +905,9 @@ impl AccountRegisterRequestBody {
                     "account register identity creation does not match principal".to_owned(),
                 ));
             }
-            if identity_creation.full_id != self.full_id {
+            if identity_creation.did != self.did {
                 return Err(arkret_wire::WireError::Protocol(
-                    "account register identity creation full_id mismatch".to_owned(),
+                    "account register identity creation did mismatch".to_owned(),
                 ));
             }
         }
@@ -1035,7 +1035,7 @@ impl AccountRegisterOutcome {
         }
         self.binding_receipt.validate_shape()?;
         if self.binding_receipt.principal_id != self.principal_id
-            || self.binding_receipt.full_id != request.full_id
+            || self.binding_receipt.did != request.did
         {
             return Err(arkret_wire::WireError::Protocol(
                 "account register outcome binding receipt mismatch".to_owned(),

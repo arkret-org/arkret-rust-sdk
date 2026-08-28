@@ -37,8 +37,8 @@ use arkret_models_identity::service_identity::{
 };
 use arkret_models_identity::{IdentityCreationControlProof, UnsignedIdentityCreationControlProof};
 use arkret_wire::{
-    Base64UrlString, DidBindingEvidenceKind, DidBindingEvidenceReceipt, DidBindingMethodProof,
-    DidBindingMethodProofKind, DidCoreId, DidFullId, DidUrl, Hash, RegistrationControlSignature,
+    Base64UrlString, Did, DidBindingEvidenceKind, DidBindingEvidenceReceipt, DidBindingMethodProof,
+    DidBindingMethodProofKind, DidCoreId, DidUrl, Hash, RegistrationControlSignature,
     RegistrationDidEvidenceDraft, ServiceKind,
 };
 use chrono::{DateTime, Utc};
@@ -205,7 +205,7 @@ pub struct ValidatedPrincipalInception {
 /// output.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ValidatedWebvhHistoryPoint {
-    pub did: DidFullId,
+    pub did: Did,
     pub version_id: String,
     pub version_time: DateTime<Utc>,
     pub document: Value,
@@ -216,7 +216,7 @@ pub struct ValidatedWebvhHistoryPoint {
 /// `at`. Hash-chain, pre-rotation commitment and every Data Integrity proof are
 /// checked before a point is returned.
 pub fn validate_webvh_history_at(
-    did: &DidFullId,
+    did: &Did,
     entries: &[Value],
     at: DateTime<Utc>,
 ) -> Result<ValidatedWebvhHistoryPoint, WebvhInceptionError> {
@@ -438,7 +438,7 @@ pub fn validate_principal_inception_operation(
     ))
     .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
 
-    let principal_id = arkret_wire::project_full_id_to_core_id(&request.did)
+    let principal_id = arkret_wire::project_did_to_core_id(&request.did)
         .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
     Ok(ValidatedPrincipalInception {
         principal_id,
@@ -518,7 +518,7 @@ pub fn verify_registration_did_evidence_draft(
     .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
     let method_proof = draft.method_evidence.method_proofs.first();
     if draft.principal_id != validated.principal_id
-        || draft.full_id != request.did
+        || draft.did != request.did
         || draft.adapter_version != WEBVH_METHOD_VERSION
         || draft.version_id != validated.did_version_id
         || draft.method_history_head != validated.log_head_digest.as_str()
@@ -583,7 +583,7 @@ pub fn sign_registration_did_evidence_draft(
         .map_err(|error| WebvhInceptionError::InvalidDid(error.to_owned()))?;
     let mut draft = RegistrationDidEvidenceDraft {
         principal_id: validated.principal_id,
-        full_id: request.did.clone(),
+        did: request.did.clone(),
         adapter_version: WEBVH_METHOD_VERSION.to_owned(),
         method_history_head: validated.log_head_digest.to_string(),
         version_id: validated.did_version_id,
@@ -1020,7 +1020,7 @@ fn validate_principal_rotation_history<'a>(
                     "principal history entry {sequence} is missing its state id"
                 ))
             })?;
-        let state_did = DidFullId::new(state_id.to_owned())
+        let state_did = Did::new(state_id.to_owned())
             .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
         if state_did.method() != "webvh" || state_id.split(':').nth(2) != Some(scid) {
             return Err(WebvhInceptionError::InvalidProof(format!(
@@ -1252,7 +1252,7 @@ pub fn prepare_managed_agent_binding_update(
 fn prepare_principal_rotation_inner(
     input: &PrincipalRotationInput<'_>,
 ) -> Result<PreparedPrincipalRotation, WebvhInceptionError> {
-    let did = DidFullId::new(input.did.to_owned())
+    let did = Did::new(input.did.to_owned())
         .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
     if did.method() != "webvh" {
         return Err(WebvhInceptionError::InvalidDid(
@@ -1410,9 +1410,9 @@ fn prepare_principal_rotation_inner(
 pub fn prepare_webvh_relocation(
     input: &WebvhRelocationInput<'_>,
 ) -> Result<PreparedWebvhRelocation, WebvhInceptionError> {
-    let current_did = DidFullId::new(input.current_did.to_owned())
+    let current_did = Did::new(input.current_did.to_owned())
         .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
-    let target_did = DidFullId::new(input.target_did.to_owned())
+    let target_did = Did::new(input.target_did.to_owned())
         .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
     if current_did.method() != "webvh" || target_did.method() != "webvh" {
         return Err(WebvhInceptionError::InvalidDid(
@@ -2239,7 +2239,7 @@ fn did_submit_body(
     prev_event_digest: Option<Hash>,
     operation: Value,
 ) -> Result<DidOperationSubmitRequestBody, WebvhInceptionError> {
-    let typed_did = DidFullId::new(did.to_owned())
+    let typed_did = Did::new(did.to_owned())
         .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
     let Value::Object(operation) = operation else {
         return Err(WebvhInceptionError::Canonical(
@@ -2403,7 +2403,7 @@ mod historical_verification_tests {
     use super::*;
 
     struct HistoryFixture {
-        did: DidFullId,
+        did: Did,
         first_time: DateTime<Utc>,
         second_time: DateTime<Utc>,
         first_key: String,
@@ -2474,7 +2474,7 @@ mod historical_verification_tests {
         rotation["proof"] =
             Value::Array(vec![build_proof(&rotation, &signing, &second_key).unwrap()]);
         HistoryFixture {
-            did: DidFullId::new(did).unwrap(),
+            did: Did::new(did).unwrap(),
             first_time,
             second_time,
             first_key,

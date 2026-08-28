@@ -42,9 +42,9 @@ pub struct RangeCompletenessAttestationEventRange {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RangeCompletenessAttestationWitnessAttestationWitnessesItem {
-    pub issuer: DidCoreId,
+    pub witness_id: DidCoreId,
     pub verification_method: DidUrl,
-    pub controlling_organization: DidCoreId,
+    pub controlling_organization_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub attested_at: Option<DateTime<Utc>>,

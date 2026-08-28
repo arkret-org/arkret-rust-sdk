@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use arkret_canonical::canonical;
-use arkret_identifiers::DidFullId;
+use arkret_identifiers::Did;
 use arkret_wire::{DidCoreId, DidUrl, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -399,7 +399,7 @@ fn validate_did_url(field: &str, value: &str) -> Result<(), SdkConformanceClaimE
     if fragment.is_empty()
         || value.len() > 2048
         || value.chars().any(char::is_whitespace)
-        || DidFullId::new(did).is_err()
+        || Did::new(did).is_err()
     {
         return Err(SdkConformanceClaimError::InvalidField(field.to_owned()));
     }

@@ -21,8 +21,8 @@ use crate::generated::ProofContextId;
 pub use crate::generated::{AuthoritySetPolicyKind, AuthoritySetSourceKind};
 use crate::primitives::{Audience, PayloadProof};
 use crate::{
-    AuthorizationLeaseId, DeviceId, DidCoreId, DidFullId, DidUrl, EventId, Hash, RealmId,
-    ReceiptId, SchemaId, SealId, canonical,
+    AuthorizationLeaseId, DeviceId, Did, DidCoreId, DidUrl, EventId, Hash, RealmId, ReceiptId,
+    SchemaId, SealId, canonical,
 };
 
 /// Maximum number of issuer proofs on a lease or receipt
@@ -300,7 +300,7 @@ pub struct AuthorizationLease {
 pub struct IngressReceipt {
     pub receipt_id: ReceiptId,
     pub event_digest: Hash,
-    pub qualified_ingress_id: DidFullId,
+    pub qualified_ingress_did: Did,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub received_at: DateTime<Utc>,
     pub ingress_frontier: Vec<EventId>,
@@ -539,7 +539,7 @@ impl IngressReceipt {
 
     /// Structural validation independent of Realm issuer policy.
     pub fn validate_structural(&self) -> Result<()> {
-        crate::project_full_id_to_core_id(&self.qualified_ingress_id)?;
+        crate::project_did_to_core_id(&self.qualified_ingress_did)?;
         if self.ingress_frontier.is_empty()
             || self.ingress_frontier.len() > 500
             || !strictly_ordered_unique(self.ingress_frontier.iter().map(EventId::as_str))
@@ -614,14 +614,15 @@ impl IngressReceipt {
             .iter()
             .map(|proof| proof.verification_method.as_str())
             .collect::<std::collections::BTreeSet<_>>();
-        let qualified_ingress_id = self.qualified_ingress_id.as_str();
+        let qualified_ingress_did = self.qualified_ingress_did.as_str();
         if proof_issuers.iter().any(|method| {
             method
                 .split_once('#')
-                .is_none_or(|(controller, _)| controller != qualified_ingress_id)
+                .is_none_or(|(controller, _)| controller != qualified_ingress_did)
         }) {
             return Err(WireError::Protocol(
-                "ingress receipt proof method is not controlled by qualified_ingress_id".to_owned(),
+                "ingress receipt proof method is not controlled by qualified_ingress_did"
+                    .to_owned(),
             ));
         }
         if !proof_issuers.is_subset(&accepted_issuers)
@@ -729,10 +730,8 @@ mod tests {
         let mut receipt = IngressReceipt {
             receipt_id: ReceiptId::new("ak:receipt:01904100-0000-7000-8000-cccccccccccc").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "d".repeat(64))).unwrap(),
-            qualified_ingress_id: DidFullId::new(
-                "did:webvh:z6mkfixture:authority.example".to_owned(),
-            )
-            .unwrap(),
+            qualified_ingress_did: Did::new("did:webvh:z6mkfixture:authority.example".to_owned())
+                .unwrap(),
             received_at,
             ingress_frontier: vec![
                 EventId::new("ak:event:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD".to_owned())
@@ -1007,8 +1006,8 @@ mod tests {
         assert!(unordered_frontier.validate_structural().is_err());
 
         let mut wrong_ingress = baseline.clone();
-        wrong_ingress.qualified_ingress_id =
-            DidFullId::new("did:webvh:z6mkfixture:other.example").unwrap();
+        wrong_ingress.qualified_ingress_did =
+            Did::new("did:webvh:z6mkfixture:other.example").unwrap();
         assert!(
             wrong_ingress
                 .validate_against_lease(

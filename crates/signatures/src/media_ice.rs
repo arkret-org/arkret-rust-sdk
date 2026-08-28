@@ -4,7 +4,7 @@ use arkret_canonical::base64url::base64url_decode;
 use arkret_models_collaboration::objects::media::{
     MediaIceConfigOutcome, MediaIceServer, MediaIceSignatureAlgorithm,
 };
-use arkret_wire::{DidCoreId, DidFullId, RealmId};
+use arkret_wire::{Did, DidCoreId, RealmId};
 use ed25519_dalek::Signature;
 use serde::{Deserialize, Serialize};
 
@@ -28,7 +28,7 @@ pub struct IceConfig {
     /// `true` when the caller MUST relay through TURN (no host/srflx).
     pub turn_required: bool,
     /// The media-service DID that signed the config (from `signature.kid`).
-    pub issuer_did: DidFullId,
+    pub issuer_did: Did,
 }
 
 impl IceConfig {
@@ -161,7 +161,7 @@ pub fn verify_ice_config_outcome(
         ttl_seconds: outcome.ttl_seconds,
         refresh_lead_seconds: outcome.refresh_lead_seconds,
         turn_required: outcome.turn_required,
-        issuer_did: DidFullId::new(issuer_did)?,
+        issuer_did: Did::new(issuer_did)?,
     })
 }
 
@@ -175,8 +175,8 @@ mod tests {
 
     use super::*;
 
-    fn did(name: &str) -> DidFullId {
-        DidFullId::new(format!("did:webvh:z6mkfixture{name}:{name}.example")).unwrap()
+    fn did(name: &str) -> Did {
+        Did::new(format!("did:webvh:z6mkfixture{name}:{name}.example")).unwrap()
     }
 
     fn actor(name: &str) -> DidCoreId {

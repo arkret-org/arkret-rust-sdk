@@ -16,7 +16,7 @@ use arkret_models_identity::service_identity::{
     CanonicalServiceUrl, ServiceDidDocument, ServiceRegistrationKey, ServiceRegistrationReceipt,
     ServiceWebvhInceptionOperation, service_registration_key_digest,
 };
-use arkret_wire::{DidCoreId, DidFullId, ServiceKind, project_full_id_to_core_id};
+use arkret_wire::{Did, DidCoreId, ServiceKind, project_did_to_core_id};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -53,7 +53,7 @@ pub struct DidCoreIdentityProviderRef {
 #[serde(deny_unknown_fields)]
 pub struct LocalDidCoreIdentity {
     pub service_id: DidCoreId,
-    pub full_id: DidFullId,
+    pub did: Did,
     pub registration_key: ServiceRegistrationKey,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provider: Option<DidCoreIdentityProviderRef>,
@@ -75,12 +75,12 @@ impl LocalDidCoreIdentity {
                 "local service identity key references or version are inconsistent".to_owned(),
             ));
         }
-        if project_full_id_to_core_id(&self.full_id)
+        if project_did_to_core_id(&self.did)
             .map_err(|error| IdentityError::Protocol(error.to_string()))?
             != self.service_id
         {
             return Err(IdentityError::Protocol(
-                "local service identity full_id does not project to service_id".to_owned(),
+                "local service identity did does not project to service_id".to_owned(),
             ));
         }
         Ok(())
@@ -102,7 +102,7 @@ impl StoredDidCoreIdentity {
         self.identity.validate()?;
         self.did_document
             .validate_for(&self.identity.registration_key)?;
-        if self.did_document.id != self.identity.full_id
+        if self.did_document.id != self.identity.did
             || self.registration_receipt.version_id != self.identity.version_id
         {
             return Err(IdentityError::Protocol(
@@ -113,7 +113,7 @@ impl StoredDidCoreIdentity {
         Ok(self.registration_receipt.validate_for(
             &self.identity.registration_key,
             &self.identity.service_id,
-            &self.identity.full_id,
+            &self.identity.did,
         )?)
     }
 }
@@ -153,7 +153,7 @@ impl DidCoreIdentityBundle {
             .expect("checked non-empty")
             .state
             .id
-            != self.identity.identity.full_id
+            != self.identity.identity.did
         {
             return Err(IdentityError::Protocol(
                 "identity bundle history belongs to a different service DID".to_owned(),
@@ -163,7 +163,7 @@ impl DidCoreIdentityBundle {
             receipt.validate_for(
                 key,
                 &self.identity.identity.service_id,
-                &self.identity.identity.full_id,
+                &self.identity.identity.did,
             )?;
         }
         Ok(())
@@ -443,7 +443,7 @@ fn io_protocol_error(action: &str, path: &Path, error: std::io::Error) -> Identi
 /// `identity/identity-did.md` §3.7 receipt transcript step 4 requires of every
 /// consumer, including the offline identity-bundle restore path.
 ///
-/// `provider_full_id` MUST have been obtained independently of the receipt —
+/// `provider_did` MUST have been obtained independently of the receipt —
 /// from the Provider's own resolution surface or an operator pin — and
 /// `provider_log_bytes` MUST be the `did.jsonl` published for it. The complete
 /// method-native history is verified here (SCID derivation from entry 0, the
@@ -452,18 +452,18 @@ fn io_protocol_error(action: &str, path: &Path, error: std::io::Error) -> Identi
 /// delivered either input.
 ///
 /// The steps follow the normative order: method-native history verification,
-/// `project(provider_full_id) == provider_service_id` together with the bare
+/// `project(provider_did) == provider_service_id` together with the bare
 /// controller DID of `verificationMethod`, `assertionMethod` membership in the
 /// DID Document that was effective at `issued_at`, then the Ed25519 detached
 /// JWS itself. The verified history is returned so callers can additionally
 /// pin the head against a separately obtained resolution commitment.
 pub fn verify_registration_receipt_provider_proof(
     receipt: &ServiceRegistrationReceipt,
-    provider_full_id: &DidFullId,
+    provider_did: &Did,
     provider_log_bytes: &[u8],
 ) -> Result<crate::VerifiedDidWebvhLog> {
-    let verified = crate::verify_did_webvh_v1_chain_bytes(provider_full_id, provider_log_bytes)?;
-    receipt.validate_provider_full_id(provider_full_id)?;
+    let verified = crate::verify_did_webvh_v1_chain_bytes(provider_did, provider_log_bytes)?;
+    receipt.validate_provider_did(provider_did)?;
     let mut previous_version_time: Option<DateTime<Utc>> = None;
     for entry in &verified.entries {
         if previous_version_time.is_some_and(|previous| entry.version_time <= previous) {
@@ -485,7 +485,7 @@ pub fn verify_registration_receipt_provider_proof(
             )
         })?;
     let document: ServiceDidDocument = serde_json::from_value(effective.state.clone())?;
-    if document.id != *provider_full_id {
+    if document.id != *provider_did {
         return Err(IdentityError::Protocol(
             "provider did:webvh state at issuance is not the resolved provider DID".to_owned(),
         ));
@@ -506,8 +506,7 @@ mod tests {
         ServiceWebvhInceptionParameters,
     };
     use arkret_wire::{
-        DidCoreId, DidFullId, DidUrl, Hash, PayloadProof, ServiceKind, project_full_id_to_core_id,
-        proof_kind,
+        Did, DidCoreId, DidUrl, Hash, PayloadProof, ServiceKind, project_did_to_core_id, proof_kind,
     };
     use chrono::{DateTime, Utc};
     use rand_core::SeedableRng;
@@ -527,7 +526,7 @@ mod tests {
     }
 
     fn inception() -> ServiceWebvhInceptionOperation {
-        let did = DidFullId::new("did:webvh:QmScid:identity.example:webvh:auth").unwrap();
+        let did = Did::new("did:webvh:QmScid:identity.example:webvh:auth").unwrap();
         let signing_key = "z6MkiSigning".to_owned();
         let update_key = "z6MkiUpdate".to_owned();
         let signing_id = format!("{did}#did-key-1");
@@ -572,10 +571,9 @@ mod tests {
     }
 
     fn receipt(operation: &ServiceWebvhInceptionOperation) -> ServiceRegistrationReceipt {
-        let provider_full_id =
-            DidFullId::new("did:webvh:QmProvider:identity.example:webvh:service").unwrap();
-        let provider_service_id = project_full_id_to_core_id(&provider_full_id).unwrap();
-        let service_id = project_full_id_to_core_id(&operation.state.id).unwrap();
+        let provider_did = Did::new("did:webvh:QmProvider:identity.example:webvh:service").unwrap();
+        let provider_service_id = project_did_to_core_id(&provider_did).unwrap();
+        let service_id = project_did_to_core_id(&operation.state.id).unwrap();
         let mut receipt = ServiceRegistrationReceipt {
             registration_receipt_id: arkret_wire::ServiceRegistrationReceiptId::new(format!(
                 "ak:service_registration_receipt:{}",
@@ -584,7 +582,7 @@ mod tests {
             .unwrap(),
             registration_key: registration_key(),
             service_id,
-            full_id: operation.state.id.clone(),
+            did: operation.state.id.clone(),
             version_id: operation.version_id.clone(),
             log_head_digest: operation.log_head_digest().unwrap(),
             control_key_digest: operation.control_key_digest().unwrap(),
@@ -592,8 +590,7 @@ mod tests {
             provider_service_id,
             proof: PayloadProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
-                verification_method: DidUrl::new(format!("{provider_full_id}#service-key"))
-                    .unwrap(),
+                verification_method: DidUrl::new(format!("{provider_did}#service-key")).unwrap(),
                 payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 created_at: "2026-07-15T00:00:01.000Z".parse().unwrap(),
                 domain: None,
@@ -612,8 +609,8 @@ mod tests {
         let receipt = receipt(&operation);
         StoredDidCoreIdentity {
             identity: LocalDidCoreIdentity {
-                service_id: project_full_id_to_core_id(&operation.state.id).unwrap(),
-                full_id: operation.state.id.clone(),
+                service_id: project_did_to_core_id(&operation.state.id).unwrap(),
+                did: operation.state.id.clone(),
                 registration_key: registration_key(),
                 provider: Some(DidCoreIdentityProviderRef {
                     name: "provider".to_owned(),
@@ -709,15 +706,12 @@ mod tests {
     fn service_registration_receipt_binds_claims_and_provider_controller() {
         let operation = inception();
         let receipt = receipt(&operation);
-        let service_id = project_full_id_to_core_id(&operation.state.id).unwrap();
+        let service_id = project_did_to_core_id(&operation.state.id).unwrap();
         receipt
             .validate_for(&registration_key(), &service_id, &operation.state.id)
             .unwrap();
-        let provider_full_id =
-            DidFullId::new("did:webvh:QmProvider:identity.example:webvh:service").unwrap();
-        receipt
-            .validate_provider_full_id(&provider_full_id)
-            .unwrap();
+        let provider_did = Did::new("did:webvh:QmProvider:identity.example:webvh:service").unwrap();
+        receipt.validate_provider_did(&provider_did).unwrap();
 
         let mut tampered = receipt.clone();
         tampered.control_key_digest = format!("sha256:{}", "b".repeat(64));
@@ -728,7 +722,7 @@ mod tests {
             DidUrl::new("did:webvh:QmOther:identity.example:webvh:service#service-key").unwrap();
         assert!(
             wrong_controller
-                .validate_provider_full_id(&provider_full_id)
+                .validate_provider_did(&provider_did)
                 .is_err()
         );
     }
@@ -804,11 +798,11 @@ mod tests {
             state
         );
 
-        let same_did = DidCoreId::new("ak:did_core:webvh:QmStored").unwrap();
+        let same_id = DidCoreId::new("ak:did_core:webvh:QmStored").unwrap();
         assert!(
             DidCoreIdentityState::Conflict {
-                stored_service_id: same_did.clone(),
-                provider_service_id: same_did,
+                stored_service_id: same_id.clone(),
+                provider_service_id: same_id,
             }
             .validate()
             .is_err()
@@ -870,7 +864,7 @@ mod tests {
         provider_assertion_seed: &[u8; 32],
         issued_at: DateTime<Utc>,
     ) -> ServiceRegistrationReceipt {
-        let provider_full_id = DidFullId::new(provider.did.clone()).unwrap();
+        let provider_did = Did::new(provider.did.clone()).unwrap();
         let operation = inception();
         let mut receipt = ServiceRegistrationReceipt {
             registration_receipt_id: arkret_wire::ServiceRegistrationReceiptId::new(format!(
@@ -879,17 +873,17 @@ mod tests {
             ))
             .unwrap(),
             registration_key: registration_key(),
-            service_id: project_full_id_to_core_id(&operation.state.id).unwrap(),
-            full_id: operation.state.id.clone(),
+            service_id: project_did_to_core_id(&operation.state.id).unwrap(),
+            did: operation.state.id.clone(),
             version_id: operation.version_id.clone(),
             log_head_digest: operation.log_head_digest().unwrap(),
             control_key_digest: operation.control_key_digest().unwrap(),
             issued_at,
-            provider_service_id: project_full_id_to_core_id(&provider_full_id).unwrap(),
+            provider_service_id: project_did_to_core_id(&provider_did).unwrap(),
             proof: PayloadProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new(format!(
-                    "{provider_full_id}#{PROVIDER_ASSERTION_FRAGMENT}"
+                    "{provider_did}#{PROVIDER_ASSERTION_FRAGMENT}"
                 ))
                 .unwrap(),
                 payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
@@ -917,13 +911,13 @@ mod tests {
     fn provider_proof_verifies_against_the_resolved_method_native_history() {
         let seed = [11_u8; 32];
         let provider = provider_history(&seed, [21_u8; 32]);
-        let provider_full_id = DidFullId::new(provider.did.clone()).unwrap();
+        let provider_did = Did::new(provider.did.clone()).unwrap();
         let receipt =
             provider_signed_receipt(&provider, &seed, "2026-07-15T00:00:01Z".parse().unwrap());
 
         let verified = super::verify_registration_receipt_provider_proof(
             &receipt,
-            &provider_full_id,
+            &provider_did,
             &did_jsonl(&provider),
         )
         .expect("a receipt signed by the resolved provider assertion key must verify");
@@ -936,7 +930,7 @@ mod tests {
     fn forged_provider_signature_is_rejected() {
         let seed = [11_u8; 32];
         let provider = provider_history(&seed, [21_u8; 32]);
-        let provider_full_id = DidFullId::new(provider.did.clone()).unwrap();
+        let provider_did = Did::new(provider.did.clone()).unwrap();
         let mut receipt =
             provider_signed_receipt(&provider, &seed, "2026-07-15T00:00:01Z".parse().unwrap());
         let forged = provider_signed_receipt(
@@ -949,7 +943,7 @@ mod tests {
         assert!(
             super::verify_registration_receipt_provider_proof(
                 &receipt,
-                &provider_full_id,
+                &provider_did,
                 &did_jsonl(&provider),
             )
             .is_err()
@@ -970,7 +964,7 @@ mod tests {
         assert!(
             super::verify_registration_receipt_provider_proof(
                 &receipt,
-                &DidFullId::new(provider.did.clone()).unwrap(),
+                &Did::new(provider.did.clone()).unwrap(),
                 &did_jsonl(&provider),
             )
             .is_err()
@@ -989,7 +983,7 @@ mod tests {
         assert!(
             super::verify_registration_receipt_provider_proof(
                 &receipt,
-                &DidFullId::new(provider.did.clone()).unwrap(),
+                &Did::new(provider.did.clone()).unwrap(),
                 &did_jsonl(&provider),
             )
             .is_err()
@@ -1009,7 +1003,7 @@ mod tests {
         assert!(
             super::verify_registration_receipt_provider_proof(
                 &receipt,
-                &DidFullId::new(provider.did.clone()).unwrap(),
+                &Did::new(provider.did.clone()).unwrap(),
                 &did_jsonl(&other),
             )
             .is_err()

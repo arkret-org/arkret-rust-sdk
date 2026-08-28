@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use arkret_wire::DidFullId;
+use arkret_wire::Did;
 
 use super::basics::*;
 use super::policy::*;
@@ -10,7 +10,7 @@ use crate::*;
 /// Limited `did:keri` resolver backed by explicitly registered documents.
 #[derive(Clone, Debug, Default)]
 pub struct DidKeriResolver {
-    documents: BTreeMap<DidFullId, DidDocument>,
+    documents: BTreeMap<Did, DidDocument>,
 }
 
 impl DidKeriResolver {
@@ -33,11 +33,11 @@ impl DidKeriResolver {
 }
 
 impl DidResolver for DidKeriResolver {
-    fn supports(&self, did: &DidFullId) -> bool {
+    fn supports(&self, did: &Did) -> bool {
         did.method() == "keri"
     }
 
-    fn resolve_did(&self, did: &DidFullId) -> Result<ResolvedDid> {
+    fn resolve_did(&self, did: &Did) -> Result<ResolvedDid> {
         if !self.supports(did) {
             return Err(IdentityError::Protocol(
                 "unsupported DID method for did:keri resolver".to_owned(),
@@ -63,11 +63,11 @@ impl DidKeyResolver {
 }
 
 impl DidResolver for DidKeyResolver {
-    fn supports(&self, did: &DidFullId) -> bool {
+    fn supports(&self, did: &Did) -> bool {
         did.method() == "key" && did_key_material(did).is_some()
     }
 
-    fn resolve_did(&self, did: &DidFullId) -> Result<ResolvedDid> {
+    fn resolve_did(&self, did: &Did) -> Result<ResolvedDid> {
         let key = did_key_material(did)
             .ok_or_else(|| IdentityError::Protocol("unsupported did:key form".to_owned()))?;
         // `did:key` is self-describing: there is no log, no witness set and
@@ -130,11 +130,11 @@ impl std::fmt::Debug for CompositeDidResolver {
 }
 
 impl DidResolver for CompositeDidResolver {
-    fn supports(&self, did: &DidFullId) -> bool {
+    fn supports(&self, did: &Did) -> bool {
         self.policy.permits(did) && self.resolvers.iter().any(|resolver| resolver.supports(did))
     }
 
-    fn resolve_did(&self, did: &DidFullId) -> Result<ResolvedDid> {
+    fn resolve_did(&self, did: &Did) -> Result<ResolvedDid> {
         self.policy.validate(did)?;
         self.resolvers
             .iter()
@@ -337,7 +337,7 @@ impl DidResolutionCache {
     }
 
     /// Return a fresh resolution and lazily evict an expired entry.
-    pub fn get(&self, did: &DidFullId, now: DateTime<Utc>) -> Option<ResolvedDid> {
+    pub fn get(&self, did: &Did, now: DateTime<Utc>) -> Option<ResolvedDid> {
         self.state
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -348,7 +348,7 @@ impl DidResolutionCache {
     /// Insert a resolution with an explicit TTL.
     pub fn insert(
         &self,
-        did: DidFullId,
+        did: Did,
         resolved: ResolvedDid,
         now: DateTime<Utc>,
         ttl: chrono::Duration,
@@ -362,7 +362,7 @@ impl DidResolutionCache {
     }
 
     /// Read an entry without evicting it, including stale entries.
-    pub fn peek(&self, did: &DidFullId) -> Option<CachedResolution> {
+    pub fn peek(&self, did: &Did) -> Option<CachedResolution> {
         self.state
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -415,7 +415,7 @@ impl DidResolutionCache {
         health.entries > 0 && health.fresh_entries == 0
     }
 
-    pub fn invalidate(&self, did: &DidFullId) {
+    pub fn invalidate(&self, did: &Did) {
         self.state
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)

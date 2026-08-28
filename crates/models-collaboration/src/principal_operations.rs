@@ -2,8 +2,8 @@ use arkret_models_identity::{
     DidOperationSubmitRequestBody, IdentityCreationControlProof, PCR_GENESIS_UNIT_KINDS,
 };
 use arkret_wire::{
-    DeviceId, DidCoreId, DidFullId, EventBatchReceipt, Hash, IdempotencyKey, PcrGenesisUnit,
-    RealmId, RegistrationDidEvidence, Result, WireError, canonical, project_full_id_to_core_id,
+    DeviceId, Did, DidCoreId, EventBatchReceipt, Hash, IdempotencyKey, PcrGenesisUnit, RealmId,
+    RegistrationDidEvidence, Result, WireError, canonical, project_did_to_core_id,
 };
 use serde::{Deserialize, Serialize};
 
@@ -20,7 +20,7 @@ use crate::events_payloads::{
 pub struct PcrGenesisSubmitRequestBody {
     pub account_authority_id: DidCoreId,
     pub principal_id: DidCoreId,
-    pub full_id: DidFullId,
+    pub did: Did,
     pub pcr_realm_id: RealmId,
     pub idempotency_key: IdempotencyKey,
     pub registration_request_digest: Hash,
@@ -46,18 +46,18 @@ impl PcrGenesisSubmitRequestBody {
         create.validate_proof_bindings_with_digest_suite(canonical::DigestSuite::Sha256)?;
         authorize.validate_proof_bindings_with_digest_suite(canonical::DigestSuite::Sha256)?;
         if self.principal_id != proof.principal_id
-            || self.full_id != proof.full_id
-            || project_full_id_to_core_id(&self.full_id)? != self.principal_id
+            || self.did != proof.did
+            || project_did_to_core_id(&self.did)? != self.principal_id
             || self.pcr_realm_id != proof.pcr_realm_id
             || self.did_version_id != proof.did_version_id
             || self.log_head_digest != proof.log_head_digest
             || self.control_key_digest != proof.control_key_digest
-            || self.registration_did_operation.did != self.full_id
+            || self.registration_did_operation.did != self.did
             || Hash::new(canonical::canonical_sha256(
                 &self.registration_did_operation,
             )?)? != proof.operation_digest
             || self.registration_did_evidence.principal_id != self.principal_id
-            || self.registration_did_evidence.full_id != self.full_id
+            || self.registration_did_evidence.did != self.did
             || self.registration_did_evidence.version_id != self.did_version_id
             || self.registration_did_evidence.method_history_head != self.log_head_digest.as_str()
             || self.registration_did_evidence.control_key_digest != self.control_key_digest
@@ -112,7 +112,7 @@ impl PcrGenesisSubmitRequestBody {
         let authorize_payload: DeviceAuthorizePayload =
             decode_payload_after_kind_validation(authorize)?;
         let expected_authorize_verification_method =
-            format!("{}#{}", proof.full_id, descriptor.device_id);
+            format!("{}#{}", proof.did, descriptor.device_id);
         let authorized_by_root = matches!(
             &authorize_payload.authorized_by,
             DeviceOrPrincipalRef::Principal(principal_id)

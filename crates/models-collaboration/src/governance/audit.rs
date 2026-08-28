@@ -113,9 +113,9 @@ pub struct AuditRywWitnessAttestation {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AuditRywWitness {
-    pub issuer: DidCoreId,
+    pub witness_id: DidCoreId,
     pub verification_method: DidUrl,
-    pub controlling_organization: DidCoreId,
+    pub controlling_organization_id: DidCoreId,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",

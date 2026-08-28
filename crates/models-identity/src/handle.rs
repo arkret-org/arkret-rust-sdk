@@ -169,7 +169,7 @@ fn percent_decode_utf8(value: &str) -> Result<String> {
 ///
 /// The handle claim subject MUST be a holder/principal `did_core_id`, not a
 /// server-local account id, service identity, administrative identifier, or
-/// generic resource id. The type boundary rejects full DIDs and non-core
+/// generic resource id. The type boundary rejects DIDs and non-core
 /// identifiers; deployment-specific role admission remains the issuer's job.
 ///
 /// On rejection returns [`WireError::Protocol`] carrying the

@@ -97,9 +97,9 @@ impl AuthenticatedSignerResolutionEvidence {
                     .split_once('#')
                     .map(|(controller, _)| controller);
                 if &record.service_id != signer_id
-                    || !(record.full_id.as_str().starts_with("did:key:")
-                        || record.full_id.as_str().starts_with("did:webvh:"))
-                    || method_controller != Some(record.full_id.as_str())
+                    || !(record.did.as_str().starts_with("did:key:")
+                        || record.did.as_str().starts_with("did:webvh:"))
+                    || method_controller != Some(record.did.as_str())
                 {
                     return Err(WireError::Protocol(
                         "service signer evidence does not authorize its signer or method"

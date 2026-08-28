@@ -26,8 +26,8 @@ use crate::event_envelope::ScopeRef;
 use crate::generated::ProofContextId;
 use crate::primitives::Audience;
 use crate::{
-    DeviceId, DidCoreId, DidFullId, DidUrl, ExporterLabelId, Hash, RealmId, SealId, canonical,
-    project_full_id_to_core_id,
+    DeviceId, Did, DidCoreId, DidUrl, ExporterLabelId, Hash, RealmId, SealId, canonical,
+    project_did_to_core_id,
 };
 
 /// Construction identifier of the v1 Signal payload.
@@ -431,7 +431,7 @@ impl SignalEnvelope {
                 "signal ciphertext exceeds {MAX_SIGNAL_CIPHERTEXT_CHARS} characters"
             )));
         }
-        // `signal.md` §1 — the bare full DID must project to the sender core id,
+        // `signal.md` §1 — the DID must project to the sender core id,
         // and the fragment must equal the device id. This is only the
         // completeness condition of the directory lookup key, never a
         // substitute for current device authorization.
@@ -445,7 +445,7 @@ impl SignalEnvelope {
                     "signal proof verification_method requires a DID URL fragment".to_owned(),
                 )
             })?;
-        let proof_controller = project_full_id_to_core_id(&DidFullId::new(proof_controller)?)?;
+        let proof_controller = project_did_to_core_id(&Did::new(proof_controller)?)?;
         if proof_controller != self.sender_actor_id
             || proof_fragment != self.sender_device_id.as_str()
         {
@@ -617,8 +617,8 @@ mod tests {
         DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
     }
 
-    fn actor_full() -> DidFullId {
-        DidFullId::new("did:webvh:z6mkfixture:alice.example").unwrap()
+    fn actor_did() -> Did {
+        Did::new("did:webvh:z6mkfixture:alice.example").unwrap()
     }
 
     fn device() -> DeviceId {
@@ -651,7 +651,7 @@ mod tests {
             },
             proof: SignalProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
-                verification_method: DidUrl::new(format!("{}#{}", actor_full(), device())).unwrap(),
+                verification_method: DidUrl::new(format!("{}#{}", actor_did(), device())).unwrap(),
                 envelope_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 created_at: sent_at(),
                 domain: None,
@@ -720,11 +720,11 @@ mod tests {
         // a device id, and a method controlled by another DID, both name a
         // different directory row than the envelope claims.
         for method in [
-            format!("{}#device-key", actor_full()),
+            format!("{}#device-key", actor_did()),
             format!("did:webvh:z6mkother:mallory.example#{}", device()),
             format!(
                 "{}#ak:device:01904100-0000-7000-8000-bbbbbbbbbbbc",
-                actor_full()
+                actor_did()
             ),
         ] {
             let mut mutated = envelope(SignalClass::Session, 30);

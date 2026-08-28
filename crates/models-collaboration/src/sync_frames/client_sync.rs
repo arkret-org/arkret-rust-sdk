@@ -568,13 +568,13 @@ pub struct RealmUpdate {
 mod tests {
     use std::collections::BTreeMap;
 
-    use arkret_wire::{DidCoreId, project_full_id_to_core_id};
+    use arkret_wire::{DidCoreId, project_did_to_core_id};
 
     use super::*;
 
     fn actor(value: &str) -> DidCoreId {
-        let full_id = DidFullId::new(value).unwrap();
-        project_full_id_to_core_id(&full_id).unwrap()
+        let did = Did::new(value).unwrap();
+        project_did_to_core_id(&did).unwrap()
     }
 
     #[test]

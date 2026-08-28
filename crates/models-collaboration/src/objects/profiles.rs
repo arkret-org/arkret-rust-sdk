@@ -7,9 +7,9 @@ use arkret_canonical::binding_contexts;
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_models_crypto::protected_payload::MlsPayloadType;
 use arkret_wire::{
-    Base64UrlString, CircleId, DeviceId, DidCoreId, DidFullId, DidUrl, Hash, MorphId, ObjectStage,
+    Base64UrlString, CircleId, DeviceId, Did, DidCoreId, DidUrl, Hash, MorphId, ObjectStage,
     ObjectState, PolicyId, RealmId, Result, SchemaId, StrandId, TrustDomainId, WireError,
-    canonical, project_full_id_to_core_id,
+    canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -546,11 +546,11 @@ impl IdentityLink {
                     "identity_link response-signing verification method lacks fragment".to_owned(),
                 )
             })?;
-        let response_controller = DidFullId::new(response_controller.to_owned())?;
+        let response_controller = Did::new(response_controller.to_owned())?;
         let response_key = arkret_wire::base64url::base64url_decode(
             self.response_signing_public_key_b64u.as_str().as_bytes(),
         )?;
-        if project_full_id_to_core_id(&response_controller)? != self.pairwise_actor_id
+        if project_did_to_core_id(&response_controller)? != self.pairwise_actor_id
             || response_key.len() != 32
             || self.response_signing_public_key_digest
                 != Hash::new(arkret_canonical::sha256_digest(&response_key))?

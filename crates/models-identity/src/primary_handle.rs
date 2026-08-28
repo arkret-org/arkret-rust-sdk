@@ -10,7 +10,7 @@
 //!
 //! This module is wasm-safe: it depends only on the identity-domain wire
 //! shapes ([`Handle`], [`HandleClaim`], [`HandleBindingState`]) plus the
-//! `arkret-wire` primitives (`DidFullId`/`Error`/`Result`) and `arkret-canonical`
+//! `arkret-wire` primitives (`Did`/`Error`/`Result`) and `arkret-canonical`
 //! (JCS canonicalization + sha256), and pulls in no client / keystore /
 //! salvo / MLS native-only dependency. The umbrella `arkret` crate re-exports
 //! these symbols from `arkret::identity`, while wasm-only consumers (e.g.

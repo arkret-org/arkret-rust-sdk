@@ -13,7 +13,7 @@ use serde_json::Value;
 use crate::error::{Result, WireError};
 use crate::recovery_authority::{CanonicalPublicMaterial, RecoveryCompletionAttestation};
 use crate::{
-    BackupId, BackupSeriesId, DeviceId, DidCoreId, DidFullId, DidUrl, EventId,
+    BackupId, BackupSeriesId, DeviceId, Did, DidCoreId, DidUrl, EventId,
     EventsSubmitBatchRequestBody, Hash, ReceiptId, RecoverySessionId, TransactionId,
 };
 
@@ -855,7 +855,7 @@ impl SecurityTransaction {
         }
         for accepted in &self.accepted_steps {
             validate_step_output_ref("accepted_steps[].output_ref", &accepted.output_ref)?;
-            if DidFullId::new(accepted.acceptor_id.clone()).is_err()
+            if Did::new(accepted.acceptor_id.clone()).is_err()
                 && DeviceId::new(accepted.acceptor_id.clone()).is_err()
             {
                 return Err(WireError::Protocol(

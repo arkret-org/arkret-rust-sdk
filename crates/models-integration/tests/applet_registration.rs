@@ -11,7 +11,7 @@ use arkret_models_integration::{
     HttpMessageSignatureAlgorithm, WebhookAuth, WidgetEffect,
 };
 use arkret_wire::{
-    AppletId, DidCoreId, DidFullId, DidUrl, Hash, Hlc, NotaryJoseAlgorithm, NotaryKeyKind,
+    AppletId, Did, DidCoreId, DidUrl, Hash, Hlc, NotaryJoseAlgorithm, NotaryKeyKind,
     NotarySignerDescriptor, PayloadSignature, PayloadSigner, PlanId, RealmId, Result as WireResult,
     ScopeRef,
 };
@@ -19,12 +19,12 @@ use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
 
 struct StubSigner {
-    did: DidFullId,
+    did: Did,
     verification_method: DidUrl,
 }
 
 impl PayloadSigner for StubSigner {
-    fn signer_did(&self) -> &DidFullId {
+    fn signer_did(&self) -> &Did {
         &self.did
     }
 
@@ -53,8 +53,8 @@ impl PayloadSigner for StubSigner {
     }
 }
 
-fn full(name: &str) -> DidFullId {
-    DidFullId::new(format!("did:webvh:{name}:{name}.example")).unwrap()
+fn did(name: &str) -> Did {
+    Did::new(format!("did:webvh:{name}:{name}.example")).unwrap()
 }
 
 fn actor(name: &str) -> DidCoreId {
@@ -84,7 +84,7 @@ fn canonical_now() -> DateTime<Utc> {
 fn hosting_notary() -> NotarySignerDescriptor {
     NotarySignerDescriptor {
         actor_id: actor("principal-server"),
-        verification_method: DidUrl::new(format!("{}#notary-key", full("principal-server")))
+        verification_method: DidUrl::new(format!("{}#notary-key", did("principal-server")))
             .unwrap(),
         key_kind: NotaryKeyKind::Ed25519Raw32,
         jose_algorithm: NotaryJoseAlgorithm::Ed25519,
@@ -98,7 +98,7 @@ fn hosting_notary() -> NotarySignerDescriptor {
 
 fn sample_epoch_evidence(service_id: &DidCoreId) -> AppletRegistrationEpochEvidence {
     let document = DidDocument::new(
-        full(service_id.as_str().rsplit(':').next().unwrap()),
+        did(service_id.as_str().rsplit(':').next().unwrap()),
         "key-1",
         "z6MkrJVnaZkeF7EsnJQ9xQY4bqG9tbeFqTzL7uTVs11FwUjT",
     );
@@ -190,7 +190,7 @@ fn package_with_required_fields() -> AppletPackage {
         "applet_pkg_todo",
         AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
         service("slackbridge"),
-        full("slackbridge"),
+        did("slackbridge"),
         principal("alice"),
         "https://applet.example/cx",
         actor("bot"),
@@ -212,7 +212,7 @@ fn package_with_required_fields() -> AppletPackage {
         extra: Default::default(),
     });
     package.webhook_auth = WebhookAuth::http_message_signature(
-        DidUrl::new(format!("{}#key-1", full("slackbridge"))).unwrap(),
+        DidUrl::new(format!("{}#key-1", did("slackbridge"))).unwrap(),
         vec![HttpMessageSignatureAlgorithm::Ed25519],
     );
     package
@@ -222,7 +222,7 @@ fn seal_and_sign_test_package(package: &mut AppletPackage) {
     package.seal().unwrap();
     let verification_method = package.webhook_auth.key_ref.clone();
     let signer = StubSigner {
-        did: full("slackbridge"),
+        did: did("slackbridge"),
         verification_method: verification_method.clone(),
     };
     package.sign(&signer, &verification_method).unwrap();
@@ -401,32 +401,32 @@ fn applet_ping_consumes_protocol_version_bootstrap() {
 
 #[test]
 fn epoch_method_version_rules_follow_the_active_v1_adapters() {
-    let web_full = DidFullId::new("did:web:applet.example".to_owned()).unwrap();
+    let web_did = Did::new("did:web:applet.example".to_owned()).unwrap();
     let disguised_web =
         AppletDidMethodVersionEvidence::versioned("did:web", Some("synthetic".to_owned()), None)
             .unwrap();
-    assert!(disguised_web.validate_for_full_id(&web_full).is_err());
+    assert!(disguised_web.validate_for_did(&web_did).is_err());
 
-    let webvh_full = DidFullId::new("did:webvh:z6mkfixture:applet.example".to_owned()).unwrap();
+    let webvh_did = Did::new("did:webvh:z6mkfixture:applet.example".to_owned()).unwrap();
     let unpinned_webvh = AppletDidMethodVersionEvidence::unversioned("did:webvh").unwrap();
-    assert!(unpinned_webvh.validate_for_full_id(&webvh_full).is_err());
+    assert!(unpinned_webvh.validate_for_did(&webvh_did).is_err());
 
     let wrong_method = AppletDidMethodVersionEvidence::versioned(
         "did:key",
-        Some("synthetic-full-id-sha256:abc".to_owned()),
+        Some("synthetic-did-sha256:abc".to_owned()),
         None,
     )
     .unwrap();
-    assert!(wrong_method.validate_for_full_id(&webvh_full).is_err());
+    assert!(wrong_method.validate_for_did(&webvh_did).is_err());
 }
 
 #[test]
 fn registration_epoch_evidence_rejects_rotation_swap_and_empty_key_set() {
     let mut package = package_with_required_fields();
-    let full_id = full("slackbridge");
+    let did = did("slackbridge");
     let key_ref = package.webhook_auth.key_ref.to_string();
     let old_document = DidDocument::new(
-        full_id.clone(),
+        did.clone(),
         key_ref.clone(),
         r#"{"crv":"Ed25519","kty":"OKP","x":"old"}"#,
     );
@@ -448,7 +448,7 @@ fn registration_epoch_evidence_rejects_rotation_swap_and_empty_key_set() {
     let old_epoch = package.registration_epoch.clone();
 
     let rotated_document = DidDocument::new(
-        full_id,
+        did,
         key_ref,
         r#"{"crv":"Ed25519","kty":"OKP","x":"rotated"}"#,
     );
@@ -496,10 +496,10 @@ fn registration_epoch_evidence_rejects_rotation_swap_and_empty_key_set() {
 }
 
 #[test]
-fn registration_epoch_evidence_rejects_deactivated_and_swapped_full_id() {
+fn registration_epoch_evidence_rejects_deactivated_and_swapped_did() {
     let package = package_with_required_fields();
     let mut document = DidDocument::new(
-        full("slackbridge"),
+        did("slackbridge"),
         package.webhook_auth.key_ref.to_string(),
         r#"{"crv":"Ed25519","kty":"OKP","x":"active"}"#,
     );
@@ -523,7 +523,7 @@ fn registration_epoch_evidence_rejects_deactivated_and_swapped_full_id() {
     assert!(AppletRegistrationEpochEvidence::from_did_document(&document, method_version).is_err());
 
     let other_document = DidDocument::new(
-        full("other-service"),
+        did("other-service"),
         "#key-1",
         r#"{"crv":"Ed25519","kty":"OKP","x":"other"}"#,
     );
@@ -639,8 +639,8 @@ fn install_commit_uses_each_signed_event_carrier_once() {
         capability_grant_events: vec![capability_grant_event],
     };
     let signer = StubSigner {
-        did: full("principal-server"),
-        verification_method: DidUrl::new(format!("{}#notary-key", full("principal-server")))
+        did: did("principal-server"),
+        verification_method: DidUrl::new(format!("{}#notary-key", did("principal-server")))
             .unwrap(),
     };
     let authoring_request = AppletManagedActorAuthoringRequest::sign(
@@ -893,8 +893,8 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
         capability_grant_events: vec![capability_grant_event],
     };
     let signer = StubSigner {
-        did: full("principal-server"),
-        verification_method: DidUrl::new(format!("{}#notary-key", full("principal-server")))
+        did: did("principal-server"),
+        verification_method: DidUrl::new(format!("{}#notary-key", did("principal-server")))
             .unwrap(),
     };
     let first = AppletManagedActorAuthoringRequest::sign(

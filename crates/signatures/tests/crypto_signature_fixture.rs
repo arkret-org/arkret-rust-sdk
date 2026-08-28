@@ -21,7 +21,7 @@ use arkret_canonical::{base64url_decode, base64url_encode, canonical};
 use arkret_schema::embedded_json_artifact;
 use arkret_signatures::proof::{PublicKeyMaterial, verify_detached_ed25519_signature};
 use arkret_signatures::{PRODUCTION_ALGORITHMS, verify_ed25519_detached_jws_proof};
-use arkret_wire::{DidFullId, DidUrl, Hash, ProducerEventProof, project_full_id_to_core_id};
+use arkret_wire::{Did, DidUrl, Hash, ProducerEventProof, project_did_to_core_id};
 use ed25519_dalek::Signer as _;
 use serde_json::Value;
 
@@ -242,14 +242,14 @@ fn negative_cases_reject_through_sdk_verifiers() {
     let base_public_key = PublicKeyMaterial::Jwk {
         value: base["did_document_fragment"]["publicKeyJwk"].clone(),
     };
-    let actor_full_id = DidFullId::new(
+    let actor_did = Did::new(
         s(&base["proof"], "verification_method")
             .split_once('#')
             .expect("verification method fragment")
             .0,
     )
     .unwrap();
-    let actor = project_full_id_to_core_id(&actor_full_id).unwrap();
+    let actor = project_did_to_core_id(&actor_did).unwrap();
     assert_eq!(actor.as_str(), s(&base["binding_object"], "actor_id"));
     let canonical_event_bytes =
         canonical::canonical_json_bytes(&digest_preimage(&base["event_without_proofs"])).unwrap();

@@ -680,7 +680,7 @@ mod tests {
             "service_kind": "principal_server",
             "service_id": "ak:did_core:web:server.local",
             "service_resolution": {
-                "full_id": "did:web:server.local",
+                "did": "did:web:server.local",
                 "method_history_head": "sha256:fixture",
                 "version_id": "fixture-v1"
             },

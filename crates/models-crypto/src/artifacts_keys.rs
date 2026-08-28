@@ -6,8 +6,8 @@ use std::ops::Deref;
 
 use arkret_wire::{
     AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, DeviceId,
-    DeviceReanchorPreFenceSealFrontier, DidCoreId, DidFullId, DidUrl, DomainSeparationId, EventId,
-    Hash, HistoryEffectiveScope, HistorySecretRange, LeaseBasisRef, NonEmptyString, PolicyId,
+    DeviceReanchorPreFenceSealFrontier, DidCoreId, DidUrl, DomainSeparationId, EventId, Hash,
+    HistoryEffectiveScope, HistorySecretRange, LeaseBasisRef, NonEmptyString, PolicyId,
     PrincipalAuthorityKey, RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, ReasonCode,
     RecoverySessionId, RequestId, Result, SchemaId, ScopeRef, SessionGrantId, TransactionId,
     TrustDomainId, WireError, XExtensionMap,
@@ -802,11 +802,11 @@ pub struct KeyRecord {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/principal_device_algorithm_map`.
-pub type PrincipalDeviceAlgorithmMap = BTreeMap<DidFullId, DeviceAlgorithmMap>;
+pub type PrincipalDeviceAlgorithmMap = BTreeMap<DidCoreId, DeviceAlgorithmMap>;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/principal_device_key_records`.
-pub type PrincipalDeviceKeyRecords = BTreeMap<DidFullId, DeviceKeyRecords>;
+pub type PrincipalDeviceKeyRecords = BTreeMap<DidCoreId, DeviceKeyRecords>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/query_device_map`.
 pub type QueryDeviceMap = BTreeMap<DidCoreId, Vec<DeviceId>>;

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-28.1; sha256=fcef46485cc281088a811985ae8702c3010edafeae8daab9a0f722a25dd0eed3
-//! Entries: error_codes=286
+//! Input: registry/error-code-registry.json; version=2026-08-28.1;
+//! sha256=8aff1fe9c3f7ecf80931cccec01d5d1a680c75726c7af70fdc059e631e8f0caa Entries: error_codes=286
 
 use serde::{Deserialize, Serialize};
 
@@ -2442,7 +2442,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     ErrorCodeDescriptor {
         code: ErrorCode::DidAlreadyExists,
         type_uri: "https://arkret.org/problems/did_already_exists",
-        title: "Did already exists",
+        title: "DID already exists",
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2452,7 +2452,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     ErrorCodeDescriptor {
         code: ErrorCode::DidMethodSuccessorInvalid,
         type_uri: "https://arkret.org/problems/did_method_successor_invalid",
-        title: "Did method successor invalid",
+        title: "DID method successor invalid",
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
@@ -2462,7 +2462,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     ErrorCodeDescriptor {
         code: ErrorCode::DidNotFound,
         type_uri: "https://arkret.org/problems/did_not_found",
-        title: "Did not found",
+        title: "DID not found",
         http_status: 404,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2472,7 +2472,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     ErrorCodeDescriptor {
         code: ErrorCode::DidProofRequired,
         type_uri: "https://arkret.org/problems/did_proof_required",
-        title: "Did proof required",
+        title: "DID proof required",
         http_status: 401,
         http_status_by_context: &[],
         scope: "both",
@@ -2482,7 +2482,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     ErrorCodeDescriptor {
         code: ErrorCode::DidRevoked,
         type_uri: "https://arkret.org/problems/did_revoked",
-        title: "Did revoked",
+        title: "DID revoked",
         http_status: 410,
         http_status_by_context: &[],
         scope: "endpoint",
@@ -2492,7 +2492,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     ErrorCodeDescriptor {
         code: ErrorCode::DidUnknown,
         type_uri: "https://arkret.org/problems/did_unknown",
-        title: "Did unknown",
+        title: "DID unknown",
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",

@@ -14,8 +14,8 @@ use serde_json::Value;
 use crate::error::{Result, WireError};
 use crate::notary::NotaryValue;
 use crate::{
-    AuthorizationLease, CbaProofBundle, DidFullId, Event, EventSubmitContext, Hash,
-    PayloadSignature, PayloadSigner, RealmId, SealId, canonical,
+    AuthorizationLease, CbaProofBundle, Did, Event, EventSubmitContext, Hash, PayloadSignature,
+    PayloadSigner, RealmId, SealId, canonical,
 };
 
 pub const MAX_PROPOSAL_DECISION_WINDOW: Duration = Duration::hours(24);
@@ -478,7 +478,7 @@ fn signer_controller(signature: &PayloadSignature) -> Result<&str> {
         .verification_method
         .split_once('#')
         .expect("DidUrl always carries a fragment");
-    DidFullId::new(controller)?;
+    Did::new(controller)?;
     Ok(controller)
 }
 
@@ -1192,12 +1192,12 @@ mod tests {
     use crate::{DidCoreId, DidUrl, NotarySignerDescriptor};
 
     struct FixtureSigner {
-        did: DidFullId,
+        did: Did,
         verification_method: DidUrl,
     }
 
     impl PayloadSigner for FixtureSigner {
-        fn signer_did(&self) -> &DidFullId {
+        fn signer_did(&self) -> &Did {
             &self.did
         }
 
@@ -1271,7 +1271,7 @@ mod tests {
     #[test]
     fn local_authority_ack_uses_the_canonical_signer_transcript() {
         let signer = FixtureSigner {
-            did: DidFullId::new("did:webvh:z6mkfixture:authority.example").unwrap(),
+            did: Did::new("did:webvh:z6mkfixture:authority.example").unwrap(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:authority.example#device-1")
                 .unwrap(),
         };

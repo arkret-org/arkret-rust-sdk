@@ -1,14 +1,23 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-27.1; sha256=c279084a6be2fff2e5806f2dee54d302389ebbae97b633fd4f4b343568b82ca4
-//! Input: registry/exporter-label-registry.json; version=2026-08-21.1; sha256=6cb34e722ce41df3c91204d48f6cdf66b68640e9d86a379a9267cefce484bb02
-//! Input: registry/digest-suite-registry.json; version=2026-08-18; sha256=7b9f5368e30cebd43c509db7815b9a01681f8cf11147600f6be16bddcc74657f
-//! Input: registry/signature-alg-registry.json; version=2026-08-18.1; sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c
-//! Input: registry/hpke-suite-registry.json; version=2026-08-25.1; sha256=c91e5a1fa8e86b1a3db4dad362cf3d28128b168c8e9b5cbb3c7f297159fec231
-//! Input: registry/mls-ciphersuite-registry.json; version=2026-08-25; sha256=68619d8db1de222c9d032fdc96e92be32e85fdc0a3a0befdf4b21d135a57075d
-//! Input: registry/mls-extension-registry.json; version=2026-08-25; sha256=298685c15b11d75b55b1b6ece6a3674b320ae00a90f488cc4d2d3545f4888b86
-//! Input: registry/aead-profile-registry.json; version=2026-08-16.1; sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=80, exporter_labels=9, digest_suites=3, signature_algorithms=4, hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=33, aead_profiles=2
+//! Input: registry/proof-context-registry.json; version=2026-08-27.1;
+//! sha256=94e68dcd683592a8c044459f22ff5e567e3254ff5fa0f50bd834d744ad21ce31 Input: registry/
+//! exporter-label-registry.json; version=2026-08-21.1;
+//! sha256=6cb34e722ce41df3c91204d48f6cdf66b68640e9d86a379a9267cefce484bb02 Input: registry/
+//! digest-suite-registry.json; version=2026-08-18;
+//! sha256=7b9f5368e30cebd43c509db7815b9a01681f8cf11147600f6be16bddcc74657f Input: registry/
+//! signature-alg-registry.json; version=2026-08-18.1;
+//! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
+//! hpke-suite-registry.json; version=2026-08-25.1;
+//! sha256=c91e5a1fa8e86b1a3db4dad362cf3d28128b168c8e9b5cbb3c7f297159fec231 Input: registry/
+//! mls-ciphersuite-registry.json; version=2026-08-25;
+//! sha256=68619d8db1de222c9d032fdc96e92be32e85fdc0a3a0befdf4b21d135a57075d Input: registry/
+//! mls-extension-registry.json; version=2026-08-25;
+//! sha256=298685c15b11d75b55b1b6ece6a3674b320ae00a90f488cc4d2d3545f4888b86 Input: registry/
+//! aead-profile-registry.json; version=2026-08-16.1;
+//! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
+//! Entries: proof_contexts=80, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=33, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -1096,7 +1105,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "request_canonical_digest",
             "account_subject",
             "principal_id",
-            "full_id",
+            "did",
             "did_version_id",
             "log_head_digest",
             "control_key_digest",
@@ -1426,7 +1435,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "payload_digest",
             "issuer_service_id",
-            "did",
+            "subject_did",
             "version_id",
             "witness_did",
             "verification_method",
@@ -1814,7 +1823,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "payload_digest",
             "registry_service_id",
-            "did",
+            "subject_did",
             "verification_method",
             "created_at",
             "domain?",
@@ -2252,7 +2261,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         consumer_operation: None,
         binding_fields: &[
             "principal_id",
-            "full_id",
+            "did",
             "adapter_version",
             "method_history_head",
             "version_id",
@@ -2308,7 +2317,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "payload_digest",
             "service_id",
             "service_kind",
-            "full_id",
+            "did",
             "method_history_head",
             "version_id",
             "resolution_event_ref",

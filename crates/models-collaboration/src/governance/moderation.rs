@@ -1,8 +1,8 @@
 //! Moderation report wire DTOs.
 
 use arkret_wire::{
-    DidCoreId, DidFullId, EventInitialSubmission, EventKind, RealmId, ReportId, Result, SchemaId,
-    ScopeRef, project_full_id_to_core_id,
+    Did, DidCoreId, EventInitialSubmission, EventKind, RealmId, ReportId, Result, SchemaId,
+    ScopeRef, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -192,8 +192,8 @@ fn proof_controller_matches_actor(verification_method: &str, actor_id: &DidCoreI
                 "moderation report proof verification_method has no fragment".to_owned(),
             )
         })?;
-    let full_id = DidFullId::new(controller.to_owned())?;
-    Ok(project_full_id_to_core_id(&full_id)? == *actor_id)
+    let did = Did::new(controller.to_owned())?;
+    Ok(project_did_to_core_id(&did)? == *actor_id)
 }
 
 /// Moderation report (moderation.md §3).

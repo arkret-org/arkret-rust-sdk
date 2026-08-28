@@ -1,6 +1,6 @@
 use arkret_canonical::serde_helpers::canonical_timestamp;
 use arkret_models_identity::DetachedPayloadProof;
-use arkret_wire::{DidCoreId, DidFullId, project_full_id_to_core_id};
+use arkret_wire::{Did, DidCoreId, project_did_to_core_id};
 
 use super::*;
 use crate::verification_method_did;
@@ -46,7 +46,7 @@ pub struct DidRegistryReceipt {
     pub schema: String,
     pub receipt_id: arkret_wire::ReceiptId,
     /// DID whose key-log head this receipt witnesses.
-    pub did: DidFullId,
+    pub did: Did,
     /// Key-log sequence number of the witnessed head.
     pub seq: u64,
     /// Witnessed `head_event_digest` (§3.1.3 self-digest rule).
@@ -73,7 +73,7 @@ impl DidRegistryReceipt {
     #[allow(clippy::too_many_arguments)]
     pub fn signed(
         receipt_id: arkret_wire::ReceiptId,
-        did: DidFullId,
+        did: Did,
         seq: u64,
         head_event_digest: Hash,
         registry_service_id: DidCoreId,
@@ -167,16 +167,15 @@ impl DidRegistryReceipt {
     /// Resolve the registry authority document, then verify the receipt against
     /// its current `assertionMethod` relationship.
     pub fn verify(&self, resolver: &dyn DidResolver) -> Result<()> {
-        let registry_full_id =
-            verification_method_did(self.signature.verification_method.as_str())?;
-        let projected = project_full_id_to_core_id(&registry_full_id)?;
+        let registry_did = verification_method_did(self.signature.verification_method.as_str())?;
+        let projected = project_did_to_core_id(&registry_did)?;
         if projected.as_str() != self.registry_service_id.as_str() {
             return Err(IdentityError::Protocol(
                 "identity receipt registry_service_id does not match proof controller".to_owned(),
             ));
         }
-        let document = resolver.resolve_did_document(&registry_full_id)?;
-        self.verify_with_document_and_full_id(&document, &registry_full_id)
+        let document = resolver.resolve_did_document(&registry_did)?;
+        self.verify_with_document_and_did(&document, &registry_did)
     }
 
     /// Verify against an already-pinned current registry authority document.
@@ -185,18 +184,16 @@ impl DidRegistryReceipt {
     /// method is accepted only when its verification-method object explicitly
     /// declares `controller == registry_service_id`.
     pub fn verify_with_document(&self, document: &DidDocument) -> Result<()> {
-        let registry_full_id = document.id.clone();
-        self.verify_with_document_and_full_id(document, &registry_full_id)
+        let registry_did = document.id.clone();
+        self.verify_with_document_and_did(document, &registry_did)
     }
 
-    fn verify_with_document_and_full_id(
+    fn verify_with_document_and_did(
         &self,
         document: &DidDocument,
-        registry_full_id: &DidFullId,
+        registry_did: &Did,
     ) -> Result<()> {
-        if project_full_id_to_core_id(registry_full_id)?.as_str()
-            != self.registry_service_id.as_str()
-        {
+        if project_did_to_core_id(registry_did)?.as_str() != self.registry_service_id.as_str() {
             return Err(IdentityError::Protocol(
                 "identity receipt registry_service_id does not match proof controller".to_owned(),
             ));
@@ -240,7 +237,7 @@ impl DidRegistryReceipt {
             &binding_bytes,
             &self.signature.jws,
             &self.signature.verification_method,
-            registry_full_id,
+            registry_did,
             document,
             DidVerificationRelationship::AssertionMethod,
         )

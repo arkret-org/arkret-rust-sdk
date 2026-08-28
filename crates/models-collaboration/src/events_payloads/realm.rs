@@ -787,7 +787,7 @@ impl RealmGenesis {
         if let Some(resolution) = &self.initial_resolution
             && (resolution.method_history_head.is_empty()
                 || resolution.version_id.is_empty()
-                || project_full_id_to_core_id(&resolution.full_id).is_err())
+                || project_did_to_core_id(&resolution.did).is_err())
         {
             return Err(WireError::Protocol(
                 "schema_violation: invalid initial identity resolution".to_owned(),

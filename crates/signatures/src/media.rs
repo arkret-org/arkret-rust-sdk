@@ -15,7 +15,7 @@ use arkret_wire::DidCoreId;
 /// signing input (`media-service-binding.md` §3). Equals the v1 binding
 /// `scheme` byte-for-byte; a single `0x00` separates it from the canonical
 /// JSON of the seven authoritative fields.
-use arkret_wire::{CallId, DeviceId, DidFullId, RealmId};
+use arkret_wire::{CallId, DeviceId, Did, RealmId};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, VerifyingKey};
 use serde::Serialize;
@@ -92,27 +92,27 @@ pub fn call_media_token_exchange(
 /// with `token_issuer_unauthorised`.
 #[derive(Clone, Debug, Default)]
 pub struct MediaServiceAnchors {
-    routes: BTreeMap<DidCoreId, DidFullId>,
+    routes: BTreeMap<DidCoreId, Did>,
     /// Issuer verifying keys keyed by their full `kid` (`did:...#fragment`).
     keys: BTreeMap<String, VerifyingKey>,
 }
 
 impl MediaServiceAnchors {
-    /// Build an anchor set from verified `(service core, current full DID)` routes.
+    /// Build an anchor set from verified `(service core, current DID)` routes.
     ///
     /// The returned set carries no verifying keys; callers MUST add them with
     /// [`with_keys`](Self::with_keys) / [`insert_key`](Self::insert_key) before
     /// passing it to [`verify_call_media_token_outcome`], otherwise signature
     /// verification fails closed with `token_issuer_unauthorised`.
-    pub fn new(routes: impl IntoIterator<Item = (DidCoreId, DidFullId)>) -> Result<Self> {
+    pub fn new(routes: impl IntoIterator<Item = (DidCoreId, Did)>) -> Result<Self> {
         let mut verified_routes = BTreeMap::new();
-        for (service_id, full_id) in routes {
-            if arkret_wire::project_full_id_to_core_id(&full_id)? != service_id {
+        for (service_id, did) in routes {
+            if arkret_wire::project_did_to_core_id(&did)? != service_id {
                 return Err(Error::Protocol(
-                    "media service route full DID does not project to service_id".to_owned(),
+                    "media service route DID does not project to service_id".to_owned(),
                 ));
             }
-            if verified_routes.insert(service_id, full_id).is_some() {
+            if verified_routes.insert(service_id, did).is_some() {
                 return Err(Error::Protocol(
                     "media service route set contains a duplicate service_id".to_owned(),
                 ));
@@ -150,7 +150,9 @@ impl MediaServiceAnchors {
 
     /// True when `did` (a bare DID, no `#fragment`) is anchored.
     pub fn contains(&self, did: &str) -> bool {
-        self.routes.values().any(|full_id| full_id.as_str() == did)
+        self.routes
+            .values()
+            .any(|route_did| route_did.as_str() == did)
     }
 
     /// Look up the verifying key for a full `kid` (`did:...#fragment`).
@@ -170,7 +172,7 @@ impl MediaServiceAnchors {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CallMediaTokenVerification {
     /// The anchored media-service DID that issued the participant binding.
-    pub issuer_did: DidFullId,
+    pub issuer_did: Did,
     /// The verified participant identity (SFU-local handle).
     pub participant_identity: String,
 }
@@ -370,7 +372,7 @@ pub fn verify_call_media_token_outcome(
     )?;
 
     Ok(CallMediaTokenVerification {
-        issuer_did: DidFullId::new(issuer_did.to_owned())?,
+        issuer_did: Did::new(issuer_did.to_owned())?,
         participant_identity: outcome.participant_identity.clone(),
     })
 }
@@ -383,8 +385,8 @@ mod tests {
 
     const ISSUER_KID: &str = "did:webvh:z6mkfixturemedia:media.example#media-token";
 
-    fn did(name: &str) -> DidFullId {
-        DidFullId::new(format!("did:webvh:z6mkfixture{name}:{name}.example")).unwrap()
+    fn did(name: &str) -> Did {
+        Did::new(format!("did:webvh:z6mkfixture{name}:{name}.example")).unwrap()
     }
 
     fn actor(name: &str) -> DidCoreId {

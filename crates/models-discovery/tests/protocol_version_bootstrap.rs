@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use arkret_models_discovery::ServiceDescribe;
 use arkret_models_integration::AppletPingOutcome;
 use arkret_schema::embedded_json_artifact;
-use arkret_wire::{DidFullId, ServiceKind, ServiceOperationId, TrustDomainId};
+use arkret_wire::{Did, ServiceKind, ServiceOperationId, TrustDomainId};
 use serde_json::{Value, json};
 
 const INVENTORY: &str = include_str!("../../../conformance/ak-sdk-024-public-api-inventory.json");
@@ -15,7 +15,7 @@ fn fixture() -> Value {
 
 fn service_describe_value() -> Value {
     serde_json::to_value(ServiceDescribe::development(
-        DidFullId::new("did:webvh:z6mkfixture:service.example").unwrap(),
+        Did::new("did:webvh:z6mkfixture:service.example").unwrap(),
         TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         ServiceKind::PrincipalServer,
         vec!["ak.operation_bundle.principal_server.describe.v1".to_owned()],
@@ -37,7 +37,7 @@ fn applet_ping_value() -> Value {
 
 fn identity_service_describe_value() -> Value {
     serde_json::to_value(ServiceDescribe::development(
-        DidFullId::new("did:webvh:z6mkfixture:identity.example").unwrap(),
+        Did::new("did:webvh:z6mkfixture:identity.example").unwrap(),
         TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         ServiceKind::IdentityRegistry,
         vec!["ak.operation_bundle.identity_registry.describe.v1".to_owned()],

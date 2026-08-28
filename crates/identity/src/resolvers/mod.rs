@@ -15,17 +15,16 @@ pub use policy::*;
 // ============================================================================
 #[cfg(test)]
 mod caching_tests {
-    use arkret_wire::DidFullId;
+    use arkret_wire::Did;
     use chrono::Utc;
 
     use super::*;
     use crate::DidResolver;
 
-    fn sample_did(suffix: &str) -> DidFullId {
+    fn sample_did(suffix: &str) -> Did {
         // Valid did:key Ed25519 multibase fixtures.
         let base = "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH";
-        DidFullId::new(format!("{base}{suffix}"))
-            .unwrap_or_else(|_| DidFullId::new(base.to_owned()).unwrap())
+        Did::new(format!("{base}{suffix}")).unwrap_or_else(|_| Did::new(base.to_owned()).unwrap())
     }
 
     #[test]

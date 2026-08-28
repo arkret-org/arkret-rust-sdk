@@ -16,7 +16,7 @@
 use arkret_models_crypto::{
     DeviceProjectionAttestation, DeviceProjectionAttestationCore, DeviceStatus,
 };
-use arkret_wire::{Base64UrlString, DidCoreId, DidFullId, DidUrl, ProtocolSignature};
+use arkret_wire::{Base64UrlString, Did, DidCoreId, DidUrl, ProtocolSignature};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, Signer as _, SigningKey, Verifier as _, VerifyingKey};
 
@@ -119,9 +119,9 @@ fn proof_controller(verification_method: &DidUrl) -> arkret_wire::Result<DidCore
                 "device projection attestation verification method has no fragment".to_owned(),
             )
         })?;
-    let full_id = DidFullId::new(bare.to_owned())
+    let did = Did::new(bare.to_owned())
         .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
-    arkret_wire::project_full_id_to_core_id(&full_id)
+    arkret_wire::project_did_to_core_id(&did)
         .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))
 }
 

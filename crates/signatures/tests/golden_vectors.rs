@@ -34,14 +34,14 @@ fn detached_jws_protected_header_is_alg_ed25519_only() {
 #[cfg(feature = "signer")]
 #[test]
 fn payload_signer_and_generic_detached_jws_signer_share_one_header_and_signature() {
-    use arkret_identifiers::DidFullId;
+    use arkret_identifiers::Did;
     use arkret_signatures::Ed25519PayloadSigner;
     use arkret_signatures::proof::{Ed25519DetachedJwsSigner, EventSigner};
     use arkret_wire::DidUrl;
     use arkret_wire::signer::PayloadSigner;
 
     let seed = [7u8; 32];
-    let did = DidFullId::new("did:web:alice.example".to_owned()).unwrap();
+    let did = Did::new("did:web:alice.example".to_owned()).unwrap();
     let vm = "did:web:alice.example#key-1";
 
     // The property is that both signing paths share one signing input, so the

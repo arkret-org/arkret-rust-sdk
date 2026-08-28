@@ -12,7 +12,7 @@
 //! already-authenticated historical group-state view and never accepts a
 //! directory client or resolver callback, so a caller cannot accidentally
 //! wire a network fallback through it.
-use arkret_wire::{DidCoreId, DidFullId, DidUrl, project_full_id_to_core_id};
+use arkret_wire::{Did, DidCoreId, DidUrl, project_did_to_core_id};
 
 /// Credential carried by an active leaf in an [`AuthorGroupStateView`].
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -63,7 +63,7 @@ pub struct MinimalMetadataAuthorClaim<'a> {
     /// credential identity is this DidCoreId, never the resolvable did:key.
     pub actor_id: &'a DidCoreId,
     /// Event proof verification method. Its controller MUST be a did:key
-    /// DidFullId whose active adapter projection equals `actor_id`.
+    /// DID whose active adapter projection equals `actor_id`.
     pub proof_verification_method: &'a DidUrl,
     /// The proof's resolved public key, raw bytes (e.g. Ed25519 32 bytes via
     /// `arkret_signatures::proof::PublicKeyMaterial::ed25519_bytes`).
@@ -81,7 +81,7 @@ pub enum MinimalMetadataAuthorViolation {
     /// Envelope `group_state_ref` is not the winning group state for the
     /// epoch (rollback / non-winning fork).
     GroupStateRefNotWinning,
-    /// The proof method is not a did:key URL, or its DidFullId controller does
+    /// The proof method is not a did:key URL, or its DID controller does
     /// not project byte-for-byte to the Event Core DidCoreId.
     ProofVerificationMethodMismatch,
     /// No active leaf carries a BasicCredential equal to `utf8(actor_id)`
@@ -165,10 +165,10 @@ pub fn verify_minimal_metadata_author(
     if !controller.starts_with("did:key:") {
         return reject(MinimalMetadataAuthorViolation::ProofVerificationMethodMismatch);
     }
-    let Ok(controller) = DidFullId::new(controller.to_owned()) else {
+    let Ok(controller) = Did::new(controller.to_owned()) else {
         return reject(MinimalMetadataAuthorViolation::ProofVerificationMethodMismatch);
     };
-    let Ok(projected) = project_full_id_to_core_id(&controller) else {
+    let Ok(projected) = project_did_to_core_id(&controller) else {
         return reject(MinimalMetadataAuthorViolation::ProofVerificationMethodMismatch);
     };
     if projected != *claim.actor_id {
@@ -201,7 +201,7 @@ mod tests {
     use super::*;
 
     fn actor() -> DidCoreId {
-        project_full_id_to_core_id(&DidFullId::new("did:key:z6MkpairwiseAlice").unwrap()).unwrap()
+        project_did_to_core_id(&Did::new("did:key:z6MkpairwiseAlice").unwrap()).unwrap()
     }
 
     fn key(byte: u8) -> Vec<u8> {
@@ -351,7 +351,7 @@ mod tests {
     }
 
     #[test]
-    fn proof_full_id_must_project_to_event_actor_core_id() {
+    fn proof_did_must_project_to_event_actor_core_id() {
         let actor = actor();
         let proof_key = key(0xA1);
         let view = view(vec![basic_leaf(3, actor.as_str(), proof_key.clone())]);

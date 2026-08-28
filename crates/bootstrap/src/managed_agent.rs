@@ -17,7 +17,7 @@ use arkret_state::{
 use arkret_wire::{
     AuthorizationRef, CellRef, DidCoreId, EncryptionProfile, Event, EventKind, GenesisSalt, Hash,
     Hlc, NotarySig, NotaryValue, PayloadSigner, ProfileId, RealmId, Result, SchemaId, Seal, SealId,
-    SealSignature, SecurityClass, TrustDomainId, WireError, event_spec, project_full_id_to_core_id,
+    SealSignature, SecurityClass, TrustDomainId, WireError, event_spec, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 
@@ -46,9 +46,9 @@ pub struct ManagedAgentPcrCreatePayloadInput {
 pub fn build_managed_agent_pcr_create_payload(
     input: ManagedAgentPcrCreatePayloadInput,
 ) -> Result<RealmCreatePayload> {
-    if project_full_id_to_core_id(&input.initial_resolution.full_id)? != input.agent_id {
+    if project_did_to_core_id(&input.initial_resolution.did)? != input.agent_id {
         return Err(WireError::Protocol(
-            "managed Agent initial_resolution full_id does not project to agent_id".to_owned(),
+            "managed Agent initial_resolution did does not project to agent_id".to_owned(),
         ));
     }
     input.notary.validate()?;
@@ -488,7 +488,7 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
     project: CellWriteProjector<'_>,
 ) -> Result<Seal> {
     let material = materialize_managed_agent_pcr_control(events, project)?;
-    if project_full_id_to_core_id(signer.signer_did())? != material.controller_id {
+    if project_did_to_core_id(signer.signer_did())? != material.controller_id {
         return Err(WireError::Protocol(
             "managed Agent PCR Seal signer must be the delegated controller".to_owned(),
         ));

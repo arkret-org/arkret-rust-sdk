@@ -7,8 +7,8 @@
 use arkret_canonical as canonical;
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
-    DeviceId, DidCoreId, DidFullId, EventId, GrantId, Hash, JoinPolicyGateId, JoinPolicyQuestionId,
-    PayloadProof, ProofContextId, RealmId, Result, WireError, project_full_id_to_core_id,
+    DeviceId, Did, DidCoreId, EventId, GrantId, Hash, JoinPolicyGateId, JoinPolicyQuestionId,
+    PayloadProof, ProofContextId, RealmId, Result, WireError, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -703,8 +703,8 @@ fn validate_receipt_proof(
         .ok_or_else(|| {
             WireError::Protocol("join application proof signer is not a DID URL".to_owned())
         })?;
-    let controller = DidFullId::new(controller.to_owned())?;
-    if project_full_id_to_core_id(&controller)? != *actor {
+    let controller = Did::new(controller.to_owned())?;
+    if project_did_to_core_id(&controller)? != *actor {
         return protocol_error("join application proof signer does not match actor");
     }
     Ok(())
@@ -723,7 +723,7 @@ mod tests {
     fn proof(digest: Hash, actor: &DidCoreId, created_at: DateTime<Utc>) -> PayloadProof {
         let controller = match actor.as_str() {
             "ak:did_core:webvh:zexamplealice" => "did:webvh:zexamplealice:alice.example",
-            other => panic!("missing full-DID fixture for {other}"),
+            other => panic!("missing DID fixture for {other}"),
         };
         PayloadProof {
             kind: "detached_jws".to_owned(),

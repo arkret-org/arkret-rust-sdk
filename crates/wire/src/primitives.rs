@@ -2,7 +2,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use super::*;
-use crate::{DidCoreId, DidFullId, ProofContextId, SignerEvidenceRef};
+use crate::{Did, DidCoreId, ProofContextId, SignerEvidenceRef};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1261,7 +1261,7 @@ impl PrincipalServerAdmissionProof {
             .ok_or_else(|| {
                 WireError::Protocol("admission verification method has no fragment".to_owned())
             })?;
-        let controller = DidFullId::new(controller.to_owned())?;
+        let controller = Did::new(controller.to_owned())?;
         let producer_evidence_pair_valid = match (
             &self.producer_signer_resolution_evidence_ref,
             &self.producer_signer_resolution_evidence_digest,
@@ -1276,7 +1276,7 @@ impl PrincipalServerAdmissionProof {
             _ => false,
         };
         if fragment.is_empty()
-            || project_full_id_to_core_id(&controller)? != *expected_principal_server_id
+            || project_did_to_core_id(&controller)? != *expected_principal_server_id
             || self.event_digest != *expected_event_digest
             || self.producer_proof_digest != Self::producer_proof_digest(producer_proof)?
             || self.producer_verification_method != producer_proof.verification_method

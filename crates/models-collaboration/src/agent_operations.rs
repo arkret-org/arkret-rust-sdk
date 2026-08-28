@@ -10,8 +10,8 @@ use std::collections::BTreeSet;
 
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    AuditReasonText, DidCoreId, DidFullId, DidUrl, EventInitialSubmission, IdempotencyKey,
-    SchemaId, project_full_id_to_core_id,
+    AuditReasonText, Did, DidCoreId, DidUrl, EventInitialSubmission, IdempotencyKey, SchemaId,
+    project_did_to_core_id,
 };
 
 use crate::agent_signer_evidence::AgentSigningKeyBinding;
@@ -166,7 +166,7 @@ impl AgentRuntimeKeyPossessionProof {
             .ok_or_else(|| {
                 WireError::Protocol("Agent runtime verification method is not a DID URL".to_owned())
             })?;
-        if project_full_id_to_core_id(&DidFullId::new(controller.to_owned())?)? != *agent_id {
+        if project_did_to_core_id(&Did::new(controller.to_owned())?)? != *agent_id {
             return Err(WireError::Protocol(
                 "Agent runtime verification method controller mismatch".to_owned(),
             ));
@@ -466,7 +466,7 @@ pub enum AgentProvisionRequestBody {
         idempotency_key: IdempotencyKey,
         /// Controller-authored, already accepted PCR-independent Agent
         /// inception. The Principal Server verifies and pins its exact head.
-        full_id: DidFullId,
+        did: Did,
         /// Principal Server half of the controller authority selected by this
         /// authenticated operation. The principal half comes from the session.
         controller_principal_server_id: DidCoreId,
@@ -479,7 +479,7 @@ pub enum AgentProvisionRequestBody {
         operation_id: ProtocolOperationId,
         idempotency_key: IdempotencyKey,
         agent_id: DidCoreId,
-        full_id: DidFullId,
+        did: Did,
         principal_control_realm_id: RealmId,
         allocation_handle: ProtocolOpaqueId,
         slug: String,
@@ -528,7 +528,7 @@ pub enum AgentPairingMode {
 pub enum AgentProvisionOutcome {
     AwaitingControllerEvent {
         agent_id: DidCoreId,
-        full_id: DidFullId,
+        did: Did,
         initial_resolution: arkret_models_identity::ResolutionCommitment,
         controller_realm_id: RealmId,
         allocation_handle: ProtocolOpaqueId,
@@ -537,7 +537,7 @@ pub enum AgentProvisionOutcome {
     },
     AwaitingPcrGenesis {
         agent_id: DidCoreId,
-        full_id: DidFullId,
+        did: Did,
         initial_resolution: arkret_models_identity::ResolutionCommitment,
         principal_control_realm_id: RealmId,
         allocation_handle: ProtocolOpaqueId,
@@ -546,7 +546,7 @@ pub enum AgentProvisionOutcome {
     },
     AwaitingDidBinding {
         agent_id: DidCoreId,
-        full_id: DidFullId,
+        did: Did,
         initial_resolution: arkret_models_identity::ResolutionCommitment,
         principal_control_realm_id: RealmId,
         allocation_handle: ProtocolOpaqueId,
@@ -564,7 +564,7 @@ pub enum AgentProvisionOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentProvisionComplete {
     pub agent_id: DidCoreId,
-    pub full_id: DidFullId,
+    pub did: Did,
     pub initial_resolution: arkret_models_identity::ResolutionCommitment,
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: DidUrl,
@@ -2344,12 +2344,12 @@ mod tests {
     }
 
     #[test]
-    fn agent_provision_outcome_serializes_allocated_full_id() {
+    fn agent_provision_outcome_serializes_allocated_did() {
         let outcome = AgentProvisionOutcome::AwaitingControllerEvent {
             agent_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureagent").unwrap(),
-            full_id: DidFullId::new("did:webvh:z6mkfixtureagent:agent.example").unwrap(),
+            did: Did::new("did:webvh:z6mkfixtureagent:agent.example").unwrap(),
             initial_resolution: arkret_models_identity::ResolutionCommitment {
-                full_id: DidFullId::new("did:webvh:z6mkfixtureagent:agent.example").unwrap(),
+                did: Did::new("did:webvh:z6mkfixtureagent:agent.example").unwrap(),
                 method_history_head: format!("sha256:{}", "8b".repeat(32)),
                 version_id: format!("1-Qm{}", "a".repeat(44)),
             },
@@ -2367,7 +2367,7 @@ mod tests {
 
         let value = serde_json::to_value(outcome).unwrap();
         assert_eq!(value["status"], "awaiting_controller_event");
-        assert_eq!(value["full_id"], "did:webvh:z6mkfixtureagent:agent.example");
+        assert_eq!(value["did"], "did:webvh:z6mkfixtureagent:agent.example");
     }
 
     #[test]
@@ -2375,7 +2375,7 @@ mod tests {
         let request = AgentProvisionRequestBody::Prepare {
             operation_id: ProtocolOperationId::new("ak:operation:agent-provision-wire").unwrap(),
             idempotency_key: IdempotencyKey::new("agent-provision-wire").unwrap(),
-            full_id: DidFullId::new("did:webvh:z6mkfixtureagent:agent.example").unwrap(),
+            did: Did::new("did:webvh:z6mkfixtureagent:agent.example").unwrap(),
             controller_principal_server_id: DidCoreId::new("ak:did_core:web:principal.example")
                 .unwrap(),
             slug: "summary".to_owned(),
@@ -2423,9 +2423,9 @@ mod tests {
             "ak:did_core:webvh:z6mkcontroller"
         );
 
-        let mut stale_full_id = value;
-        stale_full_id["agent_id"] = serde_json::json!("did:webvh:z6mkagent:agent.example");
-        assert!(serde_json::from_value::<KeyState>(stale_full_id).is_err());
+        let mut stale_did = value;
+        stale_did["agent_id"] = serde_json::json!("did:webvh:z6mkagent:agent.example");
+        assert!(serde_json::from_value::<KeyState>(stale_did).is_err());
     }
 
     fn runtime_approval_request(runtime_attestation: Value) -> Value {

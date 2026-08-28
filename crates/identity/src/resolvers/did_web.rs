@@ -1,4 +1,4 @@
-use arkret_wire::DidFullId;
+use arkret_wire::Did;
 
 use super::basics::*;
 use crate::helpers::*;
@@ -7,7 +7,7 @@ use crate::*;
 /// Limited `did:web` resolver backed by explicitly registered documents.
 #[derive(Clone, Debug, Default)]
 pub struct DidWebResolver {
-    documents: BTreeMap<DidFullId, DidDocument>,
+    documents: BTreeMap<Did, DidDocument>,
 }
 
 /// Host-fetched `did:web` document response validated by the SDK.
@@ -37,7 +37,7 @@ impl DidWebResolver {
     }
 
     /// Return the HTTPS DID document URL for the limited supported form.
-    pub fn document_url(did: &DidFullId) -> Result<String> {
+    pub fn document_url(did: &Did) -> Result<String> {
         did_web_document_url(did)
             .ok_or_else(|| IdentityError::Protocol("unsupported did:web form".to_owned()))
     }
@@ -45,7 +45,7 @@ impl DidWebResolver {
     /// Validate a host-fetched HTTPS response and cache the DID document.
     pub fn insert_from_https_response(
         &mut self,
-        did: &DidFullId,
+        did: &Did,
         response: DidWebDocumentOutcome,
     ) -> Result<DidDocument> {
         let expected_url = Self::document_url(did)?;
@@ -76,11 +76,11 @@ impl DidWebResolver {
 }
 
 impl DidResolver for DidWebResolver {
-    fn supports(&self, did: &DidFullId) -> bool {
+    fn supports(&self, did: &Did) -> bool {
         did.method() == "web" && did_web_document_url(did).is_some()
     }
 
-    fn resolve_did(&self, did: &DidFullId) -> Result<ResolvedDid> {
+    fn resolve_did(&self, did: &Did) -> Result<ResolvedDid> {
         if !self.supports(did) {
             return Err(IdentityError::Protocol(
                 "unsupported DID method for did:web resolver".to_owned(),

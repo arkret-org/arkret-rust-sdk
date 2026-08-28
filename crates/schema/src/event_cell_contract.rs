@@ -3198,7 +3198,7 @@ mod tests {
         object.insert(
             "initial_resolution".to_owned(),
             json!({
-                "full_id": "did:webvh:z6mkfixture:alice.example",
+                "did": "did:webvh:z6mkfixture:alice.example",
                 "method_history_head": format!("sha256:{}", "a".repeat(64)),
                 "version_id": "1-fixture"
             }),
@@ -3212,7 +3212,7 @@ mod tests {
         assert_eq!(
             resolution.op,
             set_op(json!({
-                "full_id": "did:webvh:z6mkfixture:alice.example",
+                "did": "did:webvh:z6mkfixture:alice.example",
                 "method_history_head": format!("sha256:{}", "a".repeat(64)),
                 "version_id": "1-fixture",
                 "resolution_event_ref": event.event_id.as_str(),

@@ -768,9 +768,7 @@ pub struct DisclosurePolicy {
 #[cfg(test)]
 mod tests {
     use arkret_models_identity::handle::HandleBindingState;
-    use arkret_wire::{
-        DidFullId, DidUrl, PayloadProof, ReceivePolicyConstraints, ReceivePolicySurface,
-    };
+    use arkret_wire::{Did, DidUrl, PayloadProof, ReceivePolicyConstraints, ReceivePolicySurface};
 
     use super::*;
 
@@ -898,8 +896,7 @@ mod tests {
         let issued_at = test_time();
         let expires_at = issued_at + chrono::Duration::minutes(15);
         let recipient_service_id = DidCoreId::new("ak:did_core:webvh:z6mkfixturepsbob").unwrap();
-        let recipient_full_id =
-            DidFullId::new("did:webvh:z6mkfixturepsbob:ps.bob.example").unwrap();
+        let recipient_did = Did::new("did:webvh:z6mkfixturepsbob:ps.bob.example").unwrap();
         let locator = PrincipalLocator {
             schema: SchemaId::PRINCIPAL_LOCATOR_V1.to_owned(),
             subject_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
@@ -920,7 +917,7 @@ mod tests {
                 proof_purpose: PrincipalLocatorProofPurpose::RecipientServiceAcceptance,
                 proof: DetachedPayloadProof {
                     kind: "detached_jws".to_owned(),
-                    verification_method: DidUrl::new(format!("{recipient_full_id}#server-key-1"))
+                    verification_method: DidUrl::new(format!("{recipient_did}#server-key-1"))
                         .unwrap(),
                     payload_digest: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
                     created_at: issued_at,

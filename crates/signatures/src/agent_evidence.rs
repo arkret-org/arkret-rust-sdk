@@ -16,9 +16,9 @@ use arkret_models_identity::agent_signer_evidence::{
     AgentSigningPublicKey, ControllerAccountEligibility, ControllerAccountStatus,
 };
 use arkret_wire::{
-    CellRef, DidCoreId, DidFullId, DidUrl, DomainSeparationId, EventId, Hash, NonEmptyString,
-    ProfileId, ProtocolOperationId, RealmId, SchemaId, Seal, SealId, SignerEvidenceRef,
-    project_full_id_to_core_id,
+    CellRef, Did, DidCoreId, DidUrl, DomainSeparationId, EventId, Hash, NonEmptyString, ProfileId,
+    ProtocolOperationId, RealmId, SchemaId, Seal, SealId, SignerEvidenceRef,
+    project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signer, SigningKey};
@@ -211,7 +211,7 @@ fn domain_proof_jws_with_kid(
 /// Independently verify the Account Authority-owned gate before an Agent PCR
 /// includes it in portable evidence. The private projection behind
 /// `basis_digest` is authority-owned; the verifier checks the closed shape,
-/// exact expected identities, registered full-id projection, time window and
+/// exact expected identities, registered DID projection, time window and
 /// detached service proof.
 pub fn verify_controller_account_gate_attestation(
     attestation: &arkret_models_identity::agent_signer_evidence::ControllerAccountGateAttestation,
@@ -226,9 +226,9 @@ pub fn verify_controller_account_gate_attestation(
         .split_once('#')
         .map(|(base, _)| base)
         .ok_or(AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    let full_id = DidFullId::new(method_base.to_owned())
+    let did = Did::new(method_base.to_owned())
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    let projected = project_full_id_to_core_id(&full_id)
+    let projected = project_did_to_core_id(&did)
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
     let status_active = attestation.status == ControllerAccountStatus::Active;
     let eligibility_active = attestation.eligibility == ControllerAccountEligibility::Active;
@@ -1131,12 +1131,10 @@ fn validate_common_evidence(
         || verified_state.authorization_event_id != *context.agent_key_authorize_event_id
         || verified_state.key_seal_id != key_witness.seal_id
         || verified_state.lifecycle_seal_id != lifecycle.seal_id
-        || project_full_id_to_core_id(
-            &DidFullId::new(did_url_controller(&gate.verification_method).to_owned()).map_err(
-                |_| {
-                    CommonEvidenceFailure::Rejected(AgentEvidenceRejectedReason::SigningKeyMismatch)
-                },
-            )?,
+        || project_did_to_core_id(
+            &Did::new(did_url_controller(&gate.verification_method).to_owned()).map_err(|_| {
+                CommonEvidenceFailure::Rejected(AgentEvidenceRejectedReason::SigningKeyMismatch)
+            })?,
         )
         .map_err(|_| {
             CommonEvidenceFailure::Rejected(AgentEvidenceRejectedReason::SigningKeyMismatch)
@@ -1564,10 +1562,9 @@ fn did_url_controller(method: &DidUrl) -> &str {
 }
 
 fn did_url_controller_core_id(method: &DidUrl) -> Result<DidCoreId, AgentEvidenceRejectedReason> {
-    let controller = DidFullId::new(did_url_controller(method).to_owned())
+    let controller = Did::new(did_url_controller(method).to_owned())
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    project_full_id_to_core_id(&controller)
-        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
+    project_did_to_core_id(&controller).map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
 }
 
 fn value_contains_authorization_record(

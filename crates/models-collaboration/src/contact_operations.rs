@@ -1,5 +1,5 @@
 use arkret_wire::{
-    ControlProposalAck, DidCoreId, DidFullId, Event, EventId, Hash, IdempotencyKey,
+    ControlProposalAck, Did, DidCoreId, Event, EventId, Hash, IdempotencyKey,
     PrincipalAuthorityKey, ProtocolOperationId, ProtocolSignature, ReservationHandle,
 };
 use chrono::{DateTime, Utc};
@@ -126,8 +126,7 @@ impl RequestAcceptanceReceipt {
                     "Contact request acceptance receipt signer is not a DID URL".to_owned(),
                 )
             })?;
-        let signer = DidFullId::new(signer)
-            .and_then(|full_id| arkret_wire::project_full_id_to_core_id(&full_id))?;
+        let signer = Did::new(signer).and_then(|did| arkret_wire::project_did_to_core_id(&did))?;
         if signer != self.core.issuer {
             return Err(arkret_wire::WireError::Protocol(
                 "Contact request acceptance receipt signer is not its issuer".to_owned(),

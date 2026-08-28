@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AcceptedDevicePossessionProof, AcceptedDevicePossessionVerification, ControlProposalAck,
-    ControlProposalDecision, DeviceId, DidFullId, DidUrl, EventId, Hash, PayloadProof,
+    ControlProposalDecision, DeviceId, Did, DidUrl, EventId, Hash, PayloadProof,
     PrincipalAuthorityKey, ProofContextId, Result, SealId, UnsignedPayloadProof, WireError,
-    canonical, project_full_id_to_core_id,
+    canonical, project_did_to_core_id,
 };
 
 pub const MAX_DEVICE_REVOCATION_GATE_RECORDS: usize = 128;
@@ -532,7 +532,7 @@ impl UnsignedDeviceRevocationGateDecisionReceipt {
             .ok_or_else(|| {
                 WireError::Protocol("verification method has no controller".to_owned())
             })?;
-        let controller = project_full_id_to_core_id(&DidFullId::new(controller)?)?;
+        let controller = project_did_to_core_id(&Did::new(controller)?)?;
         if controller != self.principal_authority.principal_server_id {
             return Err(WireError::Protocol(
                 "device revocation gate proof controller is not the origin Principal Server"
@@ -624,7 +624,7 @@ impl DeviceRevocationGateDecisionReceipt {
             .ok_or_else(|| {
                 WireError::Protocol("verification method has no controller".to_owned())
             })?;
-        let controller = project_full_id_to_core_id(&DidFullId::new(controller)?)?;
+        let controller = project_did_to_core_id(&Did::new(controller)?)?;
         if controller != self.principal_authority.principal_server_id {
             return Err(WireError::Protocol(
                 "device revocation gate proof controller is not the origin Principal Server"

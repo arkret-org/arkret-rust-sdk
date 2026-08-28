@@ -3,7 +3,7 @@
 use arkret_models_identity::{
     AccountBindingReceipt, DidDocument, DidMethodUri, IdentityLogListOutcome,
 };
-use arkret_wire::{DidCoreId, DidFullId, Hash};
+use arkret_wire::{Did, DidCoreId, Hash};
 
 use crate::{
     BindingVerifyError, DidVerificationRelationship, verify_jws_with_document_relationship,
@@ -23,7 +23,7 @@ pub struct AuthorityHistoryUnavailable {
 pub trait AuthorityDidHistoryResolver {
     fn resolve_complete_history(
         &self,
-        did: &DidFullId,
+        did: &Did,
     ) -> Result<IdentityLogListOutcome, AuthorityHistoryUnavailable>;
 }
 
@@ -71,17 +71,15 @@ pub fn verify_account_binding_receipt_at_issuance(
     receipt
         .validate_shape()
         .map_err(|error| AuthorityHistoryVerificationError::InvalidReceipt(error.to_string()))?;
-    let authority_full_id = crate::verification_method_did(
-        receipt.proof.verification_method.as_str(),
-    )
-    .map_err(|error| AuthorityHistoryVerificationError::InvalidReceipt(error.to_string()))?;
-    let projected_authority = arkret_wire::project_full_id_to_core_id(&authority_full_id)
+    let authority_did = crate::verification_method_did(receipt.proof.verification_method.as_str())
+        .map_err(|error| AuthorityHistoryVerificationError::InvalidReceipt(error.to_string()))?;
+    let projected_authority = arkret_wire::project_did_to_core_id(&authority_did)
         .map_err(|error| AuthorityHistoryVerificationError::InvalidReceipt(error.to_string()))?;
     if projected_authority.as_str() != receipt.account_authority_id.as_str() {
         return Err(AuthorityHistoryVerificationError::AuthorityMismatch);
     }
-    let history = resolver.resolve_complete_history(&authority_full_id)?;
-    if history.did != authority_full_id || history.method != DidMethodUri::Webvh {
+    let history = resolver.resolve_complete_history(&authority_did)?;
+    if history.did != authority_did || history.method != DidMethodUri::Webvh {
         return Err(AuthorityHistoryVerificationError::AuthorityMismatch);
     }
     if history.native_history == Some(false) {
@@ -92,7 +90,7 @@ pub fn verify_account_binding_receipt_at_issuance(
     }
 
     let point = arkret_signatures::webvh::validate_webvh_history_at(
-        &authority_full_id,
+        &authority_did,
         &history.entries,
         receipt.issued_at,
     )
@@ -106,7 +104,7 @@ pub fn verify_account_binding_receipt_at_issuance(
         &binding_bytes,
         &receipt.proof.jws,
         &receipt.proof.verification_method,
-        &authority_full_id,
+        &authority_did,
         &authority_document,
         DidVerificationRelationship::AssertionMethod,
     )
@@ -184,7 +182,7 @@ mod tests {
     impl AuthorityDidHistoryResolver for FrozenResolver {
         fn resolve_complete_history(
             &self,
-            _did: &DidFullId,
+            _did: &Did,
         ) -> Result<IdentityLogListOutcome, AuthorityHistoryUnavailable> {
             Ok(self.outcome.clone())
         }
@@ -195,7 +193,7 @@ mod tests {
     impl AuthorityDidHistoryResolver for UnavailableResolver {
         fn resolve_complete_history(
             &self,
-            _did: &DidFullId,
+            _did: &Did,
         ) -> Result<IdentityLogListOutcome, AuthorityHistoryUnavailable> {
             Err(AuthorityHistoryUnavailable {
                 message: "fixture transport unavailable".to_owned(),
@@ -218,9 +216,9 @@ mod tests {
             },
         )
         .unwrap();
-        let authority_full_id = DidFullId::new(inception.did.clone()).unwrap();
-        let authority_id = arkret_wire::project_full_id_to_core_id(&authority_full_id).unwrap();
-        let principal_full_id = DidFullId::new("did:webvh:zprincipal:principal.example").unwrap();
+        let authority_did = Did::new(inception.did.clone()).unwrap();
+        let authority_id = arkret_wire::project_did_to_core_id(&authority_did).unwrap();
+        let principal_did = Did::new("did:webvh:zprincipal:principal.example").unwrap();
         let verification_method = DidUrl::new(inception.did_key_id.clone()).unwrap();
         let mut receipt = AccountBindingReceipt {
             binding_state: AccountBindingState::Bound,
@@ -228,7 +226,7 @@ mod tests {
             account_authority_id: authority_id,
             account_subject: Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
             principal_id: DidCoreId::new("ak:did_core:webvh:zprincipal").unwrap(),
-            full_id: principal_full_id,
+            did: principal_did,
             did_version_id: "1-fixture".to_owned(),
             control_key_digest: Hash::new(format!("sha256:{}", "44".repeat(32))).unwrap(),
             identity_creation_lease_id: Some("identity-creation-lease-fixture".to_owned()),
@@ -256,7 +254,7 @@ mod tests {
         )
         .unwrap();
         let history = IdentityLogListOutcome {
-            did: authority_full_id,
+            did: authority_did,
             method: DidMethodUri::Webvh,
             native_history: Some(true),
             entries: vec![inception.log_entry.clone()],

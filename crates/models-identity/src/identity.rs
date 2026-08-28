@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use arkret_wire::{DidFullId, Hash, NonEmptyString, Result, WireError};
+use arkret_wire::{Did, Hash, NonEmptyString, Result, WireError};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -37,7 +37,7 @@ pub enum DidMethodUri {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IdentityResolveRequestBody {
-    pub did: DidFullId,
+    pub did: Did,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requested_evidence_kinds: Vec<IdentityMethodEvidenceKind>,
 }
@@ -152,7 +152,7 @@ pub struct IdentityDocumentView {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DidOperationSubmitRequestBody {
-    pub did: DidFullId,
+    pub did: Did,
     pub did_method: DidMethodName,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seq: Option<u64>,
@@ -190,7 +190,7 @@ pub enum DidOperationSubmitStatus {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DidOperationSubmitOutcome {
     pub status: DidOperationSubmitStatus,
-    pub did: DidFullId,
+    pub did: Did,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: chrono::DateTime<chrono::Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -223,7 +223,7 @@ pub struct IdentityReceiptListOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IdentityLogListOutcome {
-    pub did: DidFullId,
+    pub did: Did,
     pub method: DidMethodUri,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub native_history: Option<bool>,
@@ -245,7 +245,7 @@ mod did_operation_tests {
 
     fn native_request() -> DidOperationSubmitRequestBody {
         DidOperationSubmitRequestBody {
-            did: DidFullId::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            did: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             did_method: DidMethodName::Webvh,
             seq: Some(0),
             prev_event_digest: None,

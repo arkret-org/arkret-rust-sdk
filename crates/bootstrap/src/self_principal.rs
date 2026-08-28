@@ -11,10 +11,9 @@ use arkret_models_collaboration::events_payloads::{
 };
 use arkret_models_identity::ResolutionCommitment;
 use arkret_wire::{
-    CellRef, DidCoreId, DidFullId, EncryptionProfile, Event, EventKind, EventRef, GenesisSalt, Hlc,
+    CellRef, Did, DidCoreId, EncryptionProfile, Event, EventKind, EventRef, GenesisSalt, Hlc,
     NotaryValue, PcrGenesisUnit, ProfileId, Result, SchemaId, ScopeRef, SecurityClass,
-    TrustDomainId, WireError, composite_subject, event_spec, project_full_id_to_core_id,
-    proof_kind,
+    TrustDomainId, WireError, composite_subject, event_spec, project_did_to_core_id, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -31,7 +30,7 @@ pub struct SelfPrincipalPcrCreateInput {
     /// account-authority coordinate paired with `principal_id`.
     pub principal_server_id: DidCoreId,
     /// Resolvable DID admitted for the principal and published as Realm notary.
-    pub principal_full_id: DidFullId,
+    pub principal_did: Did,
     pub notary: NotaryValue,
     pub genesis_salt: GenesisSalt,
     pub trust_domain: TrustDomainId,
@@ -51,14 +50,14 @@ pub fn build_self_principal_pcr_create(
 ) -> Result<arkret_wire::AuthoredEvent> {
     let created_at = arkret_canonical::canonical::normalize_timestamp_canonical(input.created_at);
     let actor_id = input.principal_id.clone();
-    if project_full_id_to_core_id(&input.principal_full_id)? != input.principal_id {
+    if project_did_to_core_id(&input.principal_did)? != input.principal_id {
         return Err(WireError::Protocol(
-            "self principal full DID does not project to principal_id".to_owned(),
+            "self principal DID does not project to principal_id".to_owned(),
         ));
     }
-    if input.initial_resolution.full_id != input.principal_full_id {
+    if input.initial_resolution.did != input.principal_did {
         return Err(WireError::Protocol(
-            "self principal initial_resolution does not match principal_full_id".to_owned(),
+            "self principal initial_resolution does not match principal_did".to_owned(),
         ));
     }
     if input.did_inception_ref.role != DID_INCEPTION_REF_ROLE
@@ -204,12 +203,12 @@ pub fn validate_self_principal_pcr_genesis_unit(
         .ok_or_else(|| {
             WireError::Protocol("founding device proof requires a DID URL".to_owned())
         })?;
-    let verification_controller = DidFullId::new(verification_controller.to_owned())?;
-    let verification_principal = project_full_id_to_core_id(&verification_controller)?;
+    let verification_controller = Did::new(verification_controller.to_owned())?;
+    let verification_principal = project_did_to_core_id(&verification_controller)?;
     if !authorized_by_matches
         || signer.actor_id != create.actor_id
         || verification_principal != create.actor_id
-        || verification_controller != initial_resolution.full_id
+        || verification_controller != initial_resolution.did
         || verification_fragment != descriptor.device_id.as_str()
         || descriptor.device_id != payload.device_id
         || descriptor.device_public_key != payload.device_public_key
@@ -301,7 +300,7 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
         .initial_resolution
         .as_ref()
         .is_some_and(|resolution| {
-            project_full_id_to_core_id(&resolution.full_id)
+            project_did_to_core_id(&resolution.did)
                 .is_ok_and(|principal_id| principal_id == event.actor_id)
                 && !resolution.method_history_head.is_empty()
                 && !resolution.version_id.is_empty()

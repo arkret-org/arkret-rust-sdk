@@ -8,8 +8,8 @@ use arkret_models_collaboration::objects::profiles::{
 use arkret_models_collaboration::objects::realm::{CellLatticeDeclaration, Realm};
 use arkret_models_collaboration::objects::strand::Strand;
 use arkret_wire::{
-    DidCoreId, DidFullId, DidUrl, FederationPolicy, Hash, NotaryJoseAlgorithm, NotaryKeyKind,
-    NotarySignerDescriptor, ObjectStage, ObjectState, SchemaId, project_full_id_to_core_id,
+    Did, DidCoreId, DidUrl, FederationPolicy, Hash, NotaryJoseAlgorithm, NotaryKeyKind,
+    NotarySignerDescriptor, ObjectStage, ObjectState, SchemaId, project_did_to_core_id,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -36,7 +36,7 @@ fn actor(value: &str) -> DidCoreId {
     if value.starts_with("ak:did_core:") {
         DidCoreId::new(value).unwrap()
     } else {
-        project_full_id_to_core_id(&DidFullId::new(value).unwrap()).unwrap()
+        project_did_to_core_id(&Did::new(value).unwrap()).unwrap()
     }
 }
 

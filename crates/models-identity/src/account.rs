@@ -1,6 +1,6 @@
 use arkret_wire::{
-    DeviceId, DidCoreId, DidFullId, DidUrl, EventId, Hash, PayloadProof, RealmId, ReasonCode,
-    RequestId, Result, TrustDomainId, WireError, canonical, project_full_id_to_core_id,
+    DeviceId, Did, DidCoreId, DidUrl, EventId, Hash, PayloadProof, RealmId, ReasonCode, RequestId,
+    Result, TrustDomainId, WireError, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -510,7 +510,7 @@ pub const ACCOUNT_HANDOFF_ALLOWED_OPERATIONS: [AccountHandoffAllowedOperation; 7
 #[serde(deny_unknown_fields)]
 pub struct ReservedIdentityCreation {
     pub principal_id: DidCoreId,
-    pub full_id: DidFullId,
+    pub did: Did,
     pub operation_digest: Hash,
     pub did_operation: DidOperationSubmitRequestBody,
 }
@@ -518,12 +518,12 @@ pub struct ReservedIdentityCreation {
 impl ReservedIdentityCreation {
     pub fn from_operation(did_operation: DidOperationSubmitRequestBody) -> Result<Self> {
         did_operation.validate()?;
-        let full_id = did_operation.did.clone();
-        let principal_id = project_full_id_to_core_id(&full_id)?;
+        let did = did_operation.did.clone();
+        let principal_id = project_did_to_core_id(&did)?;
         let operation_digest = Hash::new(canonical::canonical_sha256(&did_operation)?)?;
         Ok(Self {
             principal_id,
-            full_id,
+            did,
             operation_digest,
             did_operation,
         })
@@ -772,7 +772,7 @@ pub enum AccountHandoffBinding {
     },
     Bound {
         principal_id: DidCoreId,
-        full_id: DidFullId,
+        did: Did,
     },
 }
 
@@ -885,14 +885,10 @@ impl AccountOnboardingSnapshot {
                     }
                 }
             }
-            AccountHandoffBinding::Bound {
-                principal_id,
-                full_id,
-            } => {
-                if project_full_id_to_core_id(full_id)?.as_str() != principal_id.as_str() {
+            AccountHandoffBinding::Bound { principal_id, did } => {
+                if project_did_to_core_id(did)?.as_str() != principal_id.as_str() {
                     return Err(WireError::Protocol(
-                        "bound account onboarding full_id does not project to principal_id"
-                            .to_owned(),
+                        "bound account onboarding did does not project to principal_id".to_owned(),
                     ));
                 }
                 if !matches!(self.goal, AccountOnboardingGoal::CompleteIdentity) {
@@ -1146,7 +1142,7 @@ pub struct IdentityBindingChallengeRequestBody {
     pub request_id: RequestId,
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
-    pub full_id: DidFullId,
+    pub did: Did,
     pub did_operation: DidOperationSubmitRequestBody,
     pub pcr_realm_id: RealmId,
     pub realm_create_payload_digest: Hash,
@@ -1156,12 +1152,12 @@ pub struct IdentityBindingChallengeRequestBody {
 
 impl IdentityBindingChallengeRequestBody {
     pub fn canonical_request_digest(&self) -> Result<Hash> {
-        if self.full_id != self.did_operation.did
-            || project_full_id_to_core_id(&self.full_id)?
-                != project_full_id_to_core_id(&self.did_operation.did)?
+        if self.did != self.did_operation.did
+            || project_did_to_core_id(&self.did)?
+                != project_did_to_core_id(&self.did_operation.did)?
         {
             return Err(WireError::Protocol(
-                "identity creation full_id does not project to did_operation core id".to_owned(),
+                "identity creation did does not project to did_operation core id".to_owned(),
             ));
         }
         Hash::new(canonical::canonical_sha256(self)?).map_err(Into::into)
@@ -1182,14 +1178,14 @@ pub enum IdentityBindingPurpose {
 pub struct DidBindingChallengeRequestBody {
     pub request_id: RequestId,
     pub principal_id: DidCoreId,
-    pub full_id: DidFullId,
+    pub did: Did,
 }
 
 impl DidBindingChallengeRequestBody {
     pub fn canonical_request_digest(&self) -> Result<Hash> {
-        if project_full_id_to_core_id(&self.full_id)?.as_str() != self.principal_id.as_str() {
+        if project_did_to_core_id(&self.did)?.as_str() != self.principal_id.as_str() {
             return Err(WireError::Protocol(
-                "published DID full_id does not project to principal_id".to_owned(),
+                "published DID did does not project to principal_id".to_owned(),
             ));
         }
         Hash::new(canonical::canonical_sha256(self)?).map_err(Into::into)
@@ -1216,7 +1212,7 @@ pub struct DidBindingChallengeOutcome {
     pub purpose: DidBindingPurpose,
     pub account_subject: Hash,
     pub principal_id: DidCoreId,
-    pub full_id: DidFullId,
+    pub did: Did,
     pub did_version_id: String,
     pub log_head_digest: Hash,
     pub control_key_digest: Hash,
@@ -1241,7 +1237,7 @@ impl DidBindingChallengeOutcome {
             || self.origin.is_empty()
             || self.expires_at <= self.issued_at
             || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
-            || project_full_id_to_core_id(&self.full_id)?.as_str() != self.principal_id.as_str()
+            || project_did_to_core_id(&self.did)?.as_str() != self.principal_id.as_str()
         {
             return Err(WireError::Protocol(
                 "published-DID binding challenge violates the closed transcript".to_owned(),
@@ -1269,7 +1265,7 @@ pub struct AccountRegistrationControlProof {
     pub request_canonical_digest: Hash,
     pub account_subject: Hash,
     pub principal_id: DidCoreId,
-    pub full_id: DidFullId,
+    pub did: Did,
     pub did_version_id: String,
     pub log_head_digest: Hash,
     pub control_key_digest: Hash,
@@ -1301,8 +1297,8 @@ impl AccountRegistrationControlProof {
             || self.signature.is_empty()
             || self.expires_at <= self.issued_at
             || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
-            || project_full_id_to_core_id(&self.full_id)?.as_str() != self.principal_id.as_str()
-            || controller != Some(self.full_id.as_str())
+            || project_did_to_core_id(&self.did)?.as_str() != self.principal_id.as_str()
+            || controller != Some(self.did.as_str())
         {
             return Err(WireError::Protocol(
                 "published DID registration control proof violates its closed transcript"
@@ -1421,7 +1417,7 @@ pub struct IdentityBindingChallengeOutcome {
     pub purpose: IdentityBindingPurpose,
     pub account_subject: Hash,
     pub principal_id: DidCoreId,
-    pub full_id: DidFullId,
+    pub did: Did,
     pub operation_digest: Hash,
     pub did_version_id: String,
     pub log_head_digest: Hash,
@@ -1460,7 +1456,7 @@ pub struct IdentityCreationControlProof {
     pub purpose: IdentityBindingPurpose,
     pub account_subject: Hash,
     pub principal_id: DidCoreId,
-    pub full_id: DidFullId,
+    pub did: Did,
     pub operation_digest: Hash,
     pub did_version_id: String,
     pub log_head_digest: Hash,
@@ -1503,7 +1499,7 @@ impl IdentityCreationControlProof {
             purpose: self.purpose,
             account_subject: self.account_subject.clone(),
             principal_id: self.principal_id.clone(),
-            full_id: self.full_id.clone(),
+            did: self.did.clone(),
             operation_digest: self.operation_digest.clone(),
             did_version_id: self.did_version_id.clone(),
             log_head_digest: self.log_head_digest.clone(),
@@ -1534,7 +1530,7 @@ pub struct UnsignedIdentityCreationControlProofBody {
     pub purpose: IdentityBindingPurpose,
     pub account_subject: Hash,
     pub principal_id: DidCoreId,
-    pub full_id: DidFullId,
+    pub did: Did,
     pub operation_digest: Hash,
     pub did_version_id: String,
     pub log_head_digest: Hash,
@@ -1583,7 +1579,7 @@ impl UnsignedIdentityCreationControlProof {
             purpose: body.purpose,
             account_subject: body.account_subject,
             principal_id: body.principal_id,
-            full_id: body.full_id,
+            did: body.did,
             operation_digest: body.operation_digest,
             did_version_id: body.did_version_id,
             log_head_digest: body.log_head_digest,
@@ -1617,7 +1613,7 @@ fn validate_identity_creation_control_proof_body(
         || body.lease_fence == 0
         || body.did_version_id.is_empty()
         || body.expires_at <= body.issued_at
-        || project_full_id_to_core_id(&body.full_id)?.as_str() != body.principal_id.as_str()
+        || project_did_to_core_id(&body.did)?.as_str() != body.principal_id.as_str()
     {
         return Err(WireError::Protocol(
             "identity creation control proof has an invalid PCR genesis binding".to_owned(),
@@ -1637,7 +1633,7 @@ fn identity_creation_control_proof_signing_bytes(
         "purpose": body.purpose,
         "account_subject": &body.account_subject,
         "principal_id": &body.principal_id,
-        "full_id": &body.full_id,
+        "did": &body.did,
         "operation_digest": &body.operation_digest,
         "did_version_id": &body.did_version_id,
         "log_head_digest": &body.log_head_digest,
@@ -1668,7 +1664,7 @@ fn identity_creation_control_proof_signing_bytes(
 pub struct IdentityCreationRegistration {
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
-    pub full_id: DidFullId,
+    pub did: Did,
     pub did_operation: DidOperationSubmitRequestBody,
     pub registration_did_evidence_draft: arkret_wire::RegistrationDidEvidenceDraft,
     pub control_proof: IdentityCreationControlProof,
@@ -1691,16 +1687,16 @@ impl IdentityCreationRegistration {
                 != self.control_proof.dpop_jkt
             || self.identity_creation_lease_id != self.control_proof.identity_creation_lease_id
             || self.lease_fence != self.control_proof.lease_fence
-            || self.full_id != self.did_operation.did
-            || self.full_id != self.control_proof.full_id
+            || self.did != self.did_operation.did
+            || self.did != self.control_proof.did
             || self.registration_did_evidence_draft.principal_id != self.control_proof.principal_id
-            || self.registration_did_evidence_draft.full_id != self.full_id
+            || self.registration_did_evidence_draft.did != self.did
             || self.registration_did_evidence_draft.version_id != self.control_proof.did_version_id
             || self.registration_did_evidence_draft.method_history_head
                 != self.control_proof.log_head_digest.as_str()
             || self.registration_did_evidence_draft.control_key_digest
                 != self.control_proof.control_key_digest
-            || project_full_id_to_core_id(&self.full_id)?.as_str()
+            || project_did_to_core_id(&self.did)?.as_str()
                 != self.control_proof.principal_id.as_str()
             || Hash::new(canonical::canonical_sha256(&self.did_operation)?)?
                 != self.control_proof.operation_digest
@@ -1768,7 +1764,7 @@ pub struct AccountBindingReceipt {
     pub account_authority_id: DidCoreId,
     pub account_subject: Hash,
     pub principal_id: DidCoreId,
-    pub full_id: DidFullId,
+    pub did: Did,
     pub did_version_id: String,
     pub control_key_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1790,7 +1786,7 @@ struct AccountBindingReceiptPayload<'a> {
     account_authority_id: &'a DidCoreId,
     account_subject: &'a Hash,
     principal_id: &'a DidCoreId,
-    full_id: &'a DidFullId,
+    did: &'a Did,
     did_version_id: &'a str,
     control_key_digest: &'a Hash,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1811,7 +1807,7 @@ struct AccountBindingReceiptProofBinding<'a> {
     account_authority_id: &'a DidCoreId,
     account_subject: &'a Hash,
     principal_id: &'a DidCoreId,
-    full_id: &'a DidFullId,
+    did: &'a Did,
     did_version_id: &'a str,
     control_key_digest: &'a Hash,
     verification_method: &'a DidUrl,
@@ -1826,7 +1822,7 @@ impl AccountBindingReceipt {
             account_authority_id: &self.account_authority_id,
             account_subject: &self.account_subject,
             principal_id: &self.principal_id,
-            full_id: &self.full_id,
+            did: &self.did,
             did_version_id: &self.did_version_id,
             control_key_digest: &self.control_key_digest,
             identity_creation_lease_id: self.identity_creation_lease_id.as_deref(),
@@ -1857,8 +1853,7 @@ impl AccountBindingReceipt {
                     "account binding receipt verification_method requires a fragment".to_owned(),
                 )
             })?;
-        let proof_controller =
-            project_full_id_to_core_id(&DidFullId::new(proof_controller.to_owned())?)?;
+        let proof_controller = project_did_to_core_id(&Did::new(proof_controller.to_owned())?)?;
         let branch_valid = match self.binding_kind {
             AccountBindingKind::PublishedDid => {
                 self.identity_creation_lease_id.is_none() && self.lease_fence.is_none()
@@ -1872,7 +1867,7 @@ impl AccountBindingReceipt {
         };
         if !branch_valid
             || self.did_version_id.is_empty()
-            || project_full_id_to_core_id(&self.full_id)?.as_str() != self.principal_id.as_str()
+            || project_did_to_core_id(&self.did)?.as_str() != self.principal_id.as_str()
             || self.proof.created_at != self.issued_at
             || self.proof.payload_digest != self.canonical_payload_digest()?
             || proof_controller != self.account_authority_id
@@ -1896,7 +1891,7 @@ impl AccountBindingReceipt {
             account_authority_id: &self.account_authority_id,
             account_subject: &self.account_subject,
             principal_id: &self.principal_id,
-            full_id: &self.full_id,
+            did: &self.did,
             did_version_id: &self.did_version_id,
             control_key_digest: &self.control_key_digest,
             verification_method: &self.proof.verification_method,
@@ -1986,18 +1981,17 @@ mod account_handoff_tests {
     #[test]
     fn account_binding_receipt_signing_transcript_accepts_unsigned_typed_proof_only() {
         let now = Utc::now();
-        let authority_full_id =
-            DidFullId::new("did:webvh:z6mkaccountauthority:auth.example").unwrap();
-        let authority_core_id = project_full_id_to_core_id(&authority_full_id).unwrap();
-        let principal_full_id = DidFullId::new("did:webvh:z6mkprincipal:example.com").unwrap();
-        let principal_core_id = project_full_id_to_core_id(&principal_full_id).unwrap();
+        let authority_did = Did::new("did:webvh:z6mkaccountauthority:auth.example").unwrap();
+        let authority_core_id = project_did_to_core_id(&authority_did).unwrap();
+        let principal_did = Did::new("did:webvh:z6mkprincipal:example.com").unwrap();
+        let principal_core_id = project_did_to_core_id(&principal_did).unwrap();
         let mut receipt = AccountBindingReceipt {
             binding_state: AccountBindingState::Bound,
             binding_kind: AccountBindingKind::IdentityCreation,
             account_authority_id: authority_core_id,
             account_subject: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             principal_id: principal_core_id,
-            full_id: principal_full_id,
+            did: principal_did,
             did_version_id: "1-fixture".to_owned(),
             control_key_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
             identity_creation_lease_id: Some("lease-fixture".to_owned()),
@@ -2185,14 +2179,14 @@ mod account_handoff_tests {
 
     #[test]
     fn onboarding_snapshot_is_a_closed_server_goal_projection() {
-        let full_id = DidFullId::new("did:webvh:z6mkfixture:example.com").unwrap();
+        let did = Did::new("did:webvh:z6mkfixture:example.com").unwrap();
         let snapshot = AccountOnboardingSnapshot {
             handoff_request_id: handoff_request().request_id,
             account_subject: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             observed_at: Utc::now(),
             binding: AccountHandoffBinding::Bound {
-                principal_id: project_full_id_to_core_id(&full_id).unwrap(),
-                full_id,
+                principal_id: project_did_to_core_id(&did).unwrap(),
+                did,
             },
             goal: AccountOnboardingGoal::CompleteIdentity,
         };
@@ -2200,19 +2194,19 @@ mod account_handoff_tests {
         snapshot.validate().unwrap();
         let wire = serde_json::to_value(snapshot).unwrap();
         assert_eq!(wire["goal"]["goal"], "complete_identity");
-        assert!(wire["binding"]["full_id"].is_string());
+        assert!(wire["binding"]["did"].is_string());
     }
 
     #[test]
-    fn bound_onboarding_rejects_a_core_and_full_id_mismatch() {
-        let alice = DidFullId::new("did:webvh:z6mkalice:alice.example").unwrap();
+    fn bound_onboarding_rejects_a_core_and_did_mismatch() {
+        let alice = Did::new("did:webvh:z6mkalice:alice.example").unwrap();
         let snapshot = AccountOnboardingSnapshot {
             handoff_request_id: handoff_request().request_id,
             account_subject: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             observed_at: Utc::now(),
             binding: AccountHandoffBinding::Bound {
-                principal_id: project_full_id_to_core_id(&alice).unwrap(),
-                full_id: DidFullId::new("did:webvh:z6mkbob:bob.example").unwrap(),
+                principal_id: project_did_to_core_id(&alice).unwrap(),
+                did: Did::new("did:webvh:z6mkbob:bob.example").unwrap(),
             },
             goal: AccountOnboardingGoal::CompleteIdentity,
         };

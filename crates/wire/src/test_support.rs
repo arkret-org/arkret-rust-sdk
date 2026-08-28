@@ -111,13 +111,13 @@ mod tests {
     use super::split_raw_projection_fixture_payload;
 
     #[test]
-    fn raw_projection_sender_rejects_a_full_did_instead_of_falling_back() {
+    fn raw_projection_sender_rejects_a_did_instead_of_falling_back() {
         let error = split_raw_projection_fixture_payload(json!({
             "sender": "did:web:alice.example",
             "membership": "join"
         }))
         .err()
-        .expect("a full DID is not a stable Event actor id");
+        .expect("a DID is not a stable Event actor id");
 
         assert!(
             error.to_string().contains("did:web:alice.example"),

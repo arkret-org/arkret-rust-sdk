@@ -1,17 +1,17 @@
-use arkret_wire::{DidFullId, Hlc, RealmId, project_full_id_to_core_id};
+use arkret_wire::{Did, Hlc, RealmId, project_did_to_core_id};
 
 use super::*;
 use crate::helpers::{encode_base58btc, try_did_webvh_url};
 
-fn did(name: &str) -> DidFullId {
-    DidFullId::new(format!("did:webvh:z6mkfixture{name}:{name}.example")).unwrap()
+fn did(name: &str) -> Did {
+    Did::new(format!("did:webvh:z6mkfixture{name}:{name}.example")).unwrap()
 }
 
 // did:web-method fixtures for tests that exercise the `did:web` resolver
 // surface itself (DidWebResolver / key-log / registry receipt); the method
 // under test is did:web here, so these MUST stay did:web.
-fn did_web(name: &str) -> DidFullId {
-    DidFullId::new(format!("did:web:{name}.example")).unwrap()
+fn did_web(name: &str) -> Did {
+    Did::new(format!("did:web:{name}.example")).unwrap()
 }
 
 fn realm() -> RealmId {
@@ -23,7 +23,7 @@ fn hlc() -> Hlc {
 }
 
 fn assertion_document(
-    authority: &DidFullId,
+    authority: &Did,
     verification_method: &DidUrl,
     signing_key: &SigningKey,
 ) -> DidDocument {
@@ -99,7 +99,7 @@ fn vector_sign_entry(mut entry: Value, signing_key: &SigningKey) -> Value {
 
 /// Build a fully valid 2-entry `did:webvh` log signed by `key1` (entry 1)
 /// then rotated to `key2` (entry 2). Returns `(did, jsonl_body)`.
-fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (DidFullId, Vec<u8>) {
+fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (Did, Vec<u8>) {
     let host = "starid.example.com:users:alice";
     let update1 = vector_update_key(key1);
     let update2 = vector_update_key(key2);
@@ -119,7 +119,7 @@ fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (DidFullId, Vec<u8>
         "state": prelim_state,
     });
     let scid = vector_derive_scid(&prelim_entry1);
-    let did = DidFullId::new(format!("did:webvh:{scid}:{host}")).unwrap();
+    let did = Did::new(format!("did:webvh:{scid}:{host}")).unwrap();
     let state1 = json!({ "id": format!("did:webvh:{scid}:starid.example.com:users:alice") });
 
     // versionId hash for entry 1 commits to body with versionId = scid.
@@ -170,7 +170,7 @@ fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (DidFullId, Vec<u8>
     (did, body.into_bytes())
 }
 
-fn vector_log_response(did: &DidFullId, body: Vec<u8>) -> DidWebvhLogOutcome {
+fn vector_log_response(did: &Did, body: Vec<u8>) -> DidWebvhLogOutcome {
     DidWebvhLogOutcome {
         url: DidWebvhResolver::log_url(did).unwrap(),
         content_type: "application/jsonl".to_owned(),
@@ -184,7 +184,7 @@ fn official_did_webvh_witness_vector_verifies_end_to_end() {
         "../tests/fixtures/did-webvh-witness-official.json"
     ))
     .expect("official witness fixture");
-    let did = DidFullId::new(
+    let did = Did::new(
         fixture
             .get("did")
             .and_then(Value::as_str)
@@ -241,7 +241,7 @@ fn malformed_did_webvh_witness_policy_never_rounds_down() {
 
 #[test]
 fn webvh_resolver_validates_url_shape() {
-    let did = DidFullId::new("did:webvh:zabc:starid.example.com:users:alice").unwrap();
+    let did = Did::new("did:webvh:zabc:starid.example.com:users:alice").unwrap();
     assert_eq!(
         DidWebvhResolver::document_url(&did).unwrap(),
         "https://starid.example.com/users/alice/did.json"
@@ -331,7 +331,7 @@ fn canonical_principal_builders_produce_a_verified_rotation_chain() {
         state: &inception.log_entry["state"],
     })
     .unwrap();
-    let did = DidFullId::new(inception.did.clone()).unwrap();
+    let did = Did::new(inception.did.clone()).unwrap();
     let entries = vec![inception.log_entry.clone(), rotation.log_entry.clone()];
 
     let verified = verify_did_webvh_v1_log(&did, &entries).unwrap();
@@ -459,7 +459,7 @@ fn webvh_rejects_wrong_scid_in_did() {
     let key2 = SigningKey::from_bytes(&[9u8; 32]);
     let (_did, body) = vector_valid_log(&key1, &key2);
     // Resolve against a DID whose SCID does not derive from the log.
-    let wrong = DidFullId::new("did:webvh:zNOTtheRealScid:starid.example.com:users:alice").unwrap();
+    let wrong = Did::new("did:webvh:zNOTtheRealScid:starid.example.com:users:alice").unwrap();
     let mut resolver = DidWebvhResolver::new();
     assert!(
         resolver
@@ -517,7 +517,7 @@ fn webvh_rejects_unauthorized_key_rotation() {
         "state": json!({ "id": "did:webvh:{SCID}:starid.example.com:users:alice" }),
     });
     let scid = vector_derive_scid(&prelim_entry1);
-    let did = DidFullId::new(format!("did:webvh:{scid}:{host}")).unwrap();
+    let did = Did::new(format!("did:webvh:{scid}:{host}")).unwrap();
     let state = json!({ "id": format!("did:webvh:{scid}:starid.example.com:users:alice") });
 
     let mut e1 = json!({
@@ -589,10 +589,10 @@ fn webvh_rejects_missing_proof() {
 
 #[test]
 fn did_resolver_adapters_resolve_web_key_and_keri() {
-    let web = DidFullId::new("did:web:alice.example").unwrap();
-    let web_path = DidFullId::new("did:web:example.com:users:alice").unwrap();
-    let keri = DidFullId::new("did:keri:E123456789abcdef").unwrap();
-    let key = DidFullId::new("did:key:z6MkeTG3bFFSLYVU7VqhgZxqr6YzpaGrQtFMh1uvqGy1vDnP").unwrap();
+    let web = Did::new("did:web:alice.example").unwrap();
+    let web_path = Did::new("did:web:example.com:users:alice").unwrap();
+    let keri = Did::new("did:keri:E123456789abcdef").unwrap();
+    let key = Did::new("did:key:z6MkeTG3bFFSLYVU7VqhgZxqr6YzpaGrQtFMh1uvqGy1vDnP").unwrap();
 
     let mut web_resolver = DidWebResolver::new();
     web_resolver
@@ -689,7 +689,7 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
     );
     assert!(
         DidKeyResolver::new()
-            .resolve_did(&DidFullId::new("did:key:z1111").unwrap())
+            .resolve_did(&Did::new("did:key:z1111").unwrap())
             .is_err()
     );
 }
@@ -697,13 +697,13 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
 #[test]
 fn did_resolver_verifies_event_proof_from_did_document_key() {
     let signing_key = SigningKey::from_bytes(&[11u8; 32]);
-    let actor_full_id = did_web("alice");
-    let actor_id = project_full_id_to_core_id(&actor_full_id).unwrap();
-    let verification_method = DidUrl::new(format!("{actor_full_id}#key-1")).unwrap();
+    let actor_did = did_web("alice");
+    let actor_id = project_did_to_core_id(&actor_did).unwrap();
+    let verification_method = DidUrl::new(format!("{actor_did}#key-1")).unwrap();
     let mut resolver = DidWebResolver::new();
     resolver
         .insert(DidDocument::new(
-            actor_full_id,
+            actor_did,
             verification_method.as_str(),
             vector_update_key(&signing_key),
         ))
@@ -752,14 +752,14 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
 #[test]
 fn did_resolver_binds_event_proof_to_executed_by_when_present() {
     let signing_key = SigningKey::from_bytes(&[12u8; 32]);
-    let controller = project_full_id_to_core_id(&did_web("controller")).unwrap();
-    let bridge_full_id = did_web("bridge");
-    let bridge_id = project_full_id_to_core_id(&bridge_full_id).unwrap();
-    let verification_method = DidUrl::new(format!("{bridge_full_id}#key-1")).unwrap();
+    let controller = project_did_to_core_id(&did_web("controller")).unwrap();
+    let bridge_did = did_web("bridge");
+    let bridge_id = project_did_to_core_id(&bridge_did).unwrap();
+    let verification_method = DidUrl::new(format!("{bridge_did}#key-1")).unwrap();
     let mut resolver = DidWebResolver::new();
     resolver
         .insert(DidDocument::new(
-            bridge_full_id,
+            bridge_did,
             verification_method.as_str(),
             vector_update_key(&signing_key),
         ))
@@ -813,13 +813,13 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
 #[test]
 fn did_registry_receipt_verifies_detached_jws_binding() {
     let registry_key = SigningKey::from_bytes(&[24u8; 32]);
-    let registry_full_id = did_web("registry");
-    let registry_service_id = project_full_id_to_core_id(&registry_full_id).unwrap();
-    let verification_method = DidUrl::new(format!("{registry_full_id}#key-1")).unwrap();
+    let registry_did = did_web("registry");
+    let registry_service_id = project_did_to_core_id(&registry_did).unwrap();
+    let verification_method = DidUrl::new(format!("{registry_did}#key-1")).unwrap();
     let mut resolver = DidWebResolver::new();
     resolver
         .insert(assertion_document(
-            &registry_full_id,
+            &registry_did,
             &verification_method,
             &registry_key,
         ))
@@ -860,7 +860,7 @@ fn did_registry_receipt_verifies_detached_jws_binding() {
 #[test]
 fn did_registry_receipt_binds_current_assertion_authority_and_explicit_controller() {
     let registry = did_web("registry-authority");
-    let registry_service_id = project_full_id_to_core_id(&registry).unwrap();
+    let registry_service_id = project_did_to_core_id(&registry).unwrap();
     let delegate = did_web("registry-delegate");
     let host = did_web("registry-host");
     let delegate_key = SigningKey::from_bytes(&[35u8; 32]);
@@ -937,7 +937,7 @@ fn did_registry_receipt_binds_current_assertion_authority_and_explicit_controlle
 // authority as a malformed DID and sent an investigation down the wrong path.
 
 fn webvh_url_error(did: &str) -> DidWebvhUrlError {
-    let did = DidFullId::new(did.to_owned()).expect("DID syntax is accepted by the wire type");
+    let did = Did::new(did.to_owned()).expect("DID syntax is accepted by the wire type");
     // The resolver flattens to IdentityError::Protocol for the wire, so assert both:
     // that the accessor still refuses, and how the helper classified it.
     DidWebvhResolver::log_url(&did).expect_err("this DID must not yield a URL");
@@ -949,7 +949,7 @@ fn loopback_authority_derives_a_url_egress_is_a_request_layer_decision() {
     // A loopback authority is legal did:webvh syntax. Derivation must succeed;
     // declining the connection target is the request layer's job (the shared
     // egress lock), not the derivation layer's.
-    let did = DidFullId::new(
+    let did = Did::new(
         "did:webvh:QmVyZsGytuMfgNoLET2Uw2VakH5cgUrZP94AJMQhT316zV:127.0.0.1%3A20623:webvh:service"
             .to_owned(),
     )
@@ -984,7 +984,7 @@ fn malformed_and_unsupported_forms_stay_distinguishable() {
 
 #[test]
 fn a_public_authority_still_derives_every_artifact_url() {
-    let did = DidFullId::new(
+    let did = Did::new(
         "did:webvh:QmVyZsGytuMfgNoLET2Uw2VakH5cgUrZP94AJMQhT316zV:example.com:webvh:service"
             .to_owned(),
     )

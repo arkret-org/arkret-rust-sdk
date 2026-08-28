@@ -27,7 +27,7 @@
 //! invalidation to policy rotation and double-count one dimension.
 
 use arkret_canonical::canonical;
-use arkret_wire::{DidFullId, Hash};
+use arkret_wire::{Did, Hash};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -147,8 +147,8 @@ fn string_array(values: &[String]) -> Value {
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WebvhWitnessRow {
-    pub witness_did: DidFullId,
-    pub controlling_organization: DidFullId,
+    pub witness_did: Did,
+    pub controlling_organization_did: Did,
 }
 
 /// `did:webvh` method evidence row
@@ -218,8 +218,10 @@ impl MethodEvidenceProof {
                                     Value::String(row.witness_did.as_str().to_owned()),
                                 );
                                 witness.insert(
-                                    "controlling_organization".to_owned(),
-                                    Value::String(row.controlling_organization.as_str().to_owned()),
+                                    "controlling_organization_did".to_owned(),
+                                    Value::String(
+                                        row.controlling_organization_did.as_str().to_owned(),
+                                    ),
                                 );
                                 Value::Object(witness)
                             })
@@ -370,9 +372,9 @@ impl EvidenceReceipt {
 #[serde(deny_unknown_fields)]
 pub struct EvidenceDependencies {
     /// Sorted, deduplicated; empty for proofless methods.
-    pub witness_dids: Vec<DidFullId>,
+    pub witness_dids: Vec<Did>,
     /// Sorted, deduplicated; empty for proofless methods.
-    pub witness_controlling_organizations: Vec<DidFullId>,
+    pub witness_controlling_organization_dids: Vec<Did>,
     /// Sorted, deduplicated; empty for proofless methods.
     pub history_heads: Vec<String>,
 }
@@ -391,14 +393,14 @@ impl EvidenceDependencies {
                     history_heads.push(evidence.history_head.clone());
                     for row in &evidence.witnesses {
                         witness_dids.push(row.witness_did.as_str().to_owned());
-                        organizations.push(row.controlling_organization.as_str().to_owned());
+                        organizations.push(row.controlling_organization_did.as_str().to_owned());
                     }
                 }
             }
         }
         Ok(Self {
             witness_dids: typed_dids(dedup_sorted(witness_dids))?,
-            witness_controlling_organizations: typed_dids(dedup_sorted(organizations))?,
+            witness_controlling_organization_dids: typed_dids(dedup_sorted(organizations))?,
             history_heads: dedup_sorted(history_heads),
         })
     }
@@ -406,7 +408,7 @@ impl EvidenceDependencies {
     /// Whether this record indexes nothing (a proofless method).
     pub fn is_empty(&self) -> bool {
         self.witness_dids.is_empty()
-            && self.witness_controlling_organizations.is_empty()
+            && self.witness_controlling_organization_dids.is_empty()
             && self.history_heads.is_empty()
     }
 }
@@ -417,11 +419,11 @@ fn dedup_sorted(mut values: Vec<String>) -> Vec<String> {
     values
 }
 
-fn typed_dids(values: Vec<String>) -> Result<Vec<DidFullId>, DigestError> {
+fn typed_dids(values: Vec<String>) -> Result<Vec<Did>, DigestError> {
     values
         .into_iter()
         .map(|value| {
-            DidFullId::new(value).map_err(|error| DigestError::Canonicalization(error.to_string()))
+            Did::new(value).map_err(|error| DigestError::Canonicalization(error.to_string()))
         })
         .collect()
 }
@@ -612,8 +614,8 @@ mod tests {
         Hash::new(format!("sha256:{}", format!("{seed:02x}").repeat(32))).expect("valid hash")
     }
 
-    fn did(name: &str) -> DidFullId {
-        DidFullId::new(format!("did:webvh:z6mkfixture:{name}.example")).expect("valid did")
+    fn did(name: &str) -> Did {
+        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).expect("valid did")
     }
 
     fn webvh_evidence() -> MethodEvidence {
@@ -623,11 +625,11 @@ mod tests {
                 witnesses: vec![
                     WebvhWitnessRow {
                         witness_did: did("witness-b"),
-                        controlling_organization: did("org-2"),
+                        controlling_organization_did: did("org-2"),
                     },
                     WebvhWitnessRow {
                         witness_did: did("witness-a"),
-                        controlling_organization: did("org-1"),
+                        controlling_organization_did: did("org-1"),
                     },
                 ],
                 witness_proofs_digest: hash(0x77),
@@ -846,7 +848,7 @@ mod tests {
             vec![did("witness-a"), did("witness-b")]
         );
         assert_eq!(
-            dependencies.witness_controlling_organizations,
+            dependencies.witness_controlling_organization_dids,
             vec![did("org-1"), did("org-2")]
         );
         assert_eq!(dependencies.history_heads, vec!["3-QmFixtureHead"]);

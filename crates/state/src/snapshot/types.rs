@@ -283,11 +283,11 @@ impl SnapshotManifest {
 }
 
 /// Project a bare controller DID to its stable `did_core_id` through the
-/// registered method adapter. Direct full-DID / core-id string comparison is
+/// registered method adapter. Direct DID / core-id string comparison is
 /// forbidden (`snapshot-schema.md` §5.1).
 fn project_witness_controller(controller: &str) -> Option<DidCoreId> {
-    let full_id = arkret_wire::DidFullId::new(controller).ok()?;
-    arkret_wire::project_full_id_to_core_id(&full_id).ok()
+    let did = arkret_wire::Did::new(controller).ok()?;
+    arkret_wire::project_did_to_core_id(&did).ok()
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

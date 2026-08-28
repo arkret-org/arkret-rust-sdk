@@ -29,7 +29,7 @@ use arkret_identity::{
     DidWebvhDocumentOutcome, DidWebvhLogOutcome, DidWebvhResolver, ResolvedDid, ResolverFailMode,
     ResolverPolicy, verify_did_webvh_v1_chain_and_witness_bytes,
 };
-use arkret_wire::DidFullId;
+use arkret_wire::Did;
 use chrono::{DateTime, Utc};
 use reqwest::Client as HttpClient;
 use tokio::sync::OnceCell;
@@ -77,7 +77,7 @@ pub enum HttpDidResolverHealthSignal {
 /// Errors are stored as their display string (the error type is not
 /// `Clone`) and rehydrated as [`Error::Protocol`] for the waiters.
 struct SingleFlight<T> {
-    inflight: Mutex<BTreeMap<DidFullId, InflightResolution<T>>>,
+    inflight: Mutex<BTreeMap<Did, InflightResolution<T>>>,
 }
 
 impl<T: Clone> SingleFlight<T> {
@@ -87,7 +87,7 @@ impl<T: Clone> SingleFlight<T> {
         }
     }
 
-    async fn run<F, Fut>(&self, key: &DidFullId, fetch: F) -> Result<T>
+    async fn run<F, Fut>(&self, key: &Did, fetch: F) -> Result<T>
     where
         F: FnOnce() -> Fut,
         Fut: Future<Output = Result<T>>,
@@ -136,7 +136,7 @@ impl<T: Clone> SingleFlight<T> {
 pub struct HttpDidResolver {
     egress_policy: OutboundPolicy,
     policy: ResolverPolicy,
-    cache: Mutex<BTreeMap<DidFullId, CacheEntry>>,
+    cache: Mutex<BTreeMap<Did, CacheEntry>>,
     max_cache_entries: usize,
     health_signal: Mutex<HttpDidResolverHealthSignal>,
     runtime: tokio::runtime::Handle,
@@ -243,7 +243,7 @@ impl HttpDidResolver {
     }
 
     /// Drop a single cached entry.
-    pub fn invalidate(&self, did: &DidFullId) {
+    pub fn invalidate(&self, did: &Did) {
         if let Ok(mut cache) = self.cache.lock() {
             cache.remove(did);
         }
@@ -267,7 +267,7 @@ impl HttpDidResolver {
         }
     }
 
-    fn cached(&self, did: &DidFullId) -> Option<ResolvedDid> {
+    fn cached(&self, did: &Did) -> Option<ResolvedDid> {
         let mut cache = self.cache.lock().ok()?;
         let entry = cache.get_mut(did)?;
         let age = Utc::now()
@@ -281,7 +281,7 @@ impl HttpDidResolver {
         }
     }
 
-    fn stale_within_outage(&self, did: &DidFullId) -> Option<ResolvedDid> {
+    fn stale_within_outage(&self, did: &Did) -> Option<ResolvedDid> {
         let mut cache = self.cache.lock().ok()?;
         let entry = cache.get_mut(did)?;
         let age = Utc::now()
@@ -296,7 +296,7 @@ impl HttpDidResolver {
         }
     }
 
-    fn cache_put(&self, did: &DidFullId, resolved: &ResolvedDid) {
+    fn cache_put(&self, did: &Did, resolved: &ResolvedDid) {
         if let Ok(mut cache) = self.cache.lock() {
             let now = Utc::now();
             if let Some(entry) = cache.get_mut(did) {
@@ -379,7 +379,7 @@ impl HttpDidResolver {
         Ok((content_type, body))
     }
 
-    async fn resolve_did_web(&self, did: &DidFullId) -> Result<DidDocument> {
+    async fn resolve_did_web(&self, did: &Did) -> Result<DidDocument> {
         let url = DidWebResolver::document_url(did)?;
         let (content_type, body) = self.fetch_bytes(&url, DID_WEB_MAX_DOCUMENT_BYTES).await?;
         let mut resolver = DidWebResolver::new();
@@ -394,7 +394,7 @@ impl HttpDidResolver {
         Ok(document)
     }
 
-    async fn resolve_did_webvh(&self, did: &DidFullId) -> Result<ResolvedDid> {
+    async fn resolve_did_webvh(&self, did: &Did) -> Result<ResolvedDid> {
         let doc_url = DidWebvhResolver::document_url(did)?;
         let log_url = DidWebvhResolver::log_url(did)?;
         // Documents are capped at the spec document limit; the jsonl log
@@ -464,7 +464,7 @@ impl HttpDidResolver {
 
     /// Fetch (and validate) the resolution for `did`, without cache or
     /// fail-mode handling.
-    async fn fetch_resolution(&self, did: &DidFullId) -> Result<ResolvedDid> {
+    async fn fetch_resolution(&self, did: &Did) -> Result<ResolvedDid> {
         match did.method() {
             // Bare `did:web` publishes no log and no witness set, so its
             // resolution is proofless by the method's own construction.
@@ -480,11 +480,7 @@ impl HttpDidResolver {
     /// cache the fresh document, or apply the policy fail-mode (stale cache
     /// within the outage window vs. fail closed) and update the health
     /// signal.
-    fn finish_resolution(
-        &self,
-        did: &DidFullId,
-        fetched: Result<ResolvedDid>,
-    ) -> Result<ResolvedDid> {
+    fn finish_resolution(&self, did: &Did, fetched: Result<ResolvedDid>) -> Result<ResolvedDid> {
         match fetched {
             Ok(resolved) => {
                 self.cache_put(did, &resolved);
@@ -516,7 +512,7 @@ impl HttpDidResolver {
     /// call from async contexts (including single-worker runtimes).
     /// Concurrent resolutions of the same DID share one network fetch
     /// (single-flight).
-    pub async fn resolve_did_async(&self, did: &DidFullId) -> Result<ResolvedDid> {
+    pub async fn resolve_did_async(&self, did: &Did) -> Result<ResolvedDid> {
         self.policy.validate(did)?;
         if let Some(cached) = self.cached(did) {
             return Ok(cached);
@@ -578,7 +574,7 @@ fn is_json_content_type(content_type: &str) -> bool {
 }
 
 impl DidResolver for HttpDidResolver {
-    fn supports(&self, did: &DidFullId) -> bool {
+    fn supports(&self, did: &Did) -> bool {
         if !self.policy.permits(did) {
             return false;
         }
@@ -590,7 +586,7 @@ impl DidResolver for HttpDidResolver {
     /// timeout); see `drive` for why this is deadlock-free on every
     /// runtime flavor. Async callers should use
     /// [`Self::resolve_did_async`] directly.
-    fn resolve_did(&self, did: &DidFullId) -> arkret_identity::Result<ResolvedDid> {
+    fn resolve_did(&self, did: &Did) -> arkret_identity::Result<ResolvedDid> {
         // The `DidResolver` trait (owned by arkret-identity) is typed on
         // `IdentityError`; bridge this crate's facade error at the boundary.
         self.drive(self.resolve_did_async(did))
@@ -602,7 +598,7 @@ impl DidResolver for HttpDidResolver {
 mod tests {
     use super::*;
 
-    fn document(did: DidFullId) -> DidDocument {
+    fn document(did: Did) -> DidDocument {
         DidDocument {
             id: did,
             verification_methods: BTreeMap::new(),
@@ -619,8 +615,7 @@ mod tests {
             ..ResolverPolicy::default()
         })
         .unwrap();
-        let did =
-            DidFullId::new("did:key:z6MkfZ6S2cYbVdXBgnYzQwHgKZ4ApZRzELZ8R6PqQVqzDqXY").unwrap();
+        let did = Did::new("did:key:z6MkfZ6S2cYbVdXBgnYzQwHgKZ4ApZRzELZ8R6PqQVqzDqXY").unwrap();
         assert!(!resolver.supports(&did));
         assert!(resolver.resolve_did(&did).is_err());
     }
@@ -646,7 +641,7 @@ mod tests {
         let resolver = HttpDidResolver::new().unwrap();
         // Using `did:web` form with an unreachable host so the failure
         // path is exercised; we only check cache invalidation API works.
-        let did = DidFullId::new("did:web:nonexistent.invalid").unwrap();
+        let did = Did::new("did:web:nonexistent.invalid").unwrap();
         resolver.invalidate(&did);
     }
 
@@ -655,9 +650,9 @@ mod tests {
         let resolver =
             HttpDidResolver::build(ResolverPolicy::default(), 2, OutboundPolicy::public_https())
                 .unwrap();
-        let first = DidFullId::new("did:web:first.example").unwrap();
-        let second = DidFullId::new("did:web:second.example").unwrap();
-        let third = DidFullId::new("did:web:third.example").unwrap();
+        let first = Did::new("did:web:first.example").unwrap();
+        let second = Did::new("did:web:second.example").unwrap();
+        let third = Did::new("did:web:third.example").unwrap();
         resolver.cache_put(&first, &ResolvedDid::proofless(document(first.clone())));
         resolver.cache_put(&second, &ResolvedDid::proofless(document(second.clone())));
         resolver.cache_put(&third, &ResolvedDid::proofless(document(third.clone())));
@@ -696,7 +691,7 @@ mod tests {
 
         let flight = SingleFlight::<u32>::new();
         let calls = AtomicUsize::new(0);
-        let did = DidFullId::new("did:webvh:QmScid:resolver.invalid").unwrap();
+        let did = Did::new("did:webvh:QmScid:resolver.invalid").unwrap();
         let fetch = || {
             calls.fetch_add(1, Ordering::SeqCst);
             async {
@@ -729,7 +724,7 @@ mod tests {
 
         let flight = SingleFlight::<u32>::new();
         let calls = AtomicUsize::new(0);
-        let did = DidFullId::new("did:webvh:QmScid:resolver.invalid").unwrap();
+        let did = Did::new("did:webvh:QmScid:resolver.invalid").unwrap();
         let fetch = || {
             calls.fetch_add(1, Ordering::SeqCst);
             async {
@@ -749,7 +744,7 @@ mod tests {
     #[tokio::test]
     async fn async_path_fails_closed_for_unreachable_host() {
         let resolver = HttpDidResolver::new().unwrap();
-        let did = DidFullId::new("did:web:nonexistent.invalid").unwrap();
+        let did = Did::new("did:web:nonexistent.invalid").unwrap();
         // `.invalid` is reserved (RFC 2606): DNS resolution fails, the
         // fail-closed default policy surfaces the error, and nothing hangs.
         assert!(resolver.resolve_did_async(&did).await.is_err());
@@ -770,7 +765,7 @@ mod tests {
         let on_worker = {
             let resolver = Arc::clone(&resolver);
             tokio::spawn(async move {
-                let did = DidFullId::new("did:web:nonexistent.invalid").unwrap();
+                let did = Did::new("did:web:nonexistent.invalid").unwrap();
                 resolver.resolve_did(&did)
             })
             .await
@@ -779,7 +774,7 @@ mod tests {
         assert!(on_worker.is_err());
 
         // And the `Runtime::block_on` (test body) path.
-        let did = DidFullId::new("did:web:nonexistent.invalid").unwrap();
+        let did = Did::new("did:web:nonexistent.invalid").unwrap();
         assert!(resolver.resolve_did(&did).is_err());
     }
 
@@ -789,7 +784,7 @@ mod tests {
         // must detour through the private helper runtime instead of
         // blocking the only driver thread.
         let resolver = HttpDidResolver::new().unwrap();
-        let did = DidFullId::new("did:web:nonexistent.invalid").unwrap();
+        let did = Did::new("did:web:nonexistent.invalid").unwrap();
         assert!(resolver.resolve_did(&did).is_err());
     }
 

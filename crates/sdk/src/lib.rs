@@ -11,8 +11,8 @@
 //! ```rust
 //! use arkret::canonical::DigestSuite;
 //! use arkret::{
-//!     ContentBlock, DidCoreId, DidFullId, Hlc, MessageCreatePayload, RealmId, ScopeRef, StrandId,
-//!     TypedEventDraft, event_spec, project_full_id_to_core_id,
+//!     ContentBlock, Did, DidCoreId, Hlc, MessageCreatePayload, RealmId, ScopeRef, StrandId,
+//!     TypedEventDraft, event_spec, project_did_to_core_id,
 //! };
 //!
 //! # fn main() -> arkret::Result<()> {
@@ -25,7 +25,7 @@
 //!     ScopeRef::Realm {
 //!         realm_id: RealmId::new("ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir")?,
 //!     },
-//!     DidCoreId::from(project_full_id_to_core_id(&DidFullId::new(
+//!     DidCoreId::from(project_did_to_core_id(&Did::new(
 //!         "did:webvh:z6mkfixture:alice.example",
 //!     )?)?),
 //!     DidCoreId::new("ak:did_core:web:principal.example")?,
@@ -46,7 +46,7 @@
 //! raw strings:
 //!
 //! ```compile_fail
-//! let did: arkret::DidFullId = "did:webvh:z6mkfixture:alice.example";
+//! let did: arkret::Did = "did:webvh:z6mkfixture:alice.example";
 //! ```
 
 mod history_response;
@@ -95,12 +95,12 @@ pub use arkret_identifiers::{
     ActorProfileId, AnnounceId, AppletId, AttestationId, AuditBindingId, AuditReleaseId,
     AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
     CapabilityId, CellRef, ChunkId, CircleId, ClaimId, ConsentId, DeviceId, DeviceMessageId,
-    DeviceMessageTransactionId, DidCoreId, DidFullId, EventId, FilterId, FrameId, GrantId, Hash,
-    Hlc, InviteId, InviteLocatorId, KeyEventId, MessageId, MessageStreamId, ModerationQueueItemId,
+    DeviceMessageTransactionId, Did, DidCoreId, EventId, FilterId, FrameId, GrantId, Hash, Hlc,
+    InviteId, InviteLocatorId, KeyEventId, MessageId, MessageStreamId, ModerationQueueItemId,
     MorphId, NotificationId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId,
     ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId, RtcParticipantId, SealId,
     SidecarId, SnapshotId, SpaceId, StrandId, SubscriptionId, TransactionId, TrustDomainId,
-    TypedAppealId, ViewId, new_prefixed_uuid7, project_full_id_to_core_id,
+    TypedAppealId, ViewId, new_prefixed_uuid7, project_did_to_core_id,
 };
 pub use arkret_identity as identity;
 pub use arkret_identity::jws;
@@ -381,6 +381,7 @@ pub use arkret_wire::seal::{
 pub use arkret_wire::self_contact_paths::*;
 pub use arkret_wire::signer::{PartialSignature, PayloadSigner, ThresholdAggregator};
 pub use arkret_wire::string_profiles::*;
+pub use arkret_wire::tsp_vid::*;
 pub use arkret_wire::wire_strings::*;
 pub use arkret_wire::{
     AccountDataKey, BindingKind, CORE_REDUCER_PROFILE, CapabilityActionId, DIGEST_SUITES,

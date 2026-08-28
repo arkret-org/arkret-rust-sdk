@@ -561,7 +561,7 @@ mod tests {
     }
 
     #[test]
-    fn collect_mention_nodes_rejects_full_did_subject() {
+    fn collect_mention_nodes_rejects_w3c_did_subject() {
         let content = serde_json::json!({
             "kind": "ak.content.text",
             "body": "hi",

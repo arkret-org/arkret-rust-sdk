@@ -8,8 +8,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DeviceId, DidCoreId, DidFullId, DidUrl, EventId, Hash, NonEmptyString, RealmId,
-    project_full_id_to_core_id,
+    DeviceId, Did, DidCoreId, DidUrl, EventId, Hash, NonEmptyString, RealmId,
+    project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -70,8 +70,8 @@ impl MlsEndpointIdentity {
                 "Native Agent MLS verification method has an empty fragment".to_owned(),
             ));
         }
-        let controller = DidFullId::new(controller.to_owned())?;
-        if project_full_id_to_core_id(&controller)?.as_str() != agent_id.as_str() {
+        let controller = Did::new(controller.to_owned())?;
+        if project_did_to_core_id(&controller)?.as_str() != agent_id.as_str() {
             return Err(arkret_wire::WireError::Protocol(
                 "Native Agent MLS verification method controller mismatch".to_owned(),
             ));
@@ -159,7 +159,7 @@ impl MlsEndpointIdentity {
 pub struct RealmPairwiseAuthorState {
     pub realm_id: RealmId,
     pub pairwise_actor_id: DidCoreId,
-    pub pairwise_full_id: DidFullId,
+    pub pairwise_did: Did,
     pub verification_method: DidUrl,
     /// Opaque handle into the platform secure signer; never private material.
     pub local_signing_key_ref: NonEmptyString,
@@ -201,14 +201,14 @@ impl RealmPairwiseAuthorState {
         &self,
         snapshot: &RealmPairwiseAcceptedGroupState,
     ) -> arkret_wire::Result<()> {
-        if !self.pairwise_full_id.as_str().starts_with("did:key:") {
+        if !self.pairwise_did.as_str().starts_with("did:key:") {
             return Err(arkret_wire::WireError::Protocol(
-                "pairwise author DidFullId must use did:key".to_owned(),
+                "pairwise author DID must use did:key".to_owned(),
             ));
         }
-        if project_full_id_to_core_id(&self.pairwise_full_id)? != self.pairwise_actor_id {
+        if project_did_to_core_id(&self.pairwise_did)? != self.pairwise_actor_id {
             return Err(arkret_wire::WireError::Protocol(
-                "pairwise DidFullId does not project to pairwise_actor_id".to_owned(),
+                "pairwise DID does not project to pairwise_actor_id".to_owned(),
             ));
         }
         let (method_base, method_fragment) = self
@@ -220,9 +220,9 @@ impl RealmPairwiseAuthorState {
                     "pairwise verification method has no fragment".to_owned(),
                 )
             })?;
-        if method_base != self.pairwise_full_id.as_str() {
+        if method_base != self.pairwise_did.as_str() {
             return Err(arkret_wire::WireError::Protocol(
-                "pairwise verification method base differs from pairwise_full_id".to_owned(),
+                "pairwise verification method base differs from pairwise_did".to_owned(),
             ));
         }
         let decoded = arkret_canonical::decode_multibase_base58btc(method_fragment)

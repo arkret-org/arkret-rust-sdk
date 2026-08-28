@@ -109,7 +109,7 @@ pub struct MimiDelivery {
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum MimiConsentTargetKind {
-    DidFullId,
+    Did,
     MimiUri,
     Handle,
     ProviderUser,
@@ -140,7 +140,7 @@ pub enum MimiConsentPurpose {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum MimiIdentifierKind {
     MimiUri,
-    DidFullId,
+    Did,
     Handle,
     Phone,
     Email,

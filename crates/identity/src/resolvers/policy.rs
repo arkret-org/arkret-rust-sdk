@@ -1,4 +1,4 @@
-use arkret_wire::DidFullId;
+use arkret_wire::Did;
 
 use crate::*;
 
@@ -91,7 +91,7 @@ impl Default for ResolverPolicy {
 
 impl ResolverPolicy {
     /// Whether `did` is permitted by `allowed_methods`.
-    pub fn permits(&self, did: &DidFullId) -> bool {
+    pub fn permits(&self, did: &Did) -> bool {
         if self.allowed_methods.is_empty() {
             return true;
         }
@@ -104,7 +104,7 @@ impl ResolverPolicy {
     /// Validate `did` against the policy. Returns
     /// `Err(IdentityError::Protocol("unauthorized_method"))` when the method is
     /// not in the allow list.
-    pub fn validate(&self, did: &DidFullId) -> Result<()> {
+    pub fn validate(&self, did: &Did) -> Result<()> {
         if self.permits(did) {
             Ok(())
         } else {
@@ -129,11 +129,11 @@ mod tests {
             "did:webvh:z6mkfixture:example.com",
             "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
         ] {
-            let did = DidFullId::new(did.to_owned()).expect("valid did");
+            let did = Did::new(did.to_owned()).expect("valid did");
             assert!(policy.permits(&did), "default must permit {did:?}");
         }
         // ...but an unknown method is rejected, not fail-open.
-        let bogus = DidFullId::new("did:bogus:whatever".to_owned()).expect("valid did syntax");
+        let bogus = Did::new("did:bogus:whatever".to_owned()).expect("valid did syntax");
         assert!(!policy.permits(&bogus), "default must reject did:bogus:");
         assert!(policy.validate(&bogus).is_err());
         assert_eq!(

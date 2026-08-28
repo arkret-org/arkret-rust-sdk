@@ -15,7 +15,7 @@
 //! binding cannot be forged by round-tripping JSON either.
 
 use arkret_canonical::canonical;
-use arkret_wire::{DidFreshnessProfileId, DidFullId, DidUrl, Hash, TrustDomainId};
+use arkret_wire::{Did, DidFreshnessProfileId, DidUrl, Hash, TrustDomainId};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -524,7 +524,7 @@ pub fn document_canonical_digest(document: &DidDocument) -> Result<Hash, Binding
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerifiedDidBindingInput {
     /// The bare DID that was verified.
-    pub did: DidFullId,
+    pub did: Did,
     /// Local trust domain this acceptance is scoped to.
     pub trust_domain: TrustDomainId,
     /// Purpose this acceptance authorizes — and only this one.
@@ -833,7 +833,7 @@ impl VerifiedDidBinding {
     }
 
     /// The bare DID this binding was accepted for.
-    pub fn did(&self) -> &DidFullId {
+    pub fn did(&self) -> &Did {
         &self.inner.did
     }
 
@@ -931,7 +931,7 @@ impl VerifiedDidBinding {
 /// binding field and an invalidation dimension.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct VerifiedDidBindingKey {
-    pub did: DidFullId,
+    pub did: Did,
     pub trust_domain: TrustDomainId,
     pub purpose: DidBindingPurpose,
     pub policy_digest: Hash,
@@ -950,8 +950,8 @@ mod tests {
         TrustDomainId::new(format!("ak:trust_domain:{scope}")).expect("valid trust domain")
     }
 
-    fn did() -> DidFullId {
-        DidFullId::new("did:webvh:z6mkfixture:binding.example".to_owned()).expect("valid did")
+    fn did() -> Did {
+        Did::new("did:webvh:z6mkfixture:binding.example".to_owned()).expect("valid did")
     }
 
     /// A `low` accepted-only profile's requirement.
@@ -1198,9 +1198,8 @@ mod tests {
 
     #[test]
     fn from_verified_document_computes_the_digest_itself() {
-        let did =
-            DidFullId::new("did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH".to_owned())
-                .expect("valid did");
+        let did = Did::new("did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH".to_owned())
+            .expect("valid did");
         let document = DidDocument::new(
             did.clone(),
             format!("{did}#k1"),
@@ -1237,9 +1236,8 @@ mod tests {
     fn document_digest_matches_the_cached_resolution_hash_format() {
         // The digest MUST stay byte-identical to the string the resolver cache
         // stores in `CachedResolution::document_hash`.
-        let did =
-            DidFullId::new("did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH".to_owned())
-                .expect("valid did");
+        let did = Did::new("did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH".to_owned())
+            .expect("valid did");
         let document = DidDocument::new(
             did.clone(),
             format!("{did}#k1"),

@@ -239,7 +239,7 @@ pub enum AuditWitnessIndependence {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmAuditPolicy {
-    pub range_completeness_witnesses: Vec<DidCoreId>,
+    pub range_completeness_witness_ids: Vec<DidCoreId>,
     pub witnessed_min_attestations: u8,
     pub witness_independence: AuditWitnessIndependence,
 }
@@ -377,12 +377,12 @@ impl Realm {
             policy.validate()?;
         }
         if let Some(policy) = &self.audit_policy {
-            let witness_count = policy.range_completeness_witnesses.len();
+            let witness_count = policy.range_completeness_witness_ids.len();
             if !(1..=64).contains(&witness_count)
                 || !(1..=16).contains(&policy.witnessed_min_attestations)
                 || usize::from(policy.witnessed_min_attestations) > witness_count
                 || policy
-                    .range_completeness_witnesses
+                    .range_completeness_witness_ids
                     .iter()
                     .collect::<std::collections::BTreeSet<_>>()
                     .len()

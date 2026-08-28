@@ -29,8 +29,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_identifiers::{
-    AppletId, CircleId, DidCoreId, DidFullId, EventId, GrantId, Hash, Hlc, RealmId, SealId,
-    SidecarId, project_full_id_to_core_id,
+    AppletId, CircleId, Did, DidCoreId, EventId, GrantId, Hash, Hlc, RealmId, SealId, SidecarId,
+    project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -406,8 +406,8 @@ pub enum DidBindingMethodProofKind {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DidBindingWitness {
-    pub witness_did: DidFullId,
-    pub controlling_organization: DidFullId,
+    pub witness_did: Did,
+    pub controlling_organization_did: Did,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -450,7 +450,7 @@ const REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_DOMAIN: &str =
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct RegistrationDidEvidenceDraft {
     pub principal_id: DidCoreId,
-    pub full_id: DidFullId,
+    pub did: Did,
     pub adapter_version: String,
     pub method_history_head: String,
     pub version_id: String,
@@ -463,7 +463,7 @@ impl RegistrationDidEvidenceDraft {
     pub fn validate_shape(&self) -> Result<()> {
         validate_registration_did_evidence_fields(
             &self.principal_id,
-            &self.full_id,
+            &self.did,
             &self.adapter_version,
             &self.method_history_head,
             &self.version_id,
@@ -482,7 +482,7 @@ impl RegistrationDidEvidenceDraft {
         let value = serde_json::json!({
             "context": crate::ProofContextId::REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_V1,
             "principal_id": &self.principal_id,
-            "full_id": &self.full_id,
+            "did": &self.did,
             "adapter_version": &self.adapter_version,
             "method_history_head": &self.method_history_head,
             "version_id": &self.version_id,
@@ -507,7 +507,7 @@ impl RegistrationDidEvidenceDraft {
         }
         let evidence = RegistrationDidEvidence {
             principal_id: self.principal_id,
-            full_id: self.full_id,
+            did: self.did,
             adapter_version: self.adapter_version,
             accepted_at,
             method_history_head: self.method_history_head,
@@ -529,7 +529,7 @@ impl RegistrationDidEvidenceDraft {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct RegistrationDidEvidence {
     pub principal_id: DidCoreId,
-    pub full_id: DidFullId,
+    pub did: Did,
     pub adapter_version: String,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
@@ -544,7 +544,7 @@ impl RegistrationDidEvidence {
     pub fn validate_shape(&self) -> Result<()> {
         validate_registration_did_evidence_fields(
             &self.principal_id,
-            &self.full_id,
+            &self.did,
             &self.adapter_version,
             &self.method_history_head,
             &self.version_id,
@@ -567,7 +567,7 @@ impl RegistrationDidEvidence {
     pub fn draft(&self) -> RegistrationDidEvidenceDraft {
         RegistrationDidEvidenceDraft {
             principal_id: self.principal_id.clone(),
-            full_id: self.full_id.clone(),
+            did: self.did.clone(),
             adapter_version: self.adapter_version.clone(),
             method_history_head: self.method_history_head.clone(),
             version_id: self.version_id.clone(),
@@ -584,7 +584,7 @@ impl RegistrationDidEvidence {
 
 fn validate_registration_did_evidence_fields(
     principal_id: &DidCoreId,
-    full_id: &DidFullId,
+    did: &Did,
     adapter_version: &str,
     method_history_head: &str,
     version_id: &str,
@@ -603,9 +603,9 @@ fn validate_registration_did_evidence_fields(
     if adapter_version.trim().is_empty()
         || method_history_head.trim().is_empty()
         || version_id.trim().is_empty()
-        || project_full_id_to_core_id(full_id)? != *principal_id
-        || controller != full_id.as_str()
-        || method_evidence.method != full_id.method()
+        || project_did_to_core_id(did)? != *principal_id
+        || controller != did.as_str()
+        || method_evidence.method != did.method()
         || method_evidence.method_proofs.iter().any(|proof| {
             proof.history_head.is_empty()
                 || proof
@@ -622,7 +622,7 @@ fn validate_registration_did_evidence_fields(
             "registration DID evidence shape or identity binding mismatch".to_owned(),
         ));
     }
-    match full_id.method() {
+    match did.method() {
         "webvh"
             if method_evidence.method_proofs.len() == 1
                 && method_evidence.method_proofs[0].history_head == method_history_head => {}

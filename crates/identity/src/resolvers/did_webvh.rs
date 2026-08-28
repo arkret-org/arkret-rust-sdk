@@ -1,4 +1,4 @@
-use arkret_wire::DidFullId;
+use arkret_wire::Did;
 
 use super::basics::*;
 use crate::helpers::*;
@@ -20,12 +20,12 @@ use crate::*;
 ///   the whole log is rejected (fail-closed).
 #[derive(Clone, Debug, Default)]
 pub struct DidWebvhResolver {
-    documents: BTreeMap<DidFullId, DidDocument>,
-    logs: BTreeMap<DidFullId, Vec<DidWebvhLogEntry>>,
-    raw_logs: BTreeMap<DidFullId, Vec<Value>>,
-    raw_log_bytes: BTreeMap<DidFullId, Vec<u8>>,
-    witness_records: BTreeMap<DidFullId, Vec<Value>>,
-    conflicted: std::collections::BTreeSet<DidFullId>,
+    documents: BTreeMap<Did, DidDocument>,
+    logs: BTreeMap<Did, Vec<DidWebvhLogEntry>>,
+    raw_logs: BTreeMap<Did, Vec<Value>>,
+    raw_log_bytes: BTreeMap<Did, Vec<u8>>,
+    witness_records: BTreeMap<Did, Vec<Value>>,
+    conflicted: std::collections::BTreeSet<Did>,
 }
 
 /// A single line from a `did.jsonl` log file. The shape is permissive
@@ -129,17 +129,17 @@ impl DidWebvhResolver {
     }
 
     /// HTTPS URL where the current `did.json` is hosted.
-    pub fn document_url(did: &DidFullId) -> Result<String> {
+    pub fn document_url(did: &Did) -> Result<String> {
         Self::artifact_url(did, "did.json")
     }
 
     /// HTTPS URL of the append-only history.
-    pub fn log_url(did: &DidFullId) -> Result<String> {
+    pub fn log_url(did: &Did) -> Result<String> {
         Self::artifact_url(did, "did.jsonl")
     }
 
     /// HTTPS URL of the separate method-native witness proofs file.
-    pub fn witness_url(did: &DidFullId) -> Result<String> {
+    pub fn witness_url(did: &Did) -> Result<String> {
         Self::artifact_url(did, "did-witness.json")
     }
 
@@ -150,7 +150,7 @@ impl DidWebvhResolver {
     /// malformed syntax, an authority that cannot host a log). Whether this
     /// deployment may connect to the derived authority is decided later, at
     /// the caller's request layer, by the shared egress lock — never here.
-    fn artifact_url(did: &DidFullId, leaf: &str) -> Result<String> {
+    fn artifact_url(did: &Did, leaf: &str) -> Result<String> {
         try_did_webvh_url(did, leaf).map_err(|error| {
             IdentityError::Protocol(format!("{}: {}", error.as_message(), did.as_str()))
         })
@@ -159,7 +159,7 @@ impl DidWebvhResolver {
     /// Validate and cache a `did.json` response.
     pub fn insert_from_https_response(
         &mut self,
-        did: &DidFullId,
+        did: &Did,
         response: DidWebvhDocumentOutcome,
     ) -> Result<DidDocument> {
         if self.conflicted.contains(did) {
@@ -203,7 +203,7 @@ impl DidWebvhResolver {
     /// log; throws if the SCID, chain or DID don't agree.
     pub fn ingest_log(
         &mut self,
-        did: &DidFullId,
+        did: &Did,
         response: DidWebvhLogOutcome,
     ) -> Result<Vec<DidWebvhLogEntry>> {
         if self.conflicted.contains(did) {
@@ -265,7 +265,7 @@ impl DidWebvhResolver {
     /// `did-usage-and-verification.md` §5.2 makes the evidence receipt commit to
     /// the raw witness proof set: without them the resolver could surface a log
     /// head but no evidence that any witness ever signed it.
-    pub fn ingest_witness_records(&mut self, did: &DidFullId, witness_bytes: &[u8]) -> Result<()> {
+    pub fn ingest_witness_records(&mut self, did: &Did, witness_bytes: &[u8]) -> Result<()> {
         let log_bytes = self.raw_log_bytes.get(did).ok_or_else(|| {
             IdentityError::Protocol("did:webvh witness records require an ingested log".to_owned())
         })?;
@@ -289,7 +289,7 @@ impl DidWebvhResolver {
     /// invalidate selectively (§5.6); recording an unattributed witness as its
     /// own organization states exactly what is known, and a later merge
     /// determination updates the attribution.
-    fn method_evidence(&self, did: &DidFullId) -> Result<MethodEvidence> {
+    fn method_evidence(&self, did: &Did) -> Result<MethodEvidence> {
         let Some(head) = self.logs.get(did).and_then(|entries| entries.last()) else {
             return Ok(MethodEvidence::none());
         };
@@ -304,9 +304,9 @@ impl DidWebvhResolver {
         let mut witnesses = Vec::new();
         for id in policy.map(|policy| policy.witnesses).unwrap_or_default() {
             let witness_did =
-                DidFullId::new(id).map_err(|error| IdentityError::Protocol(error.to_string()))?;
+                Did::new(id).map_err(|error| IdentityError::Protocol(error.to_string()))?;
             witnesses.push(WebvhWitnessRow {
-                controlling_organization: witness_did.clone(),
+                controlling_organization_did: witness_did.clone(),
                 witness_did,
             });
         }
@@ -327,11 +327,11 @@ impl DidWebvhResolver {
         })
     }
 
-    pub fn is_conflicted(&self, did: &DidFullId) -> bool {
+    pub fn is_conflicted(&self, did: &Did) -> bool {
         self.conflicted.contains(did)
     }
 
-    fn mark_conflicted(&mut self, did: &DidFullId) {
+    fn mark_conflicted(&mut self, did: &Did) {
         self.conflicted.insert(did.clone());
         self.documents.remove(did);
         self.logs.remove(did);
@@ -342,11 +342,11 @@ impl DidWebvhResolver {
 }
 
 impl DidResolver for DidWebvhResolver {
-    fn supports(&self, did: &DidFullId) -> bool {
+    fn supports(&self, did: &Did) -> bool {
         did.method() == "webvh" && did_webvh_document_url(did).is_some()
     }
 
-    fn resolve_did(&self, did: &DidFullId) -> Result<ResolvedDid> {
+    fn resolve_did(&self, did: &Did) -> Result<ResolvedDid> {
         if !self.supports(did) {
             return Err(IdentityError::Protocol(
                 "unsupported DID method for did:webvh resolver".to_owned(),
@@ -366,16 +366,13 @@ impl DidResolver for DidWebvhResolver {
 }
 
 /// Parse and verify a complete JSON-lines Arkret principal WebVH history.
-pub fn verify_did_webvh_v1_log_bytes(did: &DidFullId, bytes: &[u8]) -> Result<VerifiedDidWebvhLog> {
+pub fn verify_did_webvh_v1_log_bytes(did: &Did, bytes: &[u8]) -> Result<VerifiedDidWebvhLog> {
     let raw_entries = parse_did_webvh_json_lines(bytes)?;
     verify_did_webvh_v1_log(did, &raw_entries)
 }
 
 /// Parse and verify the generic WebVH integrity/current-key profile.
-pub fn verify_did_webvh_v1_chain_bytes(
-    did: &DidFullId,
-    bytes: &[u8],
-) -> Result<VerifiedDidWebvhLog> {
+pub fn verify_did_webvh_v1_chain_bytes(did: &Did, bytes: &[u8]) -> Result<VerifiedDidWebvhLog> {
     let raw_entries = parse_did_webvh_json_lines(bytes)?;
     verify_did_webvh_v1_chain(did, &raw_entries)
 }
@@ -580,7 +577,7 @@ pub fn verify_did_webvh_witness_record(
 /// `did-witness.json` is a JSON array. Each item binds one `versionId` and
 /// carries Data Integrity proofs over that item with `proof` removed.
 pub fn verify_did_webvh_v1_chain_and_witness_bytes(
-    did: &DidFullId,
+    did: &Did,
     log_bytes: &[u8],
     witness_bytes: Option<&[u8]>,
 ) -> std::result::Result<VerifiedDidWebvhWitnessLog, DidWebvhWitnessValidationError> {
@@ -658,7 +655,7 @@ pub fn verify_did_webvh_v1_chain_and_witness_bytes(
 /// proofs, hash chain, and exact canonical equality with the verified log head
 /// are still enforced here.
 pub fn verify_did_webvh_document_and_log_bytes(
-    did: &DidFullId,
+    did: &Did,
     document_bytes: &[u8],
     log_bytes: &[u8],
 ) -> Result<DidDocument> {
@@ -700,25 +697,19 @@ fn parse_did_webvh_json_lines(bytes: &[u8]) -> Result<Vec<Value>> {
 /// model. Every entry explicitly declares and is signed by its current root
 /// key; after inception that key must match the previous entry's commitment,
 /// and a previously activated root key can never become active again.
-pub fn verify_did_webvh_v1_log(
-    did: &DidFullId,
-    raw_entries: &[Value],
-) -> Result<VerifiedDidWebvhLog> {
+pub fn verify_did_webvh_v1_log(did: &Did, raw_entries: &[Value]) -> Result<VerifiedDidWebvhLog> {
     verify_did_webvh_v1_internal(did, raw_entries, true)
 }
 
 /// Verify generic WebVH SCID/hash-chain/proof/current-key integrity. Rotation
 /// requires the previous entry's pre-rotation commitment, while a single-head
 /// service or organization DID need not advertise a future key.
-pub fn verify_did_webvh_v1_chain(
-    did: &DidFullId,
-    raw_entries: &[Value],
-) -> Result<VerifiedDidWebvhLog> {
+pub fn verify_did_webvh_v1_chain(did: &Did, raw_entries: &[Value]) -> Result<VerifiedDidWebvhLog> {
     verify_did_webvh_v1_internal(did, raw_entries, false)
 }
 
 fn verify_did_webvh_v1_internal(
-    did: &DidFullId,
+    did: &Did,
     raw_entries: &[Value],
     principal_profile: bool,
 ) -> Result<VerifiedDidWebvhLog> {
@@ -797,7 +788,7 @@ fn verify_did_webvh_v1_internal(
             .get("id")
             .and_then(Value::as_str)
             .ok_or_else(|| IdentityError::Protocol("did:webvh log state omits id".to_owned()))?;
-        let typed_state_id = DidFullId::new(state_id.to_owned())?;
+        let typed_state_id = Did::new(state_id.to_owned())?;
         if typed_state_id.method() != "webvh"
             || did_webvh_scid(&typed_state_id).as_deref() != Some(scid.as_str())
         {

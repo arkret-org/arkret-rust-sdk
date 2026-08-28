@@ -1460,17 +1460,17 @@ impl MinimalMetadataMlsLeafSignerEvidence {
                 "minimal-metadata signer evidence MLS group does not match its scope".to_owned(),
             ));
         }
-        let method_full_id = self
+        let method_did = self
             .verification_method
             .as_str()
             .split_once('#')
-            .map(|(full_id, _)| full_id)
+            .map(|(did, _)| did)
             .ok_or_else(|| {
                 WireError::Protocol("history source method lacks fragment".to_owned())
             })?;
-        let method_full_id = arkret_wire::DidFullId::new(method_full_id.to_owned())?;
+        let method_did = arkret_wire::Did::new(method_did.to_owned())?;
         if self.pairwise_actor_id != self.source_actor_id
-            || arkret_wire::project_full_id_to_core_id(&method_full_id)? != self.source_actor_id
+            || arkret_wire::project_did_to_core_id(&method_did)? != self.source_actor_id
         {
             return Err(WireError::Protocol(
                 "minimal-metadata signer evidence actor or method mismatch".to_owned(),

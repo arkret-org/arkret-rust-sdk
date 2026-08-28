@@ -3,7 +3,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use arkret_wire::generated::profile_requirements::requirements_for;
-use arkret_wire::{DidCoreId, DidFullId, ProfileId, SchemaId, *};
+use arkret_wire::{Did, DidCoreId, ProfileId, SchemaId, *};
 use chrono::{DateTime, Utc};
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::traits::Identity;
@@ -590,18 +590,18 @@ impl ServiceDescribe {
 
     /// Build a complete development-mode description for a service surface.
     pub fn development(
-        full_id: DidFullId,
+        did: Did,
         trust_domain: TrustDomainId,
         service_kind: ServiceKind,
         supported_operation_bundles: Vec<String>,
         transport_bindings: Vec<TransportBinding>,
     ) -> Self {
-        let service_id = project_full_id_to_core_id(&full_id)
+        let service_id = project_did_to_core_id(&did)
             .expect("development service full id must use a registered adapter");
         Self {
             service_id,
             service_resolution: arkret_models_identity::ResolutionCommitment {
-                full_id,
+                did,
                 method_history_head: "development-unverified".to_owned(),
                 version_id: "development-unverified".to_owned(),
             },
@@ -661,7 +661,7 @@ impl ServiceDescribe {
                 ),
             });
         }
-        if project_full_id_to_core_id(&self.service_resolution.full_id)? != self.service_id
+        if project_did_to_core_id(&self.service_resolution.did)? != self.service_id
             || self.service_resolution.method_history_head.is_empty()
             || self.service_resolution.version_id.is_empty()
         {
@@ -1062,7 +1062,7 @@ mod tests {
 
     fn principal_description() -> ServiceDescribe {
         ServiceDescribe::development(
-            DidFullId::new("did:webvh:z6mkfixture:service.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:service.example").unwrap(),
             TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             ServiceKind::PrincipalServer,
             vec![
@@ -1140,7 +1140,7 @@ mod tests {
         ServiceDescribe {
             service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             service_resolution: arkret_models_identity::ResolutionCommitment {
-                full_id: DidFullId::new("did:webvh:z6mkfixture:directory.example").unwrap(),
+                did: Did::new("did:webvh:z6mkfixture:directory.example").unwrap(),
                 method_history_head: "fixture-head".to_owned(),
                 version_id: "fixture-version".to_owned(),
             },

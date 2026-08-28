@@ -11,7 +11,7 @@ use arkret_models_collaboration::sync_frames::snapshot::{
     RangeCompletenessAttestation, RangeCompletenessAttestationEventRangeActorSeqRangesItem,
 };
 use arkret_wire::{
-    DidCoreId, DidFullId, Event, EventId, Hash, RealmId, event_spec, project_full_id_to_core_id,
+    Did, DidCoreId, Event, EventId, Hash, RealmId, event_spec, project_did_to_core_id,
 };
 use serde::Serialize;
 
@@ -363,13 +363,13 @@ fn validate_witnesses(
                 ));
             }
             let witness = &witnesses[0];
-            if witness.issuer != payload.issuer
+            if witness.witness_id != payload.issuer
                 || witness
                     .verification_method
                     .as_str()
                     .split_once('#')
-                    .and_then(|(controller, _)| DidFullId::new(controller).ok())
-                    .and_then(|controller| project_full_id_to_core_id(&controller).ok())
+                    .and_then(|(controller, _)| Did::new(controller).ok())
+                    .and_then(|controller| project_did_to_core_id(&controller).ok())
                     .is_none_or(|controller| controller != payload.issuer)
                 || !payload
                     .proofs
@@ -385,7 +385,7 @@ fn validate_witnesses(
         2.. => {
             let issuers = witnesses
                 .iter()
-                .map(|witness| &witness.issuer)
+                .map(|witness| &witness.witness_id)
                 .collect::<BTreeSet<_>>();
             let methods = witnesses
                 .iter()
@@ -393,14 +393,14 @@ fn validate_witnesses(
                 .collect::<BTreeSet<_>>();
             let organizations = witnesses
                 .iter()
-                .map(|witness| &witness.controlling_organization)
+                .map(|witness| &witness.controlling_organization_id)
                 .collect::<BTreeSet<_>>();
             if issuers.len() != witnesses.len()
                 || methods.len() != witnesses.len()
                 || organizations.len() != witnesses.len()
                 || witnesses
                     .iter()
-                    .any(|witness| !allowed_witnesses.contains(&witness.issuer))
+                    .any(|witness| !allowed_witnesses.contains(&witness.witness_id))
             {
                 return Err(RangeCompletenessError::WitnessDisagreement(
                     "witness independence or policy binding failed".to_owned(),
@@ -531,8 +531,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use arkret_wire::{
-        DidCoreId, DidFullId, DidUrl, EventKind, EventRequirements, PayloadProof,
-        ProducerEventProof, ScopeRef, project_full_id_to_core_id, proof_kind,
+        Did, DidCoreId, DidUrl, EventKind, EventRequirements, PayloadProof, ProducerEventProof,
+        ScopeRef, project_did_to_core_id, proof_kind,
     };
     use chrono::{TimeZone, Utc};
     use serde_json::{Value, json};
@@ -540,8 +540,8 @@ mod tests {
     use super::*;
 
     fn event(id: &str, seq: u64, kind: &str, prev_refs: Vec<EventId>) -> Event {
-        let actor_full = DidFullId::new("did:web:alice.example").unwrap();
-        let actor = project_full_id_to_core_id(&actor_full).unwrap();
+        let actor_did = Did::new("did:web:alice.example").unwrap();
+        let actor = project_did_to_core_id(&actor_did).unwrap();
         let realm = RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
         let mut event = Event {
             event_id: EventId::new(id).unwrap(),
@@ -579,7 +579,7 @@ mod tests {
         event.proofs.push(
             ProducerEventProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
-                verification_method: DidUrl::new(format!("{actor_full}#device")).unwrap(),
+                verification_method: DidUrl::new(format!("{actor_did}#device")).unwrap(),
                 event_digest: digest,
                 signer_resolution_evidence_ref: None,
                 signer_resolution_evidence_digest: None,
@@ -603,9 +603,10 @@ mod tests {
             RangeCompletenessAttestationWitnessAttestationWitnessesItem,
         };
 
-        let issuer_full = DidFullId::new("did:webvh:z6mkfixture:server.example").unwrap();
+        let issuer_did = Did::new("did:webvh:z6mkfixture:server.example").unwrap();
         let issuer = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
-        let controlling_organization = DidCoreId::new("ak:did_core:webvh:z6mkfixtureorg").unwrap();
+        let controlling_organization_id =
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureorg").unwrap();
         let realm = events[0].realm_id.clone();
         let (from_frontier, to_frontier) = full_realm_range_frontiers(events).unwrap();
         let range_events = full_realm_range_events(events).unwrap();
@@ -638,10 +639,10 @@ mod tests {
             witness_attestation: RangeCompletenessAttestationWitnessAttestation {
                 witnesses: vec![
                     RangeCompletenessAttestationWitnessAttestationWitnessesItem {
-                        issuer: issuer.clone(),
-                        verification_method: DidUrl::new(format!("{issuer_full}#notary-key"))
+                        witness_id: issuer.clone(),
+                        verification_method: DidUrl::new(format!("{issuer_did}#notary-key"))
                             .unwrap(),
-                        controlling_organization,
+                        controlling_organization_id,
                         attested_at: Some(created_at),
                         extra: BTreeMap::new(),
                     },
@@ -653,7 +654,7 @@ mod tests {
             arkret_canonical::sha256_digest(payload.proof_payload_bytes().unwrap());
         payload.proofs.push(PayloadProof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
-            verification_method: DidUrl::new(format!("{issuer_full}#notary-key")).unwrap(),
+            verification_method: DidUrl::new(format!("{issuer_did}#notary-key")).unwrap(),
             payload_digest: Hash::new(payload_digest).unwrap(),
             created_at,
             domain: None,
@@ -695,7 +696,7 @@ mod tests {
         event.proofs.push(
             ProducerEventProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
-                verification_method: DidUrl::new(format!("{issuer_full}#notary-key")).unwrap(),
+                verification_method: DidUrl::new(format!("{issuer_did}#notary-key")).unwrap(),
                 event_digest: Hash::new(
                     event
                         .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)

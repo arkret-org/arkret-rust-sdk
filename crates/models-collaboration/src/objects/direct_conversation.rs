@@ -77,10 +77,10 @@ pub struct DirectConversationPairKeyParticipant {
 }
 
 impl DirectConversationPairKeyParticipant {
-    pub fn unmapped(did: DidCoreId) -> Self {
+    pub fn unmapped(actor_id: DidCoreId) -> Self {
         Self {
-            stable_subject: did.clone(),
-            actor_id: did,
+            stable_subject: actor_id.clone(),
+            actor_id,
         }
     }
 }
@@ -331,27 +331,27 @@ pub fn direct_conversation_may_found(
 #[cfg(test)]
 mod tests {
     use arkret_wire::notary::{NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor};
-    use arkret_wire::{DidCoreId, DidFullId, DidUrl};
+    use arkret_wire::{Did, DidCoreId, DidUrl};
 
     use super::*;
 
-    fn full_id(value: &str) -> DidFullId {
-        DidFullId::new(value.to_owned()).unwrap()
+    fn did(value: &str) -> Did {
+        Did::new(value.to_owned()).unwrap()
     }
 
     fn actor(value: &str) -> DidCoreId {
-        arkret_wire::project_full_id_to_core_id(&full_id(value)).unwrap()
+        arkret_wire::project_did_to_core_id(&did(value)).unwrap()
     }
 
     fn principal(value: &str) -> DidCoreId {
-        arkret_wire::project_full_id_to_core_id(&full_id(value)).unwrap()
+        arkret_wire::project_did_to_core_id(&did(value)).unwrap()
     }
 
     fn trust_domain() -> TrustDomainId {
         TrustDomainId::new("ak:trust_domain:example.test".to_owned()).unwrap()
     }
 
-    fn notary(creator: &DidFullId) -> NotaryValue {
+    fn notary(creator: &Did) -> NotaryValue {
         NotaryValue::single_signer(NotarySignerDescriptor {
             actor_id: actor(creator.as_str()),
             verification_method: DidUrl::new(format!("{}#key-1", creator.as_str())).unwrap(),
@@ -430,7 +430,7 @@ mod tests {
 
     #[test]
     fn builder_emits_closed_profiled_e2ee_realm() {
-        let creator = full_id("did:webvh:z6mkfixturealice:alice.example");
+        let creator = did("did:webvh:z6mkfixturealice:alice.example");
         let payload = direct_conversation_realm_create_payload(
             GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap(),
             trust_domain(),

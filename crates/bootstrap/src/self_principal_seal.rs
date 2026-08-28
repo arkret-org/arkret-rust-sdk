@@ -8,8 +8,8 @@ use arkret_models_collaboration::governance_dependencies::{
 };
 use arkret_state::control_event_set_root;
 use arkret_wire::{
-    DidCoreId, DidFullId, Event, EventKind, Hash, Hlc, NotarySig, PayloadSigner, Result, Seal,
-    SealId, SealSignature, WireError, project_full_id_to_core_id,
+    Did, DidCoreId, Event, EventKind, Hash, Hlc, NotarySig, PayloadSigner, Result, Seal, SealId,
+    SealSignature, WireError, project_did_to_core_id,
 };
 use chrono::Utc;
 use serde_json::Value;
@@ -28,8 +28,8 @@ fn completeness_events(events: &[Event]) -> Vec<(Event, arkret_canonical::Digest
         .collect()
 }
 
-fn signer_projects_to_actor(signer: &DidFullId, actor_id: &DidCoreId) -> Result<bool> {
-    Ok(project_full_id_to_core_id(signer)? == *actor_id)
+fn signer_projects_to_actor(signer: &Did, actor_id: &DidCoreId) -> Result<bool> {
+    Ok(project_did_to_core_id(signer)? == *actor_id)
 }
 
 /// Build and sign the first principal-control Seal after the closed bootstrap

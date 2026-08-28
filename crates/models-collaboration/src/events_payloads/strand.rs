@@ -388,10 +388,8 @@ mod presence_tests {
     fn watch_cell_ref_matches_the_registered_contract() {
         let payload = StrandWatchSetPayload::set(
             strand_id("000000000001"),
-            project_full_id_to_core_id(
-                &DidFullId::new("did:webvh:z6mkfixturebob:bob.example").unwrap(),
-            )
-            .unwrap(),
+            project_did_to_core_id(&Did::new("did:webvh:z6mkfixturebob:bob.example").unwrap())
+                .unwrap(),
             StrandWatchLevel::Participating,
             None,
         );
@@ -400,10 +398,8 @@ mod presence_tests {
             ScopeRef::Realm {
                 realm_id: realm_id(),
             },
-            project_full_id_to_core_id(
-                &DidFullId::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            )
-            .unwrap(),
+            project_did_to_core_id(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap())
+                .unwrap(),
             DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             1,
             Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),

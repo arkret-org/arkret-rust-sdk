@@ -6,8 +6,8 @@ use arkret_models_identity::{
     ResolutionMethodHistoryEvidence,
 };
 use arkret_wire::{
-    AppletId, DidCoreId, DidFullId, DidUrl, EventId, EventKind, GrantId, Hash, PayloadSigner,
-    ProfileId, Result, SchemaId, WireError, XExtensionMap, canonical, proof_kind,
+    AppletId, Did, DidCoreId, DidUrl, EventId, EventKind, GrantId, Hash, PayloadSigner, ProfileId,
+    Result, SchemaId, WireError, XExtensionMap, canonical, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -106,8 +106,7 @@ impl AppletManagedActorProvisionPayload {
         if self.schema != Self::SCHEMA
             || self.actor_id == self.service_id
             || matches!(self.actor_role, AppletManagedActorRole::Bot) != self.external_ref.is_none()
-            || arkret_wire::project_full_id_to_core_id(&self.initial_resolution.full_id)?
-                != self.actor_id
+            || arkret_wire::project_did_to_core_id(&self.initial_resolution.did)? != self.actor_id
             || boundary.to_method_history_head != self.initial_resolution.method_history_head
             || boundary.to_version_id != self.initial_resolution.version_id
         {
@@ -467,11 +466,11 @@ impl AppletDidMethodVersionEvidence {
         Ok(())
     }
 
-    pub fn validate_for_full_id(&self, full_id: &DidFullId) -> Result<()> {
+    pub fn validate_for_did(&self, did: &Did) -> Result<()> {
         self.validate()?;
-        if !full_id.as_str().starts_with(&format!("{}:", self.method)) {
+        if !did.as_str().starts_with(&format!("{}:", self.method)) {
             return Err(WireError::Protocol(
-                "applet registration epoch DID method does not match full_id".to_owned(),
+                "applet registration epoch DID method does not match did".to_owned(),
             ));
         }
         match self.method.as_str() {
@@ -525,7 +524,7 @@ pub struct AppletRegistrationEpochDerivedRegistration {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletRegistrationEpochDidDocument {
-    pub full_id: DidFullId,
+    pub did: Did,
     pub document_digest: Hash,
     pub method_version: AppletDidMethodVersionEvidence,
 }
@@ -649,13 +648,13 @@ pub fn applet_signing_key_material_digest(public_key_material: &str) -> Result<H
     Hash::new(canonical::sha256_digest(public_key_material.as_bytes())).map_err(Into::into)
 }
 
-pub fn normalize_applet_signing_key_ref(service_full_id: &DidFullId, key_ref: &str) -> String {
+pub fn normalize_applet_signing_key_ref(service_did: &Did, key_ref: &str) -> String {
     if key_ref.starts_with("did:") {
         key_ref.to_owned()
     } else if key_ref.starts_with('#') {
-        format!("{}{}", service_full_id.as_str(), key_ref)
+        format!("{}{}", service_did.as_str(), key_ref)
     } else {
-        format!("{}#{}", service_full_id.as_str(), key_ref)
+        format!("{}#{}", service_did.as_str(), key_ref)
     }
 }
 /// Captured DID-document and signing-key evidence for an Applet registration
@@ -666,7 +665,7 @@ pub fn normalize_applet_signing_key_ref(service_full_id: &DidFullId, key_ref: &s
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletRegistrationEpochEvidence {
-    pub full_id: DidFullId,
+    pub did: Did,
     pub did_document_digest: Hash,
     pub method_version_evidence: AppletDidMethodVersionEvidence,
     pub accepted_signing_keys: Vec<AppletAcceptedSigningKeyEvidence>,
@@ -712,13 +711,13 @@ impl std::error::Error for AppletEpochEvidenceError {}
 
 impl AppletRegistrationEpochEvidence {
     pub fn new(
-        full_id: DidFullId,
+        did: Did,
         did_document_digest: Hash,
         method_version_evidence: AppletDidMethodVersionEvidence,
         accepted_signing_keys: Vec<AppletAcceptedSigningKeyEvidence>,
     ) -> Self {
         Self {
-            full_id,
+            did,
             did_document_digest,
             method_version_evidence,
             accepted_signing_keys,
@@ -729,7 +728,7 @@ impl AppletRegistrationEpochEvidence {
         document: &DidDocument,
         method_version_evidence: AppletDidMethodVersionEvidence,
     ) -> Result<Self> {
-        method_version_evidence.validate_for_full_id(&document.id)?;
+        method_version_evidence.validate_for_did(&document.id)?;
         if document
             .raw_properties
             .get("deactivated")
@@ -755,7 +754,7 @@ impl AppletRegistrationEpochEvidence {
             ));
         }
         Ok(Self {
-            full_id: document.id.clone(),
+            did: document.id.clone(),
             did_document_digest,
             method_version_evidence,
             accepted_signing_keys,
@@ -766,7 +765,7 @@ impl AppletRegistrationEpochEvidence {
         &self,
         document: &DidDocument,
     ) -> std::result::Result<(), AppletEpochEvidenceError> {
-        if self.full_id != document.id {
+        if self.did != document.id {
             return Err(AppletEpochEvidenceError::DidCoreIdMismatch);
         }
         if document
@@ -788,7 +787,7 @@ impl AppletRegistrationEpochEvidence {
         }
         if self
             .method_version_evidence
-            .validate_for_full_id(&self.full_id)
+            .validate_for_did(&self.did)
             .is_err()
         {
             return Err(AppletEpochEvidenceError::DidDocumentDigestFailed(
@@ -869,13 +868,13 @@ impl AppletRegistrationEpochTranscript {
     ) -> Result<Self> {
         evidence
             .method_version_evidence
-            .validate_for_full_id(&evidence.full_id)?;
+            .validate_for_did(&evidence.did)?;
         if evidence.accepted_signing_keys.is_empty() {
             return Err(WireError::Protocol(
                 "applet registration epoch evidence has no signing keys".to_owned(),
             ));
         }
-        if package.service_id != arkret_wire::project_full_id_to_core_id(&evidence.full_id)? {
+        if package.service_id != arkret_wire::project_did_to_core_id(&evidence.did)? {
             return Err(WireError::Protocol(
                 "applet registration epoch evidence service_id mismatch".to_owned(),
             ));
@@ -898,7 +897,7 @@ impl AppletRegistrationEpochTranscript {
                 created_at: package.created_at,
             },
             service_did_document: AppletRegistrationEpochDidDocument {
-                full_id: evidence.full_id.clone(),
+                did: evidence.did.clone(),
                 document_digest: evidence.did_document_digest.clone(),
                 method_version: evidence.method_version_evidence.clone(),
             },
@@ -987,8 +986,7 @@ impl AppletRegistrationEpochTranscript {
                 "applet registration epoch transcript kind mismatch".to_owned(),
             ));
         }
-        let service_id =
-            arkret_wire::project_full_id_to_core_id(&self.service_did_document.full_id)?;
+        let service_id = arkret_wire::project_did_to_core_id(&self.service_did_document.did)?;
         if self.derived_registration.service_id != service_id {
             return Err(WireError::Protocol(
                 "applet registration epoch transcript service_id mismatch".to_owned(),
@@ -1168,7 +1166,7 @@ fn verification_method_controller_core(verification_method: &str) -> Result<DidC
         .ok_or_else(|| {
             WireError::Protocol("applet signing key requires a DID URL fragment".to_owned())
         })?;
-    arkret_wire::project_full_id_to_core_id(&DidFullId::new(controller)?).map_err(Into::into)
+    arkret_wire::project_did_to_core_id(&Did::new(controller)?).map_err(Into::into)
 }
 
 pub fn applet_did_document_digest(document: &DidDocument) -> Result<Hash> {
@@ -1261,14 +1259,14 @@ impl AppletPackage {
         package_id: impl Into<String>,
         applet_id: AppletId,
         service_id: DidCoreId,
-        service_full_id: DidFullId,
+        service_did: Did,
         controller_id: DidCoreId,
         base_url: impl Into<String>,
         bot_actor_id: DidCoreId,
         protocols: Vec<String>,
         namespaces: AppletWireNamespaces,
     ) -> Self {
-        let webhook_key_ref = DidUrl::new(format!("{service_full_id}#applet-webhook"))
+        let webhook_key_ref = DidUrl::new(format!("{service_did}#applet-webhook"))
             .expect("full service DID yields a valid key ref");
         Self {
             schema: SchemaId::APPLET_PACKAGE_V1.to_owned(),
@@ -1450,7 +1448,7 @@ impl AppletPackage {
         evidence: &AppletRegistrationEpochEvidence,
     ) -> Result<()> {
         self.validate_wire()?;
-        if arkret_wire::project_full_id_to_core_id(&evidence.full_id)? != self.service_id {
+        if arkret_wire::project_did_to_core_id(&evidence.did)? != self.service_id {
             return Err(WireError::Protocol(
                 "applet package registration_epoch_evidence service_id mismatch".to_owned(),
             ));

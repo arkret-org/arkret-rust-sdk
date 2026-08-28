@@ -25,8 +25,8 @@ mod models {
     pub use arkret_models_identity::{DeliveryStatus, ServiceResolutionCarrier};
     pub use arkret_wire::patch::{Patch, PatchOp};
     pub use arkret_wire::{
-        DidCoreId, DidFullId, EventId, Hash, HistoryAccess, InviteId, PlaintextDataClassKind,
-        RealmId, SpaceId, StrandId, project_full_id_to_core_id,
+        Did, DidCoreId, EventId, Hash, HistoryAccess, InviteId, PlaintextDataClassKind, RealmId,
+        SpaceId, StrandId, project_did_to_core_id,
     };
 }
 
@@ -102,10 +102,7 @@ fn membership_payload_strong_type_passes_spec_validator() {
     // invite transition (non-join): only `membership` is structurally required.
     let invite = MembershipPayload::transition(
         MembershipPayloadState::Invite,
-        project_full_id_to_core_id(
-            &DidFullId::new("did:webvh:z6mkfixturebob:bob.example").unwrap(),
-        )
-        .unwrap(),
+        project_did_to_core_id(&Did::new("did:webvh:z6mkfixturebob:bob.example").unwrap()).unwrap(),
         "space_create",
     );
     catalog
@@ -116,10 +113,7 @@ fn membership_payload_strong_type_passes_spec_validator() {
     // required, but delivery_binding only when routable.
     let mut join = MembershipPayload::join(
         RealmId::new("ak:realm:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD").unwrap(),
-        project_full_id_to_core_id(
-            &DidFullId::new("did:webvh:z6mkfixturebob:bob.example").unwrap(),
-        )
-        .unwrap(),
+        project_did_to_core_id(&Did::new("did:webvh:z6mkfixturebob:bob.example").unwrap()).unwrap(),
         DeliveryStatus::Unroutable,
         "invite_accept",
     );
@@ -377,9 +371,9 @@ fn lifecycle_optional_timestamps_pass_spec_schemas() {
 #[test]
 fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
     use crate::models::{
-        DidFullId, ObjectLifecyclePayload, SpaceId, StrandId, StrandMovePayload,
+        Did, ObjectLifecyclePayload, SpaceId, StrandId, StrandMovePayload,
         StrandReorderExpectedPosition, StrandReorderPayload, StrandWatchExpectedValue,
-        StrandWatchLevel, StrandWatchSetPayload, project_full_id_to_core_id,
+        StrandWatchLevel, StrandWatchSetPayload, project_did_to_core_id,
     };
     let catalog = event_payload_validator_catalog().unwrap();
     let board = || SpaceId::new("ak:space:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD").unwrap();
@@ -387,10 +381,8 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
     let strand =
         || StrandId::new("ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9").unwrap();
     let actor = || {
-        project_full_id_to_core_id(
-            &DidFullId::new("did:webvh:z6mkfixturealice:alice.example").unwrap(),
-        )
-        .unwrap()
+        project_did_to_core_id(&Did::new("did:webvh:z6mkfixturealice:alice.example").unwrap())
+            .unwrap()
     };
 
     // ak.strand.move — board/target Space ids + rank; from_space_id +

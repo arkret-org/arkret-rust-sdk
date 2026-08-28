@@ -7,7 +7,7 @@ use arkret_wire::DidCoreId;
 use crate::internal_prelude::*;
 
 /// Canonical DID method selector (`did:<lowercase-method>`), distinct from a
-/// full DID subject identifier.
+/// DID subject identifier.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct DidMethod(String);
@@ -178,7 +178,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn did_method_selector_is_not_parsed_as_a_full_did() {
+    fn did_method_selector_is_not_parsed_as_a_did() {
         let method: DidMethod = serde_json::from_str(r#""did:webvh""#).unwrap();
         assert_eq!(method.as_str(), "did:webvh");
         assert!(serde_json::from_str::<DidMethod>(r#""did:webvh:alice""#).is_err());

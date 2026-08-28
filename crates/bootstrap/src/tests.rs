@@ -11,13 +11,13 @@ use arkret_models_collaboration::events_payloads::{
 use arkret_models_identity::ResolutionCommitment;
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
-    AuthorizationRef, CellRef, DeviceId, DidCoreId, DidFullId, DidKey, DidUrl, DigestSuiteCode,
-    Event, EventId, EventIdentityKey, EventKind, EventProof, EventRef, Hash, Hlc, NonEmptyString,
+    AuthorizationRef, CellRef, DeviceId, Did, DidCoreId, DidKey, DidUrl, DigestSuiteCode, Event,
+    EventId, EventIdentityKey, EventKind, EventProof, EventRef, Hash, Hlc, NonEmptyString,
     NotaryJoseAlgorithm, NotaryKeyKind, NotarySig, NotarySignerDescriptor, NotaryValue,
     PayloadSignature, PayloadSigner, PrincipalServerAdmissionProof,
     PrincipalServerAdmissionProofKind, ProducerEventProof, ProjectedCellWrite, RealmId, ScopeRef,
     SealBasis, SealId, SemanticRefProof, SemanticRefProofKind, TrustDomainId, WireError,
-    composite_subject, project_full_id_to_core_id, proof_kind,
+    composite_subject, project_did_to_core_id, proof_kind,
 };
 use chrono::Utc;
 use serde_json::Value;
@@ -35,7 +35,7 @@ use crate::{
 };
 
 struct FixtureSigner {
-    did: DidFullId,
+    did: Did,
     verification_method: DidUrl,
 }
 
@@ -58,16 +58,16 @@ fn fixture_realm(seed: u8) -> RealmId {
     RealmId::from_event_id(&fixture_event_id(seed))
 }
 
-fn fixture_resolution(full_id: DidFullId) -> ResolutionCommitment {
+fn fixture_resolution(did: Did) -> ResolutionCommitment {
     ResolutionCommitment {
-        full_id,
+        did,
         method_history_head: format!("sha256:{}", "8b".repeat(32)),
         version_id: format!("1-{}", "Qm".to_owned() + &"a".repeat(44)),
     }
 }
 
 impl PayloadSigner for FixtureSigner {
-    fn signer_did(&self) -> &DidFullId {
+    fn signer_did(&self) -> &Did {
         &self.did
     }
 
@@ -153,7 +153,7 @@ fn attach_fixture_admission_proof(event: &mut Event) {
 fn bootstrap_unit() -> (Event, Event) {
     let input = input();
     let principal_id = input.principal_id.clone();
-    let principal_full_id = input.principal_full_id.clone();
+    let principal_did = input.principal_did.clone();
     let mut create = build_self_principal_pcr_create(input, &registry_projection)
         .unwrap()
         .into_event();
@@ -187,24 +187,20 @@ fn bootstrap_unit() -> (Event, Event) {
         .unwrap();
     attach_fixture_proof(
         &mut authorize,
-        &DidUrl::new(format!("{}#{}", principal_full_id, founding_device_id())).unwrap(),
+        &DidUrl::new(format!("{}#{}", principal_did, founding_device_id())).unwrap(),
     );
     (create, authorize)
 }
 
 fn input() -> SelfPrincipalPcrCreateInput {
-    let principal_full_id = DidFullId::new("did:webvh:z6mkfixture:users.example:alice").unwrap();
-    let principal_id = project_full_id_to_core_id(&principal_full_id).unwrap();
+    let principal_did = Did::new("did:webvh:z6mkfixture:users.example:alice").unwrap();
+    let principal_id = project_did_to_core_id(&principal_did).unwrap();
     let created_at = "2026-07-15T00:00:00.000Z".parse().unwrap();
     SelfPrincipalPcrCreateInput {
         principal_id: principal_id.clone(),
         principal_server_id: DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
-        principal_full_id: principal_full_id.clone(),
-        notary: fixture_notary(
-            &principal_id,
-            &principal_full_id,
-            founding_device_id().as_str(),
-        ),
+        principal_did: principal_did.clone(),
+        notary: fixture_notary(&principal_id, &principal_did, founding_device_id().as_str()),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
         trust_domain: TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
@@ -213,7 +209,7 @@ fn input() -> SelfPrincipalPcrCreateInput {
             DID_INCEPTION_REF_ROLE,
         ),
         initial_resolution: ResolutionCommitment {
-            full_id: principal_full_id.clone(),
+            did: principal_did.clone(),
             method_history_head: format!("sha256:{}", "a".repeat(64)),
             version_id: "1-fixture".to_owned(),
         },
@@ -223,7 +219,7 @@ fn input() -> SelfPrincipalPcrCreateInput {
     }
 }
 
-fn fixture_notary(actor_id: &DidCoreId, actor_full_id: &DidFullId, fragment: &str) -> NotaryValue {
+fn fixture_notary(actor_id: &DidCoreId, actor_did: &Did, fragment: &str) -> NotaryValue {
     let public_key = arkret_canonical::decode_ed25519_multibase(
         founding_device_public_key()
             .strip_prefix("did:key:")
@@ -232,7 +228,7 @@ fn fixture_notary(actor_id: &DidCoreId, actor_full_id: &DidFullId, fragment: &st
     .expect("fixture public key is valid");
     NotaryValue::single_signer(NotarySignerDescriptor {
         actor_id: actor_id.clone(),
-        verification_method: DidUrl::new(format!("{actor_full_id}#{fragment}")).unwrap(),
+        verification_method: DidUrl::new(format!("{actor_did}#{fragment}")).unwrap(),
         key_kind: NotaryKeyKind::Ed25519Raw32,
         jose_algorithm: NotaryJoseAlgorithm::Ed25519,
         frozen_public_key_b64u: arkret_wire::base64url::base64url_encode(public_key),
@@ -416,7 +412,7 @@ fn accepted_bootstrap_history_remains_valid_for_successor_seal_replay() {
     attach_fixture_admission_proof(&mut authorize);
 
     validate_self_principal_pcr_genesis_unit(&create, &authorize, &registry_projection).unwrap();
-    let principal_id = input().principal_full_id;
+    let principal_id = input().principal_did;
     let signer = FixtureSigner {
         did: principal_id.clone(),
         verification_method: DidUrl::new(format!("{principal_id}#{}", founding_device_id()))
@@ -435,12 +431,11 @@ fn accepted_bootstrap_history_remains_valid_for_successor_seal_replay() {
 }
 
 #[test]
-fn bootstrap_authorize_proof_uses_the_exact_initial_resolution_full_id() {
+fn bootstrap_authorize_proof_uses_the_exact_initial_resolution_did() {
     let (create, mut authorize) = bootstrap_unit();
-    let same_core_different_full_id =
-        DidFullId::new("did:webvh:z6mkfixture:other.example:bob").unwrap();
+    let same_core_different_did = Did::new("did:webvh:z6mkfixture:other.example:bob").unwrap();
     assert_eq!(
-        project_full_id_to_core_id(&same_core_different_full_id).unwrap(),
+        project_did_to_core_id(&same_core_different_did).unwrap(),
         create.actor_id
     );
     authorize.proofs[0]
@@ -448,7 +443,7 @@ fn bootstrap_authorize_proof_uses_the_exact_initial_resolution_full_id() {
         .expect("bootstrap authorize must carry a producer proof")
         .verification_method = DidUrl::new(format!(
         "{}#{}",
-        same_core_different_full_id,
+        same_core_different_did,
         founding_device_id()
     ))
     .unwrap();
@@ -463,7 +458,7 @@ fn bootstrap_authorize_proof_uses_the_exact_initial_resolution_full_id() {
 fn first_bootstrap_seal_covers_both_events_and_is_signed_by_device_one() {
     let (create, authorize) = bootstrap_unit();
     let device_id = "ak:device:01904100-0000-7000-8000-000000000001";
-    let principal_id = input().principal_full_id;
+    let principal_id = input().principal_did;
     let signer = FixtureSigner {
         did: principal_id.clone(),
         verification_method: DidUrl::new(format!("{principal_id}#{device_id}")).unwrap(),
@@ -506,16 +501,15 @@ fn first_bootstrap_seal_covers_both_events_and_is_signed_by_device_one() {
 
 fn managed_agent_pcr_create() -> Event {
     let realm_id = RealmId::new("ak:realm:AYqEzQ3jW02EHkMjxFQTlyeowxPQXJE4fI6JGOnzi23t").unwrap();
-    let agent_full = DidFullId::new("did:webvh:z6mkfixtureagent:agent.example").unwrap();
-    let agent = project_full_id_to_core_id(&agent_full).unwrap();
-    let controller_full =
-        DidFullId::new("did:webvh:z6mkfixturecontroller:controller.example").unwrap();
-    let controller = project_full_id_to_core_id(&controller_full).unwrap();
+    let agent_did = Did::new("did:webvh:z6mkfixtureagent:agent.example").unwrap();
+    let agent = project_did_to_core_id(&agent_did).unwrap();
+    let controller_did = Did::new("did:webvh:z6mkfixturecontroller:controller.example").unwrap();
+    let controller = project_did_to_core_id(&controller_did).unwrap();
     let payload = build_managed_agent_pcr_create_payload(ManagedAgentPcrCreatePayloadInput {
         agent_id: agent.clone(),
-        initial_resolution: fixture_resolution(agent_full.clone()),
+        initial_resolution: fixture_resolution(agent_did.clone()),
         controller_id: controller.clone(),
-        notary: fixture_notary(&agent, &agent_full, "root"),
+        notary: fixture_notary(&agent, &agent_did, "root"),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
         trust_domain: TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
@@ -535,7 +529,7 @@ fn managed_agent_pcr_create() -> Event {
     create.event_id =
         EventId::new("ak:event:AYqEzQ3jW02EHkMjxFQTlyeowxPQXJE4fI6JGOnzi23t").unwrap();
     create.authorization_ref =
-        Some(AuthorizationRef::new(format!("{agent_full}#managed-controller")).unwrap());
+        Some(AuthorizationRef::new(format!("{agent_did}#managed-controller")).unwrap());
     create.executed_by = Some(controller);
     create.refs.clear();
     create
@@ -543,16 +537,12 @@ fn managed_agent_pcr_create() -> Event {
 
 #[test]
 fn managed_agent_pcr_payload_is_built_from_the_public_realm_type() {
-    let full_id = DidFullId::new("did:webvh:z6mkfixtureagent:agent.example").unwrap();
+    let did = Did::new("did:webvh:z6mkfixtureagent:agent.example").unwrap();
     let payload = build_managed_agent_pcr_create_payload(ManagedAgentPcrCreatePayloadInput {
-        agent_id: project_full_id_to_core_id(&full_id).unwrap(),
-        initial_resolution: fixture_resolution(full_id.clone()),
+        agent_id: project_did_to_core_id(&did).unwrap(),
+        initial_resolution: fixture_resolution(did.clone()),
         controller_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturecontroller").unwrap(),
-        notary: fixture_notary(
-            &project_full_id_to_core_id(&full_id).unwrap(),
-            &full_id,
-            "root",
-        ),
+        notary: fixture_notary(&project_did_to_core_id(&did).unwrap(), &did, "root"),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
         trust_domain: TrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
@@ -677,7 +667,7 @@ fn managed_agent_genesis_authority_covers_the_whole_founding_notary() {
 fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
     let create = managed_agent_pcr_create();
     let controller_actor = create.executed_by.clone().unwrap();
-    let controller = DidFullId::new("did:webvh:z6mkfixturecontroller:controller.example").unwrap();
+    let controller = Did::new("did:webvh:z6mkfixturecontroller:controller.example").unwrap();
     let mut anchor = arkret_wire::test_support::raw_event(
         EventKind::MlsGenesis.to_string(),
         create.scope_ref.clone(),
@@ -740,7 +730,7 @@ fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
 
 #[test]
 fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
-    let controller_full = DidFullId::new("did:webvh:z6mkfixture:controller.example").unwrap();
+    let controller_did = Did::new("did:webvh:z6mkfixture:controller.example").unwrap();
     let controller = DidCoreId::new("ak:did_core:webvh:z6mkfixture:controller.example").unwrap();
     let agent = DidCoreId::new("ak:did_core:webvh:z6mkfixture:agent.example").unwrap();
     let intent = build_agent_provision_intent(
@@ -748,7 +738,7 @@ fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
         &fixture_realm(1),
         &agent,
         &fixture_realm(2),
-        &DidUrl::new(format!("{controller_full}#managed-agent")).unwrap(),
+        &DidUrl::new(format!("{controller_did}#managed-agent")).unwrap(),
         "summary",
         &Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap(),
         HandleVisibility::Private,

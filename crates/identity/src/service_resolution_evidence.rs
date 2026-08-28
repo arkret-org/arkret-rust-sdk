@@ -7,7 +7,7 @@ use arkret_models_identity::{
     ResolutionDidBindingMethodProofKind, ResolutionDidBindingWitness,
     ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence, ServiceResolutionRecord,
 };
-use arkret_wire::{DidCoreId, DidFullId, Hash, WireError, project_full_id_to_core_id};
+use arkret_wire::{Did, DidCoreId, Hash, WireError, project_did_to_core_id};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -26,7 +26,7 @@ pub fn build_authenticated_webvh_service_resolution(
     now: DateTime<Utc>,
 ) -> Result<AuthenticatedServiceResolution> {
     let record = &service_resolution_record.record;
-    if record.full_id.method() != "webvh" || normalized_did_document.id != record.full_id {
+    if record.did.method() != "webvh" || normalized_did_document.id != record.did {
         return Err(IdentityError::Protocol(
             "WebVH service resolution builder received a different DID method or document"
                 .to_owned(),
@@ -112,7 +112,7 @@ pub fn verify_authenticated_service_resolution_history(
             witness_records,
             ..
         } => verify_webvh_history(
-            &record.full_id,
+            &record.did,
             &resolution.normalized_did_document,
             boundary,
             evidence,
@@ -122,7 +122,7 @@ pub fn verify_authenticated_service_resolution_history(
             &record.version_id,
         )?,
         ResolutionMethodHistoryEvidence::DidKeyExpansion { boundary, .. } => {
-            if record.full_id.method() != "key"
+            if record.did.method() != "key"
                 || boundary.from_method_history_head != boundary.to_method_history_head
                 || boundary.from_version_id != boundary.to_version_id
                 || boundary.to_method_history_head != record.method_history_head
@@ -132,7 +132,7 @@ pub fn verify_authenticated_service_resolution_history(
                     "did:key service resolution boundary mismatch".to_owned(),
                 ));
             }
-            let expected = DidKeyResolver::new().resolve_did(&record.full_id)?.document;
+            let expected = DidKeyResolver::new().resolve_did(&record.did)?.document;
             require_same_document(&expected, &resolution.normalized_did_document)?;
         }
         ResolutionMethodHistoryEvidence::DidWebDocument { .. } => {
@@ -156,7 +156,7 @@ pub fn verify_authenticated_service_resolution_history(
 ///
 /// The Principal Server resolution authenticates the projection attester. The
 /// separately resolved principal document and the response's method-history
-/// evidence authenticate the projected full DID and its exact method head.
+/// evidence authenticate the projected DID and its exact method head.
 /// Callers must not persist `resolution_projection` before this function
 /// succeeds.
 pub fn verify_public_principal_resolution_history(
@@ -178,10 +178,10 @@ pub fn verify_public_principal_resolution_history(
     .map_err(wire)?;
 
     let projection = &resolution.resolution_projection;
-    if project_full_id_to_core_id(&projection.full_id)
+    if project_did_to_core_id(&projection.did)
         .map_err(|error| WireError::Protocol(error.to_string()))?
         != resolution.principal_id
-        || principal_document.id != projection.full_id
+        || principal_document.id != projection.did
         || projection.updated_at > resolution.projection_attestation.attestation.issued_at
     {
         return Err(WireError::Protocol(
@@ -228,7 +228,7 @@ pub fn verify_public_principal_resolution_history(
                 to_version_id: projection.version_id.clone(),
             };
             verify_webvh_history(
-                &projection.full_id,
+                &projection.did,
                 principal_document,
                 &complete_boundary,
                 evidence,
@@ -239,27 +239,25 @@ pub fn verify_public_principal_resolution_history(
             )?;
         }
         ResolutionMethodHistoryEvidence::DidKeyExpansion { .. } => {
-            if projection.full_id.method() != "key" {
+            if projection.did.method() != "key" {
                 return Err(WireError::Protocol(
                     "did:key evidence was supplied for another DID method".to_owned(),
                 )
                 .into());
             }
-            let expected = DidKeyResolver::new()
-                .resolve_did(&projection.full_id)?
-                .document;
+            let expected = DidKeyResolver::new().resolve_did(&projection.did)?.document;
             require_same_document(&expected, principal_document)?;
             verify_synthetic_projection_coordinates(
                 projection,
                 &Hash::new(arkret_canonical::sha256_digest(
-                    projection.full_id.as_str().as_bytes(),
+                    projection.did.as_str().as_bytes(),
                 ))
                 .map_err(|error| WireError::Protocol(error.to_string()))?,
-                "synthetic-full-id-sha256:",
+                "synthetic-did-sha256:",
             )?;
         }
         ResolutionMethodHistoryEvidence::DidWebDocument { .. } => {
-            if projection.full_id.method() != "web" {
+            if projection.did.method() != "web" {
                 return Err(WireError::Protocol(
                     "did:web evidence was supplied for another DID method".to_owned(),
                 )
@@ -300,7 +298,7 @@ pub fn verify_embedded_public_principal_resolution_history(
             let witness_bytes = arkret_canonical::canonical_json_bytes(witness_records)
                 .map_err(|error| WireError::Protocol(error.to_string()))?;
             let verified = verify_did_webvh_v1_chain_and_witness_bytes(
-                &projection.full_id,
+                &projection.did,
                 &log_bytes,
                 (!witness_records.is_empty()).then_some(witness_bytes.as_slice()),
             )
@@ -310,9 +308,7 @@ pub fn verify_embedded_public_principal_resolution_history(
             })?
         }
         ResolutionMethodHistoryEvidence::DidKeyExpansion { .. } => {
-            DidKeyResolver::new()
-                .resolve_did(&projection.full_id)?
-                .document
+            DidKeyResolver::new().resolve_did(&projection.did)?.document
         }
         ResolutionMethodHistoryEvidence::DidWebDocument { .. } => {
             return Err(WireError::Protocol(
@@ -363,12 +359,9 @@ pub fn authenticated_service_document_at(
     let record = &resolution.service_resolution_record.record;
     match &resolution.method_history_evidence {
         ResolutionMethodHistoryEvidence::WebvhLog { log_entries, .. } => {
-            let point = arkret_signatures::webvh::validate_webvh_history_at(
-                &record.full_id,
-                log_entries,
-                at,
-            )
-            .map_err(|error| IdentityError::Protocol(error.to_string()))?;
+            let point =
+                arkret_signatures::webvh::validate_webvh_history_at(&record.did, log_entries, at)
+                    .map_err(|error| IdentityError::Protocol(error.to_string()))?;
             serde_json::from_value(point.document).map_err(|error| {
                 IdentityError::Protocol(format!("invalid historical WebVH document: {error}"))
             })
@@ -431,7 +424,7 @@ pub fn service_signer_evidence_for_method_from_authenticated_resolution(
 
 #[allow(clippy::too_many_arguments)]
 fn verify_webvh_history(
-    full_id: &DidFullId,
+    did: &Did,
     document: &DidDocument,
     boundary: &ResolutionMethodEvidenceBoundary,
     evidence: &ResolutionDidBindingEvidenceReceipt,
@@ -440,7 +433,7 @@ fn verify_webvh_history(
     record_history_head: &str,
     record_version_id: &str,
 ) -> Result<()> {
-    if full_id.method() != "webvh"
+    if did.method() != "webvh"
         || log_entries.is_empty()
         || log_entries.len() > 4_096
         || witness_records.len() > 4_096
@@ -453,7 +446,7 @@ fn verify_webvh_history(
     let witness_bytes = arkret_canonical::canonical_json_bytes(&witness_records)
         .map_err(|error| IdentityError::Protocol(error.to_string()))?;
     let verified = verify_did_webvh_v1_chain_and_witness_bytes(
-        full_id,
+        did,
         &log_bytes,
         (!witness_records.is_empty()).then_some(witness_bytes.as_slice()),
     )
@@ -537,9 +530,9 @@ fn terminal_witnesses(log_entries: &[Value]) -> Result<Vec<ResolutionDidBindingW
         .into_iter()
         .map(|id| {
             let witness_did =
-                DidFullId::new(id).map_err(|error| IdentityError::Protocol(error.to_string()))?;
+                Did::new(id).map_err(|error| IdentityError::Protocol(error.to_string()))?;
             Ok(ResolutionDidBindingWitness {
-                controlling_organization: witness_did.clone(),
+                controlling_organization_did: witness_did.clone(),
                 witness_did,
             })
         })

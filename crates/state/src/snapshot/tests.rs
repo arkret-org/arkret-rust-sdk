@@ -1,4 +1,4 @@
-use arkret_wire::{CORE_REDUCER_PROFILE, DidFullId, DidUrl};
+use arkret_wire::{CORE_REDUCER_PROFILE, Did, DidUrl};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -9,8 +9,8 @@ fn actor() -> DidCoreId {
     DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
 }
 
-fn did() -> DidFullId {
-    DidFullId::new("did:webvh:z6mkfixture:generator.example").unwrap()
+fn did() -> Did {
+    Did::new("did:webvh:z6mkfixture:generator.example").unwrap()
 }
 
 fn realm() -> RealmId {
@@ -551,13 +551,13 @@ fn witness_quorum_manifest(witnesses: &[(&str, &str)]) -> SnapshotManifest {
     let created_at = manifest.created_at;
     manifest.authority_binding.witness_attestations = witnesses
         .iter()
-        .map(|(core_id, full_id)| {
+        .map(|(core_id, did)| {
             let witness_id = DidCoreId::new((*core_id).to_owned()).unwrap();
             let digest = manifest.witness_attestation_digest(&witness_id).unwrap();
             SnapshotWitnessAttestation {
                 witness_id,
                 proof: DetachedJwsProof::ed25519(
-                    DidUrl::new(format!("{full_id}#snapshot-witness")).unwrap(),
+                    DidUrl::new(format!("{did}#snapshot-witness")).unwrap(),
                     digest,
                     created_at,
                     "header..signature".to_owned(),

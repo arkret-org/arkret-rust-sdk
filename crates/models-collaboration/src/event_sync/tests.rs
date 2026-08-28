@@ -223,7 +223,7 @@ fn federation_submission(mut event: Event) -> EventFederationSubmission {
                 .unwrap(),
         )
         .unwrap(),
-        qualified_ingress_id: DidFullId::new("did:web:authority.example").unwrap(),
+        qualified_ingress_did: Did::new("did:web:authority.example").unwrap(),
         received_at: issued_at,
         ingress_frontier: vec![event.event_id.clone()],
         proofs: Vec::new(),

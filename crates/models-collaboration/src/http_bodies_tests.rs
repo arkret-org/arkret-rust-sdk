@@ -2,8 +2,8 @@ use super::*;
 
 mod mimi_consent_tests {
     use arkret_wire::{
-        Audience, DidCoreId, DidFullId, DidUrl, EventKind, EventRequirements, ScopeRef,
-        project_full_id_to_core_id, proof_kind,
+        Audience, Did, DidCoreId, DidUrl, EventKind, EventRequirements, ScopeRef,
+        project_did_to_core_id, proof_kind,
     };
     use chrono::TimeZone;
     use serde_json::json;
@@ -53,8 +53,8 @@ mod mimi_consent_tests {
                         )
                         .unwrap(),
                     },
-                    actor_id: project_full_id_to_core_id(
-                        &DidFullId::new("did:webvh:z6mkfixture:example.com:users:alice".to_owned())
+                    actor_id: project_did_to_core_id(
+                        &Did::new("did:webvh:z6mkfixture:example.com:users:alice".to_owned())
                             .unwrap(),
                     )
                     .unwrap(),
@@ -275,7 +275,7 @@ mod device_pairing_tests {
             .unwrap()
             .with_timezone(&Utc);
         let principal_id = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap();
-        let principal_full_id = "did:webvh:z6mkfixturealice:alice.example";
+        let principal_did = "did:webvh:z6mkfixturealice:alice.example";
         let authorizing_device =
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap();
         let target_device =
@@ -357,7 +357,7 @@ mod device_pairing_tests {
                     kind: proof_kind::DETACHED_JWS.to_owned(),
                     verification_method: DidUrl::new(format!(
                         "{}#{}",
-                        principal_full_id, authorizing_device
+                        principal_did, authorizing_device
                     ))
                     .unwrap(),
                     event_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),

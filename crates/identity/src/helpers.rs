@@ -1,6 +1,6 @@
 use std::net::IpAddr;
 
-use arkret_wire::DidFullId;
+use arkret_wire::Did;
 
 /// SSRF host classification shared by request-layer egress guards.
 ///
@@ -48,7 +48,7 @@ pub fn ip_is_public(ip: IpAddr) -> bool {
     arkret_egress_policy::classify_ip(ip).is_none()
 }
 
-pub(super) fn did_web_document_url(did: &DidFullId) -> Option<String> {
+pub(super) fn did_web_document_url(did: &Did) -> Option<String> {
     // Pure syntax-to-URL derivation. Whether the resulting authority may be
     // connected to is a request-layer decision (shared egress lock with
     // address pinning immediately before dispatch), not a property of the
@@ -89,7 +89,7 @@ pub(super) fn is_allowed_did_webvh_log_content_type(content_type: &str) -> bool 
 /// (empty scid/host, or a path segment containing `/` or `..`). Public helper
 /// for downstream crates such as starid to parse did:webvh directly without
 /// going through SDK internals.
-pub fn did_webvh_parts(did: &DidFullId) -> Option<(String, String, Option<u16>, Vec<String>)> {
+pub fn did_webvh_parts(did: &Did) -> Option<(String, String, Option<u16>, Vec<String>)> {
     let method_id = did.as_str().strip_prefix("did:webvh:")?;
     let mut parts = method_id.split(':');
     let scid = parts.next()?.to_owned();
@@ -118,7 +118,7 @@ pub fn did_webvh_parts(did: &DidFullId) -> Option<(String, String, Option<u16>, 
     Some((scid, host, port, path))
 }
 
-pub(super) fn did_webvh_scid(did: &DidFullId) -> Option<String> {
+pub(super) fn did_webvh_scid(did: &Did) -> Option<String> {
     did_webvh_parts(did).map(|(scid, ..)| scid)
 }
 
@@ -154,11 +154,11 @@ impl DidWebvhUrlError {
     }
 }
 
-pub(super) fn did_webvh_document_url(did: &DidFullId) -> Option<String> {
+pub(super) fn did_webvh_document_url(did: &Did) -> Option<String> {
     did_webvh_url(did, "did.json")
 }
 
-pub(super) fn did_webvh_url(did: &DidFullId, leaf: &str) -> Option<String> {
+pub(super) fn did_webvh_url(did: &Did, leaf: &str) -> Option<String> {
     try_did_webvh_url(did, leaf).ok()
 }
 
@@ -171,7 +171,7 @@ pub(super) fn did_webvh_url(did: &DidFullId, leaf: &str) -> Option<String> {
 /// addresses pinned into the client, applied immediately before dispatch —
 /// so deployments with operator-trusted authorities can resolve DIDs that a
 /// public-only posture cannot.
-pub(super) fn try_did_webvh_url(did: &DidFullId, leaf: &str) -> Result<String, DidWebvhUrlError> {
+pub(super) fn try_did_webvh_url(did: &Did, leaf: &str) -> Result<String, DidWebvhUrlError> {
     if !did.as_str().starts_with("did:webvh:") {
         return Err(DidWebvhUrlError::UnsupportedMethod);
     }
@@ -190,7 +190,7 @@ pub(super) fn try_did_webvh_url(did: &DidFullId, leaf: &str) -> Result<String, D
     })
 }
 
-pub(super) fn did_key_material(did: &DidFullId) -> Option<String> {
+pub(super) fn did_key_material(did: &Did) -> Option<String> {
     let method_id = did.as_str().strip_prefix("did:key:")?;
     let encoded = method_id.strip_prefix('z')?;
     let decoded = decode_base58btc(encoded)?;

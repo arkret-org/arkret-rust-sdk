@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DidCoreId, DidFullId, DidUrl, Hash, Result, WireError};
+use crate::{Did, DidCoreId, DidUrl, Hash, Result, WireError};
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -52,8 +52,8 @@ impl NotarySignerDescriptor {
             .ok_or_else(|| {
                 WireError::Protocol("notary verification_method has no fragment".to_owned())
             })?;
-        let controller = DidFullId::new(controller.to_owned())?;
-        if crate::project_full_id_to_core_id(&controller)? != self.actor_id {
+        let controller = Did::new(controller.to_owned())?;
+        if crate::project_did_to_core_id(&controller)? != self.actor_id {
             return Err(WireError::Protocol(
                 "notary verification_method controller does not match actor_id".to_owned(),
             ));

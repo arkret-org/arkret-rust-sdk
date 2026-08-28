@@ -11,8 +11,8 @@ use std::fmt;
 
 use arkret_canonical::canonical;
 use arkret_wire::{
-    DidCoreId, DidFullId, DidUrl, Hash, PayloadProof, Result, ServiceKind,
-    ServiceRegistrationReceiptId, WireError, project_full_id_to_core_id,
+    Did, DidCoreId, DidUrl, Hash, PayloadProof, Result, ServiceKind, ServiceRegistrationReceiptId,
+    WireError, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -212,7 +212,7 @@ pub struct ServiceDidVerificationMethod {
     pub id: String,
     #[serde(rename = "type")]
     pub method_type: String,
-    pub controller: DidFullId,
+    pub controller: Did,
     pub public_key_multibase: String,
 }
 
@@ -233,7 +233,7 @@ pub struct ServiceDidEndpoint {
 pub struct ServiceDidDocument {
     #[serde(rename = "@context")]
     pub context: Vec<String>,
-    pub id: DidFullId,
+    pub id: Did,
     #[serde(default)]
     pub also_known_as: Vec<String>,
     pub verification_method: Vec<ServiceDidVerificationMethod>,
@@ -474,7 +474,7 @@ pub struct ServiceRegistrationReceipt {
     pub registration_receipt_id: ServiceRegistrationReceiptId,
     pub registration_key: ServiceRegistrationKey,
     pub service_id: DidCoreId,
-    pub full_id: DidFullId,
+    pub did: Did,
     pub version_id: String,
     pub log_head_digest: String,
     pub control_key_digest: String,
@@ -491,7 +491,7 @@ impl ServiceRegistrationReceipt {
         let claims = serde_json::json!({
             "registration_key": &self.registration_key,
             "service_id": &self.service_id,
-            "full_id": &self.full_id,
+            "did": &self.did,
             "version_id": &self.version_id,
             "log_head_digest": &self.log_head_digest,
             "control_key_digest": &self.control_key_digest,
@@ -568,9 +568,9 @@ impl ServiceRegistrationReceipt {
 
     /// Validate the provider verification-method controller after independently
     /// resolving the provider's current complete DID.
-    pub fn validate_provider_full_id(&self, provider_full_id: &DidFullId) -> Result<()> {
-        let projected = project_full_id_to_core_id(provider_full_id)?;
-        let provider_prefix = format!("{}#", provider_full_id);
+    pub fn validate_provider_did(&self, provider_did: &Did) -> Result<()> {
+        let projected = project_did_to_core_id(provider_did)?;
+        let provider_prefix = format!("{}#", provider_did);
         if projected != self.provider_service_id
             || !self.proof.verification_method.starts_with(&provider_prefix)
         {
@@ -586,12 +586,12 @@ impl ServiceRegistrationReceipt {
         &self,
         key: &ServiceRegistrationKey,
         service_id: &DidCoreId,
-        full_id: &DidFullId,
+        did: &Did,
     ) -> Result<()> {
         if &self.registration_key != key
             || &self.service_id != service_id
-            || &self.full_id != full_id
-            || project_full_id_to_core_id(full_id)? != *service_id
+            || &self.did != did
+            || project_did_to_core_id(did)? != *service_id
         {
             return Err(WireError::Protocol(
                 "service registration receipt key, stable service id, or complete DID mismatch"
@@ -613,7 +613,7 @@ impl ServiceRegistrationReceipt {
 pub struct ServiceRegistrationEnsureRequestBody {
     pub service_kind: ServiceKind,
     pub public_base: CanonicalServiceUrl,
-    pub full_id: DidFullId,
+    pub did: Did,
     pub inception_operation: ServiceWebvhInceptionOperation,
     /// Bounded opaque caller-chosen correlation string. It relates audit
     /// records for one ensure attempt and nothing else: it is outside the `ak:`
@@ -640,17 +640,17 @@ impl ServiceRegistrationEnsureRequestBody {
         previous_receipt: Option<ServiceRegistrationReceipt>,
     ) -> Result<Self> {
         inception_operation.validate_for(&key)?;
-        let full_id = inception_operation.state.id.clone();
-        let service_id = project_full_id_to_core_id(&full_id)?;
+        let did = inception_operation.state.id.clone();
+        let service_id = project_did_to_core_id(&did)?;
         if let Some(receipt) = &previous_receipt {
-            receipt.validate_for(&key, &service_id, &full_id)?;
+            receipt.validate_for(&key, &service_id, &did)?;
         }
         let idempotency_key = idempotency_key.into();
         validate_service_registration_idempotency_key(&idempotency_key)?;
         Ok(Self {
             service_kind: key.service_kind,
             public_base: key.public_base,
-            full_id,
+            did,
             inception_operation,
             idempotency_key,
             previous_receipt,
@@ -664,16 +664,15 @@ impl ServiceRegistrationEnsureRequestBody {
     pub fn validate(&self) -> Result<()> {
         let key = self.registration_key()?;
         self.inception_operation.validate_for(&key)?;
-        if self.full_id != self.inception_operation.state.id {
+        if self.did != self.inception_operation.state.id {
             return Err(WireError::Protocol(
-                "service registration full_id must equal the signed inception document id"
-                    .to_owned(),
+                "service registration did must equal the signed inception document id".to_owned(),
             ));
         }
-        let service_id = project_full_id_to_core_id(&self.full_id)?;
+        let service_id = project_did_to_core_id(&self.did)?;
         validate_service_registration_idempotency_key(&self.idempotency_key)?;
         if let Some(receipt) = &self.previous_receipt {
-            receipt.validate_for(&key, &service_id, &self.full_id)?;
+            receipt.validate_for(&key, &service_id, &self.did)?;
         }
         Ok(())
     }
@@ -690,7 +689,7 @@ pub struct ServiceRegistrationOutcome {
 
 impl ServiceRegistrationOutcome {
     pub fn validate_for(&self, key: &ServiceRegistrationKey) -> Result<()> {
-        if self.did_document.id != self.registration_receipt.full_id {
+        if self.did_document.id != self.registration_receipt.did {
             return Err(WireError::Protocol(
                 "service registration outcome stable service id or complete DID mismatch"
                     .to_owned(),
@@ -700,7 +699,7 @@ impl ServiceRegistrationOutcome {
         self.registration_receipt.validate_for(
             key,
             &self.registration_receipt.service_id,
-            &self.registration_receipt.full_id,
+            &self.registration_receipt.did,
         )
     }
 
@@ -711,7 +710,7 @@ impl ServiceRegistrationOutcome {
         request.validate()?;
         let key = request.registration_key()?;
         self.validate_for(&key)?;
-        if self.registration_receipt.full_id != request.full_id {
+        if self.registration_receipt.did != request.did {
             return Err(WireError::Protocol(
                 "Provider returned a service DID different from the signed inception".to_owned(),
             ));
@@ -730,8 +729,8 @@ impl ServiceRegistrationOutcome {
     }
 
     #[must_use]
-    pub fn full_id(&self) -> &DidFullId {
-        &self.registration_receipt.full_id
+    pub fn did(&self) -> &Did {
+        &self.registration_receipt.did
     }
 
     #[must_use]
@@ -797,7 +796,7 @@ fn is_multibase_base58(value: &str) -> bool {
 }
 
 fn is_did_url(value: &str) -> bool {
-    value.split_once('#').is_some_and(|(did, fragment)| {
-        !fragment.is_empty() && DidFullId::new(did.to_owned()).is_ok()
-    })
+    value
+        .split_once('#')
+        .is_some_and(|(did, fragment)| !fragment.is_empty() && Did::new(did.to_owned()).is_ok())
 }

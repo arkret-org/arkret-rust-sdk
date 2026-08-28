@@ -1,6 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/redactable-field-registry.json; version=2026-08-18; sha256=0eca623e433825e1582003e00343b1ecb1b702995644403f84524abd2d115d40
+//! Input: registry/redactable-field-registry.json; version=2026-08-18;
+//! sha256=0eca623e433825e1582003e00343b1ecb1b702995644403f84524abd2d115d40
 //! Entries: redactable_fields=8, distinct_paths=4
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

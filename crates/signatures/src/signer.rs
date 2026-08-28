@@ -7,10 +7,10 @@
 //!
 //! ```
 //! use arkret_signatures::Ed25519PayloadSigner;
-//! use arkret_wire::{DidFullId, DidUrl, PayloadSigner};
+//! use arkret_wire::{Did, DidUrl, PayloadSigner};
 //!
 //! let seed = [0u8; 32];
-//! let did = DidFullId::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
+//! let did = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
 //! let signer = Ed25519PayloadSigner::from_did_key_seed(
 //!     seed,
 //!     did,
@@ -25,7 +25,7 @@
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical;
 use arkret_wire::{
-    DidFullId, DidUrl, Hash, PayloadSignature, PayloadSigner, Result as WireResult, WireError,
+    Did, DidUrl, Hash, PayloadSignature, PayloadSigner, Result as WireResult, WireError,
 };
 use chrono::Utc;
 use ed25519_dalek::{Signer as _, SigningKey};
@@ -40,13 +40,13 @@ use crate::{Error, Result};
 /// `PayloadSignature.verification_method`.
 pub struct Ed25519PayloadSigner {
     signing_key: SigningKey,
-    did: DidFullId,
+    did: Did,
     kid: DidUrl,
 }
 
 impl Ed25519PayloadSigner {
     /// Wrap an existing `ed25519_dalek::SigningKey`.
-    pub fn new(signing_key: SigningKey, did: DidFullId, verification_method_id: DidUrl) -> Self {
+    pub fn new(signing_key: SigningKey, did: Did, verification_method_id: DidUrl) -> Self {
         Self {
             signing_key,
             did,
@@ -56,11 +56,7 @@ impl Ed25519PayloadSigner {
 
     /// Convenience constructor that derives an ed25519 keypair from a 32-byte
     /// seed (RFC 8032 secret-key seed).
-    pub fn from_did_key_seed(
-        seed: [u8; 32],
-        did: DidFullId,
-        verification_method_id: DidUrl,
-    ) -> Self {
+    pub fn from_did_key_seed(seed: [u8; 32], did: Did, verification_method_id: DidUrl) -> Self {
         let signing_key = SigningKey::from_bytes(&seed);
         Self::new(signing_key, did, verification_method_id)
     }
@@ -72,7 +68,7 @@ impl Ed25519PayloadSigner {
 }
 
 impl PayloadSigner for Ed25519PayloadSigner {
-    fn signer_did(&self) -> &DidFullId {
+    fn signer_did(&self) -> &Did {
         &self.did
     }
 
@@ -209,13 +205,13 @@ pub fn verify_ed25519_payload_signature(
 mod tests {
     use arkret_wire::{
         EventId, Hash, Hlc, NotaryJoseAlgorithm, NotaryKeyKind, NotarySig, NotarySignerDescriptor,
-        RealmId, Seal, SealId, project_full_id_to_core_id,
+        RealmId, Seal, SealId, project_did_to_core_id,
     };
 
     use super::*;
 
-    fn alice() -> DidFullId {
-        DidFullId::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()
+    fn alice() -> Did {
+        Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()
     }
 
     fn space() -> RealmId {
@@ -316,7 +312,7 @@ mod tests {
                 let bytes = a.canonical_bytes_for_id().unwrap();
                 let public_key = signer.verifying_key().to_bytes();
                 let descriptor = NotarySignerDescriptor {
-                    actor_id: project_full_id_to_core_id(signer.signer_did()).unwrap(),
+                    actor_id: project_did_to_core_id(signer.signer_did()).unwrap(),
                     verification_method: signer.verification_method_id().clone(),
                     key_kind: NotaryKeyKind::Ed25519Raw32,
                     jose_algorithm: NotaryJoseAlgorithm::Ed25519,

@@ -5,10 +5,10 @@ use arkret_models_crypto::mls_envelopes::{
     MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
 };
 use arkret_wire::{
-    AuthoredEvent, AuthorizationRef, CriticalExtension, DeviceId, DeviceMessageId, DidCoreId,
-    DidFullId, Event, EventId, EventKind, EventRef, EventRequirements, FeatureRef, GrantId, Hash,
-    Hlc, OperationId, OperationKind, Precondition, ProducerEventProof, ProfileRef, RealmId,
-    ScopeRef, SealBasis, SealId, canonical, project_full_id_to_core_id,
+    AuthoredEvent, AuthorizationRef, CriticalExtension, DeviceId, DeviceMessageId, Did, DidCoreId,
+    Event, EventId, EventKind, EventRef, EventRequirements, FeatureRef, GrantId, Hash, Hlc,
+    OperationId, OperationKind, Precondition, ProducerEventProof, ProfileRef, RealmId, ScopeRef,
+    SealBasis, SealId, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -184,9 +184,9 @@ fn producer_device_id(event: &Event) -> Option<DeviceId> {
         .verification_method
         .as_str()
         .split_once('#')?;
-    let controller = DidFullId::new(controller.to_owned()).ok()?;
+    let controller = Did::new(controller.to_owned()).ok()?;
     let signer_id = event.executed_by.as_ref().unwrap_or(&event.actor_id);
-    if project_full_id_to_core_id(&controller).ok()?.as_str() != signer_id.as_str() {
+    if project_did_to_core_id(&controller).ok()?.as_str() != signer_id.as_str() {
         return None;
     }
 

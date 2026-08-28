@@ -83,7 +83,7 @@ pub mod error;
 /// documentation for why the other registry-active rows are excluded.
 pub use arkret_wire::PRODUCTION_ALGORITHMS;
 use arkret_wire::{
-    Audience, DidCoreId, DidFullId, DidUrl, Hash, ProducerEventProof, ProofBindingRequirements,
+    Audience, Did, DidCoreId, DidUrl, Hash, ProducerEventProof, ProofBindingRequirements,
     SignatureBindingPayload,
 };
 use chrono::{DateTime, Duration, Utc};
@@ -116,11 +116,11 @@ pub use crate::device_authorization::verify_device_authorize_possession;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerificationMethodDocument {
-    pub did: DidFullId,
+    pub did: Did,
     pub verification_method: DidUrl,
     pub public_key_multibase: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub controller: Option<DidFullId>,
+    pub controller: Option<Did>,
 }
 
 pub trait DidVerificationMethodResolver {
@@ -212,7 +212,7 @@ where
 
     let method = resolver.resolve_verification_method(&proof.verification_method)?;
     let controller = method.controller.as_ref().unwrap_or(&method.did);
-    if arkret_wire::project_full_id_to_core_id(controller)? != context.actor_id {
+    if arkret_wire::project_did_to_core_id(controller)? != context.actor_id {
         return Err(Error::Protocol(
             "proof verification method controller mismatch".to_owned(),
         ));
@@ -287,8 +287,8 @@ mod tests {
         }
     }
 
-    fn did(name: &str) -> DidFullId {
-        DidFullId::new(format!("did:webvh:z6mkfixture{name}:{name}.example")).unwrap()
+    fn did(name: &str) -> Did {
+        Did::new(format!("did:webvh:z6mkfixture{name}:{name}.example")).unwrap()
     }
 
     fn actor(name: &str) -> DidCoreId {
@@ -310,13 +310,13 @@ mod tests {
 
     #[test]
     fn proof_verifier_resolves_method_binds_service_and_replay_window() {
-        let actor_full = did("alice");
+        let actor_did = did("alice");
         let payload_digest =
             Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                 .unwrap();
         let mut resolver = StaticDidVerificationMethodResolver::default();
         resolver.insert(VerificationMethodDocument {
-            did: actor_full,
+            did: actor_did,
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             public_key_multibase: "zKey".to_owned(),
             controller: None,
@@ -361,13 +361,13 @@ mod tests {
 
     #[test]
     fn proof_verifier_cross_domain_context_requires_explicit_binding() {
-        let actor_full = did("alice");
+        let actor_did = did("alice");
         let payload_digest =
             Hash::new("sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
                 .unwrap();
         let mut resolver = StaticDidVerificationMethodResolver::default();
         resolver.insert(VerificationMethodDocument {
-            did: actor_full,
+            did: actor_did,
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             public_key_multibase: "zKey".to_owned(),
             controller: None,

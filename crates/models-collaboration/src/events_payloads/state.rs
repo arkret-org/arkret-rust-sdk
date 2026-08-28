@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-use arkret_wire::{DidCoreId, DidFullId, TrustDomainId, validate_canonical_idna_domain};
+use arkret_wire::{Did, DidCoreId, TrustDomainId, validate_canonical_idna_domain};
 
 use crate::governance::operation_wire::Policy;
 use crate::internal_prelude::*;
@@ -115,7 +115,6 @@ validated_string_newtype!(
     policy_rule_id_is_valid,
     "invalid policy rule id"
 );
-
 /// Counterpart for `event-payload.schema.json#/$defs/realm_moderation_policy_state_payload`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -328,10 +327,10 @@ macro_rules! state_payload_with_subject {
 state_payload_with_subject!(
     OrganizationDiscoveryStatePayload,
     organization_principal_id,
-    DidFullId
+    Did
 );
 state_payload_with_subject!(ResourceDiscoveryStatePayload, resource_id, NonEmptyString);
-state_payload_with_subject!(DidProofStatePayload, did, DidFullId);
+state_payload_with_subject!(DidProofStatePayload, did, Did);
 state_payload_with_subject!(PolicyRuleStatePayload, rule_id, PolicyRuleId);
 state_payload_with_subject!(SovereignDidPolicyStatePayload, trust_domain, TrustDomainId);
 
@@ -660,7 +659,7 @@ pub enum IdentityDisclosureMode {
 #[serde(deny_unknown_fields)]
 pub struct IdentityDisclosurePolicyClaim {
     pub claim_kind: NonEmptyString,
-    pub issuer: DidFullId,
+    pub issuer_id: DidCoreId,
     pub subject_id: DidCoreId,
     pub disclosure: IdentityDisclosureMode,
     pub fields: Vec<NonEmptyString>,
@@ -683,7 +682,7 @@ pub struct IdentityDisclosureAudience {
     pub represented_organization_id: DidCoreId,
     pub verifier_service_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub tsp_vids: Vec<DidFullId>,
+    pub tsp_vids: Vec<TspVid>,
 }
 
 impl IdentityDisclosureAudience {
@@ -873,25 +872,19 @@ impl OrganizationModerationPolicyScope {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ModerationDidTargetKind {
-    Actor,
-    Device,
-    Organization,
-}
-
 #[derive(Clone, Debug)]
 pub enum ModerationPolicyTarget {
-    Did {
-        kind: ModerationDidTargetKind,
-        did: DidFullId,
+    Actor {
+        actor_id: DidCoreId,
+    },
+    Organization {
+        organization_id: DidCoreId,
     },
     Device {
         device_id: DeviceId,
     },
-    ServiceId {
-        did_core_id: DidCoreId,
+    Service {
+        service_id: DidCoreId,
     },
     Domain {
         domain: ModerationDomain,
@@ -902,7 +895,7 @@ pub enum ModerationPolicyTarget {
     },
     ClaimSelector {
         claim_kind: NonEmptyString,
-        issuer: DidCoreId,
+        issuer_id: DidCoreId,
     },
     MediaDigest {
         digest: Hash,
@@ -918,12 +911,17 @@ impl Serialize for ModerationPolicyTarget {
         S: serde::Serializer,
     {
         let value = match self {
-            Self::Did { kind, did } => serde_json::json!({"kind": kind, "did": did}),
+            Self::Actor { actor_id } => {
+                serde_json::json!({"kind": "actor", "actor_id": actor_id})
+            }
+            Self::Organization { organization_id } => {
+                serde_json::json!({"kind": "organization", "organization_id": organization_id})
+            }
             Self::Device { device_id } => {
                 serde_json::json!({"kind": "device", "device_id": device_id})
             }
-            Self::ServiceId { did_core_id } => {
-                serde_json::json!({"kind": "service_id", "did_core_id": did_core_id})
+            Self::Service { service_id } => {
+                serde_json::json!({"kind": "service", "service_id": service_id})
             }
             Self::Domain {
                 domain,
@@ -938,8 +936,11 @@ impl Serialize for ModerationPolicyTarget {
             Self::TrustDomain { trust_domain } => {
                 serde_json::json!({"kind": "trust_domain", "trust_domain": trust_domain})
             }
-            Self::ClaimSelector { claim_kind, issuer } => {
-                serde_json::json!({"kind": "claim_selector", "claim_kind": claim_kind, "issuer": issuer})
+            Self::ClaimSelector {
+                claim_kind,
+                issuer_id,
+            } => {
+                serde_json::json!({"kind": "claim_selector", "claim_kind": claim_kind, "issuer_id": issuer_id})
             }
             Self::MediaDigest { digest } => {
                 serde_json::json!({"kind": "media_digest", "digest": digest})
@@ -970,9 +971,15 @@ impl<'de> Deserialize<'de> for ModerationPolicyTarget {
         }
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
-        struct DidWire {
-            kind: ModerationDidTargetKind,
-            did: DidFullId,
+        struct ActorWire {
+            kind: String,
+            actor_id: DidCoreId,
+        }
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct OrganizationWire {
+            kind: String,
+            organization_id: DidCoreId,
         }
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
@@ -984,7 +991,7 @@ impl<'de> Deserialize<'de> for ModerationPolicyTarget {
         #[serde(deny_unknown_fields)]
         struct ServiceWire {
             kind: String,
-            did_core_id: DidCoreId,
+            service_id: DidCoreId,
         }
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
@@ -1004,7 +1011,7 @@ impl<'de> Deserialize<'de> for ModerationPolicyTarget {
         struct ClaimWire {
             kind: String,
             claim_kind: NonEmptyString,
-            issuer: DidCoreId,
+            issuer_id: DidCoreId,
         }
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
@@ -1020,18 +1027,18 @@ impl<'de> Deserialize<'de> for ModerationPolicyTarget {
         }
 
         match kind.as_str() {
-            "actor" | "organization" => {
-                let wire = parse!(DidWire);
-                Ok(Self::Did {
-                    kind: wire.kind,
-                    did: wire.did,
+            "actor" => {
+                let wire = parse!(ActorWire);
+                debug_assert_eq!(wire.kind, "actor");
+                Ok(Self::Actor {
+                    actor_id: wire.actor_id,
                 })
             }
-            "device" if value.get("did").is_some() => {
-                let wire = parse!(DidWire);
-                Ok(Self::Did {
-                    kind: wire.kind,
-                    did: wire.did,
+            "organization" => {
+                let wire = parse!(OrganizationWire);
+                debug_assert_eq!(wire.kind, "organization");
+                Ok(Self::Organization {
+                    organization_id: wire.organization_id,
                 })
             }
             "device" => {
@@ -1041,11 +1048,11 @@ impl<'de> Deserialize<'de> for ModerationPolicyTarget {
                     device_id: wire.device_id,
                 })
             }
-            "service_id" => {
+            "service" => {
                 let wire = parse!(ServiceWire);
-                debug_assert_eq!(wire.kind, "service_id");
-                Ok(Self::ServiceId {
-                    did_core_id: wire.did_core_id,
+                debug_assert_eq!(wire.kind, "service");
+                Ok(Self::Service {
+                    service_id: wire.service_id,
                 })
             }
             "domain" => {
@@ -1068,7 +1075,7 @@ impl<'de> Deserialize<'de> for ModerationPolicyTarget {
                 debug_assert_eq!(wire.kind, "claim_selector");
                 Ok(Self::ClaimSelector {
                     claim_kind: wire.claim_kind,
-                    issuer: wire.issuer,
+                    issuer_id: wire.issuer_id,
                 })
             }
             "media_digest" => {
@@ -1542,5 +1549,47 @@ mod tests {
 
         payload.validate().expect("schema constraints");
         assert_eq!(serde_json::to_value(payload).expect("serialize"), wire);
+    }
+
+    #[test]
+    fn identity_disclosure_claim_uses_stable_issuer_id() {
+        let claim = json!({
+            "claim_kind": "employee_credential",
+            "issuer_id": "ak:did_core:web:issuer.example",
+            "subject_id": "ak:did_core:web:subject.example",
+            "disclosure": "explicit",
+            "fields": ["name"]
+        });
+        serde_json::from_value::<IdentityDisclosurePolicyClaim>(claim.clone())
+            .expect("stable issuer selector");
+
+        let mut legacy = claim;
+        legacy["issuer"] = legacy["issuer_id"].take();
+        legacy.as_object_mut().unwrap().remove("issuer_id");
+        assert!(serde_json::from_value::<IdentityDisclosurePolicyClaim>(legacy).is_err());
+    }
+
+    #[test]
+    fn moderation_identity_targets_use_stable_typed_ids() {
+        for value in [
+            json!({"kind": "actor", "actor_id": "ak:did_core:web:actor.example"}),
+            json!({
+                "kind": "organization",
+                "organization_id": "ak:did_core:web:organization.example"
+            }),
+            json!({"kind": "device", "device_id": "ak:device:0196419b-0000-7000-8000-000000000000"}),
+            json!({"kind": "service", "service_id": "ak:did_core:web:service.example"}),
+        ] {
+            serde_json::from_value::<ModerationPolicyTarget>(value)
+                .expect("stable moderation target");
+        }
+
+        assert!(
+            serde_json::from_value::<ModerationPolicyTarget>(json!({
+                "kind": "actor",
+                "did": "did:web:actor.example"
+            }))
+            .is_err()
+        );
     }
 }

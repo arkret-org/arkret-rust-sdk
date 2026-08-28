@@ -48,7 +48,7 @@ fn service_registration_receipt_uses_the_spec_field_and_typed_id() {
             "public_base": "https://auth.example/"
         },
         "service_id": "ak:did_core:webvh:z6mkfixtureauth",
-        "full_id": "did:webvh:z6mkfixtureauth:auth.example",
+        "did": "did:webvh:z6mkfixtureauth:auth.example",
         "version_id": "1-zVersion",
         "log_head_digest": format!("sha256:{}", "b".repeat(64)),
         "control_key_digest": format!("sha256:{}", "c".repeat(64)),

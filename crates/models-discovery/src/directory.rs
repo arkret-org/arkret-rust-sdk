@@ -1028,7 +1028,7 @@ pub struct DirectoryGovernanceProof {
     pub created_at: DateTime<Utc>,
     pub proof_purpose: DirectoryGovernanceProofPurpose,
     /// Target Directory `service_id` in `did_core_id` form. Typed `DidCoreId`
-    /// so the full-DID, DID-URL and array shapes fail closed at
+    /// so the DID, DID-URL and array shapes fail closed at
     /// deserialization (§8.7.1 audience shape paragraph).
     pub audience: DidCoreId,
     pub jws: String,
@@ -1489,7 +1489,7 @@ mod directory_requester_proof_binding_tests {
             digest.clone(),
         );
         body.proof_binding_bytes(&full)
-            .expect_err("the full DID form MUST NOT be accepted as a second shape");
+            .expect_err("the DID form MUST NOT be accepted as a second shape");
 
         let multiple = proof(
             Audience::Multiple(vec!["ak:did_core:web:directory.example".to_owned()]),
@@ -1692,10 +1692,10 @@ mod directory_governance_proof_tests {
         serde_json::from_value::<DirectoryGovernanceProof>(wrong_purpose)
             .expect_err("proof_purpose MUST be governance_authorization");
 
-        let mut full_did_audience = base.clone();
-        full_did_audience["audience"] = json!("did:web:directory.example");
-        serde_json::from_value::<DirectoryGovernanceProof>(full_did_audience)
-            .expect_err("the full DID form is not an accepted audience shape");
+        let mut did_audience = base.clone();
+        did_audience["audience"] = json!("did:web:directory.example");
+        serde_json::from_value::<DirectoryGovernanceProof>(did_audience)
+            .expect_err("the DID form is not an accepted audience shape");
 
         let mut array_audience = base;
         array_audience["audience"] = json!([DIRECTORY_SERVICE_ID]);

@@ -211,7 +211,7 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
                 "applies_to": ["seal_include"]
             },
             "audit_policy": {
-                "range_completeness_witnesses": ["ak:did_core:web:witness.example"],
+                "range_completeness_witness_ids": ["ak:did_core:web:witness.example"],
                 "witnessed_min_attestations": 1,
                 "witness_independence": "distinct_did"
             },

@@ -2,7 +2,7 @@
 """Guard JSON Schema identity references against Rust wire-field types.
 
 The protocol has three deliberately disjoint identity shapes: stable identity
-cores, bare full DIDs used for resolution, and DID URLs used for keys. This
+cores, DIDs used for resolution, and DID URLs used for keys. This
 audit resolves public Rust struct fields to their schema owner (an explicit
 rustdoc pointer wins, otherwise the schema definition name is inferred) and
 rejects shape substitutions or unsupported role-ID wrappers.
@@ -37,9 +37,7 @@ DEFAULT_SPEC_ROOT = ROOT.parent / "arkret-spec" / "spec" / "v1" / "artifacts" / 
 IDENTITY_TYPES = {
     "DidCoreId",
     "Did",
-    "DidFullId",
     "DidUrl",
-    "FullId",
     "CoreId",
     "PrincipalId",
     "ActorId",
@@ -111,8 +109,8 @@ def referenced_identity_kind(
         tail = reference.rsplit("/", 1)[-1]
         if tail in {"did_core_id", "core_id"}:
             return "core"
-        if tail in {"did_full_id", "full_id", "webvh_full_id", "did_key_full_id"}:
-            return "full"
+        if tail == "did" or tail.endswith("_did"):
+            return "did"
         if tail == "did_url":
             return "url"
         # A reference to a compound object may contain identity fields without
@@ -184,7 +182,7 @@ def validate(fields: Iterable[RustField], resolver: SchemaResolver) -> list[str]
     errors: list[str] = []
     for field in fields:
         actual = identity_type(field.rust_type)
-        if actual in {"Did", "CoreId", "FullId"}:
+        if actual == "CoreId":
             errors.append(f"unsupported identity alias {actual}: {field.display}")
             continue
         if actual in {"PrincipalId", "ActorId", "ServiceId"}:
@@ -195,7 +193,7 @@ def validate(fields: Iterable[RustField], resolver: SchemaResolver) -> list[str]
             continue
         expected = {
             "core": {"DidCoreId"},
-            "full": {"DidFullId"},
+            "did": {"Did"},
             "url": {"DidUrl"},
         }[expected_kind]
         if actual not in expected:

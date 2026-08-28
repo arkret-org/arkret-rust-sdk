@@ -12,7 +12,7 @@ use arkret_wire::{
 };
 use serde_json::json;
 
-fn did(name: &str) -> DidCoreId {
+fn actor_id(name: &str) -> DidCoreId {
     DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{name}")).unwrap()
 }
 
@@ -22,7 +22,7 @@ fn device_id() -> DeviceId {
 
 #[test]
 fn mimi_room_update_wire_uses_sender_actor_id_only() {
-    let actor = did("alice");
+    let actor = actor_id("alice");
     let body = MimiRoomUpdateRequestBody {
         mls_group_id: MlsGroupId::new("group-1").unwrap(),
         update: MimiRoomUpdate {
@@ -67,7 +67,7 @@ fn mimi_room_update_wire_uses_sender_actor_id_only() {
 
 #[test]
 fn mimi_submit_message_wire_uses_sender_actor_id_only() {
-    let actor = did("alice");
+    let actor = actor_id("alice");
     let body = MimiSubmitMessageRequestBody {
         sender_actor_id: actor.clone(),
         device_id: device_id(),

@@ -2,7 +2,7 @@ use arkret_models_discovery::{
     DirectoryRealmSearchOutcome, DirectorySearchRealmsRequestBody, InteropSurfaceEntry,
     InteropSurfaceKind, RealmMemberCountBucket, RealmMemberCountBucketLabel, ServiceDescribe,
 };
-use arkret_wire::{DidFullId, RealmId, ServiceKind, TrustDomainId};
+use arkret_wire::{Did, RealmId, ServiceKind, TrustDomainId};
 
 #[test]
 fn interop_surface_entry_is_closed_and_supports_delegated_resolver() {
@@ -23,7 +23,7 @@ fn interop_surface_entry_is_closed_and_supports_delegated_resolver() {
 #[test]
 fn service_describe_round_trips_interop_surfaces_on_the_canonical_key() {
     let mut description = ServiceDescribe::development(
-        DidFullId::new("did:webvh:z6mkfixture:service.example").unwrap(),
+        Did::new("did:webvh:z6mkfixture:service.example").unwrap(),
         TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         ServiceKind::PrincipalServer,
         vec!["ak.operation_bundle.principal_server.describe.v1".to_owned()],

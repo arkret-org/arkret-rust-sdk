@@ -19,7 +19,7 @@
 //! responses without string sniffing.
 
 use arkret_signatures::PublicKeyMaterial;
-use arkret_wire::{CellId, DidFullId, Hlc, ProjectedCellWrite};
+use arkret_wire::{CellId, Did, Hlc, ProjectedCellWrite};
 use chrono::{DateTime, Duration, Utc};
 use ed25519_dalek::VerifyingKey;
 
@@ -109,7 +109,7 @@ pub enum ReplayWindowError {
 /// its Ed25519 [`VerifyingKey`] via the supplied [`DidResolver`].
 ///
 /// Accepts:
-///   - Full DID URL: `did:webvh:z6mkfixture:alice.example#k1` — resolves the DID, then looks up
+///   - DID URL: `did:webvh:z6mkfixture:alice.example#k1` — resolves the DID, then looks up
 ///     `verification_methods["did:webvh:z6mkfixture:alice.example#k1"]`.
 ///   - Fragment fallback: if the full URL isn't a key, also tries the fragment-only key id (`#k1` →
 ///     `k1`).
@@ -124,7 +124,7 @@ pub fn resolve_ed25519_pubkey(
         .split_once('#')
         .map(|(did, _)| did.to_owned())
         .unwrap_or_else(|| verification_method.to_owned());
-    let did = DidFullId::new(did_str.clone()).map_err(|e| JwsVerifyError::InvalidDid {
+    let did = Did::new(did_str.clone()).map_err(|e| JwsVerifyError::InvalidDid {
         did: did_str.clone(),
         reason: e.to_string(),
     })?;
@@ -390,16 +390,16 @@ mod tests {
     /// single `(did, public_key_material)` pair and surfaces it as a one-key
     /// DID Document under the id `{did}#k1`.
     struct StubResolver {
-        did: DidFullId,
+        did: Did,
         material: String,
     }
 
     impl DidResolver for StubResolver {
-        fn supports(&self, did: &DidFullId) -> bool {
+        fn supports(&self, did: &Did) -> bool {
             did.as_str() == self.did.as_str()
         }
 
-        fn resolve_did(&self, did: &DidFullId) -> crate::Result<crate::ResolvedDid> {
+        fn resolve_did(&self, did: &Did) -> crate::Result<crate::ResolvedDid> {
             if did.as_str() != self.did.as_str() {
                 return Err(IdentityError::Protocol(format!(
                     "stub resolver does not handle {did}"
@@ -435,7 +435,7 @@ mod tests {
     #[test]
     fn resolve_ed25519_pubkey_accepts_public_key_jwk() {
         let signing = SigningKey::from_bytes(&[43u8; 32]);
-        let did = DidFullId::new("did:web:policy.example".to_owned()).unwrap();
+        let did = Did::new("did:web:policy.example".to_owned()).unwrap();
         let resolver = StubResolver {
             did: did.clone(),
             material: serde_json::json!({
@@ -614,7 +614,7 @@ mod tests {
         // sole key — the key-id binding stays strict for multi-key-capable
         // methods.
         let signing = SigningKey::from_bytes(&[7u8; 32]);
-        let did = DidFullId::new("did:webvh:z6mkfixture:single.example".to_owned()).unwrap();
+        let did = Did::new("did:webvh:z6mkfixture:single.example".to_owned()).unwrap();
         let resolver = StubResolver {
             did: did.clone(),
             material: encode_ed25519_multibase(&signing.verifying_key()),
@@ -632,7 +632,7 @@ mod tests {
         // one verification method, so the single-key fallback is still honoured.
         let signing = SigningKey::from_bytes(&[8u8; 32]);
         let multibase = encode_ed25519_multibase(&signing.verifying_key());
-        let did = DidFullId::new(format!("did:key:{multibase}")).unwrap();
+        let did = Did::new(format!("did:key:{multibase}")).unwrap();
         let resolver = StubResolver {
             did: did.clone(),
             material: multibase,

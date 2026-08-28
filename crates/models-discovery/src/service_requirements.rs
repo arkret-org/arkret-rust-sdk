@@ -241,7 +241,7 @@ impl ServiceRequirements {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{DidCoreId, DidFullId, ServiceOperationId, TrustDomainId};
+    use arkret_wire::{Did, DidCoreId, ServiceOperationId, TrustDomainId};
 
     use super::*;
     use crate::service_description::{
@@ -254,7 +254,7 @@ mod tests {
         let description = ServiceDescribe {
             service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             service_resolution: arkret_models_identity::ResolutionCommitment {
-                full_id: DidFullId::new("did:webvh:z6mkfixture:svc.example").unwrap(),
+                did: Did::new("did:webvh:z6mkfixture:svc.example").unwrap(),
                 method_history_head: "fixture-head".to_owned(),
                 version_id: "fixture-version".to_owned(),
             },
