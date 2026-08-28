@@ -1415,7 +1415,7 @@ mod tests {
 
     fn issued(op: SealedOp) -> IssuedOp {
         IssuedOp {
-            issuer: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
+            issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
             op,
         }
     }

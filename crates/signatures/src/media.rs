@@ -275,7 +275,7 @@ fn verify_issuer_signature(
 /// realm media-service anchors (`media-service-binding.md` §3 client rules).
 ///
 /// Checks performed (all fail closed):
-/// - required fields present (`connect_url`, `backend_token`, `participant_identity`,
+/// - required fields present (`connect_uri`, `backend_token`, `participant_identity`,
 ///   `participant_binding.sig`, `issuer_kid`);
 /// - `participant_binding.issuer_kid` resolves to an anchored `ak.realm.media_service.service_id` →
 ///   else `token_issuer_unauthorised`;
@@ -301,7 +301,7 @@ pub fn verify_call_media_token_outcome(
 ) -> Result<CallMediaTokenVerification> {
     let binding = &outcome.participant_binding;
 
-    if outcome.connect_url.trim().is_empty()
+    if outcome.connect_uri.trim().is_empty()
         || matches!(&outcome.backend_token, MediaBackendToken::Opaque(token) if token.trim().is_empty())
         || outcome.participant_identity.trim().is_empty()
         || binding.sig.trim().is_empty()
@@ -425,7 +425,7 @@ mod tests {
         CallMediaTokenExchangeOutcome {
             focus_id: request.focus_id.clone(),
             backend_kind: MediaBackendKind::Livekit,
-            connect_url: "wss://livekit-fra.example.com".to_owned(),
+            connect_uri: "wss://livekit-fra.example.com".to_owned(),
             backend_token: MediaBackendToken::Opaque("opaque-backend-token".to_owned()),
             participant_identity: identity.clone(),
             participant_binding: CallMediaParticipantBinding {

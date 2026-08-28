@@ -501,7 +501,7 @@ fn project_registered_operation_writes_with_pre_state(
                 authority_resolver,
             )?;
             projected.push(ProjectedCellWrite {
-                cell,
+                cell_id: cell,
                 op: ProjectedOp::Reset { value },
             });
             continue;
@@ -562,7 +562,7 @@ fn project_registered_operation_writes_with_pre_state(
             authority_resolver,
         )? {
             projected.push(ProjectedCellWrite {
-                cell: cell.clone(),
+                cell_id: cell.clone(),
                 op,
             });
         }
@@ -775,7 +775,7 @@ fn cas_register_predecessor(event: &ProjectedEventInput, cell: &CellRef) -> Opti
         .preconditions
         .iter()
         .filter(|precondition| {
-            precondition.cell == *cell && precondition.predicate.op == PredicateOp::HeadEq
+            precondition.cell_id == *cell && precondition.predicate.op == PredicateOp::HeadEq
         })
         .find_map(|precondition| precondition.predicate.value.clone())
         .filter(|value| !value.is_null())
@@ -2242,7 +2242,7 @@ mod tests {
 
     fn write(cell: &str, op: ProjectedOp) -> ProjectedCellWrite {
         ProjectedCellWrite {
-            cell: CellRef::new(cell).unwrap(),
+            cell_id: CellRef::new(cell).unwrap(),
             op,
         }
     }
@@ -2631,8 +2631,8 @@ mod tests {
             "hlc": "019f9e500000-0000-aabbccdd",
             "prev_refs": [],
             "payload": {
-                "issuer": "ak:did_core:web:issuer.example",
-                "subject": "ak:did_core:web:subject.example",
+                "issuer_id": "ak:did_core:web:issuer.example",
+                "subject_id": "ak:did_core:web:subject.example",
                 "accountability_scope": scope,
                 "grant_status": status
             },
@@ -2936,7 +2936,7 @@ mod tests {
             "prev_refs": [],
             "payload": {
                 "invite_id": "ak:invite:AVcbARXDOZuMaYlp1-g60cl4c6Y5NzY10J6VMsgtrakA",
-                "invitee": "ak:did_core:webvh:z6mkfixture",
+                "invitee_id": "ak:did_core:webvh:z6mkfixture",
                 "target_state": "revoked"
             },
             "proofs": []
@@ -2968,7 +2968,7 @@ mod tests {
         let mut pre_state = FrozenPreState::new();
         pre_state.insert(
             lifecycle.clone(),
-            json!({"invitee": "ak:did_core:webvh:z6mkfixture"}),
+            json!({"invitee_id": "ak:did_core:webvh:z6mkfixture"}),
         );
         assert_eq!(
             project_registered_cell_writes_with_pre_state(
@@ -2991,7 +2991,7 @@ mod tests {
 
         pre_state.insert(
             lifecycle,
-            json!({"invitee": "did:webvh:z6mkfixture:mallory.example"}),
+            json!({"invitee_id": "did:webvh:z6mkfixture:mallory.example"}),
         );
         let mismatch = project_registered_cell_writes_with_pre_state(
             &cancel,
@@ -3019,7 +3019,7 @@ mod tests {
             },
             "payload": {
                 "consent_id": "ak:consent:019f9000-0000-7000-8000-000000000014",
-                "observed_dots": observed_dots,
+                "observed_dot_ids": observed_dots,
                 "revoked_at": "2026-07-26T00:00:00.000Z"
             },
             "proofs": []
@@ -3087,7 +3087,7 @@ mod tests {
         let mut pre_state = FrozenPreState::new();
         pre_state.insert(
             CellRef::new(INVITE_LIFECYCLE_CELL.to_owned()).unwrap(),
-            json!({"invitee": "ak:did_core:webvh:z6mkfixture"}),
+            json!({"invitee_id": "ak:did_core:webvh:z6mkfixture"}),
         );
         let error = project_registered_cell_writes_with_pre_state(
             &event,
@@ -3207,7 +3207,9 @@ mod tests {
         let writes = project(&event);
         let resolution = writes
             .iter()
-            .find(|write| write.cell.as_str() == "ak:cell:ak.component.identity.resolution.v1:null")
+            .find(|write| {
+                write.cell_id.as_str() == "ak:cell:ak.component.identity.resolution.v1:null"
+            })
             .expect("initial resolution cell write");
         assert_eq!(
             resolution.op,
@@ -3379,7 +3381,7 @@ mod tests {
             "prev_refs": [],
             "payload": {
                 "grant": {
-                    "issuer": "ak:did_core:webvh:z6mkfixture",
+                    "issuer_id": "ak:did_core:webvh:z6mkfixture",
                     "subject": "ak:did_core:webvh:z6mkfixture",
                     "subject_principal_server_id": "ak:did_core:web:principal.example",
                     "actions": ["ak.realm.admin"],
@@ -3554,7 +3556,7 @@ mod tests {
             "prev_refs": [],
             "payload": {
                 "grant": {
-                    "issuer": "ak:did_core:webvh:z6mkfixture",
+                    "issuer_id": "ak:did_core:webvh:z6mkfixture",
                     "subject": "ak:did_core:webvh:z6mkfixture",
                     "subject_principal_server_id": "ak:did_core:web:principal.example",
                     "actions": ["ak.realm.admin"]
@@ -3579,7 +3581,7 @@ mod tests {
     fn history_access_cell_is_registry_derived() {
         let projected = project(&history_access_event());
         assert_eq!(projected.len(), 1);
-        assert_eq!(projected[0].cell.as_str(), HISTORY_ACCESS_CELL);
+        assert_eq!(projected[0].cell_id.as_str(), HISTORY_ACCESS_CELL);
     }
 
     #[test]

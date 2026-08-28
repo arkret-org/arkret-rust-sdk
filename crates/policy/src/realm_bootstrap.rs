@@ -340,7 +340,7 @@ pub fn validate_realm_bootstrap_unit(
                     .map_err(|_| RealmBootstrapValidationError::OutOfOrderBootstrap)?;
                 if !genesis_head_eq_registered
                     || followup.preconditions.len() != 1
-                    || followup.preconditions[0].cell != creator_cell
+                    || followup.preconditions[0].cell_id != creator_cell
                     || followup.preconditions[0].predicate.op != PredicateOp::HeadEq
                     || followup.preconditions[0].predicate.value != Some(serde_json::Value::Null)
                 {
@@ -487,7 +487,7 @@ mod tests {
             ),
         ];
         events.last_mut().unwrap().preconditions = vec![arkret_wire::Precondition {
-            cell: CellRef::new(format!("ak:cell:ak.component.member.state.v1:{ACTOR}")).unwrap(),
+            cell_id: CellRef::new(format!("ak:cell:ak.component.member.state.v1:{ACTOR}")).unwrap(),
             predicate: arkret_wire::Predicate {
                 op: PredicateOp::HeadEq,
                 value: Some(serde_json::Value::Null),

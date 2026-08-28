@@ -11,7 +11,7 @@ pub fn verify_device_authorize_possession(payload: &DeviceAuthorizePayload) -> R
         .map_err(|reason| Error::Protocol(reason.to_owned()))?;
     let signature = device_authorize_signature_value(&payload.device_signature)?;
     let public_key = payload
-        .device_public_key
+        .device_public_key_did
         .as_str()
         .strip_prefix("did:key:")
         .ok_or_else(|| Error::Protocol("device_authorize_device_public_key_invalid".to_owned()))?;

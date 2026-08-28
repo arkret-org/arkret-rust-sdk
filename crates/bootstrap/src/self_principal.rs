@@ -211,7 +211,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
         || verification_controller != initial_resolution.did
         || verification_fragment != descriptor.device_id.as_str()
         || descriptor.device_id != payload.device_id
-        || descriptor.device_public_key != payload.device_public_key
+        || descriptor.device_public_key_did != payload.device_public_key_did
         || descriptor.hpke_key != payload.hpke_key
         || descriptor.algorithms != payload.algorithms
     {
@@ -229,7 +229,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
         "ak:cell:ak.component.device.authorization.v1:{}",
         composite_subject(&[payload.principal_id.as_str(), payload.device_id.as_str()])?
     ))?;
-    if authorize_effects.len() != 1 || authorize_effects[0].cell != device_cell {
+    if authorize_effects.len() != 1 || authorize_effects[0].cell_id != device_cell {
         return Err(WireError::Protocol(
             "bootstrap device authorize does not derive its single device authorization cell"
                 .to_owned(),

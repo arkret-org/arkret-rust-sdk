@@ -295,7 +295,7 @@ mod tests {
             .join(&cell, &[set(3, track_a.clone()), set(4, track_b.clone())])
         {
             CellState::Bottom(bottom) => {
-                assert_eq!(bottom.heads, vec![track_a, track_b]);
+                assert_eq!(bottom.head_ids, vec![track_a, track_b]);
                 assert_eq!(bottom.move_ids.len(), 2);
             }
             CellState::Value(value) => panic!("distinct concurrent heads resolved to {value}"),

@@ -42,7 +42,7 @@ pub struct SyncRequestBody {
 pub struct SyncFilter {
     /// Realm IDs to sync.
     #[serde(default)]
-    pub realms: Vec<RealmId>,
+    pub realm_ids: Vec<RealmId>,
     /// Per-Realm timeline limit.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeline_limit: Option<u32>,
@@ -63,7 +63,7 @@ pub struct SyncFilter {
     pub extra: BTreeMap<String, Value>,
 }
 
-/// Subscription configuration for realms.
+/// Subscription configuration for realm_ids.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SubscriptionConfig {
     /// Realm subscriptions.
@@ -242,9 +242,9 @@ fn normalized_sync_filter(filter: Option<&SyncFilter>) -> Value {
         .into_iter()
         .collect::<serde_json::Map<_, _>>();
 
-    let realms = sorted_unique_strings(filter.realms.iter().map(RealmId::as_str));
-    if !realms.is_empty() {
-        object.insert("realms".to_owned(), serde_json::json!(realms));
+    let realm_ids = sorted_unique_strings(filter.realm_ids.iter().map(RealmId::as_str));
+    if !realm_ids.is_empty() {
+        object.insert("realm_ids".to_owned(), serde_json::json!(realm_ids));
     }
     if let Some(timeline_limit) = filter.timeline_limit {
         object.insert(
@@ -405,13 +405,13 @@ pub struct SyncSemantics {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MembershipBucket {
-    /// Joined realms.
+    /// Joined realm_ids.
     Joined,
-    /// Invited realms.
+    /// Invited realm_ids.
     Invited,
-    /// realms where the user has knocked/requested access.
+    /// realm_ids where the user has knocked/requested access.
     Knocked,
-    /// Left realms.
+    /// Left realm_ids.
     Left,
 }
 
@@ -525,9 +525,9 @@ pub struct SyncUpdates {
     pub realm_updates: Vec<RealmUpdate>,
     /// Realm keys in the response that were not valid `ak:realm:*` ids and
     /// were skipped (per-realm degradation instead of failing the whole
-    /// batch, preserving at-least-once for the well-formed realms). A
+    /// batch, preserving at-least-once for the well-formed realm_ids). A
     /// non-empty value indicates a misbehaving server.
-    pub malformed_realms: Vec<String>,
+    pub malformed_realm_ids: Vec<String>,
     /// To-device messages
     pub to_device: Vec<DeviceMessageEnvelope>,
     /// Opaque acknowledgement token for the delivered to-device batch.
@@ -613,7 +613,7 @@ mod tests {
         let realm_b =
             RealmId::new("ak:realm:AUZVSPb9v-NuEN6dQgTA44vXJnQ1d-pxAvvfplV4zgOc").unwrap();
         let filter_a = SyncFilter {
-            realms: vec![realm_b.clone(), realm_a.clone(), realm_a.clone()],
+            realm_ids: vec![realm_b.clone(), realm_a.clone(), realm_a.clone()],
             timeline_limit: Some(20),
             lazy_load_members: true,
             include_redundant_members: false,
@@ -626,7 +626,7 @@ mod tests {
             extra: BTreeMap::new(),
         };
         let filter_b = SyncFilter {
-            realms: vec![realm_a.clone(), realm_b.clone()],
+            realm_ids: vec![realm_a.clone(), realm_b.clone()],
             timeline_limit: Some(20),
             lazy_load_members: true,
             include_redundant_members: false,

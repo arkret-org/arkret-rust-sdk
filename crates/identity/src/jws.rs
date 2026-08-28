@@ -307,7 +307,7 @@ pub fn effective_window_for_projection(
     let mut effective = default_window_seconds;
     for write in writes {
         // CellRef shape: `ak:cell:<family>:<subject>` — extract family.
-        let Ok(cell_id) = CellId::parse(write.cell.as_str()) else {
+        let Ok(cell_id) = CellId::parse(write.cell_id.as_str()) else {
             continue;
         };
         let family = cell_id.component();
@@ -535,7 +535,7 @@ mod tests {
         op.op_type = LatticeOpType::Set;
         op.value = Some(serde_json::json!({"shape": "test_value", "value": "fixture"}));
         vec![ProjectedCellWrite {
-            cell: CellRef::new(cell_id.to_owned()).unwrap(),
+            cell_id: CellRef::new(cell_id.to_owned()).unwrap(),
             op: ProjectedOp::Direct(op),
         }]
     }

@@ -122,7 +122,7 @@ impl PcrGenesisSubmitRequestBody {
             != DeviceAuthorizationBindingKind::RegistrationAnchor
             || !authorized_by_root
             || descriptor.device_id != authorize_payload.device_id
-            || descriptor.device_public_key != authorize_payload.device_public_key
+            || descriptor.device_public_key_did != authorize_payload.device_public_key_did
             || descriptor.hpke_key != authorize_payload.hpke_key
             || descriptor.algorithms != authorize_payload.algorithms
             || create.proofs.len() != 1
@@ -181,7 +181,7 @@ impl PcrGenesisSubmitOutcome {
             || self.accepted_device_id != descriptor.device_id
             || scope.principal_id != request.principal_id
             || scope.realm_id != request.pcr_realm_id
-            || scope.audience.as_core_id() != request.account_authority_id.as_core_id()
+            || scope.audience_id.as_core_id() != request.account_authority_id.as_core_id()
             || scope.did_version_id != request.did_version_id
             || scope.log_head_digest != request.log_head_digest
             || scope.control_key_digest != request.control_key_digest

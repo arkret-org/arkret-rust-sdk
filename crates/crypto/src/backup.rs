@@ -709,7 +709,7 @@ fn build_key_backup_envelope_in_series(
     items: Vec<SecretStorageItem>,
     series_id: arkret_wire::BackupSeriesId,
     series_seq: u64,
-    supersedes: Option<BackupId>,
+    supersedes_id: Option<BackupId>,
     supersedes_digest: Option<String>,
     frontier_ref: Option<KeyBackupFrontierRef>,
 ) -> Result<KeyBackup> {
@@ -855,7 +855,7 @@ fn build_key_backup_envelope_in_series(
         retention: None,
         series_id,
         series_seq,
-        supersedes,
+        supersedes_id,
         supersedes_digest,
         frontier_ref,
         recovery_policy_ref: None,
@@ -872,7 +872,7 @@ fn build_key_backup_envelope_in_series(
 /// The successor inherits actor/device/class from `predecessor`, increments
 /// `series_seq`, and binds the predecessor by both `backup_id` and
 /// canonical predecessor-envelope digest. The SDK constructs the successor
-/// keybag only after the final series/supersedes/frontier metadata is fixed, so
+/// keybag only after the final series/supersedes_id/frontier metadata is fixed, so
 /// encryption can never bind genesis metadata and mutate it afterward.
 #[allow(clippy::too_many_arguments)]
 pub fn build_key_backup_successor_envelope(

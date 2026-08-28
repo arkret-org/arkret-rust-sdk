@@ -1121,7 +1121,7 @@ impl StreamTraceFrame for EventsSubscribeFrame {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiKeyMaterialRequestBody {
-    pub requester: DidCoreId,
+    pub requester_id: DidCoreId,
     pub strand_id: StrandId,
     pub device_id: DeviceId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1149,7 +1149,7 @@ impl MimiKeyMaterialRequestBody {
         mimi_proof_binding_bytes(
             ProofContextId::MIMI_KEY_MATERIAL_REQUEST_PROOF_V1,
             ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL_V1,
-            Some(serde_json::to_value(&self.requester)?),
+            Some(serde_json::to_value(&self.requester_id)?),
             vec![
                 ("strand_id", serde_json::to_value(&self.strand_id)?),
                 ("device_id", serde_json::to_value(&self.device_id)?),
@@ -1553,7 +1553,7 @@ pub struct MimiIdentifierQueryRequestBody {
     #[serde(default)]
     pub identifiers: Vec<MimiIdentifier>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub requester: Option<DidCoreId>,
+    pub requester_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub privacy_profile: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1572,7 +1572,7 @@ impl MimiIdentifierQueryRequestBody {
     /// `requester` may be absent; the transcript then omits `issuer` entirely
     /// rather than encoding a null (`mimi-interop.md` §5.1).
     pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
-        let issuer = match &self.requester {
+        let issuer = match &self.requester_id {
             Some(requester) => Some(serde_json::to_value(requester)?),
             None => None,
         };
@@ -1627,7 +1627,7 @@ pub struct MimiReportAbuseRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     pub target_ref: NonEmptyString,
-    pub reporter: DidCoreId,
+    pub reporter_id: DidCoreId,
     pub abuse_reason_code: NonEmptyString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evidence_package: Option<MimiOpaquePayload>,
@@ -1643,7 +1643,7 @@ pub struct MimiReportAbuseOutcome {
     pub report_id: ReportId,
     pub status: MimiReportAbuseStatus,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub routed_to: Vec<DidCoreId>,
+    pub routed_to_ids: Vec<DidCoreId>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1657,7 +1657,7 @@ pub enum MimiReportAbuseStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiProxyDownloadRequestBody {
     pub asset_ref: NonEmptyString,
-    pub requester: DidCoreId,
+    pub requester_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub strand_id: Option<StrandId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2230,7 +2230,7 @@ pub struct DevicePairingToDeviceChallengeTranscript {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DevicePairingTargetAttestation {
     pub device_id: DeviceId,
-    pub device_public_key: DidKey,
+    pub device_public_key_did: DidKey,
     pub hpke_key: NonEmptyString,
     pub algorithms: Vec<NonEmptyString>,
     pub device_key_algorithm: DevicePairingTargetKeyAlgorithm,
@@ -2252,7 +2252,7 @@ pub enum DevicePairingTargetKeyAlgorithm {
 #[derive(Clone, Debug)]
 pub struct UnsignedDevicePairingTargetAttestation {
     device_id: DeviceId,
-    device_public_key: DidKey,
+    device_public_key_did: DidKey,
     hpke_key: NonEmptyString,
     algorithms: Vec<NonEmptyString>,
     pairing_challenge_transcript_digest: Hash,
@@ -2261,7 +2261,7 @@ pub struct UnsignedDevicePairingTargetAttestation {
 impl UnsignedDevicePairingTargetAttestation {
     pub fn new(
         device_id: DeviceId,
-        device_public_key: DidKey,
+        device_public_key_did: DidKey,
         hpke_key: NonEmptyString,
         algorithms: Vec<NonEmptyString>,
         pairing_challenge_transcript_digest: Hash,
@@ -2277,7 +2277,7 @@ impl UnsignedDevicePairingTargetAttestation {
         }
         Ok(Self {
             device_id,
-            device_public_key,
+            device_public_key_did,
             hpke_key,
             algorithms,
             pairing_challenge_transcript_digest,
@@ -2288,7 +2288,7 @@ impl UnsignedDevicePairingTargetAttestation {
         device_pairing_target_attestation_signing_input(
             &self.algorithms,
             self.device_id.as_str(),
-            self.device_public_key.as_str(),
+            self.device_public_key_did.as_str(),
             self.hpke_key.as_str(),
             self.pairing_challenge_transcript_digest.as_str(),
         )
@@ -2300,7 +2300,7 @@ impl UnsignedDevicePairingTargetAttestation {
     ) -> DevicePairingTargetAttestation {
         DevicePairingTargetAttestation {
             device_id: self.device_id,
-            device_public_key: self.device_public_key,
+            device_public_key_did: self.device_public_key_did,
             hpke_key: self.hpke_key,
             algorithms: self.algorithms,
             device_key_algorithm: DevicePairingTargetKeyAlgorithm::Ed25519,
@@ -2320,7 +2320,7 @@ impl DevicePairingTargetAttestation {
         }
         UnsignedDevicePairingTargetAttestation::new(
             self.device_id.clone(),
-            self.device_public_key.clone(),
+            self.device_public_key_did.clone(),
             self.hpke_key.clone(),
             self.algorithms.clone(),
             self.pairing_challenge_transcript_digest.clone(),
@@ -2343,7 +2343,7 @@ impl DevicePairingTargetAttestation {
         )
         .map_err(|error| WireError::Protocol(format!("invalid pairing public key: {error}")))?;
         let attested_key_bytes = arkret_canonical::decode_ed25519_multibase(
-            self.device_public_key
+            self.device_public_key_did
                 .as_str()
                 .strip_prefix("did:key:")
                 .expect("DidKey enforces the did:key prefix"),
@@ -2353,7 +2353,7 @@ impl DevicePairingTargetAttestation {
             || public_key_bytes.as_slice() != attested_key_bytes.as_slice()
             || self.pairing_challenge_transcript_digest != request.challenge_proof.transcript_digest
             || payload.device_id != self.device_id
-            || payload.device_public_key.as_str() != self.device_public_key.as_str()
+            || payload.device_public_key_did.as_str() != self.device_public_key_did.as_str()
             || payload.hpke_key != self.hpke_key
             || payload.algorithms != self.algorithms
             || payload
@@ -2375,7 +2375,7 @@ impl DevicePairingTargetAttestation {
 fn device_pairing_target_attestation_signing_input(
     algorithms: &[NonEmptyString],
     device_id: &str,
-    device_public_key: &str,
+    device_public_key_did: &str,
     hpke_key: &str,
     pairing_challenge_transcript_digest: &str,
 ) -> Result<Vec<u8>> {
@@ -2385,7 +2385,7 @@ fn device_pairing_target_attestation_signing_input(
         authorization_binding_kind: DeviceAuthorizationBindingKind,
         device_id: &'a str,
         device_key_algorithm: &'static str,
-        device_public_key: &'a str,
+        device_public_key_did: &'a str,
         hpke_key: &'a str,
         pairing_challenge_transcript_digest: &'a str,
     }
@@ -2394,7 +2394,7 @@ fn device_pairing_target_attestation_signing_input(
         authorization_binding_kind: DeviceAuthorizationBindingKind::AcceptedDevice,
         device_id,
         device_key_algorithm: "Ed25519",
-        device_public_key,
+        device_public_key_did,
         hpke_key,
         pairing_challenge_transcript_digest,
     };
@@ -2442,7 +2442,7 @@ impl AccountDevicePairRequestBody {
         let payload: DeviceAuthorizePayload =
             decode_payload_after_kind_validation(&self.authorize_event.event)?;
         let payload_key = payload
-            .device_public_key
+            .device_public_key_did
             .as_str()
             .strip_prefix("did:key:")
             .ok_or_else(|| {
@@ -2524,7 +2524,7 @@ pub struct DevicePairingStageRequestBody {
 pub struct DevicePairingStageOutcome {
     pub device_pairing_request_id: DevicePairingRequestId,
     pub pairing_code: DevicePairingCode,
-    pub gate_audience: String,
+    pub gate_audience_uri: String,
     pub server_nonce: DevicePairingNonce,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -2553,12 +2553,12 @@ pub struct DevicePairingResolveRequestBody {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DevicePairingBootstrap {
-    pub arkret_base_url: String,
+    pub arkret_base_uri: String,
     pub device_pairing_request_id: DevicePairingRequestId,
     pub pairing_code: DevicePairingCode,
     pub new_device_pubkey: PublicKey,
     pub client_nonce: DevicePairingNonce,
-    pub gate_audience: String,
+    pub gate_audience_uri: String,
     pub server_nonce: DevicePairingNonce,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<NonEmptyString>,

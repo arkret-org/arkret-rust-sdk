@@ -178,9 +178,9 @@ pub struct Invite {
     pub id: InviteId,
     pub schema: String,
     pub realm_id: RealmId,
-    pub inviter: DidCoreId,
+    pub inviter_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub invitee: Option<DidCoreId>,
+    pub invitee_id: Option<DidCoreId>,
     /// Public durable target for private invite delivery (required by the
     /// schema `allOf` when `invitee` is set without `third_party_invite`).
     #[serde(skip_serializing_if = "Option::is_none")]

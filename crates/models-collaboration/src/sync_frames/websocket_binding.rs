@@ -74,7 +74,7 @@ pub enum WebSocketReauthReason {
 #[serde(deny_unknown_fields)]
 pub struct WebSocketAccountFilter {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realms: Option<Vec<RealmId>>,
+    pub realm_ids: Option<Vec<RealmId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timeline_limit: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -95,7 +95,7 @@ pub const WEBSOCKET_MAX_TIMELINE_LIMIT: u32 = 1000;
 impl WebSocketAccountFilter {
     fn validate(&self) -> Result<()> {
         for (field, len) in [
-            ("realms", self.realms.as_ref().map(Vec::len)),
+            ("realm_ids", self.realm_ids.as_ref().map(Vec::len)),
             ("event_kinds", self.event_kinds.as_ref().map(Vec::len)),
             (
                 "not_event_kinds",
@@ -136,14 +136,14 @@ pub struct WebSocketAccountOpenParameters {
 }
 
 /// `open.parameters` for `ak.self.events.stream.subscribe.v1` (§5). At least one
-/// of `realms` / `actors` MUST be present.
+/// of `realm_ids` / `actor_ids` MUST be present.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WebSocketEventsOpenParameters {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realms: Option<Vec<RealmId>>,
+    pub realm_ids: Option<Vec<RealmId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actors: Option<Vec<DidCoreId>>,
+    pub actor_ids: Option<Vec<DidCoreId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub after: Option<Cursor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -210,15 +210,16 @@ impl WebSocketOpenParameters {
                 None => Ok(()),
             },
             Self::Events(parameters) => {
-                let realms = parameters.realms.as_deref().unwrap_or_default();
-                let actors = parameters.actors.as_deref().unwrap_or_default();
-                if realms.is_empty() && actors.is_empty() {
+                let realm_ids = parameters.realm_ids.as_deref().unwrap_or_default();
+                let actor_ids = parameters.actor_ids.as_deref().unwrap_or_default();
+                if realm_ids.is_empty() && actor_ids.is_empty() {
                     return Err(WireError::Protocol(
-                        "WebSocket events open parameters require realms or actors".to_owned(),
+                        "WebSocket events open parameters require realm_ids or actor_ids"
+                            .to_owned(),
                     ));
                 }
-                if realms.len() > WEBSOCKET_MAX_SELECTOR_ITEMS
-                    || actors.len() > WEBSOCKET_MAX_SELECTOR_ITEMS
+                if realm_ids.len() > WEBSOCKET_MAX_SELECTOR_ITEMS
+                    || actor_ids.len() > WEBSOCKET_MAX_SELECTOR_ITEMS
                 {
                     return Err(WireError::Protocol(format!(
                         "WebSocket events selector exceeds {WEBSOCKET_MAX_SELECTOR_ITEMS} items"
@@ -858,7 +859,7 @@ mod tests {
             WebSocketOperationId::EventsStreamSubscribe,
             &serde_json::json!({"catchup": false}),
         )
-        .expect_err("events require realms or actors");
+        .expect_err("events require realm_ids or actor_ids");
     }
 
     #[test]

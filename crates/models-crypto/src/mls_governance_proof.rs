@@ -225,7 +225,7 @@ impl MlsGovernanceMerkleMembershipWitness {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceFrontierCellEntry {
-    pub cell: CellRef,
+    pub cell_id: CellRef,
     pub value_digest: Hash,
     pub provenance_event_refs: Vec<EventId>,
     pub inclusion_witness: MlsGovernanceMerkleMembershipWitness,
@@ -397,7 +397,7 @@ impl MlsGovernanceFrontierBranchProjection {
         if self
             .entries
             .windows(2)
-            .any(|pair| pair[0].cell.as_str() >= pair[1].cell.as_str())
+            .any(|pair| pair[0].cell_id.as_str() >= pair[1].cell_id.as_str())
             || self.range_witnesses.windows(2).any(|pair| {
                 (
                     pair[0].cell_family.as_str(),

@@ -308,7 +308,7 @@ pub enum MediaBackendToken {
 #[serde(deny_unknown_fields)]
 struct CallMediaTokenExchangeOutcomeWire {
     focus_id: String,
-    connect_url: String,
+    connect_uri: String,
     backend_token: MediaBackendToken,
     participant_identity: String,
     participant_binding: CallMediaParticipantBinding,
@@ -322,7 +322,7 @@ struct CallMediaTokenExchangeOutcomeWire {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CallMediaTokenExchangeOutcome {
     pub focus_id: String,
-    pub connect_url: String,
+    pub connect_uri: String,
     pub backend_token: MediaBackendToken,
     pub participant_identity: String,
     pub participant_binding: CallMediaParticipantBinding,
@@ -350,7 +350,7 @@ impl TryFrom<CallMediaTokenExchangeOutcomeWire> for CallMediaTokenExchangeOutcom
         }
         Ok(Self {
             focus_id: value.focus_id,
-            connect_url: value.connect_url,
+            connect_uri: value.connect_uri,
             backend_token: value.backend_token,
             participant_identity: value.participant_identity,
             participant_binding: value.participant_binding,

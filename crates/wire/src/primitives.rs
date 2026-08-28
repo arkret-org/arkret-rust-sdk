@@ -1185,7 +1185,7 @@ pub struct PrincipalServerAdmissionProof {
     pub event_digest: Hash,
     pub producer_proof_digest: Hash,
     pub producer_verification_method: DidUrl,
-    pub producer_signing_key: DidKey,
+    pub producer_signing_key_did: DidKey,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1319,8 +1319,8 @@ impl PrincipalServerAdmissionProof {
             serde_json::to_value(&self.producer_verification_method)?,
         );
         binding.insert(
-            "producer_signing_key".to_owned(),
-            serde_json::to_value(&self.producer_signing_key)?,
+            "producer_signing_key_did".to_owned(),
+            serde_json::to_value(&self.producer_signing_key_did)?,
         );
         if let Some(reference) = &self.producer_signer_resolution_evidence_ref {
             binding.insert(

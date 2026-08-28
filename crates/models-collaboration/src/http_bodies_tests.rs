@@ -147,7 +147,7 @@ mod mimi_consent_tests {
         let request = request();
         let mut identifier_query = MimiIdentifierQueryRequestBody {
             identifiers: Vec::new(),
-            requester: None,
+            requester_id: None,
             privacy_profile: None,
             proofs: Vec::new(),
         };

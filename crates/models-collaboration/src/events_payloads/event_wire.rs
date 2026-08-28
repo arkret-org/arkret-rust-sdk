@@ -136,7 +136,7 @@ pub struct Message {
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub state_changed_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revision_root: Option<MessageId>,
+    pub revision_root_id: Option<MessageId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub edited_at: Option<DateTime<Utc>>,

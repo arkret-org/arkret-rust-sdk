@@ -20,7 +20,7 @@ fn service_describe_value() -> Value {
         ServiceKind::PrincipalServer,
         vec!["ak.operation_bundle.principal_server.describe.v1".to_owned()],
         vec![arkret_models_discovery::TransportBinding::HttpJson {
-            base_url: "https://service.example".to_owned(),
+            base_uri: "https://service.example".to_owned(),
             extension_profile_required: (),
         }],
     ))
@@ -42,7 +42,7 @@ fn identity_service_describe_value() -> Value {
         ServiceKind::IdentityRegistry,
         vec!["ak.operation_bundle.identity_registry.describe.v1".to_owned()],
         vec![arkret_models_discovery::TransportBinding::HttpJson {
-            base_url: "https://identity.example".to_owned(),
+            base_uri: "https://identity.example".to_owned(),
             extension_profile_required: (),
         }],
     ))

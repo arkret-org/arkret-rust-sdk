@@ -204,7 +204,7 @@ pub enum GrantApprovalThreshold {
 pub struct GrantConstraintClaimRequirement {
     pub claim_kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub issuer: Option<DidCoreId>,
+    pub issuer_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trusted_issuer_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -212,7 +212,7 @@ pub struct GrantConstraintClaimRequirement {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub value_constraints: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub organization: Option<DidCoreId>,
+    pub organization_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -462,7 +462,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_threshold: Option<GrantApprovalThreshold>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub approvers: Vec<DidCoreId>,
+    pub approver_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accountability_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -583,7 +583,7 @@ impl GrantConstraint {
             auto_reject_on_timeout: None,
             proposal_morph_kind: None,
             approval_threshold: None,
-            approvers: Vec::new(),
+            approver_ids: Vec::new(),
             accountability_required: None,
             guardian_approval_required: None,
             controller_approval_required: None,
@@ -678,7 +678,7 @@ pub struct CapabilityGrant {
     pub schema: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    pub issuer: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub issuer_principal_server_id: DidCoreId,
     pub subject: CapabilitySubject,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -727,7 +727,7 @@ mod tests {
             "id": "ak:grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
             "schema": "ak.schema.capability.v1",
             "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            "issuer": "ak:did_core:web:issuer.example",
+            "issuer_id": "ak:did_core:web:issuer.example",
             "issuer_principal_server_id": "ak:did_core:web:issuer-principal.example",
             "subject": "ak:did_core:web:subject.example",
             "actions": ["ak.event.read"],
@@ -752,7 +752,7 @@ mod tests {
             "id": "ak:grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
             "schema": "ak.schema.capability.v1",
             "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            "issuer": "ak:did_core:web:issuer.example",
+            "issuer_id": "ak:did_core:web:issuer.example",
             "issuer_principal_server_id": "ak:did_core:web:issuer-principal.example",
             "subject": "ak:did_core:web:subject.example",
             "actions": ["ak.event.read"],
@@ -792,7 +792,7 @@ mod tests {
             realm_id: Some(
                 RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
             ),
-            issuer: DidCoreId::new("ak:did_core:web:issuer.example").unwrap(),
+            issuer_id: DidCoreId::new("ak:did_core:web:issuer.example").unwrap(),
             issuer_principal_server_id: DidCoreId::new("ak:did_core:web:issuer-principal.example")
                 .unwrap(),
             subject: CapabilitySubject::CoreDid(

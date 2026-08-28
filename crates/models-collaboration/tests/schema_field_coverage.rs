@@ -85,8 +85,8 @@ fn sample_cursor() -> Value {
 #[test]
 fn events_query_post_request_body_matches_its_schema_definition() {
     let fully_populated: EventsQueryPostRequestBody = serde_json::from_value(json!({
-        "realms": ["ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"],
-        "actors": ["ak:did_core:web:alice.example"],
+        "realm_ids": ["ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"],
+        "actor_ids": ["ak:did_core:web:alice.example"],
         "before": sample_cursor(),
         "after": sample_cursor(),
         "order": "descending",
@@ -192,7 +192,7 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
                 "combinator": "all"
             },
             "handle_issuer_policy": [{
-                "issuer": "ak:did_core:web:issuer.example",
+                "issuer_id": "ak:did_core:web:issuer.example",
                 "authorized_handle_domains": ["issuer.example"],
                 "issuer_class": "domain_authority"
             }],

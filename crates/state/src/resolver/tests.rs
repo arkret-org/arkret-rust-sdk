@@ -878,7 +878,7 @@ fn capability_rebind_uses_deterministic_lww_order() {
         EventKind::CapabilityGrant,
         2,
         json!({
-            "subject": "ak:did_core:webvh:z6mkfixture",
+            "subject_id": "ak:did_core:webvh:z6mkfixture",
             "actions": ["ak.message.create", "ak.reaction.add"]
         }),
     );

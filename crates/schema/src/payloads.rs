@@ -714,7 +714,7 @@ mod tests {
         json!({
             "principal_id": "ak:did_core:webvh:z6mkfixture",
             "device_id": "ak:device:0196419b-0000-7000-8000-000000000001",
-            "device_public_key": "did:key:z6Mki3devicepublickey",
+            "device_public_key_did": "did:key:z6Mki3devicepublickey",
             "hpke_key": "z6LSdevicehpke",
             "algorithms": ["ed25519", "x25519-hpke"],
             "device_key_algorithm": "Ed25519",
@@ -753,7 +753,7 @@ mod tests {
             "control_scopes": ["official_badge", "realm_admin"],
             "issued_at": "2026-06-25T00:00:00.000Z",
             "authorization": {
-                "issuer": "ak:did_core:webvh:example.test",
+                "issuer_id": "ak:did_core:webvh:example.test",
                 "issuer_role": "organization_principal_id",
                 "verification_method": "did:webvh:example.test:orgs:org1#k1",
                 "signed_at": "2026-06-25T00:00:00.000Z",

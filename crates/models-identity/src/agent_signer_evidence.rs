@@ -398,7 +398,7 @@ pub struct AgentCurrentObservation {
     pub operation_id: ProtocolOperationId,
     pub request_digest: Hash,
     pub verifier_id: DidCoreId,
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
     pub challenge: NonEmptyString,
     pub agent_snapshot_digest: Hash,
     pub agent_key_seal_id: SealId,
@@ -669,7 +669,7 @@ impl AgentSignerEvidenceQueryOutcome {
                     operation_id: current_observation.operation_id.clone(),
                     request_digest: current_observation.request_digest.clone(),
                     verifier_id: current_observation.verifier_id.clone(),
-                    audience: current_observation.audience.clone(),
+                    audience: current_observation.audience_id.clone(),
                     challenge: current_observation.challenge.clone(),
                 },
                 AgentSignerEvidence::HistoricalEvent {

@@ -142,7 +142,7 @@ mod tests {
             principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             principal_server_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             device_id: DeviceId::new("ak:device:0196419b-0000-7000-8000-000000000001").unwrap(),
-            device_signing_key: DidKey::new(
+            device_signing_key_did: DidKey::new(
                 "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuVkhY7g94pVQyG98x",
             )
             .unwrap(),

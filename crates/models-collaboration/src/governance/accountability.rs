@@ -109,8 +109,8 @@ impl Eq for AccountabilityScope {}
 #[serde(deny_unknown_fields)]
 pub struct AccountabilityGrantPayload {
     pub schema: String,
-    pub issuer: DidCoreId,
-    pub subject: DidCoreId,
+    pub issuer_id: DidCoreId,
+    pub subject_id: DidCoreId,
     pub accountability_scope: AccountabilityScope,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub not_before: DateTime<Utc>,
@@ -124,8 +124,8 @@ pub struct AccountabilityGrantPayload {
 impl AccountabilityGrantPayload {
     pub const SCHEMA: &'static str = SchemaId::ACCOUNTABILITY_GRANT_V1;
     pub fn new(
-        issuer: DidCoreId,
-        subject: DidCoreId,
+        issuer_id: DidCoreId,
+        subject_id: DidCoreId,
         accountability_scope: AccountabilityScope,
         not_before: DateTime<Utc>,
         expires_at: Option<DateTime<Utc>>,
@@ -133,8 +133,8 @@ impl AccountabilityGrantPayload {
     ) -> Self {
         Self {
             schema: SchemaId::ACCOUNTABILITY_GRANT_V1.to_owned(),
-            issuer,
-            subject,
+            issuer_id,
+            subject_id,
             accountability_scope: accountability_scope
                 .canonicalized_for_authoring()
                 .unwrap_or(accountability_scope),
@@ -163,8 +163,8 @@ impl AccountabilityGrantPayload {
     pub fn cell_subject(&self) -> Result<String> {
         let scope_component = self.accountability_scope.scope_set_component()?;
         composite_subject(&[
-            self.issuer.as_str(),
-            self.subject.as_str(),
+            self.issuer_id.as_str(),
+            self.subject_id.as_str(),
             scope_component.as_str(),
         ])
     }
@@ -185,8 +185,14 @@ impl AccountabilityGrantPayload {
                 "payload_digest".to_owned(),
                 serde_json::to_value(&payload_digest)?,
             ),
-            ("issuer".to_owned(), serde_json::to_value(&self.issuer)?),
-            ("subject".to_owned(), serde_json::to_value(&self.subject)?),
+            (
+                "issuer_id".to_owned(),
+                serde_json::to_value(&self.issuer_id)?,
+            ),
+            (
+                "subject_id".to_owned(),
+                serde_json::to_value(&self.subject_id)?,
+            ),
             (
                 "verification_method".to_owned(),
                 Value::String(self.proof.verification_method.as_str().to_owned()),
@@ -236,18 +242,19 @@ impl AccountabilityGrantPayload {
 
     pub fn validate_for_profile(&self, profile: &ActorProfile, now: DateTime<Utc>) -> Result<()> {
         self.validate_lifecycle_at(now)?;
-        if self.subject != profile.principal_id {
+        if self.subject_id != profile.principal_id {
             return Err(WireError::Protocol(
-                "accountability_grant subject does not match actor profile principal_id".to_owned(),
+                "accountability_grant subject_id does not match actor profile principal_id"
+                    .to_owned(),
             ));
         }
         if !profile
             .accountable_principal_ids
             .iter()
-            .any(|principal_id| principal_id.as_core_id() == self.issuer.as_core_id())
+            .any(|principal_id| principal_id.as_core_id() == self.issuer_id.as_core_id())
         {
             return Err(WireError::Protocol(
-                "accountability_grant issuer is not in actor profile accountable_principal_ids"
+                "accountability_grant issuer_id is not in actor profile accountable_principal_ids"
                     .to_owned(),
             ));
         }

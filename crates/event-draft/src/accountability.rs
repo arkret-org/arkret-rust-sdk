@@ -16,10 +16,10 @@ pub fn accountability_grant_intent(
 ) -> Result<EventIntent> {
     let principal_server_id = authorization
         .map(|authorization| authorization.executed_by.clone())
-        .unwrap_or_else(|| payload.issuer.clone());
+        .unwrap_or_else(|| payload.issuer_id.clone());
     let mut draft = TypedEventDraft::<event_spec::IdentityAccountabilityGrant>::new(
         scope_ref,
-        payload.issuer.clone(),
+        payload.issuer_id.clone(),
         principal_server_id,
         payload.clone(),
     )?;

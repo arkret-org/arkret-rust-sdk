@@ -513,7 +513,7 @@ pub struct DeliveryBindingStaleHandoverProof {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeliveryBindingStale {
     pub new_recipient_id: DidCoreId,
-    pub new_service_resolution: crate::ServiceResolutionCarrier,
+    pub new_recipient_resolution: crate::ServiceResolutionCarrier,
     pub handover_frontier: Vec<EventId>,
     pub handover_proof: DeliveryBindingStaleHandoverProof,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
@@ -545,7 +545,7 @@ pub struct KeyVerificationContent {
     /// satisfy — the `:` is outside the charset. This is a different namespace
     /// from `TransactionId`, not a laxer spelling of it.
     pub transaction_id: DeviceMessageTransactionId,
-    pub from_device: DeviceId,
+    pub from_device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub methods: Option<ProtocolKindList>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -565,7 +565,7 @@ pub struct KeyVerificationContent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub challenge_signature: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub gate_audience: Option<NonEmptyString>,
+    pub gate_audience_uri: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request_canonical_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -604,10 +604,10 @@ impl KeyVerificationContent {
     /// The selected device-message marker determines which additional fields
     /// are required before sending; the typed target builder validates that
     /// branch and rejects an incomplete content object.
-    pub fn new(transaction_id: DeviceMessageTransactionId, from_device: DeviceId) -> Self {
+    pub fn new(transaction_id: DeviceMessageTransactionId, from_device_id: DeviceId) -> Self {
         Self {
             transaction_id,
-            from_device,
+            from_device_id,
             methods: None,
             method: None,
             timestamp: None,
@@ -616,7 +616,7 @@ impl KeyVerificationContent {
             pairing_code: None,
             new_device_pubkey: None,
             challenge_signature: None,
-            gate_audience: None,
+            gate_audience_uri: None,
             request_canonical_digest: None,
             device_metadata: None,
             key_agreement_protocols: None,
@@ -818,7 +818,7 @@ mod key_verification_tests {
     fn delivery_binding_stale_value() -> Value {
         json!({
             "new_recipient_id": "ak:did_core:web:principal.example",
-            "new_service_resolution": {
+            "new_recipient_resolution": {
                 "current_record_url": "https://principal.example/_arkret/open/services/ak%3Adid_core%3Aweb%3Aprincipal.example/resolution"
             },
             "handover_frontier": ["ak:event:ATYeQ_3uy7u8Z1cbK6nfFvEpFMXMcbNvQJsXqt-4f03A"],
@@ -840,7 +840,7 @@ mod key_verification_tests {
         missing_resolution
             .as_object_mut()
             .unwrap()
-            .remove("new_service_resolution");
+            .remove("new_recipient_resolution");
         assert!(serde_json::from_value::<DeliveryBindingStale>(missing_resolution).is_err());
 
         let mut did_in_service_id = valid;
@@ -856,7 +856,7 @@ mod key_verification_tests {
         // rejects — the fixture was as off-spec as the type it exercised.
         let valid = json!({
             "transaction_id": "01904100-0000-7000-8000-000000000001",
-            "from_device": "ak:device:01904100-0000-7000-8000-000000000001",
+            "from_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
             "methods": ["ak.key.verification.sas_v1"],
             "pairing_code": "482 913",
             "new_device_pubkey": {

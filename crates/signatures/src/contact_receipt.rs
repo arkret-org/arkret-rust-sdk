@@ -96,7 +96,7 @@ mod tests {
                 request_event_ref: EventId::new(REQUEST_EVENT_REF).unwrap(),
                 source_checkpoint: hash('b'),
                 accepted_at,
-                issuer: DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
+                issuer_id: DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
             },
             receipt_digest: hash('0'),
             signature: ProtocolSignature {

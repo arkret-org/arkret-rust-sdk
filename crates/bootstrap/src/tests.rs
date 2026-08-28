@@ -132,7 +132,7 @@ fn attach_fixture_admission_proof(event: &mut Event) {
         producer_proof_digest: PrincipalServerAdmissionProof::producer_proof_digest(&producer)
             .unwrap(),
         producer_verification_method: producer.verification_method.clone(),
-        producer_signing_key: DidKey::new(founding_device_public_key()).unwrap(),
+        producer_signing_key_did: DidKey::new(founding_device_public_key()).unwrap(),
         producer_signer_resolution_evidence_ref: None,
         producer_signer_resolution_evidence_digest: None,
         signer_resolution_evidence_ref: arkret_wire::SignerEvidenceRef::new(format!(
@@ -252,7 +252,7 @@ fn founding_authorize_payload(
     DeviceAuthorizePayload {
         principal_id: principal_id.clone(),
         device_id: founding_device_id(),
-        device_public_key: NonEmptyString::new(founding_device_public_key()).unwrap(),
+        device_public_key_did: NonEmptyString::new(founding_device_public_key()).unwrap(),
         hpke_key: NonEmptyString::new("z6LSDeviceHpkeKey").unwrap(),
         algorithms: vec![NonEmptyString::new("ak.hpke_x25519_aead_chacha20poly1305.v1").unwrap()],
         device_key_algorithm: Some(NonEmptyString::new("Ed25519").unwrap()),
@@ -274,16 +274,16 @@ fn founding_device_descriptor(
 ) -> FoundingDeviceDescriptor {
     let payload =
         serde_json::to_value(founding_authorize_payload(principal_id, not_before)).unwrap();
-    let device_public_key = NonEmptyString::new(founding_device_public_key()).unwrap();
+    let device_public_key_did = NonEmptyString::new(founding_device_public_key()).unwrap();
     let hpke_key = NonEmptyString::new("z6LSDeviceHpkeKey").unwrap();
     FoundingDeviceDescriptor {
         descriptor_version: 1,
         device_id: founding_device_id(),
         device_key_digest: Hash::new(arkret_canonical::canonical::sha256_digest(
-            device_public_key.as_bytes(),
+            device_public_key_did.as_bytes(),
         ))
         .unwrap(),
-        device_public_key,
+        device_public_key_did,
         device_key_algorithm: FoundingDeviceKeyAlgorithm::Ed25519,
         device_key_purpose: FoundingDeviceKeyPurpose::EventSigningAndMlsIdentity,
         hpke_key_digest: Hash::new(arkret_canonical::canonical::sha256_digest(
@@ -329,7 +329,7 @@ fn builder_emits_only_the_closed_unsigned_root_shape() {
     assert_eq!(
         effects
             .iter()
-            .map(|effect| effect.cell.as_str().to_owned())
+            .map(|effect| effect.cell_id.as_str().to_owned())
             .collect::<BTreeSet<_>>(),
         [
             format!(
@@ -777,7 +777,7 @@ fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
     assert_eq!(
         effects
             .iter()
-            .map(|effect| effect.cell.as_str().to_owned())
+            .map(|effect| effect.cell_id.as_str().to_owned())
             .collect::<BTreeSet<_>>(),
         BTreeSet::from([
             format!("ak:cell:ak.component.agent.provision.v1:{agent}"),

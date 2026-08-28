@@ -39,7 +39,7 @@ pub enum WebSocketBindingAuthentication {
 /// Validate one canonical typed WebSocket transport declaration.
 pub fn validate_websocket_transport(binding: &TransportBinding) -> Result<()> {
     let TransportBinding::Websocket {
-        base_url,
+        base_uri,
         max_frame_bytes,
         max_channels,
         ..
@@ -50,7 +50,7 @@ pub fn validate_websocket_transport(binding: &TransportBinding) -> Result<()> {
         ));
     };
 
-    validate_websocket_base_url(base_url)?;
+    validate_websocket_base_url(base_uri)?;
     if *max_frame_bytes < 1024 || *max_frame_bytes as usize > WEBSOCKET_HARD_MAX_FRAME_BYTES {
         return Err(WireError::Protocol(format!(
             "websocket max_frame_bytes must be 1024..={WEBSOCKET_HARD_MAX_FRAME_BYTES}"
@@ -116,9 +116,9 @@ pub fn select_websocket_binding(
 mod tests {
     use super::*;
 
-    fn binding(base_url: &str) -> TransportBinding {
+    fn binding(base_uri: &str) -> TransportBinding {
         TransportBinding::Websocket {
-            base_url: base_url.to_owned(),
+            base_uri: base_uri.to_owned(),
             extension_profile_required: WebSocketBindingProfile::BindingWebsocketV1,
             subprotocol: WebSocketBindingSubprotocol::ArkretV1,
             authentication: WebSocketBindingAuthentication::ChallengeDpopSessionV1,
@@ -134,15 +134,15 @@ mod tests {
 
     #[test]
     fn noncanonical_urls_are_rejected() {
-        for base_url in [
+        for base_uri in [
             "ws://server.example/_arkret/ws",
             "wss://server.example:443/_arkret/ws",
             "wss://SERVER.example/_arkret/ws",
             "wss://server.example/_arkret/../ws",
             "wss://server.example/_arkret/ws?grant=secret",
         ] {
-            validate_websocket_transport(&binding(base_url))
-                .expect_err(&format!("{base_url} must not be advertised"));
+            validate_websocket_transport(&binding(base_uri))
+                .expect_err(&format!("{base_uri} must not be advertised"));
         }
     }
 }

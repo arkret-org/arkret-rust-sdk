@@ -154,7 +154,7 @@ pub struct MediaServiceFocus {
     )]
     pub region: Option<NonEmptyString>,
     pub token_endpoint: String,
-    pub connect_url: String,
+    pub connect_uri: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capabilities: Vec<NonEmptyString>,
     #[serde(
@@ -179,8 +179,8 @@ impl MediaServiceFocus {
         if !is_url_with_scheme(&self.token_endpoint, "https://") {
             return schema_violation("media service token_endpoint must be an https URL");
         }
-        if !is_url_with_allowed_schemes(&self.connect_url, &["https://", "wss://"]) {
-            return schema_violation("media service connect_url must be an https or wss URL");
+        if !is_url_with_allowed_schemes(&self.connect_uri, &["https://", "wss://"]) {
+            return schema_violation("media service connect_uri must be an https or wss URL");
         }
         if self
             .health_endpoint
@@ -1429,7 +1429,7 @@ impl<'de> Deserialize<'de> for SchemaDefineStatePayload {
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct StateConflictRecoveryPayload {
-    pub target_cell: CellRef,
+    pub target_cell_id: CellRef,
     pub resolved_value: Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -1438,7 +1438,7 @@ pub struct StateConflictRecoveryPayload {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct StateConflictRecoveryPayloadWire {
-    target_cell: CellRef,
+    target_cell_id: CellRef,
     resolved_value: Value,
     reason: Option<String>,
 }
@@ -1463,7 +1463,7 @@ impl<'de> Deserialize<'de> for StateConflictRecoveryPayload {
     {
         let wire = StateConflictRecoveryPayloadWire::deserialize(deserializer)?;
         let payload = Self {
-            target_cell: wire.target_cell,
+            target_cell_id: wire.target_cell_id,
             resolved_value: wire.resolved_value,
             reason: wire.reason,
         };
@@ -1534,7 +1534,7 @@ mod tests {
                     "focus_kind": "livekit",
                     "region": "eu-central",
                     "token_endpoint": "https://media.example/_arkret/self/rtc/token",
-                    "connect_url": "wss://media.example/livekit",
+                    "connect_uri": "wss://media.example/livekit",
                     "capabilities": ["simulcast"],
                     "health_endpoint": "https://media.example/health",
                     "cascade_group": "eu"

@@ -1,8 +1,8 @@
 //! Circle primitive (AKP-0007, spec b7d35be..2b0d70d).
 //!
 //! A `Circle` is an intra-Realm scoped event/message boundary. It hosts
-//! its own membership (which MUST be a strict subset of the parent
-//! Realm's membership), history access and delivery/query/projection
+//! its own member_idship (which MUST be a strict subset of the parent
+//! Realm's member_idship), history access and delivery/query/projection
 //! boundary. A Circle may be plaintext delivery-only
 //! (`encryption_profile=none`) or MLS-backed (`mls_rfc9420`) depending on
 //! the parent Realm policy floor.
@@ -39,7 +39,7 @@ use crate::objects::space::ChildScopePolicy;
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum CircleDirectoryVisibility {
-    /// Only Circle members see this Circle in any directory listing.
+    /// Only Circle member_ids see this Circle in any directory listing.
     Members,
     /// Any active parent-Realm member sees the directory entry (title,
     /// short_name, member_count) but does NOT gain history or event
@@ -258,9 +258,9 @@ pub struct CircleView {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub member_count: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub viewer_membership: Option<CircleMembership>,
+    pub viewer_member_idship: Option<CircleMembership>,
     #[serde(default)]
-    pub members: Vec<DidCoreId>,
+    pub member_ids: Vec<DidCoreId>,
     pub created_by: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -326,7 +326,7 @@ impl CircleMembership {
 pub struct CircleMemberRequestBody {
     /// Initial publication of the caller-signed `ak.circle.member.state` Event.
     ///
-    /// The target actor and the membership value live in
+    /// The target actor and the member_idship value live in
     /// `member_event.event.payload`, and the Circle is `payload.circle_id`, which
     /// must equal the path `circle_id`. Nothing else belongs here: the payload is
     /// closed, and the `ak.circle.member.manage` decision is the admission path's,
@@ -354,7 +354,7 @@ pub struct CircleMemberDeleteRequestBody {
 pub struct CircleMembershipOutcome {
     pub circle_id: CircleId,
     pub actor_id: DidCoreId,
-    pub membership: CircleMembership,
+    pub member_idship: CircleMembership,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -445,11 +445,11 @@ pub enum CircleState {
     Tombstoned,
 }
 
-/// Per-actor Circle membership state. Mirrors AKP-0007 §3.6
-/// `ak.circle.member.state` `membership` enum.
+/// Per-actor Circle member_idship state. Mirrors AKP-0007 §3.6
+/// `ak.circle.member.state` `member_idship` enum.
 ///
 /// The transition table is encoded in [`validate_member_transition`];
-/// Circle membership reuses the Realm `membership_state` enum exactly:
+/// Circle member_idship reuses the Realm `member_idship_state` enum exactly:
 /// `invite`, `join`, `knock`, `leave`, and `ban`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -462,7 +462,7 @@ pub enum CircleMemberState {
 }
 
 impl CircleMemberState {
-    /// Wire identifier (snake_case) for this membership state. Mirrors the
+    /// Wire identifier (snake_case) for this member_idship state. Mirrors the
     /// canonical strings in `ak.circle.member.state` payloads.
     pub fn as_str(self) -> &'static str {
         match self {
@@ -480,7 +480,7 @@ impl CircleMemberState {
 /// [`CircleJoinRule`] (AKP-0007 §3.6).
 ///
 /// `prev = None` denotes the `none` pseudo-state — an actor who has never
-/// had a Circle membership row. The full transition table:
+/// had a Circle member_idship row. The full transition table:
 ///
 /// ```text
 ///   none / leave                         → invite
@@ -702,7 +702,7 @@ pub fn validate_content_encryption_floor(
     }
 }
 
-/// Error returned by [`Circle::assert_members_strict_subset`] and the
+/// Error returned by [`Circle::assert_member_ids_strict_subset`] and the
 /// AKP-0007 reducer-pure validators in this module.
 #[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
 pub enum CircleScopeError {
@@ -714,7 +714,7 @@ pub enum CircleScopeError {
     )]
     MemberNotInRealm { circle_member: DidCoreId },
     #[error(
-        "circle membership is not a strict subset of realm membership \
+        "circle member_idship is not a strict subset of realm member_idship \
          (reducer reason=circle_member_must_be_realm_member, AKP-0007)"
     )]
     NotStrictSubset,
@@ -887,8 +887,8 @@ impl Circle {
         }
     }
 
-    /// Validate that `circle_members` is a strict subset of
-    /// `realm_members` (AKP-0007 invariant: every Circle member MUST be
+    /// Validate that `circle_member_ids` is a strict subset of
+    /// `realm_member_ids` (AKP-0007 invariant: every Circle member MUST be
     /// an active parent-Realm member; reducer reason
     /// `circle_member_must_be_realm_member`).
     ///
@@ -896,12 +896,12 @@ impl Circle {
     /// the empty-Realm degenerate case — strict subset here is "no
     /// member outside the Realm set"), otherwise the first offending
     /// Circle member.
-    pub fn assert_members_strict_subset(
-        circle_members: &[DidCoreId],
-        realm_members: &[DidCoreId],
+    pub fn assert_member_ids_strict_subset(
+        circle_member_ids: &[DidCoreId],
+        realm_member_ids: &[DidCoreId],
     ) -> Result<(), CircleScopeError> {
-        let realm: BTreeSet<&DidCoreId> = realm_members.iter().collect();
-        for member in circle_members {
+        let realm: BTreeSet<&DidCoreId> = realm_member_ids.iter().collect();
+        for member in circle_member_ids {
             if !realm.contains(member) {
                 return Err(CircleScopeError::MemberNotInRealm {
                     circle_member: member.clone(),
@@ -1039,7 +1039,7 @@ mod tests {
     #[test]
     fn strict_subset_accepts_empty_circle() {
         let realm: Vec<DidCoreId> = vec!["ak:did_core:webvh:z6mkfixturealice".parse().unwrap()];
-        Circle::assert_members_strict_subset(&[], &realm).unwrap();
+        Circle::assert_member_ids_strict_subset(&[], &realm).unwrap();
     }
 
     #[test]
@@ -1047,8 +1047,8 @@ mod tests {
         let alice: DidCoreId = "ak:did_core:webvh:z6mkfixturealice".parse().unwrap();
         let bob: DidCoreId = "ak:did_core:webvh:z6mkfixturebob".parse().unwrap();
         let realm = vec![alice];
-        let err =
-            Circle::assert_members_strict_subset(std::slice::from_ref(&bob), &realm).unwrap_err();
+        let err = Circle::assert_member_ids_strict_subset(std::slice::from_ref(&bob), &realm)
+            .unwrap_err();
         match err {
             CircleScopeError::MemberNotInRealm { circle_member } => {
                 assert_eq!(circle_member, bob);

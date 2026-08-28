@@ -635,7 +635,7 @@ where
     if signer_id != &source.source_actor_id
         || verification_method != &source.source_proof.verification_method
         || current_observation.request_digest != source.history_source_agent_observation_digest()?
-        || current_observation.verifier_id != current_observation.audience
+        || current_observation.verifier_id != current_observation.audience_id
     {
         return Err(WireError::Protocol(
             "Native Agent history source observation binding mismatch".to_owned(),
@@ -756,7 +756,7 @@ where
             operation_id: &current_observation.operation_id,
             request_digest: &current_observation.request_digest,
             verifier_id: &current_observation.verifier_id,
-            audience: &current_observation.audience,
+            audience: &current_observation.audience_id,
             challenge: &current_observation.challenge,
         },
     );
@@ -840,7 +840,7 @@ where
                 &event.principal_server_id,
             )?;
             let multibase = admission
-                .producer_signing_key
+                .producer_signing_key_did
                 .as_str()
                 .strip_prefix("did:key:")
                 .ok_or_else(|| {

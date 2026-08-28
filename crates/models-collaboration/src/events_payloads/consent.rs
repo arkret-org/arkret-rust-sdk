@@ -10,7 +10,7 @@ use crate::internal_prelude::*;
 #[serde(deny_unknown_fields)]
 pub struct ConsentGrantPayload {
     pub consent_id: ConsentId,
-    pub peer: DidCoreId,
+    pub peer_id: DidCoreId,
     pub consent_scope: ConsentScope,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]

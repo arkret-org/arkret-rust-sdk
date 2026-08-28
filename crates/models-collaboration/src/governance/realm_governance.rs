@@ -68,10 +68,10 @@ pub const REALM_MODERATION_POLICY_CELL_REF: &str =
 pub enum RealmLinkKind {
     /// Target Realm is the governing authority for source Realm.
     GovernedBy,
-    /// Source Realm may be discovered by members of target Realm.
+    /// Source Realm may be discovered by member_ids of target Realm.
     DiscoverableFrom,
     /// Source Realm accepts join requests from target Realm's
-    /// authenticated members.
+    /// authenticated member_ids.
     JoinGateFrom,
     /// Source Realm inherits policy from target Realm (paired with a
     /// `ak.realm.inheritance_policy` declaration).
@@ -415,7 +415,7 @@ pub struct RealmEffectivePolicyOutcome {
     pub realm_id: RealmId,
     pub effective_policy: BTreeMap<String, Value>,
     #[serde(default)]
-    pub inheritance_chain: Vec<RealmId>,
+    pub inheritance_chain_ids: Vec<RealmId>,
     pub inheritance_mode: RealmEffectivePolicyInheritanceMode,
 }
 
@@ -426,7 +426,7 @@ pub struct RealmLifecycleView {
     pub realm_id: RealmId,
     pub owner_id: DidCoreId,
     #[serde(default)]
-    pub members: Vec<DidCoreId>,
+    pub member_ids: Vec<DidCoreId>,
     pub deleted: bool,
     #[serde(default)]
     pub archived: bool,
@@ -575,7 +575,7 @@ impl RealmModerationPolicyReplaceRequestBody {
                     .to_owned(),
             ));
         };
-        if precondition.cell.as_str() != REALM_MODERATION_POLICY_CELL_REF
+        if precondition.cell_id.as_str() != REALM_MODERATION_POLICY_CELL_REF
             || predicate.op != PredicateOp::HeadEq
             || predicate.values.is_some()
             || predicate.predicate_id.is_some()
@@ -675,7 +675,7 @@ pub struct RealmPolicyServerDeclarationPayload {
     pub policy_server_id: DidCoreId,
     pub policy_server_url: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub public_keys: Vec<DidUrl>,
+    pub public_kids: Vec<DidUrl>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub applies_to: Vec<RealmPolicyServerAppliesTo>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

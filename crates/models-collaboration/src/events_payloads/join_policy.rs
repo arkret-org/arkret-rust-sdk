@@ -163,7 +163,7 @@ pub enum JoinReviewerQuorumPreset {
 #[serde(deny_unknown_fields)]
 pub struct JoinReviewerQuorumMembers {
     pub threshold: NonZeroU64,
-    pub reviewers: Vec<DidCoreId>,
+    pub reviewer_ids: Vec<DidCoreId>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -147,7 +147,7 @@ const REDACTION_DERIVED_FIELD_KEYS: &[&str] = &[
     "reaction_summary",
     "reactions",
     "relations",
-    "reply_to",
+    "reply_to_id",
     "search_terms",
     "search_tokens",
     "snippet",
@@ -217,7 +217,7 @@ mod tests {
             "created_at": "2026-04-26T00:00:00.000Z",
             "content": {"kind": "ak.content.text", "body": "secret"},
             "reactions": [{"actor": "ak:did_core:webvh:z6mkfixture", "key": "+1"}],
-            "reply_to": "ak:event:Acdo-DTSzgoY0Kjf-hvT52yy55O541hSJT4HQ50Z-P0p",
+            "reply_to_id": "ak:event:Acdo-DTSzgoY0Kjf-hvT52yy55O541hSJT4HQ50Z-P0p",
             "mentions": [{"actor_id": "ak:did_core:webvh:z6mkfixture"}],
         });
         let redacted_at = DateTime::parse_from_rfc3339("2026-04-26T00:05:00.000Z")
@@ -246,7 +246,7 @@ mod tests {
             json!(REDACTED_MESSAGE_PLACEHOLDER)
         );
         assert!(event.get("reactions").is_none());
-        assert!(event.get("reply_to").is_none());
+        assert!(event.get("reply_to_id").is_none());
         assert!(event.get("mentions").is_none());
         assert_eq!(event["created_at"], json!("2026-04-26T00:00:00.000Z"));
     }

@@ -137,7 +137,7 @@ pub fn materialize_managed_agent_pcr_control(
             continue;
         }
         let effects = direct_projection(event, project)?;
-        if effects.iter().any(|effect| effect.cell == managed_cell) {
+        if effects.iter().any(|effect| effect.cell_id == managed_cell) {
             creates.push((event, effects));
         }
     }
@@ -353,14 +353,14 @@ fn apply_managed_agent_batch(
         }
         for effect in effects {
             let issued = IssuedOp {
-                issuer: create.actor_id.clone(),
+                issuer_id: create.actor_id.clone(),
                 op: SealedOp::new(move_id.clone(), effect.op),
             };
             batch_ops
-                .entry(effect.cell.clone())
+                .entry(effect.cell_id.clone())
                 .or_default()
                 .push(issued.clone());
-            event_ops.push((effect.cell, issued));
+            event_ops.push((effect.cell_id, issued));
         }
     }
 

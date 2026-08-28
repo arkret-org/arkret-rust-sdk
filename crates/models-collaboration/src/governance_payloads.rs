@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 /// Canonical consent add-dot reference.
 ///
 /// Mirrors `event-payload.schema.json#/$defs/consent_revoke_payload`
-/// `observed_dots[]`: `<canonical event ref>:<actor sequence>`.
+/// `observed_dot_ids[]`: `<canonical event ref>:<actor sequence>`.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct ConsentObservedDot(String);
@@ -54,7 +54,7 @@ impl From<ConsentObservedDot> for String {
 }
 
 /// Typed `ak.consent.revoke` payload with REQUIRED
-/// `observed_dots`. Reducers MUST reject envelopes that omit this
+/// `observed_dot_ids`. Reducers MUST reject envelopes that omit this
 /// field with `schema_violation` (it would otherwise enable implicit
 /// cascade revoke).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -62,7 +62,7 @@ impl From<ConsentObservedDot> for String {
 pub struct ConsentRevokePayload {
     pub consent_id: ConsentId,
 
-    pub observed_dots: Vec<ConsentObservedDot>,
+    pub observed_dot_ids: Vec<ConsentObservedDot>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub revoked_at: Option<DateTime<Utc>>,
@@ -72,20 +72,20 @@ pub struct ConsentRevokePayload {
 
 impl ConsentRevokePayload {
     pub fn validate_minimal(&self) -> Result<()> {
-        if self.observed_dots.is_empty() {
+        if self.observed_dot_ids.is_empty() {
             return Err(WireError::Protocol(format!(
-                "ak.consent.revoke MUST carry non-empty observed_dots ({})",
+                "ak.consent.revoke MUST carry non-empty observed_dot_ids ({})",
                 ErrorCode::SCHEMA_VIOLATION
             )));
         }
         let unique = self
-            .observed_dots
+            .observed_dot_ids
             .iter()
             .map(ConsentObservedDot::as_str)
             .collect::<BTreeSet<_>>();
-        if unique.len() != self.observed_dots.len() {
+        if unique.len() != self.observed_dot_ids.len() {
             return Err(WireError::Protocol(format!(
-                "ak.consent.revoke observed_dots MUST be unique ({})",
+                "ak.consent.revoke observed_dot_ids MUST be unique ({})",
                 ErrorCode::SCHEMA_VIOLATION
             )));
         }

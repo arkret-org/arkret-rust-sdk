@@ -254,7 +254,7 @@ mod tests {
         op.from = Some(from);
         op.to = Some(to);
         ProjectedCellWrite {
-            cell,
+            cell_id: cell,
             op: ProjectedOp::Direct(op),
         }
     }
@@ -355,13 +355,13 @@ mod tests {
             project(&event),
             vec![
                 ProjectedCellWrite {
-                    cell: cell.clone(),
+                    cell_id: cell.clone(),
                     op: ProjectedOp::RemoveObserved {
                         element_match: None
                     },
                 },
                 ProjectedCellWrite {
-                    cell,
+                    cell_id: cell,
                     op: ProjectedOp::Direct(add),
                 },
             ]
@@ -406,13 +406,13 @@ mod tests {
             project(&event),
             vec![
                 ProjectedCellWrite {
-                    cell: cell.clone(),
+                    cell_id: cell.clone(),
                     op: ProjectedOp::RemoveObserved {
                         element_match: None
                     },
                 },
                 ProjectedCellWrite {
-                    cell,
+                    cell_id: cell,
                     op: ProjectedOp::Direct(add),
                 },
             ]

@@ -46,7 +46,7 @@ impl HandleIssuerAuthorityClass {
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HandleIssuerPolicyEntry {
-    pub issuer: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub authorized_handle_domains: Vec<String>,
     pub issuer_class: HandleIssuerAuthorityClass,
 }
@@ -239,7 +239,7 @@ fn policy_entry<'a>(
     claim: &HandleClaim,
     policy: &'a [HandleIssuerPolicyEntry],
 ) -> Option<(usize, &'a HandleIssuerPolicyEntry)> {
-    let issuer = claim.issuer.as_ref()?;
+    let issuer = claim.issuer_id.as_ref()?;
     let handle = claim.handle.as_ref()?;
     policy
         .iter()
@@ -257,7 +257,7 @@ pub fn handle_issuer_policy_entry_authorizes(
     issuer: &DidCoreId,
     handle: &Handle,
 ) -> bool {
-    entry.issuer == *issuer
+    entry.issuer_id == *issuer
         && entry
             .authorized_handle_domains
             .iter()
@@ -414,7 +414,7 @@ mod tests {
 
     fn issuer_policy(issuer_did: &str, domain: &str) -> HandleIssuerPolicyEntry {
         HandleIssuerPolicyEntry {
-            issuer: issuer(issuer_did),
+            issuer_id: issuer(issuer_did),
             authorized_handle_domains: vec![domain.to_owned()],
             issuer_class: HandleIssuerAuthorityClass::DomainAuthority,
         }
@@ -431,8 +431,8 @@ mod tests {
             schema: HandleClaim::SCHEMA.to_owned(),
             handle: Some(Handle::parse(handle).unwrap()),
             handle_aliases: Vec::new(),
-            subject: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap()),
-            issuer: Some(DidCoreId::new(issuer_did).unwrap()),
+            subject_id: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap()),
+            issuer_id: Some(DidCoreId::new(issuer_did).unwrap()),
             vouching_id: None,
             binding_state: Some(HandleBindingState::Verified),
             claim_kind: None,

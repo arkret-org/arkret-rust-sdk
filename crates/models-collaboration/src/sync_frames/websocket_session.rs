@@ -899,7 +899,7 @@ mod tests {
             "events-1",
             &WebSocketOpenParameters::Events(
                 crate::sync_frames::websocket_binding::WebSocketEventsOpenParameters {
-                    realms: Some(vec![
+                    realm_ids: Some(vec![
                         RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
                             .unwrap(),
                     ]),

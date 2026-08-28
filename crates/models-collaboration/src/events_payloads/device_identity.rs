@@ -23,13 +23,13 @@ pub enum DeviceAuthorizationBindingKind {
 pub struct DeviceAuthorizePayload {
     pub principal_id: DidCoreId,
     pub device_id: DeviceId,
-    pub device_public_key: NonEmptyString,
+    pub device_public_key_did: NonEmptyString,
     /// Device HPKE public key used for secret/key envelope sealing. Services
     /// MUST NOT substitute this value in projection.
     pub hpke_key: NonEmptyString,
     /// Canonical sorted (UTF-8 bytewise) unique algorithm ids supported by
     /// this device. Enters the device trust binding transcript together with
-    /// `device_public_key` and `hpke_key`.
+    /// `device_public_key_did` and `hpke_key`.
     pub algorithms: Vec<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_key_algorithm: Option<NonEmptyString>,
@@ -51,7 +51,7 @@ pub struct DeviceAuthorizePayload {
 struct DeviceAuthorizePayloadWire {
     principal_id: DidCoreId,
     device_id: DeviceId,
-    device_public_key: NonEmptyString,
+    device_public_key_did: NonEmptyString,
     hpke_key: NonEmptyString,
     algorithms: Vec<NonEmptyString>,
     #[serde(default)]
@@ -78,7 +78,7 @@ impl<'de> Deserialize<'de> for DeviceAuthorizePayload {
         let payload = Self {
             principal_id: wire.principal_id,
             device_id: wire.device_id,
-            device_public_key: wire.device_public_key,
+            device_public_key_did: wire.device_public_key_did,
             hpke_key: wire.hpke_key,
             algorithms: wire.algorithms,
             device_key_algorithm: wire.device_key_algorithm,
@@ -114,7 +114,7 @@ impl DeviceAuthorizePayload {
     /// `ak.device.authorize.payload.device_signature`.
     ///
     /// The signature proves possession of the private key corresponding to
-    /// `device_public_key`; authorization is independently established by the
+    /// `device_public_key_did`; authorization is independently established by the
     /// root anchor or an accepted device.
     pub fn device_possession_signature_input(&self) -> Result<Vec<u8>> {
         UnsignedDeviceAuthorizePayload::from_signed(self).device_possession_signature_input()
@@ -127,7 +127,7 @@ impl DeviceAuthorizePayload {
 pub struct UnsignedDeviceAuthorizePayload {
     principal_id: DidCoreId,
     device_id: DeviceId,
-    device_public_key: NonEmptyString,
+    device_public_key_did: NonEmptyString,
     hpke_key: NonEmptyString,
     algorithms: Vec<NonEmptyString>,
     device_key_algorithm: Option<NonEmptyString>,
@@ -144,7 +144,7 @@ impl UnsignedDeviceAuthorizePayload {
     pub fn new(
         principal_id: DidCoreId,
         device_id: DeviceId,
-        device_public_key: NonEmptyString,
+        device_public_key_did: NonEmptyString,
         hpke_key: NonEmptyString,
         algorithms: Vec<NonEmptyString>,
         device_key_algorithm: Option<NonEmptyString>,
@@ -158,7 +158,7 @@ impl UnsignedDeviceAuthorizePayload {
         let payload = Self {
             principal_id,
             device_id,
-            device_public_key,
+            device_public_key_did,
             hpke_key,
             algorithms,
             device_key_algorithm,
@@ -179,7 +179,7 @@ impl UnsignedDeviceAuthorizePayload {
         Self {
             principal_id: payload.principal_id.clone(),
             device_id: payload.device_id.clone(),
-            device_public_key: payload.device_public_key.clone(),
+            device_public_key_did: payload.device_public_key_did.clone(),
             hpke_key: payload.hpke_key.clone(),
             algorithms: payload.algorithms.clone(),
             device_key_algorithm: payload.device_key_algorithm.clone(),
@@ -254,7 +254,7 @@ impl UnsignedDeviceAuthorizePayload {
         let body = serde_json::json!({
             "principal_id": self.principal_id.as_str(),
             "device_id": self.device_id.as_str(),
-            "device_public_key": self.device_public_key.as_str(),
+            "device_public_key_did": self.device_public_key_did.as_str(),
             "hpke_key": self.hpke_key.as_str(),
             "algorithms": &self.algorithms,
             "device_key_algorithm": device_key_algorithm,
@@ -289,7 +289,7 @@ impl UnsignedDeviceAuthorizePayload {
         Ok(DeviceAuthorizePayload {
             principal_id: self.principal_id,
             device_id: self.device_id,
-            device_public_key: self.device_public_key,
+            device_public_key_did: self.device_public_key_did,
             hpke_key: self.hpke_key,
             algorithms: self.algorithms,
             device_key_algorithm: self.device_key_algorithm,
@@ -549,9 +549,9 @@ use arkret_wire::SchemaId;
 pub struct DeviceListUpdatePayload {
     pub principal_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub changed: Option<Vec<DeviceId>>,
+    pub changed_ids: Option<Vec<DeviceId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub left: Option<Vec<DeviceId>>,
+    pub left_ids: Option<Vec<DeviceId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_list_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -568,9 +568,9 @@ pub struct DeviceListUpdatePayload {
 struct DeviceListUpdatePayloadWire {
     principal_id: DidCoreId,
     #[serde(default)]
-    changed: Option<Vec<DeviceId>>,
+    changed_ids: Option<Vec<DeviceId>>,
     #[serde(default)]
-    left: Option<Vec<DeviceId>>,
+    left_ids: Option<Vec<DeviceId>>,
     #[serde(default)]
     device_list_digest: Option<Hash>,
     #[serde(default)]
@@ -588,12 +588,18 @@ impl<'de> Deserialize<'de> for DeviceListUpdatePayload {
         D: serde::Deserializer<'de>,
     {
         let wire = DeviceListUpdatePayloadWire::deserialize(deserializer)?;
-        if wire.changed.is_none() && wire.left.is_none() && wire.device_list_digest.is_none() {
+        if wire.changed_ids.is_none()
+            && wire.left_ids.is_none()
+            && wire.device_list_digest.is_none()
+        {
             return Err(serde::de::Error::custom(
                 "device list update requires changed, left, or device_list_digest",
             ));
         }
-        for (name, devices) in [("changed", &wire.changed), ("left", &wire.left)] {
+        for (name, devices) in [
+            ("changed_ids", &wire.changed_ids),
+            ("left_ids", &wire.left_ids),
+        ] {
             if let Some(devices) = devices
                 && (devices.is_empty()
                     || devices.iter().collect::<BTreeSet<_>>().len() != devices.len())
@@ -605,8 +611,8 @@ impl<'de> Deserialize<'de> for DeviceListUpdatePayload {
         }
         Ok(Self {
             principal_id: wire.principal_id,
-            changed: wire.changed,
-            left: wire.left,
+            changed_ids: wire.changed_ids,
+            left_ids: wire.left_ids,
             device_list_digest: wire.device_list_digest,
             stream_id: wire.stream_id,
             updated_at: wire.updated_at,
@@ -785,7 +791,7 @@ mod tests {
         json!({
             "principal_id": "ak:did_core:webvh:z6mkfixture",
             "device_id": "ak:device:01904100-0000-7000-8000-a11ce0000001",
-            "device_public_key": "z6MkDeviceKey",
+            "device_public_key_did": "z6MkDeviceKey",
             "hpke_key": "z6LSHpkeKey",
             "algorithms": [
                 "ak.hpke_x25519_aead_chacha20poly1305.v1",
@@ -937,14 +943,14 @@ mod tests {
         assert!(
             serde_json::from_value::<DeviceListUpdatePayload>(json!({
                 "principal_id": principal_id,
-                "changed": []
+                "changed_ids": []
             }))
             .is_err()
         );
         assert!(
             serde_json::from_value::<DeviceListUpdatePayload>(json!({
                 "principal_id": principal_id,
-                "left": [
+                "left_ids": [
                     "ak:device:01904100-0000-7000-8000-000000000001",
                     "ak:device:01904100-0000-7000-8000-000000000001"
                 ]

@@ -621,7 +621,7 @@ impl Client {
         &self,
         request: &EventsQueryPostRequestBody,
     ) -> Result<EventsQueryOutcome> {
-        if request.realms.is_empty() && request.actors.is_empty() {
+        if request.realm_ids.is_empty() && request.actor_ids.is_empty() {
             return Err(Error::Protocol(
                 "events read requires at least one realm or actor selector".to_owned(),
             ));
@@ -647,8 +647,8 @@ impl Client {
         include_completeness: Option<bool>,
     ) -> Result<EventsQueryOutcome> {
         let request = EventsQueryPostRequestBody {
-            realms: vec![RealmId::new(realm_id)?],
-            actors: Vec::new(),
+            realm_ids: vec![RealmId::new(realm_id)?],
+            actor_ids: Vec::new(),
             before: before.map(Cursor::new).transpose()?,
             after: after.map(Cursor::new).transpose()?,
             order: order.map(ToOwned::to_owned),
@@ -718,8 +718,8 @@ impl Client {
     ) -> Result<EventsQueryOutcome> {
         let mut combined = self
             .events_read(&EventsQueryPostRequestBody {
-                realms: realms.clone(),
-                actors: actors.clone(),
+                realm_ids: realms.clone(),
+                actor_ids: actors.clone(),
                 before: None,
                 after: None,
                 order: None,
@@ -755,8 +755,8 @@ impl Client {
             }
             let page = self
                 .events_read(&EventsQueryPostRequestBody {
-                    realms: realms.clone(),
-                    actors: actors.clone(),
+                    realm_ids: realms.clone(),
+                    actor_ids: actors.clone(),
                     before: None,
                     after: Some(Cursor::new(next.clone())?),
                     order: None,

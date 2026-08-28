@@ -579,7 +579,7 @@ mod tests {
         let content = SecretShareRequestContent {
             request_id: "req-1".to_owned(),
             secret_id: "inkson_mls_account_secret".to_owned(),
-            from_device: device(),
+            from_device_id: device(),
             recipient_hpke_public_key: "cHVia2V5".to_owned(),
         };
         content.validate().unwrap();
@@ -594,7 +594,7 @@ mod tests {
         let content = SecretShareSendContent {
             request_id: "req-1".to_owned(),
             secret_id: "inkson_mls_account_secret".to_owned(),
-            from_device: device(),
+            from_device_id: device(),
             scheme: HPKE_SUITE_X25519_CHACHA20POLY1305_V1.to_owned(),
             enc: "ZW5j".to_owned(),
             ciphertext: "Y2lwaGVy".to_owned(),
@@ -621,7 +621,7 @@ mod tests {
         let content = SecretShareRequestContent {
             request_id: "  ".to_owned(),
             secret_id: "inkson_mls_account_secret".to_owned(),
-            from_device: device(),
+            from_device_id: device(),
             recipient_hpke_public_key: "cHVia2V5".to_owned(),
         };
         assert!(content.validate().is_err());

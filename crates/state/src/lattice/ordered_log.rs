@@ -21,7 +21,7 @@ pub struct OrderedLog;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IssuedOp {
-    pub issuer: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub op: SealedOp,
 }
 
@@ -63,9 +63,9 @@ pub fn ensure_unique_ordered_log_slots(
         let Some(seq) = effect.op.issuer_seq else {
             continue;
         };
-        if !seen.insert((effect.cell.as_str(), seq)) {
+        if !seen.insert((effect.cell_id.as_str(), seq)) {
             return Err(OrderedLogSlotConflict {
-                cell: effect.cell.as_str().to_owned(),
+                cell: effect.cell_id.as_str().to_owned(),
                 issuer_seq: seq,
             });
         }
@@ -130,7 +130,7 @@ impl OrderedLog {
                 continue;
             };
             candidates.push(Candidate {
-                issuer: entry.issuer.as_str().to_owned(),
+                issuer: entry.issuer_id.as_str().to_owned(),
                 issuer_seq,
                 digest,
                 digest_wire: entry.op.move_id.as_str().to_owned(),
@@ -211,7 +211,7 @@ impl OrderedLog {
             .into_iter()
             .map(|candidate| {
                 json!({
-                    "issuer": candidate.issuer,
+                    "issuer_id": candidate.issuer,
                     "issuer_seq": candidate.issuer_seq,
                     "event_digest": candidate.digest_wire,
                     "value": candidate.value,
@@ -299,7 +299,7 @@ mod tests {
 
     fn issued(issuer: &str, seq: u64, value: Value, byte: u8) -> IssuedOp {
         IssuedOp {
-            issuer: DidCoreId::new(issuer.to_owned()).unwrap(),
+            issuer_id: DidCoreId::new(issuer.to_owned()).unwrap(),
             op: SealedOp::new(suited_digest("sha256", byte), append(seq, value)),
         }
     }
@@ -339,11 +339,11 @@ mod tests {
         let issuer = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
         let report = OrderedLog.join_with_issuer_report(&[
             IssuedOp {
-                issuer: issuer.clone(),
+                issuer_id: issuer.clone(),
                 op: SealedOp::new(suited_digest("blake3", 0xff), append(1, json!("last"))),
             },
             IssuedOp {
-                issuer,
+                issuer_id: issuer,
                 op: SealedOp::new(suited_digest("sha256", 0x01), append(1, json!("first"))),
             },
         ]);
@@ -357,15 +357,15 @@ mod tests {
         let collision_digest = suited_digest("sha256", 0x11);
         let report = OrderedLog.join_with_issuer_report(&[
             IssuedOp {
-                issuer: issuer.clone(),
+                issuer_id: issuer.clone(),
                 op: SealedOp::new(collision_digest.clone(), append(1, json!("a"))),
             },
             IssuedOp {
-                issuer: issuer.clone(),
+                issuer_id: issuer.clone(),
                 op: SealedOp::new(collision_digest, append(1, json!("b"))),
             },
             IssuedOp {
-                issuer,
+                issuer_id: issuer,
                 op: SealedOp::new(suited_digest("sha256", 0x22), append(2, json!("later"))),
             },
         ]);

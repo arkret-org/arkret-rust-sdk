@@ -217,7 +217,7 @@ fn invite_create_payload_shape_is_enforced() {
         return;
     };
     let payload = json!({
-        "invitee": "ak:did_core:webvh:z6mkfixture",
+        "invitee_id": "ak:did_core:webvh:z6mkfixture",
         "invite_delivery_target": {
             "recipient_id": "ak:did_core:webvh:z6mkserver",
             "recipient_kind": "principal_server",
@@ -241,7 +241,7 @@ fn invite_create_payload_shape_is_enforced() {
         catalog.rules[EventKind::InviteCreate.as_str()]
             .required_fields
             .iter()
-            .any(|field| field == "invitee"),
+            .any(|field| field == "invitee_id"),
         "ak.invite.create must require invitee"
     );
     catalog

@@ -80,8 +80,8 @@ pub struct RealmAllowedDiscoverer {
     pub selector_kind: RealmAllowedDiscovererKind,
     pub claim_kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub organization: Option<DidCoreId>,
-    pub issuer: DidCoreId,
+    pub organization_id: Option<DidCoreId>,
+    pub issuer_id: DidCoreId,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -223,7 +223,7 @@ pub struct RealmAssetPrivacyPolicyValue {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub direct_download_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub upload_services: Vec<DidCoreId>,
+    pub upload_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub download_proxy_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -338,7 +338,7 @@ pub struct RealmTombstonePayload {
     /// Optional `event_ref` (`^ak:event:` typed id) of the replacing event;
     /// carried as a bare string per the spec wire shape.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub replacement_event: Option<ObjectRef>,
+    pub replacement_event_id: Option<ObjectRef>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -352,7 +352,7 @@ impl RealmTombstonePayload {
         Self {
             reason: reason.into(),
             successor_realm_id,
-            replacement_event: None,
+            replacement_event_id: None,
             effective_at: None,
         }
     }

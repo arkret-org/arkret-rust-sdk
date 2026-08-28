@@ -581,7 +581,7 @@ pub enum FoundingDeviceHpkeKeyAlgorithm {
 pub struct FoundingDeviceDescriptor {
     pub descriptor_version: u8,
     pub device_id: DeviceId,
-    pub device_public_key: NonEmptyString,
+    pub device_public_key_did: NonEmptyString,
     pub device_key_digest: Hash,
     pub device_key_algorithm: FoundingDeviceKeyAlgorithm,
     pub device_key_purpose: FoundingDeviceKeyPurpose,
@@ -595,7 +595,7 @@ pub struct FoundingDeviceDescriptor {
 impl FoundingDeviceDescriptor {
     pub fn validate(&self) -> Result<()> {
         if self.descriptor_version != 1
-            || !self.device_public_key.as_str().starts_with("did:key:z")
+            || !self.device_public_key_did.as_str().starts_with("did:key:z")
             || self.algorithms.is_empty()
             || self
                 .algorithms
@@ -1043,7 +1043,7 @@ impl RealmOrganizationIssuerRole {
 #[serde(deny_unknown_fields)]
 pub struct RealmOrganizationAuthorization {
     /// Organization DID or delegated service DID that issued this statement.
-    pub issuer: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub issuer_role: RealmOrganizationIssuerRole,
     /// DID URL of a concrete verification method (bare DIDs are not valid).
     pub verification_method: DidUrl,
@@ -1229,7 +1229,7 @@ pub fn realm_organization_statement_signing_bytes(
         revokes_statement_id: payload.revokes_statement_id.as_ref(),
         realm_frontier_digest: payload.realm_frontier_digest.as_ref(),
         organization_policy_ref: payload.organization_policy_ref.as_ref(),
-        issuer: &authorization.issuer,
+        issuer: &authorization.issuer_id,
         issuer_role: &authorization.issuer_role,
         delegation_ref: authorization.delegation_ref.as_ref(),
         executed_by: authorization.executed_by.as_ref(),
@@ -1318,7 +1318,7 @@ mod realm_organization_tests {
             "control_scopes": ["official_badge", "realm_admin"],
             "issued_at": "2026-06-25T00:00:00.000Z",
             "authorization": {
-                "issuer": "ak:did_core:webvh:example.test",
+                "issuer_id": "ak:did_core:webvh:example.test",
                 "issuer_role": "organization_principal_id",
                 "verification_method": "did:webvh:example.test:orgs:01J0000000000000000000000A#k1",
                 "signed_at": "2026-06-25T00:00:00.000Z",

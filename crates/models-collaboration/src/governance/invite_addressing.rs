@@ -652,7 +652,7 @@ pub struct InviteDeliveryEntry {
     pub realm_id: RealmId,
     /// `did_core_id` of the inviter as bound by the delivery verification
     /// chain.
-    pub inviter: DidCoreId,
+    pub inviter_id: DidCoreId,
     /// Opaque server-issued private invite locator token. Clients MUST treat
     /// it as opaque and MUST NOT persist it outside this cell or equivalent
     /// holder-private state.
@@ -1039,8 +1039,8 @@ mod tests {
             schema: HandleClaim::SCHEMA.to_owned(),
             handle: Some(handle.clone()),
             handle_aliases: Vec::new(),
-            subject: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
-            issuer: None,
+            subject_id: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
+            issuer_id: None,
             vouching_id: None,
             binding_state: Some(HandleBindingState::Verified),
             claim_kind: None,
@@ -1117,7 +1117,7 @@ mod tests {
                 .unwrap(),
             realm_id: RealmId::new("ak:realm:ARkAfriCBkEJNgK9UxfUciMBt-L3mtRcFLO8ICOBW_9K")
                 .unwrap(),
-            inviter: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+            inviter_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             invite_token: "srv-01HYZ8Z000000000000000".to_owned(),
             received_at: DateTime::parse_from_rfc3339("2026-08-20T01:02:03Z")
                 .unwrap()

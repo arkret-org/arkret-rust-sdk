@@ -162,8 +162,8 @@ pub struct OrganizationRegistrationChallenge {
     pub did: Did,
     pub purpose: String,
     pub nonce: String,
-    pub audience: DidCoreId,
-    pub origin: String,
+    pub audience_id: DidCoreId,
+    pub origin_uri: String,
     pub trust_domain: TrustDomainId,
     pub local_admin_subject_id: DidCoreId,
     pub requested_scopes: Vec<OrganizationRegistrationScope>,
@@ -216,13 +216,13 @@ impl OrganizationRegistrationChallenge {
                 "organization registration challenge contains an invalid id or binding".to_owned(),
             ));
         }
-        let origin = url::Url::parse(&self.origin).map_err(|_| {
+        let origin = url::Url::parse(&self.origin_uri).map_err(|_| {
             WireError::Protocol("organization challenge origin is invalid".to_owned())
         })?;
         if !matches!(origin.scheme(), "http" | "https")
             || origin.query().is_some()
             || origin.fragment().is_some()
-            || !self.origin.ends_with('/')
+            || !self.origin_uri.ends_with('/')
             || self.expires_at <= self.created_at
             || self.expires_at <= now
             || self.expires_at - self.created_at > chrono::Duration::seconds(300)
@@ -247,9 +247,9 @@ pub enum OrganizationHandleAttestationStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationHandleAttestation {
-    pub subject: DidCoreId,
+    pub subject_id: DidCoreId,
     pub handle: String,
-    pub issuer: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub audience: String,
     pub status: OrganizationHandleAttestationStatus,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -288,7 +288,7 @@ impl OrganizationRegistrationEnsureRequestBody {
             ));
         }
         if let Some(attestation) = &self.handle_attestation
-            && (attestation.subject != self.organization_id
+            && (attestation.subject_id != self.organization_id
                 || attestation.handle.is_empty()
                 || attestation.audience.is_empty())
         {
@@ -710,8 +710,8 @@ mod tests {
             did: request.did.clone(),
             purpose: ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1.to_owned(),
             nonce: "0123456789abcdefghijkl".to_owned(),
-            audience: service("did:webvh:zService:service.example"),
-            origin: "https://service.example/".to_owned(),
+            audience_id: service("did:webvh:zService:service.example"),
+            origin_uri: "https://service.example/".to_owned(),
             trust_domain: TrustDomainId::new("ak:trust_domain:example").unwrap(),
             local_admin_subject_id: request.local_admin_subject_id.clone(),
             requested_scopes: request.requested_scopes.clone(),
@@ -764,8 +764,8 @@ mod tests {
             did: request.did.clone(),
             purpose: ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1.to_owned(),
             nonce: "0123456789abcdefghijkl".to_owned(),
-            audience: service("did:webvh:zService:service.example"),
-            origin: "https://service.example/".to_owned(),
+            audience_id: service("did:webvh:zService:service.example"),
+            origin_uri: "https://service.example/".to_owned(),
             trust_domain: TrustDomainId::new("ak:trust_domain:example").unwrap(),
             local_admin_subject_id: request.local_admin_subject_id.clone(),
             requested_scopes: request.requested_scopes.clone(),

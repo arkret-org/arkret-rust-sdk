@@ -184,7 +184,7 @@ fn conflict_bottom<'a>(cell: &CellRef, ops: impl Iterator<Item = &'a ChainOp<'a>
     let mut bottom = Bottom::new(BottomKind::Conflict, vec![cell.clone()]);
     for op in ops {
         bottom.move_ids.push(op.move_id.clone());
-        bottom.heads.push(op.value.clone());
+        bottom.head_ids.push(op.value.clone());
     }
     bottom
 }
@@ -230,7 +230,7 @@ mod tests {
         match state {
             CellState::Bottom(bottom) => {
                 assert_eq!(bottom.kind, BottomKind::Conflict);
-                assert_eq!(bottom.cells, vec![cell()]);
+                assert_eq!(bottom.cell_ids, vec![cell()]);
                 bottom
             }
             other => panic!("expected Bottom, got {other:?}"),
@@ -281,7 +281,7 @@ mod tests {
             ),
         ];
         let bottom = expect_bottom(CasRegister.join(&cell(), &ops));
-        assert_eq!(bottom.heads.len(), 2);
+        assert_eq!(bottom.head_ids.len(), 2);
         assert_eq!(bottom.move_ids.len(), 2);
     }
 
@@ -293,7 +293,7 @@ mod tests {
             SealedOp::new(move_id(2), set_op(json!({"policy": "closed"}))),
         ];
         let bottom = expect_bottom(CasRegister.join(&cell(), &ops));
-        assert_eq!(bottom.heads.len(), 2);
+        assert_eq!(bottom.head_ids.len(), 2);
         assert_eq!(bottom.move_ids.len(), 2);
     }
 
@@ -312,7 +312,7 @@ mod tests {
             ),
         ];
         let bottom = expect_bottom(CasRegister.join(&cell(), &ops));
-        assert_eq!(bottom.heads, vec![json!({"policy": "open"})]);
+        assert_eq!(bottom.head_ids, vec![json!({"policy": "open"})]);
     }
 
     /// Vector case 4: `(value, from)` is the identity of a write.

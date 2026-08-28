@@ -210,7 +210,7 @@ impl MembershipPayload {
 /// and re-prefixed on serialize.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InviteCreatePayload {
-    pub invitee: DidCoreId,
+    pub invitee_id: DidCoreId,
     pub invite_delivery_target: InviteDeliveryTarget,
     pub introduction_evidence_digest: Hash,
     #[serde(with = "canonical_timestamp")]
@@ -228,7 +228,7 @@ impl InviteCreatePayload {
         expires_at: chrono::DateTime<chrono::Utc>,
     ) -> Self {
         Self {
-            invitee,
+            invitee_id: invitee,
             invite_delivery_target,
             introduction_evidence_digest,
             expires_at,
@@ -309,7 +309,7 @@ pub enum InviteCancelTargetState {
 #[serde(deny_unknown_fields)]
 pub struct InviteCancelPayload {
     pub invite_id: InviteId,
-    pub invitee: DidCoreId,
+    pub invitee_id: DidCoreId,
     pub target_state: InviteCancelTargetState,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -323,7 +323,7 @@ impl InviteCancelPayload {
     ) -> Self {
         Self {
             invite_id,
-            invitee,
+            invitee_id: invitee,
             target_state,
             reason: None,
         }
@@ -356,7 +356,7 @@ pub enum InviteRevokeTargetState {
 pub struct InviteRevokePayload {
     pub invite_id: InviteId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub invitee: Option<DidCoreId>,
+    pub invitee_id: Option<DidCoreId>,
     pub target_state: InviteRevokeTargetState,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,

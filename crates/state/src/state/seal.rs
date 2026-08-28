@@ -493,15 +493,15 @@ where
                 })?;
                 if context == EventSubmitContext::AnchorUnit {
                     for effect in &effects {
-                        let cell_ops = staged_anchor_ops.entry(effect.cell.clone()).or_default();
+                        let cell_ops = staged_anchor_ops.entry(effect.cell_id.clone()).or_default();
                         cell_ops.push(IssuedOp {
-                            issuer: event.actor_id.clone(),
+                            issuer_id: event.actor_id.clone(),
                             op: SealedOp::from_projection(digest.clone(), effect),
                         });
-                        let binding = registry.resolve(&seal.realm_id, &effect.cell)?;
+                        let binding = registry.resolve(&seal.realm_id, &effect.cell_id)?;
                         staged_anchor_state.insert(
-                            effect.cell.clone(),
-                            join_cell(binding.lattice.as_ref(), &effect.cell, cell_ops),
+                            effect.cell_id.clone(),
+                            join_cell(binding.lattice.as_ref(), &effect.cell_id, cell_ops),
                         );
                     }
                 }
@@ -522,9 +522,9 @@ where
             // The actor travels with the op so ordered-log slots stay keyed by
             // the real actor rather than a synthetic one (9.3.1).
             new_ops.push((
-                effect.cell.clone(),
+                effect.cell_id.clone(),
                 IssuedOp {
-                    issuer: event.actor_id.clone(),
+                    issuer_id: event.actor_id.clone(),
                     op: SealedOp::from_projection(digest.clone(), effect),
                 },
             ));
@@ -815,7 +815,7 @@ pub fn verify_recovery_witness(
         return Ok(());
     };
     let reject = |reason: &str| ControlMoveReject::FailedPrecondition {
-        cell: reset.cell.as_str().to_owned(),
+        cell: reset.cell_id.as_str().to_owned(),
         reason: reason.to_owned(),
     };
     let capability_ref = event
@@ -837,7 +837,7 @@ pub fn verify_recovery_witness(
     }
 
     let CellState::Bottom(bottom) = pre_state
-        .get(&reset.cell)
+        .get(&reset.cell_id)
         .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_TARGET_NOT_IN_BOTTOM))?
     else {
         return Err(reject(
@@ -871,7 +871,7 @@ pub fn verify_recovery_witness(
         let witness_root = compute_state_root(&witness_state, witness_digest_suite)
             .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
         if witness_root != witness.state_root
-            || !matches!(witness_state.get(&reset.cell), Some(CellState::Value(_)))
+            || !matches!(witness_state.get(&reset.cell_id), Some(CellState::Value(_)))
         {
             return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID));
         }
@@ -1549,7 +1549,7 @@ pub fn view_hash(leaves: &[SealId]) -> Result<Hash, crate::WireError> {
 /// Join one cell's ops, routing `ordered_log` to its issuer-aware entry point.
 ///
 /// `event-auth-state-resolution.md` §9.3.1 scopes ordered-log sequences to
-/// `(effect.cell, actor_id)`, so this lattice cannot be joined through the
+/// `(effect.cell_id, actor_id)`, so this lattice cannot be joined through the
 /// issuer-free `Lattice::join`: that path has no way to separate sub-chains
 /// and would stamp a synthetic issuer into the `state_root` leaf.
 pub fn join_cell(

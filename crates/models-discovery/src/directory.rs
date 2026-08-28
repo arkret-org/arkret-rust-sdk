@@ -422,7 +422,7 @@ pub struct OrganizationPreview {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub member_count: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub realms: Vec<RealmId>,
+    pub realm_ids: Vec<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_count: Option<u64>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1675,7 +1675,7 @@ mod directory_governance_proof_tests {
             "payload_digest": format!("sha256:{}", "0".repeat(64)),
             "created_at": "2026-05-02T00:00:00.000Z",
             "proof_purpose": "governance_authorization",
-            "audience": DIRECTORY_SERVICE_ID,
+            "audience_id": DIRECTORY_SERVICE_ID,
             "jws": "aaa..bbb",
         });
         serde_json::from_value::<DirectoryGovernanceProof>(base.clone())
@@ -1730,7 +1730,7 @@ mod directory_governance_proof_tests {
             "payload_digest": vector["binding_object"]["payload_digest"],
             "created_at": vector["binding_object"]["created_at"],
             "proof_purpose": vector["binding_object"]["proof_purpose"],
-            "audience": vector["binding_object"]["audience"],
+            "audience_id": vector["binding_object"]["audience_id"],
             "jws": vector["detached_jws"],
         }))
         .expect("vector proof leaf fits the closed wire shape");

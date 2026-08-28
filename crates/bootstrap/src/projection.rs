@@ -105,7 +105,7 @@ pub(crate) fn direct_projection(
             write.as_direct().ok_or_else(|| {
                 WireError::Protocol(format!(
                     "bootstrap cell {} needs a frozen pre-state this path cannot supply",
-                    write.cell
+                    write.cell_id
                 ))
             })
         })
@@ -135,7 +135,7 @@ pub(crate) fn validate_realm_create_projection(
     let expected = expected_realm_create_cells(event);
     let derived = effects
         .iter()
-        .map(|effect| effect.cell.as_str().to_owned())
+        .map(|effect| effect.cell_id.as_str().to_owned())
         .collect::<BTreeSet<_>>();
     if effects.len() != expected.len() || derived != expected {
         return Err(WireError::Protocol(format!(
@@ -172,11 +172,11 @@ pub(crate) fn state_root_from_projection(
         }
         for effect in &effects {
             ops_by_cell
-                .entry(effect.cell.clone())
+                .entry(effect.cell_id.clone())
                 .or_default()
                 .push(IssuedOp {
                     // 9.3.1 keys the ordered log by the envelope `actor_id`.
-                    issuer: event.actor_id.clone(),
+                    issuer_id: event.actor_id.clone(),
                     op: SealedOp::from_projection(move_id.clone(), effect),
                 });
         }

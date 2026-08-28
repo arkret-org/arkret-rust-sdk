@@ -270,7 +270,7 @@ pub enum PeerKeyPackageRequesterAuthorization {
 pub struct PeerKeyPackagesClaimUnsignedRequest {
     pub claim_request_id: Base64UrlString,
     pub target_principal_id: DidCoreId,
-    pub requester: DidCoreId,
+    pub requester_id: DidCoreId,
     pub intended_realm_id: RealmId,
     pub mls_group_id: NonEmptyString,
     pub claim_purpose: PeerKeyPackageClaimPurpose,
@@ -313,7 +313,7 @@ pub struct KeyPackagesClaimServiceBinding {
 pub struct PeerKeyPackagesClaimRequestBody {
     pub claim_request_id: Base64UrlString,
     pub target_principal_id: DidCoreId,
-    pub requester: DidCoreId,
+    pub requester_id: DidCoreId,
     pub intended_realm_id: RealmId,
     pub mls_group_id: NonEmptyString,
     pub claim_purpose: PeerKeyPackageClaimPurpose,
@@ -349,7 +349,7 @@ impl PeerKeyPackagesClaimRequestBody {
         PeerKeyPackagesClaimUnsignedRequest {
             claim_request_id: self.claim_request_id.clone(),
             target_principal_id: self.target_principal_id.clone(),
-            requester: self.requester.clone(),
+            requester_id: self.requester_id.clone(),
             intended_realm_id: self.intended_realm_id.clone(),
             mls_group_id: self.mls_group_id.clone(),
             claim_purpose: self.claim_purpose,
@@ -371,7 +371,7 @@ impl PeerKeyPackagesClaimRequestBody {
     pub fn validate_shape(&self) -> Result<(), PeerKeyPackageClaimShapeError> {
         validate_key_packages_claim_request_shape(
             &self.unsigned_request(),
-            &self.requester,
+            &self.requester_id,
             &self.requester_authorization,
         )
     }
@@ -383,7 +383,7 @@ impl PeerKeyPackagesClaimRequestBody {
 pub struct KeyPackagesClaimRequestBody {
     pub claim_request_id: Base64UrlString,
     pub target_principal_id: DidCoreId,
-    pub requester: DidCoreId,
+    pub requester_id: DidCoreId,
     pub intended_realm_id: RealmId,
     pub mls_group_id: NonEmptyString,
     pub claim_purpose: PeerKeyPackageClaimPurpose,
@@ -419,7 +419,7 @@ impl KeyPackagesClaimRequestBody {
         PeerKeyPackagesClaimUnsignedRequest {
             claim_request_id: self.claim_request_id.clone(),
             target_principal_id: self.target_principal_id.clone(),
-            requester: self.requester.clone(),
+            requester_id: self.requester_id.clone(),
             intended_realm_id: self.intended_realm_id.clone(),
             mls_group_id: self.mls_group_id.clone(),
             claim_purpose: self.claim_purpose,
@@ -441,7 +441,7 @@ impl KeyPackagesClaimRequestBody {
     pub fn validate_shape(&self) -> Result<(), PeerKeyPackageClaimShapeError> {
         validate_key_packages_claim_request_shape(
             &self.unsigned_request(),
-            &self.requester,
+            &self.requester_id,
             &self.requester_authorization,
         )
     }
@@ -452,7 +452,7 @@ impl From<&KeyPackagesClaimRequestBody> for PeerKeyPackagesClaimRequestBody {
         Self {
             claim_request_id: value.claim_request_id.clone(),
             target_principal_id: value.target_principal_id.clone(),
-            requester: value.requester.clone(),
+            requester_id: value.requester_id.clone(),
             intended_realm_id: value.intended_realm_id.clone(),
             mls_group_id: value.mls_group_id.clone(),
             claim_purpose: value.claim_purpose,
@@ -476,7 +476,7 @@ impl From<&KeyPackagesClaimRequestBody> for PeerKeyPackagesClaimRequestBody {
 
 fn validate_key_packages_claim_request_shape(
     unsigned_request: &PeerKeyPackagesClaimUnsignedRequest,
-    requester: &DidCoreId,
+    requester_id: &DidCoreId,
     requester_authorization: &PeerKeyPackageRequesterAuthorization,
 ) -> Result<(), PeerKeyPackageClaimShapeError> {
     validate_peer_claim_fields(unsigned_request)?;
@@ -501,7 +501,7 @@ fn validate_key_packages_claim_request_shape(
             ..
         } => {
             if signature.kid.as_str() != verification_method.as_str()
-                || requester_agent_id != requester
+                || requester_agent_id != requester_id
             {
                 return Err(PeerKeyPackageClaimShapeError::VerificationMethodMismatch);
             }
@@ -513,7 +513,7 @@ fn validate_key_packages_claim_request_shape(
             ..
         } => {
             if signature.kid.as_str() != verification_method.as_str()
-                || !valid_pairwise_binding(requester, verification_method)
+                || !valid_pairwise_binding(requester_id, verification_method)
             {
                 return Err(PeerKeyPackageClaimShapeError::VerificationMethodMismatch);
             }
@@ -842,15 +842,15 @@ pub enum PeerKeyPackageClaimShapeError {
     DuplicateTargetDevice,
     #[error("direct conversation claims require strand_id and pair_key and forbid last resort")]
     InvalidDirectConversationFields,
-    #[error("requester authorization must select exactly one supported authority model")]
+    #[error("requester_id authorization must select exactly one supported authority model")]
     InvalidAuthorizationModel,
-    #[error("requester authorization signature kid must equal verification_method")]
+    #[error("requester_id authorization signature kid must equal verification_method")]
     VerificationMethodMismatch,
     #[error("peer claim query outcome fields do not match its state")]
     InvalidQueryOutcome,
     #[error("peer claim outcome fields or receipt bindings are inconsistent")]
     InvalidClaimOutcome,
-    #[error("requester signing key evidence does not match requester authorization")]
+    #[error("requester_id signing key evidence does not match requester_id authorization")]
     SignerEvidenceMismatch,
     #[error("target signing key evidence does not match its claim record")]
     TargetSignerEvidenceMismatch,

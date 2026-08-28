@@ -508,7 +508,7 @@ pub struct AppletRegistrationEpochDerivedRegistration {
     pub applet_id: AppletId,
     pub service_id: DidCoreId,
     pub controller_id: DidCoreId,
-    pub base_url: String,
+    pub base_uri: String,
     pub bot_actor_id: DidCoreId,
     pub protocols: Vec<String>,
     pub namespaces: AppletWireNamespaces,
@@ -541,7 +541,7 @@ pub struct AppletRegistrationPayload {
     pub applet_id: AppletId,
     pub service_id: DidCoreId,
     pub controller_id: DidCoreId,
-    pub base_url: String,
+    pub base_uri: String,
     pub bot_actor_id: DidCoreId,
     pub claimed_profiles: Vec<String>,
     pub protocols: Vec<String>,
@@ -591,7 +591,7 @@ struct AppletRegistrationPayloadWire {
     applet_id: AppletId,
     service_id: DidCoreId,
     controller_id: DidCoreId,
-    base_url: String,
+    base_uri: String,
     bot_actor_id: DidCoreId,
     claimed_profiles: Vec<String>,
     protocols: Vec<String>,
@@ -618,7 +618,7 @@ impl<'de> Deserialize<'de> for AppletRegistrationPayload {
             applet_id: wire.applet_id,
             service_id: wire.service_id,
             controller_id: wire.controller_id,
-            base_url: wire.base_url,
+            base_uri: wire.base_uri,
             bot_actor_id: wire.bot_actor_id,
             claimed_profiles: wire.claimed_profiles,
             protocols: wire.protocols,
@@ -886,7 +886,7 @@ impl AppletRegistrationEpochTranscript {
                 applet_id: package.applet_id.clone(),
                 service_id: package.service_id.clone(),
                 controller_id: package.controller_id.clone(),
-                base_url: package.base_url.clone(),
+                base_uri: package.base_uri.clone(),
                 bot_actor_id: package.bot_actor_id.clone(),
                 protocols: package.protocols.clone(),
                 namespaces: package.namespaces.clone(),
@@ -1199,7 +1199,7 @@ pub struct AppletPackage {
     pub applet_id: AppletId,
     pub service_id: DidCoreId,
     pub controller_id: DidCoreId,
-    pub base_url: String,
+    pub base_uri: String,
     /// Visible bot actor DID; MUST NOT carry a `#fragment`.
     pub bot_actor_id: DidCoreId,
     /// MUST contain at least `ak.profile.applet_service.v1`.
@@ -1261,7 +1261,7 @@ impl AppletPackage {
         service_id: DidCoreId,
         service_did: Did,
         controller_id: DidCoreId,
-        base_url: impl Into<String>,
+        base_uri: impl Into<String>,
         bot_actor_id: DidCoreId,
         protocols: Vec<String>,
         namespaces: AppletWireNamespaces,
@@ -1274,7 +1274,7 @@ impl AppletPackage {
             applet_id,
             service_id,
             controller_id,
-            base_url: base_url.into(),
+            base_uri: base_uri.into(),
             bot_actor_id,
             claimed_profiles: vec![ProfileId::APPLET_SERVICE_V1.to_owned()],
             protocols,
@@ -1393,7 +1393,7 @@ impl AppletPackage {
                 "applet package schema mismatch".to_owned(),
             ));
         }
-        if self.package_id.is_empty() || self.base_url.is_empty() {
+        if self.package_id.is_empty() || self.base_uri.is_empty() {
             return Err(WireError::Protocol(
                 "applet package missing required fields".to_owned(),
             ));
@@ -1498,7 +1498,7 @@ impl AppletPackage {
             applet_id: self.applet_id.clone(),
             service_id: self.service_id.clone(),
             controller_id: self.controller_id.clone(),
-            base_url: self.base_url.clone(),
+            base_uri: self.base_uri.clone(),
             bot_actor_id: self.bot_actor_id.clone(),
             claimed_profiles: self.claimed_profiles.clone(),
             protocols: self.protocols.clone(),

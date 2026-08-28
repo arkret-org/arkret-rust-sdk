@@ -96,7 +96,7 @@ fn authored_rsvp_projects_onto_the_registered_cell() {
     assert_eq!(writes.len(), 1);
     assert!(
         writes[0]
-            .cell
+            .cell_id
             .as_str()
             .starts_with("ak:cell:ak.component.calendar.rsvp.v1:")
     );

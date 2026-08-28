@@ -916,7 +916,7 @@ mod events_submit_tests {
                 "trust_domain":"ak:trust_domain:server.local",
                 "supported_profiles":[],
                 "supported_operation_bundles":["ak.operation_bundle.principal_server.describe.v1"],
-                "transport_bindings":[{"kind":"http_json","base_url":"https://server.local","extension_profile_required":null}],
+                "transport_bindings":[{"kind":"http_json","base_uri":"https://server.local","extension_profile_required":null}],
                 "supported_features":[],
                 "auth_metadata":{"methods":[]},
                 "limits":{},
@@ -965,7 +965,7 @@ mod events_submit_tests {
                 "trust_domain":"ak:trust_domain:server.local",
                 "supported_profiles":[],
                 "supported_operation_bundles":["ak.operation_bundle.principal_server.describe.v1"],
-                "transport_bindings":[{"kind":"http_json","base_url":"https://server.local","extension_profile_required":null}],
+                "transport_bindings":[{"kind":"http_json","base_uri":"https://server.local","extension_profile_required":null}],
                 "supported_features":[],
                 "auth_metadata":{"methods":[]},
                 "limits":{},
@@ -1268,7 +1268,7 @@ mod events_submit_tests {
                         "content_draft":"draft-ietf-mimi-content-04",
                         "room_policy_draft":"draft-ietf-mimi-room-policy-03",
                         "identifier_draft":"draft-kohbrok-mimi-identifiers-01",
-                        "base_url":"https://mimi.example.test",
+                        "base_uri":"https://mimi.example.test",
                         "provider_id":"mimi://provider-a.example",
                         "endpoints":[{"endpoint_id":"mimi_v1","relative_path":"/messages"}],
                         "features":["mimi_v1"],
@@ -1313,7 +1313,7 @@ mod events_submit_tests {
     #[tokio::test]
     async fn mimi_report_abuse_posts_canonical_path() {
         let (client, capture) = spawn_capture_server(
-                r#"{"report_id":"ak:report:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6","status":"queued","routed_to":[]}"#,
+                r#"{"report_id":"ak:report:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6","status":"queued","routed_to_ids":[]}"#,
             )
             .await;
         let request = MimiReportAbuseRequestBody {
@@ -1322,7 +1322,7 @@ mod events_submit_tests {
             mimi_room_uri: Some(MimiRoomUri::new("mimi://provider/rooms/room-1").unwrap()),
             realm_id: None,
             target_ref: NonEmptyString::new("mimi://provider/rooms/room-1/messages/msg-1").unwrap(),
-            reporter: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            reporter_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             abuse_reason_code: NonEmptyString::new("spam").unwrap(),
             evidence_package: None,
             franking_proof: None,

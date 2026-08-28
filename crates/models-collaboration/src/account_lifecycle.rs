@@ -155,7 +155,7 @@ pub struct AccountLifecycleProof {
     pub proof_kind: String,
     pub challenge: String,
     pub request_canonical_digest: Hash,
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -208,7 +208,7 @@ impl AccountLifecycleProof {
             "proof_kind": &self.proof_kind,
             "challenge": &self.challenge,
             "request_canonical_digest": &self.request_canonical_digest,
-            "audience": &self.audience,
+            "audience_id": &self.audience_id,
             "issued_at": &self.issued_at,
             "expires_at": &self.expires_at,
             "verification_method": &self.verification_method,
@@ -984,7 +984,10 @@ impl AccountRegisterOutcome {
                     "grant session_public_key",
                     grant.session_public_key == initial.session_public_key,
                 ),
-                ("grant audience", grant.audience == initial.audience),
+                (
+                    "grant audience_id",
+                    grant.audience_id == initial.audience_id,
+                ),
                 (
                     "grant fixed scope",
                     grant.granted_scope
@@ -1442,7 +1445,7 @@ mod account_update_profile_request_tests {
 
         let mut guarded = create_request();
         guarded.profile_event.event.preconditions = vec![Precondition {
-            cell: CellRef::new(format!(
+            cell_id: CellRef::new(format!(
                 "ak:cell:ak.component.profile.create.v1:{profile_id}"
             ))
             .unwrap(),

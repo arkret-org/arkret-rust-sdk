@@ -191,7 +191,7 @@ fn split_invite_payload_strong_types_pass_spec_validator() {
         .unwrap();
     let revoke = InviteRevokePayload {
         invite_id,
-        invitee: Some(invitee),
+        invitee_id: Some(invitee),
         target_state: InviteRevokeTargetState::RevokedByInviterLeft,
         reason: Some("inviter_left".to_owned()),
     };
@@ -348,7 +348,7 @@ fn lifecycle_optional_timestamps_pass_spec_schemas() {
     let mut view = arkret_models_collaboration::governance::realm_governance::RealmLifecycleView {
         realm_id: RealmId::new("ak:realm:ARkAfriCBkEJNgK9UxfUciMBt-L3mtRcFLO8ICOBW_9K").unwrap(),
         owner_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
-        members: vec![DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap()],
+        member_ids: vec![DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap()],
         deleted: false,
         archived: false,
         frozen: true,

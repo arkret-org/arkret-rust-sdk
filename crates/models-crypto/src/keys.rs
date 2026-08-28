@@ -98,7 +98,7 @@ pub struct KeysQueryRequestBody {
 ///
 /// `active` = a `ak.device.authorize` is in effect and the device is not
 /// revoked; `revoked` = a `ak.device.revoke` is in effect. Servers MUST omit
-/// [`QueryDeviceRecord::device_signing_key`] for any non-active device.
+/// [`QueryDeviceRecord::device_signing_key_did`] for any non-active device.
 /// Mirrors `keys-operations.schema.json#/$defs/device_status`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -144,7 +144,7 @@ pub struct DeviceProjectionAttestationCore {
     pub principal_server_id: DidCoreId,
     pub device_id: DeviceId,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub device_signing_key: DidKey,
+    pub device_signing_key_did: DidKey,
     pub hpke_key: NonEmptyString,
     pub device_authorize_event_id: EventId,
     pub authorized_generation_ref: u64,
@@ -181,7 +181,7 @@ impl DeviceProjectionAttestation {
             "principal_id": core.principal_id,
             "principal_server_id": core.principal_server_id,
             "device_id": core.device_id,
-            "device_signing_key": core.device_signing_key,
+            "device_signing_key_did": core.device_signing_key_did,
             "hpke_key": core.hpke_key,
             "device_authorize_event_id": core.device_authorize_event_id,
             "authorized_generation_ref": core.authorized_generation_ref,
@@ -372,7 +372,7 @@ mod device_generation_tests {
                     "principal_id": PRINCIPAL_ID,
                     "principal_server_id": PRINCIPAL_SERVER_ID,
                     "device_id": DEVICE_ID,
-                    "device_signing_key": DEVICE_SIGNING_KEY,
+                    "device_signing_key_did": DEVICE_SIGNING_KEY,
                     "hpke_key": "hpke-1",
                     "device_authorize_event_id": DEVICE_AUTHORIZE_EVENT,
                     "authorized_generation_ref": generation,

@@ -835,7 +835,7 @@ pub enum RecoveryShareCommitmentAlgorithm {
 #[serde(deny_unknown_fields)]
 pub struct Share {
     pub share_id: String,
-    pub holder: DidCoreId,
+    pub holder_id: DidCoreId,
     pub transport: String,
     pub share_commitment: ShareShareCommitment,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1843,7 +1843,7 @@ pub enum SessionState {
 #[serde(deny_unknown_fields)]
 pub struct ThresholdRecoveryProofShareReleasesItem {
     pub share_id: NonEmptyString,
-    pub holder: DidCoreId,
+    pub holder_id: DidCoreId,
     pub transcript_digest: Hash,
     pub verification_method: DidUrl,
     pub signature_algorithm: NonEmptyString,
@@ -1873,7 +1873,7 @@ pub struct ThresholdRecoveryProof {
 #[serde(deny_unknown_fields)]
 pub struct ThresholdRecoveryProofShareReleaseBody {
     pub share_id: NonEmptyString,
-    pub holder: DidCoreId,
+    pub holder_id: DidCoreId,
     pub transcript_digest: Hash,
     pub verification_method: DidUrl,
     pub signature_algorithm: RecoveryFactorSignatureAlgorithm,
@@ -1902,7 +1902,7 @@ impl ThresholdRecoveryProof {
                 .map(|release| {
                     Ok(ThresholdRecoveryProofShareReleaseBody {
                         share_id: release.share_id.clone(),
-                        holder: release.holder.clone(),
+                        holder_id: release.holder_id.clone(),
                         transcript_digest: release.transcript_digest.clone(),
                         verification_method: release.verification_method.clone(),
                         signature_algorithm: RecoveryFactorSignatureAlgorithm::try_from(

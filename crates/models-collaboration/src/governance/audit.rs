@@ -144,7 +144,7 @@ pub enum AuditRywRecoveryReasonCode {
 pub struct AuditRywReceipt {
     pub receipt_id: ReceiptId,
     pub schema: String,
-    pub issuer: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub issuer_role: RywIssuerRole,
     pub audit_event_id: EventId,
     pub realm_id: RealmId,

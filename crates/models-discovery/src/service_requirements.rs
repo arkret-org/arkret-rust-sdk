@@ -270,7 +270,7 @@ mod tests {
                 "ak.operation_bundle.directory_service.http_core.v1".to_owned(),
             ],
             transport_bindings: vec![TransportBinding::HttpJson {
-                base_url: "https://directory.example".to_owned(),
+                base_uri: "https://directory.example".to_owned(),
                 extension_profile_required: (),
             }],
             auth_metadata: AuthMetadata::minimal(),

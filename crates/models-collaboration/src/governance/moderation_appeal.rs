@@ -36,7 +36,7 @@ pub struct AppealSubmitPayload {
     pub realm_id: RealmId,
     pub decision_ref: EventId,
     pub target_ref: String,
-    pub appellant: DidCoreId,
+    pub appellant_id: DidCoreId,
     pub reason_text_ref: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evidence_refs: Vec<String>,
@@ -52,7 +52,7 @@ pub struct AppealSubmitPayload {
 pub struct AppealReviewPayload {
     pub appeal_id: TypedAppealId,
     pub realm_id: RealmId,
-    pub reviewer: DidCoreId,
+    pub reviewer_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub reviewed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -65,7 +65,7 @@ pub struct AppealReviewPayload {
 pub struct AppealDecisionPayload {
     pub appeal_id: TypedAppealId,
     pub realm_id: RealmId,
-    pub reviewer: DidCoreId,
+    pub reviewer_id: DidCoreId,
     pub decision: AppealDecision,
     pub reason_text_ref: String,
     /// Required iff `decision == Modify`.
@@ -81,7 +81,7 @@ pub struct AppealDecisionPayload {
 pub struct AppealClosePayload {
     pub appeal_id: TypedAppealId,
     pub realm_id: RealmId,
-    pub closer: DidCoreId,
+    pub closer_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub closed_at: DateTime<Utc>,
     #[serde(default)]

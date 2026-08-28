@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 pub struct SecretShareRequestContent {
     pub request_id: String,
     pub secret_id: String,
-    pub from_device: DeviceId,
+    pub from_device_id: DeviceId,
     pub recipient_hpke_public_key: String,
 }
 
@@ -38,7 +38,7 @@ impl SecretShareRequestContent {
 pub struct SecretShareSendContent {
     pub request_id: String,
     pub secret_id: String,
-    pub from_device: DeviceId,
+    pub from_device_id: DeviceId,
     pub scheme: String,
     pub enc: String,
     pub ciphertext: String,

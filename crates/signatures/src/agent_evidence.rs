@@ -1181,7 +1181,7 @@ fn current_observation_matches(
     observation.operation_id == *context.operation_id
         && observation.request_digest == *context.request_digest
         && observation.verifier_id == *context.verifier_id
-        && observation.audience == *context.audience
+        && observation.audience_id == *context.audience
         && observation.challenge == *context.challenge
         && (16..=512).contains(&observation.challenge.as_str().chars().count())
         && observation.evaluated_at < observation.expires_at

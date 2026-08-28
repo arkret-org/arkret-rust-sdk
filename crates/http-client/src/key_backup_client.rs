@@ -187,7 +187,7 @@ mod tests {
             )
             .unwrap(),
             series_seq: 0,
-            supersedes: None,
+            supersedes_id: None,
             supersedes_digest: None,
             frontier_ref: None,
             recovery_policy_ref: None,

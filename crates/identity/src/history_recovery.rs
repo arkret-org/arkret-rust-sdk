@@ -426,7 +426,7 @@ mod tests {
             SealedOp::new(rotate_move_id.clone(), rotate_op),
         ];
         assert_eq!(
-            CasRegister.join(&register_write.cell, &sealed),
+            CasRegister.join(&register_write.cell_id, &sealed),
             CellState::Value(kat["projected_rotate_op"]["to"].clone())
         );
 
@@ -446,7 +446,7 @@ mod tests {
         assert!(stale_op.from.is_none());
         assert!(matches!(
             CasRegister.join(
-                &register_write.cell,
+                &register_write.cell_id,
                 &[
                     SealedOp::new(register_move_id, register_op),
                     SealedOp::new(rotate_move_id, stale_op),

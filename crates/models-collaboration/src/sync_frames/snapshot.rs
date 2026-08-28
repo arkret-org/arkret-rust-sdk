@@ -63,7 +63,7 @@ pub struct RangeCompletenessAttestationWitnessAttestation {
 pub struct RangeCompletenessAttestation {
     pub attestation_id: String,
     pub schema: String,
-    pub issuer: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub issuer_role: String,
     pub realm_id: RealmId,
     pub event_range: RangeCompletenessAttestationEventRange,
@@ -119,7 +119,10 @@ impl RangeCompletenessAttestation {
                 "payload_digest".to_owned(),
                 serde_json::to_value(&payload_digest)?,
             ),
-            ("issuer".to_owned(), serde_json::to_value(&self.issuer)?),
+            (
+                "issuer_id".to_owned(),
+                serde_json::to_value(&self.issuer_id)?,
+            ),
             (
                 "scope".to_owned(),
                 serde_json::json!({

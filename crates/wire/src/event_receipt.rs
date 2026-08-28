@@ -48,7 +48,7 @@ pub struct PcrGenesisReceiptScope {
     pub hpke_key_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -118,7 +118,7 @@ impl DeviceReanchorReceiptScope {
 pub struct EventBatchReceipt {
     pub schema: String,
     pub receipt_id: ReceiptId,
-    pub issuer: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub scope: EventBatchReceiptScope,
     pub events: Vec<EventBatchReceiptItem>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -181,7 +181,10 @@ impl EventBatchReceipt {
                 "payload_digest".to_owned(),
                 serde_json::to_value(&payload_digest)?,
             ),
-            ("issuer".to_owned(), serde_json::to_value(&self.issuer)?),
+            (
+                "issuer_id".to_owned(),
+                serde_json::to_value(&self.issuer_id)?,
+            ),
             (
                 "verification_method".to_owned(),
                 serde_json::to_value(&proof.verification_method)?,
@@ -353,7 +356,7 @@ mod event_batch_receipt_tests {
         let mut receipt = EventBatchReceipt {
             schema: "ak.schema.event_batch_receipt.v1".to_owned(),
             receipt_id: ReceiptId::new("ak:receipt:0196419b-0000-7000-8000-000000000003").unwrap(),
-            issuer: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
+            issuer_id: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
             scope: EventBatchReceiptScope::DeviceReanchor(DeviceReanchorReceiptScope {
                 kind: DeviceReanchorReceiptScopeKind::DeviceReanchorUnit,
                 principal_id: fixture_authority().principal_id,
@@ -404,7 +407,7 @@ mod event_batch_receipt_tests {
         let mut receipt = EventBatchReceipt {
             schema: EventBatchReceipt::SCHEMA.to_owned(),
             receipt_id: ReceiptId::new("ak:receipt:0196419b-0000-7000-8000-000000000004").unwrap(),
-            issuer: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
+            issuer_id: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
             scope: EventBatchReceiptScope::DeviceReanchor(DeviceReanchorReceiptScope {
                 kind: DeviceReanchorReceiptScopeKind::DeviceReanchorUnit,
                 principal_id: fixture_authority().principal_id,

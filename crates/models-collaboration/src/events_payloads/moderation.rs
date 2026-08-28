@@ -14,7 +14,7 @@ pub struct ModerationEvidencePackage {
     pub target_refs: Vec<ObjectRef>,
     pub encryption: String,
     pub recipient_public_key_ref: DidUrl,
-    pub encrypted_to: DidUrl,
+    pub encrypted_to_kid: DidUrl,
     pub ciphertext: String,
     pub ciphertext_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -29,7 +29,7 @@ impl ModerationEvidencePackage {
             || self.encryption.trim().is_empty()
             || self.ciphertext.is_empty()
             || self.reporter_signature.trim().is_empty()
-            || self.recipient_public_key_ref != self.encrypted_to
+            || self.recipient_public_key_ref != self.encrypted_to_kid
         {
             return Err(WireError::Protocol(
                 "moderation evidence package does not bind the exact target and recipient key"
@@ -465,7 +465,7 @@ pub struct ModerationDecisionLiftPayload {
 pub struct ModerationDecisionPayload {
     pub target_ref: ObjectRef,
     pub decision: String,
-    pub issuer: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub request_canonical_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub action: Option<String>,
@@ -496,7 +496,7 @@ pub struct ModerationReportPayload {
     pub report_reason_code: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    pub reporter: DidCoreId,
+    pub reporter_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provenance: Option<ModerationReportProvenance>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -524,14 +524,14 @@ impl ModerationReportPayload {
     ) -> std::result::Result<(), &'static str> {
         match self.provenance {
             None | Some(ModerationReportProvenance::SelfAuthored) => {
-                if self.source_provider_id.is_some() || actor_id != &self.reporter {
+                if self.source_provider_id.is_some() || actor_id != &self.reporter_id {
                     return Err(
                         "self-authored moderation report must be authored by reporter and omit source_provider_id",
                     );
                 }
             }
             Some(ModerationReportProvenance::MimiFacade) => {
-                if self.source_provider_id.is_none() || actor_id == &self.reporter {
+                if self.source_provider_id.is_none() || actor_id == &self.reporter_id {
                     return Err(
                         "MIMI facade moderation report requires source_provider_id and service authorship",
                     );

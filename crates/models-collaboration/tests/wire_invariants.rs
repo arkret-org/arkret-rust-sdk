@@ -145,7 +145,7 @@ fn moderation_appeal_decision_modify_requires_ref() {
         appeal_id: TypedAppealId::new("ak:appeal:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
             .unwrap(),
         realm_id: realm(),
-        reviewer: core_id(),
+        reviewer_id: core_id(),
         decision: AppealDecision::Modify,
         reason_text_ref: "blob:reason".to_owned(),
         modify_decision_ref: None,
@@ -161,7 +161,7 @@ fn moderation_appeal_submit_omits_event_derived_appeal_id() {
         decision_ref: EventId::new("ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1")
             .unwrap(),
         target_ref: "ak:message:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1".to_owned(),
-        appellant: core_id(),
+        appellant_id: core_id(),
         reason_text_ref: "blob:reason".to_owned(),
         evidence_refs: Vec::new(),
         evidence_visibility: None,
@@ -182,7 +182,7 @@ fn moderation_appeal_decision_uphold_rejects_modify_ref() {
         appeal_id: TypedAppealId::new("ak:appeal:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
             .unwrap(),
         realm_id: realm(),
-        reviewer: core_id(),
+        reviewer_id: core_id(),
         decision: AppealDecision::Uphold,
         reason_text_ref: "blob:reason".to_owned(),
         modify_decision_ref: Some(
@@ -257,7 +257,7 @@ fn consent_revoke_requires_observed_dots() {
     let payload = ConsentRevokePayload {
         consent_id: ConsentId::new("ak:consent:01904100-0000-7000-8000-000000000001".to_owned())
             .unwrap(),
-        observed_dots: Vec::new(),
+        observed_dot_ids: Vec::new(),
         revoked_at: None,
         reason: None,
     };
@@ -265,20 +265,20 @@ fn consent_revoke_requires_observed_dots() {
 
     let canonical = json!({
         "consent_id": "ak:consent:01904100-0000-7000-8000-000000000001",
-        "observed_dots": ["ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1:7"]
+        "observed_dot_ids": ["ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1:7"]
     });
     let parsed: ConsentRevokePayload = serde_json::from_value(canonical).unwrap();
     assert!(parsed.validate_minimal().is_ok());
     assert!(
         serde_json::from_value::<ConsentRevokePayload>(json!({
             "consent_id": "ak:consent:01904100-0000-7000-8000-000000000001",
-            "observed_dots": ["ak:event:not-a-uuidv7:7"]
+            "observed_dot_ids": ["ak:event:not-a-uuidv7:7"]
         }))
         .is_err()
     );
     let duplicate_dots: ConsentRevokePayload = serde_json::from_value(json!({
         "consent_id": "ak:consent:01904100-0000-7000-8000-000000000001",
-        "observed_dots": [
+        "observed_dot_ids": [
             "ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1:7",
             "ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1:7"
         ]
@@ -290,7 +290,7 @@ fn consent_revoke_requires_observed_dots() {
             "consent_id": "ak:consent:01904100-0000-7000-8000-000000000001",
             "peer": "ak:did_core:web:bob.example",
             "scope": "invite",
-            "observed_dots": [{
+            "observed_dot_ids": [{
                 "actor_id": "ak:did_core:web:alice.example",
                 "actor_seq": 7
             }]

@@ -659,7 +659,7 @@ impl RealmSealFrontierView {
 pub struct EventsFrontierFederationPeerState {
     pub realm_id: RealmId,
     /// Current federation-visible head Event IDs for the realm.
-    pub heads: Vec<EventId>,
+    pub head_ids: Vec<EventId>,
     /// Maximum HLC observed by the issuer at this frontier, when available.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_hlc: Option<String>,
@@ -682,7 +682,7 @@ pub struct EventsFrontierFederationPeerState {
     pub witness_receipts: Vec<BTreeMap<String, Value>>,
     /// RFC 3339 (`Z`-suffixed) instant the issuer observed this frontier.
     pub observed_at: String,
-    pub issuer: DidCoreId,
+    pub issuer_id: DidCoreId,
     /// Service signature object over the peer frontier response.
     pub signature: BTreeMap<String, Value>,
 }

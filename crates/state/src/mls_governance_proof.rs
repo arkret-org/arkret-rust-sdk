@@ -1170,7 +1170,7 @@ where
             });
             entries.push(entry);
         }
-        entries.sort_by(|left, right| left.cell.as_str().cmp(right.cell.as_str()));
+        entries.sort_by(|left, right| left.cell_id.as_str().cmp(right.cell_id.as_str()));
         ranges.sort_by(|left, right| {
             (left.cell_family.as_str(), left.subject_prefix.as_str())
                 .cmp(&(right.cell_family.as_str(), right.subject_prefix.as_str()))
@@ -1265,7 +1265,7 @@ fn materialize_frontier_entry(
     let value = cell_state.value;
     let proof = crate::state_inclusion_proof(state, cell, digest_suite)?;
     let preimage = arkret_canonical::canonical_json_bytes(&json!({
-        "cell": cell,
+        "cell_id": cell,
         "state": cell_state,
     }))?;
     let covered = union_predecessor_covered_events(std::slice::from_ref(&seal.id), seal_store)
@@ -1290,7 +1290,7 @@ fn materialize_frontier_entry(
     }
     provenance_event_refs.sort();
     Ok(MlsGovernanceFrontierCellEntry {
-        cell: cell.clone(),
+        cell_id: cell.clone(),
         value_digest: canonical_hash(value)?,
         provenance_event_refs,
         inclusion_witness: MlsGovernanceMerkleMembershipWitness {
@@ -2380,7 +2380,7 @@ fn verify_frontier_entry(
     let object = preimage_value
         .as_object()
         .ok_or_else(|| WireError::Protocol("state leaf preimage must be an object".to_owned()))?;
-    if object.len() != 2 || object.get("cell") != Some(&json!(entry.cell)) {
+    if object.len() != 2 || object.get("cell_id") != Some(&json!(entry.cell_id)) {
         return frontier_rejected("state leaf preimage names a different cell");
     }
     let state = object
@@ -2393,7 +2393,7 @@ fn verify_frontier_entry(
     let value = state.get("value").ok_or_else(|| {
         WireError::Protocol("state leaf preimage is Bottom or missing value".to_owned())
     })?;
-    if state_value_leaf_digest(&entry.cell, value, digest_suite)? != witness.leaf_digest
+    if state_value_leaf_digest(&entry.cell_id, value, digest_suite)? != witness.leaf_digest
         || canonical_hash(value)? != entry.value_digest
     {
         return frontier_rejected("frontier value digest does not bind the state leaf value");
@@ -2416,7 +2416,7 @@ fn verify_frontier_entry(
         registry,
     )
     .map_err(replay_reject_error)?;
-    let Some(CellState::Value(reduced)) = root_state.get(&entry.cell) else {
+    let Some(CellState::Value(reduced)) = root_state.get(&entry.cell_id) else {
         return frontier_rejected("replayed root has no concrete value for the frontier cell");
     };
     if reduced != value {
@@ -2429,7 +2429,7 @@ fn verify_frontier_entry(
         union_predecessor_covered_events(std::slice::from_ref(&witness.root_seal_ref), seal_store)
             .map_err(replay_reject_error)?;
     let replayed_provenance = cell_store
-        .sealed_ops_for_cell(&seal.realm_id, &entry.cell)
+        .sealed_ops_for_cell(&seal.realm_id, &entry.cell_id)
         .map_err(replay_store_error)?
         .into_iter()
         .filter(|issued| covered.contains(&issued.op.move_id))
@@ -2493,7 +2493,7 @@ fn verify_branch_entry_closure(
     let supplied = branch
         .entries
         .iter()
-        .map(|entry| entry.cell.clone())
+        .map(|entry| entry.cell_id.clone())
         .collect::<BTreeSet<_>>();
     if expected != supplied || supplied.len() != branch.entries.len() {
         return frontier_rejected(
@@ -2518,7 +2518,7 @@ fn verify_frontier_range_completeness(
             .entries
             .iter()
             .filter(|entry| {
-                CellId::from_ref(&entry.cell).is_ok_and(|cell| {
+                CellId::from_ref(&entry.cell_id).is_ok_and(|cell| {
                     cell.component() == range.cell_family
                         && cell.subject().starts_with(&range.subject_prefix)
                 })
@@ -2540,7 +2540,7 @@ fn verify_frontier_range_completeness(
             );
         }
         for entry in entries {
-            *coverage.entry(&entry.cell).or_default() += 1;
+            *coverage.entry(&entry.cell_id).or_default() += 1;
         }
         verify_boundary_coordinates(range, true)?;
         verify_boundary_coordinates(range, false)?;
@@ -2579,7 +2579,7 @@ fn verify_boundary_coordinates(
         {
             return frontier_rejected("frontier boundary is not adjacent to the selected range");
         }
-        let boundary_cell = CellId::from_ref(&entry.cell)?;
+        let boundary_cell = CellId::from_ref(&entry.cell_id)?;
         if boundary_cell.component() == range.cell_family
             && boundary_cell.subject().starts_with(&range.subject_prefix)
         {

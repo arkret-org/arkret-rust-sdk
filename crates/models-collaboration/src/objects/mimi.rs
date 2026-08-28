@@ -102,7 +102,7 @@ pub enum MimiDeliveryStatus {
 pub struct MimiDelivery {
     pub status: MimiDeliveryStatus,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub delivered_to: Vec<DidCoreId>,
+    pub delivered_to_ids: Vec<DidCoreId>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -164,7 +164,7 @@ pub struct MimiIdentifierMatch {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mimi_uri: Option<MimiUri>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subject: Option<DidCoreId>,
+    pub subject_id: Option<DidCoreId>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

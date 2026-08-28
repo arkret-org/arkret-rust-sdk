@@ -490,8 +490,8 @@ pub struct EventContainer {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountSubscribeDeviceListChanges {
-    pub changed: Vec<DidCoreId>,
-    pub left: Vec<DidCoreId>,
+    pub changed_ids: Vec<DidCoreId>,
+    pub left_ids: Vec<DidCoreId>,
 }
 
 /// Counterpart for
@@ -513,8 +513,8 @@ pub struct Timeline {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OrderedLogSiblingDiagnostic {
-    pub cell: String,
-    pub issuer: DidCoreId,
+    pub cell_id: String,
+    pub issuer_id: DidCoreId,
     pub issuer_seq: u64,
     pub reason: String,
     pub event_ids: Vec<EventId>,
@@ -573,7 +573,7 @@ pub struct AccountSubscribeRealmSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invited_member_count: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub heroes: Option<Vec<DidCoreId>>,
+    pub hero_ids: Option<Vec<DidCoreId>>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -597,7 +597,7 @@ pub struct RealmSyncEntryEventStatesItem {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmSyncEntryBottomsItem {
-    pub cell: String,
+    pub cell_id: String,
     pub status: String,
     pub bottom: Bottom,
 }
@@ -618,7 +618,7 @@ pub struct RealmSyncEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<AccountSubscribeRealmSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub members: Option<Vec<MemberRosterEntry>>,
+    pub member_roster_entries: Option<Vec<MemberRosterEntry>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub members_limited: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1336,11 +1336,11 @@ impl MemberRosterEntry {
         }
         if let (Some(subject), Some(claims)) = (&self.subject_id, &self.handle_claims) {
             for claim in claims {
-                match &claim.subject {
+                match &claim.subject_id {
                     Some(s) if s == subject => {}
                     _ => {
                         return Err(WireError::Protocol(
-                            "member_roster_entry: handle_claims[].subject must equal subject_id"
+                            "member_roster_entry: handle_claims[].subject_id must equal subject_id"
                                 .to_owned(),
                         ));
                     }

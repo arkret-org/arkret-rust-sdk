@@ -495,7 +495,7 @@ pub struct AppletManagedActorProof {
     pub payload_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
     pub jws: String,
 }
 
@@ -546,7 +546,7 @@ impl AppletManagedActorAuthoringRequest {
             "payload_digest": self.proof.payload_digest,
             "verification_method": self.proof.verification_method,
             "created_at": arkret_canonical::format_timestamp_canonical(self.proof.created_at),
-            "audience": self.proof.audience,
+            "audience_id": self.proof.audience_id,
         }))
         .map_err(Into::into)
     }
@@ -558,7 +558,7 @@ impl AppletManagedActorAuthoringRequest {
             || self.purpose != self.basis.purpose()
             || (self.purpose == AppletManagedActorPurpose::InstallBot) != self.plan_digest.is_some()
             || self.proof.payload_digest != self.payload_digest()?
-            || &self.proof.audience != self.basis.service_id()
+            || &self.proof.audience_id != self.basis.service_id()
             || self.proof.verification_method != self.hosting_notary.verification_method
             || &self.hosting_notary.actor_id != self.basis.target_principal_server_id()
             || self.proof.kind != arkret_wire::proof_kind::DETACHED_JWS
@@ -607,7 +607,7 @@ impl AppletManagedActorAuthoringRequest {
                 verification_method: signer.verification_method_id().clone(),
                 payload_digest: Hash::new(format!("sha256:{}", "00".repeat(32)))?,
                 created_at: issued_at,
-                audience,
+                audience_id: audience,
                 jws: String::new(),
             },
         };
@@ -649,7 +649,7 @@ impl AppletManagedActorAuthoringRequest {
                 verification_method: signer.verification_method_id().clone(),
                 payload_digest: Hash::new(format!("sha256:{}", "00".repeat(32)))?,
                 created_at: issued_at,
-                audience,
+                audience_id: audience,
                 jws: String::new(),
             },
         };
@@ -717,7 +717,7 @@ impl AppletManagedActorAuthoringBundle {
             "payload_digest": self.proof.payload_digest,
             "verification_method": self.proof.verification_method,
             "created_at": arkret_canonical::format_timestamp_canonical(self.proof.created_at),
-            "audience": self.proof.audience,
+            "audience_id": self.proof.audience_id,
         }))
         .map_err(Into::into)
     }
@@ -729,7 +729,7 @@ impl AppletManagedActorAuthoringBundle {
         if self.schema != Self::SCHEMA
             || self.authoring_request_digest != authoring_request.canonical_digest()?
             || self.proof.payload_digest != self.payload_digest()?
-            || &self.proof.audience != authoring_request.basis.target_principal_server_id()
+            || &self.proof.audience_id != authoring_request.basis.target_principal_server_id()
             || self.proof.kind != arkret_wire::proof_kind::DETACHED_JWS
             || self.proof.created_at != authoring_request.issued_at
             || self.proof.created_at > authoring_request.expires_at

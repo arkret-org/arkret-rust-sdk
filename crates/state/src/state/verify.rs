@@ -318,22 +318,22 @@ where
     // Step 4: preconditions
     for pre in &event.preconditions {
         let cell_state = pre_state
-            .get(&pre.cell)
+            .get(&pre.cell_id)
             .cloned()
             .unwrap_or(CellState::Value(Value::Null));
         // bottom=reject cells fail closed.
         if let CellState::Bottom(b) = &cell_state {
             let binding = registry
-                .resolve(realm_id, &pre.cell)
+                .resolve(realm_id, &pre.cell_id)
                 .map_err(|e| ControlMoveReject::Registry(e.to_string()))?;
             if binding.bottom_mode != BottomMode::Expose {
                 return Err(ControlMoveReject::FailedBottom {
-                    cell: pre.cell.as_str().to_owned(),
+                    cell: pre.cell_id.as_str().to_owned(),
                     kind: b.kind,
                 });
             }
         }
-        evaluate_predicate(&pre.cell, &pre.predicate, &cell_state)?;
+        evaluate_predicate(&pre.cell_id, &pre.predicate, &cell_state)?;
     }
 
     // Step 5: derive every write from kind + payload, then validate its shape
@@ -349,12 +349,12 @@ where
     for write in &projected {
         for effect in resolve_projected_write(write, realm_id, pre_state, registry)? {
             let binding = registry
-                .resolve(realm_id, &effect.cell)
+                .resolve(realm_id, &effect.cell_id)
                 .map_err(|e| ControlMoveReject::Registry(e.to_string()))?;
             binding.lattice.validate_op(&effect.op).map_err(|e| {
                 ControlMoveReject::SchemaViolation(format!(
                     "derived write on {} invalid: {e}",
-                    effect.cell
+                    effect.cell_id
                 ))
             })?;
             effects.push(effect);
@@ -424,11 +424,11 @@ pub fn resolve_projected_write(
     // on a live cell would turn recovery into a general overwrite channel that
     // bypasses every lattice and every precondition.
     if let ProjectedOp::Reset { value } = &write.op {
-        match pre_state.get(&write.cell) {
+        match pre_state.get(&write.cell_id) {
             Some(CellState::Bottom(_)) => {}
             _ => {
                 return Err(ControlMoveReject::FailedPrecondition {
-                    cell: write.cell.as_str().to_owned(),
+                    cell: write.cell_id.as_str().to_owned(),
                     reason: "recovery_target_not_in_bottom".to_owned(),
                 });
             }
@@ -441,9 +441,9 @@ pub fn resolve_projected_write(
         // indistinguishable from an ordinary write and would be *joined with*
         // the concurrent branches that put the cell in `⊥` — leaving it in `⊥`
         // and quietly removing the only escape §9.5 defines.
-        return Ok(vec![ProjectionEffect::reset(write.cell.clone(), op)]);
+        return Ok(vec![ProjectionEffect::reset(write.cell_id.clone(), op)]);
     }
-    let observed = frozen_cell_value(&write.cell, realm_id, pre_state, registry)?;
+    let observed = frozen_cell_value(&write.cell_id, realm_id, pre_state, registry)?;
     match &write.op {
         // Both handled above, before the pre-state is read: a direct write does
         // not need it, and a reset is the one write allowed to see a cell in ⊥.
@@ -455,16 +455,16 @@ pub fn resolve_projected_write(
             // A cell no write has reached yet reads as its registered initial
             // state, not as null. The fsm join starts there, so deriving null
             // here would make every first transition join to Bottom.
-            op.from = Some(if pre_state.contains_key(&write.cell) {
+            op.from = Some(if pre_state.contains_key(&write.cell_id) {
                 current_head(&observed)
             } else {
                 let binding = registry
-                    .resolve(realm_id, &write.cell)
+                    .resolve(realm_id, &write.cell_id)
                     .map_err(|error| ControlMoveReject::Registry(error.to_string()))?;
                 binding.lattice.initial_state().unwrap_or(Value::Null)
             });
             op.to = Some(to.clone());
-            Ok(vec![ProjectionEffect::join(write.cell.clone(), op)])
+            Ok(vec![ProjectionEffect::join(write.cell_id.clone(), op)])
         }
         ProjectedOp::ApplyPatch {
             patch,
@@ -482,13 +482,13 @@ pub fn resolve_projected_write(
                     ControlMoveReject::ProjectionFailed(format!(
                         "apply_patch expected_prestate on {} must evaluate to a canonical hash \
                          string, got {expected}",
-                        write.cell
+                        write.cell_id
                     ))
                 })?;
                 let bytes = crate::canonical::canonical_json_bytes(&observed).map_err(|err| {
                     ControlMoveReject::ProjectionFailed(format!(
                         "frozen pre-state of {} is not canonicalizable: {err}",
-                        write.cell
+                        write.cell_id
                     ))
                 })?;
                 // `verify_digest` reads the suite off the expected value's
@@ -496,7 +496,7 @@ pub fn resolve_projected_write(
                 // a blake3 digest without this arm naming a suite of its own.
                 crate::canonical::verify_digest(&bytes, expected).map_err(|_| {
                     ControlMoveReject::PrestateBindingMismatch {
-                        cell: write.cell.as_str().to_owned(),
+                        cell: write.cell_id.as_str().to_owned(),
                         expected: expected.to_owned(),
                         observed: crate::canonical::canonical_digest(&bytes),
                     }
@@ -505,7 +505,7 @@ pub fn resolve_projected_write(
             let patch: Patch = serde_json::from_value(patch.clone()).map_err(|err| {
                 ControlMoveReject::ProjectionFailed(format!(
                     "apply_patch projection on {} did not derive a ak.schema.patch.v1 patch: {err}",
-                    write.cell
+                    write.cell_id
                 ))
             })?;
             // §4.3.1 step 3: `apply_patch` is only registered for
@@ -514,7 +514,7 @@ pub fn resolve_projected_write(
             let post_state = patch.apply(&observed).map_err(|err| {
                 ControlMoveReject::ProjectionFailed(format!(
                     "apply_patch on {} failed against the frozen pre-state: {err}",
-                    write.cell
+                    write.cell_id
                 ))
             })?;
             let mut op = LatticeOp::empty();
@@ -527,7 +527,7 @@ pub fn resolve_projected_write(
             // reads as `null`, which is the initial state, so such a write stays
             // a chain head.
             if registry
-                .resolve(realm_id, &write.cell)
+                .resolve(realm_id, &write.cell_id)
                 .map_err(|error| ControlMoveReject::Registry(error.to_string()))?
                 .lattice
                 .kind()
@@ -535,10 +535,10 @@ pub fn resolve_projected_write(
             {
                 op.from = Some(observed);
             }
-            Ok(vec![ProjectionEffect::join(write.cell.clone(), op)])
+            Ok(vec![ProjectionEffect::join(write.cell_id.clone(), op)])
         }
         ProjectedOp::RemoveObserved { element_match } => Ok(observed_remove_ops(
-            &write.cell,
+            &write.cell_id,
             &observed,
             element_match.as_ref(),
         )),
@@ -1071,7 +1071,7 @@ mod tests {
                 )
                 .unwrap(),
                 producer_verification_method: producer.verification_method.clone(),
-                producer_signing_key: DidKey::new("did:key:z6Mkhfixture").unwrap(),
+                producer_signing_key_did: DidKey::new("did:key:z6Mkhfixture").unwrap(),
                 producer_signer_resolution_evidence_ref: None,
                 producer_signer_resolution_evidence_digest: None,
                 signer_resolution_evidence_ref: arkret_wire::SignerEvidenceRef::new(format!(
@@ -1098,8 +1098,8 @@ mod tests {
                 "tag": grant_id,
                 "value": {
                     "id": grant_id,
-                    "issuer": "ak:did_core:webvh:z6mkfixture",
-                    "subject": subject,
+                    "issuer_id": "ak:did_core:webvh:z6mkfixture",
+                    "subject_id": subject,
                     "actions": ["ak.member.state"],
                     "resources": [{"kind": "Realm", "realm_id": realm().as_str()}]
                 }
@@ -1130,7 +1130,7 @@ mod tests {
         op.from = Some(from);
         op.to = Some(to);
         ProjectedCellWrite {
-            cell: cell_member(),
+            cell_id: cell_member(),
             op: ProjectedOp::Direct(op),
         }
     }
@@ -1150,7 +1150,7 @@ mod tests {
             &MemoryCellRegistry::new(),
             ok_proofs,
             project(vec![ProjectedCellWrite {
-                cell: cell_member(),
+                cell_id: cell_member(),
                 op: ProjectedOp::TransitionTo { to: json!("join") },
             }]),
         )
@@ -1165,7 +1165,7 @@ mod tests {
     #[test]
     fn structural_pass_with_valid_control_move() {
         let pre = Precondition {
-            cell: cell_member(),
+            cell_id: cell_member(),
             predicate: Predicate {
                 op: PredicateOp::HeadEq,
                 value: Some(json!("invited")),
@@ -1186,13 +1186,13 @@ mod tests {
         )
         .unwrap();
         assert_eq!(effects.len(), 1);
-        assert_eq!(effects[0].cell, cell_member());
+        assert_eq!(effects[0].cell_id, cell_member());
     }
 
     #[test]
     fn producer_and_accepted_control_move_lanes_enforce_distinct_closed_proof_sets() {
         let precondition = Precondition {
-            cell: cell_member(),
+            cell_id: cell_member(),
             predicate: Predicate {
                 op: PredicateOp::HeadEq,
                 value: Some(json!("invited")),
@@ -1341,7 +1341,7 @@ mod tests {
     #[test]
     fn precondition_head_eq_mismatch_rejects() {
         let pre = Precondition {
-            cell: cell_member(),
+            cell_id: cell_member(),
             predicate: Predicate {
                 op: PredicateOp::HeadEq,
                 value: Some(json!("join")), // expects join
@@ -1372,7 +1372,7 @@ mod tests {
         pre_state.insert(cell_member(), CellState::Bottom(bottom));
 
         let pre = Precondition {
-            cell: cell_member(),
+            cell_id: cell_member(),
             predicate: Predicate {
                 op: PredicateOp::HeadEq,
                 value: Some(json!("anything")),
@@ -1400,7 +1400,7 @@ mod tests {
         pre_state.insert(cell_member(), CellState::Bottom(bottom));
 
         let pre = Precondition {
-            cell: cell_member(),
+            cell_id: cell_member(),
             predicate: Predicate {
                 op: PredicateOp::HeadEq,
                 value: Some(json!("anything")),
@@ -1461,7 +1461,7 @@ mod tests {
             &MemoryCellRegistry::new(),
             ok_proofs,
             project(vec![ProjectedCellWrite {
-                cell: cell_member(),
+                cell_id: cell_member(),
                 op: ProjectedOp::TransitionTo { to: json!("join") },
             }]),
         )
@@ -1486,7 +1486,7 @@ mod tests {
             &MemoryCellRegistry::new(),
             ok_proofs,
             project(vec![ProjectedCellWrite {
-                cell: cell_member(),
+                cell_id: cell_member(),
                 op: ProjectedOp::TransitionTo { to: json!("join") },
             }]),
         )
@@ -1512,7 +1512,7 @@ mod tests {
             &MemoryCellRegistry::new(),
             ok_proofs,
             project(vec![ProjectedCellWrite {
-                cell: cell_capability_grant(),
+                cell_id: cell_capability_grant(),
                 op: ProjectedOp::RemoveObserved {
                     element_match: None,
                 },
@@ -1551,7 +1551,7 @@ mod tests {
             &MemoryCellRegistry::new(),
             ok_proofs,
             project(vec![ProjectedCellWrite {
-                cell: cell_capability_grant(),
+                cell_id: cell_capability_grant(),
                 op: ProjectedOp::RemoveObserved {
                     element_match: Some(ObservedRemoveMatch {
                         element_field: "scope.kind".to_owned(),
@@ -1575,7 +1575,7 @@ mod tests {
 
     fn apply_patch_write(patch: Value, expected_prestate: Option<Value>) -> ProjectedCellWrite {
         ProjectedCellWrite {
-            cell: cell_realm_policy(),
+            cell_id: cell_realm_policy(),
             op: ProjectedOp::ApplyPatch {
                 patch,
                 expected_prestate,
@@ -1585,7 +1585,7 @@ mod tests {
 
     fn reset_write(value: Value) -> ProjectedCellWrite {
         ProjectedCellWrite {
-            cell: cell_realm_policy(),
+            cell_id: cell_realm_policy(),
             op: ProjectedOp::Reset { value },
         }
     }
@@ -1714,7 +1714,7 @@ mod tests {
         let binding = registry.resolve(&realm(), &cell_realm_policy()).unwrap();
         let digest = |byte: &str| Hash::new(format!("sha256:{}", byte.repeat(32))).unwrap();
         let conflicting = |byte: &str, value: Value| crate::lattice::ordered_log::IssuedOp {
-            issuer: event.actor_id.clone(),
+            issuer_id: event.actor_id.clone(),
             op: SealedOp::new(digest(byte), {
                 let mut op = LatticeOp::empty();
                 op.op_type = LatticeOpType::Set;
@@ -1726,7 +1726,7 @@ mod tests {
             conflicting("ab", json!({"policy_revision": 6})),
             conflicting("cd", json!({"policy_revision": 7})),
             crate::lattice::ordered_log::IssuedOp {
-                issuer: event.actor_id.clone(),
+                issuer_id: event.actor_id.clone(),
                 op: SealedOp::from_projection(digest("ef"), &effects[0]),
             },
         ];

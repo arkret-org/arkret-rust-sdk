@@ -142,7 +142,7 @@ impl DeviceReanchorPreFenceSealFrontier {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Precondition {
-    pub cell: CellRef,
+    pub cell_id: CellRef,
     pub predicate: Predicate,
 }
 
@@ -190,7 +190,7 @@ pub enum PredicateOp {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectionEffect {
-    pub cell: CellRef,
+    pub cell_id: CellRef,
     pub op: LatticeOp,
     /// This write is the `event-auth-state-resolution.md` §9.5 recovery reset,
     /// not an ordinary lattice write.
@@ -211,7 +211,7 @@ impl ProjectionEffect {
     /// An ordinary lattice write: joins with everything already on the cell.
     pub fn join(cell: CellRef, op: LatticeOp) -> Self {
         Self {
-            cell,
+            cell_id: cell,
             op,
             recovery_reset: false,
         }
@@ -220,7 +220,7 @@ impl ProjectionEffect {
     /// The §9.5 recovery write: a boundary that discards the cell's prior ops.
     pub fn reset(cell: CellRef, op: LatticeOp) -> Self {
         Self {
-            cell,
+            cell_id: cell,
             op,
             recovery_reset: true,
         }
@@ -296,7 +296,7 @@ pub struct ObservedRemoveMatch {
 /// against the frozen pre-state.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProjectedCellWrite {
-    pub cell: CellRef,
+    pub cell_id: CellRef,
     pub op: ProjectedOp,
 }
 
@@ -304,7 +304,9 @@ impl ProjectedCellWrite {
     /// The resolved write when the projection needs no pre-state.
     pub fn as_direct(&self) -> Option<ProjectionEffect> {
         match &self.op {
-            ProjectedOp::Direct(op) => Some(ProjectionEffect::join(self.cell.clone(), op.clone())),
+            ProjectedOp::Direct(op) => {
+                Some(ProjectionEffect::join(self.cell_id.clone(), op.clone()))
+            }
             _ => None,
         }
     }

@@ -663,7 +663,7 @@ pub struct KeyBackup {
     /// Every envelope in a backup chain shares the same `series_id`; the chain
     /// is ordered by `series_seq`. Genesis vs successor are distinguished by
     /// `series_seq == 0` (genesis) vs `series_seq > 0` (successor with
-    /// `supersedes` + `supersedes_digest` REQUIRED).
+    /// `supersedes_id` + `supersedes_digest` REQUIRED).
     pub series_id: BackupSeriesId,
     /// Key-backup hardening — monotonically increasing chain sequence number.
     /// `0` for the genesis envelope; reducer MUST reject non-monotonic
@@ -674,10 +674,10 @@ pub struct KeyBackup {
     /// absent on genesis. Reducer MUST reject mismatches with
     /// `series_chain_broken` or `series_predecessor_not_found`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub supersedes: Option<BackupId>,
+    pub supersedes_id: Option<BackupId>,
     /// Key-backup hardening — canonical SHA-256 of the predecessor envelope,
     /// excluding `auth_data.signature`, mixed into the signing transcript on
-    /// successor envelopes. REQUIRED whenever `supersedes` is set.
+    /// successor envelopes. REQUIRED whenever `supersedes_id` is set.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub supersedes_digest: Option<String>,
     /// Key-backup hardening — opaque reference to the originating-key
@@ -923,19 +923,19 @@ impl KeyBackup {
         }
 
         match self.series_seq {
-            0 if self.supersedes.is_some() || self.supersedes_digest.is_some() => {
+            0 if self.supersedes_id.is_some() || self.supersedes_digest.is_some() => {
                 return Err(WireError::Protocol(
-                    "key backup genesis forbids supersedes and supersedes_digest".to_owned(),
+                    "key backup genesis forbids supersedes_id and supersedes_digest".to_owned(),
                 ));
             }
             0 => {}
-            _ if self.supersedes.is_none() || self.supersedes_digest.is_none() => {
+            _ if self.supersedes_id.is_none() || self.supersedes_digest.is_none() => {
                 return Err(WireError::Protocol(
-                    "key backup successor requires supersedes and supersedes_digest".to_owned(),
+                    "key backup successor requires supersedes_id and supersedes_digest".to_owned(),
                 ));
             }
             _ => {
-                if self.supersedes.as_ref() == Some(&self.backup_id) {
+                if self.supersedes_id.as_ref() == Some(&self.backup_id) {
                     return Err(WireError::Protocol(
                         "key backup successor cannot supersede itself".to_owned(),
                     ));
@@ -1724,7 +1724,7 @@ pub struct KeyBackupRetention {
 /// revoke control events.
 ///
 /// Required surface: `schema`, `policy_id`, `principal_id`, `version`,
-/// `supersedes`, `trust_domain`, `allowed_proof_kinds`, `issued_at`,
+/// `supersedes_id`, `trust_domain`, `allowed_proof_kinds`, `issued_at`,
 /// `auth_data`. The proof-family configuration sub-objects
 /// (`threshold` / `device_quorum` / `trusted_recovery_services`) are required
 /// by `allOf` when the matching `allowed_proof_kinds` entry is present;
@@ -1739,7 +1739,7 @@ pub struct RecoveryPolicy {
     /// Monotonically increasing counter scoped by `principal_id`.
     pub version: u64,
     /// Predecessor `policy_id`; `None` only for the genesis policy.
-    pub supersedes: Option<PolicyId>,
+    pub supersedes_id: Option<PolicyId>,
     pub trust_domain: TrustDomainId,
     pub allowed_proof_kinds: Vec<RecoveryProofKind>,
     pub publication_authorization_rules: Vec<RecoveryPublicationAuthorizationRule>,
@@ -1817,11 +1817,11 @@ impl RecoveryPolicy {
             ));
         }
         if self.version < 1
-            || (self.version == 1) != self.supersedes.is_none()
-            || (self.version >= 2 && self.supersedes.is_none())
+            || (self.version == 1) != self.supersedes_id.is_none()
+            || (self.version >= 2 && self.supersedes_id.is_none())
         {
             return Err(WireError::Protocol(
-                "recovery policy version and supersedes do not form a valid chain".to_owned(),
+                "recovery policy version and supersedes_id do not form a valid chain".to_owned(),
             ));
         }
         let unique_proof_kinds = self
@@ -2004,12 +2004,12 @@ impl RecoveryPolicy {
                             "device_quorum publication rule requires device_quorum".to_owned(),
                         )
                     })?;
-                    let distinct_members = quorum.members.iter().collect::<BTreeSet<_>>();
+                    let distinct_members = quorum.member_ids.iter().collect::<BTreeSet<_>>();
                     if quorum.k < 2
-                        || usize::try_from(quorum.k).unwrap_or(usize::MAX) > quorum.members.len()
-                        || distinct_members.len() != quorum.members.len()
+                        || usize::try_from(quorum.k).unwrap_or(usize::MAX) > quorum.member_ids.len()
+                        || distinct_members.len() != quorum.member_ids.len()
                         || rule.threshold != quorum.k
-                        || rule.issuers.len() != quorum.members.len()
+                        || rule.issuers.len() != quorum.member_ids.len()
                     {
                         return Err(WireError::Protocol(
                             "device_quorum publication rule does not match the device quorum"
@@ -2064,7 +2064,7 @@ pub struct UnsignedRecoveryPolicyBody {
     pub policy_id: PolicyId,
     pub principal_id: DidCoreId,
     pub version: u64,
-    pub supersedes: Option<PolicyId>,
+    pub supersedes_id: Option<PolicyId>,
     pub trust_domain: TrustDomainId,
     pub allowed_proof_kinds: Vec<RecoveryProofKind>,
     pub publication_authorization_rules: Vec<RecoveryPublicationAuthorizationRule>,
@@ -2115,7 +2115,7 @@ impl UnsignedRecoveryPolicy {
             policy_id: body.policy_id,
             principal_id: body.principal_id,
             version: body.version,
-            supersedes: body.supersedes,
+            supersedes_id: body.supersedes_id,
             trust_domain: body.trust_domain,
             allowed_proof_kinds: body.allowed_proof_kinds,
             publication_authorization_rules: body.publication_authorization_rules,
@@ -2151,7 +2151,7 @@ fn recovery_policy_unsigned_value(body: &UnsignedRecoveryPolicyBody) -> Result<V
         "policy_id": &body.policy_id,
         "principal_id": &body.principal_id,
         "version": body.version,
-        "supersedes": &body.supersedes,
+        "supersedes_id": &body.supersedes_id,
         "trust_domain": &body.trust_domain,
         "allowed_proof_kinds": &body.allowed_proof_kinds,
         "publication_authorization_rules": &body.publication_authorization_rules,
@@ -2213,13 +2213,13 @@ pub struct RecoveryPolicySummary {
     pub policy_id: PolicyId,
     pub principal_id: DidCoreId,
     pub version: u64,
-    pub acceptance_basis: LeaseBasisRef,
+    pub acceptance_basis_ref: LeaseBasisRef,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recovery_policy_ref: Option<RecoveryPolicyRef>,
     pub trust_domain: TrustDomainId,
     pub allowed_proof_kinds: Vec<RecoveryProofKind>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub supersedes: Option<PolicyId>,
+    pub supersedes_id: Option<PolicyId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
@@ -2349,7 +2349,7 @@ pub struct RecoveryPolicyPublishOutcome {
     pub policy_id: PolicyId,
     pub principal_id: DidCoreId,
     pub version: u64,
-    pub acceptance_basis: LeaseBasisRef,
+    pub acceptance_basis_ref: LeaseBasisRef,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
 }
@@ -2393,7 +2393,7 @@ pub struct RecoveryResharePolicy {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RecoveryShare {
     pub share_id: String,
-    pub holder: DidCoreId,
+    pub holder_id: DidCoreId,
     pub transport: String,
     pub share_commitment: ShareShareCommitment,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2414,7 +2414,7 @@ pub struct RecoveryShare {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RecoveryDeviceQuorumConfig {
     pub k: u32,
-    pub members: Vec<DeviceId>,
+    pub member_ids: Vec<DeviceId>,
 }
 
 /// Signed deterministic publication-rule projection carried by a recovery

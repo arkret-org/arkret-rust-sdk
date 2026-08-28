@@ -269,7 +269,7 @@ pub struct MembershipCompensationDelegationCore {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_ref: Option<AuthorizationRef>,
     pub verification_method: DidUrl,
-    pub executor_service_id: DidCoreId,
+    pub executor_id: DidCoreId,
     pub executor_proof_key: DidUrl,
     pub resource: RealmId,
     pub action: MembershipCompensationAction,
@@ -343,7 +343,7 @@ pub struct MembershipJoinAcceptedProof {
     pub accepted_frontier_digest: Hash,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
-    pub issuer: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub signature: ProtocolSignature,
 }
 
@@ -373,7 +373,7 @@ pub struct MembershipCompensationTerminalCertificate {
     pub terminal_state: MembershipCompensationTerminalState,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub certified_at: DateTime<Utc>,
-    pub issuer: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub signature: ProtocolSignature,
 }
 
@@ -404,7 +404,7 @@ pub struct MembershipCompensationCasToken {
     pub issued_at: DateTime<Utc>,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub issuer: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub signature: ProtocolSignature,
 }
 
@@ -431,7 +431,7 @@ impl MembershipCompensationSubmissionEvidence {
             || self.terminal_certificate.delegation_digest != *digest
             || self.single_use_cas_token.admission_id != core.admission_id
             || self.single_use_cas_token.delegation_digest != *digest
-            || self.single_use_cas_token.destination_id != core.executor_service_id
+            || self.single_use_cas_token.destination_id != core.executor_id
         {
             return Err(crate::WireError::Protocol(
                 "membership compensation evidence cross-binding mismatch".to_owned(),

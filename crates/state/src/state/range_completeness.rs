@@ -363,14 +363,14 @@ fn validate_witnesses(
                 ));
             }
             let witness = &witnesses[0];
-            if witness.witness_id != payload.issuer
+            if witness.witness_id != payload.issuer_id
                 || witness
                     .verification_method
                     .as_str()
                     .split_once('#')
                     .and_then(|(controller, _)| Did::new(controller).ok())
                     .and_then(|controller| project_did_to_core_id(&controller).ok())
-                    .is_none_or(|controller| controller != payload.issuer)
+                    .is_none_or(|controller| controller != payload.issuer_id)
                 || !payload
                     .proofs
                     .iter()
@@ -460,7 +460,7 @@ pub fn verify_full_realm_range_completeness_with_suite(
         .map_err(|error| RangeCompletenessError::SchemaViolation(error.to_string()))?;
     if payload.schema != arkret_wire::SchemaId::RANGE_COMPLETENESS_ATTESTATION_V1
         || payload.realm_id != *expected_realm
-        || payload.issuer != attestation_event.actor_id
+        || payload.issuer_id != attestation_event.actor_id
     {
         return Err(RangeCompletenessError::SchemaViolation(
             "attestation payload binding is invalid".to_owned(),
@@ -619,7 +619,7 @@ mod tests {
         let mut payload = RangeCompletenessAttestation {
             attestation_id: "ak:attestation:01904100-0000-7000-8000-000000000004".to_owned(),
             schema: "ak.schema.range_completeness_attestation.v1".to_owned(),
-            issuer: issuer.clone(),
+            issuer_id: issuer.clone(),
             issuer_role: "events_api".to_owned(),
             realm_id: realm.clone(),
             event_range: RangeCompletenessAttestationEventRange {

@@ -289,7 +289,7 @@ pub enum ErasurePeerStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ErasurePeerReceipt {
     /// Peer Principal Server DID.
-    pub peer: DidCoreId,
+    pub peer_id: DidCoreId,
     pub status: ErasurePeerStatus,
     /// The peer's own feedback receipt id, when received.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -308,7 +308,7 @@ pub struct ErasureReceipt {
     pub receipt_id: String,
     pub trigger: crate::events_payloads::event_wire::ErasureTrigger,
     pub schema: String,
-    pub issuer: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub subject: ErasureSubject,
     pub scope: ErasureScope,
     pub outcome: ErasureOutcome,
@@ -460,7 +460,7 @@ mod erasure_receipt_tests {
             receipt_id: "ak:receipt:01970e58-0004-7000-8000-000000000010".to_owned(),
             trigger: stub.trigger.clone(),
             schema: SchemaId::ERASURE_RECEIPT_V1.to_owned(),
-            issuer: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap(),
+            issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap(),
             subject: ErasureSubject {
                 kind: ErasureSubjectKind::Event,
                 subject_ref: "ak:event:Aao2sOuPY3tS2nZ7qnksKNP5Rf0xHN8c_r_NEIjv9hg3".to_owned(),

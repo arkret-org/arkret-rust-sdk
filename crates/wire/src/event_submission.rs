@@ -428,7 +428,7 @@ fn validate_membership_compensation_evidence(
     let core = &evidence.delegation.core;
     if event.kind.as_str() != crate::event_kind_str::MEMBER_STATE
         || event.executed_by.as_ref().map(DidCoreId::as_core_id)
-            != Some(core.executor_service_id.as_core_id())
+            != Some(core.executor_id.as_core_id())
         || event.authorization_ref.as_ref().map(|value| value.as_str())
             != Some(evidence.delegation.delegation_id.as_str())
         || event.actor_id != core.join_actor_id
@@ -775,7 +775,7 @@ mod tests {
                 )
                 .unwrap(),
                 producer_verification_method: producer.verification_method.clone(),
-                producer_signing_key: DidKey::new("did:key:z6Mkhfixture").unwrap(),
+                producer_signing_key_did: DidKey::new("did:key:z6Mkhfixture").unwrap(),
                 producer_signer_resolution_evidence_ref: None,
                 producer_signer_resolution_evidence_digest: None,
                 signer_resolution_evidence_ref: crate::SignerEvidenceRef::new(format!(

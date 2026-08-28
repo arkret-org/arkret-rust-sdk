@@ -101,9 +101,9 @@ impl IssuerAuthorityRef {
 pub struct Grant {
     pub grant_id: String,
     pub realm_id: String,
-    pub issuer: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub issuer_principal_server_id: DidCoreId,
-    pub subject: DidCoreId,
+    pub subject_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub subject_principal_server_id: Option<DidCoreId>,
     pub resource: String,
@@ -463,7 +463,7 @@ where
             let Some(parent_grant) = snapshot.get(parent).map(|value| value.borrow()) else {
                 return false;
             };
-            if parent_grant.subject != grant.issuer
+            if parent_grant.subject_id != grant.issuer_id
                 || parent_grant.subject_principal_server_id.as_ref()
                     != Some(&grant.issuer_principal_server_id)
             {
@@ -485,10 +485,10 @@ mod tests {
         Grant {
             grant_id: id.to_owned(),
             realm_id: "ak:realm:1".to_owned(),
-            issuer: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+            issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             issuer_principal_server_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver")
                 .unwrap(),
-            subject: DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+            subject_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             subject_principal_server_id: Some(
                 DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
             ),
@@ -520,10 +520,10 @@ mod tests {
         Grant {
             grant_id: id.to_owned(),
             realm_id: "ak:realm:1".to_owned(),
-            issuer: DidCoreId::new(issuer).unwrap(),
+            issuer_id: DidCoreId::new(issuer).unwrap(),
             issuer_principal_server_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver")
                 .unwrap(),
-            subject: DidCoreId::new(subject).unwrap(),
+            subject_id: DidCoreId::new(subject).unwrap(),
             subject_principal_server_id: Some(
                 DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
             ),

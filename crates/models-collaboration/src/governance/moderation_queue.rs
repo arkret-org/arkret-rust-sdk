@@ -69,7 +69,7 @@ pub struct ModerationQueueItem {
     pub priority: Option<ModerationQueuePriority>,
     pub visibility: ModerationQueueVisibility,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub assigned_to: Vec<DidCoreId>,
+    pub assigned_to_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evidence_policy: Option<ModerationEvidencePolicy>,
     /// `ak:event:<44-char-token>` references to audit events recording queue
@@ -107,7 +107,7 @@ mod tests {
             status: ModerationQueueStatus::Submitted,
             priority: Some(ModerationQueuePriority::Normal),
             visibility: ModerationQueueVisibility::MetadataOnly,
-            assigned_to: vec![],
+            assigned_to_ids: vec![],
             evidence_policy: Some(ModerationEvidencePolicy {
                 plaintext_allowed: false,
                 franking_proof_verification_required: true,

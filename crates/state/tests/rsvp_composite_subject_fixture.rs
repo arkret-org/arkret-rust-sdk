@@ -45,7 +45,7 @@ fn set_status(move_byte: u8, status: &str) -> SealedOp {
 fn heads(state: CellState) -> Vec<String> {
     let mut values = match state {
         CellState::Value(value) => vec![value],
-        CellState::Bottom(bottom) => bottom.heads,
+        CellState::Bottom(bottom) => bottom.head_ids,
     }
     .into_iter()
     .map(|value| {

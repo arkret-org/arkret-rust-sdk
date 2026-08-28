@@ -299,7 +299,7 @@ impl Client {
                         .to_owned(),
                 ));
             }
-            for realm_id in &filter.realms {
+            for realm_id in &filter.realm_ids {
                 builder = builder.query(&[("filter.realms", realm_id.as_str())]);
             }
             if let Some(timeline_limit) = filter.timeline_limit {
@@ -621,7 +621,7 @@ mod tests {
                 "proof_kind": "agent_key_proof",
                 "challenge": "0123456789abcdef",
                 "request_canonical_digest": format!("sha256:{}", "00".repeat(32)),
-                "audience": "ak:did_core:web:service.example",
+                "audience_id": "ak:did_core:web:service.example",
                 "expires_at": "2026-08-08T12:04:00.000Z",
                 "signature": "detached.jws",
                 "verification_method": "did:web:agent.example#runtime-key-1",
@@ -639,7 +639,7 @@ mod tests {
             "expires_at": "2026-08-08T12:04:00.000Z",
             "session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
             "session_public_key": r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
-            "audience": "ak:did_core:web:service.example"
+            "audience_id": "ak:did_core:web:service.example"
         })
         .to_string()
     }
@@ -652,7 +652,7 @@ mod tests {
             "agent_session_refresh_proof": {
                 "context": "ak.agent_session_refresh_proof.v1",
                 "request_canonical_digest": format!("sha256:{}", "11".repeat(32)),
-                "audience": "ak:did_core:web:service.example",
+                "audience_id": "ak:did_core:web:service.example",
                 "issued_at": "2026-08-08T11:59:00.000Z",
                 "expires_at": "2026-08-08T12:04:00.000Z",
                 "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
@@ -669,7 +669,7 @@ mod tests {
             "grant_jwt": "successor.jwt",
             "session_public_key": r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
             "expires_at": "2026-08-08T12:04:00.000Z",
-            "audience": "ak:did_core:web:service.example",
+            "audience_id": "ak:did_core:web:service.example",
             "scopes": [],
             "dpop_jkt": "holder-thumbprint",
             "previous_session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW"
@@ -979,7 +979,7 @@ mod tests {
     #[test]
     fn account_subscribe_request_serializes_filter_deep_object() {
         let filter = SyncFilter {
-            realms: vec![
+            realm_ids: vec![
                 RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
             ],
             timeline_limit: Some(20),
@@ -1134,7 +1134,7 @@ mod tests {
     #[test]
     fn account_subscribe_request_rejects_unrepresentable_filter_extension() {
         let mut filter = SyncFilter {
-            realms: Vec::new(),
+            realm_ids: Vec::new(),
             timeline_limit: None,
             lazy_load_members: false,
             include_redundant_members: false,

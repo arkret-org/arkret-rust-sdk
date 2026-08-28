@@ -582,7 +582,7 @@ pub fn pre_authoring_cell_writes(
     if writes.iter().any(|write| {
         derived
             .iter()
-            .any(|object_id| write.cell.as_str().contains(object_id))
+            .any(|object_id| write.cell_id.as_str().contains(object_id))
     }) {
         return Err(arkret_schema::EventCellContractError::SubjectDerivation {
             kind: intent.kind().as_str().to_owned(),

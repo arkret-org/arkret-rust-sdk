@@ -4,13 +4,13 @@
 //! schema `bottom.schema.json`. A cell's effective Lattice value resolves
 //! to bottom when the join under the current Seal view produces no valid
 //! single value (or violates the cell's declared safety rules). Bottom is
-//! either rejected (`bottom=reject` cells, e.g. capability / membership
-//! safety-critical) or exposed to projections (`bottom=expose` cells, e.g.
+//! either rejected (`bottom=reject` cell_ids, e.g. capability / membership
+//! safety-critical) or exposed to projections (`bottom=expose` cell_ids, e.g.
 //! soft display state) — never silently winner-picked by the receiver.
 //!
 //! Wire diagnostic surfaced on `/account/subscribe`, `/events`, and state-query
 //! responses so clients (and admin UIs) can show structured "this cell is
-//! ⊥, here are the candidate heads, here is the Seal view it was
+//! ⊥, here are the candidate head_ids, here is the Seal view it was
 //! observed under" without re-implementing the conflict semantics.
 
 use std::collections::BTreeMap;
@@ -103,8 +103,8 @@ pub struct SealView {
 pub struct Bottom {
     pub kind: BottomKind,
     /// Cell ids participating in this bottom. Multi-cell when an atomic
-    /// multi-cell Move failed across linked cells.
-    pub cells: Vec<CellRef>,
+    /// multi-cell Move failed across linked cell_ids.
+    pub cell_ids: Vec<CellRef>,
     /// Sealed Move ids whose effects (or precondition checks) produced
     /// this bottom. Empty for structural bottoms (e.g. notary cell
     /// schema_error) not tied to a specific Move.
@@ -113,10 +113,10 @@ pub struct Bottom {
     /// Seal view the bottom was observed under.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seal_view: Option<SealView>,
-    /// Candidate heads for `kind=conflict` only. Receivers MUST NOT pick
+    /// Candidate head_ids for `kind=conflict` only. Receivers MUST NOT pick
     /// a winner from this array; UI / audit display only.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub heads: Vec<Value>,
+    pub head_ids: Vec<Value>,
     /// Free-form structured details; producers SHOULD use stable keys per
     /// kind (e.g. invalid_transition: from/to/expected_transitions;
     /// schema_error: schema_id/violation_path).
@@ -133,13 +133,13 @@ pub struct Bottom {
 impl Bottom {
     pub const SCHEMA: &'static str = SchemaId::BOTTOM_V1;
     /// Construct a minimal bottom diagnostic with required fields.
-    pub fn new(kind: BottomKind, cells: Vec<CellRef>) -> Self {
+    pub fn new(kind: BottomKind, cell_ids: Vec<CellRef>) -> Self {
         Self {
             kind,
-            cells,
+            cell_ids,
             move_ids: Vec::new(),
             seal_view: None,
-            heads: Vec::new(),
+            head_ids: Vec::new(),
             details: None,
             escalated_at: None,
         }
@@ -188,20 +188,20 @@ mod tests {
         );
         let s = serde_json::to_string(&b).unwrap();
         assert!(s.contains("\"kind\":\"conflict\""));
-        assert!(s.contains("\"cells\""));
+        assert!(s.contains("\"cell_ids\""));
         // Empty / None fields should be skipped.
         assert!(!s.contains("\"move_ids\""));
         assert!(!s.contains("\"seal_view\""));
-        assert!(!s.contains("\"heads\""));
+        assert!(!s.contains("\"head_ids\""));
         assert!(!s.contains("\"details\""));
         assert!(!s.contains("\"escalated_at\""));
     }
 
     #[test]
-    fn conflict_bottom_with_heads_round_trips() {
+    fn conflict_bottom_with_head_ids_round_trips() {
         let b = Bottom {
             kind: BottomKind::Conflict,
-            cells: vec![cell("ak:cell:ak.component.realm.policy.v1:x")],
+            cell_ids: vec![cell("ak:cell:ak.component.realm.policy.v1:x")],
             move_ids: vec![
                 move_id("4444444444444444444444444444444444444444444444444444444444444444"),
                 move_id("5555555555555555555555555555555555555555555555555555555555555555"),
@@ -212,7 +212,7 @@ mod tests {
                 )],
                 state_root: None,
             }),
-            heads: vec![json!({"value": "open"}), json!({"value": "closed"})],
+            head_ids: vec![json!({"value": "open"}), json!({"value": "closed"})],
             details: None,
             escalated_at: None,
         };
@@ -225,12 +225,12 @@ mod tests {
     fn invalid_transition_with_details() {
         let b = Bottom {
             kind: BottomKind::InvalidTransition,
-            cells: vec![cell(
+            cell_ids: vec![cell(
                 "ak:cell:ak.component.member.state.v1:did.web.alice.example",
             )],
             move_ids: vec![],
             seal_view: None,
-            heads: vec![],
+            head_ids: vec![],
             details: Some(bottom_details([
                 ("expected_transitions", json!(["join", "ban"])),
                 ("from", json!("leave")),
@@ -260,7 +260,7 @@ mod tests {
     fn deserialize_unknown_kind_is_rejected() {
         let raw = json!({
             "kind": "future_unknown_bottom",
-            "cells": ["ak:cell:ak.component.member.state.v1:did.web.alice.example"]
+            "cell_ids": ["ak:cell:ak.component.member.state.v1:did.web.alice.example"]
         });
         let r: Result<Bottom, _> = serde_json::from_value(raw);
         assert!(r.is_err(), "unknown BottomKind must fail closed");

@@ -76,7 +76,7 @@ pub fn did_web_document_url(did: &Did) -> Result<String> {
 /// Issuer proof attached to a handle-claim challenge.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HandleAttestation {
-    pub issuer: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub proof: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,

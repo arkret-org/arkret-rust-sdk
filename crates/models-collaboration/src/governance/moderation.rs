@@ -22,10 +22,10 @@ pub struct ModerationReportOutcome {
     /// DIDs the report was routed to. Per
     /// `service-operation-dtos.schema.json#/$defs/ModerationReportOutcome`
     /// this is an array of DID strings (the schema is closed), matching the
-    /// `routed_to | did[]` shape in `content-moderation.md` /
+    /// `routed_to_ids | did[]` shape in `content-moderation.md` /
     /// `service-http-binding.md`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub routed_to: Vec<DidCoreId>,
+    pub routed_to_ids: Vec<DidCoreId>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -164,7 +164,7 @@ impl ModerationReportRequestBody {
         let payload: crate::events_payloads::ModerationReportPayload =
             crate::events_payloads::event_wire::decode_payload_after_kind_validation(event)?;
         if &event.actor_id != session_principal_id
-            || &payload.reporter != session_principal_id
+            || &payload.reporter_id != session_principal_id
             || payload.target_ref != accepted_target.target_ref
             || event.scope_ref != accepted_target.effective_scope
         {
@@ -207,7 +207,7 @@ pub struct ModerationReport {
     pub report_reason_code: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    pub reporter: DidCoreId,
+    pub reporter_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evidence_refs: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -232,7 +232,7 @@ impl ModerationReport {
             target_ref: target_ref.into(),
             report_reason_code: report_reason_code.into(),
             description: None,
-            reporter,
+            reporter_id: reporter,
             evidence_refs: Vec::new(),
             franking_proof: None,
             created_at: now_utc_canonical(),
@@ -279,7 +279,7 @@ mod signed_request_tests {
             "realm_id": REALM,
             "target_ref": TARGET,
             "report_reason_code": "spam",
-            "reporter": ACTOR,
+            "reporter_id": ACTOR,
             "provenance": "self"
         });
         if let Some(scope) = effective_scope {
@@ -419,7 +419,7 @@ mod signed_request_tests {
 
         let mut guarded = signed_request(None);
         guarded.report_event.event.preconditions = vec![Precondition {
-            cell: arkret_wire::CellRef::new("ak:cell:ak.component.realm.authority_root.v1:null")
+            cell_id: arkret_wire::CellRef::new("ak:cell:ak.component.realm.authority_root.v1:null")
                 .unwrap(),
             predicate: arkret_wire::Predicate {
                 op: arkret_wire::PredicateOp::HeadEq,
@@ -462,7 +462,7 @@ mod signed_request_tests {
         let outcome = ModerationReportOutcome {
             report_id: request.report_id(SUITE).unwrap(),
             status: ModerationReportStatus::Submitted,
-            routed_to: Vec::new(),
+            routed_to_ids: Vec::new(),
         };
         assert_eq!(outcome.status, ModerationReportStatus::Submitted);
         assert!(

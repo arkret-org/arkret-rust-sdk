@@ -39,7 +39,7 @@ fn applet_registration_epoch_fixture_executes_against_owner() {
     assert!(invalid_version_branch.registration_epoch().is_err());
 
     let mut changed_security_field = transcript;
-    changed_security_field.derived_registration.base_url = "https://other.example/cx".to_owned();
+    changed_security_field.derived_registration.base_uri = "https://other.example/cx".to_owned();
     assert_ne!(
         changed_security_field
             .registration_epoch()

@@ -145,7 +145,7 @@ fn federation_submission(mut event: Event) -> EventFederationSubmission {
             producer_proof_digest: PrincipalServerAdmissionProof::producer_proof_digest(&producer)
                 .unwrap(),
             producer_verification_method: producer.verification_method.clone(),
-            producer_signing_key: DidKey::new("did:key:z6Mkhfixture").unwrap(),
+            producer_signing_key_did: DidKey::new("did:key:z6Mkhfixture").unwrap(),
             producer_signer_resolution_evidence_ref: None,
             producer_signer_resolution_evidence_digest: None,
             signer_resolution_evidence_ref: arkret_wire::SignerEvidenceRef::new(format!(

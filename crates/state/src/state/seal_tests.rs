@@ -4,7 +4,7 @@ use arkret_wire::{DidCoreId, DidUrl};
 /// non-ordered-log lattices, where the issuer is carried but unused.
 fn issued(op: SealedOp) -> IssuedOp {
     IssuedOp {
-        issuer: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
+        issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
         op,
     }
 }
@@ -814,7 +814,7 @@ fn join_transition_write(_: &Event) -> Result<Vec<ProjectedCellWrite>, String> {
     op.from = Some(json!("invited"));
     op.to = Some(json!("join"));
     Ok(vec![ProjectedCellWrite {
-        cell: member_cell(),
+        cell_id: member_cell(),
         op: ProjectedOp::Direct(op),
     }])
 }
@@ -824,7 +824,7 @@ fn genesis_digest_suite_write(event: &Event) -> Result<Vec<ProjectedCellWrite>, 
         return Err("only Realm create initializes the digest suite".to_owned());
     }
     Ok(vec![ProjectedCellWrite {
-        cell: digest_suite_cell(),
+        cell_id: digest_suite_cell(),
         op: ProjectedOp::Direct(digest_suite_set_op()),
     }])
 }
@@ -840,12 +840,12 @@ fn bootstrap_member_transition_write(event: &Event) -> Result<Vec<ProjectedCellW
     op.from = Some(json!(state.0));
     op.to = Some(json!(state.1));
     let mut writes = vec![ProjectedCellWrite {
-        cell: member_cell(),
+        cell_id: member_cell(),
         op: ProjectedOp::Direct(op),
     }];
     if event.kind == arkret_wire::EventKind::RealmCreate {
         writes.push(ProjectedCellWrite {
-            cell: digest_suite_cell(),
+            cell_id: digest_suite_cell(),
             op: ProjectedOp::Direct(digest_suite_set_op()),
         });
     }
@@ -1045,7 +1045,7 @@ fn anchor_unit_stages_create_projection_before_creator_binding_transition() {
     );
     binding.seal_basis = None;
     binding.preconditions.push(Precondition {
-        cell: member_cell(),
+        cell_id: member_cell(),
         predicate: Predicate {
             op: PredicateOp::HeadEq,
             value: Some(json!("join")),
@@ -1199,7 +1199,7 @@ fn apply_seal_applies_only_projector_derived_writes() {
     let ops = cells.sealed_ops_for_cell(&realm(), &member_cell()).unwrap();
     assert_eq!(ops.len(), 1);
     assert_eq!(ops[0].op.move_id, digest);
-    assert_eq!(ops[0].issuer, event.actor_id);
+    assert_eq!(ops[0].issuer_id, event.actor_id);
     assert_eq!(events.covering_seals(&digest).unwrap(), vec![seal.id]);
 }
 
@@ -1455,7 +1455,7 @@ fn recovery_witness_fixture() -> RecoveryWitnessFixture {
     let target_value = json!({"policy_revision": 7});
     let grant_value = json!({
         "grant_id": grant_id,
-        "subject": actor,
+        "subject_id": actor,
         "actions": ["ak.conflict.recovery"],
         "resources": [{"kind": "realm", "realm_id": realm()}]
     });

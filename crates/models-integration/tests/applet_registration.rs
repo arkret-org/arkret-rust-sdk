@@ -304,7 +304,7 @@ fn applet_package_derives_registration_and_rejects_stale_epoch() {
         .unwrap();
 
     let mut stale = package;
-    stale.base_url = "https://other.example/cx".to_owned();
+    stale.base_uri = "https://other.example/cx".to_owned();
     assert!(stale.validate().is_err());
     assert!(stale.validate_with_epoch_evidence(&evidence).is_err());
 }
@@ -703,7 +703,7 @@ fn install_commit_uses_each_signed_event_carrier_once() {
             verification_method: signer.verification_method.clone(),
             payload_digest: sample_epoch(),
             created_at: requested_at,
-            audience: actor("principal-server"),
+            audience_id: actor("principal-server"),
             jws: "eyJhbGciOiJFZDI1NTE5In0..c2lnbmF0dXJl".to_owned(),
         },
     };

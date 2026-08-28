@@ -330,7 +330,7 @@ mod tests {
         RegistryContentRef {
             registry_id: name.to_owned(),
             digest: hash(byte),
-            retrieval_url: None,
+            retrieval_uri: None,
         }
     }
 

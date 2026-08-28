@@ -2303,7 +2303,7 @@ mod event_wire_surface_tests {
         // `realm_id` (spec `zh/models/realm-and-space.md` section 2.5.0).
         event.scope_ref = ScopeRef::RealmGenesis;
         event.preconditions.push(Precondition {
-            cell: crate::CellRef::new("ak:cell:ak.component.realm.create.v1:null".to_owned())
+            cell_id: crate::CellRef::new("ak:cell:ak.component.realm.create.v1:null".to_owned())
                 .unwrap(),
             predicate: crate::cba::Predicate {
                 op: crate::cba::PredicateOp::HeadEq,

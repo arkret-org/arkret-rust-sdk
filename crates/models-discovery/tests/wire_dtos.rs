@@ -28,7 +28,7 @@ fn service_describe_round_trips_interop_surfaces_on_the_canonical_key() {
         ServiceKind::PrincipalServer,
         vec!["ak.operation_bundle.principal_server.describe.v1".to_owned()],
         vec![arkret_models_discovery::TransportBinding::HttpJson {
-            base_url: "https://service.example".to_owned(),
+            base_uri: "https://service.example".to_owned(),
             extension_profile_required: (),
         }],
     );
@@ -102,7 +102,7 @@ fn directory_search_realms_request_uses_source_realm_id() {
         query: Some("release".to_owned()),
         organization_principal_id: None,
         source_realm_id: Some(source_realm_id.clone()),
-        requester: None,
+        requester_id: None,
         proof_challenge: Some("challenge-1".to_owned()),
         claim_presentations: Vec::new(),
         cursor: None,

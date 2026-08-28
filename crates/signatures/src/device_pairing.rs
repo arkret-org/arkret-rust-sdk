@@ -23,7 +23,7 @@ pub struct ServerDevicePairingChallenge {
     pub client_nonce: DevicePairingNonce,
     pub device_pairing_request_id: DevicePairingRequestId,
     pub expires_at: DateTime<Utc>,
-    pub gate_audience: String,
+    pub gate_audience_uri: String,
     pub pairing_code: DevicePairingCode,
     pub server_nonce: DevicePairingNonce,
 }
@@ -37,7 +37,7 @@ impl ServerDevicePairingChallenge {
             client_nonce,
             device_pairing_request_id: outcome.device_pairing_request_id.clone(),
             expires_at: outcome.expires_at,
-            gate_audience: outcome.gate_audience.clone(),
+            gate_audience_uri: outcome.gate_audience_uri.clone(),
             pairing_code: outcome.pairing_code.clone(),
             server_nonce: outcome.server_nonce.clone(),
         }
@@ -48,7 +48,7 @@ impl ServerDevicePairingChallenge {
             client_nonce: bootstrap.client_nonce.clone(),
             device_pairing_request_id: bootstrap.device_pairing_request_id.clone(),
             expires_at: bootstrap.expires_at,
-            gate_audience: bootstrap.gate_audience.clone(),
+            gate_audience_uri: bootstrap.gate_audience_uri.clone(),
             pairing_code: bootstrap.pairing_code.clone(),
             server_nonce: bootstrap.server_nonce.clone(),
         }
@@ -103,7 +103,7 @@ pub fn verify_device_pairing_target_attestation(
     attestation: &DevicePairingTargetAttestation,
 ) -> Result<(), DevicePairingProofError> {
     let multibase = attestation
-        .device_public_key
+        .device_public_key_did
         .as_str()
         .strip_prefix("did:key:")
         .ok_or(DevicePairingProofError::UnsupportedKey)?;
@@ -130,7 +130,7 @@ struct ServerTranscriptBody<'a> {
     device_pairing_request_id: &'a str,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     expires_at: DateTime<Utc>,
-    gate_audience: &'a str,
+    gate_audience_uri: &'a str,
     new_device_pubkey_digest: &'a str,
     pairing_code: &'a str,
     server_nonce: &'a str,
@@ -140,7 +140,7 @@ struct ServerTranscriptBody<'a> {
 struct ToDeviceTranscriptBody<'a> {
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     expires_at: DateTime<Utc>,
-    gate_audience: &'a str,
+    gate_audience_uri: &'a str,
     new_device_pubkey_digest: &'a str,
     pairing_code: &'a str,
     request_canonical_digest: &'a str,
@@ -156,7 +156,7 @@ pub fn server_device_pairing_transcript(
         client_nonce: challenge.client_nonce.as_str(),
         device_pairing_request_id: challenge.device_pairing_request_id.as_str(),
         expires_at: challenge.expires_at,
-        gate_audience: &challenge.gate_audience,
+        gate_audience_uri: &challenge.gate_audience_uri,
         new_device_pubkey_digest: &public_key_digest,
         pairing_code: challenge.pairing_code.as_str(),
         server_nonce: challenge.server_nonce.as_str(),
@@ -234,13 +234,13 @@ pub fn verify_server_device_pairing_challenge(
 pub fn to_device_pairing_transcript(
     public_key: &PublicKey,
     pairing_code: &DevicePairingCode,
-    gate_audience: &str,
+    gate_audience_uri: &str,
     challenge: &DevicePairingToDeviceChallengeTranscript,
 ) -> Result<(Vec<u8>, Hash), DevicePairingProofError> {
     let public_key_digest = arkret_canonical::canonical_sha256(public_key)?;
     let body = ToDeviceTranscriptBody {
         expires_at: challenge.expires_at,
-        gate_audience,
+        gate_audience_uri,
         new_device_pubkey_digest: &public_key_digest,
         pairing_code: pairing_code.as_str(),
         request_canonical_digest: challenge.request_canonical_digest.as_str(),
@@ -256,13 +256,13 @@ pub fn to_device_pairing_transcript(
 pub fn sign_to_device_pairing_challenge(
     public_key: &PublicKey,
     pairing_code: &DevicePairingCode,
-    gate_audience: &str,
+    gate_audience_uri: &str,
     challenge: &DevicePairingToDeviceChallengeTranscript,
     signing_key: &ed25519_dalek::SigningKey,
 ) -> Result<DevicePairingChallengeProof, DevicePairingProofError> {
     validate_public_key(public_key, signing_key.verifying_key().as_bytes())?;
     let (bytes, transcript_digest) =
-        to_device_pairing_transcript(public_key, pairing_code, gate_audience, challenge)?;
+        to_device_pairing_transcript(public_key, pairing_code, gate_audience_uri, challenge)?;
     let kid = DeviceId::new(public_key.kid.as_str().to_owned())
         .map_err(|_| DevicePairingProofError::UnsupportedKey)?;
     Ok(DevicePairingChallengeProof {
@@ -281,7 +281,7 @@ pub fn sign_to_device_pairing_challenge(
 pub fn verify_to_device_pairing_challenge(
     public_key: &PublicKey,
     pairing_code: &DevicePairingCode,
-    gate_audience: &str,
+    gate_audience_uri: &str,
     challenge: &DevicePairingToDeviceChallengeTranscript,
     proof: &DevicePairingChallengeProof,
     verification_time: DateTime<Utc>,
@@ -308,7 +308,7 @@ pub fn verify_to_device_pairing_challenge(
     let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&public_key_array)
         .map_err(|_| DevicePairingProofError::UnsupportedKey)?;
     let (bytes, digest) =
-        to_device_pairing_transcript(public_key, pairing_code, gate_audience, challenge)?;
+        to_device_pairing_transcript(public_key, pairing_code, gate_audience_uri, challenge)?;
     if digest != proof.transcript_digest {
         return Err(DevicePairingProofError::DigestMismatch);
     }
@@ -369,7 +369,7 @@ mod tests {
             expires_at: DateTime::parse_from_rfc3339("2026-07-26T00:10:00.000Z")
                 .unwrap()
                 .with_timezone(&Utc),
-            gate_audience: "https://account.example".to_owned(),
+            gate_audience_uri: "https://account.example".to_owned(),
             pairing_code: DevicePairingCode::new("ABCDEFGH".to_owned()).unwrap(),
             server_nonce: DevicePairingNonce::new("BBBBBBBBBBBBBBBBBBBBBB").unwrap(),
         };
@@ -388,7 +388,7 @@ mod tests {
             .unwrap();
 
         let mut tampered = challenge;
-        tampered.gate_audience = "https://attacker.example".to_owned();
+        tampered.gate_audience_uri = "https://attacker.example".to_owned();
         assert!(matches!(
             verify_server_device_pairing_challenge(
                 &public_key,
@@ -432,7 +432,7 @@ mod tests {
                 "ak.device_authorize_accepted_device_possession_proof.v1\n\
                  {{\"algorithms\":[\"Ed25519\"],\"authorization_binding_kind\":\"accepted_device\",\
                  \"device_id\":\"ak:device:01904100-0000-7000-8000-000000000009\",\
-                 \"device_key_algorithm\":\"Ed25519\",\"device_public_key\":\"{did_key}\",\
+                 \"device_key_algorithm\":\"Ed25519\",\"device_public_key_did\":\"{did_key}\",\
                  \"hpke_key\":\"hpke-public-key-fixture\",\
                  \"pairing_challenge_transcript_digest\":\"sha256:{}\"}}",
                 "a".repeat(64)

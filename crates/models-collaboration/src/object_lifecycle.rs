@@ -28,9 +28,9 @@ pub struct SpaceObjectTombstonePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub replacement_space: Option<SpaceId>,
+    pub replacement_space_id: Option<SpaceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub replacement_event: Option<EventRef>,
+    pub replacement_event_id: Option<EventRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub effective_at: Option<DateTime<Utc>>,

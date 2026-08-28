@@ -80,7 +80,7 @@ pub fn consent_cell_id(consent_id: &ConsentId) -> Result<CellRef, WireError> {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ConsentGrantValue {
     pub consent_id: ConsentId,
-    pub peer: DidCoreId,
+    pub peer_id: DidCoreId,
     pub scope: Scope,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -133,7 +133,7 @@ mod tests {
     fn grant_value_round_trip_through_serde() {
         let v = ConsentGrantValue {
             consent_id: consent_id(),
-            peer: bob(),
+            peer_id: bob(),
             scope: Scope::Invite,
             not_before: None,
             expires_at: Some(ts(2026, 12, 31)),

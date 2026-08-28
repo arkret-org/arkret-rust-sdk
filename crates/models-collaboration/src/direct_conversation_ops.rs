@@ -206,7 +206,7 @@ impl DirectConversationFoundingPlan {
             || founder_member_payload.actor_id.as_ref() != Some(&create.actor_id)
             || founder_member_payload.realm_id.as_ref() != Some(&realm_id)
             || founder_member.preconditions.len() != 1
-            || founder_member.preconditions[0].cell != founder_cell
+            || founder_member.preconditions[0].cell_id != founder_cell
             || founder_member.preconditions[0].predicate.op != PredicateOp::HeadEq
             || founder_member.preconditions[0].predicate.value != Some(serde_json::Value::Null)
         {
@@ -405,7 +405,7 @@ fn validate_contact_contact_round_evidence_shape(
         || bundle
             .current_proofs
             .iter()
-            .map(|proof| &proof.issuer)
+            .map(|proof| &proof.issuer_id)
             .collect::<std::collections::BTreeSet<_>>()
             != participants
                 .iter()
@@ -491,7 +491,7 @@ fn validate_contact_contact_round_evidence_shape(
             if expected != actual
                 || attestations.iter().any(|attestation| {
                     attestation.complete_through == 0
-                        || attestation.issuer.as_core_id() == attestation.peer.as_core_id()
+                        || attestation.issuer_id.as_core_id() == attestation.peer_id.as_core_id()
                         || attestation
                             .request_receipt_digests
                             .iter()

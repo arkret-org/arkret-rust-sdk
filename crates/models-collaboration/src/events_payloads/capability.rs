@@ -12,7 +12,7 @@ pub struct CapabilityGrantCreateBody {
     pub schema: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    pub issuer: DidCoreId,
+    pub issuer_id: DidCoreId,
     pub subject: CapabilitySubject,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub subject_principal_server_id: Option<DidCoreId>,

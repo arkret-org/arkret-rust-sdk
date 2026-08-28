@@ -414,7 +414,7 @@ mod presence_tests {
         .unwrap();
 
         assert_eq!(writes.len(), 1);
-        assert_eq!(writes[0].cell, payload.cell_ref().unwrap());
+        assert_eq!(writes[0].cell_id, payload.cell_ref().unwrap());
     }
 
     #[test]

@@ -832,7 +832,7 @@ pub struct MessageCreatePayload {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub blob_refs: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reply_to: Option<String>,
+    pub reply_to_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agent_context: Option<MessageAgentContext>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -853,7 +853,7 @@ impl MessageCreatePayload {
             metadata: None,
             encrypted_metadata: None,
             blob_refs: Vec::new(),
-            reply_to: None,
+            reply_to_id: None,
             agent_context: None,
             mimi_provenance: None,
         }
@@ -884,7 +884,7 @@ impl MessageCreatePayload {
             metadata: None,
             encrypted_metadata: None,
             blob_refs: Vec::new(),
-            reply_to: None,
+            reply_to_id: None,
             agent_context: None,
             mimi_provenance: None,
         }
@@ -948,8 +948,8 @@ impl MessageCreatePayload {
         }
     }
 
-    pub fn with_reply_to(mut self, reply_to: impl Into<String>) -> Self {
-        self.reply_to = Some(reply_to.into());
+    pub fn with_reply_to_id(mut self, reply_to_id: impl Into<String>) -> Self {
+        self.reply_to_id = Some(reply_to_id.into());
         self
     }
 

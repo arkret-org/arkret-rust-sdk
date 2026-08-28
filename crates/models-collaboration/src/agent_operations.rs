@@ -48,7 +48,7 @@ pub struct AgentRuntimeKeyPossessionProof {
     pub verification_method: DidUrl,
     pub signature_algorithm: AgentRuntimeKeyAlgorithm,
     pub challenge: OpaqueLocalId,
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
     #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     #[serde(with = "canonical_timestamp")]
@@ -122,7 +122,7 @@ impl AgentRuntimeKeyPossessionProof {
             "verification_method": self.verification_method,
             "signature_algorithm": self.signature_algorithm,
             "challenge": self.challenge,
-            "audience": self.audience,
+            "audience_id": self.audience_id,
             "created_at": canonical::format_timestamp_canonical(self.created_at),
             "expires_at": canonical::format_timestamp_canonical(self.expires_at),
             "pairing_code": pairing_code,
@@ -227,7 +227,7 @@ pub fn agent_key_pairing_request_binding_digest(
         "pairing_request_id": pairing_request_id,
         "pairing_code": pairing_code,
         "expires_at": pairing_expires_at,
-        "audience": audience,
+        "audience_id": audience,
         "runtime_key_binding_digest": runtime_key_binding_digest,
         "proof_of_possession_digest": proof.wire_digest()?,
     });
@@ -602,7 +602,7 @@ pub struct AgentRenewPairingOutcome {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentPairingBootstrap {
-    pub arkret_base_url: String,
+    pub arkret_base_uri: String,
     pub service_id: DidCoreId,
     pub agent_id: DidCoreId,
     pub pairing_request_id: OpaqueLocalId,
@@ -897,7 +897,7 @@ impl AgentGrantAttachRequestBody {
                 ));
             }
         };
-        if grant.issuer != event.actor_id
+        if grant.issuer_id != event.actor_id
             || grant.realm_id.as_ref() != Some(&event.realm_id)
             || event.scope_ref.realm_id() != &event.realm_id
             || self.requested_scope_disclosure.agent_id != *subject
@@ -968,7 +968,7 @@ impl AgentGrantDetachRequestBody {
             ));
         };
         let predicate = &precondition.predicate;
-        if precondition.cell.as_str() != expected_cell
+        if precondition.cell_id.as_str() != expected_cell
             || predicate.op != PredicateOp::HeadEq
             || predicate
                 .value
@@ -2243,7 +2243,7 @@ mod tests {
             refs: Vec::new(),
             causal_refs: Vec::new(),
             preconditions: vec![Precondition {
-                cell,
+                cell_id: cell,
                 predicate: Predicate {
                     op: PredicateOp::HeadEq,
                     value: Some(serde_json::json!([{
@@ -2310,7 +2310,7 @@ mod tests {
         );
 
         let mut wrong_cell = agent_grant_detach_request();
-        wrong_cell.revoke_event.event.preconditions[0].cell = CellRef::new(format!(
+        wrong_cell.revoke_event.event.preconditions[0].cell_id = CellRef::new(format!(
             "ak:cell:ak.component.capability.grant.v1:{OTHER_GRANT_ID}"
         ))
         .unwrap();
@@ -2445,7 +2445,7 @@ mod tests {
                 "verification_method": "did:webvh:z6mkfixture:agent.example#runtime-key-1",
                 "signature_algorithm": "Ed25519",
                 "challenge": "agent_pairing_request:01964137-0000-7000-8000-000000000001",
-                "audience": "ak:did_core:webvh:z6mkfixture",
+                "audience_id": "ak:did_core:webvh:z6mkfixture",
                 "created_at": "2026-07-20T00:00:00.000Z",
                 "expires_at": "2026-07-20T00:05:00.000Z",
                 "runtime_key_binding_digest": format!("sha256:{}", "1".repeat(64)),
@@ -2467,7 +2467,7 @@ mod tests {
                 "resources": []
             },
             "verifier_id": "ak:did_core:webvh:z6mkfixture",
-            "audience": "ak.gate.account.command.pair_agent_key.v1",
+            "audience_id": "ak.gate.account.command.pair_agent_key.v1",
             "challenge": "0123456789abcdef",
             "issued_at": "2026-08-03T00:00:00.000Z",
             "expires_at": "2026-08-03T00:05:00.000Z",

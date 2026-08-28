@@ -287,8 +287,8 @@ pub struct AccountHandoffAuthenticationProof {
     pub proof_kind: AccountHandoffAuthenticationProofKind,
     pub challenge: String,
     pub request_canonical_digest: Hash,
-    pub audience: DidCoreId,
-    pub issuer: String,
+    pub audience_id: DidCoreId,
+    pub issuer_uri: String,
     pub client_id: String,
     pub redirect_uri: String,
     pub state: String,
@@ -304,8 +304,8 @@ impl AccountHandoffAuthenticationProof {
             "proof_kind": self.proof_kind,
             "challenge": &self.challenge,
             "request_canonical_digest": &self.request_canonical_digest,
-            "audience": &self.audience,
-            "issuer": &self.issuer,
+            "audience_id": &self.audience_id,
+            "issuer_uri": &self.issuer_uri,
             "client_id": &self.client_id,
             "redirect_uri": &self.redirect_uri,
             "state": &self.state,
@@ -318,8 +318,8 @@ impl AccountHandoffAuthenticationProof {
     fn unsigned_proof(&self) -> UnsignedAccountHandoffAuthenticationProof {
         UnsignedAccountHandoffAuthenticationProof {
             challenge: self.challenge.clone(),
-            audience: self.audience.clone(),
-            issuer: self.issuer.clone(),
+            audience_id: self.audience_id.clone(),
+            issuer_uri: self.issuer_uri.clone(),
             client_id: self.client_id.clone(),
             redirect_uri: self.redirect_uri.clone(),
             state: self.state.clone(),
@@ -349,8 +349,8 @@ impl AccountHandoffRequestBody {
 #[derive(Clone, Debug)]
 pub struct UnsignedAccountHandoffAuthenticationProof {
     pub challenge: String,
-    pub audience: DidCoreId,
-    pub issuer: String,
+    pub audience_id: DidCoreId,
+    pub issuer_uri: String,
     pub client_id: String,
     pub redirect_uri: String,
     pub state: String,
@@ -373,7 +373,7 @@ impl UnsignedAccountHandoffRequestBody {
     ) -> Result<Self> {
         for (name, value) in [
             ("challenge", proof.challenge.as_str()),
-            ("issuer", proof.issuer.as_str()),
+            ("issuer", proof.issuer_uri.as_str()),
             ("client_id", proof.client_id.as_str()),
             ("redirect_uri", proof.redirect_uri.as_str()),
             ("state", proof.state.as_str()),
@@ -413,8 +413,8 @@ impl UnsignedAccountHandoffRequestBody {
                 proof_kind: AccountHandoffAuthenticationProofKind::OidcCodeExchange,
                 challenge: self.proof.challenge,
                 request_canonical_digest,
-                audience: self.proof.audience,
-                issuer: self.proof.issuer,
+                audience_id: self.proof.audience_id,
+                issuer_uri: self.proof.issuer_uri,
                 client_id: self.proof.client_id,
                 redirect_uri: self.proof.redirect_uri,
                 state: self.proof.state,
@@ -436,8 +436,8 @@ fn account_handoff_request_digest(
         "proof": {
             "proof_kind": AccountHandoffAuthenticationProofKind::OidcCodeExchange,
             "challenge": &proof.challenge,
-            "audience": &proof.audience,
-            "issuer": &proof.issuer,
+            "audience_id": &proof.audience_id,
+            "issuer_uri": &proof.issuer_uri,
             "client_id": &proof.client_id,
             "redirect_uri": &proof.redirect_uri,
             "state": &proof.state,
@@ -457,8 +457,8 @@ fn account_handoff_unsigned_proof_value(
         "proof_kind": AccountHandoffAuthenticationProofKind::OidcCodeExchange,
         "challenge": &proof.challenge,
         "request_canonical_digest": request_canonical_digest,
-        "audience": &proof.audience,
-        "issuer": &proof.issuer,
+        "audience_id": &proof.audience_id,
+        "issuer_uri": &proof.issuer_uri,
         "client_id": &proof.client_id,
         "redirect_uri": &proof.redirect_uri,
         "state": &proof.state,
@@ -980,8 +980,8 @@ pub struct IdentityAbandonmentChallengeOutcome {
     pub lease_fence: u64,
     pub consequence_disclosure: [IdentityAbandonmentConsequence; 4],
     pub dpop_jkt: String,
-    pub audience: DidCoreId,
-    pub origin: String,
+    pub audience_id: DidCoreId,
+    pub origin_uri: String,
     pub trust_domain: TrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -998,7 +998,7 @@ impl IdentityAbandonmentChallengeOutcome {
             || self.lease_fence == 0
             || self.consequence_disclosure != IDENTITY_ABANDONMENT_CONSEQUENCE_DISCLOSURE
             || self.dpop_jkt.is_empty()
-            || self.origin.is_empty()
+            || self.origin_uri.is_empty()
             || self.expires_at <= self.issued_at
             || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
         {
@@ -1219,8 +1219,8 @@ pub struct DidBindingChallengeOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub witness_evidence: Option<String>,
     pub dpop_jkt: String,
-    pub audience: DidCoreId,
-    pub origin: String,
+    pub audience_id: DidCoreId,
+    pub origin_uri: String,
     pub trust_domain: TrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -1234,7 +1234,7 @@ impl DidBindingChallengeOutcome {
             || self.challenge.len() < 22
             || self.did_version_id.is_empty()
             || self.dpop_jkt.is_empty()
-            || self.origin.is_empty()
+            || self.origin_uri.is_empty()
             || self.expires_at <= self.issued_at
             || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
             || project_did_to_core_id(&self.did)?.as_str() != self.principal_id.as_str()
@@ -1270,8 +1270,8 @@ pub struct AccountRegistrationControlProof {
     pub log_head_digest: Hash,
     pub control_key_digest: Hash,
     pub dpop_jkt: String,
-    pub audience: DidCoreId,
-    pub origin: String,
+    pub audience_id: DidCoreId,
+    pub origin_uri: String,
     pub trust_domain: TrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -1293,7 +1293,7 @@ impl AccountRegistrationControlProof {
         if self.challenge.len() < 22
             || self.did_version_id.is_empty()
             || self.dpop_jkt.is_empty()
-            || self.origin.is_empty()
+            || self.origin_uri.is_empty()
             || self.signature.is_empty()
             || self.expires_at <= self.issued_at
             || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
@@ -1393,7 +1393,7 @@ pub const RECOVERY_SESSION_GRANT_OPERATIONS: [&str; 13] = [
 pub struct InitialSessionGrantIntent {
     pub device_id: DeviceId,
     pub session_public_key: CanonicalSessionPublicJwk,
-    pub audience: DidCoreId,
+    pub audience_id: DidCoreId,
 }
 
 impl InitialSessionGrantIntent {
@@ -1430,8 +1430,8 @@ pub struct IdentityBindingChallengeOutcome {
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub dpop_jkt: String,
-    pub audience: DidCoreId,
-    pub origin: String,
+    pub audience_id: DidCoreId,
+    pub origin_uri: String,
     pub trust_domain: TrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -1469,8 +1469,8 @@ pub struct IdentityCreationControlProof {
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub dpop_jkt: String,
-    pub audience: DidCoreId,
-    pub origin: String,
+    pub audience_id: DidCoreId,
+    pub origin_uri: String,
     pub trust_domain: TrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -1512,8 +1512,8 @@ impl IdentityCreationControlProof {
             identity_creation_lease_id: self.identity_creation_lease_id.clone(),
             lease_fence: self.lease_fence,
             dpop_jkt: self.dpop_jkt.clone(),
-            audience: self.audience.clone(),
-            origin: self.origin.clone(),
+            audience_id: self.audience_id.clone(),
+            origin_uri: self.origin_uri.clone(),
             trust_domain: self.trust_domain.clone(),
             issued_at: self.issued_at,
             expires_at: self.expires_at,
@@ -1543,8 +1543,8 @@ pub struct UnsignedIdentityCreationControlProofBody {
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub dpop_jkt: String,
-    pub audience: DidCoreId,
-    pub origin: String,
+    pub audience_id: DidCoreId,
+    pub origin_uri: String,
     pub trust_domain: TrustDomainId,
     pub issued_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
@@ -1592,8 +1592,8 @@ impl UnsignedIdentityCreationControlProof {
             identity_creation_lease_id: body.identity_creation_lease_id,
             lease_fence: body.lease_fence,
             dpop_jkt: body.dpop_jkt,
-            audience: body.audience,
-            origin: body.origin,
+            audience_id: body.audience_id,
+            origin_uri: body.origin_uri,
             trust_domain: body.trust_domain,
             issued_at: body.issued_at,
             expires_at: body.expires_at,
@@ -1646,8 +1646,8 @@ fn identity_creation_control_proof_signing_bytes(
         "identity_creation_lease_id": &body.identity_creation_lease_id,
         "lease_fence": body.lease_fence,
         "dpop_jkt": &body.dpop_jkt,
-        "audience": &body.audience,
-        "origin": &body.origin,
+        "audience_id": &body.audience_id,
+        "origin_uri": &body.origin_uri,
         "trust_domain": &body.trust_domain,
         "issued_at": canonical::format_timestamp_canonical(body.issued_at),
         "expires_at": canonical::format_timestamp_canonical(body.expires_at),
@@ -2027,8 +2027,8 @@ mod account_handoff_tests {
                 proof_kind: AccountHandoffAuthenticationProofKind::OidcCodeExchange,
                 challenge: "challenge-0123456789".to_owned(),
                 request_canonical_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-                audience: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-                issuer: "https://auth.example".to_owned(),
+                audience_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                issuer_uri: "https://auth.example".to_owned(),
                 client_id: "arkret-client".to_owned(),
                 redirect_uri: "https://client.example/callback".to_owned(),
                 state: "state-0123456789".to_owned(),

@@ -239,7 +239,7 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
             verification_method,
             payload_digest: zero_hash()?,
             created_at,
-            audience: branch.principal_server_id.clone(),
+            audience_id: branch.principal_server_id.clone(),
             jws: String::new(),
         },
     };

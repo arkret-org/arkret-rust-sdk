@@ -60,7 +60,7 @@ impl Lattice for MvRegister {
                 let move_ids = valid_ops.iter().map(|e| e.move_id.clone()).collect();
                 let mut bottom = Bottom::new(BottomKind::Conflict, vec![cell.clone()]);
                 bottom.move_ids = move_ids;
-                bottom.heads = heads;
+                bottom.head_ids = heads;
                 CellState::Bottom(bottom)
             }
         }
@@ -152,8 +152,8 @@ mod tests {
         match MvRegister.join(&cell(), &ops) {
             CellState::Bottom(b) => {
                 assert_eq!(b.kind, BottomKind::Conflict);
-                assert_eq!(b.cells, vec![cell()]);
-                assert_eq!(b.heads.len(), 2);
+                assert_eq!(b.cell_ids, vec![cell()]);
+                assert_eq!(b.head_ids.len(), 2);
                 assert_eq!(b.move_ids.len(), 2);
             }
             _ => panic!("expected Bottom"),
@@ -179,7 +179,7 @@ mod tests {
         ];
         match MvRegister.join(&cell(), &ops) {
             CellState::Bottom(b) => {
-                assert_eq!(b.heads.len(), 3);
+                assert_eq!(b.head_ids.len(), 3);
                 assert_eq!(b.move_ids.len(), 3);
             }
             _ => panic!("expected Bottom"),
