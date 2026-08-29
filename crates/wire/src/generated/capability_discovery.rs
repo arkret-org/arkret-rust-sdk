@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/contract-registry.json; version=2026-08-29.6;
-//! sha256=816eac75b30ab0ca29c9bed9d78fa9d52642e663435bf5a9d6919ea9a4f3d848
-//! Entries: operation_bundles=39 features=22
+//! Input: registry/contract-registry.json; version=2026-08-29.8;
+//! sha256=5de2986fd290e60b7b244f21d3e05f1a92c51971d17532d636e87eaa6539a62e
+//! Entries: operation_bundles=40 features=22
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -638,6 +638,57 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             operation_id: ServiceOperationId::ServerReadDescribeV1,
             binding_kind: BindingKind::HttpJson,
         }],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.principal_server.history_key_recovery.v1",
+        service_kind: ServiceKind::PrincipalServer,
+        members: &[
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerHistoryKeyRequestsCommandReplicateV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerHistoryKeyResponsesCommandRelayV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id:
+                    ServiceOperationId::PeerOrganizationRecoveryArchivesCommandReplicateV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerSealsReadGovernanceDependenciesV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerSealsReadMlsGovernanceProofV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfHistoryKeyRequestsCommandCreateV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfHistoryKeyRequestsReadListV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfHistoryKeyResponsesCommandAckV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfHistoryKeyResponsesCommandSendV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfHistoryKeyResponsesReadListV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfOrganizationRecoveryArchivesReadListV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+        ],
     },
     OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.principal_server.http_core.v1",
@@ -1496,7 +1547,53 @@ pub const FEATURES: &[FeatureDescriptor] = &[
         status: FeatureStatus::Active,
         defined_in: "zh/governance/history-visibility.md",
         service_kinds: &[],
-        required_operation_pairs: &[],
+        required_operation_pairs: &[
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerHistoryKeyRequestsCommandReplicateV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerHistoryKeyResponsesCommandRelayV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id:
+                    ServiceOperationId::PeerOrganizationRecoveryArchivesCommandReplicateV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerSealsReadGovernanceDependenciesV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerSealsReadMlsGovernanceProofV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfHistoryKeyRequestsCommandCreateV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfHistoryKeyRequestsReadListV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfHistoryKeyResponsesCommandAckV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfHistoryKeyResponsesCommandSendV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfHistoryKeyResponsesReadListV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfOrganizationRecoveryArchivesReadListV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+        ],
         required_profiles: &[],
         required_limits: &[],
         semantic_guarantees: &[

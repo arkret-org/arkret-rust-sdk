@@ -1,6 +1,6 @@
 use arkret_wire::{
-    BindingKind, ServiceKind, ServiceOperationId, operation_binding_is_registered,
-    operation_bundle_descriptor, role_describe_bundle_descriptor,
+    BindingKind, ServiceKind, ServiceOperationId, feature_descriptor,
+    operation_binding_is_registered, operation_bundle_descriptor, role_describe_bundle_descriptor,
 };
 
 #[test]
@@ -48,6 +48,23 @@ fn auth_server_http_core_advertises_service_resolution() {
     assert_eq!(bundle.service_kind, ServiceKind::AuthServer);
     assert!(bundle.contains(
         ServiceOperationId::OpenServiceReadResolutionV1,
+        BindingKind::HttpJson,
+    ));
+}
+
+#[test]
+fn principal_server_history_key_recovery_bundle_closes_feature_requirements() {
+    let bundle =
+        operation_bundle_descriptor("ak.operation_bundle.principal_server.history_key_recovery.v1")
+            .expect("principal server history-key recovery bundle must be registered");
+    let feature = feature_descriptor("ak.feature.history_key_recovery.v1")
+        .expect("history-key recovery feature must be registered");
+
+    assert_eq!(bundle.service_kind, ServiceKind::PrincipalServer);
+    assert_eq!(bundle.members, feature.required_operation_pairs);
+    assert_eq!(bundle.members.len(), 11);
+    assert!(bundle.contains(
+        ServiceOperationId::SelfHistoryKeyRequestsReadListV1,
         BindingKind::HttpJson,
     ));
 }
