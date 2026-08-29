@@ -590,8 +590,8 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                 assert_eq!(set_descriptor["kind"], "string_set_digest");
                 assert_eq!(set_descriptor["field"], "payload.accountability_scope");
                 let context = set_descriptor["context"].as_str().unwrap();
-                let issuer = vector["issuer"].as_str().unwrap();
-                let subject = vector["subject"].as_str().unwrap();
+                let issuer = vector["issuer_id"].as_str().unwrap();
+                let subject = vector["subject_id"].as_str().unwrap();
                 let allowed = ["agent_operator", "contracted_service", "employment"];
                 let mut subjects = std::collections::BTreeMap::new();
 
