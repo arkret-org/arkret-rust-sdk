@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-29.7;
-//! sha256=f61a6098d47255e5acf2aebdac4de354ad3e46d84d14850ff2f4d3bd79acf195 Entries: registered=245
+//! Input: registry/operation-registry.json; version=2026-08-29.8;
+//! sha256=eb684a0f005fb51025a517729f3595a8a831df0a16efa0f781c4f95da8885bb1 Entries: registered=244
 
 use serde::{Deserialize, Serialize};
 
@@ -70,7 +70,6 @@ pub enum ServiceOperationId {
     OpenMimiCommandUpdateConsentV1,
     OpenMimiCommandUpdateRoomV1,
     OpenMimiExchangeRequestKeyMaterialV1,
-    OpenMimiReadGroupInfoV1,
     OpenMimiReadIdentifiersV1,
     OpenMimiReadProviderDirectoryV1,
     OpenServiceReadResolutionV1,
@@ -318,7 +317,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_CONSENT_V1,
     ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_ROOM_V1,
     ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL_V1,
-    ServiceOperationId::OPEN_MIMI_READ_GROUP_INFO_V1,
     ServiceOperationId::OPEN_MIMI_READ_IDENTIFIERS_V1,
     ServiceOperationId::OPEN_MIMI_READ_PROVIDER_DIRECTORY_V1,
     ServiceOperationId::OPEN_SERVICE_READ_RESOLUTION_V1,
@@ -608,7 +606,6 @@ impl ServiceOperationId {
         Self::OpenMimiCommandUpdateConsentV1,
         Self::OpenMimiCommandUpdateRoomV1,
         Self::OpenMimiExchangeRequestKeyMaterialV1,
-        Self::OpenMimiReadGroupInfoV1,
         Self::OpenMimiReadIdentifiersV1,
         Self::OpenMimiReadProviderDirectoryV1,
         Self::OpenServiceReadResolutionV1,
@@ -910,7 +907,6 @@ impl ServiceOperationId {
         "ak.open.mimi.command.update_room.v1";
     pub const OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL_V1: &'static str =
         "ak.open.mimi.exchange.request_key_material.v1";
-    pub const OPEN_MIMI_READ_GROUP_INFO_V1: &'static str = "ak.open.mimi.read.group_info.v1";
     pub const OPEN_MIMI_READ_IDENTIFIERS_V1: &'static str = "ak.open.mimi.read.identifiers.v1";
     pub const OPEN_MIMI_READ_PROVIDER_DIRECTORY_V1: &'static str =
         "ak.open.mimi.read.provider_directory.v1";
@@ -1321,7 +1317,6 @@ impl ServiceOperationId {
             Self::OpenMimiExchangeRequestKeyMaterialV1 => {
                 Self::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL_V1
             }
-            Self::OpenMimiReadGroupInfoV1 => Self::OPEN_MIMI_READ_GROUP_INFO_V1,
             Self::OpenMimiReadIdentifiersV1 => Self::OPEN_MIMI_READ_IDENTIFIERS_V1,
             Self::OpenMimiReadProviderDirectoryV1 => Self::OPEN_MIMI_READ_PROVIDER_DIRECTORY_V1,
             Self::OpenServiceReadResolutionV1 => Self::OPEN_SERVICE_READ_RESOLUTION_V1,
@@ -1763,7 +1758,6 @@ impl ServiceOperationId {
             Self::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL_V1 => {
                 Some(Self::OpenMimiExchangeRequestKeyMaterialV1)
             }
-            Self::OPEN_MIMI_READ_GROUP_INFO_V1 => Some(Self::OpenMimiReadGroupInfoV1),
             Self::OPEN_MIMI_READ_IDENTIFIERS_V1 => Some(Self::OpenMimiReadIdentifiersV1),
             Self::OPEN_MIMI_READ_PROVIDER_DIRECTORY_V1 => {
                 Some(Self::OpenMimiReadProviderDirectoryV1)
@@ -3538,9 +3532,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         response_schema_ref: Some(
             "schemas/mimi-operations.schema.json#/$defs/mimi_submit_message_outcome",
         ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.open.mimi.read.group_info.v1\",\"strategy\":\"query_operation\"}",
-        ),
+        uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
             target: None,
@@ -3592,9 +3584,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         response_schema_ref: Some(
             "schemas/mimi-operations.schema.json#/$defs/mimi_room_update_outcome",
         ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.open.mimi.read.group_info.v1\",\"strategy\":\"query_operation\"}",
-        ),
+        uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::Branched,
             target: None,
@@ -3621,33 +3611,13 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         response_schema_ref: Some(
             "schemas/mimi-operations.schema.json#/$defs/mimi_key_material_outcome",
         ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.open.mimi.read.group_info.v1\",\"strategy\":\"query_operation\"}",
-        ),
+        uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
             branch_contract_json: None,
         }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::OpenMimiReadGroupInfoV1,
-        http_method: "GET",
-        http_path: "/_arkret/open/mimi/strands/{strand_id}/group-info",
-        grpc: Some("OpenMimi/GroupInfo"),
-        mq: Some("open.mimi.query.group_info"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_group_info_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenMimiReadIdentifiersV1,

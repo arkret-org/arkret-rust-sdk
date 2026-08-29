@@ -1448,41 +1448,6 @@ pub struct MimiSubmitMessageOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiGroupInfoOutcome {
-    pub group_info: MimiGroupInfo,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub room_binding_ref: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<PayloadProof>,
-}
-
-impl MimiGroupInfoOutcome {
-    pub fn unsigned_payload(&self) -> Result<Value> {
-        mimi_unsigned_body_without_proofs(self)
-    }
-
-    pub fn payload_digest(&self) -> Result<Hash> {
-        mimi_payload_digest(&self.unsigned_payload()?)
-    }
-
-    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
-        let mut targets = Vec::new();
-        if let Some(room_binding_ref) = &self.room_binding_ref {
-            targets.push(("room_binding_ref", serde_json::to_value(room_binding_ref)?));
-        }
-        mimi_proof_binding_bytes(
-            ProofContextId::MIMI_GROUP_INFO_OUTCOME_PROOF_V1,
-            ServiceOperationId::OPEN_MIMI_READ_GROUP_INFO_V1,
-            None,
-            targets,
-            &self.payload_digest()?,
-            proof,
-        )
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiRequestConsentRequestBody {
     pub requester_id: DidCoreId,
     pub target: MimiConsentTarget,

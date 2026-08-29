@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/contract-registry.json; version=2026-08-29.11;
-//! sha256=4f2b1d51fe8ec239f581d9efbb5132856f79826aad71f0d5de8ef175855d1d71
+//! Input: registry/contract-registry.json; version=2026-08-29.12;
+//! sha256=3c52878a683a7e4fd484b195da887797c6f8105e2f1e713dbf7df537fc8728cf
 //! Entries: operation_bundles=39 features=22
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -1213,10 +1213,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::OpenMimiExchangeRequestKeyMaterialV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::OpenMimiReadGroupInfoV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {

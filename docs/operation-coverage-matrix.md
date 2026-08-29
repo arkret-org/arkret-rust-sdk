@@ -4,10 +4,10 @@
 > Coverage is credited only from explicit evidence in `tools/operation-coverage-evidence.json`.
 
 - Claimable profiles: 68 (implementation + deployment + hardening profiles)
-- Effective profile/operation requirements: 650
+- Effective profile/operation requirements: 649
 - Complete rows: 5
 - Partial rows: 13
-- Gap rows: 632
+- Gap rows: 631
 
 `gap` is an explicit non-claim: registry recognition or a generated constant is not SDK implementation evidence. Inherited requirements are expanded into every claiming child profile.
 
@@ -418,7 +418,6 @@
 | `ak.profile.mimi_interop.v1` | `interop` | `ak.open.mimi.command.submit_message.v1` | `POST /_arkret/open/mimi/strands/{strand_id}/messages` | — | — | — | gap |
 | `ak.profile.mimi_interop.v1` | `interop` | `ak.open.mimi.command.update_consent.v1` | `POST /_arkret/open/mimi/consent/update` | — | — | — | gap |
 | `ak.profile.mimi_interop.v1` | `interop` | `ak.open.mimi.command.update_room.v1` | `POST /_arkret/open/mimi/strands/{strand_id}/update` | — | — | — | gap |
-| `ak.profile.mimi_interop.v1` | `interop` | `ak.open.mimi.read.group_info.v1` | `GET /_arkret/open/mimi/strands/{strand_id}/group-info` | — | — | — | gap |
 | `ak.profile.mimi_interop.v1` | `interop` | `ak.open.mimi.read.provider_directory.v1` | `GET /_arkret/open/mimi/provider-directory` | — | — | — | gap |
 | `ak.profile.minimal_client.v1` | `client` | `ak.self.events.command.submit.v1` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.minimal_client.v1` | `client` | `ak.self.events.read.describe.v1` | `QUERY /_arkret/self/events/describe` | — | — | — | gap |

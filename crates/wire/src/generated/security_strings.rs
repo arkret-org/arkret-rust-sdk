@@ -1,22 +1,22 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-29.3;
-//! sha256=49979414f874ff127b313cf5df1d90cda614458d405855f00b82cfb482f90883 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-29.4;
+//! sha256=52aec3c644aa051cce0aa7d54da710c56a7f7cf0e64836b6ab88379faf20ce4f Input: registry/
 //! exporter-label-registry.json; version=2026-08-21.1;
-//! sha256=6cb34e722ce41df3c91204d48f6cdf66b68640e9d86a379a9267cefce484bb02 Input: registry/
+//! sha256=7e959c121558ccbff100ff9fc7d8c599a0fbb9e3409e044d5abf86f05088b21a Input: registry/
 //! digest-suite-registry.json; version=2026-08-18;
-//! sha256=7b9f5368e30cebd43c509db7815b9a01681f8cf11147600f6be16bddcc74657f Input: registry/
+//! sha256=8158db89e76f82d05f68535dd92f3f43cf5176e6144cb871972772ceafd6510b Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
-//! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
+//! sha256=87d9838de9d1155cb6d2466b0f189b2d7006573847d9087cb99169e5716cfb80 Input: registry/
 //! hpke-suite-registry.json; version=2026-08-29.1;
-//! sha256=462598a10f2780e1f6ddbddb819767b86a61a4200ada93a5e940ef41aae4db8f Input: registry/
+//! sha256=df918fa1b65348082afff99db7e13f45e9bd7eebb8f8d0b2c1320dcd1010182e Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-08-25;
-//! sha256=68619d8db1de222c9d032fdc96e92be32e85fdc0a3a0befdf4b21d135a57075d Input: registry/
+//! sha256=26d8e76c166e7295bc8327a232314d48638a7f4ca7b2fd3da9e53e46da4145b4 Input: registry/
 //! mls-extension-registry.json; version=2026-08-25;
-//! sha256=298685c15b11d75b55b1b6ece6a3674b320ae00a90f488cc4d2d3545f4888b86 Input: registry/
+//! sha256=51518dc2ea4b9fa6f4c491b24558c0663f172157e955bc7ae75d78559158fcb0 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
-//! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=80, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! sha256=b8bba95405eeb37909c1037f64e933cbb8e237753e7cae88bbc27020bcc39a71
+//! Entries: proof_contexts=79, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=32, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -73,7 +73,6 @@ pub enum ProofContextId {
     JoinApplicationReviewReceiptProofV1,
     KeyBackupDeleteProofV1,
     MemberDeliveryBindingCandidateProofV1,
-    MimiGroupInfoOutcomeProofV1,
     MimiIdentifierQueryOutcomeProofV1,
     MimiIdentifierQueryRequestProofV1,
     MimiKeyMaterialOutcomeProofV1,
@@ -157,7 +156,6 @@ impl ProofContextId {
         Self::JoinApplicationReviewReceiptProofV1,
         Self::KeyBackupDeleteProofV1,
         Self::MemberDeliveryBindingCandidateProofV1,
-        Self::MimiGroupInfoOutcomeProofV1,
         Self::MimiIdentifierQueryOutcomeProofV1,
         Self::MimiIdentifierQueryRequestProofV1,
         Self::MimiKeyMaterialOutcomeProofV1,
@@ -274,8 +272,6 @@ impl ProofContextId {
     pub const KEY_BACKUP_DELETE_PROOF_V1: &'static str = "ak.key_backup_delete_proof.v1";
     pub const MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1: &'static str =
         "ak.member_delivery_binding_candidate_proof.v1";
-    pub const MIMI_GROUP_INFO_OUTCOME_PROOF_V1: &'static str =
-        "ak.mimi_group_info_outcome_proof.v1";
     pub const MIMI_IDENTIFIER_QUERY_OUTCOME_PROOF_V1: &'static str =
         "ak.mimi_identifier_query_outcome_proof.v1";
     pub const MIMI_IDENTIFIER_QUERY_REQUEST_PROOF_V1: &'static str =
@@ -422,7 +418,6 @@ impl ProofContextId {
             Self::MemberDeliveryBindingCandidateProofV1 => {
                 Self::MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1
             }
-            Self::MimiGroupInfoOutcomeProofV1 => Self::MIMI_GROUP_INFO_OUTCOME_PROOF_V1,
             Self::MimiIdentifierQueryOutcomeProofV1 => Self::MIMI_IDENTIFIER_QUERY_OUTCOME_PROOF_V1,
             Self::MimiIdentifierQueryRequestProofV1 => Self::MIMI_IDENTIFIER_QUERY_REQUEST_PROOF_V1,
             Self::MimiKeyMaterialOutcomeProofV1 => Self::MIMI_KEY_MATERIAL_OUTCOME_PROOF_V1,
@@ -585,7 +580,6 @@ impl ProofContextId {
             Self::MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1 => {
                 Some(Self::MemberDeliveryBindingCandidateProofV1)
             }
-            Self::MIMI_GROUP_INFO_OUTCOME_PROOF_V1 => Some(Self::MimiGroupInfoOutcomeProofV1),
             Self::MIMI_IDENTIFIER_QUERY_OUTCOME_PROOF_V1 => {
                 Some(Self::MimiIdentifierQueryOutcomeProofV1)
             }
@@ -1926,22 +1920,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/member-delivery-binding-candidate.schema.json",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::MimiGroupInfoOutcomeProofV1,
-        context: "ak.mimi_group_info_outcome_proof.v1",
-        object_family: "mimi_group_info_outcome",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "operation_id",
-            "room_binding_ref?",
-            "verification_method",
-            "created_at",
-            "domain",
-            "audience",
-        ],
-        schema_ref: "schemas/mimi-operations.schema.json#/$defs/mimi_group_info_outcome",
     },
     ProofContextDescriptor {
         id: ProofContextId::MimiIdentifierQueryOutcomeProofV1,
