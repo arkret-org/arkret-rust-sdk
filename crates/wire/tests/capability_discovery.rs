@@ -1,6 +1,6 @@
 use arkret_wire::{
     BindingKind, ServiceKind, ServiceOperationId, operation_binding_is_registered,
-    role_describe_bundle_descriptor,
+    operation_bundle_descriptor, role_describe_bundle_descriptor,
 };
 
 #[test]
@@ -37,5 +37,17 @@ fn alternate_carrier_membership_is_typed() {
     assert!(!operation_binding_is_registered(
         ServiceOperationId::ServerReadDescribeV1,
         BindingKind::Websocket,
+    ));
+}
+
+#[test]
+fn auth_server_http_core_advertises_service_resolution() {
+    let bundle = operation_bundle_descriptor("ak.operation_bundle.auth_server.http_core.v1")
+        .expect("auth server HTTP core bundle must be registered");
+
+    assert_eq!(bundle.service_kind, ServiceKind::AuthServer);
+    assert!(bundle.contains(
+        ServiceOperationId::OpenServiceReadResolutionV1,
+        BindingKind::HttpJson,
     ));
 }

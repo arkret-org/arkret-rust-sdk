@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-29.1;
-//! sha256=737e6e0a4807010454f074d293a197269d0831bac07cc8aa8bf11ecc210de35b Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-29.2;
+//! sha256=9f123e0679f5ed75ea368e08c050ec0eb7aa2d2596487ff630dcd9027ea474b0 Input: registry/
 //! exporter-label-registry.json; version=2026-08-21.1;
 //! sha256=6cb34e722ce41df3c91204d48f6cdf66b68640e9d86a379a9267cefce484bb02 Input: registry/
 //! digest-suite-registry.json; version=2026-08-18;
@@ -2123,6 +2123,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "challenge_id",
             "organization_id",
+            "organization_did",
             "local_admin_subject",
             "version_id",
             "log_head_digest",
@@ -2141,6 +2142,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "issuer_id",
             "registration_receipt_id",
             "organization_id",
+            "organization_did",
             "verification_method",
             "created_at",
             "domain?",

@@ -1076,6 +1076,22 @@ mod tests {
         )
     }
 
+    fn auth_server_description() -> ServiceDescribe {
+        ServiceDescribe::development(
+            Did::new("did:webvh:z6mkfixture:auth.example").unwrap(),
+            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+            ServiceKind::AuthServer,
+            vec![
+                "ak.operation_bundle.auth_server.describe.v1".to_owned(),
+                "ak.operation_bundle.auth_server.http_core.v1".to_owned(),
+            ],
+            vec![TransportBinding::HttpJson {
+                base_url: "https://auth.example".to_owned(),
+                extension_profile_required: (),
+            }],
+        )
+    }
+
     #[test]
     fn directory_resource_kind_tokens_are_closed_and_round_trip() {
         let tokens = ["realm", "organization", "actor", "applet", "handle"];
@@ -1120,6 +1136,24 @@ mod tests {
                     &[BindingKind::Websocket],
                 )
                 .is_none()
+        );
+    }
+
+    #[test]
+    fn auth_server_bundle_expands_service_resolution_capability() {
+        let description = auth_server_description();
+
+        assert!(description.supports_operation_binding(
+            ServiceOperationId::OpenServiceReadResolutionV1,
+            BindingKind::HttpJson,
+        ));
+        assert!(
+            description
+                .select_transport_binding(
+                    ServiceOperationId::OpenServiceReadResolutionV1,
+                    &[BindingKind::HttpJson],
+                )
+                .is_some()
         );
     }
 
