@@ -12,7 +12,7 @@ consume the Arkret Rust SDK.
 A `Circle` is an intra-Realm cryptographic sub-boundary. It hosts its
 own MLS group, its own membership (which **MUST** be a strict subset of
 the parent Realm's membership), and its own history visibility. A
-Circle does **NOT** carry federation identity, policy server, or
+Circle does **NOT** carry federation identity or
 capability registry — those remain on the parent Realm.
 
 Circles are intentionally rare and stable. They are not a replacement

@@ -1005,7 +1005,6 @@ pub enum RealmOrganizationControlScope {
     OfficialBadge,
     RealmAdmin,
     NotaryControl,
-    PolicyServer,
     DeliveryBindingPolicy,
     DurabilityPolicy,
     ModerationPolicy,

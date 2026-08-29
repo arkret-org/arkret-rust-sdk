@@ -99,7 +99,7 @@ Headline additions:
 
 - **Types**: `EventsSubscribeFrame` (8-kind enum), `SnapshotBootstrap`,
   `EventsFrontierState` oneOf (`AccountClient` / `FederationPeer` /
-  `AnonymousHealth`), `PolicyCheckRequestBody` / `PolicyCheckOutcome`,
+  `AnonymousHealth`),
   `FederationServiceBindingRef` (6 required fields),
   `EventsSubmitBatchRequestBody` / `EventsSubmitFederationRequestBody`,
   `ThirdPartyInvite{oob_code_kind}`, `SpaceStateTransitionPayload` /

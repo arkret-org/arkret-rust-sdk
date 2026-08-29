@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-29.1;
-//! sha256=e98d65f1bfe8d179c090ae72be92ac257fd2c50b9028ab9a60cfc2373dd18c61 Entries: schema_ids=199,
-//! active=199
+//! Input: registry/schema-registry.json; version=2026-08-29.2;
+//! sha256=7b048632227404dc1396e0b2cef1deb28c57c893dfe844866cdc28a2a03964f4 Entries: schema_ids=198,
+//! active=198
 
 use serde::{Deserialize, Serialize};
 
@@ -159,7 +159,6 @@ pub enum SchemaId {
     RealmJoinCandidateV1,
     RealmLinkOperationsV1,
     RealmOrganizationOperationsV1,
-    RealmPolicyServerOperationsV1,
     RealmProfileV1,
     RealmReadOperationsV1,
     RecoveryCompletionAttestationV1,
@@ -362,7 +361,6 @@ impl SchemaId {
         Self::RealmJoinCandidateV1,
         Self::RealmLinkOperationsV1,
         Self::RealmOrganizationOperationsV1,
-        Self::RealmPolicyServerOperationsV1,
         Self::RealmProfileV1,
         Self::RealmReadOperationsV1,
         Self::RecoveryCompletionAttestationV1,
@@ -565,7 +563,6 @@ impl SchemaId {
         Self::RealmJoinCandidateV1,
         Self::RealmLinkOperationsV1,
         Self::RealmOrganizationOperationsV1,
-        Self::RealmPolicyServerOperationsV1,
         Self::RealmProfileV1,
         Self::RealmReadOperationsV1,
         Self::RecoveryCompletionAttestationV1,
@@ -793,7 +790,7 @@ impl SchemaId {
     pub const CBA_PROOF_BUNDLE_V1: &'static str = "ak.schema.cba_proof_bundle.v1";
     /// Circle — intra-Realm scoped event/message boundary. Subset membership, independent history
     /// visibility, delivery/query/projection boundary, and optional independent MLS group. Does NOT
-    /// carry federation identity or policy server. see zh/models/circle.md.
+    /// carry federation identity. see zh/models/circle.md.
     pub const CIRCLE_V1: &'static str = "ak.schema.circle.v1";
     /// Closed request/response DTO bundle for self-surface Circle administration operations
     /// (ak.self.circle.*); see zh/models/circle.md.
@@ -1036,10 +1033,6 @@ impl SchemaId {
     /// (ak.self.realm_organization.*); see zh/models/realm-and-space.md.
     pub const REALM_ORGANIZATION_OPERATIONS_V1: &'static str =
         "ak.schema.realm_organization_operations.v1";
-    /// Closed request/response DTO bundle for self-surface Realm policy-server config operations
-    /// (ak.self.realm_policy_server.*); see zh/authz/policy-server.md.
-    pub const REALM_POLICY_SERVER_OPERATIONS_V1: &'static str =
-        "ak.schema.realm_policy_server_operations.v1";
     pub const REALM_PROFILE_V1: &'static str = "ak.schema.realm_profile.v1";
     /// Closed request/response DTO bundle for self-surface Realm read and moderation-policy
     /// operations (ak.self.realm.*); see zh/models/realm-and-space.md and
@@ -1337,7 +1330,6 @@ impl SchemaId {
             Self::RealmJoinCandidateV1 => Self::REALM_JOIN_CANDIDATE_V1,
             Self::RealmLinkOperationsV1 => Self::REALM_LINK_OPERATIONS_V1,
             Self::RealmOrganizationOperationsV1 => Self::REALM_ORGANIZATION_OPERATIONS_V1,
-            Self::RealmPolicyServerOperationsV1 => Self::REALM_POLICY_SERVER_OPERATIONS_V1,
             Self::RealmProfileV1 => Self::REALM_PROFILE_V1,
             Self::RealmReadOperationsV1 => Self::REALM_READ_OPERATIONS_V1,
             Self::RecoveryCompletionAttestationV1 => Self::RECOVERY_COMPLETION_ATTESTATION_V1,
@@ -1585,9 +1577,6 @@ impl SchemaId {
             Self::RealmOrganizationOperationsV1 => {
                 "schemas/realm-organization-operations.schema.json"
             }
-            Self::RealmPolicyServerOperationsV1 => {
-                "schemas/realm-policy-server-operations.schema.json"
-            }
             Self::RealmProfileV1 => "schemas/realm-profile.schema.json",
             Self::RealmReadOperationsV1 => "schemas/realm-read-operations.schema.json",
             Self::RecoveryCompletionAttestationV1 => "schemas/recovery-authority.schema.json",
@@ -1827,7 +1816,6 @@ impl SchemaId {
             Self::REALM_JOIN_CANDIDATE_V1 => Some(Self::RealmJoinCandidateV1),
             Self::REALM_LINK_OPERATIONS_V1 => Some(Self::RealmLinkOperationsV1),
             Self::REALM_ORGANIZATION_OPERATIONS_V1 => Some(Self::RealmOrganizationOperationsV1),
-            Self::REALM_POLICY_SERVER_OPERATIONS_V1 => Some(Self::RealmPolicyServerOperationsV1),
             Self::REALM_PROFILE_V1 => Some(Self::RealmProfileV1),
             Self::REALM_READ_OPERATIONS_V1 => Some(Self::RealmReadOperationsV1),
             Self::RECOVERY_COMPLETION_ATTESTATION_V1 => Some(Self::RecoveryCompletionAttestationV1),

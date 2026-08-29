@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-29.6;
-//! sha256=1f389482c3bbd649af09ef5a601a2d9f905aef2d5ac32270b926e79c13e82556 Entries: registered=249
+//! Input: registry/operation-registry.json; version=2026-08-29.7;
+//! sha256=f61a6098d47255e5acf2aebdac4de354ad3e46d84d14850ff2f4d3bd79acf195 Entries: registered=245
 
 use serde::{Deserialize, Serialize};
 
@@ -221,7 +221,6 @@ pub enum ServiceOperationId {
     SelfMorphReadListV1,
     SelfMorphResourceGetV1,
     SelfOrganizationRecoveryArchivesReadListV1,
-    SelfPolicyReadCheckV1,
     SelfReadCursorCommandAdvanceV1,
     SelfReadCursorReadListV1,
     SelfRealmJoinApplicationAuditReadListV1,
@@ -239,9 +238,6 @@ pub enum ServiceOperationId {
     SelfRealmLinkReadListV1,
     SelfRealmLinkResourceDeleteV1,
     SelfRealmOrganizationReadListV1,
-    SelfRealmPolicyServerResourceDeleteV1,
-    SelfRealmPolicyServerResourceGetV1,
-    SelfRealmPolicyServerResourceReplaceV1,
     SelfSealsCommandIssueAvailabilityReceiptsV1,
     SelfSealsCommandSubmitV1,
     SelfSealsReadFrontierV1,
@@ -473,7 +469,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_MORPH_READ_LIST_V1,
     ServiceOperationId::SELF_MORPH_RESOURCE_GET_V1,
     ServiceOperationId::SELF_ORGANIZATION_RECOVERY_ARCHIVES_READ_LIST_V1,
-    ServiceOperationId::SELF_POLICY_READ_CHECK_V1,
     ServiceOperationId::SELF_READ_CURSOR_COMMAND_ADVANCE_V1,
     ServiceOperationId::SELF_READ_CURSOR_READ_LIST_V1,
     ServiceOperationId::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST_V1,
@@ -491,9 +486,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_REALM_LINK_READ_LIST_V1,
     ServiceOperationId::SELF_REALM_LINK_RESOURCE_DELETE_V1,
     ServiceOperationId::SELF_REALM_ORGANIZATION_READ_LIST_V1,
-    ServiceOperationId::SELF_REALM_POLICY_SERVER_RESOURCE_DELETE_V1,
-    ServiceOperationId::SELF_REALM_POLICY_SERVER_RESOURCE_GET_V1,
-    ServiceOperationId::SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE_V1,
     ServiceOperationId::SELF_SEALS_COMMAND_ISSUE_AVAILABILITY_RECEIPTS_V1,
     ServiceOperationId::SELF_SEALS_COMMAND_SUBMIT_V1,
     ServiceOperationId::SELF_SEALS_READ_FRONTIER_V1,
@@ -767,7 +759,6 @@ impl ServiceOperationId {
         Self::SelfMorphReadListV1,
         Self::SelfMorphResourceGetV1,
         Self::SelfOrganizationRecoveryArchivesReadListV1,
-        Self::SelfPolicyReadCheckV1,
         Self::SelfReadCursorCommandAdvanceV1,
         Self::SelfReadCursorReadListV1,
         Self::SelfRealmJoinApplicationAuditReadListV1,
@@ -785,9 +776,6 @@ impl ServiceOperationId {
         Self::SelfRealmLinkReadListV1,
         Self::SelfRealmLinkResourceDeleteV1,
         Self::SelfRealmOrganizationReadListV1,
-        Self::SelfRealmPolicyServerResourceDeleteV1,
-        Self::SelfRealmPolicyServerResourceGetV1,
-        Self::SelfRealmPolicyServerResourceReplaceV1,
         Self::SelfSealsCommandIssueAvailabilityReceiptsV1,
         Self::SelfSealsCommandSubmitV1,
         Self::SelfSealsReadFrontierV1,
@@ -1166,7 +1154,6 @@ impl ServiceOperationId {
     pub const SELF_MORPH_RESOURCE_GET_V1: &'static str = "ak.self.morph.resource.get.v1";
     pub const SELF_ORGANIZATION_RECOVERY_ARCHIVES_READ_LIST_V1: &'static str =
         "ak.self.organization_recovery_archives.read.list.v1";
-    pub const SELF_POLICY_READ_CHECK_V1: &'static str = "ak.self.policy.read.check.v1";
     pub const SELF_READ_CURSOR_COMMAND_ADVANCE_V1: &'static str =
         "ak.self.read_cursor.command.advance.v1";
     pub const SELF_READ_CURSOR_READ_LIST_V1: &'static str = "ak.self.read_cursor.read.list.v1";
@@ -1197,12 +1184,6 @@ impl ServiceOperationId {
         "ak.self.realm_link.resource.delete.v1";
     pub const SELF_REALM_ORGANIZATION_READ_LIST_V1: &'static str =
         "ak.self.realm_organization.read.list.v1";
-    pub const SELF_REALM_POLICY_SERVER_RESOURCE_DELETE_V1: &'static str =
-        "ak.self.realm_policy_server.resource.delete.v1";
-    pub const SELF_REALM_POLICY_SERVER_RESOURCE_GET_V1: &'static str =
-        "ak.self.realm_policy_server.resource.get.v1";
-    pub const SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE_V1: &'static str =
-        "ak.self.realm_policy_server.resource.replace.v1";
     pub const SELF_SEALS_COMMAND_ISSUE_AVAILABILITY_RECEIPTS_V1: &'static str =
         "ak.self.seals.command.issue_availability_receipts.v1";
     pub const SELF_SEALS_COMMAND_SUBMIT_V1: &'static str = "ak.self.seals.command.submit.v1";
@@ -1579,7 +1560,6 @@ impl ServiceOperationId {
             Self::SelfOrganizationRecoveryArchivesReadListV1 => {
                 Self::SELF_ORGANIZATION_RECOVERY_ARCHIVES_READ_LIST_V1
             }
-            Self::SelfPolicyReadCheckV1 => Self::SELF_POLICY_READ_CHECK_V1,
             Self::SelfReadCursorCommandAdvanceV1 => Self::SELF_READ_CURSOR_COMMAND_ADVANCE_V1,
             Self::SelfReadCursorReadListV1 => Self::SELF_READ_CURSOR_READ_LIST_V1,
             Self::SelfRealmJoinApplicationAuditReadListV1 => {
@@ -1615,15 +1595,6 @@ impl ServiceOperationId {
             Self::SelfRealmLinkReadListV1 => Self::SELF_REALM_LINK_READ_LIST_V1,
             Self::SelfRealmLinkResourceDeleteV1 => Self::SELF_REALM_LINK_RESOURCE_DELETE_V1,
             Self::SelfRealmOrganizationReadListV1 => Self::SELF_REALM_ORGANIZATION_READ_LIST_V1,
-            Self::SelfRealmPolicyServerResourceDeleteV1 => {
-                Self::SELF_REALM_POLICY_SERVER_RESOURCE_DELETE_V1
-            }
-            Self::SelfRealmPolicyServerResourceGetV1 => {
-                Self::SELF_REALM_POLICY_SERVER_RESOURCE_GET_V1
-            }
-            Self::SelfRealmPolicyServerResourceReplaceV1 => {
-                Self::SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE_V1
-            }
             Self::SelfSealsCommandIssueAvailabilityReceiptsV1 => {
                 Self::SELF_SEALS_COMMAND_ISSUE_AVAILABILITY_RECEIPTS_V1
             }
@@ -2087,7 +2058,6 @@ impl ServiceOperationId {
             Self::SELF_ORGANIZATION_RECOVERY_ARCHIVES_READ_LIST_V1 => {
                 Some(Self::SelfOrganizationRecoveryArchivesReadListV1)
             }
-            Self::SELF_POLICY_READ_CHECK_V1 => Some(Self::SelfPolicyReadCheckV1),
             Self::SELF_READ_CURSOR_COMMAND_ADVANCE_V1 => Some(Self::SelfReadCursorCommandAdvanceV1),
             Self::SELF_READ_CURSOR_READ_LIST_V1 => Some(Self::SelfReadCursorReadListV1),
             Self::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST_V1 => {
@@ -2124,15 +2094,6 @@ impl ServiceOperationId {
             Self::SELF_REALM_LINK_RESOURCE_DELETE_V1 => Some(Self::SelfRealmLinkResourceDeleteV1),
             Self::SELF_REALM_ORGANIZATION_READ_LIST_V1 => {
                 Some(Self::SelfRealmOrganizationReadListV1)
-            }
-            Self::SELF_REALM_POLICY_SERVER_RESOURCE_DELETE_V1 => {
-                Some(Self::SelfRealmPolicyServerResourceDeleteV1)
-            }
-            Self::SELF_REALM_POLICY_SERVER_RESOURCE_GET_V1 => {
-                Some(Self::SelfRealmPolicyServerResourceGetV1)
-            }
-            Self::SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE_V1 => {
-                Some(Self::SelfRealmPolicyServerResourceReplaceV1)
             }
             Self::SELF_SEALS_COMMAND_ISSUE_AVAILABILITY_RECEIPTS_V1 => {
                 Some(Self::SelfSealsCommandIssueAvailabilityReceiptsV1)
@@ -7059,26 +7020,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfPolicyReadCheckV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/policy/check",
-        grpc: Some("SelfPolicy/Check"),
-        mq: Some("self.policy.query.check"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/PolicyCheckRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/PolicyCheckOutcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfReadCursorCommandAdvanceV1,
         http_method: "POST",
         http_path: "/_arkret/self/read-cursors",
@@ -7432,72 +7373,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmPolicyServerResourceDeleteV1,
-        http_method: "DELETE",
-        http_path: "/_arkret/self/realms/{realm_id}/policy-server",
-        grpc: Some("SelfRealmPolicyServer/Delete"),
-        mq: Some("self.realm_policy_server.resource.delete"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "empty_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/realm-policy-server-operations.schema.json#/$defs/realm_policy_server_delete_request_body",
-        ),
-        response_schema_ref: None,
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.realm.policy_server"])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmPolicyServerResourceGetV1,
-        http_method: "GET",
-        http_path: "/_arkret/self/realms/{realm_id}/policy-server",
-        grpc: Some("SelfRealmPolicyServer/Get"),
-        mq: Some("self.realm_policy_server.resource.get"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/realm-policy-server-operations.schema.json#/$defs/realm_policy_server_view",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmPolicyServerResourceReplaceV1,
-        http_method: "PUT",
-        http_path: "/_arkret/self/realms/{realm_id}/policy-server",
-        grpc: Some("SelfRealmPolicyServer/Replace"),
-        mq: Some("self.realm_policy_server.resource.replace"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/realm-policy-server-operations.schema.json#/$defs/realm_policy_server_replace_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/realm-policy-server-operations.schema.json#/$defs/realm_policy_server_view",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.realm.policy_server"])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfSealsCommandIssueAvailabilityReceiptsV1,

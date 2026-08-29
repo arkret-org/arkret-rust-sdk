@@ -162,7 +162,6 @@ pub use arkret_models_collaboration::governance::moderation_queue::*;
 pub use arkret_models_collaboration::governance::operation_wire::*;
 pub use arkret_models_collaboration::governance::peer_contact::*;
 pub use arkret_models_collaboration::governance::plaintext_visibility::*;
-pub use arkret_models_collaboration::governance::policy_check::*;
 pub use arkret_models_collaboration::governance::realm_governance::*;
 pub use arkret_models_collaboration::governance::realm_lifecycle::*;
 pub use arkret_models_collaboration::governance::third_party_invite::*;

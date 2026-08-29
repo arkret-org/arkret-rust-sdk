@@ -1,9 +1,9 @@
 {
   "version": 2,
-  "total": 209,
+  "total": 208,
   "counts": {
     "internal": 58,
-    "optional_has_default": 149,
+    "optional_has_default": 148,
     "schema_field_unknown": 2
   },
   "sites": [
@@ -141,7 +141,7 @@
     },
     {
       "file": "crates/models-collaboration/src/agent_operations.rs",
-      "line": 1251,
+      "line": 1120,
       "struct_name": "AgentSidecar",
       "field_name": "state_changed_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -153,7 +153,7 @@
     },
     {
       "file": "crates/models-collaboration/src/agent_operations.rs",
-      "line": 1259,
+      "line": 1128,
       "struct_name": "AgentSidecar",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -165,7 +165,7 @@
     },
     {
       "file": "crates/models-collaboration/src/agent_operations.rs",
-      "line": 2191,
+      "line": 2060,
       "struct_name": "KeyState",
       "field_name": "pairing_expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -177,7 +177,7 @@
     },
     {
       "file": "crates/models-collaboration/src/agent_operations.rs",
-      "line": 2201,
+      "line": 2070,
       "struct_name": "KeyState",
       "field_name": "approval_requested_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -489,7 +489,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/realm.rs",
-      "line": 1092,
+      "line": 1091,
       "struct_name": "RealmOrganizationPayload",
       "field_name": "not_before",
       "field_type": "Option<DateTime<Utc>>",
@@ -501,7 +501,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/realm.rs",
-      "line": 1096,
+      "line": 1095,
       "struct_name": "RealmOrganizationPayload",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -513,7 +513,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/realm.rs",
-      "line": 1182,
+      "line": 1181,
       "struct_name": "OrganizationStatementTranscript",
       "field_name": "not_before",
       "field_type": "Option<DateTime<Utc>>",
@@ -525,7 +525,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/realm.rs",
-      "line": 1187,
+      "line": 1186,
       "struct_name": "OrganizationStatementTranscript",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -908,18 +908,6 @@
       "classification": "internal"
     },
     {
-      "file": "crates/models-collaboration/src/governance/policy_check.rs",
-      "line": 89,
-      "struct_name": "PolicyCheckOutcome",
-      "field_name": "next_retry_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/PolicyCheckOutcome",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
-    },
-    {
       "file": "crates/models-collaboration/src/governance/realm_governance.rs",
       "line": 441,
       "struct_name": "RealmLifecycleView",
@@ -933,7 +921,7 @@
     },
     {
       "file": "crates/models-collaboration/src/governance/realm_governance.rs",
-      "line": 905,
+      "line": 764,
       "struct_name": "RealmOrganizationRelationshipRow",
       "field_name": "not_before",
       "field_type": "Option<DateTime<Utc>>",
@@ -945,7 +933,7 @@
     },
     {
       "file": "crates/models-collaboration/src/governance/realm_governance.rs",
-      "line": 908,
+      "line": 767,
       "struct_name": "RealmOrganizationRelationshipRow",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -957,7 +945,7 @@
     },
     {
       "file": "crates/models-collaboration/src/governance/realm_governance.rs",
-      "line": 921,
+      "line": 780,
       "struct_name": "RealmOrganizationRelationshipRow",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",

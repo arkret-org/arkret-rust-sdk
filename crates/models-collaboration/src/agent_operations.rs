@@ -2076,8 +2076,6 @@ pub struct KeyState {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-
     use chrono::{TimeZone, Timelike};
 
     use super::*;

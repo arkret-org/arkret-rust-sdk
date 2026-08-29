@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/service-kind-registry.json; version=2026-08-27.2;
-//! sha256=0511ee10665cfd57d2db9bfacdb6e892069d499771c0707d04214587af9faea9 Entries: active=21
+//! Input: registry/service-kind-registry.json; version=2026-08-29.3;
+//! sha256=3da05bc0f8e62ae0479291c5c29bdd76fe291e3ec23cfeca5dea62ac7cb3fb45 Entries: active=20
 
 use serde::{Deserialize, Serialize};
 
@@ -24,7 +24,6 @@ pub enum ServiceKind {
     MimiProviderFacade,
     ModerationService,
     Notary,
-    PolicyServer,
     PrincipalServer,
     PushGateway,
     RecoveryService,
@@ -56,7 +55,6 @@ impl ServiceKind {
         Self::MimiProviderFacade,
         Self::ModerationService,
         Self::Notary,
-        Self::PolicyServer,
         Self::PrincipalServer,
         Self::PushGateway,
         Self::RecoveryService,
@@ -81,7 +79,6 @@ impl ServiceKind {
             Self::MimiProviderFacade => "mimi_provider_facade",
             Self::ModerationService => "moderation_service",
             Self::Notary => "notary",
-            Self::PolicyServer => "policy_server",
             Self::PrincipalServer => "principal_server",
             Self::PushGateway => "push_gateway",
             Self::RecoveryService => "recovery_service",
@@ -170,11 +167,6 @@ pub const SERVICE_KIND_DESCRIPTORS: &[ServiceKindDescriptor] = &[
         service_kind: ServiceKind::Notary,
         valid_in: &["service_describe"],
         description: "Seal and state-attestation notary surface.",
-    },
-    ServiceKindDescriptor {
-        service_kind: ServiceKind::PolicyServer,
-        valid_in: &["service_describe"],
-        description: "Policy distribution and evaluation surface.",
     },
     ServiceKindDescriptor {
         service_kind: ServiceKind::PrincipalServer,

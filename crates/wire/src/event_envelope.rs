@@ -162,7 +162,7 @@ pub enum EnvelopeActorKind {
     Native,
     /// Envelope originated from an applet-managed ghost actor.
     Ghost,
-    /// Envelope originated from a service principal (e.g. policy server).
+    /// Envelope originated from a service principal.
     Service,
     /// Envelope originated from a personal agent runtime acting on
     /// behalf of a controller.

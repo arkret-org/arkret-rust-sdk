@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-29.2;
-//! sha256=9f123e0679f5ed75ea368e08c050ec0eb7aa2d2596487ff630dcd9027ea474b0 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-29.3;
+//! sha256=49979414f874ff127b313cf5df1d90cda614458d405855f00b82cfb482f90883 Input: registry/
 //! exporter-label-registry.json; version=2026-08-21.1;
 //! sha256=7e959c121558ccbff100ff9fc7d8c599a0fbb9e3409e044d5abf86f05088b21a Input: registry/
 //! digest-suite-registry.json; version=2026-08-18;
@@ -17,7 +17,7 @@
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=b8bba95405eeb37909c1037f64e933cbb8e237753e7cae88bbc27020bcc39a71
 //! Entries: proof_contexts=80, exporter_labels=9, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=33, aead_profiles=2
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=32, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -687,7 +687,6 @@ pub enum DomainSeparationId {
     PeerEventsCommandSubmitV1ServiceBindingV1,
     PeerContactControlReceiptV1,
     PeerContactMirrorReceiptV1,
-    PolicyCheckTranscriptV1,
     RealmOrganizationStatementV1,
     SnapshotAuthStateIssuerLocalV1,
     WebsocketAuthV1,
@@ -724,7 +723,6 @@ impl DomainSeparationId {
         Self::PeerEventsCommandSubmitV1ServiceBindingV1,
         Self::PeerContactControlReceiptV1,
         Self::PeerContactMirrorReceiptV1,
-        Self::PolicyCheckTranscriptV1,
         Self::RealmOrganizationStatementV1,
         Self::SnapshotAuthStateIssuerLocalV1,
         Self::WebsocketAuthV1,
@@ -772,7 +770,6 @@ impl DomainSeparationId {
         "ak.peer.events.command.submit.v1.service_binding.v1";
     pub const PEER_CONTACT_CONTROL_RECEIPT_V1: &'static str = "ak.peer_contact.control_receipt.v1";
     pub const PEER_CONTACT_MIRROR_RECEIPT_V1: &'static str = "ak.peer_contact.mirror_receipt.v1";
-    pub const POLICY_CHECK_TRANSCRIPT_V1: &'static str = "ak.policy.check.transcript.v1";
     pub const REALM_ORGANIZATION_STATEMENT_V1: &'static str = "ak.realm.organization.statement.v1";
     pub const SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1: &'static str =
         "ak.snapshot.auth_state.issuer_local.v1";
@@ -819,7 +816,6 @@ impl DomainSeparationId {
             }
             Self::PeerContactControlReceiptV1 => Self::PEER_CONTACT_CONTROL_RECEIPT_V1,
             Self::PeerContactMirrorReceiptV1 => Self::PEER_CONTACT_MIRROR_RECEIPT_V1,
-            Self::PolicyCheckTranscriptV1 => Self::POLICY_CHECK_TRANSCRIPT_V1,
             Self::RealmOrganizationStatementV1 => Self::REALM_ORGANIZATION_STATEMENT_V1,
             Self::SnapshotAuthStateIssuerLocalV1 => Self::SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1,
             Self::WebsocketAuthV1 => Self::WEBSOCKET_AUTH_V1,
@@ -875,7 +871,6 @@ impl DomainSeparationId {
             }
             Self::PEER_CONTACT_CONTROL_RECEIPT_V1 => Some(Self::PeerContactControlReceiptV1),
             Self::PEER_CONTACT_MIRROR_RECEIPT_V1 => Some(Self::PeerContactMirrorReceiptV1),
-            Self::POLICY_CHECK_TRANSCRIPT_V1 => Some(Self::PolicyCheckTranscriptV1),
             Self::REALM_ORGANIZATION_STATEMENT_V1 => Some(Self::RealmOrganizationStatementV1),
             Self::SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1 => Some(Self::SnapshotAuthStateIssuerLocalV1),
             Self::WEBSOCKET_AUTH_V1 => Some(Self::WebsocketAuthV1),

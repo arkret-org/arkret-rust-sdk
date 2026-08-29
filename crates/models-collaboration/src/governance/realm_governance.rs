@@ -18,8 +18,8 @@ use std::collections::BTreeMap;
 
 use arkret_wire::event_envelope::EventRef;
 use arkret_wire::{
-    CapabilityId, DidCoreId, DidUrl, ErrorCode, EventInitialSubmission, EventKind, Hash,
-    NonEmptyString, PredicateOp, ProtocolKind, RealmId, ReasonCode, Result, ScopeRef, WireError,
+    CapabilityId, DidCoreId, ErrorCode, EventInitialSubmission, EventKind, Hash, PredicateOp,
+    RealmId, ReasonCode, Result, ScopeRef, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -571,102 +571,6 @@ pub struct RealmModerationPolicyDocument {
     pub updated_at: DateTime<Utc>,
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RealmPolicyServerOnTimeout {
-    FailClosed,
-    Deny,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RealmPolicyServerFailMode {
-    Open,
-    SoftDeny,
-    Quarantine,
-    Closed,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RealmPolicyServerAppliesTo {
-    Join,
-    Invite,
-    Message,
-    Media,
-    Applet,
-    Directory,
-    Call,
-    Federation,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmPolicyServerPolicySource {
-    pub kind: ProtocolKind,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_policy_server_declaration`.
-pub struct RealmPolicyServerDeclarationPayload {
-    pub policy_server_id: DidCoreId,
-    pub policy_server_url: String,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub public_kids: Vec<DidUrl>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub applies_to: Vec<RealmPolicyServerAppliesTo>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub policy_sources: Vec<RealmPolicyServerPolicySource>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub abuse_profile_ref: Option<NonEmptyString>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub fail_mode: Option<RealmPolicyServerFailMode>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub cache_ttl_seconds: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeout_ms: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub on_timeout: Option<RealmPolicyServerOnTimeout>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_policy_server_tombstone`.
-pub struct RealmPolicyServerTombstonePayload {
-    pub tombstone: bool,
-}
-
-impl RealmPolicyServerTombstonePayload {
-    pub const VALUE: Self = Self { tombstone: true };
-
-    pub fn validate(self) -> Result<Self> {
-        if self.tombstone {
-            Ok(self)
-        } else {
-            Err(WireError::Protocol(
-                "realm policy server tombstone MUST be true".to_owned(),
-            ))
-        }
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RealmPolicyServerPayload {
-    Declaration(RealmPolicyServerDeclarationPayload),
-    Tombstone(RealmPolicyServerTombstonePayload),
-}
-
 /// Wire counterpart:
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_alias_declaration`.
 ///
@@ -744,51 +648,6 @@ impl RealmAliasPayload {
         serde_json::to_value(self)
             .map_err(|err| WireError::Protocol(format!("realm alias payload serialize: {err}")))
     }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmPolicyServerView {
-    pub realm_id: RealmId,
-    pub policy_server_id: DidCoreId,
-    pub policy_server_url: String,
-    pub cache_ttl_seconds: u64,
-    pub timeout_ms: u64,
-    pub on_timeout: RealmPolicyServerOnTimeout,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub updated_at: DateTime<Utc>,
-    pub from_organization_fallback: bool,
-}
-
-// Both policy-server writes carry the caller-signed `ak.realm.policy_server`
-// Move. The request used to carry a narrower projection of the declaration,
-// which left the signature for the service to add and gave the same value two
-// definitions to drift between; the caller now signs
-// `RealmPolicyServerDeclarationPayload` itself, which is what the reducer
-// stores. `head_eq` moves with it: preconditions are inside the signed bytes, so
-// the caller reads the settled value and attaches the precondition.
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmPolicyServerReplaceRequestBody {
-    /// Closed `ak.realm.policy_server` Event authored and signed by the caller,
-    /// whose payload is a [`RealmPolicyServerPayload::Declaration`].
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub policy_server_event: EventInitialSubmission,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmPolicyServerDeleteRequestBody {
-    /// Closed `ak.realm.policy_server` Event authored and signed by the caller,
-    /// whose payload is exactly [`RealmPolicyServerTombstonePayload::VALUE`].
-    /// The removal is a signed Event, so this DELETE carries a request body the
-    /// way `ak.self.keys.backups.resource.delete.v1` already does.
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub policy_server_event: EventInitialSubmission,
 }
 
 /// `lifecycle_phase` discriminator for a projected `ak.realm.organization`
@@ -1251,24 +1110,6 @@ mod tests {
         let v = serde_json::to_value(&cap).unwrap();
         let back: CapabilityDerived = serde_json::from_value(v).unwrap();
         assert_eq!(back, cap);
-    }
-
-    #[test]
-    fn realm_policy_server_tombstone_is_closed_and_true() {
-        let value = serde_json::to_value(RealmPolicyServerTombstonePayload::VALUE).unwrap();
-        assert_eq!(value, serde_json::json!({"tombstone": true}));
-        assert!(
-            serde_json::from_value::<RealmPolicyServerPayload>(serde_json::json!({
-                "tombstone": true,
-                "policy_server_id": "ak:did_core:web:policy.example"
-            }))
-            .is_err()
-        );
-        let false_tombstone = serde_json::from_value::<RealmPolicyServerTombstonePayload>(
-            serde_json::json!({"tombstone": false}),
-        )
-        .unwrap();
-        assert!(false_tombstone.validate().is_err());
     }
 
     #[test]

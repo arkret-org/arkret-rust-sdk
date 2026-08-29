@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-29.1;
-//! sha256=7b4bd414e50342b396c80ec20b9c2b59801b2e881e96a019b70a1c9f5a0a0cf0 Input: registry/
-//! capability-action-registry.json; version=2026-08-29.7;
-//! sha256=8103744a6581d936873493b5959c6f41aa40d4ce2cbaec8c29028371f08eb374 Input: registry/
-//! schema-registry.json; version=2026-08-29.1;
-//! sha256=e98d65f1bfe8d179c090ae72be92ac257fd2c50b9028ab9a60cfc2373dd18c61 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-29.2;
+//! sha256=d4c9340314ee25c57a646c6ab58c60ba594cea6060bc766290e27dcbd7e76c86 Input: registry/
+//! capability-action-registry.json; version=2026-08-29.10;
+//! sha256=955a24e7ce520c92c175b5b833e4bdd9a29bcf8c6e98b308b061826c746b8db0 Input: registry/
+//! schema-registry.json; version=2026-08-29.2;
+//! sha256=7b048632227404dc1396e0b2cef1deb28c57c893dfe844866cdc28a2a03964f4 Input: registry/
 //! account-data-key-registry.json; version=2026-08-27.1;
 //! sha256=3d31af407b5d2214a67e3eb2850153fb3a4e0bcb597d069b70bf349945627cd9 Entries: id_kinds=59,
-//! special_forms=14, actions=163, schemas=199, account_data_patterns=24
+//! special_forms=14, actions=163, schemas=198, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -1668,7 +1668,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::POLICY_RULE,
             event_kind_str::POLICY_ACTION,
             event_kind_str::REALM_POLICY,
-            event_kind_str::REALM_POLICY_SERVER,
             event_kind_str::REALM_POLICY_BUNDLE,
             event_kind_str::REALM_DELIVERY_BINDING_POLICY,
             event_kind_str::REALM_ASSET_PRIVACY_POLICY,
@@ -1782,7 +1781,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_DIGEST_SUITE_TRANSITION,
             event_kind_str::REALM_NOTARY,
             event_kind_str::REALM_PREVIEW_POLICY,
-            event_kind_str::REALM_POLICY_SERVER,
             event_kind_str::REALM_POLICY_BUNDLE,
             event_kind_str::REALM_DELIVERY_BINDING_POLICY,
             event_kind_str::REALM_ASSET_PRIVACY_POLICY,
@@ -2033,7 +2031,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_PLAINTEXT_VISIBLE_SERVICES,
             event_kind_str::REALM_POLICY,
             event_kind_str::REALM_POLICY_BUNDLE,
-            event_kind_str::REALM_POLICY_SERVER,
             event_kind_str::REALM_PREVIEW_POLICY,
             event_kind_str::REALM_PROFILE,
             event_kind_str::REALM_READ_RECEIPT_POLICY,
@@ -3471,10 +3468,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::REALM_ORGANIZATION_OPERATIONS_V1,
         file: "schemas/realm-organization-operations.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::REALM_POLICY_SERVER_OPERATIONS_V1,
-        file: "schemas/realm-policy-server-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::REALM_PROFILE_V1,

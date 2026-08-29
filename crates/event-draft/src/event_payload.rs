@@ -27,7 +27,7 @@ use arkret_models_collaboration::governance::moderation_appeal::{
 };
 use arkret_models_collaboration::governance::plaintext_visibility::PlaintextVisibleServicesPayload;
 use arkret_models_collaboration::governance::realm_governance::{
-    CapabilityDerived, RealmAliasPayload, RealmLinkPayload, RealmPolicyServerPayload,
+    CapabilityDerived, RealmAliasPayload, RealmLinkPayload,
 };
 use arkret_models_collaboration::governance::realm_lifecycle::{
     CircleHistoryAccessPayload, HistoryAccessPayload, ObjectLifecyclePayload, RealmArchivePayload,
@@ -197,7 +197,6 @@ event_payload_accessors! {
     event_spec::RealmSetDefaultStrand => (as_realm_set_default_strand, RealmSetDefaultStrandPayload),
     event_spec::RealmNotary => (as_realm_notary, RealmNotaryPayload, RealmNotaryPayload::validate),
     event_spec::RealmDigestSuiteTransition => (as_realm_digest_suite_transition, RealmDigestSuiteTransitionPayload, RealmDigestSuiteTransitionPayload::validate),
-    event_spec::RealmPolicyServer => (as_realm_policy_server, RealmPolicyServerPayload),
     event_spec::RealmPolicyBundle => (as_realm_policy_bundle, RealmPolicyBundlePayload),
     event_spec::RealmDeliveryBindingPolicy => (as_realm_delivery_binding_policy, RealmDeliveryBindingPolicyPayload),
     event_spec::RealmAssetPrivacyPolicy => (as_realm_asset_privacy_policy, RealmAssetPrivacyPolicyPayload),

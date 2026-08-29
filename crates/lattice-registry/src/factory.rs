@@ -77,7 +77,6 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(RealmPlaintextVisibleServices);
     registry.register(RealmPolicy);
     registry.register(RealmPolicyBundle);
-    registry.register(RealmPolicyServer);
     registry.register(RealmPreviewPolicy);
     registry.register(RealmProfile);
     registry.register(RealmReadReceiptPolicy);

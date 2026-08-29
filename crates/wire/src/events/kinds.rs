@@ -218,7 +218,6 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::RealmPlaintextVisibleServices
         | EventKind::RealmPolicy
         | EventKind::RealmPolicyBundle
-        | EventKind::RealmPolicyServer
         | EventKind::RealmPreviewPolicy
         | EventKind::RealmReadReceiptPolicy
         | EventKind::RealmSchema

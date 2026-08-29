@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-29.2;
-//! sha256=794a75b35a738f6bb1ce1e1493d66e8d85957d7fa0d354c00d3d6d9c2fe02150
-//! Entries: reason_codes=468
+//! Input: registry/error-code-registry.json; version=2026-08-29.3;
+//! sha256=f291dbdaa0180cd0775251462061d9f79b85816ea1141ce88f34127897220a10
+//! Entries: reason_codes=467
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -296,7 +296,6 @@ pub enum ReasonCode {
     PinTargetNotPinned,
     PlaneCrossWrite,
     PolicyDenied,
-    PolicyRecall,
     PolicyRevisionGap,
     PolicyRevoked,
     PresignExpired,
@@ -840,7 +839,6 @@ impl ReasonCode {
     pub const PIN_TARGET_NOT_PINNED: &'static str = "pin_target_not_pinned";
     pub const PLANE_CROSS_WRITE: &'static str = "plane_cross_write";
     pub const POLICY_DENIED: &'static str = "policy_denied";
-    pub const POLICY_RECALL: &'static str = "policy_recall";
     pub const POLICY_REVISION_GAP: &'static str = "policy_revision_gap";
     pub const POLICY_REVOKED: &'static str = "policy_revoked";
     pub const PRESIGN_EXPIRED: &'static str = "presign_expired";
@@ -1398,7 +1396,6 @@ impl ReasonCode {
             Self::PinTargetNotPinned => Self::PIN_TARGET_NOT_PINNED,
             Self::PlaneCrossWrite => Self::PLANE_CROSS_WRITE,
             Self::PolicyDenied => Self::POLICY_DENIED,
-            Self::PolicyRecall => Self::POLICY_RECALL,
             Self::PolicyRevisionGap => Self::POLICY_REVISION_GAP,
             Self::PolicyRevoked => Self::POLICY_REVOKED,
             Self::PresignExpired => Self::PRESIGN_EXPIRED,
@@ -1956,7 +1953,6 @@ impl ReasonCode {
             Self::PIN_TARGET_NOT_PINNED => Self::PinTargetNotPinned,
             Self::PLANE_CROSS_WRITE => Self::PlaneCrossWrite,
             Self::POLICY_DENIED => Self::PolicyDenied,
-            Self::POLICY_RECALL => Self::PolicyRecall,
             Self::POLICY_REVISION_GAP => Self::PolicyRevisionGap,
             Self::POLICY_REVOKED => Self::PolicyRevoked,
             Self::PRESIGN_EXPIRED => Self::PresignExpired,
@@ -2628,7 +2624,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CHALLENGE_EXPIRED,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "A Policy Server challenge obligation was not satisfied within `max_proof_age`, or a challenge_proof was submitted whose issuance is older than `max_proof_age`. The reducer / Policy Server MUST reject with failed_precondition and MUST NOT auto-renew; the applicant must re-run ak.self.policy.read.check.v1 to obtain a fresh challenge_id. See zh/governance/join-policy.md §11.",
+        description: "A challenge proof was submitted whose issuance is older than `max_proof_age`. The reducer MUST reject with failed_precondition and MUST NOT auto-renew; the applicant must obtain a fresh challenge_id. See zh/governance/join-policy.md §11.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CHALLENGE_FAILED,
@@ -2638,7 +2634,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CHALLENGE_PROOF_INVALID,
         applies_to: &["auth_decision", "service_call"],
-        description: "A runtime challenge proof attached to `ak.member.state{join}.gate_proofs[]` or `member.application.gate_proofs[]` (candidate kind, no `ak.*` prefix) fails verification (signature / freshness / verifier domain). See zh/authz/policy-server.md §4.",
+        description: "A runtime challenge proof attached to `ak.member.state{join}.gate_proofs[]` or `member.application.gate_proofs[]` (candidate kind, no `ak.*` prefix) fails verification (signature / freshness / verifier domain).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CIRCLE_ALREADY_TERMINAL,
@@ -3166,7 +3162,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::IDENTITY_CREATION_CHALLENGE_EXPIRED,
         applies_to: &["identity_creation", "service_call"],
-        description: "The persisted identity-binding challenge expired before first successful consumption. The Account Authority MUST reject before publishing the DID operation or relaying PCR genesis, and the client must obtain a fresh challenge for the same frozen draft. This code is distinct from the Policy Server challenge_expired reason.",
+        description: "The persisted identity-binding challenge expired before first successful consumption. The Account Authority MUST reject before publishing the DID operation or relaying PCR genesis, and the client must obtain a fresh challenge for the same frozen draft.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::IDENTITY_CREATION_LEASE_FENCED,
@@ -3521,17 +3517,17 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::MODERATION_CONTROL_PENDING,
         applies_to: &["client_sync", "policy_decision"],
-        description: "A fast-path moderation quarantine signal was recorded but its sealed Control Move has not yet arrived; clients MAY temporarily hide the target and MUST switch display once the sealed decision lands (policy-server.md §7.2).",
+        description: "A fast-path moderation quarantine signal was recorded but its sealed Control Move has not yet arrived; clients MAY temporarily hide the target and MUST switch display once the sealed decision lands.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MODERATION_CONTROL_SPLIT,
         applies_to: &["policy_decision", "state_resolution"],
-        description: "A moderation control cell resolved to bottom under conflicting sealed Control Moves; downstream decisions depending on the cell fail closed until the split is resolved (policy-server.md §7.2).",
+        description: "A moderation control cell resolved to bottom under conflicting sealed Control Moves; downstream decisions depending on the cell fail closed until the split is resolved.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MODERATION_STATE_CONFLICT,
         applies_to: &["auth_decision", "state_resolution"],
-        description: "The referenced moderation state cell is in bottom / exposed multi-head conflict. Read, write, distribute, and policy-check paths MUST fail closed rather than selecting a temporary winner. See zh/authz/policy-server.md §7.2.",
+        description: "The referenced moderation state cell is in bottom / exposed multi-head conflict. Read, write, and distribute paths MUST fail closed rather than selecting a temporary winner. See zh/governance/content-moderation.md.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MORPH_ALREADY_TERMINAL,
@@ -3666,12 +3662,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::POLICY_DENIED,
         applies_to: &["auth_decision", "service_call"],
-        description: "A Realm, organization, account, holder-disclosure, agent, or deployment policy explicitly denied the requested operation after syntactic validation and authentication succeeded. Use a narrower code when a more specific registry entry applies. See zh/authz/policy-server.md, zh/crypto-media/device-lifecycle.md, and zh/identity/identity-handles.md.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::POLICY_RECALL,
-        applies_to: &["moderation_decision", "auth_decision"],
-        description: "A policy-server-issued recall of a previous allow decision; corresponding action MUST be reversed if still reversible.",
+        description: "A Realm, organization, account, holder-disclosure, agent, or deployment policy explicitly denied the requested operation after syntactic validation and authentication succeeded. Use a narrower code when a more specific registry entry applies. See zh/crypto-media/device-lifecycle.md and zh/identity/identity-handles.md.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::POLICY_REVISION_GAP,

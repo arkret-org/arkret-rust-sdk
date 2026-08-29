@@ -246,24 +246,6 @@ mod tests {
         );
     }
 
-    /// Vector case 1: the policy-server §2.2 lifecycle settles instead of
-    /// collapsing to `⊥` the moment the cell is written a second time.
-    #[test]
-    fn sequential_governance_lifecycle_settles_on_the_last_value() {
-        let declaration = json!({"policy_server": "ak.principal.01js0sp00000000000000000aa"});
-        let tombstone = json!({"tombstone": true});
-        let redeclaration = json!({"policy_server": "ak.principal.01js0sp00000000000000000bb"});
-        let ops = vec![
-            SealedOp::new(move_id(1), set_op(declaration.clone())),
-            SealedOp::new(move_id(2), supersede_op(tombstone.clone(), declaration)),
-            SealedOp::new(move_id(3), supersede_op(redeclaration.clone(), tombstone)),
-        ];
-        assert_eq!(
-            CasRegister.join(&cell(), &ops),
-            CellState::Value(redeclaration)
-        );
-    }
-
     /// Vector case 2: two different values superseding the same predecessor are
     /// concurrent siblings, which is exactly what `⊥` is for.
     #[test]

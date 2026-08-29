@@ -1301,12 +1301,6 @@ singleton_lattice!(
 );
 
 singleton_lattice!(
-    RealmPolicyServer,
-    arkret_wire::CellFamilyId::REALM_POLICY_SERVER_V1,
-    Criticality::Required
-);
-
-singleton_lattice!(
     RealmAlias,
     arkret_wire::CellFamilyId::REALM_ALIAS_V1,
     Criticality::Required

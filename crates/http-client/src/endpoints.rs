@@ -13,7 +13,6 @@ mod media;
 mod mimi;
 mod moderation;
 mod peer;
-mod policy;
 mod push;
 mod security;
 mod signal;

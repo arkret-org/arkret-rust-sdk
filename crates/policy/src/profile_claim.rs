@@ -313,7 +313,6 @@ impl ProfileValidator {
             ServiceKind::MimiProviderFacade => vec![ProfileRole::Interop],
             ServiceKind::DeviceKeyService
             | ServiceKind::AuthzService
-            | ServiceKind::PolicyServer
             | ServiceKind::KeyRecoveryService => {
                 vec![ProfileRole::Server, ProfileRole::Directory]
             }
@@ -497,7 +496,6 @@ mod tests {
             ServiceKind::IdentityRegistry,
             ServiceKind::AuthServer,
             ServiceKind::AuthzService,
-            ServiceKind::PolicyServer,
             ServiceKind::DeviceKeyService,
             ServiceKind::AppletService,
             ServiceKind::AgentRuntime,

@@ -84,10 +84,6 @@ const SOURCES: &[(&str, &str)] = &[
         include_str!("../src/endpoints/peer.rs"),
     ),
     (
-        "endpoints/policy.rs",
-        include_str!("../src/endpoints/policy.rs"),
-    ),
-    (
         "endpoints/push.rs",
         include_str!("../src/endpoints/push.rs"),
     ),

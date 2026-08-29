@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/contract-registry.json; version=2026-08-29.9;
-//! sha256=b01ec34a5f8a445c3ea8377bbf7902f001c8ea5ba2e89b17e345c1d4ff6ea9ac
-//! Entries: operation_bundles=40 features=22
+//! Input: registry/contract-registry.json; version=2026-08-29.11;
+//! sha256=4f2b1d51fe8ec239f581d9efbb5132856f79826aad71f0d5de8ef175855d1d71
+//! Entries: operation_bundles=39 features=22
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -178,10 +178,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::RootIdentityRegistryReadDescribeV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfPolicyReadCheckV1,
                 binding_kind: BindingKind::HttpJson,
             },
         ],
@@ -417,14 +413,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
     OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.notary.describe.v1",
         service_kind: ServiceKind::Notary,
-        members: &[OperationBindingPair {
-            operation_id: ServiceOperationId::ServerReadDescribeV1,
-            binding_kind: BindingKind::HttpJson,
-        }],
-    },
-    OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.policy_server.describe.v1",
-        service_kind: ServiceKind::PolicyServer,
         members: &[OperationBindingPair {
             operation_id: ServiceOperationId::ServerReadDescribeV1,
             binding_kind: BindingKind::HttpJson,
@@ -1102,10 +1090,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
-                operation_id: ServiceOperationId::SelfPolicyReadCheckV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
                 operation_id: ServiceOperationId::SelfReadCursorCommandAdvanceV1,
                 binding_kind: BindingKind::HttpJson,
             },
@@ -1147,18 +1131,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfRealmOrganizationReadListV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfRealmPolicyServerResourceDeleteV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfRealmPolicyServerResourceGetV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfRealmPolicyServerResourceReplaceV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {

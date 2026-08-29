@@ -930,8 +930,7 @@ pub fn embedded_capability_action(
 ///
 /// Event kinds and capability actions are two distinct namespaces: an Event
 /// names what happened, a capability action names what an actor is authorized
-/// to do. Some strings coincide (`ak.message.create`), most do not
-/// (`ak.realm.policy_server` is governed by `ak.policy.manage`). A caller that
+/// to do. Some strings coincide (`ak.message.create`), while others do not. A caller that
 /// holds an Event and needs the authorization question has to go through this
 /// registry-derived mapping rather than passing the kind straight to a
 /// capability check.
@@ -1752,19 +1751,6 @@ mod tests {
             embedded_capability_actions_for_event_kind("ak.message.create")
                 .expect("embedded registry should parse")
                 .contains(&"ak.message.create".to_owned())
-        );
-
-        // A kind whose governing actions are named differently: this is the
-        // case a caller holding only an Event kind cannot guess.
-        let policy_server = embedded_capability_actions_for_event_kind("ak.realm.policy_server")
-            .expect("embedded registry should parse");
-        assert!(
-            policy_server.contains(&"ak.policy.manage".to_owned()),
-            "ak.realm.policy_server must map to ak.policy.manage, got {policy_server:?}"
-        );
-        assert!(
-            policy_server.windows(2).all(|pair| pair[0] <= pair[1]),
-            "candidates must be sorted: {policy_server:?}"
         );
 
         // An unregistered kind yields no candidates rather than an error, so

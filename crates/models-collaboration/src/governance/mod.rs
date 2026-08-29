@@ -24,7 +24,6 @@ pub mod moderation_queue;
 pub mod operation_wire;
 pub mod peer_contact;
 pub mod plaintext_visibility;
-pub mod policy_check;
 pub mod realm_governance;
 pub mod realm_lifecycle;
 pub mod third_party_invite;
