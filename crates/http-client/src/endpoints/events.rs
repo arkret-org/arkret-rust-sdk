@@ -551,10 +551,10 @@ impl Client {
             .request_unbounded(Method::GET, "/_arkret/self/events/subscribe")?
             .header("accept", "application/x-ndjson");
         for realm_id in &options.realm_ids {
-            builder = builder.query(&[("realm_ids", realm_id.as_str())]);
+            builder = builder.query(&[("realms", realm_id.as_str())]);
         }
         for actor_id in &options.actor_ids {
-            builder = builder.query(&[("actor_ids", actor_id.as_str())]);
+            builder = builder.query(&[("actors", actor_id.as_str())]);
         }
         if let Some(after) = options.after.as_deref() {
             builder = builder.query(&[("after", after)]);
@@ -1128,13 +1128,15 @@ mod tests {
         let query = built.url().query().unwrap().to_owned();
 
         assert!(
-            query.contains("realm_ids=ak%3Arealm%3AAdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"),
+            query.contains("realms=ak%3Arealm%3AAdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"),
             "query: {query}"
         );
         assert!(
-            query.contains("actor_ids=ak%3Adid_core%3Awebvh%3Az6mkfixture%3Aalice.example"),
+            query.contains("actors=ak%3Adid_core%3Awebvh%3Az6mkfixture%3Aalice.example"),
             "query: {query}"
         );
+        assert!(!query.contains("realm_ids="), "query: {query}");
+        assert!(!query.contains("actor_ids="), "query: {query}");
         assert!(
             query.contains("after=ak%3Acursor%3Astored"),
             "query: {query}"
