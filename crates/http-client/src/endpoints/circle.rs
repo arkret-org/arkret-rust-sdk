@@ -1,9 +1,8 @@
 //! Circle governance endpoint methods on [`Client`].
 
 use arkret_models_collaboration::governance::circle::{
-    CircleArchiveRequestBody, CircleCreateRequestBody, CircleList, CircleMemberDeleteRequestBody,
-    CircleMemberRequestBody, CircleMembershipOutcome, CircleRestoreRequestBody,
-    CircleScopeRotateOutcome, CircleScopeRotateRequestBody, CircleView,
+    CircleCreateRequestBody, CircleList, CircleMemberDeleteRequestBody, CircleMemberRequestBody,
+    CircleMembershipOutcome, CircleScopeRotateOutcome, CircleScopeRotateRequestBody, CircleView,
 };
 use reqwest::Method;
 
@@ -45,39 +44,6 @@ impl Client {
         let path = format!("/_arkret/self/circles/{circle_id}/members/{actor_id}");
         let builder = self.canonical_json_body(self.request(Method::DELETE, &path)?, request)?;
         self.send_json(builder).await
-    }
-
-    /// The three lifecycle actions differ only in the Event kind their body pins,
-    /// so the transport is shared and each caller keeps its own request type.
-    async fn circle_lifecycle<B: serde::Serialize>(
-        &self,
-        circle_id: &str,
-        action: &str,
-        request: &B,
-    ) -> Result<CircleView> {
-        reject_path_segment(circle_id)?;
-        reject_path_segment(action)?;
-        self.post(
-            &format!("/_arkret/self/circles/{circle_id}/{action}"),
-            request,
-        )
-        .await
-    }
-
-    pub async fn circle_archive(
-        &self,
-        circle_id: &str,
-        request: &CircleArchiveRequestBody,
-    ) -> Result<CircleView> {
-        self.circle_lifecycle(circle_id, "archive", request).await
-    }
-
-    pub async fn circle_restore(
-        &self,
-        circle_id: &str,
-        request: &CircleRestoreRequestBody,
-    ) -> Result<CircleView> {
-        self.circle_lifecycle(circle_id, "restore", request).await
     }
 
     pub async fn circle_scope_rotate(

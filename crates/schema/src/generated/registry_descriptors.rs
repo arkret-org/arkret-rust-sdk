@@ -2,13 +2,13 @@
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-08-29.1;
 //! sha256=7b4bd414e50342b396c80ec20b9c2b59801b2e881e96a019b70a1c9f5a0a0cf0 Input: registry/
-//! capability-action-registry.json; version=2026-08-27.8;
-//! sha256=0c3b0ad97f48df2d4fc21bdb3a670084aaa6313e1bc68dd1a4ef48cf0893ef38 Input: registry/
+//! capability-action-registry.json; version=2026-08-29.7;
+//! sha256=8103744a6581d936873493b5959c6f41aa40d4ce2cbaec8c29028371f08eb374 Input: registry/
 //! schema-registry.json; version=2026-08-29.1;
 //! sha256=e98d65f1bfe8d179c090ae72be92ac257fd2c50b9028ab9a60cfc2373dd18c61 Input: registry/
 //! account-data-key-registry.json; version=2026-08-27.1;
 //! sha256=3d31af407b5d2214a67e3eb2850153fb3a4e0bcb597d069b70bf349945627cd9 Entries: id_kinds=59,
-//! special_forms=14, actions=167, schemas=199, account_data_patterns=24
+//! special_forms=14, actions=163, schemas=199, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -2395,19 +2395,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::SelfAgentCommandAbandonProvisioningV1,
-        category: "management",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        target_event_kinds: &[],
-        grant_authority_actions: &[],
-        profile: Some("ak.profile.personal_agent_provisioning.v1"),
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "non_event_surface",
-    },
-    CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAgentCommandDeactivateV1,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
@@ -2419,19 +2406,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         subject_only: false,
         reducer_only: false,
         event_mapping_kind: "operation_verb",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::SelfAgentCommandIssueProvisioningAbandonmentChallengeV1,
-        category: "management",
-        risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: &[],
-        target_event_kinds: &[],
-        grant_authority_actions: &[],
-        profile: Some("ak.profile.personal_agent_provisioning.v1"),
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAgentCommandPauseV1,
@@ -2484,32 +2458,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         subject_only: false,
         reducer_only: false,
         event_mapping_kind: "operation_verb",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::SelfAgentGrantCommandAttachV1,
-        category: "management",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        target_event_kinds: &[event_kind_str::CAPABILITY_GRANT],
-        grant_authority_actions: &[],
-        profile: Some("ak.profile.personal_agent_provisioning.v1"),
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "aggregate_admin",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::SelfAgentGrantResourceDeleteV1,
-        category: "management",
-        risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: &[],
-        target_event_kinds: &[event_kind_str::CAPABILITY_REVOKE],
-        grant_authority_actions: &[],
-        profile: Some("ak.profile.personal_agent_provisioning.v1"),
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAgentParticipationResourceReplaceV1,

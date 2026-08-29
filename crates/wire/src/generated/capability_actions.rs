@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-08-27.8;
-//! sha256=0c3b0ad97f48df2d4fc21bdb3a670084aaa6313e1bc68dd1a4ef48cf0893ef38 Entries: registered=167
+//! Input: registry/capability-action-registry.json; version=2026-08-29.7;
+//! sha256=8103744a6581d936873493b5959c6f41aa40d4ce2cbaec8c29028371f08eb374 Entries: registered=163
 
 use serde::{Deserialize, Serialize};
 
@@ -134,15 +134,11 @@ pub enum CapabilityActionId {
     SchemaDefine,
     SelfAccountReadDescribeV1,
     SelfAccountStreamSubscribeV1,
-    SelfAgentCommandAbandonProvisioningV1,
     SelfAgentCommandDeactivateV1,
-    SelfAgentCommandIssueProvisioningAbandonmentChallengeV1,
     SelfAgentCommandPauseV1,
     SelfAgentCommandProvisionV1,
     SelfAgentCommandRenewPairingV1,
     SelfAgentCommandResumeV1,
-    SelfAgentGrantCommandAttachV1,
-    SelfAgentGrantResourceDeleteV1,
     SelfAgentParticipationResourceReplaceV1,
     SelfAgentSidecarCommandEnsureV1,
     SelfBlobCommandPresignV1,
@@ -305,15 +301,11 @@ impl CapabilityActionId {
         Self::SchemaDefine,
         Self::SelfAccountReadDescribeV1,
         Self::SelfAccountStreamSubscribeV1,
-        Self::SelfAgentCommandAbandonProvisioningV1,
         Self::SelfAgentCommandDeactivateV1,
-        Self::SelfAgentCommandIssueProvisioningAbandonmentChallengeV1,
         Self::SelfAgentCommandPauseV1,
         Self::SelfAgentCommandProvisionV1,
         Self::SelfAgentCommandRenewPairingV1,
         Self::SelfAgentCommandResumeV1,
-        Self::SelfAgentGrantCommandAttachV1,
-        Self::SelfAgentGrantResourceDeleteV1,
         Self::SelfAgentParticipationResourceReplaceV1,
         Self::SelfAgentSidecarCommandEnsureV1,
         Self::SelfBlobCommandPresignV1,
@@ -476,21 +468,13 @@ impl CapabilityActionId {
     pub const SELF_ACCOUNT_READ_DESCRIBE_V1: &'static str = "ak.self.account.read.describe.v1";
     pub const SELF_ACCOUNT_STREAM_SUBSCRIBE_V1: &'static str =
         "ak.self.account.stream.subscribe.v1";
-    pub const SELF_AGENT_COMMAND_ABANDON_PROVISIONING_V1: &'static str =
-        "ak.self.agent.command.abandon_provisioning.v1";
     pub const SELF_AGENT_COMMAND_DEACTIVATE_V1: &'static str =
         "ak.self.agent.command.deactivate.v1";
-    pub const SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE_V1: &'static str =
-        "ak.self.agent.command.issue_provisioning_abandonment_challenge.v1";
     pub const SELF_AGENT_COMMAND_PAUSE_V1: &'static str = "ak.self.agent.command.pause.v1";
     pub const SELF_AGENT_COMMAND_PROVISION_V1: &'static str = "ak.self.agent.command.provision.v1";
     pub const SELF_AGENT_COMMAND_RENEW_PAIRING_V1: &'static str =
         "ak.self.agent.command.renew_pairing.v1";
     pub const SELF_AGENT_COMMAND_RESUME_V1: &'static str = "ak.self.agent.command.resume.v1";
-    pub const SELF_AGENT_GRANT_COMMAND_ATTACH_V1: &'static str =
-        "ak.self.agent.grant.command.attach.v1";
-    pub const SELF_AGENT_GRANT_RESOURCE_DELETE_V1: &'static str =
-        "ak.self.agent.grant.resource.delete.v1";
     pub const SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE_V1: &'static str =
         "ak.self.agent.participation.resource.replace.v1";
     pub const SELF_AGENT_SIDECAR_COMMAND_ENSURE_V1: &'static str =
@@ -656,19 +640,11 @@ impl CapabilityActionId {
             Self::SchemaDefine => Self::SCHEMA_DEFINE,
             Self::SelfAccountReadDescribeV1 => Self::SELF_ACCOUNT_READ_DESCRIBE_V1,
             Self::SelfAccountStreamSubscribeV1 => Self::SELF_ACCOUNT_STREAM_SUBSCRIBE_V1,
-            Self::SelfAgentCommandAbandonProvisioningV1 => {
-                Self::SELF_AGENT_COMMAND_ABANDON_PROVISIONING_V1
-            }
             Self::SelfAgentCommandDeactivateV1 => Self::SELF_AGENT_COMMAND_DEACTIVATE_V1,
-            Self::SelfAgentCommandIssueProvisioningAbandonmentChallengeV1 => {
-                Self::SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE_V1
-            }
             Self::SelfAgentCommandPauseV1 => Self::SELF_AGENT_COMMAND_PAUSE_V1,
             Self::SelfAgentCommandProvisionV1 => Self::SELF_AGENT_COMMAND_PROVISION_V1,
             Self::SelfAgentCommandRenewPairingV1 => Self::SELF_AGENT_COMMAND_RENEW_PAIRING_V1,
             Self::SelfAgentCommandResumeV1 => Self::SELF_AGENT_COMMAND_RESUME_V1,
-            Self::SelfAgentGrantCommandAttachV1 => Self::SELF_AGENT_GRANT_COMMAND_ATTACH_V1,
-            Self::SelfAgentGrantResourceDeleteV1 => Self::SELF_AGENT_GRANT_RESOURCE_DELETE_V1,
             Self::SelfAgentParticipationResourceReplaceV1 => {
                 Self::SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE_V1
             }
@@ -836,19 +812,11 @@ impl CapabilityActionId {
             Self::SCHEMA_DEFINE => Some(Self::SchemaDefine),
             Self::SELF_ACCOUNT_READ_DESCRIBE_V1 => Some(Self::SelfAccountReadDescribeV1),
             Self::SELF_ACCOUNT_STREAM_SUBSCRIBE_V1 => Some(Self::SelfAccountStreamSubscribeV1),
-            Self::SELF_AGENT_COMMAND_ABANDON_PROVISIONING_V1 => {
-                Some(Self::SelfAgentCommandAbandonProvisioningV1)
-            }
             Self::SELF_AGENT_COMMAND_DEACTIVATE_V1 => Some(Self::SelfAgentCommandDeactivateV1),
-            Self::SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE_V1 => {
-                Some(Self::SelfAgentCommandIssueProvisioningAbandonmentChallengeV1)
-            }
             Self::SELF_AGENT_COMMAND_PAUSE_V1 => Some(Self::SelfAgentCommandPauseV1),
             Self::SELF_AGENT_COMMAND_PROVISION_V1 => Some(Self::SelfAgentCommandProvisionV1),
             Self::SELF_AGENT_COMMAND_RENEW_PAIRING_V1 => Some(Self::SelfAgentCommandRenewPairingV1),
             Self::SELF_AGENT_COMMAND_RESUME_V1 => Some(Self::SelfAgentCommandResumeV1),
-            Self::SELF_AGENT_GRANT_COMMAND_ATTACH_V1 => Some(Self::SelfAgentGrantCommandAttachV1),
-            Self::SELF_AGENT_GRANT_RESOURCE_DELETE_V1 => Some(Self::SelfAgentGrantResourceDeleteV1),
             Self::SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE_V1 => {
                 Some(Self::SelfAgentParticipationResourceReplaceV1)
             }

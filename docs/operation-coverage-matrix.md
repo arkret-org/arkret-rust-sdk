@@ -4,10 +4,10 @@
 > Coverage is credited only from explicit evidence in `tools/operation-coverage-evidence.json`.
 
 - Claimable profiles: 68 (implementation + deployment + hardening profiles)
-- Effective profile/operation requirements: 656
+- Effective profile/operation requirements: 650
 - Complete rows: 5
 - Partial rows: 13
-- Gap rows: 638
+- Gap rows: 632
 
 `gap` is an explicit non-claim: registry recognition or a generated constant is not SDK implementation evidence. Inherited requirements are expanded into every claiming child profile.
 
@@ -39,8 +39,6 @@
 | `ak.profile.agent_delegation_policy.v1` | `server` | `ak.self.seals.read.frontier.v1` | `QUERY /_arkret/self/seals/frontier` | — | — | — | gap |
 | `ak.profile.agent_delegation_policy.v1` | `server` | `ak.server.read.describe.v1` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.agent_participation_policy.v1` | `server` | `ak.gate.account.command.pair_agent_key.v1` | `POST /_arkret/gate/account/agent-key-pair` | — | — | — | gap |
-| `ak.profile.agent_participation_policy.v1` | `server` | `ak.self.agent.command.abandon_provisioning.v1` | `POST /_arkret/self/agent-provisioning-abandonments` | — | — | — | gap |
-| `ak.profile.agent_participation_policy.v1` | `server` | `ak.self.agent.command.issue_provisioning_abandonment_challenge.v1` | `POST /_arkret/self/agent-provisioning-abandonment-challenges` | — | — | — | gap |
 | `ak.profile.agent_participation_policy.v1` | `server` | `ak.self.agent.command.provision.v1` | `POST /_arkret/self/agents` | — | — | — | gap |
 | `ak.profile.agent_participation_policy.v1` | `server` | `ak.self.agent.command.renew_pairing.v1` | `POST /_arkret/self/agents/{agent_id}/renew-pairing` | — | — | — | gap |
 | `ak.profile.agent_participation_policy.v1` | `server` | `ak.self.agent.participation.resource.get.v1` | `GET /_arkret/self/agents/{agent_id}/participation` | — | — | — | gap |
@@ -69,8 +67,6 @@
 | `ak.profile.agent_runtime.v1` | `server` | `ak.self.seals.read.frontier.v1` | `QUERY /_arkret/self/seals/frontier` | — | — | — | gap |
 | `ak.profile.agent_runtime.v1` | `server` | `ak.server.read.describe.v1` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.agent_sidecar.v1` | `server` | `ak.gate.account.command.pair_agent_key.v1` | `POST /_arkret/gate/account/agent-key-pair` | — | — | — | gap |
-| `ak.profile.agent_sidecar.v1` | `server` | `ak.self.agent.command.abandon_provisioning.v1` | `POST /_arkret/self/agent-provisioning-abandonments` | — | — | — | gap |
-| `ak.profile.agent_sidecar.v1` | `server` | `ak.self.agent.command.issue_provisioning_abandonment_challenge.v1` | `POST /_arkret/self/agent-provisioning-abandonment-challenges` | — | — | — | gap |
 | `ak.profile.agent_sidecar.v1` | `server` | `ak.self.agent.command.provision.v1` | `POST /_arkret/self/agents` | — | — | — | gap |
 | `ak.profile.agent_sidecar.v1` | `server` | `ak.self.agent.command.renew_pairing.v1` | `POST /_arkret/self/agents/{agent_id}/renew-pairing` | — | — | — | gap |
 | `ak.profile.agent_sidecar.v1` | `server` | `ak.self.agent.sidecar.command.ensure.v1` | `POST /_arkret/self/agent-sidecars:ensure` | — | — | — | gap |
@@ -490,8 +486,6 @@
 | `ak.profile.organization.v1` | `admin` | `ak.self.snapshot.read.manifest_head.v1` | `GET /_arkret/self/snapshot/head` | — | — | — | gap |
 | `ak.profile.organization.v1` | `admin` | `ak.server.read.describe.v1` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.personal_agent_provisioning.v1` | `server` | `ak.gate.account.command.pair_agent_key.v1` | `POST /_arkret/gate/account/agent-key-pair` | — | — | — | gap |
-| `ak.profile.personal_agent_provisioning.v1` | `server` | `ak.self.agent.command.abandon_provisioning.v1` | `POST /_arkret/self/agent-provisioning-abandonments` | — | — | — | gap |
-| `ak.profile.personal_agent_provisioning.v1` | `server` | `ak.self.agent.command.issue_provisioning_abandonment_challenge.v1` | `POST /_arkret/self/agent-provisioning-abandonment-challenges` | — | — | — | gap |
 | `ak.profile.personal_agent_provisioning.v1` | `server` | `ak.self.agent.command.provision.v1` | `POST /_arkret/self/agents` | — | — | — | gap |
 | `ak.profile.personal_agent_provisioning.v1` | `server` | `ak.self.agent.command.renew_pairing.v1` | `POST /_arkret/self/agents/{agent_id}/renew-pairing` | — | — | — | gap |
 | `ak.profile.personal_agent_provisioning.v1` | `server` | `ak.self.authz.read.check.v1` | `POST /_arkret/self/authz/check` | — | — | — | gap |

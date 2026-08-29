@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-29.5;
-//! sha256=f2ec4b4857c756f0cc3dc4501ca1cce8e1757494fa6766554bf29ad954e7d826 Entries: registered=256
+//! Input: registry/operation-registry.json; version=2026-08-29.6;
+//! sha256=1f389482c3bbd649af09ef5a601a2d9f905aef2d5ac32270b926e79c13e82556 Entries: registered=249
 
 use serde::{Deserialize, Serialize};
 
@@ -129,15 +129,11 @@ pub enum ServiceOperationId {
     SelfAccountDataResourceGetV1,
     SelfAccountDataResourceReplaceV1,
     SelfActorProfileReadResolveV1,
-    SelfAgentCommandAbandonProvisioningV1,
     SelfAgentCommandDeactivateV1,
-    SelfAgentCommandIssueProvisioningAbandonmentChallengeV1,
     SelfAgentCommandPauseV1,
     SelfAgentCommandProvisionV1,
     SelfAgentCommandRenewPairingV1,
     SelfAgentCommandResumeV1,
-    SelfAgentGrantCommandAttachV1,
-    SelfAgentGrantResourceDeleteV1,
     SelfAgentParticipationResourceGetV1,
     SelfAgentParticipationResourceReplaceV1,
     SelfAgentReadListV1,
@@ -161,11 +157,8 @@ pub enum ServiceOperationId {
     SelfBlobResourceHeadV1,
     SelfBlobUploadCreateV1,
     SelfCallMediaExchangeIssueTokenV1,
-    SelfCircleCommandArchiveV1,
     SelfCircleCommandCreateV1,
-    SelfCircleCommandRestoreV1,
     SelfCircleCommandRotateScopeV1,
-    SelfCircleCommandTombstoneV1,
     SelfCircleMemberCommandAddV1,
     SelfCircleMemberResourceDeleteV1,
     SelfCircleReadListV1,
@@ -388,15 +381,11 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_ACCOUNT_DATA_RESOURCE_GET_V1,
     ServiceOperationId::SELF_ACCOUNT_DATA_RESOURCE_REPLACE_V1,
     ServiceOperationId::SELF_ACTOR_PROFILE_READ_RESOLVE_V1,
-    ServiceOperationId::SELF_AGENT_COMMAND_ABANDON_PROVISIONING_V1,
     ServiceOperationId::SELF_AGENT_COMMAND_DEACTIVATE_V1,
-    ServiceOperationId::SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE_V1,
     ServiceOperationId::SELF_AGENT_COMMAND_PAUSE_V1,
     ServiceOperationId::SELF_AGENT_COMMAND_PROVISION_V1,
     ServiceOperationId::SELF_AGENT_COMMAND_RENEW_PAIRING_V1,
     ServiceOperationId::SELF_AGENT_COMMAND_RESUME_V1,
-    ServiceOperationId::SELF_AGENT_GRANT_COMMAND_ATTACH_V1,
-    ServiceOperationId::SELF_AGENT_GRANT_RESOURCE_DELETE_V1,
     ServiceOperationId::SELF_AGENT_PARTICIPATION_RESOURCE_GET_V1,
     ServiceOperationId::SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE_V1,
     ServiceOperationId::SELF_AGENT_READ_LIST_V1,
@@ -420,11 +409,8 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_BLOB_RESOURCE_HEAD_V1,
     ServiceOperationId::SELF_BLOB_UPLOAD_CREATE_V1,
     ServiceOperationId::SELF_CALL_MEDIA_EXCHANGE_ISSUE_TOKEN_V1,
-    ServiceOperationId::SELF_CIRCLE_COMMAND_ARCHIVE_V1,
     ServiceOperationId::SELF_CIRCLE_COMMAND_CREATE_V1,
-    ServiceOperationId::SELF_CIRCLE_COMMAND_RESTORE_V1,
     ServiceOperationId::SELF_CIRCLE_COMMAND_ROTATE_SCOPE_V1,
-    ServiceOperationId::SELF_CIRCLE_COMMAND_TOMBSTONE_V1,
     ServiceOperationId::SELF_CIRCLE_MEMBER_COMMAND_ADD_V1,
     ServiceOperationId::SELF_CIRCLE_MEMBER_RESOURCE_DELETE_V1,
     ServiceOperationId::SELF_CIRCLE_READ_LIST_V1,
@@ -689,15 +675,11 @@ impl ServiceOperationId {
         Self::SelfAccountDataResourceGetV1,
         Self::SelfAccountDataResourceReplaceV1,
         Self::SelfActorProfileReadResolveV1,
-        Self::SelfAgentCommandAbandonProvisioningV1,
         Self::SelfAgentCommandDeactivateV1,
-        Self::SelfAgentCommandIssueProvisioningAbandonmentChallengeV1,
         Self::SelfAgentCommandPauseV1,
         Self::SelfAgentCommandProvisionV1,
         Self::SelfAgentCommandRenewPairingV1,
         Self::SelfAgentCommandResumeV1,
-        Self::SelfAgentGrantCommandAttachV1,
-        Self::SelfAgentGrantResourceDeleteV1,
         Self::SelfAgentParticipationResourceGetV1,
         Self::SelfAgentParticipationResourceReplaceV1,
         Self::SelfAgentReadListV1,
@@ -721,11 +703,8 @@ impl ServiceOperationId {
         Self::SelfBlobResourceHeadV1,
         Self::SelfBlobUploadCreateV1,
         Self::SelfCallMediaExchangeIssueTokenV1,
-        Self::SelfCircleCommandArchiveV1,
         Self::SelfCircleCommandCreateV1,
-        Self::SelfCircleCommandRestoreV1,
         Self::SelfCircleCommandRotateScopeV1,
-        Self::SelfCircleCommandTombstoneV1,
         Self::SelfCircleMemberCommandAddV1,
         Self::SelfCircleMemberResourceDeleteV1,
         Self::SelfCircleReadListV1,
@@ -1043,21 +1022,13 @@ impl ServiceOperationId {
         "ak.self.account_data.resource.replace.v1";
     pub const SELF_ACTOR_PROFILE_READ_RESOLVE_V1: &'static str =
         "ak.self.actor_profile.read.resolve.v1";
-    pub const SELF_AGENT_COMMAND_ABANDON_PROVISIONING_V1: &'static str =
-        "ak.self.agent.command.abandon_provisioning.v1";
     pub const SELF_AGENT_COMMAND_DEACTIVATE_V1: &'static str =
         "ak.self.agent.command.deactivate.v1";
-    pub const SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE_V1: &'static str =
-        "ak.self.agent.command.issue_provisioning_abandonment_challenge.v1";
     pub const SELF_AGENT_COMMAND_PAUSE_V1: &'static str = "ak.self.agent.command.pause.v1";
     pub const SELF_AGENT_COMMAND_PROVISION_V1: &'static str = "ak.self.agent.command.provision.v1";
     pub const SELF_AGENT_COMMAND_RENEW_PAIRING_V1: &'static str =
         "ak.self.agent.command.renew_pairing.v1";
     pub const SELF_AGENT_COMMAND_RESUME_V1: &'static str = "ak.self.agent.command.resume.v1";
-    pub const SELF_AGENT_GRANT_COMMAND_ATTACH_V1: &'static str =
-        "ak.self.agent.grant.command.attach.v1";
-    pub const SELF_AGENT_GRANT_RESOURCE_DELETE_V1: &'static str =
-        "ak.self.agent.grant.resource.delete.v1";
     pub const SELF_AGENT_PARTICIPATION_RESOURCE_GET_V1: &'static str =
         "ak.self.agent.participation.resource.get.v1";
     pub const SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE_V1: &'static str =
@@ -1093,13 +1064,9 @@ impl ServiceOperationId {
     pub const SELF_BLOB_UPLOAD_CREATE_V1: &'static str = "ak.self.blob.upload.create.v1";
     pub const SELF_CALL_MEDIA_EXCHANGE_ISSUE_TOKEN_V1: &'static str =
         "ak.self.call.media.exchange.issue_token.v1";
-    pub const SELF_CIRCLE_COMMAND_ARCHIVE_V1: &'static str = "ak.self.circle.command.archive.v1";
     pub const SELF_CIRCLE_COMMAND_CREATE_V1: &'static str = "ak.self.circle.command.create.v1";
-    pub const SELF_CIRCLE_COMMAND_RESTORE_V1: &'static str = "ak.self.circle.command.restore.v1";
     pub const SELF_CIRCLE_COMMAND_ROTATE_SCOPE_V1: &'static str =
         "ak.self.circle.command.rotate_scope.v1";
-    pub const SELF_CIRCLE_COMMAND_TOMBSTONE_V1: &'static str =
-        "ak.self.circle.command.tombstone.v1";
     pub const SELF_CIRCLE_MEMBER_COMMAND_ADD_V1: &'static str =
         "ak.self.circle.member.command.add.v1";
     pub const SELF_CIRCLE_MEMBER_RESOURCE_DELETE_V1: &'static str =
@@ -1478,19 +1445,11 @@ impl ServiceOperationId {
             Self::SelfAccountDataResourceGetV1 => Self::SELF_ACCOUNT_DATA_RESOURCE_GET_V1,
             Self::SelfAccountDataResourceReplaceV1 => Self::SELF_ACCOUNT_DATA_RESOURCE_REPLACE_V1,
             Self::SelfActorProfileReadResolveV1 => Self::SELF_ACTOR_PROFILE_READ_RESOLVE_V1,
-            Self::SelfAgentCommandAbandonProvisioningV1 => {
-                Self::SELF_AGENT_COMMAND_ABANDON_PROVISIONING_V1
-            }
             Self::SelfAgentCommandDeactivateV1 => Self::SELF_AGENT_COMMAND_DEACTIVATE_V1,
-            Self::SelfAgentCommandIssueProvisioningAbandonmentChallengeV1 => {
-                Self::SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE_V1
-            }
             Self::SelfAgentCommandPauseV1 => Self::SELF_AGENT_COMMAND_PAUSE_V1,
             Self::SelfAgentCommandProvisionV1 => Self::SELF_AGENT_COMMAND_PROVISION_V1,
             Self::SelfAgentCommandRenewPairingV1 => Self::SELF_AGENT_COMMAND_RENEW_PAIRING_V1,
             Self::SelfAgentCommandResumeV1 => Self::SELF_AGENT_COMMAND_RESUME_V1,
-            Self::SelfAgentGrantCommandAttachV1 => Self::SELF_AGENT_GRANT_COMMAND_ATTACH_V1,
-            Self::SelfAgentGrantResourceDeleteV1 => Self::SELF_AGENT_GRANT_RESOURCE_DELETE_V1,
             Self::SelfAgentParticipationResourceGetV1 => {
                 Self::SELF_AGENT_PARTICIPATION_RESOURCE_GET_V1
             }
@@ -1524,11 +1483,8 @@ impl ServiceOperationId {
             Self::SelfCallMediaExchangeIssueTokenV1 => {
                 Self::SELF_CALL_MEDIA_EXCHANGE_ISSUE_TOKEN_V1
             }
-            Self::SelfCircleCommandArchiveV1 => Self::SELF_CIRCLE_COMMAND_ARCHIVE_V1,
             Self::SelfCircleCommandCreateV1 => Self::SELF_CIRCLE_COMMAND_CREATE_V1,
-            Self::SelfCircleCommandRestoreV1 => Self::SELF_CIRCLE_COMMAND_RESTORE_V1,
             Self::SelfCircleCommandRotateScopeV1 => Self::SELF_CIRCLE_COMMAND_ROTATE_SCOPE_V1,
-            Self::SelfCircleCommandTombstoneV1 => Self::SELF_CIRCLE_COMMAND_TOMBSTONE_V1,
             Self::SelfCircleMemberCommandAddV1 => Self::SELF_CIRCLE_MEMBER_COMMAND_ADD_V1,
             Self::SelfCircleMemberResourceDeleteV1 => Self::SELF_CIRCLE_MEMBER_RESOURCE_DELETE_V1,
             Self::SelfCircleReadListV1 => Self::SELF_CIRCLE_READ_LIST_V1,
@@ -1963,19 +1919,11 @@ impl ServiceOperationId {
                 Some(Self::SelfAccountDataResourceReplaceV1)
             }
             Self::SELF_ACTOR_PROFILE_READ_RESOLVE_V1 => Some(Self::SelfActorProfileReadResolveV1),
-            Self::SELF_AGENT_COMMAND_ABANDON_PROVISIONING_V1 => {
-                Some(Self::SelfAgentCommandAbandonProvisioningV1)
-            }
             Self::SELF_AGENT_COMMAND_DEACTIVATE_V1 => Some(Self::SelfAgentCommandDeactivateV1),
-            Self::SELF_AGENT_COMMAND_ISSUE_PROVISIONING_ABANDONMENT_CHALLENGE_V1 => {
-                Some(Self::SelfAgentCommandIssueProvisioningAbandonmentChallengeV1)
-            }
             Self::SELF_AGENT_COMMAND_PAUSE_V1 => Some(Self::SelfAgentCommandPauseV1),
             Self::SELF_AGENT_COMMAND_PROVISION_V1 => Some(Self::SelfAgentCommandProvisionV1),
             Self::SELF_AGENT_COMMAND_RENEW_PAIRING_V1 => Some(Self::SelfAgentCommandRenewPairingV1),
             Self::SELF_AGENT_COMMAND_RESUME_V1 => Some(Self::SelfAgentCommandResumeV1),
-            Self::SELF_AGENT_GRANT_COMMAND_ATTACH_V1 => Some(Self::SelfAgentGrantCommandAttachV1),
-            Self::SELF_AGENT_GRANT_RESOURCE_DELETE_V1 => Some(Self::SelfAgentGrantResourceDeleteV1),
             Self::SELF_AGENT_PARTICIPATION_RESOURCE_GET_V1 => {
                 Some(Self::SelfAgentParticipationResourceGetV1)
             }
@@ -2019,11 +1967,8 @@ impl ServiceOperationId {
             Self::SELF_CALL_MEDIA_EXCHANGE_ISSUE_TOKEN_V1 => {
                 Some(Self::SelfCallMediaExchangeIssueTokenV1)
             }
-            Self::SELF_CIRCLE_COMMAND_ARCHIVE_V1 => Some(Self::SelfCircleCommandArchiveV1),
             Self::SELF_CIRCLE_COMMAND_CREATE_V1 => Some(Self::SelfCircleCommandCreateV1),
-            Self::SELF_CIRCLE_COMMAND_RESTORE_V1 => Some(Self::SelfCircleCommandRestoreV1),
             Self::SELF_CIRCLE_COMMAND_ROTATE_SCOPE_V1 => Some(Self::SelfCircleCommandRotateScopeV1),
-            Self::SELF_CIRCLE_COMMAND_TOMBSTONE_V1 => Some(Self::SelfCircleCommandTombstoneV1),
             Self::SELF_CIRCLE_MEMBER_COMMAND_ADD_V1 => Some(Self::SelfCircleMemberCommandAddV1),
             Self::SELF_CIRCLE_MEMBER_RESOURCE_DELETE_V1 => {
                 Some(Self::SelfCircleMemberResourceDeleteV1)
@@ -5012,33 +4957,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAgentCommandAbandonProvisioningV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/agent-provisioning-abandonments",
-        grpc: Some("SelfAgent/AbandonProvisioning"),
-        mq: Some("self.agent.command.abandon_provisioning"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("request_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_provisioning_abandonment_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_provisioning_abandonment_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some(
-                "releases_only_service_local_slug_and_realm_id_claims_and_records_a_tombstone_audit_reservation_no_event_is_authored",
-            ),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentCommandDeactivateV1,
         http_method: "POST",
         http_path: "/_arkret/self/agents/{agent_id}/deactivate",
@@ -5062,33 +4980,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.self.agent.deactivate"])),
             rationale: None,
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAgentCommandIssueProvisioningAbandonmentChallengeV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/agent-provisioning-abandonment-challenges",
-        grpc: Some("SelfAgent/IssueProvisioningAbandonmentChallenge"),
-        mq: Some("self.agent.command.issue_provisioning_abandonment_challenge"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("request_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_provisioning_abandonment_challenge_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_provisioning_abandonment_challenge_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some(
-                "persists_only_a_service_local_single_use_challenge_no_event_is_authored",
-            ),
             branch_contract_json: None,
         }),
     },
@@ -5194,58 +5085,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.self.agent.resume"])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAgentGrantCommandAttachV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/agents/{agent_id}/grants",
-        grpc: Some("SelfAgent/GrantAttach"),
-        mq: Some("self.agent.grant.command.attach"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_grant_attach_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_grant_attach_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.authz.grants.read.effective.v1\",\"strategy\":\"query_operation\"}",
-        ),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.capability.grant"])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAgentGrantResourceDeleteV1,
-        http_method: "DELETE",
-        http_path: "/_arkret/self/agents/{agent_id}/grants/{grant_id}",
-        grpc: Some("SelfAgent/GrantDetach"),
-        mq: Some("self.agent.grant.resource.delete"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_grant_detach_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_grant_detach_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.capability.revoke"])),
             rationale: None,
             branch_contract_json: None,
         }),
@@ -5761,31 +5600,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfCircleCommandArchiveV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/circles/{circle_id}/archive",
-        grpc: Some("SelfCircle/Archive"),
-        mq: Some("self.circle.command.archive"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_archive_request_body",
-        ),
-        response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_view"),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.circle.resource.get.v1\",\"strategy\":\"query_operation\"}",
-        ),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.circle.archive"])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCircleCommandCreateV1,
         http_method: "POST",
         http_path: "/_arkret/self/circles",
@@ -5806,31 +5620,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.circle.create"])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfCircleCommandRestoreV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/circles/{circle_id}/restore",
-        grpc: Some("SelfCircle/Restore"),
-        mq: Some("self.circle.command.restore"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_restore_request_body",
-        ),
-        response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_view"),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.circle.resource.get.v1\",\"strategy\":\"query_operation\"}",
-        ),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.circle.restore"])),
             rationale: None,
             branch_contract_json: None,
         }),
@@ -5859,31 +5648,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some(
                 "v1_surface_is_declared_but_always_returns_unsupported_feature_until_a_signed_event_submission_request_contract_is_registered",
             ),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfCircleCommandTombstoneV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/circles/{circle_id}/tombstone",
-        grpc: Some("SelfCircle/Tombstone"),
-        mq: Some("self.circle.command.tombstone"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_tombstone_request_body",
-        ),
-        response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_view"),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.circle.resource.get.v1\",\"strategy\":\"query_operation\"}",
-        ),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.circle.tombstone"])),
-            rationale: None,
             branch_contract_json: None,
         }),
     },
