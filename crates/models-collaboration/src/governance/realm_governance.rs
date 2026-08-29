@@ -441,62 +441,6 @@ pub struct RealmLifecycleView {
     pub freeze_expires_at: Option<DateTime<Utc>>,
 }
 
-// The four Realm lifecycle operations take separate request types because each
-// pins its own Event kind. The body shape is identical: one caller-signed Event.
-//
-// These operations used to take the Event payload directly
-// (`RealmArchivePayload` and friends), which left the signature for the service
-// to add -- the caller stated what to write and only a service key could sign it.
-// The payload types stay: they are still what goes in
-// `lifecycle_event.event.payload`, now authored by whoever signs the Event.
-//
-// The Realm is single-sourced by `event.realm_id` and must equal the path
-// `realm_id`. Because each payload describes a transition out of state the caller
-// has to read first, a concurrent lifecycle write makes the later submission fail
-// its precondition instead of silently reordering.
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmArchiveRequestBody {
-    /// Closed `ak.realm.archive` Event authored and signed by the caller. Its
-    /// payload is `RealmArchivePayload`.
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub lifecycle_event: EventInitialSubmission,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmFreezeRequestBody {
-    /// Closed `ak.realm.freeze` Event authored and signed by the caller. Its
-    /// payload is `RealmFreezePayload`.
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub lifecycle_event: EventInitialSubmission,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmTombstoneRequestBody {
-    /// Closed terminal `ak.realm.tombstone` Event authored and signed by the
-    /// caller. Its payload (`RealmTombstonePayload`) requires a
-    /// `successor_realm_id`, so the signed Event is the whole record of who ended
-    /// the Realm and where it continues.
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub lifecycle_event: EventInitialSubmission,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmDestroyRequestBody {
-    /// Closed terminal `ak.realm.destroy` Event authored and signed by the
-    /// caller. Its payload is `RealmDestroyPayload`.
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub lifecycle_event: EventInitialSubmission,
-}
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-29.4;
-//! sha256=3e3dd2f8fd36fcd772031064fe84bc71689f8c4f6c95df8b75aa8364a9880b07 Entries: registered=261
+//! Input: registry/operation-registry.json; version=2026-08-29.6;
+//! sha256=8b67ded4d7043027c4d7ce6ae9f651dc2f9a8b9b11f73812b623737e4d28e2ae Entries: registered=256
 
 use serde::{Deserialize, Serialize};
 
@@ -231,10 +231,6 @@ pub enum ServiceOperationId {
     SelfPolicyReadCheckV1,
     SelfReadCursorCommandAdvanceV1,
     SelfReadCursorReadListV1,
-    SelfRealmCommandArchiveV1,
-    SelfRealmCommandDestroyV1,
-    SelfRealmCommandFreezeV1,
-    SelfRealmCommandTombstoneV1,
     SelfRealmJoinApplicationAuditReadListV1,
     SelfRealmJoinApplicationCommandCancelV1,
     SelfRealmJoinApplicationCommandReviewV1,
@@ -267,7 +263,6 @@ pub enum ServiceOperationId {
     SelfSnapshotReadManifestHeadV1,
     SelfSpaceReadListV1,
     SelfStrandReadListV1,
-    SelfViewsCollectionProjectionCommandMaterializeV1,
     ServerReadDescribeV1,
 }
 
@@ -495,10 +490,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_POLICY_READ_CHECK_V1,
     ServiceOperationId::SELF_READ_CURSOR_COMMAND_ADVANCE_V1,
     ServiceOperationId::SELF_READ_CURSOR_READ_LIST_V1,
-    ServiceOperationId::SELF_REALM_COMMAND_ARCHIVE_V1,
-    ServiceOperationId::SELF_REALM_COMMAND_DESTROY_V1,
-    ServiceOperationId::SELF_REALM_COMMAND_FREEZE_V1,
-    ServiceOperationId::SELF_REALM_COMMAND_TOMBSTONE_V1,
     ServiceOperationId::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST_V1,
     ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL_V1,
     ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_REVIEW_V1,
@@ -531,7 +522,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_SNAPSHOT_READ_MANIFEST_HEAD_V1,
     ServiceOperationId::SELF_SPACE_READ_LIST_V1,
     ServiceOperationId::SELF_STRAND_READ_LIST_V1,
-    ServiceOperationId::SELF_VIEWS_COLLECTION_PROJECTION_COMMAND_MATERIALIZE_V1,
     ServiceOperationId::SERVER_READ_DESCRIBE_V1,
 ];
 
@@ -801,10 +791,6 @@ impl ServiceOperationId {
         Self::SelfPolicyReadCheckV1,
         Self::SelfReadCursorCommandAdvanceV1,
         Self::SelfReadCursorReadListV1,
-        Self::SelfRealmCommandArchiveV1,
-        Self::SelfRealmCommandDestroyV1,
-        Self::SelfRealmCommandFreezeV1,
-        Self::SelfRealmCommandTombstoneV1,
         Self::SelfRealmJoinApplicationAuditReadListV1,
         Self::SelfRealmJoinApplicationCommandCancelV1,
         Self::SelfRealmJoinApplicationCommandReviewV1,
@@ -837,7 +823,6 @@ impl ServiceOperationId {
         Self::SelfSnapshotReadManifestHeadV1,
         Self::SelfSpaceReadListV1,
         Self::SelfStrandReadListV1,
-        Self::SelfViewsCollectionProjectionCommandMaterializeV1,
         Self::ServerReadDescribeV1,
     ];
 
@@ -1218,10 +1203,6 @@ impl ServiceOperationId {
     pub const SELF_READ_CURSOR_COMMAND_ADVANCE_V1: &'static str =
         "ak.self.read_cursor.command.advance.v1";
     pub const SELF_READ_CURSOR_READ_LIST_V1: &'static str = "ak.self.read_cursor.read.list.v1";
-    pub const SELF_REALM_COMMAND_ARCHIVE_V1: &'static str = "ak.self.realm.command.archive.v1";
-    pub const SELF_REALM_COMMAND_DESTROY_V1: &'static str = "ak.self.realm.command.destroy.v1";
-    pub const SELF_REALM_COMMAND_FREEZE_V1: &'static str = "ak.self.realm.command.freeze.v1";
-    pub const SELF_REALM_COMMAND_TOMBSTONE_V1: &'static str = "ak.self.realm.command.tombstone.v1";
     pub const SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST_V1: &'static str =
         "ak.self.realm.join_application.audit.read.list.v1";
     pub const SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL_V1: &'static str =
@@ -1276,8 +1257,6 @@ impl ServiceOperationId {
         "ak.self.snapshot.read.manifest_head.v1";
     pub const SELF_SPACE_READ_LIST_V1: &'static str = "ak.self.space.read.list.v1";
     pub const SELF_STRAND_READ_LIST_V1: &'static str = "ak.self.strand.read.list.v1";
-    pub const SELF_VIEWS_COLLECTION_PROJECTION_COMMAND_MATERIALIZE_V1: &'static str =
-        "ak.self.views.collection_projection.command.materialize.v1";
     pub const SERVER_READ_DESCRIBE_V1: &'static str = "ak.server.read.describe.v1";
 
     pub const fn as_str(self) -> &'static str {
@@ -1647,10 +1626,6 @@ impl ServiceOperationId {
             Self::SelfPolicyReadCheckV1 => Self::SELF_POLICY_READ_CHECK_V1,
             Self::SelfReadCursorCommandAdvanceV1 => Self::SELF_READ_CURSOR_COMMAND_ADVANCE_V1,
             Self::SelfReadCursorReadListV1 => Self::SELF_READ_CURSOR_READ_LIST_V1,
-            Self::SelfRealmCommandArchiveV1 => Self::SELF_REALM_COMMAND_ARCHIVE_V1,
-            Self::SelfRealmCommandDestroyV1 => Self::SELF_REALM_COMMAND_DESTROY_V1,
-            Self::SelfRealmCommandFreezeV1 => Self::SELF_REALM_COMMAND_FREEZE_V1,
-            Self::SelfRealmCommandTombstoneV1 => Self::SELF_REALM_COMMAND_TOMBSTONE_V1,
             Self::SelfRealmJoinApplicationAuditReadListV1 => {
                 Self::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST_V1
             }
@@ -1719,9 +1694,6 @@ impl ServiceOperationId {
             Self::SelfSnapshotReadManifestHeadV1 => Self::SELF_SNAPSHOT_READ_MANIFEST_HEAD_V1,
             Self::SelfSpaceReadListV1 => Self::SELF_SPACE_READ_LIST_V1,
             Self::SelfStrandReadListV1 => Self::SELF_STRAND_READ_LIST_V1,
-            Self::SelfViewsCollectionProjectionCommandMaterializeV1 => {
-                Self::SELF_VIEWS_COLLECTION_PROJECTION_COMMAND_MATERIALIZE_V1
-            }
             Self::ServerReadDescribeV1 => Self::SERVER_READ_DESCRIBE_V1,
         }
     }
@@ -2173,10 +2145,6 @@ impl ServiceOperationId {
             Self::SELF_POLICY_READ_CHECK_V1 => Some(Self::SelfPolicyReadCheckV1),
             Self::SELF_READ_CURSOR_COMMAND_ADVANCE_V1 => Some(Self::SelfReadCursorCommandAdvanceV1),
             Self::SELF_READ_CURSOR_READ_LIST_V1 => Some(Self::SelfReadCursorReadListV1),
-            Self::SELF_REALM_COMMAND_ARCHIVE_V1 => Some(Self::SelfRealmCommandArchiveV1),
-            Self::SELF_REALM_COMMAND_DESTROY_V1 => Some(Self::SelfRealmCommandDestroyV1),
-            Self::SELF_REALM_COMMAND_FREEZE_V1 => Some(Self::SelfRealmCommandFreezeV1),
-            Self::SELF_REALM_COMMAND_TOMBSTONE_V1 => Some(Self::SelfRealmCommandTombstoneV1),
             Self::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST_V1 => {
                 Some(Self::SelfRealmJoinApplicationAuditReadListV1)
             }
@@ -2247,9 +2215,6 @@ impl ServiceOperationId {
             Self::SELF_SNAPSHOT_READ_MANIFEST_HEAD_V1 => Some(Self::SelfSnapshotReadManifestHeadV1),
             Self::SELF_SPACE_READ_LIST_V1 => Some(Self::SelfSpaceReadListV1),
             Self::SELF_STRAND_READ_LIST_V1 => Some(Self::SelfStrandReadListV1),
-            Self::SELF_VIEWS_COLLECTION_PROJECTION_COMMAND_MATERIALIZE_V1 => {
-                Some(Self::SelfViewsCollectionProjectionCommandMaterializeV1)
-            }
             Self::SERVER_READ_DESCRIBE_V1 => Some(Self::ServerReadDescribeV1),
             _ => None,
         }
@@ -7393,114 +7358,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmCommandArchiveV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/realms/{realm_id}/archive",
-        grpc: Some("SelfRealm/Archive"),
-        mq: Some("self.realm.command.archive"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_archive_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_lifecycle_view",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.realm.resource.get.v1\",\"strategy\":\"query_operation\"}",
-        ),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.realm.archive"])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmCommandDestroyV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/realms/{realm_id}/destroy",
-        grpc: Some("SelfRealm/Destroy"),
-        mq: Some("self.realm.command.destroy"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_destroy_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_lifecycle_view",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.realm.resource.get.v1\",\"strategy\":\"query_operation\"}",
-        ),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.realm.destroy"])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmCommandFreezeV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/realms/{realm_id}/freeze",
-        grpc: Some("SelfRealm/Freeze"),
-        mq: Some("self.realm.command.freeze"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_freeze_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_lifecycle_view",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.realm.resource.get.v1\",\"strategy\":\"query_operation\"}",
-        ),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.realm.freeze"])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmCommandTombstoneV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/realms/{realm_id}/tombstone",
-        grpc: Some("SelfRealm/Tombstone"),
-        mq: Some("self.realm.command.tombstone"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_tombstone_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_lifecycle_view",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.realm.resource.get.v1\",\"strategy\":\"query_operation\"}",
-        ),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.realm.tombstone"])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmJoinApplicationAuditReadListV1,
         http_method: "GET",
         http_path: "/_arkret/self/realms/{realm_id}/join-applications/{application_ref}/audit",
@@ -8158,27 +8015,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfViewsCollectionProjectionCommandMaterializeV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/views/{view_id}/projection",
-        grpc: Some("SelfViews/CollectionProjection"),
-        mq: Some("self.views.collection_projection.command.materialize"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(true),
-        request_schema_ref: Some("schemas/view.schema.json#/$defs/view_projection_request_body"),
-        response_schema_ref: Some("schemas/view.schema.json#/$defs/collection_projection_view"),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
-            branch_contract_json: None,
-        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::ServerReadDescribeV1,

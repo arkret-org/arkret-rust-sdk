@@ -27,9 +27,6 @@ use arkret_models_collaboration::http_bodies::{
     EventsSubmitOutcome, EventsSubscribeFrame, ProjectionSpaceList, ProjectionStrandList,
     SealResolveOutcome, SelfSealResolveRequestBody,
 };
-use arkret_models_collaboration::objects::query_projection::{
-    CollectionProjectionView, ViewProjectionRequestBody,
-};
 use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceValidator;
 use arkret_models_crypto::{MlsGovernanceProofBundle, MlsGovernanceProofRequestBody};
 use arkret_models_discovery::ServiceDescribe;
@@ -960,16 +957,6 @@ impl Client {
             builder = builder.query(&[("cursor", cursor)]);
         }
         self.send_json(builder).await
-    }
-
-    pub async fn collection_projection(
-        &self,
-        view_id: &str,
-        request: &ViewProjectionRequestBody,
-    ) -> Result<CollectionProjectionView> {
-        reject_path_segment(view_id)?;
-        let path = format!("/_arkret/self/views/{view_id}/projection");
-        self.post(&path, request).await
     }
 
     pub async fn realm_spaces(&self, realm_id: &str) -> Result<ProjectionSpaceList> {

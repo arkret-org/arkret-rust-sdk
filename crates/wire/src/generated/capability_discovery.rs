@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/contract-registry.json; version=2026-08-29.4;
-//! sha256=2f2cf1f2d9ae6192d60be92625946f57741836ba728e273f70ee8a1d3a83524b
+//! Input: registry/contract-registry.json; version=2026-08-29.6;
+//! sha256=816eac75b30ab0ca29c9bed9d78fa9d52642e663435bf5a9d6919ea9a4f3d848
 //! Entries: operation_bundles=39 features=22
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -1089,22 +1089,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfReadCursorReadListV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfRealmCommandArchiveV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfRealmCommandDestroyV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfRealmCommandFreezeV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfRealmCommandTombstoneV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
