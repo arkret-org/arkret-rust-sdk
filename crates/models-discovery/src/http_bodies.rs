@@ -207,6 +207,256 @@ impl<'de> Deserialize<'de> for PsiResponsePadding {
     }
 }
 
+/// PSI round whose success and Class B responses share one exact entity-body
+/// bucket and anti-enumeration delay class.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PsiResponsePhase {
+    Blind,
+    Match,
+}
+
+/// Closed canonical error vocabulary admitted on the PSI Class B surface.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PsiClassBProblemType {
+    #[serde(rename = "https://arkret.org/problems/policy_denied")]
+    PolicyDenied,
+    #[serde(rename = "https://arkret.org/problems/duplicate_conflict")]
+    DuplicateConflict,
+    #[serde(rename = "https://arkret.org/problems/psi_batch_unavailable")]
+    PsiBatchUnavailable,
+    #[serde(rename = "https://arkret.org/problems/psi_quota_exhausted")]
+    PsiQuotaExhausted,
+}
+
+impl PsiClassBProblemType {
+    pub const fn status(self) -> u16 {
+        match self {
+            Self::PolicyDenied => 403,
+            Self::DuplicateConflict => 409,
+            Self::PsiBatchUnavailable => 410,
+            Self::PsiQuotaExhausted => 429,
+        }
+    }
+
+    pub const fn canonical_title(self) -> &'static str {
+        match self {
+            Self::PolicyDenied => "Policy denied",
+            Self::DuplicateConflict => "Duplicate conflict",
+            Self::PsiBatchUnavailable => "Psi batch unavailable",
+            Self::PsiQuotaExhausted => "Psi quota exhausted",
+        }
+    }
+
+    pub const fn is_allowed_in(self, phase: PsiResponsePhase) -> bool {
+        match self {
+            Self::PolicyDenied | Self::DuplicateConflict => true,
+            Self::PsiBatchUnavailable => matches!(phase, PsiResponsePhase::Match),
+            Self::PsiQuotaExhausted => matches!(phase, PsiResponsePhase::Blind),
+        }
+    }
+}
+
+/// Closed RFC 9457 Problem Details body for PSI request-level (Class B)
+/// failures. `padding` is the only extension member.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PsiPaddedProblem {
+    #[serde(rename = "type")]
+    pub problem_type: PsiClassBProblemType,
+    pub title: String,
+    pub status: u16,
+    pub detail: String,
+    pub instance: String,
+    pub padding: PsiResponsePadding,
+}
+
+impl PsiPaddedProblem {
+    pub const DETAIL_MAX_CHARS: usize = 256;
+    pub const INSTANCE_MAX_CHARS: usize = 128;
+
+    pub fn new(
+        problem_type: PsiClassBProblemType,
+        detail: impl Into<String>,
+        instance: impl Into<String>,
+    ) -> Result<Self> {
+        let problem = Self {
+            problem_type,
+            title: problem_type.canonical_title().to_owned(),
+            status: problem_type.status(),
+            detail: detail.into(),
+            instance: instance.into(),
+            padding: PsiResponsePadding::default(),
+        };
+        problem.validate()?;
+        Ok(problem)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.status != self.problem_type.status()
+            || self.title != self.problem_type.canonical_title()
+            || self.detail.is_empty()
+            || self.detail.chars().count() > Self::DETAIL_MAX_CHARS
+            || !is_uri_reference(&self.instance)
+            || self.instance.chars().count() > Self::INSTANCE_MAX_CHARS
+        {
+            return Err(WireError::Protocol(
+                "invalid PSI Class B RFC 9457 problem".to_owned(),
+            ));
+        }
+        arkret_canonical::canonical_json_bytes(self).map_err(|error| {
+            WireError::Protocol(format!(
+                "cannot canonically encode PSI Class B problem: {error}"
+            ))
+        })?;
+        Ok(())
+    }
+
+    pub fn validate_for_phase(&self, phase: PsiResponsePhase) -> Result<()> {
+        self.validate()?;
+        if !self.problem_type.is_allowed_in(phase) {
+            return Err(WireError::Protocol(
+                "PSI Class B problem is not allowed in this response phase".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Pad this concrete Class B problem to the phase bucket selected by the
+    /// validated Describe configuration.
+    pub fn pad_to_advertised_bucket(
+        mut self,
+        phase: PsiResponsePhase,
+        configuration: &PrivateContactDiscovery,
+    ) -> Result<Self> {
+        configuration.validate()?;
+        self.validate_for_phase(phase)?;
+        self.padding = PsiResponsePadding::default();
+        let unpadded_len = arkret_canonical::canonical_json_bytes(&self)
+            .map_err(|error| WireError::Protocol(format!("cannot encode PSI problem: {error}")))?
+            .len();
+        let bucket = configuration.response_bucket(phase) as usize;
+        let padding_len = bucket.checked_sub(unpadded_len).ok_or_else(|| {
+            WireError::Protocol(
+                "PSI Class B problem does not fit the advertised response bucket".to_owned(),
+            )
+        })?;
+        self.padding = PsiResponsePadding::spaces(padding_len)?;
+        Ok(self)
+    }
+
+    pub fn validate_for_phase_and_bucket(
+        &self,
+        phase: PsiResponsePhase,
+        configuration: &PrivateContactDiscovery,
+    ) -> Result<()> {
+        configuration.validate()?;
+        self.validate_for_phase(phase)?;
+        let encoded_len = arkret_canonical::canonical_json_bytes(self)
+            .map_err(|error| WireError::Protocol(format!("cannot encode PSI problem: {error}")))?
+            .len();
+        if encoded_len != configuration.response_bucket(phase) as usize {
+            return Err(WireError::Protocol(
+                "PSI Class B problem does not have the advertised exact entity-body length"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn is_uri_reference(value: &str) -> bool {
+    if value.is_empty()
+        || !value.is_ascii()
+        || value
+            .bytes()
+            .any(|byte| byte.is_ascii_control() || byte == b' ' || byte == b'\\')
+    {
+        return false;
+    }
+    let bytes = value.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            if index + 2 >= bytes.len()
+                || !bytes[index + 1].is_ascii_hexdigit()
+                || !bytes[index + 2].is_ascii_hexdigit()
+            {
+                return false;
+            }
+            index += 3;
+        } else if bytes[index].is_ascii_alphanumeric()
+            || matches!(
+                bytes[index],
+                b'-' | b'.'
+                    | b'_'
+                    | b'~'
+                    | b':'
+                    | b'/'
+                    | b'?'
+                    | b'#'
+                    | b'['
+                    | b']'
+                    | b'@'
+                    | b'!'
+                    | b'$'
+                    | b'&'
+                    | b'\''
+                    | b'('
+                    | b')'
+                    | b'*'
+                    | b'+'
+                    | b','
+                    | b';'
+                    | b'='
+            )
+        {
+            index += 1;
+        } else {
+            return false;
+        }
+    }
+    let base = url::Url::parse("https://arkret.invalid/")
+        .expect("hard-coded PSI URI-reference validation base is valid");
+    url::Url::options()
+        .base_url(Some(&base))
+        .parse(value)
+        .is_ok()
+}
+
+impl<'de> Deserialize<'de> for PsiPaddedProblem {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct RawPsiPaddedProblem {
+            #[serde(rename = "type")]
+            problem_type: PsiClassBProblemType,
+            title: String,
+            status: u16,
+            detail: String,
+            instance: String,
+            padding: PsiResponsePadding,
+        }
+
+        let raw = RawPsiPaddedProblem::deserialize(deserializer)?;
+        let problem = Self {
+            problem_type: raw.problem_type,
+            title: raw.title,
+            status: raw.status,
+            detail: raw.detail,
+            instance: raw.instance,
+            padding: raw.padding,
+        };
+        problem.validate().map_err(serde::de::Error::custom)?;
+        Ok(problem)
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -582,6 +832,164 @@ impl DirectoryPrivateContactDiscoveryOutcome {
     }
 }
 
+/// Recomputed lower-bound evidence for the two phase-specific PSI response
+/// buckets advertised by a concrete Describe configuration.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PsiResponseBucketPlan {
+    pub blind_max_unpadded_bytes: usize,
+    pub match_max_unpadded_bytes: usize,
+    pub blind_bucket_bytes: u32,
+    pub match_bucket_bytes: u32,
+}
+
+impl PrivateContactDiscovery {
+    pub const fn response_bucket(&self, phase: PsiResponsePhase) -> u32 {
+        match phase {
+            PsiResponsePhase::Blind => self.blind_response_bucket_bytes,
+            PsiResponsePhase::Match => self.match_response_bucket_bytes,
+        }
+    }
+
+    /// Recompute the smallest allowed response bucket from the maximal legal
+    /// success and every phase-admitted Class B problem with `padding=""`.
+    pub fn required_response_bucket_plan(&self) -> Result<PsiResponseBucketPlan> {
+        let blind_success = self.maximal_blind_success_unpadded_bytes()?;
+        let match_success = self.maximal_match_success_unpadded_bytes()?;
+        let blind_problem = maximal_problem_unpadded_bytes(PsiResponsePhase::Blind)?;
+        let match_problem = maximal_problem_unpadded_bytes(PsiResponsePhase::Match)?;
+        let blind_max_unpadded_bytes = blind_success.max(blind_problem);
+        let match_max_unpadded_bytes = match_success.max(match_problem);
+        Ok(PsiResponseBucketPlan {
+            blind_max_unpadded_bytes,
+            match_max_unpadded_bytes,
+            blind_bucket_bytes: smallest_response_bucket(blind_max_unpadded_bytes)?,
+            match_bucket_bytes: smallest_response_bucket(match_max_unpadded_bytes)?,
+        })
+    }
+
+    pub(crate) fn validate_response_bucket_plan(&self) -> Result<()> {
+        let plan = self.required_response_bucket_plan()?;
+        if self.blind_response_bucket_bytes != plan.blind_bucket_bytes
+            || self.match_response_bucket_bytes != plan.match_bucket_bytes
+        {
+            return Err(WireError::Protocol(format!(
+                "private_contact_discovery response buckets are not minimal: expected blind={} match={}",
+                plan.blind_bucket_bytes, plan.match_bucket_bytes
+            )));
+        }
+        Ok(())
+    }
+
+    fn maximal_blind_success_unpadded_bytes(&self) -> Result<usize> {
+        // RFC 9497 Appendix A.1.2.3 modeVOPRF ristretto255-SHA512 KAT
+        // encodings. Using validated wire values here prevents the maximal
+        // projection from quietly relying on an invalid group element/proof.
+        let evaluated_element =
+            PsiRistretto255Element::new("qo-gSHZNViOGhnlAL_YQjSUhiE-hOM1_nHZpqaAUJn4")?;
+        let evaluation_proof = PsiVoprfProof::new(
+            "zCA5EBddeGkn7rROqEcygEeJLd-FkOcjw3IFy3RgCwpatTN8jrTOrgSUws-JUp3PlFcu0mdHPVZ67tarhz3uCA",
+        )?;
+        let body = serde_json::json!({
+            "profile": "ak.private_contact_discovery.v1",
+            "phase": "blind",
+            "batch_id": "ak:batch:ffffffff-ffff-7fff-bfff-ffffffffffff",
+            "ciphersuite": "ristretto255-SHA512",
+            "key_epoch": self.key_epoch,
+            "evaluated_elements": vec![evaluated_element.as_str(); usize::from(self.batch_item_count)],
+            "evaluation_proofs": [evaluation_proof.as_str()],
+            "derived_prefix_bytes": 16,
+            "padding": "",
+        });
+        canonical_value_len(&body, "maximal PSI blind success")
+    }
+
+    fn maximal_match_success_unpadded_bytes(&self) -> Result<usize> {
+        let mut body = serde_json::json!({
+            "profile": "ak.private_contact_discovery.v1",
+            "phase": "match",
+            "batch_id": "ak:batch:ffffffff-ffff-7fff-bfff-ffffffffffff",
+            "key_epoch": self.key_epoch,
+            "hit_bitmap": vec![false; usize::from(self.batch_item_count)],
+            "padding": "",
+        });
+        if self.handoff_stubs_mode == PrivateContactDiscoveryHandoffStubsMode::Always {
+            body.as_object_mut()
+                .expect("maximal match projection is an object")
+                .insert(
+                    "hit_bitmap".to_owned(),
+                    serde_json::Value::Array(vec![
+                        serde_json::Value::Bool(true);
+                        usize::from(self.batch_item_count)
+                    ]),
+                );
+            let maximal_stub = serde_json::json!({
+                "kind": "consent",
+                "consent_scope": "direct_message",
+                "state": "grant_active",
+                "state_digest": format!("sha256:{}", "f".repeat(64)),
+                "next_step": "open_invite_strand",
+                "expires_at": "9999-12-31T23:59:59.999Z",
+            });
+            body.as_object_mut()
+                .expect("maximal match projection is an object")
+                .insert(
+                    "handoff_stubs".to_owned(),
+                    serde_json::Value::Array(vec![
+                        maximal_stub;
+                        usize::from(self.batch_item_count)
+                    ]),
+                );
+        }
+        canonical_value_len(&body, "maximal PSI match success")
+    }
+}
+
+fn maximal_problem_unpadded_bytes(phase: PsiResponsePhase) -> Result<usize> {
+    [
+        PsiClassBProblemType::PolicyDenied,
+        PsiClassBProblemType::DuplicateConflict,
+        PsiClassBProblemType::PsiBatchUnavailable,
+        PsiClassBProblemType::PsiQuotaExhausted,
+    ]
+    .into_iter()
+    .filter(|problem_type| problem_type.is_allowed_in(phase))
+    .map(|problem_type| {
+        let problem = PsiPaddedProblem::new(
+            problem_type,
+            "\u{1}".repeat(PsiPaddedProblem::DETAIL_MAX_CHARS),
+            format!(
+                "ak:request:{}",
+                "a".repeat(PsiPaddedProblem::INSTANCE_MAX_CHARS - "ak:request:".len())
+            ),
+        )?;
+        arkret_canonical::canonical_json_bytes(&problem)
+            .map(|body| body.len())
+            .map_err(|error| {
+                WireError::Protocol(format!("cannot encode maximal PSI problem: {error}"))
+            })
+    })
+    .try_fold(0, |maximum, length| {
+        length.map(|length| maximum.max(length))
+    })
+}
+
+fn canonical_value_len(value: &serde_json::Value, label: &str) -> Result<usize> {
+    arkret_canonical::canonical_json_value_bytes(value)
+        .map(|body| body.len())
+        .map_err(|error| WireError::Protocol(format!("cannot encode {label}: {error}")))
+}
+
+fn smallest_response_bucket(unpadded_len: usize) -> Result<u32> {
+    PrivateContactDiscovery::RESPONSE_SIZE_BUCKETS_BYTES
+        .into_iter()
+        .find(|bucket| (*bucket as usize) >= unpadded_len)
+        .ok_or_else(|| {
+            WireError::Protocol(
+                "maximal PSI response does not fit the largest response bucket".to_owned(),
+            )
+        })
+}
+
 #[cfg(test)]
 mod private_contact_discovery_tests {
     use serde_json::json;
@@ -752,5 +1160,150 @@ mod private_contact_discovery_tests {
                 )
                 .is_err()
         );
+    }
+
+    #[test]
+    fn class_b_problem_is_closed_phase_bound_and_exactly_padded() {
+        let configuration = configuration(PrivateContactDiscoveryHandoffStubsMode::Never);
+        let problem = PsiPaddedProblem::new(
+            PsiClassBProblemType::PsiQuotaExhausted,
+            "psi quota exhausted for this device in the current quota window",
+            "ak:request:0196429a-0000-7000-8000-0000000000aa",
+        )
+        .unwrap();
+        assert_eq!(
+            arkret_canonical::canonical_json_string(&problem).unwrap(),
+            r#"{"detail":"psi quota exhausted for this device in the current quota window","instance":"ak:request:0196429a-0000-7000-8000-0000000000aa","padding":"","status":429,"title":"Psi quota exhausted","type":"https://arkret.org/problems/psi_quota_exhausted"}"#
+        );
+        assert!(problem.validate_for_phase(PsiResponsePhase::Match).is_err());
+        assert!(PsiClassBProblemType::PolicyDenied.is_allowed_in(PsiResponsePhase::Blind));
+        assert!(PsiClassBProblemType::PolicyDenied.is_allowed_in(PsiResponsePhase::Match));
+        assert!(PsiClassBProblemType::DuplicateConflict.is_allowed_in(PsiResponsePhase::Blind));
+        assert!(PsiClassBProblemType::DuplicateConflict.is_allowed_in(PsiResponsePhase::Match));
+        assert!(PsiClassBProblemType::PsiQuotaExhausted.is_allowed_in(PsiResponsePhase::Blind));
+        assert!(!PsiClassBProblemType::PsiQuotaExhausted.is_allowed_in(PsiResponsePhase::Match));
+        assert!(!PsiClassBProblemType::PsiBatchUnavailable.is_allowed_in(PsiResponsePhase::Blind));
+        assert!(PsiClassBProblemType::PsiBatchUnavailable.is_allowed_in(PsiResponsePhase::Match));
+
+        let problem = problem
+            .pad_to_advertised_bucket(PsiResponsePhase::Blind, &configuration)
+            .unwrap();
+        assert_eq!(
+            arkret_canonical::canonical_json_bytes(&problem)
+                .unwrap()
+                .len(),
+            4096
+        );
+        problem
+            .validate_for_phase_and_bucket(PsiResponsePhase::Blind, &configuration)
+            .unwrap();
+
+        let mismatched_status = json!({
+            "type": "https://arkret.org/problems/psi_quota_exhausted",
+            "title": "Psi quota exhausted",
+            "status": 403,
+            "detail": "quota",
+            "instance": "ak:request:0196429a-0000-7000-8000-0000000000aa",
+            "padding": ""
+        });
+        assert!(serde_json::from_value::<PsiPaddedProblem>(mismatched_status).is_err());
+        let unknown_member = json!({
+            "type": "https://arkret.org/problems/policy_denied",
+            "title": "Policy denied",
+            "status": 403,
+            "detail": "policy",
+            "instance": "ak:request:0196429a-0000-7000-8000-0000000000aa",
+            "padding": "",
+            "request_id": "forbidden-fallback"
+        });
+        assert!(serde_json::from_value::<PsiPaddedProblem>(unknown_member).is_err());
+        let mismatched_title = json!({
+            "type": "https://arkret.org/problems/policy_denied",
+            "title": "Psi quota exhausted",
+            "status": 403,
+            "detail": "policy",
+            "instance": "ak:request:0196429a-0000-7000-8000-0000000000aa",
+            "padding": ""
+        });
+        assert!(serde_json::from_value::<PsiPaddedProblem>(mismatched_title).is_err());
+        let invalid_instance = json!({
+            "type": "https://arkret.org/problems/policy_denied",
+            "title": "Policy denied",
+            "status": 403,
+            "detail": "policy",
+            "instance": "not a URI reference",
+            "padding": ""
+        });
+        assert!(serde_json::from_value::<PsiPaddedProblem>(invalid_instance).is_err());
+        for invalid in ["ak:request:%zz", "ak:request:bad|character"] {
+            let invalid_instance = json!({
+                "type": "https://arkret.org/problems/policy_denied",
+                "title": "Policy denied",
+                "status": 403,
+                "detail": "policy",
+                "instance": invalid,
+                "padding": ""
+            });
+            assert!(serde_json::from_value::<PsiPaddedProblem>(invalid_instance).is_err());
+        }
+        let overlong_detail = json!({
+            "type": "https://arkret.org/problems/policy_denied",
+            "title": "Policy denied",
+            "status": 403,
+            "detail": "x".repeat(PsiPaddedProblem::DETAIL_MAX_CHARS + 1),
+            "instance": "ak:request:0196429a-0000-7000-8000-0000000000aa",
+            "padding": ""
+        });
+        assert!(serde_json::from_value::<PsiPaddedProblem>(overlong_detail).is_err());
+        let overlong_instance = json!({
+            "type": "https://arkret.org/problems/policy_denied",
+            "title": "Policy denied",
+            "status": 403,
+            "detail": "policy",
+            "instance": format!("ak:request:{}", "a".repeat(118)),
+            "padding": ""
+        });
+        assert!(serde_json::from_value::<PsiPaddedProblem>(overlong_instance).is_err());
+    }
+
+    #[test]
+    fn maximal_projection_bucket_plan_is_phase_specific_and_minimal() {
+        let small = configuration(PrivateContactDiscoveryHandoffStubsMode::Always);
+        let small_plan = small.required_response_bucket_plan().unwrap();
+        assert_eq!(
+            maximal_problem_unpadded_bytes(PsiResponsePhase::Blind).unwrap(),
+            1_804
+        );
+        assert_eq!(
+            maximal_problem_unpadded_bytes(PsiResponsePhase::Match).unwrap(),
+            1_808
+        );
+        assert_eq!(small_plan.blind_max_unpadded_bytes, 1_804);
+        assert_eq!(small_plan.match_max_unpadded_bytes, 1_808);
+        assert_eq!(small_plan.blind_bucket_bytes, 4096);
+        assert_eq!(small_plan.match_bucket_bytes, 4096);
+
+        let mut medium = configuration(PrivateContactDiscoveryHandoffStubsMode::Never);
+        medium.batch_item_count = 256;
+        medium.blind_response_bucket_bytes = 16_384;
+        medium.match_response_bucket_bytes = 4_096;
+        let medium_plan = medium.required_response_bucket_plan().unwrap();
+        assert_eq!(medium_plan.blind_bucket_bytes, 16_384);
+        assert_eq!(medium_plan.match_bucket_bytes, 4_096);
+        medium.validate().unwrap();
+
+        let mut maximal = configuration(PrivateContactDiscoveryHandoffStubsMode::Always);
+        maximal.batch_item_count = 1024;
+        maximal.blind_response_bucket_bytes = 65_536;
+        maximal.match_response_bucket_bytes = 262_144;
+        let maximal_plan = maximal.required_response_bucket_plan().unwrap();
+        assert_eq!(maximal_plan.blind_max_unpadded_bytes, 47_448);
+        assert_eq!(maximal_plan.match_max_unpadded_bytes, 247_989);
+        assert_eq!(maximal_plan.blind_bucket_bytes, 65_536);
+        assert_eq!(maximal_plan.match_bucket_bytes, 262_144);
+        maximal.validate().unwrap();
+
+        maximal.match_response_bucket_bytes = 65_536;
+        assert!(maximal.validate().is_err());
     }
 }

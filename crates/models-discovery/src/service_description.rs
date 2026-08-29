@@ -419,7 +419,7 @@ impl PrivateContactDiscovery {
                 "invalid private_contact_discovery configuration".to_owned(),
             ));
         }
-        Ok(())
+        self.validate_response_bucket_plan()
     }
 }
 
@@ -1321,7 +1321,7 @@ mod tests {
             256,
             PrivateContactDiscoveryHandoffStubsMode::Never,
             16_384,
-            65_536,
+            4_096,
             3_600,
             20,
             86_400,
@@ -1355,7 +1355,7 @@ mod tests {
             256,
             PrivateContactDiscoveryHandoffStubsMode::Never,
             16_384,
-            65_536,
+            4_096,
             3_600,
             20,
             86_400,
