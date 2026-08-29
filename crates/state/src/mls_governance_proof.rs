@@ -808,7 +808,7 @@ where
     let (canonical_leaves, leaf_principals, leaf_credentials) =
         canonical_leaf_set(local_mls_leaves)?;
     let mls_leaf_set_digest = canonical_hash(&canonical_leaves)?;
-    for branch in &bundle.frontier_projection.frontier_branch_projections {
+    for branch in &bundle.frontier_projection.branches {
         let seal = seals.get(&branch.target_seal_ref).ok_or_else(|| {
             WireError::Protocol("frontier branch target Seal is unresolved".to_owned())
         })?;
@@ -826,7 +826,7 @@ where
             );
         }
         verify_frontier_range_completeness(branch)?;
-        for entry in &branch.frontier_cell_entries {
+        for entry in &branch.cells {
             verify_frontier_entry(
                 entry,
                 &seals,
@@ -1178,7 +1178,7 @@ where
         branches.push(MlsGovernanceFrontierBranchProjection {
             target_seal_ref,
             state_root: seal.state_root.clone(),
-            frontier_cell_entries: entries,
+            cells: entries,
             range_witnesses: ranges,
         });
     }
@@ -1194,7 +1194,7 @@ where
         query_digest: request.query_digest()?,
         frontier_projection: MlsGovernanceFrontierProjection {
             frontier_registry_digest: mls_security_frontier_registry_digest(),
-            frontier_branch_projections: branches,
+            branches,
         },
         proof_material,
         page_digest: placeholder,
@@ -2491,11 +2491,11 @@ fn verify_branch_entry_closure(
         }
     }
     let supplied = branch
-        .frontier_cell_entries
+        .cells
         .iter()
         .map(|entry| entry.cell_id.clone())
         .collect::<BTreeSet<_>>();
-    if expected != supplied || supplied.len() != branch.frontier_cell_entries.len() {
+    if expected != supplied || supplied.len() != branch.cells.len() {
         return frontier_rejected(
             "frontier branch entries are not every-and-only the registered projection",
         );
@@ -2515,7 +2515,7 @@ fn verify_frontier_range_completeness(
     let mut coverage = BTreeMap::<&CellRef, usize>::new();
     for range in &branch.range_witnesses {
         let entries = branch
-            .frontier_cell_entries
+            .cells
             .iter()
             .filter(|entry| {
                 CellId::from_ref(&entry.cell_id).is_ok_and(|cell| {
@@ -2545,7 +2545,7 @@ fn verify_frontier_range_completeness(
         verify_boundary_coordinates(range, true)?;
         verify_boundary_coordinates(range, false)?;
     }
-    if coverage.len() != branch.frontier_cell_entries.len()
+    if coverage.len() != branch.cells.len()
         || coverage.values().any(|count| *count != 1)
     {
         return frontier_rejected("frontier entries are not covered by exactly one range witness");

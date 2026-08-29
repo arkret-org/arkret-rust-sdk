@@ -37,7 +37,7 @@ pub struct KeyPackagesUploadRequestBody {
     pub agent_verification_method: Option<DidUrl>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_key_authorize_event_id: Option<EventId>,
-    pub keypackage_upload_entries: Vec<KeyPackageUploadEntry>,
+    pub keypackages: Vec<KeyPackageUploadEntry>,
     pub endpoint_signature: KeyOperationSignature,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
@@ -69,7 +69,7 @@ pub struct KeyPackagesUploadUnsignedRequest {
     pub agent_verification_method: Option<DidUrl>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_key_authorize_event_id: Option<EventId>,
-    pub keypackage_upload_entries: Vec<KeyPackageUploadEntry>,
+    pub keypackages: Vec<KeyPackageUploadEntry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
@@ -115,7 +115,7 @@ impl KeyPackagesUploadRequestBody {
             intended_realm_id: self.intended_realm_id.clone(),
             agent_verification_method: self.agent_verification_method.clone(),
             agent_key_authorize_event_id: self.agent_key_authorize_event_id.clone(),
-            keypackage_upload_entries: self.keypackage_upload_entries.clone(),
+            keypackages: self.keypackages.clone(),
             expires_at: self.expires_at,
             strand_id: self.strand_id.clone(),
             mls_group_id: self.mls_group_id.clone(),
@@ -157,7 +157,7 @@ impl KeyPackagesUploadUnsignedRequest {
             intended_realm_id: self.intended_realm_id,
             agent_verification_method: self.agent_verification_method,
             agent_key_authorize_event_id: self.agent_key_authorize_event_id,
-            keypackage_upload_entries: self.keypackage_upload_entries,
+            keypackages: self.keypackages,
             endpoint_signature,
             expires_at: self.expires_at,
             strand_id: self.strand_id,

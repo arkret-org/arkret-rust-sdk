@@ -1758,11 +1758,11 @@ pub struct RecoveryPolicy {
     /// Recovery signing keys a `recovery_unlock` proof resolves against;
     /// required when `allowed_proof_kinds` contains `recovery_unlock`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recovery_key_entries: Option<Vec<RecoveryKeyEntry>>,
+    pub recovery_keys: Option<Vec<RecoveryKeyEntry>>,
     /// Dedicated backup-only HPKE recipients referenced by
-    /// `recovery_key_entries[].key_agreement_ref` and key-backup envelopes.
+    /// `recovery_keys[].key_agreement_ref` and key-backup envelopes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recovery_key_agreement_entries: Option<Vec<RecoveryKeyAgreementEntry>>,
+    pub recovery_key_agreements: Option<Vec<RecoveryKeyAgreementEntry>>,
     /// Two-person-rule / cooldown enforcement layered on the proofs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_requirement: Option<RecoveryApprovalRequirement>,
@@ -1864,19 +1864,16 @@ impl RecoveryPolicy {
                 RecoveryProofKind::RecoveryUnlock | RecoveryProofKind::ThresholdRecovery
             )
         });
-        let recovery_keys = self.recovery_key_entries.as_deref().unwrap_or_default();
-        let agreements = self
-            .recovery_key_agreement_entries
-            .as_deref()
-            .unwrap_or_default();
+        let recovery_keys = self.recovery_keys.as_deref().unwrap_or_default();
+        let agreements = self.recovery_key_agreements.as_deref().unwrap_or_default();
         if recovery_signing_key_enabled && (recovery_keys.is_empty() || agreements.is_empty()) {
             return Err(WireError::Protocol(
-                "recovery_unlock and threshold_recovery require recovery_key_entries and recovery_key_agreement_entries".to_owned(),
+                "recovery_unlock and threshold_recovery require recovery_keys and recovery_key_agreements".to_owned(),
             ));
         }
         if !recovery_keys.is_empty() && agreements.is_empty() {
             return Err(WireError::Protocol(
-                "recovery_key_entries require recovery_key_agreement_entries".to_owned(),
+                "recovery_keys require recovery_key_agreements".to_owned(),
             ));
         }
 
@@ -1886,7 +1883,7 @@ impl RecoveryPolicy {
             .collect::<BTreeSet<_>>();
         if agreement_refs.len() != agreements.len() {
             return Err(WireError::Protocol(
-                "recovery_key_agreement_entries key_agreement_ref values must be unique".to_owned(),
+                "recovery_key_agreements key_agreement_ref values must be unique".to_owned(),
             ));
         }
         for entry in agreements {
@@ -1899,7 +1896,7 @@ impl RecoveryPolicy {
             .collect::<BTreeSet<_>>();
         if verification_methods.len() != recovery_keys.len() {
             return Err(WireError::Protocol(
-                "recovery_key_entries verification_method values must be unique".to_owned(),
+                "recovery_keys verification_method values must be unique".to_owned(),
             ));
         }
         for entry in recovery_keys {
@@ -1927,7 +1924,7 @@ impl RecoveryPolicy {
         }
 
         let active_recovery_methods = self
-            .recovery_key_entries
+            .recovery_keys
             .as_deref()
             .unwrap_or_default()
             .iter()
@@ -2074,8 +2071,8 @@ pub struct UnsignedRecoveryPolicyBody {
     pub threshold: Option<RecoveryThresholdConfig>,
     pub device_quorum: Option<RecoveryDeviceQuorumConfig>,
     pub trusted_recovery_services: Option<Vec<RecoveryTrustedService>>,
-    pub recovery_key_entries: Option<Vec<RecoveryKeyEntry>>,
-    pub recovery_key_agreement_entries: Option<Vec<RecoveryKeyAgreementEntry>>,
+    pub recovery_keys: Option<Vec<RecoveryKeyEntry>>,
+    pub recovery_key_agreements: Option<Vec<RecoveryKeyAgreementEntry>>,
     pub approval_requirement: Option<RecoveryApprovalRequirement>,
     pub audit: Option<RecoveryAuditConfig>,
     pub issued_at: DateTime<Utc>,
@@ -2125,8 +2122,8 @@ impl UnsignedRecoveryPolicy {
             threshold: body.threshold,
             device_quorum: body.device_quorum,
             trusted_recovery_services: body.trusted_recovery_services,
-            recovery_key_entries: body.recovery_key_entries,
-            recovery_key_agreement_entries: body.recovery_key_agreement_entries,
+            recovery_keys: body.recovery_keys,
+            recovery_key_agreements: body.recovery_key_agreements,
             approval_requirement: body.approval_requirement,
             audit: body.audit,
             issued_at: body.issued_at,
@@ -2161,8 +2158,8 @@ fn recovery_policy_unsigned_value(body: &UnsignedRecoveryPolicyBody) -> Result<V
         "threshold": &body.threshold,
         "device_quorum": &body.device_quorum,
         "trusted_recovery_services": &body.trusted_recovery_services,
-        "recovery_key_entries": &body.recovery_key_entries,
-        "recovery_key_agreement_entries": &body.recovery_key_agreement_entries,
+        "recovery_keys": &body.recovery_keys,
+        "recovery_key_agreements": &body.recovery_key_agreements,
         "approval_requirement": &body.approval_requirement,
         "audit": &body.audit,
         "issued_at": arkret_canonical::canonical::format_timestamp_canonical(body.issued_at),
@@ -2177,10 +2174,10 @@ fn recovery_policy_unsigned_value(body: &UnsignedRecoveryPolicyBody) -> Result<V
             body.trusted_recovery_services.is_some(),
             "trusted_recovery_services",
         ),
-        (body.recovery_key_entries.is_some(), "recovery_key_entries"),
+        (body.recovery_keys.is_some(), "recovery_keys"),
         (
-            body.recovery_key_agreement_entries.is_some(),
-            "recovery_key_agreement_entries",
+            body.recovery_key_agreements.is_some(),
+            "recovery_key_agreements",
         ),
         (body.approval_requirement.is_some(), "approval_requirement"),
         (body.audit.is_some(), "audit"),
@@ -2458,7 +2455,7 @@ pub struct RecoveryTrustedService {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RecoveryKeyEntry {
     /// DID URL identifying this recovery signing key
-    /// (e.g. `did:webvh:...#recovery-1`). Unique within `recovery_key_entries[]`.
+    /// (e.g. `did:webvh:...#recovery-1`). Unique within `recovery_keys[]`.
     pub verification_method: DidUrl,
     /// Signing public multikey. This is never the paired HPKE public key.
     pub public_key_multibase: NonEmptyString,
