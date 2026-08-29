@@ -2545,9 +2545,7 @@ fn verify_frontier_range_completeness(
         verify_boundary_coordinates(range, true)?;
         verify_boundary_coordinates(range, false)?;
     }
-    if coverage.len() != branch.cells.len()
-        || coverage.values().any(|count| *count != 1)
-    {
+    if coverage.len() != branch.cells.len() || coverage.values().any(|count| *count != 1) {
         return frontier_rejected("frontier entries are not covered by exactly one range witness");
     }
     Ok(())
