@@ -92,7 +92,7 @@ impl OrganizationControlProof {
         &self,
         challenge_id: &str,
         organization_id: &DidCoreId,
-        did: &Did,
+        organization_did: &Did,
         local_admin_subject_id: &DidCoreId,
         version_id: &str,
         log_head_digest: &Hash,
@@ -103,7 +103,7 @@ impl OrganizationControlProof {
                 "context": ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1,
                 "challenge_id": challenge_id,
                 "organization_id": organization_id,
-                "did": did,
+                "organization_did": organization_did,
                 "local_admin_subject_id": local_admin_subject_id,
                 "version_id": version_id,
                 "log_head_digest": log_head_digest,
@@ -136,7 +136,7 @@ fn validate_scopes(scopes: &[OrganizationRegistrationScope]) -> Result<()> {
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRegistrationChallengeRequestBody {
     pub organization_id: DidCoreId,
-    pub did: Did,
+    pub organization_did: Did,
     pub local_admin_subject_id: DidCoreId,
     pub requested_scopes: Vec<OrganizationRegistrationScope>,
 }
@@ -144,7 +144,8 @@ pub struct OrganizationRegistrationChallengeRequestBody {
 impl OrganizationRegistrationChallengeRequestBody {
     pub fn validate(&self) -> Result<()> {
         validate_scopes(&self.requested_scopes)?;
-        if project_did_to_core_id(&self.did)?.as_str() != self.organization_id.as_str() {
+        if project_did_to_core_id(&self.organization_did)?.as_str() != self.organization_id.as_str()
+        {
             return Err(WireError::Protocol(
                 "organization registration did does not project to organization_id".to_owned(),
             ));
@@ -159,7 +160,7 @@ impl OrganizationRegistrationChallengeRequestBody {
 pub struct OrganizationRegistrationChallenge {
     pub challenge_id: String,
     pub organization_id: DidCoreId,
-    pub did: Did,
+    pub organization_did: Did,
     pub purpose: String,
     pub nonce: String,
     pub audience_id: DidCoreId,
@@ -191,7 +192,7 @@ impl OrganizationRegistrationChallenge {
     ) -> Result<()> {
         request.validate()?;
         if self.organization_id != request.organization_id
-            || self.did != request.did
+            || self.organization_did != request.organization_did
             || self.local_admin_subject_id != request.local_admin_subject_id
             || self.requested_scopes != request.requested_scopes
             || self.purpose != ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1
@@ -210,7 +211,8 @@ impl OrganizationRegistrationChallenge {
                 .nonce
                 .bytes()
                 .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-            || project_did_to_core_id(&self.did)?.as_str() != self.organization_id.as_str()
+            || project_did_to_core_id(&self.organization_did)?.as_str()
+                != self.organization_id.as_str()
         {
             return Err(WireError::Protocol(
                 "organization registration challenge contains an invalid id or binding".to_owned(),
@@ -254,7 +256,7 @@ pub struct OrganizationHandleAttestation {
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRegistrationEnsureRequestBody {
     pub organization_id: DidCoreId,
-    pub did: Did,
+    pub organization_did: Did,
     pub challenge_id: String,
     pub version_id: String,
     pub log_head_digest: Hash,
@@ -270,7 +272,8 @@ impl OrganizationRegistrationEnsureRequestBody {
         self.control_proof.validate()?;
         validate_scopes(&self.requested_scopes)?;
         if self.version_id.is_empty()
-            || project_did_to_core_id(&self.did)?.as_str() != self.organization_id.as_str()
+            || project_did_to_core_id(&self.organization_did)?.as_str()
+                != self.organization_id.as_str()
             || !self
                 .challenge_id
                 .strip_prefix("ak:organization_registration_challenge:")
@@ -300,7 +303,7 @@ impl OrganizationRegistrationEnsureRequestBody {
         self.validate()?;
         let challenge_request = OrganizationRegistrationChallengeRequestBody {
             organization_id: self.organization_id.clone(),
-            did: self.did.clone(),
+            organization_did: self.organization_did.clone(),
             local_admin_subject_id: self.local_admin_subject_id.clone(),
             requested_scopes: self.requested_scopes.clone(),
         };
@@ -313,7 +316,7 @@ impl OrganizationRegistrationEnsureRequestBody {
         self.control_proof.validate_transcript_bindings(
             &self.challenge_id,
             &self.organization_id,
-            &self.did,
+            &self.organization_did,
             &self.local_admin_subject_id,
             &self.version_id,
             &self.log_head_digest,
@@ -342,7 +345,7 @@ impl OrganizationRegistrationEnsureRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRegistrationRefreshRequestBody {
     pub organization_id: DidCoreId,
-    pub did: Did,
+    pub organization_did: Did,
     pub challenge_id: String,
     pub version_id: String,
     pub log_head_digest: Hash,
@@ -353,7 +356,8 @@ impl OrganizationRegistrationRefreshRequestBody {
     pub fn validate(&self) -> Result<()> {
         self.control_proof.validate()?;
         if self.version_id.is_empty()
-            || project_did_to_core_id(&self.did)?.as_str() != self.organization_id.as_str()
+            || project_did_to_core_id(&self.organization_did)?.as_str()
+                != self.organization_id.as_str()
             || !self
                 .challenge_id
                 .strip_prefix("ak:organization_registration_challenge:")
@@ -376,7 +380,7 @@ impl OrganizationRegistrationRefreshRequestBody {
         self.validate()?;
         let challenge_request = OrganizationRegistrationChallengeRequestBody {
             organization_id: self.organization_id.clone(),
-            did: self.did.clone(),
+            organization_did: self.organization_did.clone(),
             local_admin_subject_id: current_local_admin_subject.clone(),
             requested_scopes: current_scopes.to_vec(),
         };
@@ -389,7 +393,7 @@ impl OrganizationRegistrationRefreshRequestBody {
         self.control_proof.validate_transcript_bindings(
             &self.challenge_id,
             &self.organization_id,
-            &self.did,
+            &self.organization_did,
             current_local_admin_subject,
             &self.version_id,
             &self.log_head_digest,
@@ -445,7 +449,7 @@ pub enum OrganizationRegistrationStatus {
 pub struct OrganizationRegistrationReceipt {
     pub registration_receipt_id: String,
     pub organization_id: DidCoreId,
-    pub did: Did,
+    pub organization_did: Did,
     pub registration_generation: u64,
     pub version_id: String,
     pub log_head_digest: Hash,
@@ -497,7 +501,7 @@ impl OrganizationRegistrationReceipt {
             "issuer_id": self.issuer_id,
             "registration_receipt_id": self.registration_receipt_id,
             "organization_id": self.organization_id,
-            "did": self.did,
+            "organization_did": self.organization_did,
             "verification_method": self.proof.verification_method,
             "created_at": self.proof.created_at,
             "domain": self.proof.domain,
@@ -519,7 +523,8 @@ impl OrganizationRegistrationReceipt {
         self.proof.validate_production()?;
         if self.registration_generation == 0
             || self.version_id.is_empty()
-            || project_did_to_core_id(&self.did)?.as_str() != self.organization_id.as_str()
+            || project_did_to_core_id(&self.organization_did)?.as_str()
+                != self.organization_id.as_str()
             || self.expires_at <= self.issued_at
             || self.registration_receipt_id != self.expected_receipt_id()?
             || self.proof.payload_digest != self.expected_payload_digest()?
@@ -554,8 +559,8 @@ impl OrganizationRegistrationOutcome {
     }
 
     #[must_use]
-    pub fn did(&self) -> &Did {
-        &self.registration_receipt.did
+    pub fn organization_did(&self) -> &Did {
+        &self.registration_receipt.organization_did
     }
 
     #[must_use]
@@ -672,7 +677,7 @@ mod tests {
     fn challenge_request() -> OrganizationRegistrationChallengeRequestBody {
         OrganizationRegistrationChallengeRequestBody {
             organization_id: core("did:webvh:zOrg:org.example"),
-            did: did("did:webvh:zOrg:org.example"),
+            organization_did: did("did:webvh:zOrg:org.example"),
             local_admin_subject_id: core("did:webvh:zAdmin:admin.example"),
             requested_scopes: vec![OrganizationRegistrationScope::OrganizationProfileManage],
         }
@@ -700,7 +705,7 @@ mod tests {
         let base = OrganizationRegistrationChallenge {
             challenge_id: format!("ak:organization_registration_challenge:{}", "a".repeat(64)),
             organization_id: request.organization_id.clone(),
-            did: request.did.clone(),
+            organization_did: request.organization_did.clone(),
             purpose: ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1.to_owned(),
             nonce: "0123456789abcdefghijkl".to_owned(),
             audience_id: service("did:webvh:zService:service.example"),
@@ -735,7 +740,7 @@ mod tests {
             serde_json::from_value::<OrganizationRegistrationChallengeRequestBody>(
                 serde_json::json!({
                     "organization_id": "ak:did_core:webvh:zOrg",
-                    "did": "did:webvh:zOrg:org.example",
+                    "organization_did": "did:webvh:zOrg:org.example",
                     "local_admin_subject_id": "ak:did_core:webvh:zAdmin",
                     "requested_scopes": ["organization_profile_manage"],
                     "unexpected": true
@@ -754,7 +759,7 @@ mod tests {
         let challenge = OrganizationRegistrationChallenge {
             challenge_id: format!("ak:organization_registration_challenge:{}", "a".repeat(64)),
             organization_id: request.organization_id.clone(),
-            did: request.did.clone(),
+            organization_did: request.organization_did.clone(),
             purpose: ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1.to_owned(),
             nonce: "0123456789abcdefghijkl".to_owned(),
             audience_id: service("did:webvh:zService:service.example"),
@@ -768,12 +773,12 @@ mod tests {
         let version_id = "3-zQmPinnedVersion".to_owned();
         let log_head_digest = Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap();
         let verification_method =
-            DidUrl::new(format!("{}#org-control-key-1", request.did)).unwrap();
+            DidUrl::new(format!("{}#org-control-key-1", request.organization_did)).unwrap();
         let transcript = serde_json::json!({
             "context": ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1,
             "challenge_id": challenge.challenge_id,
             "organization_id": request.organization_id,
-            "did": request.did,
+            "organization_did": request.organization_did,
             "local_admin_subject_id": request.local_admin_subject_id,
             "version_id": version_id,
             "log_head_digest": log_head_digest,
@@ -785,7 +790,7 @@ mod tests {
             Hash::new(arkret_canonical::canonical::canonical_sha256(&transcript).unwrap()).unwrap();
         let ensure = OrganizationRegistrationEnsureRequestBody {
             organization_id: request.organization_id.clone(),
-            did: request.did.clone(),
+            organization_did: request.organization_did.clone(),
             challenge_id: challenge.challenge_id.clone(),
             version_id,
             log_head_digest,
@@ -823,7 +828,7 @@ mod tests {
         let mut receipt = OrganizationRegistrationReceipt {
             registration_receipt_id: "ak:organization_registration_receipt:placeholder".to_owned(),
             organization_id: core("did:webvh:zOrg:org.example"),
-            did: did("did:webvh:zOrg:org.example"),
+            organization_did: did("did:webvh:zOrg:org.example"),
             registration_generation: 1,
             version_id: "3-zQmPinnedVersion".to_owned(),
             log_head_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
@@ -859,7 +864,7 @@ mod tests {
         let mut receipt = OrganizationRegistrationReceipt {
             registration_receipt_id: "ak:organization_registration_receipt:placeholder".to_owned(),
             organization_id: core("did:webvh:zOrg:org.example"),
-            did: did("did:webvh:zOrg:org.example"),
+            organization_did: did("did:webvh:zOrg:org.example"),
             registration_generation: 1,
             version_id: "3-zQmPinnedVersion".to_owned(),
             log_head_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
@@ -902,7 +907,7 @@ mod tests {
         let mut receipt = OrganizationRegistrationReceipt {
             registration_receipt_id: "ak:organization_registration_receipt:placeholder".to_owned(),
             organization_id: core("did:webvh:zOrg:org.example"),
-            did: did("did:webvh:zOrg:org.example"),
+            organization_did: did("did:webvh:zOrg:org.example"),
             registration_generation: 1,
             version_id: "3-zQmPinnedVersion".to_owned(),
             log_head_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
