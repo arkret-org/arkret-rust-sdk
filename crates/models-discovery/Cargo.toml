@@ -34,11 +34,13 @@ serde = {workspace = true}
 serde_json = {workspace = true}
 thiserror = {workspace = true}
 url = {workspace = true}
+voprf = {workspace = true}
 
 [dev-dependencies]
 arkret-schema = {workspace = true, features = ["embedded-artifacts"]}
 arkret-models-integration = {workspace = true}
 ed25519-dalek = {workspace = true}
+hex = {workspace = true}
 
 [lints]
 workspace = true

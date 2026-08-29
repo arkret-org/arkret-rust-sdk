@@ -179,6 +179,7 @@ unicode-normalization = {version = "0.1.25",default-features = false,features = 
 unicode-security = {version = "0.1.2",default-features = false}
 url = {version = "2.5.8",default-features = false}
 uuid = {version = "1.23",default-features = false,features = ["std", "v7", "serde"]}
+voprf = {version = "0.6.0-pre.1",default-features = false,features = ["ristretto255-ciphersuite"]}
 web-time = "1.1.0"
 # Windows KeyStore backend, enabled only by the keystore crate target cfg.
 windows = {version = "0.62.2",default-features = false}
