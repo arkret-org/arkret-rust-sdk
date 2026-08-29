@@ -298,6 +298,11 @@ jobs:
       - name: Verify registry type generator
         working-directory: arkret-rust-sdk
         run: python tools/tests/test_generate_registry_types.py
+      - name: Guard SDK wire struct fields against live Spec schemas
+        working-directory: arkret-rust-sdk
+        run: |
+          python -m tools.test_schema_struct_gate
+          python tools/schema_struct_gate.py --spec-root ${{ github.workspace }}/arkret-spec/spec/v1/artifacts/schemas
       - name: Verify all spec-derived SDK surfaces
         working-directory: arkret-rust-sdk
         shell: pwsh

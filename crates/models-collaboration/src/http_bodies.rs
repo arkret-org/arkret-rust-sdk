@@ -7,6 +7,7 @@
 
 use std::collections::BTreeMap;
 
+use arkret_models_identity::ServiceResolutionCarrier;
 use arkret_models_identity::agent_signer_evidence::AgentEventAdmissionReceipt;
 use arkret_wire::{
     AppletId, AuditReasonText, Base64UrlString, BlobRef, ConsentId, ControlProposalAck, Cursor,
@@ -1879,6 +1880,8 @@ pub struct ContactAgentProjection {
     pub direct_conversation: Option<DirectConversationSummary>,
 }
 
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/contact-operations.schema.json#/$defs/contact_list_row`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(try_from = "ContactListRowWire")]
@@ -1906,6 +1909,8 @@ pub struct ContactListRow {
     /// same-Principal-Server contacts (spec contact-operations.schema.json).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub peer_host_id: Option<DidCoreId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub peer_host_resolution: Option<ServiceResolutionCarrier>,
     /// Portable checkpoint plus the exact remaining tail. Present only after
     /// both participant Principal Servers have committed the same checkpoint.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1916,7 +1921,11 @@ pub struct ContactListRow {
     /// messages from the authenticated actor. This is a viewer-specific,
     /// fail-closed projection; clients must not infer it from public selector
     /// claims.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        rename = "contact_agents",
+        default,
+        skip_serializing_if = "Vec::is_empty"
+    )]
     pub contact_agent_projections: Vec<ContactAgentProjection>,
 }
 
@@ -1943,11 +1952,13 @@ struct ContactListRowWire {
     #[serde(default)]
     peer_host_id: Option<DidCoreId>,
     #[serde(default)]
+    peer_host_resolution: Option<ServiceResolutionCarrier>,
+    #[serde(default)]
     continuity_evidence: Option<ContactContinuityEvidence>,
     #[serde(default)]
     direct_conversation: Option<DirectConversationSummary>,
     #[serde(default)]
-    contact_agent_projections: Vec<ContactAgentProjection>,
+    contact_agents: Vec<ContactAgentProjection>,
 }
 
 impl TryFrom<ContactListRowWire> for ContactListRow {
@@ -1967,9 +1978,10 @@ impl TryFrom<ContactListRowWire> for ContactListRow {
             bidirectional_scopes: wire.bidirectional_scopes,
             effective_scopes: wire.effective_scopes,
             peer_host_id: wire.peer_host_id,
+            peer_host_resolution: wire.peer_host_resolution,
             continuity_evidence: wire.continuity_evidence,
             direct_conversation: wire.direct_conversation,
-            contact_agent_projections: wire.contact_agent_projections,
+            contact_agent_projections: wire.contact_agents,
         };
         row.validate_shape()?;
         Ok(row)

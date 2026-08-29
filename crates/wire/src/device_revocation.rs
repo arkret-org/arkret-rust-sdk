@@ -4,10 +4,9 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AcceptedDevicePossessionProof, AcceptedDevicePossessionVerification, ControlProposalAck,
-    ControlProposalDecision, DeviceId, Did, DidUrl, EventId, Hash, PayloadProof,
-    PrincipalAuthorityKey, ProofContextId, Result, SealId, UnsignedPayloadProof, WireError,
-    canonical, project_did_to_core_id,
+    AcceptedDevicePossessionProof, ControlProposalAck, ControlProposalDecision, DeviceId, Did,
+    DidUrl, EventId, Hash, PayloadProof, PrincipalAuthorityKey, ProofContextId, Result, SealId,
+    UnsignedPayloadProof, WireError, canonical, project_did_to_core_id,
 };
 
 pub const MAX_DEVICE_REVOCATION_GATE_RECORDS: usize = 128;
@@ -364,6 +363,9 @@ pub enum DeviceRevocationGateDecision {
     GenerationMismatch,
 }
 
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/device-revocation-state.schema.json#/$defs/
+/// device_revocation_gate_decision_receipt`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -380,7 +382,7 @@ pub struct DeviceRevocationGateDecisionReceipt {
     pub action_class: DeviceRevocationGateActionClass,
     pub intent_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub accepted_device_possession_verification: Option<AcceptedDevicePossessionVerification>,
+    pub accepted_device_possession_proof_digest: Option<Hash>,
     pub decision: DeviceRevocationGateDecision,
     pub linearization_seq: u64,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
@@ -410,7 +412,7 @@ pub struct UnsignedDeviceRevocationGateDecisionReceipt {
     pub action_class: DeviceRevocationGateActionClass,
     pub intent_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub accepted_device_possession_verification: Option<AcceptedDevicePossessionVerification>,
+    pub accepted_device_possession_proof_digest: Option<Hash>,
     pub decision: DeviceRevocationGateDecision,
     pub linearization_seq: u64,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
@@ -476,7 +478,7 @@ impl UnsignedDeviceRevocationGateDecisionReceipt {
         self.principal_authority.validate()?;
         validate_possession_verification_presence(
             self.action_class,
-            self.accepted_device_possession_verification.as_ref(),
+            self.accepted_device_possession_proof_digest.as_ref(),
         )?;
         if self.linearization_seq == 0
             || self.expires_at <= self.linearized_at
@@ -557,7 +559,7 @@ impl UnsignedDeviceRevocationGateDecisionReceipt {
             target_device_generation_ref: self.target_device_generation_ref,
             action_class: self.action_class,
             intent_digest: self.intent_digest,
-            accepted_device_possession_verification: self.accepted_device_possession_verification,
+            accepted_device_possession_proof_digest: self.accepted_device_possession_proof_digest,
             decision: self.decision,
             linearization_seq: self.linearization_seq,
             linearized_at: self.linearized_at,
@@ -579,8 +581,8 @@ impl DeviceRevocationGateDecisionReceipt {
             target_device_generation_ref: self.target_device_generation_ref,
             action_class: self.action_class,
             intent_digest: self.intent_digest.clone(),
-            accepted_device_possession_verification: self
-                .accepted_device_possession_verification
+            accepted_device_possession_proof_digest: self
+                .accepted_device_possession_proof_digest
                 .clone(),
             decision: self.decision,
             linearization_seq: self.linearization_seq,
@@ -595,7 +597,7 @@ impl DeviceRevocationGateDecisionReceipt {
     pub fn payload_digest(&self) -> Result<Hash> {
         validate_possession_verification_presence(
             self.action_class,
-            self.accepted_device_possession_verification.as_ref(),
+            self.accepted_device_possession_proof_digest.as_ref(),
         )?;
         let mut value = serde_json::to_value(self)?;
         value
@@ -682,15 +684,12 @@ impl DeviceRevocationGateDecisionReceipt {
                 "device revocation gate receipt does not bind the request".to_owned(),
             ));
         }
-        let expected_possession_verification =
-            match request.accepted_device_possession_proof.as_ref() {
-                Some(proof) => Some(AcceptedDevicePossessionVerification {
-                    proof_digest: proof.proof_digest()?,
-                    verification_method: proof.verification_method().clone(),
-                }),
-                None => None,
-            };
-        if self.accepted_device_possession_verification != expected_possession_verification {
+        let expected_possession_proof_digest = request
+            .accepted_device_possession_proof
+            .as_ref()
+            .map(AcceptedDevicePossessionProof::proof_digest)
+            .transpose()?;
+        if self.accepted_device_possession_proof_digest != expected_possession_proof_digest {
             return Err(WireError::Protocol(
                 "device revocation gate receipt does not attest the request's device proof"
                     .to_owned(),
@@ -729,14 +728,14 @@ impl DeviceRevocationGateDecisionReceipt {
 
 fn validate_possession_verification_presence(
     action_class: DeviceRevocationGateActionClass,
-    verification: Option<&AcceptedDevicePossessionVerification>,
+    proof_digest: Option<&Hash>,
 ) -> Result<()> {
     let required = matches!(
         action_class,
         DeviceRevocationGateActionClass::ReturningSessionGrantIssue
             | DeviceRevocationGateActionClass::SessionGrantRefresh
     );
-    if required != verification.is_some() {
+    if required != proof_digest.is_some() {
         return Err(WireError::Protocol(
             "gate receipt device-possession verification does not match its action class"
                 .to_owned(),
@@ -881,7 +880,7 @@ mod tests {
             target_device_generation_ref: Some(7),
             action_class: request.action_class,
             intent_digest: request.intent_digest,
-            accepted_device_possession_verification: None,
+            accepted_device_possession_proof_digest: None,
             decision: DeviceRevocationGateDecision::Allow,
             linearization_seq: 9,
             linearized_at: at(1),

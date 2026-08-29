@@ -332,6 +332,8 @@ pub fn validate_anchor_unit_lease_bindings(
 }
 
 /// First durable publication of an Event.
+///
+/// Wire shape: `service-operation-dtos.schema.json#/$defs/EventInitialSubmission`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -350,6 +352,8 @@ pub struct EventInitialSubmission {
 }
 
 /// Previously receipted publication evidence transported between peers.
+///
+/// Wire shape: `service-operation-dtos.schema.json#/$defs/EventFederationSubmission`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

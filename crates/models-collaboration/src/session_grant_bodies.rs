@@ -449,7 +449,7 @@ pub struct SessionGrantOutcome {
 /// `ak.profile.agent_auth.v1` overlay describing the narrow scope actually
 /// granted to an agent runtime session. Agent-only; absent for human grants.
 ///
-/// Mirrors `service-operation-dtos.schema.json#/$defs/SessionGrantOutcome.scope_details`
+/// Mirrors `service-operation-dtos.schema.json#/$defs/SessionGrantOutcome/properties/scope_details`
 /// (`additionalProperties: false`).
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -463,7 +463,11 @@ pub struct SessionGrantScopeDetails {
     pub track_names: Vec<String>,
     /// `ak.profile.agent_participation_policy.v1` overlay (AKP-0016). Each entry
     /// is isomorphic to `agent_participation_entry`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        rename = "participation_entries",
+        default,
+        skip_serializing_if = "Vec::is_empty"
+    )]
     pub agent_participation_entries: Vec<AgentParticipationEntry>,
 }
 

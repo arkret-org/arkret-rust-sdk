@@ -261,10 +261,14 @@ impl<'de> Deserialize<'de> for AgentParticipationEntry {
 }
 
 /// Response for `ak.self.agent.participation.{set,get}`.
+///
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/agent_participation_outcome`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentParticipationOutcome {
     pub agent_id: String,
+    #[serde(rename = "participation_entries")]
     pub agent_participation_entries: Vec<AgentParticipationEntry>,
 }
 
