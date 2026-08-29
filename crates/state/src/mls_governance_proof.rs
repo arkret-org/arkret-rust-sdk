@@ -1250,6 +1250,14 @@ struct FrontierValueState<'a> {
     value: &'a Value,
 }
 
+fn canonical_state_leaf_preimage(cell: &CellRef, value: &Value) -> arkret_wire::Result<Vec<u8>> {
+    arkret_canonical::canonical_json_bytes(&json!({
+        "cell": cell.as_str(),
+        "state": { "value": value },
+    }))
+    .map_err(Into::into)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn materialize_frontier_entry(
     cell: &CellRef,
@@ -1264,10 +1272,7 @@ fn materialize_frontier_entry(
 ) -> arkret_wire::Result<MlsGovernanceFrontierCellEntry> {
     let value = cell_state.value;
     let proof = crate::state_inclusion_proof(state, cell, digest_suite)?;
-    let preimage = arkret_canonical::canonical_json_bytes(&json!({
-        "cell_id": cell,
-        "state": cell_state,
-    }))?;
+    let preimage = canonical_state_leaf_preimage(cell, value)?;
     let covered = union_predecessor_covered_events(std::slice::from_ref(&seal.id), seal_store)
         .map_err(replay_reject_error)?;
     let provenance_digests = cell_store
@@ -2380,7 +2385,7 @@ fn verify_frontier_entry(
     let object = preimage_value
         .as_object()
         .ok_or_else(|| WireError::Protocol("state leaf preimage must be an object".to_owned()))?;
-    if object.len() != 2 || object.get("cell_id") != Some(&json!(entry.cell_id)) {
+    if object.len() != 2 || object.get("cell") != Some(&json!(entry.cell_id.as_str())) {
         return frontier_rejected("state leaf preimage names a different cell");
     }
     let state = object
@@ -2902,4 +2907,32 @@ fn anchor_rejected<E: From<WireError>>(message: &str) -> E {
     E::from(WireError::Protocol(format!(
         "MLS governance anchor rejected (state_mismatch): {message}"
     )))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn materializer_state_leaf_preimage_matches_state_root_contract() {
+        let cell =
+            CellRef::new("ak:cell:ak.component.member.state.v1:did.web.alice.example".to_owned())
+                .unwrap();
+        let value = json!({"accepted_event_id": "ak:event:one"});
+
+        let preimage = canonical_state_leaf_preimage(&cell, &value).unwrap();
+        assert_eq!(
+            preimage,
+            br#"{"cell":"ak:cell:ak.component.member.state.v1:did.web.alice.example","state":{"value":{"accepted_event_id":"ak:event:one"}}}"#,
+        );
+
+        let mut leaf_input = vec![0];
+        leaf_input.extend_from_slice(&preimage);
+        let emitted_leaf_digest =
+            Hash::new(arkret_canonical::digest(DigestSuite::Sha256, &leaf_input)).unwrap();
+        assert_eq!(
+            emitted_leaf_digest,
+            state_value_leaf_digest(&cell, &value, DigestSuite::Sha256).unwrap(),
+        );
+    }
 }
