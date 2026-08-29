@@ -36,7 +36,7 @@ pub type RealmOrganizationVerificationResult<T> = Result<T, RealmOrganizationVer
 /// account_authority}).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RealmOrganizationDelegation {
-    /// Organization DID the delegation is anchored to. MUST equal the
+    /// Stable Organization principal identity the delegation is anchored to. MUST equal the
     /// statement's `organization_id`; the helper rejects otherwise.
     pub organization_id: DidCoreId,
     /// Whether the delegation is currently live (not expired / not revoked).
@@ -50,7 +50,7 @@ pub struct RealmOrganizationDelegation {
 }
 
 /// Injection hook resolving `authorization.delegation_ref` to a live
-/// organization DID delegation. Production callers wire this to their DID /
+/// organization delegation. Production callers wire this to their DID evidence /
 /// delegation store; offline callers use [`NoDelegationResolver`] (which
 /// fails closed for any delegated statement).
 pub trait RealmOrganizationDelegationResolver {
@@ -328,7 +328,7 @@ mod realm_organization_verifier_tests {
     }
 
     #[test]
-    fn active_organization_did_statement_passes() {
+    fn active_organization_statement_passes() {
         verify_realm_organization_statement(
             &active_payload(),
             &realm_id(),

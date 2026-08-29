@@ -1335,7 +1335,7 @@ pub struct RealmRemark {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verified_title_at_save: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub verified_owning_organizations_at_save: Vec<DidCoreId>,
+    pub verified_owning_organization_ids_at_save: Vec<DidCoreId>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub saved_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1694,7 +1694,7 @@ impl RealmRemark {
             tags: Vec::new(),
             pinned: false,
             verified_title_at_save: None,
-            verified_owning_organizations_at_save: Vec::new(),
+            verified_owning_organization_ids_at_save: Vec::new(),
             saved_at,
             updated_at: None,
         }

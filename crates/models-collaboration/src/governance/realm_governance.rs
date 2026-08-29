@@ -985,7 +985,7 @@ pub struct RealmOrganizationRelationshipRow {
 pub struct RealmOrganizationRelationshipList {
     pub realm_id: RealmId,
     #[serde(default)]
-    pub realm_organization_relationship_rows: Vec<RealmOrganizationRelationshipRow>,
+    pub relationships: Vec<RealmOrganizationRelationshipRow>,
     /// `owning_organization_ids` declared hints with no verified statement. These
     /// are unverified claims and MUST NOT be rendered as official / governed /
     /// endorsed.
@@ -1014,6 +1014,20 @@ mod tests {
             label: None,
             commitment: None,
         }
+    }
+
+    #[test]
+    fn realm_organization_relationship_list_uses_canonical_relationships_field() {
+        let value = serde_json::to_value(RealmOrganizationRelationshipList {
+            realm_id: realm('o'),
+            relationships: Vec::new(),
+            declared_organization_hint_ids: Vec::new(),
+        })
+        .unwrap();
+
+        assert!(value.get("relationships").is_some());
+        assert!(value.get("realm_organization_relationship_rows").is_none());
+        serde_json::from_value::<RealmOrganizationRelationshipList>(value).unwrap();
     }
 
     #[test]
