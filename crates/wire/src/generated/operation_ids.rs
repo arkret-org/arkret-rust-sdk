@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-29.8;
-//! sha256=0c00ec254a266642fa0d26902d45c8b192888445613564d2becc72f891e50264 Entries: registered=233
+//! Input: registry/operation-registry.json; version=2026-08-29.14;
+//! sha256=112f235cfab437ab869d59d73100b8ffaa77b00a88f0f1566377955bc78aa6f8 Entries: registered=231
 
 use serde::{Deserialize, Serialize};
 
@@ -79,7 +79,6 @@ pub enum ServiceOperationId {
     PeerErasureReceiptCommandSubmitV1,
     PeerErasureReceiptResourceGetV1,
     PeerEventsCommandSubmitV1,
-    PeerEventsReadDescribeV1,
     PeerEventsReadFrontierV1,
     PeerEventsReadResolveV1,
     PeerEventsReadScanV1,
@@ -98,7 +97,6 @@ pub enum ServiceOperationId {
     PeerServiceResolutionCommandPublishV1,
     PeerServiceResolutionReadResolveV1,
     PeerSignalCommandRelayV1,
-    PeerSnapshotReadManifestHeadV1,
     RootIdentityCommandSubmitDidOperationV1,
     RootIdentityDocumentResourceGetV1,
     RootIdentityLogReadListV1,
@@ -315,7 +313,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_ERASURE_RECEIPT_RESOURCE_GET_V1,
     ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT_V1,
-    ServiceOperationId::PEER_EVENTS_READ_DESCRIBE_V1,
     ServiceOperationId::PEER_EVENTS_READ_FRONTIER_V1,
     ServiceOperationId::PEER_EVENTS_READ_RESOLVE_V1,
     ServiceOperationId::PEER_EVENTS_READ_SCAN_V1,
@@ -334,7 +331,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_SERVICE_RESOLUTION_COMMAND_PUBLISH_V1,
     ServiceOperationId::PEER_SERVICE_RESOLUTION_READ_RESOLVE_V1,
     ServiceOperationId::PEER_SIGNAL_COMMAND_RELAY_V1,
-    ServiceOperationId::PEER_SNAPSHOT_READ_MANIFEST_HEAD_V1,
     ServiceOperationId::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION_V1,
     ServiceOperationId::ROOT_IDENTITY_DOCUMENT_RESOURCE_GET_V1,
     ServiceOperationId::ROOT_IDENTITY_LOG_READ_LIST_V1,
@@ -593,7 +589,6 @@ impl ServiceOperationId {
         Self::PeerErasureReceiptCommandSubmitV1,
         Self::PeerErasureReceiptResourceGetV1,
         Self::PeerEventsCommandSubmitV1,
-        Self::PeerEventsReadDescribeV1,
         Self::PeerEventsReadFrontierV1,
         Self::PeerEventsReadResolveV1,
         Self::PeerEventsReadScanV1,
@@ -612,7 +607,6 @@ impl ServiceOperationId {
         Self::PeerServiceResolutionCommandPublishV1,
         Self::PeerServiceResolutionReadResolveV1,
         Self::PeerSignalCommandRelayV1,
-        Self::PeerSnapshotReadManifestHeadV1,
         Self::RootIdentityCommandSubmitDidOperationV1,
         Self::RootIdentityDocumentResourceGetV1,
         Self::RootIdentityLogReadListV1,
@@ -888,7 +882,6 @@ impl ServiceOperationId {
     pub const PEER_ERASURE_RECEIPT_RESOURCE_GET_V1: &'static str =
         "ak.peer.erasure_receipt.resource.get.v1";
     pub const PEER_EVENTS_COMMAND_SUBMIT_V1: &'static str = "ak.peer.events.command.submit.v1";
-    pub const PEER_EVENTS_READ_DESCRIBE_V1: &'static str = "ak.peer.events.read.describe.v1";
     pub const PEER_EVENTS_READ_FRONTIER_V1: &'static str = "ak.peer.events.read.frontier.v1";
     pub const PEER_EVENTS_READ_RESOLVE_V1: &'static str = "ak.peer.events.read.resolve.v1";
     pub const PEER_EVENTS_READ_SCAN_V1: &'static str = "ak.peer.events.read.scan.v1";
@@ -918,8 +911,6 @@ impl ServiceOperationId {
     pub const PEER_SERVICE_RESOLUTION_READ_RESOLVE_V1: &'static str =
         "ak.peer.service_resolution.read.resolve.v1";
     pub const PEER_SIGNAL_COMMAND_RELAY_V1: &'static str = "ak.peer.signal.command.relay.v1";
-    pub const PEER_SNAPSHOT_READ_MANIFEST_HEAD_V1: &'static str =
-        "ak.peer.snapshot.read.manifest_head.v1";
     pub const ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION_V1: &'static str =
         "ak.root.identity.command.submit_did_operation.v1";
     pub const ROOT_IDENTITY_DOCUMENT_RESOURCE_GET_V1: &'static str =
@@ -1271,7 +1262,6 @@ impl ServiceOperationId {
             Self::PeerErasureReceiptCommandSubmitV1 => Self::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT_V1,
             Self::PeerErasureReceiptResourceGetV1 => Self::PEER_ERASURE_RECEIPT_RESOURCE_GET_V1,
             Self::PeerEventsCommandSubmitV1 => Self::PEER_EVENTS_COMMAND_SUBMIT_V1,
-            Self::PeerEventsReadDescribeV1 => Self::PEER_EVENTS_READ_DESCRIBE_V1,
             Self::PeerEventsReadFrontierV1 => Self::PEER_EVENTS_READ_FRONTIER_V1,
             Self::PeerEventsReadResolveV1 => Self::PEER_EVENTS_READ_RESOLVE_V1,
             Self::PeerEventsReadScanV1 => Self::PEER_EVENTS_READ_SCAN_V1,
@@ -1306,7 +1296,6 @@ impl ServiceOperationId {
                 Self::PEER_SERVICE_RESOLUTION_READ_RESOLVE_V1
             }
             Self::PeerSignalCommandRelayV1 => Self::PEER_SIGNAL_COMMAND_RELAY_V1,
-            Self::PeerSnapshotReadManifestHeadV1 => Self::PEER_SNAPSHOT_READ_MANIFEST_HEAD_V1,
             Self::RootIdentityCommandSubmitDidOperationV1 => {
                 Self::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION_V1
             }
@@ -1691,7 +1680,6 @@ impl ServiceOperationId {
                 Some(Self::PeerErasureReceiptResourceGetV1)
             }
             Self::PEER_EVENTS_COMMAND_SUBMIT_V1 => Some(Self::PeerEventsCommandSubmitV1),
-            Self::PEER_EVENTS_READ_DESCRIBE_V1 => Some(Self::PeerEventsReadDescribeV1),
             Self::PEER_EVENTS_READ_FRONTIER_V1 => Some(Self::PeerEventsReadFrontierV1),
             Self::PEER_EVENTS_READ_RESOLVE_V1 => Some(Self::PeerEventsReadResolveV1),
             Self::PEER_EVENTS_READ_SCAN_V1 => Some(Self::PeerEventsReadScanV1),
@@ -1730,7 +1718,6 @@ impl ServiceOperationId {
                 Some(Self::PeerServiceResolutionReadResolveV1)
             }
             Self::PEER_SIGNAL_COMMAND_RELAY_V1 => Some(Self::PeerSignalCommandRelayV1),
-            Self::PEER_SNAPSHOT_READ_MANIFEST_HEAD_V1 => Some(Self::PeerSnapshotReadManifestHeadV1),
             Self::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION_V1 => {
                 Some(Self::RootIdentityCommandSubmitDidOperationV1)
             }
@@ -3707,24 +3694,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerEventsReadDescribeV1,
-        http_method: "QUERY",
-        http_path: "/_arkret/peer/events/describe",
-        grpc: Some("PeerEvents/Describe"),
-        mq: Some("peer.events.read.describe"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "service_describe",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/PeerEventsDescribeRequestBody",
-        ),
-        response_schema_ref: Some("schemas/service-describe.schema.json"),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::PeerEventsReadFrontierV1,
         http_method: "QUERY",
         http_path: "/_arkret/peer/events/frontier",
@@ -4132,22 +4101,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some("ephemeral_signal_must_not_be_durable_event"),
             branch_contract_json: None,
         }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerSnapshotReadManifestHeadV1,
-        http_method: "GET",
-        http_path: "/_arkret/peer/snapshot/head",
-        grpc: Some("PeerSnapshot/Head"),
-        mq: Some("peer.snapshot.query.manifest_head"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "schema_resource",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: None,
-        response_schema_ref: Some("schemas/snapshot.schema.json"),
-        uncertain_outcome: None,
-        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityCommandSubmitDidOperationV1,

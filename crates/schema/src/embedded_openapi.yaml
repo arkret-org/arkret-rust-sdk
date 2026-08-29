@@ -37,7 +37,6 @@ info:
     read.scan, read.frontier}`, `ak.peer.events.{command.submit, read.resolve, read.scan,
     read.frontier}`, `ak.self.account.{read.viewer, stream.subscribe,
     command.update_profile}`, `ak.gate.account.{command.register, command.revoke_session}`, `ak.self.snapshot.read.manifest_head.v1`,
-    `ak.peer.snapshot.read.manifest_head.v1`,
 
     `ak.root.identity.{read.resolve, document.resource.get, receipts.read.list, command.submit_did_operation}`, `ak.self.authz.{read.check,
 
@@ -4170,31 +4169,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeviceRevocationGateCheckOutcome'
-  /_arkret/peer/events/describe:
-    query:
-      operationId: ak.peer.events.read.describe
-      parameters:
-      - name: Arkret-Operation
-        in: header
-        required: true
-        description: Required exact versioned operation_id selector for every canonical Arkret HTTP request.
-        schema:
-          type: string
-          const: ak.peer.events.read.describe.v1
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: ../schemas/service-operation-dtos.schema.json#/$defs/PeerEventsDescribeRequestBody
-      responses:
-        '200':
-          description: Federation peer Events API capabilities
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServiceDescribe'
   /_arkret/peer/events:
     query:
       operationId: ak.peer.events.read.scan
@@ -5815,39 +5789,6 @@ paths:
             produce a fully signed manifest MUST NOT advertise this operation
             and MUST respond not_implemented; fabricated signature material
             MUST NOT be served.
-          content:
-            application/json:
-              schema:
-                $ref: ../schemas/snapshot.schema.json
-  /_arkret/peer/snapshot/head:
-    get:
-      operationId: ak.peer.snapshot.read.manifest_head
-      security:
-      - httpMessageSignature: []
-        sourceServiceId: []
-        destinationServiceId: []
-        sourceTrustDomain: []
-        destinationTrustDomain: []
-      parameters:
-      - name: Arkret-Operation
-        in: header
-        required: true
-        description: Required exact versioned operation_id selector for every canonical Arkret HTTP request.
-        schema:
-          type: string
-          const: ak.peer.snapshot.read.manifest_head.v1
-      - name: realm_id
-        in: query
-        required: true
-        schema:
-          $ref: '#/components/schemas/RealmId'
-      responses:
-        '200':
-          description: |
-            The current recommended Snapshot manifest visible to an authorized
-            federation peer for snapshot-assisted bootstrap. Same manifest
-            shape, verification, and not_implemented rules as
-            ak.self.snapshot.read.manifest_head.v1.
           content:
             application/json:
               schema:

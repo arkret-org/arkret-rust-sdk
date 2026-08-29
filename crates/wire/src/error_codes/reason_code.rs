@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-29.3;
-//! sha256=23f85d89513baaec4004a954610b767013445d394d04175306a0451df4d7e8f4
+//! Input: registry/error-code-registry.json; version=2026-08-29.5;
+//! sha256=21eb6273313c8f9fafd74ff612adc6bf603a128995de45c813915b43aa5d2a01
 //! Entries: reason_codes=463
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2606,12 +2606,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CHALLENGE_FAILED,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "A join-policy challenge gate answer (e.g. CAPTCHA / proof-of-work / knowledge challenge) submitted with a member application failed verification. Used as a `reason_code` in member.application.review reject decisions. See zh/governance/join-policy.md §7.3.",
+        description: "A join-policy challenge gate answer (e.g. CAPTCHA / proof-of-work / knowledge challenge) carried by a membership admission request failed verification.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CHALLENGE_PROOF_INVALID,
         applies_to: &["auth_decision", "service_call"],
-        description: "A runtime challenge proof attached to `ak.member.state{join}.gate_proofs[]` or `member.application.gate_proofs[]` (candidate kind, no `ak.*` prefix) fails verification (signature / freshness / verifier domain).",
+        description: "A runtime challenge proof attached to `ak.member.state{join}.gate_proofs[]` fails verification (signature / freshness / verifier domain).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CIRCLE_ALREADY_TERMINAL,
@@ -2661,7 +2661,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CLAIM_INVALID,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "A claim, attestation, or invite / binding proof submitted with a member application is malformed, unverifiable, or fails policy checks. Used as a `reason_code` in member.application.review reject decisions. See zh/governance/join-policy.md §7.3.",
+        description: "A claim, attestation, or invite / binding proof submitted for membership or invitation admission is malformed, unverifiable, or fails policy checks.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CLAIM_RATE_LIMITED,

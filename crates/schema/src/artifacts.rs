@@ -1782,7 +1782,7 @@ mod tests {
     #[test]
     fn embedded_capability_action_returns_none_for_unknown_action() {
         assert!(
-            embedded_capability_action("member.application.create")
+            embedded_capability_action("ak.unknown.action.v1")
                 .expect("embedded registry should parse")
                 .is_none()
         );

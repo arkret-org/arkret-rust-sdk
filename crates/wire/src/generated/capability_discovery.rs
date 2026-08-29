@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/contract-registry.json; version=2026-08-29.13;
-//! sha256=78959808e5d00c16a03fb1034a3ce0bfb0b5dfcec5f8959b8a95caffae8a2aa3
+//! Input: registry/contract-registry.json; version=2026-08-29.14;
+//! sha256=85caf136ebdbf2c7a7cbbdd397f79cea3952c444352c38cb6c81b44cd04cb846
 //! Entries: operation_bundles=37 features=22
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -680,10 +680,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
-                operation_id: ServiceOperationId::PeerEventsReadDescribeV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
                 operation_id: ServiceOperationId::PeerEventsReadFrontierV1,
                 binding_kind: BindingKind::HttpJson,
             },
@@ -733,10 +729,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::PeerSignalCommandRelayV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::PeerSnapshotReadManifestHeadV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
