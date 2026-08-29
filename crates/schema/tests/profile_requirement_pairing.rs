@@ -1,9 +1,7 @@
 //! Pins the status pairing in `ArtifactDriftReport::profile_requirement_issues`.
 //!
-//! The SDK generates the **active** registry surface, so comparing every profile
-//! requirement against the generated constants reported one false positive:
-//! `ak.profile.candidate.join_policy.v1` is a `candidate` profile requiring the
-//! schema registry's only `candidate` row, and neither side is drifting.
+//! The SDK generates the **active** registry surface, while candidate profiles
+//! may require candidate registry rows that are deliberately not generated.
 //!
 //! Relaxing a gate is the failure mode this drift report exists to prevent, so
 //! the exemption is pinned here by injection: each case below builds a bundle

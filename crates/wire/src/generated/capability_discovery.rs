@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/contract-registry.json; version=2026-08-29.12;
-//! sha256=3c52878a683a7e4fd484b195da887797c6f8105e2f1e713dbf7df537fc8728cf
-//! Entries: operation_bundles=39 features=22
+//! Input: registry/contract-registry.json; version=2026-08-29.13;
+//! sha256=78959808e5d00c16a03fb1034a3ce0bfb0b5dfcec5f8959b8a95caffae8a2aa3
+//! Entries: operation_bundles=37 features=22
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -289,14 +289,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         }],
     },
     OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.directory_service.takedown_appeal.v1",
-        service_kind: ServiceKind::DirectoryService,
-        members: &[OperationBindingPair {
-            operation_id: ServiceOperationId::FindDirectoryCommandTakedownAppealV1,
-            binding_kind: BindingKind::HttpJson,
-        }],
-    },
-    OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.identity_registry.describe.v1",
         service_kind: ServiceKind::IdentityRegistry,
         members: &[OperationBindingPair {
@@ -568,36 +560,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfAppletRevokeCommandPreviewV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-        ],
-    },
-    OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.principal_server.candidate_join_policy.v1",
-        service_kind: ServiceKind::PrincipalServer,
-        members: &[
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfRealmJoinApplicationAuditReadListV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfRealmJoinApplicationCommandCancelV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfRealmJoinApplicationCommandReviewV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfRealmJoinApplicationCommandSubmitV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfRealmJoinApplicationReadListV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfRealmJoinApplicationResourceGetV1,
                 binding_kind: BindingKind::HttpJson,
             },
         ],
@@ -1098,14 +1060,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
-                operation_id: ServiceOperationId::SelfRealmModerationPolicyReadEffectiveV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfRealmModerationPolicyResourceReplaceV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
                 operation_id: ServiceOperationId::SelfRealmReadExportV1,
                 binding_kind: BindingKind::HttpJson,
             },
@@ -1114,19 +1068,11 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
-                operation_id: ServiceOperationId::SelfRealmLinkCommandCreateV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
                 operation_id: ServiceOperationId::SelfRealmLinkReadEffectivePolicyV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfRealmLinkReadListV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfRealmLinkResourceDeleteV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {

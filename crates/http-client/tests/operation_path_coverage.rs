@@ -64,10 +64,6 @@ const SOURCES: &[(&str, &str)] = &[
         include_str!("../src/endpoints/identity.rs"),
     ),
     (
-        "endpoints/join_policy.rs",
-        include_str!("../src/endpoints/join_policy.rs"),
-    ),
-    (
         "endpoints/media.rs",
         include_str!("../src/endpoints/media.rs"),
     ),
@@ -133,10 +129,6 @@ const NON_OPERATION_LITERALS: &[(&str, &str)] = &[
         "/_arkret/self/circles/{}/{}",
         "endpoints/circle.rs builds the trailing segment from a runtime action \
          (`join`/`leave`/...); each expansion is a registered path, the template is not",
-    ),
-    (
-        "/_arkret/self/realms/!realm:example.test/join-applications/sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-        "endpoints/join_policy.rs in-file unit test expectation with substituted sample values",
     ),
     (
         "/_arkret/self/applets/ak:applet:01904100-0000-7000-8000-000000000001/ghosts/provision",

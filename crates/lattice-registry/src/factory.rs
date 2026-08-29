@@ -72,7 +72,6 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(RealmJoinRule);
     registry.register(RealmLink);
     registry.register(RealmMediaService);
-    registry.register(RealmModerationPolicy);
     registry.register(RealmOrganization);
     registry.register(RealmPlaintextVisibleServices);
     registry.register(RealmPolicy);

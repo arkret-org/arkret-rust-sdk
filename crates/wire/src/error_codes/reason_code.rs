@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-08-29.3;
-//! sha256=f291dbdaa0180cd0775251462061d9f79b85816ea1141ce88f34127897220a10
-//! Entries: reason_codes=467
+//! sha256=23f85d89513baaec4004a954610b767013445d394d04175306a0451df4d7e8f4
+//! Entries: reason_codes=463
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -220,10 +220,7 @@ pub enum ReasonCode {
     InviteKindRequiresRevoke,
     InviteOobEntropyTooLow,
     JoinAuthorisationInvalid,
-    JoinPolicyDuplicateAnswerReference,
     JoinPolicyDuplicateGateId,
-    JoinPolicyQuestionBudgetExceeded,
-    JoinPolicyUnknownAnswerReference,
     JoinRulePolicyMismatch,
     JoinRuleTightened,
     KeyBackupWireSchemaRequired,
@@ -373,7 +370,6 @@ pub enum ReasonCode {
     RelationProfileCardinalityConflict,
     RelationScopeUnresolved,
     RelaxedWindowExceedsCeiling,
-    RequiresOrganizationApproval,
     ResolutionHistoryAncestorUnknown,
     RevocationFreshnessUnknown,
     RevokeOrderUnknownRequiresBackfillOrReview,
@@ -750,13 +746,7 @@ impl ReasonCode {
     pub const INVITE_KIND_REQUIRES_REVOKE: &'static str = "invite_kind_requires_revoke";
     pub const INVITE_OOB_ENTROPY_TOO_LOW: &'static str = "invite_oob_entropy_too_low";
     pub const JOIN_AUTHORISATION_INVALID: &'static str = "join_authorisation_invalid";
-    pub const JOIN_POLICY_DUPLICATE_ANSWER_REFERENCE: &'static str =
-        "join_policy_duplicate_answer_reference";
     pub const JOIN_POLICY_DUPLICATE_GATE_ID: &'static str = "join_policy_duplicate_gate_id";
-    pub const JOIN_POLICY_QUESTION_BUDGET_EXCEEDED: &'static str =
-        "join_policy_question_budget_exceeded";
-    pub const JOIN_POLICY_UNKNOWN_ANSWER_REFERENCE: &'static str =
-        "join_policy_unknown_answer_reference";
     pub const JOIN_RULE_POLICY_MISMATCH: &'static str = "join_rule_policy_mismatch";
     pub const JOIN_RULE_TIGHTENED: &'static str = "join_rule_tightened";
     pub const KEY_BACKUP_WIRE_SCHEMA_REQUIRED: &'static str = "key_backup_wire_schema_required";
@@ -929,7 +919,6 @@ impl ReasonCode {
         "relation_profile_cardinality_conflict";
     pub const RELATION_SCOPE_UNRESOLVED: &'static str = "relation_scope_unresolved";
     pub const RELAXED_WINDOW_EXCEEDS_CEILING: &'static str = "relaxed_window_exceeds_ceiling";
-    pub const REQUIRES_ORGANIZATION_APPROVAL: &'static str = "requires_organization_approval";
     pub const RESOLUTION_HISTORY_ANCESTOR_UNKNOWN: &'static str =
         "resolution_history_ancestor_unknown";
     pub const REVOCATION_FRESHNESS_UNKNOWN: &'static str = "revocation_freshness_unknown";
@@ -1308,12 +1297,7 @@ impl ReasonCode {
             Self::InviteKindRequiresRevoke => Self::INVITE_KIND_REQUIRES_REVOKE,
             Self::InviteOobEntropyTooLow => Self::INVITE_OOB_ENTROPY_TOO_LOW,
             Self::JoinAuthorisationInvalid => Self::JOIN_AUTHORISATION_INVALID,
-            Self::JoinPolicyDuplicateAnswerReference => {
-                Self::JOIN_POLICY_DUPLICATE_ANSWER_REFERENCE
-            }
             Self::JoinPolicyDuplicateGateId => Self::JOIN_POLICY_DUPLICATE_GATE_ID,
-            Self::JoinPolicyQuestionBudgetExceeded => Self::JOIN_POLICY_QUESTION_BUDGET_EXCEEDED,
-            Self::JoinPolicyUnknownAnswerReference => Self::JOIN_POLICY_UNKNOWN_ANSWER_REFERENCE,
             Self::JoinRulePolicyMismatch => Self::JOIN_RULE_POLICY_MISMATCH,
             Self::JoinRuleTightened => Self::JOIN_RULE_TIGHTENED,
             Self::KeyBackupWireSchemaRequired => Self::KEY_BACKUP_WIRE_SCHEMA_REQUIRED,
@@ -1479,7 +1463,6 @@ impl ReasonCode {
             Self::RelationProfileCardinalityConflict => Self::RELATION_PROFILE_CARDINALITY_CONFLICT,
             Self::RelationScopeUnresolved => Self::RELATION_SCOPE_UNRESOLVED,
             Self::RelaxedWindowExceedsCeiling => Self::RELAXED_WINDOW_EXCEEDS_CEILING,
-            Self::RequiresOrganizationApproval => Self::REQUIRES_ORGANIZATION_APPROVAL,
             Self::ResolutionHistoryAncestorUnknown => Self::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN,
             Self::RevocationFreshnessUnknown => Self::REVOCATION_FRESHNESS_UNKNOWN,
             Self::RevokeOrderUnknownRequiresBackfillOrReview => {
@@ -1865,12 +1848,7 @@ impl ReasonCode {
             Self::INVITE_KIND_REQUIRES_REVOKE => Self::InviteKindRequiresRevoke,
             Self::INVITE_OOB_ENTROPY_TOO_LOW => Self::InviteOobEntropyTooLow,
             Self::JOIN_AUTHORISATION_INVALID => Self::JoinAuthorisationInvalid,
-            Self::JOIN_POLICY_DUPLICATE_ANSWER_REFERENCE => {
-                Self::JoinPolicyDuplicateAnswerReference
-            }
             Self::JOIN_POLICY_DUPLICATE_GATE_ID => Self::JoinPolicyDuplicateGateId,
-            Self::JOIN_POLICY_QUESTION_BUDGET_EXCEEDED => Self::JoinPolicyQuestionBudgetExceeded,
-            Self::JOIN_POLICY_UNKNOWN_ANSWER_REFERENCE => Self::JoinPolicyUnknownAnswerReference,
             Self::JOIN_RULE_POLICY_MISMATCH => Self::JoinRulePolicyMismatch,
             Self::JOIN_RULE_TIGHTENED => Self::JoinRuleTightened,
             Self::KEY_BACKUP_WIRE_SCHEMA_REQUIRED => Self::KeyBackupWireSchemaRequired,
@@ -2036,7 +2014,6 @@ impl ReasonCode {
             Self::RELATION_PROFILE_CARDINALITY_CONFLICT => Self::RelationProfileCardinalityConflict,
             Self::RELATION_SCOPE_UNRESOLVED => Self::RelationScopeUnresolved,
             Self::RELAXED_WINDOW_EXCEEDS_CEILING => Self::RelaxedWindowExceedsCeiling,
-            Self::REQUIRES_ORGANIZATION_APPROVAL => Self::RequiresOrganizationApproval,
             Self::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN => Self::ResolutionHistoryAncestorUnknown,
             Self::REVOCATION_FRESHNESS_UNKNOWN => Self::RevocationFreshnessUnknown,
             Self::REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW => {
@@ -3285,24 +3262,9 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A `ak.member.state{membership=join}` event's `join_authorisation` proof (the equivalent of Matrix `join_authorised_via_users_server`) does not verify against the cited reviewer's capability state at the citing frontier. See zh/governance/join-policy.md §6.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::JOIN_POLICY_DUPLICATE_ANSWER_REFERENCE,
-        applies_to: &["schema_validation", "state_resolution"],
-        description: "Sub-reason for a schema_violation on a join-policy application whose answers[] repeats a (gate_id, question_id) reference. question_id is only unique within one application_form gate, so the reference key is the pair; a repeated pair leaves the reviewer with two answers for one question and no rule to choose between them. Wire response uses code=schema_violation with reason_code=join_policy_duplicate_answer_reference. See zh/governance/join-policy.md 3.3.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::JOIN_POLICY_DUPLICATE_GATE_ID,
         applies_to: &["schema_validation", "state_resolution"],
         description: "Sub-reason for a schema_violation on ak.realm.join_policy where gates[] contains duplicate gate_id values. gate_id MUST be stable and unique within the policy so that audit refs in ak.member.state{gate_proofs[gate_id=…]} are unambiguous. Wire response uses code=schema_violation with reason_code=join_policy_duplicate_gate_id. See zh/governance/join-policy.md §3.1.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::JOIN_POLICY_QUESTION_BUDGET_EXCEEDED,
-        applies_to: &["schema_validation", "state_resolution"],
-        description: "Sub-reason for a schema_violation on ak.realm.join_policy whose application_form gates declare more questions[] in total than one application can carry in answers[]. Under combinator=all such a policy has no satisfiable application at all, so it MUST be rejected at the policy rather than discovered at submit time. The budget is the same machine constant as the answers[] cap. Wire response uses code=schema_violation with reason_code=join_policy_question_budget_exceeded. See zh/governance/join-policy.md 3.3.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::JOIN_POLICY_UNKNOWN_ANSWER_REFERENCE,
-        applies_to: &["schema_validation", "state_resolution"],
-        description: "Sub-reason for a schema_violation on a join-policy application whose answers[] names a (gate_id, question_id) pair the referenced policy version does not define, or names a gate that is not an application_form gate. Lexical validity of both slugs is not existence: the reducer MUST resolve the pair against the policy version pinned by policy_version_digest. Wire response uses code=schema_violation with reason_code=join_policy_unknown_answer_reference. See zh/governance/join-policy.md 3.3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::JOIN_RULE_POLICY_MISMATCH,
@@ -3797,7 +3759,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::QUORUM_UNREACHABLE,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "A member application under an object-form `reviewer_quorum` {threshold, reviewers} can no longer reach `threshold`: the count of reviewers still holding `review_capability` at the evaluation frontier dropped below `threshold`. The reducer / review service MUST terminate the application as a reject with reason_code=quorum_unreachable rather than letting it hang until application_ttl, and SHOULD trigger join-policy re-evaluation. See zh/governance/join-policy.md §3.",
+        description: "A threshold-governed control proposal can no longer collect the required independent acknowledgements before its deadline. The receiver MUST fail closed with reason_code=quorum_unreachable rather than guessing authority.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RANGE_COMPLETENESS_ACTOR_SEQ_GAP,
@@ -4053,11 +4015,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::RELAXED_WINDOW_EXCEEDS_CEILING,
         applies_to: &["schema_violation", "state_resolution"],
         description: "A ak.realm.policy_bundle write under ak.profile.e2ee_relaxed.v1 declared relaxed_window_max_ms greater than the spec hard ceiling (300000 ms / 5 min). Reducer MUST reject the policy update and receivers MUST NOT silently clamp; otherwise visible policy state splits across implementations. See artifacts/profiles/conformance-profiles.json#ak.profile.e2ee_relaxed.v1.downgrade_window_constraint.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::REQUIRES_ORGANIZATION_APPROVAL,
-        applies_to: &["auth_decision", "service_call"],
-        description: "Sub-reason for failed_precondition when a Realm moderation-policy override would relax an action forbidden by inherited organization policy without embedding a valid organization approval. See zh/sync/service-http-binding.md §2.3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN,

@@ -400,12 +400,9 @@ impl SpecArtifactBundle {
     /// constants, pairing the profile's own status with the status of the
     /// registry entry it references.
     ///
-    /// The generated constants track the **active** registry surface, so a flat
-    /// comparison mis-reports the one legitimate v1 case:
-    /// `ak.profile.candidate.join_policy.v1` is itself a `candidate` profile and
-    /// requires `ak.schema.join_policy_operations.v1`, the schema registry's only
-    /// `candidate` row. Nothing drifts there — the SDK is right not to generate a
-    /// candidate schema, and a candidate profile is right to require one.
+    /// The generated constants track the **active** registry surface, while a
+    /// candidate profile may legitimately require a candidate registry entry.
+    /// Pairing statuses avoids reporting that deliberate omission as drift.
     ///
     /// Pairing keeps every other case a hard error, and splits apart two the flat
     /// comparison reported with one message:

@@ -18,8 +18,7 @@ use std::collections::BTreeMap;
 
 use arkret_wire::event_envelope::EventRef;
 use arkret_wire::{
-    CapabilityId, DidCoreId, ErrorCode, EventInitialSubmission, EventKind, Hash, PredicateOp,
-    RealmId, ReasonCode, Result, ScopeRef, WireError,
+    CapabilityId, DidCoreId, ErrorCode, Hash, RealmId, ReasonCode, Result, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -36,28 +35,10 @@ pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_ORGANIZATION_POLICY_LAYERS: &s
 pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_EFFECTIVE_RULES: &str = "effective_rules";
 pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_ORGANIZATION_EFFECTIVE_RULES: &str =
     "organization_effective_rules";
-pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_OVERRIDE_REQUIRES_ORGANIZATION_APPROVAL: &str =
-    "override_organization_approval_required";
 pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_POLICY_MERGE_STRATEGY: &str =
     "policy_merge_strategy";
 pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_ORGANIZATION_POLICY_MERGE_STRATEGY: &str =
     "organization_policy_merge_strategy";
-pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_FANOUT: &str = "fanout";
-pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_ORGANIZATION_POLICY_FANOUT: &str =
-    "organization_policy_fanout";
-
-/// Canonical moderation policy merge strategy value for organization inheritance.
-pub const REALM_MODERATION_POLICY_MERGE_STRATEGY_MOST_RESTRICTIVE: &str = "most_restrictive";
-
-/// Canonical fanout source value for organization moderation policy projection.
-pub const REALM_MODERATION_POLICY_FANOUT_SOURCE_ORGANIZATION_POLICY: &str = "organization_policy";
-
-/// The single null-subject CAS cell moved by `ak.realm.moderation_policy`.
-pub const REALM_MODERATION_POLICY_CELL_REF: &str =
-    "ak:cell:ak.component.realm.moderation_policy.v1:null";
-
-/// `failed_precondition` reason returned when a Realm moderation policy
-/// override needs organization approval.
 /// Canonical link_kind values for `ak.realm.link`. The eight values
 /// enumerate the typed cross-Realm relations the spec recognises after the
 /// Realm/Space boundary split; link payloads MUST carry exactly one of
@@ -221,38 +202,6 @@ pub struct RealmLinkPayload {
     pub commitment: Option<String>,
 }
 
-// Both cross-Realm link writes carry the caller-signed `ak.realm.link` Move.
-// They used to carry the edge fields, which left the signature for the service
-// to add -- `capabilities.md` sections 118/361 and `key-management.md` section
-// 411 forbid exactly that. Create and tombstone are the same Event kind moving
-// the same `(realm_id, target_realm_id, link_kind)` FSM cell, so they differ
-// only in the status their payload names; the source Realm is single-sourced by
-// `event.realm_id` and must equal the path `realm_id`. There is no request-side
-// default for `status` any more: `RealmLinkPayload` requires it, and a default
-// the caller never signed would be a field the service chose.
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct RealmLinkCreateRequestBody {
-    /// Closed `ak.realm.link` Event authored and signed by the caller. Its
-    /// payload is [`RealmLinkPayload`].
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub link_event: EventInitialSubmission,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct RealmLinkDeleteRequestBody {
-    /// Closed `ak.realm.link` Event authored and signed by the caller, with
-    /// `payload.status` pinned to `tombstoned`. `link_kind` travels in that
-    /// signed payload rather than a query parameter, which would be outside the
-    /// bytes the caller signs.
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub link_event: EventInitialSubmission,
-}
-
 /// A sealed Realm Link write and the canonical bytes needed to distinguish an
 /// exact replay from a conflicting sibling at the same basis.
 #[derive(Clone, Copy, Debug)]
@@ -390,16 +339,6 @@ pub struct RealmLinkList {
     pub realm_link_entries: Vec<RealmLinkEntry>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct RealmLinkMutationOutcome {
-    pub realm_id: RealmId,
-    pub target_realm_id: RealmId,
-    pub link_kind: RealmLinkKind,
-    pub status: RealmLinkStatus,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -459,116 +398,6 @@ pub struct RealmExport {
 pub enum RealmExportSchema {
     #[serde(rename = "ak.export.realm.v1")]
     V1,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmModerationPolicyReplaceRequestBody {
-    /// Closed `ak.realm.moderation_policy` Event authored and signed by the
-    /// caller. The service validates and forwards these exact bytes through
-    /// ordinary Event admission; it does not author a replacement Event or
-    /// inject the CAS precondition after signing.
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub moderation_policy_event: EventInitialSubmission,
-}
-
-impl RealmModerationPolicyReplaceRequestBody {
-    /// Validate the request bindings that are knowable before transport.
-    ///
-    /// The authenticated actor and accepted cell head remain receiver checks.
-    /// This gate pins the signed Event to the path Realm, the registered kind,
-    /// the closed policy payload, and the one complete CAS guard the service is
-    /// forbidden to add on the caller's behalf.
-    pub fn validate(
-        &self,
-        realm_id: &RealmId,
-        digest_suite: arkret_canonical::DigestSuite,
-    ) -> Result<()> {
-        self.moderation_policy_event
-            .validate_structural(digest_suite)?;
-        let event = &self.moderation_policy_event.event;
-        if event.kind != EventKind::RealmModerationPolicy {
-            return Err(WireError::Protocol(
-                "Realm moderation-policy replacement requires an ak.realm.moderation_policy Event"
-                    .to_owned(),
-            ));
-        }
-        if &event.realm_id != realm_id
-            || event.scope_ref
-                != (ScopeRef::Realm {
-                    realm_id: realm_id.clone(),
-                })
-        {
-            return Err(WireError::Protocol(
-                "Realm moderation-policy Event scope must equal the path Realm".to_owned(),
-            ));
-        }
-        self.policy()?;
-
-        let [precondition] = event.preconditions.as_slice() else {
-            return Err(WireError::Protocol(
-                "Realm moderation-policy replacement requires exactly one signed head_eq precondition"
-                    .to_owned(),
-            ));
-        };
-        let predicate = &precondition.predicate;
-        let Some(expected_head) = predicate.value.as_ref() else {
-            return Err(WireError::Protocol(
-                "Realm moderation-policy head_eq must name the complete settled cell value or explicit null"
-                    .to_owned(),
-            ));
-        };
-        if precondition.cell_id.as_str() != REALM_MODERATION_POLICY_CELL_REF
-            || predicate.op != PredicateOp::HeadEq
-            || predicate.values.is_some()
-            || predicate.predicate_id.is_some()
-            || !moderation_policy_head_is_complete(expected_head)
-        {
-            return Err(WireError::Protocol(format!(
-                "Realm moderation-policy head_eq must exclusively guard {REALM_MODERATION_POLICY_CELL_REF} with the complete settled value or explicit null"
-            )));
-        }
-        Ok(())
-    }
-
-    /// Return the complete policy object carried only by signed
-    /// `event.payload.value`.
-    pub fn policy(&self) -> Result<BTreeMap<String, Value>> {
-        if self.moderation_policy_event.event.kind != EventKind::RealmModerationPolicy {
-            return Err(WireError::Protocol(
-                "Realm moderation-policy replacement requires an ak.realm.moderation_policy Event"
-                    .to_owned(),
-            ));
-        }
-        let payload: crate::events_payloads::RealmModerationPolicyStatePayload =
-            crate::events_payloads::event_wire::decode_payload_after_kind_validation(
-                &self.moderation_policy_event.event,
-            )?;
-        Ok(payload.value)
-    }
-}
-
-fn moderation_policy_head_is_complete(head: &Value) -> bool {
-    if head.is_null() {
-        return true;
-    }
-    serde_json::from_value::<crate::events_payloads::RealmModerationPolicyStatePayload>(
-        head.clone(),
-    )
-    .is_ok()
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmModerationPolicyDocument {
-    pub kind: String,
-    pub realm_id: RealmId,
-    pub policy: BTreeMap<String, Value>,
-    pub updated_by: DidCoreId,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub updated_at: DateTime<Utc>,
 }
 
 /// Wire counterpart:
@@ -845,25 +674,11 @@ mod tests {
     }
 
     #[test]
-    fn realm_link_status_has_no_request_side_default_left() {
-        // The request body used to default `status` to `active` and materialize
-        // it on the way into the durable payload. Nothing may fill that field in
-        // now: it is inside the bytes the caller signs, and `RealmLinkPayload`
-        // has always required it.
+    fn realm_link_status_is_required_in_the_signed_payload() {
         assert!(
             serde_json::from_value::<RealmLinkPayload>(serde_json::json!({
                 "target_realm_id": "ak:realm:AUIDHR-4MyDvxQx3OgxqW_dIB1bGA6V3G5iIYL3wd8A9",
                 "link_kind": "governed_by",
-            }))
-            .is_err()
-        );
-        // The edge fields are no longer a request-body surface at all; the body
-        // carries one thing, and it is the signed Event.
-        assert!(
-            serde_json::from_value::<RealmLinkCreateRequestBody>(serde_json::json!({
-                "target_realm_id": "ak:realm:AUIDHR-4MyDvxQx3OgxqW_dIB1bGA6V3G5iIYL3wd8A9",
-                "link_kind": "governed_by",
-                "status": "active",
             }))
             .is_err()
         );

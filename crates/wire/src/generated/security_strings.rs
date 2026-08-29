@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/proof-context-registry.json; version=2026-08-29.4;
-//! sha256=52aec3c644aa051cce0aa7d54da710c56a7f7cf0e64836b6ab88379faf20ce4f Input: registry/
+//! sha256=b9a521ae525df86d7bc6f6953dc8dc80ceff9ef27da818eb68fd362964a24aec Input: registry/
 //! exporter-label-registry.json; version=2026-08-21.1;
 //! sha256=7e959c121558ccbff100ff9fc7d8c599a0fbb9e3409e044d5abf86f05088b21a Input: registry/
 //! digest-suite-registry.json; version=2026-08-18;
@@ -16,7 +16,7 @@
 //! sha256=51518dc2ea4b9fa6f4c491b24558c0663f172157e955bc7ae75d78559158fcb0 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=b8bba95405eeb37909c1037f64e933cbb8e237753e7cae88bbc27020bcc39a71
-//! Entries: proof_contexts=79, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=76, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=32, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -68,9 +68,6 @@ pub enum ProofContextId {
     IdentityCreationControlProofV1,
     IdentityReceiptProofV1,
     IngressReceiptProofV1,
-    JoinApplicationCancelReceiptProofV1,
-    JoinApplicationReceiptProofV1,
-    JoinApplicationReviewReceiptProofV1,
     KeyBackupDeleteProofV1,
     MemberDeliveryBindingCandidateProofV1,
     MimiIdentifierQueryOutcomeProofV1,
@@ -151,9 +148,6 @@ impl ProofContextId {
         Self::IdentityCreationControlProofV1,
         Self::IdentityReceiptProofV1,
         Self::IngressReceiptProofV1,
-        Self::JoinApplicationCancelReceiptProofV1,
-        Self::JoinApplicationReceiptProofV1,
-        Self::JoinApplicationReviewReceiptProofV1,
         Self::KeyBackupDeleteProofV1,
         Self::MemberDeliveryBindingCandidateProofV1,
         Self::MimiIdentifierQueryOutcomeProofV1,
@@ -263,12 +257,6 @@ impl ProofContextId {
         "ak.identity_creation_control_proof.v1";
     pub const IDENTITY_RECEIPT_PROOF_V1: &'static str = "ak.identity_receipt_proof.v1";
     pub const INGRESS_RECEIPT_PROOF_V1: &'static str = "ak.ingress_receipt_proof.v1";
-    pub const JOIN_APPLICATION_CANCEL_RECEIPT_PROOF_V1: &'static str =
-        "ak.join_application_cancel_receipt_proof.v1";
-    pub const JOIN_APPLICATION_RECEIPT_PROOF_V1: &'static str =
-        "ak.join_application_receipt_proof.v1";
-    pub const JOIN_APPLICATION_REVIEW_RECEIPT_PROOF_V1: &'static str =
-        "ak.join_application_review_receipt_proof.v1";
     pub const KEY_BACKUP_DELETE_PROOF_V1: &'static str = "ak.key_backup_delete_proof.v1";
     pub const MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1: &'static str =
         "ak.member_delivery_binding_candidate_proof.v1";
@@ -407,13 +395,6 @@ impl ProofContextId {
             Self::IdentityCreationControlProofV1 => Self::IDENTITY_CREATION_CONTROL_PROOF_V1,
             Self::IdentityReceiptProofV1 => Self::IDENTITY_RECEIPT_PROOF_V1,
             Self::IngressReceiptProofV1 => Self::INGRESS_RECEIPT_PROOF_V1,
-            Self::JoinApplicationCancelReceiptProofV1 => {
-                Self::JOIN_APPLICATION_CANCEL_RECEIPT_PROOF_V1
-            }
-            Self::JoinApplicationReceiptProofV1 => Self::JOIN_APPLICATION_RECEIPT_PROOF_V1,
-            Self::JoinApplicationReviewReceiptProofV1 => {
-                Self::JOIN_APPLICATION_REVIEW_RECEIPT_PROOF_V1
-            }
             Self::KeyBackupDeleteProofV1 => Self::KEY_BACKUP_DELETE_PROOF_V1,
             Self::MemberDeliveryBindingCandidateProofV1 => {
                 Self::MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1
@@ -569,13 +550,6 @@ impl ProofContextId {
             Self::IDENTITY_CREATION_CONTROL_PROOF_V1 => Some(Self::IdentityCreationControlProofV1),
             Self::IDENTITY_RECEIPT_PROOF_V1 => Some(Self::IdentityReceiptProofV1),
             Self::INGRESS_RECEIPT_PROOF_V1 => Some(Self::IngressReceiptProofV1),
-            Self::JOIN_APPLICATION_CANCEL_RECEIPT_PROOF_V1 => {
-                Some(Self::JoinApplicationCancelReceiptProofV1)
-            }
-            Self::JOIN_APPLICATION_RECEIPT_PROOF_V1 => Some(Self::JoinApplicationReceiptProofV1),
-            Self::JOIN_APPLICATION_REVIEW_RECEIPT_PROOF_V1 => {
-                Some(Self::JoinApplicationReviewReceiptProofV1)
-            }
             Self::KEY_BACKUP_DELETE_PROOF_V1 => Some(Self::KeyBackupDeleteProofV1),
             Self::MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1 => {
                 Some(Self::MemberDeliveryBindingCandidateProofV1)
@@ -1834,52 +1808,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/offline-publication.schema.json#/$defs/ingress_receipt",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::JoinApplicationCancelReceiptProofV1,
-        context: "ak.join_application_cancel_receipt_proof.v1",
-        object_family: "join_application_cancel_receipt",
-        consumer_operation: None,
-        binding_fields: &[
-            "receipt_digest",
-            "realm_id",
-            "application_ref",
-            "actor_id",
-            "verification_method",
-            "created_at",
-        ],
-        schema_ref: "schemas/join-policy-operations.schema.json#/$defs/cancel_receipt",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::JoinApplicationReceiptProofV1,
-        context: "ak.join_application_receipt_proof.v1",
-        object_family: "join_application_receipt",
-        consumer_operation: None,
-        binding_fields: &[
-            "receipt_digest",
-            "realm_id",
-            "actor_id",
-            "verification_method",
-            "created_at",
-        ],
-        schema_ref: "schemas/join-policy-operations.schema.json#/$defs/application_receipt",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::JoinApplicationReviewReceiptProofV1,
-        context: "ak.join_application_review_receipt_proof.v1",
-        object_family: "join_application_review_receipt",
-        consumer_operation: None,
-        binding_fields: &[
-            "receipt_digest",
-            "realm_id",
-            "application_ref",
-            "application_revision_digest",
-            "actor_id",
-            "principal_server_id",
-            "verification_method",
-            "created_at",
-        ],
-        schema_ref: "schemas/join-policy-operations.schema.json#/$defs/review_receipt",
     },
     ProofContextDescriptor {
         id: ProofContextId::KeyBackupDeleteProofV1,

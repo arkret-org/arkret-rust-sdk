@@ -1008,7 +1008,7 @@ pub enum DirectoryGovernanceProofPurpose {
 }
 
 /// §8.7.1 governance proof for the directory write surface (`withdraw`,
-/// `takedown_appeal`). Mirrors
+/// directory withdrawal). Mirrors
 /// `service-operation-dtos.schema.json#/$defs/DirectoryGovernanceProof`: the
 /// generic non-Event detached-JWS proof leaf with the family's three choices
 /// closed — `proof_purpose` MUST be `governance_authorization`, `audience`
@@ -1169,71 +1169,6 @@ pub struct DirectoryWithdrawOutcome {
     pub withdrawal_ref: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub acked_at: DateTime<Utc>,
-}
-
-/// Requested outcome of a directory takedown appeal (`discovery-directory.md §8.7`).
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DirectoryTakedownAppealOutcomeRequest {
-    Overturn,
-    ReduceScope,
-    Reinstate,
-}
-
-/// `ak.find.directory.command.takedown_appeal.v1` request — resource-side appeal
-/// of an operator takedown. Mirrors
-/// `service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealRequestBody`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DirectoryTakedownAppealRequestBody {
-    /// The operator `takedown_id` from the takedown notice
-    /// (`takedown:<token>`).
-    pub takedown_id: String,
-    /// Realm/applet ak-id, actor DID, or handle the takedown targets.
-    pub resource_id: String,
-    pub appellant_actor_id: DidCoreId,
-    /// `sha256:<hex>` digest of the appeal argument / evidence bundle.
-    pub argument_digest: Hash,
-    pub requested_outcome: DirectoryTakedownAppealOutcomeRequest,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    /// Signature by the resource governance key or an authorized advocate.
-    pub governance_proof: DirectoryGovernanceProof,
-}
-
-impl DirectoryTakedownAppealRequestBody {
-    pub fn unsigned_payload(&self) -> Result<Value> {
-        directory_governance_unsigned_request(self)
-    }
-
-    pub fn payload_digest(&self) -> Result<Hash> {
-        directory_payload_digest(&self.unsigned_payload()?)
-    }
-
-    pub fn proof_binding_bytes(&self) -> Result<Vec<u8>> {
-        self.governance_proof.binding_bytes(
-            ServiceOperationId::FIND_DIRECTORY_COMMAND_TAKEDOWN_APPEAL_V1,
-            &self.resource_id,
-            &self.payload_digest()?,
-        )
-    }
-}
-
-/// `ak.find.directory.command.takedown_appeal.v1` outcome — signed decision
-/// receipt. Mirrors
-/// `service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealOutcome`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DirectoryTakedownAppealOutcome {
-    /// Directory-local audit reference (`appeal:<token>`); not a registered
-    /// `ak:<kind>` typed id.
-    pub appeal_id: String,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub received_at: DateTime<Utc>,
-    /// Signed Directory decision receipt; status pending until adjudicated.
-    pub decision_receipt: BTreeMap<String, Value>,
 }
 
 /// A single `ak.find.directory.read.search_users.v1` result row.
@@ -1581,35 +1516,6 @@ mod directory_governance_proof_tests {
                 "resource_id",
                 "verification_method",
             ]
-        );
-    }
-
-    /// `operation_id` is stamped by the operation actually being served, so a
-    /// signature valid for `withdraw` can never verify as `takedown_appeal`.
-    #[test]
-    fn withdraw_and_appeal_stamp_their_own_operation_id() {
-        let body = withdraw_body();
-        let proof = body.governance_proof.clone();
-        let digest = body.payload_digest().unwrap();
-        let withdraw_transcript: Value =
-            serde_json::from_slice(&body.proof_binding_bytes().unwrap()).unwrap();
-        let appeal_transcript: Value = serde_json::from_slice(
-            &proof
-                .binding_bytes(
-                    ServiceOperationId::FIND_DIRECTORY_COMMAND_TAKEDOWN_APPEAL_V1,
-                    RESOURCE_ID,
-                    &digest,
-                )
-                .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(
-            withdraw_transcript["operation_id"],
-            "ak.find.directory.command.withdraw.v1"
-        );
-        assert_eq!(
-            appeal_transcript["operation_id"],
-            "ak.find.directory.command.takedown_appeal.v1"
         );
     }
 

@@ -211,7 +211,6 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::RealmDigestSuiteTransition
         | EventKind::RealmLink
         | EventKind::RealmMediaService
-        | EventKind::RealmModerationPolicy
         | EventKind::RealmOrganization
         | EventKind::RealmOrganizationRecoveryKeyRegister
         | EventKind::RealmOrganizationRecoveryKeyRotate

@@ -8,7 +8,6 @@ mod data;
 mod events;
 mod history_key;
 mod identity;
-mod join_policy;
 mod media;
 mod mimi;
 mod moderation;
@@ -23,5 +22,4 @@ pub use data::{
     RESUMABLE_UPLOAD_THRESHOLD_BYTES, blob_resumable_upload_base_url,
 };
 pub use events::{EventsSubscribeFrameStream, EventsSubscribeOptions};
-pub use join_policy::JoinApplicationListOptions;
 pub use signal::SignalSubscribeFrameStream;

@@ -2,13 +2,13 @@
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-08-29.2;
 //! sha256=d4c9340314ee25c57a646c6ab58c60ba594cea6060bc766290e27dcbd7e76c86 Input: registry/
-//! capability-action-registry.json; version=2026-08-29.10;
-//! sha256=955a24e7ce520c92c175b5b833e4bdd9a29bcf8c6e98b308b061826c746b8db0 Input: registry/
-//! schema-registry.json; version=2026-08-29.2;
-//! sha256=7b048632227404dc1396e0b2cef1deb28c57c893dfe844866cdc28a2a03964f4 Input: registry/
+//! capability-action-registry.json; version=2026-08-29.13;
+//! sha256=123ca80594536d7aa0ef7134bb3fe7898082d5c62c96219dc50e05e06b9f8891 Input: registry/
+//! schema-registry.json; version=2026-08-29.3;
+//! sha256=ab9e153aec6febf4e709d9dc8ec2ddcffbcbb4c1f53f771efec68aee6043e37d Input: registry/
 //! account-data-key-registry.json; version=2026-08-27.1;
 //! sha256=3d31af407b5d2214a67e3eb2850153fb3a4e0bcb597d069b70bf349945627cd9 Entries: id_kinds=59,
-//! special_forms=14, actions=163, schemas=198, account_data_patterns=24
+//! special_forms=14, actions=162, schemas=197, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -1673,7 +1673,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_ASSET_PRIVACY_POLICY,
             event_kind_str::REALM_READ_RECEIPT_POLICY,
             event_kind_str::REALM_PREVIEW_POLICY,
-            event_kind_str::REALM_MODERATION_POLICY,
             event_kind_str::REALM_SEARCH_POLICY,
             event_kind_str::ORGANIZATION_MODERATION_POLICY,
             event_kind_str::MIMI_ROOM_BINDING,
@@ -1785,7 +1784,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_DELIVERY_BINDING_POLICY,
             event_kind_str::REALM_ASSET_PRIVACY_POLICY,
             event_kind_str::REALM_READ_RECEIPT_POLICY,
-            event_kind_str::REALM_MODERATION_POLICY,
             event_kind_str::REALM_MEDIA_SERVICE,
             event_kind_str::REALM_SCHEMA,
             event_kind_str::REALM_INHERITANCE_POLICY,
@@ -1920,19 +1918,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::RealmModerationPolicy,
-        category: "management",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        target_event_kinds: &[event_kind_str::REALM_MODERATION_POLICY],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
         action: CapabilityActionId::RealmNotificationAudit,
         category: "governance",
         risk_tier: CapabilityRiskTier::High,
@@ -2023,7 +2008,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_JOIN_RULE,
             event_kind_str::REALM_LINK,
             event_kind_str::REALM_MEDIA_SERVICE,
-            event_kind_str::REALM_MODERATION_POLICY,
             event_kind_str::REALM_NOTARY,
             event_kind_str::REALM_ORGANIZATION,
             event_kind_str::REALM_ORGANIZATION_RECOVERY_KEY_REGISTER,
@@ -2140,7 +2124,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.realm.freeze",
             "ak.realm.link",
             "ak.realm.media_service",
-            "ak.realm.moderation_policy",
             "ak.realm.notification.audit",
             "ak.realm.owner",
             "ak.realm.plaintext_visible_services",
@@ -3292,10 +3275,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::INVITE_RECEIVE_POLICY_V1,
         file: "schemas/invite-receive-policy.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::JOIN_POLICY_OPERATIONS_V1,
-        file: "schemas/join-policy-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::KEY_BACKUP_V1,

@@ -1271,12 +1271,6 @@ singleton_lattice!(
 );
 
 singleton_lattice!(
-    RealmModerationPolicy,
-    arkret_wire::CellFamilyId::REALM_MODERATION_POLICY_V1,
-    Criticality::Required
-);
-
-singleton_lattice!(
     CircleHistoryAccess,
     arkret_wire::CellFamilyId::CIRCLE_HISTORY_ACCESS_V1,
     Criticality::Required

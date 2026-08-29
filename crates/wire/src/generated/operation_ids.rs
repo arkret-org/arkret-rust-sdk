@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-08-29.8;
-//! sha256=eb684a0f005fb51025a517729f3595a8a831df0a16efa0f781c4f95da8885bb1 Entries: registered=244
+//! sha256=0c00ec254a266642fa0d26902d45c8b192888445613564d2becc72f891e50264 Entries: registered=233
 
 use serde::{Deserialize, Serialize};
 
@@ -21,7 +21,6 @@ pub enum ServiceOperationId {
     EdgePushCommandRegisterDeviceV1,
     EdgePushCommandUnregisterDeviceV1,
     FindDirectoryCommandAnnounceV1,
-    FindDirectoryCommandTakedownAppealV1,
     FindDirectoryCommandWithdrawV1,
     FindDirectoryPushCommandRegisterV1,
     FindDirectoryReadDescribeV1,
@@ -222,20 +221,10 @@ pub enum ServiceOperationId {
     SelfOrganizationRecoveryArchivesReadListV1,
     SelfReadCursorCommandAdvanceV1,
     SelfReadCursorReadListV1,
-    SelfRealmJoinApplicationAuditReadListV1,
-    SelfRealmJoinApplicationCommandCancelV1,
-    SelfRealmJoinApplicationCommandReviewV1,
-    SelfRealmJoinApplicationCommandSubmitV1,
-    SelfRealmJoinApplicationReadListV1,
-    SelfRealmJoinApplicationResourceGetV1,
-    SelfRealmModerationPolicyReadEffectiveV1,
-    SelfRealmModerationPolicyResourceReplaceV1,
     SelfRealmReadExportV1,
     SelfRealmResourceGetV1,
-    SelfRealmLinkCommandCreateV1,
     SelfRealmLinkReadEffectivePolicyV1,
     SelfRealmLinkReadListV1,
-    SelfRealmLinkResourceDeleteV1,
     SelfRealmOrganizationReadListV1,
     SelfSealsCommandIssueAvailabilityReceiptsV1,
     SelfSealsCommandSubmitV1,
@@ -268,7 +257,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE_V1,
     ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE_V1,
     ServiceOperationId::FIND_DIRECTORY_COMMAND_ANNOUNCE_V1,
-    ServiceOperationId::FIND_DIRECTORY_COMMAND_TAKEDOWN_APPEAL_V1,
     ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW_V1,
     ServiceOperationId::FIND_DIRECTORY_PUSH_COMMAND_REGISTER_V1,
     ServiceOperationId::FIND_DIRECTORY_READ_DESCRIBE_V1,
@@ -469,20 +457,10 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_ORGANIZATION_RECOVERY_ARCHIVES_READ_LIST_V1,
     ServiceOperationId::SELF_READ_CURSOR_COMMAND_ADVANCE_V1,
     ServiceOperationId::SELF_READ_CURSOR_READ_LIST_V1,
-    ServiceOperationId::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST_V1,
-    ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL_V1,
-    ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_REVIEW_V1,
-    ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_SUBMIT_V1,
-    ServiceOperationId::SELF_REALM_JOIN_APPLICATION_READ_LIST_V1,
-    ServiceOperationId::SELF_REALM_JOIN_APPLICATION_RESOURCE_GET_V1,
-    ServiceOperationId::SELF_REALM_MODERATION_POLICY_READ_EFFECTIVE_V1,
-    ServiceOperationId::SELF_REALM_MODERATION_POLICY_RESOURCE_REPLACE_V1,
     ServiceOperationId::SELF_REALM_READ_EXPORT_V1,
     ServiceOperationId::SELF_REALM_RESOURCE_GET_V1,
-    ServiceOperationId::SELF_REALM_LINK_COMMAND_CREATE_V1,
     ServiceOperationId::SELF_REALM_LINK_READ_EFFECTIVE_POLICY_V1,
     ServiceOperationId::SELF_REALM_LINK_READ_LIST_V1,
-    ServiceOperationId::SELF_REALM_LINK_RESOURCE_DELETE_V1,
     ServiceOperationId::SELF_REALM_ORGANIZATION_READ_LIST_V1,
     ServiceOperationId::SELF_SEALS_COMMAND_ISSUE_AVAILABILITY_RECEIPTS_V1,
     ServiceOperationId::SELF_SEALS_COMMAND_SUBMIT_V1,
@@ -557,7 +535,6 @@ impl ServiceOperationId {
         Self::EdgePushCommandRegisterDeviceV1,
         Self::EdgePushCommandUnregisterDeviceV1,
         Self::FindDirectoryCommandAnnounceV1,
-        Self::FindDirectoryCommandTakedownAppealV1,
         Self::FindDirectoryCommandWithdrawV1,
         Self::FindDirectoryPushCommandRegisterV1,
         Self::FindDirectoryReadDescribeV1,
@@ -758,20 +735,10 @@ impl ServiceOperationId {
         Self::SelfOrganizationRecoveryArchivesReadListV1,
         Self::SelfReadCursorCommandAdvanceV1,
         Self::SelfReadCursorReadListV1,
-        Self::SelfRealmJoinApplicationAuditReadListV1,
-        Self::SelfRealmJoinApplicationCommandCancelV1,
-        Self::SelfRealmJoinApplicationCommandReviewV1,
-        Self::SelfRealmJoinApplicationCommandSubmitV1,
-        Self::SelfRealmJoinApplicationReadListV1,
-        Self::SelfRealmJoinApplicationResourceGetV1,
-        Self::SelfRealmModerationPolicyReadEffectiveV1,
-        Self::SelfRealmModerationPolicyResourceReplaceV1,
         Self::SelfRealmReadExportV1,
         Self::SelfRealmResourceGetV1,
-        Self::SelfRealmLinkCommandCreateV1,
         Self::SelfRealmLinkReadEffectivePolicyV1,
         Self::SelfRealmLinkReadListV1,
-        Self::SelfRealmLinkResourceDeleteV1,
         Self::SelfRealmOrganizationReadListV1,
         Self::SelfSealsCommandIssueAvailabilityReceiptsV1,
         Self::SelfSealsCommandSubmitV1,
@@ -813,8 +780,6 @@ impl ServiceOperationId {
         "ak.edge.push.command.unregister_device.v1";
     pub const FIND_DIRECTORY_COMMAND_ANNOUNCE_V1: &'static str =
         "ak.find.directory.command.announce.v1";
-    pub const FIND_DIRECTORY_COMMAND_TAKEDOWN_APPEAL_V1: &'static str =
-        "ak.find.directory.command.takedown_appeal.v1";
     pub const FIND_DIRECTORY_COMMAND_WITHDRAW_V1: &'static str =
         "ak.find.directory.command.withdraw.v1";
     pub const FIND_DIRECTORY_PUSH_COMMAND_REGISTER_V1: &'static str =
@@ -1153,31 +1118,11 @@ impl ServiceOperationId {
     pub const SELF_READ_CURSOR_COMMAND_ADVANCE_V1: &'static str =
         "ak.self.read_cursor.command.advance.v1";
     pub const SELF_READ_CURSOR_READ_LIST_V1: &'static str = "ak.self.read_cursor.read.list.v1";
-    pub const SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST_V1: &'static str =
-        "ak.self.realm.join_application.audit.read.list.v1";
-    pub const SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL_V1: &'static str =
-        "ak.self.realm.join_application.command.cancel.v1";
-    pub const SELF_REALM_JOIN_APPLICATION_COMMAND_REVIEW_V1: &'static str =
-        "ak.self.realm.join_application.command.review.v1";
-    pub const SELF_REALM_JOIN_APPLICATION_COMMAND_SUBMIT_V1: &'static str =
-        "ak.self.realm.join_application.command.submit.v1";
-    pub const SELF_REALM_JOIN_APPLICATION_READ_LIST_V1: &'static str =
-        "ak.self.realm.join_application.read.list.v1";
-    pub const SELF_REALM_JOIN_APPLICATION_RESOURCE_GET_V1: &'static str =
-        "ak.self.realm.join_application.resource.get.v1";
-    pub const SELF_REALM_MODERATION_POLICY_READ_EFFECTIVE_V1: &'static str =
-        "ak.self.realm.moderation_policy.read.effective.v1";
-    pub const SELF_REALM_MODERATION_POLICY_RESOURCE_REPLACE_V1: &'static str =
-        "ak.self.realm.moderation_policy.resource.replace.v1";
     pub const SELF_REALM_READ_EXPORT_V1: &'static str = "ak.self.realm.read.export.v1";
     pub const SELF_REALM_RESOURCE_GET_V1: &'static str = "ak.self.realm.resource.get.v1";
-    pub const SELF_REALM_LINK_COMMAND_CREATE_V1: &'static str =
-        "ak.self.realm_link.command.create.v1";
     pub const SELF_REALM_LINK_READ_EFFECTIVE_POLICY_V1: &'static str =
         "ak.self.realm_link.read.effective_policy.v1";
     pub const SELF_REALM_LINK_READ_LIST_V1: &'static str = "ak.self.realm_link.read.list.v1";
-    pub const SELF_REALM_LINK_RESOURCE_DELETE_V1: &'static str =
-        "ak.self.realm_link.resource.delete.v1";
     pub const SELF_REALM_ORGANIZATION_READ_LIST_V1: &'static str =
         "ak.self.realm_organization.read.list.v1";
     pub const SELF_SEALS_COMMAND_ISSUE_AVAILABILITY_RECEIPTS_V1: &'static str =
@@ -1224,9 +1169,6 @@ impl ServiceOperationId {
             Self::EdgePushCommandRegisterDeviceV1 => Self::EDGE_PUSH_COMMAND_REGISTER_DEVICE_V1,
             Self::EdgePushCommandUnregisterDeviceV1 => Self::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE_V1,
             Self::FindDirectoryCommandAnnounceV1 => Self::FIND_DIRECTORY_COMMAND_ANNOUNCE_V1,
-            Self::FindDirectoryCommandTakedownAppealV1 => {
-                Self::FIND_DIRECTORY_COMMAND_TAKEDOWN_APPEAL_V1
-            }
             Self::FindDirectoryCommandWithdrawV1 => Self::FIND_DIRECTORY_COMMAND_WITHDRAW_V1,
             Self::FindDirectoryPushCommandRegisterV1 => {
                 Self::FIND_DIRECTORY_PUSH_COMMAND_REGISTER_V1
@@ -1557,38 +1499,12 @@ impl ServiceOperationId {
             }
             Self::SelfReadCursorCommandAdvanceV1 => Self::SELF_READ_CURSOR_COMMAND_ADVANCE_V1,
             Self::SelfReadCursorReadListV1 => Self::SELF_READ_CURSOR_READ_LIST_V1,
-            Self::SelfRealmJoinApplicationAuditReadListV1 => {
-                Self::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST_V1
-            }
-            Self::SelfRealmJoinApplicationCommandCancelV1 => {
-                Self::SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL_V1
-            }
-            Self::SelfRealmJoinApplicationCommandReviewV1 => {
-                Self::SELF_REALM_JOIN_APPLICATION_COMMAND_REVIEW_V1
-            }
-            Self::SelfRealmJoinApplicationCommandSubmitV1 => {
-                Self::SELF_REALM_JOIN_APPLICATION_COMMAND_SUBMIT_V1
-            }
-            Self::SelfRealmJoinApplicationReadListV1 => {
-                Self::SELF_REALM_JOIN_APPLICATION_READ_LIST_V1
-            }
-            Self::SelfRealmJoinApplicationResourceGetV1 => {
-                Self::SELF_REALM_JOIN_APPLICATION_RESOURCE_GET_V1
-            }
-            Self::SelfRealmModerationPolicyReadEffectiveV1 => {
-                Self::SELF_REALM_MODERATION_POLICY_READ_EFFECTIVE_V1
-            }
-            Self::SelfRealmModerationPolicyResourceReplaceV1 => {
-                Self::SELF_REALM_MODERATION_POLICY_RESOURCE_REPLACE_V1
-            }
             Self::SelfRealmReadExportV1 => Self::SELF_REALM_READ_EXPORT_V1,
             Self::SelfRealmResourceGetV1 => Self::SELF_REALM_RESOURCE_GET_V1,
-            Self::SelfRealmLinkCommandCreateV1 => Self::SELF_REALM_LINK_COMMAND_CREATE_V1,
             Self::SelfRealmLinkReadEffectivePolicyV1 => {
                 Self::SELF_REALM_LINK_READ_EFFECTIVE_POLICY_V1
             }
             Self::SelfRealmLinkReadListV1 => Self::SELF_REALM_LINK_READ_LIST_V1,
-            Self::SelfRealmLinkResourceDeleteV1 => Self::SELF_REALM_LINK_RESOURCE_DELETE_V1,
             Self::SelfRealmOrganizationReadListV1 => Self::SELF_REALM_ORGANIZATION_READ_LIST_V1,
             Self::SelfSealsCommandIssueAvailabilityReceiptsV1 => {
                 Self::SELF_SEALS_COMMAND_ISSUE_AVAILABILITY_RECEIPTS_V1
@@ -1647,9 +1563,6 @@ impl ServiceOperationId {
                 Some(Self::EdgePushCommandUnregisterDeviceV1)
             }
             Self::FIND_DIRECTORY_COMMAND_ANNOUNCE_V1 => Some(Self::FindDirectoryCommandAnnounceV1),
-            Self::FIND_DIRECTORY_COMMAND_TAKEDOWN_APPEAL_V1 => {
-                Some(Self::FindDirectoryCommandTakedownAppealV1)
-            }
             Self::FIND_DIRECTORY_COMMAND_WITHDRAW_V1 => Some(Self::FindDirectoryCommandWithdrawV1),
             Self::FIND_DIRECTORY_PUSH_COMMAND_REGISTER_V1 => {
                 Some(Self::FindDirectoryPushCommandRegisterV1)
@@ -2054,38 +1967,12 @@ impl ServiceOperationId {
             }
             Self::SELF_READ_CURSOR_COMMAND_ADVANCE_V1 => Some(Self::SelfReadCursorCommandAdvanceV1),
             Self::SELF_READ_CURSOR_READ_LIST_V1 => Some(Self::SelfReadCursorReadListV1),
-            Self::SELF_REALM_JOIN_APPLICATION_AUDIT_READ_LIST_V1 => {
-                Some(Self::SelfRealmJoinApplicationAuditReadListV1)
-            }
-            Self::SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL_V1 => {
-                Some(Self::SelfRealmJoinApplicationCommandCancelV1)
-            }
-            Self::SELF_REALM_JOIN_APPLICATION_COMMAND_REVIEW_V1 => {
-                Some(Self::SelfRealmJoinApplicationCommandReviewV1)
-            }
-            Self::SELF_REALM_JOIN_APPLICATION_COMMAND_SUBMIT_V1 => {
-                Some(Self::SelfRealmJoinApplicationCommandSubmitV1)
-            }
-            Self::SELF_REALM_JOIN_APPLICATION_READ_LIST_V1 => {
-                Some(Self::SelfRealmJoinApplicationReadListV1)
-            }
-            Self::SELF_REALM_JOIN_APPLICATION_RESOURCE_GET_V1 => {
-                Some(Self::SelfRealmJoinApplicationResourceGetV1)
-            }
-            Self::SELF_REALM_MODERATION_POLICY_READ_EFFECTIVE_V1 => {
-                Some(Self::SelfRealmModerationPolicyReadEffectiveV1)
-            }
-            Self::SELF_REALM_MODERATION_POLICY_RESOURCE_REPLACE_V1 => {
-                Some(Self::SelfRealmModerationPolicyResourceReplaceV1)
-            }
             Self::SELF_REALM_READ_EXPORT_V1 => Some(Self::SelfRealmReadExportV1),
             Self::SELF_REALM_RESOURCE_GET_V1 => Some(Self::SelfRealmResourceGetV1),
-            Self::SELF_REALM_LINK_COMMAND_CREATE_V1 => Some(Self::SelfRealmLinkCommandCreateV1),
             Self::SELF_REALM_LINK_READ_EFFECTIVE_POLICY_V1 => {
                 Some(Self::SelfRealmLinkReadEffectivePolicyV1)
             }
             Self::SELF_REALM_LINK_READ_LIST_V1 => Some(Self::SelfRealmLinkReadListV1),
-            Self::SELF_REALM_LINK_RESOURCE_DELETE_V1 => Some(Self::SelfRealmLinkResourceDeleteV1),
             Self::SELF_REALM_ORGANIZATION_READ_LIST_V1 => {
                 Some(Self::SelfRealmOrganizationReadListV1)
             }
@@ -2452,31 +2339,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.find.directory.read.resolve_target.v1\",\"strategy\":\"query_operation\"}",
         ),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryCommandTakedownAppealV1,
-        http_method: "POST",
-        http_path: "/_arkret/find/directory/takedown/appeal",
-        grpc: Some("FindDirectory/TakedownAppeal"),
-        mq: Some("find.directory.command.takedown_appeal"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealOutcome",
-        ),
-        uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
             target: None,
@@ -7033,178 +6895,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmJoinApplicationAuditReadListV1,
-        http_method: "GET",
-        http_path: "/_arkret/self/realms/{realm_id}/join-applications/{application_ref}/audit",
-        grpc: Some("SelfRealmJoinApplication/ListAudit"),
-        mq: Some("self.realm.join_application.audit.query.list"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/join-policy-operations.schema.json#/$defs/application_audit_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmJoinApplicationCommandCancelV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/realms/{realm_id}/join-applications/{application_ref}/cancel",
-        grpc: Some("SelfRealmJoinApplication/Cancel"),
-        mq: Some("self.realm.join_application.command.cancel"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("idempotency_key"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/join-policy-operations.schema.json#/$defs/application_cancel_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/join-policy-operations.schema.json#/$defs/application_mutation_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmJoinApplicationCommandReviewV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/realms/{realm_id}/join-applications/{application_ref}/reviews",
-        grpc: Some("SelfRealmJoinApplication/Review"),
-        mq: Some("self.realm.join_application.command.review"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("idempotency_key"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/join-policy-operations.schema.json#/$defs/application_review_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/join-policy-operations.schema.json#/$defs/application_mutation_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmJoinApplicationCommandSubmitV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/realms/{realm_id}/join-applications",
-        grpc: Some("SelfRealmJoinApplication/Submit"),
-        mq: Some("self.realm.join_application.command.submit"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("idempotency_key"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/join-policy-operations.schema.json#/$defs/application_submit_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/join-policy-operations.schema.json#/$defs/application_mutation_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmJoinApplicationReadListV1,
-        http_method: "GET",
-        http_path: "/_arkret/self/realms/{realm_id}/join-applications",
-        grpc: Some("SelfRealmJoinApplication/List"),
-        mq: Some("self.realm.join_application.query.list"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/join-policy-operations.schema.json#/$defs/application_list_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmJoinApplicationResourceGetV1,
-        http_method: "GET",
-        http_path: "/_arkret/self/realms/{realm_id}/join-applications/{application_ref}",
-        grpc: Some("SelfRealmJoinApplication/Get"),
-        mq: Some("self.realm.join_application.resource.get"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/join-policy-operations.schema.json#/$defs/application_get_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmModerationPolicyReadEffectiveV1,
-        http_method: "GET",
-        http_path: "/_arkret/self/realms/{realm_id}/moderation-policy/effective",
-        grpc: Some("SelfRealm/ModerationPolicyEffective"),
-        mq: Some("self.realm.moderation_policy.query.effective"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_effective_moderation_policy",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmModerationPolicyResourceReplaceV1,
-        http_method: "PUT",
-        http_path: "/_arkret/self/realms/{realm_id}/moderation-policy",
-        grpc: Some("SelfRealm/ModerationPolicyReplace"),
-        mq: Some("self.realm.moderation_policy.resource.replace"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_moderation_policy_replace_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_moderation_policy_document",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.realm.moderation_policy"])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmReadExportV1,
         http_method: "GET",
         http_path: "/_arkret/self/realms/{realm_id}/export",
@@ -7237,33 +6927,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmLinkCommandCreateV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/realms/{realm_id}/links",
-        grpc: Some("SelfRealmLink/Create"),
-        mq: Some("self.realm_link.command.create"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/realm-link-operations.schema.json#/$defs/realm_link_create_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/realm-link-operations.schema.json#/$defs/realm_link_mutation_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.realm_link.read.list.v1\",\"strategy\":\"query_operation\"}",
-        ),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.realm.link"])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmLinkReadEffectivePolicyV1,
@@ -7300,31 +6963,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmLinkResourceDeleteV1,
-        http_method: "DELETE",
-        http_path: "/_arkret/self/realms/{realm_id}/links/{target_realm_id}",
-        grpc: Some("SelfRealmLink/Delete"),
-        mq: Some("self.realm_link.resource.delete"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/realm-link-operations.schema.json#/$defs/realm_link_delete_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/realm-link-operations.schema.json#/$defs/realm_link_mutation_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.realm.link"])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmOrganizationReadListV1,

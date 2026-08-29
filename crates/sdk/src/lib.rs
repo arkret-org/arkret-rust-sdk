@@ -153,7 +153,6 @@ pub use arkret_models_collaboration::governance::circle::*;
 pub use arkret_models_collaboration::governance::erasure::*;
 pub use arkret_models_collaboration::governance::grant_constraint::*;
 pub use arkret_models_collaboration::governance::invite_addressing::*;
-pub use arkret_models_collaboration::governance::join_policy::*;
 pub use arkret_models_collaboration::governance::member_delivery_binding_candidate::*;
 pub use arkret_models_collaboration::governance::membership_invite::*;
 pub use arkret_models_collaboration::governance::moderation::*;

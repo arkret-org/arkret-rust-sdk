@@ -1223,18 +1223,6 @@
       "spec_pointer": "realm-read-operations.schema.json#/$defs/realm_export/properties/operations"
     },
     {
-      "finding": "crates/models-collaboration/src/governance/realm_governance.rs::RealmModerationPolicyDocument.policy",
-      "classification": "open_json",
-      "lifecycle": "retained_boundary",
-      "decision": "open",
-      "authority": "realm-read-operations.schema.json#/$defs/realm_moderation_policy_document/properties/policy",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "spec_pointer": "realm-read-operations.schema.json#/$defs/realm_moderation_policy_document/properties/policy"
-    },
-    {
       "finding": "crates/models-collaboration/src/http_bodies.rs::AccountDevicePairOutcome.key_backup_hint",
       "classification": "open_json",
       "lifecycle": "retained_boundary",
@@ -3279,6 +3267,17 @@
       "lifecycle": "retained_boundary",
       "decision": "raw",
       "authority": "arkret-spec protocol schema owning actor_id,realm_id",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
+    },
+    {
+      "finding": "json_authoring:crates/models-discovery/src/http_bodies.rs::maximal_match_success_unpadded_bytes:55aaaec013706a5d",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret-spec closed union selected by kind,state",
       "owner_repository": "arkret-rust-sdk",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",

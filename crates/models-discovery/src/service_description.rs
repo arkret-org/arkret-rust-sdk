@@ -2,7 +2,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::str::FromStr;
 
-use arkret_wire::generated::profile_requirements::requirements_for;
 use arkret_wire::{Did, DidCoreId, ProfileId, SchemaId, *};
 use chrono::{DateTime, Utc};
 use curve25519_dalek::ristretto::CompressedRistretto;
@@ -892,55 +891,6 @@ impl ServiceDescribe {
                 ErrorCode::SCHEMA_VIOLATION
             )));
         }
-        if self
-            .supported_profiles
-            .iter()
-            .any(|profile| profile == ProfileId::CANDIDATE_JOIN_POLICY_V1)
-        {
-            let carrier = self
-                .profile_bindings
-                .get(ProfileId::CANDIDATE_JOIN_POLICY_V1)
-                .map(|binding| binding.carrier.as_str());
-            if carrier != Some(PROFILE_PRIVATE_HTTP_RECEIPT_V1) {
-                return Err(WireError::Protocol(format!(
-                    "ServiceDescribe: {profileid_candidate_join_policy_v1} requires \
-                     profile_bindings carrier={PROFILE_PRIVATE_HTTP_RECEIPT_V1} ({})",
-                    ErrorCode::SCHEMA_VIOLATION,
-                    profileid_candidate_join_policy_v1 = ProfileId::CANDIDATE_JOIN_POLICY_V1
-                )));
-            }
-            // `governance/join-policy.md` §7.1.1: claiming the profile commits
-            // to its *complete* carrier surface. The requirement set is the
-            // generated projection of `conformance-profiles.json`, so a spec
-            // change reaches this gate without a hand-maintained copy.
-            let requirements =
-                requirements_for(ProfileId::CANDIDATE_JOIN_POLICY_V1).ok_or_else(|| {
-                    WireError::Protocol(format!(
-                        "ServiceDescribe: generated profile table is missing \
-                         {profileid_candidate_join_policy_v1} ({})",
-                        ErrorCode::SCHEMA_VIOLATION,
-                        profileid_candidate_join_policy_v1 = ProfileId::CANDIDATE_JOIN_POLICY_V1
-                    ))
-                })?;
-            if requirements.provide_requirements().any(|required| {
-                !operation_pairs.contains(&OperationBindingPair {
-                    operation_id: required.operation_id,
-                    binding_kind: required.binding_kind,
-                })
-            }) || requirements.required_features.iter().any(|required| {
-                !self
-                    .supported_features
-                    .iter()
-                    .any(|feature| feature == required)
-            }) {
-                return Err(WireError::Protocol(format!(
-                    "ServiceDescribe: {profileid_candidate_join_policy_v1} requires its complete operation and \
-                     feature surface ({})",
-                    ErrorCode::SCHEMA_VIOLATION,
-                    profileid_candidate_join_policy_v1 = ProfileId::CANDIDATE_JOIN_POLICY_V1
-                )));
-            }
-        }
         if self.rate_limit_policy.is_none() && self.rate_limit_policy_id.is_none() {
             return Err(WireError::Protocol(format!(
                 "ServiceDescribe: one of rate_limit_policy or rate_limit_policy_id is required \
@@ -1240,26 +1190,6 @@ mod tests {
             last_materialized_at: None,
             extensions: XExtensionMap::default(),
         }
-    }
-
-    #[test]
-    fn candidate_join_policy_requires_complete_private_carrier_claim() {
-        let mut description = principal_description();
-        description
-            .supported_profiles
-            .push(ProfileId::CANDIDATE_JOIN_POLICY_V1.to_owned());
-        assert!(description.validate().is_err());
-        description.profile_bindings.insert(
-            ProfileId::CANDIDATE_JOIN_POLICY_V1.to_owned(),
-            ProfileBinding {
-                carrier: "profile_private_http_receipt_v1".to_owned(),
-            },
-        );
-        description
-            .supported_operation_bundles
-            .push("ak.operation_bundle.principal_server.candidate_join_policy.v1".to_owned());
-        description.supported_operation_bundles.sort();
-        description.validate().unwrap();
     }
 
     #[test]

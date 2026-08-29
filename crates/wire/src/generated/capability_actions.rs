@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-08-29.10;
-//! sha256=955a24e7ce520c92c175b5b833e4bdd9a29bcf8c6e98b308b061826c746b8db0 Entries: registered=163
+//! Input: registry/capability-action-registry.json; version=2026-08-29.13;
+//! sha256=123ca80594536d7aa0ef7134bb3fe7898082d5c62c96219dc50e05e06b9f8891 Entries: registered=162
 
 use serde::{Deserialize, Serialize};
 
@@ -115,7 +115,6 @@ pub enum CapabilityActionId {
     RealmFreeze,
     RealmLink,
     RealmMediaService,
-    RealmModerationPolicy,
     RealmNotificationAudit,
     RealmOwner,
     RealmOwnerTransfer,
@@ -282,7 +281,6 @@ impl CapabilityActionId {
         Self::RealmFreeze,
         Self::RealmLink,
         Self::RealmMediaService,
-        Self::RealmModerationPolicy,
         Self::RealmNotificationAudit,
         Self::RealmOwner,
         Self::RealmOwnerTransfer,
@@ -447,7 +445,6 @@ impl CapabilityActionId {
     pub const REALM_FREEZE: &'static str = "ak.realm.freeze";
     pub const REALM_LINK: &'static str = "ak.realm.link";
     pub const REALM_MEDIA_SERVICE: &'static str = "ak.realm.media_service";
-    pub const REALM_MODERATION_POLICY: &'static str = "ak.realm.moderation_policy";
     pub const REALM_NOTIFICATION_AUDIT: &'static str = "ak.realm.notification.audit";
     pub const REALM_OWNER: &'static str = "ak.realm.owner";
     pub const REALM_OWNER_TRANSFER: &'static str = "ak.realm.owner.transfer";
@@ -621,7 +618,6 @@ impl CapabilityActionId {
             Self::RealmFreeze => Self::REALM_FREEZE,
             Self::RealmLink => Self::REALM_LINK,
             Self::RealmMediaService => Self::REALM_MEDIA_SERVICE,
-            Self::RealmModerationPolicy => Self::REALM_MODERATION_POLICY,
             Self::RealmNotificationAudit => Self::REALM_NOTIFICATION_AUDIT,
             Self::RealmOwner => Self::REALM_OWNER,
             Self::RealmOwnerTransfer => Self::REALM_OWNER_TRANSFER,
@@ -793,7 +789,6 @@ impl CapabilityActionId {
             Self::REALM_FREEZE => Some(Self::RealmFreeze),
             Self::REALM_LINK => Some(Self::RealmLink),
             Self::REALM_MEDIA_SERVICE => Some(Self::RealmMediaService),
-            Self::REALM_MODERATION_POLICY => Some(Self::RealmModerationPolicy),
             Self::REALM_NOTIFICATION_AUDIT => Some(Self::RealmNotificationAudit),
             Self::REALM_OWNER => Some(Self::RealmOwner),
             Self::REALM_OWNER_TRANSFER => Some(Self::RealmOwnerTransfer),

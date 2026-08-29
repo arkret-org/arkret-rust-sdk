@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: profiles/conformance-profiles.json; version=2026-08-29.4;
-//! sha256=61959a0629e15e8b93a2b08a0013d229f95c746d5be932b646b0cf1d4307baa0 Entries: profile_ids=99
+//! sha256=373f337533e9e2a0f1f000b536f801a97a587d939c2c040e2bef069d29d5903c Entries: profile_ids=98
 
 use serde::{Deserialize, Serialize};
 
@@ -27,7 +27,6 @@ pub enum ProfileId {
     BlobNodeV1,
     CalendarEventV1,
     CalendarNotificationDispatchV1,
-    CandidateJoinPolicyV1,
     ChatMvpV1,
     CircleConformanceV1,
     CircleSealCadenceFixed5mV1,
@@ -169,7 +168,6 @@ impl ProfileId {
         Self::BlobNodeV1,
         Self::CalendarEventV1,
         Self::CalendarNotificationDispatchV1,
-        Self::CandidateJoinPolicyV1,
         Self::ChatMvpV1,
         Self::CircleConformanceV1,
         Self::CircleSealCadenceFixed5mV1,
@@ -272,7 +270,6 @@ impl ProfileId {
     pub const CALENDAR_EVENT_V1: &'static str = "ak.profile.calendar_event.v1";
     pub const CALENDAR_NOTIFICATION_DISPATCH_V1: &'static str =
         "ak.profile.calendar_notification_dispatch.v1";
-    pub const CANDIDATE_JOIN_POLICY_V1: &'static str = "ak.profile.candidate.join_policy.v1";
     pub const CHAT_MVP_V1: &'static str = "ak.profile.chat_mvp.v1";
     pub const CIRCLE_CONFORMANCE_V1: &'static str = "ak.profile.circle_conformance.v1";
     pub const CIRCLE_SEAL_CADENCE_FIXED_5M_V1: &'static str =
@@ -400,7 +397,6 @@ impl ProfileId {
             Self::BlobNodeV1 => Self::BLOB_NODE_V1,
             Self::CalendarEventV1 => Self::CALENDAR_EVENT_V1,
             Self::CalendarNotificationDispatchV1 => Self::CALENDAR_NOTIFICATION_DISPATCH_V1,
-            Self::CandidateJoinPolicyV1 => Self::CANDIDATE_JOIN_POLICY_V1,
             Self::ChatMvpV1 => Self::CHAT_MVP_V1,
             Self::CircleConformanceV1 => Self::CIRCLE_CONFORMANCE_V1,
             Self::CircleSealCadenceFixed5mV1 => Self::CIRCLE_SEAL_CADENCE_FIXED_5M_V1,
@@ -508,7 +504,6 @@ impl ProfileId {
             Self::BlobNodeV1 => ProfileRole::Gateway,
             Self::CalendarEventV1 => ProfileRole::Client,
             Self::CalendarNotificationDispatchV1 => ProfileRole::Server,
-            Self::CandidateJoinPolicyV1 => ProfileRole::Admin,
             Self::ChatMvpV1 => ProfileRole::Client,
             Self::CircleConformanceV1 => ProfileRole::Interop,
             Self::CircleSealCadenceFixed5mV1 => ProfileRole::Admin,
@@ -620,7 +615,6 @@ impl ProfileId {
             Self::BLOB_NODE_V1 => Some(Self::BlobNodeV1),
             Self::CALENDAR_EVENT_V1 => Some(Self::CalendarEventV1),
             Self::CALENDAR_NOTIFICATION_DISPATCH_V1 => Some(Self::CalendarNotificationDispatchV1),
-            Self::CANDIDATE_JOIN_POLICY_V1 => Some(Self::CandidateJoinPolicyV1),
             Self::CHAT_MVP_V1 => Some(Self::ChatMvpV1),
             Self::CIRCLE_CONFORMANCE_V1 => Some(Self::CircleConformanceV1),
             Self::CIRCLE_SEAL_CADENCE_FIXED_5M_V1 => Some(Self::CircleSealCadenceFixed5mV1),

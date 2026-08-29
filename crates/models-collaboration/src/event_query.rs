@@ -19,15 +19,6 @@ pub struct EventsDescribeRequestBody {
     pub realm_id: Option<RealmId>,
 }
 
-/// Canonical QUERY content for `ak.peer.events.read.describe.v1`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PeerEventsDescribeRequestBody {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<RealmId>,
-}
-
 /// Canonical QUERY content for `ak.self.events.read.frontier.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

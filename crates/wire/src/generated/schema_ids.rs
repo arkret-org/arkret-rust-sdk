@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-29.2;
-//! sha256=7b048632227404dc1396e0b2cef1deb28c57c893dfe844866cdc28a2a03964f4 Entries: schema_ids=198,
-//! active=198
+//! Input: registry/schema-registry.json; version=2026-08-29.3;
+//! sha256=ab9e153aec6febf4e709d9dc8ec2ddcffbcbb4c1f53f771efec68aee6043e37d Entries: schema_ids=197,
+//! active=197
 
 use serde::{Deserialize, Serialize};
 
@@ -115,7 +115,6 @@ pub enum SchemaId {
     InviteDeliveryRequestV1,
     InviteQuarantineV1,
     InviteReceivePolicyV1,
-    JoinPolicyOperationsV1,
     KeyBackupV1,
     KeyBackupActiveSeriesV1,
     KeyBackupPlaintextV1,
@@ -317,7 +316,6 @@ impl SchemaId {
         Self::InviteDeliveryRequestV1,
         Self::InviteQuarantineV1,
         Self::InviteReceivePolicyV1,
-        Self::JoinPolicyOperationsV1,
         Self::KeyBackupV1,
         Self::KeyBackupActiveSeriesV1,
         Self::KeyBackupPlaintextV1,
@@ -519,7 +517,6 @@ impl SchemaId {
         Self::InviteDeliveryRequestV1,
         Self::InviteQuarantineV1,
         Self::InviteReceivePolicyV1,
-        Self::JoinPolicyOperationsV1,
         Self::KeyBackupV1,
         Self::KeyBackupActiveSeriesV1,
         Self::KeyBackupPlaintextV1,
@@ -927,10 +924,6 @@ impl SchemaId {
     /// Subject-private invite receive policy controlling which introduction evidence kinds may
     /// notify the holder.
     pub const INVITE_RECEIVE_POLICY_V1: &'static str = "ak.schema.invite_receive_policy.v1";
-    /// Closed profile-private request/response and signed receipt DTO bundle for
-    /// ak.profile.candidate.join_policy.v1. Candidate receipts never become Event.kind values or
-    /// shared Realm history.
-    pub const JOIN_POLICY_OPERATIONS_V1: &'static str = "ak.schema.join_policy_operations.v1";
     pub const KEY_BACKUP_V1: &'static str = "ak.schema.key_backup.v1";
     /// Signed principal-control record selecting the active backup series for one (actor_id,
     /// backup_kind).
@@ -1286,7 +1279,6 @@ impl SchemaId {
             Self::InviteDeliveryRequestV1 => Self::INVITE_DELIVERY_REQUEST_V1,
             Self::InviteQuarantineV1 => Self::INVITE_QUARANTINE_V1,
             Self::InviteReceivePolicyV1 => Self::INVITE_RECEIVE_POLICY_V1,
-            Self::JoinPolicyOperationsV1 => Self::JOIN_POLICY_OPERATIONS_V1,
             Self::KeyBackupV1 => Self::KEY_BACKUP_V1,
             Self::KeyBackupActiveSeriesV1 => Self::KEY_BACKUP_ACTIVE_SERIES_V1,
             Self::KeyBackupPlaintextV1 => Self::KEY_BACKUP_PLAINTEXT_V1,
@@ -1525,7 +1517,6 @@ impl SchemaId {
             Self::InviteDeliveryRequestV1 => "schemas/invite-delivery-request.schema.json",
             Self::InviteQuarantineV1 => "schemas/invite-quarantine.schema.json",
             Self::InviteReceivePolicyV1 => "schemas/invite-receive-policy.schema.json",
-            Self::JoinPolicyOperationsV1 => "schemas/join-policy-operations.schema.json",
             Self::KeyBackupV1 => "schemas/key-backup.schema.json",
             Self::KeyBackupActiveSeriesV1 => "schemas/key-backup-active-series.schema.json",
             Self::KeyBackupPlaintextV1 => "schemas/key-backup-plaintext.schema.json",
@@ -1768,7 +1759,6 @@ impl SchemaId {
             Self::INVITE_DELIVERY_REQUEST_V1 => Some(Self::InviteDeliveryRequestV1),
             Self::INVITE_QUARANTINE_V1 => Some(Self::InviteQuarantineV1),
             Self::INVITE_RECEIVE_POLICY_V1 => Some(Self::InviteReceivePolicyV1),
-            Self::JOIN_POLICY_OPERATIONS_V1 => Some(Self::JoinPolicyOperationsV1),
             Self::KEY_BACKUP_V1 => Some(Self::KeyBackupV1),
             Self::KEY_BACKUP_ACTIVE_SERIES_V1 => Some(Self::KeyBackupActiveSeriesV1),
             Self::KEY_BACKUP_PLAINTEXT_V1 => Some(Self::KeyBackupPlaintextV1),

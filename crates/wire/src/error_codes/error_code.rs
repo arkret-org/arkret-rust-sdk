@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-08-29.3;
-//! sha256=f291dbdaa0180cd0775251462061d9f79b85816ea1141ce88f34127897220a10 Entries: error_codes=286
+//! sha256=23f85d89513baaec4004a954610b767013445d394d04175306a0451df4d7e8f4 Entries: error_codes=284
 
 use serde::{Deserialize, Serialize};
 
@@ -228,7 +228,6 @@ pub enum ErrorCode {
     RealmFederationPolicyQuarantine,
     RealmFederationPolicyRestricted,
     RealmFrozen,
-    RealmModerationPolicyDenied,
     ReauthenticationRequired,
     RecordingDenied,
     RecoveryAuthorizationDeviceMismatch,
@@ -254,7 +253,6 @@ pub enum ErrorCode {
     RecoverySessionIdReused,
     RecoverySessionNotPending,
     ResponseInvalid,
-    ReviewerCapabilityRevoked,
     SchemaViolation,
     SealDeferredFutureSkew,
     SealIncomplete,
@@ -530,7 +528,6 @@ impl ErrorCode {
         Self::RealmFederationPolicyQuarantine,
         Self::RealmFederationPolicyRestricted,
         Self::RealmFrozen,
-        Self::RealmModerationPolicyDenied,
         Self::ReauthenticationRequired,
         Self::RecordingDenied,
         Self::RecoveryAuthorizationDeviceMismatch,
@@ -556,7 +553,6 @@ impl ErrorCode {
         Self::RecoverySessionIdReused,
         Self::RecoverySessionNotPending,
         Self::ResponseInvalid,
-        Self::ReviewerCapabilityRevoked,
         Self::SchemaViolation,
         Self::SealDeferredFutureSkew,
         Self::SealIncomplete,
@@ -838,7 +834,6 @@ impl ErrorCode {
     pub const REALM_FEDERATION_POLICY_RESTRICTED: &'static str =
         "realm_federation_policy_restricted";
     pub const REALM_FROZEN: &'static str = "realm_frozen";
-    pub const REALM_MODERATION_POLICY_DENIED: &'static str = "realm_moderation_policy_denied";
     pub const REAUTHENTICATION_REQUIRED: &'static str = "reauthentication_required";
     pub const RECORDING_DENIED: &'static str = "recording_denied";
     pub const RECOVERY_AUTHORIZATION_DEVICE_MISMATCH: &'static str =
@@ -872,7 +867,6 @@ impl ErrorCode {
     pub const RECOVERY_SESSION_ID_REUSED: &'static str = "recovery_session_id_reused";
     pub const RECOVERY_SESSION_NOT_PENDING: &'static str = "recovery_session_not_pending";
     pub const RESPONSE_INVALID: &'static str = "response_invalid";
-    pub const REVIEWER_CAPABILITY_REVOKED: &'static str = "reviewer_capability_revoked";
     pub const SCHEMA_VIOLATION: &'static str = "schema_violation";
     pub const SEAL_DEFERRED_FUTURE_SKEW: &'static str = "seal_deferred_future_skew";
     pub const SEAL_INCOMPLETE: &'static str = "seal_incomplete";
@@ -1154,7 +1148,6 @@ impl ErrorCode {
             Self::RealmFederationPolicyQuarantine => "realm_federation_policy_quarantine",
             Self::RealmFederationPolicyRestricted => "realm_federation_policy_restricted",
             Self::RealmFrozen => "realm_frozen",
-            Self::RealmModerationPolicyDenied => "realm_moderation_policy_denied",
             Self::ReauthenticationRequired => "reauthentication_required",
             Self::RecordingDenied => "recording_denied",
             Self::RecoveryAuthorizationDeviceMismatch => "recovery_authorization_device_mismatch",
@@ -1182,7 +1175,6 @@ impl ErrorCode {
             Self::RecoverySessionIdReused => "recovery_session_id_reused",
             Self::RecoverySessionNotPending => "recovery_session_not_pending",
             Self::ResponseInvalid => "response_invalid",
-            Self::ReviewerCapabilityRevoked => "reviewer_capability_revoked",
             Self::SchemaViolation => "schema_violation",
             Self::SealDeferredFutureSkew => "seal_deferred_future_skew",
             Self::SealIncomplete => "seal_incomplete",
@@ -1471,7 +1463,6 @@ impl ErrorCode {
             "realm_federation_policy_quarantine" => Some(Self::RealmFederationPolicyQuarantine),
             "realm_federation_policy_restricted" => Some(Self::RealmFederationPolicyRestricted),
             "realm_frozen" => Some(Self::RealmFrozen),
-            "realm_moderation_policy_denied" => Some(Self::RealmModerationPolicyDenied),
             "reauthentication_required" => Some(Self::ReauthenticationRequired),
             "recording_denied" => Some(Self::RecordingDenied),
             "recovery_authorization_device_mismatch" => {
@@ -1507,7 +1498,6 @@ impl ErrorCode {
             "recovery_session_id_reused" => Some(Self::RecoverySessionIdReused),
             "recovery_session_not_pending" => Some(Self::RecoverySessionNotPending),
             "response_invalid" => Some(Self::ResponseInvalid),
-            "reviewer_capability_revoked" => Some(Self::ReviewerCapabilityRevoked),
             "schema_violation" => Some(Self::SchemaViolation),
             "seal_deferred_future_skew" => Some(Self::SealDeferredFutureSkew),
             "seal_incomplete" => Some(Self::SealIncomplete),
@@ -3570,16 +3560,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The target Realm is reversibly frozen or archived and the attempted write is outside the closed exemption set in zh/models/realm-and-space.md §2.6.0. Terminal tombstone/destroy states use realm_terminal_state.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::RealmModerationPolicyDenied,
-        type_uri: "https://arkret.org/problems/realm_moderation_policy_denied",
-        title: "Realm moderation policy denied",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &[],
-        description: "The realm moderation policy denied the federated action.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::ReauthenticationRequired,
         type_uri: "https://arkret.org/problems/reauthentication_required",
         title: "Reauthentication required",
@@ -3828,16 +3808,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "service_call",
         applies_to: &[],
         description: "A downstream service response was syntactically valid transport data but did not satisfy the expected protocol contract, including directory/projection/service-call schema mismatch or missing required pagination/error fields.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::ReviewerCapabilityRevoked,
-        type_uri: "https://arkret.org/problems/reviewer_capability_revoked",
-        title: "Reviewer capability revoked",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "delivery",
-        applies_to: &["ak.member.application.review"],
-        description: "Recipient device no longer holds the review capability required for member application review delivery.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SchemaViolation,

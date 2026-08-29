@@ -115,13 +115,6 @@ validated_string_newtype!(
     policy_rule_id_is_valid,
     "invalid policy rule id"
 );
-/// Counterpart for `event-payload.schema.json#/$defs/realm_moderation_policy_state_payload`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmModerationPolicyStatePayload {
-    pub value: BTreeMap<String, Value>,
-}
-
 /// Deployment roles supported by one Realm media service.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1508,19 +1501,6 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-
-    #[test]
-    fn realm_moderation_policy_uses_the_current_closed_value_shape() {
-        let payload: RealmModerationPolicyStatePayload = serde_json::from_value(json!({
-            "value": {
-                "rules": [],
-                "default_action": "allow"
-            }
-        }))
-        .expect("current moderation-policy payload");
-
-        assert_eq!(payload.value["default_action"], "allow");
-    }
 
     #[test]
     fn realm_media_service_uses_the_current_typed_descriptor() {
