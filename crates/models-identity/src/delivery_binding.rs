@@ -72,7 +72,6 @@ pub enum BindingScope {
 pub enum BindingSource {
     Explicit,
     DidDocumentDefault,
-    Invite,
     JoinPolicy,
     OrganizationPolicy,
     RealmPolicy,
@@ -110,7 +109,7 @@ impl MemberDeliveryBinding {
                     ));
                 }
             }
-            BindingSource::Explicit | BindingSource::Invite => {
+            BindingSource::Explicit => {
                 if self.service_acceptance_ref.is_none() {
                     return Err(WireError::Protocol(format!(
                         "binding_source={:?} requires service_acceptance_ref",

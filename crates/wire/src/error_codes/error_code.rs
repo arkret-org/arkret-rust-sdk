@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-30.1;
-//! sha256=c27ad428c7bfb7e2933e08c8692f22f08fdb590aa9ab8ddd31c122a8cdd7636a Entries: error_codes=284
+//! Input: registry/error-code-registry.json; version=2026-08-30.2;
+//! sha256=5e25495f6d8fdeababcd7a5eddad610dab1327b1edbfa8822687181840ec5ccf Entries: error_codes=284
 
 use serde::{Deserialize, Serialize};
 
@@ -2977,7 +2977,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "A compensation delegation/action/executor/admission/incarnation binding is wrong, already consumed or conflicts with the current membership provenance. Newer incarnations are never removed; absent or superseded destinations return their registered signed no-write outcomes.",
+        description: "A compensation delegation/action/executor/admission/join binding is wrong, already consumed, absent, or conflicts with the current membership provenance. The operation performs no write on conflict and never removes a newer join Event.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MethodNotAllowed,

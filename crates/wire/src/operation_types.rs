@@ -260,8 +260,6 @@ pub struct MembershipCompensationDelegationCore {
     pub join_event_id: EventId,
     pub join_event_digest: Hash,
     pub membership_cell_id: ProtocolOpaqueId,
-    pub membership_incarnation: Hash,
-    pub membership_head_at_acceptance: EventId,
     pub subject_id: DidCoreId,
     pub join_actor_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -270,8 +268,8 @@ pub struct MembershipCompensationDelegationCore {
     pub authorization_ref: Option<AuthorizationRef>,
     pub verification_method: DidUrl,
     pub executor_id: DidCoreId,
-    pub executor_proof_key: DidUrl,
-    pub resource: RealmId,
+    pub executor_proof_key_kid: DidUrl,
+    pub resource_id: RealmId,
     pub action: MembershipCompensationAction,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub deadline: DateTime<Utc>,
@@ -339,8 +337,6 @@ pub struct MembershipJoinAcceptedProof {
     pub admission_id: ProtocolOpaqueId,
     pub join_event_id: EventId,
     pub join_event_digest: Hash,
-    pub membership_incarnation: Hash,
-    pub accepted_frontier_digest: Hash,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub issuer_id: DidCoreId,
@@ -426,7 +422,6 @@ impl MembershipCompensationSubmissionEvidence {
         if self.join_accepted_proof.admission_id != core.admission_id
             || self.join_accepted_proof.join_event_id != core.join_event_id
             || self.join_accepted_proof.join_event_digest != core.join_event_digest
-            || self.join_accepted_proof.membership_incarnation != core.membership_incarnation
             || self.terminal_certificate.admission_id != core.admission_id
             || self.terminal_certificate.delegation_digest != *digest
             || self.single_use_cas_token.admission_id != core.admission_id
@@ -452,7 +447,7 @@ impl MembershipCompensationSubmissionEvidence {
             || event.authorization_ref.as_ref().map(|value| value.as_str())
                 != Some(self.delegation.delegation_id.as_str())
             || event.actor_id != core.join_actor_id
-            || event.realm_id != core.resource
+            || event.realm_id != core.resource_id
             || event
                 .payload
                 .get("actor_id")

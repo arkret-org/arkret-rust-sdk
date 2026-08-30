@@ -1016,6 +1016,7 @@ pub struct SealAvailabilityReceiptIssueOutcome {
     pub realm_id: RealmId,
     pub predecessor_refs: Vec<SealId>,
     pub event_digests: Vec<Hash>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub sealed_at: DateTime<Utc>,
     pub availability_receipt_digests: Vec<Hash>,
     pub governance_dependencies: Vec<GovernanceDependency>,

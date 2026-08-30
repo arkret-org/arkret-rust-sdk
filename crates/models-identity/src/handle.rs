@@ -224,7 +224,6 @@ pub enum HandleClaimKind {
 #[serde(rename_all = "snake_case")]
 pub enum HandleHintBindingSource {
     Explicit,
-    Invite,
     JoinPolicy,
     OrganizationPolicy,
     RealmPolicy,

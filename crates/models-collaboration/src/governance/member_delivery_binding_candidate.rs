@@ -211,7 +211,6 @@ impl MemberDeliveryBindingCandidate {
         //     case the enum gains new variants downstream.
         match self.member_delivery_binding.binding_source {
             HandleHintBindingSource::Explicit
-            | HandleHintBindingSource::Invite
             | HandleHintBindingSource::JoinPolicy
             | HandleHintBindingSource::OrganizationPolicy
             | HandleHintBindingSource::RealmPolicy => {}

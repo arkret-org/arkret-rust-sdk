@@ -77,6 +77,7 @@ pub struct EventIntent {
     scope_ref: ScopeRef,
     actor_id: DidCoreId,
     principal_server_id: DidCoreId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     created_at: DateTime<Utc>,
     payload: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

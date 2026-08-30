@@ -809,15 +809,12 @@ mod tests {
         )
         .unwrap();
         let admission_id = crate::ProtocolOpaqueId::new("membership-admission-1").unwrap();
-        let membership_incarnation = Hash::new(format!("sha256:{}", "33".repeat(32))).unwrap();
         let core = crate::MembershipCompensationDelegationCore {
             authority: crate::MembershipCompensationAuthority::V1,
             admission_id: admission_id.clone(),
             join_event_id: join_event.event_id.clone(),
             join_event_digest: join_event_digest.clone(),
             membership_cell_id: crate::ProtocolOpaqueId::new("membership-cell-1").unwrap(),
-            membership_incarnation: membership_incarnation.clone(),
-            membership_head_at_acceptance: join_event.event_id.clone(),
             subject_id: subject_id.clone(),
             join_actor_id: join_actor_id.clone(),
             executed_by: None,
@@ -825,9 +822,11 @@ mod tests {
             verification_method: DidUrl::new("did:webvh:z6mkfixture:authority.example#key-1")
                 .unwrap(),
             executor_id: executor_id.clone(),
-            executor_proof_key: DidUrl::new("did:webvh:z6mkfixtureexecutor:executor.example#key-1")
-                .unwrap(),
-            resource: resource.clone(),
+            executor_proof_key_kid: DidUrl::new(
+                "did:webvh:z6mkfixtureexecutor:executor.example#key-1",
+            )
+            .unwrap(),
+            resource_id: resource.clone(),
             action: crate::MembershipCompensationAction::Remove,
             deadline: instant(8),
         };
@@ -857,8 +856,6 @@ mod tests {
                 admission_id: admission_id.clone(),
                 join_event_id: join_event.event_id,
                 join_event_digest,
-                membership_incarnation,
-                accepted_frontier_digest: Hash::new(format!("sha256:{}", "55".repeat(32))).unwrap(),
                 accepted_at: instant(1),
                 issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureissuer").unwrap(),
                 signature: signature(),
