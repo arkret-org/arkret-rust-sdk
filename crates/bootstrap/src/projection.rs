@@ -48,10 +48,14 @@ pub fn expected_realm_create_cells(event: &Event) -> BTreeSet<String> {
         .and_then(|object| object.get("purpose"))
         .and_then(serde_json::Value::as_str);
     if purpose == Some("managed_agent_control") {
+        let canonical_actor = arkret_canonical::canonical_json_string(&event.actor_id)
+            .expect("ActorId always has a canonical JSON representation");
+        let subject = arkret_wire::composite_subject(&[canonical_actor])
+            .expect("canonical ActorId text is a valid composite subject component");
         cells.insert(format!(
             "ak:cell:{}:{}",
             arkret_wire::CellFamilyId::AGENT_STATUS_V1,
-            event.actor_id
+            subject
         ));
     }
     if matches!(
@@ -224,8 +228,13 @@ mod tests {
             "event_id": "ak:event:AWX8BSZeeRJJ_ipjlL7Ll7EGSQkGrOPbmXFP_UmHb16G",
             "kind": "ak.realm.create",
             "scope_ref": {"kind": "realm_genesis"},
-            "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "station_id": "ak:did_core:webvh:z6mkfixtureps",
+            "actor_id": {
+                "kind": "account",
+                "account_id": {
+                    "principal_id": "ak:did_core:webvh:z6mkfixture",
+                    "station_id": "ak:did_core:webvh:z6mkfixtureps"
+                }
+            },
             "actor_seq": 0,
             "created_at": "2026-08-11T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",

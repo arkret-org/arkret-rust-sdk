@@ -1107,10 +1107,9 @@ mod tests {
                 kind: "ak.message.create".into(),
                 realm_id: realm(),
                 scope_ref: ScopeRef::Realm { realm_id: realm() },
-                actor_id: arkret_wire::project_did_to_core_id(&did())
-                    .expect("registered DID adapter"),
-                station_id: arkret_wire::project_did_to_core_id(&did())
-                    .expect("registered DID adapter"),
+                actor_id: ActorId::service(
+                    arkret_wire::project_did_to_core_id(&did()).expect("registered DID adapter"),
+                ),
                 actor_seq: 1,
                 created_at: Utc
                     .with_ymd_and_hms(2026, 4, 26, 0, 0, 0)

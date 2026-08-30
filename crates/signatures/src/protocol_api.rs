@@ -334,7 +334,8 @@ mod tests {
             proof_purpose: None,
             jws: arkret_wire::test_support::DETACHED_JWS_FIXTURE.to_owned(),
         };
-        let mut context = ProofVerificationContext::new(actor("alice"), payload_digest);
+        let mut context =
+            ProofVerificationContext::new(ActorId::service(actor("alice")), payload_digest);
         context.domain = proof.domain.clone();
         context.audience = proof.audience.clone();
         context.service_id = Some(DidCoreId::new("ak:did_core:webvh:z6mkfixtureservice").unwrap());
@@ -387,10 +388,12 @@ mod tests {
             proof_purpose: None,
             jws: arkret_wire::test_support::DETACHED_JWS_FIXTURE.to_owned(),
         };
-        let context = ProofVerificationContext::new(actor("alice"), payload_digest).cross_domain(
-            "ak:trust_domain:example.net",
-            Audience::Single("did:webvh:z6mkfixture:service.example".to_owned()),
-        );
+        let context =
+            ProofVerificationContext::new(ActorId::service(actor("alice")), payload_digest)
+                .cross_domain(
+                    "ak:trust_domain:example.net",
+                    Audience::Single("did:webvh:z6mkfixture:service.example".to_owned()),
+                );
 
         let error =
             verify_proof_with_resolver(&proof, &context, &resolver, |_, _| Ok(true)).unwrap_err();

@@ -70,7 +70,7 @@ fn manifest_for_items(
         chunks: descriptors,
         security_class: SnapshotSecurityClass::Standard,
         verification_hints: None,
-        created_by: actor(),
+        created_by: arkret_wire::ActorId::service(actor()),
         created_at,
         authority_binding: AuthorityBinding {
             authority_kind: SnapshotAuthorityKind::RealmPolicySnapshotIssuer,

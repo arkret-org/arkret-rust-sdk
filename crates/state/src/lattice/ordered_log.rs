@@ -278,6 +278,8 @@ impl Lattice for OrderedLog {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::{ActorId, DidCoreId};
+
     use super::*;
 
     fn cell() -> CellRef {
@@ -302,7 +304,7 @@ mod tests {
 
     fn issued(issuer: &str, seq: u64, value: Value, byte: u8) -> IssuedOp {
         IssuedOp {
-            issuer_id: DidCoreId::new(issuer.to_owned()).unwrap(),
+            issuer_id: ActorId::service(DidCoreId::new(issuer.to_owned()).unwrap()),
             op: SealedOp::new(suited_digest("sha256", byte), append(seq, value)),
         }
     }
@@ -339,7 +341,9 @@ mod tests {
 
     #[test]
     fn canonical_order_uses_decoded_digest_octets() {
-        let issuer = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
+        let issuer = ActorId::service(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
+        );
         let report = OrderedLog.join_with_issuer_report(&[
             IssuedOp {
                 issuer_id: issuer.clone(),
@@ -356,7 +360,9 @@ mod tests {
 
     #[test]
     fn identity_collision_is_quarantined_without_blocking_sibling() {
-        let issuer = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
+        let issuer = ActorId::service(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
+        );
         let collision_digest = suited_digest("sha256", 0x11);
         let report = OrderedLog.join_with_issuer_report(&[
             IssuedOp {

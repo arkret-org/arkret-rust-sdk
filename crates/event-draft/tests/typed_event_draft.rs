@@ -2,7 +2,8 @@ use arkret_canonical::canonical_json_bytes;
 use arkret_event_draft::TypedEventDraft;
 use arkret_models_collaboration::events_payloads::{ContentBlock, MessageCreatePayload};
 use arkret_wire::{
-    DidCoreId, EventId, EventKind, Hlc, RealmId, ScopeRef, SealBasis, SealId, StrandId, event_spec,
+    AccountId, ActorId, DidCoreId, EventId, EventKind, Hlc, RealmId, ScopeRef, SealBasis, SealId,
+    StrandId, event_spec,
 };
 use chrono::{TimeZone, Utc};
 
@@ -26,8 +27,7 @@ fn typed_authoring_matches_the_raw_canonical_chain_byte_for_byte() {
     let hlc = Hlc::new("01970e589d21-0001-a13f9c2e").unwrap();
     let typed = TypedEventDraft::<event_spec::MessageCreate>::new(
         scope.clone(),
-        actor.clone(),
-        actor.clone(),
+        ActorId::account(AccountId::new(actor.clone(), actor.clone())),
         payload.clone(),
     )
     .unwrap()
@@ -64,18 +64,21 @@ fn typed_authoring_materializes_prev_refs_and_seal_basis() {
     let prev = EventId::new(format!("ak:event:A{}", "b".repeat(43))).unwrap();
     let seal = SealId::new(format!("ak:seal:sha256:{}", "c".repeat(64))).unwrap();
     let basis = SealBasis { leaves: vec![seal] };
-    let event =
-        TypedEventDraft::<event_spec::MessageCreate>::new(scope, actor.clone(), actor, payload)
-            .unwrap()
-            .with_prev_refs(vec![prev.clone()])
-            .with_seal_basis(basis.clone())
-            .author_with_digest_suite(
-                8,
-                Hlc::new("01970e589d21-0002-a13f9c2e").unwrap(),
-                Utc.with_ymd_and_hms(2026, 8, 9, 1, 2, 4).single().unwrap(),
-                arkret_canonical::DigestSuite::Sha256,
-            )
-            .unwrap();
+    let event = TypedEventDraft::<event_spec::MessageCreate>::new(
+        scope,
+        ActorId::account(AccountId::new(actor.clone(), actor)),
+        payload,
+    )
+    .unwrap()
+    .with_prev_refs(vec![prev.clone()])
+    .with_seal_basis(basis.clone())
+    .author_with_digest_suite(
+        8,
+        Hlc::new("01970e589d21-0002-a13f9c2e").unwrap(),
+        Utc.with_ymd_and_hms(2026, 8, 9, 1, 2, 4).single().unwrap(),
+        arkret_canonical::DigestSuite::Sha256,
+    )
+    .unwrap();
 
     assert_eq!(event.prev_refs, vec![prev]);
     assert_eq!(event.seal_basis, Some(basis));

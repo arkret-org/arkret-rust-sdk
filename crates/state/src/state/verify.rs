@@ -985,8 +985,7 @@ mod tests {
             kind: "ak.member.state".into(),
             realm_id: realm(),
             scope_ref: ScopeRef::Realm { realm_id: realm() },
-            actor_id: actor(),
-            station_id: actor(),
+            actor_id: ActorId::service(actor()),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -1271,7 +1270,7 @@ mod tests {
         let mut pre_state = BTreeMap::new();
         pre_state.insert(
             cell_capability_grant(),
-            grant_cell_state(grant_id, event.actor_id.as_str()),
+            grant_cell_state(grant_id, event.actor_id.signing_principal_id().as_str()),
         );
 
         verify_control_move(

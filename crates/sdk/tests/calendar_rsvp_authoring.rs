@@ -8,7 +8,7 @@ use arkret::{
     CalendarEventFields, CalendarStatus, RsvpAuthoring, RsvpResponse, RsvpResponseBranch,
     RsvpStatus,
 };
-use arkret_wire::{Did, EventId, Hash, Hlc, RealmId, StrandId, project_did_to_core_id};
+use arkret_wire::{ActorId, Did, EventId, Hash, Hlc, RealmId, StrandId, project_did_to_core_id};
 
 const BASIS_A: &str = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const BASIS_B: &str = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -67,7 +67,10 @@ fn build(
                 [0x10; 32],
             )),
         },
-        project_did_to_core_id(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap()).unwrap(),
+        ActorId::service(
+            project_did_to_core_id(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap())
+                .unwrap(),
+        ),
         "2026-05-26T10:30:00.000Z".parse().unwrap(),
         causal_refs,
     )?

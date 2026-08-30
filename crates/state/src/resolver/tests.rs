@@ -1,5 +1,7 @@
 use arkret_wire::event_envelope::ScopeRef;
-use arkret_wire::{CORE_REDUCER_PROFILE, DidCoreId, EventKind, MessageId, SchemaId};
+use arkret_wire::{
+    AccountId, ActorId, CORE_REDUCER_PROFILE, DidCoreId, EventKind, MessageId, SchemaId,
+};
 use serde_json::json;
 
 use super::*;
@@ -49,8 +51,7 @@ fn event(kind: EventKind, seq: u64, content: Value) -> Event {
         kind,
         realm_id: realm_id(),
         scope_ref: scope_ref(),
-        actor_id: actor_id(),
-        station_id: actor_id(),
+        actor_id: ActorId::account(AccountId::new(actor_id(), actor_id())),
         actor_seq: seq,
         created_at: chrono::Utc::now(),
         hlc: Some(Hlc::new(format!("01970e589d22-{seq:04x}-11111111")).unwrap()),

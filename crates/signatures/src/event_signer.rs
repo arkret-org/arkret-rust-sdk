@@ -176,8 +176,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use arkret_wire::{
-        Audience, AuthoredEvent, Did, DidCoreId, Event, EventId, EventRequirements, Hash, Hlc,
-        PayloadSignature, PayloadSigner, RealmId, Result as WireResult, canonical,
+        ActorId, Audience, AuthoredEvent, Did, DidCoreId, Event, EventId, EventRequirements, Hash,
+        Hlc, PayloadSignature, PayloadSigner, RealmId, Result as WireResult, canonical,
     };
     use chrono::{DateTime, TimeZone, Utc};
     use serde_json::json;
@@ -211,8 +211,7 @@ mod tests {
             kind: "ak.message.create".into(),
             realm_id: realm(),
             scope_ref: arkret_wire::ScopeRef::Realm { realm_id: realm() },
-            actor_id: arkret_wire::project_did_to_core_id(&alice()).unwrap(),
-            station_id: arkret_wire::project_did_to_core_id(&alice()).unwrap(),
+            actor_id: ActorId::service(arkret_wire::project_did_to_core_id(&alice()).unwrap()),
             actor_seq: 1,
             created_at: Utc.with_ymd_and_hms(2026, 4, 26, 0, 0, 0).unwrap(),
             hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
@@ -366,7 +365,9 @@ mod tests {
     fn sign_event_with_executed_by_signs_over_executed_by() {
         let mut without = authored();
         let mut with = make_event();
-        with.executed_by = Some(DidCoreId::new("ak:did_core:web:applet.example").unwrap());
+        with.executed_by = Some(ActorId::service(
+            DidCoreId::new("ak:did_core:web:applet.example").unwrap(),
+        ));
         let mut with = AuthoredEvent::finalize_with_digest_suite(with, SUITE).unwrap();
 
         let signer = StubPayloadSigner::new(alice(), vm_alice());

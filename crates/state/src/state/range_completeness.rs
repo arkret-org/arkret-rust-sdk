@@ -530,8 +530,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use arkret_wire::{
-        Did, DidCoreId, DidUrl, EventKind, EventRequirements, PayloadProof, ProducerEventProof,
-        ScopeRef, project_did_to_core_id, proof_kind,
+        AccountId, ActorId, Did, DidCoreId, DidUrl, EventKind, EventRequirements, PayloadProof,
+        ProducerEventProof, ScopeRef, project_did_to_core_id, proof_kind,
     };
     use chrono::{TimeZone, Utc};
     use serde_json::{Value, json};
@@ -547,8 +547,7 @@ mod tests {
             kind: EventKind::from(kind),
             realm_id: realm.clone(),
             scope_ref: ScopeRef::Realm { realm_id: realm },
-            actor_id: actor.clone(),
-            station_id: actor,
+            actor_id: ActorId::account(AccountId::new(actor.clone(), actor)),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -670,8 +669,7 @@ mod tests {
             kind: EventKind::AttestationRangeCompleteness,
             realm_id: realm.clone(),
             scope_ref: ScopeRef::Realm { realm_id: realm },
-            actor_id: issuer.clone(),
-            station_id: issuer,
+            actor_id: ActorId::account(AccountId::new(issuer.clone(), issuer)),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,

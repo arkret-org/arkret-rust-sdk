@@ -702,10 +702,10 @@ mod tests {
             manifest_admission_digest: admission,
             chunk_response_id: response_id,
             chunk_index: 0,
-            source_actor_id: arkret_wire::DidCoreId::new(
-                "ak:did_core:webvh:z6mkhistorysource".to_owned(),
-            )
-            .unwrap(),
+            source_actor_id: arkret_wire::ActorId::service(
+                arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkhistorysource".to_owned())
+                    .unwrap(),
+            ),
             source_sender_domain: device().to_string(),
         };
         let range = EpochRange {

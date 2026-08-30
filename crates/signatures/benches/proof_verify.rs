@@ -11,13 +11,14 @@ use arkret_signatures::proof::{
     PublicKeyMaterial, build_proof_envelope, sign_ed25519_detached_jws,
     verify_ed25519_detached_jws_proof,
 };
-use arkret_wire::{DidCoreId, DidUrl, Hash};
+use arkret_wire::{ActorId, DidCoreId, DidUrl, Hash};
 use criterion::{Criterion, criterion_group, criterion_main};
 
 fn bench_proof_verify(c: &mut Criterion) {
     let seed = [7u8; 32];
     let verification_method = DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap();
-    let actor_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").expect("static actor id");
+    let actor_id =
+        ActorId::service(DidCoreId::new("ak:did_core:webvh:z6mkfixture").expect("static actor id"));
     let public_key = PublicKeyMaterial::Ed25519Raw {
         bytes: ed25519_dalek::SigningKey::from_bytes(&seed)
             .verifying_key()

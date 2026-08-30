@@ -305,8 +305,8 @@ impl ValidatedExtensionPayload {
 #[cfg(test)]
 mod tests {
     use arkret_wire::{
-        ConfidentialityClass, ExtensionManifest, Hash, ManifestResourceLimits, ProtocolLayerKind,
-        RegistryContentRef,
+        ConfidentialityClass, DidCoreId, ExtensionManifest, Hash, ManifestResourceLimits,
+        ProtocolLayerKind, RegistryContentRef,
     };
     use serde_json::json;
 

@@ -204,8 +204,8 @@ pub fn verify_ed25519_payload_signature(
 #[cfg(test)]
 mod tests {
     use arkret_wire::{
-        EventId, Hash, Hlc, NotaryJoseAlgorithm, NotaryKeyKind, NotarySig, NotarySignerDescriptor,
-        RealmId, Seal, SealId, project_did_to_core_id,
+        ActorId, EventId, Hash, Hlc, NotaryJoseAlgorithm, NotaryKeyKind, NotarySig,
+        NotarySignerDescriptor, RealmId, Seal, SealId, project_did_to_core_id,
     };
 
     use super::*;
@@ -312,7 +312,9 @@ mod tests {
                 let bytes = a.canonical_bytes_for_id().unwrap();
                 let public_key = signer.verifying_key().to_bytes();
                 let descriptor = NotarySignerDescriptor {
-                    actor_id: project_did_to_core_id(signer.signer_did()).unwrap(),
+                    actor_id: ActorId::service(
+                        project_did_to_core_id(signer.signer_did()).unwrap(),
+                    ),
                     verification_method: signer.verification_method_id().clone(),
                     key_kind: NotaryKeyKind::Ed25519Raw32,
                     jose_algorithm: NotaryJoseAlgorithm::Ed25519,

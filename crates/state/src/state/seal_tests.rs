@@ -1,10 +1,12 @@
-use arkret_wire::{DidCoreId, DidUrl};
+use arkret_wire::{ActorId, DidCoreId, DidUrl};
 
 /// Attach a fixed issuer to a sealed op. These fixtures exercise
 /// non-ordered-log lattices, where the issuer is carried but unused.
 fn issued(op: SealedOp) -> IssuedOp {
     IssuedOp {
-        issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
+        issuer_id: ActorId::service(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
+        ),
         op,
     }
 }

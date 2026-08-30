@@ -1,7 +1,7 @@
 //! Integration-style unit tests for the crate root, kept in a sibling
 //! module per repository convention (`#[cfg(test)] mod tests;`).
 
-use arkret_wire::SchemaId;
+use arkret_wire::{AccountId, ActorId, SchemaId};
 use reqwest::Method;
 use reqwest::header::{HeaderValue, USER_AGENT};
 
@@ -423,14 +423,14 @@ mod events_submit_tests {
             kind: "ak.message.create".into(),
             realm_id: realm_id.clone(),
             scope_ref: ScopeRef::Realm { realm_id },
-            actor_id: project_did_to_core_id(
-                &Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            )
-            .unwrap(),
-            station_id: project_did_to_core_id(
-                &Did::new("did:webvh:z6mkfixture:principal.example").unwrap(),
-            )
-            .unwrap(),
+            actor_id: ActorId::account(AccountId::new(
+                project_did_to_core_id(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap())
+                    .unwrap(),
+                project_did_to_core_id(
+                    &Did::new("did:webvh:z6mkfixture:principal.example").unwrap(),
+                )
+                .unwrap(),
+            )),
             actor_seq: 1,
             created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
@@ -499,7 +499,7 @@ mod events_submit_tests {
             basis_ref: LeaseBasisRef::Seal(
                 SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
             ),
-            actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            actor_id: ActorId::service(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
             device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002").unwrap(),
             scope_ref: event.scope_ref.clone(),
             action: event.kind.as_str().to_owned(),
@@ -1212,7 +1212,10 @@ mod events_submit_tests {
         let (client, capture) = spawn_capture_server(canned).await;
         let request = DirectConversationResolveRequestBody {
             peer: ContactPeer::Human {
-                principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                account_id: AccountId::new(
+                    DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                    DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
+                ),
             },
         };
 

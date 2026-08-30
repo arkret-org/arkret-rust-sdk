@@ -24,8 +24,8 @@ use arkret_state::lattice::{
 };
 use arkret_state::state::join_cell_seal_batches;
 use arkret_wire::{
-    CellRef, DidCoreId, EventId, Hash, LatticeOp, LatticeOpType, ProjectionEffect, RealmId,
-    ReasonCode,
+    ActorId, CellRef, DidCoreId, EventId, Hash, LatticeOp, LatticeOpType, ProjectionEffect,
+    RealmId, ReasonCode,
 };
 use serde_json::{Value, json};
 
@@ -109,8 +109,9 @@ fn op_append(value: Value, issuer_seq: u64) -> LatticeOp {
 
 fn issued(issuer_id: &str, suffix: &str, op: LatticeOp) -> IssuedOp {
     IssuedOp {
-        issuer_id: DidCoreId::new(issuer_id.to_owned())
-            .expect("fixture issuer must be a valid core ID"),
+        issuer_id: ActorId::service(
+            DidCoreId::new(issuer_id.to_owned()).expect("fixture issuer must be a valid core ID"),
+        ),
         op: SealedOp::new(move_id(suffix), op),
     }
 }
@@ -366,14 +367,14 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
             let alice = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
             let ops = vec![
                 IssuedOp {
-                    issuer_id: alice.clone(),
+                    issuer_id: ActorId::service(alice.clone()),
                     op: SealedOp::new(
                         Hash::new(format!("blake3:{}", "ff".repeat(32))).unwrap(),
                         op_append(json!("greatest-octets"), 0),
                     ),
                 },
                 IssuedOp {
-                    issuer_id: alice,
+                    issuer_id: ActorId::service(alice),
                     op: SealedOp::new(
                         Hash::new(format!("sha256:{}", "00".repeat(32))).unwrap(),
                         op_append(json!("greatest-wire-string"), 0),
@@ -392,11 +393,11 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
             let colliding = move_id("cc");
             let ops = vec![
                 IssuedOp {
-                    issuer_id: alice.clone(),
+                    issuer_id: ActorId::service(alice.clone()),
                     op: SealedOp::new(colliding.clone(), op_append(json!("one"), 0)),
                 },
                 IssuedOp {
-                    issuer_id: alice,
+                    issuer_id: ActorId::service(alice),
                     op: SealedOp::new(colliding, op_append(json!("other"), 0)),
                 },
             ];
@@ -420,11 +421,11 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
             let shared = move_id("dd");
             let ops = vec![
                 IssuedOp {
-                    issuer_id: alice.clone(),
+                    issuer_id: ActorId::service(alice.clone()),
                     op: SealedOp::new(shared.clone(), op_append(json!("same"), 0)),
                 },
                 IssuedOp {
-                    issuer_id: alice,
+                    issuer_id: ActorId::service(alice),
                     op: SealedOp::new(shared, op_append(json!("same"), 0)),
                 },
             ];
@@ -859,12 +860,12 @@ fn conflict_recovery_fixture_leaves_bottom_with_the_signed_value() {
 
     let issuer = DidCoreId::new("ak:did_core:webvh:z6mkfixturerecovery".to_owned()).unwrap();
     let set = |suffix: &str, value: Value| IssuedOp {
-        issuer_id: issuer.clone(),
+        issuer_id: ActorId::service(issuer.clone()),
         op: SealedOp::new(move_id(suffix), op_set(value)),
     };
     let reset_effect = ProjectionEffect::reset(target.clone(), op_set(recovered.clone()));
     let reset = IssuedOp {
-        issuer_id: issuer.clone(),
+        issuer_id: ActorId::service(issuer.clone()),
         op: SealedOp::from_projection(move_id("ef"), &reset_effect),
     };
 

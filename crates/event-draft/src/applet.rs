@@ -101,7 +101,7 @@ impl AppletBridgeErrorBuilder {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{AppletId, EventKind};
+    use arkret_wire::{AppletId, DidCoreId, EventKind};
     use serde_json::json;
 
     use super::*;
@@ -115,7 +115,7 @@ mod tests {
         let event = AppletBridgeErrorBuilder::new(
             realm(),
             AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixture:bot.example").unwrap(),
+            ActorId::service(DidCoreId::new("ak:did_core:webvh:z6mkfixture:bot.example").unwrap()),
             "ak:event:Adoyyx1AqvJH02hYxuUtpzuC-zpV8GxwFQ8XInZLbu3s",
             AppletBridgeErrorClass::ExternalNetwork,
             "external_rate_limited",
@@ -140,7 +140,7 @@ mod tests {
         let result = AppletBridgeErrorBuilder::new(
             realm(),
             AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixture:bot.example").unwrap(),
+            ActorId::service(DidCoreId::new("ak:did_core:webvh:z6mkfixture:bot.example").unwrap()),
             "ak:event:Adoyyx1AqvJH02hYxuUtpzuC-zpV8GxwFQ8XInZLbu3s",
             AppletBridgeErrorClass::Schema,
             "invalid_external_ref",
