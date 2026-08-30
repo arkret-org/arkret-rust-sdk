@@ -41,10 +41,9 @@ fn alternate_carrier_membership_is_typed() {
 }
 
 #[test]
-fn station_account_authority_support_advertises_service_resolution() {
-    let bundle =
-        operation_bundle_descriptor("ak.operation_bundle.station.account_authority_support.v1")
-            .expect("Station account-authority support bundle must be registered");
+fn station_http_core_advertises_service_resolution() {
+    let bundle = operation_bundle_descriptor("ak.operation_bundle.station.http_core.v1")
+        .expect("Station HTTP core bundle must be registered");
 
     assert_eq!(bundle.service_kind, ServiceKind::Station);
     assert!(bundle.contains(

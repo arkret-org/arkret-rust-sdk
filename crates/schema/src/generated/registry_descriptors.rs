@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-08-30.1;
-//! sha256=020566cce2b41a114d1421e0a9c7cd790977fb2bd77fdae8d4026d3d75af6d6f Input: registry/
-//! capability-action-registry.json; version=2026-08-30.2;
-//! sha256=2f8fd474b62e24d0ea95853c2a8c9a4aaab6a59fabb21ae76efe30e296a01f9d Input: registry/
-//! schema-registry.json; version=2026-08-30.1;
-//! sha256=c2acc320365fd14525c73c8edaee8552e8f6a15c7fa9d221637d45e6cfb42a07 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-30.2;
+//! sha256=5027ff6fedbe92ee1b1475278352416fbcee183acf7ce9e61124d1a156106ab3 Input: registry/
+//! capability-action-registry.json; version=2026-08-30.3;
+//! sha256=22d2d874a74e9ba0f7b6ed65624925660e3d7f3699fdb84b7bea196b994d5598 Input: registry/
+//! schema-registry.json; version=2026-08-30.2;
+//! sha256=0595330cd986aed9278b4665d164425bcf2ddbb47852184cec5d81c413127267 Input: registry/
 //! account-data-key-registry.json; version=2026-08-30.1;
 //! sha256=e46f0f04e0b29e29d8be37fb74e237eb76eba99e3f4259a24672bf0f57bfffd1 Entries: id_kinds=59,
-//! special_forms=14, actions=162, schemas=197, account_data_patterns=24
+//! special_forms=14, actions=162, schemas=195, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -1669,7 +1669,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::POLICY_ACTION,
             event_kind_str::REALM_POLICY,
             event_kind_str::REALM_POLICY_BUNDLE,
-            event_kind_str::REALM_DELIVERY_BINDING_POLICY,
             event_kind_str::REALM_ASSET_PRIVACY_POLICY,
             event_kind_str::REALM_READ_RECEIPT_POLICY,
             event_kind_str::REALM_PREVIEW_POLICY,
@@ -1781,7 +1780,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_NOTARY,
             event_kind_str::REALM_PREVIEW_POLICY,
             event_kind_str::REALM_POLICY_BUNDLE,
-            event_kind_str::REALM_DELIVERY_BINDING_POLICY,
             event_kind_str::REALM_ASSET_PRIVACY_POLICY,
             event_kind_str::REALM_READ_RECEIPT_POLICY,
             event_kind_str::REALM_MEDIA_SERVICE,
@@ -1999,7 +1997,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_ALIAS,
             event_kind_str::REALM_ARCHIVE,
             event_kind_str::REALM_ASSET_PRIVACY_POLICY,
-            event_kind_str::REALM_DELIVERY_BINDING_POLICY,
             event_kind_str::REALM_DIGEST_SUITE_TRANSITION,
             event_kind_str::REALM_DISCOVERY,
             event_kind_str::REALM_FREEZE,
@@ -3129,10 +3126,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/cursor.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::DELIVERY_BINDING_STALE_V1,
-        file: "schemas/delivery-binding-stale.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::DEVICE_MESSAGE_V1,
         file: "schemas/device-message.schema.json",
     },
@@ -3315,10 +3308,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::MEDIA_OPERATIONS_V1,
         file: "schemas/media-operations.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::MEMBER_DELIVERY_BINDING_CANDIDATE_V1,
-        file: "schemas/member-delivery-binding-candidate.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::MEMBER_IDENTITY_V1,

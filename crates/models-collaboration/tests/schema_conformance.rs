@@ -338,7 +338,10 @@ fn lifecycle_optional_timestamps_pass_spec_schemas() {
     let mut view = arkret_models_collaboration::governance::realm_governance::RealmLifecycleView {
         realm_id: RealmId::new("ak:realm:ARkAfriCBkEJNgK9UxfUciMBt-L3mtRcFLO8ICOBW_9K").unwrap(),
         owner_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
-        member_ids: vec![DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap()],
+        member_ids: vec![ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
+        ))],
         deleted: false,
         archived: false,
         frozen: true,
@@ -371,8 +374,11 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
     let strand =
         || StrandId::new("ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9").unwrap();
     let actor = || {
-        project_did_to_core_id(&Did::new("did:webvh:z6mkfixturealice:alice.example").unwrap())
-            .unwrap()
+        ActorId::account(AccountId::new(
+            project_did_to_core_id(&Did::new("did:webvh:z6mkfixturealice:alice.example").unwrap())
+                .unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
+        ))
     };
 
     // ak.strand.move — board/target Space ids + rank; from_space_id +

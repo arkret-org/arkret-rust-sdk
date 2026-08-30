@@ -1716,16 +1716,7 @@ fn derive_subject_value(
                 .get("components")
                 .and_then(Value::as_array)
                 .ok_or_else(|| subject_error(&kind, "tuple components are missing"))?;
-            let fields = components
-                .iter()
-                .map(|component| {
-                    component
-                        .get("field")
-                        .cloned()
-                        .ok_or_else(|| subject_error(&kind, "tuple component field is missing"))
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            derive_composite(event, &fields, &kind)
+            derive_composite(event, components, &kind)
         }
         "coalesce" => {
             let fields = rule
@@ -1932,6 +1923,26 @@ fn component_value(
     }
     if component.get("kind").and_then(Value::as_str) == Some("string_set_digest") {
         return string_set_digest_component_value(event, component, kind);
+    }
+    if component.get("kind").and_then(Value::as_str) == Some("canonical_json") {
+        let path = component
+            .get("field")
+            .and_then(Value::as_str)
+            .ok_or_else(|| subject_error(kind, "canonical_json component field is missing"))?;
+        let value = subject_field_value(event, path)
+            .ok_or_else(|| subject_error(kind, &format!("{path} is missing")))?;
+        let canonical =
+            arkret_canonical::canonical_json_bytes(value.as_ref()).map_err(|error| {
+                subject_error(kind, &format!("{path} is not canonical JSON: {error}"))
+            })?;
+        let canonical = String::from_utf8(canonical)
+            .map_err(|error| subject_error(kind, &format!("{path} is not UTF-8: {error}")))?;
+        return Ok(Value::String(canonical));
+    }
+    if let Some(path) = component.get("field").and_then(Value::as_str) {
+        let value = subject_field_value(event, path)
+            .ok_or_else(|| subject_error(kind, &format!("{path} is missing")))?;
+        return composite_scalar(value.as_ref()).map_err(|message| subject_error(kind, &message));
     }
     let path = select_field_path(event, component, kind)?;
     let value = subject_field_value(event, &path)

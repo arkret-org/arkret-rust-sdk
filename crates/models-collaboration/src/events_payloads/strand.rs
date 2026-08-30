@@ -1,5 +1,6 @@
 //! Strand lifecycle and ordering event payloads.
 
+#[cfg(test)]
 use arkret_wire::DidCoreId;
 
 use crate::internal_prelude::*;
@@ -263,7 +264,7 @@ pub struct StrandWatchExpectedValue {
 #[serde(deny_unknown_fields)]
 pub struct StrandWatchSetPayload {
     pub strand_id: StrandId,
-    pub watcher_actor_id: DidCoreId,
+    pub watcher_actor_id: ActorId,
     /// `None` serializes as JSON `null`, clearing the cell.
     pub level: Option<StrandWatchLevel>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -277,7 +278,7 @@ impl StrandWatchSetPayload {
     /// non-self projection (ignored for `muted` by the reducer).
     pub fn set(
         strand_id: StrandId,
-        watcher_actor_id: DidCoreId,
+        watcher_actor_id: ActorId,
         level: StrandWatchLevel,
         level_public: Option<bool>,
     ) -> Self {
@@ -292,7 +293,7 @@ impl StrandWatchSetPayload {
 
     /// Clear the watch cell (`level: null`). Per the schema `allOf`,
     /// `level_public` is forced off on this path.
-    pub fn clear(strand_id: StrandId, watcher_actor_id: DidCoreId) -> Self {
+    pub fn clear(strand_id: StrandId, watcher_actor_id: ActorId) -> Self {
         Self {
             strand_id,
             watcher_actor_id,
@@ -314,8 +315,8 @@ impl StrandWatchSetPayload {
     /// pins the derivation to [`arkret_schema::project_registered_cell_writes`],
     /// so this cannot quietly fork from the registry.
     pub fn cell_ref(&self) -> Result<CellRef> {
-        let subject =
-            composite_subject(&[self.strand_id.as_str(), self.watcher_actor_id.as_str()])?;
+        let watcher_actor_key = self.watcher_actor_id.canonical_key()?;
+        let subject = composite_subject(&[self.strand_id.as_str(), &watcher_actor_key])?;
         Ok(CellRef::new(format!(
             "ak:cell:{}:{subject}",
             CellFamilyId::STRAND_WATCH_V1
@@ -388,8 +389,11 @@ mod presence_tests {
     fn watch_cell_ref_matches_the_registered_contract() {
         let payload = StrandWatchSetPayload::set(
             strand_id("000000000001"),
-            project_did_to_core_id(&Did::new("did:webvh:z6mkfixturebob:bob.example").unwrap())
-                .unwrap(),
+            ActorId::account(AccountId::new(
+                project_did_to_core_id(&Did::new("did:webvh:z6mkfixturebob:bob.example").unwrap())
+                    .unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
+            )),
             StrandWatchLevel::Participating,
             None,
         );
@@ -421,7 +425,13 @@ mod presence_tests {
     fn watch_cas_normalizes_null_to_the_omitted_empty_value() {
         let payload: StrandWatchSetPayload = serde_json::from_value(json!({
             "strand_id": strand_id("000000000001"),
-            "watcher_actor_id": "ak:did_core:web:alice.example",
+            "watcher_actor_id": {
+                "kind": "account",
+                "account_id": {
+                    "principal_id": "ak:did_core:web:alice.example",
+                    "station_id": "ak:did_core:webvh:z6mkfixturestation"
+                }
+            },
             "level": null,
             "expected_value": null
         }))

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/contract-registry.json; version=2026-08-30.5;
-//! sha256=5b980831501ebec8f81bb9d0e7e0ccb8f972686f1328a3b794368503b3050b2b
+//! Input: registry/contract-registry.json; version=2026-08-30.9;
+//! sha256=4918a1e1db105ca0c409c12a7b5e5256ca7de9f2be192653f7288d6bf165ee59
 //! Entries: operation_bundles=33 features=22
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};

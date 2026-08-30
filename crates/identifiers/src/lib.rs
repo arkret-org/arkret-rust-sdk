@@ -757,26 +757,6 @@ id_type!(
     is_core_id
 );
 
-fn is_service_account_id(value: &str) -> bool {
-    let length = value.chars().count();
-    (1..=255).contains(&length) && !value.starts_with("ak:") && !value.starts_with("did:")
-}
-
-id_type!(
-    #[cfg_attr(
-        feature = "diesel",
-        derive(diesel::expression::AsExpression, diesel::deserialize::FromSqlRow)
-    )]
-    #[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Text))]
-    /// Durable Station-local account key.
-    ///
-    /// This value is meaningful only inside its owning Station. It is not an
-    /// Arkret typed identifier, a DID, or the cross-Station `AccountId`
-    /// compound identity exposed by `arkret-wire`.
-    ServiceAccountId,
-    is_service_account_id
-);
-
 /// Canonical HTTP(S) Web Origin. Wire construction requires the already
 /// canonical origin tuple: lowercase scheme/host, no trailing slash, no
 /// explicit default port, and no userinfo, path, query, or fragment.
@@ -2036,17 +2016,5 @@ mod tests {
         ] {
             assert!(WebOrigin::new(invalid).is_err(), "{invalid} must fail");
         }
-    }
-
-    #[test]
-    fn service_account_id_is_local_and_never_accepts_global_id_namespaces() {
-        assert_eq!(
-            ServiceAccountId::new("tenant-user-42").unwrap().as_str(),
-            "tenant-user-42"
-        );
-        assert!(ServiceAccountId::new("").is_err());
-        assert!(ServiceAccountId::new("x".repeat(256)).is_err());
-        assert!(ServiceAccountId::new("ak:account:42").is_err());
-        assert!(ServiceAccountId::new("did:web:account.example").is_err());
     }
 }

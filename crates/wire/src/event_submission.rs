@@ -774,8 +774,10 @@ mod tests {
             .proofs
             .push(EventProof::StationAdmission(StationAdmissionProof {
                 kind: StationAdmissionProofKind::StationAdmission,
-                verification_method: DidUrl::new("did:webvh:z6mkfixtureps:principal.example#key-1")
-                    .unwrap(),
+                verification_method: DidUrl::new(
+                    "did:webvh:z6mkfixturestation:principal.example#key-1",
+                )
+                .unwrap(),
                 event_digest: producer.event_digest.clone(),
                 producer_proof_digest: StationAdmissionProof::producer_proof_digest(&producer)
                     .unwrap(),
@@ -883,7 +885,7 @@ mod tests {
                 admission_id,
                 delegation_digest,
                 expected_state: crate::MembershipCompensationExpectedState::Unused,
-                destination_id: executor_id.signing_principal_id().clone(),
+                destination_id: executor_id.route_service_id().clone(),
                 issued_at: instant(2),
                 expires_at: instant(7),
                 issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureissuer").unwrap(),
@@ -897,7 +899,7 @@ mod tests {
             2,
             crate::Hlc::new("000000000001-0000-00000000").unwrap(),
             serde_json::json!({
-                "actor_id": subject_id,
+                "member_id": subject_id,
                 "membership": "leave",
                 "reason": "compensate failed admission"
             }),
@@ -936,8 +938,14 @@ mod tests {
 
         let mut wrong_subject = event;
         wrong_subject.payload.insert(
-            "actor_id".to_owned(),
-            serde_json::json!("ak:did_core:webvh:z6mkfixturewrongsubject"),
+            "member_id".to_owned(),
+            serde_json::json!({
+                "kind": "account",
+                "account_id": {
+                    "principal_id": "ak:did_core:webvh:z6mkfixturewrongsubject",
+                    "station_id": "ak:did_core:webvh:z6mkfixturestation"
+                }
+            }),
         );
         assert!(evidence.validate_for_event(&wrong_subject).is_err());
     }

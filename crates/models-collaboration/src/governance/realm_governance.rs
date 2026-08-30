@@ -18,7 +18,7 @@ use std::collections::BTreeMap;
 
 use arkret_wire::event_envelope::EventRef;
 use arkret_wire::{
-    CapabilityId, DidCoreId, ErrorCode, Hash, RealmId, ReasonCode, Result, WireError,
+    ActorId, CapabilityId, DidCoreId, ErrorCode, Hash, RealmId, ReasonCode, Result, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -366,7 +366,7 @@ pub struct RealmLifecycleView {
     pub realm_id: RealmId,
     pub owner_id: DidCoreId,
     #[serde(default)]
-    pub member_ids: Vec<DidCoreId>,
+    pub member_ids: Vec<ActorId>,
     pub deleted: bool,
     #[serde(default)]
     pub archived: bool,

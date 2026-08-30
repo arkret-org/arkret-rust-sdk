@@ -2,14 +2,14 @@
   "version": 1,
   "source": {
     "root": "spec/v1/artifacts",
-    "json_file_count": 338,
-    "json_tree_digest": "sha256:1ad754caf2c657830c3c5b12073f761e57c6094c3a134b9b8cfd755e42739982",
+    "json_file_count": 335,
+    "json_tree_digest": "sha256:3eb6023a4f96ddb158d5f9c4f338930f70e418cec4100ebdde508235eaf8d0ec",
     "openapi_path": "openapi/arkret-service-api.openapi.yaml",
-    "openapi_digest": "sha256:b0020781b1c4f19b7f4bb822c6ea9149b32ce249442b2cbd1e1a2f662c4e8db4"
+    "openapi_digest": "sha256:5ffe1e30c10c5a74c32c65e01dc0de38032dc7555d8da73c8ccf0dd765f8a422"
   },
   "outputs": {
-    "embedded_artifacts.json": "sha256:9b77f67b15076a36a592db9558c1431d790ac1e59db92ef9684473948d29d54f",
-    "embedded_openapi.yaml": "sha256:b0020781b1c4f19b7f4bb822c6ea9149b32ce249442b2cbd1e1a2f662c4e8db4"
+    "embedded_artifacts.json": "sha256:01c01ab15d098e16d205ca661c96367fcc537b070aff83f337473451fd6587a1",
+    "embedded_openapi.yaml": "sha256:5ffe1e30c10c5a74c32c65e01dc0de38032dc7555d8da73c8ccf0dd765f8a422"
   },
   "generated_by": "tools/refresh-embedded-artifacts.py"
 }

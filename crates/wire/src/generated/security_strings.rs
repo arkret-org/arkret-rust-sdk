@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-30.1;
-//! sha256=e5b2f9527cb12cb725954f401a6423728a45e47c30377232714ab2dcb112c707 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-30.2;
+//! sha256=1d4b5a4e09294021e14faafb294262a5be87925b6b0f502971b931ad70657d7d Input: registry/
 //! exporter-label-registry.json; version=2026-08-21.1;
 //! sha256=6cb34e722ce41df3c91204d48f6cdf66b68640e9d86a379a9267cefce484bb02 Input: registry/
 //! digest-suite-registry.json; version=2026-08-18;
@@ -16,7 +16,7 @@
 //! sha256=298685c15b11d75b55b1b6ece6a3674b320ae00a90f488cc4d2d3545f4888b86 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=76, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=75, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=32, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -69,7 +69,6 @@ pub enum ProofContextId {
     IdentityReceiptProofV1,
     IngressReceiptProofV1,
     KeyBackupDeleteProofV1,
-    MemberDeliveryBindingCandidateProofV1,
     MimiIdentifierQueryOutcomeProofV1,
     MimiIdentifierQueryRequestProofV1,
     MimiKeyMaterialOutcomeProofV1,
@@ -149,7 +148,6 @@ impl ProofContextId {
         Self::IdentityReceiptProofV1,
         Self::IngressReceiptProofV1,
         Self::KeyBackupDeleteProofV1,
-        Self::MemberDeliveryBindingCandidateProofV1,
         Self::MimiIdentifierQueryOutcomeProofV1,
         Self::MimiIdentifierQueryRequestProofV1,
         Self::MimiKeyMaterialOutcomeProofV1,
@@ -258,8 +256,6 @@ impl ProofContextId {
     pub const IDENTITY_RECEIPT_PROOF_V1: &'static str = "ak.identity_receipt_proof.v1";
     pub const INGRESS_RECEIPT_PROOF_V1: &'static str = "ak.ingress_receipt_proof.v1";
     pub const KEY_BACKUP_DELETE_PROOF_V1: &'static str = "ak.key_backup_delete_proof.v1";
-    pub const MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1: &'static str =
-        "ak.member_delivery_binding_candidate_proof.v1";
     pub const MIMI_IDENTIFIER_QUERY_OUTCOME_PROOF_V1: &'static str =
         "ak.mimi_identifier_query_outcome_proof.v1";
     pub const MIMI_IDENTIFIER_QUERY_REQUEST_PROOF_V1: &'static str =
@@ -395,9 +391,6 @@ impl ProofContextId {
             Self::IdentityReceiptProofV1 => Self::IDENTITY_RECEIPT_PROOF_V1,
             Self::IngressReceiptProofV1 => Self::INGRESS_RECEIPT_PROOF_V1,
             Self::KeyBackupDeleteProofV1 => Self::KEY_BACKUP_DELETE_PROOF_V1,
-            Self::MemberDeliveryBindingCandidateProofV1 => {
-                Self::MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1
-            }
             Self::MimiIdentifierQueryOutcomeProofV1 => Self::MIMI_IDENTIFIER_QUERY_OUTCOME_PROOF_V1,
             Self::MimiIdentifierQueryRequestProofV1 => Self::MIMI_IDENTIFIER_QUERY_REQUEST_PROOF_V1,
             Self::MimiKeyMaterialOutcomeProofV1 => Self::MIMI_KEY_MATERIAL_OUTCOME_PROOF_V1,
@@ -550,9 +543,6 @@ impl ProofContextId {
             Self::IDENTITY_RECEIPT_PROOF_V1 => Some(Self::IdentityReceiptProofV1),
             Self::INGRESS_RECEIPT_PROOF_V1 => Some(Self::IngressReceiptProofV1),
             Self::KEY_BACKUP_DELETE_PROOF_V1 => Some(Self::KeyBackupDeleteProofV1),
-            Self::MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1 => {
-                Some(Self::MemberDeliveryBindingCandidateProofV1)
-            }
             Self::MIMI_IDENTIFIER_QUERY_OUTCOME_PROOF_V1 => {
                 Some(Self::MimiIdentifierQueryOutcomeProofV1)
             }
@@ -1829,22 +1819,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "created_at",
         ],
         schema_ref: "schemas/high-risk-authority-proof.schema.json",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::MemberDeliveryBindingCandidateProofV1,
-        context: "ak.member_delivery_binding_candidate_proof.v1",
-        object_family: "member_delivery_binding_candidate",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "subject_id",
-            "recipient_id",
-            "verification_method",
-            "created_at",
-            "domain?",
-            "audience?",
-        ],
-        schema_ref: "schemas/member-delivery-binding-candidate.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::MimiIdentifierQueryOutcomeProofV1,
