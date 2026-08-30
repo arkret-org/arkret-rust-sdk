@@ -566,6 +566,8 @@ fn managed_agent_pcr_payload_is_built_from_the_public_realm_type() {
 #[test]
 fn managed_agent_material_derives_the_genesis_leaf_set_from_the_registry() {
     let create = managed_agent_pcr_create();
+    let canonical_actor = arkret_canonical::canonical_json_string(&create.actor_id).unwrap();
+    let agent_status_subject = composite_subject(&[canonical_actor]).unwrap();
     let material =
         materialize_managed_agent_pcr_control(std::slice::from_ref(&create), &registry_projection)
             .unwrap();
@@ -582,7 +584,7 @@ fn managed_agent_material_derives_the_genesis_leaf_set_from_the_registry() {
             format!(
                 "ak:cell:{}:{}",
                 arkret_wire::CellFamilyId::AGENT_STATUS_V1,
-                create.actor_id
+                agent_status_subject
             ),
             format!(
                 "ak:cell:{}:null",
