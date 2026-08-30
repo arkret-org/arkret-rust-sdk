@@ -6,10 +6,8 @@
 
 use std::collections::BTreeSet;
 
-#[cfg(test)]
-use arkret_wire::ActorId;
 use arkret_wire::{
-    AccountId, CbaProofBundle, DidCoreId, Event, EventFederationSubmission, EventId,
+    AccountId, ActorId, CbaProofBundle, DidCoreId, Event, EventFederationSubmission, EventId,
     EventInitialSubmission, Hash, RealmId, Result, WireError,
 };
 use chrono::{DateTime, Utc};
@@ -40,7 +38,7 @@ pub enum MembershipLifecycleCause {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentControllerMembershipBinding {
-    pub controller_authority: AccountId,
+    pub controller_account_id: AccountId,
     pub controller_membership_generation_ref: EventId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub controller_terminal_event_ref: Option<EventId>,
@@ -48,7 +46,7 @@ pub struct AgentControllerMembershipBinding {
 
 impl AgentControllerMembershipBinding {
     pub fn validate(&self) -> Result<()> {
-        self.controller_authority.validate()
+        self.controller_account_id.validate()
     }
 }
 
@@ -72,9 +70,9 @@ pub enum AgentMembershipCascadeSchema {
 pub struct AgentCleanupRecord {
     pub schema: AgentMembershipCascadeSchema,
     pub realm_id: RealmId,
-    pub controller_authority: AccountId,
+    pub controller_account_id: AccountId,
     pub controller_membership_generation_ref: EventId,
-    pub initiator_authority: AccountId,
+    pub initiator_actor_id: ActorId,
     pub controller_terminal_event_id: EventId,
     pub expected_agent_ids: Vec<DidCoreId>,
     pub cleanup_intent_digest: Hash,
@@ -108,9 +106,9 @@ impl AgentCleanupRecord {
         struct CleanupIntentPreimage<'a> {
             schema: AgentMembershipCascadeSchema,
             realm_id: &'a RealmId,
-            controller_authority: &'a AccountId,
+            controller_account_id: &'a AccountId,
             controller_membership_generation_ref: &'a EventId,
-            initiator_authority: &'a AccountId,
+            initiator_actor_id: &'a ActorId,
             controller_terminal_event_id: &'a EventId,
             expected_agent_ids: &'a [DidCoreId],
         }
@@ -119,9 +117,9 @@ impl AgentCleanupRecord {
             &CleanupIntentPreimage {
                 schema: self.schema,
                 realm_id: &self.realm_id,
-                controller_authority: &self.controller_authority,
+                controller_account_id: &self.controller_account_id,
                 controller_membership_generation_ref: &self.controller_membership_generation_ref,
-                initiator_authority: &self.initiator_authority,
+                initiator_actor_id: &self.initiator_actor_id,
                 controller_terminal_event_id: &self.controller_terminal_event_id,
                 expected_agent_ids: &self.expected_agent_ids,
             },
@@ -129,8 +127,8 @@ impl AgentCleanupRecord {
     }
 
     pub fn validate(&self) -> Result<()> {
-        self.controller_authority.validate()?;
-        self.initiator_authority.validate()?;
+        self.controller_account_id.validate()?;
+        self.initiator_actor_id.validate()?;
         validate_sorted_unique_agent_ids(&self.expected_agent_ids)?;
         if self.cleanup_due_at <= self.accepted_at {
             return Err(WireError::Protocol(
@@ -377,7 +375,7 @@ fn validate_cascade<'a>(
         }
     }
 
-    let controller_authority = controller
+    let controller_account_id = controller
         .actor_id
         .as_account_id()
         .cloned()
@@ -418,7 +416,7 @@ fn validate_cascade<'a>(
             ));
         }
         binding.validate()?;
-        if binding.controller_authority != controller_authority {
+        if binding.controller_account_id != controller_account_id {
             return Err(WireError::Protocol(
                 "agent cleanup membership controller authority mismatch".to_owned(),
             ));
@@ -490,7 +488,7 @@ mod tests {
     #[test]
     fn membership_cause_requires_leave_and_terminal_binding() {
         let binding = AgentControllerMembershipBinding {
-            controller_authority: authority(
+            controller_account_id: authority(
                 "ak:did_core:web:alice.example",
                 "ak:did_core:web:principal.example",
             ),
@@ -524,15 +522,15 @@ mod tests {
             schema: AgentMembershipCascadeSchema::V1,
             realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
                 .unwrap(),
-            controller_authority: authority(
+            controller_account_id: authority(
                 "ak:did_core:web:alice.example",
                 "ak:did_core:web:principal.example",
             ),
             controller_membership_generation_ref: event_id('a'),
-            initiator_authority: authority(
+            initiator_actor_id: ActorId::account(authority(
                 "ak:did_core:web:bob.example",
                 "ak:did_core:web:principal.example",
-            ),
+            )),
             controller_terminal_event_id: event_id('b'),
             expected_agent_ids: vec![
                 DidCoreId::new("ak:did_core:web:agent-a.example").unwrap(),
@@ -546,6 +544,24 @@ mod tests {
         };
         record.cleanup_intent_digest = record.expected_cleanup_intent_digest().unwrap();
         record.validate().unwrap();
+        let value = serde_json::to_value(&record).unwrap();
+        assert!(value.get("controller_account_id").is_some());
+        assert!(value["initiator_actor_id"].is_object());
+        assert!(value.get("controller_authority").is_none());
+        assert!(value.get("initiator_authority").is_none());
+        let mut legacy = value.clone();
+        legacy["controller_authority"] = legacy["controller_account_id"].take();
+        assert!(serde_json::from_value::<AgentCleanupRecord>(legacy).is_err());
+        let mut other_station = record.clone();
+        other_station.initiator_actor_id = ActorId::account(authority(
+            "ak:did_core:web:bob.example",
+            "ak:did_core:web:other-station.example",
+        ));
+        assert!(other_station.validate().is_err());
+        assert_ne!(
+            other_station.expected_cleanup_intent_digest().unwrap(),
+            record.cleanup_intent_digest
+        );
         assert_eq!(
             record.cleanup_status(accepted_at + chrono::Duration::minutes(30)),
             AgentCleanupStatusView::Pending
