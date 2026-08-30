@@ -217,13 +217,9 @@ fn invite_create_payload_shape_is_enforced() {
         return;
     };
     let payload = json!({
-        "invitee_id": "ak:did_core:webvh:z6mkfixture",
-        "invite_delivery_target": {
-            "recipient_id": "ak:did_core:webvh:z6mkserver",
-            "recipient_kind": "station",
-            "service_resolution": {
-                "current_record_url": "https://server.example/.well-known/arkret/service-resolution.json"
-            }
+        "invitee_account_id": {
+            "principal_id": "ak:did_core:webvh:z6mkfixture",
+            "station_id": "ak:did_core:webvh:z6mkserver"
         },
         "introduction_evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
         "expires_at": "2026-06-14T10:00:00.000Z",
@@ -241,7 +237,7 @@ fn invite_create_payload_shape_is_enforced() {
         catalog.rules[EventKind::InviteCreate.as_str()]
             .required_fields
             .iter()
-            .any(|field| field == "invitee_id"),
+            .any(|field| field == "invitee_account_id"),
         "ak.invite.create must require invitee"
     );
     catalog

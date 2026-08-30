@@ -669,7 +669,7 @@ mod tests {
             kind: EventKind::AttestationRangeCompleteness,
             realm_id: realm.clone(),
             scope_ref: ScopeRef::Realm { realm_id: realm },
-            actor_id: ActorId::account(AccountId::new(issuer.clone(), issuer)),
+            actor_id: ActorId::service(issuer),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,

@@ -86,7 +86,7 @@ fn morph_event(seq: u64, title: &str) -> Event {
                 "morph_kind": "task",
                 "metadata": {"title": title},
                 "stage": "draft",
-                "created_by": actor_id().as_str(),
+                "created_by": ActorId::account(AccountId::new(actor_id(), actor_id())),
                 "created_at": "2026-05-02T00:00:00.000Z"
             }
         }),
@@ -295,7 +295,7 @@ fn strand_create_event(seq: u64) -> Event {
                 "realm_id": realm_id().as_str(),
                 "metadata": {"title": "Payment refactor"},
                 "tracks": {"synthesis": {}},
-                "created_by": actor_id().as_str(),
+                "created_by": ActorId::account(AccountId::new(actor_id(), actor_id())),
                 "created_at": "2026-05-02T00:00:00.000Z"
             }
         }),
@@ -674,7 +674,7 @@ fn strand_events_create_update_and_default_view_relation() {
                     "summary": "Unify payment strands"
                 },
                 "tracks": {"synthesis": {}},
-                "created_by": actor_id().as_str(),
+                "created_by": ActorId::account(AccountId::new(actor_id(), actor_id())),
                 "created_at": "2026-05-02T00:00:00.000Z"
             }
         }),
@@ -763,7 +763,7 @@ fn strand_synthesis_content_requires_an_active_synthesis_track() {
                 "content": {"kind": "ak.content.text", "body": "Description survives"},
                 "metadata": {"title": "Discussion-only Strand"},
                 "tracks": {"discussion": {"is_primary": true}},
-                "created_by": actor_id().as_str(),
+                "created_by": ActorId::account(AccountId::new(actor_id(), actor_id())),
                 "created_at": "2026-05-02T00:00:00.000Z"
             }
         }),
@@ -931,7 +931,10 @@ fn message_revision_redaction_and_reaction_converge() {
 
     let reaction = state
         .reactions
-        .get(&format!("{message_id}|{}|+1", actor_id()))
+        .get(&format!(
+            "{message_id}|{}|+1",
+            ActorId::account(AccountId::new(actor_id(), actor_id()))
+        ))
         .unwrap();
     assert!(reaction.active);
 }
@@ -1047,7 +1050,7 @@ fn redaction_with_strand_target_ref_flips_subject_to_redacted() {
                         "content": {"kind": "ak.content.text", "body": "Synthesis secret"}
                     }
                 },
-                "created_by": actor_id().as_str(),
+                "created_by": ActorId::account(AccountId::new(actor_id(), actor_id())),
                 "created_at": "2026-05-02T00:00:00.000Z"
             }
         }),
@@ -1094,7 +1097,7 @@ fn redaction_with_event_target_ref_trims_event_and_keeps_object_active() {
                         "content": {"kind": "ak.content.text", "body": "Synthesis secret"}
                     }
                 },
-                "created_by": actor_id().as_str(),
+                "created_by": ActorId::account(AccountId::new(actor_id(), actor_id())),
                 "created_at": "2026-05-02T00:00:00.000Z"
             }
         }),

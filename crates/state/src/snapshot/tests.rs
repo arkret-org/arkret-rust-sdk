@@ -614,7 +614,10 @@ fn witness_attestation_projection_excludes_signatures_and_witness_list() {
             "projection must exclude {excluded}"
         );
     }
-    assert_eq!(projection["issuer"], serde_json::to_value(actor()).unwrap());
+    assert_eq!(
+        projection["issuer"],
+        serde_json::to_value(arkret_wire::ActorId::service(actor())).unwrap()
+    );
     assert_eq!(
         projection["snapshot_created_at"],
         "2026-06-01T00:00:00.000Z"

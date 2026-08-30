@@ -509,7 +509,7 @@ pub struct AppletRegistrationEpochDerivedRegistration {
     pub service_id: DidCoreId,
     pub controller_id: DidCoreId,
     pub base_url: String,
-    pub bot_actor_id: DidCoreId,
+    pub bot_actor_id: ActorId,
     pub protocols: Vec<String>,
     pub namespaces: AppletWireNamespaces,
     pub receive_events: bool,
@@ -542,7 +542,7 @@ pub struct AppletRegistrationPayload {
     pub service_id: DidCoreId,
     pub controller_id: DidCoreId,
     pub base_url: String,
-    pub bot_actor_id: DidCoreId,
+    pub bot_actor_id: ActorId,
     pub claimed_profiles: Vec<String>,
     pub protocols: Vec<String>,
     pub namespaces: AppletWireNamespaces,
@@ -592,7 +592,7 @@ struct AppletRegistrationPayloadWire {
     service_id: DidCoreId,
     controller_id: DidCoreId,
     base_url: String,
-    bot_actor_id: DidCoreId,
+    bot_actor_id: ActorId,
     claimed_profiles: Vec<String>,
     protocols: Vec<String>,
     namespaces: AppletWireNamespaces,
@@ -1177,7 +1177,7 @@ pub fn applet_document_digest(document: &DidDocument) -> Result<Hash> {
 //
 // Spec `applet-schema.md` §1a/§1b + `applet-integration.md` §4a/§4b. The
 // Package is a controller-signed *distribution* object: it is NOT Realm
-// history and NOT a grant. The Station / authz service derives a
+// history and NOT a grant. The Station authorization capability derives a
 // canonical `ak.applet.registration` and capability grants during
 // `ak.self.applet.command.install.v1`.
 
@@ -1200,8 +1200,8 @@ pub struct AppletPackage {
     pub service_id: DidCoreId,
     pub controller_id: DidCoreId,
     pub base_url: String,
-    /// Visible bot actor DID; MUST NOT carry a `#fragment`.
-    pub bot_actor_id: DidCoreId,
+    /// Complete bot ActorId; every routed principal remains bound to its Station.
+    pub bot_actor_id: ActorId,
     /// MUST contain at least `ak.profile.applet_service.v1`.
     pub claimed_profiles: Vec<String>,
     pub protocols: Vec<String>,
@@ -1262,7 +1262,7 @@ impl AppletPackage {
         service_did: Did,
         controller_id: DidCoreId,
         base_url: impl Into<String>,
-        bot_actor_id: DidCoreId,
+        bot_actor_id: ActorId,
         protocols: Vec<String>,
         namespaces: AppletWireNamespaces,
     ) -> Self {

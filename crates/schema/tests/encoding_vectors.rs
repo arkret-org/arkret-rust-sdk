@@ -773,11 +773,21 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                         assert_eq!(case["expected_error"], "schema_violation");
                     } else if case.get("expected_component").is_some() {
                         assert_eq!(
-                            case["expected_component"], case["envelope_actor_id"],
+                            case["expected_component"],
+                            String::from_utf8(
+                                arkret_canonical::canonical_json_bytes(&case["envelope_actor_id"])
+                                    .unwrap()
+                            )
+                            .unwrap(),
                             "{vector_id}/{name}: envelope actor was not selected"
                         );
                         assert_ne!(
-                            case["expected_component"], case["payload_actor_id"],
+                            case["expected_component"],
+                            String::from_utf8(
+                                arkret_canonical::canonical_json_bytes(&case["payload_actor_id"])
+                                    .unwrap()
+                            )
+                            .unwrap(),
                             "{vector_id}/{name}: payload actor shadowed the envelope"
                         );
                     } else {
@@ -921,11 +931,8 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                         .get_mut("unordered_participant_ids")
                         .and_then(Value::as_array_mut)
                     {
-                        participants.sort_by(|left, right| {
-                            left.as_str()
-                                .unwrap()
-                                .as_bytes()
-                                .cmp(right.as_str().unwrap().as_bytes())
+                        participants.sort_by_key(|value| {
+                            arkret_canonical::canonical_json_bytes(value).unwrap()
                         });
                     }
                     if let Some(event_refs) = object

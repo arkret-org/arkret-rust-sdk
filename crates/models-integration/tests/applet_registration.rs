@@ -192,7 +192,7 @@ fn package_with_required_fields() -> AppletPackage {
         did("slackbridge"),
         principal("alice"),
         "https://applet.example/cx",
-        actor("bot"),
+        ActorId::hosted_principal(actor("bot"), actor("station")),
         vec!["slack".to_owned()],
         AppletWireNamespaces {
             actors: vec![AppletNamespaceEntry::exclusive(
@@ -661,11 +661,10 @@ fn install_commit_uses_each_signed_event_carrier_once() {
         requested_at,
     )
     .unwrap();
-    let bot_pcr_genesis_event = arkret_wire::test_support::raw_event_at(
+    let bot_pcr_genesis_event = arkret_wire::test_support::raw_event_for_actor_at(
         "ak.realm.create",
         ScopeRef::RealmGenesis,
         package.bot_actor_id.clone(),
-        actor("station"),
         0,
         Hlc::new("01970e589d21-0101-a13f9c2e").unwrap(),
         json!({"realm_kind": "pcr"}),
@@ -683,11 +682,10 @@ fn install_commit_uses_each_signed_event_carrier_once() {
         requested_at,
     )
     .unwrap();
-    let bot_profile_event = arkret_wire::test_support::raw_event_at(
+    let bot_profile_event = arkret_wire::test_support::raw_event_for_actor_at(
         "ak.profile.create",
         scope,
         package.bot_actor_id.clone(),
-        actor("station"),
         0,
         Hlc::new("01970e589d21-0103-a13f9c2e").unwrap(),
         json!({"display_name": "Applet Bot"}),

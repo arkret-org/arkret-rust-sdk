@@ -498,8 +498,13 @@ fn completeness_event(
         "kind": "ak.capability.grant",
         "realm_id": realm(),
         "scope_ref": {"kind": "realm", "realm_id": realm()},
-        "actor_id": actor_id,
-        "station_id": "ak:did_core:web:principal.example",
+        "actor_id": {
+            "kind": "account",
+            "account_id": {
+                "principal_id": actor_id,
+                "station_id": "ak:did_core:web:principal.example"
+            }
+        },
         "actor_seq": actor_seq,
         "created_at": "2026-07-26T00:00:00.000Z",
         "prev_refs": [],
@@ -1457,7 +1462,10 @@ fn recovery_witness_fixture() -> RecoveryWitnessFixture {
     let target_value = json!({"policy_revision": 7});
     let grant_value = json!({
         "grant_id": grant_id,
-        "subject": actor,
+        "subject": ActorId::account(arkret_wire::AccountId::new(
+            actor,
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps".to_owned()).unwrap()
+        )),
         "actions": ["ak.conflict.recovery"],
         "resources": [{"kind": "realm", "realm_id": realm()}]
     });

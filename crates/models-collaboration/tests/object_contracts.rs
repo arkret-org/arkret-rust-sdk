@@ -253,7 +253,10 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     assert_eq!(json["revocation_freshness_window_ms"], 60_000);
     assert_eq!(json["max_authority_lifetime_ms"], 3_600_000);
     assert_eq!(json["bottom_escalation_after_ms"], 120_000);
-    assert_eq!(json["updated_by"], "ak:did_core:webvh:z6mkfixture");
+    assert_eq!(
+        json["updated_by"],
+        json!({"kind":"service","service_id":"ak:did_core:webvh:z6mkfixture"})
+    );
     assert_eq!(
         json["cell_lattices"][0]["cell_family"],
         arkret_wire::CellFamilyId::STRAND_TRACKS_V1
@@ -299,7 +302,7 @@ fn realm_anchor_fields_include_required_notary() {
     assert_eq!(json["notary"]["kind"], "single_signer");
     assert_eq!(
         json["notary"]["signer"]["actor_id"],
-        "ak:did_core:webvh:z6mkfixture"
+        json!({"kind":"service","service_id":"ak:did_core:webvh:z6mkfixture"})
     );
     assert!(!obj.contains_key("revocation_freshness_window_ms"));
     assert_eq!(obj.get("digest_algorithm"), Some(&json!("sha256")));

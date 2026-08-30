@@ -3,7 +3,7 @@ use arkret_canonical::canonical;
 use arkret_schema::*;
 use arkret_wire::generated::profile_requirements::non_event_grant_authority_rule;
 #[cfg(feature = "embedded-artifacts")]
-use arkret_wire::{ActorId, DidCoreId, DidUrl, Hash, ProducerEventProof};
+use arkret_wire::{ActorId, DidUrl, Hash, ProducerEventProof};
 use arkret_wire::{BUILT_IN_CONFORMANCE_FIXTURES_VERSION, SchemaId};
 use serde_json::json;
 
@@ -263,7 +263,7 @@ fn signature_binding_payload_matches_spec_encoding_vector() {
         .find(|vector| vector["vector_id"] == "ak.vector.encoding.signature_binding_payload.v1")
         .unwrap();
     let input = &vector["input"];
-    let actor = ActorId::service(DidCoreId::new(input["actor_id"].as_str().unwrap()).unwrap());
+    let actor: ActorId = serde_json::from_value(input["actor_id"].clone()).unwrap();
     let proof = ProducerEventProof {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new(input["verification_method"].as_str().unwrap()).unwrap(),

@@ -1039,7 +1039,9 @@ mod tests {
     #[cfg(feature = "signer")]
     #[test]
     fn event_proof_verifier_requires_the_explicit_realm_digest_suite() {
-        let actor = arkret_wire::DidCoreId::new("ak:did_core:web:blake.example").unwrap();
+        let actor = arkret_wire::ActorId::service(
+            arkret_wire::DidCoreId::new("ak:did_core:web:blake.example").unwrap(),
+        );
         let verification_method = DidUrl::new("did:web:blake.example#key-1".to_owned()).unwrap();
         let canonical_bytes = canonical::canonical_json_bytes(&json!({"realm": "blake"})).unwrap();
         let digest = Hash::new(canonical::digest(

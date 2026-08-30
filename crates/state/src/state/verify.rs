@@ -1080,7 +1080,7 @@ mod tests {
         EventRef::new(id, EVENT_REF_ROLE_AUTHORIZED_BY)
     }
 
-    fn grant_cell_state(grant_id: &str, subject: &str) -> CellState {
+    fn grant_cell_state(grant_id: &str, subject: &ActorId) -> CellState {
         CellState::Value(json!([
             {
                 "tag": grant_id,
@@ -1270,7 +1270,7 @@ mod tests {
         let mut pre_state = BTreeMap::new();
         pre_state.insert(
             cell_capability_grant(),
-            grant_cell_state(grant_id, event.actor_id.signing_principal_id().as_str()),
+            grant_cell_state(grant_id, &event.actor_id),
         );
 
         verify_control_move(
@@ -1311,7 +1311,12 @@ mod tests {
         let mut pre_state = BTreeMap::new();
         pre_state.insert(
             cell_capability_grant(),
-            grant_cell_state(grant_id, "did:webvh:z6mkfixture:bob.example"),
+            grant_cell_state(
+                grant_id,
+                &ActorId::service(
+                    DidCoreId::new("ak:did_core:webvh:z6mkfixturebob".to_owned()).unwrap(),
+                ),
+            ),
         );
 
         let err = verify_control_move(

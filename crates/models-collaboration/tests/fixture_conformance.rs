@@ -156,12 +156,14 @@ fn account_subscribe_fixture_cases_match_typed_wire_model() {
         .unwrap()
     {
         let line = serde_json::to_string(&case["instance"]).unwrap();
-        let accepted = AccountSubscribeFrame::from_ndjson_line(&line).is_ok();
+        let decoded = AccountSubscribeFrame::from_ndjson_line(&line);
+        let accepted = decoded.is_ok();
         assert_eq!(
             accepted,
             case["expect_valid"].as_bool().unwrap(),
-            "fixture case {} drifted",
-            case["name"]
+            "fixture case {} drifted: {:?}",
+            case["name"],
+            decoded.err()
         );
     }
 }

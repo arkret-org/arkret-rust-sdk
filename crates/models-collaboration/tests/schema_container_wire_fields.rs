@@ -68,7 +68,7 @@ fn submit_outcome_uses_schema_result_names_only() {
         "frontiers": [{
             "kind": "realm_actor",
             "realm_id": REALM_ID,
-            "actor_id": ACTOR_ID,
+            "actor_id": {"kind": "service", "service_id": ACTOR_ID},
             "next_actor_seq": 0,
             "frontier_event_ids": [],
             "frontier_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
@@ -111,7 +111,7 @@ fn contact_and_realm_link_lists_use_schema_array_names() {
 fn actor_aggregate_uses_frontiers() {
     let value = round_trip::<ActorAggregateFrontierView>(json!({
         "kind": "actor_aggregate",
-        "actor_id": ACTOR_ID,
+        "actor_id": {"kind": "service", "service_id": ACTOR_ID},
         "frontiers": []
     }));
     assert!(value.get("frontiers").is_some());

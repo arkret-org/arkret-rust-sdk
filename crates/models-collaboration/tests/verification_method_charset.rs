@@ -32,7 +32,10 @@ fn invite_claim_binding_proof(verification_method: &str) -> Value {
     json!({
         "verification_id": "ak:did_core:web:verify.example",
         "verification_method": verification_method,
-        "subject_id": "ak:did_core:web:bob.example",
+        "subject_account_id": {
+            "principal_id": "ak:did_core:web:bob.example",
+            "station_id": "ak:did_core:web:station.example"
+        },
         "realm_id": "ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN",
         "audience": "did:web:realm.example",
         "claim_nonce": "nonce-claim-proof-1",

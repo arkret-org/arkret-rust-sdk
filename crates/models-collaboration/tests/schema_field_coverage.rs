@@ -86,7 +86,13 @@ fn sample_cursor() -> Value {
 fn events_query_post_request_body_matches_its_schema_definition() {
     let fully_populated: EventsQueryPostRequestBody = serde_json::from_value(json!({
         "realm_ids": ["ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"],
-        "actor_ids": ["ak:did_core:web:alice.example"],
+        "actor_ids": [{
+            "kind": "account",
+            "account_id": {
+                "principal_id": "ak:did_core:web:alice.example",
+                "station_id": "ak:did_core:web:station.example"
+            }
+        }],
         "before": sample_cursor(),
         "after": sample_cursor(),
         "order": "descending",
@@ -283,7 +289,13 @@ fn signal_plaintext_profiles_match_their_closed_schemas() {
     let receipt: ReadReceipt = serde_json::from_value(json!({
         "kind": "ak.receipt.read",
         "payload_sequence": 9,
-        "actor_id": "ak:did_core:web:alice.example",
+        "actor_id": {
+            "kind": "account",
+            "account_id": {
+                "principal_id": "ak:did_core:web:alice.example",
+                "station_id": "ak:did_core:web:station.example"
+            }
+        },
         "event_id": "ak:event:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
         "hlc": "01970e589d21-0001-a13f9c2e",
         "read_scope": {"kind": "realm"}
@@ -294,7 +306,13 @@ fn signal_plaintext_profiles_match_their_closed_schemas() {
     let presence: PresencePlaintext = serde_json::from_value(json!({
         "kind": "ak.presence",
         "payload_sequence": 2,
-        "actor_id": "ak:did_core:web:alice.example",
+        "actor_id": {
+            "kind": "account",
+            "account_id": {
+                "principal_id": "ak:did_core:web:alice.example",
+                "station_id": "ak:did_core:web:station.example"
+            }
+        },
         "state": "online",
         "status_message": "back in ten",
         "last_active_at": "2026-08-01T00:00:00.000Z",

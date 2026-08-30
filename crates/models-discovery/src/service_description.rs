@@ -1034,6 +1034,7 @@ mod tests {
             vec![
                 "ak.operation_bundle.station.describe.v1".to_owned(),
                 "ak.operation_bundle.station.account_authority_support.v1".to_owned(),
+                "ak.operation_bundle.station.http_core.v1".to_owned(),
             ],
             vec![TransportBinding::HttpJson {
                 base_url: "https://auth.example".to_owned(),
@@ -1090,7 +1091,7 @@ mod tests {
     }
 
     #[test]
-    fn station_account_authority_bundle_expands_service_resolution_capability() {
+    fn station_http_core_bundle_expands_service_resolution_capability() {
         let description = station_account_authority_description();
 
         assert!(description.supports_operation_binding(

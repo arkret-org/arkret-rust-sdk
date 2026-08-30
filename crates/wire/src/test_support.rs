@@ -102,6 +102,23 @@ pub fn raw_event_at(
     )
 }
 
+/// Build a deterministic raw fixture Event from its complete ActorId.
+#[doc(hidden)]
+#[allow(clippy::too_many_arguments)]
+pub fn raw_event_for_actor_at(
+    kind: impl Into<String>,
+    scope_ref: ScopeRef,
+    actor_id: ActorId,
+    actor_seq: u64,
+    hlc: Hlc,
+    payload: Value,
+    created_at: DateTime<Utc>,
+) -> Result<Event> {
+    Event::new_at(
+        kind, scope_ref, actor_id, actor_seq, hlc, payload, created_at,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;

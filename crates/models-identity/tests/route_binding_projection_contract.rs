@@ -29,7 +29,7 @@ fn route_binding_projection_is_byte_exact() {
 
     assert_eq!(
         digest.as_str(),
-        "sha256:f8494350acf39bc9d240531451c4770b20f9776dcf10703299b985e73f6d81ea",
+        "sha256:9e55c99ec0ace978eb678d11cecc1a7c69a562f7341ce5185d2da1db4bb2a78f",
         "route-binding projection digest changed"
     );
 }

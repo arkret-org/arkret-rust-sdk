@@ -719,7 +719,7 @@ mod tests {
         assert!(tampered_disclosure.validate().is_err());
         let bootstrap = AgentPairingBootstrap {
             arkret_base_url: "https://arkret.example".to_owned(),
-            service_id,
+            service_id: service_id.clone(),
             agent_id: agent_actor_id.clone(),
             pairing_request_id: arkret_wire::OpaqueLocalId::new(pairing_request_id).unwrap(),
             pairing_code: "12345678".to_owned(),
@@ -772,7 +772,7 @@ mod tests {
             revocation_check_ref: None,
             runtime_attestation: None,
         };
-        let authorize_event = arkret_wire::test_support::raw_event(
+        let authorize_event = arkret_wire::test_support::raw_event_for_actor_at(
             EventKind::AgentKeyAuthorize.to_string(),
             arkret_wire::ScopeRef::Realm {
                 realm_id: RealmId::from_event_id(&EventId::from_digest(
@@ -780,11 +780,11 @@ mod tests {
                     [0x41; 32],
                 )),
             },
-            agent_actor_id.clone(),
-            agent_actor_id.clone(),
+            ActorId::hosted_principal(agent_actor_id.clone(), service_id),
             1,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             serde_json::to_value(authorize_payload).unwrap(),
+            issued_at,
         )
         .unwrap();
         let authorize_event_id = authorize_event.event_id.clone();

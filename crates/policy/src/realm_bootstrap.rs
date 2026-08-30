@@ -455,7 +455,7 @@ mod tests {
                 "notary": {
                     "kind": "single_signer",
                     "signer": {
-                        "actor_id": ACTOR,
+                        "actor_id": actor(),
                         "verification_method": "did:webvh:z6mkfixture:founder.example#key-1",
                         "key_kind": "ed25519_raw32",
                         "jose_algorithm": "Ed25519",

@@ -17,7 +17,13 @@ fn actor_profile_rejects_unknown_fields_and_accepts_schema_statuses() {
             "managed_by_applet": "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
         },
         "created_at": "2026-04-30T00:00:00.000Z",
-        "updated_by": "ak:did_core:webvh:z6mkfixtureowner",
+        "updated_by": {
+            "kind": "account",
+            "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixtureowner",
+                "station_id": "ak:did_core:webvh:z6mkfixturestation"
+            }
+        },
         "updated_at": "2026-04-30T00:01:00.000Z"
     });
     let profile: ActorProfile = serde_json::from_value(value).unwrap();

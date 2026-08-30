@@ -1088,7 +1088,10 @@ mod realm_control_payload_tests {
             "notary": {
                 "kind": "single_signer",
                 "signer": {
-                    "actor_id": "ak:did_core:web:notary.example",
+                    "actor_id": {
+                        "kind": "service",
+                        "service_id": "ak:did_core:web:notary.example"
+                    },
                     "verification_method": "did:web:notary.example#key-1",
                     "key_kind": "ed25519_raw32",
                     "jose_algorithm": "Ed25519",
