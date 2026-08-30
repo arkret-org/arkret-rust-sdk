@@ -84,7 +84,7 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
         event
             .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
             .unwrap(),
-        "sha256:999cbb094e0adcdd9a9117541d48626d03bf9d688e5e4bf611a8329a3382fe6e"
+        "sha256:c7f5a132533ef5cb62c1f03c47ac69aac22e4f97aab34e5b92711d96d0b68d8c"
     );
     let value = serde_json::to_value(&event).unwrap();
     assert_eq!(value["payload"]["body"], "hello");

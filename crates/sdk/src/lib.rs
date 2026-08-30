@@ -11,8 +11,8 @@
 //! ```rust
 //! use arkret::canonical::DigestSuite;
 //! use arkret::{
-//!     ContentBlock, Did, DidCoreId, Hlc, MessageCreatePayload, RealmId, ScopeRef, StrandId,
-//!     TypedEventDraft, event_spec, project_did_to_core_id,
+//!     AccountId, ActorId, ContentBlock, Did, DidCoreId, Hlc, MessageCreatePayload, RealmId,
+//!     ScopeRef, StrandId, TypedEventDraft, event_spec, project_did_to_core_id,
 //! };
 //!
 //! # fn main() -> arkret::Result<()> {
@@ -25,10 +25,12 @@
 //!     ScopeRef::Realm {
 //!         realm_id: RealmId::new("ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir")?,
 //!     },
-//!     DidCoreId::from(project_did_to_core_id(&Did::new(
-//!         "did:webvh:z6mkfixture:alice.example",
-//!     )?)?),
-//!     DidCoreId::new("ak:did_core:web:principal.example")?,
+//!     ActorId::account(AccountId::new(
+//!         DidCoreId::from(project_did_to_core_id(&Did::new(
+//!             "did:webvh:z6mkfixture:alice.example",
+//!         )?)?),
+//!         DidCoreId::new("ak:did_core:web:station.example")?,
+//!     )),
 //!     payload,
 //! )?
 //! .author_with_digest_suite(

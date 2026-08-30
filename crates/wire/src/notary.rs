@@ -353,7 +353,10 @@ mod tests {
 
     fn signer() -> NotarySignerDescriptor {
         serde_json::from_value(json!({
-            "actor_id": "ak:did_core:web:notary.example",
+            "actor_id": {
+                "kind": "service",
+                "service_id": "ak:did_core:web:notary.example"
+            },
             "verification_method": "did:web:notary.example#notary-key-1",
             "key_kind": "ed25519_raw32",
             "jose_algorithm": "Ed25519",
