@@ -21,9 +21,9 @@ pub use arkret_models_crypto::mls_governance_proof::*;
 use arkret_wire::cell::CellId;
 use arkret_wire::event_envelope::{Event, EventSubmitContext, ScopeRef};
 use arkret_wire::{
-    Base64UrlString, CellRef, ContentScheme, DidCoreId, DurabilityPolicy, EventId, Hash, NotarySig,
-    NotarySignerDescriptor, NotaryValue, ProjectedCellWrite, RealmId, Seal, SealBasis, SealId,
-    SealSignature, WireError,
+    ActorId, Base64UrlString, CellRef, ContentScheme, DidCoreId, DurabilityPolicy, EventId, Hash,
+    NotarySig, NotarySignerDescriptor, NotaryValue, ProjectedCellWrite, RealmId, Seal, SealBasis,
+    SealId, SealSignature, WireError,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
@@ -805,8 +805,7 @@ where
             verify_seal_dependencies,
             project_writes,
         )?;
-    let (canonical_leaves, leaf_principals, leaf_credentials) =
-        canonical_leaf_set(local_mls_leaves)?;
+    let (canonical_leaves, leaf_actors, leaf_credentials) = canonical_leaf_set(local_mls_leaves)?;
     let mls_leaf_set_digest = canonical_hash(&canonical_leaves)?;
     for branch in &bundle.frontier_projection.branches {
         let seal = seals.get(&branch.target_seal_ref).ok_or_else(|| {
@@ -861,7 +860,7 @@ where
             &cell_store,
             registry,
             &request.effective_scope,
-            &leaf_principals,
+            &leaf_actors,
             &leaf_credentials,
             group_genesis_binding,
         )?;
@@ -896,7 +895,7 @@ where
             cell_id.component(),
             &value,
             &request.effective_scope,
-            &leaf_principals,
+            &leaf_actors,
             &leaf_credentials,
             &cell_id,
             group_genesis_binding,
@@ -1053,7 +1052,7 @@ where
         .collect::<Vec<_>>();
     seal_predecessor_edges.sort();
 
-    let (_, leaf_principals, leaf_credentials) = canonical_leaf_set(local_mls_leaves)?;
+    let (_, leaf_actors, leaf_credentials) = canonical_leaf_set(local_mls_leaves)?;
     let mut event_ids = BTreeSet::<EventId>::new();
     let mut branches = Vec::new();
     let mut target_leaves = request.proof_target_basis.leaves.clone();
@@ -1091,7 +1090,7 @@ where
                 cell_id.component(),
                 value,
                 &request.effective_scope,
-                &leaf_principals,
+                &leaf_actors,
                 &leaf_credentials,
                 &cell_id,
                 group_genesis_binding,
@@ -2458,7 +2457,7 @@ fn verify_branch_entry_closure(
     cell_store: &MemoryCellStore,
     registry: &dyn CellRegistry,
     scope: &ScopeRef,
-    leaf_principals: &BTreeSet<String>,
+    leaf_actors: &BTreeSet<ActorId>,
     leaf_credentials: &BTreeSet<String>,
     group_genesis_binding: &MlsGroupGenesisBinding,
 ) -> arkret_wire::Result<()> {
@@ -2483,7 +2482,7 @@ fn verify_branch_entry_closure(
             cell_id.component(),
             &value,
             scope,
-            leaf_principals,
+            leaf_actors,
             leaf_credentials,
             &cell_id,
             group_genesis_binding,
@@ -2610,7 +2609,7 @@ fn verify_boundary_coordinates(
 
 fn canonical_leaf_set(
     leaves: &[MlsSecurityFrontierLeaf],
-) -> arkret_wire::Result<(Vec<Value>, BTreeSet<String>, BTreeSet<String>)> {
+) -> arkret_wire::Result<(Vec<Value>, BTreeSet<ActorId>, BTreeSet<String>)> {
     let mut encoded = leaves
         .iter()
         .map(|leaf| {
@@ -2618,7 +2617,7 @@ fn canonical_leaf_set(
             Ok((
                 arkret_canonical::canonical_json_bytes(&value)?,
                 value,
-                leaf.principal_id.to_string(),
+                leaf.actor_id.clone(),
                 leaf.credential_ref.to_string(),
                 leaf.leaf_index,
             ))
@@ -2648,7 +2647,7 @@ fn project_frontier_value(
     family: &str,
     value: &Value,
     scope: &ScopeRef,
-    leaf_principals: &BTreeSet<String>,
+    leaf_actors: &BTreeSet<ActorId>,
     leaf_credentials: &BTreeSet<String>,
     cell_id: &CellId,
     group_genesis_binding: &MlsGroupGenesisBinding,
@@ -2663,7 +2662,11 @@ fn project_frontier_value(
     match family {
         arkret_wire::CellFamilyId::MEMBER_STATE_V1 => {
             let principal = subject_single_string(&subject)?;
-            if matches!(scope, ScopeRef::Circle { .. }) && !leaf_principals.contains(principal) {
+            if matches!(scope, ScopeRef::Circle { .. })
+                && !leaf_actors
+                    .iter()
+                    .any(|actor| actor.canonical_key().is_ok_and(|key| key == principal))
+            {
                 return Ok(None);
             }
             Ok(project_membership(value))
@@ -2672,14 +2675,25 @@ fn project_frontier_value(
             let ScopeRef::Circle { circle_id, .. } = scope else {
                 return Ok(None);
             };
-            if !subject_contains_string(&subject, circle_id.as_str()) {
+            let mut selected = false;
+            for actor in leaf_actors {
+                let expected = arkret_wire::cell::composite_subject(&[
+                    Value::String(circle_id.to_string()),
+                    Value::String(actor.canonical_key()?),
+                ])?;
+                selected |= subject_single_string(&subject)? == expected;
+            }
+            if !selected {
                 return Ok(None);
             }
             Ok(project_membership(value))
         }
         arkret_wire::CellFamilyId::AGENT_STATUS_V1 => {
             let principal = subject_single_string(&subject)?;
-            if !leaf_principals.contains(principal) {
+            if !leaf_actors
+                .iter()
+                .any(|actor| actor.signing_principal_id().as_str() == principal)
+            {
                 return Ok(None);
             }
             let status = scalar_or_field(value, &["status", "state"])?;
@@ -2697,7 +2711,8 @@ fn project_frontier_value(
             }
         }
         arkret_wire::CellFamilyId::DEVICE_REANCHOR_V1 => {
-            if leaf_principals.iter().any(|principal| {
+            if leaf_actors.iter().any(|actor| {
+                let principal = actor.signing_principal_id().as_str();
                 value_contains_string(value, principal)
                     || subject_contains_string(&subject, principal)
             }) {
@@ -2910,6 +2925,47 @@ fn anchor_rejected<E: From<WireError>>(message: &str) -> E {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn security_frontier_leaf_set_preserves_same_principal_at_distinct_stations() {
+        let principal = DidCoreId::new("ak:did_core:web:alice.example").unwrap();
+        let actor = |station: &str| {
+            ActorId::account(arkret_wire::AccountId::new(
+                principal.clone(),
+                DidCoreId::new(station).unwrap(),
+            ))
+        };
+        let first = MlsSecurityFrontierLeaf {
+            leaf_index: 0,
+            actor_id: actor("ak:did_core:web:station-a.example"),
+            credential_ref: arkret_wire::NonEmptyString::new("device-a").unwrap(),
+        };
+        let mut other_station = first.clone();
+        other_station.actor_id = actor("ak:did_core:web:station-b.example");
+        let (first_preimage, ..) = canonical_leaf_set(std::slice::from_ref(&first)).unwrap();
+        let (other_preimage, ..) =
+            canonical_leaf_set(std::slice::from_ref(&other_station)).unwrap();
+        assert_ne!(
+            canonical_hash(&first_preimage).unwrap(),
+            canonical_hash(&other_preimage).unwrap()
+        );
+        other_station.leaf_index = 1;
+        other_station.credential_ref = arkret_wire::NonEmptyString::new("device-b").unwrap();
+        let (_, actors, _) = canonical_leaf_set(&[first, other_station]).unwrap();
+        assert_eq!(actors.len(), 2);
+    }
+
+    #[test]
+    fn security_frontier_leaf_rejects_legacy_principal_only_shape() {
+        assert!(
+            serde_json::from_value::<MlsSecurityFrontierLeaf>(json!({
+                "leaf_index": 0,
+                "principal_id": "ak:did_core:web:alice.example",
+                "credential_ref": "device-a"
+            }))
+            .is_err()
+        );
+    }
 
     #[test]
     fn materializer_state_leaf_preimage_matches_state_root_contract() {

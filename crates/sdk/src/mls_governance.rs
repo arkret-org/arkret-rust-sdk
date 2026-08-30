@@ -49,7 +49,7 @@ fn project_governance_cell_writes(
 /// reducer checkpoint for use in an MLS Add proposal.
 pub fn current_authorization_incarnation_from_verified_checkpoint(
     checkpoint: &MlsGovernanceVerificationCheckpoint,
-    target: &arkret_wire::DidCoreId,
+    target: &arkret_wire::ActorId,
     circle_id: Option<&CircleId>,
 ) -> Result<AuthorizationIncarnation, WireError> {
     let registry = arkret_lattice_registry::try_build_sdk_cell_registry().map_err(|error| {
@@ -71,7 +71,7 @@ pub fn current_authorization_incarnation_from_verified_checkpoint(
     };
     let realm_cell = CellRef::new(arkret_wire::cell::subject_cell(
         arkret_wire::CellFamilyId::MEMBER_STATE_V1,
-        target.as_str(),
+        &target.canonical_key()?,
     ))?;
     let realm_membership_incarnation_ref = winning_join(&realm_cell)?;
     let Some(circle_id) = circle_id else {
@@ -81,7 +81,7 @@ pub fn current_authorization_incarnation_from_verified_checkpoint(
     };
     let circle_subject = arkret_wire::cell::composite_subject(&[
         serde_json::Value::String(circle_id.as_str().to_owned()),
-        serde_json::Value::String(target.as_str().to_owned()),
+        serde_json::Value::String(target.canonical_key()?),
     ])?;
     let circle_cell = CellRef::new(arkret_wire::cell::subject_cell(
         arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1,

@@ -15,7 +15,7 @@ use arkret_models_crypto::{
     verify_mls_governance_binding_extension,
 };
 use arkret_wire::{
-    DidCoreId, EncryptedPayloadScheme, EventCandidateBinding, EventCandidateBindingKey,
+    ActorId, DidCoreId, EncryptedPayloadScheme, EventCandidateBinding, EventCandidateBindingKey,
     EventCandidateBindingOutcome, EventId, Hash, HistoryCandidateMaterialRecord,
     HistoryEffectiveScope, LocalAuthoritativeHistorySecret, MLS_CIPHERSUITES, ReasonCode, ScopeRef,
     canonical,
@@ -254,18 +254,18 @@ pub struct MlsRemoveMemberResult {
     /// Raw OpenMLS leaf indices that were removed by this commit, in the
     /// order they appeared in the original group state.
     pub removed_leaves: Vec<u32>,
-    /// The principal DIDs whose leaves were removed (one per leaf, may
-    /// contain duplicates if the principal had multiple leaves / devices in
-    /// the same group). Useful for downstream `ak.device.revoke` event
-    /// envelopes that index by principal.
-    pub removed_principals: Vec<DidCoreId>,
+    /// The complete actor identities whose leaves were removed (one per leaf, may
+    /// contain duplicates if the actor had multiple leaves / devices in
+    /// the same group). Includes Station identity for downstream membership authorization.
+    pub removed_actors: Vec<ActorId>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsVerifiedLeafBinding {
     pub leaf_index: u32,
-    pub principal_id: DidCoreId,
+    /// Full accepted member identity; the endpoint is only signing evidence.
+    pub actor_id: ActorId,
     pub endpoint: MlsEndpointIdentity,
     pub credential_ref: arkret_wire::NonEmptyString,
     pub signature_key: arkret_wire::Base64UrlString,
@@ -314,6 +314,25 @@ fn is_zero_u64(value: &u64) -> bool {
     *value == 0
 }
 
+/// Explicit test-only identities. Production callers must supply the accepted
+/// membership ActorId and must never infer its Station from signing evidence.
+#[cfg(any(test, feature = "test-utils"))]
+pub(crate) fn test_actor_for_endpoint(endpoint: &MlsEndpointIdentity) -> ActorId {
+    let station =
+        DidCoreId::new("ak:did_core:web:mls-fixture-station.example").expect("fixture Station");
+    match endpoint {
+        MlsEndpointIdentity::HumanDevice { principal_id, .. } => {
+            ActorId::account(arkret_wire::AccountId::new(principal_id.clone(), station))
+        }
+        MlsEndpointIdentity::NativeAgentRuntime { agent_id, .. } => {
+            ActorId::hosted_principal(agent_id.clone(), station)
+        }
+        MlsEndpointIdentity::MinimalMetadataPairwise {
+            pairwise_actor_id, ..
+        } => ActorId::service(pairwise_actor_id.clone()),
+    }
+}
+
 impl ArkretMlsGroup {
     /// Whether this member still has an active leaf in the group. A client that
     /// processes a Remove commit targeting itself becomes inactive and must not
@@ -353,7 +372,8 @@ impl ArkretMlsGroup {
                     "duplicate verified MLS leaf binding".to_owned(),
                 ));
             }
-            if binding.endpoint.actor_id() != &binding.principal_id {
+            binding.actor_id.validate()?;
+            if binding.endpoint.actor_id() != binding.actor_id.signing_principal_id() {
                 return Err(Error::Protocol(
                     "verified MLS binding principal differs from endpoint actor".to_owned(),
                 ));
@@ -393,6 +413,7 @@ impl ArkretMlsGroup {
 
     pub fn install_local_creator_binding(
         &mut self,
+        actor_id: ActorId,
         device_authorize_event_id: Option<EventId>,
     ) -> Result<()> {
         let members = self.group.members().collect::<Vec<_>>();
@@ -413,7 +434,7 @@ impl ArkretMlsGroup {
                 .map_err(|error| Error::Protocol(error.to_owned()))?;
         self.install_verified_leaf_bindings(vec![MlsVerifiedLeafBinding {
             leaf_index: 0,
-            principal_id: self.identity.endpoint.actor_id().clone(),
+            actor_id,
             endpoint: self.identity.endpoint.clone(),
             credential_ref,
             signature_key,
@@ -464,7 +485,7 @@ impl ArkretMlsGroup {
                 });
             bindings.push(MlsVerifiedLeafBinding {
                 leaf_index: leaf.leaf_index,
-                principal_id: endpoint.actor_id().clone(),
+                actor_id: test_actor_for_endpoint(&endpoint),
                 endpoint,
                 credential_ref,
                 signature_key: arkret_wire::Base64UrlString::new(base64url_encode(
@@ -1028,14 +1049,27 @@ impl ArkretMlsGroup {
         })
     }
 
-    /// Snapshot member principals only from the accepted-transition binding
-    /// map. A bare RFC 9420 tree is endpoint evidence, not a principal roster.
+    /// Snapshot complete member identities from the accepted binding map.
+    /// Same-principal identities at different Stations remain distinct.
+    pub fn member_actor_ids(&self) -> Result<Vec<ActorId>> {
+        self.require_complete_leaf_bindings()?;
+        Ok(self
+            .leaf_bindings
+            .values()
+            .map(|binding| binding.actor_id.clone())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect())
+    }
+
+    /// Signing-principal projection for cryptographic lookup only. This loses
+    /// Station identity and MUST NOT be used for membership or roster authority.
     pub fn member_principal_ids(&self) -> Result<Vec<DidCoreId>> {
         self.require_complete_leaf_bindings()?;
         Ok(self
             .leaf_bindings
             .values()
-            .map(|binding| binding.principal_id.clone())
+            .map(|binding| binding.actor_id.signing_principal_id().clone())
             .collect::<std::collections::BTreeSet<_>>()
             .into_iter()
             .collect())
@@ -1091,7 +1125,7 @@ impl ArkretMlsGroup {
             .values()
             .map(|binding| arkret_models_crypto::MlsSecurityFrontierLeaf {
                 leaf_index: binding.leaf_index,
-                principal_id: binding.principal_id.clone(),
+                actor_id: binding.actor_id.clone(),
                 credential_ref: binding.credential_ref.clone(),
             })
             .collect::<Vec<_>>();
@@ -1107,8 +1141,9 @@ impl ArkretMlsGroup {
     pub fn preview_add_members_security_frontier(
         &self,
         member_key_packages: &[MlsKeyPackageRecord],
+        member_actor_ids: &[ActorId],
     ) -> Result<Vec<arkret_models_crypto::MlsSecurityFrontierLeaf>> {
-        if member_key_packages.is_empty() {
+        if member_key_packages.is_empty() || member_key_packages.len() != member_actor_ids.len() {
             return Err(Error::Protocol(
                 "refusing to preview an empty MLS KeyPackage batch".to_owned(),
             ));
@@ -1146,13 +1181,19 @@ impl ArkretMlsGroup {
             attributed_indices.insert(binding.leaf_index);
             result.push(arkret_models_crypto::MlsSecurityFrontierLeaf {
                 leaf_index: binding.leaf_index,
-                principal_id: binding.principal_id.clone(),
+                actor_id: binding.actor_id.clone(),
                 credential_ref: binding.credential_ref.clone(),
             });
         }
 
-        for record in member_key_packages {
+        for (record, actor_id) in member_key_packages.iter().zip(member_actor_ids) {
             record.endpoint.validate()?;
+            actor_id.validate()?;
+            if actor_id.signing_principal_id() != record.endpoint.actor_id() {
+                return Err(Error::Protocol(
+                    "MLS Add preview actor differs from signed endpoint principal".to_owned(),
+                ));
+            }
             let key_package_bytes = decode(&record.keypackage)?;
             if canonical::sha256_digest(&key_package_bytes) != record.keypackage_ref.as_str() {
                 return Err(Error::Protocol(
@@ -1202,7 +1243,7 @@ impl ArkretMlsGroup {
             }
             result.push(arkret_models_crypto::MlsSecurityFrontierLeaf {
                 leaf_index: leaf.leaf_index,
-                principal_id: record.endpoint.actor_id().clone(),
+                actor_id: actor_id.clone(),
                 credential_ref: arkret_wire::NonEmptyString::new(credential.to_owned())
                     .map_err(|error| Error::Protocol(error.to_owned()))?,
             });
@@ -1557,56 +1598,53 @@ impl ArkretMlsGroup {
     /// binding map. BasicCredential bytes are never treated as a principal
     /// directory.
     ///
-    /// Errors when the target principal has no leaf in this group.
-    pub fn remove_member_by_principal(
-        &mut self,
-        target: &DidCoreId,
-    ) -> Result<MlsRemoveMemberResult> {
-        self.remove_members_by_principal_with_optional_governance_binding(
+    /// Errors when the target actor has no leaf in this group.
+    pub fn remove_member_by_actor(&mut self, target: &ActorId) -> Result<MlsRemoveMemberResult> {
+        self.remove_members_by_actor_with_optional_governance_binding(
             std::slice::from_ref(target),
             None,
         )
     }
 
-    /// Remove every leaf owned by any principal in `targets` in one MLS
+    /// Remove every leaf owned by any complete actor in `targets` in one MLS
     /// Commit. Each removed leaf produces a durable Remove proposal and the
     /// single Commit consumes all of them by reference.
     ///
-    /// Errors when `targets` is empty or any target principal has no leaf in
+    /// Errors when `targets` is empty or any target actor has no leaf in
     /// the group. This keeps a membership-transition rotation fail-closed:
     /// callers cannot accidentally commit only a subset of the required
     /// removals.
-    pub fn remove_members_by_principal(
+    pub fn remove_members_by_actor(
         &mut self,
-        targets: &[DidCoreId],
+        targets: &[ActorId],
     ) -> Result<MlsRemoveMemberResult> {
-        self.remove_members_by_principal_with_optional_governance_binding(targets, None)
+        self.remove_members_by_actor_with_optional_governance_binding(targets, None)
     }
 
-    pub fn remove_members_by_principal_with_governance_binding(
+    pub fn remove_members_by_actor_with_governance_binding(
         &mut self,
-        targets: &[DidCoreId],
+        targets: &[ActorId],
         governance_binding: &MlsGovernanceBindingPayload,
     ) -> Result<MlsRemoveMemberResult> {
-        self.remove_members_by_principal_with_optional_governance_binding(
+        self.remove_members_by_actor_with_optional_governance_binding(
             targets,
             Some(governance_binding),
         )
     }
 
-    fn remove_members_by_principal_with_optional_governance_binding(
+    fn remove_members_by_actor_with_optional_governance_binding(
         &mut self,
-        targets: &[DidCoreId],
+        targets: &[ActorId],
         governance_binding: Option<&MlsGovernanceBindingPayload>,
     ) -> Result<MlsRemoveMemberResult> {
         if targets.is_empty() {
             return Err(Error::Protocol(
-                "remove_members_by_principal requires at least one target".to_owned(),
+                "remove_members_by_actor requires at least one target".to_owned(),
             ));
         }
         self.require_complete_leaf_bindings()?;
 
-        let mut canonical_targets: Vec<&str> = targets.iter().map(DidCoreId::as_str).collect();
+        let mut canonical_targets: Vec<&ActorId> = targets.iter().collect();
         canonical_targets.sort_unstable();
         canonical_targets.dedup();
         let leaves: Vec<LeafNodeIndex> = self
@@ -1618,7 +1656,7 @@ impl ArkretMlsGroup {
                     .is_some_and(|binding| {
                         canonical_targets
                             .iter()
-                            .any(|target| binding.principal_id.as_str() == *target)
+                            .any(|target| &binding.actor_id == *target)
                     })
             })
             .map(|member| member.index)
@@ -1628,10 +1666,10 @@ impl ArkretMlsGroup {
             if !self
                 .leaf_bindings
                 .values()
-                .any(|binding| binding.principal_id.as_str() == target)
+                .any(|binding| &binding.actor_id == target)
             {
                 return Err(Error::Protocol(format!(
-                    "principal {target} has no leaf in group {}",
+                    "actor {target} has no leaf in group {}",
                     self.group_id()
                 )));
             }
@@ -1645,10 +1683,10 @@ impl ArkretMlsGroup {
         leaves: &[LeafNodeIndex],
         governance_binding: Option<&MlsGovernanceBindingPayload>,
     ) -> Result<MlsRemoveMemberResult> {
-        // Capture the decoded principal before commit so we can report
-        // which principal each removed leaf belonged to even after the leaf
+        // Capture the complete actor before commit so we can report
+        // which Station-bound member owned each removed leaf even after it
         // is gone from the post-commit group state.
-        let pre_commit: Vec<(LeafNodeIndex, DidCoreId)> = self
+        let pre_commit: Vec<(LeafNodeIndex, ActorId)> = self
             .group
             .members()
             .filter(|member| leaves.contains(&member.index))
@@ -1656,7 +1694,7 @@ impl ArkretMlsGroup {
                 let binding = self.leaf_bindings.get(&member.index.u32()).ok_or_else(|| {
                     Error::Protocol("removed MLS leaf has no verified binding".to_owned())
                 })?;
-                Ok((member.index, binding.principal_id.clone()))
+                Ok((member.index, binding.actor_id.clone()))
             })
             .collect::<Result<Vec<_>>>()?;
 
@@ -1722,10 +1760,10 @@ impl ArkretMlsGroup {
         let commit_bytes = commit.tls_serialize_detached().map_err(mls_error)?;
 
         let mut removed_leaves: Vec<u32> = Vec::with_capacity(pre_commit.len());
-        let mut removed_principals: Vec<DidCoreId> = Vec::with_capacity(pre_commit.len());
+        let mut removed_actors: Vec<ActorId> = Vec::with_capacity(pre_commit.len());
         for (idx, principal) in pre_commit {
             removed_leaves.push(idx.u32());
-            removed_principals.push(principal);
+            removed_actors.push(principal);
         }
 
         Ok(MlsRemoveMemberResult {
@@ -1738,7 +1776,7 @@ impl ArkretMlsGroup {
                 ratchet_tree,
             },
             removed_leaves,
-            removed_principals,
+            removed_actors,
         })
     }
 

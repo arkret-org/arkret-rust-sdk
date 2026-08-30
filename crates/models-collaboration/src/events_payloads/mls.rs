@@ -393,7 +393,7 @@ pub struct MlsProposalPayload {
     pub proposal_type: MlsProposalType,
     pub proposal_bytes_b64: String,
     pub proposal_digest: Hash,
-    pub target_principal_id: Option<DidCoreId>,
+    pub target_actor_id: Option<ActorId>,
     pub target_authorization_incarnation: Option<AuthorizationIncarnation>,
     pub governance_binding: MlsGovernanceBindingPayload,
 }
@@ -407,7 +407,7 @@ struct MlsProposalPayloadWire {
     proposal_bytes_b64: String,
     proposal_digest: Hash,
     #[serde(default)]
-    target_principal_id: Option<DidCoreId>,
+    target_actor_id: Option<ActorId>,
     #[serde(default)]
     target_authorization_incarnation: Option<AuthorizationIncarnation>,
     governance_binding: MlsGovernanceBindingPayload,
@@ -437,7 +437,7 @@ impl MlsProposalPayload {
                     "add MLS proposal requires target authorization incarnation".to_owned(),
                 ));
             };
-            if self.target_principal_id.is_none()
+            if self.target_actor_id.is_none()
                 || !matches!(
                     (self.governance_binding.effective_scope(), incarnation),
                     (
@@ -475,7 +475,7 @@ impl Serialize for MlsProposalPayload {
             proposal_type: self.proposal_type,
             proposal_bytes_b64: self.proposal_bytes_b64.clone(),
             proposal_digest: self.proposal_digest.clone(),
-            target_principal_id: self.target_principal_id.clone(),
+            target_actor_id: self.target_actor_id.clone(),
             target_authorization_incarnation: self.target_authorization_incarnation.clone(),
             governance_binding: self.governance_binding.clone(),
         }
@@ -495,7 +495,7 @@ impl<'de> Deserialize<'de> for MlsProposalPayload {
             proposal_type: wire.proposal_type,
             proposal_bytes_b64: wire.proposal_bytes_b64,
             proposal_digest: wire.proposal_digest,
-            target_principal_id: wire.target_principal_id,
+            target_actor_id: wire.target_actor_id,
             target_authorization_incarnation: wire.target_authorization_incarnation,
             governance_binding: wire.governance_binding,
         };

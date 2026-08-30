@@ -61,6 +61,86 @@ mod tests {
     use chrono::Utc;
 
     use super::*;
+
+    #[test]
+    fn same_principal_station_members_remain_distinct_across_snapshot_and_removal() {
+        let principal = DidCoreId::new("ak:did_core:web:same-principal.example").unwrap();
+        let local = ArkretMlsIdentity::new_test_human_device(
+            principal.clone(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000071").unwrap(),
+        )
+        .unwrap();
+        let remote = ArkretMlsIdentity::new_test_human_device(
+            principal.clone(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000072").unwrap(),
+        )
+        .unwrap();
+        let remote_keypackage = remote.key_package_record().unwrap();
+        let mut group = local
+            .create_group(b"ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV")
+            .unwrap();
+        group.add_member(&remote_keypackage).unwrap();
+        let local_actor = arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+            principal.clone(),
+            DidCoreId::new("ak:did_core:web:station-a.example").unwrap(),
+        ));
+        let remote_actor = arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+            principal.clone(),
+            DidCoreId::new("ak:did_core:web:station-b.example").unwrap(),
+        ));
+        let mut bindings = group.verified_leaf_bindings().unwrap();
+        for binding in &mut bindings {
+            binding.actor_id = if binding.leaf_index == 0 {
+                local_actor.clone()
+            } else {
+                remote_actor.clone()
+            };
+        }
+        group.install_verified_leaf_bindings(bindings).unwrap();
+        assert_eq!(
+            group.member_actor_ids().unwrap(),
+            vec![local_actor.clone(), remote_actor.clone()]
+        );
+        assert_eq!(group.member_principal_ids().unwrap(), vec![principal]);
+        let snapshot = group.export_state_record().unwrap();
+        let mut restored = ArkretMlsGroup::restore_from_state_record(&snapshot).unwrap();
+        assert_eq!(
+            restored.member_actor_ids().unwrap(),
+            group.member_actor_ids().unwrap()
+        );
+        assert_eq!(
+            restored.security_frontier_leaves().unwrap(),
+            group.security_frontier_leaves().unwrap()
+        );
+        let removed = restored.remove_member_by_actor(&remote_actor).unwrap();
+        assert_eq!(removed.removed_actors, vec![remote_actor]);
+        assert_eq!(restored.member_actor_ids().unwrap(), vec![local_actor]);
+    }
+
+    #[test]
+    fn verified_leaf_rejects_actor_with_different_signing_principal_without_mutation() {
+        let local = ArkretMlsIdentity::new_test_human_device(
+            DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000073").unwrap(),
+        )
+        .unwrap();
+        let mut group = local
+            .create_group(b"ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV")
+            .unwrap();
+        let original = group.verified_leaf_bindings().unwrap();
+        let mut invalid = original.clone();
+        invalid[0].actor_id =
+            test_account_actor(&DidCoreId::new("ak:did_core:web:bob.example").unwrap());
+        assert!(group.install_verified_leaf_bindings(invalid).is_err());
+        assert_eq!(group.verified_leaf_bindings().unwrap(), original);
+    }
+
+    fn test_account_actor(principal: &DidCoreId) -> arkret_wire::ActorId {
+        arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+            principal.clone(),
+            DidCoreId::new("ak:did_core:web:mls-fixture-station.example").unwrap(),
+        ))
+    }
     use crate::MlsError as Error;
 
     fn content_header(
@@ -442,8 +522,8 @@ mod tests {
         let remove_binding = governance_binding(&group_id, 1, 2, governance_hash('3'));
 
         let remove = alice_group
-            .remove_members_by_principal_with_governance_binding(
-                std::slice::from_ref(&bob_did),
+            .remove_members_by_actor_with_governance_binding(
+                std::slice::from_ref(&test_account_actor(&bob_did)),
                 &remove_binding,
             )
             .unwrap();
@@ -765,9 +845,9 @@ mod tests {
         assert!(members.contains(&DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap()));
 
         let _ = alice_group
-            .remove_member_by_principal(
+            .remove_member_by_actor(&test_account_actor(
                 &DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
-            )
+            ))
             .unwrap();
         assert_eq!(
             alice_group.member_principal_ids().unwrap(),
@@ -944,17 +1024,20 @@ mod tests {
             .add_members(&[bob_key_package, carol_key_package])
             .unwrap();
         group
-            .remove_member_by_principal(
+            .remove_member_by_actor(&test_account_actor(
                 &DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
-            )
+            ))
             .unwrap();
 
         let epoch_before_preview = group.epoch();
         let preview = group
-            .preview_add_members_security_frontier(&[
-                dave_key_package.clone(),
-                eve_key_package.clone(),
-            ])
+            .preview_add_members_security_frontier(
+                &[dave_key_package.clone(), eve_key_package.clone()],
+                &[
+                    group::test_actor_for_endpoint(&dave_key_package.endpoint),
+                    group::test_actor_for_endpoint(&eve_key_package.endpoint),
+                ],
+            )
             .unwrap();
         assert_eq!(group.epoch(), epoch_before_preview);
 
@@ -1267,11 +1350,11 @@ mod tests {
         assert!(matches!(error, Error::Protocol(_)));
     }
 
-    /// T31 — `remove_member_by_principal` removes a leaf, advances the
+    /// T31 — `remove_member_by_actor` removes a leaf, advances the
     /// group's epoch and produces a commit envelope that surviving members
     /// can apply to converge.
     #[test]
-    fn remove_member_by_principal_advances_epoch_and_emits_commit() {
+    fn remove_member_by_actor_advances_epoch_and_emits_commit() {
         let alice = ArkretMlsIdentity::new_test_human_device(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
@@ -1301,7 +1384,9 @@ mod tests {
 
         let epoch_before = alice_group.epoch();
         let target = DidCoreId::new("ak:did_core:webvh:z6mkfixturecharlie").unwrap();
-        let result = alice_group.remove_member_by_principal(&target).unwrap();
+        let result = alice_group
+            .remove_member_by_actor(&test_account_actor(&target))
+            .unwrap();
 
         // Epoch advanced by exactly one Commit.
         assert_eq!(alice_group.epoch(), epoch_before + 1);
@@ -1310,15 +1395,15 @@ mod tests {
         assert_eq!(result.commit.group_id, alice_group.group_id());
         // Exactly one leaf removed; principal correctly reported.
         assert_eq!(result.removed_leaves.len(), 1);
-        assert_eq!(result.removed_principals.len(), 1);
+        assert_eq!(result.removed_actors.len(), 1);
         assert_eq!(
-            result.removed_principals[0].as_str(),
+            result.removed_actors[0].signing_principal_id().as_str(),
             "ak:did_core:webvh:z6mkfixturecharlie"
         );
     }
 
     #[test]
-    fn remove_members_by_principal_batches_one_commit() {
+    fn remove_members_by_actor_batches_one_commit() {
         let alice = ArkretMlsIdentity::new_test_human_device(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
@@ -1348,15 +1433,17 @@ mod tests {
             DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DidCoreId::new("ak:did_core:webvh:z6mkfixturecharlie").unwrap(),
         ];
-        let result = alice_group.remove_members_by_principal(&targets).unwrap();
+        let result = alice_group
+            .remove_members_by_actor(&targets.iter().map(test_account_actor).collect::<Vec<_>>())
+            .unwrap();
 
         assert_eq!(alice_group.epoch(), epoch_before + 1);
         assert_eq!(result.proposals.len(), 2);
         assert_eq!(result.removed_leaves.len(), 2);
         let mut removed: Vec<&str> = result
-            .removed_principals
+            .removed_actors
             .iter()
-            .map(DidCoreId::as_str)
+            .map(|actor| actor.signing_principal_id().as_str())
             .collect();
         removed.sort_unstable();
         assert_eq!(
@@ -1381,7 +1468,7 @@ mod tests {
     /// than silently no-op'ing. The orchestration plan in inkson relies on
     /// this to surface "leaf already gone" as a recoverable state.
     #[test]
-    fn remove_member_by_principal_errors_when_target_absent() {
+    fn remove_member_by_actor_errors_when_target_absent() {
         let alice = ArkretMlsIdentity::new_test_human_device(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
@@ -1392,7 +1479,7 @@ mod tests {
             .unwrap();
 
         let absent = DidCoreId::new("ak:did_core:webvh:z6mkfixturenobody").unwrap();
-        let err = alice_group.remove_member_by_principal(&absent);
+        let err = alice_group.remove_member_by_actor(&test_account_actor(&absent));
         assert!(matches!(err, Err(Error::Protocol(_))));
     }
 

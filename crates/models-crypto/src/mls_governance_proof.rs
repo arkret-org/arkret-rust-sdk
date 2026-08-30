@@ -9,7 +9,7 @@ use std::collections::BTreeSet;
 use arkret_wire::base64url::{base64url_decode, base64url_encode};
 use arkret_wire::event_envelope::ScopeRef;
 use arkret_wire::{
-    Base64UrlString, CellRef, DidCoreId, EventId, Hash, NonEmptyString, Result, SealBasis, SealId,
+    ActorId, Base64UrlString, CellRef, EventId, Hash, NonEmptyString, Result, SealBasis, SealId,
     WireError,
 };
 use serde::{Deserialize, Serialize};
@@ -28,7 +28,7 @@ const MLS_GOVERNANCE_PAGE_DIGEST_DOMAIN: &[u8] = b"ak.mls-governance-proof-page-
 #[serde(deny_unknown_fields)]
 pub struct MlsSecurityFrontierLeaf {
     pub leaf_index: u32,
-    pub principal_id: DidCoreId,
+    pub actor_id: ActorId,
     pub credential_ref: NonEmptyString,
 }
 
@@ -98,6 +98,7 @@ impl MlsGovernanceProofRequestBody {
         let mut previous_leaf_index = None;
         let mut credential_refs = BTreeSet::new();
         for leaf in &self.local_mls_leaves {
+            leaf.actor_id.validate()?;
             if leaf.credential_ref.as_str().chars().count() > 2_048 {
                 return schema(
                     "MLS governance proof local_mls_leaves credential_ref exceeds 2048 characters",

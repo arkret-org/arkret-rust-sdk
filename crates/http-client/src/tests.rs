@@ -708,7 +708,10 @@ mod events_submit_tests {
             mls_group_id: Base64UrlString::new(group_id.clone()).unwrap(),
             local_mls_leaves: vec![MlsSecurityFrontierLeaf {
                 leaf_index: 0,
-                principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                actor_id: ActorId::account(AccountId::new(
+                    DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                    DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+                )),
                 credential_ref: NonEmptyString::new("did:webvh:z6mkfixture#device-1").unwrap(),
             }],
             proof_base_basis: basis.clone(),

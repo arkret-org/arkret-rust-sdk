@@ -855,8 +855,7 @@ pub fn derive_history_join_epoch(
                 let proposal: MlsProposalPayload = payload_of(event)?;
                 if proposal.mls_group_id == subject.mls_group_id
                     && proposal.proposal_type == MlsProposalType::Add
-                    && proposal.target_principal_id.as_ref()
-                        == Some(subject.requester_actor_id.signing_principal_id())
+                    && proposal.target_actor_id.as_ref() == Some(&subject.requester_actor_id)
                     && proposal.target_authorization_incarnation.as_ref()
                         == Some(&subject.authorization_incarnation)
                 {
@@ -1337,7 +1336,7 @@ mod tests {
             proposal_bytes_b64: arkret_canonical::base64url_encode(proposal_bytes),
             proposal_digest: Hash::new(arkret_canonical::sha256_digest(proposal_bytes))
                 .expect("proposal digest"),
-            target_principal_id: Some(actor()),
+            target_actor_id: Some(ActorId::account(AccountId::new(actor(), actor()))),
             target_authorization_incarnation: Some(AuthorizationIncarnation::Realm {
                 realm_membership_incarnation_ref: incarnation.clone(),
             }),
