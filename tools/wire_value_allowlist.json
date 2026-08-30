@@ -5122,17 +5122,6 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
-      "finding": "json_path_mutation:soland/crates/http/src/routing/identity/consent.rs::plan_invite_quarantine_invalidation:986ab36b0d59ca2c",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning schema",
-      "owner_repository": "soland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
       "finding": "json_path_mutation:soland/crates/http/src/routing/identity/contact_federation.rs::validate_contact_lineage_carrier:addb37bb3db9e798",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -5166,15 +5155,15 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
-      "finding": "json_path_mutation:soland/crates/http/src/routing/invites.rs::resolve_invite_locator:7b81092bf0ac3169",
+      "finding": "json_path_mutation:crates/models-collaboration/src/governance/invite_addressing.rs::payload_digest:fdec439e41f30d44",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
-      "authority": "arkret-spec protocol schema owning proofs",
-      "owner_repository": "soland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
+      "authority": "schemas/principal-locator.schema.json and registry/proof-context-registry.json: ak.principal_locator_proof.v1",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Serialize the closed PrincipalLocator with its owning SDK serializer, remove only the registered proofs carrier, then JCS-hash the complete remaining object.",
+      "test": "cargo test -p arkret-models-collaboration --lib principal_locator_serializes_canonical_timestamps",
+      "reason": "The protocol defines the unsigned digest by removing proofs. This owner-local canonical projection replaces the removed Soland raw-payload signer; it is not permission for arbitrary consumer mutation or open wire fields."
     },
     {
       "finding": "json_path_mutation:soland/crates/http/src/routing/organizations.rs::upsert_organization_policy:46ba71a3fb50d6b8",

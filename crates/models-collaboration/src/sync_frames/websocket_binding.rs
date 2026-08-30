@@ -140,14 +140,32 @@ pub struct WebSocketAccountOpenParameters {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WebSocketEventsOpenParameters {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_optional_event_selector"
+    )]
     pub realm_ids: Option<Vec<RealmId>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_optional_event_selector"
+    )]
     pub actor_ids: Option<Vec<ActorId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub after: Option<Cursor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub catchup: Option<bool>,
+}
+
+fn deserialize_optional_event_selector<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<Vec<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    crate::event_query::deserialize_nonempty_selectors(deserializer).map(Some)
 }
 
 /// Operation-discriminated `open.parameters` union (§5).
@@ -212,6 +230,23 @@ impl WebSocketOpenParameters {
             Self::Events(parameters) => {
                 let realm_ids = parameters.realm_ids.as_deref().unwrap_or_default();
                 let actor_ids = parameters.actor_ids.as_deref().unwrap_or_default();
+                if parameters.realm_ids.as_ref().is_some_and(Vec::is_empty)
+                    || parameters.actor_ids.as_ref().is_some_and(Vec::is_empty)
+                    || realm_ids
+                        .iter()
+                        .collect::<std::collections::BTreeSet<_>>()
+                        .len()
+                        != realm_ids.len()
+                    || actor_ids
+                        .iter()
+                        .collect::<std::collections::BTreeSet<_>>()
+                        .len()
+                        != actor_ids.len()
+                {
+                    return Err(WireError::Protocol(
+                        "present WebSocket event selectors must be nonempty and unique".to_owned(),
+                    ));
+                }
                 if realm_ids.is_empty() && actor_ids.is_empty() {
                     return Err(WireError::Protocol(
                         "WebSocket events open parameters require realm_ids or actor_ids"
@@ -860,6 +895,21 @@ mod tests {
             &serde_json::json!({"catchup": false}),
         )
         .expect_err("events require realm_ids or actor_ids");
+    }
+
+    #[test]
+    fn events_open_rejects_empty_null_and_duplicate_secondary_selectors() {
+        let realm = "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19";
+        for value in [
+            serde_json::json!({"realm_ids": [realm], "actor_ids": []}),
+            serde_json::json!({"realm_ids": [realm], "actor_ids": null}),
+            serde_json::json!({"realm_ids": [realm, realm]}),
+        ] {
+            assert!(
+                WebSocketOpenParameters::parse(WebSocketOperationId::EventsStreamSubscribe, &value)
+                    .is_err()
+            );
+        }
     }
 
     #[test]

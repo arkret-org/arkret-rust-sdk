@@ -901,6 +901,23 @@ mod tests {
             value["proofs"][0]["proof"]["created_at"],
             "2026-06-07T10:00:00.123Z"
         );
+        let digest = locator.payload_digest().unwrap();
+        let mut unsigned = locator.clone();
+        unsigned.proofs.clear();
+        assert_eq!(unsigned.payload_digest().unwrap(), digest);
+        let mut proof = locator.proofs[0].proof.clone();
+        proof.payload_digest = digest;
+        let binding: serde_json::Value =
+            serde_json::from_slice(&locator.proof_signing_bytes(&proof).unwrap()).unwrap();
+        assert_eq!(
+            binding["account_id"],
+            serde_json::to_value(&locator.account_id).unwrap()
+        );
+        assert!(binding.get("subject_id").is_none());
+        assert!(binding.get("recipient_id").is_none());
+        unsigned.account_id.station_id = DidCoreId::new("ak:did_core:web:other.example").unwrap();
+        assert_ne!(unsigned.payload_digest().unwrap(), proof.payload_digest);
+        assert!(unsigned.proof_signing_bytes(&proof).is_err());
         assert!(serde_json::from_value::<PrincipalLocator>(value).is_ok());
     }
 
@@ -1008,7 +1025,7 @@ mod tests {
             schema: HandleClaim::SCHEMA.to_owned(),
             handle: handle.clone(),
             handle_aliases: Vec::new(),
-            subject_account_id: arkret_wire::AccountId::new(
+            subject_account_id: AccountId::new(
                 DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
                 DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
             ),

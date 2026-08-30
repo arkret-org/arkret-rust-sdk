@@ -75,9 +75,18 @@ impl EventsQueryOrder {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EventsQueryPostRequestBody {
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "deserialize_nonempty_selectors"
+    )]
     pub realm_ids: Vec<RealmId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "deserialize_actor_selectors",
+        serialize_with = "serialize_actor_selectors"
+    )]
     pub actor_ids: Vec<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub before: Option<Cursor>,
@@ -93,9 +102,84 @@ pub struct EventsQueryPostRequestBody {
     pub include_completeness: Option<bool>,
 }
 
+pub(crate) fn deserialize_nonempty_selectors<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    let values = Vec::<T>::deserialize(deserializer)?;
+    if values.is_empty() {
+        return Err(serde::de::Error::custom(
+            "a present event selector must not be empty",
+        ));
+    }
+    Ok(values)
+}
+
+fn validate_actor_selectors(values: &[ActorId]) -> Result<(), &'static str> {
+    if values.len() > 256
+        || values
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len()
+            != values.len()
+    {
+        return Err("actor selectors must contain at most 256 unique identities");
+    }
+    Ok(())
+}
+
+fn deserialize_actor_selectors<'de, D>(deserializer: D) -> Result<Vec<ActorId>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let values = deserialize_nonempty_selectors(deserializer)?;
+    validate_actor_selectors(&values).map_err(serde::de::Error::custom)?;
+    Ok(values)
+}
+
+fn serialize_actor_selectors<S>(values: &[ActorId], serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    validate_actor_selectors(values).map_err(serde::ser::Error::custom)?;
+    values.serialize(serializer)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{EventsFrontierRequestBody, EventsQueryOrder, SealFrontierRequestBody};
+
+    #[test]
+    fn scan_rejects_present_empty_and_duplicate_actor_selectors() {
+        let actor = serde_json::json!({
+            "kind": "account",
+            "account_id": {
+                "principal_id": "ak:did_core:web:alice.example",
+                "station_id": "ak:did_core:web:station.example"
+            }
+        });
+        for value in [
+            serde_json::json!({"actor_ids": []}),
+            serde_json::json!({"actor_ids": [actor.clone()], "realm_ids": []}),
+            serde_json::json!({"actor_ids": [actor.clone(), actor.clone()]}),
+            serde_json::json!({"actor_ids": [actor.clone()], "realm_ids": null}),
+        ] {
+            assert!(serde_json::from_value::<super::EventsQueryPostRequestBody>(value).is_err());
+        }
+        let request: super::EventsQueryPostRequestBody =
+            serde_json::from_value(serde_json::json!({"actor_ids": [actor]})).unwrap();
+        assert!(
+            !serde_json::to_value(&request)
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .contains_key("realm_ids")
+        );
+        let mut duplicate = request.clone();
+        duplicate.actor_ids.push(request.actor_ids[0].clone());
+        assert!(serde_json::to_value(duplicate).is_err());
+    }
 
     #[test]
     fn query_order_uses_protocol_wire_values() {

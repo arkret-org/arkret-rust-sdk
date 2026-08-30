@@ -261,7 +261,12 @@ pub fn verify_jws_with_document_relationship(
             issuer: authority.clone(),
         });
     }
-    require_verification_relationship(document, verification_method, authority, relationship)?;
+    validate_verification_method_relationship(
+        document,
+        verification_method,
+        authority,
+        relationship,
+    )?;
     verify_jws_against_document_key(canonical_bytes, jws, verification_method, document)
 }
 
@@ -286,12 +291,24 @@ fn verify_jws_against_document_key(
         .map_err(|source| BindingVerifyError::Proof { source })
 }
 
-fn require_verification_relationship(
+/// Validate a method's authority and relationship in an already-verified
+/// current DID document without resolving the DID or verifying a signature.
+///
+/// Callers must separately verify the object-family transcript and resolve the
+/// key material. Merely finding a key in `verificationMethod` is not evidence
+/// that the authority permits it to issue assertions.
+pub fn validate_verification_method_relationship(
     document: &DidDocument,
     verification_method: &DidUrl,
     authority: &Did,
     relationship: DidVerificationRelationship,
 ) -> Result<(), BindingVerifyError> {
+    if &document.id != authority {
+        return Err(BindingVerifyError::DocumentIssuerMismatch {
+            document_did: document.id.clone(),
+            issuer: authority.clone(),
+        });
+    }
     let property = relationship.property_name();
     let relationship_value = document.raw_properties.get(property).ok_or_else(|| {
         BindingVerifyError::VerificationRelationshipMissing {
@@ -910,6 +927,49 @@ mod tests {
             &document(&format!("{}#key-1", did())),
         )
         .expect("verify");
+    }
+
+    #[test]
+    fn assertion_relationship_requires_current_membership_and_authority() {
+        let method = verification_method();
+        let mut pinned = document(method.as_str());
+        let validate = |document: &DidDocument| {
+            validate_verification_method_relationship(
+                document,
+                &method,
+                &did(),
+                DidVerificationRelationship::AssertionMethod,
+            )
+        };
+        assert!(matches!(
+            validate(&pinned),
+            Err(BindingVerifyError::VerificationRelationshipMissing { .. })
+        ));
+        pinned.raw_properties.insert(
+            "assertionMethod".to_owned(),
+            serde_json::json!(["#other-key"]),
+        );
+        assert!(matches!(
+            validate(&pinned),
+            Err(BindingVerifyError::VerificationMethodRelationshipMismatch { .. })
+        ));
+        pinned
+            .raw_properties
+            .insert("assertionMethod".to_owned(), serde_json::json!(["#key-1"]));
+        validate(&pinned).expect("current assertion method");
+        pinned.raw_properties.insert(
+            "verificationMethod".to_owned(),
+            serde_json::json!([{"id": method, "controller": "did:web:other.example"}]),
+        );
+        assert!(matches!(
+            validate(&pinned),
+            Err(BindingVerifyError::VerificationMethodControllerMismatch { .. })
+        ));
+        pinned.id = Did::new("did:web:other.example").unwrap();
+        assert!(matches!(
+            validate(&pinned),
+            Err(BindingVerifyError::DocumentIssuerMismatch { .. })
+        ));
     }
 
     #[test]

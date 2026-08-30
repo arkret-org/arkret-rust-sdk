@@ -79,6 +79,7 @@ pub use service_resolution_evidence::*;
 pub use verifier::{
     BindingResolveError, BindingResolveRequest, BindingVerifyError, DidVerificationRelationship,
     public_key_material_from_binding, public_key_material_from_document,
-    resolve_and_verify_binding, verify_event_proof_with_binding, verify_jws_with_binding,
-    verify_jws_with_document, verify_jws_with_document_relationship,
+    resolve_and_verify_binding, validate_verification_method_relationship,
+    verify_event_proof_with_binding, verify_jws_with_binding, verify_jws_with_document,
+    verify_jws_with_document_relationship,
 };

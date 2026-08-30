@@ -37,9 +37,8 @@ use arkret_wire::{
     AccountId, ActorId, AuthorizationLeaseIssueRequestBody, ControlProposalAck,
     ControlProposalAckIssueOutcome, ControlProposalAckIssueRequest, ControlProposalDecisionPolicy,
     ControlProposalDecisionReadOutcome, ControlProposalDecisionReadRequestBody,
-    ControlProposalDecisionSubmitOutcome, ControlProposalDecisionSubmitRequestBody, Cursor,
-    DidCoreId, Event, EventInitialSubmission, EventSubmitContext, EventsSubmitBatchRequestBody,
-    Hash, RealmId, Seal,
+    ControlProposalDecisionSubmitOutcome, ControlProposalDecisionSubmitRequestBody, Cursor, Event,
+    EventInitialSubmission, EventSubmitContext, EventsSubmitBatchRequestBody, Hash, RealmId, Seal,
 };
 use reqwest::{Method, RequestBuilder, Response};
 use serde::Serialize;
@@ -1085,6 +1084,7 @@ fn merge_range_completeness(
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::DidCoreId;
     #[cfg(not(target_arch = "wasm32"))]
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     #[cfg(not(target_arch = "wasm32"))]
@@ -1121,7 +1121,7 @@ mod tests {
     fn events_subscribe_request_serializes_stream_options() {
         let options = EventsSubscribeOptions::new()
             .realm(RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap())
-            .actor(ActorId::account(arkret_wire::AccountId::new(
+            .actor(ActorId::account(AccountId::new(
                 DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
                 DidCoreId::new("ak:did_core:web:station.example").unwrap(),
             )))
