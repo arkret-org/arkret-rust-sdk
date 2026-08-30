@@ -330,9 +330,12 @@ pub fn validate_realm_bootstrap_unit(
                 let actor_key = actor_id
                     .canonical_key()
                     .map_err(|_| RealmBootstrapValidationError::OutOfOrderBootstrap)?;
-                let creator_cell =
-                    CellRef::new(format!("ak:cell:ak.component.member.state.v1:{actor_key}"))
-                        .map_err(|_| RealmBootstrapValidationError::OutOfOrderBootstrap)?;
+                let creator_subject = arkret_wire::composite_subject(&[actor_key])
+                    .map_err(|_| RealmBootstrapValidationError::OutOfOrderBootstrap)?;
+                let creator_cell = CellRef::new(format!(
+                    "ak:cell:ak.component.member.state.v1:{creator_subject}"
+                ))
+                .map_err(|_| RealmBootstrapValidationError::OutOfOrderBootstrap)?;
                 let genesis_head_eq_registered =
                     arkret_schema::realm_bootstrap_genesis_head_eq_registered(
                         "ordinary_collaboration",
@@ -398,13 +401,21 @@ fn genesis_authority_root(
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{Hlc, RealmId, ScopeRef};
+    use arkret_wire::{AccountId, DidCoreId, Hlc, RealmId, ScopeRef};
     use serde_json::json;
 
     use super::*;
 
     const REALM: &str = "ak:realm:AS_LTHQu5UtXbAIUOgUFzEY5nFJzI1cgPvxODB_NnHSR";
     const ACTOR: &str = "ak:did_core:webvh:z6mkfixture";
+    const STATION: &str = "ak:did_core:webvh:z6mkfixtureps";
+
+    fn actor() -> ActorId {
+        ActorId::account(AccountId::new(
+            DidCoreId::new(ACTOR).unwrap(),
+            DidCoreId::new(STATION).unwrap(),
+        ))
+    }
 
     fn created_at() -> DateTime<Utc> {
         DateTime::parse_from_rfc3339("2026-05-26T10:30:00.000Z")
@@ -419,7 +430,7 @@ mod tests {
                 realm_id: RealmId::new(REALM).unwrap(),
             },
             DidCoreId::new(ACTOR).unwrap(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
+            DidCoreId::new(STATION).unwrap(),
             1,
             Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
             payload,
@@ -477,14 +488,18 @@ mod tests {
                 EventKind::MemberState,
                 json!({
                     "realm_id": REALM,
-                    "actor_id": ACTOR,
-                    "membership": "join",
-                    "delivery_status": "unroutable"
+                    "member_id": actor(),
+                    "membership": "join"
                 }),
             ),
         ];
+        let actor_key = actor().canonical_key().unwrap();
+        let creator_subject = arkret_wire::composite_subject(&[actor_key]).unwrap();
         events.last_mut().unwrap().preconditions = vec![arkret_wire::Precondition {
-            cell_id: CellRef::new(format!("ak:cell:ak.component.member.state.v1:{ACTOR}")).unwrap(),
+            cell_id: CellRef::new(format!(
+                "ak:cell:ak.component.member.state.v1:{creator_subject}"
+            ))
+            .unwrap(),
             predicate: arkret_wire::Predicate {
                 op: PredicateOp::HeadEq,
                 value: Some(serde_json::Value::Null),
@@ -500,7 +515,7 @@ mod tests {
         let events = complete_unit();
         let result = validate_realm_bootstrap_unit(&events);
         let bootstrap = result.expect("bootstrap accepted");
-        assert!(bootstrap.authority_root.is_genesis_for(ACTOR));
+        assert!(bootstrap.authority_root.is_genesis_for(&actor()));
     }
 
     #[test]
@@ -522,8 +537,11 @@ mod tests {
         // DID would fail the typed payload parse first and never reach the
         // subject comparison this test exists to pin.
         events.last_mut().unwrap().payload.insert(
-            "actor_id".to_owned(),
-            json!("ak:did_core:webvh:z6mkfixture:other.example"),
+            "member_id".to_owned(),
+            json!(ActorId::account(AccountId::new(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixture:other.example").unwrap(),
+                DidCoreId::new(STATION).unwrap(),
+            ))),
         );
         assert_eq!(
             validate_realm_bootstrap_unit(&events),
@@ -558,10 +576,12 @@ mod tests {
 
     #[test]
     fn genesis_root_value_is_controller_epoch_and_generation_zero() {
-        let value = RealmAuthorityRootValue::genesis(DidCoreId::new(ACTOR).unwrap());
+        let value = RealmAuthorityRootValue::genesis(actor());
         assert_eq!(value.controller_epoch, 0);
         assert_eq!(value.authority_generation, 0);
-        assert!(!value.is_genesis_for("did:web:other.example"));
+        assert!(!value.is_genesis_for(&ActorId::service(
+            DidCoreId::new("ak:did_core:web:other.example").unwrap()
+        )));
     }
 
     #[test]
@@ -569,9 +589,12 @@ mod tests {
         let scope = ScopeRef::Realm {
             realm_id: RealmId::new(REALM).unwrap(),
         };
-        let actor = DidCoreId::new(ACTOR).unwrap();
+        let actor = actor();
         let expected = format!("sha256:{}", "1".repeat(64));
-        let successor = "ak:did_core:web:successor.example";
+        let successor = ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:web:successor.example").unwrap(),
+            DidCoreId::new(STATION).unwrap(),
+        ));
         let transfer: RealmOwnerTransferPayload = serde_json::from_value(json!({
             "realm_id": REALM,
             "expected_state_digest": expected,
@@ -615,7 +638,7 @@ mod tests {
                 ScopeRef::Realm {
                     realm_id: RealmId::new(REALM).unwrap()
                 },
-                DidCoreId::new(ACTOR).unwrap(),
+                actor(),
                 created_at(),
                 payload,
             )

@@ -475,16 +475,19 @@ mod tests {
 
     use super::*;
 
+    fn account_actor(principal_id: &str) -> ActorId {
+        ActorId::account(arkret_wire::AccountId::new(
+            DidCoreId::new(principal_id).unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
+        ))
+    }
+
     fn root_grant(id: &str, actions: &[&str], resource: &str) -> Grant {
         Grant {
             grant_id: id.to_owned(),
             realm_id: "ak:realm:1".to_owned(),
-            issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
-            issuer_station_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
-            subject_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
-            subject_station_id: Some(
-                DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
-            ),
+            issuer_id: account_actor("ak:did_core:webvh:z6mkfixturealice"),
+            subject_id: account_actor("ak:did_core:webvh:z6mkfixturebob"),
             resource: resource.to_owned(),
             actions: actions.iter().map(|s| (*s).to_owned()).collect(),
             constraints: Vec::new(),
@@ -513,12 +516,8 @@ mod tests {
         Grant {
             grant_id: id.to_owned(),
             realm_id: "ak:realm:1".to_owned(),
-            issuer_id: DidCoreId::new(issuer).unwrap(),
-            issuer_station_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
-            subject_id: DidCoreId::new(subject).unwrap(),
-            subject_station_id: Some(
-                DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
-            ),
+            issuer_id: account_actor(issuer),
+            subject_id: account_actor(subject),
             resource: resource.to_owned(),
             actions: actions.iter().map(|s| (*s).to_owned()).collect(),
             constraints: expires_at
@@ -664,7 +663,7 @@ mod tests {
     }
 
     #[test]
-    fn deserialized_chain_with_cross_server_parent_edge_is_not_intact() {
+    fn deserialized_chain_with_cross_station_parent_edge_is_not_intact() {
         let now = Utc::now();
         let root = root_grant("g1", &["read"], "ak:realm:1");
         let mut forged = child_grant(
@@ -676,8 +675,10 @@ mod tests {
             "ak:realm:1",
             None,
         );
-        forged.issuer_station_id =
-            DidCoreId::new("ak:did_core:webvh:z6mkfixtureotherserver").unwrap();
+        forged.issuer_id = ActorId::account(arkret_wire::AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureotherstation").unwrap(),
+        ));
 
         assert!(!authority_chain_intact(&[root, forged], "g2", now));
     }
