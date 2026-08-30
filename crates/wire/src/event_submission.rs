@@ -16,7 +16,7 @@ use crate::event_envelope::{Event, EventSubmitContext};
 use crate::offline_publication::{
     AnchorUnitLeaseBasis, AuthorizationLease, IngressReceipt, LeaseBasisRef,
 };
-use crate::{DidCoreId, RiskTier, ScopeRef};
+use crate::{RiskTier, ScopeRef};
 
 pub const MAX_SUBMISSION_CBA_BUNDLES: usize = 64;
 
@@ -425,29 +425,25 @@ fn validate_membership_compensation_evidence(
     event: &Event,
     evidence: Option<&crate::MembershipCompensationSubmissionEvidence>,
 ) -> Result<()> {
-    let Some(evidence) = evidence else {
-        return Ok(());
-    };
-    evidence.validate_bindings()?;
-    let core = &evidence.delegation.core;
-    if event.kind.as_str() != crate::event_kind_str::MEMBER_STATE
-        || event.executed_by.as_ref().map(DidCoreId::as_core_id)
-            != Some(core.executor_id.as_core_id())
-        || event.authorization_ref.as_ref().map(|value| value.as_str())
-            != Some(evidence.delegation.delegation_id.as_str())
-        || event.actor_id != core.join_actor_id
-        || event.realm_id != core.resource
-        || event
-            .payload
-            .get("actor_id")
-            .and_then(serde_json::Value::as_str)
-            != Some(core.subject_id.as_str())
-    {
-        return Err(WireError::Protocol(
-            "membership compensation evidence does not bind the submitted Event".to_owned(),
-        ));
+    let selects_compensation = event.authorization_ref.as_ref().is_some_and(|value| {
+        crate::MembershipCompensationDelegationRef::new(value.as_str()).is_ok()
+    });
+    match (selects_compensation, evidence) {
+        (false, None) => Ok(()),
+        (true, None) => {
+            Err(WireError::Protocol(
+                "membership compensation authorization requires membership_compensation_evidence"
+                    .to_owned(),
+            ))
+        }
+        (false, Some(_)) => {
+            Err(WireError::Protocol(
+                "membership_compensation_evidence requires a matching membership compensation authorization_ref"
+                    .to_owned(),
+            ))
+        }
+        (true, Some(_)) => Ok(()),
     }
-    Ok(())
 }
 
 impl EventInitialSubmission {
@@ -619,9 +615,9 @@ mod tests {
     };
     use crate::{
         AuthContext, AuthoritySetPolicyKind, AuthoritySetSourceKind, AuthorizationLeaseId,
-        DeviceId, DidKey, DidUrl, EventProof, Hash, PayloadProof, PrincipalServerAdmissionProof,
-        PrincipalServerAdmissionProofKind, ProducerEventProof, RealmId, SchemaId, SealId,
-        proof_kind,
+        Base64UrlString, DeviceId, DidCoreId, DidKey, DidUrl, EventProof, Hash, PayloadProof,
+        PrincipalServerAdmissionProof, PrincipalServerAdmissionProofKind, ProducerEventProof,
+        RealmId, SchemaId, SealId, proof_kind,
     };
 
     fn instant(hour: u32) -> chrono::DateTime<Utc> {
@@ -796,6 +792,123 @@ mod tests {
         event
     }
 
+    fn membership_compensation_submission()
+    -> (Event, crate::MembershipCompensationSubmissionEvidence) {
+        let join_actor_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
+        let subject_id = DidCoreId::new("ak:did_core:webvh:z6mkfixturesubject").unwrap();
+        let executor_id = DidCoreId::new("ak:did_core:webvh:z6mkfixtureexecutor").unwrap();
+        let resource = match scope() {
+            ScopeRef::Realm { realm_id } => realm_id,
+            _ => unreachable!(),
+        };
+        let join_event = online_event();
+        let join_event_digest = Hash::new(
+            join_event
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .unwrap(),
+        )
+        .unwrap();
+        let admission_id = crate::ProtocolOpaqueId::new("membership-admission-1").unwrap();
+        let membership_incarnation = Hash::new(format!("sha256:{}", "33".repeat(32))).unwrap();
+        let core = crate::MembershipCompensationDelegationCore {
+            authority: crate::MembershipCompensationAuthority::V1,
+            admission_id: admission_id.clone(),
+            join_event_id: join_event.event_id.clone(),
+            join_event_digest: join_event_digest.clone(),
+            membership_cell_id: crate::ProtocolOpaqueId::new("membership-cell-1").unwrap(),
+            membership_incarnation: membership_incarnation.clone(),
+            membership_head_at_acceptance: join_event.event_id.clone(),
+            subject_id: subject_id.clone(),
+            join_actor_id: join_actor_id.clone(),
+            executed_by: None,
+            authorization_ref: None,
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:authority.example#key-1")
+                .unwrap(),
+            executor_id: executor_id.clone(),
+            executor_proof_key: DidUrl::new("did:webvh:z6mkfixtureexecutor:executor.example#key-1")
+                .unwrap(),
+            resource: resource.clone(),
+            action: crate::MembershipCompensationAction::Remove,
+            deadline: instant(8),
+        };
+        let delegation_digest = Hash::new(crate::canonical::sha256_digest(
+            crate::canonical::canonical_json_bytes(&core).unwrap(),
+        ))
+        .unwrap();
+        let delegation_id = crate::MembershipCompensationDelegationRef::new(format!(
+            "ak:membership_compensation_delegation:sha256:{}",
+            delegation_digest.as_str().strip_prefix("sha256:").unwrap()
+        ))
+        .unwrap();
+        let signature = || crate::ProtocolSignature {
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:authority.example#key-1")
+                .unwrap(),
+            created_at: instant(1),
+            jws: Base64UrlString::new("AA").unwrap(),
+        };
+        let evidence = crate::MembershipCompensationSubmissionEvidence {
+            delegation: crate::MembershipCompensationExecutorDelegation {
+                delegation_id: delegation_id.clone(),
+                core,
+                delegation_digest: delegation_digest.clone(),
+                signature: signature(),
+            },
+            join_accepted_proof: crate::MembershipJoinAcceptedProof {
+                admission_id: admission_id.clone(),
+                join_event_id: join_event.event_id,
+                join_event_digest,
+                membership_incarnation,
+                accepted_frontier_digest: Hash::new(format!("sha256:{}", "55".repeat(32))).unwrap(),
+                accepted_at: instant(1),
+                issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureissuer").unwrap(),
+                signature: signature(),
+            },
+            terminal_certificate: crate::MembershipCompensationTerminalCertificate {
+                domain: crate::MembershipCompensationTerminalDomain::V1,
+                admission_id: admission_id.clone(),
+                delegation_digest: delegation_digest.clone(),
+                operation_id: crate::ProtocolOperationId::new(
+                    "ak:operation:019a6aa0-1000-7000-8000-000000000000",
+                )
+                .unwrap(),
+                terminal_state:
+                    crate::MembershipCompensationTerminalState::FailedAfterMembershipAcceptance,
+                certified_at: instant(2),
+                issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureissuer").unwrap(),
+                signature: signature(),
+            },
+            single_use_cas_token: crate::MembershipCompensationCasToken {
+                domain: crate::MembershipCompensationCasDomain::V1,
+                admission_id,
+                delegation_digest,
+                expected_state: crate::MembershipCompensationExpectedState::Unused,
+                destination_id: executor_id.clone(),
+                issued_at: instant(2),
+                expires_at: instant(7),
+                issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureissuer").unwrap(),
+                signature: signature(),
+            },
+        };
+        let mut event = Event::new(
+            "ak.member.state",
+            ScopeRef::Realm { realm_id: resource },
+            join_actor_id,
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
+            2,
+            crate::Hlc::new("000000000001-0000-00000000").unwrap(),
+            serde_json::json!({
+                "actor_id": subject_id,
+                "membership": "leave",
+                "reason": "compensate failed admission"
+            }),
+        )
+        .unwrap();
+        event.executed_by = Some(executor_id);
+        event.authorization_ref =
+            Some(crate::AuthorizationRef::new(delegation_id.as_str()).unwrap());
+        (event, evidence)
+    }
+
     #[test]
     fn online_submission_validates_and_omits_authorization_lease() {
         let submission = EventInitialSubmission::online(online_event());
@@ -809,6 +922,24 @@ mod tests {
 
         let value = serde_json::to_value(submission).unwrap();
         assert!(value.get("authorization_lease").is_none());
+    }
+
+    #[test]
+    fn membership_compensation_carrier_is_closed_and_exactly_bound() {
+        let (event, evidence) = membership_compensation_submission();
+        validate_membership_compensation_evidence(&event, Some(&evidence)).unwrap();
+        evidence.validate_for_event(&event).unwrap();
+        assert!(validate_membership_compensation_evidence(&event, None).is_err());
+
+        let ordinary = online_event();
+        assert!(validate_membership_compensation_evidence(&ordinary, Some(&evidence)).is_err());
+
+        let mut wrong_subject = event;
+        wrong_subject.payload.insert(
+            "actor_id".to_owned(),
+            serde_json::json!("ak:did_core:webvh:z6mkfixturewrongsubject"),
+        );
+        assert!(evidence.validate_for_event(&wrong_subject).is_err());
     }
 
     #[test]

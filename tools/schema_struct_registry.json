@@ -806,6 +806,14 @@
       "schema": "device-revocation-state.schema.json#/$defs/device_revocation_gate_decision_receipt"
     },
     {
+      "rust_type": "crates/wire/src/event_submission.rs::EventInitialSubmission",
+      "schema": "service-operation-dtos.schema.json#/$defs/EventInitialSubmission"
+    },
+    {
+      "rust_type": "crates/wire/src/event_submission.rs::EventFederationSubmission",
+      "schema": "service-operation-dtos.schema.json#/$defs/EventFederationSubmission"
+    },
+    {
       "rust_type": "crates/wire/src/event_receipt.rs::DeviceReanchorReceiptScope",
       "schema": "event-batch-receipt.schema.json#/$defs/device_reanchor_scope"
     },
@@ -1138,14 +1146,6 @@
     {
       "rust_type": "crates/models-integration/src/artifacts_applet.rs::Widget",
       "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/wire/src/event_submission.rs::EventInitialSubmission",
-      "reason": "Spec-internal inconsistency tracked by arkret-work/review/spec-open/2026-08-30-0627-membership-compensation-sidecar-carrier-schema-contradiction.md: event-envelope.schema.json requires a matching membership_compensation_evidence sidecar while EventInitialSubmission omits its carrier property."
-    },
-    {
-      "rust_type": "crates/wire/src/event_submission.rs::EventFederationSubmission",
-      "reason": "Spec-internal inconsistency tracked by arkret-work/review/spec-open/2026-08-30-0627-membership-compensation-sidecar-carrier-schema-contradiction.md: event-envelope.schema.json requires forwarding membership_compensation_evidence while EventFederationSubmission omits its carrier property."
     },
     {
       "rust_type": "crates/wire/src/history_store.rs::EventCandidateBindingKey",

@@ -5,7 +5,7 @@ use std::fmt;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
-use crate::{AuthorizationRef, Base64UrlString, DidCoreId, DidUrl, EventId, Hash, RealmId};
+use crate::{AuthorizationRef, Base64UrlString, DidCoreId, DidUrl, Event, EventId, Hash, RealmId};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -435,6 +435,37 @@ impl MembershipCompensationSubmissionEvidence {
         {
             return Err(crate::WireError::Protocol(
                 "membership compensation evidence cross-binding mismatch".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Validate the evidence's exact binding to the submitted Event. This is
+    /// semantic admission, not JSON shape validation; receivers map failures
+    /// to `membership_compensation_conflict`.
+    pub fn validate_for_event(&self, event: &Event) -> crate::Result<()> {
+        self.validate_bindings()?;
+        let core = &self.delegation.core;
+        if event.kind.as_str() != crate::event_kind_str::MEMBER_STATE
+            || event.executed_by.as_ref().map(DidCoreId::as_core_id)
+                != Some(core.executor_id.as_core_id())
+            || event.authorization_ref.as_ref().map(|value| value.as_str())
+                != Some(self.delegation.delegation_id.as_str())
+            || event.actor_id != core.join_actor_id
+            || event.realm_id != core.resource
+            || event
+                .payload
+                .get("actor_id")
+                .and_then(serde_json::Value::as_str)
+                != Some(core.subject_id.as_str())
+            || event
+                .payload
+                .get("membership")
+                .and_then(serde_json::Value::as_str)
+                != Some("leave")
+        {
+            return Err(crate::WireError::Protocol(
+                "membership compensation evidence does not bind the submitted Event".to_owned(),
             ));
         }
         Ok(())
