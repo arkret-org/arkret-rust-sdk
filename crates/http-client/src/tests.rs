@@ -661,13 +661,25 @@ mod events_submit_tests {
         );
         assert_eq!(parsed["event"]["kind"], "ak.message.create");
         assert_eq!(parsed["event"]["payload"]["body"], "hello");
-        assert_eq!(parsed["event"]["actor_id"], "ak:did_core:webvh:z6mkfixture");
+        assert_eq!(
+            parsed["event"]["actor_id"],
+            json!({
+                "kind": "account",
+                "account_id": {
+                    "principal_id": "ak:did_core:webvh:z6mkfixture",
+                    "station_id": "ak:did_core:webvh:z6mkfixture"
+                }
+            })
+        );
         // The lease is publication evidence, not an Event field: it sits
         // next to the envelope and never inside it.
         assert!(parsed["event"].get("authorization_lease").is_none());
         assert_eq!(
             parsed["authorization_lease"]["actor_id"],
-            "ak:did_core:webvh:z6mkfixture"
+            json!({
+                "kind": "service",
+                "service_id": "ak:did_core:webvh:z6mkfixture"
+            })
         );
         assert_eq!(
             parsed["authorization_lease"]["scope_ref"],
