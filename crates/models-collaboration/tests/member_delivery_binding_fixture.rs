@@ -121,22 +121,22 @@ fn did_document_default_binding_requires_digest() {
             .expect("expected delivery route"),
     );
     assert_eq!(
-        binding.did_document_digest.as_ref().map(|d| d.as_str()),
+        binding.document_digest.as_ref().map(|d| d.as_str()),
         vector["given_state"]["did_document_service"]["canonical_digest"].as_str(),
         "binding digest must pin the DID Document digest materialized at join time"
     );
 
     // Negative half derived from the vector's own expectation
-    // (`missing_did_document_digest_reason_code = schema_violation`):
+    // (`missing_document_digest_reason_code = schema_violation`):
     // dropping the digest must fail the conditional-required rule.
     let mut stripped = binding;
-    stripped.did_document_digest = None;
+    stripped.document_digest = None;
     stripped
         .validate()
         .expect_err("did_document_default binding without digest must fail closed");
-    let reason = vector["expected"]["missing_did_document_digest_reason_code"]
+    let reason = vector["expected"]["missing_document_digest_reason_code"]
         .as_str()
-        .expect("missing_did_document_digest_reason_code");
+        .expect("missing_document_digest_reason_code");
     assert!(
         registered_identifiers().contains(reason),
         "reason code {reason} not registered"

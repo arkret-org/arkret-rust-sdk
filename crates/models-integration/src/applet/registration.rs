@@ -666,7 +666,7 @@ pub fn normalize_applet_signing_key_ref(service_did: &Did, key_ref: &str) -> Str
 #[serde(deny_unknown_fields)]
 pub struct AppletRegistrationEpochEvidence {
     pub did: Did,
-    pub did_document_digest: Hash,
+    pub document_digest: Hash,
     pub method_version_evidence: AppletDidMethodVersionEvidence,
     pub accepted_signing_keys: Vec<AppletAcceptedSigningKeyEvidence>,
 }
@@ -712,13 +712,13 @@ impl std::error::Error for AppletEpochEvidenceError {}
 impl AppletRegistrationEpochEvidence {
     pub fn new(
         did: Did,
-        did_document_digest: Hash,
+        document_digest: Hash,
         method_version_evidence: AppletDidMethodVersionEvidence,
         accepted_signing_keys: Vec<AppletAcceptedSigningKeyEvidence>,
     ) -> Self {
         Self {
             did,
-            did_document_digest,
+            document_digest,
             method_version_evidence,
             accepted_signing_keys,
         }
@@ -740,7 +740,7 @@ impl AppletRegistrationEpochEvidence {
                     .to_owned(),
             ));
         }
-        let did_document_digest = applet_did_document_digest(document)?;
+        let document_digest = applet_document_digest(document)?;
         let mut accepted_signing_keys = Vec::with_capacity(document.verification_methods.len());
         for (key_ref, public_key_material) in &document.verification_methods {
             accepted_signing_keys.push(AppletAcceptedSigningKeyEvidence {
@@ -755,7 +755,7 @@ impl AppletRegistrationEpochEvidence {
         }
         Ok(Self {
             did: document.id.clone(),
-            did_document_digest,
+            document_digest,
             method_version_evidence,
             accepted_signing_keys,
         })
@@ -776,10 +776,10 @@ impl AppletRegistrationEpochEvidence {
         {
             return Err(AppletEpochEvidenceError::DidDocumentDeactivated);
         }
-        let actual_document_digest = applet_did_document_digest(document).map_err(|error| {
+        let actual_document_digest = applet_document_digest(document).map_err(|error| {
             AppletEpochEvidenceError::DidDocumentDigestFailed(error.to_string())
         })?;
-        if self.did_document_digest != actual_document_digest {
+        if self.document_digest != actual_document_digest {
             return Err(AppletEpochEvidenceError::DidDocumentDigestMismatch);
         }
         if self.accepted_signing_keys.is_empty() {
@@ -898,7 +898,7 @@ impl AppletRegistrationEpochTranscript {
             },
             service_did_document: AppletRegistrationEpochDidDocument {
                 did: evidence.did.clone(),
-                document_digest: evidence.did_document_digest.clone(),
+                document_digest: evidence.document_digest.clone(),
                 method_version: evidence.method_version_evidence.clone(),
             },
             accepted_signing_keys: evidence.accepted_signing_keys.clone(),
@@ -1169,7 +1169,7 @@ fn verification_method_controller_core(verification_method: &str) -> Result<DidC
     arkret_wire::project_did_to_core_id(&Did::new(controller)?).map_err(Into::into)
 }
 
-pub fn applet_did_document_digest(document: &DidDocument) -> Result<Hash> {
+pub fn applet_document_digest(document: &DidDocument) -> Result<Hash> {
     Hash::new(canonical::canonical_sha256(document)?).map_err(Into::into)
 }
 

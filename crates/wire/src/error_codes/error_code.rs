@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-29.5;
-//! sha256=21eb6273313c8f9fafd74ff612adc6bf603a128995de45c813915b43aa5d2a01 Entries: error_codes=284
+//! Input: registry/error-code-registry.json; version=2026-08-30.1;
+//! sha256=c27ad428c7bfb7e2933e08c8692f22f08fdb590aa9ab8ddd31c122a8cdd7636a Entries: error_codes=284
 
 use serde::{Deserialize, Serialize};
 
@@ -2297,7 +2297,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "An accepted member delivery binding could not be resolved to a reachable recipient_id after the bounded retry limit; sender MUST NOT fall back to the DID Document ArkretPrincipalServer entry. Surfaced to the upstream sender as a diagnostic after the second failure so it can quarantine pending events and await rebind. See zh/governance/join-policy.md §5.1.4.",
+        description: "An accepted member delivery binding could not be resolved to a reachable recipient_id after the bounded retry limit; sender MUST NOT fall back to the DID Document ArkretService serviceKind=principal_server entry. Surfaced to the upstream sender as a diagnostic after the second failure so it can quarantine pending events and await rebind. See zh/governance/member-delivery-binding.md §5.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DependencyMissing,

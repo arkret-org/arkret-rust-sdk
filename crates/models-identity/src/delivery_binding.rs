@@ -28,7 +28,7 @@ pub struct MemberDeliveryBinding {
     pub delivery_modes: BTreeSet<DeliveryMode>,
     pub service_resolution: ServiceResolutionCarrier,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub did_document_digest: Option<Hash>,
+    pub document_digest: Option<Hash>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub resolved_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -104,10 +104,9 @@ impl MemberDeliveryBinding {
         }
         match self.binding_source {
             BindingSource::DidDocumentDefault => {
-                if self.did_document_digest.is_none() {
+                if self.document_digest.is_none() {
                     return Err(WireError::Protocol(
-                        "binding_source=did_document_default requires did_document_digest"
-                            .to_owned(),
+                        "binding_source=did_document_default requires document_digest".to_owned(),
                     ));
                 }
             }
@@ -302,7 +301,7 @@ mod tests {
             binding_source: BindingSource::Explicit,
             delivery_modes: BTreeSet::new(),
             service_resolution: fake_resolution("rs"),
-            did_document_digest: None,
+            document_digest: None,
             resolved_at: Utc::now(),
             service_acceptance_ref: Some(fake_event_id()),
             holder_proof_ref: None,
@@ -323,7 +322,7 @@ mod tests {
             binding_source: BindingSource::Explicit,
             delivery_modes: [DeliveryMode::Events].into_iter().collect(),
             service_resolution: fake_resolution("rs"),
-            did_document_digest: None,
+            document_digest: None,
             resolved_at: Utc::now(),
             service_acceptance_ref: None,
             holder_proof_ref: None,
@@ -394,7 +393,7 @@ mod tests {
             binding_source: BindingSource::DidDocumentDefault,
             delivery_modes: [DeliveryMode::Events].into_iter().collect(),
             service_resolution: fake_resolution("rs"),
-            did_document_digest: None,
+            document_digest: None,
             resolved_at: Utc::now(),
             service_acceptance_ref: None,
             holder_proof_ref: None,
