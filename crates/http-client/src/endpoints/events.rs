@@ -34,7 +34,7 @@ use arkret_schema::PreparedStandardEvent;
 use arkret_state::SnapshotManifest;
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    ActorId, AuthorizationLeaseIssueRequestBody, ControlProposalAck,
+    AccountId, ActorId, AuthorizationLeaseIssueRequestBody, ControlProposalAck,
     ControlProposalAckIssueOutcome, ControlProposalAckIssueRequest, ControlProposalDecisionPolicy,
     ControlProposalDecisionReadOutcome, ControlProposalDecisionReadRequestBody,
     ControlProposalDecisionSubmitOutcome, ControlProposalDecisionSubmitRequestBody, Cursor,
@@ -930,16 +930,14 @@ impl Client {
     pub async fn authz_effective_grants(
         &self,
         realm_id: &RealmId,
-        subject: &DidCoreId,
-        subject_station_id: &DidCoreId,
+        subject: &ActorId,
         at: Option<&str>,
     ) -> Result<GrantList> {
         let mut builder = self
             .request(Method::GET, "/_arkret/self/authz/effective-grants")?
             .query(&[
                 ("realm_id", realm_id.as_str()),
-                ("subject", subject.as_str()),
-                ("subject_station_id", subject_station_id.as_str()),
+                ("subject_actor_id", subject.to_string().as_str()),
             ]);
         if let Some(at) = at {
             builder = builder.query(&[("at", at)]);
@@ -949,13 +947,16 @@ impl Client {
 
     pub async fn authz_invites(
         &self,
-        subject: &str,
+        subject: &AccountId,
         realm_id: Option<&str>,
         cursor: Option<&str>,
     ) -> Result<AuthzInviteList> {
         let mut builder = self
             .request(Method::GET, "/_arkret/self/authz/invites")?
-            .query(&[("subject", subject)]);
+            .query(&[
+                ("subject", subject.principal_id.as_str()),
+                ("subject_station_id", subject.station_id.as_str()),
+            ]);
         if let Some(realm_id) = realm_id {
             builder = builder.query(&[("realm_id", realm_id)]);
         }
