@@ -657,7 +657,7 @@ impl Client {
     }
 
     /// Walk every page of `ak.self.events.read.scan.v1` for a Realm using
-    /// the standard `has_more` / `next_cursor` contract.
+    /// the standard older-history `has_more` / `prev_cursor` contract.
     pub async fn events_read_all_pages(&self, realm_id: &str) -> Result<EventsQueryOutcome> {
         self.events_read_all_pages_inner(
             vec![RealmId::new(realm_id)?],
@@ -729,20 +729,20 @@ impl Client {
         let mut pages = 1usize;
         let mut last_cursor: Option<String> = None;
         while combined.has_more {
-            let Some(next) = combined
-                .next_cursor
+            let Some(previous) = combined
+                .prev_cursor
                 .as_deref()
                 .map(str::trim)
                 .filter(|cursor| !cursor.is_empty())
                 .map(ToOwned::to_owned)
             else {
                 return Err(Error::Protocol(format!(
-                    "events query for {selector_label} reported has_more but no next_cursor"
+                    "events query for {selector_label} reported has_more but no prev_cursor"
                 )));
             };
-            if last_cursor.as_deref() == Some(next.as_str()) {
+            if last_cursor.as_deref() == Some(previous.as_str()) {
                 return Err(Error::Protocol(format!(
-                    "events query for {selector_label} did not advance next_cursor ({next}); aborting to avoid a pagination loop"
+                    "events query for {selector_label} did not advance prev_cursor ({previous}); aborting to avoid a pagination loop"
                 )));
             }
             if pages >= MAX_EVENTS_QUERY_PAGES {
@@ -754,8 +754,8 @@ impl Client {
                 .events_read(&EventsQueryPostRequestBody {
                     realm_ids: realms.clone(),
                     actor_ids: actors.clone(),
-                    before: None,
-                    after: Some(Cursor::new(next.clone())?),
+                    before: Some(Cursor::new(previous.clone())?),
+                    after: None,
                     order: None,
                     limit: None,
                     filters: None,
@@ -764,9 +764,9 @@ impl Client {
                 .await?;
             combined.events.extend(page.events);
             combined.has_more = page.has_more;
-            combined.next_cursor = page.next_cursor;
+            combined.prev_cursor = page.prev_cursor;
             merge_range_completeness(&mut completeness, page.range_completeness)?;
-            last_cursor = Some(next);
+            last_cursor = Some(previous);
             pages += 1;
         }
         combined.range_completeness = completeness;
@@ -1081,7 +1081,7 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     #[cfg(not(target_arch = "wasm32"))]
-    use tokio::net::TcpListener;
+    use tokio::net::{TcpListener, TcpStream};
     use url::Url;
 
     use super::*;
@@ -1200,6 +1200,97 @@ mod tests {
             .allow_insecure_localhost()
             .build()
             .unwrap()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    async fn read_http_request(socket: &mut TcpStream) -> String {
+        let mut bytes = Vec::new();
+        let mut buffer = [0_u8; 4096];
+        loop {
+            let read = socket.read(&mut buffer).await.unwrap();
+            if read == 0 {
+                break;
+            }
+            bytes.extend_from_slice(&buffer[..read]);
+            let Some(header_end) = bytes.windows(4).position(|window| window == b"\r\n\r\n") else {
+                continue;
+            };
+            let header = String::from_utf8_lossy(&bytes[..header_end]);
+            let content_length = header
+                .lines()
+                .find_map(|line| {
+                    let (name, value) = line.split_once(':')?;
+                    name.eq_ignore_ascii_case("content-length")
+                        .then(|| value.trim().parse::<usize>().ok())
+                        .flatten()
+                })
+                .unwrap_or_default();
+            if bytes.len() >= header_end + 4 + content_length {
+                break;
+            }
+        }
+        String::from_utf8(bytes).unwrap()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    async fn spawn_json_sequence_server(
+        response_bodies: Vec<&'static str>,
+    ) -> (Client, tokio::task::JoinHandle<Vec<String>>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let mut requests = Vec::with_capacity(response_bodies.len());
+            for body in response_bodies {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                requests.push(read_http_request(&mut socket).await);
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\
+                     Content-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                socket.write_all(response.as_bytes()).await.unwrap();
+                socket.shutdown().await.ok();
+            }
+            requests
+        });
+        let client = Client::builder(Url::parse(&format!("http://{addr}/")).unwrap())
+            .allow_insecure_localhost()
+            .build()
+            .unwrap();
+        (client, server)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[tokio::test]
+    async fn events_read_all_pages_walks_older_history_with_prev_cursor() {
+        let (client, server) = spawn_json_sequence_server(vec![
+            r#"{"events":[],"prev_cursor":"ak:cursor:older","next_cursor":"ak:cursor:newest-edge","has_more":true}"#,
+            r#"{"events":[],"next_cursor":"ak:cursor:page-two-newer","has_more":false}"#,
+        ])
+        .await;
+
+        let outcome = client
+            .events_read_all_pages_for_actor(
+                &DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            )
+            .await
+            .unwrap();
+        let requests = server.await.unwrap();
+        let second_body = requests[1]
+            .split_once("\r\n\r\n")
+            .map(|(_, body)| body)
+            .unwrap();
+        let second_body: serde_json::Value = serde_json::from_str(second_body).unwrap();
+
+        assert_eq!(second_body["before"], "ak:cursor:older");
+        assert!(second_body.get("after").is_none());
+        assert_eq!(
+            outcome.next_cursor.as_deref(),
+            Some("ak:cursor:newest-edge")
+        );
+        assert_eq!(outcome.prev_cursor, None);
+        assert!(!outcome.has_more);
     }
 
     #[cfg(not(target_arch = "wasm32"))]
