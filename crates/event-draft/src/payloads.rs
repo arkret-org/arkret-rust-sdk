@@ -120,7 +120,9 @@ mod tests {
     fn strand_create_object_omitted_updated_at_round_trip() {
         let object = StrandCreateObject::new(
             RealmId::new("ak:realm:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM").unwrap(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap(),
+            ActorId::service(
+                arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap(),
+            ),
         );
 
         let serialized = serde_json::to_value(&object).unwrap();

@@ -5,7 +5,8 @@ use arkret_event_draft::{
 use arkret_identifiers::{DidCoreId, Hlc, OperationId, RealmId};
 use arkret_models_collaboration::events_payloads::{ContentBlock, MessageCreatePayload};
 use arkret_wire::{
-    DidUrl, EventKind, Hash, OperationKind, ProducerEventProof, ScopeRef, StrandId, event_spec,
+    ActorId, DidUrl, EventKind, Hash, OperationKind, ProducerEventProof, ScopeRef, StrandId,
+    event_spec,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -44,7 +45,8 @@ fn projected_event_with_proof(
         json!({}),
     )
     .unwrap();
-    event.executed_by = executed_by.map(|value| DidCoreId::new(value.to_owned()).unwrap());
+    event.executed_by =
+        executed_by.map(|value| ActorId::service(DidCoreId::new(value.to_owned()).unwrap()));
     event.proofs = vec![
         ProducerEventProof {
             kind: "detached_jws".to_owned(),
@@ -97,7 +99,7 @@ fn accepted_event_projection_uses_executed_by_as_the_producer_signer() {
     );
 
     assert_eq!(
-        operation.context.sender.as_str(),
+        operation.context.sender.signing_principal_id().as_str(),
         "ak:did_core:web:alice.example"
     );
     assert_eq!(
@@ -178,7 +180,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
     let operation = OperationEnvelopeBuilder::<event_spec::MessageCreate>::new(
         OperationId::new("ak:operation:01904100-0000-7000-8000-9c5aa474063f").unwrap(),
         test_scope(),
-        DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap(),
+        ActorId::service(DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap()),
         7,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         message_payload(),

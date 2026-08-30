@@ -62,7 +62,7 @@ mod tests {
     use arkret_models_collaboration::contact_operations::{
         ContactPeer, RequestAcceptanceReceiptCore,
     };
-    use arkret_wire::{Base64UrlString, DidCoreId, DidUrl, ProtocolSignature};
+    use arkret_wire::{AccountId, Base64UrlString, DidCoreId, DidUrl, ProtocolSignature};
     use base64::Engine as _;
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use chrono::{DateTime, Utc};
@@ -85,10 +85,16 @@ mod tests {
         let mut receipt = RequestAcceptanceReceipt {
             core: RequestAcceptanceReceiptCore {
                 holder: ContactPeer::Human {
-                    principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+                    account_id: AccountId::new(
+                        DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+                        DidCoreId::new("ak:did_core:webvh:z6mkfixturealice-station").unwrap(),
+                    ),
                 },
                 peer: ContactPeer::Human {
-                    principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+                    account_id: AccountId::new(
+                        DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+                        DidCoreId::new("ak:did_core:webvh:z6mkfixturebob-station").unwrap(),
+                    ),
                 },
                 slot_version: 1,
                 slot_predecessor: None,

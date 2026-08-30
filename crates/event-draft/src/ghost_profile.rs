@@ -216,6 +216,7 @@ mod tests {
                     realm_id: RealmId::new("ak:realm:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM")
                         .unwrap(),
                 },
+                arkret_wire::ActorId::service(principal("ghost")),
                 "2026-05-26T10:30:00.000Z".parse().unwrap(),
                 None,
             )

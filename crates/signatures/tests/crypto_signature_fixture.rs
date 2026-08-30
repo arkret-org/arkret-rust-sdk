@@ -249,8 +249,11 @@ fn negative_cases_reject_through_sdk_verifiers() {
             .0,
     )
     .unwrap();
-    let actor = project_did_to_core_id(&actor_did).unwrap();
-    assert_eq!(actor.as_str(), s(&base["binding_object"], "actor_id"));
+    let actor = arkret_wire::ActorId::service(project_did_to_core_id(&actor_did).unwrap());
+    assert_eq!(
+        actor.signing_principal_id().as_str(),
+        s(&base["binding_object"], "actor_id")
+    );
     let canonical_event_bytes =
         canonical::canonical_json_bytes(&digest_preimage(&base["event_without_proofs"])).unwrap();
 

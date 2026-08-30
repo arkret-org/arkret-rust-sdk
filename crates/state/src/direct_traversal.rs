@@ -993,7 +993,7 @@ mod tests {
     use arkret_models_crypto::mls_envelopes::MlsCommitEnvelope;
     use arkret_models_crypto::mls_payloads::MlsGovernanceBindingPayload;
     use arkret_wire::event_envelope::ScopeRef;
-    use arkret_wire::{ContentScheme, DurabilityPolicy, Hlc};
+    use arkret_wire::{ContentScheme, DidCoreId, DurabilityPolicy, Hlc};
     use serde_json::json;
 
     use super::*;
@@ -1376,7 +1376,7 @@ mod tests {
     fn subject(incarnation: &EventId) -> HistoryJoinEpochSubject {
         HistoryJoinEpochSubject {
             mls_group_id: MlsGroupId::new(GROUP).expect("group id"),
-            requester_actor_id: actor(),
+            requester_actor_id: ActorId::service(actor()),
             authorization_incarnation: AuthorizationIncarnation::Realm {
                 realm_membership_incarnation_ref: incarnation.clone(),
             },

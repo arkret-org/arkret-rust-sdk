@@ -775,7 +775,7 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
         json!({"ok": true}),
     )
     .unwrap();
-    event.executed_by = Some(bridge_id);
+    event.executed_by = Some(arkret_wire::ActorId::service(bridge_id));
     event.authorization_ref = Some(
         arkret_wire::AuthorizationRef::new("ak:grant:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM")
             .unwrap(),

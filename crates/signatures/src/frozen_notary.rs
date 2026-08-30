@@ -97,7 +97,7 @@ pub fn verify_frozen_notary_detached_jws(
 #[cfg(test)]
 mod tests {
     use arkret_canonical::base64url::base64url_encode;
-    use arkret_wire::{DidCoreId, DidUrl};
+    use arkret_wire::{ActorId, DidCoreId, DidUrl};
     use ed25519_dalek::{Signer as _, SigningKey};
     use serde_json::json;
 
@@ -106,7 +106,9 @@ mod tests {
     fn descriptor(seed: [u8; 32], method: &DidUrl) -> NotarySignerDescriptor {
         let public_key = SigningKey::from_bytes(&seed).verifying_key().to_bytes();
         NotarySignerDescriptor {
-            actor_id: DidCoreId::new("ak:did_core:web:replay-kat.example").unwrap(),
+            actor_id: ActorId::service(
+                DidCoreId::new("ak:did_core:web:replay-kat.example").unwrap(),
+            ),
             verification_method: method.clone(),
             key_kind: NotaryKeyKind::Ed25519Raw32,
             jose_algorithm: NotaryJoseAlgorithm::Ed25519,

@@ -179,8 +179,8 @@ mod tests {
         Did::new(format!("did:webvh:z6mkfixture{name}:{name}.example")).unwrap()
     }
 
-    fn actor(name: &str) -> DidCoreId {
-        DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{name}")).unwrap()
+    fn actor(name: &str) -> arkret_wire::DidCoreId {
+        arkret_wire::DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{name}")).unwrap()
     }
 
     fn realm() -> RealmId {
@@ -222,7 +222,7 @@ mod tests {
         MediaIceConfigOutcome {
             realm_id: realm(),
             call_id: "ak:call:AVxshP1cCAeTx94DZvt3ODhEjNR9Da4hbdzLBzwPU-T1".to_owned(),
-            actor_id: actor("alice"),
+            actor_id: ActorId::service(actor("alice")),
             device_id: arkret_wire::DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005")
                 .unwrap(),
             ice_servers: vec![

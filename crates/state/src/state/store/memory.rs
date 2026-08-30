@@ -1409,13 +1409,15 @@ impl CellRegistry for MemoryCellRegistry {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{DidCoreId, DidUrl};
+    use arkret_wire::{ActorId, DidCoreId, DidUrl};
 
     use crate::lattice::SealedOp;
 
     fn issued(op: SealedOp) -> IssuedOp {
         IssuedOp {
-            issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
+            issuer_id: ActorId::service(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
+            ),
             op,
         }
     }

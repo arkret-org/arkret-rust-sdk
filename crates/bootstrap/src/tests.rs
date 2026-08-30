@@ -11,8 +11,8 @@ use arkret_models_collaboration::events_payloads::{
 use arkret_models_identity::ResolutionCommitment;
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
-    AuthorizationRef, CellRef, DeviceId, Did, DidCoreId, DidKey, DidUrl, DigestSuiteCode, Event,
-    EventId, EventIdentityKey, EventKind, EventProof, EventRef, Hash, Hlc, NonEmptyString,
+    ActorId, AuthorizationRef, CellRef, DeviceId, Did, DidCoreId, DidKey, DidUrl, DigestSuiteCode,
+    Event, EventId, EventIdentityKey, EventKind, EventProof, EventRef, Hash, Hlc, NonEmptyString,
     NotaryJoseAlgorithm, NotaryKeyKind, NotarySig, NotarySignerDescriptor, NotaryValue,
     PayloadSignature, PayloadSigner, ProducerEventProof, ProjectedCellWrite, RealmId, ScopeRef,
     SealBasis, SealId, SemanticRefProof, SemanticRefProofKind, StationAdmissionProof,
@@ -170,8 +170,8 @@ fn bootstrap_unit() -> (Event, Event) {
         ScopeRef::Realm {
             realm_id: create.realm_id.clone(),
         },
-        create.actor_id.clone(),
-        create.station_id.clone(),
+        create.actor_id.signing_principal_id().clone(),
+        create.actor_id.route_service_id().clone(),
         1,
         Hlc::new("01970e589d21-0005-a13f9c2e").unwrap(),
         serde_json::to_value(payload).unwrap(),
@@ -224,7 +224,7 @@ fn fixture_notary(actor_id: &DidCoreId, actor_did: &Did, fragment: &str) -> Nota
     )
     .expect("fixture public key is valid");
     NotaryValue::single_signer(NotarySignerDescriptor {
-        actor_id: actor_id.clone(),
+        actor_id: ActorId::service(actor_id.clone()),
         verification_method: DidUrl::new(format!("{actor_did}#{fragment}")).unwrap(),
         key_kind: NotaryKeyKind::Ed25519Raw32,
         jose_algorithm: NotaryJoseAlgorithm::Ed25519,
@@ -304,10 +304,13 @@ fn builder_emits_only_the_closed_unsigned_root_shape() {
 
     assert_eq!(event.kind, EventKind::RealmCreate);
     assert_eq!(
-        event.station_id.as_str(),
+        event.actor_id.route_service_id().as_str(),
         "ak:did_core:web:principal.example"
     );
-    assert_ne!(event.station_id, event.actor_id);
+    assert_ne!(
+        event.actor_id.route_service_id(),
+        event.actor_id.signing_principal_id()
+    );
     assert_eq!(event.actor_seq, 0);
     assert!(event.prev_refs.is_empty());
     assert!(event.proofs.is_empty());
@@ -433,7 +436,7 @@ fn bootstrap_authorize_proof_uses_the_exact_initial_resolution_did() {
     let same_core_different_did = Did::new("did:webvh:z6mkfixture:other.example:bob").unwrap();
     assert_eq!(
         project_did_to_core_id(&same_core_different_did).unwrap(),
-        create.actor_id
+        *create.actor_id.signing_principal_id()
     );
     authorize.proofs[0]
         .as_producer_mut()
@@ -527,7 +530,7 @@ fn managed_agent_pcr_create() -> Event {
         EventId::new("ak:event:AYqEzQ3jW02EHkMjxFQTlyeowxPQXJE4fI6JGOnzi23t").unwrap();
     create.authorization_ref =
         Some(AuthorizationRef::new(format!("{agent_did}#managed-controller")).unwrap());
-    create.executed_by = Some(controller);
+    create.executed_by = Some(ActorId::service(controller));
     create.refs.clear();
     create
 }
@@ -641,8 +644,8 @@ fn managed_agent_genesis_authority_covers_the_whole_founding_notary() {
     let mut later_transition = arkret_wire::test_support::raw_event(
         EventKind::MlsGenesis.to_string(),
         create.scope_ref.clone(),
-        create.actor_id.clone(),
-        create.station_id.clone(),
+        create.actor_id.signing_principal_id().clone(),
+        create.actor_id.route_service_id().clone(),
         1,
         Hlc::new("01970e589d21-0009-a13f9c2e").unwrap(),
         serde_json::json!({}),
@@ -668,8 +671,8 @@ fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
     let mut anchor = arkret_wire::test_support::raw_event(
         EventKind::MlsGenesis.to_string(),
         create.scope_ref.clone(),
-        create.actor_id.clone(),
-        create.station_id.clone(),
+        create.actor_id.signing_principal_id().clone(),
+        create.actor_id.route_service_id().clone(),
         1,
         Hlc::new("01970e589d21-0008-a13f9c2e").unwrap(),
         serde_json::json!({}),
@@ -765,10 +768,10 @@ fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
     payload.validate().unwrap();
     assert_eq!(payload.agent_id, agent);
     assert_eq!(
-        event.station_id.as_str(),
+        event.actor_id.route_service_id().as_str(),
         "ak:did_core:web:principal.example"
     );
-    assert_ne!(event.station_id, controller);
+    assert_ne!(event.actor_id.route_service_id(), &controller);
     let effects = direct_projection(&event, &registry_projection).unwrap();
     assert_eq!(
         effects

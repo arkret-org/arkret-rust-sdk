@@ -128,7 +128,9 @@ fn operation_envelope_builder_derives_kind_from_typed_payload() {
     let builder = OperationEnvelopeBuilder::<event_spec::MessageCreate>::new(
         OperationId::new("ak:operation:01904100-0000-7000-8000-76b2a3b35ad0").unwrap(),
         scope_ref(),
-        DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap(),
+        arkret_wire::ActorId::service(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap(),
+        ),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         payload,

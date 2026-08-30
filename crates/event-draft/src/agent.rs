@@ -181,8 +181,8 @@ mod tests {
     use arkret_schema::{or_set_dot, project_registered_cell_writes};
     use arkret_wire::cell::composite_subject;
     use arkret_wire::{
-        AuthoredEvent, CellRef, Event, EventId, EventKind, Hash, Hlc, LatticeOp, LatticeOpType,
-        ProjectedCellWrite, ProjectedOp, RealmId,
+        AuthoredEvent, CellRef, DidCoreId, Event, EventId, EventKind, Hash, Hlc, LatticeOp,
+        LatticeOpType, ProjectedCellWrite, ProjectedOp, RealmId,
     };
     use chrono::TimeZone;
     use serde_json::{Value, json};
@@ -303,8 +303,8 @@ mod tests {
             build_agent_key_authorize_intent(
                 &key_authorize_payload(agent_id.clone(), &agent_did, controller_principal_id),
                 scope(),
-                agent_id.clone(),
-                controller_id.clone(),
+                ActorId::service(agent_id.clone()),
+                ActorId::service(controller_id.clone()),
                 DidUrl::new(format!("{agent_did}#managed-controller")).unwrap(),
                 Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
             )
@@ -313,8 +313,8 @@ mod tests {
         );
 
         assert_eq!(event.kind, EventKind::AgentKeyAuthorize);
-        assert_eq!(event.actor_id, agent_id);
-        assert_eq!(event.executed_by, Some(controller_id));
+        assert_eq!(event.actor_id, ActorId::service(agent_id));
+        assert_eq!(event.executed_by, Some(ActorId::service(controller_id)));
         assert_eq!(event.payload["key_id"], "runtime-key-1");
     }
 
@@ -334,8 +334,8 @@ mod tests {
             build_agent_key_authorize_intent(
                 &key_authorize_payload(agent_id.clone(), &agent_did, controller_principal_id),
                 scope(),
-                agent_id.clone(),
-                controller_id,
+                ActorId::service(agent_id.clone()),
+                ActorId::service(controller_id),
                 DidUrl::new(format!("{agent_did}#managed-controller")).unwrap(),
                 Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
             )
@@ -383,8 +383,8 @@ mod tests {
                     ),
                 },
                 scope(),
-                agent_id.clone(),
-                controller_id,
+                ActorId::service(agent_id.clone()),
+                ActorId::service(controller_id),
                 DidUrl::new("did:webvh:z6mkfixture:agent.example#managed-controller").unwrap(),
                 Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
             )
@@ -430,8 +430,8 @@ mod tests {
 
         let pause = authored(
             build_agent_pause_intent(
-                agent_id.clone(),
-                controller_id.clone(),
+                ActorId::service(agent_id.clone()),
+                ActorId::service(controller_id.clone()),
                 scope(),
                 authorization_ref.clone(),
                 Some(arkret_wire::AuditReasonText::new("user_requested").unwrap()),
@@ -457,8 +457,8 @@ mod tests {
 
         let resume = authored(
             build_agent_resume_intent(
-                agent_id,
-                controller_id,
+                ActorId::service(agent_id),
+                ActorId::service(controller_id),
                 scope(),
                 authorization_ref,
                 changed_at,
