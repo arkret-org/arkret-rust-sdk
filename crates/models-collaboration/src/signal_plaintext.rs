@@ -19,6 +19,8 @@
 //! the corresponding closed type, and rejects an unregistered `kind` as
 //! `schema_violation`. Nothing here parses a plaintext by field name.
 
+#[cfg(test)]
+use arkret_wire::DidCoreId;
 use arkret_wire::signal::MAX_SIGNAL_PLAINTEXT_BYTES;
 use arkret_wire::{
     ActorId, ErrorCode, EventId, Hlc, ReadReceiptScope, Result, SchemaId, StrandId, WireError,

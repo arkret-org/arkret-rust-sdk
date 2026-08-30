@@ -9,6 +9,8 @@ use std::collections::BTreeMap;
 
 use arkret_models_identity::ServiceResolutionCarrier;
 use arkret_models_identity::agent_signer_evidence::AgentEventAdmissionReceipt;
+#[cfg(test)]
+use arkret_wire::AccountId;
 use arkret_wire::{
     ActorId, AppletId, AuditReasonText, Base64UrlString, BlobRef, ConsentId, ControlProposalAck,
     Cursor, DeviceId, DidCoreId, DidKey, Event, EventId, EventInitialSubmission, Hash,

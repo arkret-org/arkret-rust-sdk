@@ -6,6 +6,8 @@
 
 use std::collections::BTreeSet;
 
+#[cfg(test)]
+use arkret_wire::ActorId;
 use arkret_wire::{
     AccountId, CbaProofBundle, DidCoreId, Event, EventFederationSubmission, EventId,
     EventInitialSubmission, Hash, RealmId, Result, WireError,

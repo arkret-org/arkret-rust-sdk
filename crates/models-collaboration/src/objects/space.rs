@@ -2,6 +2,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+#[cfg(test)]
+use arkret_wire::DidCoreId;
 use arkret_wire::{
     ActorId, BlobRef, CircleId, RealmId, Result, SchemaId, SpaceId, SpaceState, WireError,
 };

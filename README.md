@@ -106,8 +106,8 @@ Headline additions:
   `SpaceObjectTombstonePayload`, `AppletId` enum.
 - **DID method-name regex** tightened to `^did:[a-z0-9]+:[^\s]+$`
   (method segment lowercase alnum only).
-- **3 new error code constants**: `delivery_binding_stale` /
-  `delivery_binding_handed_over` / `historical_only`.
+- **Historical replay diagnostic**: `historical_only` remains available for
+  idempotency-cache responses that must not trigger new side effects.
 - **1 new capability action**: `ak.morph.create` (medium risk).
 - **Federation trust-domain header constants**: `Source-Trust-Domain` /
   `Destination-Trust-Domain` (entered into the HTTP-message-signature

@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "total": 208,
+  "total": 207,
   "counts": {
-    "internal": 58,
+    "internal": 57,
     "optional_has_default": 148,
     "schema_field_unknown": 2
   },
@@ -69,7 +69,7 @@
     },
     {
       "file": "crates/models-collaboration/src/account_lifecycle.rs",
-      "line": 55,
+      "line": 54,
       "struct_name": "ConsentCellView",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -81,7 +81,7 @@
     },
     {
       "file": "crates/models-collaboration/src/account_lifecycle.rs",
-      "line": 59,
+      "line": 58,
       "struct_name": "ConsentCellView",
       "field_name": "requested_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -93,7 +93,7 @@
     },
     {
       "file": "crates/models-collaboration/src/account_lifecycle.rs",
-      "line": 258,
+      "line": 248,
       "struct_name": "UnsignedAccountStatusRecord",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -105,7 +105,7 @@
     },
     {
       "file": "crates/models-collaboration/src/account_lifecycle.rs",
-      "line": 418,
+      "line": 404,
       "struct_name": "AccountStatusRecord",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -465,7 +465,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/realm.rs",
-      "line": 904,
+      "line": 745,
       "struct_name": "RealmFreezePayload",
       "field_name": "effective_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -477,7 +477,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/realm.rs",
-      "line": 907,
+      "line": 748,
       "struct_name": "RealmFreezePayload",
       "field_name": "freeze_expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -489,7 +489,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/realm.rs",
-      "line": 1091,
+      "line": 931,
       "struct_name": "RealmOrganizationPayload",
       "field_name": "not_before",
       "field_type": "Option<DateTime<Utc>>",
@@ -501,7 +501,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/realm.rs",
-      "line": 1095,
+      "line": 935,
       "struct_name": "RealmOrganizationPayload",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -513,7 +513,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/realm.rs",
-      "line": 1181,
+      "line": 1021,
       "struct_name": "OrganizationStatementTranscript",
       "field_name": "not_before",
       "field_type": "Option<DateTime<Utc>>",
@@ -525,7 +525,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/realm.rs",
-      "line": 1186,
+      "line": 1026,
       "struct_name": "OrganizationStatementTranscript",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -537,7 +537,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/state.rs",
-      "line": 367,
+      "line": 360,
       "struct_name": "IdentityPresentationRequestDocument",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -549,7 +549,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/state.rs",
-      "line": 1126,
+      "line": 1119,
       "struct_name": "OrganizationModerationPolicyRule",
       "field_name": "created_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -561,7 +561,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/state.rs",
-      "line": 1132,
+      "line": 1125,
       "struct_name": "OrganizationModerationPolicyRule",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -573,7 +573,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/state.rs",
-      "line": 1146,
+      "line": 1139,
       "struct_name": "OrganizationModerationPolicyDocument",
       "field_name": "not_before",
       "field_type": "Option<DateTime<Utc>>",
@@ -585,7 +585,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/state.rs",
-      "line": 1152,
+      "line": 1145,
       "struct_name": "OrganizationModerationPolicyDocument",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -765,7 +765,7 @@
     },
     {
       "file": "crates/models-collaboration/src/governance/grant_constraint.rs",
-      "line": 707,
+      "line": 704,
       "struct_name": "CapabilityGrant",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -777,7 +777,7 @@
     },
     {
       "file": "crates/models-collaboration/src/governance/grant_constraint.rs",
-      "line": 715,
+      "line": 712,
       "struct_name": "CapabilityGrant",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -789,7 +789,7 @@
     },
     {
       "file": "crates/models-collaboration/src/governance/invite_addressing.rs",
-      "line": 454,
+      "line": 447,
       "struct_name": "IntroductionEvidence",
       "field_name": "resolved_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -801,7 +801,7 @@
     },
     {
       "file": "crates/models-collaboration/src/governance/invite_addressing.rs",
-      "line": 561,
+      "line": 554,
       "struct_name": "InviteDeliveryOutcome",
       "field_name": "received_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -909,7 +909,7 @@
     },
     {
       "file": "crates/models-collaboration/src/governance/realm_governance.rs",
-      "line": 441,
+      "line": 381,
       "struct_name": "RealmLifecycleView",
       "field_name": "freeze_expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -921,7 +921,7 @@
     },
     {
       "file": "crates/models-collaboration/src/governance/realm_governance.rs",
-      "line": 764,
+      "line": 594,
       "struct_name": "RealmOrganizationRelationshipRow",
       "field_name": "not_before",
       "field_type": "Option<DateTime<Utc>>",
@@ -933,7 +933,7 @@
     },
     {
       "file": "crates/models-collaboration/src/governance/realm_governance.rs",
-      "line": 767,
+      "line": 597,
       "struct_name": "RealmOrganizationRelationshipRow",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -945,7 +945,7 @@
     },
     {
       "file": "crates/models-collaboration/src/governance/realm_governance.rs",
-      "line": 780,
+      "line": 610,
       "struct_name": "RealmOrganizationRelationshipRow",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1017,7 +1017,7 @@
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 863,
+      "line": 862,
       "struct_name": "SignalSubmitOutcome",
       "field_name": "server_received_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1029,7 +1029,7 @@
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 903,
+      "line": 902,
       "struct_name": "ProjectionSpaceRow",
       "field_name": "created_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1041,7 +1041,7 @@
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 907,
+      "line": 906,
       "struct_name": "ProjectionSpaceRow",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1053,7 +1053,7 @@
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 911,
+      "line": 910,
       "struct_name": "ProjectionSpaceRow",
       "field_name": "state_changed_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1101,7 +1101,7 @@
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 1016,
+      "line": 1017,
       "struct_name": "ProjectionMorphRow",
       "field_name": "created_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1113,7 +1113,7 @@
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 1020,
+      "line": 1021,
       "struct_name": "ProjectionMorphRow",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1125,7 +1125,7 @@
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 1024,
+      "line": 1025,
       "struct_name": "ProjectionMorphRow",
       "field_name": "state_changed_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1137,7 +1137,7 @@
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 1497,
+      "line": 1464,
       "struct_name": "MimiRequestConsentRequestBody",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1149,7 +1149,7 @@
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 1567,
+      "line": 1534,
       "struct_name": "MimiUpdateConsentRequestBody",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1161,7 +1161,7 @@
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 1859,
+      "line": 1826,
       "struct_name": "MimiProxyDownloadOutcome",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1173,7 +1173,7 @@
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 2213,
+      "line": 2192,
       "struct_name": "RedactedEventView",
       "field_name": "created_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1353,7 +1353,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/queries.rs",
-      "line": 121,
+      "line": 120,
       "struct_name": "View",
       "field_name": "state_changed_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1365,7 +1365,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/queries.rs",
-      "line": 151,
+      "line": 150,
       "struct_name": "View",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1413,7 +1413,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/read_receipts.rs",
-      "line": 503,
+      "line": 506,
       "struct_name": "Notification",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1425,7 +1425,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/read_receipts.rs",
-      "line": 535,
+      "line": 538,
       "struct_name": "NotificationWire",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1533,7 +1533,7 @@
     },
     {
       "file": "crates/models-collaboration/src/session_grant_bodies.rs",
-      "line": 798,
+      "line": 802,
       "struct_name": "AuthSessionLogoutRequestBody",
       "field_name": "validated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1545,7 +1545,7 @@
     },
     {
       "file": "crates/models-collaboration/src/session_grant_bodies.rs",
-      "line": 846,
+      "line": 850,
       "struct_name": "SessionGrantIntrospectGrant",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1557,7 +1557,7 @@
     },
     {
       "file": "crates/models-collaboration/src/session_grant_bodies.rs",
-      "line": 876,
+      "line": 879,
       "struct_name": "SessionGrantIntrospectGrantWire",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1569,7 +1569,7 @@
     },
     {
       "file": "crates/models-collaboration/src/sync_frames/snapshot.rs",
-      "line": 50,
+      "line": 52,
       "struct_name": "RangeCompletenessAttestationWitnessAttestationWitnessesItem",
       "field_name": "attested_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1581,7 +1581,7 @@
     },
     {
       "file": "crates/models-crypto/src/artifacts_keys.rs",
-      "line": 797,
+      "line": 796,
       "struct_name": "KeyRecord",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1593,7 +1593,7 @@
     },
     {
       "file": "crates/models-crypto/src/artifacts_keys.rs",
-      "line": 800,
+      "line": 799,
       "struct_name": "KeyRecord",
       "field_name": "created_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1605,7 +1605,7 @@
     },
     {
       "file": "crates/models-crypto/src/artifacts_keys.rs",
-      "line": 843,
+      "line": 842,
       "struct_name": "Share",
       "field_name": "not_before",
       "field_type": "Option<DateTime<Utc>>",
@@ -1617,7 +1617,7 @@
     },
     {
       "file": "crates/models-crypto/src/artifacts_keys.rs",
-      "line": 846,
+      "line": 845,
       "struct_name": "Share",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1629,7 +1629,7 @@
     },
     {
       "file": "crates/models-crypto/src/artifacts_keys.rs",
-      "line": 849,
+      "line": 848,
       "struct_name": "Share",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1905,19 +1905,19 @@
     },
     {
       "file": "crates/models-discovery/src/directory.rs",
-      "line": 1312,
+      "line": 1224,
       "struct_name": "DirectoryHandleResolutionOutcome",
-      "field_name": "as_of",
+      "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "directory-operations.schema.json#/$defs/directory_handle_resolution_outcome",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-discovery/src/http_bodies.rs",
-      "line": 268,
+      "line": 518,
       "struct_name": "InviteConsentHandoffStub",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1941,7 +1941,7 @@
     },
     {
       "file": "crates/models-discovery/src/service_description.rs",
-      "line": 579,
+      "line": 578,
       "struct_name": "ServiceDescribe",
       "field_name": "last_materialized_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1953,7 +1953,7 @@
     },
     {
       "file": "crates/models-discovery/src/service_description.rs",
-      "line": 1497,
+      "line": 1427,
       "struct_name": "BottomDiagnostic",
       "field_name": "escalated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1965,7 +1965,7 @@
     },
     {
       "file": "crates/models-discovery/src/service_description.rs",
-      "line": 1622,
+      "line": 1550,
       "struct_name": "ClaimedProfileEntry",
       "field_name": "claimed_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1977,7 +1977,7 @@
     },
     {
       "file": "crates/models-discovery/src/service_description.rs",
-      "line": 1673,
+      "line": 1601,
       "struct_name": "VerifiedProfileEntry",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1989,7 +1989,7 @@
     },
     {
       "file": "crates/models-discovery/src/service_description.rs",
-      "line": 1809,
+      "line": 1737,
       "struct_name": "RateLimitPolicy",
       "field_name": "effective_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2001,7 +2001,7 @@
     },
     {
       "file": "crates/models-discovery/src/service_description.rs",
-      "line": 1812,
+      "line": 1740,
       "struct_name": "RateLimitPolicy",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2013,7 +2013,7 @@
     },
     {
       "file": "crates/models-discovery/src/service_description.rs",
-      "line": 1877,
+      "line": 1805,
       "struct_name": "RateLimitEntry",
       "field_name": "next_retry_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2109,7 +2109,7 @@
     },
     {
       "file": "crates/models-identity/src/actor_profile.rs",
-      "line": 50,
+      "line": 52,
       "struct_name": "ActorProfile",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2205,7 +2205,7 @@
     },
     {
       "file": "crates/models-identity/src/artifacts_device_identity.rs",
-      "line": 555,
+      "line": 529,
       "struct_name": "KeyVerificationContent",
       "field_name": "timestamp",
       "field_type": "Option<DateTime<Utc>>",
@@ -2217,7 +2217,7 @@
     },
     {
       "file": "crates/models-identity/src/artifacts_device_identity.rs",
-      "line": 558,
+      "line": 532,
       "struct_name": "KeyVerificationContent",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2300,20 +2300,8 @@
       "classification": "optional_has_default"
     },
     {
-      "file": "crates/models-identity/src/delivery_binding.rs",
-      "line": 45,
-      "struct_name": "MemberDeliveryBinding",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/member_delivery_binding",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
-    },
-    {
-      "file": "crates/models-identity/src/delivery_binding.rs",
-      "line": 190,
+      "file": "crates/models-identity/src/device_push_route.rs",
+      "line": 37,
       "struct_name": "DevicePushRouteActivePayload",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2324,8 +2312,8 @@
       "classification": "internal"
     },
     {
-      "file": "crates/models-identity/src/delivery_binding.rs",
-      "line": 196,
+      "file": "crates/models-identity/src/device_push_route.rs",
+      "line": 43,
       "struct_name": "DevicePushRouteActivePayload",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2336,8 +2324,8 @@
       "classification": "internal"
     },
     {
-      "file": "crates/models-identity/src/delivery_binding.rs",
-      "line": 213,
+      "file": "crates/models-identity/src/device_push_route.rs",
+      "line": 59,
       "struct_name": "DevicePushRouteRevokedPayload",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2349,7 +2337,7 @@
     },
     {
       "file": "crates/models-identity/src/handle_claim.rs",
-      "line": 86,
+      "line": 45,
       "struct_name": "HandleClaim",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2361,7 +2349,7 @@
     },
     {
       "file": "crates/models-identity/src/handle_claim.rs",
-      "line": 90,
+      "line": 48,
       "struct_name": "HandleClaim",
       "field_name": "verified_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2373,7 +2361,7 @@
     },
     {
       "file": "crates/models-identity/src/identity_resolution.rs",
-      "line": 701,
+      "line": 699,
       "struct_name": "ServiceRouteHandoverNoticeCore",
       "field_name": "not_before",
       "field_type": "Option<DateTime<Utc>>",
@@ -2385,7 +2373,7 @@
     },
     {
       "file": "crates/models-identity/src/identity_resolution.rs",
-      "line": 704,
+      "line": 702,
       "struct_name": "ServiceRouteHandoverNoticeCore",
       "field_name": "cutover_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2397,7 +2385,7 @@
     },
     {
       "file": "crates/models-identity/src/identity_resolution.rs",
-      "line": 707,
+      "line": 705,
       "struct_name": "ServiceRouteHandoverNoticeCore",
       "field_name": "grace_until",
       "field_type": "Option<DateTime<Utc>>",
@@ -2409,7 +2397,7 @@
     },
     {
       "file": "crates/models-identity/src/member_identity.rs",
-      "line": 56,
+      "line": 54,
       "struct_name": "MemberIdentity",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2421,7 +2409,7 @@
     },
     {
       "file": "crates/models-identity/src/member_identity.rs",
-      "line": 233,
+      "line": 231,
       "struct_name": "RosterHandleClaimDigestEntry",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2457,7 +2445,7 @@
     },
     {
       "file": "crates/policy/src/authz/authority.rs",
-      "line": 168,
+      "line": 165,
       "struct_name": "GrantConstraint",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",

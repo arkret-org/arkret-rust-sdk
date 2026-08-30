@@ -314,10 +314,6 @@
       "schema": "event-payload.schema.json#/$defs/realm_authority_reset_payload"
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/realm.rs::RealmDeliveryBindingPolicyPayload",
-      "schema": "event-payload.schema.json#/$defs/realm_delivery_binding_policy_payload"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/events_payloads/realm.rs::RealmCreatePayload",
       "schema": "event-payload.schema.json#/$defs/realm_create_payload"
     },
@@ -746,10 +742,6 @@
       "schema": "account-operations.schema.json#/$defs/device_summary"
     },
     {
-      "rust_type": "crates/models-identity/src/delivery_binding.rs::MemberDeliveryBinding",
-      "schema": "event-payload.schema.json#/$defs/member_delivery_binding"
-    },
-    {
       "rust_type": "crates/models-integration/src/applet_audit_payload.rs::AppletBridgeErrorPayload",
       "schema": "event-payload.schema.json#/$defs/applet_bridge_error_payload"
     },
@@ -956,10 +948,6 @@
       "reason": "serde(flatten) prevents a static complete field set"
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/member_delivery_binding_candidate.rs::MemberDeliveryBindingCandidate",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=['account_id'], Spec-only=[]."
-    },
-    {
       "rust_type": "crates/models-collaboration/src/governance/operation_wire.rs::PolicyRule",
       "reason": "serde(flatten) prevents a static complete field set"
     },
@@ -1081,10 +1069,6 @@
     },
     {
       "rust_type": "crates/models-discovery/src/service_description.rs::RateLimitPolicy",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-identity/src/artifacts_device_identity.rs::DeliveryBindingStaleHandoverProof",
       "reason": "serde(flatten) prevents a static complete field set"
     },
     {

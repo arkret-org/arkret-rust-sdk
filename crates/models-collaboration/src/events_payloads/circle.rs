@@ -39,7 +39,7 @@ pub struct CircleCreatePayload {
 #[serde(deny_unknown_fields)]
 pub struct CircleMemberStatePayload {
     pub circle_id: CircleId,
-    pub actor_id: ActorId,
+    pub member_id: ActorId,
     pub membership: CircleMembership,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -71,7 +71,7 @@ mod presence_tests {
     fn circle_membership_cas_preserves_missing_null_and_value() {
         let base = json!({
             "circle_id": "ak:circle:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j",
-            "actor_id": {"kind": "account", "account_id": {
+            "member_id": {"kind": "account", "account_id": {
                 "principal_id": "ak:did_core:web:alice.example",
                 "station_id": "ak:did_core:web:ps.example"
             }},
@@ -111,7 +111,7 @@ mod presence_tests {
         ] {
             let payload: CircleMemberStatePayload = serde_json::from_value(json!({
                 "circle_id": "ak:circle:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j",
-                "actor_id": {"kind": "account", "account_id": {
+                "member_id": {"kind": "account", "account_id": {
                     "principal_id": "ak:did_core:web:alice.example",
                     "station_id": "ak:did_core:web:ps.example"
                 }},

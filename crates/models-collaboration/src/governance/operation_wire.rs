@@ -5,14 +5,13 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    ActorId, DidCoreId, GrantId, Hash, InviteId, InviteState, PolicyEffect, PolicyId, PolicyKind,
+    AccountId, ActorId, GrantId, Hash, InviteId, InviteState, PolicyEffect, PolicyId, PolicyKind,
     RealmId, Result, SchemaId, WireError, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::governance::invite_addressing::InviteDeliveryTarget;
 use crate::governance::third_party_invite::ThirdPartyInvite;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -171,20 +170,16 @@ impl PolicyRule {
 /// There is deliberately no materialized join-rule snapshot: the admission
 /// basis is the create Event's own CBA governance basis, reachable by retyping
 /// the Invite id back to that Event (`governance-objects.md` §5.3). Private
-/// delivery material never reaches this object either — only
-/// `introduction_evidence_digest` and `invite_delivery_target`.
+/// delivery material never reaches this object either — only the
+/// `introduction_evidence_digest` commitment.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Invite {
     pub id: InviteId,
     pub schema: String,
     pub realm_id: RealmId,
-    pub inviter_id: DidCoreId,
+    pub inviter_account_id: AccountId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub invitee_id: Option<DidCoreId>,
-    /// Public durable target for private invite delivery (required by the
-    /// schema `allOf` when `invitee` is set without `third_party_invite`).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub invite_delivery_target: Option<InviteDeliveryTarget>,
+    pub invitee_account_id: Option<AccountId>,
     /// Digest of the private invite delivery `introduction_evidence`. Raw
     /// locator tokens MUST NOT appear in durable Realm events.
     #[serde(skip_serializing_if = "Option::is_none")]
