@@ -441,6 +441,7 @@ impl RealmState {
             updated_at: None,
         };
 
+        relation.validate_endpoints()?;
         self.relations.insert(relation_id_str, relation);
         Ok(())
     }
@@ -624,8 +625,8 @@ impl RealmState {
         let relation_id_str = self.extract_relation_id(&event.payload)?;
         let actor_id = event.actor_id.clone();
         let created_at = event.created_at;
-        let new_to_ref = self.extract_optional_field::<String>(&event.payload, "to_ref");
-        let new_from_ref = self.extract_optional_field::<String>(&event.payload, "from_ref");
+        let new_to_ref = self.extract_optional_field::<arkret_models_collaboration::objects::relation::RelationEndpoint>(&event.payload, "to_ref");
+        let new_from_ref = self.extract_optional_field::<arkret_models_collaboration::objects::relation::RelationEndpoint>(&event.payload, "from_ref");
 
         if let Some(relation) = self.relations.get_mut(&relation_id_str) {
             if let Some(new_to_ref) = new_to_ref {

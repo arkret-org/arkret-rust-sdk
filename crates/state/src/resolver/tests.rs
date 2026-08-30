@@ -743,8 +743,64 @@ fn strand_events_create_update_and_default_view_relation() {
 
     let relation = state.relations.get(&relation_id).unwrap();
     assert_eq!(relation.relation_kind, crate::RelationKind::HasDefaultView);
-    assert_eq!(relation.from_ref, strand_id);
-    assert_eq!(relation.to_ref, view_ref);
+    assert_eq!(relation.from_ref.as_object_ref(), Some(strand_id));
+    assert_eq!(relation.to_ref.as_object_ref(), Some(view_ref));
+}
+
+#[test]
+fn same_principal_station_assignments_project_and_tombstone_independently() {
+    let first_actor = ActorId::account(AccountId::new(
+        actor_id(),
+        DidCoreId::new("ak:did_core:web:station-a.example").unwrap(),
+    ));
+    let second_actor = ActorId::account(AccountId::new(
+        actor_id(),
+        DidCoreId::new("ak:did_core:web:station-b.example").unwrap(),
+    ));
+    let strand = "ak:strand:AUifoAUG8AEOHYXp999WnI7WlLt19ByDoqYUsFwbw4A4";
+    let first = event(
+        EventKind::RelationCreate,
+        1,
+        json!({
+            "relation": {"relation_kind":"assigned_to", "from_ref":strand, "to_ref":first_actor}
+        }),
+    );
+    let mut second = event(
+        EventKind::RelationCreate,
+        2,
+        json!({
+            "relation": {"relation_kind":"assigned_to", "from_ref":strand, "to_ref":second_actor}
+        }),
+    );
+    second.prev_refs.push(first.event_id.clone());
+    let first_id = RelationId::from_event_id(&first.event_id).to_string();
+    let second_id = RelationId::from_event_id(&second.event_id).to_string();
+    let mut remove = event(
+        EventKind::RelationTombstone,
+        3,
+        json!({"relation_id":first_id}),
+    );
+    remove.prev_refs.push(second.event_id.clone());
+    let mut state = RealmState::new(realm_id());
+    state.apply_events(&[first, second]).unwrap();
+    assert_eq!(state.relations.len(), 2);
+    assert_eq!(
+        state.relations[&first_id].to_ref.as_actor_id(),
+        Some(&first_actor)
+    );
+    assert_eq!(
+        state.relations[&second_id].to_ref.as_actor_id(),
+        Some(&second_actor)
+    );
+    state.apply_events(&[remove]).unwrap();
+    assert_eq!(
+        state.relations[&first_id].state,
+        Some(crate::RelationState::Tombstoned)
+    );
+    assert_eq!(
+        state.relations[&second_id].state,
+        Some(crate::RelationState::Active)
+    );
 }
 
 #[test]

@@ -10,6 +10,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::objects::relation::RelationEndpoint;
 use crate::objects::view::DashboardConfig;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -38,19 +39,23 @@ pub enum Filter {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RelationQuery {
     pub kind: RelationKind,
     pub direction: RelationDirection,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub source_ref: Option<String>,
+    pub source_ref: Option<RelationEndpoint>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub target_ref: Option<String>,
+    pub target_ref: Option<RelationEndpoint>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub depth: Option<u32>,
 }
 
 impl RelationQuery {
     pub fn validate_endpoints(&self) -> Result<()> {
+        for endpoint in self.source_ref.iter().chain(self.target_ref.iter()) {
+            endpoint.validate()?;
+        }
         Ok(())
     }
 }

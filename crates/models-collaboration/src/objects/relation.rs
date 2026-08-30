@@ -13,6 +13,86 @@ use serde_json::Value;
 pub const RELATION_KIND_CONTAINS: &str = "contains";
 pub const RELATION_KIND_WATCHES: &str = "watches";
 
+/// A collaboration graph endpoint. Actors stay structured on the wire so
+/// accounts with one signing principal at different Stations never collapse.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RelationEndpoint {
+    Object(#[serde(deserialize_with = "deserialize_relation_object_ref")] String),
+    Actor(ActorId),
+}
+
+impl RelationEndpoint {
+    pub fn as_object_ref(&self) -> Option<&str> {
+        match self {
+            Self::Object(value) => Some(value),
+            Self::Actor(_) => None,
+        }
+    }
+
+    pub fn as_actor_id(&self) -> Option<&ActorId> {
+        match self {
+            Self::Actor(value) => Some(value),
+            Self::Object(_) => None,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if let Self::Object(value) = self {
+            validate_relation_object_ref(value)?;
+        }
+        Ok(())
+    }
+}
+
+impl From<ActorId> for RelationEndpoint {
+    fn from(value: ActorId) -> Self {
+        Self::Actor(value)
+    }
+}
+
+impl From<String> for RelationEndpoint {
+    fn from(value: String) -> Self {
+        Self::Object(value)
+    }
+}
+
+impl From<&str> for RelationEndpoint {
+    fn from(value: &str) -> Self {
+        Self::Object(value.to_owned())
+    }
+}
+
+fn validate_relation_object_ref(value: &str) -> Result<()> {
+    use arkret_wire::{
+        ActorProfileId, BlobId, BlobRef, MessageId, MorphId, SpaceId, StrandId, ViewId,
+    };
+    let valid = RealmId::new(value).is_ok()
+        || SpaceId::new(value).is_ok()
+        || ActorProfileId::new(value).is_ok()
+        || StrandId::new(value).is_ok()
+        || MessageId::new(value).is_ok()
+        || MorphId::new(value).is_ok()
+        || RelationId::new(value).is_ok()
+        || EventId::new(value).is_ok()
+        || ViewId::new(value).is_ok()
+        || BlobId::new(value).is_ok()
+        || BlobRef::new(value).is_ok();
+    if valid {
+        Ok(())
+    } else {
+        Err(WireError::Protocol("relation object endpoint must be an allowed typed object reference; Actor endpoints require structured ActorId".to_owned()))
+    }
+}
+
+fn deserialize_relation_object_ref<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<String, D::Error> {
+    let value = String::deserialize(deserializer)?;
+    validate_relation_object_ref(&value).map_err(serde::de::Error::custom)?;
+    Ok(value)
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Relation {
     pub schema: String,
@@ -31,8 +111,8 @@ pub struct Relation {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effective_scope: Option<ScopeRef>,
     pub relation_kind: RelationKind,
-    pub from_ref: String,
-    pub to_ref: String,
+    pub from_ref: RelationEndpoint,
+    pub to_ref: RelationEndpoint,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rank: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -261,19 +341,87 @@ where
 impl Relation {
     pub const SCHEMA: &'static str = SchemaId::RELATION_V1;
     pub fn validate_endpoints(&self) -> Result<()> {
-        if self.from_ref.trim().is_empty() || self.to_ref.trim().is_empty() {
-            Err(WireError::Protocol(
-                "relation requires non-empty from_ref and to_ref".to_owned(),
-            ))
-        } else {
-            Ok(())
+        self.from_ref.validate()?;
+        self.to_ref.validate()?;
+        if self.relation_kind == RelationKind::AssignedTo
+            && (self.to_ref.as_actor_id().is_none()
+                || !self
+                    .from_ref
+                    .as_object_ref()
+                    .is_some_and(|value| value.starts_with("ak:strand:")))
+        {
+            return Err(WireError::Protocol(
+                "assigned_to requires Strand -> ActorId endpoints".to_owned(),
+            ));
         }
+        if self.relation_kind == RelationKind::Watches && self.from_ref.as_actor_id().is_none() {
+            return Err(WireError::Protocol(
+                "watches requires an ActorId source endpoint".to_owned(),
+            ));
+        }
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn account_endpoint(station: &str) -> RelationEndpoint {
+        ActorId::account(arkret_wire::AccountId::new(
+            arkret_wire::DidCoreId::new("ak:did_core:web:assignee.example").unwrap(),
+            arkret_wire::DidCoreId::new(format!("ak:did_core:web:{station}")).unwrap(),
+        ))
+        .into()
+    }
+
+    #[test]
+    fn same_principal_station_assignments_are_distinct_typed_endpoints() {
+        let first = account_endpoint("station-a.example");
+        let second = account_endpoint("station-b.example");
+        let mut assignments = std::collections::BTreeSet::from([first.clone(), second.clone()]);
+        assert_eq!(assignments.len(), 2);
+        let json = serde_json::to_value(&first).unwrap();
+        assert!(json.is_object());
+        assert_eq!(
+            serde_json::from_value::<RelationEndpoint>(json).unwrap(),
+            first
+        );
+        assert!(assignments.remove(&first));
+        assert_eq!(assignments, std::collections::BTreeSet::from([second]));
+    }
+
+    #[test]
+    fn relation_actor_endpoint_rejects_principal_and_json_strings() {
+        for value in [
+            serde_json::json!("did:web:assignee.example"),
+            serde_json::json!("ak:did_core:web:assignee.example"),
+            serde_json::json!(
+                serde_json::to_string(&account_endpoint("station-a.example")).unwrap()
+            ),
+            serde_json::json!({"kind":"account","account_id":{"principal_id":"ak:did_core:web:assignee.example"}}),
+        ] {
+            assert!(serde_json::from_value::<RelationEndpoint>(value).is_err());
+        }
+    }
+
+    #[test]
+    fn relation_query_preserves_actor_station_endpoint() {
+        let query = crate::objects::queries::RelationQuery {
+            kind: RelationKind::AssignedTo,
+            direction: arkret_wire::RelationDirection::Out,
+            source_ref: Some("ak:strand:AUifoAUG8AEOHYXp999WnI7WlLt19ByDoqYUsFwbw4A4".into()),
+            target_ref: Some(account_endpoint("station-a.example")),
+            depth: None,
+        };
+        query.validate_endpoints().unwrap();
+        let value = serde_json::to_value(&query).unwrap();
+        assert!(value["source_ref"].is_string());
+        assert_eq!(
+            value["target_ref"]["account_id"]["station_id"],
+            "ak:did_core:web:station-a.example"
+        );
+    }
 
     fn profile(cardinality: RelationCardinality) -> RelationProfile {
         RelationProfile {
@@ -312,7 +460,7 @@ mod tests {
         let complete = RelationProfile {
             relation_kind: "assigned_to".to_owned(),
             from_kind: Some("strand".to_owned()),
-            to_kind: Some("did".to_owned()),
+            to_kind: Some("actor".to_owned()),
             relation_scope: RelationScope::Board,
             cardinality: RelationCardinality::ManyToOne,
             dedupe_key: vec!["board_space_id".to_owned(), "from_ref".to_owned()],
@@ -338,7 +486,7 @@ mod tests {
         let value = serde_json::json!({
             "relation_kind": "assigned_to",
             "from_kind": "strand",
-            "to_kind": "did",
+            "to_kind": "actor",
             "relation_scope": "realm",
             "cardinality": "many_to_one",
             "dedupe_key": ["realm_id", "from_ref"],

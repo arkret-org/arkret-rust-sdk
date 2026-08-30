@@ -951,11 +951,11 @@ pub struct ProjectionStrandRow {
     /// `ak.component.strand.position.v1`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rank: Option<String>,
-    /// Derived current assignee Actor DIDs from visible active
+    /// Derived current full ActorIds, including Station, from visible active
     /// `assigned_to` Relations. Empty means the Strand is unassigned for
     /// this projection caller.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub assigned_actor_ids: Vec<DidCoreId>,
+    pub assigned_actor_ids: Vec<ActorId>,
     /// Active assignment Relation edges backing `assigned_actor_ids`.
     /// Clients use `relation_id` to tombstone an assignment during edits.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
