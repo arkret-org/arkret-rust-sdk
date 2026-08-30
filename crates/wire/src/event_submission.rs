@@ -803,9 +803,8 @@ mod tests {
         let join_actor_id = account_actor("ak:did_core:webvh:z6mkfixture");
         let subject_id = account_actor("ak:did_core:webvh:z6mkfixturesubject");
         let executor_id = account_actor("ak:did_core:webvh:z6mkfixtureexecutor");
-        let resource = match scope() {
-            ScopeRef::Realm { realm_id } => realm_id,
-            _ => unreachable!(),
+        let ScopeRef::Realm { realm_id: resource } = scope() else {
+            unreachable!()
         };
         let join_event = online_event();
         let join_event_digest = Hash::new(

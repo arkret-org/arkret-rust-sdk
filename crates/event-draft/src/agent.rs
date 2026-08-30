@@ -86,8 +86,8 @@ pub fn build_agent_pause_intent(
     let agent_id = agent_actor_id.signing_principal_id().clone();
     let controller_id = controller_actor_id.signing_principal_id().clone();
     let payload = AgentPausePayload {
-        agent_id: agent_id.clone(),
-        controller_id: controller_id.clone(),
+        agent_id,
+        controller_id,
         transition: "pause".to_owned(),
         previous_status: "active".to_owned(),
         status_changed_at,
@@ -114,8 +114,8 @@ pub fn build_agent_resume_intent(
     let agent_id = agent_actor_id.signing_principal_id().clone();
     let controller_id = controller_actor_id.signing_principal_id().clone();
     let payload = AgentResumePayload {
-        agent_id: agent_id.clone(),
-        controller_id: controller_id.clone(),
+        agent_id,
+        controller_id,
         transition: "resume".to_owned(),
         previous_status: "paused".to_owned(),
         status_changed_at,
@@ -155,8 +155,8 @@ pub fn build_agent_deactivate_intent(
         }
     };
     let payload = AgentDeactivatePayload {
-        agent_id: agent_id.clone(),
-        controller_id: controller_id.clone(),
+        agent_id,
+        controller_id,
         transition: "deactivate".to_owned(),
         previous_status: previous_status.to_owned(),
         status_changed_at,

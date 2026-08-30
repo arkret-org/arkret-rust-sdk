@@ -1653,11 +1653,7 @@ impl ArkretMlsGroup {
             .filter(|member| {
                 self.leaf_bindings
                     .get(&member.index.u32())
-                    .is_some_and(|binding| {
-                        canonical_targets
-                            .iter()
-                            .any(|target| &binding.actor_id == *target)
-                    })
+                    .is_some_and(|binding| canonical_targets.contains(&&binding.actor_id))
             })
             .map(|member| member.index)
             .collect();
