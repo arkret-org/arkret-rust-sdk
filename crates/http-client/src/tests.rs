@@ -632,6 +632,70 @@ mod events_submit_tests {
     }
 
     #[tokio::test]
+    async fn effective_grants_transmits_the_complete_actor_branch() {
+        let principal = arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap();
+        let station = arkret_wire::DidCoreId::new("ak:did_core:web:station.example").unwrap();
+        for subject in [
+            ActorId::account(AccountId::new(principal.clone(), station.clone())),
+            ActorId::hosted_principal(principal, station.clone()),
+            ActorId::service(station),
+        ] {
+            let (client, capture) =
+                spawn_capture_server(r#"{"grants":[],"evaluated_at":"2026-08-31T00:00:00.000Z"}"#)
+                    .await;
+            let realm =
+                arkret_wire::RealmId::new("ak:realm:ASZ8VNF9qzH4Hcjd-1qOOKONYlZmfQOIRvMYdkQ0XXBH")
+                    .unwrap();
+            client
+                .authz_effective_grants(&realm, &subject, None)
+                .await
+                .unwrap();
+            let raw = capture.await.unwrap();
+            let (line, ..) = split_request(&raw);
+            let url = Url::parse(&format!(
+                "https://fixture.example{}",
+                line.split_whitespace().nth(1).unwrap()
+            ))
+            .unwrap();
+            let query = url
+                .query_pairs()
+                .collect::<std::collections::BTreeMap<_, _>>();
+            assert_eq!(query.get("subject_actor_id").unwrap(), &subject.to_string());
+            assert_eq!(query.get("realm_id").unwrap(), realm.as_str());
+            assert_eq!(query.len(), 2);
+        }
+    }
+
+    #[tokio::test]
+    async fn authz_invites_transmits_the_complete_account_pair() {
+        for station in [
+            "ak:did_core:web:first.example",
+            "ak:did_core:web:second.example",
+        ] {
+            let (client, capture) =
+                spawn_capture_server(r#"{"invites":[],"has_more":false}"#).await;
+            let subject = AccountId::new(
+                arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+                arkret_wire::DidCoreId::new(station).unwrap(),
+            );
+            client.authz_invites(&subject, None, None).await.unwrap();
+            let raw = capture.await.unwrap();
+            let (line, ..) = split_request(&raw);
+            let url = Url::parse(&format!(
+                "https://fixture.example{}",
+                line.split_whitespace().nth(1).unwrap()
+            ))
+            .unwrap();
+            let query = url
+                .query_pairs()
+                .collect::<std::collections::BTreeMap<_, _>>();
+            assert_eq!(query.get("subject").unwrap(), subject.principal_id.as_str());
+            assert_eq!(query.get("subject_station_id").unwrap(), station);
+            assert_eq!(query.len(), 2);
+        }
+    }
+
+    #[tokio::test]
     async fn events_submit_single_posts_initial_submission() {
         let canned = r#"{"status":"accepted","pending_delivery_count":0,"accepted":["ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6"]}"#;
         let (client, capture) = spawn_capture_server(canned).await;
