@@ -227,11 +227,17 @@ fn lookup_key_material(document: &DidDocument, method: &DidUrl) -> arkret_wire::
 }
 
 fn require_assertion_method(document: &DidDocument, method: &DidUrl) -> arkret_wire::Result<()> {
-    let Some(methods) = document
+    let methods = document
         .raw_properties
         .get("assertionMethod")
         .and_then(serde_json::Value::as_array)
-    else {
+        .or_else(|| {
+            document
+                .raw_properties
+                .get("assertion_methods")
+                .and_then(serde_json::Value::as_array)
+        });
+    let Some(methods) = methods else {
         return Err(arkret_wire::WireError::Protocol(
             "service DID document has no assertionMethod relationship".to_owned(),
         ));
@@ -242,7 +248,12 @@ fn require_assertion_method(document: &DidDocument, method: &DidUrl) -> arkret_w
         .map(|(_, fragment)| format!("#{fragment}"));
     if !methods
         .iter()
-        .filter_map(serde_json::Value::as_str)
+        .filter_map(|item| {
+            item.as_str().or_else(|| {
+                item.get("verification_method")
+                    .and_then(serde_json::Value::as_str)
+            })
+        })
         .any(|item| item == full || relative.as_deref().is_some_and(|relative| item == relative))
     {
         return Err(arkret_wire::WireError::Protocol(

@@ -149,12 +149,55 @@ fn verification_method_index(
     }
 }
 
+fn normalized_verification_method_index(
+    value: &Value,
+) -> std::result::Result<BTreeMap<String, String>, String> {
+    let Value::Array(methods) = value else {
+        return Err("verification_methods must be an array".to_owned());
+    };
+    let mut out = BTreeMap::new();
+    for method in methods {
+        let Value::Object(object) = method else {
+            continue;
+        };
+        let Some(key_id) = object
+            .get("verification_method")
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned)
+        else {
+            continue;
+        };
+        let public_key = object
+            .get("public_key_material")
+            .and_then(Value::as_object)
+            .and_then(|material| {
+                material
+                    .get("publicKeyMultibase")
+                    .or_else(|| material.get("publicKeyJwk"))
+                    .or_else(|| material.values().next())
+            })
+            .map(|value| {
+                value
+                    .as_str()
+                    .map(ToOwned::to_owned)
+                    .unwrap_or_else(|| value.to_string())
+            })
+            .unwrap_or_default();
+        out.insert(key_id, public_key);
+    }
+    Ok(out)
+}
+
 impl Serialize for DidDocument {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         let mut properties = self.raw_properties.clone();
+        if properties.contains_key("did") && !properties.contains_key("id") {
+            properties.insert("did".to_owned(), Value::String(self.id.to_string()));
+            return properties.serialize(serializer);
+        }
         properties.insert("id".to_owned(), Value::String(self.id.to_string()));
 
         let keep_raw_verification_methods = properties
@@ -221,17 +264,24 @@ impl<'de> Deserialize<'de> for DidDocument {
         let raw_properties = BTreeMap::<String, Value>::deserialize(deserializer)?;
         let id = raw_properties
             .get("id")
+            .or_else(|| raw_properties.get("did"))
             .cloned()
-            .ok_or_else(|| serde::de::Error::missing_field("id"))
+            .ok_or_else(|| serde::de::Error::custom("missing field `id` or `did`"))
             .and_then(|value| serde_json::from_value(value).map_err(serde::de::Error::custom))?;
         let verification_methods = raw_properties
             .get("verificationMethod")
             .map(verification_method_index)
+            .or_else(|| {
+                raw_properties
+                    .get("verification_methods")
+                    .map(normalized_verification_method_index)
+            })
             .transpose()
             .map_err(serde::de::Error::custom)?
             .unwrap_or_default();
         let also_known_as = raw_properties
             .get("alsoKnownAs")
+            .or_else(|| raw_properties.get("also_known_as"))
             .cloned()
             .map(serde_json::from_value)
             .transpose()
@@ -268,6 +318,7 @@ impl DidDocument {
         if self
             .raw_properties
             .get("id")
+            .or_else(|| self.raw_properties.get("did"))
             .and_then(Value::as_str)
             .is_some_and(|raw_id| raw_id != self.id.as_str())
         {
@@ -328,6 +379,44 @@ mod tests {
         });
         let document: DidDocument = serde_json::from_value(value.clone()).unwrap();
         assert!(document.verification_methods.is_empty());
+        document.validate().unwrap();
+        assert_eq!(serde_json::to_value(document).unwrap(), value);
+    }
+
+    #[test]
+    fn did_document_preserves_canonical_normalized_projection() {
+        let value = serde_json::json!({
+            "did": "did:webvh:z6mkfixture:alice.example",
+            "contexts": ["https://www.w3.org/ns/did/v1"],
+            "controller_dids": [],
+            "also_known_as": ["acct:alice@example.test"],
+            "verification_methods": [{
+                "verification_method": "did:webvh:z6mkfixture:alice.example#key-1",
+                "controller_did": "did:webvh:z6mkfixture:alice.example",
+                "verification_method_suite": "Multikey",
+                "public_key_material": {"publicKeyMultibase": "z6Mkfixture"},
+                "extensions": []
+            }],
+            "authentication": [],
+            "assertion_methods": [{
+                "verification_method": "did:webvh:z6mkfixture:alice.example#key-1"
+            }],
+            "key_agreements": [],
+            "capability_invocations": [],
+            "capability_delegations": [],
+            "services": [],
+            "metadata": {},
+            "extensions": []
+        });
+        let document: DidDocument = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(document.id.as_str(), "did:webvh:z6mkfixture:alice.example");
+        assert_eq!(
+            document
+                .verification_methods
+                .get("did:webvh:z6mkfixture:alice.example#key-1"),
+            Some(&"z6Mkfixture".to_owned())
+        );
+        assert_eq!(document.also_known_as, vec!["acct:alice@example.test"]);
         document.validate().unwrap();
         assert_eq!(serde_json::to_value(document).unwrap(), value);
     }
