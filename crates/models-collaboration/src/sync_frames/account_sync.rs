@@ -713,7 +713,7 @@ pub struct RealmSyncEntry {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DeviceMessagesSendRequestBody {
-    pub messages: BTreeMap<ActorId, BTreeMap<DeviceId, DeviceMessageTarget>>,
+    pub messages: BTreeMap<DidCoreId, BTreeMap<DeviceId, DeviceMessageTarget>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

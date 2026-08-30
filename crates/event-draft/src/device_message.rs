@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
-use arkret_identifiers::{DeviceId, DeviceMessageId};
+use arkret_identifiers::{DeviceId, DeviceMessageId, DidCoreId};
 use arkret_models_collaboration::objects::productivity::{
     FILE_TRANSFER_KEY_MESSAGE_KIND, FileTransferKeyMessage,
 };
@@ -12,7 +12,7 @@ use arkret_models_collaboration::sync_frames::account_sync::{
 };
 use arkret_models_crypto::MlsWelcomeEnvelope;
 use arkret_models_identity::artifacts_device_identity::KeyVerificationContent;
-use arkret_wire::{ActorId, ProtocolKind};
+use arkret_wire::ProtocolKind;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::Value;
@@ -232,16 +232,16 @@ impl<K: DeviceMessageSpec> TypedDeviceMessageTarget<K> {
         })
     }
 
-    /// Build the one-recipient batch shape consumed by the send endpoint.
+    /// Build the one-recipient batch for the addressed Station's device queue.
     pub fn single_recipient(
         self,
-        actor_id: ActorId,
+        principal_id: DidCoreId,
         device_id: DeviceId,
     ) -> Result<DeviceMessagesSendRequestBody> {
         let mut by_device = BTreeMap::new();
         by_device.insert(device_id, self.build()?);
         let mut messages = BTreeMap::new();
-        messages.insert(actor_id, by_device);
+        messages.insert(principal_id, by_device);
         Ok(DeviceMessagesSendRequestBody { messages })
     }
 }
@@ -278,6 +278,27 @@ mod tests {
         .unwrap()
         .build()
         .unwrap();
+
+        let recipient = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
+        let device = DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002").unwrap();
+        let request = TypedDeviceMessageTarget::<device_message_spec::MlsWelcome>::new(
+            DeviceMessageId::new("ak:device_message:01904100-0000-7000-8000-000000000003").unwrap(),
+            Utc::now() + Duration::minutes(5),
+            content.clone(),
+        )
+        .unwrap()
+        .single_recipient(recipient.clone(), device.clone())
+        .unwrap();
+        let json = serde_json::to_value(&request).unwrap();
+        assert!(json["messages"][recipient.as_str()][device.as_str()].is_object());
+        let round_trip: DeviceMessagesSendRequestBody = serde_json::from_value(json).unwrap();
+        assert!(round_trip.messages[&recipient].contains_key(&device));
+        assert!(
+            serde_json::from_value::<DeviceMessagesSendRequestBody>(serde_json::json!({
+                "messages": {"{\"kind\":\"account\"}": {}}
+            }))
+            .is_err()
+        );
 
         assert_eq!(target.kind.as_str(), device_message_kind::MLS_WELCOME_V1);
         assert_eq!(
