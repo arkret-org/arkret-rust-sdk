@@ -193,11 +193,7 @@ impl DirectConversationFoundingPlan {
                 serde_json::to_value(&founder_member.payload).map_err(protocol_error)?,
             )
             .map_err(protocol_error)?;
-        let founder_cell = CellRef::new(format!(
-            "ak:cell:ak.component.member.state.v1:{}",
-            create.actor_id.canonical_key().map_err(protocol_error)?
-        ))
-        .map_err(protocol_error)?;
+        let founder_cell = founding_member_cell(&create.actor_id)?;
         if founder_member_payload.membership
             != crate::governance::membership_invite::MembershipPayloadState::Join
             || founder_member_payload.member_id != create.actor_id
@@ -519,6 +515,11 @@ fn protocol_error(error: impl std::fmt::Display) -> arkret_wire::WireError {
     arkret_wire::WireError::Protocol(error.to_string())
 }
 
+fn founding_member_cell(actor: &ActorId) -> arkret_wire::Result<CellRef> {
+    let subject = arkret_wire::composite_subject(&[actor.canonical_key()?])?;
+    CellRef::new(format!("ak:cell:ak.component.member.state.v1:{subject}")).map_err(protocol_error)
+}
+
 fn founding_unit_invalid(detail: &str) -> arkret_wire::WireError {
     arkret_wire::WireError::Protocol(format!(
         "direct_conversation_founding_unit_invalid: {detail}"
@@ -837,6 +838,31 @@ impl DirectConversationFoundingAcceptanceReceipt {
 #[cfg(test)]
 mod tests {
     use serde_json::json;
+
+    #[test]
+    fn founding_member_cell_hashes_the_full_actor_including_station() {
+        let principal = DidCoreId::new("ak:did_core:web:alice.example").unwrap();
+        let mut cells = Vec::new();
+        for station in [
+            "ak:did_core:web:first.example",
+            "ak:did_core:web:second.example",
+        ] {
+            let actor = ActorId::account(arkret_wire::AccountId::new(
+                principal.clone(),
+                DidCoreId::new(station).unwrap(),
+            ));
+            let cell = founding_member_cell(&actor).unwrap();
+            let expected_subject =
+                arkret_wire::composite_subject(&[actor.canonical_key().unwrap()]).unwrap();
+            assert_eq!(
+                cell.as_str(),
+                format!("ak:cell:ak.component.member.state.v1:{expected_subject}")
+            );
+            assert!(!cell.as_str().contains('{'));
+            cells.push(cell);
+        }
+        assert_ne!(cells[0], cells[1]);
+    }
 
     #[test]
     fn contact_round_id_matches_normative_known_answers() {
