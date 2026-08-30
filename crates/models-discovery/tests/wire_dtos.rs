@@ -8,6 +8,50 @@ use arkret_models_discovery::{
 use arkret_wire::{Did, RealmId, ServiceKind, TrustDomainId};
 
 #[test]
+fn announce_origin_is_carried_only_by_the_signed_event_actor() {
+    let realm_id = "ak:realm:ATH75ame6bMfYpXtcoLOVb7FKmgpWVniZZqVBz1dUdQa";
+    let mut value = serde_json::json!({
+        "discovery_event": {
+            "event_id": "ak:event:ASWGTju1AH5ri82iFC0b-lZTclyFRuOI8TagaYiq5ZD2",
+            "kind": "ak.realm.discovery", "realm_id": realm_id,
+            "scope_ref": {"kind": "realm", "realm_id": realm_id},
+            "actor_id": {"kind": "hosted_principal",
+                "principal_id": "ak:did_core:web:author.example",
+                "station_id": "ak:did_core:web:station.example"},
+            "actor_seq": 1, "created_at": "2026-08-31T00:00:00.000Z",
+            "prev_refs": [], "payload": {"value": {}}, "proofs": []
+        },
+        "source_refs": ["ak:event:ASWGTju1AH5ri82iFC0b-lZTclyFRuOI8TagaYiq5ZD2"],
+        "as_of": "2026-08-31T00:00:00.000Z"
+    });
+    let body: arkret_models_discovery::DirectoryAnnounceRequestBody =
+        serde_json::from_value(value.clone()).unwrap();
+    assert_eq!(
+        body.discovery_event.actor_id.route_service_id().as_str(),
+        "ak:did_core:web:station.example"
+    );
+    assert!(
+        serde_json::to_value(&body)
+            .unwrap()
+            .get("station_id")
+            .is_none()
+    );
+    value["station_id"] = serde_json::json!("ak:did_core:web:other.example");
+    assert!(
+        serde_json::from_value::<arkret_models_discovery::DirectoryAnnounceRequestBody>(value)
+            .is_err()
+    );
+    let mut missing_refs = serde_json::to_value(body).unwrap();
+    missing_refs.as_object_mut().unwrap().remove("source_refs");
+    assert!(
+        serde_json::from_value::<arkret_models_discovery::DirectoryAnnounceRequestBody>(
+            missing_refs
+        )
+        .is_err()
+    );
+}
+
+#[test]
 fn interop_surface_entry_is_closed_and_supports_delegated_resolver() {
     let surface = InteropSurfaceEntry::delegated_resolver("station_did_resolver")
         .with_notes("delegated DID document surface");
