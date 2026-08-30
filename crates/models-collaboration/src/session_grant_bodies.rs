@@ -793,6 +793,7 @@ pub struct SessionGrantRefreshOutcome {
 /// `ak.gate.account.command.logout_auth_session.v1` request.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AuthSessionLogoutRequestBody {
     pub grant_jwt: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -807,6 +808,7 @@ pub struct AuthSessionLogoutRequestBody {
 /// `ak.gate.account.command.logout_auth_session.v1` outcome.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AuthSessionLogoutOutcome {
     pub grant_chain_terminated: bool,
     pub auth_session_logged_out: bool,
@@ -1321,5 +1323,24 @@ mod session_grant_contract_tests {
         assert!(serde_json::from_value::<SessionGrantRefreshOutcome>(refresh.clone()).is_ok());
         refresh.as_object_mut().unwrap().remove("scopes");
         assert!(serde_json::from_value::<SessionGrantRefreshOutcome>(refresh).is_err());
+    }
+
+    #[test]
+    fn auth_session_logout_contract_is_closed() {
+        assert!(
+            serde_json::from_value::<AuthSessionLogoutRequestBody>(json!({
+                "grant_jwt": "header.payload.signature",
+                "unknown": true
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<AuthSessionLogoutOutcome>(json!({
+                "grant_chain_terminated": true,
+                "auth_session_logged_out": true,
+                "unknown": true
+            }))
+            .is_err()
+        );
     }
 }

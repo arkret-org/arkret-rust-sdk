@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-29.14;
-//! sha256=112f235cfab437ab869d59d73100b8ffaa77b00a88f0f1566377955bc78aa6f8 Entries: registered=231
+//! Input: registry/operation-registry.json; version=2026-08-30.2;
+//! sha256=99b3a364880f9896ca88ab40ed3c1422328a169a9833783a9a097db9f84f4e08 Entries: registered=231
 
 use serde::{Deserialize, Serialize};
 
@@ -2838,8 +2838,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
+        idempotency_mechanism: Some("protocol_sequence"),
+        retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/AccountLogoutRequestBody",
         ),
@@ -2847,7 +2847,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/AccountLogoutOutcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.gate.account.command.introspect_session_grant.v1\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.gate.account.command.logout.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_indeterminate\"]}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -2865,8 +2865,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
+        idempotency_mechanism: Some("protocol_sequence"),
+        retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/AuthSessionLogoutRequestBody",
         ),
@@ -2874,7 +2874,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/AuthSessionLogoutOutcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.gate.account.command.introspect_session_grant.v1\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.gate.account.command.logout_auth_session.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_indeterminate\"]}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
