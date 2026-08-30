@@ -15,6 +15,7 @@ pub const RELATION_KIND_WATCHES: &str = "watches";
 
 /// A collaboration graph endpoint. Actors stay structured on the wire so
 /// accounts with one signing principal at different Stations never collapse.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum RelationEndpoint {
