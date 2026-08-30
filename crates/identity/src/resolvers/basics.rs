@@ -1,4 +1,4 @@
-use arkret_wire::{ActorId, Did, DidCoreId};
+use arkret_wire::{ActorId, Did};
 
 use crate::*;
 

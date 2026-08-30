@@ -3,8 +3,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    ActorId, AuthzDecision, DidCoreId, FreshnessState, Hash, NotaryStatus, ReasonCode,
-    WireResourceSelector,
+    ActorId, AuthzDecision, FreshnessState, Hash, NotaryStatus, ReasonCode, WireResourceSelector,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

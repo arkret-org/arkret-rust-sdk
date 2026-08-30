@@ -521,7 +521,7 @@ pub struct MlsWelcomeClaimEnvelope {
     pub keypackage_digest: Hash,
     pub intended_realm_id: RealmId,
     pub claim_id: NonEmptyString,
-    pub requester_actor_id: DidCoreId,
+    pub requester_actor_id: ActorId,
     pub trust_binding: MlsRequesterTrustBinding,
     pub welcome_digest: Hash,
     pub created_at: DateTime<Utc>,
@@ -534,7 +534,7 @@ pub struct MlsWelcomeClaimEnvelopeSigningInput {
     pub keypackage_digest: Hash,
     pub intended_realm_id: RealmId,
     pub claim_id: NonEmptyString,
-    pub requester_actor_id: DidCoreId,
+    pub requester_actor_id: ActorId,
     pub trust_binding: MlsRequesterTrustBinding,
     pub welcome_digest: Hash,
     pub created_at: DateTime<Utc>,
@@ -650,7 +650,7 @@ struct MlsWelcomeClaimEnvelopeWire {
     keypackage_digest: Hash,
     intended_realm_id: RealmId,
     claim_id: NonEmptyString,
-    requester_actor_id: DidCoreId,
+    requester_actor_id: ActorId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     requester_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -765,7 +765,7 @@ impl<'de> Deserialize<'de> for MlsWelcomeClaimEnvelope {
             }
             (None, None, None, None, None, Some(method)) => {
                 arkret_models_crypto::MlsEndpointIdentity::minimal_metadata_pairwise(
-                    wire.requester_actor_id.clone(),
+                    wire.requester_actor_id.signing_principal_id().clone(),
                     method.clone(),
                 )
                 .map_err(serde::de::Error::custom)?;
@@ -799,7 +799,7 @@ struct MlsWelcomeClaimEnvelopeSigningInputWire {
     keypackage_digest: Hash,
     intended_realm_id: RealmId,
     claim_id: NonEmptyString,
-    requester_actor_id: DidCoreId,
+    requester_actor_id: ActorId,
     #[serde(skip_serializing_if = "Option::is_none")]
     requester_device_id: Option<DeviceId>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -928,7 +928,7 @@ impl MlsWelcomeClaimEnvelope {
             requester_agent_key_authorize_event_id,
         } = &self.trust_binding
         {
-            if requester_agent_id != &self.requester_actor_id
+            if requester_agent_id != self.requester_actor_id.signing_principal_id()
                 || self.signature.kid.as_str() != requester_agent_verification_method.as_str()
             {
                 return Err(ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
@@ -940,7 +940,7 @@ impl MlsWelcomeClaimEnvelope {
         } = &self.trust_binding
             && (self.signature.kid.as_str() != requester_pairwise_verification_method.as_str()
                 || arkret_models_crypto::MlsEndpointIdentity::minimal_metadata_pairwise(
-                    self.requester_actor_id.clone(),
+                    self.requester_actor_id.signing_principal_id().clone(),
                     requester_pairwise_verification_method.clone(),
                 )
                 .is_err())
@@ -1285,7 +1285,7 @@ pub fn validate_mls_welcome_claim_envelope(
     claim: &KeyPackageClaimRecord,
     published: &MlsKeypackagePayload,
     intended_realm_id: &RealmId,
-    requester_actor_id: &DidCoreId,
+    requester_actor_id: &ActorId,
     welcome_digest: &Hash,
     current_claim_device_authorize_event_id: Option<&str>,
     current_claim_agent_key_authorize_event_id: Option<&str>,
@@ -1440,7 +1440,7 @@ fn validate_claim_trust_binding(
 
 fn validate_requester_signature_binding(
     trust_binding: &MlsRequesterTrustBinding,
-    requester_actor_id: &DidCoreId,
+    requester_actor_id: &ActorId,
     current_requester_device_id: Option<&str>,
     current_requester_device_authorize_event_id: Option<&str>,
 ) -> std::result::Result<(), &'static str> {
@@ -1469,7 +1469,7 @@ fn validate_requester_signature_binding(
         MlsRequesterTrustBinding::RequesterMinimalMetadataPairwise {
             requester_pairwise_verification_method,
         } if arkret_models_crypto::MlsEndpointIdentity::minimal_metadata_pairwise(
-            requester_actor_id.clone(),
+            requester_actor_id.signing_principal_id().clone(),
             requester_pairwise_verification_method.clone(),
         )
         .is_ok() =>
@@ -1497,7 +1497,9 @@ mod tests {
             )
             .unwrap(),
             claim_id: NonEmptyString::new("keypackage-claim").unwrap(),
-            requester_actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            requester_actor_id: ActorId::service(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            ),
             trust_binding: MlsRequesterTrustBinding::RequesterDevice {
                 requester_device_id: DeviceId::new(
                     "ak:device:01904100-0000-7000-8000-000000000001",

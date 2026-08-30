@@ -3,8 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    ActorId, BlobRef, CircleId, DidCoreId, RealmId, Result, SchemaId, SpaceId, SpaceState,
-    WireError,
+    ActorId, BlobRef, CircleId, RealmId, Result, SchemaId, SpaceId, SpaceState, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

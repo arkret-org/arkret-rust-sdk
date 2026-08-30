@@ -139,7 +139,10 @@ mod mimi_consent_tests {
                 "created_at": "2026-07-19T06:30:00.000Z",
                 "decision": "accept",
                 "domain": "ak:trust_domain:example.com",
-                "issuer": "ak:did_core:webvh:z6mkfixture",
+                "issuer": {"kind": "account", "account_id": {
+                    "principal_id": "ak:did_core:webvh:z6mkfixture",
+                    "station_id": "ak:did_core:webvh:z6mkfixturestation"
+                }},
                 "operation_id": "ak.open.mimi.command.update_consent.v1",
                 "payload_digest": request.payload_digest().unwrap(),
                 "verification_method": "did:webvh:z6mkfixture:example.com:users:alice#device-1"
@@ -455,7 +458,10 @@ mod contact_projection_tests {
         json!({
             "peer": {
                 "kind": "human",
-                "principal_id": "ak:did_core:webvh:z6mkfixturepeer"
+                "account_id": {
+                    "principal_id": "ak:did_core:webvh:z6mkfixturepeer",
+                    "station_id": "ak:did_core:webvh:z6mkfixturestation"
+                }
             },
             "state": "accepted",
             "next_prepare_input": {
@@ -473,7 +479,10 @@ mod contact_projection_tests {
         json!({
             "peer": {
                 "kind": "human",
-                "principal_id": "ak:did_core:webvh:z6mkfixture"
+                "account_id": {
+                    "principal_id": "ak:did_core:webvh:z6mkfixture",
+                    "station_id": "ak:did_core:webvh:z6mkfixturestation"
+                }
             },
             "state": "pending_incoming",
             "request_event_ref": REQUEST_EVENT_REF,
@@ -481,11 +490,17 @@ mod contact_projection_tests {
                 "core": {
                     "holder": {
                         "kind": "human",
-                        "principal_id": "ak:did_core:webvh:z6mkfixtureholder"
+                        "account_id": {
+                            "principal_id": "ak:did_core:webvh:z6mkfixtureholder",
+                            "station_id": "ak:did_core:webvh:z6mkfixturestation"
+                        }
                     },
                     "peer": {
                         "kind": "human",
-                        "principal_id": "ak:did_core:webvh:z6mkfixturepeer"
+                        "account_id": {
+                            "principal_id": "ak:did_core:webvh:z6mkfixturepeer",
+                            "station_id": "ak:did_core:webvh:z6mkfixturestation"
+                        }
                     },
                     "slot_version": 1,
                     "request_event_ref": REQUEST_EVENT_REF,
@@ -493,7 +508,7 @@ mod contact_projection_tests {
                     "accepted_at": "2026-08-08T00:00:00.000Z",
                     "issuer_id": "ak:did_core:web:ps.example"
                 },
-                "receipt_digest": "sha256:83d70a37aff054bda05d83b680eb7335c19e6c58fa2b7e234ad75a8ee7474524",
+                "receipt_digest": "sha256:641452044a0d87132a2233b0765b061e065eefebb2ec14987451cd48df407a71",
                 "signature": {
                     "verification_method": "did:web:ps.example#key-1",
                     "created_at": "2026-08-08T00:00:00.000Z",

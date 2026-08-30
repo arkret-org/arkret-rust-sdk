@@ -66,7 +66,7 @@
 use arkret_signatures::{Ed25519DetachedJwsVerifier, PublicKeyMaterial};
 #[cfg(test)]
 use arkret_wire::Event;
-use arkret_wire::{ActorId, Did, DidCoreId, DidUrl, Hash, ProducerEventProof, TrustDomainId};
+use arkret_wire::{ActorId, Did, DidUrl, Hash, ProducerEventProof, TrustDomainId};
 use chrono::{DateTime, Utc};
 
 use crate::binding::{

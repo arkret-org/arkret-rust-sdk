@@ -4,9 +4,8 @@ use std::collections::BTreeSet;
 
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    AccountId, ActorId, DidCoreId, EncryptionProfile, EventId, GenesisSalt, Hash, ObjectStage,
-    ObjectState, ProfileId, RealmId, Result, SchemaId, SecurityClass, TrustDomainId, WireError,
-    canonical,
+    AccountId, ActorId, EncryptionProfile, EventId, GenesisSalt, Hash, ObjectStage, ObjectState,
+    ProfileId, RealmId, Result, SchemaId, SecurityClass, TrustDomainId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -390,7 +389,7 @@ mod tests {
 
         assert_eq!(
             pair_key.as_str(),
-            "sha256:71eac812be14d047f791749f9409bbdc6ab0af5999daa9077bc21f23bdfca1eb"
+            "sha256:93579842aa9c2d29256cae0dcf194185847f43aeb3e69b97cac8e73c3d60ef1f"
         );
     }
 

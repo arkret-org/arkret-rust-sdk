@@ -1,4 +1,4 @@
-use arkret_wire::{ActorId, DidCoreId, DidUrl};
+use arkret_wire::{ActorId, DidUrl};
 
 use super::*;
 

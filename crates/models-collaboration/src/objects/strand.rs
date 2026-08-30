@@ -4,8 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::{
-    ActorId, CircleId, DidCoreId, ObjectStage, ObjectState, RealmId, Result, SchemaId, StrandId,
-    WireError,
+    ActorId, CircleId, ObjectStage, ObjectState, RealmId, Result, SchemaId, StrandId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::ser::SerializeMap;

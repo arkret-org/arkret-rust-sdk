@@ -8,8 +8,8 @@ use arkret_models_collaboration::governance_dependencies::{
 };
 use arkret_state::control_event_set_root;
 use arkret_wire::{
-    ActorId, Did, DidCoreId, Event, EventKind, Hash, Hlc, NotarySig, PayloadSigner, Result, Seal,
-    SealId, SealSignature, WireError, project_did_to_core_id,
+    ActorId, Did, Event, EventKind, Hash, Hlc, NotarySig, PayloadSigner, Result, Seal, SealId,
+    SealSignature, WireError, project_did_to_core_id,
 };
 use chrono::Utc;
 use serde_json::Value;

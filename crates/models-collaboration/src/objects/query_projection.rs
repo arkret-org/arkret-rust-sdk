@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{ActorId, DidCoreId, EventId, Hash, Hlc, MorphId, RealmId};
+use arkret_wire::{ActorId, EventId, Hash, Hlc, MorphId, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

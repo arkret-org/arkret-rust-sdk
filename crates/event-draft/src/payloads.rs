@@ -7,9 +7,7 @@ use arkret_models_collaboration::governance::agent_participation::AgentParticipa
 use arkret_models_collaboration::objects::profiles::StrandTrack;
 use arkret_models_collaboration::objects::strand::StrandMetadata;
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
-use arkret_wire::{
-    ActorId, CircleId, DidCoreId, ObjectStage, ObjectState, RealmId, SchemaId, StrandId,
-};
+use arkret_wire::{ActorId, CircleId, ObjectStage, ObjectState, RealmId, SchemaId, StrandId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

@@ -2430,7 +2430,10 @@ mod tests {
                 {
                     "target": {
                         "kind": "actor",
-                        "actor_id": "ak:did_core:webvh:z6mkfixtureblocked"
+                        "actor_id": {"kind": "account", "account_id": {
+                            "principal_id": "ak:did_core:webvh:z6mkfixtureblocked",
+                            "station_id": "ak:did_core:webvh:z6mkfixturestation"
+                        }}
                     },
                     "mode": "block",
                     "applies_to": ["messages"],
@@ -2439,7 +2442,10 @@ mod tests {
                 {
                     "target": {
                         "kind": "actor",
-                        "actor_id": "ak:did_core:webvh:z6mkfixtureblocked"
+                        "actor_id": {"kind": "account", "account_id": {
+                            "principal_id": "ak:did_core:webvh:z6mkfixtureblocked",
+                            "station_id": "ak:did_core:webvh:z6mkfixturestation"
+                        }}
                     },
                     "mode": "hide",
                     "applies_to": ["messages"],

@@ -4,9 +4,9 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use arkret_wire::{
-    ActorId, BlobRef, DeviceId, DidCoreId, EventId, Hlc, MessageId, MorphId, NotificationId,
-    NotificationKind, NotificationPriority, NotificationState, OpaqueLocalId, ReadCursorId,
-    ReadCursorScope, RealmId, RelationId, Result, SchemaId, StrandId, ViewId, WireError, canonical,
+    ActorId, BlobRef, DeviceId, EventId, Hlc, MessageId, MorphId, NotificationId, NotificationKind,
+    NotificationPriority, NotificationState, OpaqueLocalId, ReadCursorId, ReadCursorScope, RealmId,
+    RelationId, Result, SchemaId, StrandId, ViewId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -144,7 +144,10 @@ mod read_cursor_merge_tests {
         serde_json::from_value(json!({
             "id": format!("ak:read_cursor:01964137-0000-7000-8000-{device_suffix:012x}"),
             "schema": "ak.schema.read_cursor.v1",
-            "actor_id": "ak:did_core:webvh:z6mkalice",
+            "actor_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkalice",
+                "station_id": "ak:did_core:webvh:z6mkstation"
+            }},
             "device_id": format!("ak:device:01964137-0000-7000-8000-{device_suffix:012x}"),
             "realm_id": "ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5",
             "read_scope": {"kind": "realm"},
@@ -798,7 +801,10 @@ mod notification_tests {
         let notification = serde_json::from_value::<Notification>(json!({
             "id": "ak:notification:019fa233-5ab8-75c0-8497-376bafe172a4",
             "schema": "ak.schema.notification.v1",
-            "actor_id": "ak:did_core:web:alice.example",
+            "actor_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:web:alice.example",
+                "station_id": "ak:did_core:web:ps.example"
+            }},
             "realm_id": "ak:realm:AdF_8ICakbYdEH0Cnl-w5o1WFlnh5rXGWqY_-_G6yM7N",
             "source_event_id": "ak:event:AT33EWBTXdTx5CjY-ogbIIF2T4vh-v7jCMCQ80Fss2Rq",
             "source_ref": "ak:message:AaLsOkxXROnYl8TvAT974cXPfsWutmUVadkvWwvRVy05",
@@ -826,7 +832,10 @@ mod notification_tests {
             serde_json::from_value::<Notification>(json!({
                 "id": "ak:notification:019fa233-5ab8-75c0-8497-376bafe172a4",
                 "schema": "ak.schema.notification.v1",
-                "actor_id": "ak:did_core:web:alice.example",
+                "actor_id": {"kind": "account", "account_id": {
+                    "principal_id": "ak:did_core:web:alice.example",
+                    "station_id": "ak:did_core:web:ps.example"
+                }},
                 "source_event_id": "ak:event:AT33EWBTXdTx5CjY-ogbIIF2T4vh-v7jCMCQ80Fss2Rq",
                 "source_ref": "message-42",
                 "notification_kind": "message",
@@ -844,7 +853,10 @@ mod notification_tests {
             serde_json::from_value::<Notification>(json!({
                 "id": "ak:notification:019fa233-5ab8-75c0-8497-376bafe172a4",
                 "schema": "ak.schema.notification.v1",
-                "actor_id": "ak:did_core:web:alice.example",
+                "actor_id": {"kind": "account", "account_id": {
+                    "principal_id": "ak:did_core:web:alice.example",
+                    "station_id": "ak:did_core:web:ps.example"
+                }},
                 "source_event_id": "ak:event:AT33EWBTXdTx5CjY-ogbIIF2T4vh-v7jCMCQ80Fss2Rq",
                 "source_ref": format!("sha256:{}", "ab".repeat(32)),
                 "notification_kind": "message",
@@ -861,7 +873,10 @@ mod notification_tests {
         let notification = serde_json::from_value::<Notification>(json!({
             "id": "ak:notification:019fa233-5ab8-75c0-8497-376bafe172a4",
             "schema": "ak.schema.notification.v1",
-            "actor_id": "ak:did_core:web:alice.example",
+            "actor_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:web:alice.example",
+                "station_id": "ak:did_core:web:ps.example"
+            }},
             "source_account_artifact": {
                 "kind": "agent_runtime_approval",
                 "id": "agent_runtime_approval:019fa233-5ab8-75c0-8497-376bafe172a4"
@@ -885,7 +900,10 @@ mod notification_tests {
             serde_json::from_value::<Notification>(json!({
                 "id": "ak:notification:019fa233-5ab8-75c0-8497-376bafe172a4",
                 "schema": "ak.schema.notification.v1",
-                "actor_id": "ak:did_core:web:alice.example",
+                "actor_id": {"kind": "account", "account_id": {
+                    "principal_id": "ak:did_core:web:alice.example",
+                    "station_id": "ak:did_core:web:ps.example"
+                }},
                 "source_account_artifact": {
                     "kind": "agent_runtime_approval",
                     "id": "agent_runtime_approval:019fa233-5ab8-75c0-8497-376bafe172a4"

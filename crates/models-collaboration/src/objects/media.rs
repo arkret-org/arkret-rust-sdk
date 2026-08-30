@@ -1,6 +1,6 @@
 //! ICE configuration and call media token wire shapes.
 
-use arkret_wire::{ActorId, CallId, DeviceId, DidCoreId, DidUrl, GrantId, RealmId, XExtensionMap};
+use arkret_wire::{ActorId, CallId, DeviceId, DidUrl, GrantId, RealmId, XExtensionMap};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 

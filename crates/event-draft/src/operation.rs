@@ -6,9 +6,9 @@ use arkret_models_crypto::mls_envelopes::{
 };
 use arkret_wire::{
     ActorId, AuthoredEvent, AuthorizationRef, CriticalExtension, DeviceId, DeviceMessageId, Did,
-    DidCoreId, Event, EventId, EventKind, EventRef, EventRequirements, FeatureRef, GrantId, Hash,
-    Hlc, OperationId, OperationKind, Precondition, ProducerEventProof, ProfileRef, RealmId,
-    ScopeRef, SealBasis, SealId, canonical, project_did_to_core_id,
+    Event, EventId, EventKind, EventRef, EventRequirements, FeatureRef, GrantId, Hash, Hlc,
+    OperationId, OperationKind, Precondition, ProducerEventProof, ProfileRef, RealmId, ScopeRef,
+    SealBasis, SealId, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

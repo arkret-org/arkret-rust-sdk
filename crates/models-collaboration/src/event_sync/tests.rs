@@ -75,7 +75,7 @@ fn realm_actor_frontier_digest_matches_the_spec_vector() {
     .unwrap();
     assert_eq!(
         frontier.frontier_digest.as_str(),
-        "sha256:cb4775b3b4590faa096cafd34b0dfd9abc77ad02729a451c0fe5dfdee10d5dc1"
+        "sha256:d7bd65726611f3f13c8f8766652ec0a0d825a7487eadedcc9ebdf29130185050"
     );
 }
 

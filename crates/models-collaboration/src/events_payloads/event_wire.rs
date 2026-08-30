@@ -1,6 +1,6 @@
 //! Event wire schema artifact counterparts.
 
-use arkret_wire::{AccountStatusRecordId, ActorId, DidCoreId, Event, EventId, SchemaId, TrackName};
+use arkret_wire::{AccountStatusRecordId, ActorId, Event, EventId, SchemaId, TrackName};
 use serde::de::DeserializeOwned;
 
 use crate::internal_prelude::*;

@@ -4,7 +4,7 @@ use arkret_canonical::base64url::base64url_decode;
 use arkret_models_collaboration::objects::media::{
     MediaIceConfigOutcome, MediaIceServer, MediaIceSignatureAlgorithm,
 };
-use arkret_wire::{ActorId, Did, DidCoreId, RealmId};
+use arkret_wire::{ActorId, Did, RealmId};
 use ed25519_dalek::Signature;
 use serde::{Deserialize, Serialize};
 

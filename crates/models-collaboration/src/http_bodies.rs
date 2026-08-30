@@ -10,11 +10,11 @@ use std::collections::BTreeMap;
 use arkret_models_identity::ServiceResolutionCarrier;
 use arkret_models_identity::agent_signer_evidence::AgentEventAdmissionReceipt;
 use arkret_wire::{
-    AccountId, ActorId, AppletId, AuditReasonText, Base64UrlString, BlobRef, ConsentId,
-    ControlProposalAck, Cursor, DeviceId, DidCoreId, DidKey, Event, EventId,
-    EventInitialSubmission, Hash, IngressReceipt, MimiRoomUri, MlsGroupId, MorphId, NonEmptyString,
-    PayloadProof, ProofContextId, RealmId, ReasonCode, RelationId, ReportId, Result, Seal, SealId,
-    ServiceOperationId, SignalEnvelope, SpaceId, StrandId, WireError, canonical,
+    ActorId, AppletId, AuditReasonText, Base64UrlString, BlobRef, ConsentId, ControlProposalAck,
+    Cursor, DeviceId, DidCoreId, DidKey, Event, EventId, EventInitialSubmission, Hash,
+    IngressReceipt, MimiRoomUri, MlsGroupId, MorphId, NonEmptyString, PayloadProof, ProofContextId,
+    RealmId, ReasonCode, RelationId, ReportId, Result, Seal, SealId, ServiceOperationId,
+    SignalEnvelope, SpaceId, StrandId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

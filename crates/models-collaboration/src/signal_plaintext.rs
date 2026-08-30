@@ -21,8 +21,8 @@
 
 use arkret_wire::signal::MAX_SIGNAL_PLAINTEXT_BYTES;
 use arkret_wire::{
-    ActorId, DidCoreId, ErrorCode, EventId, Hlc, ReadReceiptScope, Result, SchemaId, StrandId,
-    WireError, canonical,
+    ActorId, ErrorCode, EventId, Hlc, ReadReceiptScope, Result, SchemaId, StrandId, WireError,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::de::DeserializeOwned;

@@ -1144,8 +1144,14 @@ mod tests {
         let payload = json!({
             "pair_key": "sha256:e8c24c1badc48eefa472a1700e87a6597a95aedfab8cbe3173f1622b9ad427b5",
             "unordered_participant_ids": [
-                "ak:did_core:webvh:z6mkfixturebob",
-                "ak:did_core:webvh:z6mkfixturealice"
+                {"kind": "account", "account_id": {
+                    "principal_id": "ak:did_core:webvh:z6mkfixturebob",
+                    "station_id": "ak:did_core:webvh:z6mkfixturestation"
+                }},
+                {"kind": "account", "account_id": {
+                    "principal_id": "ak:did_core:webvh:z6mkfixturealice",
+                    "station_id": "ak:did_core:webvh:z6mkfixturestation"
+                }}
             ],
             "realm_id": "ak:realm:AVYxXzYx_KzaGx7X62doksaQR0ISkneyOwwF1k6ExHKy",
             "main_strand_id": "ak:strand:AcweNVvZUYNuOdCMey9HT7PQHKPbHPJwOFTgn_cx7yjo",
@@ -1161,7 +1167,7 @@ mod tests {
             "created_at": "2026-08-07T12:34:56.000Z"
         });
         let mut parsed: DirectConversationBoundPayload = serde_json::from_value(payload).unwrap();
-        let expected = "sha256:f0a12a2e712ad2de56f6a6f3ef7dc5dbe1b0e078f6ce5439b7c206d30a23c67c";
+        let expected = "sha256:2a30008050a8c62af3b6864fe1a814e2127458e80173e27d130e138b9ddcb0b0";
         assert_eq!(parsed.binding_digest().unwrap().as_str(), expected);
 
         parsed.unordered_participant_ids.reverse();

@@ -14,7 +14,7 @@ use arkret_models_crypto::{
     mls_key_package_record_upload_entry, validate_advertised_keypackage_capabilities,
 };
 use arkret_wire::{
-    Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, RealmId, canonical,
+    ActorId, Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, RealmId, canonical,
 };
 use chrono::{Duration, Utc};
 use openmls::prelude::{
@@ -520,7 +520,7 @@ impl ArkretMlsIdentity {
             ));
         };
         let input = envelope.signing_input();
-        if &input.requester_actor_id != pairwise_actor_id
+        if input.requester_actor_id != ActorId::service(pairwise_actor_id.clone())
             || !matches!(
                 &input.trust_binding,
                 MlsRequesterTrustBinding::RequesterMinimalMetadataPairwise {
@@ -1075,7 +1075,7 @@ mod tests {
                 )
                 .unwrap(),
                 claim_id: NonEmptyString::new("claim-without-keypackage-prefix").unwrap(),
-                requester_actor_id: pairwise_actor_id.clone(),
+                requester_actor_id: ActorId::service(pairwise_actor_id.clone()),
                 trust_binding: MlsRequesterTrustBinding::RequesterMinimalMetadataPairwise {
                     requester_pairwise_verification_method: verification_method.clone(),
                 },

@@ -845,20 +845,32 @@ mod tests {
                 json!({
                     "kind": "normal",
                     "sorted_pair_member_ids": [
-                        "ak:did_core:webvh:z6mkfixturealice",
-                        "ak:did_core:webvh:z6mkfixturebob"
+                        {"kind": "account", "account_id": {
+                            "principal_id": "ak:did_core:webvh:z6mkfixturealice",
+                            "station_id": "ak:did_core:webvh:z6mkfixturestation"
+                        }},
+                        {"kind": "account", "account_id": {
+                            "principal_id": "ak:did_core:webvh:z6mkfixturebob",
+                            "station_id": "ak:did_core:webvh:z6mkfixturestation"
+                        }}
                     ],
                     "request_event_ref": "ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD",
                     "request_acceptance_receipt_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                 }),
-                "sha256:f6b2399820ef57c62ae5dc0d919c77e74027a5b4a36300c79624d8612433e681",
+                "sha256:585e239ded03e52605c8665f0a6b6786be7673cd520eb756eba659374a4a3500",
             ),
             (
                 json!({
                     "kind": "glare",
                     "sorted_pair_member_ids": [
-                        "ak:did_core:webvh:z6mkfixturealice",
-                        "ak:did_core:webvh:z6mkfixturebob"
+                        {"kind": "account", "account_id": {
+                            "principal_id": "ak:did_core:webvh:z6mkfixturealice",
+                            "station_id": "ak:did_core:webvh:z6mkfixturestation"
+                        }},
+                        {"kind": "account", "account_id": {
+                            "principal_id": "ak:did_core:webvh:z6mkfixturebob",
+                            "station_id": "ak:did_core:webvh:z6mkfixturestation"
+                        }}
                     ],
                     "requests": [
                         {
@@ -871,7 +883,7 @@ mod tests {
                         }
                     ]
                 }),
-                "sha256:ff61c3443124b8d102e70a65c3a47817c28421b3c6aeb7aed79107c47168be4d",
+                "sha256:1b5b7d94866f0cbc784fd0138120ca2545b640082863adf621364712e33ef1ce",
             ),
         ];
 
@@ -923,15 +935,18 @@ mod tests {
 
     fn receipt() -> DirectConversationFoundingAcceptanceReceipt {
         serde_json::from_value(json!({
-            "pair_key": "sha256:71eac812be14d047f791749f9409bbdc6ab0af5999daa9077bc21f23bdfca1eb",
-            "founder_id": "ak:did_core:webvh:z6mkfixturebob",
+            "pair_key": "sha256:93579842aa9c2d29256cae0dcf194185847f43aeb3e69b97cac8e73c3d60ef1f",
+            "founder_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixturebob",
+                "station_id": "ak:did_core:webvh:z6mkfixturestation"
+            }},
             "realm_id": "ak:realm:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD",
             "main_strand_id": "ak:strand:AT0qp3NTTWtVZNVOgsvsAncs9xRV-c5HXCz7uzXd7NQS",
             "founding_unit_digest": "sha256:3cd20dd09f6c8bc93757a03640c1612a6b85599eeb702cc488e2cc083ebfa46e",
             "authorization_core": {
                 "kind": "human",
-                "current_contact_round_id": "sha256:f6b2399820ef57c62ae5dc0d919c77e74027a5b4a36300c79624d8612433e681",
-                "root_contact_round_id": "sha256:f6b2399820ef57c62ae5dc0d919c77e74027a5b4a36300c79624d8612433e681",
+                "current_contact_round_id": "sha256:585e239ded03e52605c8665f0a6b6786be7673cd520eb756eba659374a4a3500",
+                "root_contact_round_id": "sha256:585e239ded03e52605c8665f0a6b6786be7673cd520eb756eba659374a4a3500",
                 "accepted_contact_evidence_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
             },
             "issuer_id": "ak:did_core:web:ps.example",
@@ -950,11 +965,11 @@ mod tests {
         let receipt = receipt();
         assert_eq!(
             receipt.transcript_digest().unwrap().as_str(),
-            "sha256:b256c1789389d5a10f99c5d8a2e9204933874809f63533527b403fbcfa7df663"
+            "sha256:d90f5f27feb944bf8686e065ee29e3839c3058a5f9091aef1540685b60d3b16e"
         );
         assert_eq!(
             receipt.signing_input_bytes().unwrap(),
-            b"sha256:b256c1789389d5a10f99c5d8a2e9204933874809f63533527b403fbcfa7df663"
+            b"sha256:d90f5f27feb944bf8686e065ee29e3839c3058a5f9091aef1540685b60d3b16e"
         );
         let mut changed_proof = receipt.clone();
         changed_proof.proof.jws = Base64UrlString::new("ZGlmZmVyZW50".to_owned()).unwrap();

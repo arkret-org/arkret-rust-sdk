@@ -42,7 +42,7 @@ use arkret_models_crypto::mls_payloads::MlsCommitPayload;
 use arkret_wire::error_codes::{ErrorCode, ReasonCode};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    ActorId, CellRef, DidCoreId, EventId, Hash, MlsGroupId, NotarySignerDescriptor, NotaryValue,
+    ActorId, CellRef, EventId, Hash, MlsGroupId, NotarySignerDescriptor, NotaryValue,
     ProjectedCellWrite, RealmId, Seal, SealBasis, SealId, SealSignature, WireError, event_kind_str,
 };
 use serde_json::Value;

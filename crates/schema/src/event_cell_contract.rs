@@ -1287,11 +1287,8 @@ fn projected_envelope_value(event: &ProjectedEventInput, field: &str) -> Option<
 /// Materialize receiver-derived members that belong to a complete cell value
 /// but are forbidden in the producer-authored payload.
 ///
-/// Capability Grant identity is the accepted issuer authority pair. The DID is
-/// signed as `payload.grant.issuer`; its Station coordinate comes
-/// only from the accepted Event envelope. Keeping this derivation here makes
-/// live reduction, sealed-history replay, and direct registry projection use
-/// the same canonical value without accepting a producer override.
+/// Capability Grant actor identities are complete `ActorId` values in the
+/// signed payload. Retired split Station-coordinate members are rejected.
 fn materialized_payload_root(
     event: &ProjectedEventInput,
     write: &Value,
@@ -1317,6 +1314,14 @@ fn materialized_payload_root(
         .get("derived_members")
         .and_then(Value::as_array)
         .ok_or_else(|| effect_set_error(kind, "capability grant write omits derived_members"))?;
+    for retired in ["issuer_station_id", "subject_station_id"] {
+        if grant.contains_key(retired) {
+            return Err(effect_set_error(
+                kind,
+                &format!("producer-authored payload.grant.{retired} is forbidden"),
+            ));
+        }
+    }
     let mut authority_audit = None;
     for member in derived_members {
         let name = member
@@ -1330,12 +1335,6 @@ fn materialized_payload_root(
             ));
         }
         match member.get("derivation").and_then(Value::as_str) {
-            Some("capability_issuer_station_id") => {
-                grant.insert(
-                    name.to_owned(),
-                    Value::String(event.actor_id.route_service_id().as_str().to_owned()),
-                );
-            }
             Some("capability_authority_depth" | "capability_authority_root_refs") => {
                 let audit = match authority_audit.as_ref() {
                     Some(audit) => audit,
@@ -2125,9 +2124,13 @@ fn envelope_field(event: &ProjectedEventInput, path: &str) -> Option<String> {
 }
 
 fn subject_field_value<'a>(event: &'a ProjectedEventInput, path: &str) -> Option<Cow<'a, Value>> {
-    field_value(event, path)
-        .map(Cow::Borrowed)
-        .or_else(|| envelope_field(event, path).map(|value| Cow::Owned(Value::String(value))))
+    field_value(event, path).map(Cow::Borrowed).or_else(|| {
+        if path == "envelope.actor_id" {
+            serde_json::to_value(&event.actor_id).ok().map(Cow::Owned)
+        } else {
+            envelope_field(event, path).map(|value| Cow::Owned(Value::String(value)))
+        }
+    })
 }
 
 fn composite_scalar(value: &Value) -> Result<Value, String> {
@@ -2303,8 +2306,10 @@ mod tests {
             "kind": "ak.conflict.recovery",
             "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n"},
-            "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "station_id": "ak:did_core:web:principal.example",
+            "actor_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:web:principal.example"
+            }},
             "actor_seq": 9,
             "created_at": "2026-07-26T01:00:00.000Z",
             "hlc": "019f9e500000-0000-aabbccde",
@@ -2379,8 +2384,10 @@ mod tests {
             "kind": EventKind::RsvpSet,
             "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n"},
-            "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "station_id": "ak:did_core:web:principal.example",
+            "actor_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:web:principal.example"
+            }},
             "actor_seq": 7,
             "created_at": "2026-07-26T01:00:00.000Z",
             "hlc": "019f9e500000-0000-aabbccdd",
@@ -2412,7 +2419,7 @@ mod tests {
         let event = rsvp_event(Value::Null);
         assert_eq!(
             derive_subject(&event, subject_rule(&event)).unwrap(),
-            "RvGSzptaf8mnhg44Kh2C0cfAf7Oi62RomgaaZjm1WKE"
+            "-9qLc7Kio2nqksl6UbozbVpH6BFDu_uurV0Lm_ey8SQ"
         );
         validate_registered_cell_writes(&event, arkret_canonical::DigestSuite::Sha256).unwrap();
 
@@ -2423,7 +2430,7 @@ mod tests {
         assert_eq!(
             project(&event),
             vec![write(
-                "ak:cell:ak.component.calendar.rsvp.v1:RvGSzptaf8mnhg44Kh2C0cfAf7Oi62RomgaaZjm1WKE",
+                "ak:cell:ak.component.calendar.rsvp.v1:-9qLc7Kio2nqksl6UbozbVpH6BFDu_uurV0Lm_ey8SQ",
                 set_op(event.payload.get("entry").unwrap().clone()),
             )]
         );
@@ -2431,7 +2438,7 @@ mod tests {
         let instance = rsvp_event(json!("2026-07-26T09:00:00[Asia/Shanghai]"));
         assert_eq!(
             derive_subject(&instance, subject_rule(&instance)).unwrap(),
-            "qF_mOHtlbA5fUJkBTaMCUsQ_kVKAFAPZYkz_N23NuTI"
+            "x0pWo5xOHb5m39hyuIKmDzGHSPXURlw1F4k3vQWgdes"
         );
     }
 
@@ -2479,21 +2486,18 @@ mod tests {
         );
         assert_eq!(
             derive_subject(&shadow, rule).unwrap(),
-            "RvGSzptaf8mnhg44Kh2C0cfAf7Oi62RomgaaZjm1WKE"
+            "-9qLc7Kio2nqksl6UbozbVpH6BFDu_uurV0Lm_ey8SQ"
         );
 
-        let envelope_select = json!({
-            "kind": "select",
-            "selector": "envelope.actor_id",
-            "branches": {
-                "ak:did_core:webvh:z6mkfixture": {
-                    "field": "envelope.actor_id"
-                }
-            }
+        let envelope_actor = json!({
+            "kind": "canonical_json",
+            "field": "envelope.actor_id"
         });
         assert_eq!(
-            component_value(&projected, &envelope_select, EventKind::RsvpSet.as_str(),).unwrap(),
-            json!("ak:did_core:webvh:z6mkfixture")
+            component_value(&projected, &envelope_actor, EventKind::RsvpSet.as_str(),).unwrap(),
+            json!(
+                r#"{"account_id":{"principal_id":"ak:did_core:webvh:z6mkfixture","station_id":"ak:did_core:web:principal.example"},"kind":"account"}"#
+            )
         );
     }
 
@@ -2503,8 +2507,10 @@ mod tests {
             "kind": kind,
             "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n"},
-            "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "station_id": "ak:did_core:web:principal.example",
+            "actor_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:web:principal.example"
+            }},
             "actor_seq": 7,
             "created_at": "2026-07-26T01:00:00.000Z",
             "hlc": "019f9e500000-0000-aabbccdd",
@@ -2636,8 +2642,10 @@ mod tests {
             "kind": EventKind::IdentityAccountabilityGrant,
             "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n"},
-            "actor_id": "ak:did_core:web:issuer.example",
-            "station_id": "ak:did_core:web:principal.example",
+            "actor_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:web:issuer.example",
+                "station_id": "ak:did_core:web:principal.example"
+            }},
             "actor_seq": 7,
             "created_at": "2026-07-26T01:00:00.000Z",
             "hlc": "019f9e500000-0000-aabbccdd",
@@ -2788,8 +2796,10 @@ mod tests {
             "kind": kind,
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
-            "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "station_id": "ak:did_core:web:principal.example",
+            "actor_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:web:principal.example"
+            }},
             "actor_seq": 3,
             "created_at": "2026-07-20T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",
@@ -2835,18 +2845,23 @@ mod tests {
         );
     }
 
-    fn invite_create_event(invitee: Option<&str>) -> Event {
+    fn invite_create_event(invitee: bool) -> Event {
         let mut payload = json!({});
-        if let Some(invitee) = invitee {
-            payload["invitee_id"] = json!(invitee);
+        if invitee {
+            payload["invitee_account_id"] = json!({
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:web:principal.example"
+            });
         }
         serde_json::from_value(json!({
             "event_id": "ak:event:AVcbARXDOZuMaYlp1-g60cl4c6Y5NzY10J6VMsgtrakA",
             "kind": EventKind::InviteCreate,
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
-            "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "station_id": "ak:did_core:web:principal.example",
+            "actor_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:web:principal.example"
+            }},
             "actor_seq": 4,
             "created_at": "2026-07-26T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",
@@ -2859,7 +2874,7 @@ mod tests {
 
     const INVITE_LIFECYCLE_CELL: &str = "ak:cell:ak.component.invite.lifecycle.v1:ak:invite:AVcbARXDOZuMaYlp1-g60cl4c6Y5NzY10J6VMsgtrakA";
     const BOB_MEMBER_CELL: &str =
-        "ak:cell:ak.component.member.state.v1:ak:did_core:webvh:z6mkfixture";
+        "ak:cell:ak.component.member.state.v1:-R4dRtD6CAwTRae2S7Pu2Y-yX68SpjNQkAPrG7HLvk4";
 
     #[test]
     fn conditional_invite_member_target_is_exact() {
@@ -2868,26 +2883,18 @@ mod tests {
         // mutation. The lifecycle subject is retyped from event_id.
         // The lifecycle cell enters from null: `leave` is a member.state state,
         // and this Event's second write is the one that touches it.
-        let directed = invite_create_event(Some("ak:did_core:webvh:z6mkfixture"));
+        let directed = invite_create_event(true);
         assert_eq!(
             project(&directed),
-            vec![
-                write(
-                    INVITE_LIFECYCLE_CELL,
-                    transition_op(json!(null), json!("pending")),
-                ),
-                write(
-                    BOB_MEMBER_CELL,
-                    ProjectedOp::TransitionTo {
-                        to: json!("invite"),
-                    },
-                ),
-            ]
+            vec![write(
+                INVITE_LIFECYCLE_CELL,
+                transition_op(json!(null), json!("pending")),
+            )]
         );
 
         // Without an invitee the conditional member write is inactive, so a
         // third-party invite touches the lifecycle cell only.
-        let third_party = invite_create_event(None);
+        let third_party = invite_create_event(false);
         assert_eq!(
             project(&third_party),
             vec![write(
@@ -2904,8 +2911,10 @@ mod tests {
             "kind": EventKind::InviteAccept,
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
-            "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "station_id": "ak:did_core:web:principal.example",
+            "actor_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:web:principal.example"
+            }},
             "actor_seq": 1,
             "created_at": "2026-07-26T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",
@@ -2942,15 +2951,20 @@ mod tests {
             "kind": kind,
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
-            "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "station_id": "ak:did_core:web:principal.example",
+            "actor_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:web:principal.example"
+            }},
             "actor_seq": 5,
             "created_at": "2026-07-26T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",
             "prev_refs": [],
             "payload": {
                 "invite_id": "ak:invite:AVcbARXDOZuMaYlp1-g60cl4c6Y5NzY10J6VMsgtrakA",
-                "invitee_id": "ak:did_core:webvh:z6mkfixture",
+                "invitee_account_id": {
+                    "principal_id": "ak:did_core:webvh:z6mkfixture",
+                    "station_id": "ak:did_core:web:principal.example"
+                },
                 "target_state": "revoked"
             },
             "proofs": []
@@ -2960,18 +2974,12 @@ mod tests {
 
     #[test]
     fn invite_terminal_member_transition_is_exact() {
-        let expected = vec![
-            write(
-                INVITE_LIFECYCLE_CELL,
-                ProjectedOp::TransitionTo {
-                    to: json!("revoked"),
-                },
-            ),
-            write(
-                BOB_MEMBER_CELL,
-                ProjectedOp::TransitionTo { to: json!("leave") },
-            ),
-        ];
+        let expected = vec![write(
+            INVITE_LIFECYCLE_CELL,
+            ProjectedOp::TransitionTo {
+                to: json!("revoked"),
+            },
+        )];
         assert_eq!(
             project(&invite_terminal_event(EventKind::InviteRevoke)),
             expected
@@ -2982,7 +2990,10 @@ mod tests {
         let mut pre_state = FrozenPreState::new();
         pre_state.insert(
             lifecycle.clone(),
-            json!({"invitee_id": "ak:did_core:webvh:z6mkfixture"}),
+            json!({"invitee_account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:web:principal.example"
+            }}),
         );
         assert_eq!(
             project_registered_cell_writes_with_pre_state(
@@ -3005,7 +3016,10 @@ mod tests {
 
         pre_state.insert(
             lifecycle,
-            json!({"invitee_id": "did:webvh:z6mkfixture:mallory.example"}),
+            json!({"invitee_account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkmallory",
+                "station_id": "ak:did_core:web:principal.example"
+            }}),
         );
         let mismatch = project_registered_cell_writes_with_pre_state(
             &cancel,
@@ -3022,8 +3036,10 @@ mod tests {
             "kind": EventKind::ConsentRevoke,
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
-            "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "station_id": "ak:did_core:web:principal.example",
+            "actor_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:web:principal.example"
+            }},
             "actor_seq": 6,
             "created_at": "2026-07-26T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",
@@ -3101,7 +3117,10 @@ mod tests {
         let mut pre_state = FrozenPreState::new();
         pre_state.insert(
             CellRef::new(INVITE_LIFECYCLE_CELL.to_owned()).unwrap(),
-            json!({"invitee_id": "ak:did_core:webvh:z6mkfixture"}),
+            json!({"invitee_account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:web:principal.example"
+            }}),
         );
         let error = project_registered_cell_writes_with_pre_state(
             &event,
@@ -3121,8 +3140,10 @@ mod tests {
             "event_id": "ak:event:AWX8BSZeeRJJ_ipjlL7Ll7EGSQkGrOPbmXFP_UmHb16G",
             "kind": EventKind::RealmCreate,
             "scope_ref": {"kind": "realm_genesis"},
-            "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "station_id": "ak:did_core:web:principal.example",
+            "actor_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:web:principal.example"
+            }},
             "actor_seq": 7,
             "created_at": "2026-07-26T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",
@@ -3191,7 +3212,10 @@ mod tests {
                 write(
                     arkret_wire::REALM_AUTHORITY_ROOT_CELL,
                     set_op(json!({
-                        "controller_id": "ak:did_core:webvh:z6mkfixture",
+                        "controller_id": {"kind": "account", "account_id": {
+                            "principal_id": "ak:did_core:webvh:z6mkfixture",
+                            "station_id": "ak:did_core:web:principal.example"
+                        }},
                         "controller_epoch": 0,
                         "authority_generation": 0
                     })),
@@ -3243,8 +3267,10 @@ mod tests {
             "kind": kind,
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
-            "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "station_id": "ak:did_core:web:principal.example",
+            "actor_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:web:principal.example"
+            }},
             "actor_seq": 5,
             "created_at": "2026-07-26T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",
@@ -3387,17 +3413,24 @@ mod tests {
             "kind": EventKind::CapabilityGrant,
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
-            "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "station_id": "ak:did_core:web:principal.example",
+            "actor_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:web:principal.example"
+            }},
             "actor_seq": 3,
             "created_at": "2026-07-26T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",
             "prev_refs": [],
             "payload": {
                 "grant": {
-                    "issuer_id": "ak:did_core:webvh:z6mkfixture",
-                    "subject": "ak:did_core:webvh:z6mkfixture",
-                    "subject_station_id": "ak:did_core:web:principal.example",
+                    "issuer_id": {"kind": "account", "account_id": {
+                        "principal_id": "ak:did_core:webvh:z6mkfixture",
+                        "station_id": "ak:did_core:web:principal.example"
+                    }},
+                    "subject": {"kind": "account", "account_id": {
+                        "principal_id": "ak:did_core:webvh:z6mkfixture",
+                        "station_id": "ak:did_core:web:principal.example"
+                    }},
                     "actions": ["ak.realm.admin"],
                     "issuer_authority_refs": [{
                         "kind": "realm_root",
@@ -3418,8 +3451,6 @@ mod tests {
         // Server coordinate from the accepted envelope, never from producer
         // payload input.
         let mut materialized_payload = serde_json::to_value(&event.payload).unwrap();
-        materialized_payload["grant"]["issuer_station_id"] =
-            json!(event.actor_id.route_service_id().as_str());
         materialized_payload["grant"]["authority_depth"] = json!(1);
         materialized_payload["grant"]["authority_root_refs"] = json!([{
             "kind": "realm_root",
@@ -3562,17 +3593,24 @@ mod tests {
             "kind": EventKind::CapabilityGrant,
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
-            "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "station_id": "ak:did_core:web:principal.example",
+            "actor_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:web:principal.example"
+            }},
             "actor_seq": 3,
             "created_at": "2026-07-26T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",
             "prev_refs": [],
             "payload": {
                 "grant": {
-                    "issuer_id": "ak:did_core:webvh:z6mkfixture",
-                    "subject": "ak:did_core:webvh:z6mkfixture",
-                    "subject_station_id": "ak:did_core:web:principal.example",
+                    "issuer_id": {"kind": "account", "account_id": {
+                        "principal_id": "ak:did_core:webvh:z6mkfixture",
+                        "station_id": "ak:did_core:web:principal.example"
+                    }},
+                    "subject": {"kind": "account", "account_id": {
+                        "principal_id": "ak:did_core:webvh:z6mkfixture",
+                        "station_id": "ak:did_core:web:principal.example"
+                    }},
                     "actions": ["ak.realm.admin"]
                 }
             },
@@ -3789,8 +3827,10 @@ mod or_set_dot_vector_tests {
             "kind": "ak.capability.grant",
             "realm_id": realm,
             "scope_ref": {"kind": "realm", "realm_id": realm},
-            "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "station_id": "ak:did_core:web:principal.example",
+            "actor_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:web:principal.example"
+            }},
             "actor_seq": 1,
             "created_at": "2026-07-28T00:00:00.000Z",
             "prev_refs": [],

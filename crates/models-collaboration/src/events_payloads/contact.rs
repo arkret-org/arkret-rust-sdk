@@ -123,7 +123,10 @@ mod tests {
         json!({
             "peer": {
                 "kind": "human",
-                "principal_id": "ak:did_core:webvh:z6mkfixturepeer"
+                "account_id": {
+                    "principal_id": "ak:did_core:webvh:z6mkfixturepeer",
+                    "station_id": "ak:did_core:webvh:z6mkfixturestation"
+                }
             },
             "contact_round_id": format!("sha256:{}", "a".repeat(64)),
             "version": 1,
@@ -153,7 +156,10 @@ mod tests {
     #[test]
     fn contact_event_payloads_use_canonical_contact_round_field_names() {
         let requested = json!({
-            "peer": {"kind": "human", "principal_id": "ak:did_core:webvh:z6mkfixturepeer"},
+            "peer": {"kind": "human", "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixturepeer",
+                "station_id": "ak:did_core:webvh:z6mkfixturestation"
+            }},
             "granted_to_peer_scopes": ["direct_message"],
             "introduction_evidence_digest": format!("sha256:{}", "d".repeat(64)),
             "previous_terminal_contact_round_id": format!("sha256:{}", "e".repeat(64))
@@ -166,7 +172,10 @@ mod tests {
         );
 
         let tombstoned = json!({
-            "peer": {"kind": "human", "principal_id": "ak:did_core:webvh:z6mkfixturepeer"},
+            "peer": {"kind": "human", "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixturepeer",
+                "station_id": "ak:did_core:webvh:z6mkfixturestation"
+            }},
             "contact_round_id": format!("sha256:{}", "f".repeat(64)),
             "version": 2,
             "predecessor_event_ref": "ak:event:AV1bzsPGpTD74Cq12d9EOrCkieTddiSndS0kDtK1W2hM"
@@ -180,7 +189,10 @@ mod tests {
 
         let scope_update = json!({
             "schema": "ak.schema.contact_scope_update.v1",
-            "peer": {"kind": "human", "principal_id": "ak:did_core:webvh:z6mkfixturepeer"},
+            "peer": {"kind": "human", "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixturepeer",
+                "station_id": "ak:did_core:webvh:z6mkfixturestation"
+            }},
             "contact_round_id": format!("sha256:{}", "1".repeat(64)),
             "version": 2,
             "predecessor_event_ref": "ak:event:AV1bzsPGpTD74Cq12d9EOrCkieTddiSndS0kDtK1W2hM",

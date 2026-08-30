@@ -5,9 +5,9 @@ use std::marker::PhantomData;
 
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
-    ActorId, AppletId, AuthContext, AuthoredEvent, AuthorizationRef, DidCoreId, EventId, EventKind,
-    EventRef, EventRequirements, ExtensionManifest, Hash, Hlc, Precondition, ProfileRef,
-    RegistryContentRef, ScopeRef, SealBasis, SealId,
+    ActorId, AppletId, AuthContext, AuthoredEvent, AuthorizationRef, EventId, EventKind, EventRef,
+    EventRequirements, ExtensionManifest, Hash, Hlc, Precondition, ProfileRef, RegistryContentRef,
+    ScopeRef, SealBasis, SealId,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;

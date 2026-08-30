@@ -21,7 +21,7 @@ use std::collections::BTreeSet;
 pub use arkret_wire::CircleId;
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    ActorId, ContentScheme, DidCoreId, DurabilityPolicy, EncryptionProfile, EventInitialSubmission,
+    ActorId, ContentScheme, DurabilityPolicy, EncryptionProfile, EventInitialSubmission,
     HistoryAccess, RealmId, SchemaId,
 };
 use chrono::{DateTime, Utc};

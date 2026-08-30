@@ -5,7 +5,7 @@ use arkret_models_collaboration::events_payloads::agent::{
     AgentDeactivatePayload, AgentKeyAuthorizePayload, AgentKeyRevokePayload, AgentPausePayload,
     AgentResumePayload,
 };
-use arkret_wire::{ActorId, DidCoreId, DidUrl, ScopeRef, event_spec};
+use arkret_wire::{ActorId, DidUrl, ScopeRef, event_spec};
 use chrono::{DateTime, Utc};
 
 use crate::{EventIntent, EventSpec, Result, TypedEventDraft};

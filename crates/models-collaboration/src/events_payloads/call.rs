@@ -1155,7 +1155,10 @@ mod tests {
             "moderation_delta": {
                 "op": "remove_participant",
                 "removal": {
-                    "actor_id": "ak:did_core:webvh:z6mkfixture",
+                    "actor_id": {"kind": "account", "account_id": {
+                        "principal_id": "ak:did_core:webvh:z6mkfixture",
+                        "station_id": "ak:did_core:webvh:z6mkfixturestation"
+                    }},
                     "action": "ban",
                     "removed_by": "ak:did_core:webvh:z6mkfixture",
                     "removed_at": "2026-06-22T00:00:00.000Z"
@@ -1166,7 +1169,7 @@ mod tests {
         payload.validate().unwrap();
         let encoded = serde_json::to_value(payload).unwrap();
         assert_eq!(
-            encoded["moderation_delta"]["removal"]["actor_id"],
+            encoded["moderation_delta"]["removal"]["actor_id"]["account_id"]["principal_id"],
             "ak:did_core:webvh:z6mkfixture"
         );
     }
@@ -1177,7 +1180,10 @@ mod tests {
             "call_id": "ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7",
             "mute_override": {
                 "status": "active",
-                "actor_id": "ak:did_core:webvh:z6mkfixture",
+                "actor_id": {"kind": "account", "account_id": {
+                    "principal_id": "ak:did_core:webvh:z6mkfixture",
+                    "station_id": "ak:did_core:webvh:z6mkfixturestation"
+                }},
                 "device_id": "ak:device:019a7360-0000-7000-8000-000000000002",
                 "audio_muted": true,
                 "video_muted": false,
@@ -1193,7 +1199,10 @@ mod tests {
             "call_id": "ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7",
             "mute_override": {
                 "status": "cleared",
-                "actor_id": "ak:did_core:webvh:z6mkfixture",
+                "actor_id": {"kind": "account", "account_id": {
+                    "principal_id": "ak:did_core:webvh:z6mkfixture",
+                    "station_id": "ak:did_core:webvh:z6mkfixturestation"
+                }},
                 "device_id": "ak:device:019a7360-0000-7000-8000-000000000002",
                 "audio_muted": true,
                 "video_muted": false,

@@ -1,6 +1,6 @@
 //! Circle event payloads.
 
-use arkret_wire::{ActorId, DidCoreId};
+use arkret_wire::ActorId;
 
 use crate::internal_prelude::*;
 
@@ -71,7 +71,10 @@ mod presence_tests {
     fn circle_membership_cas_preserves_missing_null_and_value() {
         let base = json!({
             "circle_id": "ak:circle:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j",
-            "actor_id": "ak:did_core:web:alice.example",
+            "actor_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:web:alice.example",
+                "station_id": "ak:did_core:web:ps.example"
+            }},
             "membership": "join"
         });
         let missing: CircleMemberStatePayload = serde_json::from_value(base.clone()).unwrap();
@@ -108,7 +111,10 @@ mod presence_tests {
         ] {
             let payload: CircleMemberStatePayload = serde_json::from_value(json!({
                 "circle_id": "ak:circle:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j",
-                "actor_id": "ak:did_core:web:alice.example",
+                "actor_id": {"kind": "account", "account_id": {
+                    "principal_id": "ak:did_core:web:alice.example",
+                    "station_id": "ak:did_core:web:ps.example"
+                }},
                 "membership": wire
             }))
             .unwrap();

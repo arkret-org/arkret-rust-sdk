@@ -7,7 +7,7 @@ use arkret_models_identity::ActorProfile;
 use arkret_models_integration::{
     AppletDelegatedEventAuthorization, GhostActorProfileFields, GhostExternalTuple,
 };
-use arkret_wire::{ActorId, ActorKind, AppletId, BlobRef, DidCoreId, RealmId, SchemaId, ScopeRef};
+use arkret_wire::{ActorKind, AppletId, BlobRef, DidCoreId, RealmId, SchemaId, ScopeRef};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

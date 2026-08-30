@@ -8,8 +8,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
     ActorId, CbaEffectPlane, CbaProofBundle, ControlProposalAck, ControlProposalDecision,
-    ControlProposalDecisionPolicy, Did, DidCoreId, Event, EventFederationSubmission, EventId, Hash,
-    MAX_ACTOR_SEQ_TOTAL_SIBLINGS, RealmId, Result, SchemaId, Seal, SealBasis, SealId, WireError,
+    ControlProposalDecisionPolicy, DidCoreId, Event, EventFederationSubmission, EventId, Hash,
+    MAX_ACTOR_SEQ_TOTAL_SIBLINGS, RealmId, Result, Seal, SealBasis, SealId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

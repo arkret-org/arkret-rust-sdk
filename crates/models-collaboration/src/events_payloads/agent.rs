@@ -553,9 +553,11 @@ mod agent_key_authorize_payload_tests {
                 "kind": "realm",
                 "realm_id": "ak:realm:AfTcej7ZFNg8uTbkOiUJT0KN1F_c9l1fmtil65CUwncm"
             },
-            "actor_id": "ak:did_core:web:agent.example",
-            "executed_by": "ak:did_core:web:controller.example",
-            "station_id": "ak:did_core:web:ps.example",
+            "actor_id": {"kind": "service", "service_id": "ak:did_core:web:agent.example"},
+            "executed_by": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:web:controller.example",
+                "station_id": "ak:did_core:web:ps.example"
+            }},
             "actor_seq": 1,
             "created_at": "2026-07-06T00:00:00.000Z",
             "prev_refs": [],

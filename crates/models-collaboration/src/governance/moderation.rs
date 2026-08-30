@@ -1,8 +1,8 @@
 //! Moderation report wire DTOs.
 
 use arkret_wire::{
-    AccountId, ActorId, Did, DidCoreId, EventInitialSubmission, EventKind, RealmId, ReportId,
-    Result, SchemaId, ScopeRef, project_did_to_core_id,
+    AccountId, Did, DidCoreId, EventInitialSubmission, EventKind, RealmId, ReportId, Result,
+    SchemaId, ScopeRef, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -296,7 +296,7 @@ mod signed_request_tests {
             "ak.self.moderation.report",
             scope_ref,
             actor(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
             7,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             payload,

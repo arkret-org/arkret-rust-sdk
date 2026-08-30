@@ -7,7 +7,7 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    AccountId, ActorId, CbaProofBundle, DidCoreId, Event, EventFederationSubmission, EventId,
+    AccountId, CbaProofBundle, DidCoreId, Event, EventFederationSubmission, EventId,
     EventInitialSubmission, Hash, RealmId, Result, WireError,
 };
 use chrono::{DateTime, Utc};
