@@ -576,7 +576,10 @@ mod tests {
                 "actions": ["ak.message.send"]
             }],
             "default_effect": "deny",
-            "created_by": alice(),
+            "created_by": arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+                alice(),
+                alice(),
+            )),
             "created_at": "2026-04-26T00:00:00.000Z"
         })
     }
