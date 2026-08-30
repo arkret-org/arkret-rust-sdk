@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-08-30.2;
-//! sha256=1d4b5a4e09294021e14faafb294262a5be87925b6b0f502971b931ad70657d7d Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-31.1;
+//! sha256=098c5615916a3ff47c1361f1b15b6ba7d0ff30eafbc2d05e0850dc515e62e266 Input: registry/
 //! exporter-label-registry.json; version=2026-08-21.1;
-//! sha256=6cb34e722ce41df3c91204d48f6cdf66b68640e9d86a379a9267cefce484bb02 Input: registry/
+//! sha256=ce7f4a1c53b50f33ee71ba4a70e638819abfba103a3fa26560661fe516dc4d37 Input: registry/
 //! digest-suite-registry.json; version=2026-08-18;
 //! sha256=7b9f5368e30cebd43c509db7815b9a01681f8cf11147600f6be16bddcc74657f Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
@@ -1354,10 +1354,9 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         consumer_operation: None,
         binding_fields: &[
             "payload_digest",
-            "principal_id",
-            "station_id",
+            "account_id",
             "device_id",
-            "device_signing_key",
+            "device_signing_key_did",
             "hpke_key",
             "device_authorize_event_id",
             "authorized_generation_ref",
@@ -2037,8 +2036,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         consumer_operation: None,
         binding_fields: &[
             "payload_digest",
-            "subject_id",
-            "recipient_id",
+            "account_id",
             "verification_method",
             "created_at",
             "domain?",

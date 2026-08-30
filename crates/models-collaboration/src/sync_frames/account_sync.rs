@@ -604,6 +604,13 @@ pub struct WindowStartActorProfile {
     pub avatar_blob_ref: Option<BlobRef>,
 }
 
+impl CanonicalIdentityEntry for WindowStartActorProfile {
+    type Identity = ActorId;
+    fn identity(&self) -> &ActorId {
+        &self.actor_id
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WindowStartRealmMetadata {
@@ -634,6 +641,10 @@ pub enum WindowStartNullableE2eeEpoch {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StateAtWindowStart {
+    #[serde(
+        deserialize_with = "arkret_wire::deserialize_identity_entries",
+        serialize_with = "arkret_wire::serialize_identity_entries"
+    )]
     pub actor_profiles: Vec<WindowStartActorProfile>,
     pub realm_metadata: WindowStartRealmMetadata,
     pub e2ee_epoch: WindowStartNullableE2eeEpoch,
@@ -713,7 +724,9 @@ pub struct RealmSyncEntry {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DeviceMessagesSendRequestBody {
-    pub messages: BTreeMap<ActorId, BTreeMap<DeviceId, DeviceMessageTarget>>,
+    /// Station-addressed device queue coordinates, as defined by
+    /// device-lifecycle section 10.2; not an ActorId-keyed JSON object.
+    pub messages: BTreeMap<DidCoreId, BTreeMap<DeviceId, DeviceMessageTarget>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1572,5 +1585,31 @@ mod tests {
         });
         let get_error = serde_json::from_value::<DeviceMessagesGetOutcome>(get).unwrap_err();
         assert!(get_error.to_string().contains("unknown field"));
+    }
+
+    #[test]
+    fn window_profiles_are_sorted_by_full_actor_and_reject_duplicate_identity() {
+        let actor = |station: &str| {
+            serde_json::json!({
+                "kind": "account", "account_id": {
+                    "principal_id": "ak:did_core:web:alice.example", "station_id": station
+                }
+            })
+        };
+        let mut value = serde_json::json!({
+            "actor_profiles": [
+                {"actor_id": actor("ak:did_core:web:a.example"), "display_name": "Alice A"},
+                {"actor_id": actor("ak:did_core:web:b.example"), "display_name": "Alice B"}
+            ],
+            "realm_metadata": {}, "e2ee_epoch": null
+        });
+        let state: StateAtWindowStart = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(state).unwrap(), value);
+        value["actor_profiles"].as_array_mut().unwrap().reverse();
+        assert!(serde_json::from_value::<StateAtWindowStart>(value.clone()).is_err());
+        value["actor_profiles"][1]["actor_id"] = value["actor_profiles"][0]["actor_id"].clone();
+        assert!(serde_json::from_value::<StateAtWindowStart>(value.clone()).is_err());
+        value["actor_profiles"] = serde_json::json!({"ak:did_core:web:alice.example": {}});
+        assert!(serde_json::from_value::<StateAtWindowStart>(value).is_err());
     }
 }

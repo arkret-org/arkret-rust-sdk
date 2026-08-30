@@ -12,7 +12,7 @@ use arkret_models_collaboration::sync_frames::account_sync::{
 };
 use arkret_models_crypto::MlsWelcomeEnvelope;
 use arkret_models_identity::artifacts_device_identity::KeyVerificationContent;
-use arkret_wire::{ActorId, ProtocolKind};
+use arkret_wire::{DidCoreId, ProtocolKind};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::Value;
@@ -235,13 +235,13 @@ impl<K: DeviceMessageSpec> TypedDeviceMessageTarget<K> {
     /// Build the one-recipient batch shape consumed by the send endpoint.
     pub fn single_recipient(
         self,
-        actor_id: ActorId,
+        principal_id: DidCoreId,
         device_id: DeviceId,
     ) -> Result<DeviceMessagesSendRequestBody> {
         let mut by_device = BTreeMap::new();
         by_device.insert(device_id, self.build()?);
         let mut messages = BTreeMap::new();
-        messages.insert(actor_id, by_device);
+        messages.insert(principal_id, by_device);
         Ok(DeviceMessagesSendRequestBody { messages })
     }
 }

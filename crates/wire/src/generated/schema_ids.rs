@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-30.2;
-//! sha256=0595330cd986aed9278b4665d164425bcf2ddbb47852184cec5d81c413127267 Entries: schema_ids=195,
+//! Input: registry/schema-registry.json; version=2026-08-31.1;
+//! sha256=d10b71d70d5eb7a960ef2a832c813eecc6d22a2b1de187a0df22220fd0dc8a4e Entries: schema_ids=195,
 //! active=195
 
 use serde::{Deserialize, Serialize};
@@ -969,8 +969,7 @@ impl SchemaId {
     /// Payload schemas for shared pin events.
     pub const PIN_V1: &'static str = "ak.schema.pin.v1";
     pub const POLICY_V1: &'static str = "ak.schema.policy.v1";
-    /// Signed online invite locator asserting subject_id and recipient_id for private invite
-    /// delivery.
+    /// Signed online invite locator asserting an exact AccountId for private invite delivery.
     pub const PRINCIPAL_LOCATOR_V1: &'static str = "ak.schema.principal_locator.v1";
     /// Closed wire carriers scoped to a single principal: PCR genesis, participation replacement,
     /// history ingress contracts, KeyPackage terminal handling, Sidecar staging and shared

@@ -1,4 +1,5 @@
 import tempfile
+import json
 import unittest
 from pathlib import Path
 
@@ -6,6 +7,34 @@ from identity_type_audit import SchemaResolver, scan_source_file, validate
 
 
 class IdentityTypeAuditTests(unittest.TestCase):
+    def test_complete_identity_objects_are_not_scalar_role_aliases(self) -> None:
+        for definition, valid, invalid in (
+            ("account_id", "AccountId", "DidCoreId"),
+            ("actor_id", "ActorId", "DidCoreId"),
+            ("actor_id", "Vec<ActorId>", "Vec<AccountId>"),
+            ("did_core_id", "DidCoreId", "ActorId"),
+        ):
+            with self.subTest(definition=definition, valid=valid):
+                with tempfile.TemporaryDirectory() as temporary:
+                    root = Path(temporary)
+                    schemas = root / "schemas"
+                    schemas.mkdir()
+                    field = {"$ref": f"#/$defs/{definition}"}
+                    if valid.startswith("Vec<"):
+                        field = {"type": "array", "items": field}
+                    (schemas / "example.schema.json").write_text(json.dumps({
+                        "$defs": {"entry": {"properties": {"identity": field}}}
+                    }), encoding="utf-8")
+                    for rust_type, expected_errors in ((valid, 0), (invalid, 1)):
+                        source = root / f"sample_{expected_errors}.rs"
+                        source.write_text(
+                            "/// `example.schema.json#/$defs/entry`\n"
+                            f"pub struct Entry {{\n    pub identity: {rust_type},\n}}\n",
+                            encoding="utf-8",
+                        )
+                        errors = validate(scan_source_file(source, root), SchemaResolver(schemas))
+                        self.assertEqual(len(errors), expected_errors, errors)
+
     def test_core_schema_rejects_did_rust_field(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

@@ -79,8 +79,7 @@ pub enum DeviceReanchorReceiptScopeKind {
 #[serde(deny_unknown_fields)]
 pub struct DeviceReanchorReceiptScope {
     pub kind: DeviceReanchorReceiptScopeKind,
-    pub principal_id: DidCoreId,
-    pub station_id: DidCoreId,
+    pub account_id: AccountId,
     pub realm_id: RealmId,
     pub previous_device_generation: u64,
     pub new_device_generation: u64,
@@ -94,13 +93,9 @@ impl DeviceReanchorReceiptScope {
     /// monotonic successor pair. A same-core instance selecting a different
     /// Station, PCR Realm or genesis receipt is a different PCR.
     pub fn validate_authority(&self) -> Result<()> {
-        AccountId {
-            principal_id: self.principal_id.clone(),
-            station_id: self.station_id.clone(),
-        }
-        .validate()?;
+        self.account_id.validate()?;
         if self.previous_device_generation == 0
-            || self.new_device_generation != self.previous_device_generation.saturating_add(1)
+            || Some(self.new_device_generation) != self.previous_device_generation.checked_add(1)
         {
             return Err(WireError::Protocol(
                 "device reanchor receipt scope generations must be positive immediate successors"
@@ -249,6 +244,12 @@ impl EventBatchReceipt {
             }
             EventBatchReceiptScope::DeviceReanchor(scope) => {
                 scope.validate_authority()?;
+                if self.issuer_id != scope.account_id.station_id {
+                    return Err(WireError::Protocol(
+                        "device reanchor receipt issuer must equal account_id.station_id"
+                            .to_owned(),
+                    ));
+                }
                 if self.events.len() != 2 {
                     return Err(WireError::Protocol(
                         "device reanchor receipt must contain exactly two typed event items"
@@ -331,7 +332,7 @@ mod event_batch_receipt_tests {
     fn fixture_authority() -> AccountId {
         AccountId::new(
             DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
-            DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:service.example").unwrap(),
         )
     }
 
@@ -358,8 +359,7 @@ mod event_batch_receipt_tests {
             issuer_id: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
             scope: EventBatchReceiptScope::DeviceReanchor(DeviceReanchorReceiptScope {
                 kind: DeviceReanchorReceiptScopeKind::DeviceReanchorUnit,
-                principal_id: fixture_authority().principal_id,
-                station_id: fixture_authority().station_id,
+                account_id: fixture_authority(),
                 realm_id: RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
                     .unwrap(),
                 previous_device_generation: 1,
@@ -409,8 +409,7 @@ mod event_batch_receipt_tests {
             issuer_id: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
             scope: EventBatchReceiptScope::DeviceReanchor(DeviceReanchorReceiptScope {
                 kind: DeviceReanchorReceiptScopeKind::DeviceReanchorUnit,
-                principal_id: fixture_authority().principal_id,
-                station_id: fixture_authority().station_id,
+                account_id: fixture_authority(),
                 realm_id: RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
                     .unwrap(),
                 previous_device_generation: 1,
@@ -449,8 +448,7 @@ mod event_batch_receipt_tests {
         let authority = fixture_authority();
         let scope = DeviceReanchorReceiptScope {
             kind: DeviceReanchorReceiptScopeKind::DeviceReanchorUnit,
-            principal_id: authority.principal_id,
-            station_id: authority.station_id,
+            account_id: authority,
             realm_id: RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
                 .unwrap(),
             previous_device_generation: 1,
@@ -461,11 +459,10 @@ mod event_batch_receipt_tests {
     }
 
     #[test]
-    fn reanchor_scope_serializes_the_single_flat_authority_pair() {
+    fn reanchor_scope_serializes_the_complete_account_id() {
         let scope = DeviceReanchorReceiptScope {
             kind: DeviceReanchorReceiptScopeKind::DeviceReanchorUnit,
-            principal_id: fixture_authority().principal_id,
-            station_id: fixture_authority().station_id,
+            account_id: fixture_authority(),
             realm_id: RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
                 .unwrap(),
             previous_device_generation: 1,
@@ -482,8 +479,7 @@ mod event_batch_receipt_tests {
                 "kind",
                 "new_device_generation",
                 "previous_device_generation",
-                "principal_id",
-                "station_id",
+                "account_id",
                 "realm_id",
             ])
         );

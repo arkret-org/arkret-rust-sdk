@@ -836,6 +836,70 @@
     {
       "rust_type": "crates/wire/src/seal.rs::MultiSignature",
       "schema": "seal.schema.json#/$defs/multi_signature"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/artifacts_keys.rs::AccountDeviceAlgorithmEntry",
+      "schema": "keys-operations.schema.json#/$defs/account_device_algorithm_entries/items"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/artifacts_keys.rs::AccountDeviceKeyEntry",
+      "schema": "keys-operations.schema.json#/$defs/account_device_key_entries/items"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/artifacts_keys.rs::QueryAccountDeviceSelector",
+      "schema": "keys-operations.schema.json#/$defs/query_account_device_selectors/items"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/keys.rs::QueryAccountDeviceEntry",
+      "schema": "keys-operations.schema.json#/$defs/query_account_device_entries/items"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/keys.rs::AccountDeviceGenerationEntry",
+      "schema": "keys-operations.schema.json#/$defs/account_device_generation_entries/items"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/keys.rs::KeysQueryRequestBody",
+      "schema": "keys-operations.schema.json#/$defs/keys_query_request_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/keys.rs::KeysQueryOutcome",
+      "schema": "keys-operations.schema.json#/$defs/keys_query_outcome"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/keys.rs::KeysClaimRequestBody",
+      "schema": "keys-operations.schema.json#/$defs/keys_claim_request_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/keys.rs::KeysClaimOutcome",
+      "schema": "keys-operations.schema.json#/$defs/keys_claim_outcome"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/keys.rs::KeysOperationFailure",
+      "schema": "keys-operations.schema.json#/$defs/failure"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/invite_quarantine.rs::InviteQuarantine",
+      "schema": "invite-quarantine.schema.json#"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/invite_quarantine.rs::InviteQuarantineEntry",
+      "schema": "invite-quarantine.schema.json#/$defs/quarantine_entry"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/invite_quarantine.rs::InviteQuarantineInvalidation",
+      "schema": "invite-quarantine.schema.json#/$defs/consent_revoke_invalidation"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/invite_addressing.rs::InviteReceivePolicy",
+      "schema": "invite-receive-policy.schema.json#"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/invite_addressing.rs::PrincipalLocator",
+      "schema": "principal-locator.schema.json#"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/device_identity.rs::DeviceReanchorPayload",
+      "schema": "event-payload.schema.json#/$defs/device_reanchor_payload"
     }
   ],
   "exemptions": [

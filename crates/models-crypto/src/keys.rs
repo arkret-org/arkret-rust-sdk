@@ -4,14 +4,14 @@ use std::collections::BTreeMap;
 use std::num::NonZeroU64;
 
 use arkret_wire::{
-    DeviceId, DidCoreId, DidKey, EventId, Hash, NonEmptyString, ProtocolSignature, ReasonCode,
+    AccountId, DeviceId, DidKey, EventId, Hash, NonEmptyString, ProtocolSignature, ReasonCode,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::artifacts_keys::{
-    AlgorithmCounts, AlgorithmKeyRecords, KeyOperationSignature, PrincipalDeviceAlgorithmMap,
-    PrincipalDeviceKeyRecords, QueryDeviceMap,
+    AccountDeviceAlgorithmEntry, AccountDeviceKeyEntry, AlgorithmCounts, AlgorithmKeyRecords,
+    KeyOperationSignature, QueryAccountDeviceSelector,
 };
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -88,7 +88,11 @@ pub struct KeysUploadOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysQueryRequestBody {
-    pub device_keys: QueryDeviceMap,
+    #[serde(
+        deserialize_with = "arkret_wire::deserialize_identity_entries",
+        serialize_with = "arkret_wire::serialize_identity_entries"
+    )]
+    pub device_keys: Vec<QueryAccountDeviceSelector>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<u64>)))]
     pub timeout_ms: Option<NonZeroU64>,
@@ -138,10 +142,8 @@ pub struct DeviceGenerationState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceProjectionAttestationCore {
-    pub principal_id: DidCoreId,
-    /// Origin Station of the account. The proof controller MUST
-    /// project exactly onto this value.
-    pub station_id: DidCoreId,
+    /// Complete account identity. The proof controller MUST be its Station.
+    pub account_id: AccountId,
     pub device_id: DeviceId,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub device_signing_key_did: DidKey,
@@ -178,8 +180,7 @@ impl DeviceProjectionAttestation {
         arkret_canonical::canonical_json_bytes(&serde_json::json!({
             "context": DEVICE_PROJECTION_ATTESTATION_CONTEXT,
             "payload_digest": payload_digest,
-            "principal_id": core.principal_id,
-            "station_id": core.station_id,
+            "account_id": core.account_id,
             "device_id": core.device_id,
             "device_signing_key_did": core.device_signing_key_did,
             "hpke_key": core.hpke_key,
@@ -248,14 +249,13 @@ impl QueryDeviceRecord {
     /// row before a caller spends a signature check on it.
     pub fn validate_attestation_binding(
         &self,
-        principal_id: &DidCoreId,
+        account_id: &AccountId,
         device_id: &DeviceId,
     ) -> arkret_wire::Result<()> {
         let core = &self.device_projection_attestation.attestation;
-        if &core.principal_id != principal_id || &core.device_id != device_id {
+        if &core.account_id != account_id || &core.device_id != device_id {
             return Err(arkret_wire::WireError::Protocol(
-                "device projection attestation addresses a different (principal, device)"
-                    .to_owned(),
+                "device projection attestation addresses a different (account, device)".to_owned(),
             ));
         }
         if core.device_status != DeviceStatus::Active {
@@ -276,19 +276,87 @@ impl QueryDeviceRecord {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysQueryOutcome {
-    pub device_keys: BTreeMap<DidCoreId, BTreeMap<DeviceId, QueryDeviceRecord>>,
+    #[serde(
+        deserialize_with = "arkret_wire::deserialize_identity_entries",
+        serialize_with = "arkret_wire::serialize_identity_entries"
+    )]
+    pub device_keys: Vec<QueryAccountDeviceEntry>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failures: Vec<KeysOperationFailure>,
-    /// Reducer-managed B-model device generation fence by principal.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub device_generations: BTreeMap<DidCoreId, DeviceGenerationState>,
+    /// Reducer-managed B-model device generation fence by complete account.
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "arkret_wire::deserialize_identity_entries",
+        serialize_with = "arkret_wire::serialize_identity_entries"
+    )]
+    pub device_generations: Vec<AccountDeviceGenerationEntry>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QueryAccountDeviceEntry {
+    pub account_id: AccountId,
+    pub device_keys: BTreeMap<DeviceId, QueryDeviceRecord>,
+}
+
+impl arkret_wire::CanonicalIdentityEntry for QueryAccountDeviceEntry {
+    type Identity = AccountId;
+    fn identity(&self) -> &AccountId {
+        &self.account_id
+    }
+    fn validate_entry(&self) -> arkret_wire::Result<()> {
+        for (device_id, record) in &self.device_keys {
+            record.validate_attestation_binding(&self.account_id, device_id)?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountDeviceGenerationEntry {
+    pub account_id: AccountId,
+    pub generation_state: DeviceGenerationState,
+}
+
+impl arkret_wire::CanonicalIdentityEntry for AccountDeviceGenerationEntry {
+    type Identity = AccountId;
+    fn identity(&self) -> &AccountId {
+        &self.account_id
+    }
+}
+
+impl KeysQueryOutcome {
+    pub fn devices_for(
+        &self,
+        account_id: &AccountId,
+    ) -> Option<&BTreeMap<DeviceId, QueryDeviceRecord>> {
+        self.device_keys
+            .iter()
+            .find(|entry| &entry.account_id == account_id)
+            .map(|entry| &entry.device_keys)
+    }
+
+    pub fn generation_for(&self, account_id: &AccountId) -> Option<&DeviceGenerationState> {
+        self.device_generations
+            .iter()
+            .find(|entry| &entry.account_id == account_id)
+            .map(|entry| &entry.generation_state)
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysClaimRequestBody {
-    pub one_time_keys: PrincipalDeviceAlgorithmMap,
+    #[serde(
+        deserialize_with = "arkret_wire::deserialize_identity_entries",
+        serialize_with = "arkret_wire::serialize_identity_entries"
+    )]
+    pub one_time_keys: Vec<AccountDeviceAlgorithmEntry>,
 }
 
 /// Per-target failure returned by keys query and claim operations.
@@ -297,7 +365,7 @@ pub struct KeysClaimRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct KeysOperationFailure {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub principal_id: Option<DidCoreId>,
+    pub account_id: Option<AccountId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -312,7 +380,11 @@ pub struct KeysOperationFailure {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysClaimOutcome {
-    pub one_time_keys: PrincipalDeviceKeyRecords,
+    #[serde(
+        deserialize_with = "arkret_wire::deserialize_identity_entries",
+        serialize_with = "arkret_wire::serialize_identity_entries"
+    )]
+    pub one_time_keys: Vec<AccountDeviceKeyEntry>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failures: Vec<KeysOperationFailure>,
 }
@@ -369,8 +441,7 @@ mod device_generation_tests {
             "trust_algorithms": [trust_algorithm],
             "device_projection_attestation": {
                 "attestation": {
-                    "principal_id": PRINCIPAL_ID,
-                    "station_id": STATION_ID,
+                    "account_id": {"principal_id": PRINCIPAL_ID, "station_id": STATION_ID},
                     "device_id": DEVICE_ID,
                     "device_signing_key_did": DEVICE_SIGNING_KEY,
                     "hpke_key": "hpke-1",
@@ -415,7 +486,10 @@ mod device_generation_tests {
 
     #[test]
     fn attestation_binding_rejects_a_swapped_or_edited_row() {
-        let principal = DidCoreId::new(PRINCIPAL_ID).unwrap();
+        let principal = AccountId::new(
+            arkret_wire::DidCoreId::new(PRINCIPAL_ID).unwrap(),
+            arkret_wire::DidCoreId::new(STATION_ID).unwrap(),
+        );
         let device = DeviceId::new(DEVICE_ID).unwrap();
         let record: QueryDeviceRecord = serde_json::from_value(attested_row(7)).unwrap();
         record
@@ -455,5 +529,95 @@ mod device_generation_tests {
             "{transcript}"
         );
         assert!(transcript.contains(DEVICE_ID), "{transcript}");
+    }
+
+    fn account(station: &str) -> AccountId {
+        AccountId::new(
+            arkret_wire::DidCoreId::new(PRINCIPAL_ID).unwrap(),
+            arkret_wire::DidCoreId::new(station).unwrap(),
+        )
+    }
+
+    #[test]
+    fn account_selectors_preserve_same_principal_at_distinct_stations() {
+        let a = account("ak:did_core:web:a.example");
+        let b = account("ak:did_core:web:b.example");
+        let body = json!({"device_keys": [
+            {"account_id": a, "device_ids": [DEVICE_ID]},
+            {"account_id": b, "device_ids": [DEVICE_ID]}
+        ]});
+        let parsed: KeysQueryRequestBody = serde_json::from_value(body.clone()).unwrap();
+        assert_eq!(parsed.device_keys.len(), 2);
+        assert_eq!(serde_json::to_value(parsed).unwrap(), body);
+        let mut reversed = body;
+        reversed["device_keys"].as_array_mut().unwrap().reverse();
+        assert!(serde_json::from_value::<KeysQueryRequestBody>(reversed).is_err());
+    }
+
+    #[test]
+    fn account_collections_reject_legacy_maps_and_duplicate_identities_with_different_values() {
+        let id = account(STATION_ID);
+        let query = json!({"device_keys": [
+            {"account_id": id, "device_ids": [DEVICE_ID]},
+            {"account_id": id, "device_ids": ["ak:device:0196419b-0000-7000-8000-000000000002"]}
+        ]});
+        assert!(serde_json::from_value::<KeysQueryRequestBody>(query).is_err());
+        assert!(
+            serde_json::from_value::<KeysQueryRequestBody>(json!({
+                "device_keys": {PRINCIPAL_ID: [DEVICE_ID]}
+            }))
+            .is_err()
+        );
+        let duplicate = json!({"device_keys": [], "device_generations": [
+            {"account_id": id, "generation_state": {"current_device_generation_ref": 1, "device_generation_status": "active"}},
+            {"account_id": id, "generation_state": {"current_device_generation_ref": 2, "device_generation_status": "active"}}
+        ]});
+        assert!(serde_json::from_value::<KeysQueryOutcome>(duplicate).is_err());
+        for ids in [json!([]), json!([DEVICE_ID, DEVICE_ID])] {
+            assert!(
+                serde_json::from_value::<KeysQueryRequestBody>(json!({
+                    "device_keys": [{"account_id": id, "device_ids": ids}]
+                }))
+                .is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn query_outcome_rejects_cross_station_attestation_row_swaps() {
+        let own = account(STATION_ID);
+        let other = account("ak:did_core:web:other.example");
+        let mut value = json!({"device_keys": [{
+            "account_id": own, "device_keys": {DEVICE_ID: attested_row(7)}
+        }]});
+        let outcome: KeysQueryOutcome = serde_json::from_value(value.clone()).unwrap();
+        assert!(outcome.devices_for(&own).is_some());
+        assert!(outcome.devices_for(&other).is_none());
+        value["device_keys"][0]["account_id"] = serde_json::to_value(other).unwrap();
+        assert!(serde_json::from_value::<KeysQueryOutcome>(value).is_err());
+    }
+
+    #[test]
+    fn attestation_transcript_uses_one_complete_account_id() {
+        let record: QueryDeviceRecord = serde_json::from_value(attested_row(7)).unwrap();
+        let bytes = record
+            .device_projection_attestation
+            .proof_signing_bytes()
+            .unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(
+            value["account_id"],
+            serde_json::to_value(account(STATION_ID)).unwrap()
+        );
+        assert!(value.get("principal_id").is_none());
+        assert!(value.get("station_id").is_none());
+        let mut legacy = attested_row(7);
+        let core = legacy["device_projection_attestation"]["attestation"]
+            .as_object_mut()
+            .unwrap();
+        core.remove("account_id");
+        core.insert("principal_id".to_owned(), json!(PRINCIPAL_ID));
+        core.insert("station_id".to_owned(), json!(STATION_ID));
+        assert!(serde_json::from_value::<QueryDeviceRecord>(legacy).is_err());
     }
 }

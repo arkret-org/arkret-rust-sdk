@@ -1,6 +1,6 @@
 //! Key-backup active-series event payloads and transition validation.
 
-use arkret_wire::{ActorId, DidCoreId};
+use arkret_wire::ActorId;
 
 use crate::internal_prelude::*;
 
@@ -234,15 +234,17 @@ pub enum ControllerBackupTrustAnchorError {
 
 pub fn resolve_controller_backup_trust_anchor(
     outcome: &arkret_models_crypto::keys::KeysQueryOutcome,
-    principal: &DidCoreId,
+    account_id: &AccountId,
     device_id: &DeviceId,
 ) -> std::result::Result<ControllerBackupTrustAnchor, ControllerBackupTrustAnchorError> {
     let record = outcome
-        .device_keys
-        .get(&principal.clone())
+        .devices_for(account_id)
         .and_then(|devices| devices.get(device_id))
         .ok_or(ControllerBackupTrustAnchorError::DeviceUnknown)?;
-    let generation_state = outcome.device_generations.get(&principal.clone());
+    let generation_state = outcome.generation_for(account_id);
+    record
+        .validate_attestation_binding(account_id, device_id)
+        .map_err(|_| ControllerBackupTrustAnchorError::DeviceNotCurrent)?;
     if !record.is_usable_in_generation(generation_state) {
         return Err(ControllerBackupTrustAnchorError::DeviceNotCurrent);
     }

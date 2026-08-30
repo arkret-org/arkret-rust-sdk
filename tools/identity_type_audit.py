@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Guard JSON Schema identity references against Rust wire-field types.
 
-The protocol has three deliberately disjoint identity shapes: stable identity
-cores, DIDs used for resolution, and DID URLs used for keys. This
+The protocol has deliberately disjoint identity shapes: complete AccountId and
+ActorId objects, stable identity cores, DIDs for resolution, and DID URLs for keys. This
 audit resolves public Rust struct fields to their schema owner (an explicit
 rustdoc pointer wins, otherwise the schema definition name is inferred) and
 rejects shape substitutions or unsupported role-ID wrappers.
@@ -41,6 +41,7 @@ IDENTITY_TYPES = {
     "CoreId",
     "PrincipalId",
     "ActorId",
+    "AccountId",
     "ServiceId",
 }
 TYPE_RE = re.compile(r"\b(" + "|".join(sorted(IDENTITY_TYPES)) + r")\b")
@@ -107,6 +108,10 @@ def referenced_identity_kind(
     reference = node.get("$ref")
     if isinstance(reference, str):
         tail = reference.rsplit("/", 1)[-1]
+        if tail == "account_id":
+            return "account"
+        if tail == "actor_id":
+            return "actor"
         if tail in {"did_core_id", "core_id"}:
             return "core"
         if tail == "did" or tail.endswith("_did"):
@@ -185,13 +190,15 @@ def validate(fields: Iterable[RustField], resolver: SchemaResolver) -> list[str]
         if actual == "CoreId":
             errors.append(f"unsupported identity alias {actual}: {field.display}")
             continue
-        if actual in {"PrincipalId", "ActorId", "ServiceId"}:
+        if actual in {"PrincipalId", "ServiceId"}:
             errors.append(f"unsupported role-ID wrapper {actual}: {field.display}")
             continue
         expected_kind, pointer = schema_kind_for_field(resolver, field)
         if expected_kind is None:
             continue
         expected = {
+            "account": {"AccountId"},
+            "actor": {"ActorId"},
             "core": {"DidCoreId"},
             "did": {"Did"},
             "url": {"DidUrl"},

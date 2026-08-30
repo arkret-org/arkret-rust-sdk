@@ -26,7 +26,7 @@ use crate::event_envelope::ScopeRef;
 use crate::generated::ProofContextId;
 use crate::primitives::Audience;
 use crate::{
-    DeviceId, Did, DidCoreId, DidUrl, ExporterLabelId, Hash, RealmId, SealId, canonical,
+    ActorId, DeviceId, Did, DidUrl, ExporterLabelId, Hash, RealmId, SealId, canonical,
     project_did_to_core_id,
 };
 
@@ -160,7 +160,7 @@ pub struct SignalKeyRef {
 pub struct SignalAeadBinding<'a> {
     pub realm_id: &'a RealmId,
     pub scope_ref: &'a ScopeRef,
-    pub sender_actor_id: &'a DidCoreId,
+    pub sender_actor_id: &'a ActorId,
     pub sender_device_id: &'a DeviceId,
     pub seal_ref: &'a SealId,
     pub signal_class: SignalClass,
@@ -183,6 +183,7 @@ impl SignalAeadBinding<'_> {
     /// [`SignalEnvelope::validate_structural`], so a sender cannot encrypt
     /// under a header an ingress would then reject.
     pub fn validate(&self) -> Result<()> {
+        self.sender_actor_id.validate()?;
         if self.scope_ref.realm_id() != self.realm_id {
             return Err(WireError::Protocol(
                 "signal scope_ref.realm_id must equal the envelope realm_id".to_owned(),
@@ -241,7 +242,7 @@ impl SignalAeadBinding<'_> {
         );
         object.insert(
             "sender_actor_id".to_owned(),
-            Value::String(self.sender_actor_id.as_str().to_owned()),
+            serde_json::to_value(self.sender_actor_id)?,
         );
         object.insert(
             "sender_device_id".to_owned(),
@@ -318,7 +319,7 @@ pub struct SignalProof {
 pub struct SignalEnvelope {
     pub realm_id: RealmId,
     pub scope_ref: ScopeRef,
-    pub sender_actor_id: DidCoreId,
+    pub sender_actor_id: ActorId,
     pub sender_device_id: DeviceId,
     pub seal_ref: SealId,
     pub signal_class: SignalClass,
@@ -388,7 +389,7 @@ impl SignalEnvelope {
         );
         object.insert(
             "sender_actor_id".to_owned(),
-            Value::String(self.sender_actor_id.as_str().to_owned()),
+            serde_json::to_value(&self.sender_actor_id)?,
         );
         object.insert(
             "sender_device_id".to_owned(),
@@ -446,7 +447,7 @@ impl SignalEnvelope {
                 )
             })?;
         let proof_controller = project_did_to_core_id(&Did::new(proof_controller)?)?;
-        if proof_controller != self.sender_actor_id
+        if &proof_controller != self.sender_actor_id.signing_principal_id()
             || proof_fragment != self.sender_device_id.as_str()
         {
             return Err(WireError::Protocol(
@@ -613,8 +614,11 @@ mod tests {
         Utc.with_ymd_and_hms(2026, 7, 28, 12, 0, 0).unwrap()
     }
 
-    fn actor() -> DidCoreId {
-        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
+    fn actor() -> ActorId {
+        ActorId::account(crate::AccountId::new(
+            crate::DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            crate::DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        ))
     }
 
     fn actor_did() -> Did {
@@ -662,6 +666,41 @@ mod tests {
         envelope.encrypted_payload.aad_digest = envelope.expected_aad_digest().unwrap();
         envelope.proof.envelope_digest = envelope.envelope_digest().unwrap();
         envelope
+    }
+
+    #[test]
+    fn signal_sender_is_a_closed_actor_bound_into_aad_and_proof() {
+        let original = envelope(SignalClass::Session, 30);
+        let value = serde_json::to_value(&original).unwrap();
+        assert!(value["sender_actor_id"].is_object());
+        let aad: Value = serde_json::from_slice(
+            &original
+                .aead_binding()
+                .aad_bytes(&original.encrypted_payload.nonce)
+                .unwrap(),
+        )
+        .unwrap();
+        let proof: Value =
+            serde_json::from_slice(&original.proof_binding_bytes().unwrap()).unwrap();
+        assert_eq!(aad["sender_actor_id"], value["sender_actor_id"]);
+        assert_eq!(proof["sender_actor_id"], value["sender_actor_id"]);
+        let mut legacy = value;
+        legacy["sender_actor_id"] =
+            serde_json::json!(original.sender_actor_id.signing_principal_id());
+        assert!(serde_json::from_value::<SignalEnvelope>(legacy).is_err());
+        let mut moved = original.clone();
+        let mut account = moved.sender_actor_id.as_account_id().unwrap().clone();
+        account.station_id =
+            crate::DidCoreId::new("ak:did_core:web:other-station.example").unwrap();
+        moved.sender_actor_id = ActorId::account(account);
+        assert_ne!(
+            moved.expected_aad_digest().unwrap(),
+            original.expected_aad_digest().unwrap()
+        );
+        assert_ne!(
+            moved.proof_binding_bytes().unwrap(),
+            original.proof_binding_bytes().unwrap()
+        );
     }
 
     #[test]

@@ -56,7 +56,7 @@ fn query_method() -> Method {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct EventsSubscribeOptions {
     pub realm_ids: Vec<RealmId>,
-    pub actor_ids: Vec<DidCoreId>,
+    pub actor_ids: Vec<ActorId>,
     pub after: Option<String>,
     pub catchup: Option<bool>,
     pub max_duration_ms: Option<u64>,
@@ -76,7 +76,7 @@ impl EventsSubscribeOptions {
     }
 
     #[must_use]
-    pub fn actor(mut self, actor_id: DidCoreId) -> Self {
+    pub fn actor(mut self, actor_id: ActorId) -> Self {
         self.actor_ids.push(actor_id);
         self
     }
@@ -544,6 +544,15 @@ impl Client {
                 "events subscribe requires at least one realm or actor selector".to_owned(),
             ));
         }
+        if options.realm_ids.len() > 256
+            || options.actor_ids.len() > 256
+            || options.realm_ids.iter().collect::<BTreeSet<_>>().len() != options.realm_ids.len()
+            || options.actor_ids.iter().collect::<BTreeSet<_>>().len() != options.actor_ids.len()
+        {
+            return Err(Error::Protocol(
+                "events subscribe selectors must be unique and bounded to 256".to_owned(),
+            ));
+        }
 
         // Long-lived NDJSON stream — exempt from the per-request default
         // total timeout (see `DEFAULT_REQUEST_TIMEOUT`).
@@ -551,10 +560,10 @@ impl Client {
             .request_unbounded(Method::GET, "/_arkret/self/events/subscribe")?
             .header("accept", "application/x-ndjson");
         for realm_id in &options.realm_ids {
-            builder = builder.query(&[("realms", realm_id.as_str())]);
+            builder = builder.query(&[("realm_ids", realm_id.as_str())]);
         }
         for actor_id in &options.actor_ids {
-            builder = builder.query(&[("actors", actor_id.as_str())]);
+            builder = builder.query(&[("actor_ids", actor_id.canonical_key()?)]);
         }
         if let Some(after) = options.after.as_deref() {
             builder = builder.query(&[("after", after)]);
@@ -1111,7 +1120,10 @@ mod tests {
     fn events_subscribe_request_serializes_stream_options() {
         let options = EventsSubscribeOptions::new()
             .realm(RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap())
-            .actor(DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap())
+            .actor(ActorId::account(arkret_wire::AccountId::new(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+            )))
             .after("ak:cursor:stored")
             .catchup(true)
             .max_duration_ms(30_000)
@@ -1125,15 +1137,25 @@ mod tests {
         let query = built.url().query().unwrap().to_owned();
 
         assert!(
-            query.contains("realms=ak%3Arealm%3AAdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"),
+            query.contains("realm_ids=ak%3Arealm%3AAdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"),
             "query: {query}"
         );
         assert!(
-            query.contains("actors=ak%3Adid_core%3Awebvh%3Az6mkfixture%3Aalice.example"),
+            query.contains("actor_ids=%7B%22account_id%22"),
             "query: {query}"
         );
-        assert!(!query.contains("realm_ids="), "query: {query}");
-        assert!(!query.contains("actor_ids="), "query: {query}");
+        assert!(!query.contains("realms="), "query: {query}");
+        assert!(!query.contains("actors="), "query: {query}");
+        let actor_values = built
+            .url()
+            .query_pairs()
+            .filter(|(name, _)| name == "actor_ids")
+            .map(|(_, value)| value.into_owned())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            actor_values,
+            vec![options.actor_ids[0].canonical_key().unwrap()]
+        );
         assert!(
             query.contains("after=ak%3Acursor%3Astored"),
             "query: {query}"

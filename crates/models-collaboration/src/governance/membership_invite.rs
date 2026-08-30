@@ -63,8 +63,6 @@ pub struct MembershipPayload {
     pub membership: MembershipPayloadState,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gate_proofs: Vec<BTreeMap<String, Value>>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub via_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -98,7 +96,6 @@ impl MembershipPayload {
             realm_id: None,
             member_id,
             gate_proofs: Vec::new(),
-            via_ids: Vec::new(),
             reason: Some(reason.into()),
             membership_cause: None,
             agent_controller_binding: None,
@@ -115,7 +112,6 @@ impl MembershipPayload {
             realm_id: Some(realm_id),
             member_id,
             gate_proofs: Vec::new(),
-            via_ids: Vec::new(),
             reason: Some(reason.into()),
             membership_cause: None,
             agent_controller_binding: None,

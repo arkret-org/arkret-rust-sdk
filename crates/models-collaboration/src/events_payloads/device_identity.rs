@@ -385,8 +385,7 @@ pub enum RecoveryAuthorityKind {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceReanchorPayload {
-    pub principal_id: DidCoreId,
-    pub station_id: DidCoreId,
+    pub account_id: AccountId,
     pub recovery_authority_kind: RecoveryAuthorityKind,
     pub recovery_policy_id: PolicyId,
     pub recovery_policy_version: u64,
@@ -402,8 +401,7 @@ pub struct DeviceReanchorPayload {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DeviceReanchorPayloadWire {
-    principal_id: DidCoreId,
-    station_id: DidCoreId,
+    account_id: AccountId,
     recovery_authority_kind: RecoveryAuthorityKind,
     recovery_policy_id: PolicyId,
     recovery_policy_version: u64,
@@ -434,8 +432,7 @@ impl<'de> Deserialize<'de> for DeviceReanchorPayload {
     {
         let wire = DeviceReanchorPayloadWire::deserialize(deserializer)?;
         let payload = Self {
-            principal_id: wire.principal_id,
-            station_id: wire.station_id,
+            account_id: wire.account_id,
             recovery_authority_kind: wire.recovery_authority_kind,
             recovery_policy_id: wire.recovery_policy_id,
             recovery_policy_version: wire.recovery_policy_version,
@@ -454,14 +451,13 @@ impl<'de> Deserialize<'de> for DeviceReanchorPayload {
 impl DeviceReanchorPayload {
     pub const SCHEMA: &'static str = SchemaId::DEVICE_REANCHOR_V1;
 
-    pub fn account_id(&self) -> AccountId {
-        AccountId::new(self.principal_id.clone(), self.station_id.clone())
-    }
-
     pub fn validate(&self) -> std::result::Result<(), &'static str> {
+        self.account_id
+            .validate()
+            .map_err(|_| "invalid device reanchor account_id")?;
         if self.recovery_policy_version == 0
             || self.previous_device_generation == 0
-            || self.new_device_generation != self.previous_device_generation.saturating_add(1)
+            || Some(self.new_device_generation) != self.previous_device_generation.checked_add(1)
         {
             return Err(
                 "device reanchor policy version and generations must be positive immediate successors",
@@ -974,8 +970,10 @@ mod tests {
     #[test]
     fn device_reanchor_enforces_exact_authority_generation_cas_and_basis() {
         let valid = json!({
-            "principal_id": "ak:did_core:webvh:z6mkfixture",
-            "station_id": "ak:did_core:web:principal.example",
+            "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:web:principal.example"
+            },
             "recovery_authority_kind": "pcr_policy",
             "recovery_policy_id": "ak:policy:01904100-0000-7000-8000-000000000001",
             "recovery_policy_version": 1,
@@ -1086,8 +1084,10 @@ mod tests {
     #[test]
     fn device_reanchor_pre_fence_seal_frontier_round_trips_both_frontier_roots() {
         let wire = json!({
-            "principal_id": "ak:did_core:webvh:z6mkfixture",
-            "station_id": "ak:did_core:web:principal.example",
+            "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:web:principal.example"
+            },
             "recovery_authority_kind": "pcr_policy",
             "recovery_policy_id": "ak:policy:01904100-0000-7000-8000-000000000001",
             "recovery_policy_version": 1,

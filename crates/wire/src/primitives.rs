@@ -47,6 +47,64 @@ impl fmt::Display for AccountId {
     }
 }
 
+/// An entry whose identity, rather than its complete value, defines set membership.
+pub trait CanonicalIdentityEntry {
+    type Identity: Serialize;
+    fn identity(&self) -> &Self::Identity;
+    fn validate_entry(&self) -> Result<()> {
+        Ok(())
+    }
+}
+
+/// Validate the unsigned UTF-8 JCS identity order, rejecting repeated identities
+/// even when the associated values differ.
+pub fn validate_identity_entries<T: CanonicalIdentityEntry>(entries: &[T]) -> Result<()> {
+    let mut previous: Option<Vec<u8>> = None;
+    for entry in entries {
+        entry.validate_entry()?;
+        let key = arkret_canonical::canonical_json_bytes(entry.identity())?;
+        if previous.as_ref().is_some_and(|previous| previous >= &key) {
+            return Err(WireError::Protocol(
+                "identity entries must be unique and sorted by JCS identity bytes".to_owned(),
+            ));
+        }
+        previous = Some(key);
+    }
+    Ok(())
+}
+
+pub fn deserialize_identity_entries<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Vec<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de> + CanonicalIdentityEntry,
+{
+    let entries = Vec::<T>::deserialize(deserializer)?;
+    validate_identity_entries(&entries).map_err(serde::de::Error::custom)?;
+    Ok(entries)
+}
+
+pub fn serialize_identity_entries<S, T>(
+    entries: &[T],
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+    T: Serialize + CanonicalIdentityEntry,
+{
+    validate_identity_entries(entries).map_err(serde::ser::Error::custom)?;
+    entries.serialize(serializer)
+}
+
+impl CanonicalIdentityEntry for ActorId {
+    type Identity = Self;
+
+    fn identity(&self) -> &Self {
+        self
+    }
+}
+
 /// Complete identity for an Event author, Realm member, or durable byline.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]

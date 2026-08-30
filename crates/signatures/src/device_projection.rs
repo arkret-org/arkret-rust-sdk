@@ -23,7 +23,7 @@ use ed25519_dalek::{Signature, Signer as _, SigningKey, Verifier as _, Verifying
 /// Sign one device projection attestation.
 ///
 /// `verification_method` MUST be a key of the origin Station named in
-/// `core.station_id`; the binding is re-checked on the verify side, so
+/// `core.account_id.station_id`; the binding is re-checked on the verify side, so
 /// a mis-signed attestation fails there rather than being trusted here.
 pub fn sign_device_projection_attestation(
     core: DeviceProjectionAttestationCore,
@@ -76,7 +76,7 @@ pub fn verify_device_projection_attestation(
 ) -> arkret_wire::Result<()> {
     let core = &attestation.attestation;
     let controller = proof_controller(&attestation.proof.verification_method)?;
-    if controller != core.station_id {
+    if controller != core.account_id.station_id {
         return Err(arkret_wire::WireError::Protocol(
             "device projection attestation proof controller is not the origin Station".to_owned(),
         ));
@@ -94,6 +94,11 @@ pub fn verify_device_projection_attestation(
     if now >= core.expires_at {
         return Err(arkret_wire::WireError::Protocol(
             "device projection attestation is expired".to_owned(),
+        ));
+    }
+    if core.device_status != DeviceStatus::Active {
+        return Err(arkret_wire::WireError::Protocol(
+            "device projection attestation may only attest an active device".to_owned(),
         ));
     }
     let signature_bytes = arkret_canonical::base64url_decode(attestation.proof.jws.as_str())
@@ -138,8 +143,10 @@ mod tests {
     fn core() -> DeviceProjectionAttestationCore {
         let attested_at = Utc.with_ymd_and_hms(2026, 8, 15, 0, 0, 0).unwrap();
         DeviceProjectionAttestationCore {
-            principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-            station_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
+            account_id: arkret_wire::AccountId::new(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
+            ),
             device_id: DeviceId::new("ak:device:0196419b-0000-7000-8000-000000000001").unwrap(),
             device_signing_key_did: DidKey::new(
                 "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuVkhY7g94pVQyG98x",
@@ -171,12 +178,34 @@ mod tests {
         verify_device_projection_attestation(&attestation, &signing_key.verifying_key(), now)
             .expect("valid attestation");
 
-        let mut tampered = attestation;
+        let mut tampered = attestation.clone();
         tampered.attestation.authorized_generation_ref = 8;
         assert!(
             verify_device_projection_attestation(&tampered, &signing_key.verifying_key(), now)
                 .is_err(),
             "a rewritten generation must break the signature"
+        );
+        let mut foreign_account = attestation.clone();
+        foreign_account.attestation.account_id.station_id =
+            DidCoreId::new("ak:did_core:web:other-station.example").unwrap();
+        assert!(
+            verify_device_projection_attestation(
+                &foreign_account,
+                &signing_key.verifying_key(),
+                now
+            )
+            .is_err()
+        );
+        let mut foreign_principal = attestation;
+        foreign_principal.attestation.account_id.principal_id =
+            DidCoreId::new("ak:did_core:web:other-principal.example").unwrap();
+        assert!(
+            verify_device_projection_attestation(
+                &foreign_principal,
+                &signing_key.verifying_key(),
+                now
+            )
+            .is_err()
         );
     }
 

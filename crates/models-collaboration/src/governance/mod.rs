@@ -15,6 +15,7 @@ pub mod circle;
 pub mod erasure;
 pub mod grant_constraint;
 pub mod invite_addressing;
+pub mod invite_quarantine;
 pub mod membership_invite;
 pub mod moderation;
 pub mod moderation_appeal;

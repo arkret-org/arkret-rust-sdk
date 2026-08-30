@@ -7,7 +7,7 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    AccountId, ActorId, CbaProofBundle, DidCoreId, Event, EventFederationSubmission, EventId,
+    AccountId, ActorId, CbaProofBundle, Event, EventFederationSubmission, EventId,
     EventInitialSubmission, Hash, RealmId, Result, WireError,
 };
 use chrono::{DateTime, Utc};
@@ -74,7 +74,11 @@ pub struct AgentCleanupRecord {
     pub controller_membership_generation_ref: EventId,
     pub initiator_actor_id: ActorId,
     pub controller_terminal_event_id: EventId,
-    pub expected_agent_ids: Vec<DidCoreId>,
+    #[serde(
+        deserialize_with = "arkret_wire::deserialize_identity_entries",
+        serialize_with = "arkret_wire::serialize_identity_entries"
+    )]
+    pub expected_agent_ids: Vec<ActorId>,
     pub cleanup_intent_digest: Hash,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
@@ -110,7 +114,7 @@ impl AgentCleanupRecord {
             controller_membership_generation_ref: &'a EventId,
             initiator_actor_id: &'a ActorId,
             controller_terminal_event_id: &'a EventId,
-            expected_agent_ids: &'a [DidCoreId],
+            expected_agent_ids: &'a [ActorId],
         }
 
         Ok(Hash::new(arkret_canonical::canonical_sha256(
@@ -443,10 +447,9 @@ fn decode_membership_payload(event: &Event) -> Result<MembershipPayload> {
     .map_err(|error| WireError::Protocol(format!("membership payload decode failed: {error}")))
 }
 
-fn validate_sorted_unique_agent_ids(agent_ids: &[DidCoreId]) -> Result<()> {
-    if agent_ids.len() > MAX_AGENT_MEMBERSHIP_CASCADE_TRANSITIONS
-        || agent_ids.windows(2).any(|pair| pair[0] >= pair[1])
-    {
+fn validate_sorted_unique_agent_ids(agent_ids: &[ActorId]) -> Result<()> {
+    arkret_wire::validate_identity_entries(agent_ids)?;
+    if agent_ids.len() > MAX_AGENT_MEMBERSHIP_CASCADE_TRANSITIONS {
         return Err(WireError::Protocol(
             "expected Agent ids must be strictly sorted, unique and bounded to 256".to_owned(),
         ));
@@ -467,6 +470,8 @@ fn validate_unique_event_ids(event_ids: &[EventId]) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::DidCoreId;
+
     use super::*;
     use crate::governance::membership_invite::MembershipPayload;
 
@@ -533,8 +538,14 @@ mod tests {
             )),
             controller_terminal_event_id: event_id('b'),
             expected_agent_ids: vec![
-                DidCoreId::new("ak:did_core:web:agent-a.example").unwrap(),
-                DidCoreId::new("ak:did_core:web:agent-b.example").unwrap(),
+                ActorId::hosted_principal(
+                    DidCoreId::new("ak:did_core:web:agent-a.example").unwrap(),
+                    DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
+                ),
+                ActorId::hosted_principal(
+                    DidCoreId::new("ak:did_core:web:agent-b.example").unwrap(),
+                    DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
+                ),
             ],
             cleanup_intent_digest: hash('2'),
             accepted_at,

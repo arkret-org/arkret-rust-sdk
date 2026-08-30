@@ -107,7 +107,10 @@ impl ArkretMlsGroup {
                 "ordinary Signal sender requires a human-device MLS endpoint".to_owned(),
             ));
         };
-        if binding.sender_actor_id != principal_id || binding.sender_device_id != device_id {
+        if binding.sender_actor_id.as_account_id().is_none()
+            || binding.sender_actor_id.signing_principal_id() != principal_id
+            || binding.sender_device_id != device_id
+        {
             return Err(Error::Protocol(
                 "signal sender does not match this MLS identity".to_owned(),
             ));
@@ -292,7 +295,8 @@ impl ArkretMlsGroup {
                     MlsEndpointIdentity::HumanDevice {
                         principal_id,
                         device_id,
-                    } if principal_id == binding.sender_actor_id
+                    } if binding.sender_actor_id.as_account_id().is_some()
+                        && principal_id == binding.sender_actor_id.signing_principal_id()
                         && device_id == binding.sender_device_id
                 )
             })
@@ -362,7 +366,8 @@ mod tests {
         "\"realm_id\":\"ak:realm:AWaw3_J06Ml7_fh-rnNBMJ3WJ6cLKzz1DvKyRhPSuJs0\"},",
         "\"seal_ref\":\"ak:seal:sha256:",
         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",",
-        "\"sender_actor_id\":\"ak:did_core:webvh:z6mkfixturealice\",",
+        "\"sender_actor_id\":{\"account_id\":{\"principal_id\":\"ak:did_core:webvh:z6mkfixturealice\",",
+        "\"station_id\":\"ak:did_core:web:station.example\"},\"kind\":\"account\"},",
         "\"sender_device_id\":\"ak:device:01904100-0000-7000-8000-000000000006\",",
         "\"sent_at\":\"2026-07-28T12:00:00.000Z\",",
         "\"signal_class\":\"session\"}"
@@ -381,7 +386,7 @@ mod tests {
     struct BindingParts {
         realm_id: RealmId,
         scope_ref: ScopeRef,
-        sender_actor_id: DidCoreId,
+        sender_actor_id: arkret_wire::ActorId,
         sender_device_id: DeviceId,
         seal_ref: SealId,
         key_ref: SignalKeyRef,
@@ -396,7 +401,10 @@ mod tests {
                     realm_id: realm_id.clone(),
                 },
                 realm_id,
-                sender_actor_id: DidCoreId::new(sender_actor.to_owned()).unwrap(),
+                sender_actor_id: arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+                    DidCoreId::new(sender_actor.to_owned()).unwrap(),
+                    DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+                )),
                 sender_device_id: DeviceId::new(sender_device.to_owned()).unwrap(),
                 seal_ref: SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
                 key_ref: SignalKeyRef {

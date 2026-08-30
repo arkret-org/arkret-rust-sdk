@@ -41,7 +41,10 @@ fn signal_envelope(signal_class: SignalClass, ttl_seconds: i64) -> SignalEnvelop
     let mut envelope = SignalEnvelope {
         realm_id: realm(),
         scope_ref: ScopeRef::Realm { realm_id: realm() },
-        sender_actor_id: core_id(),
+        sender_actor_id: arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+            core_id(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        )),
         sender_device_id: device_id(),
         seal_ref: SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
         signal_class,

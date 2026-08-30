@@ -9,11 +9,13 @@ use arkret_models_identity::{HandleClaim, RouteAssistance, ServiceResolutionCarr
 use arkret_wire::event_envelope::Event;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    BlobRef, DidCoreId, EventId, Hash, InviteId, InviteLocatorId, InviteReceiveAction, RealmId,
-    Result, SchemaId, UnknownInviteAction, WireError,
+    AccountId, BlobRef, DidCoreId, EventId, Hash, InviteId, InviteLocatorId, InviteReceiveAction,
+    RealmId, Result, SchemaId, UnknownInviteAction, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+pub use super::invite_quarantine::*;
 
 pub const INVITE_RECIPIENT_SERVICE_KIND_STATION: &str = "station";
 pub const INVITE_LOCATOR_RESOLVE_PATH: &str = "_arkret/open/invite-locators/resolve";
@@ -203,13 +205,10 @@ pub struct InviteLocatorRevokeOutcome {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InviteAddress {
-    pub subject_id: DidCoreId,
-    pub recipient_id: DidCoreId,
+    pub account_id: AccountId,
     pub service_resolution: ServiceResolutionCarrier,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub route_assistance: Option<RouteAssistance>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub recipient_kind: Option<String>,
 }
 
 impl InviteAddress {
@@ -219,64 +218,16 @@ impl InviteAddress {
         service_resolution: ServiceResolutionCarrier,
     ) -> Self {
         Self {
-            subject_id,
-            recipient_id,
+            account_id: AccountId::new(subject_id, recipient_id),
             service_resolution,
             route_assistance: None,
-            recipient_kind: None,
         }
     }
 
     pub fn validate(&self) -> Result<()> {
-        validate_service_resolution_carrier(&self.recipient_id, &self.service_resolution)?;
+        validate_service_resolution_carrier(&self.account_id.station_id, &self.service_resolution)?;
         if let Some(route_assistance) = &self.route_assistance {
             route_assistance.validate_shape()?;
-        }
-        if let Some(service_kind) = &self.recipient_kind
-            && service_kind != INVITE_RECIPIENT_SERVICE_KIND_STATION
-        {
-            return Err(WireError::Protocol(
-                "invite_address.recipient_kind MUST be station".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct InviteDeliveryTarget {
-    pub recipient_id: DidCoreId,
-    pub service_resolution: ServiceResolutionCarrier,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub recipient_kind: Option<String>,
-}
-
-impl InviteDeliveryTarget {
-    pub fn station(recipient_id: DidCoreId, service_resolution: ServiceResolutionCarrier) -> Self {
-        Self {
-            recipient_id,
-            service_resolution,
-            recipient_kind: None,
-        }
-    }
-
-    pub fn from_invite_address(address: &InviteAddress) -> Self {
-        Self {
-            recipient_id: address.recipient_id.clone(),
-            service_resolution: address.service_resolution.clone(),
-            recipient_kind: address.recipient_kind.clone(),
-        }
-    }
-
-    pub fn validate(&self) -> Result<()> {
-        validate_service_resolution_carrier(&self.recipient_id, &self.service_resolution)?;
-        if let Some(service_kind) = &self.recipient_kind
-            && service_kind != INVITE_RECIPIENT_SERVICE_KIND_STATION
-        {
-            return Err(WireError::Protocol(
-                "invite_delivery_target.recipient_kind MUST be station".to_owned(),
-            ));
         }
         Ok(())
     }
@@ -287,20 +238,15 @@ impl InviteDeliveryTarget {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalLocator {
     pub schema: String,
-    pub subject_id: DidCoreId,
-    pub recipient_id: DidCoreId,
+    pub account_id: AccountId,
     pub service_resolution: ServiceResolutionCarrier,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub route_assistance: Option<RouteAssistance>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub recipient_kind: Option<String>,
     #[serde(with = "canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub locator_ref_digest: Hash,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub delivery_modes: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_hint: Option<PrincipalLocatorDisplayHint>,
     pub proofs: Vec<PrincipalLocatorProof>,
@@ -308,21 +254,46 @@ pub struct PrincipalLocator {
 
 impl PrincipalLocator {
     pub const SCHEMA: &'static str = SchemaId::PRINCIPAL_LOCATOR_V1;
-    pub fn invite_address(&self) -> InviteAddress {
-        InviteAddress {
-            subject_id: self.subject_id.clone(),
-            recipient_id: self.recipient_id.clone(),
-            service_resolution: self.service_resolution.clone(),
-            route_assistance: self.route_assistance.clone(),
-            recipient_kind: self.recipient_kind.clone(),
-        }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        let mut unsigned = serde_json::to_value(self)?;
+        unsigned
+            .as_object_mut()
+            .expect("locator is an object")
+            .remove("proofs");
+        Hash::new(arkret_canonical::canonical_sha256(&unsigned)?).map_err(Into::into)
     }
 
-    pub fn invite_delivery_target(&self) -> InviteDeliveryTarget {
-        InviteDeliveryTarget {
-            recipient_id: self.recipient_id.clone(),
+    /// The registered locator transcript. Proof purpose selects the permitted
+    /// controller; it does not replace the context-separated signed binding.
+    pub fn proof_signing_bytes(&self, proof: &DetachedPayloadProof) -> Result<Vec<u8>> {
+        let payload_digest = self.payload_digest()?;
+        if proof.payload_digest != payload_digest {
+            return Err(WireError::Protocol(
+                "principal locator proof payload digest mismatch".to_owned(),
+            ));
+        }
+        let mut binding = serde_json::json!({
+            "context": arkret_wire::ProofContextId::PRINCIPAL_LOCATOR_PROOF_V1,
+            "payload_digest": payload_digest,
+            "account_id": self.account_id,
+            "verification_method": proof.verification_method,
+            "created_at": arkret_canonical::format_timestamp_canonical(proof.created_at),
+        });
+        if let Some(domain) = &proof.domain {
+            binding["domain"] = serde_json::json!(domain);
+        }
+        if let Some(audience) = &proof.audience {
+            binding["audience"] = serde_json::to_value(audience)?;
+        }
+        Ok(arkret_canonical::canonical_json_bytes(&binding)?)
+    }
+
+    pub fn invite_address(&self) -> InviteAddress {
+        InviteAddress {
+            account_id: self.account_id.clone(),
             service_resolution: self.service_resolution.clone(),
-            recipient_kind: self.recipient_kind.clone(),
+            route_assistance: self.route_assistance.clone(),
         }
     }
 
@@ -332,16 +303,9 @@ impl PrincipalLocator {
                 "principal_locator.schema mismatch".to_owned(),
             ));
         }
-        validate_service_resolution_carrier(&self.recipient_id, &self.service_resolution)?;
+        validate_service_resolution_carrier(&self.account_id.station_id, &self.service_resolution)?;
         if let Some(route_assistance) = &self.route_assistance {
             route_assistance.validate_shape()?;
-        }
-        if let Some(service_kind) = &self.recipient_kind
-            && service_kind != INVITE_RECIPIENT_SERVICE_KIND_STATION
-        {
-            return Err(WireError::Protocol(
-                "principal_locator.recipient_kind MUST be station".to_owned(),
-            ));
         }
         if self.expires_at <= self.issued_at {
             return Err(WireError::Protocol(
@@ -677,7 +641,7 @@ impl InviteDeliveryEntry {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct InviteReceivePolicy {
     pub schema: String,
-    pub subject_id: DidCoreId,
+    pub account_id: AccountId,
     pub holder_allowed_introduction_kinds: Vec<String>,
     pub explicit_address_behavior: InviteReceiveAction,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -710,10 +674,10 @@ impl InviteReceivePolicy {
     /// The subject is already a validated DID so callers cannot silently
     /// substitute a placeholder principal when identity parsing fails.
     #[must_use]
-    pub fn spec_default(subject_id: DidCoreId) -> Self {
+    pub fn spec_default(account_id: AccountId) -> Self {
         Self {
             schema: SchemaId::INVITE_RECEIVE_POLICY_V1.to_owned(),
-            subject_id,
+            account_id,
             holder_allowed_introduction_kinds: vec![
                 "locator_ref".to_owned(),
                 "consent_grant".to_owned(),
@@ -769,10 +733,18 @@ mod tests {
     #[test]
     fn invite_receive_policy_spec_default_is_fail_closed() {
         let subject_id = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap();
-        let policy = InviteReceivePolicy::spec_default(subject_id.clone());
+        let policy = InviteReceivePolicy::spec_default(AccountId::new(
+            subject_id.clone(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        ));
 
         assert_eq!(policy.schema, SchemaId::INVITE_RECEIVE_POLICY_V1);
-        assert_eq!(policy.subject_id, subject_id);
+        assert_eq!(policy.account_id.principal_id, subject_id);
+        let value = serde_json::to_value(&policy).unwrap();
+        assert!(value.get("subject_id").is_none());
+        let mut legacy = value;
+        legacy["subject_id"] = serde_json::json!(subject_id);
+        assert!(serde_json::from_value::<InviteReceivePolicy>(legacy).is_err());
         assert_eq!(
             policy.holder_allowed_introduction_kinds,
             ["locator_ref", "consent_grant", "shared_realm"]
@@ -893,19 +865,19 @@ mod tests {
         let recipient_did = Did::new("did:webvh:z6mkfixturepsbob:ps.bob.example").unwrap();
         let locator = PrincipalLocator {
             schema: SchemaId::PRINCIPAL_LOCATOR_V1.to_owned(),
-            subject_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
-            recipient_id,
+            account_id: AccountId::new(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+                recipient_id,
+            ),
             service_resolution: ServiceResolutionCarrier::CurrentRecordUrl {
                 current_record_url:
                     "https://ps.bob.example/_arkret/open/service-resolution/current".to_owned(),
                 pinned_record_digest: None,
             },
             route_assistance: None,
-            recipient_kind: None,
             issued_at,
             expires_at,
             locator_ref_digest: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
-            delivery_modes: Vec::new(),
             display_hint: None,
             proofs: vec![PrincipalLocatorProof {
                 proof_purpose: PrincipalLocatorProofPurpose::RecipientServiceAcceptance,
@@ -987,7 +959,10 @@ mod tests {
     fn invite_receive_policy_skips_empty_disclosure_fields() {
         let policy = InviteReceivePolicy {
             schema: SchemaId::INVITE_RECEIVE_POLICY_V1.to_owned(),
-            subject_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            account_id: AccountId::new(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+            ),
             holder_allowed_introduction_kinds: vec!["consent_grant".to_owned()],
             explicit_address_behavior: InviteReceiveAction::Quarantine,
             handle_claim_behavior: None,

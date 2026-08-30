@@ -799,16 +799,74 @@ pub struct KeyRecord {
     pub created_at: Option<DateTime<Utc>>,
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/principal_device_algorithm_map`.
-pub type PrincipalDeviceAlgorithmMap = BTreeMap<DidCoreId, DeviceAlgorithmMap>;
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountDeviceAlgorithmEntry {
+    pub account_id: AccountId,
+    pub device_algorithms: DeviceAlgorithmMap,
+}
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/principal_device_key_records`.
-pub type PrincipalDeviceKeyRecords = BTreeMap<DidCoreId, DeviceKeyRecords>;
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountDeviceKeyEntry {
+    pub account_id: AccountId,
+    pub device_keys: DeviceKeyRecords,
+}
 
-/// Counterpart for `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/query_device_map`.
-pub type QueryDeviceMap = BTreeMap<DidCoreId, Vec<DeviceId>>;
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QueryAccountDeviceSelector {
+    pub account_id: AccountId,
+    #[serde(deserialize_with = "deserialize_device_ids")]
+    pub device_ids: Vec<DeviceId>,
+}
+
+fn deserialize_device_ids<'de, D>(deserializer: D) -> std::result::Result<Vec<DeviceId>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let ids = Vec::<DeviceId>::deserialize(deserializer)?;
+    let unique = ids.iter().collect::<BTreeSet<_>>();
+    if ids.is_empty() || unique.len() != ids.len() {
+        return Err(serde::de::Error::custom(
+            "device_ids must be non-empty and unique",
+        ));
+    }
+    Ok(ids)
+}
+
+impl arkret_wire::CanonicalIdentityEntry for AccountDeviceAlgorithmEntry {
+    type Identity = AccountId;
+    fn identity(&self) -> &AccountId {
+        &self.account_id
+    }
+}
+
+impl arkret_wire::CanonicalIdentityEntry for AccountDeviceKeyEntry {
+    type Identity = AccountId;
+    fn identity(&self) -> &AccountId {
+        &self.account_id
+    }
+}
+
+impl arkret_wire::CanonicalIdentityEntry for QueryAccountDeviceSelector {
+    type Identity = AccountId;
+    fn identity(&self) -> &AccountId {
+        &self.account_id
+    }
+    fn validate_entry(&self) -> Result<()> {
+        let unique = self.device_ids.iter().collect::<BTreeSet<_>>();
+        if self.device_ids.is_empty() || unique.len() != self.device_ids.len() {
+            return Err(WireError::Protocol(
+                "device_ids must be non-empty and unique".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
 
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-policy.schema.json#/$defs/share`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
