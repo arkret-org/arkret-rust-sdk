@@ -563,8 +563,8 @@ pub struct EventContainer {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountSubscribeDeviceListChanges {
-    pub changed_ids: Vec<DidCoreId>,
-    pub left_ids: Vec<DidCoreId>,
+    pub changed_ids: Vec<ActorId>,
+    pub left_ids: Vec<ActorId>,
 }
 
 /// Counterpart for
@@ -597,6 +597,7 @@ pub struct OrderedLogSiblingDiagnostic {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WindowStartActorProfile {
+    pub actor_id: ActorId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -633,7 +634,7 @@ pub enum WindowStartNullableE2eeEpoch {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StateAtWindowStart {
-    pub actor_profiles: BTreeMap<ActorId, WindowStartActorProfile>,
+    pub actor_profiles: Vec<WindowStartActorProfile>,
     pub realm_metadata: WindowStartRealmMetadata,
     pub e2ee_epoch: WindowStartNullableE2eeEpoch,
 }
@@ -646,7 +647,7 @@ pub struct AccountSubscribeRealmSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invited_member_count: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hero_ids: Option<Vec<DidCoreId>>,
+    pub hero_ids: Option<Vec<ActorId>>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

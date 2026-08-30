@@ -37,9 +37,9 @@ use arkret_wire::{
     AuthorizationLeaseIssueRequestBody, ControlProposalAck, ControlProposalAckIssueOutcome,
     ControlProposalAckIssueRequest, ControlProposalDecisionPolicy,
     ControlProposalDecisionReadOutcome, ControlProposalDecisionReadRequestBody,
-    ControlProposalDecisionSubmitOutcome, ControlProposalDecisionSubmitRequestBody, Cursor,
-    DidCoreId, Event, EventInitialSubmission, EventSubmitContext, EventsSubmitBatchRequestBody,
-    Hash, RealmId, Seal,
+    ActorId, ControlProposalDecisionSubmitOutcome, ControlProposalDecisionSubmitRequestBody,
+    Cursor, DidCoreId, Event, EventInitialSubmission, EventSubmitContext,
+    EventsSubmitBatchRequestBody, Hash, RealmId, Seal,
 };
 use reqwest::{Method, RequestBuilder, Response};
 use serde::Serialize;
@@ -676,7 +676,7 @@ impl Client {
     /// projection row.
     pub async fn events_read_all_pages_for_actor(
         &self,
-        actor_id: &DidCoreId,
+        actor_id: &ActorId,
     ) -> Result<EventsQueryOutcome> {
         self.events_read_all_pages_inner(
             Vec::new(),
@@ -709,7 +709,7 @@ impl Client {
     async fn events_read_all_pages_inner(
         &self,
         realms: Vec<RealmId>,
-        actors: Vec<DidCoreId>,
+        actors: Vec<ActorId>,
         include_completeness: bool,
         selector_label: String,
     ) -> Result<EventsQueryOutcome> {
@@ -1268,9 +1268,9 @@ mod tests {
         .await;
 
         let outcome = client
-            .events_read_all_pages_for_actor(
-                &DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
-            )
+            .events_read_all_pages_for_actor(&ActorId::service(
+                DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            ))
             .await
             .unwrap();
         let requests = server.await.unwrap();

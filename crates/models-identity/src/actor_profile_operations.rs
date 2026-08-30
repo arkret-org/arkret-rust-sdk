@@ -5,7 +5,7 @@
 //! reach it through a cross-principal actor selector. This operation is the only
 //! outward carrier for that PCR-resident fact.
 
-use arkret_wire::{DidCoreId, Event, RealmId, Seal};
+use arkret_wire::{ActorId, Event, RealmId, Seal};
 use serde::{Deserialize, Serialize};
 
 use crate::actor_profile::ActorProfile;
@@ -23,11 +23,11 @@ pub struct ActorProfileResolveRequest {
     /// owner's own devices, which would make this a self-read wearing an
     /// outward shape.
     pub realm_id: RealmId,
-    pub actor_ids: Vec<DidCoreId>,
+    pub actor_ids: Vec<ActorId>,
 }
 
 impl ActorProfileResolveRequest {
-    pub fn new(realm_id: RealmId, actor_ids: Vec<DidCoreId>) -> Self {
+    pub fn new(realm_id: RealmId, actor_ids: Vec<ActorId>) -> Self {
         Self {
             realm_id,
             actor_ids,
@@ -67,7 +67,7 @@ impl ActorProfileResolveRequest {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ResolvedActorProfile {
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub actor_profile: ActorProfile,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -95,7 +95,7 @@ pub enum ActorProfileResolveFailureReason {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ActorProfileResolveFailure {
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub reason: ActorProfileResolveFailureReason,
 }
 
@@ -112,8 +112,8 @@ impl ActorProfileResolveOutcome {
     /// Every requested actor must appear exactly once across `profiles` and
     /// `failures`, so a caller cannot distinguish an omitted actor from a
     /// withheld one.
-    pub fn validate_covers(&self, requested: &[DidCoreId]) -> arkret_wire::Result<()> {
-        let mut seen: Vec<&DidCoreId> = self
+    pub fn validate_covers(&self, requested: &[ActorId]) -> arkret_wire::Result<()> {
+        let mut seen: Vec<&ActorId> = self
             .profiles
             .iter()
             .map(|row| &row.actor_id)
@@ -127,7 +127,7 @@ impl ActorProfileResolveOutcome {
                 "actor profile resolve outcome reports an actor twice".to_owned(),
             ));
         }
-        let mut expected: Vec<&DidCoreId> = requested.iter().collect();
+        let mut expected: Vec<&ActorId> = requested.iter().collect();
         expected.sort();
         if seen != expected {
             return Err(arkret_wire::WireError::Protocol(

@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{ActorId, Cursor, DidCoreId, RealmId};
+use arkret_wire::{ActorId, Cursor, RealmId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -14,7 +14,7 @@ use serde_json::Value;
 #[serde(deny_unknown_fields)]
 pub struct EventsDescribeRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<DidCoreId>,
+    pub actor_id: Option<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
 }
@@ -47,7 +47,7 @@ pub struct PeerEventsFrontierRequestBody {
     /// Actor whose policy-check frontiers are requested. Generic federation
     /// probes omit this field and receive only the replication frontier.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<DidCoreId>,
+    pub actor_id: Option<ActorId>,
 }
 
 /// Ordering for event query scans.
@@ -78,7 +78,7 @@ pub struct EventsQueryPostRequestBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub realm_ids: Vec<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub actor_ids: Vec<DidCoreId>,
+    pub actor_ids: Vec<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub before: Option<Cursor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
