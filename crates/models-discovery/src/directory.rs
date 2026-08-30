@@ -638,7 +638,7 @@ pub struct DirectoryResolveHandleRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audience: Option<String>,
     /// Target Realm for membership-builder intents. Used by directory
-    /// implementations to apply `delivery_binding_policy`.
+    /// implementations to scope disclosure and verify the membership context.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

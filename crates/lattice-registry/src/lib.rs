@@ -312,9 +312,14 @@ mod tests {
             .collect();
         let realm_member = by_family[arkret_wire::CellFamilyId::MEMBER_STATE_V1];
         assert!(
-            realm_member
+            !realm_member
                 .allowed_transitions
                 .contains(&("join".to_owned(), "join".to_owned()))
+        );
+        assert!(
+            realm_member
+                .allowed_transitions
+                .contains(&("leave".to_owned(), "join".to_owned()))
         );
         let circle_member = by_family[arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1];
         assert!(
@@ -390,8 +395,10 @@ mod tests {
         );
 
         let payload = json!({
-            "recipient_id": "ak:did_core:webvh:z6mkfixtureservice",
-            "principal_id": "ak:did_core:webvh:z6mkfixture",
+            "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:webvh:z6mkfixtureservice"
+            },
             "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
             "push_route": "fcm"
         });
@@ -399,13 +406,16 @@ mod tests {
             private
                 .derive_subject(
                     "ak.device.push_route",
-                    "ak:did_core:webvh:z6mkfixture",
+                    &json!({
+                        "kind": "hosted_principal",
+                        "principal_id": "ak:did_core:webvh:z6mkfixture",
+                        "station_id": "ak:did_core:webvh:z6mkfixtureservice"
+                    }),
                     &payload
                 )
                 .unwrap(),
             composite_subject(&[
-                "ak:did_core:webvh:z6mkfixtureservice",
-                "ak:did_core:webvh:z6mkfixture",
+                r#"{"principal_id":"ak:did_core:webvh:z6mkfixture","station_id":"ak:did_core:webvh:z6mkfixtureservice"}"#,
                 "ak:device:01904100-0000-7000-8000-000000000001",
                 "fcm",
             ])
@@ -647,22 +657,22 @@ mod tests {
             CellRef::new("ak:cell:ak.component.member.state.v1:did:web:bob.example".to_owned())
                 .unwrap();
         let binding = registry.resolve(&realm_id, &cell).unwrap();
-        let invite = SealedOp::new(
+        let join = SealedOp::new(
             Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
             LatticeOp {
                 op_type: LatticeOpType::Transition,
                 tag: None,
                 value: None,
                 from: Some(json!("leave")),
-                to: Some(json!("invite")),
+                to: Some(json!("join")),
                 reason: None,
                 issuer_seq: None,
             },
         );
 
         assert_eq!(
-            binding.lattice.join(&cell, &[invite]),
-            CellState::Value(json!("invite"))
+            binding.lattice.join(&cell, &[join]),
+            CellState::Value(json!("join"))
         );
     }
 
@@ -792,7 +802,7 @@ mod tests {
     }
 
     #[test]
-    fn membership_delivery_rebind_is_realm_only() {
+    fn membership_self_transition_is_rejected_for_realm_and_circle() {
         let registry = build_sdk_cell_registry();
         let realm_id =
             RealmId::new("ak:realm:AU2FuZ5Cmuwsb0J0xuJwH47SCEL34D7oJWb4JivTH934".to_owned())
@@ -814,7 +824,7 @@ mod tests {
         let realm_cell =
             CellRef::new("ak:cell:ak.component.member.state.v1:membership".to_owned()).unwrap();
         let realm = registry.resolve(&realm_id, &realm_cell).unwrap();
-        realm.lattice.validate_op(&op).unwrap();
+        assert!(realm.lattice.validate_op(&op).is_err());
     }
 
     #[test]

@@ -125,8 +125,8 @@ pub enum SealAvailabilityReplayAuthority {
     Genesis,
     /// Availability policy and holder eligibility frozen at the predecessor
     /// view. Ordinary/DC Realms derive this set from effective joined member
-    /// delivery bindings; PCRs derive the singleton from the accepted genesis
-    /// create's admitted `station_id`.
+    /// ActorId routing projections; PCRs derive the singleton from the accepted
+    /// genesis create's admitted `station_id`.
     Predecessor {
         policy: RealmAvailabilityPolicy,
         eligible_holder_ids: BTreeSet<DidCoreId>,

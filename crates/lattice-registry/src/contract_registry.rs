@@ -128,7 +128,7 @@ impl ActorPrivateRegistry {
     pub fn derive_subject(
         &self,
         event_kind: &str,
-        envelope_actor_id: &str,
+        envelope_actor_id: &Value,
         payload: &Value,
     ) -> Result<String, ContractRegistryError> {
         let write = self.event_write(event_kind).ok_or_else(|| {
@@ -149,7 +149,7 @@ impl ActorPrivateRegistry {
                             "{event_kind} DID subject omits field"
                         ))
                     })?;
-                resolve_private_field(field, envelope_actor_id, payload)
+                resolve_private_string_field(field, envelope_actor_id, payload)
             }
             Some("composite") => {
                 let components = subject
@@ -163,12 +163,7 @@ impl ActorPrivateRegistry {
                 let values = components
                     .iter()
                     .map(|component| {
-                        let field = component.as_str().ok_or_else(|| {
-                            ContractRegistryError::Invalid(format!(
-                                "{event_kind} composite component must be a string"
-                            ))
-                        })?;
-                        resolve_private_field(field, envelope_actor_id, payload)
+                        resolve_private_component(event_kind, component, envelope_actor_id, payload)
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 arkret_wire::composite_subject(
@@ -418,13 +413,61 @@ fn parse_actor_private_fsm(
     }))
 }
 
-fn resolve_private_field(
-    field: &str,
-    envelope_actor_id: &str,
+fn resolve_private_component(
+    event_kind: &str,
+    component: &Value,
+    envelope_actor_id: &Value,
     payload: &Value,
 ) -> Result<String, ContractRegistryError> {
+    if let Some(field) = component.as_str() {
+        return resolve_private_string_field(field, envelope_actor_id, payload);
+    }
+    let descriptor = component.as_object().ok_or_else(|| {
+        ContractRegistryError::Invalid(format!(
+            "{event_kind} composite component must be a string or descriptor"
+        ))
+    })?;
+    if descriptor.get("kind").and_then(Value::as_str) != Some("canonical_json") {
+        return Err(ContractRegistryError::Invalid(format!(
+            "{event_kind} composite component has unsupported kind"
+        )));
+    }
+    let field = descriptor
+        .get("field")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            ContractRegistryError::Invalid(format!(
+                "{event_kind} canonical_json component omits field"
+            ))
+        })?;
+    let value = resolve_private_value(field, envelope_actor_id, payload)?;
+    let bytes = arkret_wire::canonical::canonical_json_bytes(value)
+        .map_err(|error| ContractRegistryError::Invalid(error.to_string()))?;
+    String::from_utf8(bytes).map_err(|error| ContractRegistryError::Invalid(error.to_string()))
+}
+
+fn resolve_private_string_field(
+    field: &str,
+    envelope_actor_id: &Value,
+    payload: &Value,
+) -> Result<String, ContractRegistryError> {
+    resolve_private_value(field, envelope_actor_id, payload)?
+        .as_str()
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| {
+            ContractRegistryError::Invalid(format!(
+                "actor-private subject field {field} must resolve to a string"
+            ))
+        })
+}
+
+fn resolve_private_value<'a>(
+    field: &str,
+    envelope_actor_id: &'a Value,
+    payload: &'a Value,
+) -> Result<&'a Value, ContractRegistryError> {
     if field == "envelope.actor_id" {
-        return Ok(envelope_actor_id.to_owned());
+        return Ok(envelope_actor_id);
     }
     let path = field.strip_prefix("payload.").ok_or_else(|| {
         ContractRegistryError::Invalid(format!(
@@ -437,11 +480,7 @@ fn resolve_private_field(
             ContractRegistryError::Invalid(format!("actor-private subject field {field} is absent"))
         })?;
     }
-    value.as_str().map(ToOwned::to_owned).ok_or_else(|| {
-        ContractRegistryError::Invalid(format!(
-            "actor-private subject field {field} must resolve to a string"
-        ))
-    })
+    Ok(value)
 }
 
 fn same_position(left: &ActorPrivateCandidate, right: &ActorPrivateCandidate) -> bool {

@@ -824,8 +824,8 @@ impl Client {
     ///
     /// Target identifiers are opaque. A target service id is present only
     /// when the server confirms the caller can currently read a contributing
-    /// member delivery binding. This QUERY never triggers route resolution or
-    /// a delivery retry.
+    /// joined-member ActorId routing projection. This QUERY never triggers
+    /// route resolution or a delivery retry.
     pub async fn event_delivery_status(
         &self,
         request: &EventDeliveryStatusRequestBody,
