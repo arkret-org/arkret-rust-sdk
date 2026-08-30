@@ -39,7 +39,10 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
     let envelope: OperationEnvelope = serde_json::from_value(json!({
         "operation_id": "ak:operation:01904100-0000-7000-8000-0198d483044c",
         "scope_ref": scope_ref(),
-        "actor_id": "ak:did_core:webvh:z6mkfixture",
+        "actor_id": {
+            "kind": "service",
+            "service_id": "ak:did_core:webvh:z6mkfixture"
+        },
         "kind": EventKind::MessageCreate,
         "target_ref": "ak:thread:general",
         "causal": {
@@ -64,7 +67,13 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
     envelope.validate_for_submit().unwrap();
 
     let encoded = serde_json::to_value(&envelope).unwrap();
-    assert_eq!(encoded["actor_id"], "ak:did_core:webvh:z6mkfixture");
+    assert_eq!(
+        encoded["actor_id"],
+        json!({
+            "kind": "service",
+            "service_id": "ak:did_core:webvh:z6mkfixture"
+        })
+    );
     assert_eq!(encoded["kind"], "ak.message.create");
     assert_eq!(encoded["payload"]["body"], "hello");
     assert!(encoded.get("content").is_none());
@@ -93,7 +102,10 @@ fn event_draft_kind_registry_validates_kind_and_payload_container() {
     let envelope: OperationEnvelope = serde_json::from_value(json!({
         "operation_id": "ak:operation:01904100-0000-7000-8000-0198d483044c",
         "scope_ref": scope_ref(),
-        "actor_id": "ak:did_core:webvh:z6mkfixture",
+        "actor_id": {
+            "kind": "service",
+            "service_id": "ak:did_core:webvh:z6mkfixture"
+        },
         "kind": EventKind::MessageCreate,
         "causal": {
             "deps": [],
