@@ -3,7 +3,7 @@
   "source": {
     "root": "spec/v1/artifacts",
     "json_file_count": 335,
-    "json_tree_digest": "sha256:9c564ef4cfd50e7c298ccd0ac28e92187526caef684f5b9f56b349cc391555c3",
+    "json_tree_digest": "sha256:5cd11774eccffbdc338c94de3762bed83158ff04955bd2f67a05d62f6af5f36a",
     "openapi_path": "openapi/arkret-service-api.openapi.yaml",
     "openapi_digest": "sha256:033f079b78294d096b57e63a01b494f3fafeb0fc179e158e88eae32ca9efb586"
   },
