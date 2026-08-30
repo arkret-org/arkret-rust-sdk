@@ -7,7 +7,7 @@ use arkret_models_identity::ActorProfile;
 use arkret_models_integration::{
     AppletDelegatedEventAuthorization, GhostActorProfileFields, GhostExternalTuple,
 };
-use arkret_wire::{ActorKind, AppletId, BlobRef, DidCoreId, RealmId, SchemaId, ScopeRef};
+use arkret_wire::{ActorId, ActorKind, AppletId, BlobRef, DidCoreId, RealmId, SchemaId, ScopeRef};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -34,7 +34,7 @@ pub struct GhostActorProfileRequest {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<DidCoreId>,
+    pub updated_by: Option<arkret_wire::ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub updated_at: Option<DateTime<Utc>>,
@@ -145,6 +145,7 @@ impl GhostActorProfileRequest {
     pub fn profile_create_intent(
         &self,
         scope_ref: ScopeRef,
+        actor_id: arkret_wire::ActorId,
         created_at: DateTime<Utc>,
         authorization: Option<&AppletDelegatedEventAuthorization>,
     ) -> Result<crate::EventIntent> {
@@ -152,17 +153,14 @@ impl GhostActorProfileRequest {
             object: self.to_actor_profile()?,
         };
         let mut draft = crate::TypedEventDraft::<arkret_wire::event_spec::ProfileCreate>::new(
-            scope_ref,
-            self.principal_id.clone(),
-            authorization
-                .map(|authorization| authorization.executed_by.clone())
-                .unwrap_or_else(|| self.principal_id.clone()),
-            payload,
+            scope_ref, actor_id, payload,
         )?;
         if let Some(authorization) = authorization {
             authorization.validate()?;
             draft = draft
-                .with_executed_by(authorization.executed_by.clone())
+                .with_executed_by(arkret_wire::ActorId::service(
+                    authorization.executed_by.clone(),
+                ))
                 .with_authorization_ref(authorization.authorization_ref.clone())
                 .with_applet_id(authorization.applet_id.clone());
         }

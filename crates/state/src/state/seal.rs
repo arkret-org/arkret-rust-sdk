@@ -877,7 +877,7 @@ pub fn verify_recovery_witness(
         }
         if !recovery_capability_is_active(
             capability_ref.id.as_str(),
-            event.actor_id.as_str(),
+            &event.actor_id,
             &witness_state,
         ) {
             return Err(reject(
@@ -938,11 +938,7 @@ pub fn verify_recovery_witness(
         }
     }
 
-    if !recovery_capability_is_active(
-        capability_ref.id.as_str(),
-        event.actor_id.as_str(),
-        pre_state,
-    ) {
+    if !recovery_capability_is_active(capability_ref.id.as_str(), &event.actor_id, pre_state) {
         return Err(reject(
             arkret_wire::ReasonCode::RECOVERY_WITNESS_REVOKE_LAGGING,
         ));
@@ -1267,7 +1263,7 @@ pub fn verify_event_digest_set_inclusion_proof(
 
 #[derive(serde::Serialize)]
 struct CompletenessLeaf<'a> {
-    actor_id: &'a arkret_wire::DidCoreId,
+    actor_id: &'a arkret_wire::ActorId,
     from_seq: u64,
     to_seq: u64,
     event_digests: Vec<&'a Hash>,
@@ -1282,7 +1278,7 @@ pub fn control_event_completeness_root(
     covered: &BTreeSet<Hash>,
     root_digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<Hash, SealReject> {
-    let mut by_actor = BTreeMap::<arkret_wire::DidCoreId, Vec<(u64, Hash)>>::new();
+    let mut by_actor = BTreeMap::<arkret_wire::ActorId, Vec<(u64, Hash)>>::new();
     let mut resolved = BTreeSet::new();
     for (event, event_digest_suite) in events {
         let digest = Hash::new(
@@ -1493,7 +1489,7 @@ fn concurrent_control_move_order(a: &(Hash, Event), b: &(Hash, Event)) -> std::c
     b.0.as_str()
         .cmp(a.0.as_str())
         .then_with(|| a.1.hlc.cmp(&b.1.hlc))
-        .then_with(|| a.1.actor_id.as_str().cmp(b.1.actor_id.as_str()))
+        .then_with(|| a.1.actor_id.cmp(&b.1.actor_id))
 }
 
 fn causal_dependencies(event: &Event) -> Vec<String> {

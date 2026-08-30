@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 
 use arkret_wire::{
     AuditReasonText, Base64UrlString, DeviceId, DidCoreId, DidUrl, DomainSeparationId, EventId,
-    Hash, KeyPackageRef, NonEmptyString, RealmId, ServiceAccountId, StrandId,
+    Hash, KeyPackageRef, NonEmptyString, RealmId, StrandId,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -1517,7 +1517,6 @@ pub struct KeyPackagesConsumeOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesRevokeRequestBody {
-    pub owner_account_id: ServiceAccountId,
     #[serde(rename = "keypackage_refs")]
     pub key_package_refs: Vec<String>,
     pub device_id: DeviceId,
@@ -1530,7 +1529,6 @@ pub struct KeyPackagesRevokeRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesRevokeUnsignedRequest {
-    pub owner_account_id: ServiceAccountId,
     #[serde(rename = "keypackage_refs")]
     pub key_package_refs: Vec<String>,
     pub device_id: DeviceId,
@@ -1542,7 +1540,6 @@ impl KeyPackagesRevokeRequestBody {
     #[must_use]
     pub fn unsigned(&self) -> KeyPackagesRevokeUnsignedRequest {
         KeyPackagesRevokeUnsignedRequest {
-            owner_account_id: self.owner_account_id.clone(),
             key_package_refs: self.key_package_refs.clone(),
             device_id: self.device_id.clone(),
             reason: self.reason.clone(),
@@ -1554,7 +1551,6 @@ impl KeyPackagesRevokeUnsignedRequest {
     #[must_use]
     pub fn into_signed(self, signature: KeyOperationSignature) -> KeyPackagesRevokeRequestBody {
         KeyPackagesRevokeRequestBody {
-            owner_account_id: self.owner_account_id,
             key_package_refs: self.key_package_refs,
             device_id: self.device_id,
             signature,

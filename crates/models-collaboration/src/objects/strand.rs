@@ -4,7 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::{
-    CircleId, DidCoreId, ObjectStage, ObjectState, RealmId, Result, SchemaId, StrandId, WireError,
+    ActorId, CircleId, DidCoreId, ObjectStage, ObjectState, RealmId, Result, SchemaId, StrandId,
+    WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::ser::SerializeMap;
@@ -256,11 +257,11 @@ pub struct Strand {
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub stage_changed_at: Option<DateTime<Utc>>,
-    pub created_by: DidCoreId,
+    pub created_by: ActorId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<DidCoreId>,
+    pub updated_by: Option<ActorId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
@@ -278,7 +279,7 @@ impl Strand {
     /// identity token is retyped as the projected [`StrandId`]. Producers must
     /// not mint a placeholder UUID or truncate that Event token merely to use
     /// a projected-object constructor.
-    pub fn new_create(realm_id: RealmId, title: impl Into<String>, created_by: DidCoreId) -> Self {
+    pub fn new_create(realm_id: RealmId, title: impl Into<String>, created_by: ActorId) -> Self {
         let mut tracks = BTreeMap::new();
         tracks.insert(
             STRAND_TRACK_NAME_SYNTHESIS.to_owned(),
@@ -312,7 +313,7 @@ impl Strand {
         id: StrandId,
         realm_id: RealmId,
         title: impl Into<String>,
-        created_by: DidCoreId,
+        created_by: ActorId,
     ) -> Self {
         let mut strand = Self::new_create(realm_id, title, created_by);
         strand.id = Some(id);
@@ -396,7 +397,7 @@ impl Strand {
         id: StrandId,
         realm_id: RealmId,
         title: impl Into<String>,
-        created_by: DidCoreId,
+        created_by: ActorId,
     ) -> Self {
         let mut strand = Self::new(id, realm_id, title, created_by);
         let mut tracks = BTreeMap::new();

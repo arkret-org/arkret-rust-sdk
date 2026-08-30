@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-30.2;
-//! sha256=5e25495f6d8fdeababcd7a5eddad610dab1327b1edbfa8822687181840ec5ccf
-//! Entries: reason_codes=463
+//! Input: registry/error-code-registry.json; version=2026-08-30.5;
+//! sha256=8afaa04a8b0e6645232e62bc529891af399e58a1e8ad341c72e41cd5efdb067a
+//! Entries: reason_codes=458
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -123,11 +123,6 @@ pub enum ReasonCode {
     DecryptionFailed,
     DecryptionPending,
     DelegationRevoked,
-    DeliveryBindingHandoverProofInvalid,
-    DeliveryBindingHandoverRateLimited,
-    DeliveryBindingInvalid,
-    DeliveryBindingPolicyMismatch,
-    DeliveryBindingStale,
     DeliveryTargetUnreachable,
     DeltaContainsDataEvent,
     DependencyMissing,
@@ -621,13 +616,6 @@ impl ReasonCode {
     pub const DECRYPTION_FAILED: &'static str = "decryption_failed";
     pub const DECRYPTION_PENDING: &'static str = "decryption_pending";
     pub const DELEGATION_REVOKED: &'static str = "delegation_revoked";
-    pub const DELIVERY_BINDING_HANDOVER_PROOF_INVALID: &'static str =
-        "delivery_binding_handover_proof_invalid";
-    pub const DELIVERY_BINDING_HANDOVER_RATE_LIMITED: &'static str =
-        "delivery_binding_handover_rate_limited";
-    pub const DELIVERY_BINDING_INVALID: &'static str = "delivery_binding_invalid";
-    pub const DELIVERY_BINDING_POLICY_MISMATCH: &'static str = "delivery_binding_policy_mismatch";
-    pub const DELIVERY_BINDING_STALE: &'static str = "delivery_binding_stale";
     pub const DELIVERY_TARGET_UNREACHABLE: &'static str = "delivery_target_unreachable";
     pub const DELTA_CONTAINS_DATA_EVENT: &'static str = "delta_contains_data_event";
     pub const DEPENDENCY_MISSING: &'static str = "dependency_missing";
@@ -1168,15 +1156,6 @@ impl ReasonCode {
             Self::DecryptionFailed => Self::DECRYPTION_FAILED,
             Self::DecryptionPending => Self::DECRYPTION_PENDING,
             Self::DelegationRevoked => Self::DELEGATION_REVOKED,
-            Self::DeliveryBindingHandoverProofInvalid => {
-                Self::DELIVERY_BINDING_HANDOVER_PROOF_INVALID
-            }
-            Self::DeliveryBindingHandoverRateLimited => {
-                Self::DELIVERY_BINDING_HANDOVER_RATE_LIMITED
-            }
-            Self::DeliveryBindingInvalid => Self::DELIVERY_BINDING_INVALID,
-            Self::DeliveryBindingPolicyMismatch => Self::DELIVERY_BINDING_POLICY_MISMATCH,
-            Self::DeliveryBindingStale => Self::DELIVERY_BINDING_STALE,
             Self::DeliveryTargetUnreachable => Self::DELIVERY_TARGET_UNREACHABLE,
             Self::DeltaContainsDataEvent => Self::DELTA_CONTAINS_DATA_EVENT,
             Self::DependencyMissing => Self::DEPENDENCY_MISSING,
@@ -1719,15 +1698,6 @@ impl ReasonCode {
             Self::DECRYPTION_FAILED => Self::DecryptionFailed,
             Self::DECRYPTION_PENDING => Self::DecryptionPending,
             Self::DELEGATION_REVOKED => Self::DelegationRevoked,
-            Self::DELIVERY_BINDING_HANDOVER_PROOF_INVALID => {
-                Self::DeliveryBindingHandoverProofInvalid
-            }
-            Self::DELIVERY_BINDING_HANDOVER_RATE_LIMITED => {
-                Self::DeliveryBindingHandoverRateLimited
-            }
-            Self::DELIVERY_BINDING_INVALID => Self::DeliveryBindingInvalid,
-            Self::DELIVERY_BINDING_POLICY_MISMATCH => Self::DeliveryBindingPolicyMismatch,
-            Self::DELIVERY_BINDING_STALE => Self::DeliveryBindingStale,
             Self::DELIVERY_TARGET_UNREACHABLE => Self::DeliveryTargetUnreachable,
             Self::DELTA_CONTAINS_DATA_EVENT => Self::DeltaContainsDataEvent,
             Self::DEPENDENCY_MISSING => Self::DependencyMissing,
@@ -2773,31 +2743,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "An applet/service call used a delegated device session that the deactivation/lock fanout revoked (ak.applet.registration delegated devices). The call MUST fail closed. See zh/identity/account-lifecycle.md §7.1.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::DELIVERY_BINDING_HANDOVER_PROOF_INVALID,
-        applies_to: &["service_call", "auth_decision"],
-        description: "A federation delivery-binding handover response carried a proof that does not verify against the Realm Event graph, handover_frontier, actor_id, new_recipient_id, or effective delivery binding policy. Sender MUST stop redirection and MUST NOT fall back to DID Document routing. See zh/sync/federation.md §4.1.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::DELIVERY_BINDING_HANDOVER_RATE_LIMITED,
-        applies_to: &["service_call"],
-        description: "Sender has already accepted the maximum number of successful delivery-binding handovers for the same target principal and Realm in the configured rolling window. It MUST enter operator diagnostic instead of following another handover. See zh/sync/federation.md §4.1.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::DELIVERY_BINDING_INVALID,
-        applies_to: &["event_envelope", "auth_decision", "state_resolution"],
-        description: "A member join / invite / delivery-binding candidate passed schema validation but failed cryptographic or semantic evidence validation before membership acceptance: signature invalid, subject / service DID mismatch, expired candidate, unresolved issuer, missing or invalid referenced service-acceptance / policy evidence, or evidence whose scope does not cover the Realm. Pure schema-level omissions and shape failures, including missing delivery_binding for a routable member, missing source-conditional binding fields, or missing / empty delivery_modes, remain schema_violation and MUST be rejected before reducer policy validation. Reducers MUST reject the Move fail-closed rather than partially accepting membership. Realm policy allowlist, source-priority, endorsement, or allow_unroutable failures use delivery_binding_policy_mismatch instead. See zh/governance/member-delivery-binding.md §2 and zh/identity/identity-handles.md §3.7.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::DELIVERY_BINDING_POLICY_MISMATCH,
-        applies_to: &["event_envelope", "auth_decision", "state_resolution"],
-        description: "The resolved member delivery binding source, recipient_id, endorsement set, unroutable-membership status, or selected source priority conflicts with the Realm delivery_binding_policy allowlist / priority rules. Reducers MUST NOT fall through to a lower-priority binding source after this mismatch. See zh/governance/member-delivery-binding.md §2 and §3.1.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::DELIVERY_BINDING_STALE,
-        applies_to: &["push_notify_outcome"],
-        description: "Per-device rejection reason in ak.edge.push.command.notify.v1: the receiver's delivery-binding frontier has advanced past the route this notify was built against. Terminal for this attempt; the caller MUST re-resolve the route rather than retry the same one. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::DELIVERY_TARGET_UNREACHABLE,
         applies_to: &["event_envelope", "service_call"],
         description: "Sub-reason carried by the ak.invite.revoke that moves a pending Invite to target_state=send_failed: the delivery service could not reach the private invite delivery target after its retry budget. It is a delivery diagnostic only and MUST NOT leak the 3PID plaintext, the invite token or a verification code. See zh/models/governance-objects.md section 5 and zh/sync/third-party-invites.md section 6.1.",
@@ -2895,7 +2840,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_THIRD_PARTY_MEMBER_FORBIDDEN,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "An invite or join attempted to add a principal that is not one of the two stable subject DIDs in the immutable Direct Conversation binding. Group-chat expansion requires a new ordinary Collaboration Realm.",
+        description: "An invite or join attempted to add an ActorId that is not one of the two exact ActorIds in the immutable Direct Conversation binding. Group-chat expansion requires a new ordinary Collaboration Realm.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_DOWNLOAD_DISALLOWED_PRESIGN_FORBIDDEN,
@@ -3089,7 +3034,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::HANDLE_HOLDER_ACCEPTANCE_MISSING,
         applies_to: &["auth_decision", "service_call"],
-        description: "A restricted handle whose subject DID is NOT controlled by the issuer was presented as binding_state=verified without a holder-acceptance proof (a proof in proofs[] signed by a verification method of the subject DID covering (handle, subject, audience, claim_scope)). Verifiers MUST treat it as at most issuer-attested (below verified): it MUST NOT enter the verified candidate set, be displayed as verified, or drive grant conditions / roster strong attribution / delivery binding. This closes issuer-unilateral impersonation within the issuer's audience. See zh/identity/identity-handles.md §6.",
+        description: "A restricted handle whose subject account is NOT controlled by the issuer was presented as binding_state=verified without a holder-acceptance proof (a proof in proofs[] signed by a verification method of subject_account_id.principal_id covering the exact account tuple, handle, audience and claim_scope). Verifiers MUST treat it as at most issuer-attested (below verified): it MUST NOT enter the verified candidate set, be displayed as verified, or drive grant conditions, roster strong attribution or AccountId targeting. This closes issuer-unilateral impersonation within the issuer's audience. See zh/identity/identity-handles.md §6.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::HANDLE_HOMOGRAPH_FORBIDDEN,
@@ -3099,7 +3044,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::HANDLE_SUBJECT_MISMATCH,
         applies_to: &["auth_decision", "service_call"],
-        description: "Handle resolution returned a subject DID that does not match the expected applicant / member / invite subject. Clients and reducers MUST reject the candidate before building delivery_binding or join material. See zh/identity/identity-handles.md §3.7 and zh/conformance/conformance-vectors.md §8.",
+        description: "Handle resolution returned an AccountId that does not match the expected applicant, member, or invitee account. Clients and reducers MUST reject the candidate before building invite or join material. See zh/identity/identity-handles.md §3.7 and zh/conformance/conformance-vectors.md §8.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::HARASSMENT,
@@ -3674,7 +3619,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
             "service_call",
             "state_resolution",
         ],
-        description: "The account status frontier contains a deactivation for the principal acting as actor, subject, issuer, recipient, or device owner. New device/session grants, KeyPackage operations, capability delegation, delivery binding writes, push routes, and to-device enqueue MUST fail closed. See zh/identity/account-lifecycle.md §7.1 and zh/sync/federation.md §4.4.1.",
+        description: "The account status frontier contains a deactivation for the exact AccountId acting as actor, subject, issuer, recipient, or device owner. New device/session grants, KeyPackage operations, capability delegation, membership writes targeting that account, push routes, and to-device enqueue MUST fail closed. See zh/identity/account-lifecycle.md §7.1 and zh/sync/federation.md §4.4.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PRIVATE_ATTACHMENT,

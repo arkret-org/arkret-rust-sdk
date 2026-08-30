@@ -11,7 +11,7 @@ use arkret_models_collaboration::sync_frames::snapshot::{
     RangeCompletenessAttestation, RangeCompletenessAttestationEventRangeActorSeqRangesItem,
 };
 use arkret_wire::{
-    Did, DidCoreId, Event, EventId, Hash, RealmId, event_spec, project_did_to_core_id,
+    ActorId, Did, DidCoreId, Event, EventId, Hash, RealmId, event_spec, project_did_to_core_id,
 };
 use serde::Serialize;
 
@@ -43,7 +43,7 @@ pub enum RangeCompletenessAssurance {
 
 #[derive(Serialize)]
 struct RangeLeaf<'a> {
-    actor_id: &'a DidCoreId,
+    actor_id: &'a ActorId,
     actor_seq: u64,
     event_id: &'a EventId,
     event_digest: &'a Hash,
@@ -159,8 +159,7 @@ pub fn range_completeness_root_with_suite(
     }
     rows.sort_by(|(left, left_digest), (right, right_digest)| {
         left.actor_id
-            .as_str()
-            .cmp(right.actor_id.as_str())
+            .cmp(&right.actor_id)
             .then_with(|| left.actor_seq.cmp(&right.actor_seq))
             .then_with(|| left.event_id.as_str().cmp(right.event_id.as_str()))
             .then_with(|| left_digest.as_str().cmp(right_digest.as_str()))
@@ -261,7 +260,7 @@ pub fn full_realm_range_events(events: &[Event]) -> Result<Vec<Event>, RangeComp
 pub fn range_completeness_actor_seq_ranges(
     events: &[Event],
 ) -> Result<Vec<RangeCompletenessAttestationEventRangeActorSeqRangesItem>, RangeCompletenessError> {
-    let mut bounds = BTreeMap::<DidCoreId, (u64, u64)>::new();
+    let mut bounds = BTreeMap::<ActorId, (u64, u64)>::new();
     for event in events.iter().filter(|event| event.kind.is_reducer_input()) {
         bounds
             .entry(event.actor_id.clone())
@@ -292,7 +291,7 @@ fn validate_actor_ranges(
     payload: &RangeCompletenessAttestation,
     range_events: &[Event],
 ) -> Result<(), RangeCompletenessError> {
-    let mut previous_actor: Option<&DidCoreId> = None;
+    let mut previous_actor: Option<&ActorId> = None;
     let mut ranges = BTreeMap::new();
     for range in &payload.event_range.actor_seq_ranges {
         if range.from_seq_exclusive >= range.to_seq_inclusive as i64 {
@@ -300,7 +299,7 @@ fn validate_actor_ranges(
                 "actor sequence range is empty or reversed".to_owned(),
             ));
         }
-        if previous_actor.is_some_and(|actor| actor.as_str() >= range.actor_id.as_str()) {
+        if previous_actor.is_some_and(|actor| actor >= &range.actor_id) {
             return Err(RangeCompletenessError::SchemaViolation(
                 "actor sequence ranges must be bytewise sorted and unique".to_owned(),
             ));
@@ -460,7 +459,7 @@ pub fn verify_full_realm_range_completeness_with_suite(
         .map_err(|error| RangeCompletenessError::SchemaViolation(error.to_string()))?;
     if payload.schema != arkret_wire::SchemaId::RANGE_COMPLETENESS_ATTESTATION_V1
         || payload.realm_id != *expected_realm
-        || payload.issuer_id != attestation_event.actor_id
+        || attestation_event.actor_id != ActorId::service(payload.issuer_id.clone())
     {
         return Err(RangeCompletenessError::SchemaViolation(
             "attestation payload binding is invalid".to_owned(),

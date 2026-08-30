@@ -9,7 +9,7 @@ use diesel::pg::{Pg, PgValue};
 use diesel::serialize::{self, Output, ToSql};
 use diesel::sql_types::Text;
 
-use super::{CellRef, DidCoreId, Hash, ServiceAccountId, WebOrigin};
+use super::{CellRef, DidCoreId, Hash, WebOrigin};
 
 #[derive(diesel::expression::AsExpression, diesel::deserialize::FromSqlRow)]
 #[diesel(foreign_derive)]
@@ -79,7 +79,6 @@ macro_rules! impl_text_identifier_sql {
 
 impl_text_identifier_sql!(CellRef, "CellRef");
 impl_text_identifier_sql!(Hash, "Hash");
-impl_text_identifier_sql!(ServiceAccountId, "ServiceAccountId");
 impl_text_identifier_sql!(WebOrigin, "WebOrigin");
 
 #[cfg(test)]
@@ -90,10 +89,7 @@ mod tests {
     use diesel::prelude::*;
     use diesel::sql_types::{Nullable, Text};
 
-    use super::{
-        CellRef, DidCoreId, Hash, ServiceAccountId, WebOrigin, parse_database_text,
-        parse_text_identifier,
-    };
+    use super::{CellRef, DidCoreId, Hash, WebOrigin, parse_database_text, parse_text_identifier};
 
     diesel::table! {
         did_core_rows (core_id) {
@@ -101,7 +97,6 @@ mod tests {
             optional_core_id -> Nullable<Text>,
             cell_ref -> Text,
             hash -> Text,
-            service_account_id -> Text,
             origin -> Text,
         }
     }
@@ -115,7 +110,6 @@ mod tests {
         optional_core_id: Option<DidCoreId>,
         cell_ref: CellRef,
         hash: Hash,
-        service_account_id: ServiceAccountId,
         origin: WebOrigin,
     }
 
@@ -126,7 +120,6 @@ mod tests {
         optional_core_id: Option<&'a DidCoreId>,
         cell_ref: &'a CellRef,
         hash: &'a Hash,
-        service_account_id: &'a ServiceAccountId,
         origin: &'a WebOrigin,
     }
 
@@ -189,7 +182,6 @@ mod tests {
         assert_from_sql_row::<DidCoreId>();
         assert_from_sql_row::<CellRef>();
         assert_from_sql_row::<Hash>();
-        assert_from_sql_row::<ServiceAccountId>();
         assert_from_sql_row::<WebOrigin>();
         assert_nullable_from_sql_row::<Option<DidCoreId>>();
         assert_nullable_from_sql_row::<Option<CellRef>>();
@@ -197,12 +189,10 @@ mod tests {
         assert_text_expression::<DidCoreId>();
         assert_text_expression::<CellRef>();
         assert_text_expression::<Hash>();
-        assert_text_expression::<ServiceAccountId>();
         assert_text_expression::<WebOrigin>();
         assert_text_expression::<&DidCoreId>();
         assert_text_expression::<&CellRef>();
         assert_text_expression::<&Hash>();
-        assert_text_expression::<&ServiceAccountId>();
         assert_text_expression::<&WebOrigin>();
         assert_nullable_text_expression::<DidCoreId>();
         assert_nullable_text_expression::<&DidCoreId>();
@@ -216,14 +206,12 @@ mod tests {
         )
         .unwrap();
         let hash = Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap();
-        let service_account_id = ServiceAccountId::new("account-1").unwrap();
         let origin = WebOrigin::new("https://example.test").unwrap();
         let insert = diesel::insert_into(did_core_rows::table).values(NewDidCoreRow {
             core_id: &core_id,
             optional_core_id: Some(&core_id),
             cell_ref: &cell_ref,
             hash: &hash,
-            service_account_id: &service_account_id,
             origin: &origin,
         });
         let insert_sql = diesel::debug_query::<Pg, _>(&insert).to_string();

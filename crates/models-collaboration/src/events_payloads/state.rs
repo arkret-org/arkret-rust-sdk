@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-use arkret_wire::{Did, DidCoreId, TrustDomainId, validate_canonical_idna_domain};
+use arkret_wire::{ActorId, Did, DidCoreId, TrustDomainId, validate_canonical_idna_domain};
 
 use crate::governance::operation_wire::Policy;
 use crate::internal_prelude::*;
@@ -1110,7 +1110,7 @@ pub struct OrganizationModerationPolicyRule {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<ModerationReasonCode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub created_by: Option<DidCoreId>,
+    pub created_by: Option<ActorId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",

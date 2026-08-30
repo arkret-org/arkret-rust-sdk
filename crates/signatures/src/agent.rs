@@ -16,8 +16,8 @@ use arkret_models_collaboration::events_payloads::agent::{
 use arkret_models_collaboration::governance::agent_artifacts::PublicKey;
 use arkret_models_identity::agent_signer_evidence::AgentSigningKeyBinding;
 use arkret_wire::{
-    Base64UrlString, DeviceId, Did, DidCoreId, DidUrl, Event, EventInitialSubmission, EventKind,
-    Hash, NonEmptyString, project_did_to_core_id,
+    ActorId, Base64UrlString, DeviceId, Did, DidCoreId, DidUrl, Event, EventInitialSubmission,
+    EventKind, Hash, NonEmptyString, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signer, SigningKey};
@@ -157,7 +157,11 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
                     .to_owned(),
             ));
         }
-        validate_pairing_authorize_event(&authorize_event.event, &self.bootstrap.agent_id)?;
+        validate_pairing_authorize_event(
+            &authorize_event.event,
+            &self.bootstrap.agent_id,
+            &self.bootstrap.service_id,
+        )?;
         let authorize_event_id = authorize_event.event.event_id.clone();
         if signing_key_binding.agent_key_authorize_event_id != authorize_event_id {
             return Err(Error::Protocol(
@@ -285,13 +289,19 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
     }
 }
 
-fn validate_pairing_authorize_event(authorize_event: &Event, agent_id: &DidCoreId) -> Result<()> {
+fn validate_pairing_authorize_event(
+    authorize_event: &Event,
+    agent_id: &DidCoreId,
+    principal_server_id: &DidCoreId,
+) -> Result<()> {
     if authorize_event.kind != EventKind::AgentKeyAuthorize {
         return Err(Error::Protocol(
             "agent authorize_event.kind must be ak.agent.key.authorize".to_owned(),
         ));
     }
-    if authorize_event.actor_id != *agent_id {
+    if authorize_event.actor_id
+        != ActorId::hosted_principal(agent_id.clone(), principal_server_id.clone())
+    {
         return Err(Error::Protocol(
             "agent authorize_event.actor_id must match agent_id".to_owned(),
         ));

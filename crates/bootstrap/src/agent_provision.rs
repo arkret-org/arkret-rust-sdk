@@ -6,8 +6,8 @@ use arkret_models_collaboration::events_payloads::agent::{
 };
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
-    DidCoreId, DidUrl, Hash, ProfileRef, RealmId, Result, SchemaId, ScopeRef, SealBasis, WireError,
-    event_spec,
+    AccountId, ActorId, DidCoreId, DidUrl, Hash, ProfileRef, RealmId, Result, SchemaId, ScopeRef,
+    SealBasis, WireError, event_spec,
 };
 use chrono::{DateTime, Utc};
 
@@ -58,12 +58,15 @@ pub fn build_agent_provision_intent(
         created_at,
     };
     payload.validate()?;
+    let controller_account_id = AccountId::new(
+        controller_id.clone(),
+        options.controller_principal_server_id,
+    );
     let mut draft = TypedEventDraft::<event_spec::AgentProvision>::new(
         ScopeRef::Realm {
             realm_id: controller_realm_id.clone(),
         },
-        controller_id.clone(),
-        options.controller_principal_server_id,
+        ActorId::account(controller_account_id),
         payload,
     )
     .map_err(|error| WireError::Protocol(error.to_string()))?

@@ -8,7 +8,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_wire::DidCoreId;
+use arkret_wire::{ActorId, DidCoreId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -168,7 +168,7 @@ pub struct TimelineOrderKey {
     /// Hybrid logical clock for the event.
     pub hlc: Option<Hlc>,
     /// Event actor.
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     /// Actor-local sequence.
     pub actor_seq: u64,
     /// Event ID tie-breaker.

@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
-    AppletId, AuthContext, AuthoredEvent, AuthorizationRef, DidCoreId, EventId, EventKind,
+    ActorId, AppletId, AuthContext, AuthoredEvent, AuthorizationRef, DidCoreId, EventId, EventKind,
     EventRef, EventRequirements, ExtensionManifest, Hash, Hlc, Precondition, ProfileRef,
     RegistryContentRef, ScopeRef, SealBasis, SealId,
 };
@@ -31,8 +31,7 @@ use crate::{EventDraftError, EventIntent, EventSpec, Result};
 /// ```
 pub struct TypedEventDraft<K: EventSpec> {
     scope_ref: ScopeRef,
-    actor_id: DidCoreId,
-    principal_server_id: DidCoreId,
+    actor_id: ActorId,
     payload: K::Payload,
     prev_refs: Vec<EventId>,
     refs: Vec<EventRef>,
@@ -42,7 +41,7 @@ pub struct TypedEventDraft<K: EventSpec> {
     auth_context: Option<AuthContext>,
     seal_basis: Option<SealBasis>,
     requirements: EventRequirements,
-    executed_by: Option<DidCoreId>,
+    executed_by: Option<ActorId>,
     authorization_ref: Option<AuthorizationRef>,
     applet_id: Option<AppletId>,
     external_ref: Option<BTreeMap<String, Value>>,
@@ -50,19 +49,13 @@ pub struct TypedEventDraft<K: EventSpec> {
 }
 
 impl<K: EventSpec> TypedEventDraft<K> {
-    pub fn new(
-        scope_ref: ScopeRef,
-        actor_id: DidCoreId,
-        principal_server_id: DidCoreId,
-        payload: K::Payload,
-    ) -> Result<Self> {
+    pub fn new(scope_ref: ScopeRef, actor_id: ActorId, payload: K::Payload) -> Result<Self> {
         K::validate_payload(&payload).map_err(|error| {
             EventDraftError::Protocol(format!("{} payload invalid: {error}", K::KIND_STR))
         })?;
         Ok(Self {
             scope_ref,
             actor_id,
-            principal_server_id,
             payload,
             prev_refs: Vec::new(),
             refs: Vec::new(),
@@ -130,7 +123,7 @@ impl<K: EventSpec> TypedEventDraft<K> {
         self
     }
 
-    pub fn with_executed_by(mut self, executed_by: DidCoreId) -> Self {
+    pub fn with_executed_by(mut self, executed_by: ActorId) -> Self {
         self.executed_by = Some(executed_by);
         self
     }
@@ -168,7 +161,6 @@ impl<K: EventSpec> TypedEventDraft<K> {
             K::KIND,
             self.scope_ref,
             self.actor_id,
-            self.principal_server_id,
             created_at,
             payload.into_iter().collect(),
         )
@@ -215,8 +207,7 @@ pub trait ExtensionPayloadValidator {
 #[derive(Clone, Debug)]
 pub struct EventAuthoringContext {
     pub scope_ref: ScopeRef,
-    pub actor_id: DidCoreId,
-    pub principal_server_id: DidCoreId,
+    pub actor_id: ActorId,
     pub actor_seq: u64,
     pub hlc: Hlc,
     pub created_at: DateTime<Utc>,
@@ -304,7 +295,6 @@ impl ValidatedExtensionPayload {
             self.kind,
             context.scope_ref,
             context.actor_id,
-            context.principal_server_id,
             context.created_at,
             self.payload,
         )

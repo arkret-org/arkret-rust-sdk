@@ -2,11 +2,11 @@
 
 use std::collections::BTreeSet;
 
-use arkret_models_identity::DeliveryStatus;
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    DidCoreId, EncryptionProfile, EventId, GenesisSalt, Hash, ObjectStage, ObjectState, ProfileId,
-    RealmId, Result, SchemaId, SecurityClass, TrustDomainId, WireError, canonical,
+    AccountId, ActorId, DidCoreId, EncryptionProfile, EventId, GenesisSalt, Hash, ObjectStage,
+    ObjectState, ProfileId, RealmId, Result, SchemaId, SecurityClass, TrustDomainId, WireError,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -72,12 +72,12 @@ pub enum CollaborationRealmRole {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationPairKeyParticipant {
-    pub actor_id: DidCoreId,
-    pub stable_subject: DidCoreId,
+    pub actor_id: ActorId,
+    pub stable_subject: ActorId,
 }
 
 impl DirectConversationPairKeyParticipant {
-    pub fn unmapped(actor_id: DidCoreId) -> Self {
+    pub fn unmapped(actor_id: ActorId) -> Self {
         Self {
             stable_subject: actor_id.clone(),
             actor_id,
@@ -87,7 +87,7 @@ impl DirectConversationPairKeyParticipant {
 
 #[derive(Serialize)]
 struct DirectConversationPairKeyMaterial {
-    participants: [DidCoreId; 2],
+    participants: [ActorId; 2],
     trust_domain_id: TrustDomainId,
 }
 
@@ -99,7 +99,7 @@ pub fn direct_conversation_pair_key(
     right: DirectConversationPairKeyParticipant,
 ) -> Result<Hash> {
     let mut participants = [left.stable_subject, right.stable_subject];
-    participants.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+    participants.sort();
     if participants[0] == participants[1] {
         return Err(WireError::Protocol(
             "direct conversation participants must be distinct (schema_violation)".to_owned(),
@@ -172,9 +172,8 @@ pub fn direct_conversation_realm_create_payload(
 /// explicit genesis slot and uses [`direct_conversation_member_join_payload`].
 pub fn direct_conversation_peer_membership_bootstrap(
     realm_id: RealmId,
-    founder: &DidCoreId,
-    participants: [DidCoreId; 2],
-    delivery_status: DeliveryStatus,
+    founder: &AccountId,
+    participants: [AccountId; 2],
 ) -> Result<MembershipPayload> {
     if participants[0] == participants[1] {
         return Err(WireError::Protocol(
@@ -196,28 +195,25 @@ pub fn direct_conversation_peer_membership_bootstrap(
         .expect("distinct participant pair containing founder has one peer");
     Ok(MembershipPayload::join(
         realm_id,
-        peer,
-        delivery_status,
+        ActorId::account(peer),
         "direct_conversation_bootstrap",
     ))
 }
 
 pub fn direct_conversation_member_join_payload(
     realm_id: RealmId,
-    participant: DidCoreId,
-    delivery_status: DeliveryStatus,
+    participant: AccountId,
 ) -> MembershipPayload {
     MembershipPayload::join(
         realm_id,
-        participant,
-        delivery_status,
+        ActorId::account(participant),
         "direct_conversation_bootstrap",
     )
 }
 
 pub fn direct_conversation_main_strand_create_payload(
     realm_id: RealmId,
-    creator: DidCoreId,
+    creator: ActorId,
     created_at: DateTime<Utc>,
 ) -> StrandCreatePayload {
     let mut strand = Strand::new_create(realm_id, "Direct conversation", creator);
@@ -255,22 +251,22 @@ pub enum DirectConversationFoundingAuthority {
     /// the authority came into existence. The requester may have gone offline days earlier. Since
     /// base v1 defines no fallback, naming the possibly-absent party as founder would leave the
     /// pair unable to ever create the conversation.
-    Normal { request_issuer: DidCoreId },
+    Normal { request_issuer: ActorId },
     /// Concurrent requests from both sides. There is no responder, so the founder is the issuer of
     /// `requests[0]` under the ordering already registered for glare requests.
-    Glare { first_request_issuer: DidCoreId },
+    Glare { first_request_issuer: ActorId },
     /// controller-to-own-Agent conversations have no Contact round at all. The founder is fixed to
     /// the controller so an Agent runtime key never needs Direct Conversation founding scope.
-    ControllerOwnedAgent { controller_id: DidCoreId },
+    ControllerOwnedAgent { controller_id: ActorId },
 }
 
 /// Derive the sole principal allowed to author the founding unit for `participants`.
 ///
 /// `participants` is the unordered pair; ordering of the argument does not matter.
 pub fn direct_conversation_founder(
-    participants: [DidCoreId; 2],
+    participants: [ActorId; 2],
     authority: &DirectConversationFoundingAuthority,
-) -> Result<DidCoreId> {
+) -> Result<ActorId> {
     let [left, right] = participants;
     if left == right {
         return Err(WireError::Protocol(
@@ -321,8 +317,8 @@ pub fn direct_conversation_founder(
 /// Callers MUST NOT fall back to "whoever asked first" or to a timeout: waiting never grants create
 /// authority to the non-founder.
 pub fn direct_conversation_may_found(
-    actor: &DidCoreId,
-    participants: [DidCoreId; 2],
+    actor: &ActorId,
+    participants: [ActorId; 2],
     authority: &DirectConversationFoundingAuthority,
 ) -> Result<bool> {
     Ok(direct_conversation_founder(participants, authority)? == *actor)

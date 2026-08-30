@@ -75,7 +75,7 @@ impl RealmState {
             depth_a
                 .cmp(&depth_b)
                 .then_with(|| a.hlc.cmp(&b.hlc))
-                .then_with(|| a.actor_id.as_str().cmp(b.actor_id.as_str()))
+                .then_with(|| a.actor_id.cmp(&b.actor_id))
                 .then_with(|| a.actor_seq.cmp(&b.actor_seq))
                 .then_with(|| a.event_id.as_str().cmp(b.event_id.as_str()))
         });

@@ -3,7 +3,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    BlobRef, CircleId, DidCoreId, RealmId, Result, SchemaId, SpaceId, SpaceState, WireError,
+    ActorId, BlobRef, CircleId, DidCoreId, RealmId, Result, SchemaId, SpaceId, SpaceState,
+    WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -60,11 +61,11 @@ pub struct Space {
     /// pick their scope.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub child_scope_policy: Option<ChildScopePolicy>,
-    pub created_by: DidCoreId,
+    pub created_by: ActorId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<DidCoreId>,
+    pub updated_by: Option<ActorId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
@@ -98,7 +99,7 @@ impl Space {
         realm_id: RealmId,
         kind: impl Into<String>,
         title: impl Into<String>,
-        created_by: DidCoreId,
+        created_by: ActorId,
     ) -> Self {
         Self {
             id: Some(id),
@@ -137,7 +138,7 @@ impl Space {
         realm_id: RealmId,
         kind: impl Into<String>,
         title: impl Into<String>,
-        created_by: DidCoreId,
+        created_by: ActorId,
     ) -> Self {
         Self {
             id: None,

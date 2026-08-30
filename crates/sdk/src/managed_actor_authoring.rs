@@ -24,8 +24,9 @@ use arkret_models_integration::{
 };
 use arkret_signatures::{SignEventOptions, sign_event};
 use arkret_wire::{
-    ActorKind, EncryptionProfile, Event, EventRef, GenesisSalt, Hash, NotaryValue, PayloadProof,
-    PayloadSigner, ProfileId, SchemaId, ScopeRef, SealBasis, SecurityClass, event_spec, proof_kind,
+    ActorId, ActorKind, EncryptionProfile, Event, EventRef, GenesisSalt, Hash, NotaryValue,
+    PayloadProof, PayloadSigner, ProfileId, SchemaId, ScopeRef, SealBasis, SecurityClass,
+    event_spec, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -83,8 +84,10 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
         schema: AppletManagedActorProvisionPayload::SCHEMA.to_owned(),
         applet_id: branch.applet_id.clone(),
         service_id: branch.service_id.clone(),
-        actor_id: input.actor_id.clone(),
-        actor_principal_server_id: branch.principal_server_id.clone(),
+        actor_id: ActorId::hosted_principal(
+            input.actor_id.clone(),
+            branch.principal_server_id.clone(),
+        ),
         actor_role: branch.role,
         initial_resolution: input.initial_resolution.clone(),
         method_history_evidence: input.method_history_evidence.clone().try_into()?,
@@ -95,8 +98,7 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
     provision_payload.validate()?;
     let provision_intent = TypedEventDraft::<event_spec::AppletManagedActorProvision>::new(
         branch.realm_scope.clone(),
-        branch.service_id.clone(),
-        branch.principal_server_id.clone(),
+        ActorId::service(branch.service_id.clone()),
         provision_payload,
     )?
     .with_prev_refs(input.service_prev_refs)
@@ -129,11 +131,10 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
     )?;
     let pcr_intent = TypedEventDraft::<event_spec::RealmCreate>::new(
         ScopeRef::RealmGenesis,
-        input.actor_id.clone(),
-        branch.principal_server_id.clone(),
+        ActorId::hosted_principal(input.actor_id.clone(), branch.principal_server_id.clone()),
         RealmCreatePayload::new(genesis),
     )?
-    .with_executed_by(branch.service_id.clone())
+    .with_executed_by(ActorId::service(branch.service_id.clone()))
     .with_authorization_ref(branch.authorization_ref.clone().into())
     .with_applet_id(branch.applet_id.clone())
     .with_ref(EventRef::new(
@@ -173,8 +174,7 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
         .jws;
     let accountability_intent = TypedEventDraft::<event_spec::IdentityAccountabilityGrant>::new(
         branch.realm_scope.clone(),
-        branch.service_id.clone(),
-        branch.principal_server_id.clone(),
+        ActorId::service(branch.service_id.clone()),
         accountability,
     )?
     .with_prev_refs(vec![provision_event.event_id.clone()])
@@ -205,11 +205,10 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
     )?;
     let profile_intent = TypedEventDraft::<event_spec::ProfileCreate>::new(
         branch.realm_scope,
-        input.actor_id,
-        branch.principal_server_id.clone(),
+        ActorId::hosted_principal(input.actor_id, branch.principal_server_id.clone()),
         ActorProfileCreatePayload { object: profile },
     )?
-    .with_executed_by(delegation.executed_by)
+    .with_executed_by(ActorId::service(delegation.executed_by))
     .with_authorization_ref(delegation.authorization_ref)
     .with_applet_id(delegation.applet_id)
     .with_refs(vec![EventRef::new(

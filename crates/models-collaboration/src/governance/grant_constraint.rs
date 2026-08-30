@@ -6,8 +6,8 @@ use std::collections::BTreeMap;
 
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    AppletId, CircleId, DidCoreId, EncryptionProfile, EvaluationClass, Facet, GrantId, Hash,
-    HistoryAccess, RealmId, Result, SchemaId, WireError, WireResourceSelector, XExtensionMap,
+    ActorId, AppletId, CircleId, DidCoreId, EncryptionProfile, EvaluationClass, Facet, GrantId,
+    Hash, HistoryAccess, RealmId, Result, SchemaId, WireError, WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -26,7 +26,7 @@ pub enum ApprovalWorkflowMode {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum CapabilitySubject {
-    CoreDid(DidCoreId),
+    Actor(ActorId),
     Condition(ConditionSubjectSelector),
 }
 
@@ -678,11 +678,8 @@ pub struct CapabilityGrant {
     pub schema: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    pub issuer_id: DidCoreId,
-    pub issuer_principal_server_id: DidCoreId,
+    pub issuer_id: ActorId,
     pub subject: CapabilitySubject,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subject_principal_server_id: Option<DidCoreId>,
     pub actions: Vec<String>,
     pub resources: Vec<WireResourceSelector>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -698,7 +695,7 @@ pub struct CapabilityGrant {
     #[serde(with = "canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<DidCoreId>,
+    pub updated_by: Option<ActorId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",

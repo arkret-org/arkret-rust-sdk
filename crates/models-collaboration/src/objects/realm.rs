@@ -4,10 +4,10 @@ use std::collections::BTreeMap;
 
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    BlobRef, CORE_REDUCER_PROFILE, ContentScheme, ControlProposalDecisionPolicy, DidCoreId,
-    Discoverability, DurabilityPolicy, EncryptionProfile, FederationPolicy, HistoryAccess,
-    JoinRule, PolicyId, RealmId, Result, SchemaId, SecurityClass, StrandId, TrustDomainId,
-    WireError, canonical,
+    ActorId, BlobRef, CORE_REDUCER_PROFILE, ContentScheme, ControlProposalDecisionPolicy,
+    DidCoreId, Discoverability, DurabilityPolicy, EncryptionProfile, FederationPolicy,
+    HistoryAccess, JoinRule, PolicyId, RealmId, Result, SchemaId, SecurityClass, StrandId,
+    TrustDomainId, WireError, canonical,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -154,11 +154,11 @@ pub struct Realm {
     /// Declaration order mirrors `spec/v1/artifacts/schemas/realm.schema.json`
     /// (common-fields §3.2): `created_by` lives in the trailing audit cluster
     /// `… avatar_blob_ref, created_by, created_at, updated_by, updated_at`.
-    pub created_by: DidCoreId,
+    pub created_by: ActorId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<DidCoreId>,
+    pub updated_by: Option<ActorId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
@@ -261,7 +261,7 @@ impl Realm {
     pub fn new(
         id: RealmId,
         title: impl Into<String>,
-        created_by: DidCoreId,
+        created_by: ActorId,
         trust_domain: TrustDomainId,
         reducer_profile: impl Into<String>,
         notary: NotaryValue,

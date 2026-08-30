@@ -83,7 +83,7 @@ pub mod error;
 /// documentation for why the other registry-active rows are excluded.
 pub use arkret_wire::PRODUCTION_ALGORITHMS;
 use arkret_wire::{
-    Audience, Did, DidCoreId, DidUrl, Hash, ProducerEventProof, ProofBindingRequirements,
+    ActorId, Audience, Did, DidCoreId, DidUrl, Hash, ProducerEventProof, ProofBindingRequirements,
     SignatureBindingPayload,
 };
 use chrono::{DateTime, Duration, Utc};
@@ -132,7 +132,7 @@ pub trait DidVerificationMethodResolver {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProofVerificationContext {
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub expected_payload_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub now: DateTime<Utc>,
@@ -148,7 +148,7 @@ pub struct ProofVerificationContext {
 }
 
 impl ProofVerificationContext {
-    pub fn new(actor_id: DidCoreId, expected_payload_digest: Hash) -> Self {
+    pub fn new(actor_id: ActorId, expected_payload_digest: Hash) -> Self {
         Self {
             actor_id,
             expected_payload_digest,
@@ -212,7 +212,8 @@ where
 
     let method = resolver.resolve_verification_method(&proof.verification_method)?;
     let controller = method.controller.as_ref().unwrap_or(&method.did);
-    if arkret_wire::project_did_to_core_id(controller)? != context.actor_id {
+    if arkret_wire::project_did_to_core_id(controller)? != *context.actor_id.signing_principal_id()
+    {
         return Err(Error::Protocol(
             "proof verification method controller mismatch".to_owned(),
         ));

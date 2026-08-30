@@ -2,9 +2,8 @@
 
 use std::collections::BTreeSet;
 
-use arkret_models_identity::BindingSource;
 use arkret_models_identity::primary_handle::HandleIssuerPolicyEntry;
-use arkret_wire::{DidCoreId, DomainSeparationId};
+use arkret_wire::{ActorId, DidCoreId, DomainSeparationId};
 
 use crate::events_payloads::join_policy::JoinPolicyPayload;
 use crate::governance::agent_participation::AgentParticipationPolicy;
@@ -24,7 +23,7 @@ pub enum InheritancePolicyStatus {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmOwnerTransferPatch {
-    pub controller_id: DidCoreId,
+    pub controller_id: ActorId,
 }
 
 /// Counterpart for
@@ -67,74 +66,6 @@ impl RealmAuthorityResetPayload {
             .ok_or_else(|| {
                 WireError::Protocol("Realm authority_generation is exhausted".to_owned())
             })
-    }
-}
-
-/// `rebind_authorization` enum for [`RealmDeliveryBindingPolicyPayload`]
-/// (`event-payload.schema.json#/$defs/realm_delivery_binding_policy_payload`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RebindAuthorization {
-    Member,
-    MemberAndAdmin,
-    AdminOnly,
-    ServiceOnly,
-    Any,
-}
-
-/// `allowed_recipient_ids` value of [`RealmDeliveryBindingPolicyPayload`].
-///
-/// The spec models this as a `oneOf`: either an allow-list of recipient
-/// service DIDs — where the **empty** list means "reject every recipient
-/// service" (fail-closed, never "unrestricted") — or exactly the one-element
-/// sentinel `["*"]`. Keeping the two cases in separate variants is what makes
-/// the fail-closed reading unmistakable at the call site; a bare `Vec<DidCoreId>`
-/// could not carry the sentinel at all, since `*` is not a DID.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum AllowedRecipientServices {
-    /// The explicit `["*"]` sentinel. Lifts only the recipient-service
-    /// allow-list dimension; `required_endorser_ids` still applies.
-    Unrestricted,
-    /// Closed allow-list. Empty = reject every recipient service.
-    Allowlist(Vec<DidCoreId>),
-}
-
-/// Wire token for [`AllowedRecipientServices::Unrestricted`].
-const ALLOWED_RECIPIENT_SERVICES_UNRESTRICTED: &str = "*";
-
-impl Serialize for AllowedRecipientServices {
-    fn serialize<S: serde::Serializer>(
-        &self,
-        serializer: S,
-    ) -> std::result::Result<S::Ok, S::Error> {
-        match self {
-            Self::Unrestricted => [ALLOWED_RECIPIENT_SERVICES_UNRESTRICTED].serialize(serializer),
-            Self::Allowlist(dids) => dids.serialize(serializer),
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for AllowedRecipientServices {
-    fn deserialize<D: serde::Deserializer<'de>>(
-        deserializer: D,
-    ) -> std::result::Result<Self, D::Error> {
-        let entries = Vec::<String>::deserialize(deserializer)?;
-        if entries
-            .iter()
-            .any(|entry| entry == ALLOWED_RECIPIENT_SERVICES_UNRESTRICTED)
-        {
-            if entries.len() != 1 {
-                return Err(serde::de::Error::custom(
-                    "allowed_recipient_ids sentinel must be exactly [\"*\"]",
-                ));
-            }
-            return Ok(Self::Unrestricted);
-        }
-        entries
-            .into_iter()
-            .map(|entry| DidCoreId::new(entry).map_err(serde::de::Error::custom))
-            .collect::<std::result::Result<Vec<_>, _>>()
-            .map(Self::Allowlist)
     }
 }
 
@@ -435,96 +366,6 @@ impl RealmPolicyBundlePayload {
         self.validate()?;
         serde_json::to_value(self).map_err(|err| {
             WireError::Protocol(format!("realm policy bundle payload serialize: {err}"))
-        })
-    }
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/
-/// realm_delivery_binding_policy_payload`.
-///
-/// Payload of `ak.realm.delivery_binding_policy`. Field declaration order
-/// mirrors the spec schema `properties` ordering. `minProperties: 1` in the
-/// schema means an all-absent payload is a `schema_violation`; [`Self::validate`]
-/// enforces it locally so the Event is never authored in that shape.
-/// No `Default`: an all-absent value violates `minProperties: 1`, so there is
-/// no such thing as a default delivery-binding policy.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmDeliveryBindingPolicyPayload {
-    /// Optional echo of the governed Realm; the authoritative scope is the
-    /// enclosing envelope `realm_id`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<RealmId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allowed_binding_sources: Option<BTreeSet<BindingSource>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub did_document_default_allowed: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allowed_recipient_ids: Option<AllowedRecipientServices>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub required_endorser_ids: Option<BTreeSet<DidCoreId>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub unroutable_membership_allowed: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rebind_authorization: Option<RebindAuthorization>,
-    /// Window, in seconds, during which the previous `recipient_id`
-    /// keeps accepting late events that precede or are concurrent with the
-    /// rebind frontier. Absent means the registered `86400` default.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub handover_grace_seconds: Option<u32>,
-    /// `None` (absent) and a wire `null` both mean "no expiry"; only a
-    /// positive value is a real cap, so the absent form is the only one this
-    /// type emits.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expires_after_seconds: Option<u64>,
-}
-
-/// Registered inclusive maximum of `handover_grace_seconds`.
-pub const DELIVERY_BINDING_HANDOVER_GRACE_SECONDS_MAX: u32 = 604_800;
-
-impl RealmDeliveryBindingPolicyPayload {
-    pub fn validate(&self) -> Result<()> {
-        if self.realm_id.is_none()
-            && self.allowed_binding_sources.is_none()
-            && self.did_document_default_allowed.is_none()
-            && self.allowed_recipient_ids.is_none()
-            && self.required_endorser_ids.is_none()
-            && self.unroutable_membership_allowed.is_none()
-            && self.rebind_authorization.is_none()
-            && self.handover_grace_seconds.is_none()
-            && self.expires_after_seconds.is_none()
-        {
-            return Err(WireError::Protocol(
-                "realm_delivery_binding_policy_payload must declare at least one property \
-                 (schema_violation)"
-                    .to_owned(),
-            ));
-        }
-        if self.expires_after_seconds == Some(0) {
-            return Err(WireError::Protocol(
-                "realm_delivery_binding_policy_payload.expires_after_seconds must be >= 1 \
-                 (schema_violation)"
-                    .to_owned(),
-            ));
-        }
-        if self
-            .handover_grace_seconds
-            .is_some_and(|seconds| seconds > DELIVERY_BINDING_HANDOVER_GRACE_SECONDS_MAX)
-        {
-            return Err(WireError::Protocol(
-                "realm_delivery_binding_policy_payload.handover_grace_seconds must be <= 604800 \
-                 (schema_violation)"
-                    .to_owned(),
-            ));
-        }
-        Ok(())
-    }
-
-    pub fn to_value(&self) -> Result<Value> {
-        self.validate()?;
-        serde_json::to_value(self).map_err(|err| {
-            WireError::Protocol(format!("delivery binding policy payload serialize: {err}"))
         })
     }
 }
@@ -1005,7 +846,6 @@ pub enum RealmOrganizationControlScope {
     OfficialBadge,
     RealmAdmin,
     NotaryControl,
-    DeliveryBindingPolicy,
     DurabilityPolicy,
     ModerationPolicy,
     RetentionPolicy,

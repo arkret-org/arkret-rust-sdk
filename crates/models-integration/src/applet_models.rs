@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    AppletId, AppletRevokeMode, BlobRef, DidCoreId, DidUrl, Event, EventId, GrantId, Hash,
+    ActorId, AppletId, AppletRevokeMode, BlobRef, DidCoreId, DidUrl, Event, EventId, GrantId, Hash,
     NotarySignerDescriptor, PayloadSigner, ProtocolOperationId, RealmId, ReasonCode, Result,
     ScopeRef, WireError, canonical,
 };
@@ -112,8 +112,7 @@ pub struct AppletInstallOutcome {
     pub applet_id: AppletId,
     pub registration_event_ref: EventId,
     pub registration_epoch: Hash,
-    pub bot_actor_id: DidCoreId,
-    pub bot_actor_principal_server_id: DidCoreId,
+    pub bot_actor_id: ActorId,
     pub bot_actor_provision_ref: EventId,
     pub bot_principal_control_realm_id: RealmId,
     pub capability_grant_refs: Vec<GrantId>,
@@ -817,11 +816,10 @@ pub struct AppletInstallReuseRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReuseExistingManagedActor {
-    pub actor_id: DidCoreId,
-    pub actor_principal_server_id: DidCoreId,
+    pub actor_id: ActorId,
     pub managed_actor_provision_ref: EventId,
     pub pcr_genesis_ref: EventId,
     pub accountability_grant_ref: EventId,
     pub profile_event_ref: EventId,
-    pub initial_package_bot_actor_id: DidCoreId,
+    pub initial_package_bot_actor_id: ActorId,
 }

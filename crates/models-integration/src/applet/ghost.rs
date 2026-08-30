@@ -1,4 +1,4 @@
-use arkret_wire::{AppletId, AuthorizationRef, DidCoreId, EventId, RealmId, Result};
+use arkret_wire::{ActorId, AppletId, AuthorizationRef, DidCoreId, EventId, RealmId, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::{AppletManagedActorAuthoringBundle, AppletManagedActorAuthoringRequest};
@@ -69,8 +69,7 @@ impl GhostActorProvisionRequestBody {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GhostActorProvisionOutcome {
-    pub ghost_actor_id: DidCoreId,
-    pub actor_principal_server_id: DidCoreId,
+    pub ghost_actor_id: ActorId,
     pub managed_actor_provision_ref: EventId,
     pub principal_control_realm_id: RealmId,
     pub profile_event_ref: EventId,

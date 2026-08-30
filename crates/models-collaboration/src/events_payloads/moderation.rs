@@ -1,7 +1,7 @@
 //! Moderation schema artifact counterparts and event payloads.
 
 use arkret_models_identity::AuthenticatedSignerResolutionEvidence;
-use arkret_wire::{Did, DidCoreId, DidUrl, Event, Seal, project_did_to_core_id};
+use arkret_wire::{ActorId, Did, DidCoreId, DidUrl, Event, Seal, project_did_to_core_id};
 
 use crate::internal_prelude::*;
 
@@ -128,7 +128,7 @@ impl FrankingSealObservationOutcome {
         })?;
         if proof.realm_id != request.realm_id
             || proof.event_id != request.target_event_id
-            || proof.received_by != self.proof_event.actor_id
+            || self.proof_event.actor_id != ActorId::service(proof.received_by.clone())
         {
             return Err(WireError::Protocol(
                 "franking proof payload does not bind the requested target".to_owned(),

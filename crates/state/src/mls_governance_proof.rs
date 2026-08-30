@@ -2221,7 +2221,7 @@ fn add_pcr_holder_from_accepted_create(
     else {
         return frontier_rejected("genesis replay cannot acquire PCR availability holder");
     };
-    eligible_holder_ids.insert(create.principal_server_id);
+    eligible_holder_ids.insert(create.actor_id.route_service_id().clone());
     Ok(true)
 }
 
@@ -2286,9 +2286,7 @@ fn add_joined_holder_from_event(
             "genesis replay cannot acquire predecessor availability holders".to_owned(),
         ));
     };
-    if let Some(binding) = payload.delivery_binding {
-        eligible_holder_ids.insert(binding.recipient_id);
-    }
+    eligible_holder_ids.insert(payload.member_id.route_service_id().clone());
     Ok(())
 }
 

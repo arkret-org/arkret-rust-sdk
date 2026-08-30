@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-29.3;
-//! sha256=4f127926c398a396f15985d44a3a8e67a385f1c53d4a751308c64771ba132d02 Entries: schema_ids=197,
-//! active=197
+//! Input: registry/schema-registry.json; version=2026-08-30.1;
+//! sha256=15cecb6f1cbf99891832bced47276b51c774da4beddf93a9aa9d747fbd416812 Entries: schema_ids=195,
+//! active=195
 
 use serde::{Deserialize, Serialize};
 
@@ -78,7 +78,6 @@ pub enum SchemaId {
     ControllerAccountGateAttestationIssueOutcomeV1,
     ControllerAccountGateAttestationIssueRequestV1,
     CursorV1,
-    DeliveryBindingStaleV1,
     DeviceMessageV1,
     DevicePairingBootstrapV1,
     DevicePairingOperationsV1,
@@ -125,7 +124,6 @@ pub enum SchemaId {
     ListHandlesForSubjectResponseV1,
     MediaMetadataV1,
     MediaOperationsV1,
-    MemberDeliveryBindingCandidateV1,
     MemberIdentityV1,
     MessageV1,
     MimiInteropV1,
@@ -279,7 +277,6 @@ impl SchemaId {
         Self::ControllerAccountGateAttestationIssueOutcomeV1,
         Self::ControllerAccountGateAttestationIssueRequestV1,
         Self::CursorV1,
-        Self::DeliveryBindingStaleV1,
         Self::DeviceMessageV1,
         Self::DevicePairingBootstrapV1,
         Self::DevicePairingOperationsV1,
@@ -326,7 +323,6 @@ impl SchemaId {
         Self::ListHandlesForSubjectResponseV1,
         Self::MediaMetadataV1,
         Self::MediaOperationsV1,
-        Self::MemberDeliveryBindingCandidateV1,
         Self::MemberIdentityV1,
         Self::MessageV1,
         Self::MimiInteropV1,
@@ -480,7 +476,6 @@ impl SchemaId {
         Self::ControllerAccountGateAttestationIssueOutcomeV1,
         Self::ControllerAccountGateAttestationIssueRequestV1,
         Self::CursorV1,
-        Self::DeliveryBindingStaleV1,
         Self::DeviceMessageV1,
         Self::DevicePairingBootstrapV1,
         Self::DevicePairingOperationsV1,
@@ -527,7 +522,6 @@ impl SchemaId {
         Self::ListHandlesForSubjectResponseV1,
         Self::MediaMetadataV1,
         Self::MediaOperationsV1,
-        Self::MemberDeliveryBindingCandidateV1,
         Self::MemberIdentityV1,
         Self::MessageV1,
         Self::MimiInteropV1,
@@ -821,11 +815,6 @@ impl SchemaId {
     pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1: &'static str =
         "ak.schema.controller_account_gate_attestation_issue_request.v1";
     pub const CURSOR_V1: &'static str = "ak.schema.cursor.v1";
-    /// Canonical response body for the delivery_binding_stale federation signal (member
-    /// delivery-binding rebind handover): new_recipient_id, handover_frontier, and the verifiable
-    /// handover_proof. See zh/sync/federation.md §4.1 and error-code-registry.json
-    /// (delivery_binding_stale / delivery_binding_handover_proof_invalid).
-    pub const DELIVERY_BINDING_STALE_V1: &'static str = "ak.schema.delivery_binding_stale.v1";
     pub const DEVICE_MESSAGE_V1: &'static str = "ak.schema.device_message.v1";
     /// Pairing material DTO handed to an already-authorized device after resolving a device-pairing
     /// short link. Resolves to the sub-schema at file + fragment
@@ -948,11 +937,6 @@ impl SchemaId {
     pub const MEDIA_METADATA_V1: &'static str = "ak.schema.media_metadata.v1";
     /// Closed request DTO bundle for realtime media service operations.
     pub const MEDIA_OPERATIONS_V1: &'static str = "ak.schema.media_operations.v1";
-    /// Builder-side candidate object for Handle resolution intent=member_add | invite
-    /// (identity-handles.md §3.7); produces a Realm-scoped member_delivery_binding only after Join
-    /// Policy re-validation.
-    pub const MEMBER_DELIVERY_BINDING_CANDIDATE_V1: &'static str =
-        "ak.schema.member_delivery_binding_candidate.v1";
     /// Realm-scoped member display/subject projection carried by ak.member.identity.update; handle
     /// lifecycle is carried by ak.schema.handle_claim.v1.
     pub const MEMBER_IDENTITY_V1: &'static str = "ak.schema.member_identity.v1";
@@ -1015,9 +999,10 @@ impl SchemaId {
     pub const READ_RECEIPT_V1: &'static str = "ak.schema.read_receipt.v1";
     pub const REALM_V1: &'static str = "ak.schema.realm.v1";
     pub const REALM_GENESIS_V1: &'static str = "ak.schema.realm_genesis.v1";
-    /// Time-bounded routing hint returned by Realm discovery / resolve paths for selecting a
-    /// qualified service to receive join, invite-accept, knock, or restricted-join submissions. Not
-    /// an authorization grant and not a member_delivery_binding.
+    /// Time-bounded transport hint returned by Realm discovery / resolve paths for reaching the
+    /// already selected Principal Server during join, invite-accept, knock, or restricted-join
+    /// submission. It is neither an identity selector nor an authorization grant and cannot change
+    /// an AccountId.
     pub const REALM_JOIN_CANDIDATE_V1: &'static str = "ak.schema.realm_join_candidate.v1";
     /// Closed request/response DTO bundle for self-surface cross-Realm link operations
     /// (ak.self.realm_link.*); see zh/models/realm-links.md.
@@ -1242,7 +1227,6 @@ impl SchemaId {
                 Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1
             }
             Self::CursorV1 => Self::CURSOR_V1,
-            Self::DeliveryBindingStaleV1 => Self::DELIVERY_BINDING_STALE_V1,
             Self::DeviceMessageV1 => Self::DEVICE_MESSAGE_V1,
             Self::DevicePairingBootstrapV1 => Self::DEVICE_PAIRING_BOOTSTRAP_V1,
             Self::DevicePairingOperationsV1 => Self::DEVICE_PAIRING_OPERATIONS_V1,
@@ -1289,7 +1273,6 @@ impl SchemaId {
             Self::ListHandlesForSubjectResponseV1 => Self::LIST_HANDLES_FOR_SUBJECT_RESPONSE_V1,
             Self::MediaMetadataV1 => Self::MEDIA_METADATA_V1,
             Self::MediaOperationsV1 => Self::MEDIA_OPERATIONS_V1,
-            Self::MemberDeliveryBindingCandidateV1 => Self::MEMBER_DELIVERY_BINDING_CANDIDATE_V1,
             Self::MemberIdentityV1 => Self::MEMBER_IDENTITY_V1,
             Self::MessageV1 => Self::MESSAGE_V1,
             Self::MimiInteropV1 => Self::MIMI_INTEROP_V1,
@@ -1478,7 +1461,6 @@ impl SchemaId {
                 "schemas/agent-signer-evidence-operations.schema.json"
             }
             Self::CursorV1 => "schemas/cursor.schema.json",
-            Self::DeliveryBindingStaleV1 => "schemas/delivery-binding-stale.schema.json",
             Self::DeviceMessageV1 => "schemas/device-message.schema.json",
             Self::DevicePairingBootstrapV1 => "schemas/device-pairing.schema.json",
             Self::DevicePairingOperationsV1 => "schemas/device-pairing.schema.json",
@@ -1529,9 +1511,6 @@ impl SchemaId {
             }
             Self::MediaMetadataV1 => "schemas/media-metadata.schema.json",
             Self::MediaOperationsV1 => "schemas/media-operations.schema.json",
-            Self::MemberDeliveryBindingCandidateV1 => {
-                "schemas/member-delivery-binding-candidate.schema.json"
-            }
             Self::MemberIdentityV1 => "schemas/member-identity.schema.json",
             Self::MessageV1 => "schemas/message.schema.json",
             Self::MimiInteropV1 => "schemas/mimi-interop.schema.json",
@@ -1722,7 +1701,6 @@ impl SchemaId {
                 Some(Self::ControllerAccountGateAttestationIssueRequestV1)
             }
             Self::CURSOR_V1 => Some(Self::CursorV1),
-            Self::DELIVERY_BINDING_STALE_V1 => Some(Self::DeliveryBindingStaleV1),
             Self::DEVICE_MESSAGE_V1 => Some(Self::DeviceMessageV1),
             Self::DEVICE_PAIRING_BOOTSTRAP_V1 => Some(Self::DevicePairingBootstrapV1),
             Self::DEVICE_PAIRING_OPERATIONS_V1 => Some(Self::DevicePairingOperationsV1),
@@ -1771,9 +1749,6 @@ impl SchemaId {
             }
             Self::MEDIA_METADATA_V1 => Some(Self::MediaMetadataV1),
             Self::MEDIA_OPERATIONS_V1 => Some(Self::MediaOperationsV1),
-            Self::MEMBER_DELIVERY_BINDING_CANDIDATE_V1 => {
-                Some(Self::MemberDeliveryBindingCandidateV1)
-            }
             Self::MEMBER_IDENTITY_V1 => Some(Self::MemberIdentityV1),
             Self::MESSAGE_V1 => Some(Self::MessageV1),
             Self::MIMI_INTEROP_V1 => Some(Self::MimiInteropV1),

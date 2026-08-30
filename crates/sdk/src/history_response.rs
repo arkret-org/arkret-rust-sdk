@@ -16,7 +16,7 @@ use arkret_models_identity::AuthenticatedSignerResolutionEvidence;
 use arkret_signatures::proof::PublicKeyMaterial;
 use arkret_state::mls_governance_proof::MlsGovernanceVerificationCheckpoint;
 use arkret_wire::{
-    ContentScheme, DidCoreId, EventId, Hash, HistoryEffectiveScope, ScopeRef, WireError,
+    ActorId, ContentScheme, EventId, Hash, HistoryEffectiveScope, ScopeRef, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -211,7 +211,7 @@ pub fn verify_minimal_metadata_history_source_local_state(
 #[serde(deny_unknown_fields)]
 pub struct VerifiedHistoryManifest {
     pub response_id: HistoryResponseId,
-    pub source_actor_id: DidCoreId,
+    pub source_actor_id: ActorId,
     pub source_sender_domain: String,
     pub manifest_digest: Hash,
     pub manifest_admission_digest: Hash,
@@ -222,7 +222,7 @@ pub struct VerifiedHistoryManifest {
 #[serde(deny_unknown_fields)]
 pub struct VerifiedHistoryChunk {
     pub response_id: HistoryResponseId,
-    pub source_actor_id: DidCoreId,
+    pub source_actor_id: ActorId,
     pub source_sender_domain: String,
     pub covered_epoch_range: EpochRange,
     pub sealed_chunk: SealedHistoryChunk,
@@ -490,7 +490,7 @@ where
         (None, None) => invalid("source signer evidence dependency is missing"),
         (Some(evidence), None) => {
             if evidence.evidence_ref()? != source.source_signer_evidence_ref
-                || evidence.signer_id() != &source.source_actor_id
+                || evidence.signer_id() != source.source_actor_id.signing_principal_id()
                 || evidence.verification_method() != &source.source_proof.verification_method
             {
                 return invalid("source signer evidence does not bind its actor and method");

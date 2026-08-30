@@ -18,11 +18,10 @@ use arkret_models_identity::account::{
 };
 use arkret_models_identity::actor_profile::{AccountMaterializedProfile, ActorProfile};
 use arkret_wire::{
-    ActorProfileId, AppletId, AppletRevokeMode, AuditReasonText, ConsentScope, Cursor, DeviceId,
-    Did, DidCoreId, DidUrl, EventBatchReceipt, EventInitialSubmission, EventKind, Hash,
+    AccountId, ActorProfileId, AppletId, AppletRevokeMode, AuditReasonText, ConsentScope, Cursor,
+    DeviceId, Did, DidCoreId, DidUrl, EventBatchReceipt, EventInitialSubmission, EventKind, Hash,
     PayloadProof, ProofContextId, RealmId, ReasonCode, ReceiptId, Result, SchemaId, ScopeRef,
-    ServiceAccountId, ServiceOperationId, SessionGrantId, UnsignedPayloadProof, canonical,
-    project_did_to_core_id,
+    ServiceOperationId, SessionGrantId, UnsignedPayloadProof, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -223,19 +222,10 @@ pub const ACCOUNT_STATUS_RECEIPT_CONTEXT: &str =
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AccountStatusPrincipalAuthority {
-    pub principal_id: DidCoreId,
-    pub principal_server_id: DidCoreId,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct UnsignedAccountStatusRecord {
     pub schema: String,
     pub account_authority_id: DidCoreId,
-    pub account_id: ServiceAccountId,
-    pub principal_authority: AccountStatusPrincipalAuthority,
+    pub account_id: AccountId,
     pub principal_control_realm_id: RealmId,
     pub binding_version: u64,
     pub status_seq: u64,
@@ -265,10 +255,8 @@ impl UnsignedAccountStatusRecord {
                 "account status record schema mismatch".to_owned(),
             ));
         }
-        if self.account_id.as_str().chars().count() > 255
-            || self.binding_version == 0
-            || self.status_seq == 0
-        {
+        self.account_id.validate()?;
+        if self.binding_version == 0 || self.status_seq == 0 {
             return Err(arkret_wire::WireError::Protocol(
                 "account status record bounds are invalid".to_owned(),
             ));
@@ -369,7 +357,6 @@ impl UnsignedAccountStatusRecord {
             account_status_record_id,
             account_authority_id: self.account_authority_id,
             account_id: self.account_id,
-            principal_authority: self.principal_authority,
             principal_control_realm_id: self.principal_control_realm_id,
             binding_version: self.binding_version,
             status_seq: self.status_seq,
@@ -394,8 +381,7 @@ pub struct AccountStatusRecord {
     pub schema: String,
     pub account_status_record_id: arkret_wire::AccountStatusRecordId,
     pub account_authority_id: DidCoreId,
-    pub account_id: ServiceAccountId,
-    pub principal_authority: AccountStatusPrincipalAuthority,
+    pub account_id: AccountId,
     pub principal_control_realm_id: RealmId,
     pub binding_version: u64,
     pub status_seq: u64,
@@ -425,7 +411,6 @@ impl AccountStatusRecord {
             schema: self.schema.clone(),
             account_authority_id: self.account_authority_id.clone(),
             account_id: self.account_id.clone(),
-            principal_authority: self.principal_authority.clone(),
             principal_control_realm_id: self.principal_control_realm_id.clone(),
             binding_version: self.binding_version,
             status_seq: self.status_seq,
@@ -494,17 +479,15 @@ impl AccountStatusRecord {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountStatusResolveRequestBody {
     pub account_authority_id: DidCoreId,
-    pub account_id: ServiceAccountId,
+    pub account_id: AccountId,
     pub from_status_seq: u64,
     pub limit: u16,
 }
 
 impl AccountStatusResolveRequestBody {
     pub fn validate(&self) -> Result<()> {
-        if self.account_id.as_str().chars().count() > 255
-            || self.from_status_seq == 0
-            || !(1..=128).contains(&self.limit)
-        {
+        self.account_id.validate()?;
+        if self.from_status_seq == 0 || !(1..=128).contains(&self.limit) {
             return Err(arkret_wire::WireError::Protocol(
                 "account status resolve bounds are invalid".to_owned(),
             ));
@@ -518,7 +501,7 @@ impl AccountStatusResolveRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountStatusResolveOutcome {
     pub account_authority_id: DidCoreId,
-    pub account_id: ServiceAccountId,
+    pub account_id: AccountId,
     pub records: Vec<AccountStatusRecord>,
     pub has_more: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -569,7 +552,7 @@ pub struct AccountStatusReceipt {
     pub account_status_record_id: arkret_wire::AccountStatusRecordId,
     pub record_digest: Hash,
     pub account_authority_id: DidCoreId,
-    pub account_id: ServiceAccountId,
+    pub account_id: AccountId,
     pub status_seq: u64,
     pub receiver_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -583,7 +566,7 @@ pub struct UnsignedAccountStatusReceipt {
     pub account_status_record_id: arkret_wire::AccountStatusRecordId,
     pub record_digest: Hash,
     pub account_authority_id: DidCoreId,
-    pub account_id: ServiceAccountId,
+    pub account_id: AccountId,
     pub status_seq: u64,
     pub receiver_id: DidCoreId,
     pub accepted_at: DateTime<Utc>,
@@ -668,9 +651,10 @@ impl AccountStatusReceipt {
     }
 
     pub fn validate_shape(&self) -> Result<()> {
-        if self.account_id.as_str().chars().count() > 255 || self.status_seq == 0 {
+        self.account_id.validate()?;
+        if self.status_seq == 0 {
             return Err(arkret_wire::WireError::Protocol(
-                "account status receipt account_id exceeds 255 characters".to_owned(),
+                "account status receipt status_seq must be positive".to_owned(),
             ));
         }
         self.proof.validate_production()?;
@@ -810,7 +794,7 @@ pub struct AccountStatusPublicationOutcome {
     pub status: AccountStatusPublicationStatus,
     pub account_status_record_id: arkret_wire::AccountStatusRecordId,
     pub status_seq: u64,
-    pub account_id: ServiceAccountId,
+    pub account_id: AccountId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub current_account_status_record_id: Option<arkret_wire::AccountStatusRecordId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -974,7 +958,7 @@ impl AccountRegisterOutcome {
             let constraints = [
                 (
                     "grant principal_id",
-                    grant.principal_id == request.principal_id,
+                    grant.account_id.principal_id == request.principal_id,
                 ),
                 (
                     "grant device_id",
@@ -1116,14 +1100,14 @@ impl AccountUpdateProfileRequestBody {
     /// exact Principal Control Realm and the current accepted profile basis.
     pub fn validate_authoring_context(
         &self,
-        session_principal_id: &DidCoreId,
+        session_account_id: &AccountId,
         principal_control_realm_id: &RealmId,
         accepted_basis: Option<&AccountProfileAcceptedBasis>,
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
         self.validate(digest_suite)?;
         let event = &self.profile_event.event;
-        if &event.actor_id != session_principal_id
+        if event.actor_id.as_account_id() != Some(session_account_id)
             || &event.realm_id != principal_control_realm_id
             || event.scope_ref
                 != (ScopeRef::Realm {
@@ -1147,7 +1131,7 @@ impl AccountUpdateProfileRequestBody {
                     crate::events_payloads::event_wire::decode_payload_after_kind_validation(
                         event,
                     )?;
-                if &payload.object.principal_id != session_principal_id
+                if &payload.object.principal_id != &session_account_id.principal_id
                     || payload
                         .object
                         .realm_id
@@ -1167,7 +1151,7 @@ impl AccountUpdateProfileRequestBody {
                             .to_owned(),
                     )
                 })?;
-                if &basis.principal_id != session_principal_id
+                if basis.principal_id != session_account_id.principal_id
                     || &basis.principal_control_realm_id != principal_control_realm_id
                 {
                     return Err(arkret_wire::WireError::Protocol(

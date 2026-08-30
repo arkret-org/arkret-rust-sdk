@@ -4,7 +4,7 @@ use std::fmt;
 
 use arkret_models_identity::{AgentLifecycleStatus, AgentSignerEvidence};
 use arkret_wire::{
-    Base64UrlString, CircleId, DeviceId, DidCoreId, DidUrl, EventId, Hash, HistoryAccess,
+    ActorId, Base64UrlString, CircleId, DeviceId, DidCoreId, DidUrl, EventId, Hash, HistoryAccess,
     HistoryEffectiveScope, OrganizationRecoveryArchive, PayloadProof, RealmId, Result, SealBasis,
     SignerEvidenceRef, WireError,
 };
@@ -517,7 +517,7 @@ pub struct HistorySecretChunkSealContext {
     pub manifest_admission_digest: Hash,
     pub chunk_response_id: HistoryResponseId,
     pub chunk_index: u64,
-    pub source_actor_id: DidCoreId,
+    pub source_actor_id: ActorId,
     pub source_sender_domain: String,
 }
 
@@ -821,7 +821,7 @@ pub struct HistoryKeyRequestSigningInput {
     pub request_id: HistoryRequestId,
     pub kind: HistoryKeyRequestKind,
     pub effective_scope: HistoryEffectiveScope,
-    pub requester_actor_id: DidCoreId,
+    pub requester_actor_id: ActorId,
     pub requester_sender_domain: String,
     pub requester_author_profile: AuthorProfile,
     pub requester_endpoint_authorization: RequesterEndpointAuthorization,
@@ -860,7 +860,7 @@ pub struct HistoryKeyRequest {
     pub request_id: HistoryRequestId,
     pub kind: HistoryKeyRequestKind,
     pub effective_scope: HistoryEffectiveScope,
-    pub requester_actor_id: DidCoreId,
+    pub requester_actor_id: ActorId,
     pub requester_sender_domain: String,
     pub requester_author_profile: AuthorProfile,
     pub requester_endpoint_authorization: RequesterEndpointAuthorization,
@@ -1094,9 +1094,10 @@ pub enum HistoryKeyRequestReplicaKind {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HistoryKeyRequestReplicaDestinationAuthorization {
-    MemberDeliveryBinding {
-        delivery_binding_ref: EventId,
-        delivery_binding_digest: Hash,
+    Member {
+        member_id: ActorId,
+        membership_ref: EventId,
+        membership_digest: Hash,
     },
     OrganizationRecoveryHolder {
         holder_principal_id: DidCoreId,
@@ -1227,9 +1228,10 @@ impl RrkHolderAuthorityObservation {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum SourceAuthorityLocator {
-    MemberDeliveryBinding {
-        binding_ref: EventId,
-        binding_digest: Hash,
+    Member {
+        member_id: ActorId,
+        membership_ref: EventId,
+        membership_digest: Hash,
     },
     OrganizationRecoveryHolder {
         authority_observation: RrkHolderAuthorityObservation,
@@ -1252,7 +1254,7 @@ pub struct SourceRelayAttestation {
     pub request_digest: Hash,
     pub request_receipt_digest: Hash,
     pub effective_scope: HistoryEffectiveScope,
-    pub source_actor_id: DidCoreId,
+    pub source_actor_id: ActorId,
     pub source_sender_domain: String,
     pub source_kind: SourceKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1282,8 +1284,8 @@ impl SourceRelayAttestation {
                 SourceKind::Member,
                 Some(_),
                 Some(_),
-                SourceAuthorityLocator::MemberDeliveryBinding { .. },
-            ) => {}
+                SourceAuthorityLocator::Member { member_id, .. },
+            ) if member_id == &self.source_actor_id => {}
             (
                 SourceKind::OrganizationRecoveryHolder,
                 None,
@@ -1292,7 +1294,8 @@ impl SourceRelayAttestation {
                     authority_observation,
                 },
             ) if authority_observation.holder_id == self.source_id
-                && authority_observation.holder_principal_id == self.source_actor_id
+                && authority_observation.holder_principal_id
+                    == *self.source_actor_id.signing_principal_id()
                 && authority_observation.current_holder_signing_ref
                     == self.service_proof.verification_method
                 && authority_observation.expires_at == self.expires_at
@@ -1424,7 +1427,7 @@ pub struct MinimalMetadataMlsLeafSignerEvidence {
     pub epoch: u64,
     pub leaf_index: u64,
     pub pairwise_actor_id: DidCoreId,
-    pub source_actor_id: DidCoreId,
+    pub source_actor_id: ActorId,
     pub verification_method: DidUrl,
     pub response_signing_public_key_b64u: Base64UrlString,
     pub response_signing_public_key_digest: Hash,
@@ -1469,8 +1472,9 @@ impl MinimalMetadataMlsLeafSignerEvidence {
                 WireError::Protocol("history source method lacks fragment".to_owned())
             })?;
         let method_did = arkret_wire::Did::new(method_did.to_owned())?;
-        if self.pairwise_actor_id != self.source_actor_id
-            || arkret_wire::project_did_to_core_id(&method_did)? != self.source_actor_id
+        if self.pairwise_actor_id != *self.source_actor_id.signing_principal_id()
+            || arkret_wire::project_did_to_core_id(&method_did)?
+                != *self.source_actor_id.signing_principal_id()
         {
             return Err(WireError::Protocol(
                 "minimal-metadata signer evidence actor or method mismatch".to_owned(),
@@ -1577,7 +1581,7 @@ impl MinimalMetadataMlsLeafSignerEvidence {
 pub struct HistorySourceAgentObservationInput {
     pub response_id: HistoryResponseId,
     pub effective_scope: HistoryEffectiveScope,
-    pub source_actor_id: DidCoreId,
+    pub source_actor_id: ActorId,
     pub source_sender_domain: String,
     pub request_digest: Hash,
     pub request_receipt_digest: Hash,
@@ -1607,7 +1611,7 @@ impl HistorySourceAgentObservationInput {
 pub struct HistoryKeyResponseSigningInput {
     pub response_id: HistoryResponseId,
     pub effective_scope: HistoryEffectiveScope,
-    pub source_actor_id: DidCoreId,
+    pub source_actor_id: ActorId,
     pub source_sender_domain: String,
     pub source_signer_evidence_ref: SignerEvidenceRef,
     pub source_signer_evidence_digest: Hash,
@@ -1656,7 +1660,7 @@ impl HistoryKeyResponseSigningInput {
 pub struct HistoryKeyResponseSendRequest {
     pub response_id: HistoryResponseId,
     pub effective_scope: HistoryEffectiveScope,
-    pub source_actor_id: DidCoreId,
+    pub source_actor_id: ActorId,
     pub source_sender_domain: String,
     pub source_signer_evidence_ref: SignerEvidenceRef,
     pub source_signer_evidence_digest: Hash,
@@ -2024,7 +2028,7 @@ pub struct CircleSealViewLocator {
 #[serde(deny_unknown_fields)]
 pub struct AccountStatusViewLocator {
     pub account_authority_id: DidCoreId,
-    pub account_id: arkret_wire::ServiceAccountId,
+    pub account_id: arkret_wire::AccountId,
     pub account_status_record_id: String,
     pub status_sequence: u64,
     pub record_digest: Hash,
@@ -2344,11 +2348,11 @@ pub struct HistoryReleaseAttestation {
     pub manifest_admission_digest: Hash,
     pub t0_pass: HistoryManifestAdmissionPass,
     pub released_range: EpochRange,
-    pub recipient_actor_id: DidCoreId,
+    pub recipient_actor_id: ActorId,
     pub recipient_sender_domain: String,
     pub recipient_authorization_incarnation: AuthorizationIncarnation,
     pub recipient_author_profile: AuthorProfile,
-    pub source_actor_id: DidCoreId,
+    pub source_actor_id: ActorId,
     pub source_sender_domain: String,
     pub source_kind: SourceKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]

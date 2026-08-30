@@ -10,7 +10,7 @@ use arkret_models_collaboration::objects::media::{
     CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
     MediaBackendToken,
 };
-use arkret_wire::DidCoreId;
+use arkret_wire::{ActorId, DidCoreId};
 /// Fixed ASCII domain-separation label that prefixes the participant-binding
 /// signing input (`media-service-binding.md` §3). Equals the v1 binding
 /// `scheme` byte-for-byte; a single `0x00` separates it from the canonical
@@ -62,7 +62,7 @@ pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Resu
 pub fn call_media_token_exchange(
     realm_id: RealmId,
     call_id: CallId,
-    actor_id: DidCoreId,
+    actor_id: ActorId,
     device_id: DeviceId,
     focus_id: impl Into<String>,
 ) -> CallMediaTokenExchangeRequestBody {
@@ -189,7 +189,7 @@ fn did_from_kid(kid: &str) -> &str {
 /// appear here.
 #[derive(Serialize)]
 struct ParticipantBindingSigningFields<'a> {
-    actor_id: &'a DidCoreId,
+    actor_id: &'a ActorId,
     call_id: &'a CallId,
     device_id: &'a DeviceId,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]

@@ -41,7 +41,8 @@ use crate::error::{Result, WireError};
 use crate::error_codes::ReasonCode;
 use crate::events::kinds::{CbaEffectPlane, EventKind};
 use crate::primitives::{
-    Audience, CriticalExtension, EventProof, ProofBindingRequirements, SignatureBindingPayload,
+    ActorId, Audience, CriticalExtension, EventProof, ProofBindingRequirements,
+    SignatureBindingPayload,
 };
 use crate::{
     AuthorizationRef, Base64UrlString, DidUrl, FeatureRef, OpaqueLocalId, ProfileRef, SchemaId,
@@ -273,12 +274,9 @@ pub struct Event {
     /// payload and accepted references and reject a signed-but-wrong scope
     /// (`conformance/encoding.md` §6).
     pub scope_ref: ScopeRef,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub executed_by: Option<DidCoreId>,
-    /// Principal Server responsible for the account authority of the actual
-    /// author (`executed_by ?? actor_id`) and for first admission of this Event.
-    pub principal_server_id: DidCoreId,
+    pub executed_by: Option<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_ref: Option<AuthorizationRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -325,8 +323,7 @@ pub struct Event {
 pub struct ProjectedEventInput {
     pub kind: EventKind,
     pub event_id: EventId,
-    pub actor_id: DidCoreId,
-    pub principal_server_id: DidCoreId,
+    pub actor_id: ActorId,
     pub authorization_ref: Option<AuthorizationRef>,
     pub actor_seq: u64,
     pub realm_id: RealmId,
@@ -344,7 +341,6 @@ impl From<&Event> for ProjectedEventInput {
             kind: event.kind.clone(),
             event_id: event.event_id.clone(),
             actor_id: event.actor_id.clone(),
-            principal_server_id: event.principal_server_id.clone(),
             authorization_ref: event.authorization_ref.clone(),
             actor_seq: event.actor_seq,
             realm_id: event.realm_id.clone(),
@@ -355,36 +351,6 @@ impl From<&Event> for ProjectedEventInput {
             seal_ref: event.seal_ref.clone(),
             seal_basis: event.seal_basis.clone(),
         }
-    }
-}
-
-/// Public account-authority coordinate for one principal at one Principal Server.
-///
-/// PCR realm ids, receipts and frontiers are account-local control state and do
-/// not participate in external identity or authorization equality.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct PrincipalAuthorityKey {
-    pub principal_id: DidCoreId,
-    pub principal_server_id: DidCoreId,
-}
-
-impl PrincipalAuthorityKey {
-    pub fn new(principal_id: DidCoreId, principal_server_id: DidCoreId) -> Self {
-        Self {
-            principal_id,
-            principal_server_id,
-        }
-    }
-
-    pub fn validate(&self) -> Result<()> {
-        if self.principal_id.as_str().is_empty() || self.principal_server_id.as_str().is_empty() {
-            return Err(WireError::Protocol(
-                "principal authority ids must be non-empty".to_owned(),
-            ));
-        }
-        Ok(())
     }
 }
 
@@ -701,10 +667,9 @@ struct EventSer<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     realm_id: Option<&'a RealmId>,
     scope_ref: &'a ScopeRef,
-    actor_id: &'a DidCoreId,
+    actor_id: &'a ActorId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    executed_by: &'a Option<DidCoreId>,
-    principal_server_id: &'a DidCoreId,
+    executed_by: &'a Option<ActorId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     authorization_ref: &'a Option<AuthorizationRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -747,7 +712,6 @@ impl<'a> From<&'a Event> for EventSer<'a> {
             scope_ref: &event.scope_ref,
             actor_id: &event.actor_id,
             executed_by: &event.executed_by,
-            principal_server_id: &event.principal_server_id,
             authorization_ref: &event.authorization_ref,
             applet_id: &event.applet_id,
             external_ref: &event.external_ref,
@@ -788,10 +752,9 @@ struct EventWire {
     #[serde(default)]
     pub realm_id: Option<RealmId>,
     pub scope_ref: ScopeRef,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     #[serde(default)]
-    pub executed_by: Option<DidCoreId>,
-    pub principal_server_id: DidCoreId,
+    pub executed_by: Option<ActorId>,
     #[serde(default)]
     pub authorization_ref: Option<AuthorizationRef>,
     #[serde(default)]
@@ -856,7 +819,6 @@ impl TryFrom<EventWire> for Event {
             scope_ref: wire.scope_ref,
             actor_id: wire.actor_id,
             executed_by: wire.executed_by,
-            principal_server_id: wire.principal_server_id,
             authorization_ref: wire.authorization_ref,
             applet_id: wire.applet_id,
             external_ref: wire.external_ref,
@@ -1611,7 +1573,8 @@ impl Event {
                 "producer proof event digest does not match accepted event".to_owned(),
             ));
         }
-        admission.validate_binding(&expected_event_digest, producer, &self.principal_server_id)
+        let author = self.executed_by.as_ref().unwrap_or(&self.actor_id);
+        admission.validate_binding(&expected_event_digest, producer, author.route_service_id())
     }
 
     /// Construct an Event in the given signed security scope.
@@ -1622,8 +1585,7 @@ impl Event {
     pub(crate) fn new(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
-        actor_id: DidCoreId,
-        principal_server_id: DidCoreId,
+        actor_id: ActorId,
         actor_seq: u64,
         hlc: Hlc,
         payload: Value,
@@ -1632,7 +1594,6 @@ impl Event {
             kind,
             scope_ref,
             actor_id,
-            principal_server_id,
             actor_seq,
             hlc,
             payload,
@@ -1651,22 +1612,14 @@ impl Event {
     pub(crate) fn new_at(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
-        actor_id: DidCoreId,
-        principal_server_id: DidCoreId,
+        actor_id: ActorId,
         actor_seq: u64,
         hlc: Hlc,
         payload: Value,
         created_at: DateTime<Utc>,
     ) -> Result<Self> {
         Self::new_with_derived_id_at(
-            kind,
-            scope_ref,
-            actor_id,
-            principal_server_id,
-            actor_seq,
-            hlc,
-            payload,
-            created_at,
+            kind, scope_ref, actor_id, actor_seq, hlc, payload, created_at,
         )
     }
 
@@ -1681,8 +1634,7 @@ impl Event {
     pub(crate) fn new_with_derived_id_at(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
-        actor_id: DidCoreId,
-        principal_server_id: DidCoreId,
+        actor_id: ActorId,
         actor_seq: u64,
         hlc: Hlc,
         payload: Value,
@@ -1697,7 +1649,6 @@ impl Event {
             kind,
             scope_ref,
             actor_id,
-            principal_server_id,
             actor_seq,
             hlc,
             payload,
@@ -1721,8 +1672,7 @@ impl Event {
         event_id: EventId,
         kind: impl Into<String>,
         scope_ref: ScopeRef,
-        actor_id: DidCoreId,
-        principal_server_id: DidCoreId,
+        actor_id: ActorId,
         actor_seq: u64,
         hlc: Hlc,
         payload: Value,
@@ -1745,7 +1695,6 @@ impl Event {
             realm_id,
             scope_ref,
             actor_id,
-            principal_server_id,
             actor_seq,
             created_at: canonical::normalize_timestamp_canonical(created_at),
             hlc: Some(hlc),

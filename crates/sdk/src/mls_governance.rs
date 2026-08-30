@@ -632,7 +632,7 @@ where
             "Native Agent history source evidence is not current_admission".to_owned(),
         ));
     };
-    if signer_id != &source.source_actor_id
+    if signer_id != source.source_actor_id.signing_principal_id()
         || verification_method != &source.source_proof.verification_method
         || current_observation.request_digest != source.history_source_agent_observation_digest()?
         || current_observation.verifier_id != current_observation.audience_id
@@ -804,7 +804,12 @@ where
             let evidence = evidence_by_digest(dependencies, digest)?;
             if producer.signer_resolution_evidence_ref.as_ref() != Some(&evidence.evidence_ref()?)
                 || evidence.verification_method() != &producer.verification_method
-                || evidence.signer_id() != event.executed_by.as_ref().unwrap_or(&event.actor_id)
+                || evidence.signer_id()
+                    != event
+                        .executed_by
+                        .as_ref()
+                        .unwrap_or(&event.actor_id)
+                        .signing_principal_id()
             {
                 return Err(WireError::Protocol(
                     "direct Event signer evidence binding mismatch".to_owned(),
@@ -837,7 +842,11 @@ where
             admission.validate_binding(
                 &producer.event_digest,
                 producer,
-                &event.principal_server_id,
+                event
+                    .executed_by
+                    .as_ref()
+                    .unwrap_or(&event.actor_id)
+                    .route_service_id(),
             )?;
             let multibase = admission
                 .producer_signing_key_did
@@ -869,7 +878,12 @@ where
                     "Principal Server admission signer evidence must be service-kind".to_owned(),
                 ));
             };
-            if signer_id != &event.principal_server_id
+            if signer_id
+                != event
+                    .executed_by
+                    .as_ref()
+                    .unwrap_or(&event.actor_id)
+                    .route_service_id()
                 || evidence.verification_method() != &admission.verification_method
                 || evidence.evidence_ref()? != admission.signer_resolution_evidence_ref
             {

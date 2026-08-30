@@ -1,6 +1,6 @@
 //! Call-state and call-participant payloads.
 
-use arkret_wire::{DidCoreId, ExporterLabelId, SchemaId};
+use arkret_wire::{ActorId, DidCoreId, ExporterLabelId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -14,7 +14,7 @@ pub struct ParticipantBinding {
     pub realm_id: RealmId,
     pub call_id: String,
     pub focus_id: String,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub device_id: String,
     pub participant_id: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -44,7 +44,7 @@ pub struct CallParticipantMedia {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallParticipant {
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub device_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -67,7 +67,7 @@ pub enum CallParticipantRemovalAction {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallParticipantRemoval {
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<String>,
     pub action: CallParticipantRemovalAction,
@@ -118,7 +118,7 @@ pub enum CallMuteOverrideStatus {
 #[serde(deny_unknown_fields)]
 pub struct CallMuteOverride {
     pub status: CallMuteOverrideStatus,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub device_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audio_muted: Option<bool>,

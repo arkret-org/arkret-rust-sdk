@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{DidCoreId, EventId, Hash, Hlc, MorphId, RealmId};
+use arkret_wire::{ActorId, DidCoreId, EventId, Hash, Hlc, MorphId, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -28,7 +28,7 @@ pub struct StateFrontier {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StateFrontierActor {
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub actor_seq: u64,
     pub event_id: EventId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -80,12 +80,12 @@ pub struct DocumentMorphProjection {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub facets: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub created_by: Option<DidCoreId>,
+    pub created_by: Option<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub created_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<DidCoreId>,
+    pub updated_by: Option<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub updated_at: Option<DateTime<Utc>>,

@@ -6,16 +6,10 @@
 //!     `<localpart>:<domain>` handle then formatting it MUST yield the same bytes.
 //!  2. **`acct:` round-trips synthesise the canonical form.** Any valid `acct:` is convertible to
 //!     canonical and back to `acct:` without information loss.
-//!  3. **`HandleClaim::validate` enforces conditional required fields.** If
-//!     `binding_state=verified`, both `handle` and `expires_at` MUST be present. If
-//!     `member_delivery_binding` is present, both `handle` + `audience` + `expires_at` MUST also be
-//!     present.
+//!  3. **`HandleClaim::validate` enforces verified-claim expiry.**
 
-use arkret_models_identity::{
-    DeliveryBindingHint, Handle, HandleBindingState, HandleClaim, HandleHintBindingSource,
-    RecipientServiceKind,
-};
-use arkret_wire::DidCoreId;
+use arkret_models_identity::{Handle, HandleBindingState, HandleClaim};
+use arkret_wire::{AccountId, DidCoreId};
 use chrono::{Duration, Utc};
 use proptest::prelude::*;
 
@@ -47,18 +41,20 @@ fn arb_handle() -> impl Strategy<Value = String> {
 fn base_claim() -> HandleClaim {
     HandleClaim {
         schema: HandleClaim::SCHEMA.to_owned(),
-        handle: None,
+        handle: Handle::parse("alice:example.com").unwrap(),
         handle_aliases: Vec::new(),
-        subject_id: None,
-        issuer_id: None,
+        subject_account_id: AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
+        ),
+        issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureissuer").unwrap(),
         vouching_id: None,
-        binding_state: None,
+        binding_state: HandleBindingState::Pending,
         claim_kind: None,
         visibility: None,
         audience: None,
         challenge: None,
         claim_scope: Default::default(),
-        member_delivery_binding: None,
         claims: Vec::new(),
         created_at: Utc::now(),
         expires_at: None,
@@ -99,74 +95,27 @@ proptest! {
         prop_assert_eq!(parsed.canonical(), handle.canonical());
     }
 
-    /// MUST rule: binding_state=verified ⇒ requires handle AND expires_at.
+    /// MUST rule: binding_state=verified ⇒ requires expires_at.
     #[test]
     fn verified_state_requires_handle_and_expires(
-        has_handle in any::<bool>(),
         has_expiry in any::<bool>(),
         handle in arb_handle(),
     ) {
         let mut claim = HandleClaim {
-            binding_state: Some(HandleBindingState::Verified),
+            binding_state: HandleBindingState::Verified,
+            handle: Handle::parse(&handle).unwrap(),
             ..base_claim()
         };
-        if has_handle {
-            claim.handle = Some(Handle::parse(&handle).unwrap());
-        }
         if has_expiry {
             claim.expires_at = Some(Utc::now() + Duration::minutes(5));
         }
         let outcome = claim.validate();
-        if has_handle && has_expiry {
-            prop_assert!(outcome.is_ok(), "verified+handle+expiry should validate");
-        } else {
-            prop_assert!(
-                outcome.is_err(),
-                "verified without handle or expiry MUST be rejected (handle={has_handle}, expiry={has_expiry})"
-            );
-        }
-    }
-
-    /// MUST rule: member_delivery_binding set ⇒ requires handle AND
-    /// audience AND expires_at.
-    #[test]
-    fn member_delivery_binding_requires_full_binding(
-        has_handle in any::<bool>(),
-        has_audience in any::<bool>(),
-        has_expiry in any::<bool>(),
-        handle in arb_handle(),
-        audience in "[a-z]{1,8}",
-    ) {
-        let mut claim = HandleClaim {
-            member_delivery_binding: Some(DeliveryBindingHint {
-                recipient_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap(),
-                recipient_kind: RecipientServiceKind::PrincipalServer,
-                binding_source: HandleHintBindingSource::Explicit,
-                delivery_modes: Default::default(),
-                service_acceptance_ref: None,
-                policy_event_ref: None,
-            }),
-            ..base_claim()
-        };
-        if has_handle {
-            claim.handle = Some(Handle::parse(&handle).unwrap());
-        }
-        if has_audience {
-            claim.audience = Some(format!("did:webvh:z6mkfixture:{audience}.example"));
-        }
         if has_expiry {
-            claim.expires_at = Some(Utc::now() + Duration::minutes(5));
-        }
-        let outcome = claim.validate();
-        if has_handle && has_audience && has_expiry {
-            prop_assert!(
-                outcome.is_ok(),
-                "complete binding (handle+audience+expiry) should validate"
-            );
+            prop_assert!(outcome.is_ok(), "verified+expiry should validate");
         } else {
             prop_assert!(
                 outcome.is_err(),
-                "incomplete binding (handle={has_handle}, audience={has_audience}, expiry={has_expiry}) MUST be rejected"
+                "verified without expiry MUST be rejected"
             );
         }
     }

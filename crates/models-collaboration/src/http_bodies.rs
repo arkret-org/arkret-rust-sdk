@@ -10,11 +10,11 @@ use std::collections::BTreeMap;
 use arkret_models_identity::ServiceResolutionCarrier;
 use arkret_models_identity::agent_signer_evidence::AgentEventAdmissionReceipt;
 use arkret_wire::{
-    AppletId, AuditReasonText, Base64UrlString, BlobRef, ConsentId, ControlProposalAck, Cursor,
-    DeviceId, DidCoreId, DidKey, Event, EventId, EventInitialSubmission, Hash, IngressReceipt,
-    MimiRoomUri, MlsGroupId, MorphId, NonEmptyString, PayloadProof, ProofContextId, RealmId,
-    ReasonCode, RelationId, ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope,
-    SpaceId, StrandId, WireError, canonical,
+    ActorId, AppletId, AuditReasonText, Base64UrlString, BlobRef, ConsentId, ControlProposalAck,
+    Cursor, DeviceId, DidCoreId, DidKey, Event, EventId, EventInitialSubmission, Hash,
+    IngressReceipt, MimiRoomUri, MlsGroupId, MorphId, NonEmptyString, PayloadProof, ProofContextId,
+    RealmId, ReasonCode, RelationId, ReportId, Result, Seal, SealId, ServiceOperationId,
+    SignalEnvelope, SpaceId, StrandId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -893,7 +893,7 @@ pub struct ProjectionSpaceRow {
     pub rank: Option<String>,
     pub state: ProjectionSpaceState,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_by: Option<DidCoreId>,
+    pub created_by: Option<ActorId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
@@ -961,13 +961,13 @@ pub struct ProjectionStrandRow {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub assigned_to_relations: Vec<ProjectionAssignedToRelation>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_by: Option<DidCoreId>,
+    pub created_by: Option<ActorId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub created_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<DidCoreId>,
+    pub updated_by: Option<ActorId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -982,7 +982,7 @@ pub struct ProjectionStrandRow {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectionAssignedToRelation {
     pub relation_id: RelationId,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
 }
 
 /// `service-operation-dtos.schema.json#/$defs/ProjectionStrandList`.
@@ -1008,7 +1008,7 @@ pub struct ProjectionMorphRow {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_by: Option<DidCoreId>,
+    pub created_by: Option<ActorId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
@@ -1521,7 +1521,7 @@ pub enum MimiConsentDecision {
 pub struct MimiUpdateConsentRequestBody {
     pub consent_id: ConsentId,
     pub decision: MimiConsentDecision,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub consent_event: EventInitialSubmission,
     pub signature: PayloadProof,
     #[serde(skip_serializing_if = "Option::is_none")]

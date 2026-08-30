@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-30.2;
-//! sha256=5e25495f6d8fdeababcd7a5eddad610dab1327b1edbfa8822687181840ec5ccf Entries: error_codes=284
+//! Input: registry/error-code-registry.json; version=2026-08-30.5;
+//! sha256=8afaa04a8b0e6645232e62bc529891af399e58a1e8ad341c72e41cd5efdb067a Entries: error_codes=281
 
 use serde::{Deserialize, Serialize};
 
@@ -99,9 +99,6 @@ pub enum ErrorCode {
     CursorInvalid,
     CursorRevoked,
     CursorUnrecognized,
-    DeliveryBindingHandedOver,
-    DeliveryBindingStale,
-    DeliveryBindingUnresolvable,
     DependencyMissing,
     DeviceAlreadyAuthorized,
     DeviceGenerationFenced,
@@ -399,9 +396,6 @@ impl ErrorCode {
         Self::CursorInvalid,
         Self::CursorRevoked,
         Self::CursorUnrecognized,
-        Self::DeliveryBindingHandedOver,
-        Self::DeliveryBindingStale,
-        Self::DeliveryBindingUnresolvable,
         Self::DependencyMissing,
         Self::DeviceAlreadyAuthorized,
         Self::DeviceGenerationFenced,
@@ -691,9 +685,6 @@ impl ErrorCode {
     pub const CURSOR_INVALID: &'static str = "cursor_invalid";
     pub const CURSOR_REVOKED: &'static str = "cursor_revoked";
     pub const CURSOR_UNRECOGNIZED: &'static str = "cursor_unrecognized";
-    pub const DELIVERY_BINDING_HANDED_OVER: &'static str = "delivery_binding_handed_over";
-    pub const DELIVERY_BINDING_STALE: &'static str = "delivery_binding_stale";
-    pub const DELIVERY_BINDING_UNRESOLVABLE: &'static str = "delivery_binding_unresolvable";
     pub const DEPENDENCY_MISSING: &'static str = "dependency_missing";
     pub const DEVICE_ALREADY_AUTHORIZED: &'static str = "device_already_authorized";
     pub const DEVICE_GENERATION_FENCED: &'static str = "device_generation_fenced";
@@ -1011,9 +1002,6 @@ impl ErrorCode {
             Self::CursorInvalid => "cursor_invalid",
             Self::CursorRevoked => "cursor_revoked",
             Self::CursorUnrecognized => "cursor_unrecognized",
-            Self::DeliveryBindingHandedOver => "delivery_binding_handed_over",
-            Self::DeliveryBindingStale => "delivery_binding_stale",
-            Self::DeliveryBindingUnresolvable => "delivery_binding_unresolvable",
             Self::DependencyMissing => "dependency_missing",
             Self::DeviceAlreadyAuthorized => "device_already_authorized",
             Self::DeviceGenerationFenced => "device_generation_fenced",
@@ -1320,9 +1308,6 @@ impl ErrorCode {
             "cursor_invalid" => Some(Self::CursorInvalid),
             "cursor_revoked" => Some(Self::CursorRevoked),
             "cursor_unrecognized" => Some(Self::CursorUnrecognized),
-            "delivery_binding_handed_over" => Some(Self::DeliveryBindingHandedOver),
-            "delivery_binding_stale" => Some(Self::DeliveryBindingStale),
-            "delivery_binding_unresolvable" => Some(Self::DeliveryBindingUnresolvable),
             "dependency_missing" => Some(Self::DependencyMissing),
             "device_already_authorized" => Some(Self::DeviceAlreadyAuthorized),
             "device_generation_fenced" => Some(Self::DeviceGenerationFenced),
@@ -2268,36 +2253,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "The cursor decoded successfully but cannot be used by this service because it is a stateful handle issued by another service. Caller MUST restart sync from a fresh cursor.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::DeliveryBindingHandedOver,
-        type_uri: "https://arkret.org/problems/delivery_binding_handed_over",
-        title: "Delivery binding handed over",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "Federation sender continued using a previous recipient_id after the handover grace window expired; sender MUST resolve the current binding and retry there.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::DeliveryBindingStale,
-        type_uri: "https://arkret.org/problems/delivery_binding_stale",
-        title: "Delivery binding stale",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "Federation sender used an obsolete member delivery binding frontier; response carries new_recipient_id and handover_frontier so the sender can retry at the current service. Dual-registered as a per-device reason_code for ak.edge.push.command.notify.v1 (see reason_codes[]).",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::DeliveryBindingUnresolvable,
-        type_uri: "https://arkret.org/problems/delivery_binding_unresolvable",
-        title: "Delivery binding unresolvable",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "An accepted member delivery binding could not be resolved to a reachable recipient_id after the bounded retry limit; sender MUST NOT fall back to the DID Document ArkretService serviceKind=principal_server entry. Surfaced to the upstream sender as a diagnostic after the second failure so it can quarantine pending events and await rebind. See zh/governance/member-delivery-binding.md §5.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DependencyMissing,

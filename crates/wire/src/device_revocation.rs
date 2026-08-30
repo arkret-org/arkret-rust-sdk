@@ -4,8 +4,8 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AcceptedDevicePossessionProof, ControlProposalAck, ControlProposalDecision, DeviceId, Did,
-    DidUrl, EventId, Hash, PayloadProof, PrincipalAuthorityKey, ProofContextId, Result, SealId,
+    AcceptedDevicePossessionProof, AccountId, ControlProposalAck, ControlProposalDecision,
+    DeviceId, Did, DidUrl, EventId, Hash, PayloadProof, ProofContextId, Result, SealId,
     UnsignedPayloadProof, WireError, canonical, project_did_to_core_id,
 };
 
@@ -73,7 +73,7 @@ pub enum DeviceRevokedStatus {
 #[serde(deny_unknown_fields)]
 pub struct DeviceRevocationPendingState {
     pub schema: DeviceRevocationStateSchema,
-    pub principal_authority: PrincipalAuthorityKey,
+    pub principal_authority: AccountId,
     pub device_id: DeviceId,
     pub target_device_authorize_event_id: EventId,
     pub target_device_generation_ref: u64,
@@ -97,7 +97,7 @@ pub struct DeviceRevocationPendingState {
 #[serde(deny_unknown_fields)]
 pub struct DeviceRevokedState {
     pub schema: DeviceRevocationStateSchema,
-    pub principal_authority: PrincipalAuthorityKey,
+    pub principal_authority: AccountId,
     pub device_id: DeviceId,
     pub target_device_authorize_event_id: EventId,
     pub target_device_generation_ref: u64,
@@ -122,7 +122,7 @@ pub enum DeviceRevocationGateRecord {
 }
 
 fn validate_record_common(
-    principal_authority: &PrincipalAuthorityKey,
+    principal_authority: &AccountId,
     target_device_generation_ref: u64,
     proposal_digest: &Hash,
     acceptance_seq: u64,
@@ -252,7 +252,7 @@ pub enum DeviceRevocationGateActionClass {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceRevocationGateCheckRequestBody {
-    pub principal_authority: PrincipalAuthorityKey,
+    pub principal_authority: AccountId,
     pub device_id: DeviceId,
     /// Issuer-held verified binding, never a client-supplied value. Present
     /// together with `expected_device_generation_ref` or not at all, and only
@@ -370,7 +370,7 @@ pub enum DeviceRevocationGateDecision {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceRevocationGateDecisionReceipt {
-    pub principal_authority: PrincipalAuthorityKey,
+    pub principal_authority: AccountId,
     pub device_id: DeviceId,
     /// Origin-derived current binding. Present only for
     /// [`DeviceRevocationGateDecision::Allow`], where it is the sole source
@@ -403,7 +403,7 @@ pub struct DeviceRevocationGateDecisionReceipt {
 /// to compute the proof-less receipt digest.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct UnsignedDeviceRevocationGateDecisionReceipt {
-    pub principal_authority: PrincipalAuthorityKey,
+    pub principal_authority: AccountId,
     pub device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_device_authorize_event_id: Option<EventId>,
@@ -857,7 +857,7 @@ mod tests {
 
     fn request() -> DeviceRevocationGateCheckRequestBody {
         DeviceRevocationGateCheckRequestBody {
-            principal_authority: PrincipalAuthorityKey::new(
+            principal_authority: AccountId::new(
                 DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
                 DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
             ),

@@ -11,9 +11,10 @@ use arkret_models_collaboration::events_payloads::{
 };
 use arkret_models_identity::ResolutionCommitment;
 use arkret_wire::{
-    CellRef, Did, DidCoreId, EncryptionProfile, Event, EventKind, EventRef, GenesisSalt, Hlc,
-    NotaryValue, PcrGenesisUnit, ProfileId, Result, SchemaId, ScopeRef, SecurityClass,
-    TrustDomainId, WireError, composite_subject, event_spec, project_did_to_core_id, proof_kind,
+    AccountId, ActorId, CellRef, Did, DidCoreId, EncryptionProfile, Event, EventKind, EventRef,
+    GenesisSalt, Hlc, NotaryValue, PcrGenesisUnit, ProfileId, Result, SchemaId, ScopeRef,
+    SecurityClass, TrustDomainId, WireError, composite_subject, event_spec, project_did_to_core_id,
+    proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -49,7 +50,10 @@ pub fn build_self_principal_pcr_create(
     project: CellWriteProjector<'_>,
 ) -> Result<arkret_wire::AuthoredEvent> {
     let created_at = arkret_canonical::canonical::normalize_timestamp_canonical(input.created_at);
-    let actor_id = input.principal_id.clone();
+    let actor_id = ActorId::account(AccountId::new(
+        input.principal_id.clone(),
+        input.principal_server_id.clone(),
+    ));
     if project_did_to_core_id(&input.principal_did)? != input.principal_id {
         return Err(WireError::Protocol(
             "self principal DID does not project to principal_id".to_owned(),
@@ -92,7 +96,6 @@ pub fn build_self_principal_pcr_create(
         // from the authored create Event.
         ScopeRef::RealmGenesis,
         actor_id,
-        input.principal_server_id,
         payload,
     )
     .map_err(|error| WireError::Protocol(error.to_string()))?
@@ -159,7 +162,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
     let authorize_proof = validate_event_proof_digests(authorize)?;
     let payload: DeviceAuthorizePayload =
         authorize.typed_payload::<event_spec::DeviceAuthorize>()?;
-    if payload.principal_id.as_core_id() != create.actor_id.as_core_id()
+    if payload.principal_id.as_core_id() != create.actor_id.signing_principal_id().as_core_id()
         || payload.authorization_binding_kind != DeviceAuthorizationBindingKind::RegistrationAnchor
         || payload.recovery_session_id.is_some()
     {
@@ -169,7 +172,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
     }
     let authorized_by_matches = match &payload.authorized_by {
         DeviceOrPrincipalRef::Principal(principal_id) => {
-            principal_id.as_core_id() == create.actor_id.as_core_id()
+            principal_id.as_core_id() == create.actor_id.signing_principal_id().as_core_id()
         }
         DeviceOrPrincipalRef::DeviceId(_) => false,
     };
@@ -206,8 +209,8 @@ pub fn validate_self_principal_pcr_genesis_unit(
     let verification_controller = Did::new(verification_controller.to_owned())?;
     let verification_principal = project_did_to_core_id(&verification_controller)?;
     if !authorized_by_matches
-        || signer.actor_id != create.actor_id
-        || verification_principal != create.actor_id
+        || signer.actor_id != *create.actor_id.signing_principal_id()
+        || verification_principal != *create.actor_id.signing_principal_id()
         || verification_controller != initial_resolution.did
         || verification_fragment != descriptor.device_id.as_str()
         || descriptor.device_id != payload.device_id
@@ -293,7 +296,9 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
         .filter(|profile| profile.as_str() == ProfileId::PRINCIPAL_CONTROL_REALM_V1)
         .count();
     let notary_matches = match &genesis.notary {
-        NotaryValue::SingleSigner { signer, .. } => signer.actor_id == event.actor_id,
+        NotaryValue::SingleSigner { signer, .. } => {
+            signer.actor_id == *event.actor_id.signing_principal_id()
+        }
         _ => false,
     };
     let resolution_matches = genesis
@@ -301,7 +306,7 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
         .as_ref()
         .is_some_and(|resolution| {
             project_did_to_core_id(&resolution.did)
-                .is_ok_and(|principal_id| principal_id == event.actor_id)
+                .is_ok_and(|principal_id| principal_id == *event.actor_id.signing_principal_id())
                 && !resolution.method_history_head.is_empty()
                 && !resolution.version_id.is_empty()
         });

@@ -454,8 +454,8 @@ impl<'de> Deserialize<'de> for DeviceReanchorPayload {
 impl DeviceReanchorPayload {
     pub const SCHEMA: &'static str = SchemaId::DEVICE_REANCHOR_V1;
 
-    pub fn principal_authority(&self) -> PrincipalAuthorityKey {
-        PrincipalAuthorityKey::new(self.principal_id.clone(), self.principal_server_id.clone())
+    pub fn principal_authority(&self) -> AccountId {
+        AccountId::new(self.principal_id.clone(), self.principal_server_id.clone())
     }
 
     pub fn validate(&self) -> std::result::Result<(), &'static str> {
@@ -700,7 +700,7 @@ impl<'de> Deserialize<'de> for DeviceRevocationReason {
 /// active MLS generation rather than the founding group.
 pub struct DirectConversationBoundPayload {
     pub pair_key: Hash,
-    pub unordered_participant_ids: Vec<DidCoreId>,
+    pub unordered_participant_ids: Vec<ActorId>,
     pub realm_id: RealmId,
     pub main_strand_id: StrandId,
     pub founding_unit_digest: Hash,
@@ -714,7 +714,7 @@ pub struct DirectConversationBoundPayload {
 impl DirectConversationBoundPayload {
     pub fn validate_pair_key(&self, trust_domain: TrustDomainId) -> Result<()> {
         self.authorization_basis.validate_shape()?;
-        let [left, right]: [DidCoreId; 2] = self
+        let [left, right]: [ActorId; 2] = self
             .unordered_participant_ids
             .clone()
             .try_into()
@@ -748,12 +748,8 @@ impl DirectConversationBoundPayload {
             ));
         }
 
-        let mut participants = self
-            .unordered_participant_ids
-            .iter()
-            .map(DidCoreId::as_str)
-            .collect::<Vec<_>>();
-        participants.sort_by(|left, right| left.as_bytes().cmp(right.as_bytes()));
+        let mut participants = self.unordered_participant_ids.clone();
+        participants.sort();
         let mut event_refs = self
             .authorization_basis
             .event_refs

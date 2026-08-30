@@ -7,12 +7,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
-    CbaEffectPlane, CbaProofBundle, ControlProposalAck, ControlProposalDecision,
-    ControlProposalDecisionPolicy, DidCoreId, Event, EventFederationSubmission, EventId, Hash,
-    MAX_ACTOR_SEQ_TOTAL_SIBLINGS, RealmId, Result, Seal, SealBasis, SealId, WireError,
+    ActorId, CbaEffectPlane, CbaProofBundle, ControlProposalAck, ControlProposalDecision,
+    ControlProposalDecisionPolicy, Did, DidCoreId, Event, EventFederationSubmission, EventId, Hash,
+    MAX_ACTOR_SEQ_TOTAL_SIBLINGS, RealmId, Result, SchemaId, Seal, SealBasis, SealId, WireError,
 };
-#[cfg(test)]
-use arkret_wire::{Did, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -93,10 +91,10 @@ pub enum ActorAggregateFrontierKind {
 pub enum EventsFrontierSelector {
     RealmActor {
         realm_id: RealmId,
-        actor_id: DidCoreId,
+        actor_id: ActorId,
     },
     ActorAggregate {
-        actor_id: DidCoreId,
+        actor_id: ActorId,
     },
 }
 
@@ -107,10 +105,16 @@ impl EventsFrontierSelector {
         match self {
             Self::RealmActor { realm_id, actor_id } => vec![
                 ("realm_id", realm_id.as_str().to_owned()),
-                ("actor_id", actor_id.as_str().to_owned()),
+                (
+                    "actor_id",
+                    actor_id.canonical_key().expect("validated ActorId"),
+                ),
             ],
             Self::ActorAggregate { actor_id } => {
-                vec![("actor_id", actor_id.as_str().to_owned())]
+                vec![(
+                    "actor_id",
+                    actor_id.canonical_key().expect("validated ActorId"),
+                )]
             }
         }
     }
@@ -149,7 +153,7 @@ pub enum EventsFrontierView {
 struct RealmActorFrontierDigestTranscript<'a> {
     kind: &'static str,
     realm_id: &'a RealmId,
-    actor_id: &'a DidCoreId,
+    actor_id: &'a ActorId,
     next_actor_seq: u64,
     frontier_event_ids: &'a [EventId],
 }
@@ -161,7 +165,7 @@ struct RealmActorFrontierDigestTranscript<'a> {
 pub struct RealmActorFrontierView {
     pub kind: RealmActorFrontierKind,
     pub realm_id: RealmId,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub next_actor_seq: u64,
     pub frontier_event_ids: Vec<EventId>,
     pub frontier_digest: Hash,
@@ -170,7 +174,7 @@ pub struct RealmActorFrontierView {
 impl RealmActorFrontierView {
     pub fn new(
         realm_id: RealmId,
-        actor_id: DidCoreId,
+        actor_id: ActorId,
         next_actor_seq: u64,
         frontier_event_ids: Vec<EventId>,
         digest_suite: DigestSuite,
@@ -196,7 +200,7 @@ impl RealmActorFrontierView {
 
     pub fn compute_digest(
         realm_id: &RealmId,
-        actor_id: &DidCoreId,
+        actor_id: &ActorId,
         next_actor_seq: u64,
         frontier_event_ids: &[EventId],
         digest_suite: DigestSuite,
@@ -276,7 +280,7 @@ impl RealmActorFrontierView {
 #[serde(deny_unknown_fields)]
 pub struct ActorAggregateFrontierView {
     pub kind: ActorAggregateFrontierKind,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub frontiers: Vec<RealmActorFrontierView>,
 }
 
@@ -677,7 +681,7 @@ pub struct EventsFrontierFederationPeerState {
     pub membership_frontier_root: Option<Hash>,
     /// Per-actor sequence upper bounds returned to an authorized peer.
     #[serde(default)]
-    pub actor_seq_upper_bounds: BTreeMap<DidCoreId, u64>,
+    pub actor_seq_upper_bounds: BTreeMap<ActorId, u64>,
     /// Optional witness / receipt-service attestations over the frontier.
     #[serde(default)]
     pub witness_receipts: Vec<BTreeMap<String, Value>>,
@@ -700,7 +704,6 @@ pub struct FederationServiceBindingRef {
     pub realm_id: RealmId,
     pub realm_policy_digest: Hash,
     pub membership_frontier: Vec<EventId>,
-    pub delivery_binding_frontier: Vec<EventId>,
     pub destination_kind: String,
 }
 

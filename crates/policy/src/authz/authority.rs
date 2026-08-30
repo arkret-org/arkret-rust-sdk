@@ -36,7 +36,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_collaboration::governance::grant_constraint::GrantConstraintSubkind;
-use arkret_wire::{AppletId, CircleId, DidCoreId, Hash};
+use arkret_wire::{ActorId, AppletId, CircleId, DidCoreId, Hash};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -101,11 +101,8 @@ impl IssuerAuthorityRef {
 pub struct Grant {
     pub grant_id: String,
     pub realm_id: String,
-    pub issuer_id: DidCoreId,
-    pub issuer_principal_server_id: DidCoreId,
-    pub subject_id: DidCoreId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subject_principal_server_id: Option<DidCoreId>,
+    pub issuer_id: ActorId,
+    pub subject_id: ActorId,
     pub resource: String,
     pub actions: Vec<String>,
     #[serde(default)]
@@ -463,10 +460,7 @@ where
             let Some(parent_grant) = snapshot.get(parent).map(|value| value.borrow()) else {
                 return false;
             };
-            if parent_grant.subject_id != grant.issuer_id
-                || parent_grant.subject_principal_server_id.as_ref()
-                    != Some(&grant.issuer_principal_server_id)
-            {
+            if parent_grant.subject_id != grant.issuer_id {
                 return false;
             }
             pending.push(parent);

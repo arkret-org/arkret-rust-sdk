@@ -62,9 +62,9 @@ impl PcrGenesisSubmitRequestBody {
             || self.registration_did_evidence.method_history_head != self.log_head_digest.as_str()
             || self.registration_did_evidence.control_key_digest != self.control_key_digest
             || proof.genesis_unit_kinds != PCR_GENESIS_UNIT_KINDS
-            || create.actor_id != self.principal_id.clone()
+            || create.actor_id.signing_principal_id() != &self.principal_id
             || create.realm_id != self.pcr_realm_id
-            || authorize.actor_id != self.principal_id.clone()
+            || authorize.actor_id.signing_principal_id() != &self.principal_id
             || authorize.realm_id != self.pcr_realm_id
         {
             return Err(WireError::Protocol(

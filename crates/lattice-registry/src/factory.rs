@@ -62,7 +62,6 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(RealmArchive);
     registry.register(RealmAssetPrivacyPolicy);
     registry.register(RealmCreate);
-    registry.register(RealmDeliveryBindingPolicy);
     registry.register(RealmDestroy);
     registry.register(RealmDiscovery);
     registry.register(RealmFreeze);

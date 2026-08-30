@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use arkret_wire::{DidCoreId, DidUrl, ProofContextId};
+use arkret_wire::{ActorId, DidCoreId, DidUrl, ProofContextId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -48,7 +48,7 @@ pub struct SnapshotManifest {
     pub verification_hints: Option<SnapshotVerificationHints>,
     #[serde(default)]
     pub chunks: Vec<SnapshotChunkDescriptor>,
-    pub created_by: DidCoreId,
+    pub created_by: ActorId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub authority_binding: AuthorityBinding,
@@ -69,7 +69,7 @@ pub struct UnsignedSnapshotManifest<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verification_hints: Option<&'a SnapshotVerificationHints>,
     pub chunks: &'a [SnapshotChunkDescriptor],
-    pub created_by: &'a DidCoreId,
+    pub created_by: &'a ActorId,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub authority_binding: &'a AuthorityBinding,

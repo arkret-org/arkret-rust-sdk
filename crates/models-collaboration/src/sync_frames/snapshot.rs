@@ -1,6 +1,8 @@
 //! Sync, realm, and snapshot schema artifact counterparts.
 
-use arkret_wire::{DidCoreId, PayloadProof, ProofContextId, SchemaId, UnsignedPayloadProof};
+use arkret_wire::{
+    ActorId, DidCoreId, PayloadProof, ProofContextId, SchemaId, UnsignedPayloadProof,
+};
 
 use crate::internal_prelude::*;
 
@@ -27,7 +29,7 @@ pub struct RangeCompletenessAttestationEventRangeToFrontier {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RangeCompletenessAttestationEventRangeActorSeqRangesItem {
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub from_seq_exclusive: i64,
     pub to_seq_inclusive: u64,
 }
@@ -168,7 +170,7 @@ pub struct SnapshotFrontierValue {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SnapshotEventSetCommitmentActorSeqRangesItem {
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub from_seq: u64,
     pub to_seq: u64,
     pub root: Hash,
@@ -259,7 +261,7 @@ pub struct Snapshot {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verification_hints: Option<SnapshotVerificationHintsValue>,
     pub chunks: Vec<SnapshotChunksItem>,
-    pub created_by: DidCoreId,
+    pub created_by: ActorId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub authority_binding: SnapshotAuthorityBinding,
@@ -278,7 +280,7 @@ pub struct SnapshotBootstrap {
     pub snapshot_ref: SnapshotId,
     pub state_digest: Hash,
     pub snapshot_frontier: Vec<EventId>,
-    pub created_by: DidCoreId,
+    pub created_by: ActorId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub authority_binding: SnapshotAuthorityBinding,

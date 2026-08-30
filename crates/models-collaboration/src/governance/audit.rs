@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DidCoreId, DidUrl, EventId, Hash, ProducerEventProof, ProfileId, RealmId, ReasonCode,
+    ActorId, DidCoreId, DidUrl, EventId, Hash, ProducerEventProof, ProfileId, RealmId, ReasonCode,
     ReceiptId, Result, SchemaId, TrustDomainId, WireError,
 };
 use chrono::{DateTime, Utc};
@@ -102,7 +102,7 @@ pub struct RywActorFrontierEntry {
 pub struct RywFrontier {
     pub realm_frontier: Vec<EventId>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub actor_frontier: BTreeMap<DidCoreId, RywActorFrontierEntry>,
+    pub actor_frontier: BTreeMap<ActorId, RywActorFrontierEntry>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

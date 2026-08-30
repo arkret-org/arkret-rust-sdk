@@ -10,7 +10,7 @@
 #[cfg(test)]
 use arkret_wire::Base64UrlString;
 use arkret_wire::{
-    CbaProofBundle, CellRef, DidCoreId, Event, EventFederationSubmission, EventId,
+    ActorId, CbaProofBundle, CellRef, DidCoreId, Event, EventFederationSubmission, EventId,
     EventInitialSubmission, Hash, IdempotencyKey, PredicateOp, ProtocolSignature, RealmId,
     ScopeRef, StrandId, TrustDomainId, canonical,
 };
@@ -183,10 +183,7 @@ impl DirectConversationFoundingPlan {
             .map_err(protocol_error)?;
         if member_payload.membership
             != crate::governance::membership_invite::MembershipPayloadState::Join
-            || member_payload
-                .actor_id
-                .as_ref()
-                .is_some_and(|actor_id| actor_id == &create.actor_id)
+            || member_payload.member_id == create.actor_id
             || member_payload.realm_id.as_ref() != Some(&realm_id)
         {
             return Err(founding_unit_invalid("founding peer membership mismatch"));
@@ -198,12 +195,12 @@ impl DirectConversationFoundingPlan {
             .map_err(protocol_error)?;
         let founder_cell = CellRef::new(format!(
             "ak:cell:ak.component.member.state.v1:{}",
-            create.actor_id
+            create.actor_id.canonical_key().map_err(protocol_error)?
         ))
         .map_err(protocol_error)?;
         if founder_member_payload.membership
             != crate::governance::membership_invite::MembershipPayloadState::Join
-            || founder_member_payload.actor_id.as_ref() != Some(&create.actor_id)
+            || founder_member_payload.member_id != create.actor_id
             || founder_member_payload.realm_id.as_ref() != Some(&realm_id)
             || founder_member.preconditions.len() != 1
             || founder_member.preconditions[0].cell_id != founder_cell
@@ -244,7 +241,7 @@ impl DirectConversationFoundingPlan {
 }
 
 impl DirectConversationFoundingAuthorityEvidence {
-    pub fn participants_and_founder(&self) -> arkret_wire::Result<([DidCoreId; 2], DidCoreId)> {
+    pub fn participants_and_founder(&self) -> arkret_wire::Result<([ActorId; 2], ActorId)> {
         match self {
             Self::ControllerAgent { .. } => Err(arkret_wire::WireError::Protocol(
                 "controller_agent founding evidence requires the accepted provision projection"
@@ -292,7 +289,7 @@ impl DirectConversationFoundingAuthorityEvidence {
                         &requests[0].request_event_ref,
                     ),
                 };
-                if participants[0].as_str() >= participants[1].as_str() {
+                if participants[0] >= participants[1] {
                     return Err(arkret_wire::WireError::Protocol(
                         "direct conversation contact_round pair is not canonical and distinct"
                             .to_owned(),
@@ -331,7 +328,7 @@ impl DirectConversationFoundingAuthorityEvidence {
     pub fn human_pair_key_and_authorization_core(
         &self,
         trust_domain_id: TrustDomainId,
-    ) -> arkret_wire::Result<(Hash, DidCoreId, DirectConversationFoundingAuthorizationCore)> {
+    ) -> arkret_wire::Result<(Hash, ActorId, DirectConversationFoundingAuthorizationCore)> {
         let Self::Human {
             contact_round_evidence,
             contact_round_continuity_chains,
@@ -396,7 +393,7 @@ fn validate_contact_contact_round_evidence_shape(
             ..
         } => sorted_pair_member_ids,
     };
-    if participants[0].as_str() >= participants[1].as_str()
+    if participants[0] >= participants[1]
         || bundle.current_proofs.iter().any(|proof| {
             proof.contact_round_id != bundle.contact_round_id
                 || proof.complete_through == 0
@@ -761,7 +758,7 @@ impl DirectConversationFoundingAuthorizationCore {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DirectConversationFoundingAcceptanceReceipt {
     pub pair_key: Hash,
-    pub founder_id: DidCoreId,
+    pub founder_id: ActorId,
     pub realm_id: RealmId,
     pub main_strand_id: StrandId,
     pub founding_unit_digest: Hash,
@@ -788,7 +785,7 @@ impl DirectConversationFoundingAcceptanceReceipt {
         #[derive(Serialize)]
         struct ReceiptTranscript<'a> {
             pair_key: &'a Hash,
-            founder_id: &'a DidCoreId,
+            founder_id: &'a ActorId,
             realm_id: &'a RealmId,
             main_strand_id: &'a StrandId,
             founding_unit_digest: &'a Hash,

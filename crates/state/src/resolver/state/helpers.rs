@@ -198,7 +198,7 @@ impl RealmState {
         candidate
             .hlc
             .cmp(&existing.hlc)
-            .then_with(|| candidate.actor_id.as_str().cmp(existing.actor_id.as_str()))
+            .then_with(|| candidate.actor_id.cmp(&existing.actor_id))
             .then_with(|| candidate.actor_seq.cmp(&existing.actor_seq))
             .then_with(|| {
                 candidate
@@ -213,12 +213,7 @@ impl RealmState {
         candidate
             .hlc
             .cmp(&existing.latest_hlc)
-            .then_with(|| {
-                candidate
-                    .actor_id
-                    .as_str()
-                    .cmp(existing.latest_actor_id.as_str())
-            })
+            .then_with(|| candidate.actor_id.cmp(&existing.latest_actor_id))
             .then_with(|| candidate.actor_seq.cmp(&existing.latest_actor_seq))
             .then_with(|| {
                 candidate
@@ -236,7 +231,7 @@ impl RealmState {
         candidate
             .hlc
             .cmp(&existing.hlc)
-            .then_with(|| candidate.actor_id.as_str().cmp(existing.actor_id.as_str()))
+            .then_with(|| candidate.actor_id.cmp(&existing.actor_id))
             .then_with(|| candidate.actor_seq.cmp(&existing.actor_seq))
             .then_with(|| {
                 candidate

@@ -21,7 +21,7 @@ use crate::generated::ProofContextId;
 pub use crate::generated::{AuthoritySetPolicyKind, AuthoritySetSourceKind};
 use crate::primitives::{Audience, PayloadProof};
 use crate::{
-    AuthorizationLeaseId, DeviceId, Did, DidCoreId, DidUrl, EventId, Hash, RealmId, ReceiptId,
+    ActorId, AuthorizationLeaseId, DeviceId, Did, DidUrl, EventId, Hash, RealmId, ReceiptId,
     SchemaId, SealId, canonical,
 };
 
@@ -273,7 +273,7 @@ pub enum LeaseBasisRef {
 pub struct AuthorizationLease {
     pub authorization_lease_id: AuthorizationLeaseId,
     pub basis_ref: LeaseBasisRef,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub device_id: DeviceId,
     pub scope_ref: ScopeRef,
     pub action: String,

@@ -14,14 +14,14 @@
 
 use std::collections::BTreeSet;
 
-pub use arkret_wire::CircleId;
 /// Canonical schema id for `Circle`.
 ///
 /// Re-export of [`arkret_wire::SchemaId::CIRCLE_V1`] for code that imports
 /// types from this module.
+pub use arkret_wire::CircleId;
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    ContentScheme, DidCoreId, DurabilityPolicy, EncryptionProfile, EventInitialSubmission,
+    ActorId, ContentScheme, DidCoreId, DurabilityPolicy, EncryptionProfile, EventInitialSubmission,
     HistoryAccess, RealmId, SchemaId,
 };
 use chrono::{DateTime, Utc};
@@ -218,11 +218,11 @@ pub struct Circle {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub state_changed_at: Option<DateTime<Utc>>,
-    pub created_by: DidCoreId,
+    pub created_by: ActorId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<DidCoreId>,
+    pub updated_by: Option<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub updated_at: Option<DateTime<Utc>>,
@@ -260,12 +260,12 @@ pub struct CircleView {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub viewer_membership: Option<CircleMembership>,
     #[serde(default)]
-    pub member_ids: Vec<DidCoreId>,
-    pub created_by: DidCoreId,
+    pub member_ids: Vec<ActorId>,
+    pub created_by: ActorId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<DidCoreId>,
+    pub updated_by: Option<ActorId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -353,7 +353,7 @@ pub struct CircleMemberDeleteRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CircleMembershipOutcome {
     pub circle_id: CircleId,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub membership: CircleMembership,
 }
 
@@ -677,7 +677,7 @@ pub enum CircleScopeError {
         "circle member {circle_member} is not an active parent-Realm member \
          (reducer reason=circle_member_must_be_realm_member, AKP-0007)"
     )]
-    MemberNotInRealm { circle_member: DidCoreId },
+    MemberNotInRealm { circle_member: ActorId },
     #[error(
         "circle membership is not a strict subset of realm membership \
          (reducer reason=circle_member_must_be_realm_member, AKP-0007)"
@@ -767,7 +767,7 @@ impl Circle {
         realm_id: RealmId,
         title: impl Into<String>,
         display: CircleDisplay,
-        created_by: DidCoreId,
+        created_by: ActorId,
     ) -> Self {
         Self {
             id: Some(id),
@@ -808,7 +808,7 @@ impl Circle {
         realm_id: RealmId,
         title: impl Into<String>,
         display: CircleDisplay,
-        created_by: DidCoreId,
+        created_by: ActorId,
     ) -> Self {
         Self {
             id: None,
@@ -862,10 +862,10 @@ impl Circle {
     /// member outside the Realm set"), otherwise the first offending
     /// Circle member.
     pub fn assert_member_ids_strict_subset(
-        circle_member_ids: &[DidCoreId],
-        realm_member_ids: &[DidCoreId],
+        circle_member_ids: &[ActorId],
+        realm_member_ids: &[ActorId],
     ) -> Result<(), CircleScopeError> {
-        let realm: BTreeSet<&DidCoreId> = realm_member_ids.iter().collect();
+        let realm: BTreeSet<&ActorId> = realm_member_ids.iter().collect();
         for member in circle_member_ids {
             if !realm.contains(member) {
                 return Err(CircleScopeError::MemberNotInRealm {

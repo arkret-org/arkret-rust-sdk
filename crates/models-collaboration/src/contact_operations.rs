@@ -1,6 +1,6 @@
 use arkret_wire::{
-    ControlProposalAck, Did, DidCoreId, Event, EventId, Hash, IdempotencyKey,
-    PrincipalAuthorityKey, ProtocolOperationId, ProtocolSignature, ReservationHandle,
+    AccountId, ActorId, ControlProposalAck, Did, DidCoreId, Event, EventId, Hash, IdempotencyKey,
+    ProtocolOperationId, ProtocolSignature, ReservationHandle,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -14,11 +14,11 @@ use crate::string_marker;
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ContactPeer {
     Human {
-        principal_id: DidCoreId,
+        account_id: AccountId,
     },
     Agent {
-        agent_id: DidCoreId,
-        controller_id: DidCoreId,
+        actor_id: ActorId,
+        controller_account_id: AccountId,
     },
 }
 
@@ -26,11 +26,10 @@ impl ContactPeer {
     /// Normalize a Contact participant to the actor role used by pair ordering
     /// and Contact receipts. Human principals are actors in this protocol
     /// context; this explicit conversion prevents a generic cross-role `From`.
-    pub fn contact_actor_id(&self) -> DidCoreId {
+    pub fn contact_actor_id(&self) -> ActorId {
         match self {
-            Self::Human { principal_id } => DidCoreId::new(principal_id.as_str())
-                .expect("validated principal core is a valid actor core"),
-            Self::Agent { agent_id, .. } => agent_id.clone(),
+            Self::Human { account_id } => ActorId::account(account_id.clone()),
+            Self::Agent { actor_id, .. } => actor_id.clone(),
         }
     }
 }
@@ -165,7 +164,7 @@ impl ContactNextPrepareInput {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactCurrentProof {
     pub contact_round_id: Hash,
-    pub issuer_id: DidCoreId,
+    pub issuer_id: ActorId,
     pub terminal: bool,
     pub head_event_ref: EventId,
     pub accepted_frontier: Vec<EventId>,
@@ -198,12 +197,12 @@ pub struct ContactRoundRequestRef {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ContactRound {
     Normal {
-        sorted_pair_member_ids: [DidCoreId; 2],
+        sorted_pair_member_ids: [ActorId; 2],
         request_event_ref: EventId,
         request_acceptance_receipt_digest: Hash,
     },
     Glare {
-        sorted_pair_member_ids: [DidCoreId; 2],
+        sorted_pair_member_ids: [ActorId; 2],
         requests: [ContactRoundRequestRef; 2],
     },
 }
@@ -218,7 +217,7 @@ pub struct NormalResponseAcceptanceReceipt {
     pub outgoing_slot_absence_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
-    pub issuer_id: DidCoreId,
+    pub issuer_id: ActorId,
     pub signature: ProtocolSignature,
 }
 
@@ -240,7 +239,7 @@ pub struct RejectAcceptanceReceipt {
     pub reject_event_ref: EventId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
-    pub issuer_id: DidCoreId,
+    pub issuer_id: ActorId,
     pub signature: ProtocolSignature,
 }
 
@@ -383,7 +382,7 @@ pub const CONTACT_CONTINUITY_CONTEXT: &str = "ak.contact.round.continuity.v1";
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct BilateralContinuityCheckpointCore {
     pub context: String,
-    pub participants: [PrincipalAuthorityKey; 2],
+    pub participants: [AccountId; 2],
     #[serde(deserialize_with = "deserialize_uncheckpointed_root_basis")]
     pub root_basis: Box<ContactRoundEvidenceBundle>,
     /// Contact round id at the compacted-prefix boundary. The first omitted
@@ -418,7 +417,7 @@ where
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct BilateralContinuityCheckpointSignature {
-    pub signer: PrincipalAuthorityKey,
+    pub signer: AccountId,
     pub signature: ProtocolSignature,
 }
 
@@ -694,8 +693,8 @@ pub fn validate_recontact_continuity(
         let current_pair = contact_round_participants(&current.contact_round);
         let root_pair = contact_round_participants(&root.contact_round);
         let checkpoint_pair = [
-            checkpoint.core.participants[0].principal_id.clone(),
-            checkpoint.core.participants[1].principal_id.clone(),
+            ActorId::account(checkpoint.core.participants[0].clone()),
+            ActorId::account(checkpoint.core.participants[1].clone()),
         ];
         if current_pair != root_pair
             || root_pair != checkpoint_pair
@@ -716,7 +715,7 @@ pub fn validate_recontact_continuity(
     Ok(())
 }
 
-fn contact_round_participants(round: &ContactRound) -> [DidCoreId; 2] {
+fn contact_round_participants(round: &ContactRound) -> [ActorId; 2] {
     match round {
         ContactRound::Normal {
             sorted_pair_member_ids,

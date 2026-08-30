@@ -757,23 +757,6 @@ id_type!(
     is_core_id
 );
 
-id_type!(
-    #[cfg_attr(
-        feature = "diesel",
-        derive(diesel::expression::AsExpression, diesel::deserialize::FromSqlRow)
-    )]
-    #[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Text))]
-    /// Durable service-local account key scoped by its owning Principal
-    /// Server. This is neither an Arkret typed identifier nor a DID/DID URL.
-    ServiceAccountId,
-    |value: &str| {
-        !value.is_empty()
-            && value.chars().count() <= 255
-            && !value.starts_with("ak:")
-            && !value.starts_with("did:")
-    }
-);
-
 /// Canonical HTTP(S) Web Origin. Wire construction requires the already
 /// canonical origin tuple: lowercase scheme/host, no trailing slash, no
 /// explicit default port, and no userinfo, path, query, or fragment.
@@ -2007,17 +1990,6 @@ mod tests {
         assert!(Did::new(format!("did:web:{}", "a".repeat(2041))).is_err());
         assert!(DidCoreId::new("ak:did_core:web:peer-ps.example").is_ok());
         assert!(DidCoreId::new("ak:did_core:web:peer-ps.example/path").is_err());
-    }
-
-    #[test]
-    fn service_account_id_rejects_global_identifier_namespaces() {
-        assert!(ServiceAccountId::new("account-1").is_ok());
-        assert!(ServiceAccountId::new("").is_err());
-        assert!(ServiceAccountId::new("ak:account:0192f3a1").is_err());
-        assert!(ServiceAccountId::new("ak:did_core:web:alice.example").is_err());
-        assert!(ServiceAccountId::new("did:web:alice.example").is_err());
-        assert!(ServiceAccountId::new("did:web:alice.example#key-1").is_err());
-        assert!(ServiceAccountId::new("a".repeat(256)).is_err());
     }
 
     #[test]

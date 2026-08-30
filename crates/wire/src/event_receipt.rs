@@ -10,10 +10,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{Result, WireError};
-use crate::event_envelope::PrincipalAuthorityKey;
 use crate::primitives::{PayloadProof, UnsignedPayloadProof};
 use crate::wire_strings::NonEmptyString;
-use crate::{ProofContextId, SchemaId, canonical};
+use crate::{AccountId, ProofContextId, SchemaId, canonical};
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-batch-receipt.schema.json`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -95,7 +94,7 @@ impl DeviceReanchorReceiptScope {
     /// monotonic successor pair. A same-core instance selecting a different
     /// Principal Server, PCR Realm or genesis receipt is a different PCR.
     pub fn validate_authority(&self) -> Result<()> {
-        PrincipalAuthorityKey {
+        AccountId {
             principal_id: self.principal_id.clone(),
             principal_server_id: self.principal_server_id.clone(),
         }
@@ -329,8 +328,8 @@ mod event_batch_receipt_tests {
         Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
-    fn fixture_authority() -> PrincipalAuthorityKey {
-        PrincipalAuthorityKey::new(
+    fn fixture_authority() -> AccountId {
+        AccountId::new(
             DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
             DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
         )

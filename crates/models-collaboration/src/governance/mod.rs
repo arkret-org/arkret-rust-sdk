@@ -1,6 +1,6 @@
 //! Governance wire shapes: realm governance payloads, circle boundary
 //! types, invite addressing and delivery, moderation, grant constraints,
-//! capability wire records, and member delivery bindings. Receive-policy
+//! and capability wire records. Receive-policy
 //! and plaintext-classification shapes live in `arkret-wire`
 //! (cross-domain: consumed by governance invite processing and discovery
 //! service descriptions).
@@ -15,7 +15,6 @@ pub mod circle;
 pub mod erasure;
 pub mod grant_constraint;
 pub mod invite_addressing;
-pub mod member_delivery_binding_candidate;
 pub mod membership_invite;
 pub mod moderation;
 pub mod moderation_appeal;

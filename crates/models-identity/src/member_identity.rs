@@ -7,7 +7,7 @@
 //!
 //! R3.2 wire-breaking changes:
 //! * `MemberIdentity` no longer carries `primary_handle` / `handles[]`; handle lifecycle is
-//!   governed solely by `ak.schema.handle_claim.v1`. This object discloses `subject_id` +
+//!   governed solely by `ak.schema.handle_claim.v1`. This object discloses `subject_actor_id` +
 //!   `display_profile` for Realm UI projection only.
 //! * The payload does not repeat the locally derivable carrier digest.
 //! * Roster `identity_state_digest` renamed to `member_display_state_digest` and now folds the
@@ -23,9 +23,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_wire::{
-    BlobRef, DidCoreId, DidUrl, EventId, Hash, RealmId, Result, SchemaId, canonical,
-};
+use arkret_wire::{ActorId, BlobRef, DidUrl, EventId, Hash, RealmId, Result, SchemaId, canonical};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -43,8 +41,8 @@ pub struct MemberIdentity {
     /// `ak.schema.member_identity.v1`.
     pub schema: String,
     pub realm_id: RealmId,
-    pub actor_id: DidCoreId,
-    pub subject_id: DidCoreId,
+    pub actor_id: ActorId,
+    pub subject_actor_id: ActorId,
     pub display_profile: DisplayProfile,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub asserted_at: DateTime<Utc>,
@@ -63,8 +61,8 @@ impl MemberIdentity {
     /// callers can't drift from `ak.schema.member_identity.v1`.
     pub fn new(
         realm_id: RealmId,
-        actor_id: DidCoreId,
-        subject_id: DidCoreId,
+        actor_id: ActorId,
+        subject_actor_id: ActorId,
         display_profile: DisplayProfile,
         asserted_at: DateTime<Utc>,
         proof: MemberIdentityProof,
@@ -73,7 +71,7 @@ impl MemberIdentity {
             schema: SchemaId::MEMBER_IDENTITY_V1.to_owned(),
             realm_id,
             actor_id,
-            subject_id,
+            subject_actor_id,
             display_profile,
             asserted_at,
             expires_at: None,
@@ -196,7 +194,7 @@ impl IdentityPayloadCarrier {
 #[serde(deny_unknown_fields)]
 pub struct MemberIdentityUpdatePayload {
     pub realm_id: RealmId,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub segment: MemberIdentitySegment,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub replaces: Vec<MemberIdentityReplacementRef>,
@@ -296,7 +294,7 @@ where
 /// [`member_display_state_digest`].
 pub fn member_identity_effective_set_digest(
     realm_id: &RealmId,
-    actor_id: &DidCoreId,
+    actor_id: &ActorId,
     segment: MemberIdentitySegment,
     entries: &[EffectiveIdentityEntry],
 ) -> Result<String> {
@@ -326,7 +324,7 @@ pub fn member_identity_effective_set_digest(
 /// `verified_at` / proof-repacking refresh leaves it stable.
 pub fn member_display_state_digest(
     realm_id: &RealmId,
-    actor_id: &DidCoreId,
+    actor_id: &ActorId,
     entries: &[EffectiveIdentityEntry],
     handle_claims: &[RosterHandleClaimDigestEntry],
 ) -> Result<String> {

@@ -46,7 +46,7 @@ use arkret_models_collaboration::sidecar_operations::SidecarContextAttachPayload
 use arkret_models_collaboration::sync_frames::snapshot::RangeCompletenessAttestation;
 use arkret_models_crypto::MlsCommitPayload;
 use arkret_models_identity::claim_presentation::AgentSelectorClaim;
-use arkret_models_identity::delivery_binding::DevicePushRoutePayload;
+use arkret_models_identity::device_push_route::DevicePushRoutePayload;
 use arkret_models_identity::identity_resolution::PrincipalResolutionUpdatePayload;
 use arkret_models_identity::member_identity::MemberIdentityUpdatePayload;
 use arkret_models_integration::applet::{
@@ -198,7 +198,6 @@ event_payload_accessors! {
     event_spec::RealmNotary => (as_realm_notary, RealmNotaryPayload, RealmNotaryPayload::validate),
     event_spec::RealmDigestSuiteTransition => (as_realm_digest_suite_transition, RealmDigestSuiteTransitionPayload, RealmDigestSuiteTransitionPayload::validate),
     event_spec::RealmPolicyBundle => (as_realm_policy_bundle, RealmPolicyBundlePayload),
-    event_spec::RealmDeliveryBindingPolicy => (as_realm_delivery_binding_policy, RealmDeliveryBindingPolicyPayload),
     event_spec::RealmAssetPrivacyPolicy => (as_realm_asset_privacy_policy, RealmAssetPrivacyPolicyPayload),
     event_spec::RealmReadReceiptPolicy => (as_realm_read_receipt_policy, ReadReceiptPolicyPayload),
     event_spec::RealmPlaintextVisibleServices => (as_realm_plaintext_visible_services, PlaintextVisibleServicesPayload),

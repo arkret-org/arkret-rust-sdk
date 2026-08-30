@@ -7,7 +7,7 @@
 
 use arkret_models_crypto::secret_share::{SecretShareRequestContent, SecretShareSendContent};
 use arkret_models_identity::artifacts_device_identity::KeyVerificationContent;
-use arkret_wire::{ActorPrivateUpdateKind, DidCoreId};
+use arkret_wire::{AccountId, ActorId, ActorPrivateUpdateKind, DidCoreId};
 use serde::Serializer;
 
 use crate::internal_prelude::*;
@@ -633,7 +633,7 @@ pub enum WindowStartNullableE2eeEpoch {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StateAtWindowStart {
-    pub actor_profiles: BTreeMap<DidCoreId, WindowStartActorProfile>,
+    pub actor_profiles: BTreeMap<ActorId, WindowStartActorProfile>,
     pub realm_metadata: WindowStartRealmMetadata,
     pub e2ee_epoch: WindowStartNullableE2eeEpoch,
 }
@@ -712,7 +712,7 @@ pub struct RealmSyncEntry {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DeviceMessagesSendRequestBody {
-    pub messages: BTreeMap<DidCoreId, BTreeMap<DeviceId, DeviceMessageTarget>>,
+    pub messages: BTreeMap<ActorId, BTreeMap<DeviceId, DeviceMessageTarget>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -755,7 +755,7 @@ pub struct ActorPrivateAccountDataUpdate {
 #[serde(deny_unknown_fields)]
 pub struct ActorPrivateReadCursorUpdate {
     pub schema: String,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub device_id: DeviceId,
     pub realm_id: RealmId,
     pub read_scope: ReadCursorScope,
@@ -1385,19 +1385,19 @@ pub enum MembershipState {
 /// handle strings may appear only inside signed `HandleClaim` objects in
 /// [`Self::handle_claims`]. The disclosure-gated fields (`identity_events`,
 /// `handle_claim_digests`, `handle_claims`, `handle_claims_limited`) MUST
-/// be omitted unless [`Self::subject_id`] is disclosed — enforced by
+/// be omitted unless [`Self::subject_account_id`] is disclosed — enforced by
 /// [`Self::validate`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MemberRosterEntry {
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub membership: MembershipState,
-    /// Disclosed principal / holder DID for this member. Required whenever
+    /// Disclosed exact account identity for this member. Required whenever
     /// any handle-claim / identity-event evidence is included (see
     /// [`Self::validate`]). Omitted when subject disclosure is not
     /// authorized for the caller.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub subject_id: Option<DidCoreId>,
+    pub subject_account_id: Option<AccountId>,
     /// Effective `ak.member.identity.update` event ids for this actor
     /// after replacement edges are applied.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1437,23 +1437,20 @@ impl MemberRosterEntry {
             || self.handle_claim_digests.is_some()
             || self.handle_claims.is_some()
             || self.handle_claims_limited.is_some();
-        if gated_present && self.subject_id.is_none() {
+        if gated_present && self.subject_account_id.is_none() {
             return Err(WireError::Protocol(
                 "member_roster_entry: identity_events / handle_claim_digests / handle_claims / \
-                 handle_claims_limited require subject_id disclosure"
+                 handle_claims_limited require subject_account_id disclosure"
                     .to_owned(),
             ));
         }
-        if let (Some(subject), Some(claims)) = (&self.subject_id, &self.handle_claims) {
+        if let (Some(subject), Some(claims)) = (&self.subject_account_id, &self.handle_claims) {
             for claim in claims {
-                match &claim.subject_id {
-                    Some(s) if s == subject => {}
-                    _ => {
-                        return Err(WireError::Protocol(
-                            "member_roster_entry: handle_claims[].subject_id must equal subject_id"
-                                .to_owned(),
-                        ));
-                    }
+                if &claim.subject_account_id != subject {
+                    return Err(WireError::Protocol(
+                        "member_roster_entry: handle_claims[].subject_account_id must equal subject_account_id"
+                            .to_owned(),
+                    ));
                 }
             }
         }
@@ -1465,8 +1462,11 @@ impl MemberRosterEntry {
 mod tests {
     use super::*;
 
-    fn fake_actor(label: &str) -> DidCoreId {
-        DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{label}")).unwrap()
+    fn fake_actor(label: &str) -> ActorId {
+        ActorId::hosted_principal(
+            DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{label}")).unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
+        )
     }
 
     fn fake_event_ref(suffix: &str) -> EventId {
@@ -1481,7 +1481,7 @@ mod tests {
         let entry = MemberRosterEntry {
             actor_id: fake_actor("alice"),
             membership: MembershipState::Join,
-            subject_id: None,
+            subject_account_id: None,
             identity_event_ids: vec![fake_event_ref("0030"), fake_event_ref("0031")],
             member_display_state_digest: Some(
                 Hash::new(
@@ -1533,7 +1533,7 @@ mod tests {
         let entry = MemberRosterEntry {
             actor_id: fake_actor("alice"),
             membership: MembershipState::Join,
-            subject_id: None,
+            subject_account_id: None,
             identity_event_ids: vec![],
             member_display_state_digest: None,
             identity_events: vec![],

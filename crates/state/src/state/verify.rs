@@ -26,6 +26,7 @@
 
 use std::collections::BTreeMap;
 
+use arkret_wire::ActorId;
 use arkret_wire::event_envelope::{EVENT_REF_ROLE_AUTHORIZED_BY, Event, EventSubmitContext};
 use arkret_wire::patch::Patch;
 use serde::Deserialize;
@@ -308,9 +309,9 @@ where
     verify_proofs(event).map_err(ControlMoveReject::SignatureInvalid)?;
 
     // Step 3: critical refs.
-    if event.actor_id.as_str().is_empty() {
+    if event.actor_id.validate().is_err() {
         return Err(ControlMoveReject::CapabilityDenied(
-            "actor DID is empty".to_owned(),
+            "actor identity is invalid".to_owned(),
         ));
     }
     verify_capability_refs(event, pre_state)?;
@@ -631,7 +632,7 @@ struct CapabilityGrantCellValue {
     #[serde(default)]
     id: Option<String>,
     #[serde(default)]
-    subject: Option<String>,
+    subject: Option<ActorId>,
     #[serde(default)]
     actions: Vec<String>,
     #[serde(default)]
@@ -649,8 +650,8 @@ impl CapabilityGrantCellValue {
         self.id.iter().map(String::as_str)
     }
 
-    fn subject(&self) -> Option<&str> {
-        self.subject.as_deref()
+    fn subject(&self) -> Option<&ActorId> {
+        self.subject.as_ref()
     }
 
     fn has_resources(&self) -> bool {
@@ -684,7 +685,7 @@ fn verify_capability_refs(
                 reference.id
             ))
         })?;
-        if subject != event.actor_id.as_str() {
+        if subject != &event.actor_id {
             return Err(ControlMoveReject::CapabilityDenied(format!(
                 "authorized_by grant '{}' subject '{}' does not cover actor '{}'",
                 reference.id, subject, event.actor_id
@@ -739,7 +740,7 @@ fn find_capability_grant(
 
 pub(super) fn recovery_capability_is_active(
     grant_id: &str,
-    actor_id: &str,
+    actor_id: &ActorId,
     pre_state: &BTreeMap<CellRef, CellState>,
 ) -> bool {
     find_capability_grant(grant_id, pre_state).is_ok_and(|grant| {

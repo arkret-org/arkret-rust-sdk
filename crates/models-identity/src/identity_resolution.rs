@@ -2,8 +2,8 @@
 //! high-risk service-to-service authentication.
 
 use arkret_wire::{
-    Did, DidCoreId, Event, EventBatchReceipt, EventId, Hash, PrincipalAuthorityKey,
-    ProtocolSignature, RealmId, RequestId, Seal,
+    AccountId, Did, DidCoreId, Event, EventBatchReceipt, EventId, Hash, ProtocolSignature, RealmId,
+    RequestId, Seal,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -110,8 +110,8 @@ pub struct PublicPrincipalResolution {
 
 impl PublicPrincipalResolution {
     /// The complete public selector and the complete external identity.
-    pub fn authority(&self) -> PrincipalAuthorityKey {
-        PrincipalAuthorityKey::new(self.principal_id.clone(), self.principal_server_id.clone())
+    pub fn authority(&self) -> AccountId {
+        AccountId::new(self.principal_id.clone(), self.principal_server_id.clone())
     }
 
     /// Cross-bind the attestation to the response it travels with.
@@ -152,7 +152,7 @@ impl PublicPrincipalResolution {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalResolutionAuditRequest {
-    pub principal_authority: PrincipalAuthorityKey,
+    pub principal_authority: AccountId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub history_depth: Option<u16>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -163,7 +163,7 @@ pub struct PrincipalResolutionAuditRequest {
 pub const PRINCIPAL_RESOLUTION_AUDIT_MAX_HISTORY_DEPTH: u16 = 256;
 
 impl PrincipalResolutionAuditRequest {
-    pub fn new(principal_authority: PrincipalAuthorityKey) -> Self {
+    pub fn new(principal_authority: AccountId) -> Self {
         Self {
             principal_authority,
             history_depth: None,

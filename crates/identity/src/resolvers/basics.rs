@@ -1,4 +1,4 @@
-use arkret_wire::{Did, DidCoreId};
+use arkret_wire::{ActorId, Did, DidCoreId};
 
 use crate::*;
 
@@ -236,7 +236,7 @@ fn to_signature_error(error: IdentityError) -> arkret_signatures::Error {
 pub fn verify_canonical_proof_with_did_resolver<R>(
     canonical_bytes: &[u8],
     proof: &ProducerEventProof,
-    binding_actor_id: &DidCoreId,
+    binding_actor_id: &ActorId,
     context: &arkret_signatures::ProofVerificationContext,
     resolver: &R,
 ) -> Result<arkret_signatures::SignatureVerification>

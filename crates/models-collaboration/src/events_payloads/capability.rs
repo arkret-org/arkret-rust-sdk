@@ -1,6 +1,6 @@
 //! Capability event payloads.
 
-use arkret_wire::DidCoreId;
+use arkret_wire::ActorId;
 
 use crate::internal_prelude::*;
 
@@ -12,10 +12,8 @@ pub struct CapabilityGrantCreateBody {
     pub schema: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    pub issuer_id: DidCoreId,
+    pub issuer_id: ActorId,
     pub subject: CapabilitySubject,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subject_principal_server_id: Option<DidCoreId>,
     pub actions: Vec<String>,
     pub resources: Vec<WireResourceSelector>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

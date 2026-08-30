@@ -1,15 +1,13 @@
 use std::collections::BTreeMap;
 
-use arkret_models_identity::{DeliveryStatus, MemberDeliveryBinding};
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
-    DidCoreId, DidUrl, EventId, Hash, InviteId, RealmId, Result, StrandId, WireError,
-    XExtensionMap, canonical,
+    AccountId, ActorId, DidCoreId, DidUrl, EventId, Hash, InviteId, RealmId, Result, StrandId,
+    WireError, XExtensionMap, canonical,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::governance::invite_addressing::InviteDeliveryTarget;
 use crate::governance::third_party_invite::ThirdPartyInvite;
 use crate::objects::relation::Relation;
 
@@ -30,13 +28,12 @@ pub fn invite_claim_within_canonical_expiry(
 /// (`event-payload.schema.json#/$defs/membership_state`).
 ///
 /// Distinct from `MembershipState` (the `arkret` umbrella roster projection enum, which
-/// only models the live `join`/`invite`/`knock` states): the FSM transition
+/// only models the live `join`/`knock` states): the FSM transition
 /// payload additionally carries the terminal `leave`/`ban` states.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MembershipPayloadState {
     Join,
-    Invite,
     Knock,
     Leave,
     Ban,
@@ -48,15 +45,13 @@ pub enum MembershipPayloadState {
 /// `additionalProperties:false`: the removed `handle` / `from` keys that older
 /// inkson call sites tried to emit are intentionally NOT representable here —
 /// `handle` has no spec-legal home in this payload (the member identity is
-/// carried by `actor_id`; handle evidence lives in signed `HandleClaim`
+/// carried by `member_id`; handle evidence lives in signed `HandleClaim`
 /// objects on the roster, not the durable membership event), and the FSM
 /// `from` precondition is expressed via the operation `preconditions`/effect
 /// `transition`, not the payload body.
 ///
-/// Conditional required fields (schema `allOf`): when `membership == join`,
-/// `realm_id` + `actor_id` + `delivery_status` are required; and additionally
-/// when `delivery_status == routable`, `delivery_binding` is required. These
-/// are enforced by [`MembershipPayload::to_value`].
+/// Member identity is one closed `ActorId`; delivery is projected from it and
+/// is not membership state.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MembershipPayload {
@@ -64,14 +59,8 @@ pub struct MembershipPayload {
     pub strand_id: Option<StrandId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<DidCoreId>,
+    pub member_id: ActorId,
     pub membership: MembershipPayloadState,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delivery_status: Option<DeliveryStatus>,
-    /// Canonical member delivery binding.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delivery_binding: Option<MemberDeliveryBinding>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gate_proofs: Vec<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -97,19 +86,17 @@ pub enum MembershipInviteRef {
 }
 
 impl MembershipPayload {
-    /// Build a non-`join` transition payload (`invite`/`knock`/`leave`/`ban`).
+    /// Build a membership transition payload.
     pub fn transition(
         membership: MembershipPayloadState,
-        actor_id: DidCoreId,
+        member_id: ActorId,
         reason: impl Into<String>,
     ) -> Self {
         Self {
             membership,
             strand_id: None,
             realm_id: None,
-            actor_id: Some(actor_id),
-            delivery_status: None,
-            delivery_binding: None,
+            member_id,
             gate_proofs: Vec::new(),
             via_ids: Vec::new(),
             reason: Some(reason.into()),
@@ -120,20 +107,13 @@ impl MembershipPayload {
     }
 
     /// Build a `join` transition payload with the schema-required
-    /// `realm_id` + `actor_id` + `delivery_status` fields.
-    pub fn join(
-        realm_id: RealmId,
-        actor_id: DidCoreId,
-        delivery_status: DeliveryStatus,
-        reason: impl Into<String>,
-    ) -> Self {
+    /// `realm_id` + complete `member_id` fields.
+    pub fn join(realm_id: RealmId, member_id: ActorId, reason: impl Into<String>) -> Self {
         Self {
             membership: MembershipPayloadState::Join,
             strand_id: None,
             realm_id: Some(realm_id),
-            actor_id: Some(actor_id),
-            delivery_status: Some(delivery_status),
-            delivery_binding: None,
+            member_id,
             gate_proofs: Vec::new(),
             via_ids: Vec::new(),
             reason: Some(reason.into()),
@@ -148,11 +128,6 @@ impl MembershipPayload {
         self
     }
 
-    pub fn with_delivery_binding(mut self, binding: MemberDeliveryBinding) -> Self {
-        self.delivery_binding = Some(binding);
-        self
-    }
-
     /// Validate the schema-level conditional required fields, then serialize.
     pub fn to_value(&self) -> Result<Value> {
         if self
@@ -164,22 +139,7 @@ impl MembershipPayload {
                 "membership payload reason exceeds 256 characters".to_owned(),
             ));
         }
-        if self.membership == MembershipPayloadState::Join {
-            if self.realm_id.is_none() || self.actor_id.is_none() || self.delivery_status.is_none()
-            {
-                return Err(WireError::Protocol(
-                    "membership_payload{join} requires realm_id, actor_id, delivery_status"
-                        .to_owned(),
-                ));
-            }
-            if self.delivery_status == Some(DeliveryStatus::Routable)
-                && self.delivery_binding.is_none()
-            {
-                return Err(WireError::Protocol(
-                    "membership_payload{join,routable} requires delivery_binding".to_owned(),
-                ));
-            }
-        }
+        self.member_id.validate()?;
         match (&self.membership_cause, &self.agent_controller_binding) {
             (Some(_), Some(binding))
                 if self.membership == MembershipPayloadState::Leave
@@ -210,8 +170,7 @@ impl MembershipPayload {
 /// and re-prefixed on serialize.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InviteCreatePayload {
-    pub invitee_id: DidCoreId,
-    pub invite_delivery_target: InviteDeliveryTarget,
+    pub invitee_account_id: AccountId,
     pub introduction_evidence_digest: Hash,
     #[serde(with = "canonical_timestamp")]
     pub expires_at: chrono::DateTime<chrono::Utc>,
@@ -222,14 +181,12 @@ pub struct InviteCreatePayload {
 
 impl InviteCreatePayload {
     pub fn new(
-        invitee: DidCoreId,
-        invite_delivery_target: InviteDeliveryTarget,
+        invitee_account_id: AccountId,
         introduction_evidence_digest: Hash,
         expires_at: chrono::DateTime<chrono::Utc>,
     ) -> Self {
         Self {
-            invitee_id: invitee,
-            invite_delivery_target,
+            invitee_account_id,
             introduction_evidence_digest,
             expires_at,
             extensions: XExtensionMap::default(),
@@ -250,7 +207,7 @@ impl InviteCreatePayload {
     }
 
     pub fn to_value(&self) -> Result<Value> {
-        self.invite_delivery_target.validate()?;
+        self.invitee_account_id.validate()?;
         serde_json::to_value(self)
             .map_err(|err| WireError::Protocol(format!("invite create payload serialize: {err}")))
     }
@@ -269,7 +226,7 @@ pub fn validate_invite_create_wire_keys(value: &Value) -> Result<()> {
     for key in object.keys() {
         if matches!(
             key.as_str(),
-            "invitee_id" | "invite_delivery_target" | "introduction_evidence_digest" | "expires_at"
+            "invitee_account_id" | "introduction_evidence_digest" | "expires_at"
         ) || valid_invite_create_extension_key(key)
         {
             continue;
@@ -309,7 +266,7 @@ pub enum InviteCancelTargetState {
 #[serde(deny_unknown_fields)]
 pub struct InviteCancelPayload {
     pub invite_id: InviteId,
-    pub invitee_id: DidCoreId,
+    pub invitee_account_id: AccountId,
     pub target_state: InviteCancelTargetState,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -318,12 +275,12 @@ pub struct InviteCancelPayload {
 impl InviteCancelPayload {
     pub fn new(
         invite_id: InviteId,
-        invitee: DidCoreId,
+        invitee_account_id: AccountId,
         target_state: InviteCancelTargetState,
     ) -> Self {
         Self {
             invite_id,
-            invitee_id: invitee,
+            invitee_account_id,
             target_state,
             reason: None,
         }
@@ -356,7 +313,7 @@ pub enum InviteRevokeTargetState {
 pub struct InviteRevokePayload {
     pub invite_id: InviteId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub invitee_id: Option<DidCoreId>,
+    pub invitee_account_id: Option<AccountId>,
     pub target_state: InviteRevokeTargetState,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -366,21 +323,12 @@ pub struct InviteRevokePayload {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InviteAcceptPayload {
     pub invite_id: InviteId,
-    pub delivery_status: DeliveryStatus,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub delivery_binding: Option<MemberDeliveryBinding>,
     #[serde(flatten, default)]
     pub extensions: XExtensionMap,
 }
 
 impl InviteAcceptPayload {
     pub fn validate(&self) -> Result<()> {
-        if (self.delivery_status == DeliveryStatus::Routable) != self.delivery_binding.is_some() {
-            return Err(WireError::Protocol(
-                "invite accept requires delivery_binding exactly when delivery_status=routable"
-                    .to_owned(),
-            ));
-        }
         Ok(())
     }
 }
@@ -411,7 +359,7 @@ pub const INVITE_SUBJECT_PROOF_TRANSCRIPT_DOMAIN: &str = "ak.invite.claim.subjec
 pub struct InviteClaimBindingProof {
     pub verification_id: DidCoreId,
     pub verification_method: DidUrl,
-    pub subject_id: DidCoreId,
+    pub subject_account_id: AccountId,
     pub realm_id: RealmId,
     pub audience: String,
     pub claim_nonce: String,
@@ -423,7 +371,7 @@ impl InviteClaimBindingProof {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         verification_id: DidCoreId,
-        subject_id: DidCoreId,
+        subject_account_id: AccountId,
         realm_id: RealmId,
         claim_nonce: impl Into<String>,
         expires_at: impl Into<String>,
@@ -432,7 +380,7 @@ impl InviteClaimBindingProof {
     ) -> Self {
         Self {
             verification_id,
-            subject_id,
+            subject_account_id,
             realm_id,
             audience: INVITE_CLAIM_AUDIENCE.to_owned(),
             claim_nonce: claim_nonce.into(),
@@ -469,7 +417,7 @@ impl InviteClaimBindingProof {
     pub fn unsigned(&self) -> InviteClaimUnsignedBindingProof {
         InviteClaimUnsignedBindingProof {
             verification_id: self.verification_id.clone(),
-            subject_id: self.subject_id.clone(),
+            subject_account_id: self.subject_account_id.clone(),
             realm_id: self.realm_id.clone(),
             audience: self.audience.clone(),
             claim_nonce: self.claim_nonce.clone(),
@@ -489,7 +437,7 @@ impl InviteClaimBindingProof {
 #[serde(deny_unknown_fields)]
 pub struct InviteClaimUnsignedBindingProof {
     pub verification_id: DidCoreId,
-    pub subject_id: DidCoreId,
+    pub subject_account_id: AccountId,
     pub realm_id: RealmId,
     pub audience: String,
     pub claim_nonce: String,
@@ -507,7 +455,7 @@ pub struct InviteClaimBindingProofBody {
     pub invite_digest: Hash,
     pub invite_id: InviteId,
     pub realm_id: RealmId,
-    pub subject_id: DidCoreId,
+    pub subject_account_id: AccountId,
     pub token_commitment: Hash,
     pub verification_id: DidCoreId,
 }
@@ -537,7 +485,7 @@ impl InviteClaimBindingProofBody {
             invite_digest,
             invite_id,
             realm_id: binding_proof.realm_id.clone(),
-            subject_id: binding_proof.subject_id.clone(),
+            subject_account_id: binding_proof.subject_account_id.clone(),
             token_commitment,
             verification_id: binding_proof.verification_id.clone(),
         })
@@ -639,7 +587,7 @@ impl InviteSubjectProof {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InviteClaimPayload {
     pub invite_id: InviteId,
-    pub subject_id: DidCoreId,
+    pub subject_account_id: AccountId,
     pub token_commitment: Hash,
     pub claim_nonce: String,
     pub binding_proof: InviteClaimBindingProof,
@@ -654,7 +602,7 @@ impl InviteClaimPayload {
         self.subject_proof.validate()?;
         if self.claim_nonce.len() < 16
             || self.claim_nonce.len() > 128
-            || self.subject_id != self.binding_proof.subject_id
+            || self.subject_account_id != self.binding_proof.subject_account_id
             || self.claim_nonce != self.binding_proof.claim_nonce
             || !self.token_commitment.as_str().starts_with("sha256:")
         {
@@ -670,7 +618,7 @@ impl InviteClaimPayload {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InviteSubjectProofBody {
-    pub subject_id: DidCoreId,
+    pub subject_account_id: AccountId,
     pub invite_id: InviteId,
     pub realm_id: RealmId,
     pub token_commitment: Hash,
@@ -682,7 +630,7 @@ pub struct InviteSubjectProofBody {
 
 impl InviteSubjectProofBody {
     pub fn new(
-        subject_id: DidCoreId,
+        subject_account_id: AccountId,
         invite_id: InviteId,
         realm_id: RealmId,
         token_commitment: Hash,
@@ -691,7 +639,7 @@ impl InviteSubjectProofBody {
         binding_proof_digest: Hash,
     ) -> Self {
         Self {
-            subject_id,
+            subject_account_id,
             invite_id,
             realm_id,
             token_commitment,
@@ -703,7 +651,7 @@ impl InviteSubjectProofBody {
     }
 
     pub fn from_wire_parts(
-        subject_id: impl Into<String>,
+        subject_account_id: AccountId,
         invite_id: impl Into<String>,
         realm_id: impl Into<String>,
         token_commitment: impl Into<String>,
@@ -712,7 +660,7 @@ impl InviteSubjectProofBody {
         binding_proof_digest: impl Into<String>,
     ) -> Result<Self> {
         Ok(Self::new(
-            DidCoreId::new(subject_id.into())?,
+            subject_account_id,
             InviteId::new(invite_id.into())?,
             RealmId::new(realm_id.into())?,
             Hash::new(token_commitment.into())?,
@@ -761,7 +709,7 @@ impl InviteSubjectProofBody {
 }
 
 pub fn invite_subject_proof_transcript_bytes(
-    subject_id: &str,
+    subject_account_id: &AccountId,
     invite_id: &str,
     realm_id: &str,
     token_commitment: &str,
@@ -770,7 +718,7 @@ pub fn invite_subject_proof_transcript_bytes(
     binding_proof_digest: &str,
 ) -> Result<Vec<u8>> {
     InviteSubjectProofBody::from_wire_parts(
-        subject_id,
+        subject_account_id.clone(),
         invite_id,
         realm_id,
         token_commitment,
@@ -782,7 +730,7 @@ pub fn invite_subject_proof_transcript_bytes(
 }
 
 pub fn invite_subject_proof_transcript_digest(
-    subject_id: &str,
+    subject_account_id: &AccountId,
     invite_id: &str,
     realm_id: &str,
     token_commitment: &str,
@@ -792,7 +740,7 @@ pub fn invite_subject_proof_transcript_digest(
 ) -> Result<Hash> {
     Ok(Hash::new(canonical::sha256_digest(
         invite_subject_proof_transcript_bytes(
-            subject_id,
+            subject_account_id,
             invite_id,
             realm_id,
             token_commitment,
@@ -931,7 +879,7 @@ mod tests {
                 "\"claim_nonce\":\"nonce-claim-proof-1\",",
                 "\"invite_id\":\"ak:invite:AUftf_3k2fRKMG0NFlHe5iEMBOUpxMwYMRu-yhMJl-yz\",",
                 "\"realm_id\":\"ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-\",",
-                "\"subject_id\":\"ak:did_core:webvh:z6mkfixturebob\",",
+                "\"subject_account_id\":\"ak:did_core:webvh:z6mkfixturebob\",",
                 "\"token_commitment\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",",
                 "\"verification_id\":\"ak:did_core:web:verify.example\"}"
             )

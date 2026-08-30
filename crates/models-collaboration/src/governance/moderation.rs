@@ -1,8 +1,8 @@
 //! Moderation report wire DTOs.
 
 use arkret_wire::{
-    Did, DidCoreId, EventInitialSubmission, EventKind, RealmId, ReportId, Result, SchemaId,
-    ScopeRef, project_did_to_core_id,
+    AccountId, Did, DidCoreId, EventInitialSubmission, EventKind, RealmId, ReportId, Result,
+    SchemaId, ScopeRef, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -99,7 +99,7 @@ impl ModerationReportRequestBody {
         let payload: crate::events_payloads::ModerationReportPayload =
             crate::events_payloads::event_wire::decode_payload_after_kind_validation(event)?;
         payload
-            .validate_self_endpoint(&event.actor_id)
+            .validate_self_endpoint(event.actor_id.signing_principal_id())
             .map_err(|reason| arkret_wire::WireError::Protocol(reason.to_owned()))?;
         if payload.realm_id != event.realm_id {
             return Err(arkret_wire::WireError::Protocol(
@@ -138,7 +138,7 @@ impl ModerationReportRequestBody {
                 proof.as_producer().is_some_and(|proof| {
                     proof_controller_matches_actor(
                         proof.verification_method.as_str(),
-                        &event.actor_id,
+                        event.actor_id.signing_principal_id(),
                     )
                     .unwrap_or(false)
                 })
@@ -155,7 +155,7 @@ impl ModerationReportRequestBody {
     /// visible accepted target projection.
     pub fn validate_authoring_context(
         &self,
-        session_principal_id: &DidCoreId,
+        session_account_id: &AccountId,
         accepted_target: &ModerationReportAcceptedTargetBasis,
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
@@ -163,8 +163,8 @@ impl ModerationReportRequestBody {
         let event = &self.report_event.event;
         let payload: crate::events_payloads::ModerationReportPayload =
             crate::events_payloads::event_wire::decode_payload_after_kind_validation(event)?;
-        if &event.actor_id != session_principal_id
-            || &payload.reporter_id != session_principal_id
+        if event.actor_id.as_account_id() != Some(session_account_id)
+            || payload.reporter_id != session_account_id.principal_id
             || payload.target_ref != accepted_target.target_ref
             || event.scope_ref != accepted_target.effective_scope
         {

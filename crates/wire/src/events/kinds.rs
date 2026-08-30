@@ -198,7 +198,6 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         EventKind::RealmArchive
         | EventKind::RealmAssetPrivacyPolicy
         | EventKind::RealmCreate
-        | EventKind::RealmDeliveryBindingPolicy
         | EventKind::RealmDestroy
         | EventKind::RealmDiscovery
         | EventKind::RealmFreeze

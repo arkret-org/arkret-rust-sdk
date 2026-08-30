@@ -4,6 +4,143 @@ use std::str::FromStr;
 use super::*;
 use crate::{Did, DidCoreId, ProofContextId, SignerEvidenceRef};
 
+/// Complete protocol identity for one account at one Principal Server.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AccountId {
+    pub principal_id: DidCoreId,
+    pub principal_server_id: DidCoreId,
+}
+
+impl AccountId {
+    pub fn new(principal_id: DidCoreId, principal_server_id: DidCoreId) -> Self {
+        Self {
+            principal_id,
+            principal_server_id,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.principal_id.as_str().is_empty() || self.principal_server_id.as_str().is_empty() {
+            return Err(WireError::Protocol(
+                "account id components must be non-empty".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
+        Ok(arkret_canonical::canonical::canonical_json_bytes(self)?)
+    }
+
+    pub fn canonical_key(&self) -> Result<String> {
+        String::from_utf8(self.canonical_bytes()?)
+            .map_err(|error| WireError::Protocol(format!("account id canonical UTF-8: {error}")))
+    }
+}
+
+impl fmt::Display for AccountId {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let canonical = self.canonical_key().map_err(|_| fmt::Error)?;
+        formatter.write_str(&canonical)
+    }
+}
+
+/// Complete identity for an Event author, Realm member, or durable byline.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ActorId {
+    Account {
+        account_id: AccountId,
+    },
+    HostedPrincipal {
+        principal_id: DidCoreId,
+        principal_server_id: DidCoreId,
+    },
+    Service {
+        service_id: DidCoreId,
+    },
+}
+
+impl ActorId {
+    pub fn account(account_id: AccountId) -> Self {
+        Self::Account { account_id }
+    }
+
+    pub fn hosted_principal(principal_id: DidCoreId, principal_server_id: DidCoreId) -> Self {
+        Self::HostedPrincipal {
+            principal_id,
+            principal_server_id,
+        }
+    }
+
+    pub fn service(service_id: DidCoreId) -> Self {
+        Self::Service { service_id }
+    }
+
+    pub fn signing_principal_id(&self) -> &DidCoreId {
+        match self {
+            Self::Account { account_id } => &account_id.principal_id,
+            Self::HostedPrincipal { principal_id, .. } => principal_id,
+            Self::Service { service_id } => service_id,
+        }
+    }
+
+    pub fn route_service_id(&self) -> &DidCoreId {
+        match self {
+            Self::Account { account_id } => &account_id.principal_server_id,
+            Self::HostedPrincipal {
+                principal_server_id,
+                ..
+            } => principal_server_id,
+            Self::Service { service_id } => service_id,
+        }
+    }
+
+    pub fn as_account_id(&self) -> Option<&AccountId> {
+        match self {
+            Self::Account { account_id } => Some(account_id),
+            Self::HostedPrincipal { .. } | Self::Service { .. } => None,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::Account { account_id } => account_id.validate(),
+            Self::HostedPrincipal {
+                principal_id,
+                principal_server_id,
+            } if principal_id.as_str().is_empty() || principal_server_id.as_str().is_empty() => {
+                Err(WireError::Protocol(
+                    "hosted principal actor id components must be non-empty".to_owned(),
+                ))
+            }
+            Self::Service { service_id } if service_id.as_str().is_empty() => Err(
+                WireError::Protocol("service actor id must be non-empty".to_owned()),
+            ),
+            Self::HostedPrincipal { .. } | Self::Service { .. } => Ok(()),
+        }
+    }
+
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
+        Ok(arkret_canonical::canonical::canonical_json_bytes(self)?)
+    }
+
+    pub fn canonical_key(&self) -> Result<String> {
+        String::from_utf8(self.canonical_bytes()?)
+            .map_err(|error| WireError::Protocol(format!("actor id canonical UTF-8: {error}")))
+    }
+}
+
+impl fmt::Display for ActorId {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let canonical = self.canonical_key().map_err(|_| fmt::Error)?;
+        formatter.write_str(&canonical)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Discoverability {
@@ -1443,7 +1580,7 @@ impl ProducerEventProof {
         Ok(canonical::from_canonical_json_slice(bytes)?)
     }
 
-    pub fn binding_payload(&self, actor_id: &DidCoreId) -> SignatureBindingPayload {
+    pub fn binding_payload(&self, actor_id: &ActorId) -> SignatureBindingPayload {
         SignatureBindingPayload {
             payload_digest: self.event_digest.clone(),
             actor_id: actor_id.clone(),
@@ -1466,13 +1603,13 @@ impl ProducerEventProof {
     /// signature, not just compared as plaintext. `created_at` is emitted
     /// in canonical UTC `YYYY-MM-DDTHH:MM:SS.sssZ` form so the wire field
     /// and transcript contain the same byte-identical timestamp string.
-    pub fn canonical_binding_bytes(&self, actor_id: &DidCoreId) -> Result<Vec<u8>> {
+    pub fn canonical_binding_bytes(&self, actor_id: &ActorId) -> Result<Vec<u8>> {
         self.canonical_binding_bytes_with_context(actor_id, EVENT_PROOF_BINDING_CONTEXT)
     }
 
     fn canonical_binding_bytes_with_context(
         &self,
-        actor_id: &DidCoreId,
+        actor_id: &ActorId,
         context: &str,
     ) -> Result<Vec<u8>> {
         Ok(canonical::canonical_json_bytes(
@@ -1483,12 +1620,12 @@ impl ProducerEventProof {
     /// The proof binding object as a [`serde_json::Value`] (key order is
     /// irrelevant — canonical JSON re-sorts by JCS). Shared by signer and
     /// verifier so both derive identical transcripts.
-    pub fn binding_object(&self, actor_id: &DidCoreId) -> Value {
+    pub fn binding_object(&self, actor_id: &ActorId) -> Value {
         self.binding_object_with_context(actor_id, EVENT_PROOF_BINDING_CONTEXT)
             .expect("the fixed event proof context is non-empty")
     }
 
-    fn binding_object_with_context(&self, actor_id: &DidCoreId, context: &str) -> Result<Value> {
+    fn binding_object_with_context(&self, actor_id: &ActorId, context: &str) -> Result<Value> {
         if context.trim().is_empty() {
             return Err(WireError::Protocol(
                 "proof binding context must not be empty".to_owned(),
@@ -1505,10 +1642,7 @@ impl ProducerEventProof {
             "event_digest".to_owned(),
             Value::String(self.event_digest.as_str().to_owned()),
         );
-        obj.insert(
-            "actor_id".to_owned(),
-            Value::String(actor_id.as_str().to_owned()),
-        );
+        obj.insert("actor_id".to_owned(), serde_json::to_value(actor_id)?);
         obj.insert(
             "verification_method".to_owned(),
             Value::String(self.verification_method.as_str().to_owned()),
@@ -1676,7 +1810,7 @@ fn is_compact_jws(value: &str) -> bool {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignatureBindingPayload {
     pub payload_digest: Hash,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub verification_method: DidUrl,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,

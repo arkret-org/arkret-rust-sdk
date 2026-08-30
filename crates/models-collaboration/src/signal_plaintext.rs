@@ -21,8 +21,8 @@
 
 use arkret_wire::signal::MAX_SIGNAL_PLAINTEXT_BYTES;
 use arkret_wire::{
-    DidCoreId, ErrorCode, EventId, Hlc, ReadReceiptScope, Result, SchemaId, StrandId, WireError,
-    canonical,
+    ActorId, DidCoreId, ErrorCode, EventId, Hlc, ReadReceiptScope, Result, SchemaId, StrandId,
+    WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::de::DeserializeOwned;
@@ -197,7 +197,7 @@ pub trait SignalPlaintextProfile: Serialize + DeserializeOwned {
 
     /// In-ciphertext reader / publisher identity, when the profile expresses
     /// one. Receivers MUST check it equals the envelope `sender_actor_id`.
-    fn actor_id(&self) -> Option<&DidCoreId> {
+    fn actor_id(&self) -> Option<&ActorId> {
         None
     }
 
@@ -292,7 +292,7 @@ impl SignalPlaintext {
         SignalSequence::new(self.payload_sequence())
     }
 
-    pub fn actor_id(&self) -> Option<&DidCoreId> {
+    pub fn actor_id(&self) -> Option<&ActorId> {
         match self {
             Self::Presence(payload) => payload.actor_id(),
             Self::Typing(payload) => payload.actor_id(),
@@ -321,7 +321,7 @@ impl SignalPlaintext {
     /// never restates them.
     pub fn bind_to_envelope(
         &self,
-        sender_actor_id: &DidCoreId,
+        sender_actor_id: &ActorId,
         sent_at: DateTime<Utc>,
         expires_at: DateTime<Utc>,
     ) -> Result<()> {
@@ -438,7 +438,7 @@ pub enum PresenceState {
 pub struct PresencePlaintext {
     pub kind: PresencePlaintextKind,
     pub payload_sequence: u64,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub state: PresenceState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status_message: Option<String>,
@@ -456,7 +456,7 @@ impl PresencePlaintext {
     /// caller tops up afterwards.
     pub fn new(
         payload_sequence: u64,
-        actor_id: DidCoreId,
+        actor_id: ActorId,
         state: PresenceState,
         ttl_ms: u64,
     ) -> Result<Self> {
@@ -492,7 +492,7 @@ impl SignalPlaintextProfile for PresencePlaintext {
         self.payload_sequence
     }
 
-    fn actor_id(&self) -> Option<&DidCoreId> {
+    fn actor_id(&self) -> Option<&ActorId> {
         Some(&self.actor_id)
     }
 
@@ -596,7 +596,7 @@ impl SignalPlaintextProfile for TypingPlaintext {
 pub struct ReadReceipt {
     pub kind: ReadReceiptPlaintextKind,
     pub payload_sequence: u64,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub event_id: EventId,
     /// Required only when a Sync Service must compare receipts across devices
     /// for the same actor under merge / debounce rules.
@@ -610,7 +610,7 @@ impl ReadReceipt {
 
     pub fn new(
         payload_sequence: u64,
-        actor_id: DidCoreId,
+        actor_id: ActorId,
         event_id: EventId,
         read_scope: ReadReceiptScope,
     ) -> Result<Self> {
@@ -644,7 +644,7 @@ impl SignalPlaintextProfile for ReadReceipt {
         self.payload_sequence
     }
 
-    fn actor_id(&self) -> Option<&DidCoreId> {
+    fn actor_id(&self) -> Option<&ActorId> {
         Some(&self.actor_id)
     }
 

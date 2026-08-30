@@ -1262,8 +1262,7 @@ fn projected_envelope_value(event: &ProjectedEventInput, field: &str) -> Option<
     match field {
         "event_id" => Some(Value::String(event.event_id.as_str().to_owned())),
         "kind" => Some(Value::String(event.kind.as_str().to_owned())),
-        "actor_id" => Some(Value::String(event.actor_id.as_str().to_owned())),
-        "principal_server_id" => Some(Value::String(event.principal_server_id.as_str().to_owned())),
+        "actor_id" => serde_json::to_value(&event.actor_id).ok(),
         "authorization_ref" => event
             .authorization_ref
             .as_ref()
@@ -1334,7 +1333,7 @@ fn materialized_payload_root(
             Some("capability_issuer_principal_server_id") => {
                 grant.insert(
                     name.to_owned(),
-                    Value::String(event.principal_server_id.as_str().to_owned()),
+                    Value::String(event.actor_id.route_service_id().as_str().to_owned()),
                 );
             }
             Some("capability_authority_depth" | "capability_authority_root_refs") => {
@@ -2109,7 +2108,7 @@ fn field_value<'a>(event: &'a ProjectedEventInput, path: &str) -> Option<&'a Val
 /// a bare name or payload-first fallback.
 fn envelope_field(event: &ProjectedEventInput, path: &str) -> Option<String> {
     match path {
-        "envelope.actor_id" => Some(event.actor_id.as_str().to_owned()),
+        "envelope.actor_id" => event.actor_id.canonical_key().ok(),
         _ => None,
     }
 }

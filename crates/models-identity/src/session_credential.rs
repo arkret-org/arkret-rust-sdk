@@ -1,9 +1,8 @@
 use std::fmt;
 
 use arkret_wire::{
-    DeviceId, DeviceRevocationGateCheckOutcome, DeviceRevocationGateCheckRequestBody, DidCoreId,
-    DidUrl, EventId, Result, ServiceAccountId, SessionGrantGateAdmission, SessionGrantId,
-    WireError,
+    AccountId, DeviceId, DeviceRevocationGateCheckOutcome, DeviceRevocationGateCheckRequestBody,
+    DidCoreId, DidUrl, EventId, Result, SessionGrantGateAdmission, SessionGrantId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -377,8 +376,7 @@ pub struct SessionGrantIssuancePreimage {
     pub schema: String,
     pub issuer_id: DidCoreId,
     pub issuance_nonce: SessionGrantIssuanceNonce,
-    pub subject_id: DidCoreId,
-    pub service_account_id: ServiceAccountId,
+    pub account_id: AccountId,
     pub session_public_key: CanonicalSessionPublicJwk,
     pub audience_id: DidCoreId,
     pub scopes: Vec<String>,
@@ -452,8 +450,7 @@ pub struct SignedSessionGrantClaims {
     pub grant_id: SessionGrantId,
     pub issuer_id: DidCoreId,
     pub issuance_nonce: SessionGrantIssuanceNonce,
-    pub subject_id: DidCoreId,
-    pub service_account_id: ServiceAccountId,
+    pub account_id: AccountId,
     pub session_public_key: CanonicalSessionPublicJwk,
     pub audience_id: DidCoreId,
     pub scopes: Vec<String>,
@@ -494,8 +491,7 @@ struct RawSignedSessionGrantClaims {
     grant_id: SessionGrantId,
     issuer_id: DidCoreId,
     issuance_nonce: SessionGrantIssuanceNonce,
-    subject_id: DidCoreId,
-    service_account_id: ServiceAccountId,
+    account_id: AccountId,
     session_public_key: CanonicalSessionPublicJwk,
     audience_id: DidCoreId,
     scopes: Vec<String>,
@@ -535,8 +531,7 @@ impl TryFrom<RawSignedSessionGrantClaims> for SignedSessionGrantClaims {
             grant_id: raw.grant_id,
             issuer_id: raw.issuer_id,
             issuance_nonce: raw.issuance_nonce,
-            subject_id: raw.subject_id,
-            service_account_id: raw.service_account_id,
+            account_id: raw.account_id,
             session_public_key: raw.session_public_key,
             audience_id: raw.audience_id,
             scopes: raw.scopes,
@@ -558,8 +553,7 @@ impl SignedSessionGrantClaims {
             schema: SESSION_GRANT_ISSUANCE_SCHEMA.to_owned(),
             issuer_id: self.issuer_id.clone(),
             issuance_nonce: self.issuance_nonce.clone(),
-            subject_id: self.subject_id.clone(),
-            service_account_id: self.service_account_id.clone(),
+            account_id: self.account_id.clone(),
             session_public_key: self.session_public_key.clone(),
             audience_id: self.audience_id.clone(),
             scopes: self.scopes.clone(),
@@ -749,8 +743,10 @@ mod tests {
             grant_id: SessionGrantId::from_issuance_digest([0; 32]),
             issuer_id: DidCoreId::new("ak:did_core:web:issuer_id.example").unwrap(),
             issuance_nonce: SessionGrantIssuanceNonce::from_bytes([0x11; 32]),
-            subject_id: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
-            service_account_id: ServiceAccountId::new("account-1").unwrap(),
+            account_id: AccountId::new(
+                DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+                DidCoreId::new("ak:did_core:web:service.example").unwrap(),
+            ),
             session_public_key: CanonicalSessionPublicJwk::new(
                 r#"{ "x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "kty":"OKP", "crv":"Ed25519" }"#,
             )

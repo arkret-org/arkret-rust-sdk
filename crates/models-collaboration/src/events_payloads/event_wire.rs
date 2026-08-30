@@ -1,6 +1,6 @@
 //! Event wire schema artifact counterparts.
 
-use arkret_wire::{AccountStatusRecordId, DidCoreId, Event, EventId, SchemaId, TrackName};
+use arkret_wire::{AccountStatusRecordId, ActorId, DidCoreId, Event, EventId, SchemaId, TrackName};
 use serde::de::DeserializeOwned;
 
 use crate::internal_prelude::*;
@@ -142,11 +142,11 @@ pub struct Message {
     pub edited_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub redaction_ref: Option<EventId>,
-    pub created_by: DidCoreId,
+    pub created_by: ActorId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<DidCoreId>,
+    pub updated_by: Option<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub updated_at: Option<DateTime<Utc>>,

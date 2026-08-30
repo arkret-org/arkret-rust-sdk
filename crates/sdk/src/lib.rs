@@ -99,8 +99,8 @@ pub use arkret_identifiers::{
     InviteId, InviteLocatorId, KeyEventId, MessageId, MessageStreamId, ModerationQueueItemId,
     MorphId, NotificationId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId,
     ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId, RtcParticipantId, SealId,
-    ServiceAccountId, SidecarId, SnapshotId, SpaceId, StrandId, SubscriptionId, TransactionId,
-    TrustDomainId, TypedAppealId, ViewId, WebOrigin, new_prefixed_uuid7, project_did_to_core_id,
+    SidecarId, SnapshotId, SpaceId, StrandId, SubscriptionId, TransactionId, TrustDomainId,
+    TypedAppealId, ViewId, WebOrigin, new_prefixed_uuid7, project_did_to_core_id,
 };
 pub use arkret_identity as identity;
 pub use arkret_identity::jws;
@@ -153,7 +153,6 @@ pub use arkret_models_collaboration::governance::circle::*;
 pub use arkret_models_collaboration::governance::erasure::*;
 pub use arkret_models_collaboration::governance::grant_constraint::*;
 pub use arkret_models_collaboration::governance::invite_addressing::*;
-pub use arkret_models_collaboration::governance::member_delivery_binding_candidate::*;
 pub use arkret_models_collaboration::governance::membership_invite::*;
 pub use arkret_models_collaboration::governance::moderation::*;
 pub use arkret_models_collaboration::governance::moderation_appeal::*;
@@ -271,7 +270,7 @@ pub use arkret_models_identity::claim_presentation::{
     AgentSelectorClaim, DIRECTORY_RESTRICTED_CLAIM_PRESENTATION_KIND, DirectoryPresentedClaim,
     DirectoryRestrictedClaimPresentation, validate_agent_slug,
 };
-pub use arkret_models_identity::delivery_binding::*;
+pub use arkret_models_identity::device_push_route::*;
 pub use arkret_models_identity::device_verification::*;
 pub use arkret_models_identity::handle::*;
 pub use arkret_models_identity::handle_claim::*;
@@ -558,7 +557,6 @@ pub fn pre_authoring_cell_writes(
         kind: intent.kind().clone(),
         event_id: sentinel.clone(),
         actor_id: intent.actor_id().clone(),
-        principal_server_id: intent.principal_server_id().clone(),
         authorization_ref: intent.authorization_ref().cloned(),
         actor_seq: 0,
         realm_id: intent
@@ -594,7 +592,7 @@ pub fn pre_authoring_cell_writes(
 pub mod calendar {
     use arkret_event_draft::{EventIntent, RsvpAuthoring};
     use arkret_models_collaboration::objects::productivity::CalendarEventFields;
-    use arkret_wire::{DidCoreId, Hash, Result, ScopeRef, WireError};
+    use arkret_wire::{ActorId, Hash, Result, ScopeRef, WireError};
 
     /// Builds a complete, self-verified `ak.rsvp.set` Event.
     ///
@@ -606,7 +604,7 @@ pub mod calendar {
         calendar: &CalendarEventFields,
         schedule: &crate::CalendarScheduleProjection,
         scope_ref: ScopeRef,
-        actor_id: DidCoreId,
+        actor_id: ActorId,
         created_at: chrono::DateTime<chrono::Utc>,
         causal_refs: Vec<Hash>,
     ) -> Result<EventIntent> {
@@ -623,10 +621,7 @@ pub mod calendar {
             }
         }
         let intent = arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::RsvpSet>::new(
-            scope_ref,
-            actor_id.clone(),
-            actor_id,
-            payload,
+            scope_ref, actor_id, payload,
         )
         .map_err(|error| WireError::Protocol(error.to_string()))?
         .with_causal_refs(causal_refs)

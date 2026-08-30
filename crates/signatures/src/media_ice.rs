@@ -4,7 +4,7 @@ use arkret_canonical::base64url::base64url_decode;
 use arkret_models_collaboration::objects::media::{
     MediaIceConfigOutcome, MediaIceServer, MediaIceSignatureAlgorithm,
 };
-use arkret_wire::{Did, DidCoreId, RealmId};
+use arkret_wire::{ActorId, Did, DidCoreId, RealmId};
 use ed25519_dalek::Signature;
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +17,7 @@ use crate::{Error, Result};
 pub struct IceConfig {
     pub realm_id: RealmId,
     pub call_id: String,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     /// STUN / TURN servers offered for this call leg.
     pub ice_servers: Vec<MediaIceServer>,
     /// Credential lifetime in seconds.

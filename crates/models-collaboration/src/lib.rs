@@ -5,7 +5,7 @@
 //! module directories. Phase 1A seeded the governance module with the
 //! receive-policy, audit, and plaintext-classification wire shapes;
 //! phase 1B-c2 lands the governance domain (realm governance, circle,
-//! invite addressing, moderation, grant constraints, delivery bindings)
+//! invite addressing, moderation, and grant constraints)
 //! plus the first event-payload faces migrated from the `arkret` umbrella.
 
 pub mod account_lifecycle;

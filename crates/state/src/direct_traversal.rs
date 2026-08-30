@@ -42,7 +42,7 @@ use arkret_models_crypto::mls_payloads::MlsCommitPayload;
 use arkret_wire::error_codes::{ErrorCode, ReasonCode};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    CellRef, DidCoreId, EventId, Hash, MlsGroupId, NotarySignerDescriptor, NotaryValue,
+    ActorId, CellRef, DidCoreId, EventId, Hash, MlsGroupId, NotarySignerDescriptor, NotaryValue,
     ProjectedCellWrite, RealmId, Seal, SealBasis, SealId, SealSignature, WireError, event_kind_str,
 };
 use serde_json::Value;
@@ -811,7 +811,7 @@ where
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HistoryJoinEpochSubject {
     pub mls_group_id: MlsGroupId,
-    pub requester_actor_id: DidCoreId,
+    pub requester_actor_id: ActorId,
     pub authorization_incarnation: AuthorizationIncarnation,
 }
 
@@ -833,7 +833,7 @@ pub fn derive_history_join_epoch(
 ) -> arkret_wire::Result<u64> {
     let mut add_proposals = BTreeMap::<EventId, MlsProposalPayload>::new();
     let mut commits = Vec::<(EventId, MlsCommitPayload)>::new();
-    let mut genesis = Vec::<(EventId, DidCoreId)>::new();
+    let mut genesis = Vec::<(EventId, ActorId)>::new();
     let (realm_incarnation_ref, circle_incarnation_ref) = match &subject.authorization_incarnation {
         AuthorizationIncarnation::Realm {
             realm_membership_incarnation_ref,
@@ -855,7 +855,8 @@ pub fn derive_history_join_epoch(
                 let proposal: MlsProposalPayload = payload_of(event)?;
                 if proposal.mls_group_id == subject.mls_group_id
                     && proposal.proposal_type == MlsProposalType::Add
-                    && proposal.target_principal_id.as_ref() == Some(&subject.requester_actor_id)
+                    && proposal.target_principal_id.as_ref()
+                        == Some(subject.requester_actor_id.signing_principal_id())
                     && proposal.target_authorization_incarnation.as_ref()
                         == Some(&subject.authorization_incarnation)
                 {
@@ -976,13 +977,15 @@ fn payload_of<T: serde::de::DeserializeOwned>(event: &Event) -> arkret_wire::Res
     ))?)
 }
 
-fn is_join_transition_of(event: &Event, actor_id: &DidCoreId) -> bool {
-    event
-        .payload
-        .get("actor_id")
-        .and_then(Value::as_str)
-        .is_some_and(|actor| actor == actor_id.as_str())
-        && event.payload.get("membership").and_then(Value::as_str) == Some("join")
+fn is_join_transition_of(event: &Event, actor_id: &ActorId) -> bool {
+    serde_json::from_value::<
+        arkret_models_collaboration::governance::membership_invite::MembershipPayload,
+    >(Value::Object(event.payload.clone().into_iter().collect()))
+    .is_ok_and(|payload| {
+        payload.member_id == *actor_id
+            && payload.membership
+                == arkret_models_collaboration::governance::membership_invite::MembershipPayloadState::Join
+    })
 }
 
 #[cfg(test)]

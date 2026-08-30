@@ -1319,12 +1319,6 @@ singleton_lattice!(
 );
 
 singleton_lattice!(
-    RealmDeliveryBindingPolicy,
-    arkret_wire::CellFamilyId::REALM_DELIVERY_BINDING_POLICY_V1,
-    Criticality::Required
-);
-
-singleton_lattice!(
     RealmSearchPolicy,
     arkret_wire::CellFamilyId::REALM_SEARCH_POLICY_V1,
     Criticality::Required

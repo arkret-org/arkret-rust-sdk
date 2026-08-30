@@ -4,7 +4,7 @@
 //! `arkret_event_draft::ProjectedEventOperation` are owned by `arkret-event-draft`, which
 //! keeps this model crate free of behavior dependencies.
 
-use arkret_wire::{DidCoreId, Hash, RealmId};
+use arkret_wire::{ActorId, DidCoreId, Hash, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -32,7 +32,7 @@ pub struct MemberRef {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FederationVerifyActorRequestBody {
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub challenge: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -48,7 +48,7 @@ pub struct FederationVerifyActorRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FederationVerifyActorOutcome {
     pub valid: bool,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verified_key_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

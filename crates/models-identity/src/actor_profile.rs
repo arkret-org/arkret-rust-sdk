@@ -3,7 +3,9 @@
 use std::collections::BTreeMap;
 use std::ops::Deref;
 
-use arkret_wire::{ActorKind, ActorProfileId, ActorStatus, BlobRef, DidCoreId, RealmId, SchemaId};
+use arkret_wire::{
+    ActorId, ActorKind, ActorProfileId, ActorStatus, BlobRef, DidCoreId, RealmId, SchemaId,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, de};
 use serde_json::Value;
@@ -43,7 +45,7 @@ pub struct ActorProfile {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<DidCoreId>,
+    pub updated_by: Option<ActorId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]

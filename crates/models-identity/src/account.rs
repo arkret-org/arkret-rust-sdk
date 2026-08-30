@@ -1697,7 +1697,12 @@ impl IdentityCreationRegistration {
                 != self.control_proof.principal_id.as_str()
             || Hash::new(canonical::canonical_sha256(&self.did_operation)?)?
                 != self.control_proof.operation_digest
-            || self.pcr_genesis_unit.create().actor_id != self.control_proof.principal_id
+            || self
+                .pcr_genesis_unit
+                .create()
+                .actor_id
+                .signing_principal_id()
+                != &self.control_proof.principal_id
             || self.pcr_genesis_unit.create().realm_id != self.control_proof.pcr_realm_id
             || Hash::new(canonical::canonical_sha256(
                 &self.pcr_genesis_unit.create().payload,

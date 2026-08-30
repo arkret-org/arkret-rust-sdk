@@ -10,9 +10,9 @@ use arkret_models_identity::{
 };
 pub use arkret_wire::{AcceptedDeviceIssuePossessionProof, AcceptedDeviceRefreshPossessionProof};
 use arkret_wire::{
-    AcceptedDevicePossessionProof, AppletId, Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash,
-    NonEmptyString, RealmId, RequestId, Result, ScopeRef, ServiceAccountId, SessionGrantId,
-    StrandId, WireError, canonical,
+    AcceptedDevicePossessionProof, AccountId, AppletId, Base64UrlString, DeviceId, DidCoreId,
+    DidUrl, Hash, NonEmptyString, RealmId, RequestId, Result, ScopeRef, SessionGrantId, StrandId,
+    WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -418,8 +418,7 @@ fn session_grant_proof_signing_bytes(value: &Value) -> Result<Vec<u8>> {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SessionGrantOutcome {
-    pub principal_id: DidCoreId,
-    pub service_account_id: ServiceAccountId,
+    pub account_id: AccountId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     pub session_grant: String,
@@ -775,7 +774,7 @@ pub fn session_grant_refresh_request_digest(
 #[serde(deny_unknown_fields)]
 pub struct SessionGrantRefreshOutcome {
     pub session_grant_id: SessionGrantId,
-    pub service_account_id: ServiceAccountId,
+    pub account_id: AccountId,
     pub grant_jwt: String,
     /// JWK the rotated grant is bound to (the device holder key); the server
     /// does not mint a fresh session private key on rotation.
@@ -839,8 +838,7 @@ pub enum SessionGrantIntrospectStatus {
 pub struct SessionGrantIntrospectGrant {
     pub id: SessionGrantId,
     pub issuer_id: DidCoreId,
-    pub subject_id: DidCoreId,
-    pub service_account_id: ServiceAccountId,
+    pub account_id: AccountId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     pub audience_id: DidCoreId,
@@ -869,8 +867,7 @@ pub struct SessionGrantIntrospectGrant {
 struct SessionGrantIntrospectGrantWire {
     id: SessionGrantId,
     issuer_id: DidCoreId,
-    subject_id: DidCoreId,
-    service_account_id: ServiceAccountId,
+    account_id: AccountId,
     #[serde(default)]
     device_id: Option<DeviceId>,
     audience_id: DidCoreId,
@@ -890,12 +887,10 @@ struct SessionGrantIntrospectGrantWire {
 }
 
 impl SessionGrantIntrospectGrant {
-    /// Exact online request-context authority pair. The audience_id is the
-    /// Principal Server named by the producer-signed Event; callers compare
-    /// both fields byte-for-byte rather than guessing from current DID state.
+    /// Exact account bound into this grant.
     #[must_use]
-    pub fn principal_authority_key(&self) -> arkret_wire::PrincipalAuthorityKey {
-        arkret_wire::PrincipalAuthorityKey::new(self.subject_id.clone(), self.audience_id.clone())
+    pub fn account_id(&self) -> &AccountId {
+        &self.account_id
     }
 
     /// Typed selector for replaying the accepted device authorization row in
@@ -992,8 +987,7 @@ impl TryFrom<SessionGrantIntrospectGrantWire> for SessionGrantIntrospectGrant {
         let grant = Self {
             id: wire.id,
             issuer_id: wire.issuer_id,
-            subject_id: wire.subject_id,
-            service_account_id: wire.service_account_id,
+            account_id: wire.account_id,
             device_id: wire.device_id,
             audience_id: wire.audience_id,
             scopes: wire.scopes,
@@ -1069,10 +1063,12 @@ mod session_grant_contract_tests {
         r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#;
 
     #[test]
-    fn issue_outcome_requires_identity_key_and_audience() {
+    fn issue_outcome_requires_account_id_and_audience() {
         let valid = json!({
-            "principal_id": "ak:did_core:web:alice.example",
-            "service_account_id": "account-1",
+            "account_id": {
+                "principal_id": "ak:did_core:web:alice.example",
+                "principal_server_id": "ak:did_core:web:service.example"
+            },
             "session_grant": "signed.jwt",
             "expires_at": "2026-08-08T12:00:00.000Z",
             "session_grant_id": GRANT_ID,
@@ -1082,7 +1078,7 @@ mod session_grant_contract_tests {
         assert!(serde_json::from_value::<SessionGrantOutcome>(valid.clone()).is_ok());
 
         for field in [
-            "service_account_id",
+            "account_id",
             "session_grant_id",
             "session_public_key",
             "audience_id",
@@ -1196,8 +1192,10 @@ mod session_grant_contract_tests {
         json!({
             "id": GRANT_ID,
             "issuer_id": "ak:did_core:web:account-authority.example",
-            "subject_id": "ak:did_core:web:alice.example",
-            "service_account_id": "account-1",
+            "account_id": {
+                "principal_id": "ak:did_core:web:alice.example",
+                "principal_server_id": "ak:did_core:web:service.example"
+            },
             "device_id": "ak:device:019a6aa0-0000-7000-8000-000000000000",
             "audience_id": "ak:did_core:web:service.example",
             "scopes": [],
@@ -1227,13 +1225,10 @@ mod session_grant_contract_tests {
         valid["holder_binding"] = holder_binding();
         let grant = serde_json::from_value::<SessionGrantIntrospectGrant>(valid.clone()).unwrap();
         assert_eq!(
-            grant.principal_authority_key().principal_id,
-            grant.subject_id
+            grant.account_id().principal_id.as_str(),
+            "ak:did_core:web:alice.example"
         );
-        assert_eq!(
-            grant.principal_authority_key().principal_server_id,
-            grant.audience_id
-        );
+        assert_eq!(grant.account_id().principal_server_id, grant.audience_id);
         assert_eq!(
             grant
                 .human_device_authorization_selector()
@@ -1311,7 +1306,10 @@ mod session_grant_contract_tests {
 
         let mut refresh = json!({
             "session_grant_id": GRANT_ID,
-            "service_account_id": "account-1",
+            "account_id": {
+                "principal_id": "ak:did_core:web:alice.example",
+                "principal_server_id": "ak:did_core:web:service.example"
+            },
             "grant_jwt": "successor.jwt",
             "session_public_key": CANONICAL_JWK,
             "expires_at": "2026-08-08T12:04:00.000Z",

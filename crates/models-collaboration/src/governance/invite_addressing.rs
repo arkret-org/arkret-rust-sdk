@@ -15,8 +15,6 @@ use arkret_wire::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::governance::member_delivery_binding_candidate::MemberDeliveryBindingCandidate;
-
 pub const INVITE_RECIPIENT_SERVICE_KIND_PRINCIPAL_SERVER: &str = "principal_server";
 pub const INVITE_LOCATOR_RESOLVE_PATH: &str = "_arkret/open/invite-locators/resolve";
 pub const INVITE_LOCATOR_ISSUE_PATH: &str = "_arkret/self/invite-locators";
@@ -442,8 +440,6 @@ pub enum IntroductionEvidence {
     HandleClaim {
         handle: Handle,
         handle_claim: Box<HandleClaim>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        member_delivery_binding_candidate: Option<Box<MemberDeliveryBindingCandidate>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         resolved_by: Option<DidCoreId>,
         #[serde(
@@ -1038,18 +1034,20 @@ mod tests {
             .with_timezone(&Utc);
         let claim = HandleClaim {
             schema: HandleClaim::SCHEMA.to_owned(),
-            handle: Some(handle.clone()),
+            handle: handle.clone(),
             handle_aliases: Vec::new(),
-            subject_id: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
-            issuer_id: None,
+            subject_account_id: arkret_wire::AccountId::new(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
+            ),
+            issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureissuer").unwrap(),
             vouching_id: None,
-            binding_state: Some(HandleBindingState::Verified),
+            binding_state: HandleBindingState::Verified,
             claim_kind: None,
             visibility: None,
             audience: None,
             challenge: None,
             claim_scope: Default::default(),
-            member_delivery_binding: None,
             claims: Vec::new(),
             created_at: resolved_at,
             expires_at: Some(expires_at),
@@ -1070,7 +1068,6 @@ mod tests {
         let evidence = IntroductionEvidence::HandleClaim {
             handle,
             handle_claim: Box::new(claim),
-            member_delivery_binding_candidate: None,
             resolved_by: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
             resolved_at: Some(resolved_at),
         };

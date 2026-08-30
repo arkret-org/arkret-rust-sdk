@@ -6,8 +6,8 @@ use arkret_models_identity::{
     ResolutionMethodHistoryEvidence,
 };
 use arkret_wire::{
-    AppletId, Did, DidCoreId, DidUrl, EventId, EventKind, GrantId, Hash, PayloadSigner, ProfileId,
-    Result, SchemaId, WireError, XExtensionMap, canonical, proof_kind,
+    ActorId, AppletId, Did, DidCoreId, DidUrl, EventId, EventKind, GrantId, Hash, PayloadSigner,
+    ProfileId, Result, SchemaId, WireError, XExtensionMap, canonical, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -86,8 +86,7 @@ pub struct AppletManagedActorProvisionPayload {
     pub schema: String,
     pub applet_id: AppletId,
     pub service_id: DidCoreId,
-    pub actor_id: DidCoreId,
-    pub actor_principal_server_id: DidCoreId,
+    pub actor_id: ActorId,
     pub actor_role: AppletManagedActorRole,
     pub initial_resolution: ResolutionCommitment,
     pub method_history_evidence: AppletManagedActorMethodHistoryEvidence,
@@ -104,9 +103,10 @@ impl AppletManagedActorProvisionPayload {
         self.method_history_evidence.validate_shape()?;
         let boundary = self.method_history_evidence.boundary();
         if self.schema != Self::SCHEMA
-            || self.actor_id == self.service_id
+            || self.actor_id.signing_principal_id() == &self.service_id
             || matches!(self.actor_role, AppletManagedActorRole::Bot) != self.external_ref.is_none()
-            || arkret_wire::project_did_to_core_id(&self.initial_resolution.did)? != self.actor_id
+            || arkret_wire::project_did_to_core_id(&self.initial_resolution.did)?
+                != *self.actor_id.signing_principal_id()
             || boundary.to_method_history_head != self.initial_resolution.method_history_head
             || boundary.to_version_id != self.initial_resolution.version_id
         {

@@ -22,9 +22,8 @@ use std::collections::BTreeMap;
 
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
-    AppletId, AuthContext, AuthoredEvent, AuthorizationRef, DidCoreId, EventId, EventKind,
-    EventRef, EventRequirements, Hash, Hlc, Precondition, ProfileRef, RealmId, ScopeRef, SealBasis,
-    SealId,
+    ActorId, AppletId, AuthContext, AuthoredEvent, AuthorizationRef, EventId, EventKind, EventRef,
+    EventRequirements, Hash, Hlc, Precondition, ProfileRef, RealmId, ScopeRef, SealBasis, SealId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -75,8 +74,7 @@ use crate::Result;
 pub struct EventIntent {
     kind: EventKind,
     scope_ref: ScopeRef,
-    actor_id: DidCoreId,
-    principal_server_id: DidCoreId,
+    actor_id: ActorId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     created_at: DateTime<Utc>,
     payload: BTreeMap<String, Value>,
@@ -97,7 +95,7 @@ pub struct EventIntent {
     #[serde(default, skip_serializing_if = "EventRequirements::is_empty")]
     requirements: EventRequirements,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    executed_by: Option<DidCoreId>,
+    executed_by: Option<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     authorization_ref: Option<AuthorizationRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -117,8 +115,7 @@ impl EventIntent {
     pub(crate) fn new(
         kind: EventKind,
         scope_ref: ScopeRef,
-        actor_id: DidCoreId,
-        principal_server_id: DidCoreId,
+        actor_id: ActorId,
         created_at: DateTime<Utc>,
         payload: BTreeMap<String, Value>,
     ) -> Self {
@@ -126,7 +123,6 @@ impl EventIntent {
             kind,
             scope_ref,
             actor_id,
-            principal_server_id,
             created_at,
             payload,
             prev_refs: Vec::new(),
@@ -158,12 +154,8 @@ impl EventIntent {
         self.scope_ref.realm_id_opt()
     }
 
-    pub fn actor_id(&self) -> &DidCoreId {
+    pub fn actor_id(&self) -> &ActorId {
         &self.actor_id
-    }
-
-    pub fn principal_server_id(&self) -> &DidCoreId {
-        &self.principal_server_id
     }
 
     pub fn created_at(&self) -> DateTime<Utc> {
@@ -228,7 +220,7 @@ impl EventIntent {
         &self.requirements
     }
 
-    pub fn executed_by(&self) -> Option<&DidCoreId> {
+    pub fn executed_by(&self) -> Option<&ActorId> {
         self.executed_by.as_ref()
     }
 
@@ -328,7 +320,7 @@ impl EventIntent {
         self
     }
 
-    pub fn with_optional_executed_by(mut self, executed_by: Option<DidCoreId>) -> Self {
+    pub fn with_optional_executed_by(mut self, executed_by: Option<ActorId>) -> Self {
         self.executed_by = executed_by;
         self
     }
@@ -364,7 +356,7 @@ impl EventIntent {
         self
     }
 
-    pub fn with_executed_by(mut self, executed_by: DidCoreId) -> Self {
+    pub fn with_executed_by(mut self, executed_by: ActorId) -> Self {
         self.executed_by = Some(executed_by);
         self
     }
@@ -416,7 +408,6 @@ impl EventIntent {
             scope_ref: self.scope_ref,
             actor_id: self.actor_id,
             executed_by: self.executed_by,
-            principal_server_id: self.principal_server_id,
             authorization_ref: self.authorization_ref,
             applet_id: self.applet_id,
             external_ref: self.external_ref,
@@ -454,7 +445,6 @@ impl EventIntent {
             kind: event.kind.clone(),
             scope_ref: event.scope_ref.clone(),
             actor_id: event.actor_id.clone(),
-            principal_server_id: event.principal_server_id.clone(),
             created_at: event.created_at,
             payload: event.payload.clone(),
             prev_refs: Vec::new(),
@@ -493,7 +483,6 @@ impl EventIntent {
         self.kind == event.kind
             && self.scope_ref == event.scope_ref
             && self.actor_id == event.actor_id
-            && self.principal_server_id == event.principal_server_id
             && self.created_at == event.created_at
             && self.payload == event.payload
             && self.refs == event.refs

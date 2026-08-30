@@ -19,7 +19,7 @@ use arkret_models_collaboration::governance::membership_invite::{
     MembershipPayload, MembershipPayloadState,
 };
 use arkret_wire::{
-    AuthorizationRef, CellRef, DidCoreId, Event, EventId, EventKind, PredicateOp,
+    ActorId, AuthorizationRef, CellRef, Event, EventId, EventKind, PredicateOp,
     REALM_AUTHORITY_ROOT_CELL, RealmId, Result, ScopeRef, WireError, event_spec,
 };
 use chrono::{DateTime, Utc};
@@ -35,7 +35,6 @@ pub fn is_realm_bootstrap_followup_kind(kind: &EventKind) -> bool {
             | EventKind::RealmPolicyBundle
             | EventKind::RealmDiscovery
             | EventKind::RealmJoinRule
-            | EventKind::RealmDeliveryBindingPolicy
             | EventKind::RealmPlaintextVisibleServices
             | EventKind::RealmAlias
     )
@@ -49,14 +48,14 @@ pub fn is_realm_bootstrap_followup_kind(kind: &EventKind) -> bool {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmAuthorityRootValue {
-    pub controller_id: DidCoreId,
+    pub controller_id: ActorId,
     pub controller_epoch: u64,
     pub authority_generation: u64,
 }
 
 impl RealmAuthorityRootValue {
     /// Derive the genesis value from an accepted `ak.realm.create` payload.
-    pub fn genesis(controller_id: DidCoreId) -> Self {
+    pub fn genesis(controller_id: ActorId) -> Self {
         Self {
             controller_id,
             controller_epoch: 0,
@@ -65,8 +64,8 @@ impl RealmAuthorityRootValue {
     }
 
     /// True when this value is a well-formed genesis root for `created_by`.
-    pub fn is_genesis_for(&self, created_by: &str) -> bool {
-        self.controller_id.as_str() == created_by
+    pub fn is_genesis_for(&self, created_by: &ActorId) -> bool {
+        &self.controller_id == created_by
             && self.controller_epoch == 0
             && self.authority_generation == 0
     }
@@ -79,11 +78,11 @@ impl RealmAuthorityRootValue {
 /// here is what used to hand callers an `event_id` that authoring would move.
 fn build_realm_authority_intent<K: EventSpec>(
     scope_ref: ScopeRef,
-    actor_id: DidCoreId,
+    actor_id: ActorId,
     created_at: DateTime<Utc>,
     payload: K::Payload,
 ) -> Result<EventIntent> {
-    TypedEventDraft::<K>::new(scope_ref, actor_id.clone(), actor_id, payload)
+    TypedEventDraft::<K>::new(scope_ref, actor_id, payload)
         .map_err(|error| WireError::Protocol(error.to_string()))?
         .with_authorization_ref(
             AuthorizationRef::new(REALM_AUTHORITY_ROOT_CELL)
@@ -97,7 +96,7 @@ fn build_realm_authority_intent<K: EventSpec>(
 /// authorization reference.
 pub fn build_realm_owner_transfer_intent(
     scope_ref: ScopeRef,
-    actor_id: DidCoreId,
+    actor_id: ActorId,
     created_at: DateTime<Utc>,
     payload: RealmOwnerTransferPayload,
 ) -> Result<EventIntent> {
@@ -129,7 +128,7 @@ pub fn build_realm_owner_transfer_intent(
 /// Build an unsigned destructive `ak.realm.authority.reset` Event.
 pub fn build_realm_authority_reset_intent(
     scope_ref: ScopeRef,
-    actor_id: DidCoreId,
+    actor_id: ActorId,
     created_at: DateTime<Utc>,
     payload: RealmAuthorityResetPayload,
 ) -> Result<EventIntent> {
@@ -210,7 +209,7 @@ impl std::error::Error for RealmBootstrapValidationError {}
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ValidatedRealmBootstrap {
     pub realm_id: RealmId,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub authority_root: RealmAuthorityRootValue,
 }
 
@@ -235,7 +234,7 @@ pub fn validate_realm_bootstrap_unit(
     {
         return Err(RealmBootstrapValidationError::NotOrdinaryRealmBootstrap);
     }
-    let actor_id = create.actor_id.as_str();
+    let actor_id = &create.actor_id;
     let realm_id = create.realm_id.as_str();
     let object = create
         .payload
@@ -288,7 +287,7 @@ pub fn validate_realm_bootstrap_unit(
     let mut previous_slot = 0_usize;
     let mut present = std::collections::HashSet::new();
     for followup in &events[1..] {
-        if followup.actor_id.as_str() != actor_id
+        if &followup.actor_id != actor_id
             || followup.realm_id.as_str() != realm_id
             || !is_realm_bootstrap_followup_kind(&followup.kind)
         {
@@ -302,8 +301,7 @@ pub fn validate_realm_bootstrap_unit(
             EventKind::RealmDiscovery => 5,
             EventKind::RealmAlias => 6,
             EventKind::RealmPlaintextVisibleServices => 7,
-            EventKind::RealmDeliveryBindingPolicy => 8,
-            EventKind::MemberState => 9,
+            EventKind::MemberState => 8,
             _ => return Err(RealmBootstrapValidationError::OutOfOrderBootstrap),
         };
         if slot <= previous_slot || !present.insert(followup.kind.clone()) {
@@ -323,14 +321,17 @@ pub fn validate_realm_bootstrap_unit(
                 let payload: MembershipPayload = followup
                     .typed_payload::<event_spec::MemberState>()
                     .map_err(|_| RealmBootstrapValidationError::EffectsPayloadMismatch)?;
-                if payload.actor_id.as_ref().map(DidCoreId::as_str) != Some(actor_id)
+                if &payload.member_id != actor_id
                     || payload.membership != MembershipPayloadState::Join
                     || payload.realm_id.as_ref().map(RealmId::as_str) != Some(realm_id)
                 {
                     return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
                 }
+                let actor_key = actor_id
+                    .canonical_key()
+                    .map_err(|_| RealmBootstrapValidationError::OutOfOrderBootstrap)?;
                 let creator_cell =
-                    CellRef::new(format!("ak:cell:ak.component.member.state.v1:{actor_id}"))
+                    CellRef::new(format!("ak:cell:ak.component.member.state.v1:{actor_key}"))
                         .map_err(|_| RealmBootstrapValidationError::OutOfOrderBootstrap)?;
                 let genesis_head_eq_registered =
                     arkret_schema::realm_bootstrap_genesis_head_eq_registered(
@@ -371,7 +372,6 @@ pub fn validate_realm_bootstrap_unit(
         EventKind::RealmJoinRule,
         EventKind::RealmHistoryAccess,
         EventKind::RealmDiscovery,
-        EventKind::RealmDeliveryBindingPolicy,
         EventKind::MemberState,
     ] {
         if !present.contains(&required) {
@@ -388,11 +388,12 @@ pub fn validate_realm_bootstrap_unit(
 /// Derive and check the registered authority-root value of a create payload.
 fn genesis_authority_root(
     _object: &serde_json::Map<String, serde_json::Value>,
-    actor_id: &str,
+    actor_id: &ActorId,
 ) -> std::result::Result<RealmAuthorityRootValue, RealmBootstrapValidationError> {
-    let controller_id = DidCoreId::new(actor_id)
+    actor_id
+        .validate()
         .map_err(|_| RealmBootstrapValidationError::RealmAuthorityRootConflict)?;
-    Ok(RealmAuthorityRootValue::genesis(controller_id))
+    Ok(RealmAuthorityRootValue::genesis(actor_id.clone()))
 }
 
 #[cfg(test)]
@@ -472,10 +473,6 @@ mod tests {
                 json!({"from": null, "to": "since_join"}),
             ),
             event(EventKind::RealmDiscovery, json!({"value": "invite_only"})),
-            event(
-                EventKind::RealmDeliveryBindingPolicy,
-                json!({"allow_unroutable_members": false}),
-            ),
             event(
                 EventKind::MemberState,
                 json!({

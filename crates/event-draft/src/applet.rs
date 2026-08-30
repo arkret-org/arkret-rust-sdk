@@ -6,7 +6,7 @@ use arkret_identifiers::AppletId;
 use arkret_models_integration::{
     AppletBridgeErrorClass, AppletBridgeErrorPayload, AppletBridgeVisibilityScope,
 };
-use arkret_wire::{DidCoreId, NonEmptyString, RealmId, ScopeRef};
+use arkret_wire::{ActorId, NonEmptyString, RealmId, ScopeRef};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -17,7 +17,7 @@ use crate::{EventDraftError, EventIntent, Result, TypedEventDraft};
 pub struct AppletBridgeErrorBuilder {
     realm_id: RealmId,
     applet_id: AppletId,
-    actor_id: DidCoreId,
+    actor_id: ActorId,
     failed_transaction_ref: String,
     error_class: AppletBridgeErrorClass,
     error_code: String,
@@ -33,7 +33,7 @@ impl AppletBridgeErrorBuilder {
     pub fn new(
         realm_id: RealmId,
         applet_id: AppletId,
-        actor_id: DidCoreId,
+        actor_id: ActorId,
         failed_transaction_ref: impl Into<String>,
         error_class: AppletBridgeErrorClass,
         error_code: impl Into<String>,
@@ -92,7 +92,6 @@ impl AppletBridgeErrorBuilder {
             ScopeRef::Realm {
                 realm_id: self.realm_id,
             },
-            self.actor_id.clone(),
             self.actor_id,
             payload,
         )?

@@ -7,8 +7,8 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    CbaProofBundle, DidCoreId, Event, EventFederationSubmission, EventId, EventInitialSubmission,
-    Hash, PrincipalAuthorityKey, RealmId, Result, WireError,
+    AccountId, CbaProofBundle, DidCoreId, Event, EventFederationSubmission, EventId,
+    EventInitialSubmission, Hash, RealmId, Result, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -38,7 +38,7 @@ pub enum MembershipLifecycleCause {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentControllerMembershipBinding {
-    pub controller_authority: PrincipalAuthorityKey,
+    pub controller_authority: AccountId,
     pub controller_membership_generation_ref: EventId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub controller_terminal_event_ref: Option<EventId>,
@@ -70,9 +70,9 @@ pub enum AgentMembershipCascadeSchema {
 pub struct AgentCleanupRecord {
     pub schema: AgentMembershipCascadeSchema,
     pub realm_id: RealmId,
-    pub controller_authority: PrincipalAuthorityKey,
+    pub controller_authority: AccountId,
     pub controller_membership_generation_ref: EventId,
-    pub initiator_authority: PrincipalAuthorityKey,
+    pub initiator_authority: AccountId,
     pub controller_terminal_event_id: EventId,
     pub expected_agent_ids: Vec<DidCoreId>,
     pub cleanup_intent_digest: Hash,
@@ -106,9 +106,9 @@ impl AgentCleanupRecord {
         struct CleanupIntentPreimage<'a> {
             schema: AgentMembershipCascadeSchema,
             realm_id: &'a RealmId,
-            controller_authority: &'a PrincipalAuthorityKey,
+            controller_authority: &'a AccountId,
             controller_membership_generation_ref: &'a EventId,
-            initiator_authority: &'a PrincipalAuthorityKey,
+            initiator_authority: &'a AccountId,
             controller_terminal_event_id: &'a EventId,
             expected_agent_ids: &'a [DidCoreId],
         }
@@ -303,7 +303,7 @@ fn validate_cascade<'a>(
         ));
     }
     let controller_payload = decode_membership_payload(controller)?;
-    if controller_payload.actor_id.as_ref() != Some(&controller.actor_id) {
+    if controller_payload.member_id != controller.actor_id {
         return Err(WireError::Protocol(
             "agent membership cascade controller payload actor mismatch".to_owned(),
         ));
@@ -375,10 +375,13 @@ fn validate_cascade<'a>(
         }
     }
 
-    let controller_authority = PrincipalAuthorityKey {
-        principal_id: controller.actor_id.clone(),
-        principal_server_id: controller.principal_server_id.clone(),
-    };
+    let controller_authority = controller
+        .actor_id
+        .as_account_id()
+        .cloned()
+        .ok_or_else(|| {
+            WireError::Protocol("agent membership controller must be an account actor".to_owned())
+        })?;
     let mut controller_generation = None;
     let mut event_ids = BTreeSet::new();
     let mut actor_ids = BTreeSet::new();
@@ -392,7 +395,7 @@ fn validate_cascade<'a>(
             || agent.realm_id != controller.realm_id
             || agent.actor_id == controller.actor_id
             || agent.executed_by.as_ref() != Some(initiator)
-            || agent.principal_server_id != controller.principal_server_id
+            || agent.actor_id.route_service_id() != controller.actor_id.route_service_id()
         {
             return Err(WireError::Protocol(
                 "agent membership cascade Event authority or Realm binding mismatch".to_owned(),
@@ -404,7 +407,7 @@ fn validate_cascade<'a>(
         })?;
         if payload.membership != MembershipPayloadState::Leave
             || payload.membership_cause != Some(MembershipLifecycleCause::ControllerMembershipEnded)
-            || payload.actor_id.as_ref() != Some(&agent.actor_id)
+            || payload.member_id != agent.actor_id
             || binding.controller_terminal_event_ref.as_ref() != Some(&controller.event_id)
         {
             return Err(WireError::Protocol(
@@ -475,8 +478,8 @@ mod tests {
         Hash::new(format!("sha256:{}", seed.to_string().repeat(64))).unwrap()
     }
 
-    fn authority(principal: &str, server: &str) -> PrincipalAuthorityKey {
-        PrincipalAuthorityKey {
+    fn authority(principal: &str, server: &str) -> AccountId {
+        AccountId {
             principal_id: DidCoreId::new(principal).unwrap(),
             principal_server_id: DidCoreId::new(server).unwrap(),
         }

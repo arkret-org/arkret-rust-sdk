@@ -6,7 +6,7 @@ pub use arkret_models_crypto::encrypted_attachment::{
     StreamEncryptionAlgorithm, StreamEncryptionScheme, WholeFileEncryptedAttachment,
     WholeFileEncryptionAlgorithm, WholeFileEncryptionScheme,
 };
-use arkret_wire::{BlobRef, DidCoreId, Hash, RealmId, SchemaId};
+use arkret_wire::{ActorId, BlobRef, DidCoreId, Hash, RealmId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -50,11 +50,11 @@ pub struct Blob {
     pub encryption: Option<EncryptedAttachment>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thumbnail_blob_ref: Option<BlobRef>,
-    pub created_by: DidCoreId,
+    pub created_by: ActorId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<DidCoreId>,
+    pub updated_by: Option<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub updated_at: Option<DateTime<Utc>>,

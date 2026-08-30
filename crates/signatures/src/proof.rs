@@ -152,7 +152,7 @@ struct DetachedJwsProtectedHeader {
 pub fn verify_ed25519_detached_jws_proof(
     proof: &ProducerEventProof,
     canonical_bytes: &[u8],
-    actor_id: &arkret_wire::DidCoreId,
+    actor_id: &arkret_wire::ActorId,
     public_key: &PublicKeyMaterial,
 ) -> std::result::Result<(), VerifierError> {
     verify_ed25519_detached_jws_proof_with_digest_suite(
@@ -172,7 +172,7 @@ pub fn verify_ed25519_detached_jws_proof(
 pub fn verify_ed25519_detached_jws_proof_with_digest_suite(
     proof: &ProducerEventProof,
     canonical_bytes: &[u8],
-    actor_id: &arkret_wire::DidCoreId,
+    actor_id: &arkret_wire::ActorId,
     public_key: &PublicKeyMaterial,
     digest_suite: arkret_canonical::DigestSuite,
 ) -> std::result::Result<(), VerifierError> {
@@ -261,7 +261,7 @@ pub fn verify_ed25519_signal_proof(
 fn verify_ed25519_detached_jws_proof_inner(
     proof: &ProducerEventProof,
     canonical_bytes: &[u8],
-    actor_id: &arkret_wire::DidCoreId,
+    actor_id: &arkret_wire::ActorId,
     public_key: &PublicKeyMaterial,
     digest_suite: arkret_canonical::DigestSuite,
 ) -> std::result::Result<(), VerifierError> {

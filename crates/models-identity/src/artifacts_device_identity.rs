@@ -1,11 +1,11 @@
-//! Device identity receipt, key-verification, and delivery-binding shapes.
+//! Device identity receipt and key-verification shapes.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    Audience, DeviceId, DeviceMessageTransactionId, Did, DidCoreId, DidUrl, EventId, Hash,
-    NonEmptyJsonObject, NonEmptyString, PayloadProof, ProofContextId, ProtocolKind, ReceiptId,
-    Result, SchemaId, TrustDomainId, WireError, XExtensionMap, canonical, project_did_to_core_id,
+    Audience, DeviceId, DeviceMessageTransactionId, Did, DidCoreId, DidUrl, Hash, NonEmptyString,
+    PayloadProof, ProofContextId, ProtocolKind, ReceiptId, Result, SchemaId, TrustDomainId,
+    WireError, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -495,34 +495,8 @@ mod tests {
     }
 }
 
-// ── Device-message / delivery-binding / key-verification counterparts ────
+// ── Device-message / key-verification counterparts ───────────────────────
 // The `arkret` umbrella re-exports these owner-defined shapes at its root.
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/delivery-binding-stale.schema.json#/properties/handover_proof`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DeliveryBindingStaleHandoverProof {
-    pub frontier: Vec<EventId>,
-    pub recipient_id: DidCoreId,
-    pub actor_id: DidCoreId,
-    pub witness: NonEmptyJsonObject,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: XExtensionMap,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DeliveryBindingStale {
-    pub new_recipient_id: DidCoreId,
-    pub new_recipient_resolution: crate::ServiceResolutionCarrier,
-    pub handover_frontier: Vec<EventId>,
-    pub handover_proof: DeliveryBindingStaleHandoverProof,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: XExtensionMap,
-}
-
-impl DeliveryBindingStale {
-    pub const SCHEMA: &'static str = SchemaId::DELIVERY_BINDING_STALE_V1;
-}
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/device-message.schema.json#/$defs/key_verification_content`.
@@ -814,39 +788,6 @@ mod key_verification_tests {
     use serde_json::json;
 
     use super::*;
-
-    fn delivery_binding_stale_value() -> Value {
-        json!({
-            "new_recipient_id": "ak:did_core:web:principal.example",
-            "new_recipient_resolution": {
-                "current_record_url": "https://principal.example/_arkret/open/services/ak%3Adid_core%3Aweb%3Aprincipal.example/resolution"
-            },
-            "handover_frontier": ["ak:event:ATYeQ_3uy7u8Z1cbK6nfFvEpFMXMcbNvQJsXqt-4f03A"],
-            "handover_proof": {
-                "frontier": ["ak:event:ATYeQ_3uy7u8Z1cbK6nfFvEpFMXMcbNvQJsXqt-4f03A"],
-                "recipient_id": "ak:did_core:web:principal.example",
-                "actor_id": "ak:did_core:web:alice.example",
-                "witness": {"event_digest": format!("sha256:{}", "0".repeat(64))}
-            }
-        })
-    }
-
-    #[test]
-    fn delivery_binding_stale_requires_core_ids_and_first_hop_resolution() {
-        let valid = delivery_binding_stale_value();
-        let _: DeliveryBindingStale = serde_json::from_value(valid.clone()).unwrap();
-
-        let mut missing_resolution = valid.clone();
-        missing_resolution
-            .as_object_mut()
-            .unwrap()
-            .remove("new_recipient_resolution");
-        assert!(serde_json::from_value::<DeliveryBindingStale>(missing_resolution).is_err());
-
-        let mut did_in_service_id = valid;
-        did_in_service_id["new_recipient_id"] = json!("did:web:principal.example");
-        assert!(serde_json::from_value::<DeliveryBindingStale>(did_in_service_id).is_err());
-    }
 
     #[test]
     fn key_verification_content_enforces_schema_string_constraints() {

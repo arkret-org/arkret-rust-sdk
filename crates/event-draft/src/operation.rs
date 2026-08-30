@@ -5,10 +5,10 @@ use arkret_models_crypto::mls_envelopes::{
     MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
 };
 use arkret_wire::{
-    AuthoredEvent, AuthorizationRef, CriticalExtension, DeviceId, DeviceMessageId, Did, DidCoreId,
-    Event, EventId, EventKind, EventRef, EventRequirements, FeatureRef, GrantId, Hash, Hlc,
-    OperationId, OperationKind, Precondition, ProducerEventProof, ProfileRef, RealmId, ScopeRef,
-    SealBasis, SealId, canonical, project_did_to_core_id,
+    ActorId, AuthoredEvent, AuthorizationRef, CriticalExtension, DeviceId, DeviceMessageId, Did,
+    DidCoreId, Event, EventId, EventKind, EventRef, EventRequirements, FeatureRef, GrantId, Hash,
+    Hlc, OperationId, OperationKind, Precondition, ProducerEventProof, ProfileRef, RealmId,
+    ScopeRef, SealBasis, SealId, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -25,10 +25,9 @@ use crate::{EventDraftError, EventSpec, Result, TypedDeviceMessageTarget, device
 /// `sender`/`actor_id` or maintaining enrich/strip field lists.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectionContext {
-    pub sender: DidCoreId,
+    pub sender: ActorId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_device_id: Option<DeviceId>,
-    pub principal_server_id: DidCoreId,
     pub actor_seq: u64,
     pub event_id: EventId,
     pub preconditions: Vec<Precondition>,
@@ -38,7 +37,7 @@ pub struct ProjectionContext {
     pub seal_ref: Option<SealId>,
     pub seal_basis: Option<SealBasis>,
     pub hlc: Option<Hlc>,
-    pub executed_by: Option<DidCoreId>,
+    pub executed_by: Option<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_ref: Option<AuthorizationRef>,
     pub accepted_scope_ref: ScopeRef,
@@ -91,7 +90,6 @@ impl ProjectedEventOperation {
             context: ProjectionContext {
                 sender: event.actor_id.clone(),
                 producer_device_id: producer_device_id(event),
-                principal_server_id: event.principal_server_id.clone(),
                 actor_seq: event.actor_seq,
                 event_id: event.event_id.clone(),
                 preconditions: event.preconditions.clone(),
@@ -136,7 +134,6 @@ impl ProjectedEventOperation {
             kind: self.event_kind.clone(),
             event_id: self.context.event_id.clone(),
             actor_id: self.context.sender.clone(),
-            principal_server_id: self.context.principal_server_id.clone(),
             authorization_ref: self.context.authorization_ref.clone(),
             actor_seq: self.context.actor_seq,
             realm_id: self.realm_id.clone(),
@@ -186,7 +183,7 @@ fn producer_device_id(event: &Event) -> Option<DeviceId> {
         .split_once('#')?;
     let controller = Did::new(controller.to_owned()).ok()?;
     let signer_id = event.executed_by.as_ref().unwrap_or(&event.actor_id);
-    if project_did_to_core_id(&controller).ok()?.as_str() != signer_id.as_str() {
+    if &project_did_to_core_id(&controller).ok()? != signer_id.signing_principal_id() {
         return None;
     }
 
@@ -283,7 +280,7 @@ impl<K: LocalOperationSpec> LocalOperationDraft<K> {
 pub struct OperationEnvelope {
     pub operation_id: OperationId,
     pub scope_ref: ScopeRef,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub(crate) kind: EventKind,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_ref: Option<String>,
@@ -381,7 +378,6 @@ impl OperationEnvelope {
         let mut event = EventIntent::new(
             self.kind,
             self.scope_ref,
-            self.actor_id.clone(),
             self.actor_id,
             Utc::now(),
             payload.into_iter().collect(),
@@ -442,7 +438,7 @@ impl OperationEventConversion {
 pub struct OperationEnvelopeBuilder<K: EventSpec> {
     operation_id: OperationId,
     scope_ref: ScopeRef,
-    actor_id: DidCoreId,
+    actor_id: ActorId,
     target_ref: Option<String>,
     deps: Vec<OperationId>,
     hlc: Hlc,
@@ -457,7 +453,7 @@ impl<K: EventSpec> OperationEnvelopeBuilder<K> {
     pub fn new(
         operation_id: OperationId,
         scope_ref: ScopeRef,
-        actor_id: DidCoreId,
+        actor_id: ActorId,
         actor_seq: u64,
         hlc: Hlc,
         payload: K::Payload,

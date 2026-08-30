@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::base64url::base64url_encode;
 use arkret_wire::{
-    AccountDataKey, BlobId, CallId, CircleId, DeviceId, DidCoreId,
+    AccountDataKey, ActorId, BlobId, CallId, CircleId, DeviceId, DidCoreId,
     HPKE_SUITE_X25519_CHACHA20POLY1305_V1, Hash, Hlc, RealmId, Result, ScheduledSendId, SchemaId,
     ScopeRef, SpaceId, StrandId, WireError, canonical,
 };
@@ -206,7 +206,7 @@ pub enum CalendarAttendeeRole {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CalendarAttendee {
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub role: Option<CalendarAttendeeRole>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1580,7 +1580,7 @@ pub enum AccountBlocklistAppletTargetKind {
 #[serde(deny_unknown_fields)]
 pub struct AccountBlocklistDidTarget {
     pub kind: AccountBlocklistDidTargetKind,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

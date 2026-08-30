@@ -18,7 +18,7 @@
 //! mirroring the algorithm by hand.
 
 use arkret_canonical::canonical;
-use arkret_wire::{DidCoreId, Result, WireError};
+use arkret_wire::{AccountId, DidCoreId, Result, WireError};
 use chrono::{DateTime, Utc};
 
 use crate::{Handle, HandleBindingState, HandleClaim};
@@ -84,13 +84,11 @@ impl DidDocumentSnapshotResolver for NoHolderPreferenceResolver {
 
 /// Deterministic six-tuple input to [`select_primary_handle`].
 ///
-/// `subject_id` is the holder/principal DID being resolved (authoritative
-/// attribution key — never a Realm `actor_id`). It is carried as `&str`
-/// because the selection algorithm never keys on it; it is read only by
-/// the §3.8.2 render helpers for the degraded truncated-subject label,
-/// which must tolerate any opaque subject string the caller holds.
+/// `account_id` is the exact account being resolved. Candidate filtering
+/// compares the complete pair; a matching principal on another server is a
+/// different account.
 pub struct PrimaryHandleSelectInput<'a> {
-    pub subject_id: &'a str,
+    pub account_id: &'a AccountId,
     /// Current resolution context — target Realm id or inviting service
     /// DID — matched against `claim.audience`. `None` means no audience
     /// constraint applies.
@@ -160,11 +158,14 @@ pub fn select_primary_handle(input: &PrimaryHandleSelectInput<'_>) -> Option<Han
 /// canonical handle string of the winning claim (if any). Admin / UI
 /// views that just need "the handle to show" use this.
 pub fn select_primary_handle_string(input: &PrimaryHandleSelectInput<'_>) -> Option<String> {
-    select_primary_handle(input).and_then(|c| c.handle.map(|h| h.canonical().to_owned()))
+    select_primary_handle(input).map(|c| c.handle.canonical().to_owned())
 }
 
 fn candidate_passes_step0(c: &HandleClaim, input: &PrimaryHandleSelectInput<'_>) -> bool {
-    if !matches!(c.binding_state, Some(HandleBindingState::Verified)) {
+    if &c.subject_account_id != input.account_id {
+        return false;
+    }
+    if c.binding_state != HandleBindingState::Verified {
         return false;
     }
     // created_at MUST be <= resolution_as_of. `created_at` is schema-required,
@@ -197,10 +198,7 @@ fn matches_audience(c: &HandleClaim, context: Option<&str>) -> bool {
 }
 
 fn holder_flagged(c: &HandleClaim, holder_primary: Option<&str>) -> bool {
-    match (c.handle.as_ref(), holder_primary) {
-        (Some(handle), Some(pref)) => handle.canonical() == pref,
-        _ => false,
-    }
+    holder_primary.is_some_and(|preferred| c.handle.canonical() == preferred)
 }
 
 /// Returns `true` if `candidate` should win over `best` per the Step 2
@@ -239,8 +237,8 @@ fn policy_entry<'a>(
     claim: &HandleClaim,
     policy: &'a [HandleIssuerPolicyEntry],
 ) -> Option<(usize, &'a HandleIssuerPolicyEntry)> {
-    let issuer = claim.issuer_id.as_ref()?;
-    let handle = claim.handle.as_ref()?;
+    let issuer = &claim.issuer_id;
+    let handle = &claim.handle;
     policy
         .iter()
         .enumerate()
@@ -278,8 +276,7 @@ fn domain_matches(pattern: &str, domain: &str) -> bool {
 /// `semantic_projection` keeps only the canonical semantic fields and
 /// excludes `proofs`, `verified_at`, `challenge` and any non-semantic
 /// hint. Unordered-collection arrays (`handle_aliases`, `source_refs`,
-/// `member_delivery_binding.delivery_modes`) are sorted before
-/// canonicalization; `claims` keeps issuer order (order is semantic).
+/// are sorted before canonicalization; `claims` keeps issuer order (order is semantic).
 pub fn claim_digest(claim: &HandleClaim) -> Result<String> {
     let mut value = serde_json::to_value(claim)
         .map_err(|e| WireError::Protocol(format!("claim_digest serialize: {e}")))?;
@@ -291,12 +288,6 @@ pub fn claim_digest(claim: &HandleClaim) -> Result<String> {
         // Sort unordered-collection arrays.
         sort_string_array(obj.get_mut("handle_aliases"));
         sort_string_array(obj.get_mut("source_refs"));
-        if let Some(mdb) = obj
-            .get_mut("member_delivery_binding")
-            .and_then(|v| v.as_object_mut())
-        {
-            sort_string_array(mdb.get_mut("delivery_modes"));
-        }
     }
     let bytes = canonical::canonical_json_bytes(&value)
         .map_err(|e| WireError::Protocol(format!("claim_digest canonicalize: {e}")))?;
@@ -323,11 +314,11 @@ pub enum MentionRender {
     Cached { handle: Handle },
     /// Only the captured display name is available (degraded).
     NameOnly { name: String },
-    /// Nothing resolved; UI shows a truncated DID (degraded).
-    Unresolved { truncated_did: String },
+    /// Nothing resolved; UI shows a truncated exact account label (degraded).
+    Unresolved { truncated_account_id: String },
 }
 
-/// §3.8.2 — render a mention from its authoritative `subject_id`.
+/// §3.8.2 — render a mention from its authoritative exact account id.
 ///
 /// `realm_scoped_claims` is the Realm-scoped projection snapshot
 /// (effective MemberIdentity + roster handle-claim evidence). When the
@@ -336,15 +327,14 @@ pub enum MentionRender {
 /// degraded fallback ladder. `handle_at_time` is intentionally NOT used
 /// as the current display value — it is audit metadata only.
 pub fn render_mention(
-    subject_id: &DidCoreId,
     selection: &PrimaryHandleSelectInput<'_>,
     cached_handle: Option<&Handle>,
     display_name_at_time: Option<&str>,
 ) -> MentionRender {
-    if let Some(claim) = select_primary_handle(selection)
-        && let Some(handle) = claim.handle
-    {
-        return MentionRender::Verified { handle };
+    if let Some(claim) = select_primary_handle(selection) {
+        return MentionRender::Verified {
+            handle: claim.handle,
+        };
     }
     if let Some(handle) = cached_handle {
         return MentionRender::Cached {
@@ -357,7 +347,7 @@ pub fn render_mention(
         };
     }
     MentionRender::Unresolved {
-        truncated_did: truncate_did(subject_id.as_str()),
+        truncated_account_id: truncate_account_id(selection.account_id),
     }
 }
 
@@ -374,9 +364,8 @@ pub enum SubjectRender {
     Unresolved(String),
 }
 
-/// §3.8.2 — render a subject from its authoritative `subject_id`,
-/// degrading through display name then truncated DID. `subject_id` (via
-/// `input.subject_id`) is the only authoritative attribution field;
+/// §3.8.2 — render an account from its authoritative `account_id`,
+/// degrading through display name then a truncated exact-account label.
 /// `display_name_at_time` is audit metadata used purely for the degraded
 /// label.
 pub fn render_subject(
@@ -389,7 +378,15 @@ pub fn render_subject(
     if let Some(name) = display_name_at_time {
         return SubjectRender::NameOnly(name.to_owned());
     }
-    SubjectRender::Unresolved(truncate_did(input.subject_id))
+    SubjectRender::Unresolved(truncate_account_id(input.account_id))
+}
+
+fn truncate_account_id(account_id: &AccountId) -> String {
+    truncate_did(&format!(
+        "{}@{}",
+        account_id.principal_id.as_str(),
+        account_id.principal_server_id.as_str()
+    ))
 }
 
 fn truncate_did(did: &str) -> String {
@@ -429,18 +426,17 @@ mod tests {
     ) -> HandleClaim {
         HandleClaim {
             schema: HandleClaim::SCHEMA.to_owned(),
-            handle: Some(Handle::parse(handle).unwrap()),
+            handle: Handle::parse(handle).unwrap(),
             handle_aliases: Vec::new(),
-            subject_id: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap()),
-            issuer_id: Some(DidCoreId::new(issuer_did).unwrap()),
+            subject_account_id: subject(),
+            issuer_id: DidCoreId::new(issuer_did).unwrap(),
             vouching_id: None,
-            binding_state: Some(HandleBindingState::Verified),
+            binding_state: HandleBindingState::Verified,
             claim_kind: None,
             visibility: None,
             audience: audience.map(str::to_owned),
             challenge: None,
             claim_scope: Default::default(),
-            member_delivery_binding: None,
             claims: Vec::new(),
             created_at: created,
             expires_at: Some(expires),
@@ -450,8 +446,11 @@ mod tests {
         }
     }
 
-    fn subject() -> DidCoreId {
-        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
+    fn subject() -> AccountId {
+        AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
+        )
     }
 
     fn placeholder_payload_proof() -> PayloadProof {
@@ -471,7 +470,7 @@ mod tests {
     fn empty_candidate_set_returns_none() {
         let s = subject();
         let input = PrimaryHandleSelectInput {
-            subject_id: s.as_str(),
+            account_id: &s,
             context: None,
             claim_set_snapshot: &[],
             handle_issuer_policies: &[],
@@ -509,7 +508,7 @@ mod tests {
         );
         let snapshot = vec![newer, matching];
         let input = PrimaryHandleSelectInput {
-            subject_id: s.as_str(),
+            account_id: &s,
             context: Some("ak:realm:r1"),
             claim_set_snapshot: &snapshot,
             handle_issuer_policies: &acc,
@@ -517,7 +516,7 @@ mod tests {
             resolution_as_of: now,
         };
         let chosen = select_primary_handle(&input).unwrap();
-        assert_eq!(chosen.handle.unwrap().canonical(), "alice:acme.example");
+        assert_eq!(chosen.handle.canonical(), "alice:acme.example");
     }
 
     #[test]
@@ -534,7 +533,7 @@ mod tests {
         );
         let snapshot = vec![claim];
         let input = PrimaryHandleSelectInput {
-            subject_id: s.as_str(),
+            account_id: &s,
             context: None,
             claim_set_snapshot: &snapshot,
             handle_issuer_policies: &[issuer_policy(
@@ -564,7 +563,7 @@ mod tests {
         let s = subject();
         assert!(
             select_primary_handle(&PrimaryHandleSelectInput {
-                subject_id: s.as_str(),
+                account_id: &s,
                 context: None,
                 claim_set_snapshot: &snapshot,
                 handle_issuer_policies: &policy,
@@ -601,7 +600,7 @@ mod tests {
     fn render_falls_back_to_name_then_did() {
         let s = subject();
         let input = PrimaryHandleSelectInput {
-            subject_id: s.as_str(),
+            account_id: &s,
             context: None,
             claim_set_snapshot: &[],
             handle_issuer_policies: &[],
@@ -609,7 +608,7 @@ mod tests {
             resolution_as_of: Utc::now(),
         };
         // No claims, no cache → NameOnly when display name present.
-        let r = render_mention(&s, &input, None, Some("Alice Zhang"));
+        let r = render_mention(&input, None, Some("Alice Zhang"));
         assert_eq!(
             r,
             MentionRender::NameOnly {
@@ -617,15 +616,18 @@ mod tests {
             }
         );
         // Nothing at all → Unresolved.
-        let r2 = render_mention(&s, &input, None, None);
+        let r2 = render_mention(&input, None, None);
         assert!(matches!(r2, MentionRender::Unresolved { .. }));
     }
 
     #[test]
     fn render_subject_degrades_through_name_then_truncated_did() {
-        let s = DidCoreId::new("ak:did_core:webvh:averylongsubjectidentifier").unwrap();
+        let s = AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:averylongsubjectidentifier").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
+        );
         let input = PrimaryHandleSelectInput {
-            subject_id: s.as_str(),
+            account_id: &s,
             context: None,
             claim_set_snapshot: &[],
             handle_issuer_policies: &[],

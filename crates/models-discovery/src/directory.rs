@@ -9,12 +9,12 @@ use arkret_models_identity::claim_presentation::{
     AgentSelectorClaim, DirectoryRestrictedClaimPresentation, validate_agent_slug,
 };
 use arkret_models_identity::handle::Handle;
-use arkret_models_identity::handle_claim::{DeliveryBindingHint, HandleClaim};
+use arkret_models_identity::handle_claim::HandleClaim;
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    Audience, AuditReasonText, BlobRef, DidCoreId, DidUrl, EncryptionProfile, EventId, Hash,
-    JoinRule, NonEmptyString, PayloadProof, ProofContextId, RealmId, Result, SchemaId, SealBasis,
-    ServiceOperationId, WireError, proof_kind,
+    AccountId, Audience, AuditReasonText, BlobRef, DidCoreId, DidUrl, EncryptionProfile, EventId,
+    Hash, JoinRule, NonEmptyString, PayloadProof, ProofContextId, RealmId, Result, SchemaId,
+    SealBasis, ServiceOperationId, WireError, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -161,13 +161,13 @@ pub enum RealmJoinMethod {
 #[serde(rename_all = "snake_case")]
 pub enum RealmJoinCandidateSource {
     InviteHint,
-    MemberDeliveryBinding,
+    JoinedMemberAccount,
 }
 
 /// `ak.schema.realm_join_candidate.v1`: time-bounded routing hint for
 /// submitting Realm join, invite-accept, knock, or restricted-join material.
-/// It is distinct from member delivery binding and does not authorize
-/// membership by itself.
+/// It is derived from a signed invite or exact joined-member identity and does
+/// not authorize membership by itself.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -765,8 +765,8 @@ impl DirectoryAgentSelectorResolutionOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryListHandlesForSubjectRequestBody {
-    /// Holder/principal DID reverse-lookup key. NOT a Realm actor_id.
-    pub subject_id: DidCoreId,
+    /// Exact account reverse-lookup key. NOT a bare principal DID.
+    pub account_id: AccountId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -801,7 +801,7 @@ impl DirectoryListHandlesForSubjectRequestBody {
             ProofContextId::DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1,
             ServiceOperationId::FIND_DIRECTORY_READ_LIST_HANDLES_FOR_SUBJECT_V1,
             Some(directory_required_issuer(self.requester_id.as_ref())?),
-            vec![("subject_id", serde_json::to_value(&self.subject_id)?)],
+            vec![("account_id", serde_json::to_value(&self.account_id)?)],
             &self.payload_digest()?,
             proof,
         )
@@ -1173,20 +1173,16 @@ pub struct DirectoryWithdrawOutcome {
 
 /// A single `ak.find.directory.read.search_users.v1` result row.
 ///
-/// Embeds the collaboration `DeliveryBindingHint` (now owned by
-/// `arkret-models-identity`) and the discovery-local [`UserSearchMembership`];
-/// hosting it here keeps directory user-search outcomes off the
-/// the `arkret` umbrella facade without a discovery -> collaboration edge.
+/// Directory-local user-search result.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UserSearchOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle: Option<String>,
-    /// `discovery-directory.md` §9: `results[].principal_id` is conditional.
-    /// the directory MAY omit it when the caller is not authorized to learn
-    /// the subject DID (returning a handle / display preview only).
+    /// Exact account identity. The directory MAY omit it when the caller is
+    /// not authorized to learn the result identity.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub principal_id: Option<DidCoreId>,
+    pub account_id: Option<AccountId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1195,12 +1191,6 @@ pub struct UserSearchOutcome {
     pub membership: Option<UserSearchMembership>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verified: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(
-        feature = "openapi",
-        salvo(schema(value_type = Option<serde_json::Value>))
-    )]
-    pub member_delivery_binding: Option<DeliveryBindingHint>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1216,8 +1206,7 @@ pub struct DirectoryUserSearchOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryHandleResolutionOutcome {
-    pub principal_id: DidCoreId,
-    pub subject_id: DidCoreId,
+    pub account_id: AccountId,
     pub handle: String,
     #[serde(default)]
     pub verified: bool,
@@ -1227,34 +1216,12 @@ pub struct DirectoryHandleResolutionOutcome {
         salvo(schema(value_type = Option<Vec<serde_json::Value>>))
     )]
     pub claims: Option<Vec<HandleClaim>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub audience: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(
-        feature = "openapi",
-        salvo(schema(value_type = Option<serde_json::Value>))
-    )]
-    pub member_delivery_binding: Option<DeliveryBindingHint>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(
-        feature = "openapi",
-        salvo(schema(value_type = Option<serde_json::Value>))
-    )]
-    pub handle_claim: Option<HandleClaim>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub as_of: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_refs: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub policy_revision: Option<String>,
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub stale: bool,
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub divergent: bool,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub via_services: Vec<String>,
+    #[serde(default)]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 /// R3.2 — response body for `ak.find.directory.read.list_handles_for_subject.v1`.
@@ -1264,7 +1231,7 @@ pub struct DirectoryHandleResolutionOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectorySubjectHandleList {
-    pub subject_id: DidCoreId,
+    pub account_id: AccountId,
     #[serde(default)]
     #[cfg_attr(
         feature = "openapi",
@@ -1287,22 +1254,15 @@ impl DirectorySubjectHandleList {
     /// response closed; this validator fails closed.
     pub fn validate(&self) -> Result<()> {
         for claim in &self.claims {
-            match &claim.subject_id {
-                Some(s) if *s == self.subject_id => {}
-                _ => {
-                    return Err(WireError::Protocol(
-                        "list_handles_for_subject: claims[].subject_id must equal response.subject_id"
-                            .to_owned(),
-                    ));
-                }
+            if claim.subject_account_id != self.account_id {
+                return Err(WireError::Protocol(
+                    "list_handles_for_subject: claims[].subject_account_id must equal response.account_id"
+                        .to_owned(),
+                ));
             }
         }
         Ok(())
     }
-}
-
-fn is_false(value: &bool) -> bool {
-    !*value
 }
 
 #[cfg(test)]

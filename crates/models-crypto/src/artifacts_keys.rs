@@ -5,12 +5,11 @@ use std::fmt;
 use std::ops::Deref;
 
 use arkret_wire::{
-    AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, DeviceId,
-    DeviceReanchorPreFenceSealFrontier, DidCoreId, DidUrl, DomainSeparationId, EventId, Hash,
-    HistoryEffectiveScope, HistorySecretRange, LeaseBasisRef, NonEmptyString, PolicyId,
-    PrincipalAuthorityKey, RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, ReasonCode,
-    RecoverySessionId, RequestId, Result, SchemaId, ScopeRef, SessionGrantId, TransactionId,
-    TrustDomainId, WireError, XExtensionMap,
+    AccountId, AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString,
+    DeviceId, DeviceReanchorPreFenceSealFrontier, DidCoreId, DidUrl, DomainSeparationId, EventId,
+    Hash, HistoryEffectiveScope, HistorySecretRange, LeaseBasisRef, NonEmptyString, PolicyId,
+    RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, ReasonCode, RecoverySessionId, RequestId, Result,
+    SchemaId, ScopeRef, SessionGrantId, TransactionId, TrustDomainId, WireError, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -928,7 +927,7 @@ pub struct GenericRecoveryTranscript {
     pub request_id: RequestId,
     pub session_grant_id: SessionGrantId,
     pub session_grant_cnf_jkt: String,
-    pub principal_authority: PrincipalAuthorityKey,
+    pub principal_authority: AccountId,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TrustDomainId,
     pub policy_id: PolicyId,
@@ -954,7 +953,7 @@ struct GenericRecoveryTranscriptWire {
     request_id: RequestId,
     session_grant_id: SessionGrantId,
     session_grant_cnf_jkt: String,
-    principal_authority: PrincipalAuthorityKey,
+    principal_authority: AccountId,
     requesting_device_id: DeviceId,
     trust_domain: TrustDomainId,
     policy_id: PolicyId,
@@ -1040,7 +1039,7 @@ pub struct DidRootTranscript {
     pub request_id: RequestId,
     pub session_grant_id: SessionGrantId,
     pub session_grant_cnf_jkt: String,
-    pub principal_authority: PrincipalAuthorityKey,
+    pub principal_authority: AccountId,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TrustDomainId,
     pub policy_id: PolicyId,
@@ -1065,7 +1064,7 @@ struct DidRootTranscriptWire {
     request_id: RequestId,
     session_grant_id: SessionGrantId,
     session_grant_cnf_jkt: String,
-    principal_authority: PrincipalAuthorityKey,
+    principal_authority: AccountId,
     requesting_device_id: DeviceId,
     trust_domain: TrustDomainId,
     policy_id: PolicyId,
@@ -1259,7 +1258,7 @@ impl RecoveryPublicationAuthorityContext {
 #[serde(deny_unknown_fields)]
 pub struct RecoverySessionCreateRequestBody {
     pub request_id: RequestId,
-    pub principal_authority: PrincipalAuthorityKey,
+    pub principal_authority: AccountId,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TrustDomainId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1591,7 +1590,7 @@ pub struct RecoverySessionState {
     pub recovery_session_id: RecoverySessionId,
     pub session_grant_id: SessionGrantId,
     pub session_grant_cnf_jkt: String,
-    pub principal_authority: PrincipalAuthorityKey,
+    pub principal_authority: AccountId,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TrustDomainId,
     pub policy_id: PolicyId,
@@ -1682,7 +1681,7 @@ struct RecoverySessionStateWire {
     recovery_session_id: RecoverySessionId,
     session_grant_id: SessionGrantId,
     session_grant_cnf_jkt: String,
-    principal_authority: PrincipalAuthorityKey,
+    principal_authority: AccountId,
     requesting_device_id: DeviceId,
     trust_domain: TrustDomainId,
     policy_id: PolicyId,

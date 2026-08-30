@@ -66,7 +66,7 @@
 use arkret_signatures::{Ed25519DetachedJwsVerifier, PublicKeyMaterial};
 #[cfg(test)]
 use arkret_wire::Event;
-use arkret_wire::{Did, DidCoreId, DidUrl, Hash, ProducerEventProof, TrustDomainId};
+use arkret_wire::{ActorId, Did, DidCoreId, DidUrl, Hash, ProducerEventProof, TrustDomainId};
 use chrono::{DateTime, Utc};
 
 use crate::binding::{
@@ -511,7 +511,7 @@ pub fn public_key_material_from_document(
 pub fn verify_event_proof_with_binding(
     proof: &ProducerEventProof,
     envelope_bytes: &[u8],
-    actor_id: &DidCoreId,
+    actor_id: &ActorId,
     accepted: &AcceptedDidBinding,
 ) -> Result<(), BindingVerifyError> {
     let binding = accepted.binding();

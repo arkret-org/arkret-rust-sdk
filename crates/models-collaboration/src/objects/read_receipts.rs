@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use arkret_wire::{
-    BlobRef, DeviceId, DidCoreId, EventId, Hlc, MessageId, MorphId, NotificationId,
+    ActorId, BlobRef, DeviceId, DidCoreId, EventId, Hlc, MessageId, MorphId, NotificationId,
     NotificationKind, NotificationPriority, NotificationState, OpaqueLocalId, ReadCursorId,
     ReadCursorScope, RealmId, RelationId, Result, SchemaId, StrandId, ViewId, WireError, canonical,
 };
@@ -17,7 +17,7 @@ use serde_json::Value;
 pub struct ReadCursor {
     pub id: ReadCursorId,
     pub schema: String,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub device_id: DeviceId,
     pub realm_id: RealmId,
     pub read_scope: ReadCursorScope,
@@ -118,7 +118,7 @@ pub struct ReadCursorAdvanceRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ReadMarkerOutcome {
     pub realm_id: RealmId,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub device_id: DeviceId,
     pub read_scope: ReadCursorScope,
     pub position: ReadCursorPosition,
@@ -485,7 +485,7 @@ pub enum NotificationSource {
 pub struct Notification {
     pub id: NotificationId,
     pub schema: NotificationSchema,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     #[serde(flatten)]
     pub source: NotificationSource,
     pub notification_kind: NotificationKind,
@@ -508,7 +508,7 @@ pub struct Notification {
 struct NotificationWire {
     id: NotificationId,
     schema: NotificationSchema,
-    actor_id: DidCoreId,
+    actor_id: ActorId,
     #[serde(default)]
     source_event_id: Option<EventId>,
     #[serde(default)]

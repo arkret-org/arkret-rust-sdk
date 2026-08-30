@@ -1,6 +1,6 @@
 //! Circle event payloads.
 
-use arkret_wire::DidCoreId;
+use arkret_wire::{ActorId, DidCoreId};
 
 use crate::internal_prelude::*;
 
@@ -39,7 +39,7 @@ pub struct CircleCreatePayload {
 #[serde(deny_unknown_fields)]
 pub struct CircleMemberStatePayload {
     pub circle_id: CircleId,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub membership: CircleMembership,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,

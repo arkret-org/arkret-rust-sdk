@@ -321,8 +321,6 @@ pub struct PushRouteTokens {
     pub scope_route_token: Option<PushRouteToken>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mention_redirect_target_route_tokens: Vec<PushRouteToken>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delivery_binding_frontier_token: Option<PushRouteToken>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -598,7 +596,6 @@ pub enum PushNotifyReasonCode {
     PushTargetUnknown,
     PushPayloadTooLarge,
     UnsupportedProfile,
-    DeliveryBindingStale,
     PushTokenUnknown,
     PushTokenInvalid,
     PushGatewayUnreachable,
@@ -611,7 +608,6 @@ impl PushNotifyReasonCode {
             Self::PushTargetUnknown => "push_target_unknown",
             Self::PushPayloadTooLarge => "push_payload_too_large",
             Self::UnsupportedProfile => "unsupported_profile",
-            Self::DeliveryBindingStale => "delivery_binding_stale",
             Self::PushTokenUnknown => "push_token_unknown",
             Self::PushTokenInvalid => "push_token_invalid",
             Self::PushGatewayUnreachable => "push_gateway_url_unreachable",

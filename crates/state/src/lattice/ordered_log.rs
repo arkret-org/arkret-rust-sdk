@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 
 use super::{CellState, Lattice, LatticeKind, OpError, SealedOp};
 use crate::{
-    Bottom, BottomKind, CellRef, DidCoreId, Hash, LatticeOp, LatticeOpType, ProjectionEffect,
+    ActorId, Bottom, BottomKind, CellRef, Hash, LatticeOp, LatticeOpType, ProjectionEffect,
     bottom_details, canonical,
 };
 
@@ -21,7 +21,7 @@ pub struct OrderedLog;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IssuedOp {
-    pub issuer_id: DidCoreId,
+    pub issuer_id: ActorId,
     pub op: SealedOp,
 }
 
@@ -130,7 +130,10 @@ impl OrderedLog {
                 continue;
             };
             candidates.push(Candidate {
-                issuer: entry.issuer_id.as_str().to_owned(),
+                issuer: entry
+                    .issuer_id
+                    .canonical_key()
+                    .expect("validated ActorId in accepted Event"),
                 issuer_seq,
                 digest,
                 digest_wire: entry.op.move_id.as_str().to_owned(),

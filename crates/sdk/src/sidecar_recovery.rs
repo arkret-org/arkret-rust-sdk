@@ -60,7 +60,7 @@ pub fn recover_agent_sidecar_context_locators(
         let Some(sidecar) = sidecars_by_id.get(&payload.sidecar_id) else {
             continue;
         };
-        if event.actor_id != sidecar.controller_id
+        if event.actor_id.signing_principal_id() != &sidecar.controller_id
             || event.realm_id != sidecar.realm_id
             || event.scope_ref
                 != (ScopeRef::Sidecar {

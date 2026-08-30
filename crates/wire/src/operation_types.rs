@@ -5,7 +5,9 @@ use std::fmt;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
-use crate::{AuthorizationRef, Base64UrlString, DidCoreId, DidUrl, Event, EventId, Hash, RealmId};
+use crate::{
+    ActorId, AuthorizationRef, Base64UrlString, DidCoreId, DidUrl, Event, EventId, Hash, RealmId,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -260,14 +262,14 @@ pub struct MembershipCompensationDelegationCore {
     pub join_event_id: EventId,
     pub join_event_digest: Hash,
     pub membership_cell_id: ProtocolOpaqueId,
-    pub subject_id: DidCoreId,
-    pub join_actor_id: DidCoreId,
+    pub member_id: ActorId,
+    pub join_actor_id: ActorId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub executed_by: Option<DidCoreId>,
+    pub executed_by: Option<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_ref: Option<AuthorizationRef>,
     pub verification_method: DidUrl,
-    pub executor_id: DidCoreId,
+    pub executor_id: ActorId,
     pub executor_proof_key_kid: DidUrl,
     pub resource_id: RealmId,
     pub action: MembershipCompensationAction,
@@ -282,8 +284,7 @@ impl MembershipCompensationDelegationCore {
                 "membership compensation executed_by requires authorization_ref".to_owned(),
             ));
         }
-        let expected_action = if self.executed_by.is_none()
-            && self.join_actor_id.as_core_id() == self.subject_id.as_core_id()
+        let expected_action = if self.executed_by.is_none() && self.join_actor_id == self.member_id
         {
             MembershipCompensationAction::Leave
         } else {
@@ -426,7 +427,7 @@ impl MembershipCompensationSubmissionEvidence {
             || self.terminal_certificate.delegation_digest != *digest
             || self.single_use_cas_token.admission_id != core.admission_id
             || self.single_use_cas_token.delegation_digest != *digest
-            || self.single_use_cas_token.destination_id != core.executor_id
+            || self.single_use_cas_token.destination_id != *core.executor_id.route_service_id()
         {
             return Err(crate::WireError::Protocol(
                 "membership compensation evidence cross-binding mismatch".to_owned(),
@@ -442,17 +443,17 @@ impl MembershipCompensationSubmissionEvidence {
         self.validate_bindings()?;
         let core = &self.delegation.core;
         if event.kind.as_str() != crate::event_kind_str::MEMBER_STATE
-            || event.executed_by.as_ref().map(DidCoreId::as_core_id)
-                != Some(core.executor_id.as_core_id())
+            || event.executed_by.as_ref() != Some(&core.executor_id)
             || event.authorization_ref.as_ref().map(|value| value.as_str())
                 != Some(self.delegation.delegation_id.as_str())
             || event.actor_id != core.join_actor_id
             || event.realm_id != core.resource_id
             || event
                 .payload
-                .get("actor_id")
-                .and_then(serde_json::Value::as_str)
-                != Some(core.subject_id.as_str())
+                .get("member_id")
+                .and_then(|value| serde_json::from_value::<ActorId>(value.clone()).ok())
+                .as_ref()
+                != Some(&core.member_id)
             || event
                 .payload
                 .get("membership")

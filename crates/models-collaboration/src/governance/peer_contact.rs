@@ -2,7 +2,7 @@ use arkret_canonical::serde_helpers::optional_canonical_timestamp;
 use arkret_identifiers::{DidCoreId, EventId, RealmId};
 use arkret_models_identity::handle::Handle;
 use arkret_models_identity::{HandleClaim, RouteAssistance, ServiceResolutionCarrier};
-use arkret_wire::PrincipalAuthorityKey;
+use arkret_wire::AccountId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +12,7 @@ use crate::governance::invite_addressing::PrincipalLocator;
 #[serde(deny_unknown_fields)]
 pub struct PeerContactAddress {
     pub subject_id: DidCoreId,
-    pub principal_authority: PrincipalAuthorityKey,
+    pub principal_authority: AccountId,
     pub recipient_id: DidCoreId,
     pub service_resolution: ServiceResolutionCarrier,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -26,7 +26,7 @@ impl PeerContactAddress {
 
     pub fn principal_server(
         subject_id: DidCoreId,
-        principal_authority: PrincipalAuthorityKey,
+        principal_authority: AccountId,
         recipient_id: DidCoreId,
         service_resolution: ServiceResolutionCarrier,
     ) -> Self {
@@ -119,8 +119,8 @@ pub enum ContactIntroductionEvidence {
 mod tests {
     use super::*;
 
-    fn authority() -> PrincipalAuthorityKey {
-        PrincipalAuthorityKey::new(
+    fn authority() -> AccountId {
+        AccountId::new(
             DidCoreId::new("ak:did_core:webvh:z6mkSubject").unwrap(),
             DidCoreId::new("ak:did_core:webvh:z6mkService").unwrap(),
         )

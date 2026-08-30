@@ -1,6 +1,6 @@
 //! Key-backup active-series event payloads and transition validation.
 
-use arkret_wire::DidCoreId;
+use arkret_wire::{ActorId, DidCoreId};
 
 use crate::internal_prelude::*;
 
@@ -34,7 +34,7 @@ pub struct KeyBackupActiveSeriesFrontierRef {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyBackupActiveSeries {
     pub schema: String,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub backup_kind: BackupKind,
     pub active_series_id: BackupSeriesId,
     pub series_pointer_version: u64,
@@ -55,7 +55,7 @@ pub struct KeyBackupActiveSeries {
 #[derive(Clone, Debug, Serialize)]
 pub struct UnsignedKeyBackupActiveSeries {
     schema: String,
-    actor_id: DidCoreId,
+    actor_id: ActorId,
     backup_kind: BackupKind,
     active_series_id: BackupSeriesId,
     series_pointer_version: u64,
@@ -71,7 +71,7 @@ pub struct UnsignedKeyBackupActiveSeries {
 impl UnsignedKeyBackupActiveSeries {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        actor_id: DidCoreId,
+        actor_id: ActorId,
         backup_kind: BackupKind,
         active_series_id: BackupSeriesId,
         series_pointer_version: u64,
@@ -188,7 +188,8 @@ impl KeyBackupActiveSeries {
 
     /// Canonical CAS cell selected by `(actor_id, backup_kind)`.
     pub fn cell_ref(&self) -> Result<CellRef> {
-        let subject = composite_subject(&[self.actor_id.as_str(), self.backup_kind.as_str()])?;
+        let actor_key = self.actor_id.canonical_key()?;
+        let subject = composite_subject(&[actor_key.as_str(), self.backup_kind.as_str()])?;
         Ok(CellRef::new(format!(
             "ak:cell:{}:{subject}",
             CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1
@@ -198,7 +199,7 @@ impl KeyBackupActiveSeries {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeyBackupActiveSeriesHead {
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub backup_kind: BackupKind,
     pub active_series_id: BackupSeriesId,
     pub series_pointer_version: u64,
