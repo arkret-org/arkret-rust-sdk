@@ -584,8 +584,7 @@ impl AppletManagedActorAuthoringRequest {
     ) -> Result<Self> {
         basis.validate()?;
         hosting_notary.validate()?;
-        if hosting_notary.actor_id
-            != ActorId::service(basis.target_station_id.clone())
+        if hosting_notary.actor_id != ActorId::service(basis.target_station_id.clone())
             || hosting_notary.verification_method != *signer.verification_method_id()
         {
             return Err(WireError::Protocol(
@@ -627,8 +626,7 @@ impl AppletManagedActorAuthoringRequest {
     ) -> Result<Self> {
         basis.validate()?;
         hosting_notary.validate()?;
-        if hosting_notary.actor_id
-            != ActorId::service(basis.target_station_id.clone())
+        if hosting_notary.actor_id != ActorId::service(basis.target_station_id.clone())
             || hosting_notary.verification_method != *signer.verification_method_id()
         {
             return Err(WireError::Protocol(
