@@ -247,7 +247,7 @@ mod tests {
             [ARKRET_CONTENT_V1.to_owned(), MIMI_CONTENT_V1.to_owned()]
         );
 
-        let mut trailing = encoded.clone();
+        let mut trailing = encoded;
         trailing.push(0);
         assert_eq!(
             decode_keypackage_capability_extension(&trailing),

@@ -45,25 +45,6 @@ fn canonical_decimal(value: &str) -> bool {
         && (value == "0" || !value.starts_with('0'))
 }
 
-#[cfg(test)]
-mod protocol_version_tests {
-    use super::*;
-
-    #[test]
-    fn bootstrap_discriminator_separates_unsupported_from_malformed() {
-        assert_eq!(protocol_version_bootstrap_error("1.0"), None);
-        assert_eq!(
-            protocol_version_bootstrap_error("2.0"),
-            Some(crate::ErrorCode::UnsupportedProtocolVersion)
-        );
-        for malformed in ["1", "1.0.0", "01.0", "1.00", "", "v1"] {
-            assert_eq!(
-                protocol_version_bootstrap_error(malformed),
-                Some(crate::ErrorCode::SchemaViolation)
-            );
-        }
-    }
-}
 /// Canonical Realm reducer profile implemented by this SDK.
 pub const CORE_REDUCER_PROFILE: &str = ReducerProfileId::CORE_V1;
 pub const BUILT_IN_CONFORMANCE_FIXTURES_VERSION: &str = "arkret-sdk-builtin-v1";
@@ -118,3 +99,23 @@ pub const MEDIA_TOKEN_TTL_SHOULD_SECS: u64 = 300;
 /// trust domain A cannot replay the same signed bytes into trust domain B.
 pub const HEADER_SOURCE_TRUST_DOMAIN: &str = "Source-Trust-Domain";
 pub const HEADER_DESTINATION_TRUST_DOMAIN: &str = "Destination-Trust-Domain";
+
+#[cfg(test)]
+mod protocol_version_tests {
+    use super::*;
+
+    #[test]
+    fn bootstrap_discriminator_separates_unsupported_from_malformed() {
+        assert_eq!(protocol_version_bootstrap_error("1.0"), None);
+        assert_eq!(
+            protocol_version_bootstrap_error("2.0"),
+            Some(crate::ErrorCode::UnsupportedProtocolVersion)
+        );
+        for malformed in ["1", "1.0.0", "01.0", "1.00", "", "v1"] {
+            assert_eq!(
+                protocol_version_bootstrap_error(malformed),
+                Some(crate::ErrorCode::SchemaViolation)
+            );
+        }
+    }
+}

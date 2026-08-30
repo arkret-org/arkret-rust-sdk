@@ -27,8 +27,8 @@ serde = ["dep:serde"]
 openapi = ["serde", "dep:salvo-oapi"]
 
 [dependencies]
-salvo-oapi = {workspace = true,optional = true}
-serde = {workspace = true,optional = true}
+salvo-oapi = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
 
 [lints]
 workspace = true

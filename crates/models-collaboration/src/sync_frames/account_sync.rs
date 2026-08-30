@@ -370,7 +370,7 @@ pub struct DeviceMessageEnvelope {
 #[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
 pub enum DeviceMessageContent {
-    KeyVerification(KeyVerificationContent),
+    KeyVerification(Box<KeyVerificationContent>),
     SecretRequest(SecretShareRequestContent),
     SecretSend(SecretShareSendContent),
     AccountDataUpdate(ActorPrivateAccountDataUpdate),
@@ -481,7 +481,7 @@ pub fn decode_device_message_content(
         kind if kind.starts_with("ak.key.verification.") => {
             let value: KeyVerificationContent = decode(content)?;
             validate_key_verification_content(kind, &value)?;
-            DeviceMessageContent::KeyVerification(value)
+            DeviceMessageContent::KeyVerification(Box::new(value))
         }
         _ => DeviceMessageContent::Extension(decode(content)?),
     };

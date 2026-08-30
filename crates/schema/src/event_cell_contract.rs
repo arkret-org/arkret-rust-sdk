@@ -108,6 +108,8 @@ pub struct CapabilityAuthorityAudit {
     pub authority_root_refs: Vec<Value>,
 }
 
+type CapabilityAuthorityRootIdentity = (Vec<u8>, Vec<u8>, [u8; 8]);
+
 /// Why the authority audit for a Capability Grant cannot be derived.
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
 pub enum CapabilityAuthorityProjectionError {
@@ -137,7 +139,7 @@ pub fn derive_capability_authority_audit(
         .filter(|refs| !refs.is_empty())
         .ok_or(CapabilityAuthorityProjectionError::InvalidRefs)?;
     let mut maximum_depth = 0_u64;
-    let mut roots = BTreeMap::<(Vec<u8>, Vec<u8>, [u8; 8]), Value>::new();
+    let mut roots = BTreeMap::<CapabilityAuthorityRootIdentity, Value>::new();
     for authority_ref in refs {
         match authority_ref.get("kind").and_then(Value::as_str) {
             Some("realm_root") => {
@@ -197,7 +199,7 @@ pub fn derive_capability_authority_audit(
 }
 
 fn insert_capability_authority_root(
-    roots: &mut BTreeMap<(Vec<u8>, Vec<u8>, [u8; 8]), Value>,
+    roots: &mut BTreeMap<CapabilityAuthorityRootIdentity, Value>,
     root: &Value,
     error: CapabilityAuthorityProjectionError,
 ) -> Result<(), CapabilityAuthorityProjectionError> {
@@ -3446,7 +3448,7 @@ mod tests {
             EventCellContractError::CapabilityAuthorityProjection { .. }
         ));
 
-        let mut child = event.clone();
+        let mut child = event;
         child
             .payload
             .get_mut("grant")

@@ -700,7 +700,7 @@ fn install_commit_uses_each_signed_event_carrier_once() {
         profile_event: bot_profile_event,
         proof: AppletManagedActorProof {
             kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
-            verification_method: signer.verification_method.clone(),
+            verification_method: signer.verification_method,
             payload_digest: sample_epoch(),
             created_at: requested_at,
             audience_id: actor("principal-server"),
@@ -708,11 +708,11 @@ fn install_commit_uses_each_signed_event_carrier_once() {
         },
     };
     managed_actor_bundle.proof.payload_digest = managed_actor_bundle.payload_digest().unwrap();
-    let request = AppletInstallRequestBody::Create(AppletInstallCreateRequestBody {
+    let request = AppletInstallRequestBody::Create(Box::new(AppletInstallCreateRequestBody {
         applet_package: package,
         authoring_request,
         managed_actor_bundle: managed_actor_bundle.clone(),
-    });
+    }));
     let value = serde_json::to_value(&request).unwrap();
     assert_eq!(
         value["authoring_request"]["basis"]["registration_event"]["kind"],
@@ -842,7 +842,7 @@ fn install_preview_has_only_package_and_authoring_basis() {
     wrong_basis_schema["authoring_request_basis"]["schema"] = json!("ak.schema.other.v1");
     assert!(serde_json::from_value::<AppletInstallPreviewRequestBody>(wrong_basis_schema).is_err());
 
-    let mut malformed_applet_id = value.clone();
+    let mut malformed_applet_id = value;
     malformed_applet_id["authoring_request_basis"]["applet_id"] = json!("applet-local-id");
     assert!(
         serde_json::from_value::<AppletInstallPreviewRequestBody>(malformed_applet_id).is_err()
@@ -919,7 +919,7 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
     );
     let second = AppletManagedActorAuthoringRequest::sign(
         basis,
-        package.registration_epoch.clone(),
+        package.registration_epoch,
         hosting_notary(),
         requested_at,
         expires_at,

@@ -1589,7 +1589,7 @@ mod tests {
             transcript["claim_request_id"],
             payload.claim_receipt.claim_request_id.as_str()
         );
-        let mut mismatched_authoring_context = payload.claim_receipt.clone();
+        let mut mismatched_authoring_context = payload.claim_receipt;
         mismatched_authoring_context.request.claim_request_id =
             Base64UrlString::new("AAAAAAAAAAAAAAAAAAAAAQ").unwrap();
         assert!(

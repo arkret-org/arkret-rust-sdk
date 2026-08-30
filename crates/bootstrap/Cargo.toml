@@ -12,15 +12,15 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-arkret-canonical = {workspace = true}
-arkret-event-draft = {workspace = true}
-arkret-lattice-registry = {workspace = true}
-arkret-models-collaboration = {workspace = true}
-arkret-models-identity = {workspace = true}
-arkret-state = {workspace = true}
-arkret-wire = {workspace = true}
-chrono = {workspace = true,features = ["serde"]}
-serde_json = {workspace = true}
+arkret-canonical = { workspace = true }
+arkret-event-draft = { workspace = true }
+arkret-lattice-registry = { workspace = true }
+arkret-models-collaboration = { workspace = true }
+arkret-models-identity = { workspace = true }
+arkret-state = { workspace = true }
+arkret-wire = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+serde_json = { workspace = true }
 
 # `arkret-schema` is deliberately NOT a normal dependency: the frozen layering
 # in tools/check-layering.py does not allow bootstrap -> schema, which is why
@@ -29,8 +29,8 @@ serde_json = {workspace = true}
 # event-kind registry actually produces, not a stub's opinion — the same
 # dev-only arrangement arkret-state and arkret-models-collaboration use.
 [dev-dependencies]
-arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
-arkret-wire = {workspace = true,features = ["test-support"]}
+arkret-schema = { workspace = true, features = ["embedded-artifacts"] }
+arkret-wire = { workspace = true, features = ["test-support"] }
 
 [lints]
 workspace = true

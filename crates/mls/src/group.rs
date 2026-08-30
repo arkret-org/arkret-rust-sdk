@@ -2340,7 +2340,7 @@ pub(super) fn governance_binding_openmls_capabilities() -> Capabilities {
 
 pub(super) fn keypackage_capabilities_leaf_extensions() -> Result<Extensions<LeafNode>> {
     let extension_data = encode_keypackage_capability_extension(
-        &crate::identity::ARKRET_MLS_KEY_PACKAGE_CAPABILITIES,
+        crate::identity::ARKRET_MLS_KEY_PACKAGE_CAPABILITIES,
     )
     .map_err(|error| Error::Protocol(error.to_string()))?;
     Extensions::from_vec(vec![Extension::Unknown(

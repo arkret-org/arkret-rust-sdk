@@ -1162,7 +1162,7 @@ mod tests {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    async fn spawn_chunked_ndjson_server(body_parts: Vec<&'static str>) -> Client {
+    async fn spawn_chunked_ndjson_server(body_parts: Vec<String>) -> Client {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
 
@@ -1181,7 +1181,7 @@ mod tests {
                 }
             }
 
-            let body: String = body_parts.iter().copied().collect();
+            let body = body_parts.concat();
             let response = format!(
                 "HTTP/1.1 200 OK\r\nContent-Type: application/x-ndjson\r\n\
                  Content-Length: {}\r\nConnection: close\r\n\r\n",
@@ -1296,10 +1296,18 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[tokio::test]
     async fn events_subscribe_frames_yields_one_frame_per_line() {
+        let event_frame = serde_json::json!({
+            "cursor": "ak:cursor:event-1",
+            "kind": "event",
+            "payload": basis_free_message_event(),
+            "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+        });
         let parts = vec![
-            "{\"cursor\":\"ak:cursor:event-1\",\"kind\":\"event\",\"payload\":{}}\n",
-            "{\"cursor\":\"ak:cursor:event-1\",\"kind\":\"catchup_",
-            "complete\"}\n",
+            String::from_utf8(arkret_canonical::canonical_json_bytes(&event_frame).unwrap())
+                .unwrap()
+                + "\n",
+            "{\"cursor\":\"ak:cursor:event-1\",\"kind\":\"catchup_".to_owned(),
+            "complete\"}\n".to_owned(),
         ];
         let mut stream = spawn_chunked_ndjson_server(parts)
             .await

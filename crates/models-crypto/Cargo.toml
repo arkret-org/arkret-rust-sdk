@@ -13,25 +13,21 @@ version.workspace = true
 
 [features]
 default = []
-openapi = [
-    "dep:salvo-oapi",
-    "arkret-wire/openapi",
-    "salvo-oapi/chrono",
-]
+openapi = ["dep:salvo-oapi", "arkret-wire/openapi", "salvo-oapi/chrono"]
 
 [dependencies]
-arkret-canonical = {workspace = true}
-arkret-wire = {workspace = true}
-chrono = {workspace = true,features = ["serde"]}
-hex = {workspace = true}
-regex = {workspace = true}
-salvo-oapi = {workspace = true,optional = true}
-serde = {workspace = true}
-serde_json = {workspace = true}
-thiserror = {workspace = true}
+arkret-canonical = { workspace = true }
+arkret-wire = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+hex = { workspace = true }
+regex = { workspace = true }
+salvo-oapi = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
-arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
+arkret-schema = { workspace = true, features = ["embedded-artifacts"] }
 ed25519-dalek.workspace = true
 
 [lints]

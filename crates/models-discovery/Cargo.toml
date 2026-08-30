@@ -24,23 +24,23 @@ openapi = [
 ]
 
 [dependencies]
-arkret-canonical = {workspace = true}
-arkret-models-identity = {workspace = true}
-arkret-wire = {workspace = true}
-salvo-oapi = {workspace = true, optional = true}
-chrono = {workspace = true,features = ["serde"]}
-curve25519-dalek = {workspace = true}
-serde = {workspace = true}
-serde_json = {workspace = true}
-thiserror = {workspace = true}
-url = {workspace = true}
-voprf = {workspace = true}
+arkret-canonical = { workspace = true }
+arkret-models-identity = { workspace = true }
+arkret-wire = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+curve25519-dalek = { workspace = true }
+salvo-oapi = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+url = { workspace = true }
+voprf = { workspace = true }
 
 [dev-dependencies]
-arkret-schema = {workspace = true, features = ["embedded-artifacts"]}
-arkret-models-integration = {workspace = true}
-ed25519-dalek = {workspace = true}
-hex = {workspace = true}
+arkret-models-integration = { workspace = true }
+arkret-schema = { workspace = true, features = ["embedded-artifacts"] }
+ed25519-dalek = { workspace = true }
+hex = { workspace = true }
 
 [lints]
 workspace = true

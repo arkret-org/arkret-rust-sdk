@@ -859,7 +859,7 @@ mod tests {
             record.capabilities
         );
         validate_keypackage_capability_binding(&key_package_bytes, &record.capabilities).unwrap();
-        let mut mismatched = record.capabilities.clone();
+        let mut mismatched = record.capabilities;
         mismatched.pop();
         assert!(validate_keypackage_capability_binding(&key_package_bytes, &mismatched).is_err());
     }
@@ -1103,7 +1103,7 @@ mod tests {
                 arkret_wire::DomainSeparationId::MLS_RECIPIENT_DURABLE_RECEIPT_V1,
             )
             .unwrap(),
-            claim_request_id: claim_request_id.clone(),
+            claim_request_id,
             key_package_ref: NonEmptyString::new(keypackage_ref).unwrap(),
             recipient_principal_id: pairwise_actor_id,
             recipient: RecipientMlsDurableSigner::MinimalMetadataPairwise {

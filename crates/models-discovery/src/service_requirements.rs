@@ -192,13 +192,13 @@ impl ServiceRequirements {
             });
         }
 
-        if let Some(service_kind) = &self.service_kind {
-            if description.service_kind != *service_kind {
-                return Err(WireError::Protocol(format!(
-                    "service_kind {} does not match expected {}",
-                    description.service_kind, service_kind
-                )));
-            }
+        if let Some(service_kind) = &self.service_kind
+            && description.service_kind != *service_kind
+        {
+            return Err(WireError::Protocol(format!(
+                "service_kind {} does not match expected {}",
+                description.service_kind, service_kind
+            )));
             // `ServiceDescribe::validate` checks canonical bundle ownership;
             // the bundle registry, not operation-name prefixes, is authoritative.
         }

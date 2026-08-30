@@ -438,8 +438,8 @@ impl AppletGhostAuthoringRequestBasis {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum AppletManagedActorAuthoringBasis {
-    InstallBot(AppletInstallAuthoringRequestBasis),
-    ProvisionGhost(AppletGhostAuthoringRequestBasis),
+    InstallBot(Box<AppletInstallAuthoringRequestBasis>),
+    ProvisionGhost(Box<AppletGhostAuthoringRequestBasis>),
 }
 
 impl AppletManagedActorAuthoringBasis {
@@ -597,7 +597,7 @@ impl AppletManagedActorAuthoringRequest {
         let mut request = Self {
             schema: Self::SCHEMA.to_owned(),
             purpose: AppletManagedActorPurpose::InstallBot,
-            basis: AppletManagedActorAuthoringBasis::InstallBot(basis),
+            basis: AppletManagedActorAuthoringBasis::InstallBot(Box::new(basis)),
             plan_digest: Some(plan_digest),
             hosting_notary,
             issued_at,
@@ -639,7 +639,7 @@ impl AppletManagedActorAuthoringRequest {
         let mut request = Self {
             schema: Self::SCHEMA.to_owned(),
             purpose: AppletManagedActorPurpose::ProvisionGhost,
-            basis: AppletManagedActorAuthoringBasis::ProvisionGhost(basis),
+            basis: AppletManagedActorAuthoringBasis::ProvisionGhost(Box::new(basis)),
             plan_digest: None,
             hosting_notary,
             issued_at,
@@ -761,8 +761,8 @@ pub struct AppletManagedActorAuthorOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum AppletInstallRequestBody {
-    Create(AppletInstallCreateRequestBody),
-    Reuse(AppletInstallReuseRequestBody),
+    Create(Box<AppletInstallCreateRequestBody>),
+    Reuse(Box<AppletInstallReuseRequestBody>),
 }
 
 impl AppletInstallRequestBody {

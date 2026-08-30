@@ -326,7 +326,7 @@ mod device_pairing_tests {
             realm_id: realm_id.clone(),
             scope_ref: ScopeRef::Realm { realm_id },
             actor_id: principal_id.clone(),
-            principal_server_id: principal_id.clone(),
+            principal_server_id: principal_id,
             executed_by: None,
             authorization_ref: None,
             applet_id: None,

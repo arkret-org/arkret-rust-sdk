@@ -204,7 +204,7 @@ fn federation_submission(mut event: Event) -> EventFederationSubmission {
         risk_tier: RiskTier::Low,
         issued_at,
         expires_at: issued_at + chrono::Duration::hours(1),
-        authority_set_ref: authority_set_ref.clone(),
+        authority_set_ref,
         authority_set_policy,
         proofs: Vec::new(),
     };

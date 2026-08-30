@@ -1501,17 +1501,15 @@ mod tests {
     }
 
     fn derived_realm(seed: u8) -> RealmId {
-        let event_id = arkret_identifiers::EventId::from_digest(
-            SUITE,
-            arkret_canonical::sha256_bytes(&[seed]),
-        );
+        let event_id =
+            arkret_identifiers::EventId::from_digest(SUITE, arkret_canonical::sha256_bytes([seed]));
         RealmId::from_event_id(&event_id)
     }
 
     fn derived_realm_index(seed: u32) -> RealmId {
         let event_id = arkret_identifiers::EventId::from_digest(
             SUITE,
-            arkret_canonical::sha256_bytes(&seed.to_be_bytes()),
+            arkret_canonical::sha256_bytes(seed.to_be_bytes()),
         );
         RealmId::from_event_id(&event_id)
     }

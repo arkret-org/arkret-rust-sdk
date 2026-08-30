@@ -12,20 +12,20 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-base64 = {workspace = true}
-blake3 = {workspace = true}
-bs58 = {workspace = true}
-chrono = {workspace = true,features = ["serde"]}
-hex = {workspace = true}
-serde = {workspace = true}
-serde_json = {workspace = true}
-sha2 = {workspace = true}
-thiserror = {workspace = true}
-unicode-normalization = {workspace = true}
+base64 = { workspace = true }
+blake3 = { workspace = true }
+bs58 = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+hex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+unicode-normalization = { workspace = true }
 
 [dev-dependencies]
-criterion = {workspace = true}
-proptest = {workspace = true,default-features = false,features = ["std"]}
+criterion = { workspace = true }
+proptest = { workspace = true, default-features = false, features = ["std"] }
 
 [[bench]]
 harness = false

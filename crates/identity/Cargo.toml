@@ -12,30 +12,30 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-arkret-canonical = {workspace = true}
-arkret-egress-policy = {workspace = true}
+arkret-canonical = { workspace = true }
+arkret-egress-policy = { workspace = true }
 # Batch 4c (core retirement): the service identity bundle backends (file +
 # KeyStore persistence) moved here from the `arkret` umbrella. They wrap a `KeyStore`
 # from arkret-keystore, a leaf crate (no arkret deps), so the edge is
 # cycle-free.
-arkret-keystore = {workspace = true}
-arkret-models-identity = {workspace = true}
-arkret-signatures = {workspace = true,features = ["service-identity","webvh"]}
-arkret-wire = {workspace = true}
-chrono = {workspace = true,features = ["serde"]}
-ed25519-dalek = {workspace = true}
-serde = {workspace = true}
-serde_json = {workspace = true}
-subtle = {workspace = true}
-thiserror = {workspace = true}
+arkret-keystore = { workspace = true }
+arkret-models-identity = { workspace = true }
+arkret-signatures = { workspace = true, features = ["service-identity", "webvh"] }
+arkret-wire = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+ed25519-dalek = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+subtle = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
-arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
-arkret-state = {workspace = true}
-arkret-wire = {workspace = true,features = ["test-support"]}
-rand_chacha = {workspace = true}
-rand_core = {workspace = true}
-url = {workspace = true}
+arkret-schema = { workspace = true, features = ["embedded-artifacts"] }
+arkret-state = { workspace = true }
+arkret-wire = { workspace = true, features = ["test-support"] }
+rand_chacha = { workspace = true }
+rand_core = { workspace = true }
+url = { workspace = true }
 
 [lints]
 workspace = true

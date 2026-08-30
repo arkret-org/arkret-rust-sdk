@@ -597,9 +597,7 @@ mod tests {
             "destructive_confirmation": EventKind::RealmAuthorityReset
         }))
         .unwrap();
-        let intent =
-            build_realm_authority_reset_intent(scope.clone(), actor.clone(), created_at(), reset)
-                .unwrap();
+        let intent = build_realm_authority_reset_intent(scope, actor, created_at(), reset).unwrap();
         assert_eq!(intent.kind(), &EventKind::RealmAuthorityReset);
         assert_eq!(
             intent.authorization_ref().map(AuthorizationRef::as_str),

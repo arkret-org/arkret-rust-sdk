@@ -15,19 +15,19 @@ version.workspace = true
 default = []
 
 [dependencies]
-arkret-canonical = {workspace = true}
-arkret-event-draft = {workspace = true}
-arkret-models-collaboration = {workspace = true}
-arkret-schema = {workspace = true}
-arkret-wire = {workspace = true}
-chrono = {workspace = true,features = ["serde"]}
-serde = {workspace = true}
-serde_json = {workspace = true}
-thiserror = {workspace = true}
+arkret-canonical = { workspace = true }
+arkret-event-draft = { workspace = true }
+arkret-models-collaboration = { workspace = true }
+arkret-schema = { workspace = true }
+arkret-wire = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
-arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
-arkret-wire = {workspace = true,features = ["test-support"]}
+arkret-schema = { workspace = true, features = ["embedded-artifacts"] }
+arkret-wire = { workspace = true, features = ["test-support"] }
 
 [lints]
 workspace = true

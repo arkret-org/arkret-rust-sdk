@@ -976,7 +976,7 @@ mod tests {
                 .is_err()
         );
 
-        let mut wrong_authority_lease = lease.clone();
+        let mut wrong_authority_lease = lease;
         wrong_authority_lease.authority_set_ref.authority_set_digest =
             Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap();
         assert!(

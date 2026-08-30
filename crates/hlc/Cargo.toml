@@ -15,15 +15,15 @@ version.workspace = true
 default = []
 
 [dependencies]
-arkret-canonical = {workspace = true}
-arkret-identifiers = {workspace = true}
-arkret-wire = {workspace = true}
-thiserror = {workspace = true}
-web-time = {workspace = true}
+arkret-canonical = { workspace = true }
+arkret-identifiers = { workspace = true }
+arkret-wire = { workspace = true }
+thiserror = { workspace = true }
+web-time = { workspace = true }
 
 [dev-dependencies]
-arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
-serde_json = {workspace = true}
+arkret-schema = { workspace = true, features = ["embedded-artifacts"] }
+serde_json = { workspace = true }
 
 [lints]
 workspace = true

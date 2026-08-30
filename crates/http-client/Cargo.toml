@@ -27,46 +27,46 @@ default = []
 tls-rustls = ["reqwest/rustls"]
 
 [dependencies]
-chrono = {workspace = true,features = ["serde"]}
-arkret-canonical = {workspace = true}
-arkret-egress-policy = {workspace = true}
-arkret-models-collaboration = {workspace = true}
-arkret-models-crypto = {workspace = true}
-arkret-models-discovery = {workspace = true}
-arkret-models-identity = {workspace = true}
-arkret-models-integration = {workspace = true}
+arkret-canonical = { workspace = true }
+arkret-egress-policy = { workspace = true }
+arkret-models-collaboration = { workspace = true }
+arkret-models-crypto = { workspace = true }
+arkret-models-discovery = { workspace = true }
+arkret-models-identity = { workspace = true }
+arkret-models-integration = { workspace = true }
+arkret-schema = { workspace = true, features = ["embedded-artifacts"] }
 arkret-signatures.workspace = true
-arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
-arkret-wire = {workspace = true}
-arkret-state = {workspace = true}
+arkret-state = { workspace = true }
+arkret-wire = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
 ed25519-dalek.workspace = true
-futures-util = {workspace = true,default-features = false,features = ["std"]}
-reqwest = {workspace = true,features = ["json", "gzip", "http2", "multipart", "stream"]}
-serde = {workspace = true}
-serde_json = {workspace = true}
-thiserror = {workspace = true}
-tokio = {workspace = true,features = ["time"]}
-url = {workspace = true,features = ["serde"]}
-
-[dev-dependencies]
-arkret-wire = {workspace = true,features = ["test-support"]}
+futures-util = { workspace = true, default-features = false, features = ["std"] }
+reqwest = { workspace = true, features = ["json", "gzip", "http2", "multipart", "stream"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["time"] }
+url = { workspace = true, features = ["serde"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-getrandom = {workspace = true}
-arkret-egress-reqwest = {workspace = true}
+arkret-egress-reqwest = { workspace = true }
 # Native-only: consumed exclusively by `http_did_resolver` (reqwest + Tokio DID
 # resolver), which is itself gated out on wasm32.
-arkret-identity = {workspace = true}
+arkret-identity = { workspace = true }
+getrandom = { workspace = true }
 # rt-multi-thread is required for tokio::task::block_in_place, which the sync
 # HttpDidResolver facade uses to block safely on multi-thread runtimes; sync
 # for OnceCell single-flight; rt for the current-thread fallback driver.
-tokio = {workspace = true,features = ["rt", "rt-multi-thread", "sync", "net"]}
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "sync", "net"] }
+
+[dev-dependencies]
+arkret-wire = { workspace = true, features = ["test-support"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tokio = {workspace = true,features = ["macros", "rt", "net", "io-util"]}
+tokio = { workspace = true, features = ["macros", "rt", "net", "io-util"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-getrandom = {workspace = true}
+getrandom = { workspace = true }
 
 [lints]
 workspace = true

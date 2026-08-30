@@ -15,47 +15,47 @@ version.workspace = true
 test-utils = []
 
 [dependencies]
-aes-gcm = {workspace = true}
-arkret-canonical = {workspace = true}
-arkret-crypto = {workspace = true,features = ["aead", "sframe"]}
-arkret-identifiers = {workspace = true}
-arkret-models-collaboration = {workspace = true}
-arkret-models-crypto = {workspace = true}
-arkret-policy = {workspace = true}
-arkret-signatures = {workspace = true,features = ["keypackages"]}
-arkret-wire = {workspace = true}
-chrono = {workspace = true,features = ["serde"]}
-ed25519-dalek = {workspace = true}
-hkdf = {workspace = true}
-hmac = {workspace = true}
-unicode-normalization = {workspace = true}
-serde = {workspace = true}
-serde_json = {workspace = true}
-sha2 = {workspace = true}
-thiserror = {workspace = true}
-uuid = {workspace = true}
-zeroize = {workspace = true,default-features = true}
+aes-gcm = { workspace = true }
+arkret-canonical = { workspace = true }
+arkret-crypto = { workspace = true, features = ["aead", "sframe"] }
+arkret-identifiers = { workspace = true }
+arkret-models-collaboration = { workspace = true }
+arkret-models-crypto = { workspace = true }
+arkret-policy = { workspace = true }
+arkret-signatures = { workspace = true, features = ["keypackages"] }
+arkret-wire = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+ed25519-dalek = { workspace = true }
+hkdf = { workspace = true }
+hmac = { workspace = true }
 
 # openmls is split per-target because the upstream crate hard-requires the
 # `js` cargo feature on wasm32 (it pulls fluvio_wasm_timer + js-sys for time
 # and randomness). Native targets must NOT enable `js` (no js-sys available).
-openmls_basic_credential = {workspace = true}
-openmls_rust_crypto = {workspace = true}
-openmls_traits = {workspace = true}
-tls_codec = {workspace = true}
+openmls_basic_credential = { workspace = true }
+openmls_rust_crypto = { workspace = true }
+openmls_traits = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+tls_codec = { workspace = true }
+unicode-normalization = { workspace = true }
+uuid = { workspace = true }
+zeroize = { workspace = true, default-features = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-openmls = {workspace = true}
+openmls = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-openmls = {workspace = true,features = ["js"]}
+openmls = { workspace = true, features = ["js"] }
 
 [dev-dependencies]
 # secret_share HPKE seal/open is exercised only by the history-sharing test.
-arkret-crypto = {workspace = true,features = ["aead", "secret-share"]}
+arkret-crypto = { workspace = true, features = ["aead", "secret-share"] }
 # embedded_json_artifact loads the private-kdf spec fixture in group.rs tests.
-arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
-hex = {workspace = true}
+arkret-schema = { workspace = true, features = ["embedded-artifacts"] }
+hex = { workspace = true }
 
 [lints]
 workspace = true

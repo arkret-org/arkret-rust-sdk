@@ -35,44 +35,44 @@ keystore-windows = ["arkret-keystore/keystore-windows"]
 # openmls is split per-target because the upstream crate hard-requires the
 # `js` cargo feature on wasm32 (it pulls fluvio_wasm_timer + js-sys for time
 # and randomness). Native targets must NOT enable `js` (no js-sys available).
-arkret-auth = {workspace = true}
-arkret-bootstrap = {workspace = true}
-arkret-canonical = {workspace = true}
-arkret-crypto = {workspace = true,features = ["account-data", "aead", "identity-root", "secret-share"]}
-arkret-event-draft = {workspace = true}
-arkret-hlc = {workspace = true}
-arkret-identifiers = {workspace = true}
+arkret-auth = { workspace = true }
+arkret-bootstrap = { workspace = true }
+arkret-canonical = { workspace = true }
+arkret-crypto = { workspace = true, features = ["account-data", "aead", "identity-root", "secret-share"] }
+arkret-egress-policy = { workspace = true }
+arkret-event-draft = { workspace = true }
+arkret-hlc = { workspace = true }
+arkret-http-client = { workspace = true, optional = true }
+arkret-identifiers = { workspace = true }
+arkret-identity = { workspace = true }
+arkret-keystore = { workspace = true }
+arkret-lattice-registry = { workspace = true }
+arkret-mls = { workspace = true, optional = true }
+arkret-models-collaboration = { workspace = true }
 # Direct dep so the SDK crypto store can re-export the MLS record shapes
 # (`MlsGroupStateRecord`) it previously owned; the shapes now live in
 # arkret-models-crypto. The umbrella crate is layering-exempt.
-arkret-models-crypto = {workspace = true}
-arkret-models-collaboration = {workspace = true}
-arkret-models-discovery = {workspace = true}
-arkret-models-identity = {workspace = true}
-arkret-models-integration = {workspace = true}
-arkret-http-client = {workspace = true,optional = true}
-arkret-identity = {workspace = true}
-arkret-keystore = {workspace = true}
-arkret-lattice-registry = {workspace = true}
-arkret-egress-policy = {workspace = true}
-arkret-mls = {workspace = true,optional = true}
-arkret-policy = {workspace = true}
+arkret-models-crypto = { workspace = true }
+arkret-models-discovery = { workspace = true }
+arkret-models-identity = { workspace = true }
+arkret-models-integration = { workspace = true }
+arkret-policy = { workspace = true }
 arkret-push-policy.workspace = true
-arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
-arkret-server = {workspace = true,optional = true}
-arkret-signatures = {workspace = true,features = [
+arkret-schema = { workspace = true, features = ["embedded-artifacts"] }
+arkret-server = { workspace = true, optional = true }
+arkret-signatures = { workspace = true, features = [
     "collaboration",
     "keypackages",
     "service-identity",
     "webvh",
-]}
-arkret-state = {workspace = true}
-arkret-wire = {workspace = true}
-chrono = {workspace = true}
-serde = {workspace = true,features = ["derive"]}
-serde_json = {workspace = true}
-thiserror = {workspace = true}
-url = {workspace = true,features = ["serde"],optional = true}
+] }
+arkret-state = { workspace = true }
+arkret-wire = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+url = { workspace = true, features = ["serde"], optional = true }
 
 [lints]
 workspace = true

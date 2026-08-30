@@ -32,13 +32,7 @@ blob-aead = ["dep:chacha20poly1305", "dep:getrandom"]
 sframe = ["dep:zeroize"]
 # Stateless key-verification crypto (`key_verification` module): X25519 SAS key
 # agreement, HKDF/HMAC SAS derivation, and the `accept.commitment` hash.
-key-verification = [
-    "dep:getrandom",
-    "dep:hkdf",
-    "dep:hmac",
-    "dep:x25519-dalek",
-    "dep:zeroize",
-]
+key-verification = ["dep:getrandom", "dep:hkdf", "dep:hmac", "dep:x25519-dalek", "dep:zeroize"]
 # HPKE base-mode secret-share sealing (`secret_share` module): RFC 9180
 # single-shot seal/open + the typed `ak.secret.*` to-device content bodies.
 # Pulls in the `hpke` stack (`hpke`, `getrandom`, `rand_core` 0.9) only when
@@ -72,29 +66,32 @@ identity-root = [
 ]
 
 [dependencies]
-arkret-canonical = {workspace = true}
-argon2 = {workspace = true,default-features = false,features = ["alloc"],optional = true}
-bip39 = {workspace = true,optional = true}
-chacha20poly1305 = {workspace = true,optional = true}
-chrono = {workspace = true,features = ["serde"]}
-arkret-models-crypto = {workspace = true}
-arkret-models-collaboration = {workspace = true,optional = true}
+argon2 = { workspace = true, default-features = false, features = ["alloc"], optional = true }
+arkret-canonical = { workspace = true }
+arkret-models-collaboration = { workspace = true, optional = true }
+arkret-models-crypto = { workspace = true }
 arkret-signatures.workspace = true
-arkret-wire = {workspace = true}
-ed25519-dalek = {workspace = true,optional = true}
-getrandom = {workspace = true,optional = true}
-hex = {workspace = true}
-hkdf = {workspace = true,optional = true}
-hmac = {workspace = true,optional = true}
-hpke = {workspace = true,optional = true}
-rand_core_09 = {workspace = true,optional = true}
-serde = {workspace = true}
-serde_json = {workspace = true}
-sha2 = {workspace = true}
-subtle = {workspace = true,optional = true}
-thiserror = {workspace = true}
-x25519-dalek = {workspace = true,optional = true}
-zeroize = {workspace = true,optional = true}
+arkret-wire = { workspace = true }
+bip39 = { workspace = true, optional = true }
+chacha20poly1305 = { workspace = true, optional = true }
+chrono = { workspace = true, features = ["serde"] }
+ed25519-dalek = { workspace = true, optional = true }
+getrandom = { workspace = true, optional = true }
+hex = { workspace = true }
+hkdf = { workspace = true, optional = true }
+hmac = { workspace = true, optional = true }
+hpke = { workspace = true, optional = true }
+rand_core_09 = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+subtle = { workspace = true, optional = true }
+thiserror = { workspace = true }
+x25519-dalek = { workspace = true, optional = true }
+zeroize = { workspace = true, optional = true }
+
+[dev-dependencies]
+arkret-schema = { workspace = true, features = ["embedded-artifacts"] }
 
 [lints]
 workspace = true
@@ -102,6 +99,3 @@ workspace = true
 [[example]]
 name = "dump_key_backup_kat"
 required-features = ["backup"]
-
-[dev-dependencies]
-arkret-schema = {workspace = true,features = ["embedded-artifacts"]}

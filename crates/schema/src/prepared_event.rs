@@ -197,7 +197,7 @@ mod tests {
                 realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
                     .unwrap(),
             },
-            actor.clone(),
+            actor,
             DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             0,
             Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),

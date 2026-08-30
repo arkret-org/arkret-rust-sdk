@@ -81,7 +81,7 @@ pub fn sign_controller_account_gate_attestation(
     let bytes = controller_account_gate_attestation_signing_bytes(attestation)?;
     let jws = sign_ed25519_detached_jws(signing_key, &bytes)?;
     attestation.proof.jws = NonEmptyString::new(jws)
-        .map_err(|error| AgentEvidenceSigningError::InvalidIdentifier(error.to_string()))?;
+        .map_err(|error| AgentEvidenceSigningError::InvalidIdentifier(error.to_owned()))?;
     Ok(())
 }
 
@@ -185,7 +185,7 @@ fn domain_proof_jws(
     bytes.extend_from_slice(&canonical);
     let jws = sign_ed25519_detached_jws(signing_key, &bytes)?;
     NonEmptyString::new(jws)
-        .map_err(|error| AgentEvidenceSigningError::InvalidIdentifier(error.to_string()))
+        .map_err(|error| AgentEvidenceSigningError::InvalidIdentifier(error.to_owned()))
 }
 
 fn domain_proof_jws_with_kid(
@@ -205,7 +205,7 @@ fn domain_proof_jws_with_kid(
     let signature = signing_key.sign(input.as_bytes());
     let jws = crate::proof::ed25519_detached_jws_from_signature(&signature.to_bytes(), Some(kid))?;
     NonEmptyString::new(jws)
-        .map_err(|error| AgentEvidenceSigningError::InvalidIdentifier(error.to_string()))
+        .map_err(|error| AgentEvidenceSigningError::InvalidIdentifier(error.to_owned()))
 }
 
 /// Independently verify the Account Authority-owned gate before an Agent PCR

@@ -24,22 +24,22 @@ openapi = [
 ]
 
 [dependencies]
-arkret-canonical = {workspace = true}
-arkret-event-draft = {workspace = true}
-arkret-identifiers = {workspace = true}
-arkret-models-collaboration = {workspace = true}
-arkret-models-crypto = {workspace = true}
-arkret-wire = {workspace = true}
-chrono = {workspace = true,features = ["serde"]}
-hex = {workspace = true}
-serde = {workspace = true}
-serde_json = {workspace = true}
-salvo-oapi = {workspace = true,optional = true}
-thiserror = {workspace = true}
+arkret-canonical = { workspace = true }
+arkret-event-draft = { workspace = true }
+arkret-identifiers = { workspace = true }
+arkret-models-collaboration = { workspace = true }
+arkret-models-crypto = { workspace = true }
+arkret-wire = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+hex = { workspace = true }
+salvo-oapi = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
-arkret-wire = {workspace = true,features = ["test-support"]}
-arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
+arkret-schema = { workspace = true, features = ["embedded-artifacts"] }
+arkret-wire = { workspace = true, features = ["test-support"] }
 
 [lints]
 workspace = true

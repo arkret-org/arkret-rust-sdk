@@ -126,11 +126,6 @@ const NON_OPERATION_LITERALS: &[(&str, &str)] = &[
         "client_internals.rs authentication-scope prefix test, not a request target",
     ),
     (
-        "/_arkret/self/circles/{}/{}",
-        "endpoints/circle.rs builds the trailing segment from a runtime action \
-         (`join`/`leave`/...); each expansion is a registered path, the template is not",
-    ),
-    (
         "/_arkret/self/applets/ak:applet:01904100-0000-7000-8000-000000000001/ghosts/provision",
         "endpoints/applet.rs in-file unit test expectation with a substituted sample applet id",
     ),

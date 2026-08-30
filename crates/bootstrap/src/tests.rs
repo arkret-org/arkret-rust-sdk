@@ -713,7 +713,7 @@ fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
     )
     .unwrap();
     let error = build_managed_agent_pcr_event_seal(
-        &[create, anchor.clone()],
+        &[create, anchor],
         Some(&first),
         None,
         Hlc::new("01970e589d21-000a-a13f9c2e").unwrap(),

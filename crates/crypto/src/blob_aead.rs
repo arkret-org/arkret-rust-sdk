@@ -224,29 +224,33 @@ fn segment_nonce(
 }
 
 /// Canonical per-segment AAD (§3.3.3). Keys are sorted by `canonical_json_bytes`.
-fn stream_segment_aad(
-    key_ref: &EncryptedAttachmentKeyRef,
+struct StreamSegmentAadContext<'a> {
+    key_ref: &'a EncryptedAttachmentKeyRef,
     epoch: u64,
-    nonce_prefix_b64: &str,
+    nonce_prefix_b64: &'a str,
+    segment_count: u32,
+    media_type: &'a str,
+    size_bytes: u64,
+}
+
+fn stream_segment_aad(
+    context: &StreamSegmentAadContext<'_>,
     segment_index: u32,
     last: bool,
-    segment_count: u32,
-    media_type: &str,
-    size_bytes: u64,
 ) -> Result<Vec<u8>> {
     let map: BTreeMap<&str, Value> = BTreeMap::from([
         ("scheme", json!(SCHEME_STREAM)),
-        ("key_ref", json!(key_ref)),
-        ("epoch", json!(epoch)),
-        ("nonce_prefix", json!(nonce_prefix_b64)),
+        ("key_ref", json!(context.key_ref)),
+        ("epoch", json!(context.epoch)),
+        ("nonce_prefix", json!(context.nonce_prefix_b64)),
         ("segment_index", json!(segment_index)),
         (
             "last_segment_flag",
             json!(if last { FLAG_LAST } else { FLAG_NORMAL }),
         ),
-        ("segment_count", json!(segment_count)),
-        ("media_type", json!(media_type)),
-        ("size_bytes", json!(size_bytes)),
+        ("segment_count", json!(context.segment_count)),
+        ("media_type", json!(context.media_type)),
+        ("size_bytes", json!(context.size_bytes)),
     ]);
     Ok(canonical_json_bytes(&map)?)
 }
@@ -316,20 +320,20 @@ pub fn encrypt_stream(
     };
     debug_assert_eq!(chunks.len() as u32, segment_count);
 
+    let aad_context = StreamSegmentAadContext {
+        key_ref: &params.key_ref,
+        epoch,
+        nonce_prefix_b64: &nonce_prefix_b64,
+        segment_count,
+        media_type: &params.media_type,
+        size_bytes,
+    };
+
     for (index, chunk) in chunks.iter().enumerate() {
         let segment_index = index as u32;
         let last = segment_index == segment_count - 1;
         let nonce = segment_nonce(&nonce_prefix, segment_index, last);
-        let aad = stream_segment_aad(
-            &params.key_ref,
-            epoch,
-            &nonce_prefix_b64,
-            segment_index,
-            last,
-            segment_count,
-            &params.media_type,
-            size_bytes,
-        )?;
+        let aad = stream_segment_aad(&aad_context, segment_index, last)?;
         let segment_ct = cipher
             .encrypt(
                 &nonce.into(),
@@ -534,16 +538,15 @@ impl StreamDecryptor {
 
         // §3.3.6 (2): per-segment AEAD with the §3.3.2 nonce and §3.3.3 AAD.
         let nonce = segment_nonce(&self.ctx.nonce_prefix, segment_index, last);
-        let aad = stream_segment_aad(
-            &self.ctx.key_ref,
-            self.ctx.epoch,
-            &self.ctx.nonce_prefix_b64,
-            segment_index,
-            last,
-            self.ctx.segment_count,
-            &self.ctx.media_type,
-            self.ctx.size_bytes,
-        )?;
+        let aad_context = StreamSegmentAadContext {
+            key_ref: &self.ctx.key_ref,
+            epoch: self.ctx.epoch,
+            nonce_prefix_b64: &self.ctx.nonce_prefix_b64,
+            segment_count: self.ctx.segment_count,
+            media_type: &self.ctx.media_type,
+            size_bytes: self.ctx.size_bytes,
+        };
+        let aad = stream_segment_aad(&aad_context, segment_index, last)?;
         let plaintext = self
             .ctx
             .cipher

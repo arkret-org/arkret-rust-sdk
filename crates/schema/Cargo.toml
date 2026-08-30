@@ -16,21 +16,21 @@ default = []
 embedded-artifacts = []
 
 [dependencies]
-arkret-canonical = {workspace = true}
-arkret-identifiers = {workspace = true}
-arkret-wire = {workspace = true}
-chrono = {workspace = true,features = ["serde"]}
-jsonschema = {workspace = true}
-serde = {workspace = true}
-serde_json = {workspace = true}
-thiserror = {workspace = true}
-tracing = {workspace = true}
-web-time = {workspace = true}
+arkret-canonical = { workspace = true }
+arkret-identifiers = { workspace = true }
+arkret-wire = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+jsonschema = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+web-time = { workspace = true }
 
 [dev-dependencies]
-arkret-models-crypto = {workspace = true}
-arkret-wire = {workspace = true,features = ["test-support"]}
-hex = {workspace = true}
+arkret-models-crypto = { workspace = true }
+arkret-wire = { workspace = true, features = ["test-support"] }
+hex = { workspace = true }
 
 [lints]
 workspace = true
