@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-30.6;
-//! sha256=1b0a65b7e96429f9c38fef2ce5174172d1d1796b55458f9087c0ffeeba38df46 Entries: error_codes=281
+//! Input: registry/error-code-registry.json; version=2026-08-31.1;
+//! sha256=0d74e0513ccfd1f71ca581a12b9a41e13e315af0daeca28d497f9cf94c6a756f Entries: error_codes=281
 
 use serde::{Deserialize, Serialize};
 
@@ -1862,7 +1862,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["service_call", "auth_decision"],
-        description: "An Applet registration or transaction attempted to enter a Realm without an explicit grant from the Realm owner, Realm admin, or Realm-policy-authorized registry/authz service. Namespace claims and self-signed applet registration are insufficient. See zh/extensions/applet-integration.md §4.",
+        description: "An Applet registration or transaction attempted to enter a Realm without an explicit grant from the Realm owner, Realm admin, or Realm-policy-authorized administrator actor, as checked by the Station authorization capability. Namespace claims and self-signed applet registration are insufficient. See zh/extensions/applet-integration.md §4.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletRevoked,
