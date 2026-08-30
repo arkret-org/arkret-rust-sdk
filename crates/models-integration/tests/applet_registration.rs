@@ -619,7 +619,10 @@ fn install_commit_uses_each_signed_event_carrier_once() {
         schema: "ak.schema.applet_install_authoring_request_basis.v1".to_owned(),
         purpose: AppletManagedActorPurpose::InstallBot,
         target_station_id: actor("station"),
-        install_actor_id: actor("admin"),
+        install_actor_id: ActorId::account(arkret_wire::AccountId::new(
+            actor("admin"),
+            actor("station"),
+        )),
         applet_id: package.applet_id.clone(),
         service_id: package.service_id.clone(),
         package_digest: package.package_digest.clone().unwrap(),
@@ -807,7 +810,10 @@ fn install_preview_has_only_package_and_authoring_basis() {
             schema: "ak.schema.applet_install_authoring_request_basis.v1".to_owned(),
             purpose: AppletManagedActorPurpose::InstallBot,
             target_station_id: actor("station"),
-            install_actor_id: actor("admin"),
+            install_actor_id: ActorId::account(arkret_wire::AccountId::new(
+                actor("admin"),
+                actor("station"),
+            )),
             applet_id: package.applet_id.clone(),
             service_id: package.service_id.clone(),
             package_digest: package.package_digest.clone().unwrap(),
@@ -834,6 +840,21 @@ fn install_preview_has_only_package_and_authoring_basis() {
             .is_none()
     );
     serde_json::from_value::<AppletInstallPreviewRequestBody>(value.clone()).unwrap();
+
+    for station in ["station", "other-station"] {
+        let install_actor =
+            ActorId::account(arkret_wire::AccountId::new(actor("admin"), actor(station)));
+        let mut scoped = value.clone();
+        scoped["authoring_request_basis"]["install_actor_id"] = json!(install_actor);
+        let decoded = serde_json::from_value::<AppletInstallPreviewRequestBody>(scoped).unwrap();
+        assert_eq!(
+            decoded.authoring_request_basis.install_actor_id,
+            install_actor
+        );
+    }
+    let mut bare_installer = value.clone();
+    bare_installer["authoring_request_basis"]["install_actor_id"] = json!(actor("admin"));
+    assert!(serde_json::from_value::<AppletInstallPreviewRequestBody>(bare_installer).is_err());
 
     let mut old_sibling = value.clone();
     old_sibling["registration_epoch_evidence"] = json!({});
@@ -875,7 +896,10 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
         schema: AppletInstallAuthoringRequestBasis::SCHEMA.to_owned(),
         purpose: AppletManagedActorPurpose::InstallBot,
         target_station_id: actor("station"),
-        install_actor_id: actor("admin"),
+        install_actor_id: ActorId::account(arkret_wire::AccountId::new(
+            actor("admin"),
+            actor("station"),
+        )),
         applet_id: package.applet_id.clone(),
         service_id: package.service_id.clone(),
         package_digest: package.package_digest.clone().unwrap(),
