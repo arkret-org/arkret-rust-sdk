@@ -1182,11 +1182,10 @@ mod events_submit_tests {
 
     #[tokio::test]
     async fn contacts_list_gets_spec_path() {
-        let (client, capture) =
-            spawn_capture_server(r#"{"contact_list_rows":[],"has_more":false}"#).await;
+        let (client, capture) = spawn_capture_server(r#"{"contacts":[],"has_more":false}"#).await;
 
         let response = client.contacts_list().await.unwrap();
-        assert!(response.contact_list_rows.is_empty());
+        assert!(response.contacts.is_empty());
         assert!(!response.has_more);
 
         let raw = capture.await.unwrap();
@@ -1354,7 +1353,7 @@ mod events_submit_tests {
                 "status": "partial",
                 "pending_delivery_count": 0,
                 "accepted": ["ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6"],
-                "events_submit_rejected_rows": [
+                "rejections": [
                     {"id": "ak:event:Adoyyx1AqvJH02hYxuUtpzuC-zpV8GxwFQ8XInZLbu3s", "reason_code": "schema_violation"}
                 ]
             }"#;
@@ -1374,9 +1373,9 @@ mod events_submit_tests {
             response.status
         );
         assert_eq!(response.accepted.len(), 1);
-        assert_eq!(response.events_submit_rejected_rows.len(), 1);
+        assert_eq!(response.rejections.len(), 1);
         assert_eq!(
-            response.events_submit_rejected_rows[0].reason_code.as_str(),
+            response.rejections[0].reason_code.as_str(),
             "schema_violation"
         );
     }

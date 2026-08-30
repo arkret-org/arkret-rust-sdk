@@ -270,13 +270,14 @@ impl RealmActorFrontierView {
 }
 
 /// Read-only actor aggregate. It deliberately exposes no authoring helper.
+/// `service-operation-dtos.schema.json#/$defs/ActorAggregateFrontierView`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ActorAggregateFrontierView {
     pub kind: ActorAggregateFrontierKind,
     pub actor_id: DidCoreId,
-    pub realm_actor_frontier_views: Vec<RealmActorFrontierView>,
+    pub frontiers: Vec<RealmActorFrontierView>,
 }
 
 /// Closed `error.details` for an explicit actor-chain CAS conflict.
@@ -301,7 +302,7 @@ impl EventsActorCasConflictProblem {
 
 impl ActorAggregateFrontierView {
     pub fn validate(&self) -> Result<()> {
-        for frontier in &self.realm_actor_frontier_views {
+        for frontier in &self.frontiers {
             if frontier.actor_id != self.actor_id {
                 return Err(WireError::Protocol(
                     "actor aggregate contains a different actor_id".to_owned(),
@@ -310,7 +311,7 @@ impl ActorAggregateFrontierView {
             frontier.validate()?;
         }
         if self
-            .realm_actor_frontier_views
+            .frontiers
             .windows(2)
             .any(|pair| pair[0].realm_id.as_str() >= pair[1].realm_id.as_str())
         {

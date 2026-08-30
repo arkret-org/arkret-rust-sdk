@@ -329,6 +329,7 @@ pub struct RealmLinkEntry {
     pub updated_at: DateTime<Utc>,
 }
 
+/// `realm-link-operations.schema.json#/$defs/realm_link_list`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -336,7 +337,7 @@ pub struct RealmLinkList {
     pub realm_id: RealmId,
     pub direction: RealmLinkDirection,
     #[serde(default)]
-    pub realm_link_entries: Vec<RealmLinkEntry>,
+    pub links: Vec<RealmLinkEntry>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

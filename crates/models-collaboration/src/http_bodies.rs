@@ -24,7 +24,7 @@ use crate::contact_operations::{
     ContactContinuityEvidence, ContactNextPrepareInput, ContactPeer, ContactScope,
     RequestAcceptanceReceipt,
 };
-use crate::event_sync::{RealmActorFrontierView, RealmSealFrontierView};
+use crate::event_sync::RealmActorFrontierView;
 use crate::events_payloads::event_wire::decode_payload_after_kind_validation;
 use crate::events_payloads::{
     DeviceAuthorizationBindingKind, DeviceAuthorizePayload, SignatureMaterial,
@@ -338,6 +338,7 @@ pub enum EventsDependencyMissingReasonCode {
     DependencyMissing,
 }
 
+/// `service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -361,16 +362,13 @@ pub struct EventsSubmitOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub duplicate: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub events_submit_rejected_rows: Vec<EventsSubmitRejectedRow>,
+    pub rejections: Vec<EventsSubmitRejectedRow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub quarantine: Vec<EventId>,
     /// Post-submit actor authoring frontiers sorted and unique by
     /// `(realm_id, actor_id)`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub realm_actor_frontier_views: Vec<RealmActorFrontierView>,
-    /// Visible post-submit Realm Seal frontiers sorted and unique by Realm.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub realm_frontiers: Vec<RealmSealFrontierView>,
+    pub frontiers: Vec<RealmActorFrontierView>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -912,12 +910,13 @@ pub struct ProjectionSpaceRow {
     pub state_changed_at: Option<DateTime<Utc>>,
 }
 
+/// `service-operation-dtos.schema.json#/$defs/ProjectionSpaceList`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectionSpaceList {
     pub realm_id: RealmId,
     #[serde(default)]
-    pub projection_space_rows: Vec<ProjectionSpaceRow>,
+    pub spaces: Vec<ProjectionSpaceRow>,
     pub total: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
@@ -986,12 +985,13 @@ pub struct ProjectionAssignedToRelation {
     pub actor_id: DidCoreId,
 }
 
+/// `service-operation-dtos.schema.json#/$defs/ProjectionStrandList`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectionStrandList {
     pub realm_id: RealmId,
     #[serde(default)]
-    pub projection_strand_rows: Vec<ProjectionStrandRow>,
+    pub strands: Vec<ProjectionStrandRow>,
     pub total: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
@@ -1025,12 +1025,13 @@ pub struct ProjectionMorphRow {
     pub state_changed_at: Option<DateTime<Utc>>,
 }
 
+/// `service-operation-dtos.schema.json#/$defs/ProjectionMorphList`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectionMorphList {
     pub realm_id: RealmId,
     #[serde(default)]
-    pub projection_morph_rows: Vec<ProjectionMorphRow>,
+    pub morphs: Vec<ProjectionMorphRow>,
     pub total: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
@@ -2025,11 +2026,12 @@ impl ContactListRow {
     }
 }
 
+/// `contact-operations.schema.json#/$defs/contact_list`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ContactList {
-    pub contact_list_rows: Vec<ContactListRow>,
+    pub contacts: Vec<ContactListRow>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<arkret_wire::cursor::Cursor>,
     pub has_more: bool,
