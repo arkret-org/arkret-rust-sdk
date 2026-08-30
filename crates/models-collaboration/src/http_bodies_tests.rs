@@ -35,7 +35,10 @@ mod mimi_consent_tests {
             )
             .unwrap(),
             decision: MimiConsentDecision::Accept,
-            actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap(),
+            actor_id: ActorId::account(AccountId::new(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixturestation".to_owned()).unwrap(),
+            )),
             consent_event: EventInitialSubmission {
                 event: Event {
                     event_id: EventId::new(
@@ -53,12 +56,14 @@ mod mimi_consent_tests {
                         )
                         .unwrap(),
                     },
-                    actor_id: project_did_to_core_id(
-                        &Did::new("did:webvh:z6mkfixture:example.com:users:alice".to_owned())
-                            .unwrap(),
-                    )
-                    .unwrap(),
-                    principal_server_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                    actor_id: ActorId::account(AccountId::new(
+                        project_did_to_core_id(
+                            &Did::new("did:webvh:z6mkfixture:example.com:users:alice".to_owned())
+                                .unwrap(),
+                        )
+                        .unwrap(),
+                        DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
+                    )),
                     executed_by: None,
                     authorization_ref: None,
                     applet_id: None,
@@ -197,7 +202,10 @@ mod mimi_consent_tests {
         assert!(wrong_decision.validate_consent_event().is_err());
 
         let mut wrong_actor = request.clone();
-        wrong_actor.actor_id = DidCoreId::new("ak:did_core:webvh:z6mkfixturemallory").unwrap();
+        wrong_actor.actor_id = ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturemallory").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
+        ));
         assert!(wrong_actor.validate_consent_event().is_err());
 
         let mut wrong_consent = request;
@@ -325,8 +333,7 @@ mod device_pairing_tests {
             kind: EventKind::DeviceAuthorize,
             realm_id: realm_id.clone(),
             scope_ref: ScopeRef::Realm { realm_id },
-            actor_id: principal_id.clone(),
-            principal_server_id: principal_id,
+            actor_id: ActorId::account(AccountId::new(principal_id.clone(), principal_id)),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,

@@ -196,7 +196,7 @@ pub struct NotificationContainer {
 /// and `sender_agent_key_authorize_event_id` a receiver would hold an Agent
 /// principal id and no way to say which key currently speaks for it.
 ///
-/// The Service branch is narrower: only the recipient Principal Server's
+/// The Service branch is narrower: only the recipient Station's
 /// internal actor-private materializer may produce it. Envelope validation
 /// additionally requires an actor-private update kind and equal sender /
 /// recipient principal ids.
@@ -304,7 +304,7 @@ impl DeviceMessageSender {
     /// `device-message.schema.json` keys deduplication on
     /// `(sender_principal_id, <endpoint>, device_message_id)`; the endpoint is the
     /// device for a human sender, the Agent principal for a Native Agent, and
-    /// the Principal Server service id for a Service sender.
+    /// the Station service id for a Service sender.
     pub fn endpoint_id(&self) -> &str {
         match self {
             Self::Device { sender_device_id } => sender_device_id.as_str(),
@@ -323,7 +323,7 @@ impl DeviceMessageSender {
         }
     }
 
-    /// The Principal Server materializer, when this is the restricted service
+    /// The Station materializer, when this is the restricted service
     /// branch.
     pub fn service_id(&self) -> Option<&DidCoreId> {
         match self {
@@ -766,7 +766,7 @@ pub struct ActorPrivateReadCursorUpdate {
 
 /// Self-describing actor-private update envelope. The wire `type` tag and its
 /// content shape cannot be constructed independently. Its sender is the same
-/// closed flattened XOR as [`DeviceMessageEnvelope`], because Principal Server
+/// closed flattened XOR as [`DeviceMessageEnvelope`], because Station
 /// CAS materializers have no authoring device id.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(tag = "type")]

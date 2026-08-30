@@ -83,9 +83,8 @@ fn canonical_now() -> DateTime<Utc> {
 
 fn hosting_notary() -> NotarySignerDescriptor {
     NotarySignerDescriptor {
-        actor_id: actor("principal-server"),
-        verification_method: DidUrl::new(format!("{}#notary-key", did("principal-server")))
-            .unwrap(),
+        actor_id: actor("station"),
+        verification_method: DidUrl::new(format!("{}#notary-key", did("station"))).unwrap(),
         key_kind: NotaryKeyKind::Ed25519Raw32,
         jose_algorithm: NotaryJoseAlgorithm::Ed25519,
         frozen_public_key_b64u: "A".repeat(43),
@@ -597,7 +596,7 @@ fn install_commit_uses_each_signed_event_carrier_once() {
         "ak.applet.registration",
         scope.clone(),
         actor("admin"),
-        actor("principal-server"),
+        actor("station"),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({
@@ -610,7 +609,7 @@ fn install_commit_uses_each_signed_event_carrier_once() {
         "ak.capability.grant",
         scope.clone(),
         actor("admin"),
-        actor("principal-server"),
+        actor("station"),
         2,
         Hlc::new("01970e589d21-0005-a13f9c2e").unwrap(),
         json!({"grant_id": "ak:grant:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu"}),
@@ -619,7 +618,7 @@ fn install_commit_uses_each_signed_event_carrier_once() {
     let basis = AppletInstallAuthoringRequestBasis {
         schema: "ak.schema.applet_install_authoring_request_basis.v1".to_owned(),
         purpose: AppletManagedActorPurpose::InstallBot,
-        target_principal_server_id: actor("principal-server"),
+        target_station_id: actor("station"),
         install_actor_id: actor("admin"),
         applet_id: package.applet_id.clone(),
         service_id: package.service_id.clone(),
@@ -639,9 +638,8 @@ fn install_commit_uses_each_signed_event_carrier_once() {
         capability_grant_events: vec![capability_grant_event],
     };
     let signer = StubSigner {
-        did: did("principal-server"),
-        verification_method: DidUrl::new(format!("{}#notary-key", did("principal-server")))
-            .unwrap(),
+        did: did("station"),
+        verification_method: DidUrl::new(format!("{}#notary-key", did("station"))).unwrap(),
     };
     let authoring_request = AppletManagedActorAuthoringRequest::sign(
         basis,
@@ -653,16 +651,21 @@ fn install_commit_uses_each_signed_event_carrier_once() {
     )
     .unwrap();
     let bot_actor_provision_event = arkret_wire::test_support::raw_event_at(
-        "ak.applet.managed_actor.provision", scope.clone(), service("slackbridge"), actor("principal-server"), 1,
+        "ak.applet.managed_actor.provision",
+        scope.clone(),
+        service("slackbridge"),
+        actor("station"),
+        1,
         Hlc::new("01970e589d21-0100-a13f9c2e").unwrap(),
-        json!({"actor_id": package.bot_actor_id, "actor_principal_server_id": actor("principal-server")}),
+        json!({"actor_id": package.bot_actor_id, "actor_station_id": actor("station")}),
         requested_at,
-    ).unwrap();
+    )
+    .unwrap();
     let bot_pcr_genesis_event = arkret_wire::test_support::raw_event_at(
         "ak.realm.create",
         ScopeRef::RealmGenesis,
         package.bot_actor_id.clone(),
-        actor("principal-server"),
+        actor("station"),
         0,
         Hlc::new("01970e589d21-0101-a13f9c2e").unwrap(),
         json!({"realm_kind": "pcr"}),
@@ -673,7 +676,7 @@ fn install_commit_uses_each_signed_event_carrier_once() {
         "ak.identity.accountability_grant",
         scope.clone(),
         service("slackbridge"),
-        actor("principal-server"),
+        actor("station"),
         2,
         Hlc::new("01970e589d21-0102-a13f9c2e").unwrap(),
         json!({"accountable_principal_id": package.bot_actor_id}),
@@ -684,7 +687,7 @@ fn install_commit_uses_each_signed_event_carrier_once() {
         "ak.profile.create",
         scope,
         package.bot_actor_id.clone(),
-        actor("principal-server"),
+        actor("station"),
         0,
         Hlc::new("01970e589d21-0103-a13f9c2e").unwrap(),
         json!({"display_name": "Applet Bot"}),
@@ -703,7 +706,7 @@ fn install_commit_uses_each_signed_event_carrier_once() {
             verification_method: signer.verification_method,
             payload_digest: sample_epoch(),
             created_at: requested_at,
-            audience_id: actor("principal-server"),
+            audience_id: actor("station"),
             jws: "eyJhbGciOiJFZDI1NTE5In0..c2lnbmF0dXJl".to_owned(),
         },
     };
@@ -785,7 +788,7 @@ fn install_preview_has_only_package_and_authoring_basis() {
         "ak.applet.registration",
         scope.clone(),
         actor("admin"),
-        actor("principal-server"),
+        actor("station"),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({"manifest": {"registration_epoch_evidence": evidence}}),
@@ -795,7 +798,7 @@ fn install_preview_has_only_package_and_authoring_basis() {
         "ak.capability.grant",
         scope.clone(),
         actor("admin"),
-        actor("principal-server"),
+        actor("station"),
         2,
         Hlc::new("01970e589d21-0005-a13f9c2e").unwrap(),
         json!({"grant_id": "ak:grant:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu"}),
@@ -805,7 +808,7 @@ fn install_preview_has_only_package_and_authoring_basis() {
         authoring_request_basis: AppletInstallAuthoringRequestBasis {
             schema: "ak.schema.applet_install_authoring_request_basis.v1".to_owned(),
             purpose: AppletManagedActorPurpose::InstallBot,
-            target_principal_server_id: actor("principal-server"),
+            target_station_id: actor("station"),
             install_actor_id: actor("admin"),
             applet_id: package.applet_id.clone(),
             service_id: package.service_id.clone(),
@@ -856,7 +859,7 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
     let requested_at = canonical_now();
     let expires_at = requested_at + chrono::Duration::minutes(5);
     let registration_event = arkret_wire::test_support::raw_event(
-        "ak.applet.registration", scope.clone(), actor("admin"), actor("principal-server"), 1,
+        "ak.applet.registration", scope.clone(), actor("admin"), actor("station"), 1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({"manifest": {"registration_epoch_evidence": sample_epoch_evidence(&package.service_id)}}),
     ).unwrap();
@@ -864,7 +867,7 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
         "ak.capability.grant",
         scope.clone(),
         actor("admin"),
-        actor("principal-server"),
+        actor("station"),
         2,
         Hlc::new("01970e589d21-0005-a13f9c2e").unwrap(),
         json!({"grant_id": "ak:grant:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu"}),
@@ -873,7 +876,7 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
     let basis = AppletInstallAuthoringRequestBasis {
         schema: AppletInstallAuthoringRequestBasis::SCHEMA.to_owned(),
         purpose: AppletManagedActorPurpose::InstallBot,
-        target_principal_server_id: actor("principal-server"),
+        target_station_id: actor("station"),
         install_actor_id: actor("admin"),
         applet_id: package.applet_id.clone(),
         service_id: package.service_id.clone(),
@@ -893,9 +896,8 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
         capability_grant_events: vec![capability_grant_event],
     };
     let signer = StubSigner {
-        did: did("principal-server"),
-        verification_method: DidUrl::new(format!("{}#notary-key", did("principal-server")))
-            .unwrap(),
+        did: did("station"),
+        verification_method: DidUrl::new(format!("{}#notary-key", did("station"))).unwrap(),
     };
     let first = AppletManagedActorAuthoringRequest::sign(
         basis.clone(),

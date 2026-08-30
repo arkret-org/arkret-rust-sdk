@@ -154,25 +154,25 @@ pub fn verify_authenticated_service_resolution_history(
 /// Verify the complete public principal-resolution closure and return the
 /// accepted projection.
 ///
-/// The Principal Server resolution authenticates the projection attester. The
+/// The Station resolution authenticates the projection attester. The
 /// separately resolved principal document and the response's method-history
 /// evidence authenticate the projected DID and its exact method head.
 /// Callers must not persist `resolution_projection` before this function
 /// succeeds.
 pub fn verify_public_principal_resolution_history(
     resolution: &PublicPrincipalResolution,
-    principal_server_resolution: &AuthenticatedServiceResolution,
+    station_resolution: &AuthenticatedServiceResolution,
     principal_document: &DidDocument,
     now: DateTime<Utc>,
 ) -> Result<arkret_models_identity::PrincipalResolutionProjection> {
     verify_authenticated_service_resolution_history(
-        principal_server_resolution,
-        &resolution.principal_server_id,
+        station_resolution,
+        &resolution.station_id,
         now,
     )?;
     arkret_signatures::service_resolution::verify_public_principal_resolution(
         resolution,
-        &principal_server_resolution.normalized_did_document,
+        &station_resolution.normalized_did_document,
         now,
     )
     .map_err(wire)?;
@@ -281,7 +281,7 @@ pub fn verify_public_principal_resolution_history(
 /// document independently and use [`verify_public_principal_resolution_history`].
 pub fn verify_embedded_public_principal_resolution_history(
     resolution: &PublicPrincipalResolution,
-    principal_server_resolution: &AuthenticatedServiceResolution,
+    station_resolution: &AuthenticatedServiceResolution,
     now: DateTime<Utc>,
 ) -> Result<(
     arkret_models_identity::PrincipalResolutionProjection,
@@ -318,12 +318,8 @@ pub fn verify_embedded_public_principal_resolution_history(
             .into());
         }
     };
-    let projection = verify_public_principal_resolution_history(
-        resolution,
-        principal_server_resolution,
-        &document,
-        now,
-    )?;
+    let projection =
+        verify_public_principal_resolution_history(resolution, station_resolution, &document, now)?;
     Ok((projection, document))
 }
 

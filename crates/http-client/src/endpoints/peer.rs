@@ -37,7 +37,7 @@ impl Client {
     }
 
     /// Atomically linearize an immutable issuance intent against the origin
-    /// Principal Server's durable device-revocation log.
+    /// Station's durable device-revocation log.
     pub async fn peer_device_revocations_check(
         &self,
         request: &DeviceRevocationGateCheckRequestBody,

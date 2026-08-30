@@ -80,7 +80,7 @@ pub enum DeviceReanchorReceiptScopeKind {
 pub struct DeviceReanchorReceiptScope {
     pub kind: DeviceReanchorReceiptScopeKind,
     pub principal_id: DidCoreId,
-    pub principal_server_id: DidCoreId,
+    pub station_id: DidCoreId,
     pub realm_id: RealmId,
     pub previous_device_generation: u64,
     pub new_device_generation: u64,
@@ -92,11 +92,11 @@ impl DeviceReanchorReceiptScope {
     /// The instance digest must recompute, the instance must reverse-bind
     /// `principal_id` and `realm_id`, and the generations must be an immediate
     /// monotonic successor pair. A same-core instance selecting a different
-    /// Principal Server, PCR Realm or genesis receipt is a different PCR.
+    /// Station, PCR Realm or genesis receipt is a different PCR.
     pub fn validate_authority(&self) -> Result<()> {
         AccountId {
             principal_id: self.principal_id.clone(),
-            principal_server_id: self.principal_server_id.clone(),
+            station_id: self.station_id.clone(),
         }
         .validate()?;
         if self.previous_device_generation == 0
@@ -359,7 +359,7 @@ mod event_batch_receipt_tests {
             scope: EventBatchReceiptScope::DeviceReanchor(DeviceReanchorReceiptScope {
                 kind: DeviceReanchorReceiptScopeKind::DeviceReanchorUnit,
                 principal_id: fixture_authority().principal_id,
-                principal_server_id: fixture_authority().principal_server_id,
+                station_id: fixture_authority().station_id,
                 realm_id: RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
                     .unwrap(),
                 previous_device_generation: 1,
@@ -410,7 +410,7 @@ mod event_batch_receipt_tests {
             scope: EventBatchReceiptScope::DeviceReanchor(DeviceReanchorReceiptScope {
                 kind: DeviceReanchorReceiptScopeKind::DeviceReanchorUnit,
                 principal_id: fixture_authority().principal_id,
-                principal_server_id: fixture_authority().principal_server_id,
+                station_id: fixture_authority().station_id,
                 realm_id: RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
                     .unwrap(),
                 previous_device_generation: 1,
@@ -450,7 +450,7 @@ mod event_batch_receipt_tests {
         let scope = DeviceReanchorReceiptScope {
             kind: DeviceReanchorReceiptScopeKind::DeviceReanchorUnit,
             principal_id: authority.principal_id,
-            principal_server_id: authority.principal_server_id,
+            station_id: authority.station_id,
             realm_id: RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
                 .unwrap(),
             previous_device_generation: 1,
@@ -465,7 +465,7 @@ mod event_batch_receipt_tests {
         let scope = DeviceReanchorReceiptScope {
             kind: DeviceReanchorReceiptScopeKind::DeviceReanchorUnit,
             principal_id: fixture_authority().principal_id,
-            principal_server_id: fixture_authority().principal_server_id,
+            station_id: fixture_authority().station_id,
             realm_id: RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
                 .unwrap(),
             previous_device_generation: 1,
@@ -483,7 +483,7 @@ mod event_batch_receipt_tests {
                 "new_device_generation",
                 "previous_device_generation",
                 "principal_id",
-                "principal_server_id",
+                "station_id",
                 "realm_id",
             ])
         );

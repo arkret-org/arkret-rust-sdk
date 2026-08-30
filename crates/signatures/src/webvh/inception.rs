@@ -64,9 +64,9 @@ use crate::eddsa_jcs_2022::{
 /// storage errors stay in the caller (e.g. coauth's `SolandWebvhError`).
 #[derive(Debug, Error)]
 pub enum WebvhInceptionError {
-    #[error("principal-server endpoint is not a valid URL: {0}")]
+    #[error("station endpoint is not a valid URL: {0}")]
     InvalidEndpoint(#[from] url::ParseError),
-    #[error("principal-server endpoint must include a host with a dot for did:webvh")]
+    #[error("station endpoint must include a host with a dot for did:webvh")]
     EndpointHostInvalid,
     #[error("local_id failed normalisation (must be 1-64 ascii [a-z0-9._-])")]
     InvalidLocalId,
@@ -748,7 +748,7 @@ impl PreparedInception {
 /// recovery secret before publishing the result.
 pub struct PrincipalInceptionInput<'a> {
     /// WebVH Provider base endpoint. Drives the DID method authority and may
-    /// differ from the Principal Server published in the DID document.
+    /// differ from the Station published in the DID document.
     pub provider_endpoint: &'a Url,
     /// Soland's public base endpoint. Drives the in-document
     /// `serviceEndpoint` and the `also_known_as` reverse-link surface.
@@ -1212,7 +1212,7 @@ pub fn prepare_managed_agent_binding_update(
         .and_then(Value::as_str)
         .ok_or_else(|| {
             WebvhInceptionError::InvalidProof(
-                "managed Agent inception has no Principal Server endpoint".to_owned(),
+                "managed Agent inception has no Station endpoint".to_owned(),
             )
         })?;
     let state = managed_agent_document_value(
@@ -1620,7 +1620,7 @@ pub struct ServiceRegistrationInceptionInput<'a> {
 /// the DID + update keypairs and constructs a byte-identical inception via the
 /// same SCID / version-hash / `eddsa-jcs-2022` proof machinery, but produces a
 /// service-shaped DID document with no device-authorization-authority service
-/// entry. Used by a service (e.g. a principal server hosting its own webvh log,
+/// entry. Used by a service (e.g. a Station hosting its own webvh log,
 /// or an auth server minting against such a host) to bootstrap its own stable
 /// service identity without an external minting round-trip.
 pub fn prepare_service_inception<R: RngCore + ?Sized>(
@@ -1692,7 +1692,7 @@ fn prepare_service_inception_internal<R: RngCore + ?Sized>(
         rng,
         input.principal_endpoint,
         &public_base_url,
-        ServiceKind::PrincipalServer,
+        ServiceKind::Station,
         input.local_id,
         input.also_known_as,
         input.version_time,
@@ -1901,7 +1901,7 @@ fn embedded_webvh_document_value_without_enrollment(
     })];
     let authentication = vec![did_key_id.to_owned()];
     let mut assertion_methods = vec![did_key_id.to_owned()];
-    if service_kind == ServiceKind::PrincipalServer {
+    if service_kind == ServiceKind::Station {
         let federation_key_id = format!("{did}#federation-fanout-key");
         if federation_key_id != did_key_id {
             verification_methods.push(json!({
@@ -1942,7 +1942,7 @@ fn principal_document_value(
         "alsoKnownAs": also_known_as,
         "service": [{
             "id": format!("{did}#soland"),
-            "type": "ArkretPrincipalServer",
+            "type": "ArkretStation",
             "serviceEndpoint": service_endpoint,
         }],
     }))
@@ -1964,7 +1964,7 @@ fn managed_agent_document_value(
     let mut services = vec![
         json!({
             "id": format!("{did}#soland"),
-            "type": "ArkretPrincipalServer",
+            "type": "ArkretStation",
             "serviceEndpoint": service_endpoint,
         }),
         json!({
@@ -2050,14 +2050,14 @@ pub fn validate_managed_agent_did_document_profile(
         })?;
     let expected_soland_id = format!("{did}#soland");
     if services[0].get("id").and_then(Value::as_str) != Some(expected_soland_id.as_str())
-        || services[0].get("type").and_then(Value::as_str) != Some("ArkretPrincipalServer")
+        || services[0].get("type").and_then(Value::as_str) != Some("ArkretStation")
         || services[0]
             .get("serviceEndpoint")
             .and_then(Value::as_str)
             .is_none()
     {
         return Err(WebvhInceptionError::InvalidProof(
-            "managed Agent Principal Server service is invalid".to_owned(),
+            "managed Agent Station service is invalid".to_owned(),
         ));
     }
     let authorization_ref = format!("{did}#managed-controller");
@@ -2175,21 +2175,20 @@ pub fn validate_principal_did_document_profile(
         .filter(|services| services.len() == 1)
         .ok_or_else(|| {
             WebvhInceptionError::InvalidProof(
-                "principal DID document must declare exactly one Principal Server service"
-                    .to_owned(),
+                "principal DID document must declare exactly one Station service".to_owned(),
             )
         })?;
     let service = &services[0];
     let expected_service_id = format!("{did}#soland");
     if service.get("id").and_then(Value::as_str) != Some(expected_service_id.as_str())
-        || service.get("type").and_then(Value::as_str) != Some("ArkretPrincipalServer")
+        || service.get("type").and_then(Value::as_str) != Some("ArkretStation")
         || service
             .get("serviceEndpoint")
             .and_then(Value::as_str)
             .is_none()
     {
         return Err(WebvhInceptionError::InvalidProof(
-            "principal DID document Principal Server service is invalid".to_owned(),
+            "principal DID document Station service is invalid".to_owned(),
         ));
     }
     Ok(())

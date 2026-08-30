@@ -99,8 +99,8 @@ pub use arkret_identifiers::{
     InviteId, InviteLocatorId, KeyEventId, MessageId, MessageStreamId, ModerationQueueItemId,
     MorphId, NotificationId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId,
     ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId, RtcParticipantId, SealId,
-    SidecarId, SnapshotId, SpaceId, StrandId, SubscriptionId, TransactionId, TrustDomainId,
-    TypedAppealId, ViewId, WebOrigin, new_prefixed_uuid7, project_did_to_core_id,
+    ServiceAccountId, SidecarId, SnapshotId, SpaceId, StrandId, SubscriptionId, TransactionId,
+    TrustDomainId, TypedAppealId, ViewId, WebOrigin, new_prefixed_uuid7, project_did_to_core_id,
 };
 pub use arkret_identity as identity;
 pub use arkret_identity::jws;
@@ -445,7 +445,7 @@ pub use arkret_hlc as hlc;
 #[cfg(all(feature = "client", not(target_arch = "wasm32")))]
 pub use arkret_http_client::http_did_resolver;
 /// RFC 7515 detached Ed25519 JWS verifier (see [`jws`] module docs).
-/// Lives at the SDK root so principal-server-style consumers (inkson,
+/// Lives at the SDK root so station-style consumers (inkson,
 /// floria, cotest, teabay, soland) all reach the same verifier. Depends
 /// on `identity::DidResolver`.
 // `key_backup_client` is owned by arkret-http-client and surfaced here as

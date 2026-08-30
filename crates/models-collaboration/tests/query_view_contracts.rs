@@ -8,18 +8,18 @@ use arkret_models_collaboration::objects::queries::{
 };
 use arkret_models_collaboration::objects::relation::Relation;
 use arkret_wire::{
-    DidCoreId, Facet, Facets, FilterOp, RelationKind, SchemaId, ViewKind, ViewRenderer,
+    ActorId, DidCoreId, Facet, Facets, FilterOp, RelationKind, SchemaId, ViewKind, ViewRenderer,
     ViewVisibility,
 };
 use chrono::Utc;
 use serde_json::json;
 
-fn actor(value: &str) -> DidCoreId {
+fn actor(value: &str) -> ActorId {
     let core = value
         .strip_prefix("did:webvh:")
         .and_then(|rest| rest.split(':').next())
         .expect("test helper expects did:webvh");
-    DidCoreId::new(format!("ak:did_core:webvh:{core}")).unwrap()
+    ActorId::service(DidCoreId::new(format!("ak:did_core:webvh:{core}")).unwrap())
 }
 
 #[test]
@@ -133,7 +133,7 @@ fn collection_view() -> View {
         document: None,
         dashboard: None,
         sort: Vec::new(),
-        created_by: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        created_by: ActorId::service(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
         created_at: Utc::now(),
         updated_by: None,
         updated_at: None,
@@ -234,7 +234,7 @@ fn view_supports_renderer_and_facet_config_facades() {
         document: None,
         dashboard: None,
         sort: Vec::new(),
-        created_by: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        created_by: ActorId::service(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
         created_at: Utc::now(),
         updated_by: None,
         updated_at: None,

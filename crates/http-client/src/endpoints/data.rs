@@ -148,7 +148,7 @@ impl Client {
         validate_base_url(&url, self.allow_insecure_localhost)?;
         if url.origin() != self.base_url.origin() {
             return Err(Error::Protocol(
-                "resumable upload URL must have the principal server origin".to_owned(),
+                "resumable upload URL must have the Station origin".to_owned(),
             ));
         }
         let method_for_auth = method.clone();
@@ -677,7 +677,7 @@ mod tests {
     fn resumable_upload_base_url_requires_feature_and_operation() {
         let mut description: ServiceDescribe = serde_json::from_value(json!({
             "protocol_version": "1.0",
-            "service_kind": "principal_server",
+            "service_kind": "station",
             "service_id": "ak:did_core:web:server.local",
             "service_resolution": {
                 "did": "did:web:server.local",
@@ -687,8 +687,8 @@ mod tests {
             "trust_domain": "ak:trust_domain:server.local",
             "supported_profiles": [],
             "supported_operation_bundles": [
-                "ak.operation_bundle.principal_server.describe.v1",
-                "ak.operation_bundle.principal_server.tus_upload.v1"
+                "ak.operation_bundle.station.describe.v1",
+                "ak.operation_bundle.station.tus_upload.v1"
             ],
             "transport_bindings": [{
                 "kind": "http_json",

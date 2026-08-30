@@ -4,7 +4,7 @@ use arkret_models_crypto::{
 use arkret_models_identity::AuthenticatedServiceResolution;
 use arkret_wire::WireError;
 
-/// Verify a destination Principal Server's KeyPackage claim receipt against
+/// Verify a destination Station's KeyPackage claim receipt against
 /// the exact service key that was effective when the receipt was issued.
 ///
 /// The authenticated resolution, rather than a key asserted by the receipt or

@@ -39,11 +39,11 @@ pub struct PrincipalResolutionUpdatePayload {
     pub next: ResolutionCommitment,
 }
 
-/// Domain-separation context for the Principal Server projection attestation.
+/// Domain-separation context for the Station projection attestation.
 pub const PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_CONTEXT: &str =
     arkret_wire::ProofContextId::PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1;
 
-/// Principal Server assertion that `resolution_projection` is the current
+/// Station assertion that `resolution_projection` is the current
 /// accepted value of the account's singleton resolution cell.
 ///
 /// It carries no PCR realm id, Event, receipt or Seal. Without it the public
@@ -54,7 +54,7 @@ pub const PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_CONTEXT: &str =
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalResolutionProjectionAttestationCore {
     pub principal_id: DidCoreId,
-    pub principal_server_id: DidCoreId,
+    pub station_id: DidCoreId,
     pub resolution_projection: PrincipalResolutionProjection,
     pub method_history_evidence_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -78,7 +78,7 @@ impl PrincipalResolutionProjectionAttestation {
             "context": PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_CONTEXT,
             "payload_digest": payload_digest,
             "principal_id": self.attestation.principal_id,
-            "principal_server_id": self.attestation.principal_server_id,
+            "station_id": self.attestation.station_id,
             "resolution_projection": self.attestation.resolution_projection,
             "method_history_evidence_digest": self.attestation.method_history_evidence_digest,
             "issued_at": arkret_canonical::format_timestamp_canonical(self.attestation.issued_at),
@@ -102,7 +102,7 @@ impl PrincipalResolutionProjectionAttestation {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PublicPrincipalResolution {
     pub principal_id: DidCoreId,
-    pub principal_server_id: DidCoreId,
+    pub station_id: DidCoreId,
     pub resolution_projection: PrincipalResolutionProjection,
     pub method_history_evidence: ResolutionMethodHistoryEvidence,
     pub projection_attestation: PrincipalResolutionProjectionAttestation,
@@ -111,7 +111,7 @@ pub struct PublicPrincipalResolution {
 impl PublicPrincipalResolution {
     /// The complete public selector and the complete external identity.
     pub fn authority(&self) -> AccountId {
-        AccountId::new(self.principal_id.clone(), self.principal_server_id.clone())
+        AccountId::new(self.principal_id.clone(), self.station_id.clone())
     }
 
     /// Cross-bind the attestation to the response it travels with.
@@ -120,9 +120,7 @@ impl PublicPrincipalResolution {
     /// swapped before a caller spends a signature check on them.
     pub fn validate_attestation_binding(&self) -> arkret_wire::Result<()> {
         let core = &self.projection_attestation.attestation;
-        if core.principal_id != self.principal_id
-            || core.principal_server_id != self.principal_server_id
-        {
+        if core.principal_id != self.principal_id || core.station_id != self.station_id {
             return Err(arkret_wire::WireError::Protocol(
                 "public principal resolution attestation pair mismatch".to_owned(),
             ));
@@ -145,14 +143,14 @@ impl PublicPrincipalResolution {
 /// Authorized request for account-internal resolution audit evidence.
 ///
 /// Authorization is the current holder session bound to the exact
-/// `principal_authority`. Recovery first completes through the existing
+/// `account_id`. Recovery first completes through the existing
 /// transaction and becomes current holder; no second audit authorization path
 /// or caller-declared intent exists.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalResolutionAuditRequest {
-    pub principal_authority: AccountId,
+    pub account_id: AccountId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub history_depth: Option<u16>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -163,9 +161,9 @@ pub struct PrincipalResolutionAuditRequest {
 pub const PRINCIPAL_RESOLUTION_AUDIT_MAX_HISTORY_DEPTH: u16 = 256;
 
 impl PrincipalResolutionAuditRequest {
-    pub fn new(principal_authority: AccountId) -> Self {
+    pub fn new(account_id: AccountId) -> Self {
         Self {
-            principal_authority,
+            account_id,
             history_depth: None,
             after_resolution_event_ref: None,
         }
@@ -201,7 +199,7 @@ impl PrincipalResolutionAuditRequest {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalResolutionAuditEvidence {
     pub principal_id: DidCoreId,
-    pub principal_server_id: DidCoreId,
+    pub station_id: DidCoreId,
     pub principal_control_realm_id: RealmId,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub principal_genesis_receipt: EventBatchReceipt,
@@ -1132,7 +1130,7 @@ mod resolution_contract_tests {
         ServiceResolutionRecord {
             record: ServiceResolutionRecordCore {
                 service_id,
-                service_kind: "principal_server".to_owned(),
+                service_kind: "station".to_owned(),
                 did: did.clone(),
                 method_history_head: "head-1".to_owned(),
                 version_id: "1-head-1".to_owned(),

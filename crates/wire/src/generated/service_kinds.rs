@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/service-kind-registry.json; version=2026-08-30.4;
-//! sha256=6179fd41e555ff44af8d2674f087ac3a218df968f8f7dc810ff7688941700531 Entries: active=20
+//! Input: registry/service-kind-registry.json; version=2026-08-30.1;
+//! sha256=596a2b36d2c88aa8861ee4aa84e184e0675bd4f7c0fbfd87e25966471e266f2a Entries: active=16
 
 use serde::{Deserialize, Serialize};
 
@@ -13,10 +13,7 @@ pub enum ServiceKind {
     AgentRuntime,
     AppletService,
     ArchiveNode,
-    AuthServer,
-    AuthzService,
     BlobNode,
-    DeviceKeyService,
     DirectoryService,
     IdentityRegistry,
     KeyRecoveryService,
@@ -24,11 +21,10 @@ pub enum ServiceKind {
     MimiProviderFacade,
     ModerationService,
     Notary,
-    PrincipalServer,
     PushGateway,
     RecoveryService,
-    SearchService,
     SfuService,
+    Station,
     TurnService,
 }
 
@@ -44,10 +40,7 @@ impl ServiceKind {
         Self::AgentRuntime,
         Self::AppletService,
         Self::ArchiveNode,
-        Self::AuthServer,
-        Self::AuthzService,
         Self::BlobNode,
-        Self::DeviceKeyService,
         Self::DirectoryService,
         Self::IdentityRegistry,
         Self::KeyRecoveryService,
@@ -55,11 +48,10 @@ impl ServiceKind {
         Self::MimiProviderFacade,
         Self::ModerationService,
         Self::Notary,
-        Self::PrincipalServer,
         Self::PushGateway,
         Self::RecoveryService,
-        Self::SearchService,
         Self::SfuService,
+        Self::Station,
         Self::TurnService,
     ];
 
@@ -68,10 +60,7 @@ impl ServiceKind {
             Self::AgentRuntime => "agent_runtime",
             Self::AppletService => "applet_service",
             Self::ArchiveNode => "archive_node",
-            Self::AuthServer => "auth_server",
-            Self::AuthzService => "authz_service",
             Self::BlobNode => "blob_node",
-            Self::DeviceKeyService => "device_key_service",
             Self::DirectoryService => "directory_service",
             Self::IdentityRegistry => "identity_registry",
             Self::KeyRecoveryService => "key_recovery_service",
@@ -79,11 +68,10 @@ impl ServiceKind {
             Self::MimiProviderFacade => "mimi_provider_facade",
             Self::ModerationService => "moderation_service",
             Self::Notary => "notary",
-            Self::PrincipalServer => "principal_server",
             Self::PushGateway => "push_gateway",
             Self::RecoveryService => "recovery_service",
-            Self::SearchService => "search_service",
             Self::SfuService => "sfu_service",
+            Self::Station => "station",
             Self::TurnService => "turn_service",
         }
     }
@@ -114,24 +102,9 @@ pub const SERVICE_KIND_DESCRIPTORS: &[ServiceKindDescriptor] = &[
         description: "Long-term archive storage and retrieval surface.",
     },
     ServiceKindDescriptor {
-        service_kind: ServiceKind::AuthServer,
-        valid_in: &["service_describe", "service_registration_key"],
-        description: "OIDC / token issuance and account lifecycle. Hosts no DID documents of its own; obtains its service DID from an external Service Identity Provider.",
-    },
-    ServiceKindDescriptor {
-        service_kind: ServiceKind::AuthzService,
-        valid_in: &["service_describe"],
-        description: "Authorization evaluation surface.",
-    },
-    ServiceKindDescriptor {
         service_kind: ServiceKind::BlobNode,
         valid_in: &["service_describe"],
         description: "Blob storage surface.",
-    },
-    ServiceKindDescriptor {
-        service_kind: ServiceKind::DeviceKeyService,
-        valid_in: &["service_describe"],
-        description: "Device signing-key directory surface.",
     },
     ServiceKindDescriptor {
         service_kind: ServiceKind::DirectoryService,
@@ -169,15 +142,6 @@ pub const SERVICE_KIND_DESCRIPTORS: &[ServiceKindDescriptor] = &[
         description: "Seal and state-attestation notary surface.",
     },
     ServiceKindDescriptor {
-        service_kind: ServiceKind::PrincipalServer,
-        valid_in: &[
-            "service_describe",
-            "realm_join_candidate",
-            "service_registration_key",
-        ],
-        description: "Account-owning home server: event ingestion, sync, authz projections, key backup, federation. Also acts as an embedded did:webvh host for the identities it serves, which is why it is valid_in service_registration_key both as a subject and as a Service Identity Provider.",
-    },
-    ServiceKindDescriptor {
         service_kind: ServiceKind::PushGateway,
         valid_in: &["service_describe"],
         description: "Push provider dispatch gateway.",
@@ -188,14 +152,18 @@ pub const SERVICE_KIND_DESCRIPTORS: &[ServiceKindDescriptor] = &[
         description: "Account recovery orchestration surface.",
     },
     ServiceKindDescriptor {
-        service_kind: ServiceKind::SearchService,
-        valid_in: &["service_describe"],
-        description: "Search indexing and query surface.",
-    },
-    ServiceKindDescriptor {
         service_kind: ServiceKind::SfuService,
         valid_in: &["service_describe"],
         description: "Selective forwarding unit for calls.",
+    },
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::Station,
+        valid_in: &[
+            "service_describe",
+            "realm_join_candidate",
+            "service_registration_key",
+        ],
+        description: "Authoritative Station for closed AccountId pairs: business data, account and Event admission, client sync, federation, authz, device/key state, queues, cursors, and Account Authority discovery. Internal Auth, policy, sync, federation, and key processes do not acquire separate service kinds. A Station may also act as an embedded did:webvh host for identities it serves.",
     },
     ServiceKindDescriptor {
         service_kind: ServiceKind::TurnService,

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/schema-registry.json; version=2026-08-30.1;
-//! sha256=15cecb6f1cbf99891832bced47276b51c774da4beddf93a9aa9d747fbd416812 Entries: schema_ids=195,
-//! active=195
+//! sha256=c2acc320365fd14525c73c8edaee8552e8f6a15c7fa9d221637d45e6cfb42a07 Entries: schema_ids=197,
+//! active=197
 
 use serde::{Deserialize, Serialize};
 
@@ -78,6 +78,7 @@ pub enum SchemaId {
     ControllerAccountGateAttestationIssueOutcomeV1,
     ControllerAccountGateAttestationIssueRequestV1,
     CursorV1,
+    DeliveryBindingStaleV1,
     DeviceMessageV1,
     DevicePairingBootstrapV1,
     DevicePairingOperationsV1,
@@ -124,6 +125,7 @@ pub enum SchemaId {
     ListHandlesForSubjectResponseV1,
     MediaMetadataV1,
     MediaOperationsV1,
+    MemberDeliveryBindingCandidateV1,
     MemberIdentityV1,
     MessageV1,
     MimiInteropV1,
@@ -277,6 +279,7 @@ impl SchemaId {
         Self::ControllerAccountGateAttestationIssueOutcomeV1,
         Self::ControllerAccountGateAttestationIssueRequestV1,
         Self::CursorV1,
+        Self::DeliveryBindingStaleV1,
         Self::DeviceMessageV1,
         Self::DevicePairingBootstrapV1,
         Self::DevicePairingOperationsV1,
@@ -323,6 +326,7 @@ impl SchemaId {
         Self::ListHandlesForSubjectResponseV1,
         Self::MediaMetadataV1,
         Self::MediaOperationsV1,
+        Self::MemberDeliveryBindingCandidateV1,
         Self::MemberIdentityV1,
         Self::MessageV1,
         Self::MimiInteropV1,
@@ -476,6 +480,7 @@ impl SchemaId {
         Self::ControllerAccountGateAttestationIssueOutcomeV1,
         Self::ControllerAccountGateAttestationIssueRequestV1,
         Self::CursorV1,
+        Self::DeliveryBindingStaleV1,
         Self::DeviceMessageV1,
         Self::DevicePairingBootstrapV1,
         Self::DevicePairingOperationsV1,
@@ -522,6 +527,7 @@ impl SchemaId {
         Self::ListHandlesForSubjectResponseV1,
         Self::MediaMetadataV1,
         Self::MediaOperationsV1,
+        Self::MemberDeliveryBindingCandidateV1,
         Self::MemberIdentityV1,
         Self::MessageV1,
         Self::MimiInteropV1,
@@ -694,33 +700,33 @@ impl SchemaId {
     pub const APPLET_V1: &'static str = "ak.schema.applet.v1";
     /// Closed request/response DTO bundle for Applet edge and bridge operations.
     pub const APPLET_EDGE_OPERATIONS_V1: &'static str = "ak.schema.applet_edge_operations.v1";
-    /// Principal Server-derived Ghost basis binding the exact target server, active installation
+    /// Station-derived Ghost basis binding the exact target server, active installation
     /// coordinates, Realm and external tuple.
     pub const APPLET_GHOST_AUTHORING_REQUEST_BASIS_V1: &'static str =
         "ak.schema.applet_ghost_authoring_request_basis.v1";
     /// Closed request/response DTO bundle for ak.self.applet.ghost.command.provision.v1
     /// (Applet-managed Ghost Actor provisioning by an installed bridge Applet).
     pub const APPLET_GHOST_OPERATIONS_V1: &'static str = "ak.schema.applet_ghost_operations.v1";
-    /// Closed Principal Server preview, Applet authoring request, and managed-actor creation bundle
-    /// DTOs for the durable co-sign handshake.
+    /// Closed Station preview, Applet authoring request, and managed-actor creation bundle DTOs for
+    /// the durable co-sign handshake.
     pub const APPLET_INSTALL_AUTHORING_V1: &'static str = "ak.schema.applet_install_authoring.v1";
-    /// Canonical unsigned basis frozen by the Principal Server preview and covered by the install
-    /// authoring request signature.
+    /// Canonical unsigned basis frozen by the Station preview and covered by the install authoring
+    /// request signature.
     pub const APPLET_INSTALL_AUTHORING_REQUEST_BASIS_V1: &'static str =
         "ak.schema.applet_install_authoring_request_basis.v1";
     /// Closed request/response DTO bundle for ak.self.applet.install.command.preview.v1 and
     /// ak.applet.install.
     pub const APPLET_INSTALL_OPERATIONS_V1: &'static str = "ak.schema.applet_install_operations.v1";
-    /// Canonical Applet InstallPlan nested in the Principal Server-signed authoring request and
-    /// recomputed by install commit before admission. plan_digest is calculated over this object
-    /// with plan_digest omitted.
+    /// Canonical Applet InstallPlan nested in the Station-signed authoring request and recomputed
+    /// by install commit before admission. plan_digest is calculated over this object with
+    /// plan_digest omitted.
     pub const APPLET_INSTALL_PLAN_V1: &'static str = "ak.schema.applet_install_plan.v1";
     /// Exact four-Event service-authored managed-actor creation bundle returned by the Applet
     /// service after validating an authoring request.
     pub const APPLET_MANAGED_ACTOR_AUTHORING_BUNDLE_V1: &'static str =
         "ak.schema.applet_managed_actor_authoring_bundle.v1";
-    /// Principal Server-signed, expiry-bounded install_bot or provision_ghost managed-actor
-    /// authoring request.
+    /// Station-signed, expiry-bounded install_bot or provision_ghost managed-actor authoring
+    /// request.
     pub const APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_V1: &'static str =
         "ak.schema.applet_managed_actor_authoring_request.v1";
     /// Immutable service-authored Bot/Ghost creation authority cross-bound to an
@@ -745,8 +751,8 @@ impl SchemaId {
     pub const APPLET_WIDGET_DECLARATION_V1: &'static str = "ak.schema.applet_widget_declaration.v1";
     pub const AUDIT_RELEASE_ATTESTATION_V1: &'static str = "ak.schema.audit_release_attestation.v1";
     pub const AUDIT_RYW_RECEIPT_V1: &'static str = "ak.schema.audit_ryw_receipt.v1";
-    /// Content-addressed historical signer-resolution evidence pinned for Event, Principal Server
-    /// and AvailabilityReceipt signature verification.
+    /// Content-addressed historical signer-resolution evidence pinned for Event, Station and
+    /// AvailabilityReceipt signature verification.
     pub const AUTHENTICATED_SIGNER_RESOLUTION_EVIDENCE_V1: &'static str =
         "ak.schema.authenticated_signer_resolution_evidence.v1";
     /// Canonical concrete authority policy rederived from accepted CBA control state and bound by
@@ -815,6 +821,11 @@ impl SchemaId {
     pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1: &'static str =
         "ak.schema.controller_account_gate_attestation_issue_request.v1";
     pub const CURSOR_V1: &'static str = "ak.schema.cursor.v1";
+    /// Canonical response body for the delivery_binding_stale federation signal (member
+    /// delivery-binding rebind handover): new_recipient_id, handover_frontier, and the verifiable
+    /// handover_proof. See zh/sync/federation.md §4.1 and error-code-registry.json
+    /// (delivery_binding_stale / delivery_binding_handover_proof_invalid).
+    pub const DELIVERY_BINDING_STALE_V1: &'static str = "ak.schema.delivery_binding_stale.v1";
     pub const DEVICE_MESSAGE_V1: &'static str = "ak.schema.device_message.v1";
     /// Pairing material DTO handed to an already-authorized device after resolving a device-pairing
     /// short link. Resolves to the sub-schema at file + fragment
@@ -900,15 +911,15 @@ impl SchemaId {
     pub const INCLUSION_LIST_V1: &'static str = "ak.schema.inclusion_list.v1";
     pub const INVITE_V1: &'static str = "ak.schema.invite.v1";
     /// Actor-private plaintext account-data cell value of ak.account.invite_delivery, the
-    /// holder-private delivered invite credential carrier written by the recipient Principal Server
-    /// on the notify branch. See zh/sync/invite-addressing.md section 7.
+    /// holder-private delivered invite credential carrier written by the recipient Station on the
+    /// notify branch. See zh/sync/invite-addressing.md section 7.
     pub const INVITE_DELIVERY_V1: &'static str = "ak.schema.invite_delivery.v1";
     /// Private service-to-service invite delivery request carrying invite_address and
     /// introduction_evidence.
     pub const INVITE_DELIVERY_REQUEST_V1: &'static str = "ak.schema.invite_delivery_request.v1";
     /// Actor-private plaintext account-data cell value of ak.account.invite_quarantine, written
-    /// only by the recipient Principal Server CAS materializer. See zh/identity/consent-model.md
-    /// and zh/sync/client-sync.md.
+    /// only by the recipient Station CAS materializer. See zh/identity/consent-model.md and
+    /// zh/sync/client-sync.md.
     pub const INVITE_QUARANTINE_V1: &'static str = "ak.schema.invite_quarantine.v1";
     /// Subject-private invite receive policy controlling which introduction evidence kinds may
     /// notify the holder.
@@ -937,6 +948,11 @@ impl SchemaId {
     pub const MEDIA_METADATA_V1: &'static str = "ak.schema.media_metadata.v1";
     /// Closed request DTO bundle for realtime media service operations.
     pub const MEDIA_OPERATIONS_V1: &'static str = "ak.schema.media_operations.v1";
+    /// Builder-side candidate object for Handle resolution intent=member_add | invite
+    /// (identity-handles.md §3.7); produces a Realm-scoped member_delivery_binding only after Join
+    /// Policy re-validation.
+    pub const MEMBER_DELIVERY_BINDING_CANDIDATE_V1: &'static str =
+        "ak.schema.member_delivery_binding_candidate.v1";
     /// Realm-scoped member display/subject projection carried by ak.member.identity.update; handle
     /// lifecycle is carried by ak.schema.handle_claim.v1.
     pub const MEMBER_IDENTITY_V1: &'static str = "ak.schema.member_identity.v1";
@@ -999,10 +1015,9 @@ impl SchemaId {
     pub const READ_RECEIPT_V1: &'static str = "ak.schema.read_receipt.v1";
     pub const REALM_V1: &'static str = "ak.schema.realm.v1";
     pub const REALM_GENESIS_V1: &'static str = "ak.schema.realm_genesis.v1";
-    /// Time-bounded transport hint returned by Realm discovery / resolve paths for reaching the
-    /// already selected Principal Server during join, invite-accept, knock, or restricted-join
-    /// submission. It is neither an identity selector nor an authorization grant and cannot change
-    /// an AccountId.
+    /// Time-bounded routing hint returned by Realm discovery / resolve paths for selecting a
+    /// qualified service to receive join, invite-accept, knock, or restricted-join submissions. Not
+    /// an authorization grant and not a member_delivery_binding.
     pub const REALM_JOIN_CANDIDATE_V1: &'static str = "ak.schema.realm_join_candidate.v1";
     /// Closed request/response DTO bundle for self-surface cross-Realm link operations
     /// (ak.self.realm_link.*); see zh/models/realm-links.md.
@@ -1227,6 +1242,7 @@ impl SchemaId {
                 Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1
             }
             Self::CursorV1 => Self::CURSOR_V1,
+            Self::DeliveryBindingStaleV1 => Self::DELIVERY_BINDING_STALE_V1,
             Self::DeviceMessageV1 => Self::DEVICE_MESSAGE_V1,
             Self::DevicePairingBootstrapV1 => Self::DEVICE_PAIRING_BOOTSTRAP_V1,
             Self::DevicePairingOperationsV1 => Self::DEVICE_PAIRING_OPERATIONS_V1,
@@ -1273,6 +1289,7 @@ impl SchemaId {
             Self::ListHandlesForSubjectResponseV1 => Self::LIST_HANDLES_FOR_SUBJECT_RESPONSE_V1,
             Self::MediaMetadataV1 => Self::MEDIA_METADATA_V1,
             Self::MediaOperationsV1 => Self::MEDIA_OPERATIONS_V1,
+            Self::MemberDeliveryBindingCandidateV1 => Self::MEMBER_DELIVERY_BINDING_CANDIDATE_V1,
             Self::MemberIdentityV1 => Self::MEMBER_IDENTITY_V1,
             Self::MessageV1 => Self::MESSAGE_V1,
             Self::MimiInteropV1 => Self::MIMI_INTEROP_V1,
@@ -1461,6 +1478,7 @@ impl SchemaId {
                 "schemas/agent-signer-evidence-operations.schema.json"
             }
             Self::CursorV1 => "schemas/cursor.schema.json",
+            Self::DeliveryBindingStaleV1 => "schemas/delivery-binding-stale.schema.json",
             Self::DeviceMessageV1 => "schemas/device-message.schema.json",
             Self::DevicePairingBootstrapV1 => "schemas/device-pairing.schema.json",
             Self::DevicePairingOperationsV1 => "schemas/device-pairing.schema.json",
@@ -1511,6 +1529,9 @@ impl SchemaId {
             }
             Self::MediaMetadataV1 => "schemas/media-metadata.schema.json",
             Self::MediaOperationsV1 => "schemas/media-operations.schema.json",
+            Self::MemberDeliveryBindingCandidateV1 => {
+                "schemas/member-delivery-binding-candidate.schema.json"
+            }
             Self::MemberIdentityV1 => "schemas/member-identity.schema.json",
             Self::MessageV1 => "schemas/message.schema.json",
             Self::MimiInteropV1 => "schemas/mimi-interop.schema.json",
@@ -1701,6 +1722,7 @@ impl SchemaId {
                 Some(Self::ControllerAccountGateAttestationIssueRequestV1)
             }
             Self::CURSOR_V1 => Some(Self::CursorV1),
+            Self::DELIVERY_BINDING_STALE_V1 => Some(Self::DeliveryBindingStaleV1),
             Self::DEVICE_MESSAGE_V1 => Some(Self::DeviceMessageV1),
             Self::DEVICE_PAIRING_BOOTSTRAP_V1 => Some(Self::DevicePairingBootstrapV1),
             Self::DEVICE_PAIRING_OPERATIONS_V1 => Some(Self::DevicePairingOperationsV1),
@@ -1749,6 +1771,9 @@ impl SchemaId {
             }
             Self::MEDIA_METADATA_V1 => Some(Self::MediaMetadataV1),
             Self::MEDIA_OPERATIONS_V1 => Some(Self::MediaOperationsV1),
+            Self::MEMBER_DELIVERY_BINDING_CANDIDATE_V1 => {
+                Some(Self::MemberDeliveryBindingCandidateV1)
+            }
             Self::MEMBER_IDENTITY_V1 => Some(Self::MemberIdentityV1),
             Self::MESSAGE_V1 => Some(Self::MessageV1),
             Self::MIMI_INTEROP_V1 => Some(Self::MimiInteropV1),

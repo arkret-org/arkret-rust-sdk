@@ -1,8 +1,8 @@
 //! Moderation report wire DTOs.
 
 use arkret_wire::{
-    AccountId, Did, DidCoreId, EventInitialSubmission, EventKind, RealmId, ReportId, Result,
-    SchemaId, ScopeRef, project_did_to_core_id,
+    AccountId, ActorId, Did, DidCoreId, EventInitialSubmission, EventKind, RealmId, ReportId,
+    Result, SchemaId, ScopeRef, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -243,8 +243,8 @@ impl ModerationReport {
 #[cfg(test)]
 mod signed_request_tests {
     use arkret_wire::{
-        AuthContext, DidCoreId, DidUrl, EventInitialSubmission, Hash, Hlc, Precondition,
-        ProducerEventProof, RealmId, ReportId, ScopeRef, SealId, proof_kind,
+        AccountId, ActorId, AuthContext, DidCoreId, DidUrl, EventInitialSubmission, Hash, Hlc,
+        Precondition, ProducerEventProof, RealmId, ReportId, ScopeRef, SealId, proof_kind,
     };
     use chrono::{DateTime, Utc};
     use serde_json::json;
@@ -264,6 +264,13 @@ mod signed_request_tests {
 
     fn actor() -> DidCoreId {
         DidCoreId::new(ACTOR).unwrap()
+    }
+
+    fn account() -> AccountId {
+        AccountId::new(
+            actor(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
+        )
     }
 
     fn realm() -> RealmId {
@@ -343,7 +350,7 @@ mod signed_request_tests {
         let realm_request = signed_request(None);
         realm_request.validate(SUITE).unwrap();
         realm_request
-            .validate_authoring_context(&actor(), &realm_basis(), SUITE)
+            .validate_authoring_context(&account(), &realm_basis(), SUITE)
             .unwrap();
         assert_eq!(
             realm_request.report_id(SUITE).unwrap(),
@@ -357,7 +364,7 @@ mod signed_request_tests {
         let circle_request = signed_request(Some(circle_scope.clone()));
         circle_request
             .validate_authoring_context(
-                &actor(),
+                &account(),
                 &ModerationReportAcceptedTargetBasis {
                     target_ref: TARGET.to_owned(),
                     effective_scope: circle_scope,
@@ -384,7 +391,7 @@ mod signed_request_tests {
         assert!(
             request
                 .validate_authoring_context(
-                    &DidCoreId::new(OTHER_ACTOR).unwrap(),
+                    &AccountId::new(DidCoreId::new(OTHER_ACTOR).unwrap(), account().station_id,),
                     &realm_basis(),
                     SUITE,
                 )
@@ -395,7 +402,7 @@ mod signed_request_tests {
             "ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6".to_owned();
         assert!(
             request
-                .validate_authoring_context(&actor(), &wrong_target, SUITE)
+                .validate_authoring_context(&account(), &wrong_target, SUITE)
                 .is_err()
         );
     }
@@ -403,7 +410,7 @@ mod signed_request_tests {
     #[test]
     fn request_rejects_delegated_mimi_and_control_move_fields() {
         let mut delegated = signed_request(None);
-        delegated.report_event.event.executed_by = Some(actor());
+        delegated.report_event.event.executed_by = Some(ActorId::account(account()));
         assert!(delegated.validate(SUITE).is_err());
 
         let mut mimi = signed_request(None);

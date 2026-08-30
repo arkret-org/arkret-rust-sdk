@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/contract-registry.json; version=2026-08-30.7;
-//! sha256=371c20a0c967b789328f3ac486db4f1dc83fccbce9515c977dc3dbfd444c39a7
-//! Entries: operation_bundles=37 features=22
+//! Input: registry/contract-registry.json; version=2026-08-30.5;
+//! sha256=5b980831501ebec8f81bb9d0e7e0ccb8f972686f1328a3b794368503b3050b2b
+//! Entries: operation_bundles=33 features=22
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -73,134 +73,8 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         }],
     },
     OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.auth_server.account_authority.v1",
-        service_kind: ServiceKind::AuthServer,
-        members: &[
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountCommandAbandonIdentityCreationV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id:
-                    ServiceOperationId::GateAccountCommandIssueControllerGateAttestationV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountCommandIssueDidBindingChallengeV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id:
-                    ServiceOperationId::GateAccountCommandIssueIdentityAbandonmentChallengeV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountCommandRequestErasureV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountReadOnboardingV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-        ],
-    },
-    OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.auth_server.describe.v1",
-        service_kind: ServiceKind::AuthServer,
-        members: &[OperationBindingPair {
-            operation_id: ServiceOperationId::ServerReadDescribeV1,
-            binding_kind: BindingKind::HttpJson,
-        }],
-    },
-    OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.auth_server.http_core.v1",
-        service_kind: ServiceKind::AuthServer,
-        members: &[
-            OperationBindingPair {
-                operation_id: ServiceOperationId::FindDirectoryReadResolveHandleV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountCommandIntrospectSessionGrantV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountCommandIssueIdentityBindingChallengeV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountCommandIssueRecoveryCompletionGrantV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountCommandIssueSessionGrantV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountCommandLogoutAuthSessionV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountCommandPairAgentKeyV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountCommandRefreshSessionGrantV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountCommandRegisterV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountCommandRevokeSessionV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountExchangeCreateHandoffV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::OpenServiceReadResolutionV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::PeerAccountStatusReadResolveV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::RootIdentityDocumentResourceGetV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::RootIdentityReadResolveV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::RootIdentityRegistryReadDescribeV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-        ],
-    },
-    OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.authz_service.describe.v1",
-        service_kind: ServiceKind::AuthzService,
-        members: &[OperationBindingPair {
-            operation_id: ServiceOperationId::ServerReadDescribeV1,
-            binding_kind: BindingKind::HttpJson,
-        }],
-    },
-    OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.blob_node.describe.v1",
         service_kind: ServiceKind::BlobNode,
-        members: &[OperationBindingPair {
-            operation_id: ServiceOperationId::ServerReadDescribeV1,
-            binding_kind: BindingKind::HttpJson,
-        }],
-    },
-    OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.device_key_service.describe.v1",
-        service_kind: ServiceKind::DeviceKeyService,
         members: &[OperationBindingPair {
             operation_id: ServiceOperationId::ServerReadDescribeV1,
             binding_kind: BindingKind::HttpJson,
@@ -411,8 +285,126 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         }],
     },
     OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.principal_server.agent_pairing_handoff.v1",
-        service_kind: ServiceKind::PrincipalServer,
+        operation_bundle_id: "ak.operation_bundle.push_gateway.describe.v1",
+        service_kind: ServiceKind::PushGateway,
+        members: &[OperationBindingPair {
+            operation_id: ServiceOperationId::ServerReadDescribeV1,
+            binding_kind: BindingKind::HttpJson,
+        }],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.push_gateway.http_notify.v1",
+        service_kind: ServiceKind::PushGateway,
+        members: &[OperationBindingPair {
+            operation_id: ServiceOperationId::EdgePushCommandNotifyV1,
+            binding_kind: BindingKind::HttpJson,
+        }],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.recovery_service.describe.v1",
+        service_kind: ServiceKind::RecoveryService,
+        members: &[OperationBindingPair {
+            operation_id: ServiceOperationId::ServerReadDescribeV1,
+            binding_kind: BindingKind::HttpJson,
+        }],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.sfu_service.describe.v1",
+        service_kind: ServiceKind::SfuService,
+        members: &[OperationBindingPair {
+            operation_id: ServiceOperationId::ServerReadDescribeV1,
+            binding_kind: BindingKind::HttpJson,
+        }],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.station.account_authority.v1",
+        service_kind: ServiceKind::Station,
+        members: &[
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountCommandAbandonIdentityCreationV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id:
+                    ServiceOperationId::GateAccountCommandIssueControllerGateAttestationV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountCommandIssueDidBindingChallengeV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id:
+                    ServiceOperationId::GateAccountCommandIssueIdentityAbandonmentChallengeV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountCommandRequestErasureV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountReadOnboardingV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+        ],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.station.account_authority_support.v1",
+        service_kind: ServiceKind::Station,
+        members: &[
+            OperationBindingPair {
+                operation_id: ServiceOperationId::FindDirectoryReadResolveHandleV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountCommandIntrospectSessionGrantV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountCommandIssueIdentityBindingChallengeV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountCommandIssueRecoveryCompletionGrantV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountCommandIssueSessionGrantV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountCommandLogoutAuthSessionV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountCommandRefreshSessionGrantV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountCommandRegisterV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountExchangeCreateHandoffV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::RootIdentityDocumentResourceGetV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::RootIdentityReadResolveV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::RootIdentityRegistryReadDescribeV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+        ],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.station.agent_pairing_handoff.v1",
+        service_kind: ServiceKind::Station,
         members: &[
             OperationBindingPair {
                 operation_id: ServiceOperationId::OpenAgentPairingCommandSubmitRuntimeKeyRequestV1,
@@ -429,8 +421,8 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         ],
     },
     OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.principal_server.agent_runtime.v1",
-        service_kind: ServiceKind::PrincipalServer,
+        operation_bundle_id: "ak.operation_bundle.station.agent_runtime.v1",
+        service_kind: ServiceKind::Station,
         members: &[
             OperationBindingPair {
                 operation_id: ServiceOperationId::GateAccountCommandPairAgentKeyV1,
@@ -487,8 +479,8 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         ],
     },
     OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.principal_server.applet.v1",
-        service_kind: ServiceKind::PrincipalServer,
+        operation_bundle_id: "ak.operation_bundle.station.applet.v1",
+        service_kind: ServiceKind::Station,
         members: &[
             OperationBindingPair {
                 operation_id: ServiceOperationId::EdgeAppletActorReadResolveV1,
@@ -529,8 +521,8 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         ],
     },
     OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.principal_server.applet_ghost.v1",
-        service_kind: ServiceKind::PrincipalServer,
+        operation_bundle_id: "ak.operation_bundle.station.applet_ghost.v1",
+        service_kind: ServiceKind::Station,
         members: &[
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfAppletGhostCommandPreviewV1,
@@ -543,8 +535,8 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         ],
     },
     OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.principal_server.applet_install.v1",
-        service_kind: ServiceKind::PrincipalServer,
+        operation_bundle_id: "ak.operation_bundle.station.applet_install.v1",
+        service_kind: ServiceKind::Station,
         members: &[
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfAppletCommandInstallV1,
@@ -565,16 +557,16 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         ],
     },
     OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.principal_server.describe.v1",
-        service_kind: ServiceKind::PrincipalServer,
+        operation_bundle_id: "ak.operation_bundle.station.describe.v1",
+        service_kind: ServiceKind::Station,
         members: &[OperationBindingPair {
             operation_id: ServiceOperationId::ServerReadDescribeV1,
             binding_kind: BindingKind::HttpJson,
         }],
     },
     OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.principal_server.history_key_recovery.v1",
-        service_kind: ServiceKind::PrincipalServer,
+        operation_bundle_id: "ak.operation_bundle.station.history_key_recovery.v1",
+        service_kind: ServiceKind::Station,
         members: &[
             OperationBindingPair {
                 operation_id: ServiceOperationId::PeerHistoryKeyRequestsCommandReplicateV1,
@@ -624,8 +616,8 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         ],
     },
     OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.principal_server.http_core.v1",
-        service_kind: ServiceKind::PrincipalServer,
+        operation_bundle_id: "ak.operation_bundle.station.http_core.v1",
+        service_kind: ServiceKind::Station,
         members: &[
             OperationBindingPair {
                 operation_id: ServiceOperationId::GateAccountCommandLogoutV1,
@@ -1118,8 +1110,8 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         ],
     },
     OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.principal_server.mimi_interop.v1",
-        service_kind: ServiceKind::PrincipalServer,
+        operation_bundle_id: "ak.operation_bundle.station.mimi_interop.v1",
+        service_kind: ServiceKind::Station,
         members: &[
             OperationBindingPair {
                 operation_id: ServiceOperationId::OpenMimiCommandNotifyV1,
@@ -1164,8 +1156,8 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         ],
     },
     OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.principal_server.push.v1",
-        service_kind: ServiceKind::PrincipalServer,
+        operation_bundle_id: "ak.operation_bundle.station.push.v1",
+        service_kind: ServiceKind::Station,
         members: &[
             OperationBindingPair {
                 operation_id: ServiceOperationId::EdgePushCommandNotifyV1,
@@ -1182,16 +1174,16 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         ],
     },
     OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.principal_server.tus_upload.v1",
-        service_kind: ServiceKind::PrincipalServer,
+        operation_bundle_id: "ak.operation_bundle.station.tus_upload.v1",
+        service_kind: ServiceKind::Station,
         members: &[OperationBindingPair {
             operation_id: ServiceOperationId::SelfBlobUploadCreateV1,
             binding_kind: BindingKind::Tus,
         }],
     },
     OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.principal_server.websocket.v1",
-        service_kind: ServiceKind::PrincipalServer,
+        operation_bundle_id: "ak.operation_bundle.station.websocket.v1",
+        service_kind: ServiceKind::Station,
         members: &[
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfAccountStreamSubscribeV1,
@@ -1206,46 +1198,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::Websocket,
             },
         ],
-    },
-    OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.push_gateway.describe.v1",
-        service_kind: ServiceKind::PushGateway,
-        members: &[OperationBindingPair {
-            operation_id: ServiceOperationId::ServerReadDescribeV1,
-            binding_kind: BindingKind::HttpJson,
-        }],
-    },
-    OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.push_gateway.http_notify.v1",
-        service_kind: ServiceKind::PushGateway,
-        members: &[OperationBindingPair {
-            operation_id: ServiceOperationId::EdgePushCommandNotifyV1,
-            binding_kind: BindingKind::HttpJson,
-        }],
-    },
-    OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.recovery_service.describe.v1",
-        service_kind: ServiceKind::RecoveryService,
-        members: &[OperationBindingPair {
-            operation_id: ServiceOperationId::ServerReadDescribeV1,
-            binding_kind: BindingKind::HttpJson,
-        }],
-    },
-    OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.search_service.describe.v1",
-        service_kind: ServiceKind::SearchService,
-        members: &[OperationBindingPair {
-            operation_id: ServiceOperationId::ServerReadDescribeV1,
-            binding_kind: BindingKind::HttpJson,
-        }],
-    },
-    OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.sfu_service.describe.v1",
-        service_kind: ServiceKind::SfuService,
-        members: &[OperationBindingPair {
-            operation_id: ServiceOperationId::ServerReadDescribeV1,
-            binding_kind: BindingKind::HttpJson,
-        }],
     },
     OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.turn_service.describe.v1",

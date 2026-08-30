@@ -124,7 +124,7 @@ pub struct DeviceGenerationState {
     pub device_generation_status: DeviceGenerationStatus,
 }
 
-/// Origin Principal Server assertion that one exact device projection is the
+/// Origin Station assertion that one exact device projection is the
 /// account's current accepted one.
 ///
 /// This is the whole verification closure of the cross-principal `keys/query`
@@ -139,9 +139,9 @@ pub struct DeviceGenerationState {
 #[serde(deny_unknown_fields)]
 pub struct DeviceProjectionAttestationCore {
     pub principal_id: DidCoreId,
-    /// Origin Principal Server of the account. The proof controller MUST
+    /// Origin Station of the account. The proof controller MUST
     /// project exactly onto this value.
-    pub principal_server_id: DidCoreId,
+    pub station_id: DidCoreId,
     pub device_id: DeviceId,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub device_signing_key_did: DidKey,
@@ -179,7 +179,7 @@ impl DeviceProjectionAttestation {
             "context": DEVICE_PROJECTION_ATTESTATION_CONTEXT,
             "payload_digest": payload_digest,
             "principal_id": core.principal_id,
-            "principal_server_id": core.principal_server_id,
+            "station_id": core.station_id,
             "device_id": core.device_id,
             "device_signing_key_did": core.device_signing_key_did,
             "hpke_key": core.hpke_key,
@@ -216,7 +216,7 @@ pub struct QueryDeviceRecord {
     /// select entries from the sibling prekey-bundle map. Device identity,
     /// signing/HPKE material and generation live only in the attestation.
     pub trust_algorithms: Vec<NonEmptyString>,
-    /// Origin Principal Server signature over this exact row.
+    /// Origin Station signature over this exact row.
     pub device_projection_attestation: DeviceProjectionAttestation,
 }
 
@@ -359,7 +359,7 @@ mod device_generation_tests {
     const DEVICE_SIGNING_KEY: &str = "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuVkhY7g94pVQyG98x";
     const DEVICE_AUTHORIZE_EVENT: &str = "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e";
     const PRINCIPAL_ID: &str = "ak:did_core:webvh:z6mkfixture";
-    const PRINCIPAL_SERVER_ID: &str = "ak:did_core:webvh:z6mkfixtureps";
+    const STATION_ID: &str = "ak:did_core:webvh:z6mkfixtureps";
     const DEVICE_ID: &str = "ak:device:0196419b-0000-7000-8000-000000000001";
 
     fn attested_row(generation: u64) -> serde_json::Value {
@@ -370,7 +370,7 @@ mod device_generation_tests {
             "device_projection_attestation": {
                 "attestation": {
                     "principal_id": PRINCIPAL_ID,
-                    "principal_server_id": PRINCIPAL_SERVER_ID,
+                    "station_id": STATION_ID,
                     "device_id": DEVICE_ID,
                     "device_signing_key_did": DEVICE_SIGNING_KEY,
                     "hpke_key": "hpke-1",

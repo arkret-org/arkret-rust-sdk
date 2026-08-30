@@ -363,12 +363,12 @@ mod tests {
         RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap()
     }
 
-    fn fake_actor(label: &str) -> DidCoreId {
-        DidCoreId::new(format!("ak:did_core:webvh:{label}")).unwrap()
+    fn fake_actor(label: &str) -> ActorId {
+        ActorId::service(DidCoreId::new(format!("ak:did_core:webvh:{label}")).unwrap())
     }
 
-    fn fake_principal(label: &str) -> DidCoreId {
-        DidCoreId::new(format!("ak:did_core:webvh:{label}")).unwrap()
+    fn fake_principal(label: &str) -> ActorId {
+        ActorId::service(DidCoreId::new(format!("ak:did_core:webvh:{label}")).unwrap())
     }
 
     fn sample_identity(name: &str) -> MemberIdentity {

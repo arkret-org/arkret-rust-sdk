@@ -746,7 +746,7 @@ impl DirectConversationFoundingAuthorizationCore {
     }
 }
 
-/// Source-signed evidence that the founder's current Principal Server atomically accepted exactly
+/// Source-signed evidence that the founder's current Station atomically accepted exactly
 /// one founding unit and closed its local unique slot.
 ///
 /// It creates no Realm, authorizes no Message and is not a global slot. A second receipt for the

@@ -22,7 +22,7 @@
 //! * `client` — locally implemented end-user surface (chat, kanban, e2ee, franking sender
 //!   commitment, …).
 //! * `server` — wire-conformance principal / federation / agent runtime surfaces (core event store,
-//!   principal server, agent workspace flavours, …).
+//!   Station, agent workspace flavours, …).
 //! * `gateway` — push / blob / media relay surfaces.
 //! * `directory`— directory / identity-registry surfaces.
 //! * `admin` — deployment / hardening / constraint posture profiles that describe operator stance
@@ -286,8 +286,7 @@ impl ProfileValidator {
     ///   [`Self::for_client`] for that path.
     pub fn permitted_roles(service_kind: ServiceKind) -> Vec<ProfileRole> {
         let mut roles = match service_kind {
-            ServiceKind::PrincipalServer
-            | ServiceKind::AuthServer
+            ServiceKind::Station
             | ServiceKind::AppletService
             | ServiceKind::AgentRuntime
             | ServiceKind::ModerationService
@@ -295,9 +294,7 @@ impl ProfileValidator {
             | ServiceKind::RecoveryService => {
                 vec![ProfileRole::Server]
             }
-            ServiceKind::DirectoryService
-            | ServiceKind::SearchService
-            | ServiceKind::ArchiveNode => {
+            ServiceKind::DirectoryService | ServiceKind::ArchiveNode => {
                 vec![ProfileRole::Directory]
             }
             ServiceKind::IdentityRegistry => {
@@ -311,9 +308,7 @@ impl ProfileValidator {
                 vec![ProfileRole::Gateway]
             }
             ServiceKind::MimiProviderFacade => vec![ProfileRole::Interop],
-            ServiceKind::DeviceKeyService
-            | ServiceKind::AuthzService
-            | ServiceKind::KeyRecoveryService => {
+            ServiceKind::KeyRecoveryService => {
                 vec![ProfileRole::Server, ProfileRole::Directory]
             }
         };
@@ -329,7 +324,7 @@ impl ProfileValidator {
     /// clients consume the protocol surface rather than publishing one.
     pub fn for_client() -> Self {
         Self {
-            service_kind: ServiceKind::PrincipalServer, // sentinel: never used
+            service_kind: ServiceKind::Station, // sentinel: never used
             permitted_roles: vec![
                 ProfileRole::Client,
                 ProfileRole::Admin,
@@ -444,7 +439,7 @@ mod tests {
     fn directory_service_rejects_server_profile() {
         let validator = ProfileValidator::new(ServiceKind::DirectoryService);
         let errors = validator
-            .validate(&[ProfileClaim::self_claimed("ak.profile.principal_server.v1")])
+            .validate(&[ProfileClaim::self_claimed("ak.profile.station.v1")])
             .expect_err("directory service must not claim server profile");
         assert_eq!(errors.len(), 1);
     }
@@ -480,7 +475,7 @@ mod tests {
             .validate(&[
                 ProfileClaim::self_claimed("ak.profile.push_gateway.v1"),
                 ProfileClaim::self_claimed("ak.profile.directory_service.v1"),
-                ProfileClaim::self_claimed("ak.profile.principal_server.v1"),
+                ProfileClaim::self_claimed("ak.profile.station.v1"),
             ])
             .expect_err("three mismatched claims => three errors");
         assert_eq!(errors.len(), 3);
@@ -489,14 +484,11 @@ mod tests {
     #[test]
     fn permitted_roles_always_include_interop_and_admin() {
         for service in [
-            ServiceKind::PrincipalServer,
+            ServiceKind::Station,
             ServiceKind::DirectoryService,
             ServiceKind::PushGateway,
             ServiceKind::BlobNode,
             ServiceKind::IdentityRegistry,
-            ServiceKind::AuthServer,
-            ServiceKind::AuthzService,
-            ServiceKind::DeviceKeyService,
             ServiceKind::AppletService,
             ServiceKind::AgentRuntime,
             ServiceKind::MediaService,

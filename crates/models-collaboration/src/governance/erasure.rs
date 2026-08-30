@@ -246,7 +246,7 @@ pub struct ErasureReceiptProof {
     pub extra: BTreeMap<String, Value>,
 }
 
-/// Cross-Principal-Server erasure-receipt fanout aggregate status tracked by
+/// Cross-Station erasure-receipt fanout aggregate status tracked by
 /// the issuing server (mirrors `erasure-receipt.schema.json` `fanout_status`;
 /// models/realm-and-space.md §2.6.2). Replaces the dropped point-dotted pseudo
 /// kind `ak.audit.erasure_receipt.fanout_status`.
@@ -284,11 +284,11 @@ pub enum ErasurePeerStatus {
 
 /// One per-peer fanout acknowledgement record maintained by the issuing server
 /// (mirrors `erasure-receipt.schema.json` `peer_receipts[]`). One entry per peer
-/// Principal Server that ever held this Realm's content.
+/// Station that ever held this Realm's content.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ErasurePeerReceipt {
-    /// Peer Principal Server DID.
+    /// Peer Station DID.
     pub peer_id: DidCoreId,
     pub status: ErasurePeerStatus,
     /// The peer's own feedback receipt id, when received.
@@ -325,7 +325,7 @@ pub struct ErasureReceipt {
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub issued_at: Option<DateTime<Utc>>,
     pub proofs: Vec<ErasureReceiptProof>,
-    /// Cross-Principal-Server erasure fanout aggregate status. Absent on
+    /// Cross-Station erasure fanout aggregate status. Absent on
     /// receipts that do not drive fanout tracking.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fanout_status: Option<ErasureFanoutStatus>,

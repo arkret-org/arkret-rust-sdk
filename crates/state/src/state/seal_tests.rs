@@ -497,7 +497,7 @@ fn completeness_event(
         "realm_id": realm(),
         "scope_ref": {"kind": "realm", "realm_id": realm()},
         "actor_id": actor_id,
-        "principal_server_id": "ak:did_core:web:principal.example",
+        "station_id": "ak:did_core:web:principal.example",
         "actor_seq": actor_seq,
         "created_at": "2026-07-26T00:00:00.000Z",
         "prev_refs": [],

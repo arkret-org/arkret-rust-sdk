@@ -17,8 +17,8 @@ fn service_describe_value() -> Value {
     serde_json::to_value(ServiceDescribe::development(
         Did::new("did:webvh:z6mkfixture:service.example").unwrap(),
         TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-        ServiceKind::PrincipalServer,
-        vec!["ak.operation_bundle.principal_server.describe.v1".to_owned()],
+        ServiceKind::Station,
+        vec!["ak.operation_bundle.station.describe.v1".to_owned()],
         vec![arkret_models_discovery::TransportBinding::HttpJson {
             base_url: "https://service.example".to_owned(),
             extension_profile_required: (),

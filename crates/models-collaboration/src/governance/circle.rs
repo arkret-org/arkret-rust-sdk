@@ -881,6 +881,10 @@ impl Circle {
 mod tests {
     use super::*;
 
+    fn actor(value: &str) -> ActorId {
+        ActorId::service(value.parse().unwrap())
+    }
+
     fn sample_display() -> CircleDisplay {
         CircleDisplay {
             short_name: "Ops".to_owned(),
@@ -898,7 +902,7 @@ mod tests {
         let realm_id =
             RealmId::new("ak:realm:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL".to_owned())
                 .unwrap();
-        let actor: DidCoreId = "ak:did_core:webvh:z6mkfixturealice".parse().unwrap();
+        let actor = actor("ak:did_core:webvh:z6mkfixturealice");
         let circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         let json = serde_json::to_value(&circle).unwrap();
         let parsed: Circle = serde_json::from_value(json).unwrap();
@@ -915,7 +919,7 @@ mod tests {
         let realm_id =
             RealmId::new("ak:realm:AZiQUXWgexBvj0pdmSuNERtMTAFCjqds5-eP8K9OsgEo".to_owned())
                 .unwrap();
-        let actor: DidCoreId = "ak:did_core:webvh:z6mkfixturealice".parse().unwrap();
+        let actor = actor("ak:did_core:webvh:z6mkfixturealice");
         let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         circle.agent_participation = Some(AgentParticipationPolicy {
             native_agent: Some(ParticipationBits {
@@ -951,7 +955,7 @@ mod tests {
         let realm_id =
             RealmId::new("ak:realm:AYkxMogpjqRFcRiejZN897KN1bjKnAjkbNCCRbsgxeHR".to_owned())
                 .unwrap();
-        let actor: DidCoreId = "ak:did_core:webvh:z6mkfixturealice".parse().unwrap();
+        let actor = actor("ak:did_core:webvh:z6mkfixturealice");
         let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         let parent = ParticipationBits {
             reply_message: true,
@@ -1003,14 +1007,14 @@ mod tests {
 
     #[test]
     fn strict_subset_accepts_empty_circle() {
-        let realm: Vec<DidCoreId> = vec!["ak:did_core:webvh:z6mkfixturealice".parse().unwrap()];
+        let realm = vec![actor("ak:did_core:webvh:z6mkfixturealice")];
         Circle::assert_member_ids_strict_subset(&[], &realm).unwrap();
     }
 
     #[test]
     fn strict_subset_rejects_outsider() {
-        let alice: DidCoreId = "ak:did_core:webvh:z6mkfixturealice".parse().unwrap();
-        let bob: DidCoreId = "ak:did_core:webvh:z6mkfixturebob".parse().unwrap();
+        let alice = actor("ak:did_core:webvh:z6mkfixturealice");
+        let bob = actor("ak:did_core:webvh:z6mkfixturebob");
         let realm = vec![alice];
         let err = Circle::assert_member_ids_strict_subset(std::slice::from_ref(&bob), &realm)
             .unwrap_err();

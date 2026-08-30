@@ -16,7 +16,8 @@ impl ServiceKind {
     /// This is intentionally separate from registry context metadata.
     pub fn allowed_operation_prefixes(self) -> &'static [&'static str] {
         match self {
-            Self::PrincipalServer => &[
+            Self::Station => &[
+                "ak.gate.account.",
                 "ak.self.account.",
                 "ak.self.authz.",
                 "ak.self.blob.",
@@ -32,13 +33,10 @@ impl ServiceKind {
                 "ak.root.identity.service_registration.",
             ],
             Self::IdentityRegistry => &["ak.root.identity.", "ak.identity."],
-            Self::AuthServer => &["ak.gate.account."],
             Self::BlobNode => &["ak.self.blob."],
             Self::MediaService => &["ak.self.media.", "ak.self.call.media."],
             Self::MimiProviderFacade => &["ak.open.mimi."],
             Self::DirectoryService => &["ak.find.directory."],
-            Self::DeviceKeyService => &["ak.self.keys."],
-            Self::AuthzService => &["ak.self.authz.", "ak.policy."],
             Self::PushGateway => &["ak.edge.push."],
             Self::AppletService => &["ak.edge.applet."],
             Self::AgentRuntime => &[
@@ -48,7 +46,7 @@ impl ServiceKind {
             Self::SfuService => &["ak.self.call.media.", "ak.self.media."],
             Self::TurnService => &[crate::ServiceOperationId::SELF_MEDIA_READ_ICE_CONFIG_V1],
             Self::ModerationService => &["ak.self.moderation."],
-            Self::Notary | Self::SearchService | Self::ArchiveNode => &[],
+            Self::Notary | Self::ArchiveNode => &[],
             Self::KeyRecoveryService | Self::RecoveryService => &[
                 "ak.root.identity.recovery_policy.",
                 "ak.root.identity.recovery_session.",

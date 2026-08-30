@@ -55,7 +55,7 @@ pub struct SessionGrantDeviceBinding {
 }
 
 impl SessionGrantDeviceBinding {
-    /// Build the grant binding from the origin Principal Server's allow
+    /// Build the grant binding from the origin Station's allow
     /// receipt, which is its only lawful source. The issuer_id never derives the
     /// authorization Event or the generation itself and never accepts them
     /// from client input.

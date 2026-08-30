@@ -14,10 +14,10 @@ use arkret_wire::{
     AuthorizationRef, CellRef, DeviceId, Did, DidCoreId, DidKey, DidUrl, DigestSuiteCode, Event,
     EventId, EventIdentityKey, EventKind, EventProof, EventRef, Hash, Hlc, NonEmptyString,
     NotaryJoseAlgorithm, NotaryKeyKind, NotarySig, NotarySignerDescriptor, NotaryValue,
-    PayloadSignature, PayloadSigner, PrincipalServerAdmissionProof,
-    PrincipalServerAdmissionProofKind, ProducerEventProof, ProjectedCellWrite, RealmId, ScopeRef,
-    SealBasis, SealId, SemanticRefProof, SemanticRefProofKind, TrustDomainId, WireError,
-    composite_subject, project_did_to_core_id, proof_kind,
+    PayloadSignature, PayloadSigner, ProducerEventProof, ProjectedCellWrite, RealmId, ScopeRef,
+    SealBasis, SealId, SemanticRefProof, SemanticRefProofKind, StationAdmissionProof,
+    StationAdmissionProofKind, TrustDomainId, WireError, composite_subject, project_did_to_core_id,
+    proof_kind,
 };
 use chrono::Utc;
 use serde_json::Value;
@@ -125,12 +125,11 @@ fn attach_fixture_admission_proof(event: &mut Event) {
         .as_producer()
         .expect("fixture producer proof")
         .clone();
-    let admission = PrincipalServerAdmissionProof {
-        kind: PrincipalServerAdmissionProofKind::PrincipalServerAdmission,
+    let admission = StationAdmissionProof {
+        kind: StationAdmissionProofKind::StationAdmission,
         verification_method: DidUrl::new("did:web:principal.example#admission").unwrap(),
         event_digest: producer.event_digest.clone(),
-        producer_proof_digest: PrincipalServerAdmissionProof::producer_proof_digest(&producer)
-            .unwrap(),
+        producer_proof_digest: StationAdmissionProof::producer_proof_digest(&producer).unwrap(),
         producer_verification_method: producer.verification_method.clone(),
         producer_signing_key_did: DidKey::new(founding_device_public_key()).unwrap(),
         producer_signer_resolution_evidence_ref: None,
@@ -145,9 +144,7 @@ fn attach_fixture_admission_proof(event: &mut Event) {
         accepted_at: event.created_at,
         jws: "eyJhbGciOiJFZERTQSJ9..AA".to_owned(),
     };
-    event
-        .proofs
-        .push(EventProof::PrincipalServerAdmission(admission));
+    event.proofs.push(EventProof::StationAdmission(admission));
 }
 
 fn bootstrap_unit() -> (Event, Event) {
@@ -174,7 +171,7 @@ fn bootstrap_unit() -> (Event, Event) {
             realm_id: create.realm_id.clone(),
         },
         create.actor_id.clone(),
-        create.principal_server_id.clone(),
+        create.station_id.clone(),
         1,
         Hlc::new("01970e589d21-0005-a13f9c2e").unwrap(),
         serde_json::to_value(payload).unwrap(),
@@ -198,7 +195,7 @@ fn input() -> SelfPrincipalPcrCreateInput {
     let created_at = "2026-07-15T00:00:00.000Z".parse().unwrap();
     SelfPrincipalPcrCreateInput {
         principal_id: principal_id.clone(),
-        principal_server_id: DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
+        station_id: DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
         principal_did: principal_did.clone(),
         notary: fixture_notary(&principal_id, &principal_did, founding_device_id().as_str()),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
@@ -307,10 +304,10 @@ fn builder_emits_only_the_closed_unsigned_root_shape() {
 
     assert_eq!(event.kind, EventKind::RealmCreate);
     assert_eq!(
-        event.principal_server_id.as_str(),
+        event.station_id.as_str(),
         "ak:did_core:web:principal.example"
     );
-    assert_ne!(event.principal_server_id, event.actor_id);
+    assert_ne!(event.station_id, event.actor_id);
     assert_eq!(event.actor_seq, 0);
     assert!(event.prev_refs.is_empty());
     assert!(event.proofs.is_empty());
@@ -645,7 +642,7 @@ fn managed_agent_genesis_authority_covers_the_whole_founding_notary() {
         EventKind::MlsGenesis.to_string(),
         create.scope_ref.clone(),
         create.actor_id.clone(),
-        create.principal_server_id.clone(),
+        create.station_id.clone(),
         1,
         Hlc::new("01970e589d21-0009-a13f9c2e").unwrap(),
         serde_json::json!({}),
@@ -672,7 +669,7 @@ fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
         EventKind::MlsGenesis.to_string(),
         create.scope_ref.clone(),
         create.actor_id.clone(),
-        create.principal_server_id.clone(),
+        create.station_id.clone(),
         1,
         Hlc::new("01970e589d21-0008-a13f9c2e").unwrap(),
         serde_json::json!({}),
@@ -744,8 +741,7 @@ fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
         HandleVisibility::Private,
         None,
         AgentProvisionIntentOptions {
-            controller_principal_server_id: DidCoreId::new("ak:did_core:web:principal.example")
-                .unwrap(),
+            controller_station_id: DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
             created_at: "2026-07-18T01:02:03Z".parse().unwrap(),
             seal_basis: Some(SealBasis {
                 leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "11".repeat(32))).unwrap()],
@@ -769,10 +765,10 @@ fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
     payload.validate().unwrap();
     assert_eq!(payload.agent_id, agent);
     assert_eq!(
-        event.principal_server_id.as_str(),
+        event.station_id.as_str(),
         "ak:did_core:web:principal.example"
     );
-    assert_ne!(event.principal_server_id, controller);
+    assert_ne!(event.station_id, controller);
     let effects = direct_projection(&event, &registry_projection).unwrap();
     assert_eq!(
         effects

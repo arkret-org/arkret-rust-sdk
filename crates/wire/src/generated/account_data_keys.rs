@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/account-data-key-registry.json; version=2026-08-27.1;
-//! sha256=3d31af407b5d2214a67e3eb2850153fb3a4e0bcb597d069b70bf349945627cd9
+//! Input: registry/account-data-key-registry.json; version=2026-08-30.1;
+//! sha256=e46f0f04e0b29e29d8be37fb74e237eb76eba99e3f4259a24672bf0f57bfffd1
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};
@@ -72,20 +72,20 @@ impl AccountDataKey {
     /// `ak.account.blocklist`.
     pub const ACCOUNT_BLOCKLIST: &'static str = "ak.account.blocklist";
     /// Actor-private holder-side carrier for delivered directed-invite credentials on the notify
-    /// branch (invite-addressing.md section 7). Written by the recipient Principal Server through
-    /// the delivery path, so the value is plaintext JSON (ak.schema.invite_delivery.v1), not a
+    /// branch (invite-addressing.md section 7). Written by the recipient Station through the
+    /// delivery path, so the value is plaintext JSON (ak.schema.invite_delivery.v1), not a
     /// client-encrypted envelope; invite_token is a server-issued private locator that MUST NOT
     /// enter the Invite object or Realm history. Bounded CAS register: at most 200 entries, expired
     /// entries purged first, then oldest evicted; accepted writes fan out as ak.account_data.update
     /// actor-private device updates. Key pattern: `ak.account.invite_delivery`.
     pub const ACCOUNT_INVITE_DELIVERY: &'static str = "ak.account.invite_delivery";
     /// Actor-private plaintext quarantine inbox for invites held by the consent gate default
-    /// profile. The recipient Principal Server is the sole CAS writer; holder self PUT/DELETE and
-    /// synthetic ak.account_data.set are forbidden. Accepted writes fan out as service-sender
+    /// profile. The recipient Station is the sole CAS writer; holder self PUT/DELETE and synthetic
+    /// ak.account_data.set are forbidden. Accepted writes fan out as service-sender
     /// ak.account_data.update hints and MUST NOT expose contactability signals to the inviter.
     /// Key pattern: `ak.account.invite_quarantine`.
     pub const ACCOUNT_INVITE_QUARANTINE: &'static str = "ak.account.invite_quarantine";
-    /// Controller-owned encrypted draft created when Principal Server materializes an agent's
+    /// Controller-owned encrypted draft created when Station materializes an agent's
     /// ak.agent.draft.propose / ak.agent.action_request after capability / policy / accountability
     /// / risk check. Draft MUST NOT enter shared Realm history; publishing produces a new shared
     /// event referencing only an opaque digest. See private-objects.md §4.1. Key pattern:
@@ -131,10 +131,9 @@ impl AccountDataKey {
     /// of this key and MUST NOT treat it as a policy projection surface. Key pattern:
     /// `ak.presence.preference`.
     pub const PRESENCE_PREFERENCE: &'static str = "ak.presence.preference";
-    /// Principal-private sender-side presence visibility policy. Principal Server sync surfaces
-    /// MUST NOT project or read presence_visibility; encrypted Signal fanout is selected by the
-    /// sender according to profiles-presence.md section 3.4. Key pattern:
-    /// `ak.presence.visibility`.
+    /// Principal-private sender-side presence visibility policy. Station sync surfaces MUST NOT
+    /// project or read presence_visibility; encrypted Signal fanout is selected by the sender
+    /// according to profiles-presence.md section 3.4. Key pattern: `ak.presence.visibility`.
     pub const PRESENCE_VISIBILITY: &'static str = "ak.presence.visibility";
     /// Principal-private notification and push rule configuration.
     /// Key pattern: `ak.push_rules`.

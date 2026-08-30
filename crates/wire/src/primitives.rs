@@ -4,25 +4,25 @@ use std::str::FromStr;
 use super::*;
 use crate::{Did, DidCoreId, ProofContextId, SignerEvidenceRef};
 
-/// Complete protocol identity for one account at one Principal Server.
+/// Complete protocol identity for one account at one Station.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountId {
     pub principal_id: DidCoreId,
-    pub principal_server_id: DidCoreId,
+    pub station_id: DidCoreId,
 }
 
 impl AccountId {
-    pub fn new(principal_id: DidCoreId, principal_server_id: DidCoreId) -> Self {
+    pub fn new(principal_id: DidCoreId, station_id: DidCoreId) -> Self {
         Self {
             principal_id,
-            principal_server_id,
+            station_id,
         }
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.principal_id.as_str().is_empty() || self.principal_server_id.as_str().is_empty() {
+        if self.principal_id.as_str().is_empty() || self.station_id.as_str().is_empty() {
             return Err(WireError::Protocol(
                 "account id components must be non-empty".to_owned(),
             ));
@@ -57,7 +57,7 @@ pub enum ActorId {
     },
     HostedPrincipal {
         principal_id: DidCoreId,
-        principal_server_id: DidCoreId,
+        station_id: DidCoreId,
     },
     Service {
         service_id: DidCoreId,
@@ -69,10 +69,10 @@ impl ActorId {
         Self::Account { account_id }
     }
 
-    pub fn hosted_principal(principal_id: DidCoreId, principal_server_id: DidCoreId) -> Self {
+    pub fn hosted_principal(principal_id: DidCoreId, station_id: DidCoreId) -> Self {
         Self::HostedPrincipal {
             principal_id,
-            principal_server_id,
+            station_id,
         }
     }
 
@@ -90,11 +90,8 @@ impl ActorId {
 
     pub fn route_service_id(&self) -> &DidCoreId {
         match self {
-            Self::Account { account_id } => &account_id.principal_server_id,
-            Self::HostedPrincipal {
-                principal_server_id,
-                ..
-            } => principal_server_id,
+            Self::Account { account_id } => &account_id.station_id,
+            Self::HostedPrincipal { station_id, .. } => station_id,
             Self::Service { service_id } => service_id,
         }
     }
@@ -111,8 +108,8 @@ impl ActorId {
             Self::Account { account_id } => account_id.validate(),
             Self::HostedPrincipal {
                 principal_id,
-                principal_server_id,
-            } if principal_id.as_str().is_empty() || principal_server_id.as_str().is_empty() => {
+                station_id,
+            } if principal_id.as_str().is_empty() || station_id.as_str().is_empty() => {
                 Err(WireError::Protocol(
                     "hosted principal actor id components must be non-empty".to_owned(),
                 ))
@@ -1307,17 +1304,17 @@ impl PayloadProof {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum PrincipalServerAdmissionProofKind {
-    #[serde(rename = "principal_server_admission")]
-    PrincipalServerAdmission,
+pub enum StationAdmissionProofKind {
+    #[serde(rename = "station_admission")]
+    StationAdmission,
 }
 
-/// Origin Principal Server attestation over the exact producer proof it admitted.
+/// Origin Station attestation over the exact producer proof it admitted.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct PrincipalServerAdmissionProof {
-    pub kind: PrincipalServerAdmissionProofKind,
+pub struct StationAdmissionProof {
+    pub kind: StationAdmissionProofKind,
     pub verification_method: DidUrl,
     pub event_digest: Hash,
     pub producer_proof_digest: Hash,
@@ -1339,28 +1336,28 @@ pub struct PrincipalServerAdmissionProof {
 #[serde(untagged)]
 pub enum EventProof {
     Producer(ProducerEventProof),
-    PrincipalServerAdmission(PrincipalServerAdmissionProof),
+    StationAdmission(StationAdmissionProof),
 }
 
 impl EventProof {
     pub fn as_producer(&self) -> Option<&ProducerEventProof> {
         match self {
             Self::Producer(proof) => Some(proof),
-            Self::PrincipalServerAdmission(_) => None,
+            Self::StationAdmission(_) => None,
         }
     }
 
     pub fn as_producer_mut(&mut self) -> Option<&mut ProducerEventProof> {
         match self {
             Self::Producer(proof) => Some(proof),
-            Self::PrincipalServerAdmission(_) => None,
+            Self::StationAdmission(_) => None,
         }
     }
 
-    pub fn as_principal_server_admission(&self) -> Option<&PrincipalServerAdmissionProof> {
+    pub fn as_station_admission(&self) -> Option<&StationAdmissionProof> {
         match self {
             Self::Producer(_) => None,
-            Self::PrincipalServerAdmission(proof) => Some(proof),
+            Self::StationAdmission(proof) => Some(proof),
         }
     }
 }
@@ -1371,16 +1368,15 @@ impl From<ProducerEventProof> for EventProof {
     }
 }
 
-impl From<PrincipalServerAdmissionProof> for EventProof {
-    fn from(value: PrincipalServerAdmissionProof) -> Self {
-        Self::PrincipalServerAdmission(value)
+impl From<StationAdmissionProof> for EventProof {
+    fn from(value: StationAdmissionProof) -> Self {
+        Self::StationAdmission(value)
     }
 }
 
-pub const PRINCIPAL_SERVER_ADMISSION_PROOF_CONTEXT: &str =
-    crate::ProofContextId::PRINCIPAL_SERVER_ADMISSION_PROOF_V1;
+pub const STATION_ADMISSION_PROOF_CONTEXT: &str = crate::ProofContextId::STATION_ADMISSION_PROOF_V1;
 
-impl PrincipalServerAdmissionProof {
+impl StationAdmissionProof {
     pub fn producer_proof_digest(proof: &ProducerEventProof) -> Result<Hash> {
         Hash::new(canonical::canonical_sha256(proof)?).map_err(Into::into)
     }
@@ -1389,7 +1385,7 @@ impl PrincipalServerAdmissionProof {
         &self,
         expected_event_digest: &Hash,
         producer_proof: &ProducerEventProof,
-        expected_principal_server_id: &DidCoreId,
+        expected_station_id: &DidCoreId,
     ) -> Result<()> {
         let (controller, fragment) = self
             .verification_method
@@ -1413,7 +1409,7 @@ impl PrincipalServerAdmissionProof {
             _ => false,
         };
         if fragment.is_empty()
-            || project_did_to_core_id(&controller)? != *expected_principal_server_id
+            || project_did_to_core_id(&controller)? != *expected_station_id
             || self.event_digest != *expected_event_digest
             || self.producer_proof_digest != Self::producer_proof_digest(producer_proof)?
             || self.producer_verification_method != producer_proof.verification_method
@@ -1427,7 +1423,7 @@ impl PrincipalServerAdmissionProof {
             || !is_compact_jws(&self.jws)
         {
             return Err(WireError::Protocol(
-                "principal server admission proof binding mismatch".to_owned(),
+                "Station admission proof binding mismatch".to_owned(),
             ));
         }
         Ok(())
@@ -1437,7 +1433,7 @@ impl PrincipalServerAdmissionProof {
         let mut binding = serde_json::Map::new();
         binding.insert(
             "context".to_owned(),
-            Value::String(PRINCIPAL_SERVER_ADMISSION_PROOF_CONTEXT.to_owned()),
+            Value::String(STATION_ADMISSION_PROOF_CONTEXT.to_owned()),
         );
         binding.insert(
             "verification_method".to_owned(),

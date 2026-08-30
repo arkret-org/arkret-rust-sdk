@@ -679,8 +679,8 @@ mod tests {
 
     use super::*;
 
-    fn actor() -> DidCoreId {
-        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
+    fn actor() -> ActorId {
+        ActorId::service(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap())
     }
 
     fn event_id() -> EventId {
@@ -799,7 +799,7 @@ mod tests {
             sent_at + chrono::Duration::seconds(5)
         );
 
-        let mallory = DidCoreId::new("ak:did_core:webvh:z6mkmallory").unwrap();
+        let mallory = ActorId::service(DidCoreId::new("ak:did_core:webvh:z6mkmallory").unwrap());
         assert!(
             tightened
                 .bind_to_envelope(&mallory, sent_at, expires_at)

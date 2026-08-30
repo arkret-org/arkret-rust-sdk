@@ -76,11 +76,8 @@ pub fn governance_runtime_dependency_selectors_for_replay(
     for (event, digest_suite) in events.iter().zip(event_digest_suites.iter().copied()) {
         match event.proofs.as_slice() {
             [EventProof::Producer(_)] => event.validate_for_direct_history_structural()?,
-            [
-                EventProof::Producer(_),
-                EventProof::PrincipalServerAdmission(_),
-            ] => {
-                event.validate_principal_server_admission_binding(digest_suite)?;
+            [EventProof::Producer(_), EventProof::StationAdmission(_)] => {
+                event.validate_station_admission_binding(digest_suite)?;
             }
             _ => {
                 return Err(WireError::Protocol(
@@ -119,10 +116,7 @@ pub fn governance_runtime_dependency_selector_coordinates_for_acquisition(
     for event in events {
         match event.proofs.as_slice() {
             [EventProof::Producer(_)]
-            | [
-                EventProof::Producer(_),
-                EventProof::PrincipalServerAdmission(_),
-            ] => {}
+            | [EventProof::Producer(_), EventProof::StationAdmission(_)] => {}
             _ => {
                 return Err(WireError::Protocol(
                     "dependency acquisition requires a direct or admitted Event proof regime"
@@ -142,7 +136,7 @@ pub fn governance_runtime_dependency_selector_coordinates_for_acquisition(
                         );
                     }
                 }
-                EventProof::PrincipalServerAdmission(admission) => {
+                EventProof::StationAdmission(admission) => {
                     if admission.signer_resolution_evidence_ref.content_digest()?
                         != admission.signer_resolution_evidence_digest
                         || !admission
@@ -151,8 +145,7 @@ pub fn governance_runtime_dependency_selector_coordinates_for_acquisition(
                             .starts_with("sha256:")
                     {
                         return Err(WireError::Protocol(
-                            "principal server admission signer evidence binding mismatch"
-                                .to_owned(),
+                            "Station admission signer evidence binding mismatch".to_owned(),
                         ));
                     }
                     selectors.push(

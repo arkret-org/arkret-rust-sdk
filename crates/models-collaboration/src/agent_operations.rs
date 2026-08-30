@@ -465,11 +465,11 @@ pub enum AgentProvisionRequestBody {
         operation_id: ProtocolOperationId,
         idempotency_key: IdempotencyKey,
         /// Controller-authored, already accepted PCR-independent Agent
-        /// inception. The Principal Server verifies and pins its exact head.
+        /// inception. The Station verifies and pins its exact head.
         did: Did,
-        /// Principal Server half of the controller authority selected by this
+        /// Station half of the controller authority selected by this
         /// authenticated operation. The principal half comes from the session.
-        controller_principal_server_id: DidCoreId,
+        controller_station_id: DidCoreId,
         slug: String,
         requested_scope: AgentKeyScope,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -2113,8 +2113,7 @@ mod tests {
             operation_id: ProtocolOperationId::new("ak:operation:agent-provision-wire").unwrap(),
             idempotency_key: IdempotencyKey::new("agent-provision-wire").unwrap(),
             did: Did::new("did:webvh:z6mkfixtureagent:agent.example").unwrap(),
-            controller_principal_server_id: DidCoreId::new("ak:did_core:web:principal.example")
-                .unwrap(),
+            controller_station_id: DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
             slug: "summary".to_owned(),
             requested_scope: AgentKeyScope {
                 actions: Vec::new(),
@@ -2126,7 +2125,7 @@ mod tests {
 
         let value = serde_json::to_value(&request).unwrap();
         assert_eq!(
-            value["controller_principal_server_id"],
+            value["controller_station_id"],
             "ak:did_core:web:principal.example"
         );
         assert!(value.get("controller_authority").is_none());
@@ -2135,10 +2134,10 @@ mod tests {
         stale
             .as_object_mut()
             .unwrap()
-            .remove("controller_principal_server_id");
+            .remove("controller_station_id");
         stale["controller_authority"] = serde_json::json!({
             "principal_id": "ak:did_core:web:alice.example",
-            "principal_server_id": "ak:did_core:web:principal.example"
+            "station_id": "ak:did_core:web:principal.example"
         });
         assert!(serde_json::from_value::<AgentProvisionRequestBody>(stale).is_err());
     }

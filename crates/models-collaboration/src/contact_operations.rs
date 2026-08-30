@@ -421,7 +421,7 @@ pub struct BilateralContinuityCheckpointSignature {
     pub signature: ProtocolSignature,
 }
 
-/// One-sided proposal carried to the other participant's Principal Server.
+/// One-sided proposal carried to the other participant's Station.
 /// It is not portable continuity evidence until the counterparty has verified
 /// the exact core, appended its signature and durably committed the completed
 /// checkpoint.
@@ -1277,14 +1277,25 @@ mod event_digest_derivation_tests {
         }
     }
 
+    fn account(principal: &str) -> AccountId {
+        AccountId::new(
+            DidCoreId::new(principal).unwrap(),
+            DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
+        )
+    }
+
+    fn account_actor(principal: &str) -> ActorId {
+        ActorId::account(account(principal))
+    }
+
     fn request_receipt() -> RequestAcceptanceReceipt {
         RequestAcceptanceReceipt {
             core: RequestAcceptanceReceiptCore {
                 holder: ContactPeer::Human {
-                    principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+                    account_id: account("ak:did_core:webvh:z6mkfixturealice"),
                 },
                 peer: ContactPeer::Human {
-                    principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+                    account_id: account("ak:did_core:webvh:z6mkfixturebob"),
                 },
                 slot_version: 1,
                 slot_predecessor: None,
@@ -1306,7 +1317,7 @@ mod event_digest_derivation_tests {
 
         let proof = ContactCurrentProof {
             contact_round_id: hash('c'),
-            issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+            issuer_id: account_actor("ak:did_core:webvh:z6mkfixturealice"),
             terminal: false,
             head_event_ref: EventId::new(EVENT_REF).unwrap(),
             accepted_frontier: vec![EventId::new(EVENT_REF).unwrap()],
@@ -1322,7 +1333,7 @@ mod event_digest_derivation_tests {
             response_event_ref: EventId::new(EVENT_REF).unwrap(),
             outgoing_slot_absence_digest: hash('e'),
             accepted_at: timestamp(),
-            issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+            issuer_id: account_actor("ak:did_core:webvh:z6mkfixturebob"),
             signature: signature(),
         };
         assert_eq!(response.response_digest().as_str(), EVENT_DIGEST);
@@ -1331,7 +1342,7 @@ mod event_digest_derivation_tests {
             request_receipt: request,
             reject_event_ref: EventId::new(EVENT_REF).unwrap(),
             accepted_at: timestamp(),
-            issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+            issuer_id: account_actor("ak:did_core:webvh:z6mkfixturebob"),
             signature: signature(),
         };
         assert_eq!(reject.reject_digest().as_str(), EVENT_DIGEST);

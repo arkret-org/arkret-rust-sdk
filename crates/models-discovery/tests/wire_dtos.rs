@@ -9,7 +9,7 @@ use arkret_wire::{Did, RealmId, ServiceKind, TrustDomainId};
 
 #[test]
 fn interop_surface_entry_is_closed_and_supports_delegated_resolver() {
-    let surface = InteropSurfaceEntry::delegated_resolver("auth_server_did_resolver")
+    let surface = InteropSurfaceEntry::delegated_resolver("station_did_resolver")
         .with_notes("delegated DID document surface");
     let encoded = serde_json::to_value(&surface).unwrap();
     assert_eq!(encoded["kind"], "delegated_resolver");
@@ -28,15 +28,15 @@ fn service_describe_round_trips_interop_surfaces_on_the_canonical_key() {
     let mut description = ServiceDescribe::development(
         Did::new("did:webvh:z6mkfixture:service.example").unwrap(),
         TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-        ServiceKind::PrincipalServer,
-        vec!["ak.operation_bundle.principal_server.describe.v1".to_owned()],
+        ServiceKind::Station,
+        vec!["ak.operation_bundle.station.describe.v1".to_owned()],
         vec![arkret_models_discovery::TransportBinding::HttpJson {
             base_url: "https://service.example".to_owned(),
             extension_profile_required: (),
         }],
     );
     description.interop_surfaces = vec![
-        InteropSurfaceEntry::delegated_resolver("auth_server_did_resolver"),
+        InteropSurfaceEntry::delegated_resolver("station_did_resolver"),
         InteropSurfaceEntry::matrix_passthrough("matrix_bridge"),
     ];
 

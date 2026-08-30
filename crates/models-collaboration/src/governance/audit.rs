@@ -78,7 +78,7 @@ impl AuditAssurance {
 /// (`audit-ryw-receipt.schema.json`).
 ///
 /// `events_api` is the originating Events API node; `witness` is an
-/// independent log; `peer_node` is another Principal Server replica.
+/// independent log; `peer_node` is another Station replica.
 /// Receipt independence is derived from the verified
 /// [`AuditRywWitnessAttestation`] rather than a producer-authored class.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -135,7 +135,7 @@ pub enum AuditRywRecoveryReasonCode {
 /// `ak.audit.ryw_receipt` event payload
 /// (`audit-ryw-receipt.schema.json`).
 ///
-/// Issued by an Events API node, witness, or peer Principal Server to
+/// Issued by an Events API node, witness, or peer Station to
 /// confirm a `ak.audit.accessed` envelope reached `accepted`. The Audit
 /// Agent MUST gate plaintext release on receiving a receipt that meets
 /// the Realm's declared `audit_assurance`.

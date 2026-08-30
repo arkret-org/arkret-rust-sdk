@@ -2508,7 +2508,9 @@ mod tests {
             location: None,
             call_id: None,
             attendees: vec![CalendarAttendee {
-                actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                actor_id: ActorId::service(
+                    DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                ),
                 role: Some(CalendarAttendeeRole::Organizer),
                 display_name_snapshot: None,
             }],
@@ -2550,7 +2552,7 @@ mod tests {
         // At most one organizer.
         let mut invalid = fields;
         invalid.attendees.push(CalendarAttendee {
-            actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            actor_id: ActorId::service(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
             role: Some(CalendarAttendeeRole::Organizer),
             display_name_snapshot: None,
         });

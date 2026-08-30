@@ -480,10 +480,9 @@ mod tests {
             grant_id: id.to_owned(),
             realm_id: "ak:realm:1".to_owned(),
             issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
-            issuer_principal_server_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver")
-                .unwrap(),
+            issuer_station_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
             subject_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
-            subject_principal_server_id: Some(
+            subject_station_id: Some(
                 DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
             ),
             resource: resource.to_owned(),
@@ -515,10 +514,9 @@ mod tests {
             grant_id: id.to_owned(),
             realm_id: "ak:realm:1".to_owned(),
             issuer_id: DidCoreId::new(issuer).unwrap(),
-            issuer_principal_server_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver")
-                .unwrap(),
+            issuer_station_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
             subject_id: DidCoreId::new(subject).unwrap(),
-            subject_principal_server_id: Some(
+            subject_station_id: Some(
                 DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
             ),
             resource: resource.to_owned(),
@@ -678,7 +676,7 @@ mod tests {
             "ak:realm:1",
             None,
         );
-        forged.issuer_principal_server_id =
+        forged.issuer_station_id =
             DidCoreId::new("ak:did_core:webvh:z6mkfixtureotherserver").unwrap();
 
         assert!(!authority_chain_intact(&[root, forged], "g2", now));

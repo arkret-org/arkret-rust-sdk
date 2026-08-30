@@ -208,10 +208,10 @@ mod tests {
                 "run_id": "run",
                 "verified": [
                     {
-                        "profile_id": "ak.profile.principal_server.v1",
+                        "profile_id": "ak.profile.station.v1",
                         "claim_kind": "conformance_verified",
                         "verification_run_id": "run",
-                        "service_role": "principal_server",
+                        "service_role": "station",
                         "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                         "artifact_ref": "file:///artifact.json",
                         "verifier_id": "ak:did_core:web:cotest.example",
@@ -219,12 +219,12 @@ mod tests {
                         "timestamp": "2026-05-20T00:00:00.000Z"
                     },
                     {
-                        "profile_id": "ak.profile.auth_server.v1",
-                        "service_role": "auth_server"
+                        "profile_id": "ak.profile.directory_service.v1",
+                        "service_role": "directory_service"
                     }
                 ]
             }"#,
-            "principal_server",
+            "station",
         )
         .unwrap();
 
@@ -238,12 +238,12 @@ mod tests {
         let report = parse_verified_profiles_artifact(
             br#"{
                 "verified": [{
-                    "profile_id": "ak.profile.principal_server.v1",
+                    "profile_id": "ak.profile.station.v1",
                     "claim_kind": "wrong",
-                    "service_role": "principal_server"
+                    "service_role": "station"
                 }]
             }"#,
-            "principal_server",
+            "station",
         )
         .unwrap();
         assert_eq!(

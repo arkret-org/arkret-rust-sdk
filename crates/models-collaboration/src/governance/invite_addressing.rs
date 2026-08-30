@@ -15,7 +15,7 @@ use arkret_wire::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-pub const INVITE_RECIPIENT_SERVICE_KIND_PRINCIPAL_SERVER: &str = "principal_server";
+pub const INVITE_RECIPIENT_SERVICE_KIND_STATION: &str = "station";
 pub const INVITE_LOCATOR_RESOLVE_PATH: &str = "_arkret/open/invite-locators/resolve";
 pub const INVITE_LOCATOR_ISSUE_PATH: &str = "_arkret/self/invite-locators";
 pub const INVITE_LOCATOR_ROTATE_PATH: &str = "_arkret/self/invite-locators/rotate";
@@ -213,7 +213,7 @@ pub struct InviteAddress {
 }
 
 impl InviteAddress {
-    pub fn principal_server(
+    pub fn station(
         subject_id: DidCoreId,
         recipient_id: DidCoreId,
         service_resolution: ServiceResolutionCarrier,
@@ -233,10 +233,10 @@ impl InviteAddress {
             route_assistance.validate_shape()?;
         }
         if let Some(service_kind) = &self.recipient_kind
-            && service_kind != INVITE_RECIPIENT_SERVICE_KIND_PRINCIPAL_SERVER
+            && service_kind != INVITE_RECIPIENT_SERVICE_KIND_STATION
         {
             return Err(WireError::Protocol(
-                "invite_address.recipient_kind MUST be principal_server".to_owned(),
+                "invite_address.recipient_kind MUST be station".to_owned(),
             ));
         }
         Ok(())
@@ -253,10 +253,7 @@ pub struct InviteDeliveryTarget {
 }
 
 impl InviteDeliveryTarget {
-    pub fn principal_server(
-        recipient_id: DidCoreId,
-        service_resolution: ServiceResolutionCarrier,
-    ) -> Self {
+    pub fn station(recipient_id: DidCoreId, service_resolution: ServiceResolutionCarrier) -> Self {
         Self {
             recipient_id,
             service_resolution,
@@ -275,10 +272,10 @@ impl InviteDeliveryTarget {
     pub fn validate(&self) -> Result<()> {
         validate_service_resolution_carrier(&self.recipient_id, &self.service_resolution)?;
         if let Some(service_kind) = &self.recipient_kind
-            && service_kind != INVITE_RECIPIENT_SERVICE_KIND_PRINCIPAL_SERVER
+            && service_kind != INVITE_RECIPIENT_SERVICE_KIND_STATION
         {
             return Err(WireError::Protocol(
-                "invite_delivery_target.recipient_kind MUST be principal_server".to_owned(),
+                "invite_delivery_target.recipient_kind MUST be station".to_owned(),
             ));
         }
         Ok(())
@@ -340,10 +337,10 @@ impl PrincipalLocator {
             route_assistance.validate_shape()?;
         }
         if let Some(service_kind) = &self.recipient_kind
-            && service_kind != INVITE_RECIPIENT_SERVICE_KIND_PRINCIPAL_SERVER
+            && service_kind != INVITE_RECIPIENT_SERVICE_KIND_STATION
         {
             return Err(WireError::Protocol(
-                "principal_locator.recipient_kind MUST be principal_server".to_owned(),
+                "principal_locator.recipient_kind MUST be station".to_owned(),
             ));
         }
         if self.expires_at <= self.issued_at {
@@ -449,7 +446,7 @@ pub enum IntroductionEvidence {
         )]
         resolved_at: Option<DateTime<Utc>>,
     },
-    SamePrincipalServer,
+    SameStation,
     ExplicitAddress,
 }
 
@@ -460,7 +457,7 @@ impl IntroductionEvidence {
             Self::ConsentGrant { .. } => "consent_grant",
             Self::SharedRealm { .. } => "shared_realm",
             Self::HandleClaim { .. } => "handle_claim",
-            Self::SamePrincipalServer => "same_principal_server",
+            Self::SameStation => "same_station",
             Self::ExplicitAddress => "explicit_address",
         }
     }
@@ -574,7 +571,7 @@ pub enum DisclosedOutcome {
 ///
 /// Actor-private plaintext carrier for delivered directed-invite credentials
 /// on the notify branch (invite-addressing.md section 7), written by the
-/// recipient Principal Server through the delivery path. `invite_token` is a
+/// recipient Station through the delivery path. `invite_token` is a
 /// server-issued private locator that MUST NOT enter the Invite object or
 /// Realm history. The cell is a bounded CAS register: at most
 /// [`InviteDelivery::MAX_ENTRIES`] entries, at most one entry per
@@ -654,7 +651,7 @@ pub struct InviteDeliveryEntry {
     /// it as opaque and MUST NOT persist it outside this cell or equivalent
     /// holder-private state.
     pub invite_token: String,
-    /// Instant the recipient Principal Server accepted this delivery.
+    /// Instant the recipient Station accepted this delivery.
     #[serde(with = "canonical_timestamp")]
     pub received_at: DateTime<Utc>,
     /// Expiry of the underlying invite credential; a stale entry MUST NOT be

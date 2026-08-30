@@ -44,7 +44,7 @@ pub fn sign_service_resolution_publish_ack(
     Ok(ack)
 }
 
-/// Sign the Principal Server projection attestation that makes the public
+/// Sign the Station projection attestation that makes the public
 /// resolution surface verifiable without disclosing any PCR material.
 pub fn sign_principal_resolution_projection_attestation(
     core: PrincipalResolutionProjectionAttestationCore,
@@ -67,18 +67,15 @@ pub fn sign_principal_resolution_projection_attestation(
 /// Verify a public principal resolution end to end.
 ///
 /// The response halves are cross-bound first, then the attestation is checked
-/// against the serving Principal Server's own DID Document: an attestation that
+/// against the serving Station's own DID Document: an attestation that
 /// verifies under some other key is not evidence about this account.
 pub fn verify_public_principal_resolution(
     resolution: &PublicPrincipalResolution,
-    principal_server_document: &DidDocument,
+    station_document: &DidDocument,
     now: DateTime<Utc>,
 ) -> arkret_wire::Result<VerifyingKey> {
     resolution.validate_attestation_binding()?;
-    verify_full_to_core_binding(
-        &principal_server_document.id,
-        &resolution.principal_server_id,
-    )?;
+    verify_full_to_core_binding(&station_document.id, &resolution.station_id)?;
     let attestation = &resolution.projection_attestation;
     if attestation.proof.created_at != attestation.attestation.issued_at {
         return Err(arkret_wire::WireError::Protocol(
@@ -99,7 +96,7 @@ pub fn verify_public_principal_resolution(
         ));
     }
     verify_document_signature(
-        principal_server_document,
+        station_document,
         &attestation.proof,
         &attestation.proof_signing_bytes()?,
         "invalid principal resolution projection attestation proof",
@@ -294,7 +291,7 @@ mod tests {
         let record = sign_service_resolution_record(
             ServiceResolutionRecordCore {
                 service_id: service_id.clone(),
-                service_kind: "principal_server".to_owned(),
+                service_kind: "station".to_owned(),
                 did,
                 method_history_head: "did-web-document-sha256:fixture".to_owned(),
                 version_id: "did-web-document-sha256:fixture".to_owned(),

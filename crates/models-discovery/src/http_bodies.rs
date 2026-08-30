@@ -21,7 +21,7 @@ use crate::service_description::{
 };
 
 /// Transparent wrapper over `ServiceDescribe` for
-/// `ak.gate.service.read.describe` (Principal Server) Salvo OpenAPI bindings.
+/// `ak.gate.service.read.describe` (Station) Salvo OpenAPI bindings.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]

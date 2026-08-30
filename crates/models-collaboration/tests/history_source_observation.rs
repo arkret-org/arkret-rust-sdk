@@ -3,7 +3,9 @@ use arkret_models_collaboration::history_key::{
     HistoryResponseChunkDescriptor, HistoryResponseId, HistoryResponseManifest,
     HistoryResponseManifestKind, HistorySourceAgentObservationInput,
 };
-use arkret_wire::{DidCoreId, DidUrl, Hash, HistoryEffectiveScope, RealmId, SignerEvidenceRef};
+use arkret_wire::{
+    ActorId, DidCoreId, DidUrl, Hash, HistoryEffectiveScope, RealmId, SignerEvidenceRef,
+};
 use chrono::{DateTime, Utc};
 
 fn digest(byte: &str) -> Hash {
@@ -20,7 +22,9 @@ fn observation_input() -> HistorySourceAgentObservationInput {
             realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
                 .unwrap(),
         },
-        source_actor_id: DidCoreId::new("ak:did_core:key:z6MkfixtureAgent").unwrap(),
+        source_actor_id: ActorId::service(
+            DidCoreId::new("ak:did_core:key:z6MkfixtureAgent").unwrap(),
+        ),
         source_sender_domain: "history.example".to_owned(),
         request_digest: digest("1"),
         request_receipt_digest: digest("2"),

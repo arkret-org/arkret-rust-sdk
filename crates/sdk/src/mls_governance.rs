@@ -114,7 +114,7 @@ pub fn signed_event_digest_claim(event: &Event) -> Result<Hash, WireError> {
     for proof in &event.proofs {
         let current = match proof {
             EventProof::Producer(proof) => &proof.event_digest,
-            EventProof::PrincipalServerAdmission(proof) => &proof.event_digest,
+            EventProof::StationAdmission(proof) => &proof.event_digest,
         };
         if digest.as_ref().is_some_and(|previous| previous != current) {
             return Err(WireError::Protocol(
@@ -211,7 +211,7 @@ pub(crate) fn authenticated_document_key(
                     "principal signer evidence attester must be a service".to_owned(),
                 ));
             };
-            if public_resolution.principal_server_id != *attester_id
+            if public_resolution.station_id != *attester_id
                 || public_resolution.principal_id != *signer_id
                 || public_resolution.resolution_projection.did != normalized_did_document.id
                 || public_resolution
@@ -521,7 +521,7 @@ where
         .proofs
         .iter()
         .find_map(|proof| match proof {
-            EventProof::PrincipalServerAdmission(value) => Some(value),
+            EventProof::StationAdmission(value) => Some(value),
             EventProof::Producer(_) => None,
         })
         .ok_or_else(|| WireError::Protocol("Agent Event omitted origin admission".to_owned()))?;
@@ -837,7 +837,7 @@ where
         }
         [
             EventProof::Producer(producer),
-            EventProof::PrincipalServerAdmission(admission),
+            EventProof::StationAdmission(admission),
         ] => {
             admission.validate_binding(
                 &producer.event_digest,
@@ -875,7 +875,7 @@ where
             } = evidence
             else {
                 return Err(WireError::Protocol(
-                    "Principal Server admission signer evidence must be service-kind".to_owned(),
+                    "Station admission signer evidence must be service-kind".to_owned(),
                 ));
             };
             if signer_id
@@ -888,7 +888,7 @@ where
                 || evidence.evidence_ref()? != admission.signer_resolution_evidence_ref
             {
                 return Err(WireError::Protocol(
-                    "Principal Server admission signer evidence binding mismatch".to_owned(),
+                    "Station admission signer evidence binding mismatch".to_owned(),
                 ));
             }
             let historical_document = arkret_identity::authenticated_service_document_at(
@@ -1102,7 +1102,7 @@ fn verify_genesis_availability_commitment(
 
 /// Verify a complete crash-safe governance checkpoint by isolated replay.
 /// Retained Events may use either the sole-Producer direct-history regime or
-/// the Producer + PrincipalServerAdmission federation regime. The SDK owns
+/// the Producer + StationAdmission federation regime. The SDK owns
 /// frozen-notary selection, dependency verification, availability policy,
 /// reducer projection, recovery, and final state-root/basis checks.
 pub fn verify_mls_governance_checkpoint<VerifyNativeAgentHistoryKey>(

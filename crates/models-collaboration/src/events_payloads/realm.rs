@@ -1106,17 +1106,6 @@ mod realm_control_payload_tests {
     }
 
     #[test]
-    fn recipient_service_allowlist_accepts_only_core_service_ids() {
-        let allowed: AllowedRecipientServices =
-            serde_json::from_value(json!(["ak:did_core:web:media.example"])).unwrap();
-        assert!(matches!(allowed, AllowedRecipientServices::Allowlist(_)));
-        assert!(
-            serde_json::from_value::<AllowedRecipientServices>(json!(["did:web:media.example"]))
-                .is_err()
-        );
-    }
-
-    #[test]
     fn digest_suite_transition_rejects_noop_and_downgrade() {
         let value = json!({
             "from_digest_algorithm": "sha256",

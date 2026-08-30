@@ -228,7 +228,7 @@ mod tests {
             RealmId::new("ak:realm:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL").unwrap(),
             kind,
             "Work",
-            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            ActorId::service(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
         )
     }
 

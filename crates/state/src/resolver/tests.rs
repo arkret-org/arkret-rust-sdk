@@ -50,7 +50,7 @@ fn event(kind: EventKind, seq: u64, content: Value) -> Event {
         realm_id: realm_id(),
         scope_ref: scope_ref(),
         actor_id: actor_id(),
-        principal_server_id: actor_id(),
+        station_id: actor_id(),
         actor_seq: seq,
         created_at: chrono::Utc::now(),
         hlc: Some(Hlc::new(format!("01970e589d22-{seq:04x}-11111111")).unwrap()),

@@ -320,8 +320,8 @@ mod tests {
                 "did:webvh:z6mkfixture:alice.example#invalid-device-authority"
             ],
             "service": [{
-                "id": "did:webvh:z6mkfixture:alice.example#principal-server",
-                "type": "ArkretPrincipalServer",
+                "id": "did:webvh:z6mkfixture:alice.example#station",
+                "type": "ArkretStation",
                 "serviceEndpoint": "https://principal.example"
             }],
             "x-vendor": {"preserve": true}

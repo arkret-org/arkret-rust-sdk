@@ -18,9 +18,9 @@ use chrono::{DateTime, Utc};
 /// submit path that reads the accepted frontier, not to a builder.
 #[derive(Clone, Debug)]
 pub struct AgentProvisionIntentOptions {
-    /// Principal Server for the controller authority pair that admits the
+    /// Station for the controller authority pair that admits the
     /// provision Event. This is envelope identity, not the controller DID.
-    pub controller_principal_server_id: DidCoreId,
+    pub controller_station_id: DidCoreId,
     pub created_at: DateTime<Utc>,
     pub seal_basis: Option<SealBasis>,
 }
@@ -58,10 +58,8 @@ pub fn build_agent_provision_intent(
         created_at,
     };
     payload.validate()?;
-    let controller_account_id = AccountId::new(
-        controller_id.clone(),
-        options.controller_principal_server_id,
-    );
+    let controller_account_id =
+        AccountId::new(controller_id.clone(), options.controller_station_id);
     let mut draft = TypedEventDraft::<event_spec::AgentProvision>::new(
         ScopeRef::Realm {
             realm_id: controller_realm_id.clone(),

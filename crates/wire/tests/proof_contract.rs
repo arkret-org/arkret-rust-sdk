@@ -1,12 +1,19 @@
 use arkret_wire::{
-    Audience, CriticalExtension, DidCoreId, DidUrl, FeatureRef, Hash, Hlc, ProducerEventProof,
-    ProfileRef, ProofBindingRequirements, RealmId,
+    AccountId, ActorId, Audience, CriticalExtension, DidCoreId, DidUrl, FeatureRef, Hash, Hlc,
+    ProducerEventProof, ProfileRef, ProofBindingRequirements, RealmId,
 };
 use chrono::Utc;
 use serde_json::json;
 
 fn test_realm_id() -> RealmId {
     RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI").unwrap()
+}
+
+fn actor() -> ActorId {
+    ActorId::account(AccountId::new(
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
+    ))
 }
 
 fn valid_proof() -> ProducerEventProof {
@@ -69,15 +76,14 @@ fn proof_wrapper_rejects_duplicate_outer_algorithm_selector() {
 #[test]
 fn proof_validate_binding_matches_expected_fields() {
     let proof = valid_proof();
-    let expected = proof.binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
+    let expected = proof.binding_payload(&actor());
     assert!(proof.validate_binding(&expected).is_ok());
 }
 
 #[test]
 fn proof_validate_binding_rejects_mismatched_verification_method() {
     let proof = valid_proof();
-    let mut expected =
-        proof.binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
+    let mut expected = proof.binding_payload(&actor());
     expected.verification_method = DidUrl::new("did:webvh:z6mkfixture:bob.example#key-1").unwrap();
     assert!(proof.validate_binding(&expected).is_err());
 }
@@ -85,8 +91,7 @@ fn proof_validate_binding_rejects_mismatched_verification_method() {
 #[test]
 fn proof_validate_binding_rejects_mismatched_payload_digest() {
     let proof = valid_proof();
-    let mut expected =
-        proof.binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
+    let mut expected = proof.binding_payload(&actor());
     expected.payload_digest =
         Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
             .unwrap();
@@ -96,8 +101,7 @@ fn proof_validate_binding_rejects_mismatched_payload_digest() {
 #[test]
 fn proof_validate_binding_rejects_mismatched_domain() {
     let proof = valid_proof();
-    let mut expected =
-        proof.binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
+    let mut expected = proof.binding_payload(&actor());
     expected.domain = Some("other.example".to_owned());
     assert!(proof.validate_binding(&expected).is_err());
 }
@@ -106,8 +110,7 @@ fn proof_validate_binding_rejects_mismatched_domain() {
 fn proof_validate_binding_rejects_mismatched_audience() {
     let mut proof = valid_proof();
     proof.audience = Some(Audience::Single("svc-a".to_owned()));
-    let mut expected =
-        proof.binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
+    let mut expected = proof.binding_payload(&actor());
     expected.audience = Some(Audience::Single("svc-b".to_owned()));
     assert!(proof.validate_binding(&expected).is_err());
 }
@@ -119,8 +122,7 @@ fn proof_validate_binding_accepts_multi_audience_covering_required_context() {
         "did:webvh:z6mkfixture:service-a.example".to_owned(),
         "did:webvh:z6mkfixture:service-b.example".to_owned(),
     ]));
-    let mut expected =
-        proof.binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
+    let mut expected = proof.binding_payload(&actor());
     expected.audience = Some(Audience::Single(
         "did:webvh:z6mkfixture:service-b.example".to_owned(),
     ));
@@ -134,8 +136,7 @@ fn proof_validate_binding_ignores_domain_and_audience_when_context_is_local() {
     proof.audience = Some(Audience::Single(
         "did:webvh:z6mkfixture:service.example".to_owned(),
     ));
-    let mut expected =
-        proof.binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
+    let mut expected = proof.binding_payload(&actor());
     expected.domain = None;
     expected.audience = None;
     assert!(proof.validate_binding(&expected).is_ok());
@@ -162,8 +163,7 @@ fn proof_validate_rejects_empty_domain_or_audience() {
 #[test]
 fn proof_validate_binding_rejects_excessive_time_drift() {
     let proof = valid_proof();
-    let mut expected =
-        proof.binding_payload(&DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
+    let mut expected = proof.binding_payload(&actor());
     expected.created_at = "2026-04-26T01:00:00.000Z".parse().unwrap();
     assert!(proof.validate_binding(&expected).is_err());
 }

@@ -14,7 +14,7 @@ directly and re-exports the shared contracts crate as `arkret::api`:
 - append-only Repo commits, canonical Operations and signed Operation envelopes
 - capability-based authorization
 - OpenMLS-backed MLS RFC 9420 group E2EE
-- service discovery over Principal Server, Repo, Sync, Index, Blob, Directory and Authz surfaces
+- service discovery over Station, Repo, Sync, Index, Blob, Directory and Authz surfaces
 - protocol-shaped Query and Client Sync response models
 
 The canonical contract modules are `arkret::identity`, `arkret::federation` and

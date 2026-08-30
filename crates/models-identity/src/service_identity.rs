@@ -152,7 +152,7 @@ impl<'de> Deserialize<'de> for CanonicalServiceUrl {
     }
 }
 
-/// Stable provider lookup key. Only the three service-identity-owning roles
+/// Stable provider lookup key. Only the two service-identity-owning roles
 /// registered for `service_registration_key` are accepted.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -166,7 +166,7 @@ impl ServiceRegistrationKey {
     pub fn new(service_kind: ServiceKind, public_base_url: CanonicalServiceUrl) -> Result<Self> {
         if !matches!(
             service_kind,
-            ServiceKind::PrincipalServer | ServiceKind::AuthServer | ServiceKind::IdentityRegistry
+            ServiceKind::Station | ServiceKind::IdentityRegistry
         ) {
             return Err(WireError::Protocol(format!(
                 "service_kind {} is not valid in a service registration key",
@@ -300,9 +300,7 @@ impl ServiceDidDocument {
                 || !endpoint.id.starts_with(&format!("{}#", self.id))
                 || !matches!(
                     endpoint.service_kind,
-                    ServiceKind::PrincipalServer
-                        | ServiceKind::AuthServer
-                        | ServiceKind::IdentityRegistry
+                    ServiceKind::Station | ServiceKind::IdentityRegistry
                 )
             {
                 return Err(WireError::Protocol(
@@ -753,7 +751,7 @@ fn validate_service_registration_idempotency_key(value: &str) -> Result<()> {
 /// server's own long-standing `service` slot is retained; every other role is
 /// namespaced by the canonical registration-key digest.
 pub fn service_registration_local_id(key: &ServiceRegistrationKey) -> Result<String> {
-    if key.service_kind() == &ServiceKind::PrincipalServer {
+    if key.service_kind() == &ServiceKind::Station {
         return Ok("service".to_owned());
     }
     Ok(format!(

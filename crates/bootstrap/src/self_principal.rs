@@ -27,9 +27,9 @@ use crate::projection::{CellWriteProjector, direct_projection, validate_realm_cr
 #[derive(Clone, Debug)]
 pub struct SelfPrincipalPcrCreateInput {
     pub principal_id: DidCoreId,
-    /// Principal Server that admits this genesis Event and owns the public
+    /// Station that admits this genesis Event and owns the public
     /// account-authority coordinate paired with `principal_id`.
-    pub principal_server_id: DidCoreId,
+    pub station_id: DidCoreId,
     /// Resolvable DID admitted for the principal and published as Realm notary.
     pub principal_did: Did,
     pub notary: NotaryValue,
@@ -52,7 +52,7 @@ pub fn build_self_principal_pcr_create(
     let created_at = arkret_canonical::canonical::normalize_timestamp_canonical(input.created_at);
     let actor_id = ActorId::account(AccountId::new(
         input.principal_id.clone(),
-        input.principal_server_id.clone(),
+        input.station_id.clone(),
     ));
     if project_did_to_core_id(&input.principal_did)? != input.principal_id {
         return Err(WireError::Protocol(
@@ -328,22 +328,20 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
 
 fn validate_event_proof_digests(event: &Event) -> Result<&arkret_wire::ProducerEventProof> {
     // The producer form is used at initial registration. The accepted form is
-    // returned by events.read and appends the origin Principal Server proof
+    // returned by events.read and appends the origin Station proof
     // needed for federation. Both represent one and only one Event author.
     let producer = match event.proofs.as_slice() {
         [arkret_wire::EventProof::Producer(producer)] => producer,
         [
             arkret_wire::EventProof::Producer(producer),
-            arkret_wire::EventProof::PrincipalServerAdmission(_),
+            arkret_wire::EventProof::StationAdmission(_),
         ] => {
-            event.validate_principal_server_admission_binding(
-                arkret_canonical::DigestSuite::Sha256,
-            )?;
+            event.validate_station_admission_binding(arkret_canonical::DigestSuite::Sha256)?;
             producer
         }
         _ => {
             return Err(WireError::Protocol(
-                "bootstrap event must carry exactly one producer proof and at most one bound principal server admission proof"
+                "bootstrap event must carry exactly one producer proof and at most one bound Station admission proof"
                     .to_owned(),
             ));
         }

@@ -21,7 +21,8 @@ use arkret_wire::{
     AccountId, ActorProfileId, AppletId, AppletRevokeMode, AuditReasonText, ConsentScope, Cursor,
     DeviceId, Did, DidCoreId, DidUrl, EventBatchReceipt, EventInitialSubmission, EventKind, Hash,
     PayloadProof, ProofContextId, RealmId, ReasonCode, ReceiptId, Result, SchemaId, ScopeRef,
-    ServiceOperationId, SessionGrantId, UnsignedPayloadProof, canonical, project_did_to_core_id,
+    ServiceAccountId, ServiceOperationId, SessionGrantId, UnsignedPayloadProof, canonical,
+    project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -225,6 +226,7 @@ pub const ACCOUNT_STATUS_RECEIPT_CONTEXT: &str =
 pub struct UnsignedAccountStatusRecord {
     pub schema: String,
     pub account_authority_id: DidCoreId,
+    pub service_account_id: ServiceAccountId,
     pub account_id: AccountId,
     pub principal_control_realm_id: RealmId,
     pub binding_version: u64,
@@ -356,6 +358,7 @@ impl UnsignedAccountStatusRecord {
             schema: self.schema,
             account_status_record_id,
             account_authority_id: self.account_authority_id,
+            service_account_id: self.service_account_id,
             account_id: self.account_id,
             principal_control_realm_id: self.principal_control_realm_id,
             binding_version: self.binding_version,
@@ -381,6 +384,7 @@ pub struct AccountStatusRecord {
     pub schema: String,
     pub account_status_record_id: arkret_wire::AccountStatusRecordId,
     pub account_authority_id: DidCoreId,
+    pub service_account_id: ServiceAccountId,
     pub account_id: AccountId,
     pub principal_control_realm_id: RealmId,
     pub binding_version: u64,
@@ -410,6 +414,7 @@ impl AccountStatusRecord {
         UnsignedAccountStatusRecord {
             schema: self.schema.clone(),
             account_authority_id: self.account_authority_id.clone(),
+            service_account_id: self.service_account_id.clone(),
             account_id: self.account_id.clone(),
             principal_control_realm_id: self.principal_control_realm_id.clone(),
             binding_version: self.binding_version,
@@ -479,14 +484,13 @@ impl AccountStatusRecord {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountStatusResolveRequestBody {
     pub account_authority_id: DidCoreId,
-    pub account_id: AccountId,
+    pub service_account_id: ServiceAccountId,
     pub from_status_seq: u64,
     pub limit: u16,
 }
 
 impl AccountStatusResolveRequestBody {
     pub fn validate(&self) -> Result<()> {
-        self.account_id.validate()?;
         if self.from_status_seq == 0 || !(1..=128).contains(&self.limit) {
             return Err(arkret_wire::WireError::Protocol(
                 "account status resolve bounds are invalid".to_owned(),
@@ -501,7 +505,7 @@ impl AccountStatusResolveRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountStatusResolveOutcome {
     pub account_authority_id: DidCoreId,
-    pub account_id: AccountId,
+    pub service_account_id: ServiceAccountId,
     pub records: Vec<AccountStatusRecord>,
     pub has_more: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -512,7 +516,7 @@ impl AccountStatusResolveOutcome {
     pub fn validate_for_request(&self, request: &AccountStatusResolveRequestBody) -> Result<()> {
         request.validate()?;
         if self.account_authority_id != request.account_authority_id
-            || self.account_id != request.account_id
+            || self.service_account_id != request.service_account_id
             || self.records.len() > usize::from(request.limit)
         {
             return Err(arkret_wire::WireError::Protocol(
@@ -522,7 +526,7 @@ impl AccountStatusResolveOutcome {
         for (offset, record) in self.records.iter().enumerate() {
             record.validate_shape()?;
             if record.account_authority_id != self.account_authority_id
-                || record.account_id != self.account_id
+                || record.service_account_id != self.service_account_id
                 || record.status_seq != request.from_status_seq + offset as u64
             {
                 return Err(arkret_wire::WireError::Protocol(
@@ -552,7 +556,7 @@ pub struct AccountStatusReceipt {
     pub account_status_record_id: arkret_wire::AccountStatusRecordId,
     pub record_digest: Hash,
     pub account_authority_id: DidCoreId,
-    pub account_id: AccountId,
+    pub service_account_id: ServiceAccountId,
     pub status_seq: u64,
     pub receiver_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -566,7 +570,7 @@ pub struct UnsignedAccountStatusReceipt {
     pub account_status_record_id: arkret_wire::AccountStatusRecordId,
     pub record_digest: Hash,
     pub account_authority_id: DidCoreId,
-    pub account_id: AccountId,
+    pub service_account_id: ServiceAccountId,
     pub status_seq: u64,
     pub receiver_id: DidCoreId,
     pub accepted_at: DateTime<Utc>,
@@ -580,7 +584,7 @@ impl UnsignedAccountStatusReceipt {
             "account_status_record_id": self.account_status_record_id,
             "record_digest": self.record_digest,
             "account_authority_id": self.account_authority_id,
-            "account_id": self.account_id,
+            "service_account_id": self.service_account_id,
             "status_seq": self.status_seq,
             "receiver_id": self.receiver_id,
             "accepted_at": arkret_canonical::format_timestamp_canonical(self.accepted_at),
@@ -629,7 +633,7 @@ impl UnsignedAccountStatusReceipt {
             account_status_record_id: self.account_status_record_id,
             record_digest: self.record_digest,
             account_authority_id: self.account_authority_id,
-            account_id: self.account_id,
+            service_account_id: self.service_account_id,
             status_seq: self.status_seq,
             receiver_id: self.receiver_id,
             accepted_at: self.accepted_at,
@@ -651,7 +655,6 @@ impl AccountStatusReceipt {
     }
 
     pub fn validate_shape(&self) -> Result<()> {
-        self.account_id.validate()?;
         if self.status_seq == 0 {
             return Err(arkret_wire::WireError::Protocol(
                 "account status receipt status_seq must be positive".to_owned(),
@@ -685,7 +688,7 @@ impl AccountStatusReceipt {
             account_status_record_id: self.account_status_record_id.clone(),
             record_digest: self.record_digest.clone(),
             account_authority_id: self.account_authority_id.clone(),
-            account_id: self.account_id.clone(),
+            service_account_id: self.service_account_id.clone(),
             status_seq: self.status_seq,
             receiver_id: self.receiver_id.clone(),
             accepted_at: self.accepted_at,
@@ -700,7 +703,7 @@ impl AccountStatusReceipt {
         if self.account_status_record_id != record.account_status_record_id
             || self.record_digest != record.payload_digest()?
             || self.account_authority_id != record.account_authority_id
-            || self.account_id != record.account_id
+            || self.service_account_id != record.service_account_id
             || self.status_seq != record.status_seq
         {
             return Err(arkret_wire::WireError::Protocol(
@@ -794,7 +797,7 @@ pub struct AccountStatusPublicationOutcome {
     pub status: AccountStatusPublicationStatus,
     pub account_status_record_id: arkret_wire::AccountStatusRecordId,
     pub status_seq: u64,
-    pub account_id: AccountId,
+    pub service_account_id: ServiceAccountId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub current_account_status_record_id: Option<arkret_wire::AccountStatusRecordId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1223,8 +1226,8 @@ fn validate_account_profile_create_payload(
 #[cfg(test)]
 mod account_update_profile_request_tests {
     use arkret_wire::{
-        CellRef, DidUrl, Hlc, Precondition, Predicate, PredicateOp, ProducerEventProof, SealBasis,
-        SealId, proof_kind,
+        AccountId, ActorId, CellRef, DidUrl, Hlc, Precondition, Predicate, PredicateOp,
+        ProducerEventProof, SealBasis, SealId, proof_kind,
     };
     use chrono::{DateTime, Utc};
     use serde_json::json;
@@ -1242,6 +1245,13 @@ mod account_update_profile_request_tests {
 
     fn actor() -> DidCoreId {
         DidCoreId::new(ACTOR).unwrap()
+    }
+
+    fn account() -> AccountId {
+        AccountId::new(
+            actor(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
+        )
     }
 
     fn pcr() -> RealmId {
@@ -1339,7 +1349,7 @@ mod account_update_profile_request_tests {
         let request = create_request();
         request.validate(SUITE).unwrap();
         request
-            .validate_authoring_context(&actor(), &pcr(), None, SUITE)
+            .validate_authoring_context(&account(), &pcr(), None, SUITE)
             .unwrap();
         assert_eq!(
             request.profile_id(SUITE).unwrap(),
@@ -1357,7 +1367,7 @@ mod account_update_profile_request_tests {
         );
         request.validate(SUITE).unwrap();
         request
-            .validate_authoring_context(&actor(), &pcr(), Some(&basis), SUITE)
+            .validate_authoring_context(&account(), &pcr(), Some(&basis), SUITE)
             .unwrap();
         assert_eq!(request.profile_id(SUITE).unwrap(), profile_id);
     }
@@ -1368,14 +1378,14 @@ mod account_update_profile_request_tests {
         let basis = accepted_basis(create.profile_id(SUITE).unwrap());
         assert!(
             create
-                .validate_authoring_context(&actor(), &pcr(), Some(&basis), SUITE)
+                .validate_authoring_context(&account(), &pcr(), Some(&basis), SUITE)
                 .is_err()
         );
 
         let update = update_request(&basis.profile_id, json!({"display_name": "Updated"}));
         assert!(
             update
-                .validate_authoring_context(&actor(), &pcr(), None, SUITE)
+                .validate_authoring_context(&account(), &pcr(), None, SUITE)
                 .is_err()
         );
     }
@@ -1390,7 +1400,7 @@ mod account_update_profile_request_tests {
         let request = update_request(&profile_id, json!({"display_name": "Updated"}));
         assert!(
             request
-                .validate_authoring_context(&actor(), &pcr(), Some(&basis), SUITE)
+                .validate_authoring_context(&account(), &pcr(), Some(&basis), SUITE)
                 .is_err()
         );
 
@@ -1398,7 +1408,7 @@ mod account_update_profile_request_tests {
         assert!(
             request
                 .validate_authoring_context(
-                    &actor(),
+                    &account(),
                     &RealmId::new(OTHER_PCR).unwrap(),
                     Some(&basis),
                     SUITE,
@@ -1408,7 +1418,7 @@ mod account_update_profile_request_tests {
         assert!(
             request
                 .validate_authoring_context(
-                    &DidCoreId::new(OTHER_ACTOR).unwrap(),
+                    &AccountId::new(DidCoreId::new(OTHER_ACTOR).unwrap(), account().station_id,),
                     &pcr(),
                     Some(&basis),
                     SUITE,
@@ -1424,7 +1434,7 @@ mod account_update_profile_request_tests {
         assert!(forbidden_patch.validate(SUITE).is_err());
 
         let mut delegated = create_request();
-        delegated.profile_event.event.executed_by = Some(actor());
+        delegated.profile_event.event.executed_by = Some(ActorId::account(account()));
         assert!(delegated.validate(SUITE).is_err());
 
         let mut guarded = create_request();

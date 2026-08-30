@@ -427,7 +427,7 @@ mod events_submit_tests {
                 &Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             )
             .unwrap(),
-            principal_server_id: project_did_to_core_id(
+            station_id: project_did_to_core_id(
                 &Did::new("did:webvh:z6mkfixture:principal.example").unwrap(),
             )
             .unwrap(),
@@ -906,7 +906,7 @@ mod events_submit_tests {
     async fn dpop_auth_does_not_authenticate_public_describe() {
         let canned = r#"{
                 "protocol_version":"1.0",
-                "service_kind":"principal_server",
+                "service_kind":"station",
                 "service_id":"ak:did_core:web:server.local",
                 "service_resolution":{
                     "did":"did:web:server.local",
@@ -915,7 +915,7 @@ mod events_submit_tests {
                 },
                 "trust_domain":"ak:trust_domain:server.local",
                 "supported_profiles":[],
-                "supported_operation_bundles":["ak.operation_bundle.principal_server.describe.v1"],
+                "supported_operation_bundles":["ak.operation_bundle.station.describe.v1"],
                 "transport_bindings":[{"kind":"http_json","base_url":"https://server.local","extension_profile_required":null}],
                 "supported_features":[],
                 "auth_metadata":{"methods":[]},
@@ -955,7 +955,7 @@ mod events_submit_tests {
     async fn role_scoped_describe_sends_selector_and_rejects_mismatched_response() {
         let canned = r#"{
                 "protocol_version":"1.0",
-                "service_kind":"principal_server",
+                "service_kind":"station",
                 "service_id":"ak:did_core:web:server.local",
                 "service_resolution":{
                     "did":"did:web:server.local",
@@ -964,7 +964,7 @@ mod events_submit_tests {
                 },
                 "trust_domain":"ak:trust_domain:server.local",
                 "supported_profiles":[],
-                "supported_operation_bundles":["ak.operation_bundle.principal_server.describe.v1"],
+                "supported_operation_bundles":["ak.operation_bundle.station.describe.v1"],
                 "transport_bindings":[{"kind":"http_json","base_url":"https://server.local","extension_profile_required":null}],
                 "supported_features":[],
                 "auth_metadata":{"methods":[]},
@@ -978,31 +978,30 @@ mod events_submit_tests {
             }"#;
         let (client, capture) = spawn_capture_server(canned).await;
         let description = client
-            .describe_for_role(ServiceKind::PrincipalServer)
+            .describe_for_role(ServiceKind::Station)
             .await
             .unwrap();
-        assert_eq!(description.service_kind, ServiceKind::PrincipalServer);
+        assert_eq!(description.service_kind, ServiceKind::Station);
 
         let raw = capture.await.unwrap();
         let (request_line, _headers, _body) = split_request(&raw);
         assert!(
-            request_line
-                .starts_with("GET /_arkret/describe?service_kind=principal_server HTTP/1.1"),
+            request_line.starts_with("GET /_arkret/describe?service_kind=station HTTP/1.1"),
             "unexpected request line: {request_line}",
         );
 
         let mismatched = Box::leak(
             canned
                 .replace(
-                    "\"service_kind\":\"principal_server\"",
-                    "\"service_kind\":\"auth_server\"",
+                    "\"service_kind\":\"station\"",
+                    "\"service_kind\":\"notary\"",
                 )
                 .into_boxed_str(),
         );
         let (client, _capture) = spawn_capture_server(mismatched).await;
         assert!(
             client
-                .describe_for_role(ServiceKind::PrincipalServer)
+                .describe_for_role(ServiceKind::Station)
                 .await
                 .is_err()
         );

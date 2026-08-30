@@ -10,7 +10,7 @@ use crate::{Hash, PayloadSignature, RealmId, Result, WireError};
 /// against `merkle_root` via [`super::merkle::SnapshotMerkleTree::verify`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GeneratorProof {
-    /// DID of the snapshot generator (typically the principal server's
+    /// DID of the snapshot generator (typically the Station's
     /// `service_id`).
     pub generator_did: Did,
     /// Realm whose state this snapshot covers.

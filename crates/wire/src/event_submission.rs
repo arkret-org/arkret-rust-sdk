@@ -29,7 +29,7 @@ pub enum EventPublicationLane {
     OnlineSelf,
     /// Pre-issued authorization lease, followed by an ingress receipt.
     OfflineDelayed,
-    /// Origin Principal Server admission proof inside the Event envelope.
+    /// Origin Station admission proof inside the Event envelope.
     PeerFederation,
 }
 
@@ -47,7 +47,7 @@ pub fn classify_event_submit_context(events: &[Event]) -> Result<EventSubmitCont
 }
 
 /// Classify and validate a complete ordered federation unit whose Events have
-/// already received their origin Principal Server admission proof.
+/// already received their origin Station admission proof.
 pub fn classify_federated_event_submit_context(
     events: &[Event],
     digest_suites: &[arkret_canonical::DigestSuite],
@@ -150,7 +150,7 @@ impl PcrGenesisUnit {
     }
 }
 
-/// Signed Events presented to the actor's Principal Server for publication
+/// Signed Events presented to the actor's Station for publication
 /// lease issuance. Issuance validates but does not commit these Events.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -614,10 +614,10 @@ mod tests {
         AuthoritySetPolicy, AuthoritySetPolicySource, AuthoritySetRef,
     };
     use crate::{
-        AuthContext, AuthoritySetPolicyKind, AuthoritySetSourceKind, AuthorizationLeaseId,
-        Base64UrlString, DeviceId, DidCoreId, DidKey, DidUrl, EventProof, Hash, PayloadProof,
-        PrincipalServerAdmissionProof, PrincipalServerAdmissionProofKind, ProducerEventProof,
-        RealmId, SchemaId, SealId, proof_kind,
+        AccountId, ActorId, AuthContext, AuthoritySetPolicyKind, AuthoritySetSourceKind,
+        AuthorizationLeaseId, Base64UrlString, DeviceId, DidCoreId, DidKey, DidUrl, EventProof,
+        Hash, PayloadProof, ProducerEventProof, RealmId, SchemaId, SealId, StationAdmissionProof,
+        StationAdmissionProofKind, proof_kind,
     };
 
     fn instant(hour: u32) -> chrono::DateTime<Utc> {
@@ -629,6 +629,13 @@ mod tests {
             realm_id: RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI")
                 .unwrap(),
         }
+    }
+
+    fn account_actor(principal: &str) -> ActorId {
+        ActorId::account(AccountId::new(
+            DidCoreId::new(principal).unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
+        ))
     }
 
     fn intent() -> AuthorizationLeaseIssueIntent {
@@ -678,7 +685,7 @@ mod tests {
             )
             .unwrap(),
             basis_ref: intent.basis_ref.clone(),
-            actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            actor_id: account_actor("ak:did_core:webvh:z6mkfixture"),
             device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
             scope_ref: intent.scope_ref.clone(),
             action: intent.action.clone(),
@@ -709,8 +716,7 @@ mod tests {
         let mut event = Event::new(
             "ak.message.create",
             scope(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
+            account_actor("ak:did_core:webvh:z6mkfixture"),
             1,
             crate::Hlc::new("000000000000-0000-00000000").unwrap(),
             serde_json::json!({}),
@@ -764,16 +770,15 @@ mod tests {
         producer.signer_resolution_evidence_ref = None;
         producer.signer_resolution_evidence_digest = None;
         event.proofs[0] = producer.clone().into();
-        event.proofs.push(EventProof::PrincipalServerAdmission(
-            PrincipalServerAdmissionProof {
-                kind: PrincipalServerAdmissionProofKind::PrincipalServerAdmission,
+        event
+            .proofs
+            .push(EventProof::StationAdmission(StationAdmissionProof {
+                kind: StationAdmissionProofKind::StationAdmission,
                 verification_method: DidUrl::new("did:webvh:z6mkfixtureps:principal.example#key-1")
                     .unwrap(),
                 event_digest: producer.event_digest.clone(),
-                producer_proof_digest: PrincipalServerAdmissionProof::producer_proof_digest(
-                    &producer,
-                )
-                .unwrap(),
+                producer_proof_digest: StationAdmissionProof::producer_proof_digest(&producer)
+                    .unwrap(),
                 producer_verification_method: producer.verification_method.clone(),
                 producer_signing_key_did: DidKey::new("did:key:z6Mkhfixture").unwrap(),
                 producer_signer_resolution_evidence_ref: None,
@@ -787,16 +792,15 @@ mod tests {
                     .unwrap(),
                 accepted_at: event.created_at,
                 jws: "admission..signature".to_owned(),
-            },
-        ));
+            }));
         event
     }
 
     fn membership_compensation_submission()
     -> (Event, crate::MembershipCompensationSubmissionEvidence) {
-        let join_actor_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
-        let subject_id = DidCoreId::new("ak:did_core:webvh:z6mkfixturesubject").unwrap();
-        let executor_id = DidCoreId::new("ak:did_core:webvh:z6mkfixtureexecutor").unwrap();
+        let join_actor_id = account_actor("ak:did_core:webvh:z6mkfixture");
+        let subject_id = account_actor("ak:did_core:webvh:z6mkfixturesubject");
+        let executor_id = account_actor("ak:did_core:webvh:z6mkfixtureexecutor");
         let resource = match scope() {
             ScopeRef::Realm { realm_id } => realm_id,
             _ => unreachable!(),
@@ -815,7 +819,7 @@ mod tests {
             join_event_id: join_event.event_id.clone(),
             join_event_digest: join_event_digest.clone(),
             membership_cell_id: crate::ProtocolOpaqueId::new("membership-cell-1").unwrap(),
-            subject_id: subject_id.clone(),
+            member_id: subject_id.clone(),
             join_actor_id: join_actor_id.clone(),
             executed_by: None,
             authorization_ref: None,
@@ -879,7 +883,7 @@ mod tests {
                 admission_id,
                 delegation_digest,
                 expected_state: crate::MembershipCompensationExpectedState::Unused,
-                destination_id: executor_id.clone(),
+                destination_id: executor_id.signing_principal_id().clone(),
                 issued_at: instant(2),
                 expires_at: instant(7),
                 issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureissuer").unwrap(),
@@ -890,7 +894,6 @@ mod tests {
             "ak.member.state",
             ScopeRef::Realm { realm_id: resource },
             join_actor_id,
-            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             2,
             crate::Hlc::new("000000000001-0000-00000000").unwrap(),
             serde_json::json!({
@@ -1063,8 +1066,7 @@ mod tests {
         let mut event = Event::new(
             "ak.message.create",
             scope(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
+            account_actor("ak:did_core:webvh:z6mkfixture"),
             1,
             crate::Hlc::new("000000000000-0000-00000000").unwrap(),
             serde_json::json!({}),

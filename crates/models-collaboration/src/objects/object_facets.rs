@@ -89,12 +89,12 @@ impl Pin {
 /// Counterpart for `spec/v1/artifacts/schemas/search-service.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SearchService {
+pub enum StationSearchArtifacts {
     EncryptedIndexManifest(EncryptedIndexManifest),
     BlindIndexQuery(BlindIndexQuery),
     SearchPolicy(SearchPolicy),
 }
 
-impl SearchService {
+impl StationSearchArtifacts {
     pub const SCHEMA: &'static str = SchemaId::SEARCH_SERVICE_V1;
 }

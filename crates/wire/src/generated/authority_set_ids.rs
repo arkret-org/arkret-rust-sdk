@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/authority-set-policy-registry.json; version=2026-08-23.1;
-//! sha256=5feab2b465fdeaf3e51cd7e0e7a4ac07e1b602870b182a73f2c8e216ad525f43
+//! sha256=cc421f88133d643d2c52757597cf49340d6ad4510e9ea8c2a487ca8001ae7236
 //! Entries: authority_sets=3
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

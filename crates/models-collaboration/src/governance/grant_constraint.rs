@@ -725,7 +725,7 @@ mod tests {
             "schema": "ak.schema.capability.v1",
             "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
             "issuer_id": "ak:did_core:web:issuer.example",
-            "issuer_principal_server_id": "ak:did_core:web:issuer-principal.example",
+            "issuer_station_id": "ak:did_core:web:issuer-principal.example",
             "subject": "ak:did_core:web:subject.example",
             "actions": ["ak.event.read"],
             "resources": [{"kind": "realm"}],
@@ -750,7 +750,7 @@ mod tests {
             "schema": "ak.schema.capability.v1",
             "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
             "issuer_id": "ak:did_core:web:issuer.example",
-            "issuer_principal_server_id": "ak:did_core:web:issuer-principal.example",
+            "issuer_station_id": "ak:did_core:web:issuer-principal.example",
             "subject": "ak:did_core:web:subject.example",
             "actions": ["ak.event.read"],
             "resources": [{"kind": "realm"}],
@@ -789,15 +789,10 @@ mod tests {
             realm_id: Some(
                 RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
             ),
-            issuer_id: DidCoreId::new("ak:did_core:web:issuer.example").unwrap(),
-            issuer_principal_server_id: DidCoreId::new("ak:did_core:web:issuer-principal.example")
-                .unwrap(),
-            subject: CapabilitySubject::CoreDid(
+            issuer_id: ActorId::service(DidCoreId::new("ak:did_core:web:issuer.example").unwrap()),
+            subject: CapabilitySubject::Actor(ActorId::service(
                 DidCoreId::new("ak:did_core:web:subject.example").unwrap(),
-            ),
-            subject_principal_server_id: Some(
-                DidCoreId::new("ak:did_core:web:subject-server.example").unwrap(),
-            ),
+            )),
             actions: vec!["ak.event.read".to_owned()],
             resources: vec![serde_json::from_value(json!({"kind": "realm"})).unwrap()],
             constraints: vec![

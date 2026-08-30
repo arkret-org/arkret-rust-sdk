@@ -409,7 +409,7 @@ mod tests {
         Realm::new(
             RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
             "Policy Realm",
-            notary_actor.clone(),
+            ActorId::service(notary_actor.clone()),
             TrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
             CORE_REDUCER_PROFILE,
             NotaryValue::single_signer(NotarySignerDescriptor {

@@ -8,7 +8,6 @@ mod models {
         StrandReorderExpectedPosition, StrandReorderPayload, StrandWatchExpectedValue,
         StrandWatchLevel, StrandWatchSetPayload,
     };
-    pub use arkret_models_collaboration::governance::invite_addressing::InviteDeliveryTarget;
     pub use arkret_models_collaboration::governance::membership_invite::{
         InviteCancelPayload, InviteCancelTargetState, InviteCreatePayload, InviteRevokePayload,
         InviteRevokeTargetState, MembershipInviteRef, MembershipPayload, MembershipPayloadState,
@@ -22,11 +21,10 @@ mod models {
         RealmTombstonePayload,
     };
     pub use arkret_models_collaboration::object_patch::ObjectPatchPayload;
-    pub use arkret_models_identity::{DeliveryStatus, ServiceResolutionCarrier};
     pub use arkret_wire::patch::{Patch, PatchOp};
     pub use arkret_wire::{
-        Did, DidCoreId, EventId, Hash, HistoryAccess, InviteId, PlaintextDataClassKind, RealmId,
-        SpaceId, StrandId, project_did_to_core_id,
+        AccountId, ActorId, Did, DidCoreId, EventId, Hash, HistoryAccess, InviteId,
+        PlaintextDataClassKind, RealmId, SpaceId, StrandId, project_did_to_core_id,
     };
 }
 
@@ -87,7 +85,9 @@ fn relation_create_object() -> arkret_models_collaboration::objects::relation::R
         fields: Default::default(),
         state: None,
         state_changed_at: None,
-        created_by: DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap(),
+        created_by: ActorId::service(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap(),
+        ),
         created_at: "2026-08-18T00:00:00.000Z".parse().unwrap(),
         updated_by: None,
         updated_at: None,
@@ -96,25 +96,30 @@ fn relation_create_object() -> arkret_models_collaboration::objects::relation::R
 
 #[test]
 fn membership_payload_strong_type_passes_spec_validator() {
-    use crate::models::{DeliveryStatus, MembershipPayload, MembershipPayloadState};
+    use crate::models::{AccountId, ActorId, DidCoreId, MembershipPayload, MembershipPayloadState};
     let catalog = event_payload_validator_catalog().unwrap();
 
-    // invite transition (non-join): only `membership` is structurally required.
+    // knock transition (non-join): only `membership` is structurally required.
     let invite = MembershipPayload::transition(
-        MembershipPayloadState::Invite,
-        project_did_to_core_id(&Did::new("did:webvh:z6mkfixturebob:bob.example").unwrap()).unwrap(),
+        MembershipPayloadState::Knock,
+        ActorId::service(
+            project_did_to_core_id(&Did::new("did:webvh:z6mkfixturebob:bob.example").unwrap())
+                .unwrap(),
+        ),
         "space_create",
     );
     catalog
         .validate_payload("ak.member.state", &invite.to_value().unwrap())
         .unwrap();
 
-    // join transition (unroutable): realm_id + actor_id + delivery_status
-    // required, but delivery_binding only when routable.
+    // join transition: realm_id + closed account identity are required.
     let mut join = MembershipPayload::join(
         RealmId::new("ak:realm:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD").unwrap(),
-        project_did_to_core_id(&Did::new("did:webvh:z6mkfixturebob:bob.example").unwrap()).unwrap(),
-        DeliveryStatus::Unroutable,
+        ActorId::account(AccountId::new(
+            project_did_to_core_id(&Did::new("did:webvh:z6mkfixturebob:bob.example").unwrap())
+                .unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturestation".to_owned()).unwrap(),
+        )),
         "invite_accept",
     );
     join.invite_ref = Some(MembershipInviteRef::Event(
@@ -123,14 +128,6 @@ fn membership_payload_strong_type_passes_spec_validator() {
     catalog
         .validate_payload("ak.member.state", &join.to_value().unwrap())
         .unwrap();
-
-    // join missing delivery_status is rejected by to_value (conditional req).
-    let mut bad = join;
-    bad.delivery_status = None;
-    assert!(matches!(
-        bad.to_value(),
-        Err(arkret_wire::WireError::Protocol(_))
-    ));
 
     // Closed payload schemas reject unknown additive keys.
     let mut leaky = invite.to_value().unwrap();
@@ -141,24 +138,18 @@ fn membership_payload_strong_type_passes_spec_validator() {
 #[test]
 fn split_invite_payload_strong_types_pass_spec_validator() {
     use crate::models::{
-        DidCoreId, Hash, InviteCancelPayload, InviteCancelTargetState, InviteCreatePayload,
-        InviteDeliveryTarget, InviteId, InviteRevokePayload, InviteRevokeTargetState,
-        ServiceResolutionCarrier,
+        AccountId, DidCoreId, Hash, InviteCancelPayload, InviteCancelTargetState,
+        InviteCreatePayload, InviteId, InviteRevokePayload, InviteRevokeTargetState,
     };
     let catalog = event_payload_validator_catalog().unwrap();
 
-    // Directed-create (anyOf branch: invitee + invite_delivery_target +
-    // introduction_evidence_digest + expires_at), with an `x_role` extension.
+    // Directed-create with a closed invitee account identity and an `x_role` extension.
+    let invitee = AccountId::new(
+        DidCoreId::new("ak:did_core:webvh:z6mkfixturebob".to_owned()).unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixturestation".to_owned()).unwrap(),
+    );
     let create = InviteCreatePayload::new(
-        DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
-        InviteDeliveryTarget::principal_server(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
-            ServiceResolutionCarrier::CurrentRecordUrl {
-                current_record_url: "https://ps.example/_arkret/open/service-resolution/current"
-                    .to_owned(),
-                pinned_record_digest: None,
-            },
-        ),
+        invitee.clone(),
         Hash::new("sha256:".to_owned() + &"a".repeat(64)).unwrap(),
         chrono::Utc::now() + chrono::Duration::days(7),
     )
@@ -171,14 +162,13 @@ fn split_invite_payload_strong_types_pass_spec_validator() {
         .unwrap();
     validate_invite_create_wire_keys(&create_value).unwrap();
     let decoded: InviteCreatePayload = serde_json::from_value(create_value.clone()).unwrap();
-    decoded.invite_delivery_target.validate().unwrap();
+    decoded.invitee_account_id.validate().unwrap();
     let mut leaky_create = create_value;
     leaky_create["hlc"] = json!("2026-06-14T10:00:00.000Z/node/1");
     assert!(validate_invite_create_wire_keys(&leaky_create).is_err());
 
     let invite_id =
         InviteId::new("ak:invite:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G").unwrap();
-    let invitee = DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap();
     let cancel = InviteCancelPayload::new(
         invite_id.clone(),
         invitee.clone(),
@@ -191,7 +181,7 @@ fn split_invite_payload_strong_types_pass_spec_validator() {
         .unwrap();
     let revoke = InviteRevokePayload {
         invite_id,
-        invitee_id: Some(invitee),
+        invitee_account_id: Some(invitee),
         target_state: InviteRevokeTargetState::RevokedByInviterLeft,
         reason: Some("inviter_left".to_owned()),
     };
@@ -506,7 +496,7 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
     // plaintext_visible_services: required item fields strongly typed.
     let services = PlaintextVisibleServicesPayload::new(vec![PlaintextVisibleService::new(
         DidCoreId::new("ak:did_core:webvh:z6mkfixtureindex").unwrap(),
-        "principal_server",
+        "station",
         vec![
             PlaintextDataClassKind::MessageContent,
             PlaintextDataClassKind::FullTextIndex,

@@ -41,11 +41,12 @@ fn alternate_carrier_membership_is_typed() {
 }
 
 #[test]
-fn auth_server_http_core_advertises_service_resolution() {
-    let bundle = operation_bundle_descriptor("ak.operation_bundle.auth_server.http_core.v1")
-        .expect("auth server HTTP core bundle must be registered");
+fn station_account_authority_support_advertises_service_resolution() {
+    let bundle =
+        operation_bundle_descriptor("ak.operation_bundle.station.account_authority_support.v1")
+            .expect("Station account-authority support bundle must be registered");
 
-    assert_eq!(bundle.service_kind, ServiceKind::AuthServer);
+    assert_eq!(bundle.service_kind, ServiceKind::Station);
     assert!(bundle.contains(
         ServiceOperationId::OpenServiceReadResolutionV1,
         BindingKind::HttpJson,
@@ -53,14 +54,13 @@ fn auth_server_http_core_advertises_service_resolution() {
 }
 
 #[test]
-fn principal_server_history_key_recovery_bundle_closes_feature_requirements() {
-    let bundle =
-        operation_bundle_descriptor("ak.operation_bundle.principal_server.history_key_recovery.v1")
-            .expect("principal server history-key recovery bundle must be registered");
+fn station_history_key_recovery_bundle_closes_feature_requirements() {
+    let bundle = operation_bundle_descriptor("ak.operation_bundle.station.history_key_recovery.v1")
+        .expect("Station history-key recovery bundle must be registered");
     let feature = feature_descriptor("ak.feature.history_key_recovery.v1")
         .expect("history-key recovery feature must be registered");
 
-    assert_eq!(bundle.service_kind, ServiceKind::PrincipalServer);
+    assert_eq!(bundle.service_kind, ServiceKind::Station);
     assert_eq!(bundle.members, feature.required_operation_pairs);
     assert_eq!(bundle.members.len(), 11);
     assert!(bundle.contains(

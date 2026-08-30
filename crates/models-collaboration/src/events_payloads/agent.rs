@@ -555,7 +555,7 @@ mod agent_key_authorize_payload_tests {
             },
             "actor_id": "ak:did_core:web:agent.example",
             "executed_by": "ak:did_core:web:controller.example",
-            "principal_server_id": "ak:did_core:web:ps.example",
+            "station_id": "ak:did_core:web:ps.example",
             "actor_seq": 1,
             "created_at": "2026-07-06T00:00:00.000Z",
             "prev_refs": [],

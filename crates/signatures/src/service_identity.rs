@@ -93,8 +93,8 @@ mod tests {
             ))
             .unwrap(),
             registration_key: ServiceRegistrationKey::new(
-                ServiceKind::AuthServer,
-                CanonicalServiceUrl::new("https://auth.example/").unwrap(),
+                ServiceKind::Station,
+                CanonicalServiceUrl::new("https://station.example/").unwrap(),
             )
             .unwrap(),
             service_id: project_did_to_core_id(&did).unwrap(),

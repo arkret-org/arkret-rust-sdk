@@ -1288,7 +1288,7 @@ fn projected_envelope_value(event: &ProjectedEventInput, field: &str) -> Option<
 /// but are forbidden in the producer-authored payload.
 ///
 /// Capability Grant identity is the accepted issuer authority pair. The DID is
-/// signed as `payload.grant.issuer`; its Principal Server coordinate comes
+/// signed as `payload.grant.issuer`; its Station coordinate comes
 /// only from the accepted Event envelope. Keeping this derivation here makes
 /// live reduction, sealed-history replay, and direct registry projection use
 /// the same canonical value without accepting a producer override.
@@ -1330,7 +1330,7 @@ fn materialized_payload_root(
             ));
         }
         match member.get("derivation").and_then(Value::as_str) {
-            Some("capability_issuer_principal_server_id") => {
+            Some("capability_issuer_station_id") => {
                 grant.insert(
                     name.to_owned(),
                     Value::String(event.actor_id.route_service_id().as_str().to_owned()),
@@ -2293,7 +2293,7 @@ mod tests {
             "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n"},
             "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "principal_server_id": "ak:did_core:web:principal.example",
+            "station_id": "ak:did_core:web:principal.example",
             "actor_seq": 9,
             "created_at": "2026-07-26T01:00:00.000Z",
             "hlc": "019f9e500000-0000-aabbccde",
@@ -2369,7 +2369,7 @@ mod tests {
             "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n"},
             "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "principal_server_id": "ak:did_core:web:principal.example",
+            "station_id": "ak:did_core:web:principal.example",
             "actor_seq": 7,
             "created_at": "2026-07-26T01:00:00.000Z",
             "hlc": "019f9e500000-0000-aabbccdd",
@@ -2493,7 +2493,7 @@ mod tests {
             "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n"},
             "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "principal_server_id": "ak:did_core:web:principal.example",
+            "station_id": "ak:did_core:web:principal.example",
             "actor_seq": 7,
             "created_at": "2026-07-26T01:00:00.000Z",
             "hlc": "019f9e500000-0000-aabbccdd",
@@ -2626,7 +2626,7 @@ mod tests {
             "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n"},
             "actor_id": "ak:did_core:web:issuer.example",
-            "principal_server_id": "ak:did_core:web:principal.example",
+            "station_id": "ak:did_core:web:principal.example",
             "actor_seq": 7,
             "created_at": "2026-07-26T01:00:00.000Z",
             "hlc": "019f9e500000-0000-aabbccdd",
@@ -2778,7 +2778,7 @@ mod tests {
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
             "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "principal_server_id": "ak:did_core:web:principal.example",
+            "station_id": "ak:did_core:web:principal.example",
             "actor_seq": 3,
             "created_at": "2026-07-20T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",
@@ -2835,7 +2835,7 @@ mod tests {
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
             "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "principal_server_id": "ak:did_core:web:principal.example",
+            "station_id": "ak:did_core:web:principal.example",
             "actor_seq": 4,
             "created_at": "2026-07-26T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",
@@ -2894,7 +2894,7 @@ mod tests {
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
             "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "principal_server_id": "ak:did_core:web:principal.example",
+            "station_id": "ak:did_core:web:principal.example",
             "actor_seq": 1,
             "created_at": "2026-07-26T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",
@@ -2932,7 +2932,7 @@ mod tests {
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
             "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "principal_server_id": "ak:did_core:web:principal.example",
+            "station_id": "ak:did_core:web:principal.example",
             "actor_seq": 5,
             "created_at": "2026-07-26T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",
@@ -3012,7 +3012,7 @@ mod tests {
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
             "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "principal_server_id": "ak:did_core:web:principal.example",
+            "station_id": "ak:did_core:web:principal.example",
             "actor_seq": 6,
             "created_at": "2026-07-26T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",
@@ -3111,7 +3111,7 @@ mod tests {
             "kind": EventKind::RealmCreate,
             "scope_ref": {"kind": "realm_genesis"},
             "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "principal_server_id": "ak:did_core:web:principal.example",
+            "station_id": "ak:did_core:web:principal.example",
             "actor_seq": 7,
             "created_at": "2026-07-26T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",
@@ -3233,7 +3233,7 @@ mod tests {
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
             "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "principal_server_id": "ak:did_core:web:principal.example",
+            "station_id": "ak:did_core:web:principal.example",
             "actor_seq": 5,
             "created_at": "2026-07-26T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",
@@ -3377,7 +3377,7 @@ mod tests {
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
             "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "principal_server_id": "ak:did_core:web:principal.example",
+            "station_id": "ak:did_core:web:principal.example",
             "actor_seq": 3,
             "created_at": "2026-07-26T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",
@@ -3386,7 +3386,7 @@ mod tests {
                 "grant": {
                     "issuer_id": "ak:did_core:webvh:z6mkfixture",
                     "subject": "ak:did_core:webvh:z6mkfixture",
-                    "subject_principal_server_id": "ak:did_core:web:principal.example",
+                    "subject_station_id": "ak:did_core:web:principal.example",
                     "actions": ["ak.realm.admin"],
                     "issuer_authority_refs": [{
                         "kind": "realm_root",
@@ -3407,8 +3407,8 @@ mod tests {
         // Server coordinate from the accepted envelope, never from producer
         // payload input.
         let mut materialized_payload = serde_json::to_value(&event.payload).unwrap();
-        materialized_payload["grant"]["issuer_principal_server_id"] =
-            json!(event.principal_server_id.as_str());
+        materialized_payload["grant"]["issuer_station_id"] =
+            json!(event.actor_id.route_service_id().as_str());
         materialized_payload["grant"]["authority_depth"] = json!(1);
         materialized_payload["grant"]["authority_root_refs"] = json!([{
             "kind": "realm_root",
@@ -3545,14 +3545,14 @@ mod tests {
     }
 
     #[test]
-    fn capability_grant_projection_rejects_producer_authored_issuer_principal_server_id() {
+    fn capability_grant_projection_rejects_producer_authored_issuer_station_id() {
         let mut event: Event = serde_json::from_value(json!({
             "event_id": "ak:event:AV1bzsPGpTD74Cq12d9EOrCkieTddiSndS0kDtK1W2hM",
             "kind": EventKind::CapabilityGrant,
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
             "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "principal_server_id": "ak:did_core:web:principal.example",
+            "station_id": "ak:did_core:web:principal.example",
             "actor_seq": 3,
             "created_at": "2026-07-26T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",
@@ -3561,22 +3561,22 @@ mod tests {
                 "grant": {
                     "issuer_id": "ak:did_core:webvh:z6mkfixture",
                     "subject": "ak:did_core:webvh:z6mkfixture",
-                    "subject_principal_server_id": "ak:did_core:web:principal.example",
+                    "subject_station_id": "ak:did_core:web:principal.example",
                     "actions": ["ak.realm.admin"]
                 }
             },
             "proofs": []
         }))
         .unwrap();
-        event.payload.get_mut("grant").unwrap()["issuer_principal_server_id"] =
+        event.payload.get_mut("grant").unwrap()["issuer_station_id"] =
             json!("ak:did_core:web:forged.example");
 
         let error = project_registered_cell_writes(&event, arkret_canonical::DigestSuite::Sha256)
             .expect_err("producer-authored derived issuer coordinate must fail closed");
         assert!(
-            error.to_string().contains(
-                "producer-authored payload.grant.issuer_principal_server_id is forbidden"
-            )
+            error
+                .to_string()
+                .contains("producer-authored payload.grant.issuer_station_id is forbidden")
         );
     }
 
@@ -3779,7 +3779,7 @@ mod or_set_dot_vector_tests {
             "realm_id": realm,
             "scope_ref": {"kind": "realm", "realm_id": realm},
             "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "principal_server_id": "ak:did_core:web:principal.example",
+            "station_id": "ak:did_core:web:principal.example",
             "actor_seq": 1,
             "created_at": "2026-07-28T00:00:00.000Z",
             "prev_refs": [],

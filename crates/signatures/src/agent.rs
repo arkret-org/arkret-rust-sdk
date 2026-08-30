@@ -292,16 +292,14 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
 fn validate_pairing_authorize_event(
     authorize_event: &Event,
     agent_id: &DidCoreId,
-    principal_server_id: &DidCoreId,
+    station_id: &DidCoreId,
 ) -> Result<()> {
     if authorize_event.kind != EventKind::AgentKeyAuthorize {
         return Err(Error::Protocol(
             "agent authorize_event.kind must be ak.agent.key.authorize".to_owned(),
         ));
     }
-    if authorize_event.actor_id
-        != ActorId::hosted_principal(agent_id.clone(), principal_server_id.clone())
-    {
+    if authorize_event.actor_id != ActorId::hosted_principal(agent_id.clone(), station_id.clone()) {
         return Err(Error::Protocol(
             "agent authorize_event.actor_id must match agent_id".to_owned(),
         ));

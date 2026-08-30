@@ -1109,7 +1109,7 @@ mod tests {
                 scope_ref: ScopeRef::Realm { realm_id: realm() },
                 actor_id: arkret_wire::project_did_to_core_id(&did())
                     .expect("registered DID adapter"),
-                principal_server_id: arkret_wire::project_did_to_core_id(&did())
+                station_id: arkret_wire::project_did_to_core_id(&did())
                     .expect("registered DID adapter"),
                 actor_seq: 1,
                 created_at: Utc

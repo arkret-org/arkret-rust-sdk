@@ -238,7 +238,7 @@ pub fn direct_conversation_main_strand_create_payload(
 /// tombstone/recontact cycles cannot flip it. Both sides compute it independently from data both
 /// already hold and both already signed, which is what removes the cross-server creation race: only
 /// one principal can create, so the contention collapses into a unique index on that principal's
-/// own Principal Server.
+/// own Station.
 ///
 /// See `zh/identity/contact-and-direct-conversation.md` §5.2.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -335,12 +335,12 @@ mod tests {
         Did::new(value.to_owned()).unwrap()
     }
 
-    fn actor(value: &str) -> DidCoreId {
-        arkret_wire::project_did_to_core_id(&did(value)).unwrap()
+    fn actor(value: &str) -> ActorId {
+        ActorId::service(arkret_wire::project_did_to_core_id(&did(value)).unwrap())
     }
 
-    fn principal(value: &str) -> DidCoreId {
-        arkret_wire::project_did_to_core_id(&did(value)).unwrap()
+    fn principal(value: &str) -> ActorId {
+        ActorId::service(arkret_wire::project_did_to_core_id(&did(value)).unwrap())
     }
 
     fn trust_domain() -> TrustDomainId {
@@ -349,7 +349,7 @@ mod tests {
 
     fn notary(creator: &Did) -> NotaryValue {
         NotaryValue::single_signer(NotarySignerDescriptor {
-            actor_id: actor(creator.as_str()),
+            actor_id: arkret_wire::project_did_to_core_id(creator).unwrap(),
             verification_method: DidUrl::new(format!("{}#key-1", creator.as_str())).unwrap(),
             key_kind: NotaryKeyKind::Ed25519Raw32,
             jose_algorithm: NotaryJoseAlgorithm::Ed25519,
@@ -401,7 +401,9 @@ mod tests {
             "did:webvh:z6mkfixturealice:alice.example",
         ));
         let pairwise_bob = DirectConversationPairKeyParticipant {
-            actor_id: DidCoreId::new("ak:did_core:webvh:z6mkpairwisebob").unwrap(),
+            actor_id: ActorId::service(
+                DidCoreId::new("ak:did_core:webvh:z6mkpairwisebob").unwrap(),
+            ),
             stable_subject: stable.clone(),
         };
         let stable_bob = DirectConversationPairKeyParticipant {

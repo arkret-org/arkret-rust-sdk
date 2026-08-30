@@ -1,22 +1,22 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/proof-context-registry.json; version=2026-08-30.1;
-//! sha256=6b8144490403918e18e9c3acdcb323e9120877413e41e57ab6c63586650d17e7 Input: registry/
+//! sha256=e5b2f9527cb12cb725954f401a6423728a45e47c30377232714ab2dcb112c707 Input: registry/
 //! exporter-label-registry.json; version=2026-08-21.1;
-//! sha256=7e959c121558ccbff100ff9fc7d8c599a0fbb9e3409e044d5abf86f05088b21a Input: registry/
+//! sha256=6cb34e722ce41df3c91204d48f6cdf66b68640e9d86a379a9267cefce484bb02 Input: registry/
 //! digest-suite-registry.json; version=2026-08-18;
-//! sha256=8158db89e76f82d05f68535dd92f3f43cf5176e6144cb871972772ceafd6510b Input: registry/
+//! sha256=7b9f5368e30cebd43c509db7815b9a01681f8cf11147600f6be16bddcc74657f Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
-//! sha256=87d9838de9d1155cb6d2466b0f189b2d7006573847d9087cb99169e5716cfb80 Input: registry/
+//! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
 //! hpke-suite-registry.json; version=2026-08-29.1;
-//! sha256=df918fa1b65348082afff99db7e13f45e9bd7eebb8f8d0b2c1320dcd1010182e Input: registry/
+//! sha256=462598a10f2780e1f6ddbddb819767b86a61a4200ada93a5e940ef41aae4db8f Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-08-25;
-//! sha256=26d8e76c166e7295bc8327a232314d48638a7f4ca7b2fd3da9e53e46da4145b4 Input: registry/
+//! sha256=68619d8db1de222c9d032fdc96e92be32e85fdc0a3a0befdf4b21d135a57075d Input: registry/
 //! mls-extension-registry.json; version=2026-08-25;
-//! sha256=51518dc2ea4b9fa6f4c491b24558c0663f172157e955bc7ae75d78559158fcb0 Input: registry/
+//! sha256=298685c15b11d75b55b1b6ece6a3674b320ae00a90f488cc4d2d3545f4888b86 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
-//! sha256=b8bba95405eeb37909c1037f64e933cbb8e237753e7cae88bbc27020bcc39a71
-//! Entries: proof_contexts=75, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
+//! Entries: proof_contexts=76, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=32, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -69,6 +69,7 @@ pub enum ProofContextId {
     IdentityReceiptProofV1,
     IngressReceiptProofV1,
     KeyBackupDeleteProofV1,
+    MemberDeliveryBindingCandidateProofV1,
     MimiIdentifierQueryOutcomeProofV1,
     MimiIdentifierQueryRequestProofV1,
     MimiKeyMaterialOutcomeProofV1,
@@ -84,7 +85,6 @@ pub enum ProofContextId {
     PeerSealFrontierProofV1,
     PrincipalLocatorProofV1,
     PrincipalResolutionProjectionAttestationProofV1,
-    PrincipalServerAdmissionProofV1,
     RangeCompletenessAttestationProofV1,
     RealmJoinCandidateProofV1,
     ReceiptProofV1,
@@ -97,6 +97,7 @@ pub enum ProofContextId {
     SignalProofV1,
     SnapshotProofV1,
     SnapshotWitnessAttestationProofV1,
+    StationAdmissionProofV1,
 }
 
 impl ProofContextId {
@@ -148,6 +149,7 @@ impl ProofContextId {
         Self::IdentityReceiptProofV1,
         Self::IngressReceiptProofV1,
         Self::KeyBackupDeleteProofV1,
+        Self::MemberDeliveryBindingCandidateProofV1,
         Self::MimiIdentifierQueryOutcomeProofV1,
         Self::MimiIdentifierQueryRequestProofV1,
         Self::MimiKeyMaterialOutcomeProofV1,
@@ -163,7 +165,6 @@ impl ProofContextId {
         Self::PeerSealFrontierProofV1,
         Self::PrincipalLocatorProofV1,
         Self::PrincipalResolutionProjectionAttestationProofV1,
-        Self::PrincipalServerAdmissionProofV1,
         Self::RangeCompletenessAttestationProofV1,
         Self::RealmJoinCandidateProofV1,
         Self::ReceiptProofV1,
@@ -176,6 +177,7 @@ impl ProofContextId {
         Self::SignalProofV1,
         Self::SnapshotProofV1,
         Self::SnapshotWitnessAttestationProofV1,
+        Self::StationAdmissionProofV1,
     ];
 
     pub const ACCOUNT_BINDING_RECEIPT_PROOF_V1: &'static str =
@@ -256,6 +258,8 @@ impl ProofContextId {
     pub const IDENTITY_RECEIPT_PROOF_V1: &'static str = "ak.identity_receipt_proof.v1";
     pub const INGRESS_RECEIPT_PROOF_V1: &'static str = "ak.ingress_receipt_proof.v1";
     pub const KEY_BACKUP_DELETE_PROOF_V1: &'static str = "ak.key_backup_delete_proof.v1";
+    pub const MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1: &'static str =
+        "ak.member_delivery_binding_candidate_proof.v1";
     pub const MIMI_IDENTIFIER_QUERY_OUTCOME_PROOF_V1: &'static str =
         "ak.mimi_identifier_query_outcome_proof.v1";
     pub const MIMI_IDENTIFIER_QUERY_REQUEST_PROOF_V1: &'static str =
@@ -284,8 +288,6 @@ impl ProofContextId {
     pub const PRINCIPAL_LOCATOR_PROOF_V1: &'static str = "ak.principal_locator_proof.v1";
     pub const PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1: &'static str =
         "ak.principal_resolution_projection_attestation_proof.v1";
-    pub const PRINCIPAL_SERVER_ADMISSION_PROOF_V1: &'static str =
-        "ak.principal_server_admission_proof.v1";
     pub const RANGE_COMPLETENESS_ATTESTATION_PROOF_V1: &'static str =
         "ak.range_completeness_attestation_proof.v1";
     pub const REALM_JOIN_CANDIDATE_PROOF_V1: &'static str = "ak.realm_join_candidate_proof.v1";
@@ -306,6 +308,7 @@ impl ProofContextId {
     pub const SNAPSHOT_PROOF_V1: &'static str = "ak.snapshot_proof.v1";
     pub const SNAPSHOT_WITNESS_ATTESTATION_PROOF_V1: &'static str =
         "ak.snapshot_witness_attestation_proof.v1";
+    pub const STATION_ADMISSION_PROOF_V1: &'static str = "ak.station_admission_proof.v1";
 
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -392,6 +395,9 @@ impl ProofContextId {
             Self::IdentityReceiptProofV1 => Self::IDENTITY_RECEIPT_PROOF_V1,
             Self::IngressReceiptProofV1 => Self::INGRESS_RECEIPT_PROOF_V1,
             Self::KeyBackupDeleteProofV1 => Self::KEY_BACKUP_DELETE_PROOF_V1,
+            Self::MemberDeliveryBindingCandidateProofV1 => {
+                Self::MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1
+            }
             Self::MimiIdentifierQueryOutcomeProofV1 => Self::MIMI_IDENTIFIER_QUERY_OUTCOME_PROOF_V1,
             Self::MimiIdentifierQueryRequestProofV1 => Self::MIMI_IDENTIFIER_QUERY_REQUEST_PROOF_V1,
             Self::MimiKeyMaterialOutcomeProofV1 => Self::MIMI_KEY_MATERIAL_OUTCOME_PROOF_V1,
@@ -419,7 +425,6 @@ impl ProofContextId {
             Self::PrincipalResolutionProjectionAttestationProofV1 => {
                 Self::PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1
             }
-            Self::PrincipalServerAdmissionProofV1 => Self::PRINCIPAL_SERVER_ADMISSION_PROOF_V1,
             Self::RangeCompletenessAttestationProofV1 => {
                 Self::RANGE_COMPLETENESS_ATTESTATION_PROOF_V1
             }
@@ -440,6 +445,7 @@ impl ProofContextId {
             Self::SignalProofV1 => Self::SIGNAL_PROOF_V1,
             Self::SnapshotProofV1 => Self::SNAPSHOT_PROOF_V1,
             Self::SnapshotWitnessAttestationProofV1 => Self::SNAPSHOT_WITNESS_ATTESTATION_PROOF_V1,
+            Self::StationAdmissionProofV1 => Self::STATION_ADMISSION_PROOF_V1,
         }
     }
 
@@ -544,6 +550,9 @@ impl ProofContextId {
             Self::IDENTITY_RECEIPT_PROOF_V1 => Some(Self::IdentityReceiptProofV1),
             Self::INGRESS_RECEIPT_PROOF_V1 => Some(Self::IngressReceiptProofV1),
             Self::KEY_BACKUP_DELETE_PROOF_V1 => Some(Self::KeyBackupDeleteProofV1),
+            Self::MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1 => {
+                Some(Self::MemberDeliveryBindingCandidateProofV1)
+            }
             Self::MIMI_IDENTIFIER_QUERY_OUTCOME_PROOF_V1 => {
                 Some(Self::MimiIdentifierQueryOutcomeProofV1)
             }
@@ -579,9 +588,6 @@ impl ProofContextId {
             Self::PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1 => {
                 Some(Self::PrincipalResolutionProjectionAttestationProofV1)
             }
-            Self::PRINCIPAL_SERVER_ADMISSION_PROOF_V1 => {
-                Some(Self::PrincipalServerAdmissionProofV1)
-            }
             Self::RANGE_COMPLETENESS_ATTESTATION_PROOF_V1 => {
                 Some(Self::RangeCompletenessAttestationProofV1)
             }
@@ -608,6 +614,7 @@ impl ProofContextId {
             Self::SNAPSHOT_WITNESS_ATTESTATION_PROOF_V1 => {
                 Some(Self::SnapshotWitnessAttestationProofV1)
             }
+            Self::STATION_ADMISSION_PROOF_V1 => Some(Self::StationAdmissionProofV1),
             _ => None,
         }
     }
@@ -1358,7 +1365,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "payload_digest",
             "principal_id",
-            "principal_server_id",
+            "station_id",
             "device_id",
             "device_signing_key",
             "hpke_key",
@@ -1824,6 +1831,22 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/high-risk-authority-proof.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::MemberDeliveryBindingCandidateProofV1,
+        context: "ak.member_delivery_binding_candidate_proof.v1",
+        object_family: "member_delivery_binding_candidate",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "subject_id",
+            "recipient_id",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
+        schema_ref: "schemas/member-delivery-binding-candidate.schema.json",
+    },
+    ProofContextDescriptor {
         id: ProofContextId::MimiIdentifierQueryOutcomeProofV1,
         context: "ak.mimi_identifier_query_outcome_proof.v1",
         object_family: "mimi_identifier_query_outcome",
@@ -2057,7 +2080,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "payload_digest",
             "principal_id",
-            "principal_server_id",
+            "station_id",
             "resolution_projection",
             "method_history_evidence_digest",
             "issued_at",
@@ -2066,23 +2089,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "created_at",
         ],
         schema_ref: "schemas/identity-resolution.schema.json#/$defs/principal_resolution_projection_attestation",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::PrincipalServerAdmissionProofV1,
-        context: "ak.principal_server_admission_proof.v1",
-        object_family: "principal_server_event_admission",
-        consumer_operation: None,
-        binding_fields: &[
-            "event_digest",
-            "producer_proof_digest",
-            "producer_verification_method",
-            "producer_signing_key",
-            "signer_resolution_evidence_ref",
-            "signer_resolution_evidence_digest",
-            "accepted_at",
-            "verification_method",
-        ],
-        schema_ref: "schemas/event-envelope.schema.json#/$defs/principal_server_admission_proof",
     },
     ProofContextDescriptor {
         id: ProofContextId::RangeCompletenessAttestationProofV1,
@@ -2321,6 +2327,23 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "created_at",
         ],
         schema_ref: "schemas/snapshot.schema.json#/$defs/snapshot_witness_attestation",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::StationAdmissionProofV1,
+        context: "ak.station_admission_proof.v1",
+        object_family: "station_event_admission",
+        consumer_operation: None,
+        binding_fields: &[
+            "event_digest",
+            "producer_proof_digest",
+            "producer_verification_method",
+            "producer_signing_key",
+            "signer_resolution_evidence_ref",
+            "signer_resolution_evidence_digest",
+            "accepted_at",
+            "verification_method",
+        ],
+        schema_ref: "schemas/event-envelope.schema.json#/$defs/station_admission_proof",
     },
 ];
 

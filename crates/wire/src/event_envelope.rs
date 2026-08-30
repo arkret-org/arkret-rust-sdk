@@ -1313,7 +1313,7 @@ impl Event {
         self.validate_for_submit_structural_in_context(EventSubmitContext::Standard)
     }
 
-    /// Validate a retained direct-regime Event that has no Principal Server
+    /// Validate a retained direct-regime Event that has no Station
     /// admission proof. Its sole producer proof must carry the matching
     /// content-addressed historical signer-resolution evidence locator.
     pub fn validate_for_direct_history_structural(&self) -> Result<()> {
@@ -1353,14 +1353,14 @@ impl Event {
     }
 
     /// Validate the wire-level shape of an Event already admitted by its
-    /// declared origin Principal Server.
+    /// declared origin Station.
     pub fn validate_for_federation_structural_in_context(
         &self,
         context: EventSubmitContext,
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
         self.validate_structural_in_context(context, EventProofSetRequirement::AcceptedEvent)?;
-        self.validate_principal_server_admission_binding(digest_suite)
+        self.validate_station_admission_binding(digest_suite)
     }
 
     fn validate_structural_in_context(
@@ -1396,7 +1396,7 @@ impl Event {
                 }
                 _ => {
                     return Err(WireError::Protocol(
-                        "caller submission must carry exactly one producer proof and no principal server admission proof"
+                        "caller submission must carry exactly one producer proof and no Station admission proof"
                             .to_owned(),
                     ));
                 }
@@ -1404,7 +1404,7 @@ impl Event {
             EventProofSetRequirement::AcceptedEvent => match self.proofs.as_slice() {
                 [
                     EventProof::Producer(producer),
-                    EventProof::PrincipalServerAdmission(_),
+                    EventProof::StationAdmission(_),
                 ] => {
                     if producer.signer_resolution_evidence_ref.is_some()
                         || producer.signer_resolution_evidence_digest.is_some()
@@ -1417,7 +1417,7 @@ impl Event {
                 }
                 _ => {
                     return Err(WireError::Protocol(
-                        "federated Event must carry exactly one producer proof followed by one principal server admission proof"
+                        "federated Event must carry exactly one producer proof followed by one Station admission proof"
                             .to_owned(),
                     ));
                 }
@@ -1551,19 +1551,19 @@ impl Event {
     }
 
     /// Validate the closed accepted-Event proof set: exactly one producer
-    /// proof followed by exactly one origin Principal Server admission proof.
-    pub fn validate_principal_server_admission_binding(
+    /// proof followed by exactly one origin Station admission proof.
+    pub fn validate_station_admission_binding(
         &self,
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
         let expected_event_digest = Hash::new(self.event_digest_with_digest_suite(digest_suite)?)?;
         let [
             EventProof::Producer(producer),
-            EventProof::PrincipalServerAdmission(admission),
+            EventProof::StationAdmission(admission),
         ] = self.proofs.as_slice()
         else {
             return Err(WireError::Protocol(
-                "accepted event must contain one producer proof followed by one principal server admission proof"
+                "accepted event must contain one producer proof followed by one Station admission proof"
                     .to_owned(),
             ));
         };
@@ -1725,7 +1725,7 @@ mod event_wire_surface_tests {
     use serde_json::json;
 
     use super::*;
-    use crate::ProducerEventProof;
+    use crate::{AccountId, ProducerEventProof};
 
     fn realm() -> RealmId {
         RealmId::from_event_id(&EventId::from_digest(
@@ -1738,8 +1738,11 @@ mod event_wire_surface_tests {
         ScopeRef::Realm { realm_id: realm() }
     }
 
-    fn alice() -> DidCoreId {
-        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
+    fn alice() -> ActorId {
+        ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
+        ))
     }
 
     fn base_event() -> Event {
@@ -1751,7 +1754,6 @@ mod event_wire_surface_tests {
             realm_id: realm(),
             scope_ref: realm_scope(),
             actor_id: alice(),
-            principal_server_id: DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
             actor_seq: 1,
             created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
@@ -1841,7 +1843,6 @@ mod event_wire_surface_tests {
             "ak.message.create",
             realm_scope(),
             alice(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             1,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             json!({"body": "hello"}),
@@ -1885,7 +1886,6 @@ mod event_wire_surface_tests {
             "ak.message.create",
             realm_scope(),
             alice(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             1,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             json!({"body": "hello"}),
@@ -1909,7 +1909,6 @@ mod event_wire_surface_tests {
             "ak.message.create",
             realm_scope(),
             alice(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             1,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             json!({"body": "hello"}),

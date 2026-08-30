@@ -927,7 +927,7 @@ pub struct GenericRecoveryTranscript {
     pub request_id: RequestId,
     pub session_grant_id: SessionGrantId,
     pub session_grant_cnf_jkt: String,
-    pub principal_authority: AccountId,
+    pub account_id: AccountId,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TrustDomainId,
     pub policy_id: PolicyId,
@@ -953,7 +953,7 @@ struct GenericRecoveryTranscriptWire {
     request_id: RequestId,
     session_grant_id: SessionGrantId,
     session_grant_cnf_jkt: String,
-    principal_authority: AccountId,
+    account_id: AccountId,
     requesting_device_id: DeviceId,
     trust_domain: TrustDomainId,
     policy_id: PolicyId,
@@ -981,7 +981,7 @@ impl TryFrom<GenericRecoveryTranscriptWire> for GenericRecoveryTranscript {
             request_id: wire.request_id,
             session_grant_id: wire.session_grant_id,
             session_grant_cnf_jkt: wire.session_grant_cnf_jkt,
-            principal_authority: wire.principal_authority,
+            account_id: wire.account_id,
             requesting_device_id: wire.requesting_device_id,
             trust_domain: wire.trust_domain,
             policy_id: wire.policy_id,
@@ -1039,7 +1039,7 @@ pub struct DidRootTranscript {
     pub request_id: RequestId,
     pub session_grant_id: SessionGrantId,
     pub session_grant_cnf_jkt: String,
-    pub principal_authority: AccountId,
+    pub account_id: AccountId,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TrustDomainId,
     pub policy_id: PolicyId,
@@ -1064,7 +1064,7 @@ struct DidRootTranscriptWire {
     request_id: RequestId,
     session_grant_id: SessionGrantId,
     session_grant_cnf_jkt: String,
-    principal_authority: AccountId,
+    account_id: AccountId,
     requesting_device_id: DeviceId,
     trust_domain: TrustDomainId,
     policy_id: PolicyId,
@@ -1091,7 +1091,7 @@ impl TryFrom<DidRootTranscriptWire> for DidRootTranscript {
             request_id: wire.request_id,
             session_grant_id: wire.session_grant_id,
             session_grant_cnf_jkt: wire.session_grant_cnf_jkt,
-            principal_authority: wire.principal_authority,
+            account_id: wire.account_id,
             requesting_device_id: wire.requesting_device_id,
             trust_domain: wire.trust_domain,
             policy_id: wire.policy_id,
@@ -1258,7 +1258,7 @@ impl RecoveryPublicationAuthorityContext {
 #[serde(deny_unknown_fields)]
 pub struct RecoverySessionCreateRequestBody {
     pub request_id: RequestId,
-    pub principal_authority: AccountId,
+    pub account_id: AccountId,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TrustDomainId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1590,7 +1590,7 @@ pub struct RecoverySessionState {
     pub recovery_session_id: RecoverySessionId,
     pub session_grant_id: SessionGrantId,
     pub session_grant_cnf_jkt: String,
-    pub principal_authority: AccountId,
+    pub account_id: AccountId,
     pub requesting_device_id: DeviceId,
     pub trust_domain: TrustDomainId,
     pub policy_id: PolicyId,
@@ -1634,7 +1634,7 @@ impl Serialize for RecoverySessionState {
         map.serialize_entry("recovery_session_id", &self.recovery_session_id)?;
         map.serialize_entry("session_grant_id", &self.session_grant_id)?;
         map.serialize_entry("session_grant_cnf_jkt", &self.session_grant_cnf_jkt)?;
-        map.serialize_entry("principal_authority", &self.principal_authority)?;
+        map.serialize_entry("account_id", &self.account_id)?;
         map.serialize_entry("requesting_device_id", &self.requesting_device_id)?;
         map.serialize_entry("trust_domain", &self.trust_domain)?;
         map.serialize_entry("policy_id", &self.policy_id)?;
@@ -1681,7 +1681,7 @@ struct RecoverySessionStateWire {
     recovery_session_id: RecoverySessionId,
     session_grant_id: SessionGrantId,
     session_grant_cnf_jkt: String,
-    principal_authority: AccountId,
+    account_id: AccountId,
     requesting_device_id: DeviceId,
     trust_domain: TrustDomainId,
     policy_id: PolicyId,
@@ -1740,7 +1740,7 @@ impl<'de> Deserialize<'de> for RecoverySessionState {
             recovery_session_id: wire.recovery_session_id,
             session_grant_id: wire.session_grant_id,
             session_grant_cnf_jkt: wire.session_grant_cnf_jkt,
-            principal_authority: wire.principal_authority,
+            account_id: wire.account_id,
             requesting_device_id: wire.requesting_device_id,
             trust_domain: wire.trust_domain,
             policy_id: wire.policy_id,

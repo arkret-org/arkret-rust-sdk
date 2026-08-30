@@ -7,7 +7,7 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    AccountId, CbaProofBundle, DidCoreId, Event, EventFederationSubmission, EventId,
+    AccountId, ActorId, CbaProofBundle, DidCoreId, Event, EventFederationSubmission, EventId,
     EventInitialSubmission, Hash, RealmId, Result, WireError,
 };
 use chrono::{DateTime, Utc};
@@ -481,7 +481,7 @@ mod tests {
     fn authority(principal: &str, server: &str) -> AccountId {
         AccountId {
             principal_id: DidCoreId::new(principal).unwrap(),
-            principal_server_id: DidCoreId::new(server).unwrap(),
+            station_id: DidCoreId::new(server).unwrap(),
         }
     }
 
@@ -497,7 +497,7 @@ mod tests {
         };
         let mut leave = MembershipPayload::transition(
             MembershipPayloadState::Leave,
-            DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
+            ActorId::service(DidCoreId::new("ak:did_core:web:agent.example").unwrap()),
             "controller membership ended",
         );
         leave.membership_cause = Some(MembershipLifecycleCause::ControllerMembershipEnded);
@@ -505,7 +505,7 @@ mod tests {
         leave.to_value().unwrap();
         let mut ban = MembershipPayload::transition(
             MembershipPayloadState::Ban,
-            DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
+            ActorId::service(DidCoreId::new("ak:did_core:web:agent.example").unwrap()),
             "controller membership ended",
         );
         ban.membership_cause = Some(MembershipLifecycleCause::ControllerMembershipEnded);

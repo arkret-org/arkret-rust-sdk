@@ -53,14 +53,14 @@ impl Client {
     pub async fn open_principal_resolution(
         &self,
         principal_id: &DidCoreId,
-        principal_server_id: &DidCoreId,
+        station_id: &DidCoreId,
     ) -> Result<PublicPrincipalResolution> {
         let encoded = url::form_urlencoded::byte_serialize(principal_id.as_str().as_bytes())
             .collect::<String>();
         let path = format!("/_arkret/open/principals/{encoded}/resolution");
         let builder = self
             .public_request(Method::GET, &path)?
-            .query(&[("principal_server_id", principal_server_id.as_str())]);
+            .query(&[("station_id", station_id.as_str())]);
         let resolution: PublicPrincipalResolution = self.send_json(builder).await?;
         resolution
             .validate_attestation_binding()

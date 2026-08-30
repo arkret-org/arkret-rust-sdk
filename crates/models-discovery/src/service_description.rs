@@ -1010,14 +1010,14 @@ mod tests {
 
     use super::*;
 
-    fn principal_description() -> ServiceDescribe {
+    fn station_description() -> ServiceDescribe {
         ServiceDescribe::development(
             Did::new("did:webvh:z6mkfixture:service.example").unwrap(),
             TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-            ServiceKind::PrincipalServer,
+            ServiceKind::Station,
             vec![
-                "ak.operation_bundle.principal_server.describe.v1".to_owned(),
-                "ak.operation_bundle.principal_server.http_core.v1".to_owned(),
+                "ak.operation_bundle.station.describe.v1".to_owned(),
+                "ak.operation_bundle.station.http_core.v1".to_owned(),
             ],
             vec![TransportBinding::HttpJson {
                 base_url: "https://service.example".to_owned(),
@@ -1026,14 +1026,14 @@ mod tests {
         )
     }
 
-    fn auth_server_description() -> ServiceDescribe {
+    fn station_account_authority_description() -> ServiceDescribe {
         ServiceDescribe::development(
             Did::new("did:webvh:z6mkfixture:auth.example").unwrap(),
             TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-            ServiceKind::AuthServer,
+            ServiceKind::Station,
             vec![
-                "ak.operation_bundle.auth_server.describe.v1".to_owned(),
-                "ak.operation_bundle.auth_server.http_core.v1".to_owned(),
+                "ak.operation_bundle.station.describe.v1".to_owned(),
+                "ak.operation_bundle.station.account_authority_support.v1".to_owned(),
             ],
             vec![TransportBinding::HttpJson {
                 base_url: "https://auth.example".to_owned(),
@@ -1058,7 +1058,7 @@ mod tests {
 
     #[test]
     fn removed_flat_operation_field_is_rejected_during_decode() {
-        let description = principal_description();
+        let description = station_description();
         let mut wire = serde_json::to_value(description).unwrap();
         wire.as_object_mut().unwrap().insert(
             "supported_operations".to_owned(),
@@ -1070,7 +1070,7 @@ mod tests {
 
     #[test]
     fn bundle_driven_transport_selection_is_exact() {
-        let description = principal_description();
+        let description = station_description();
         assert!(
             description
                 .select_transport_binding(
@@ -1090,8 +1090,8 @@ mod tests {
     }
 
     #[test]
-    fn auth_server_bundle_expands_service_resolution_capability() {
-        let description = auth_server_description();
+    fn station_account_authority_bundle_expands_service_resolution_capability() {
+        let description = station_account_authority_description();
 
         assert!(description.supports_operation_binding(
             ServiceOperationId::OpenServiceReadResolutionV1,
@@ -1194,7 +1194,7 @@ mod tests {
 
     #[test]
     fn calendar_profile_claim_requires_an_executable_tzdb_release() {
-        let mut description = principal_description();
+        let mut description = station_description();
         description
             .supported_profiles
             .push("ak.profile.calendar_notification_dispatch.v1".to_owned());

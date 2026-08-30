@@ -131,7 +131,7 @@ pub struct RealmPreview {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RealmJoinCandidateServiceKind {
-    PrincipalServer,
+    Station,
 }
 
 /// Routing role for a Realm join candidate. This is an ordering and
@@ -140,7 +140,7 @@ pub enum RealmJoinCandidateServiceKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RealmJoinCandidateRole {
-    JoinedMemberPrincipalServer,
+    JoinedMemberStation,
 }
 
 /// Join-side strand supported by a Realm join candidate.
@@ -196,7 +196,7 @@ pub struct RealmJoinCandidate {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub frontier_ref: Option<String>,
     /// Complete Control Move basis for the current accepted Realm Seal
-    /// frontier at `as_of`. Principal server candidates MUST include the full
+    /// frontier at `as_of`. Station candidates MUST include the full
     /// canonical antichain because a pre-join client cannot read the
     /// membership-gated frontier view.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -976,7 +976,7 @@ pub struct DirectoryAnnounceRequestBody {
     pub source_refs: Vec<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
-    pub principal_server_id: DidCoreId,
+    pub station_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ttl_seconds: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]

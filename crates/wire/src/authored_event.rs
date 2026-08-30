@@ -232,8 +232,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        DidCoreId, DidUrl, EventId, EventRequirements, Hash, Hlc, ProducerEventProof, RealmId,
-        ScopeRef,
+        AccountId, ActorId, DidCoreId, DidUrl, EventId, EventRequirements, Hash, Hlc,
+        ProducerEventProof, RealmId, ScopeRef,
     };
 
     const SUITE: DigestSuite = DigestSuite::Sha256;
@@ -244,14 +244,14 @@ mod tests {
 
     fn envelope() -> Event {
         let actor = DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap();
+        let station = DidCoreId::new("ak:did_core:webvh:z6mkfixture:station.example").unwrap();
         Event {
             event_id: EventId::from_digest(DigestSuite::Sha256, [0xa0; 32]),
             kind: "ak.message.create".into(),
             realm_id: realm(),
             scope_ref: ScopeRef::Realm { realm_id: realm() },
-            actor_id: actor.clone(),
+            actor_id: ActorId::account(AccountId::new(actor, station)),
             executed_by: None,
-            principal_server_id: actor,
             authorization_ref: None,
             applet_id: None,
             external_ref: None,

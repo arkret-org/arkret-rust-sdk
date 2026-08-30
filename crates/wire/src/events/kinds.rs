@@ -208,6 +208,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::RealmSetDefaultStrand
         | EventKind::RealmNotary
         | EventKind::RealmDigestSuiteTransition
+        | EventKind::RealmDeliveryBindingPolicy
         | EventKind::RealmLink
         | EventKind::RealmMediaService
         | EventKind::RealmOrganization

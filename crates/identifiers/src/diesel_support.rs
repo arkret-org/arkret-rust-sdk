@@ -9,7 +9,7 @@ use diesel::pg::{Pg, PgValue};
 use diesel::serialize::{self, Output, ToSql};
 use diesel::sql_types::Text;
 
-use super::{CellRef, DidCoreId, Hash, WebOrigin};
+use super::{CellRef, DidCoreId, Hash, ServiceAccountId, WebOrigin};
 
 #[derive(diesel::expression::AsExpression, diesel::deserialize::FromSqlRow)]
 #[diesel(foreign_derive)]
@@ -79,6 +79,7 @@ macro_rules! impl_text_identifier_sql {
 
 impl_text_identifier_sql!(CellRef, "CellRef");
 impl_text_identifier_sql!(Hash, "Hash");
+impl_text_identifier_sql!(ServiceAccountId, "ServiceAccountId");
 impl_text_identifier_sql!(WebOrigin, "WebOrigin");
 
 #[cfg(test)]
@@ -89,7 +90,10 @@ mod tests {
     use diesel::prelude::*;
     use diesel::sql_types::{Nullable, Text};
 
-    use super::{CellRef, DidCoreId, Hash, WebOrigin, parse_database_text, parse_text_identifier};
+    use super::{
+        CellRef, DidCoreId, Hash, ServiceAccountId, WebOrigin, parse_database_text,
+        parse_text_identifier,
+    };
 
     diesel::table! {
         did_core_rows (core_id) {

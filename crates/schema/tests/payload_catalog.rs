@@ -220,7 +220,7 @@ fn invite_create_payload_shape_is_enforced() {
         "invitee_id": "ak:did_core:webvh:z6mkfixture",
         "invite_delivery_target": {
             "recipient_id": "ak:did_core:webvh:z6mkserver",
-            "recipient_kind": "principal_server",
+            "recipient_kind": "station",
             "service_resolution": {
                 "current_record_url": "https://server.example/.well-known/arkret/service-resolution.json"
             }

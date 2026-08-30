@@ -642,9 +642,13 @@ mod tests {
 
     use super::*;
     use crate::primitives::proof_kind;
+    use crate::{AccountId, DidCoreId};
 
-    fn actor() -> DidCoreId {
-        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
+    fn actor() -> ActorId {
+        ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
+        ))
     }
 
     fn scope() -> ScopeRef {

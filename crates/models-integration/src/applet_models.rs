@@ -297,7 +297,7 @@ pub enum AppletManagedActorPurpose {
 pub struct AppletInstallAuthoringRequestBasis {
     pub schema: String,
     pub purpose: AppletManagedActorPurpose,
-    pub target_principal_server_id: DidCoreId,
+    pub target_station_id: DidCoreId,
     pub install_actor_id: DidCoreId,
     pub applet_id: AppletId,
     pub service_id: DidCoreId,
@@ -340,7 +340,7 @@ impl AppletInstallAuthoringRequestBasis {
 struct AppletInstallAuthoringRequestBasisWire {
     schema: String,
     purpose: AppletManagedActorPurpose,
-    target_principal_server_id: DidCoreId,
+    target_station_id: DidCoreId,
     install_actor_id: DidCoreId,
     applet_id: AppletId,
     service_id: DidCoreId,
@@ -382,7 +382,7 @@ impl<'de> Deserialize<'de> for AppletInstallAuthoringRequestBasis {
         let basis = Self {
             schema: wire.schema,
             purpose: wire.purpose,
-            target_principal_server_id: wire.target_principal_server_id,
+            target_station_id: wire.target_station_id,
             install_actor_id: wire.install_actor_id,
             applet_id: wire.applet_id,
             service_id: wire.service_id,
@@ -406,7 +406,7 @@ impl<'de> Deserialize<'de> for AppletInstallAuthoringRequestBasis {
 pub struct AppletGhostAuthoringRequestBasis {
     pub schema: String,
     pub purpose: AppletManagedActorPurpose,
-    pub target_principal_server_id: DidCoreId,
+    pub target_station_id: DidCoreId,
     pub applet_id: AppletId,
     pub service_id: DidCoreId,
     pub realm_id: RealmId,
@@ -449,10 +449,10 @@ impl AppletManagedActorAuthoringBasis {
         }
     }
 
-    pub fn target_principal_server_id(&self) -> &DidCoreId {
+    pub fn target_station_id(&self) -> &DidCoreId {
         match self {
-            Self::InstallBot(basis) => &basis.target_principal_server_id,
-            Self::ProvisionGhost(basis) => &basis.target_principal_server_id,
+            Self::InstallBot(basis) => &basis.target_station_id,
+            Self::ProvisionGhost(basis) => &basis.target_station_id,
         }
     }
 
@@ -559,7 +559,7 @@ impl AppletManagedActorAuthoringRequest {
             || self.proof.payload_digest != self.payload_digest()?
             || &self.proof.audience_id != self.basis.service_id()
             || self.proof.verification_method != self.hosting_notary.verification_method
-            || &self.hosting_notary.actor_id != self.basis.target_principal_server_id()
+            || &self.hosting_notary.actor_id != self.basis.target_station_id()
             || self.proof.kind != arkret_wire::proof_kind::DETACHED_JWS
             || self.issued_at >= self.expires_at
             || self.expires_at - self.issued_at > chrono::Duration::minutes(5)
@@ -583,7 +583,7 @@ impl AppletManagedActorAuthoringRequest {
     ) -> Result<Self> {
         basis.validate()?;
         hosting_notary.validate()?;
-        if hosting_notary.actor_id != basis.target_principal_server_id
+        if hosting_notary.actor_id != basis.target_station_id
             || hosting_notary.verification_method != *signer.verification_method_id()
         {
             return Err(WireError::Protocol(
@@ -625,7 +625,7 @@ impl AppletManagedActorAuthoringRequest {
     ) -> Result<Self> {
         basis.validate()?;
         hosting_notary.validate()?;
-        if hosting_notary.actor_id != basis.target_principal_server_id
+        if hosting_notary.actor_id != basis.target_station_id
             || hosting_notary.verification_method != *signer.verification_method_id()
         {
             return Err(WireError::Protocol(
@@ -728,7 +728,7 @@ impl AppletManagedActorAuthoringBundle {
         if self.schema != Self::SCHEMA
             || self.authoring_request_digest != authoring_request.canonical_digest()?
             || self.proof.payload_digest != self.payload_digest()?
-            || &self.proof.audience_id != authoring_request.basis.target_principal_server_id()
+            || &self.proof.audience_id != authoring_request.basis.target_station_id()
             || self.proof.kind != arkret_wire::proof_kind::DETACHED_JWS
             || self.proof.created_at != authoring_request.issued_at
             || self.proof.created_at > authoring_request.expires_at

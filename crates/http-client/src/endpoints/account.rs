@@ -636,7 +636,7 @@ mod tests {
         serde_json::json!({
             "account_id": {
                 "principal_id": "ak:did_core:web:alice.example",
-                "principal_server_id": "ak:did_core:web:service.example"
+                "station_id": "ak:did_core:web:service.example"
             },
             "session_grant": "signed.jwt",
             "expires_at": "2026-08-08T12:04:00.000Z",
@@ -671,7 +671,7 @@ mod tests {
             "session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
             "account_id": {
                 "principal_id": "ak:did_core:web:alice.example",
-                "principal_server_id": "ak:did_core:web:service.example"
+                "station_id": "ak:did_core:web:service.example"
             },
             "grant_jwt": "successor.jwt",
             "session_public_key": r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,

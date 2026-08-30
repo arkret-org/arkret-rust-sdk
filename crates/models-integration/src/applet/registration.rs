@@ -1177,7 +1177,7 @@ pub fn applet_document_digest(document: &DidDocument) -> Result<Hash> {
 //
 // Spec `applet-schema.md` §1a/§1b + `applet-integration.md` §4a/§4b. The
 // Package is a controller-signed *distribution* object: it is NOT Realm
-// history and NOT a grant. The Principal Server / authz service derives a
+// history and NOT a grant. The Station / authz service derives a
 // canonical `ak.applet.registration` and capability grants during
 // `ak.self.applet.command.install.v1`.
 
@@ -1487,7 +1487,7 @@ impl AppletPackage {
     /// Derive the canonical `ak.applet.registration` payload per the
     /// spec §1a mapping table. This is payload derivation only: the formal
     /// install request supplies its caller-signed registration Event, and the
-    /// Principal Server validates and atomically commits the fixed local unit
+    /// Station validates and atomically commits the fixed local unit
     /// without re-signing or federation fan-out.
     pub fn to_registration(
         &self,

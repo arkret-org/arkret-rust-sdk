@@ -18,7 +18,7 @@ use crate::service_description::ServiceDescribe;
 /// DID-document `service[].type` value designating a device enrollment
 /// authority (the entity allowed to sign `service_attested` `ak.device.authorize`
 /// for this principal). PascalCase per DID-core service-kind convention,
-/// mirroring `ArkretPrincipalServer`. See `zh/identity/identity-did.md` and
+/// mirroring `ArkretStation`. See `zh/identity/identity-did.md` and
 /// `zh/crypto-media/device-lifecycle.md` §5.4. This is distinct from the
 /// snake_case [`ServiceKind`] used by `ServiceEndpointBinding`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

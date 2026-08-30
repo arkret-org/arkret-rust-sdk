@@ -1,14 +1,21 @@
 use arkret_wire::{
-    AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole, AuthoritySetPolicy,
-    AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind,
-    AuthorizationLease, AuthorizationLeaseId, ControlProposalAckKind, DeviceId, DidKey, DidUrl,
-    EventProof, Hash, IngressReceipt, LeaseBasisRef, NotarySig, PayloadProof, PayloadSignature,
-    PrincipalServerAdmissionProof, PrincipalServerAdmissionProofKind, ReceiptId, RiskTier,
-    ScopeRef, SealSignature,
+    AccountId, ActorId, AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
+    AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
+    AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, ControlProposalAckKind,
+    DeviceId, DidKey, DidUrl, EventProof, Hash, IngressReceipt, LeaseBasisRef, NotarySig,
+    PayloadProof, PayloadSignature, ReceiptId, RiskTier, ScopeRef, SealSignature,
+    StationAdmissionProof, StationAdmissionProofKind,
 };
 use serde_json::json;
 
 use super::*;
+
+fn account_actor(principal: &str) -> ActorId {
+    ActorId::account(AccountId::new(
+        DidCoreId::new(principal).unwrap(),
+        DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
+    ))
+}
 
 #[test]
 fn federation_submit_union_rejects_unknown_unit_kind_without_fallback() {
@@ -26,7 +33,7 @@ fn federation_submit_union_rejects_unknown_unit_kind_without_fallback() {
 
 #[test]
 fn realm_actor_frontier_distinguishes_empty_and_seq_zero_histories() {
-    let actor_id = DidCoreId::new("ak:did_core:web:alice.example").unwrap();
+    let actor_id = account_actor("ak:did_core:web:alice.example");
     let realm_id = RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
     RealmActorFrontierView::new(
         realm_id.clone(),
@@ -60,7 +67,7 @@ fn realm_actor_frontier_digest_matches_the_spec_vector() {
     frontier_event_ids.sort();
     let frontier = RealmActorFrontierView::new(
         RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
-        DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+        account_actor("ak:did_core:web:alice.example"),
         43,
         frontier_event_ids,
         DigestSuite::Sha256,
@@ -84,8 +91,13 @@ fn event_with_device_proof() -> Event {
             "kind": "realm",
             "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
         },
-        "actor_id": "ak:did_core:web:alice.example",
-        "principal_server_id": "ak:did_core:web:ps.example",
+        "actor_id": {
+            "kind": "account",
+            "account_id": {
+                "principal_id": "ak:did_core:web:alice.example",
+                "station_id": "ak:did_core:web:ps.example"
+            }
+        },
         "actor_seq": 1,
         "created_at": "2026-07-21T08:00:00.000Z",
         "hlc": "01970e589d21-0001-a13f9c2e",
@@ -137,13 +149,13 @@ fn federation_submission(mut event: Event) -> EventFederationSubmission {
     .unwrap();
     event.proofs[0].as_producer_mut().unwrap().event_digest = event_digest;
     let producer = event.proofs[0].as_producer().unwrap().clone();
-    event.proofs.push(EventProof::PrincipalServerAdmission(
-        PrincipalServerAdmissionProof {
-            kind: PrincipalServerAdmissionProofKind::PrincipalServerAdmission,
+    event
+        .proofs
+        .push(EventProof::StationAdmission(StationAdmissionProof {
+            kind: StationAdmissionProofKind::StationAdmission,
             verification_method: DidUrl::new("did:web:ps.example#key-1").unwrap(),
             event_digest: producer.event_digest.clone(),
-            producer_proof_digest: PrincipalServerAdmissionProof::producer_proof_digest(&producer)
-                .unwrap(),
+            producer_proof_digest: StationAdmissionProof::producer_proof_digest(&producer).unwrap(),
             producer_verification_method: producer.verification_method.clone(),
             producer_signing_key_did: DidKey::new("did:key:z6Mkhfixture").unwrap(),
             producer_signer_resolution_evidence_ref: None,
@@ -157,8 +169,7 @@ fn federation_submission(mut event: Event) -> EventFederationSubmission {
                 .unwrap(),
             accepted_at: issued_at,
             jws: "admission..signature".to_owned(),
-        },
-    ));
+        }));
     let authority_set_policy = AuthoritySetPolicy {
         schema: SchemaId::AUTHORITY_SET_POLICY_V1.to_owned(),
         authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
@@ -196,7 +207,7 @@ fn federation_submission(mut event: Event) -> EventFederationSubmission {
         basis_ref: LeaseBasisRef::Seal(
             SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
         ),
-        actor_id: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+        actor_id: event.actor_id.clone(),
         device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002").unwrap(),
         scope_ref: event.scope_ref.clone(),
         action: event.kind.as_str().to_owned(),
@@ -348,7 +359,7 @@ fn federation_request(events: Vec<Event>) -> EventsSubmitFederationBatchRequestB
             realm_id,
             realm_policy_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
             membership_frontier: Vec::new(),
-            destination_kind: "principal_server".to_owned(),
+            destination_kind: "station".to_owned(),
         },
         events: events.into_iter().map(federation_submission).collect(),
         cba_proof_bundles: Vec::new(),
@@ -524,7 +535,7 @@ fn federation_transport_requires_publication_evidence_bound_to_each_event() {
         .authorization_lease
         .as_mut()
         .expect("fixture uses delayed federation")
-        .actor_id = DidCoreId::new("ak:did_core:web:mallory.example").unwrap();
+        .actor_id = account_actor("ak:did_core:web:mallory.example");
     assert!(
         foreign_actor
             .validate_federation_transport(&[DigestSuite::Sha256])

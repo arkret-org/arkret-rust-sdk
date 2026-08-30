@@ -267,7 +267,7 @@ impl Client {
         let submit_context = initial_submission_context(events)?;
         if submit_context == EventSubmitContext::AnchorUnit {
             // Realm genesis has no accepted authority from which a caller can
-            // pre-collect a Control Proposal Ack. The admitting Principal Server
+            // pre-collect a Control Proposal Ack. The admitting Station
             // mints those receipts atomically after it has pre-admitted the
             // complete lease-bound unit. A device re-anchor, by contrast,
             // already has an accepted recovery authority and must arrive with
@@ -805,7 +805,7 @@ impl Client {
         Ok(outcome)
     }
 
-    /// Ask the create-locked Principal Server holder to issue and persist the
+    /// Ask the create-locked Station holder to issue and persist the
     /// exact availability dependency closure before a device signs a PCR
     /// successor Seal.
     pub async fn seal_availability_receipts_issue(
@@ -844,7 +844,7 @@ impl Client {
     ///
     /// Callers that do not already hold a wrapper should use
     /// [`prepare_initial_submission`](Self::prepare_initial_submission) so the
-    /// authenticated Principal Server performs read-only admission and signs
+    /// authenticated Station performs read-only admission and signs
     /// the lease. The SDK never fabricates a lease locally.
     pub async fn events_submit(
         &self,
@@ -922,7 +922,7 @@ impl Client {
         &self,
         realm_id: &RealmId,
         subject: &DidCoreId,
-        subject_principal_server_id: &DidCoreId,
+        subject_station_id: &DidCoreId,
         at: Option<&str>,
     ) -> Result<GrantList> {
         let mut builder = self
@@ -930,10 +930,7 @@ impl Client {
             .query(&[
                 ("realm_id", realm_id.as_str()),
                 ("subject", subject.as_str()),
-                (
-                    "subject_principal_server_id",
-                    subject_principal_server_id.as_str(),
-                ),
+                ("subject_station_id", subject_station_id.as_str()),
             ]);
         if let Some(at) = at {
             builder = builder.query(&[("at", at)]);

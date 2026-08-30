@@ -28,7 +28,7 @@ fn embedded_device_revocation_fixture_keeps_the_named_contract() {
             "keypackage_claim",
             "to_device_write",
             "event_write",
-            "principal_server_admission_proof_issue"
+            "station_admission_proof_issue"
         ])
     );
 }

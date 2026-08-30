@@ -830,7 +830,7 @@ pub enum SessionGrantIntrospectStatus {
     NotFound,
 }
 
-/// Non-secret grant metadata returned to a validating Principal Server. Never
+/// Non-secret grant metadata returned to a validating Station. Never
 /// includes the grant JWT, refresh token, or session private key.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -853,7 +853,7 @@ pub struct SessionGrantIntrospectGrant {
     /// `/_arkret/self/*`. Server-to-server only.
     pub session_public_key: CanonicalSessionPublicJwk,
     /// RFC 7638 JWK SHA-256 thumbprint of the holder (DPoP) key the grant is
-    /// bound to (the grant's `cnf.jkt`); the Principal Server uses it to verify
+    /// bound to (the grant's `cnf.jkt`); the Station uses it to verify
     /// the per-request DPoP proof on `/_arkret/self/*`.
     pub cnf_jkt: String,
     pub credential_class: SessionGrantCredentialClass,
@@ -1067,7 +1067,7 @@ mod session_grant_contract_tests {
         let valid = json!({
             "account_id": {
                 "principal_id": "ak:did_core:web:alice.example",
-                "principal_server_id": "ak:did_core:web:service.example"
+                "station_id": "ak:did_core:web:service.example"
             },
             "session_grant": "signed.jwt",
             "expires_at": "2026-08-08T12:00:00.000Z",
@@ -1194,7 +1194,7 @@ mod session_grant_contract_tests {
             "issuer_id": "ak:did_core:web:account-authority.example",
             "account_id": {
                 "principal_id": "ak:did_core:web:alice.example",
-                "principal_server_id": "ak:did_core:web:service.example"
+                "station_id": "ak:did_core:web:service.example"
             },
             "device_id": "ak:device:019a6aa0-0000-7000-8000-000000000000",
             "audience_id": "ak:did_core:web:service.example",
@@ -1228,7 +1228,7 @@ mod session_grant_contract_tests {
             grant.account_id().principal_id.as_str(),
             "ak:did_core:web:alice.example"
         );
-        assert_eq!(grant.account_id().principal_server_id, grant.audience_id);
+        assert_eq!(grant.account_id().station_id, grant.audience_id);
         assert_eq!(
             grant
                 .human_device_authorization_selector()
@@ -1308,7 +1308,7 @@ mod session_grant_contract_tests {
             "session_grant_id": GRANT_ID,
             "account_id": {
                 "principal_id": "ak:did_core:web:alice.example",
-                "principal_server_id": "ak:did_core:web:service.example"
+                "station_id": "ak:did_core:web:service.example"
             },
             "grant_jwt": "successor.jwt",
             "session_public_key": CANONICAL_JWK,

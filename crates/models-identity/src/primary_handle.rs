@@ -385,7 +385,7 @@ fn truncate_account_id(account_id: &AccountId) -> String {
     truncate_did(&format!(
         "{}@{}",
         account_id.principal_id.as_str(),
-        account_id.principal_server_id.as_str()
+        account_id.station_id.as_str()
     ))
 }
 

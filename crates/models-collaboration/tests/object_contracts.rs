@@ -8,7 +8,7 @@ use arkret_models_collaboration::objects::profiles::{
 use arkret_models_collaboration::objects::realm::{CellLatticeDeclaration, Realm};
 use arkret_models_collaboration::objects::strand::Strand;
 use arkret_wire::{
-    Did, DidCoreId, DidUrl, FederationPolicy, Hash, NotaryJoseAlgorithm, NotaryKeyKind,
+    ActorId, Did, DidCoreId, DidUrl, FederationPolicy, Hash, NotaryJoseAlgorithm, NotaryKeyKind,
     NotarySignerDescriptor, ObjectStage, ObjectState, SchemaId, project_did_to_core_id,
 };
 use chrono::Utc;
@@ -16,7 +16,7 @@ use serde_json::json;
 
 fn signer(did: &str) -> NotarySignerDescriptor {
     NotarySignerDescriptor {
-        actor_id: actor(did),
+        actor_id: actor(did).signing_principal_id().clone(),
         verification_method: DidUrl::new(format!("{did}#key-1")).unwrap(),
         key_kind: NotaryKeyKind::Ed25519Raw32,
         jose_algorithm: NotaryJoseAlgorithm::Ed25519,
@@ -32,12 +32,13 @@ fn single_signer_notary(did: &str) -> arkret_wire::NotaryValue {
     arkret_wire::NotaryValue::single_signer(signer(did))
 }
 
-fn actor(value: &str) -> DidCoreId {
-    if value.starts_with("ak:did_core:") {
+fn actor(value: &str) -> ActorId {
+    let core = if value.starts_with("ak:did_core:") {
         DidCoreId::new(value).unwrap()
     } else {
         project_did_to_core_id(&Did::new(value).unwrap()).unwrap()
-    }
+    };
+    ActorId::service(core)
 }
 
 #[test]
@@ -275,10 +276,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         restored.bottom_escalation_after_ms,
         realm.bottom_escalation_after_ms
     );
-    assert_eq!(
-        restored.updated_by.as_ref().map(DidCoreId::as_str),
-        realm.updated_by.as_ref().map(DidCoreId::as_str)
-    );
+    assert_eq!(restored.updated_by, realm.updated_by);
 }
 
 /// `Realm::new` keeps the required genesis seal fields on the wire while

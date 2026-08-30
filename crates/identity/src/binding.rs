@@ -78,7 +78,7 @@ pub enum DidBindingPurpose {
     DirectoryIngest,
     /// Directory-scoped claim / invite issuer (Teabay DID-P0-C02).
     DirectoryIssuer,
-    /// Principal-server service endpoint binding (Teabay DID-P0-C02).
+    /// Station service endpoint binding (Teabay DID-P0-C02).
     PrincipalServiceEndpoint,
     /// Account registration / claim binding (Coauth DID-P2-A).
     AccountBinding,

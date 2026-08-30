@@ -20,7 +20,7 @@ REPO = Path(__file__).resolve().parent.parent
 DEFAULT_ARTIFACTS = REPO.parent / "arkret-spec" / "spec" / "v1" / "artifacts"
 DEFAULT_EVIDENCE = REPO / "tools" / "operation-coverage-evidence.json"
 DEFAULT_OUTPUT = REPO / "docs" / "operation-coverage-matrix.md"
-AUDITED_CLAIMABLE_PROFILES = 68
+AUDITED_CLAIMABLE_PROFILES = 67
 
 
 def load_json(path: Path) -> dict[str, Any]:

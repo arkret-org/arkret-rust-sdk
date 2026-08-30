@@ -388,7 +388,7 @@ mod tests {
 
     fn unsigned_fixture() -> UnsignedKeyBackupActiveSeries {
         UnsignedKeyBackupActiveSeries::new(
-            DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            ActorId::service(DidCoreId::new("ak:did_core:web:alice.example").unwrap()),
             BackupKind::MlsHistory,
             BackupSeriesId::new("ak:backup_series:019a6760-0000-7000-8000-000000000001".to_owned())
                 .unwrap(),

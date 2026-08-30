@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::{ActorId, DidCoreId, Event, EventId, Hlc, Result, ScopeRef};
+use crate::{AccountId, ActorId, DidCoreId, Event, EventId, Hlc, Result, ScopeRef};
 
 /// Structurally valid detached compact JWS for fixtures that do not verify a
 /// signature.
@@ -64,7 +64,7 @@ pub fn raw_event(
     kind: impl Into<String>,
     scope_ref: ScopeRef,
     actor_id: DidCoreId,
-    principal_server_id: DidCoreId,
+    station_id: DidCoreId,
     actor_seq: u64,
     hlc: Hlc,
     payload: Value,
@@ -72,7 +72,7 @@ pub fn raw_event(
     Event::new(
         kind,
         scope_ref,
-        ActorId::hosted_principal(actor_id, principal_server_id),
+        ActorId::account(AccountId::new(actor_id, station_id)),
         actor_seq,
         hlc,
         payload,
@@ -85,7 +85,7 @@ pub fn raw_event_at(
     kind: impl Into<String>,
     scope_ref: ScopeRef,
     actor_id: DidCoreId,
-    principal_server_id: DidCoreId,
+    station_id: DidCoreId,
     actor_seq: u64,
     hlc: Hlc,
     payload: Value,
@@ -94,7 +94,7 @@ pub fn raw_event_at(
     Event::new_at(
         kind,
         scope_ref,
-        ActorId::hosted_principal(actor_id, principal_server_id),
+        ActorId::account(AccountId::new(actor_id, station_id)),
         actor_seq,
         hlc,
         payload,

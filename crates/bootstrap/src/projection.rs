@@ -225,7 +225,7 @@ mod tests {
             "kind": "ak.realm.create",
             "scope_ref": {"kind": "realm_genesis"},
             "actor_id": "ak:did_core:webvh:z6mkfixture",
-            "principal_server_id": "ak:did_core:webvh:z6mkfixtureps",
+            "station_id": "ak:did_core:webvh:z6mkfixtureps",
             "actor_seq": 0,
             "created_at": "2026-08-11T00:00:00.000Z",
             "hlc": "019f90000000-0000-aabbccdd",

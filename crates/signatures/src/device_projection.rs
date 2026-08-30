@@ -1,4 +1,4 @@
-//! Origin-Principal-Server device projection attestation
+//! Origin-Station device projection attestation
 //! (`crypto-media/device-lifecycle.md` §8.2).
 //!
 //! `ak.self.keys.read.lookup.v1` is a relationship-gated **cross principal**
@@ -9,7 +9,7 @@
 //! make it executable would have been to publish an account's internal
 //! governance log to every third party that happens to share a Realm with it.
 //!
-//! v1 resolves that the other way round: the origin Principal Server signs the
+//! v1 resolves that the other way round: the origin Station signs the
 //! exact device projection, and that signature is the whole closure. PCR
 //! material stays behind `ak.self.identity.read.resolution_audit.v1`.
 
@@ -22,8 +22,8 @@ use ed25519_dalek::{Signature, Signer as _, SigningKey, Verifier as _, Verifying
 
 /// Sign one device projection attestation.
 ///
-/// `verification_method` MUST be a key of the origin Principal Server named in
-/// `core.principal_server_id`; the binding is re-checked on the verify side, so
+/// `verification_method` MUST be a key of the origin Station named in
+/// `core.station_id`; the binding is re-checked on the verify side, so
 /// a mis-signed attestation fails there rather than being trusted here.
 pub fn sign_device_projection_attestation(
     core: DeviceProjectionAttestationCore,
@@ -66,20 +66,19 @@ pub fn sign_device_projection_attestation(
 /// The caller supplies the already-resolved key: this surface never resolves a
 /// DID per row, which is what makes the §8.3 hot path free of online lookups.
 /// What is enforced here is the part a caller must not be able to skip — the
-/// proof controller projects **exactly** onto `principal_server_id`, the proof
+/// proof controller projects **exactly** onto `station_id`, the proof
 /// timestamp equals the attested instant, the attestation has not expired, and
 /// the signature covers the registered transcript.
 pub fn verify_device_projection_attestation(
     attestation: &DeviceProjectionAttestation,
-    principal_server_key: &VerifyingKey,
+    station_key: &VerifyingKey,
     now: DateTime<Utc>,
 ) -> arkret_wire::Result<()> {
     let core = &attestation.attestation;
     let controller = proof_controller(&attestation.proof.verification_method)?;
-    if controller != core.principal_server_id {
+    if controller != core.station_id {
         return Err(arkret_wire::WireError::Protocol(
-            "device projection attestation proof controller is not the origin Principal Server"
-                .to_owned(),
+            "device projection attestation proof controller is not the origin Station".to_owned(),
         ));
     }
     if attestation.proof.created_at != core.attested_at {
@@ -101,7 +100,7 @@ pub fn verify_device_projection_attestation(
         .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
     let signature = Signature::from_slice(&signature_bytes)
         .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
-    principal_server_key
+    station_key
         .verify(&attestation.proof_signing_bytes()?, &signature)
         .map_err(|_| {
             arkret_wire::WireError::Protocol(
@@ -140,7 +139,7 @@ mod tests {
         let attested_at = Utc.with_ymd_and_hms(2026, 8, 15, 0, 0, 0).unwrap();
         DeviceProjectionAttestationCore {
             principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-            principal_server_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
+            station_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
             device_id: DeviceId::new("ak:device:0196419b-0000-7000-8000-000000000001").unwrap(),
             device_signing_key_did: DidKey::new(
                 "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuVkhY7g94pVQyG98x",

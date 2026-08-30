@@ -421,7 +421,7 @@ mod tests {
             realm_id: realm(),
             scope_ref: scope(),
             actor_id: alice(),
-            principal_server_id: alice(),
+            station_id: alice(),
             actor_seq: 1,
             created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),

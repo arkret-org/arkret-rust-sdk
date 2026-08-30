@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DidCoreId, DigestSuiteCode, Event, EventId, EventIdentityKey, EventRequirements, Hlc,
-    MAX_ACTOR_SEQ_SIBLINGS, MAX_AUTHORITY_CHAIN_DEPTH, MAX_AUTHORITY_CONTROL_DEPTH,
-    MAX_AUTHORIZED_BY_REFS, MAX_EVENT_ENVELOPE_BYTES, MAX_EVENT_PREV_REFS, MAX_EVENT_REFS,
-    MAX_EVENT_RESOLVE, MAX_EVENT_SUBMIT_BATCH, RealmId, ScopeRef, prev_frontier_digest,
-    validate_authorized_by_ref_count, validate_event_envelope_byte_len, validate_event_ref_count,
-    validate_event_submit_batch_count,
+    AccountId, ActorId, DidCoreId, DigestSuiteCode, Event, EventId, EventIdentityKey,
+    EventRequirements, Hlc, MAX_ACTOR_SEQ_SIBLINGS, MAX_AUTHORITY_CHAIN_DEPTH,
+    MAX_AUTHORITY_CONTROL_DEPTH, MAX_AUTHORIZED_BY_REFS, MAX_EVENT_ENVELOPE_BYTES,
+    MAX_EVENT_PREV_REFS, MAX_EVENT_REFS, MAX_EVENT_RESOLVE, MAX_EVENT_SUBMIT_BATCH, RealmId,
+    ScopeRef, prev_frontier_digest, validate_authorized_by_ref_count,
+    validate_event_envelope_byte_len, validate_event_ref_count, validate_event_submit_batch_count,
 };
 use serde_json::json;
 
@@ -17,6 +17,13 @@ fn realm_id() -> RealmId {
 fn strong_ref(seed: u8) -> EventId {
     let identity = EventIdentityKey::new(DigestSuiteCode::Sha256, [seed; 32]);
     identity.event_id()
+}
+
+fn actor() -> ActorId {
+    ActorId::account(AccountId::new(
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
+    ))
 }
 
 #[test]
@@ -46,8 +53,7 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
         scope_ref: ScopeRef::Realm {
             realm_id: realm_id(),
         },
-        actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-        principal_server_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        actor_id: actor(),
         actor_seq: 1,
         created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
         hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
@@ -69,8 +75,8 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
         proofs: Vec::new(),
     };
 
-    // Pinned after `scope_ref` and `principal_server_id` became producer-signed transcript members,
-    // `effective_scope` / `effects` / `conflict_keys_digest` left the wire, and
+    // Pinned after `scope_ref` and the actor's Station coordinate became producer-signed transcript
+    // members, `effective_scope` / `effects` / `conflict_keys_digest` left the wire, and
     // `event_id` left the digest preimage because section 4.0 derives it from
     // this very digest (`conformance/encoding.md` sections 2, 4.0 and 6). Every
     // v1 Event digest changed; this value must only move again with the spec.

@@ -496,7 +496,7 @@ mod tests {
         )
         .await;
         let error = fetcher
-            .fetch_describe(&redirect, ServiceKind::PrincipalServer)
+            .fetch_describe(&redirect, ServiceKind::Station)
             .await
             .unwrap_err();
         assert!(error.to_string().contains("HTTP 302"));
@@ -510,7 +510,7 @@ mod tests {
         )
         .await;
         let error = fetcher
-            .fetch_describe(&oversize, ServiceKind::PrincipalServer)
+            .fetch_describe(&oversize, ServiceKind::Station)
             .await
             .unwrap_err();
         assert!(
@@ -531,11 +531,7 @@ mod tests {
         .await;
         let started = tokio::time::Instant::now();
         let _error = fetcher
-            .fetch_describe_with_timeout(
-                &base,
-                ServiceKind::PrincipalServer,
-                Duration::from_millis(10),
-            )
+            .fetch_describe_with_timeout(&base, ServiceKind::Station, Duration::from_millis(10))
             .await
             .unwrap_err();
         assert!(started.elapsed() < Duration::from_millis(80));

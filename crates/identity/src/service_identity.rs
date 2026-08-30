@@ -519,8 +519,8 @@ mod tests {
 
     fn registration_key() -> ServiceRegistrationKey {
         ServiceRegistrationKey::new(
-            ServiceKind::AuthServer,
-            CanonicalServiceUrl::new("https://auth.example/").unwrap(),
+            ServiceKind::Station,
+            CanonicalServiceUrl::new("https://station.example/").unwrap(),
         )
         .unwrap()
     }
@@ -555,8 +555,8 @@ mod tests {
                 service: vec![ServiceDidEndpoint {
                     id: format!("{did}#service"),
                     endpoint_type: "ArkretService".to_owned(),
-                    service_kind: ServiceKind::AuthServer,
-                    service_endpoint: CanonicalServiceUrl::new("https://auth.example/").unwrap(),
+                    service_kind: ServiceKind::Station,
+                    service_endpoint: CanonicalServiceUrl::new("https://station.example/").unwrap(),
                 }],
             },
             proof: vec![ServiceWebvhDataIntegrityProof {
@@ -772,8 +772,8 @@ mod tests {
         let state = DidCoreIdentityState::RegistrationKeyDrift {
             stored_key: identity.registration_key.clone(),
             computed_key: ServiceRegistrationKey::new(
-                ServiceKind::AuthServer,
-                CanonicalServiceUrl::new("https://new-auth.example/").unwrap(),
+                ServiceKind::Station,
+                CanonicalServiceUrl::new("https://new-station.example/").unwrap(),
             )
             .unwrap(),
             identity,
@@ -813,8 +813,8 @@ mod tests {
     fn resolved_service_omitted_expires_at_round_trip() {
         let service = super::ResolvedService {
             service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture:auth.example").unwrap(),
-            service_kind: ServiceKind::AuthServer,
-            endpoint: CanonicalServiceUrl::new("https://auth.example/").unwrap(),
+            service_kind: ServiceKind::Station,
+            endpoint: CanonicalServiceUrl::new("https://station.example/").unwrap(),
             resolved_at: "2026-08-18T00:00:00.000Z".parse().unwrap(),
             expires_at: None,
         };
@@ -840,7 +840,7 @@ mod tests {
             &arkret_signatures::webvh::ServiceRegistrationInceptionInput {
                 provider_endpoint: &url::Url::parse("https://identity.example/").unwrap(),
                 registration_key: &ServiceRegistrationKey::new(
-                    ServiceKind::PrincipalServer,
+                    ServiceKind::Station,
                     CanonicalServiceUrl::new("https://identity.example/").unwrap(),
                 )
                 .unwrap(),

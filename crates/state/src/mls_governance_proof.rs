@@ -126,7 +126,7 @@ pub enum SealAvailabilityReplayAuthority {
     /// Availability policy and holder eligibility frozen at the predecessor
     /// view. Ordinary/DC Realms derive this set from effective joined member
     /// delivery bindings; PCRs derive the singleton from the accepted genesis
-    /// create's admitted `principal_server_id`.
+    /// create's admitted `station_id`.
     Predecessor {
         policy: RealmAvailabilityPolicy,
         eligible_holder_ids: BTreeSet<DidCoreId>,
@@ -1453,7 +1453,7 @@ fn claimed_event_digest(event: &Event) -> arkret_wire::Result<Hash> {
     for proof in &event.proofs {
         let digest = match proof {
             arkret_wire::EventProof::Producer(proof) => &proof.event_digest,
-            arkret_wire::EventProof::PrincipalServerAdmission(proof) => &proof.event_digest,
+            arkret_wire::EventProof::StationAdmission(proof) => &proof.event_digest,
         };
         if let Some(previous) = &claimed {
             if previous != digest {
@@ -2208,10 +2208,10 @@ fn add_pcr_holder_from_accepted_create(
         return Ok(false);
     }
     create
-        .validate_principal_server_admission_binding(DigestSuite::Sha256)
+        .validate_station_admission_binding(DigestSuite::Sha256)
         .map_err(|error| {
             WireError::Protocol(format!(
-                "MLS governance frontier rejected (state_mismatch): PCR create Principal Server admission binding is invalid: {error}"
+                "MLS governance frontier rejected (state_mismatch): PCR create Station admission binding is invalid: {error}"
             ))
         })?;
     let SealAvailabilityReplayAuthority::Predecessor {

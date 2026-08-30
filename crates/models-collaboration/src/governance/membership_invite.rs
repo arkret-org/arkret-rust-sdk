@@ -822,10 +822,17 @@ mod tests {
     const SERVICE: &str = "ak:did_core:web:verify.example";
     const BINDING: &str = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
+    fn subject() -> AccountId {
+        AccountId::new(
+            DidCoreId::new(SUBJECT).unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        )
+    }
+
     fn binding_proof() -> InviteClaimBindingProof {
         InviteClaimBindingProof::new(
             DidCoreId::new(SERVICE).unwrap(),
-            DidCoreId::new(SUBJECT).unwrap(),
+            subject(),
             RealmId::new(REALM).unwrap(),
             "nonce-claim-proof-1",
             "2099-01-01T00:00:00.000Z",
@@ -859,7 +866,7 @@ mod tests {
     #[test]
     fn invite_subject_proof_transcript_bytes_are_domain_separated() {
         let bytes = invite_subject_proof_transcript_bytes(
-            SUBJECT,
+            &subject(),
             INVITE,
             REALM,
             TOKEN,
@@ -879,7 +886,7 @@ mod tests {
                 "\"claim_nonce\":\"nonce-claim-proof-1\",",
                 "\"invite_id\":\"ak:invite:AUftf_3k2fRKMG0NFlHe5iEMBOUpxMwYMRu-yhMJl-yz\",",
                 "\"realm_id\":\"ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-\",",
-                "\"subject_account_id\":\"ak:did_core:webvh:z6mkfixturebob\",",
+                "\"subject_account_id\":{\"principal_id\":\"ak:did_core:webvh:z6mkfixturebob\",\"station_id\":\"ak:did_core:web:station.example\"},",
                 "\"token_commitment\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",",
                 "\"verification_id\":\"ak:did_core:web:verify.example\"}"
             )
@@ -889,7 +896,7 @@ mod tests {
     #[test]
     fn invite_subject_proof_digest_matches_transcript_bytes() {
         let bytes = invite_subject_proof_transcript_bytes(
-            SUBJECT,
+            &subject(),
             INVITE,
             REALM,
             TOKEN,
@@ -899,7 +906,7 @@ mod tests {
         )
         .unwrap();
         let digest = invite_subject_proof_transcript_digest(
-            SUBJECT,
+            &subject(),
             INVITE,
             REALM,
             TOKEN,
@@ -915,7 +922,7 @@ mod tests {
     #[test]
     fn invite_subject_proof_rejects_non_sha256_digest() {
         let body = InviteSubjectProofBody::from_wire_parts(
-            SUBJECT,
+            subject(),
             INVITE,
             REALM,
             TOKEN,
@@ -931,7 +938,13 @@ mod tests {
     #[test]
     fn invite_subject_proof_rejects_short_nonce() {
         let body = InviteSubjectProofBody::from_wire_parts(
-            SUBJECT, INVITE, REALM, TOKEN, "short", SERVICE, BINDING,
+            subject(),
+            INVITE,
+            REALM,
+            TOKEN,
+            "short",
+            SERVICE,
+            BINDING,
         )
         .unwrap();
 

@@ -205,7 +205,7 @@ where
 }
 
 /// Apply a Seal whose delta is loaded from the durable accepted-event lane.
-/// Each Event must carry the closed Producer + PrincipalServerAdmission proof
+/// Each Event must carry the closed Producer + StationAdmission proof
 /// set; producer-submission Seals continue to use [`apply_seal_in_context`].
 #[allow(clippy::too_many_arguments)]
 pub fn apply_accepted_seal_in_context<VerifyProofs, ProjectWrites>(

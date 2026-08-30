@@ -61,7 +61,7 @@ impl GhostActorProvisionRequestBody {
 
 /// `POST /_arkret/self/applets/{applet_id}/ghosts/provision` response.
 ///
-/// Carries the durable refs the Principal Server atomically accepted. The
+/// Carries the durable refs the Station atomically accepted. The
 /// `authorization_ref` is the active Applet capability grant used by the
 /// provisioning unit; an accountability grant records responsibility and is
 /// never itself treated as authorization for later Ghost Actor actions.

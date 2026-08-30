@@ -35,8 +35,8 @@ impl Client {
             .await
     }
 
-    /// Relay a Principal-Server-signed authoring request to the Applet
-    /// service without forwarding this client's Principal Server credentials.
+    /// Relay a Station-signed authoring request to the Applet
+    /// service without forwarding this client's Station credentials.
     pub async fn applet_managed_actor_author_at(
         &self,
         applet_service_base_url: &Url,

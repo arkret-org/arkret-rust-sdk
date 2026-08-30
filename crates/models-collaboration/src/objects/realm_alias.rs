@@ -126,7 +126,7 @@ impl RealmAlias {
     }
 
     /// Derive the realm-alias issuing authority domain operated by a service
-    /// DID, so a client and its Principal Server agree on the exact bytes.
+    /// DID, so a client and its Station agree on the exact bytes.
     ///
     /// The alias `<domain>` is the issuing authority, and a Realm's own notary
     /// signature is not evidence that a foreign domain authorized the claim

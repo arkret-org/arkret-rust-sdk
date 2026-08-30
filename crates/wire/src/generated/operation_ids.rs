@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-08-30.5;
-//! sha256=f489683cc7197315b836f43a6028742a323f42706be3124c14b22963b139b9c7 Entries: registered=231
+//! Input: registry/operation-registry.json; version=2026-08-30.2;
+//! sha256=fac4c2fe79d61a7f8bef42277b4f21445bd71fb2078df0ce1c1f5827836c6a31 Entries: registered=231
 
 use serde::{Deserialize, Serialize};
 
@@ -5072,7 +5072,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some(
-                "No Event is admitted, but the Principal Server durably records the current subject generation and exact signed request before returning",
+                "No Event is admitted, but the Station durably records the current subject generation and exact signed request before returning",
             ),
             branch_contract_json: None,
         }),
@@ -5129,7 +5129,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some(
-                "No Event is admitted, but the Principal Server atomically persists the branch-subject winner, exact unsigned payload, exact signed request, and superseded generations before returning",
+                "No Event is admitted, but the Station atomically persists the branch-subject winner, exact unsigned payload, exact signed request, and superseded generations before returning",
             ),
             branch_contract_json: None,
         }),

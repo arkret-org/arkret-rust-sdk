@@ -881,7 +881,7 @@
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/capability.rs::CapabilityGrantCreateBody",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=['actions', 'constraints', 'issued_at', 'issuer_authority_refs', 'issuer_id', 'realm_id', 'resources', 'schema', 'subject', 'subject_principal_server_id'], Spec-only=['grant']."
+      "reason": "Documented counterpart is not field-set exact; Rust-only=['actions', 'constraints', 'issued_at', 'issuer_authority_refs', 'issuer_id', 'realm_id', 'resources', 'schema', 'subject', 'subject_station_id'], Spec-only=['grant']."
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/event_wire.rs::VerificationStubSubject",
@@ -949,7 +949,7 @@
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/grant_constraint.rs::ConditionSubjectSelector",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=['kind', 'required_claims'], Spec-only=['actions', 'authority_depth', 'authority_root_refs', 'constraints', 'id', 'issued_at', 'issuer_authority_refs', 'issuer_id', 'issuer_principal_server_id', 'realm_id', 'resources', 'revoked_at', 'revoked_by', 'schema', 'subject', 'subject_principal_server_id', 'updated_at', 'updated_by']."
+      "reason": "Documented counterpart is not field-set exact; Rust-only=['kind', 'required_claims'], Spec-only=['actions', 'authority_depth', 'authority_root_refs', 'constraints', 'id', 'issued_at', 'issuer_authority_refs', 'issuer_id', 'issuer_station_id', 'realm_id', 'resources', 'revoked_at', 'revoked_by', 'schema', 'subject', 'subject_station_id', 'updated_at', 'updated_by']."
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/grant_constraint.rs::GrantConstraint",
@@ -957,7 +957,7 @@
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/member_delivery_binding_candidate.rs::MemberDeliveryBindingCandidate",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=['principal_authority'], Spec-only=[]."
+      "reason": "Documented counterpart is not field-set exact; Rust-only=['account_id'], Spec-only=[]."
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/operation_wire.rs::PolicyRule",

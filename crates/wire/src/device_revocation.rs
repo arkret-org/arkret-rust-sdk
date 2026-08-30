@@ -43,7 +43,7 @@ pub enum DeviceRevocationDeniedAction {
     KeypackageClaim,
     ToDeviceWrite,
     EventWrite,
-    PrincipalServerAdmissionProofIssue,
+    StationAdmissionProofIssue,
 }
 
 pub const DEVICE_REVOCATION_DENIED_ACTIONS: [DeviceRevocationDeniedAction; 5] = [
@@ -51,7 +51,7 @@ pub const DEVICE_REVOCATION_DENIED_ACTIONS: [DeviceRevocationDeniedAction; 5] = 
     DeviceRevocationDeniedAction::KeypackageClaim,
     DeviceRevocationDeniedAction::ToDeviceWrite,
     DeviceRevocationDeniedAction::EventWrite,
-    DeviceRevocationDeniedAction::PrincipalServerAdmissionProofIssue,
+    DeviceRevocationDeniedAction::StationAdmissionProofIssue,
 ];
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -73,7 +73,7 @@ pub enum DeviceRevokedStatus {
 #[serde(deny_unknown_fields)]
 pub struct DeviceRevocationPendingState {
     pub schema: DeviceRevocationStateSchema,
-    pub principal_authority: AccountId,
+    pub account_id: AccountId,
     pub device_id: DeviceId,
     pub target_device_authorize_event_id: EventId,
     pub target_device_generation_ref: u64,
@@ -97,7 +97,7 @@ pub struct DeviceRevocationPendingState {
 #[serde(deny_unknown_fields)]
 pub struct DeviceRevokedState {
     pub schema: DeviceRevocationStateSchema,
-    pub principal_authority: AccountId,
+    pub account_id: AccountId,
     pub device_id: DeviceId,
     pub target_device_authorize_event_id: EventId,
     pub target_device_generation_ref: u64,
@@ -122,13 +122,13 @@ pub enum DeviceRevocationGateRecord {
 }
 
 fn validate_record_common(
-    principal_authority: &AccountId,
+    account_id: &AccountId,
     target_device_generation_ref: u64,
     proposal_digest: &Hash,
     acceptance_seq: u64,
     ack: &ControlProposalAck,
 ) -> Result<()> {
-    principal_authority.validate()?;
+    account_id.validate()?;
     if target_device_generation_ref == 0 || acceptance_seq == 0 {
         return Err(WireError::Protocol(
             "device revocation generation and acceptance_seq must be positive".to_owned(),
@@ -146,7 +146,7 @@ fn validate_record_common(
 impl DeviceRevocationPendingState {
     pub fn validate(&self) -> Result<()> {
         validate_record_common(
-            &self.principal_authority,
+            &self.account_id,
             self.target_device_generation_ref,
             &self.proposal_digest,
             self.acceptance_seq,
@@ -189,7 +189,7 @@ impl DeviceRevocationPendingState {
 impl DeviceRevokedState {
     pub fn validate(&self) -> Result<()> {
         validate_record_common(
-            &self.principal_authority,
+            &self.account_id,
             self.target_device_generation_ref,
             &self.proposal_digest,
             self.acceptance_seq,
@@ -245,14 +245,14 @@ pub enum DeviceRevocationGateActionClass {
     KeypackageClaim,
     ToDeviceWrite,
     EventWrite,
-    PrincipalServerAdmissionProofIssue,
+    StationAdmissionProofIssue,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceRevocationGateCheckRequestBody {
-    pub principal_authority: AccountId,
+    pub account_id: AccountId,
     pub device_id: DeviceId,
     /// Issuer-held verified binding, never a client-supplied value. Present
     /// together with `expected_device_generation_ref` or not at all, and only
@@ -277,7 +277,7 @@ pub struct DeviceRevocationGateCheckRequestBody {
 
 impl DeviceRevocationGateCheckRequestBody {
     pub fn validate(&self) -> Result<()> {
-        self.principal_authority.validate()?;
+        self.account_id.validate()?;
         match (&self.action_class, &self.accepted_device_possession_proof) {
             (
                 DeviceRevocationGateActionClass::ReturningSessionGrantIssue,
@@ -309,7 +309,7 @@ impl DeviceRevocationGateCheckRequestBody {
             }
         }
         if let Some(proof) = &self.accepted_device_possession_proof
-            && (proof.principal_id() != &self.principal_authority.principal_id
+            && (proof.principal_id() != &self.account_id.principal_id
                 || proof.device_id() != &self.device_id
                 || proof.session_intent_digest() != &self.intent_digest)
         {
@@ -370,7 +370,7 @@ pub enum DeviceRevocationGateDecision {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceRevocationGateDecisionReceipt {
-    pub principal_authority: AccountId,
+    pub account_id: AccountId,
     pub device_id: DeviceId,
     /// Origin-derived current binding. Present only for
     /// [`DeviceRevocationGateDecision::Allow`], where it is the sole source
@@ -403,7 +403,7 @@ pub struct DeviceRevocationGateDecisionReceipt {
 /// to compute the proof-less receipt digest.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct UnsignedDeviceRevocationGateDecisionReceipt {
-    pub principal_authority: AccountId,
+    pub account_id: AccountId,
     pub device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_device_authorize_event_id: Option<EventId>,
@@ -475,7 +475,7 @@ fn validate_gate_decision_witness(
 
 impl UnsignedDeviceRevocationGateDecisionReceipt {
     pub fn validate(&self) -> Result<()> {
-        self.principal_authority.validate()?;
+        self.account_id.validate()?;
         validate_possession_verification_presence(
             self.action_class,
             self.accepted_device_possession_proof_digest.as_ref(),
@@ -535,10 +535,9 @@ impl UnsignedDeviceRevocationGateDecisionReceipt {
                 WireError::Protocol("verification method has no controller".to_owned())
             })?;
         let controller = project_did_to_core_id(&Did::new(controller)?)?;
-        if controller != self.principal_authority.principal_server_id {
+        if controller != self.account_id.station_id {
             return Err(WireError::Protocol(
-                "device revocation gate proof controller is not the origin Principal Server"
-                    .to_owned(),
+                "device revocation gate proof controller is not the origin Station".to_owned(),
             ));
         }
         canonical::canonical_json_bytes(&serde_json::json!({
@@ -553,7 +552,7 @@ impl UnsignedDeviceRevocationGateDecisionReceipt {
     pub fn attach_proof(self, proof: PayloadProof) -> Result<DeviceRevocationGateDecisionReceipt> {
         self.proof_signing_bytes(&proof.unsigned())?;
         Ok(DeviceRevocationGateDecisionReceipt {
-            principal_authority: self.principal_authority,
+            account_id: self.account_id,
             device_id: self.device_id,
             target_device_authorize_event_id: self.target_device_authorize_event_id,
             target_device_generation_ref: self.target_device_generation_ref,
@@ -575,7 +574,7 @@ impl UnsignedDeviceRevocationGateDecisionReceipt {
 impl DeviceRevocationGateDecisionReceipt {
     pub fn unsigned(&self) -> UnsignedDeviceRevocationGateDecisionReceipt {
         UnsignedDeviceRevocationGateDecisionReceipt {
-            principal_authority: self.principal_authority.clone(),
+            account_id: self.account_id.clone(),
             device_id: self.device_id.clone(),
             target_device_authorize_event_id: self.target_device_authorize_event_id.clone(),
             target_device_generation_ref: self.target_device_generation_ref,
@@ -627,10 +626,9 @@ impl DeviceRevocationGateDecisionReceipt {
                 WireError::Protocol("verification method has no controller".to_owned())
             })?;
         let controller = project_did_to_core_id(&Did::new(controller)?)?;
-        if controller != self.principal_authority.principal_server_id {
+        if controller != self.account_id.station_id {
             return Err(WireError::Protocol(
-                "device revocation gate proof controller is not the origin Principal Server"
-                    .to_owned(),
+                "device revocation gate proof controller is not the origin Station".to_owned(),
             ));
         }
         canonical::canonical_json_bytes(&serde_json::json!({
@@ -675,7 +673,7 @@ impl DeviceRevocationGateDecisionReceipt {
         request: &DeviceRevocationGateCheckRequestBody,
     ) -> Result<()> {
         request.validate()?;
-        if self.principal_authority != request.principal_authority
+        if self.account_id != request.account_id
             || self.device_id != request.device_id
             || self.action_class != request.action_class
             || self.intent_digest != request.intent_digest
@@ -857,7 +855,7 @@ mod tests {
 
     fn request() -> DeviceRevocationGateCheckRequestBody {
         DeviceRevocationGateCheckRequestBody {
-            principal_authority: AccountId::new(
+            account_id: AccountId::new(
                 DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
                 DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
             ),
@@ -874,7 +872,7 @@ mod tests {
     fn receipt() -> DeviceRevocationGateDecisionReceipt {
         let request = request();
         let unsigned = UnsignedDeviceRevocationGateDecisionReceipt {
-            principal_authority: request.principal_authority,
+            account_id: request.account_id,
             device_id: request.device_id,
             target_device_authorize_event_id: Some(authorize_event()),
             target_device_generation_ref: Some(7),

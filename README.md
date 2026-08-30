@@ -19,7 +19,7 @@ centered on:
 - Operations as SDK builders and offline draft objects before Event Envelope wrapping
 - capability grants and policy checks
 - MLS RFC 9420 group E2EE based on OpenMLS behind the `mls` feature
-- Principal Server, Events, Index, Blob, Directory and Authz service surfaces
+- Station, Events, Index, Blob, Directory and Authz service surfaces
 
 The active v1 wire contract follows `arkret-spec/spec/v1/zh` plus `arkret-spec/spec/v1/artifacts`.
 All public SDK surfaces are expected to use `strand`, `track`, relation and

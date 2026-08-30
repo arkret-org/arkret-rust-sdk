@@ -10,11 +10,11 @@ use std::collections::BTreeMap;
 use arkret_models_identity::ServiceResolutionCarrier;
 use arkret_models_identity::agent_signer_evidence::AgentEventAdmissionReceipt;
 use arkret_wire::{
-    ActorId, AppletId, AuditReasonText, Base64UrlString, BlobRef, ConsentId, ControlProposalAck,
-    Cursor, DeviceId, DidCoreId, DidKey, Event, EventId, EventInitialSubmission, Hash,
-    IngressReceipt, MimiRoomUri, MlsGroupId, MorphId, NonEmptyString, PayloadProof, ProofContextId,
-    RealmId, ReasonCode, RelationId, ReportId, Result, Seal, SealId, ServiceOperationId,
-    SignalEnvelope, SpaceId, StrandId, WireError, canonical,
+    AccountId, ActorId, AppletId, AuditReasonText, Base64UrlString, BlobRef, ConsentId,
+    ControlProposalAck, Cursor, DeviceId, DidCoreId, DidKey, Event, EventId,
+    EventInitialSubmission, Hash, IngressReceipt, MimiRoomUri, MlsGroupId, MorphId, NonEmptyString,
+    PayloadProof, ProofContextId, RealmId, ReasonCode, RelationId, ReportId, Result, Seal, SealId,
+    ServiceOperationId, SignalEnvelope, SpaceId, StrandId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -1904,16 +1904,16 @@ pub struct ContactListRow {
     pub bidirectional_scopes: Vec<ContactScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effective_scopes: Option<Vec<ContactScope>>,
-    /// Principal Server service DID hosting the peer, when known (e.g. learned
-    /// from a cross-Principal-Server contact delivery). Lets the holder address
+    /// Station service DID hosting the peer, when known (e.g. learned
+    /// from a cross-Station contact delivery). Lets the holder address
     /// responses/invites to the peer's home server. Omitted for
-    /// same-Principal-Server contacts (spec contact-operations.schema.json).
+    /// same-Station contacts (spec contact-operations.schema.json).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub peer_host_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub peer_host_resolution: Option<ServiceResolutionCarrier>,
     /// Portable checkpoint plus the exact remaining tail. Present only after
-    /// both participant Principal Servers have committed the same checkpoint.
+    /// both participant Stations have committed the same checkpoint.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub continuity_evidence: Option<ContactContinuityEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -189,7 +189,7 @@ where
     )
 }
 
-/// Verify a Control Move after its origin Principal Server has appended the
+/// Verify a Control Move after its origin Station has appended the
 /// mandatory admission proof. The remaining CBA checks are identical to the
 /// producer-submission path, but the closed proof set is Producer + Admission.
 pub fn verify_accepted_control_move_in_context<VerifyProofs, ProjectWrites>(
@@ -213,7 +213,7 @@ where
 
 /// Verify one retained Control Move using its exact historical proof regime.
 /// Sole-Producer Events use the direct-history structural contract, while
-/// Producer + PrincipalServerAdmission Events use the federation contract.
+/// Producer + StationAdmission Events use the federation contract.
 pub fn verify_replayed_control_move_in_context<VerifyProofs, ProjectWrites>(
     event: &Event,
     verification: ControlMoveVerificationContext<'_>,
@@ -274,7 +274,7 @@ where
                 .map_err(|e| ControlMoveReject::SchemaViolation(e.to_string()))?,
             [
                 arkret_wire::EventProof::Producer(_),
-                arkret_wire::EventProof::PrincipalServerAdmission(_),
+                arkret_wire::EventProof::StationAdmission(_),
             ] => event
                 .validate_for_federation_structural_in_context(context, digest_suite)
                 .map_err(|e| ControlMoveReject::SchemaViolation(e.to_string()))?,
@@ -893,8 +893,8 @@ fn evaluate_predicate(
 mod tests {
     use arkret_wire::event_envelope::{EventRef, ScopeRef};
     use arkret_wire::{
-        DidKey, DidUrl, EventProof, PrincipalServerAdmissionProof,
-        PrincipalServerAdmissionProofKind, ProducerEventProof,
+        DidKey, DidUrl, EventProof, ProducerEventProof, StationAdmissionProof,
+        StationAdmissionProofKind,
     };
     use chrono::{TimeZone, Utc};
     use serde_json::json;
@@ -986,7 +986,7 @@ mod tests {
             realm_id: realm(),
             scope_ref: ScopeRef::Realm { realm_id: realm() },
             actor_id: actor(),
-            principal_server_id: actor(),
+            station_id: actor(),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -1049,18 +1049,17 @@ mod tests {
         producer.signer_resolution_evidence_ref = None;
         producer.signer_resolution_evidence_digest = None;
         let producer = event.proofs[0].as_producer().unwrap().clone();
-        event.proofs.push(EventProof::PrincipalServerAdmission(
-            PrincipalServerAdmissionProof {
-                kind: PrincipalServerAdmissionProofKind::PrincipalServerAdmission,
+        event
+            .proofs
+            .push(EventProof::StationAdmission(StationAdmissionProof {
+                kind: StationAdmissionProofKind::StationAdmission,
                 verification_method: DidUrl::new(
-                    "did:webvh:z6mkfixture:admin.example#principal-server-admission",
+                    "did:webvh:z6mkfixture:admin.example#station-admission",
                 )
                 .unwrap(),
                 event_digest: producer.event_digest.clone(),
-                producer_proof_digest: PrincipalServerAdmissionProof::producer_proof_digest(
-                    &producer,
-                )
-                .unwrap(),
+                producer_proof_digest: StationAdmissionProof::producer_proof_digest(&producer)
+                    .unwrap(),
                 producer_verification_method: producer.verification_method.clone(),
                 producer_signing_key_did: DidKey::new("did:key:z6Mkhfixture").unwrap(),
                 producer_signer_resolution_evidence_ref: None,
@@ -1074,8 +1073,7 @@ mod tests {
                     .unwrap(),
                 accepted_at: event.created_at,
                 jws: "admission..signature".to_owned(),
-            },
-        ));
+            }));
         event
     }
 

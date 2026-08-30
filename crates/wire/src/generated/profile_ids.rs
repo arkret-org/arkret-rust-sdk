@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: profiles/conformance-profiles.json; version=2026-08-30.4;
-//! sha256=2bac0b915d5b983d063294969b4e62869f61533ec545dd6f3979b3a167429893 Entries: profile_ids=98
+//! Input: profiles/conformance-profiles.json; version=2026-08-30.3;
+//! sha256=047df7e870d4d96a7b890a3567f06f923143f4999be386da3675fd1dc4c9840a Entries: profile_ids=97
 
 use serde::{Deserialize, Serialize};
 
@@ -22,7 +22,6 @@ pub enum ProfileId {
     AppletServiceV1,
     AppletWidgetV1,
     AttestedAuditE2eeV1,
-    AuthServerV1,
     BindingWebsocketV1,
     BlobNodeV1,
     CalendarEventV1,
@@ -86,8 +85,6 @@ pub enum ProfileId {
     PersonalProductivityV1,
     PinnedItemsV1,
     PrincipalControlRealmV1,
-    PrincipalServerV1,
-    PrincipalServerEventsApiV1,
     PublicNetworkIdentityV1,
     PushGatewayBlindWakeupV1,
     PushGatewayMatrixPassthroughV1,
@@ -105,6 +102,8 @@ pub enum ProfileId {
     SovereignClientV1,
     SovereignDeploymentV1,
     SovereignEnclaveV1,
+    StationV1,
+    StationEventsApiV1,
     TrafficMetadataHardenedV1,
     UcanInteropV1,
     WebrtcMediaV1,
@@ -163,7 +162,6 @@ impl ProfileId {
         Self::AppletServiceV1,
         Self::AppletWidgetV1,
         Self::AttestedAuditE2eeV1,
-        Self::AuthServerV1,
         Self::BindingWebsocketV1,
         Self::BlobNodeV1,
         Self::CalendarEventV1,
@@ -227,8 +225,6 @@ impl ProfileId {
         Self::PersonalProductivityV1,
         Self::PinnedItemsV1,
         Self::PrincipalControlRealmV1,
-        Self::PrincipalServerV1,
-        Self::PrincipalServerEventsApiV1,
         Self::PublicNetworkIdentityV1,
         Self::PushGatewayBlindWakeupV1,
         Self::PushGatewayMatrixPassthroughV1,
@@ -246,6 +242,8 @@ impl ProfileId {
         Self::SovereignClientV1,
         Self::SovereignDeploymentV1,
         Self::SovereignEnclaveV1,
+        Self::StationV1,
+        Self::StationEventsApiV1,
         Self::TrafficMetadataHardenedV1,
         Self::UcanInteropV1,
         Self::WebrtcMediaV1,
@@ -264,7 +262,6 @@ impl ProfileId {
     pub const APPLET_SERVICE_V1: &'static str = "ak.profile.applet_service.v1";
     pub const APPLET_WIDGET_V1: &'static str = "ak.profile.applet_widget.v1";
     pub const ATTESTED_AUDIT_E2EE_V1: &'static str = "ak.profile.attested_audit.e2ee.v1";
-    pub const AUTH_SERVER_V1: &'static str = "ak.profile.auth_server.v1";
     pub const BINDING_WEBSOCKET_V1: &'static str = "ak.profile.binding.websocket.v1";
     pub const BLOB_NODE_V1: &'static str = "ak.profile.blob_node.v1";
     pub const CALENDAR_EVENT_V1: &'static str = "ak.profile.calendar_event.v1";
@@ -349,9 +346,6 @@ impl ProfileId {
     pub const PERSONAL_PRODUCTIVITY_V1: &'static str = "ak.profile.personal_productivity.v1";
     pub const PINNED_ITEMS_V1: &'static str = "ak.profile.pinned_items.v1";
     pub const PRINCIPAL_CONTROL_REALM_V1: &'static str = "ak.profile.principal_control_realm.v1";
-    pub const PRINCIPAL_SERVER_V1: &'static str = "ak.profile.principal_server.v1";
-    pub const PRINCIPAL_SERVER_EVENTS_API_V1: &'static str =
-        "ak.profile.principal_server_events_api.v1";
     pub const PUBLIC_NETWORK_IDENTITY_V1: &'static str = "ak.profile.public_network_identity.v1";
     pub const PUSH_GATEWAY_BLIND_WAKEUP_V1: &'static str =
         "ak.profile.push_gateway.blind_wakeup.v1";
@@ -373,6 +367,8 @@ impl ProfileId {
     pub const SOVEREIGN_CLIENT_V1: &'static str = "ak.profile.sovereign_client.v1";
     pub const SOVEREIGN_DEPLOYMENT_V1: &'static str = "ak.profile.sovereign_deployment.v1";
     pub const SOVEREIGN_ENCLAVE_V1: &'static str = "ak.profile.sovereign_enclave.v1";
+    pub const STATION_V1: &'static str = "ak.profile.station.v1";
+    pub const STATION_EVENTS_API_V1: &'static str = "ak.profile.station_events_api.v1";
     pub const TRAFFIC_METADATA_HARDENED_V1: &'static str =
         "ak.profile.traffic_metadata_hardened.v1";
     pub const UCAN_INTEROP_V1: &'static str = "ak.profile.ucan_interop.v1";
@@ -392,7 +388,6 @@ impl ProfileId {
             Self::AppletServiceV1 => Self::APPLET_SERVICE_V1,
             Self::AppletWidgetV1 => Self::APPLET_WIDGET_V1,
             Self::AttestedAuditE2eeV1 => Self::ATTESTED_AUDIT_E2EE_V1,
-            Self::AuthServerV1 => Self::AUTH_SERVER_V1,
             Self::BindingWebsocketV1 => Self::BINDING_WEBSOCKET_V1,
             Self::BlobNodeV1 => Self::BLOB_NODE_V1,
             Self::CalendarEventV1 => Self::CALENDAR_EVENT_V1,
@@ -458,8 +453,6 @@ impl ProfileId {
             Self::PersonalProductivityV1 => Self::PERSONAL_PRODUCTIVITY_V1,
             Self::PinnedItemsV1 => Self::PINNED_ITEMS_V1,
             Self::PrincipalControlRealmV1 => Self::PRINCIPAL_CONTROL_REALM_V1,
-            Self::PrincipalServerV1 => Self::PRINCIPAL_SERVER_V1,
-            Self::PrincipalServerEventsApiV1 => Self::PRINCIPAL_SERVER_EVENTS_API_V1,
             Self::PublicNetworkIdentityV1 => Self::PUBLIC_NETWORK_IDENTITY_V1,
             Self::PushGatewayBlindWakeupV1 => Self::PUSH_GATEWAY_BLIND_WAKEUP_V1,
             Self::PushGatewayMatrixPassthroughV1 => Self::PUSH_GATEWAY_MATRIX_PASSTHROUGH_V1,
@@ -477,6 +470,8 @@ impl ProfileId {
             Self::SovereignClientV1 => Self::SOVEREIGN_CLIENT_V1,
             Self::SovereignDeploymentV1 => Self::SOVEREIGN_DEPLOYMENT_V1,
             Self::SovereignEnclaveV1 => Self::SOVEREIGN_ENCLAVE_V1,
+            Self::StationV1 => Self::STATION_V1,
+            Self::StationEventsApiV1 => Self::STATION_EVENTS_API_V1,
             Self::TrafficMetadataHardenedV1 => Self::TRAFFIC_METADATA_HARDENED_V1,
             Self::UcanInteropV1 => Self::UCAN_INTEROP_V1,
             Self::WebrtcMediaV1 => Self::WEBRTC_MEDIA_V1,
@@ -499,7 +494,6 @@ impl ProfileId {
             Self::AppletServiceV1 => ProfileRole::Server,
             Self::AppletWidgetV1 => ProfileRole::Server,
             Self::AttestedAuditE2eeV1 => ProfileRole::Admin,
-            Self::AuthServerV1 => ProfileRole::Server,
             Self::BindingWebsocketV1 => ProfileRole::Interop,
             Self::BlobNodeV1 => ProfileRole::Gateway,
             Self::CalendarEventV1 => ProfileRole::Client,
@@ -563,8 +557,6 @@ impl ProfileId {
             Self::PersonalProductivityV1 => ProfileRole::Client,
             Self::PinnedItemsV1 => ProfileRole::Client,
             Self::PrincipalControlRealmV1 => ProfileRole::Admin,
-            Self::PrincipalServerV1 => ProfileRole::Server,
-            Self::PrincipalServerEventsApiV1 => ProfileRole::Server,
             Self::PublicNetworkIdentityV1 => ProfileRole::Directory,
             Self::PushGatewayBlindWakeupV1 => ProfileRole::Gateway,
             Self::PushGatewayMatrixPassthroughV1 => ProfileRole::Interop,
@@ -582,6 +574,8 @@ impl ProfileId {
             Self::SovereignClientV1 => ProfileRole::Client,
             Self::SovereignDeploymentV1 => ProfileRole::Admin,
             Self::SovereignEnclaveV1 => ProfileRole::Admin,
+            Self::StationV1 => ProfileRole::Server,
+            Self::StationEventsApiV1 => ProfileRole::Server,
             Self::TrafficMetadataHardenedV1 => ProfileRole::Admin,
             Self::UcanInteropV1 => ProfileRole::Interop,
             Self::WebrtcMediaV1 => ProfileRole::Gateway,
@@ -610,7 +604,6 @@ impl ProfileId {
             Self::APPLET_SERVICE_V1 => Some(Self::AppletServiceV1),
             Self::APPLET_WIDGET_V1 => Some(Self::AppletWidgetV1),
             Self::ATTESTED_AUDIT_E2EE_V1 => Some(Self::AttestedAuditE2eeV1),
-            Self::AUTH_SERVER_V1 => Some(Self::AuthServerV1),
             Self::BINDING_WEBSOCKET_V1 => Some(Self::BindingWebsocketV1),
             Self::BLOB_NODE_V1 => Some(Self::BlobNodeV1),
             Self::CALENDAR_EVENT_V1 => Some(Self::CalendarEventV1),
@@ -682,8 +675,6 @@ impl ProfileId {
             Self::PERSONAL_PRODUCTIVITY_V1 => Some(Self::PersonalProductivityV1),
             Self::PINNED_ITEMS_V1 => Some(Self::PinnedItemsV1),
             Self::PRINCIPAL_CONTROL_REALM_V1 => Some(Self::PrincipalControlRealmV1),
-            Self::PRINCIPAL_SERVER_V1 => Some(Self::PrincipalServerV1),
-            Self::PRINCIPAL_SERVER_EVENTS_API_V1 => Some(Self::PrincipalServerEventsApiV1),
             Self::PUBLIC_NETWORK_IDENTITY_V1 => Some(Self::PublicNetworkIdentityV1),
             Self::PUSH_GATEWAY_BLIND_WAKEUP_V1 => Some(Self::PushGatewayBlindWakeupV1),
             Self::PUSH_GATEWAY_MATRIX_PASSTHROUGH_V1 => Some(Self::PushGatewayMatrixPassthroughV1),
@@ -703,6 +694,8 @@ impl ProfileId {
             Self::SOVEREIGN_CLIENT_V1 => Some(Self::SovereignClientV1),
             Self::SOVEREIGN_DEPLOYMENT_V1 => Some(Self::SovereignDeploymentV1),
             Self::SOVEREIGN_ENCLAVE_V1 => Some(Self::SovereignEnclaveV1),
+            Self::STATION_V1 => Some(Self::StationV1),
+            Self::STATION_EVENTS_API_V1 => Some(Self::StationEventsApiV1),
             Self::TRAFFIC_METADATA_HARDENED_V1 => Some(Self::TrafficMetadataHardenedV1),
             Self::UCAN_INTEROP_V1 => Some(Self::UcanInteropV1),
             Self::WEBRTC_MEDIA_V1 => Some(Self::WebrtcMediaV1),

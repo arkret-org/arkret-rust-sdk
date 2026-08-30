@@ -2,7 +2,7 @@
 //!
 //! [`SessionGrantIntrospection`] is the typed form of an OAuth-style
 //! introspection response carrying admin context (the operator's principal
-//! DID, the granted admin scopes, the expiry). Principal servers receive this
+//! DID, the granted admin scopes, the expiry). Stations receive this
 //! as an HTTP response from coauth (or another upstream IdP) and use it to bind
 //! a signed admin operation to the operator's identity.
 
@@ -32,7 +32,7 @@ pub mod admin_scopes {
 
 /// Typed view of an OAuth-style session-grant introspection response.
 ///
-/// Principal servers receive this from their upstream IdP (coauth, by
+/// Stations receive this from their upstream IdP (coauth, by
 /// convention) when introspecting a bearer token. The fields are a
 /// strict subset of the RFC 7662 introspection response plus the
 /// `org.arkret.*` extensions soland already uses.

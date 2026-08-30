@@ -21,7 +21,7 @@ fn route_binding_projection_is_byte_exact() {
 
     let digest = route_binding_describe_digest(
         &service_id,
-        ServiceKind::PrincipalServer.as_str(),
+        ServiceKind::Station.as_str(),
         &commitment,
         "https://media.example/",
     )

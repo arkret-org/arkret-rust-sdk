@@ -36,7 +36,7 @@ use crate::sdk_error::Error;
 
 /// Runtime inputs that are deliberately outside the signed author request.
 ///
-/// The Principal Server supplies the signed branch basis. The authoring
+/// The Station supplies the signed branch basis. The authoring
 /// authority supplies the independently held actor identity, the accepted
 /// service/Realm frontier and PCR policy selected by its deployment.
 #[derive(Clone, Debug)]
@@ -60,7 +60,7 @@ struct Branch {
     realm_scope: ScopeRef,
     realm_id: RealmId,
     service_id: DidCoreId,
-    principal_server_id: DidCoreId,
+    station_id: DidCoreId,
     applet_id: AppletId,
     registration_ref: EventId,
     authorization_ref: GrantId,
@@ -84,10 +84,7 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
         schema: AppletManagedActorProvisionPayload::SCHEMA.to_owned(),
         applet_id: branch.applet_id.clone(),
         service_id: branch.service_id.clone(),
-        actor_id: ActorId::hosted_principal(
-            input.actor_id.clone(),
-            branch.principal_server_id.clone(),
-        ),
+        actor_id: ActorId::hosted_principal(input.actor_id.clone(), branch.station_id.clone()),
         actor_role: branch.role,
         initial_resolution: input.initial_resolution.clone(),
         method_history_evidence: input.method_history_evidence.clone().try_into()?,
@@ -131,7 +128,7 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
     )?;
     let pcr_intent = TypedEventDraft::<event_spec::RealmCreate>::new(
         ScopeRef::RealmGenesis,
-        ActorId::hosted_principal(input.actor_id.clone(), branch.principal_server_id.clone()),
+        ActorId::hosted_principal(input.actor_id.clone(), branch.station_id.clone()),
         RealmCreatePayload::new(genesis),
     )?
     .with_executed_by(ActorId::service(branch.service_id.clone()))
@@ -205,7 +202,7 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
     )?;
     let profile_intent = TypedEventDraft::<event_spec::ProfileCreate>::new(
         branch.realm_scope,
-        ActorId::hosted_principal(input.actor_id, branch.principal_server_id.clone()),
+        ActorId::hosted_principal(input.actor_id, branch.station_id.clone()),
         ActorProfileCreatePayload { object: profile },
     )?
     .with_executed_by(ActorId::service(delegation.executed_by))
@@ -238,7 +235,7 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
             verification_method,
             payload_digest: zero_hash()?,
             created_at,
-            audience_id: branch.principal_server_id,
+            audience_id: branch.station_id,
             jws: String::new(),
         },
     };
@@ -266,7 +263,7 @@ fn branch(
                     realm_id: basis.effective_scope.realm_id().clone(),
                 },
                 service_id: basis.service_id.clone(),
-                principal_server_id: basis.target_principal_server_id.clone(),
+                station_id: basis.target_station_id.clone(),
                 applet_id: basis.applet_id.clone(),
                 registration_ref: basis.registration_event.event_id.clone(),
                 authorization_ref: GrantId::from_event_id(&grant_event.event_id),
@@ -285,7 +282,7 @@ fn branch(
                     realm_id: basis.realm_id.clone(),
                 },
                 service_id: basis.service_id.clone(),
-                principal_server_id: basis.target_principal_server_id.clone(),
+                station_id: basis.target_station_id.clone(),
                 applet_id: basis.applet_id.clone(),
                 registration_ref: basis.registration_event_ref.clone(),
                 authorization_ref: basis.authorization_ref.clone(),
