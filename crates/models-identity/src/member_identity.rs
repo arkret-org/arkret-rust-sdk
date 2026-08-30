@@ -24,6 +24,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{ActorId, BlobRef, DidUrl, EventId, Hash, RealmId, Result, SchemaId, canonical};
+#[cfg(test)]
+use arkret_wire::DidCoreId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

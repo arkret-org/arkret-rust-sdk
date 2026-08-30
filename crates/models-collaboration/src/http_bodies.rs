@@ -9,14 +9,12 @@ use std::collections::BTreeMap;
 
 use arkret_models_identity::ServiceResolutionCarrier;
 use arkret_models_identity::agent_signer_evidence::AgentEventAdmissionReceipt;
-#[cfg(test)]
-use arkret_wire::AccountId;
 use arkret_wire::{
-    ActorId, AppletId, AuditReasonText, Base64UrlString, BlobRef, ConsentId, ControlProposalAck,
-    Cursor, DeviceId, DidCoreId, DidKey, Event, EventId, EventInitialSubmission, Hash,
-    IngressReceipt, MimiRoomUri, MlsGroupId, MorphId, NonEmptyString, PayloadProof, ProofContextId,
-    RealmId, ReasonCode, RelationId, ReportId, Result, Seal, SealId, ServiceOperationId,
-    SignalEnvelope, SpaceId, StrandId, WireError, canonical,
+    AccountId, ActorId, AppletId, AuditReasonText, Base64UrlString, BlobRef, ConsentId,
+    ControlProposalAck, Cursor, DeviceId, DidCoreId, DidKey, Event, EventId,
+    EventInitialSubmission, Hash, IngressReceipt, MimiRoomUri, MlsGroupId, MorphId, NonEmptyString,
+    PayloadProof, ProofContextId, RealmId, ReasonCode, RelationId, ReportId, Result, Seal, SealId,
+    ServiceOperationId, SignalEnvelope, SpaceId, StrandId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -1871,8 +1869,8 @@ pub struct DirectConversationSummary {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactAgentProjection {
-    pub agent_id: DidCoreId,
-    pub controller_id: DidCoreId,
+    pub actor_id: ActorId,
+    pub controller_account_id: AccountId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

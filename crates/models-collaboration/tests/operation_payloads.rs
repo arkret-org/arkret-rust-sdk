@@ -7,9 +7,7 @@ use arkret_models_collaboration::objects::space::Space;
 use arkret_models_collaboration::objects::strand::{MessageMetadata, StrandMetadata};
 use arkret_models_crypto::{EncryptedEnvelope, MlsEncryptedPayload, ProtectedPayload};
 use arkret_schema::event_payload_validator_catalog;
-use arkret_wire::{
-    ActorId, Did, DidCoreId, MorphId, RealmId, SpaceId, StrandId, project_did_to_core_id,
-};
+use arkret_wire::{ActorId, Did, MorphId, RealmId, SpaceId, StrandId, project_did_to_core_id};
 use serde_json::json;
 
 fn actor(value: &str) -> ActorId {

@@ -84,11 +84,11 @@ fn notary_primary_projects_to_principal(
 ) -> Result<bool> {
     match notary {
         NotaryValue::SingleSigner { signer, .. } | NotaryValue::Mixed { signer, .. } => {
-            Ok(&signer.actor_id == signing_principal_id)
+            Ok(signer.actor_id.signing_principal_id() == signing_principal_id)
         }
         NotaryValue::Threshold { signers, .. } | NotaryValue::OpenSet { signers } => Ok(signers
             .iter()
-            .any(|member| &member.actor_id == signing_principal_id)),
+            .any(|member| member.actor_id.signing_principal_id() == signing_principal_id)),
     }
 }
 

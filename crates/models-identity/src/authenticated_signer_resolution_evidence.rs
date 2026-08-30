@@ -1,8 +1,8 @@
 //! Content-addressed historical signer-resolution evidence.
 
 use arkret_wire::{
-    DidCoreId, DidUrl, Hash, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, Result,
-    SignerEvidenceRef, WireError,
+    ActorId, DidCoreId, DidUrl, Hash, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor,
+    Result, SignerEvidenceRef, WireError,
 };
 use serde::{Deserialize, Serialize};
 
@@ -248,8 +248,19 @@ pub fn ed25519_notary_signer_descriptor_from_evidence(
         })?;
     let public_key = decode_ed25519_material(material)?;
     let frozen_public_key_b64u = arkret_wire::base64url::base64url_encode(public_key);
+    let actor_id = match evidence {
+        AuthenticatedSignerResolutionEvidence::Service { signer_id, .. } => {
+            ActorId::service(signer_id.clone())
+        }
+        AuthenticatedSignerResolutionEvidence::Principal {
+            public_resolution, ..
+        } => ActorId::account(public_resolution.authority()),
+        AuthenticatedSignerResolutionEvidence::NativeAgent { .. } => {
+            unreachable!("native-agent signer evidence returned before descriptor construction")
+        }
+    };
     let descriptor = NotarySignerDescriptor {
-        actor_id: evidence.signer_id().clone(),
+        actor_id,
         verification_method: verification_method.clone(),
         key_kind: NotaryKeyKind::Ed25519Raw32,
         jose_algorithm: NotaryJoseAlgorithm::Ed25519,

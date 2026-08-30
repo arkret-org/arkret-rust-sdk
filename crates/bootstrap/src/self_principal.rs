@@ -209,7 +209,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
     let verification_controller = Did::new(verification_controller.to_owned())?;
     let verification_principal = project_did_to_core_id(&verification_controller)?;
     if !authorized_by_matches
-        || signer.actor_id != *create.actor_id.signing_principal_id()
+        || signer.actor_id.signing_principal_id() != create.actor_id.signing_principal_id()
         || verification_principal != *create.actor_id.signing_principal_id()
         || verification_controller != initial_resolution.did
         || verification_fragment != descriptor.device_id.as_str()
@@ -297,7 +297,7 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
         .count();
     let notary_matches = match &genesis.notary {
         NotaryValue::SingleSigner { signer, .. } => {
-            signer.actor_id == *event.actor_id.signing_principal_id()
+            signer.actor_id.signing_principal_id() == event.actor_id.signing_principal_id()
         }
         _ => false,
     };

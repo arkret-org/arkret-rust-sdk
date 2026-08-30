@@ -559,7 +559,8 @@ impl AppletManagedActorAuthoringRequest {
             || self.proof.payload_digest != self.payload_digest()?
             || &self.proof.audience_id != self.basis.service_id()
             || self.proof.verification_method != self.hosting_notary.verification_method
-            || &self.hosting_notary.actor_id != self.basis.target_station_id()
+            || self.hosting_notary.actor_id
+                != ActorId::service(self.basis.target_station_id().clone())
             || self.proof.kind != arkret_wire::proof_kind::DETACHED_JWS
             || self.issued_at >= self.expires_at
             || self.expires_at - self.issued_at > chrono::Duration::minutes(5)
@@ -583,7 +584,8 @@ impl AppletManagedActorAuthoringRequest {
     ) -> Result<Self> {
         basis.validate()?;
         hosting_notary.validate()?;
-        if hosting_notary.actor_id != basis.target_station_id
+        if hosting_notary.actor_id
+            != ActorId::service(basis.target_station_id.clone())
             || hosting_notary.verification_method != *signer.verification_method_id()
         {
             return Err(WireError::Protocol(
@@ -625,7 +627,8 @@ impl AppletManagedActorAuthoringRequest {
     ) -> Result<Self> {
         basis.validate()?;
         hosting_notary.validate()?;
-        if hosting_notary.actor_id != basis.target_station_id
+        if hosting_notary.actor_id
+            != ActorId::service(basis.target_station_id.clone())
             || hosting_notary.verification_method != *signer.verification_method_id()
         {
             return Err(WireError::Protocol(

@@ -413,7 +413,7 @@ mod tests {
             TrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
             CORE_REDUCER_PROFILE,
             NotaryValue::single_signer(NotarySignerDescriptor {
-                actor_id: notary_actor,
+                actor_id: ActorId::service(notary_actor),
                 verification_method: DidUrl::new("did:web:notary.example#key-1").unwrap(),
                 key_kind: NotaryKeyKind::Ed25519Raw32,
                 jose_algorithm: NotaryJoseAlgorithm::Ed25519,

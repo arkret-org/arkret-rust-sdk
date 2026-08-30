@@ -16,7 +16,7 @@ use serde_json::json;
 
 fn signer(did: &str) -> NotarySignerDescriptor {
     NotarySignerDescriptor {
-        actor_id: actor(did).signing_principal_id().clone(),
+        actor_id: actor(did),
         verification_method: DidUrl::new(format!("{did}#key-1")).unwrap(),
         key_kind: NotaryKeyKind::Ed25519Raw32,
         jose_algorithm: NotaryJoseAlgorithm::Ed25519,
@@ -192,7 +192,8 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     assert!(matches!(
         &realm.notary,
         NotaryValue::SingleSigner { signer, .. }
-            if signer.actor_id.as_str() == "ak:did_core:webvh:z6mkfixture"
+            if signer.actor_id.signing_principal_id().as_str()
+                == "ak:did_core:webvh:z6mkfixture"
     ));
     assert!(realm.revocation_freshness_window_ms.is_none());
     assert_eq!(realm.max_authority_lifetime_ms, 86_400_000);

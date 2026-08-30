@@ -1385,7 +1385,9 @@ mod tests {
         fn descriptor(actor_suffix: &str, domain: &str) -> NotarySignerDescriptor {
             let public_key = [*actor_suffix.as_bytes().last().unwrap(); 32];
             NotarySignerDescriptor {
-                actor_id: DidCoreId::new(format!("ak:did_core:webvh:{actor_suffix}")).unwrap(),
+                actor_id: crate::ActorId::service(
+                    DidCoreId::new(format!("ak:did_core:webvh:{actor_suffix}")).unwrap(),
+                ),
                 verification_method: DidUrl::new(format!(
                     "did:webvh:{actor_suffix}:{domain}#notary-1"
                 ))

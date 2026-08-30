@@ -11,7 +11,7 @@ use arkret_models_integration::{
     HttpMessageSignatureAlgorithm, WebhookAuth, WidgetEffect,
 };
 use arkret_wire::{
-    AppletId, Did, DidCoreId, DidUrl, Hash, Hlc, NotaryJoseAlgorithm, NotaryKeyKind,
+    ActorId, AppletId, Did, DidCoreId, DidUrl, Hash, Hlc, NotaryJoseAlgorithm, NotaryKeyKind,
     NotarySignerDescriptor, PayloadSignature, PayloadSigner, PlanId, RealmId, Result as WireResult,
     ScopeRef,
 };
@@ -83,7 +83,7 @@ fn canonical_now() -> DateTime<Utc> {
 
 fn hosting_notary() -> NotarySignerDescriptor {
     NotarySignerDescriptor {
-        actor_id: actor("station"),
+        actor_id: ActorId::service(actor("station")),
         verification_method: DidUrl::new(format!("{}#notary-key", did("station"))).unwrap(),
         key_kind: NotaryKeyKind::Ed25519Raw32,
         jose_algorithm: NotaryJoseAlgorithm::Ed25519,

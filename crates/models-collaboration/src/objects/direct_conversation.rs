@@ -348,7 +348,7 @@ mod tests {
 
     fn notary(creator: &Did) -> NotaryValue {
         NotaryValue::single_signer(NotarySignerDescriptor {
-            actor_id: arkret_wire::project_did_to_core_id(creator).unwrap(),
+            actor_id: ActorId::service(arkret_wire::project_did_to_core_id(creator).unwrap()),
             verification_method: DidUrl::new(format!("{}#key-1", creator.as_str())).unwrap(),
             key_kind: NotaryKeyKind::Ed25519Raw32,
             jose_algorithm: NotaryJoseAlgorithm::Ed25519,
