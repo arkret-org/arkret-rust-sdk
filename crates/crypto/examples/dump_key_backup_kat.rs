@@ -1,24 +1,12 @@
+//! Recompute the current key-backup unlock transcript without modifying the fixture.
 use std::fs;
 
-use arkret_crypto::backup::{
-    VaultBinding, commitment_digest, derive_subkey, derive_vault_kek_with_salt,
-    encrypt_vault_with_nonce_salt,
-};
-use arkret_models_crypto::{BackupKind, KeyBackupRecipientMethod};
+use arkret_canonical::{base64url_decode, base64url_encode, canonical_json_bytes};
+use chacha20poly1305::ChaCha20Poly1305;
+use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-
-fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
-fn unhex(input: &str) -> Vec<u8> {
-    (0..input.len())
-        .step_by(2)
-        .map(|index| u8::from_str_radix(&input[index..index + 2], 16).unwrap())
-        .collect()
-}
 
 fn string<'a>(value: &'a Value, key: &str) -> &'a str {
     value[key].as_str().unwrap()
@@ -31,96 +19,59 @@ fn main() {
         .as_array()
         .unwrap()
         .iter()
-        .find(|case| case["name"] == "passphrase_kdf_kat")
+        .find(|case| case["name"] == "unlock_proof")
+        .expect("current unlock proof case");
+    let envelope = &case["envelope"];
+    let transcript = &case["crypto_transcript"];
+    let actor: arkret_wire::ActorId =
+        serde_json::from_value(envelope["actor_id"].clone()).expect("full ActorId");
+    let created_at = arkret_canonical::format_timestamp_canonical(
+        string(envelope, "created_at")
+            .parse::<DateTime<Utc>>()
+            .unwrap(),
+    );
+    let aad = canonical_json_bytes(&json!({
+        "actor_id": actor,
+        "backup_id": envelope["backup_id"],
+        "backup_kind": envelope["backup_kind"],
+        "created_at": created_at,
+        "recipient_method": envelope["encryption"]["recipient_method"],
+        "schema": "ak.schema.key_backup.v1",
+        "series_id": envelope["series_id"],
+        "series_seq": envelope["series_seq"],
+    }))
+    .unwrap();
+    let plaintext = canonical_json_bytes(&case["plaintext"]).unwrap();
+    let key = base64url_decode(string(transcript, "key_b64u")).unwrap();
+    let nonce: [u8; 12] = base64url_decode(string(transcript, "nonce_b64u"))
+        .unwrap()
+        .try_into()
         .unwrap();
-    let mut output = Vec::new();
-
-    for kat in case["kat_cases"].as_array().unwrap() {
-        let input = &kat["input"];
-        let binding_json = &input["binding"];
-        let backup_kind: BackupKind =
-            serde_json::from_value(binding_json["backup_kind"].clone()).unwrap();
-        let binding = VaultBinding {
-            backup_id: string(binding_json, "backup_id").parse().unwrap(),
-            subdomain: "aead".to_owned(),
-            actor_id: string(binding_json, "actor_id").parse().unwrap(),
-            device_id: binding_json["device_id"]
-                .as_str()
-                .map(|value| value.parse().unwrap()),
-            backup_kind,
-            backup_version: string(binding_json, "backup_version").to_owned(),
-            created_at: string(binding_json, "created_at")
-                .parse::<DateTime<Utc>>()
-                .unwrap(),
-            item_kinds: binding_json["item_kinds"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|value| value.as_str().unwrap().to_owned())
-                .collect(),
-            recipient_method: KeyBackupRecipientMethod::PassphraseKdf,
-            recipient_key_ref: None,
-            aead_aad_extensions: Default::default(),
-        };
-        let salt: [u8; 16] = unhex(string(&input["argon2id"], "salt_hex"))
-            .try_into()
-            .unwrap();
-        let nonce_salt: [u8; 16] = unhex(string(input, "nonce_salt_hex")).try_into().unwrap();
-        let kek =
-            derive_vault_kek_with_salt(string(input, "passphrase_utf8").as_bytes(), &salt).unwrap();
-        let ciphertext = encrypt_vault_with_nonce_salt(
-            &kek,
-            &binding,
-            string(input, "plaintext_utf8").as_bytes(),
-            &nonce_salt,
+    let sealed = ChaCha20Poly1305::new_from_slice(&key)
+        .unwrap()
+        .encrypt(
+            &nonce.into(),
+            Payload {
+                msg: &plaintext,
+                aad: &aad,
+            },
         )
         .unwrap();
-        output.push(json!({
-            "label": string(kat, "label"),
-            "intermediate": {
-                "root_key_hex": hex(&kek.key),
-                "hkdf_sha256_subkeys": {
-                    "aead": {
-                        "info": backup_kind.hkdf_info("aead"),
-                        "subkey_hex": hex(&binding.subkey(&kek.key, "aead")),
-                    },
-                    "nonce": {
-                        "info": "arkret-key-backup-aead-nonce-v1",
-                        "subkey_hex": hex(&derive_subkey(
-                            &kek.key,
-                            b"arkret-key-backup-aead-nonce-v1",
-                        )),
-                    },
-                    "commitment": {
-                        "info": backup_kind.hkdf_info("commitment"),
-                        "subkey_hex": hex(&binding.subkey(&kek.key, "commitment")),
-                    },
-                },
-                "nonce_transcript_canonical_json": String::from_utf8(
-                    binding
-                        .nonce_transcript_canonical_bytes(&ciphertext.nonce_salt_b64)
-                        .unwrap(),
-                )
-                .unwrap(),
-                "aead_aad_canonical_json": String::from_utf8(binding.aad().unwrap()).unwrap(),
-            },
-            "expected": {
-                "aead": "xchacha20_poly1305",
-                "aead_profile": arkret_wire::AeadProfileId::XCHACHA20_POLY1305_V1,
-                "nonce_hex": hex(&ciphertext.nonce),
-                "nonce_b64u": ciphertext.nonce_b64,
-                "ciphertext_b64u": ciphertext.ciphertext_b64,
-                "ciphertext_digest": format!(
-                    "sha256:{}",
-                    hex(&Sha256::digest(&ciphertext.ciphertext)),
-                ),
-                "key_commitment": format!(
-                    "sha256:{}",
-                    hex(&commitment_digest(&kek.key, backup_kind)),
-                ),
-            },
-        }));
-    }
-
-    println!("{}", serde_json::to_string_pretty(&output).unwrap());
+    let (ciphertext, tag) = sealed.split_at(sealed.len() - 16);
+    let digest: String = Sha256::digest(&sealed)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&json!({
+            "aad_canonical_json": String::from_utf8(aad).unwrap(),
+            "plaintext_canonical_json": String::from_utf8(plaintext).unwrap(),
+            "ciphertext_b64u": base64url_encode(ciphertext),
+            "tag_b64u": base64url_encode(tag),
+            "ciphertext_and_tag_b64u": base64url_encode(&sealed),
+            "ciphertext_digest": format!("sha256:{digest}"),
+        }))
+        .unwrap()
+    );
 }

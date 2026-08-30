@@ -28,7 +28,7 @@ use arkret_models_crypto::{KeyBackupKeybag, KeyBackupPlaintext};
 use arkret_wire::base64url::{base64url_decode, base64url_encode};
 use arkret_wire::canonical::sha256_digest;
 use arkret_wire::{
-    DidCoreId, Hash, HistoryCandidateMaterialKey, HistoryEffectiveScope, HistorySecretRange,
+    ActorId, Hash, HistoryCandidateMaterialKey, HistoryEffectiveScope, HistorySecretRange,
     LocalAuthoritativeHistorySecret, Result, WireError,
 };
 use chrono::{DateTime, Utc};
@@ -377,7 +377,7 @@ pub fn pack_local_authoritative_history_backup(
 /// calling, because the plaintext deliberately carries no producer field.
 pub fn restore_history_backup_candidates(
     plaintext: &KeyBackupPlaintext,
-    producer_actor_id: &DidCoreId,
+    producer_actor_id: &ActorId,
     kdf_nh: usize,
     first_observed_at: DateTime<Utc>,
 ) -> Result<Vec<RestoredHistoryCandidate>> {
@@ -437,7 +437,7 @@ mod tests {
         OrganizationRecoveryArchiveListOutcome, OrganizationRecoveryArchiveListQuery,
         OrganizationRecoveryArchiveReplica, OrganizationRecoveryArchiveReplicaOutcome,
     };
-    use arkret_wire::{BackupId, BackupSeriesId, EventId, RealmId};
+    use arkret_wire::{AccountId, BackupId, BackupSeriesId, DidCoreId, EventId, RealmId};
 
     use super::*;
 
@@ -505,7 +505,10 @@ mod tests {
             keybag,
             extra: Default::default(),
         };
-        let producer = DidCoreId::new("ak:did_core:web:acme.example:users:alice").unwrap();
+        let producer = ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:web:acme.example:users:alice").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        ));
         let now = Utc::now();
         let restored =
             restore_history_backup_candidates(&plaintext, &producer, KDF_NH, now).unwrap();
@@ -551,7 +554,10 @@ mod tests {
             keybag: KeyBackupKeybag::SecretStorage { items: Vec::new() },
             extra: Default::default(),
         };
-        let producer = DidCoreId::new("ak:did_core:web:acme.example:users:alice").unwrap();
+        let producer = ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:web:acme.example:users:alice").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        ));
         assert!(
             restore_history_backup_candidates(&plaintext, &producer, KDF_NH, Utc::now()).is_err()
         );

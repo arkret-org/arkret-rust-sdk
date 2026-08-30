@@ -105,7 +105,10 @@ mod tests {
         let created_at = Utc::now();
         KeyBackup {
             backup_id: BackupId::new("ak:backup:01964137-0000-7000-8000-000000000000").unwrap(),
-            actor_id: arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            actor_id: arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+                arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                arkret_wire::DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+            )),
             device_id: Some(
                 arkret_wire::DeviceId::new("ak:device:01964137-0000-7000-8000-000000000000")
                     .unwrap(),

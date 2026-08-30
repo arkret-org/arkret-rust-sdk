@@ -13,8 +13,8 @@ use serde_json::Value;
 use crate::error::{Result, WireError};
 use crate::recovery_authority::{CanonicalPublicMaterial, RecoveryCompletionAttestation};
 use crate::{
-    BackupId, BackupSeriesId, DeviceId, DidCoreId, DidUrl, EventId, EventsSubmitBatchRequestBody,
-    Hash, ReceiptId, RecoverySessionId, TransactionId,
+    AccountId, ActorId, BackupId, BackupSeriesId, DeviceId, DidCoreId, DidUrl, EventId,
+    EventsSubmitBatchRequestBody, Hash, ReceiptId, RecoverySessionId, TransactionId,
 };
 
 pub const MAX_SECURITY_TRANSACTION_TTL: Duration = Duration::hours(24);
@@ -1007,8 +1007,13 @@ impl SecurityTransaction {
     fn validate_security_rotation_plan(&self, plan: &SecurityRotationPlan) -> Result<()> {
         validate_security_rotation_fixed_shape(plan)?;
         let revoke_request = plan.revoke_unit.events_submit_request()?;
+        let rotation_actor = ActorId::account(AccountId::new(
+            self.principal_id.clone(),
+            self.coordinator_id.clone(),
+        ));
         if revoke_request.events.len() != 1
             || revoke_request.events[0].event.kind != crate::event_kind_str::DEVICE_REVOKE
+            || revoke_request.events[0].event.actor_id != rotation_actor
         {
             return Err(WireError::Protocol(
                 "security-rotation revoke unit must contain exactly the reserved ak.device.revoke Event"
@@ -1075,6 +1080,7 @@ impl SecurityTransaction {
                     != binding_rotation.active_series_event_id
                 || active_series_request.events[0].event.kind
                     != crate::event_kind_str::KEY_BACKUP_ACTIVE_SERIES
+                || active_series_request.events[0].event.actor_id != rotation_actor
             {
                 return Err(WireError::Protocol(
                     "security-rotation active-series unit must contain exactly its reserved ak.key_backup.active_series Event"
@@ -1105,8 +1111,10 @@ impl SecurityTransaction {
                             == Some(expected.backup_id.as_str())
                             && prepared.get("ciphertext_digest").and_then(Value::as_str)
                                 == Some(expected.ciphertext_digest.as_str())
-                            && prepared.get("actor_id").and_then(Value::as_str)
-                                == Some(self.principal_id.as_str())
+                            && prepared.get("actor_id").is_some_and(|actor| {
+                                serde_json::from_value::<ActorId>(actor.clone())
+                                    .is_ok_and(|actor| actor == rotation_actor)
+                            })
                             && prepared.get("series_id").and_then(Value::as_str)
                                 == Some(binding_rotation.new_series_id.as_str())
                             && prepared.get("backup_kind").and_then(Value::as_str)

@@ -6,10 +6,10 @@ use arkret_canonical::{
     decode_multibase_base58btc, decode_multicodec_varint, encode_multibase_base58btc,
 };
 use arkret_wire::{
-    AttestationId, AuditReasonText, AuthoritySetIssuer, AuthoritySetIssuerRole, AuthorizationLease,
-    BackupId, BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupSeriesId,
-    Base64UrlString, CbaProofBundle, ControlProposalAck, Cursor, DeviceId, DidCoreId, DidUrl,
-    EpochRange, Event, EventId, EventInitialSubmission, EventKind,
+    ActorId, AttestationId, AuditReasonText, AuthoritySetIssuer, AuthoritySetIssuerRole,
+    AuthorizationLease, BackupId, BackupObjectRef, BackupRotationBinding, BackupRotationKind,
+    BackupSeriesId, Base64UrlString, CbaProofBundle, ControlProposalAck, Cursor, DeviceId,
+    DidCoreId, DidUrl, EpochRange, Event, EventId, EventInitialSubmission, EventKind,
     HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES, Hash, HistoryEffectiveScope, LeaseBasisRef,
     NonEmptyString, PayloadProof, PolicyId, ProofContextId, RECOVERY_POLICY_SIGNATURE_TYPE,
     RealmId, ReasonCode, ReceiptId, RecoverySessionId, Result, SchemaId, ServiceOperationId,
@@ -587,7 +587,7 @@ pub struct KeysBackupsReplaceOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyBackupSummary {
     pub backup_id: BackupId,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     pub backup_kind: BackupKind,
@@ -631,7 +631,7 @@ pub struct KeyBackupSummaryEncryption {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyBackup {
     pub backup_id: BackupId,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     pub backup_kind: BackupKind,

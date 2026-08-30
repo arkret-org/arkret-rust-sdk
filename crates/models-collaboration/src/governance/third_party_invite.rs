@@ -45,7 +45,7 @@ pub struct ThirdPartyInvite {
     /// `offline_token` mode — claimed entropy. MUST be >= 128.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub token_entropy_bits: Option<u32>,
-    /// `lookup` mode — opaque reference to the auth-server-side lookup
+    /// `lookup` mode — opaque reference to the verifier-side lookup
     /// table holding the (peppered) 3PID hash.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lookup_table_ref: Option<String>,
@@ -56,7 +56,7 @@ pub struct ThirdPartyInvite {
     /// Maximum claim attempts before terminal `invalidated_by_rate_limit`.
     #[serde(default = "single_claim")]
     pub max_claims: u32,
-    /// DID of the auth server expected to verify the OOB code.
+    /// Core identity of the verifier expected to verify the OOB code.
     pub verification_id: DidCoreId,
     /// Verifying public key for the verification proof chain.
     pub verification_public_key: String,

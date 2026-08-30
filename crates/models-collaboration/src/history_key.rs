@@ -188,7 +188,7 @@ pub struct RrkArchiveOriginRef {
 #[serde(deny_unknown_fields)]
 pub struct PortableBackupQuotaDomain {
     pub backup_series_id: String,
-    pub producer_actor_id: DidCoreId,
+    pub producer_actor_id: ActorId,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

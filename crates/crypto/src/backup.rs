@@ -17,11 +17,15 @@
 //! ```no_run
 //! use arkret_crypto::backup::{build_key_backup_envelope, derive_vault_kek};
 //! use arkret_models_crypto::{BackupKind, SecretStorageItem, SecretStorageItemKind};
+//! use arkret_wire::{AccountId, ActorId};
 //!
 //! let kek = derive_vault_kek(b"correct horse battery staple")?;
 //! let envelope = build_key_backup_envelope(
 //!     "ak:backup:01964137-0000-7000-8000-000000000000".parse()?,
-//!     "ak:did_core:webvh:z6mkfixture".parse()?,
+//!     ActorId::account(AccountId::new(
+//!         "ak:did_core:webvh:z6mkfixture".parse()?,
+//!         "ak:did_core:web:station.example".parse()?,
+//!     )),
 //!     None,
 //!     BackupKind::SecretStorage,
 //!     "kb_1",
@@ -52,7 +56,7 @@ use arkret_models_crypto::{
     KeyBackupKeybag, KeyBackupPlaintext, SecretStorageContentIndex, SecretStorageItem,
 };
 use arkret_wire::{
-    AEAD_PROFILE_XCHACHA20_POLY1305_V1, BackupId, Base64UrlString, DeviceId, DidCoreId, Hash,
+    AEAD_PROFILE_XCHACHA20_POLY1305_V1, ActorId, BackupId, Base64UrlString, DeviceId, Hash,
     XExtensionMap,
 };
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
@@ -213,7 +217,7 @@ pub fn derive_vault_kek_with_salt(
 pub struct VaultBinding {
     pub backup_id: BackupId,
     pub subdomain: String,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub device_id: Option<DeviceId>,
     pub backup_kind: BackupKind,
     pub backup_version: String,
@@ -254,7 +258,7 @@ impl VaultBinding {
         // key so declaration order is irrelevant.
         let transcript = json!({
             "backup_id": self.backup_id.as_str(),
-            "actor_id": self.actor_id.as_str(),
+            "actor_id": self.actor_id,
             "device_id": self.device_id.as_ref().map(DeviceId::as_str),
             "backup_kind": self.backup_class_wire(),
             "backup_version": self.backup_version.as_str(),
@@ -302,7 +306,8 @@ impl VaultBinding {
         );
         aad.insert(
             "actor_id".to_owned(),
-            Value::String(self.actor_id.as_str().to_owned()),
+            serde_json::to_value(&self.actor_id)
+                .map_err(|error| KeyBackupError::Canonical(error.to_string()))?,
         );
         aad.insert(
             "device_id".to_owned(),
@@ -637,7 +642,7 @@ pub fn format_backup_passphrase(bytes: &[u8]) -> String {
 #[allow(clippy::too_many_arguments)]
 pub fn build_key_backup_envelope(
     backup_id: BackupId,
-    actor_id: DidCoreId,
+    actor_id: ActorId,
     device_id: Option<DeviceId>,
     backup_kind: BackupKind,
     backup_version: &str,
@@ -664,7 +669,7 @@ pub fn build_key_backup_envelope(
 #[allow(clippy::too_many_arguments)]
 pub fn build_key_backup_envelope_with_extensions(
     backup_id: BackupId,
-    actor_id: DidCoreId,
+    actor_id: ActorId,
     device_id: Option<DeviceId>,
     backup_kind: BackupKind,
     backup_version: &str,
@@ -699,7 +704,7 @@ pub fn build_key_backup_envelope_with_extensions(
 #[allow(clippy::too_many_arguments)]
 fn build_key_backup_envelope_in_series(
     backup_id: BackupId,
-    actor_id: DidCoreId,
+    actor_id: ActorId,
     device_id: Option<DeviceId>,
     backup_kind: BackupKind,
     backup_version: &str,
@@ -989,7 +994,10 @@ mod key_backup_envelope_tests {
             "ak:backup:01964137-0000-7000-8000-000000000000"
                 .parse()
                 .unwrap(),
-            "ak:did_core:webvh:z6mkfixture".parse().unwrap(),
+            ActorId::account(arkret_wire::AccountId::new(
+                "ak:did_core:webvh:z6mkfixture".parse().unwrap(),
+                "ak:did_core:web:station.example".parse().unwrap(),
+            )),
             None,
             BackupKind::SecretStorage,
             "kb_1",
@@ -1019,6 +1027,15 @@ mod key_backup_envelope_tests {
             SecretStorageItemKind::PrivateAccountState
         );
         assert_eq!(envelope.contents[0].secret_version(), Some(3));
+
+        let mut other_station = envelope;
+        other_station.actor_id = ActorId::account(arkret_wire::AccountId::new(
+            "ak:did_core:webvh:z6mkfixture".parse().unwrap(),
+            "ak:did_core:web:other-station.example".parse().unwrap(),
+        ));
+        assert!(
+            decrypt_key_backup_envelope(b"correct horse battery staple", &other_station).is_err()
+        );
     }
 
     #[test]
@@ -1032,7 +1049,10 @@ mod key_backup_envelope_tests {
                 .parse()
                 .unwrap(),
             subdomain: "recovery_vault".to_owned(),
-            actor_id: "ak:did_core:webvh:z6mkfixture".parse().unwrap(),
+            actor_id: ActorId::account(arkret_wire::AccountId::new(
+                "ak:did_core:webvh:z6mkfixture".parse().unwrap(),
+                "ak:did_core:web:station.example".parse().unwrap(),
+            )),
             device_id: None,
             backup_kind: BackupKind::SecretStorage,
             backup_version: "kb_1".to_owned(),
@@ -1049,7 +1069,7 @@ mod key_backup_envelope_tests {
         let aad = String::from_utf8(binding.aad().unwrap()).unwrap();
         assert_eq!(
             aad,
-            r#"{"actor_id":"ak:did_core:webvh:z6mkfixture","backup_kind":"secret_storage","backup_version":"kb_1","created_at":"2026-08-24T00:00:00.000Z","device_id":null,"item_kinds":["account_data_namespace_key","private_account_state"],"recipient_method":"passphrase_kdf","schema":"ak.schema.key_backup.v1","x_vendor":{"policy":"strict"}}"#
+            r#"{"actor_id":{"account_id":{"principal_id":"ak:did_core:webvh:z6mkfixture","station_id":"ak:did_core:web:station.example"},"kind":"account"},"backup_kind":"secret_storage","backup_version":"kb_1","created_at":"2026-08-24T00:00:00.000Z","device_id":null,"item_kinds":["account_data_namespace_key","private_account_state"],"recipient_method":"passphrase_kdf","schema":"ak.schema.key_backup.v1","x_vendor":{"policy":"strict"}}"#
         );
 
         let mut without_extension = binding;

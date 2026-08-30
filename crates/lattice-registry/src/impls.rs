@@ -4,6 +4,42 @@ use serde_json::Value;
 
 use super::types::*;
 
+fn actor_subject_component(
+    value: Option<&Value>,
+    cell_family: &'static str,
+    field: &'static str,
+) -> Result<String, LatticeKindError> {
+    let value = value.ok_or(LatticeKindError::MissingSubjectField { cell_family, field })?;
+    let actor: arkret_wire::ActorId = serde_json::from_value(value.clone()).map_err(|error| {
+        LatticeKindError::InvalidCompositeSubject {
+            cell_family,
+            reason: format!("{field} must be a complete ActorId: {error}"),
+        }
+    })?;
+    let bytes = arkret_wire::canonical::canonical_json_bytes(&actor).map_err(|error| {
+        LatticeKindError::InvalidCompositeSubject {
+            cell_family,
+            reason: error.to_string(),
+        }
+    })?;
+    String::from_utf8(bytes).map_err(|error| LatticeKindError::InvalidCompositeSubject {
+        cell_family,
+        reason: error.to_string(),
+    })
+}
+
+fn actor_composite_subject(
+    cell_family: &'static str,
+    parts: &[&str],
+) -> Result<Option<String>, LatticeKindError> {
+    arkret_wire::composite_subject(parts)
+        .map(Some)
+        .map_err(|error| LatticeKindError::InvalidCompositeSubject {
+            cell_family,
+            reason: error.to_string(),
+        })
+}
+
 // ────────────────────────── Helper macros ──────────────────────────
 //
 // A typed adapter supplies only what the generated bindings cannot: subject
@@ -307,13 +343,11 @@ impl LatticeKind for KeyBackupActiveSeries {
         &self,
         effect_payload: &Value,
     ) -> Result<Option<String>, LatticeKindError> {
-        let actor_id = effect_payload
-            .get("actor_id")
-            .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: arkret_wire::CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1,
-                field: "actor_id",
-            })?;
+        let actor_id = actor_subject_component(
+            effect_payload.get("actor_id"),
+            self.cell_family(),
+            "actor_id",
+        )?;
         let backup_kind = effect_payload
             .get("backup_kind")
             .and_then(Value::as_str)
@@ -321,7 +355,7 @@ impl LatticeKind for KeyBackupActiveSeries {
                 cell_family: arkret_wire::CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1,
                 field: "backup_kind",
             })?;
-        Ok(Some(format!("{actor_id}::{backup_kind}")))
+        actor_composite_subject(self.cell_family(), &[&actor_id, backup_kind])
     }
 }
 
@@ -686,11 +720,10 @@ impl LatticeKind for CallMuteOverride {
                     cell_family: self.cell_family(),
                     field: "mute_override",
                 })?;
-        let actor_id = mute.get("actor_id").and_then(Value::as_str).ok_or(
-            LatticeKindError::MissingSubjectField {
-                cell_family: self.cell_family(),
-                field: "mute_override.actor_id",
-            },
+        let actor_id = actor_subject_component(
+            mute.get("actor_id"),
+            self.cell_family(),
+            "mute_override.actor_id",
         )?;
         let device_id = mute.get("device_id").and_then(Value::as_str).ok_or(
             LatticeKindError::MissingSubjectField {
@@ -698,7 +731,7 @@ impl LatticeKind for CallMuteOverride {
                 field: "mute_override.device_id",
             },
         )?;
-        arkret_wire::composite_subject(&[call_id, actor_id, device_id])
+        arkret_wire::composite_subject(&[call_id, actor_id.as_str(), device_id])
             .map(Some)
             .map_err(|error| LatticeKindError::InvalidCompositeSubject {
                 cell_family: self.cell_family(),
@@ -709,12 +742,41 @@ impl LatticeKind for CallMuteOverride {
 
 // ────── Membership, invite, agent status and audit families ──────
 
-per_subject_lattice!(
-    MemberState,
-    arkret_wire::CellFamilyId::MEMBER_STATE_V1,
-    Criticality::Required,
-    "actor_id"
-);
+pub struct MemberState;
+
+impl MemberState {
+    pub const CELL_FAMILY: &'static str = arkret_wire::CellFamilyId::MEMBER_STATE_V1;
+}
+
+impl LatticeKind for MemberState {
+    fn cell_family(&self) -> &'static str {
+        Self::CELL_FAMILY
+    }
+    fn lattice(&self) -> SdkLatticeKind {
+        generated_lattice(Self::CELL_FAMILY)
+    }
+    fn bottom_policy(&self) -> BottomPolicy {
+        generated_bottom_policy(Self::CELL_FAMILY)
+    }
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: Self::CELL_FAMILY,
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        let member = actor_subject_component(
+            effect_payload.get("member_id"),
+            Self::CELL_FAMILY,
+            "member_id",
+        )?;
+        actor_composite_subject(Self::CELL_FAMILY, &[&member])
+    }
+}
 
 pub struct InviteLifecycle;
 impl LatticeKind for InviteLifecycle {
@@ -874,14 +936,12 @@ impl LatticeKind for CircleMember {
                 cell_family: arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1,
                 field: "circle_id",
             })?;
-        let actor_id = effect_payload
-            .get("actor_id")
-            .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1,
-                field: "actor_id",
-            })?;
-        Ok(Some(format!("{circle_id}::{actor_id}")))
+        let member_id = actor_subject_component(
+            effect_payload.get("member_id"),
+            self.cell_family(),
+            "member_id",
+        )?;
+        actor_composite_subject(self.cell_family(), &[circle_id, &member_id])
     }
 }
 
@@ -953,13 +1013,11 @@ impl LatticeKind for MemberIdentityLattice {
                 cell_family: arkret_wire::CellFamilyId::MEMBER_IDENTITY_V1,
                 field: "realm_id",
             })?;
-        let actor_id = effect_payload
-            .get("actor_id")
-            .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: arkret_wire::CellFamilyId::MEMBER_IDENTITY_V1,
-                field: "actor_id",
-            })?;
+        let member_id = actor_subject_component(
+            effect_payload.get("member_id"),
+            self.cell_family(),
+            "member_id",
+        )?;
         let segment = effect_payload
             .get("segment")
             .and_then(Value::as_str)
@@ -967,7 +1025,7 @@ impl LatticeKind for MemberIdentityLattice {
                 cell_family: arkret_wire::CellFamilyId::MEMBER_IDENTITY_V1,
                 field: "segment",
             })?;
-        Ok(Some(format!("{realm_id}::{actor_id}::{segment}")))
+        actor_composite_subject(self.cell_family(), &[realm_id, &member_id, segment])
     }
 }
 

@@ -857,7 +857,7 @@ mod tests {
         format!("{}\n", serde_json::to_string(&prepared.log_entry).unwrap()).into_bytes()
     }
 
-    /// A receipt for the registered auth server, issued and signed by the
+    /// A receipt for the registered Station, issued and signed by the
     /// Provider whose history is `provider`.
     fn provider_signed_receipt(
         provider: &arkret_signatures::webvh::PreparedInception,

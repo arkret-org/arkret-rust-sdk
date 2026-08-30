@@ -335,7 +335,7 @@ pub enum EventSetCommitmentAlgorithm {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ActorSeqRangeCommitment {
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub from_seq: u64,
     pub to_seq: u64,
     pub root: Hash,
@@ -346,7 +346,7 @@ pub struct ActorSeqRangeCommitment {
 pub struct EventSetLeaf {
     pub event_id: EventId,
     pub event_digest: Hash,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub actor_seq: u64,
     pub hlc: Hlc,
 }

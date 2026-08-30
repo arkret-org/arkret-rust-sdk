@@ -462,14 +462,18 @@ fn event_set_commitment_sorts_entries_before_hashing() {
     let a = EventSetLeaf {
         event_id: event_id("000000000001"),
         event_digest: Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
-        actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        actor_id: arkret_wire::ActorId::service(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        ),
         actor_seq: 1,
         hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
     };
     let b = EventSetLeaf {
         event_id: event_id("000000000002"),
         event_digest: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
-        actor_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        actor_id: arkret_wire::ActorId::service(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        ),
         actor_seq: 1,
         hlc: Hlc::new("01970e589d21-0002-a13f9c2e").unwrap(),
     };

@@ -35,6 +35,20 @@ mod tests {
 
     use super::*;
 
+    fn account_actor(station: &str) -> serde_json::Value {
+        json!({
+            "kind": "account",
+            "account_id": {
+                "principal_id": "ak:did_core:web:alice.example",
+                "station_id": station
+            }
+        })
+    }
+
+    fn actor_component(actor: &serde_json::Value) -> String {
+        String::from_utf8(arkret_wire::canonical::canonical_json_bytes(actor).unwrap()).unwrap()
+    }
+
     #[test]
     fn sdk_cell_registry_bindings_match_embedded_spec_exactly() {
         let artifact =
@@ -601,9 +615,75 @@ mod tests {
             .lookup(arkret_wire::CellFamilyId::MEMBER_STATE_V1)
             .unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::Fsm);
-        let payload = json!({"actor_id": "did:example:alice"});
+        let actor = account_actor("ak:did_core:web:station.example");
+        let payload = json!({"member_id": actor});
         let subject = kind.subject_for_effect(&payload).unwrap();
-        assert_eq!(subject.as_deref(), Some("did:example:alice"));
+        assert_eq!(
+            subject,
+            Some(composite_subject(&[actor_component(&actor)]).unwrap())
+        );
+    }
+
+    #[test]
+    fn actor_subject_adapters_separate_stations_and_reject_bare_principals() {
+        use arkret_wire::CellFamilyId;
+        let registry = default_lattice_registry();
+        let first = account_actor("ak:did_core:web:first.example");
+        let second = account_actor("ak:did_core:web:second.example");
+        let call_id = "ak:call:fixture";
+        let device_id = "ak:device:fixture";
+        let circle_id = "ak:circle:fixture";
+        let realm_id = "ak:realm:fixture";
+        for family in [
+            CellFamilyId::MEMBER_STATE_V1,
+            CellFamilyId::CIRCLE_MEMBER_V1,
+            CellFamilyId::MEMBER_IDENTITY_V1,
+            CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1,
+            CellFamilyId::CALL_MUTE_OVERRIDE_V1,
+        ] {
+            let kind = registry.lookup(family).unwrap();
+            let payload = |actor: &serde_json::Value| match family {
+                CellFamilyId::MEMBER_STATE_V1 => json!({"member_id": actor}),
+                CellFamilyId::CIRCLE_MEMBER_V1 => {
+                    json!({"circle_id": circle_id, "member_id": actor})
+                }
+                CellFamilyId::MEMBER_IDENTITY_V1 => {
+                    json!({"realm_id": realm_id, "member_id": actor, "segment": "profile"})
+                }
+                CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1 => {
+                    json!({"actor_id": actor, "backup_kind": "mls_history"})
+                }
+                CellFamilyId::CALL_MUTE_OVERRIDE_V1 => {
+                    json!({"call_id": call_id, "mute_override": {"actor_id": actor, "device_id": device_id}})
+                }
+                _ => unreachable!(),
+            };
+            let actor = actor_component(&first);
+            let components = match family {
+                CellFamilyId::MEMBER_STATE_V1 => vec![actor.as_str()],
+                CellFamilyId::CIRCLE_MEMBER_V1 => vec![circle_id, &actor],
+                CellFamilyId::MEMBER_IDENTITY_V1 => vec![realm_id, &actor, "profile"],
+                CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1 => vec![&actor, "mls_history"],
+                CellFamilyId::CALL_MUTE_OVERRIDE_V1 => vec![call_id, &actor, device_id],
+                _ => unreachable!(),
+            };
+            let first_subject = kind.subject_for_effect(&payload(&first)).unwrap();
+            assert_eq!(
+                first_subject,
+                Some(composite_subject(&components).unwrap()),
+                "{family}"
+            );
+            assert_ne!(
+                first_subject,
+                kind.subject_for_effect(&payload(&second)).unwrap(),
+                "{family}"
+            );
+            assert!(
+                kind.subject_for_effect(&payload(&json!("ak:did_core:web:alice.example")))
+                    .is_err(),
+                "{family}"
+            );
+        }
     }
 
     #[test]
@@ -1004,9 +1084,10 @@ mod tests {
             .lookup(arkret_wire::CellFamilyId::CALL_MUTE_OVERRIDE_V1)
             .unwrap();
         assert_eq!(mute.lattice(), SdkLatticeKind::CasRegister);
+        let mute_actor = account_actor("ak:did_core:web:station.example");
         let expected_mute_subject = composite_subject(&[
             call_id,
-            "ak:did_core:webvh:z6mkfixture",
+            &actor_component(&mute_actor),
             "ak:device:01904100-0000-7000-8000-000000000044",
         ])
         .unwrap();
@@ -1014,7 +1095,7 @@ mod tests {
             mute.subject_for_effect(&json!({
                 "call_id": call_id,
                 "mute_override": {
-                    "actor_id": "ak:did_core:webvh:z6mkfixture",
+                    "actor_id": mute_actor,
                     "device_id": "ak:device:01904100-0000-7000-8000-000000000044"
                 }
             }))

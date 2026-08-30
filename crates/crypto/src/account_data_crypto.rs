@@ -2,7 +2,7 @@
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical::{canonical_json_bytes, sha256_digest};
-use arkret_wire::{AEAD_PROFILE_XCHACHA20_POLY1305_V1, DidCoreId, SchemaId};
+use arkret_wire::{AEAD_PROFILE_XCHACHA20_POLY1305_V1, ActorId, SchemaId};
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use hkdf::Hkdf;
@@ -21,12 +21,12 @@ const ACCOUNT_DATA_NONCE_LEN: usize = 24;
 pub struct AccountDataEncryptedValueAad {
     pub schema: String,
     pub version: String,
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub account_data_key: String,
 }
 
 impl AccountDataEncryptedValueAad {
-    pub fn new(actor_id: DidCoreId, account_data_key: impl Into<String>) -> Self {
+    pub fn new(actor_id: ActorId, account_data_key: impl Into<String>) -> Self {
         Self {
             schema: SchemaId::ACCOUNT_DATA_ENCRYPTED_VALUE_V1.to_owned(),
             version: ACCOUNT_DATA_ENCRYPTED_VALUE_VERSION.to_owned(),
@@ -80,7 +80,7 @@ fn canonical_aad(aad: &AccountDataEncryptedValueAad) -> Result<Vec<u8>> {
 
 pub fn derive_account_data_value_key(
     account_secret: &[u8; 32],
-    actor_id: &DidCoreId,
+    actor_id: &ActorId,
     account_data_key: &str,
 ) -> Result<[u8; 32]> {
     validate_account_data_key(account_data_key)?;
@@ -98,7 +98,7 @@ pub fn derive_account_data_value_key(
 
 pub fn seal_account_data_value(
     account_secret: &[u8; 32],
-    actor_id: &DidCoreId,
+    actor_id: &ActorId,
     account_data_key: &str,
     plaintext: &Value,
 ) -> Result<AccountDataEncryptedValue> {
@@ -110,7 +110,7 @@ pub fn seal_account_data_value(
 
 pub fn seal_account_data_value_with_nonce(
     account_secret: &[u8; 32],
-    actor_id: &DidCoreId,
+    actor_id: &ActorId,
     account_data_key: &str,
     plaintext: &Value,
     nonce: [u8; ACCOUNT_DATA_NONCE_LEN],
@@ -144,7 +144,7 @@ pub fn seal_account_data_value_with_nonce(
 
 pub fn validate_account_data_encrypted_value(
     value: &AccountDataEncryptedValue,
-    expected_actor_id: &DidCoreId,
+    expected_actor_id: &ActorId,
     expected_account_data_key: &str,
 ) -> Result<()> {
     validate_account_data_key(expected_account_data_key)?;
@@ -182,7 +182,7 @@ pub fn validate_account_data_encrypted_value(
 
 pub fn open_account_data_value(
     account_secret: &[u8; 32],
-    expected_actor_id: &DidCoreId,
+    expected_actor_id: &ActorId,
     expected_account_data_key: &str,
     value: &AccountDataEncryptedValue,
 ) -> Result<Value> {
@@ -221,12 +221,15 @@ pub fn open_account_data_value(
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::AccountDataKey;
+    use arkret_wire::{AccountDataKey, AccountId, DidCoreId};
 
     use super::*;
 
-    fn actor() -> DidCoreId {
-        DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap()
+    fn actor() -> ActorId {
+        ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        ))
     }
 
     #[test]
@@ -262,6 +265,24 @@ mod tests {
         )
         .unwrap();
         assert!(open_account_data_value(&secret, &actor(), "ak.push_rules", &envelope).is_err());
+        let other_station = ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            DidCoreId::new("ak:did_core:web:other-station.example").unwrap(),
+        ));
+        assert_ne!(
+            derive_account_data_value_key(&secret, &actor(), AccountDataKey::DND_SCHEDULE).unwrap(),
+            derive_account_data_value_key(&secret, &other_station, AccountDataKey::DND_SCHEDULE)
+                .unwrap(),
+        );
+        assert!(
+            open_account_data_value(
+                &secret,
+                &other_station,
+                AccountDataKey::DND_SCHEDULE,
+                &envelope
+            )
+            .is_err()
+        );
         assert!(
             open_account_data_value(
                 &[12u8; 32],

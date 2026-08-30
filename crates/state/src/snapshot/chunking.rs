@@ -335,10 +335,13 @@ fn build_chunk_descriptor(payload: SnapshotChunkPayload) -> Result<BuiltSnapshot
 
 fn sorted_event_set_entries(entries: &[EventSetLeaf]) -> Vec<EventSetLeaf> {
     let mut sorted = entries.to_vec();
-    sorted.sort_by(|a, b| {
-        let left = (a.actor_id.as_str(), a.actor_seq, a.event_id.as_str());
-        let right = (b.actor_id.as_str(), b.actor_seq, b.event_id.as_str());
-        left.cmp(&right)
+    sorted.sort_by_cached_key(|entry| {
+        (
+            arkret_wire::canonical::canonical_json_bytes(&entry.actor_id)
+                .expect("validated ActorId has canonical JSON"),
+            entry.actor_seq,
+            entry.event_id.clone(),
+        )
     });
     sorted
 }
