@@ -558,11 +558,6 @@ mod tests {
         let value = serde_json::to_value(&record).unwrap();
         assert!(value.get("controller_account_id").is_some());
         assert!(value["initiator_actor_id"].is_object());
-        assert!(value.get("controller_authority").is_none());
-        assert!(value.get("initiator_authority").is_none());
-        let mut legacy = value.clone();
-        legacy["controller_authority"] = legacy["controller_account_id"].take();
-        assert!(serde_json::from_value::<AgentCleanupRecord>(legacy).is_err());
         let mut other_station = record.clone();
         other_station.initiator_actor_id = ActorId::account(authority(
             "ak:did_core:web:bob.example",

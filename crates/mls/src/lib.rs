@@ -1034,8 +1034,8 @@ mod tests {
             .preview_add_members_security_frontier(
                 &[dave_key_package.clone(), eve_key_package.clone()],
                 &[
-                    group::test_actor_for_endpoint(&dave_key_package.endpoint),
-                    group::test_actor_for_endpoint(&eve_key_package.endpoint),
+                    test_actor_for_endpoint(&dave_key_package.endpoint),
+                    test_actor_for_endpoint(&eve_key_package.endpoint),
                 ],
             )
             .unwrap();

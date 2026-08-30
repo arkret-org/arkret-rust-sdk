@@ -1131,7 +1131,7 @@ impl AccountUpdateProfileRequestBody {
                     crate::events_payloads::event_wire::decode_payload_after_kind_validation(
                         event,
                     )?;
-                if &payload.object.principal_id != &session_account_id.principal_id
+                if payload.object.principal_id != session_account_id.principal_id
                     || payload
                         .object
                         .realm_id
