@@ -538,14 +538,14 @@ mod tests {
             )),
             controller_terminal_event_id: event_id('b'),
             expected_agent_ids: vec![
-                ActorId::hosted_principal(
+                ActorId::account(AccountId::new(
                     DidCoreId::new("ak:did_core:web:agent-a.example").unwrap(),
                     DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
-                ),
-                ActorId::hosted_principal(
+                )),
+                ActorId::account(AccountId::new(
                     DidCoreId::new("ak:did_core:web:agent-b.example").unwrap(),
                     DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
-                ),
+                )),
             ],
             cleanup_intent_digest: hash('2'),
             accepted_at,

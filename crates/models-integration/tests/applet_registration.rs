@@ -192,7 +192,7 @@ fn package_with_required_fields() -> AppletPackage {
         did("slackbridge"),
         principal("alice"),
         "https://applet.example/cx",
-        ActorId::hosted_principal(actor("bot"), actor("station")),
+        ActorId::account(arkret_wire::AccountId::new(actor("bot"), actor("station"))),
         vec!["slack".to_owned()],
         AppletWireNamespaces {
             actors: vec![AppletNamespaceEntry::exclusive(

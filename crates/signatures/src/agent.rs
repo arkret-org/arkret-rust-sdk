@@ -299,7 +299,12 @@ fn validate_pairing_authorize_event(
             "agent authorize_event.kind must be ak.agent.key.authorize".to_owned(),
         ));
     }
-    if authorize_event.actor_id != ActorId::hosted_principal(agent_id.clone(), station_id.clone()) {
+    if authorize_event.actor_id
+        != ActorId::account(arkret_wire::AccountId::new(
+            agent_id.clone(),
+            station_id.clone(),
+        ))
+    {
         return Err(Error::Protocol(
             "agent authorize_event.actor_id must match agent_id".to_owned(),
         ));
@@ -780,7 +785,10 @@ mod tests {
                     [0x41; 32],
                 )),
             },
-            ActorId::hosted_principal(agent_actor_id.clone(), service_id),
+            ActorId::account(arkret_wire::AccountId::new(
+                agent_actor_id.clone(),
+                service_id,
+            )),
             1,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             serde_json::to_value(authorize_payload).unwrap(),

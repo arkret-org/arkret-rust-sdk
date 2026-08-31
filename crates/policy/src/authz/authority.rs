@@ -36,7 +36,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_collaboration::governance::grant_constraint::GrantConstraintSubkind;
-use arkret_wire::{ActorId, AppletId, CircleId, DidCoreId, Hash};
+use arkret_wire::{ActorId, AppletId, CircleId, Hash};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -471,6 +471,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::DidCoreId;
     use chrono::Duration;
 
     use super::*;

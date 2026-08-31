@@ -637,7 +637,6 @@ mod events_submit_tests {
         let station = DidCoreId::new("ak:did_core:web:station.example").unwrap();
         for subject in [
             ActorId::account(AccountId::new(principal.clone(), station.clone())),
-            ActorId::hosted_principal(principal, station.clone()),
             ActorId::service(station),
         ] {
             let (client, capture) =

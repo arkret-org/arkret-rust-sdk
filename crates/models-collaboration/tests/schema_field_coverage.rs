@@ -132,13 +132,19 @@ fn event_read_projection_rows_match_their_schema_definitions() {
         "event_id": "ak:event:AZk4PXzJ6MpkxXnYTUmgXzeIYNd0Wfnz3N0hwLHNV6Xq",
         "kind": EventKind::MessageCreate.as_str(),
         "realm_id": "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs",
-        "event_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "reason_code": "reference_locked",
         "inclusion_proof": {"root": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
         "reducer_input": false
     }))
     .expect("every ReferenceLockedEventStub field is accepted");
     assert_dto_matches_schema(SERVICE_OPERATION_DTOS, "ReferenceLockedEventStub", &locked);
+    let mut digest_mirror = serde_json::to_value(&locked).unwrap();
+    digest_mirror["event_digest"] =
+        json!("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    assert!(
+        serde_json::from_value::<ReferenceLockedEventStub>(digest_mirror).is_err(),
+        "a content-addressed Event reference must reject the retired digest mirror"
+    );
 
     let event_view: EventView = serde_json::from_value(json!({
         "event": locked,

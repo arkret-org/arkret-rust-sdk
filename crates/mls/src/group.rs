@@ -325,7 +325,7 @@ pub(crate) fn test_actor_for_endpoint(endpoint: &MlsEndpointIdentity) -> ActorId
             ActorId::account(arkret_wire::AccountId::new(principal_id.clone(), station))
         }
         MlsEndpointIdentity::NativeAgentRuntime { agent_id, .. } => {
-            ActorId::hosted_principal(agent_id.clone(), station)
+            ActorId::account(arkret_wire::AccountId::new(agent_id.clone(), station))
         }
         MlsEndpointIdentity::MinimalMetadataPairwise {
             pairwise_actor_id, ..
