@@ -107,6 +107,41 @@ fn federation_peer_actor_bounds_reject_duplicate_keys_in_raw_json() {
 }
 
 #[test]
+fn federation_frontier_leaf_data_uses_object_actors_and_global_jcs_sort_keys() {
+    let actor = |station| {
+        ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            DidCoreId::new(station).unwrap(),
+        ))
+    };
+    let actors = BTreeMap::from([
+        (actor("ak:did_core:web:b.example"), 3),
+        (actor("ak:did_core:web:a.example"), 7),
+    ]);
+    let head = EventId::from_digest(DigestSuite::Sha256, [0x42; 32]);
+    let leaves = federation_frontier_leaf_data(&[head.clone(), head], &actors).unwrap();
+    assert_eq!(
+        leaves.len(),
+        3,
+        "heads deduplicate without collapsing accounts"
+    );
+    assert_eq!(
+        std::str::from_utf8(&leaves[0]).unwrap(),
+        r#"{"actor_id":{"account_id":{"principal_id":"ak:did_core:web:alice.example","station_id":"ak:did_core:web:a.example"},"kind":"account"},"actor_seq_upper_bound":7,"type":"actor_seq_upper_bound"}"#
+    );
+    let second: Value = serde_json::from_slice(&leaves[1]).unwrap();
+    assert!(second["actor_id"].is_object());
+    assert_eq!(
+        second["actor_id"]["account_id"]["station_id"],
+        "ak:did_core:web:b.example"
+    );
+    assert_eq!(
+        std::str::from_utf8(&leaves[2]).unwrap(),
+        r#"{"event_digest":"sha256:4242424242424242424242424242424242424242424242424242424242424242","type":"head"}"#
+    );
+}
+
+#[test]
 fn federation_submit_union_rejects_unknown_unit_kind_without_fallback() {
     let error = serde_json::from_value::<EventsSubmitFederationRequestBody>(json!({
         "unit_kind": "future_unit",
