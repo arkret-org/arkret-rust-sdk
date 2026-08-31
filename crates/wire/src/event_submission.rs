@@ -16,7 +16,7 @@ use crate::event_envelope::{Event, EventSubmitContext};
 use crate::offline_publication::{
     AnchorUnitLeaseBasis, AuthorizationLease, IngressReceipt, LeaseBasisRef,
 };
-use crate::{RiskTier, ScopeRef};
+use crate::{DeviceId, EventId, Hash, RiskTier, ScopeRef};
 
 pub const MAX_SUBMISSION_CBA_BUNDLES: usize = 64;
 
@@ -304,7 +304,7 @@ pub fn validate_anchor_unit_lease_bindings(
         .zip(digest_suites.iter().copied())
         .map(|(event, digest_suite)| {
             let digest = event.event_digest_with_digest_suite(digest_suite)?;
-            crate::Hash::new(digest).map_err(|error| {
+            Hash::new(digest).map_err(|error| {
                 WireError::Protocol(format!("anchor Event digest is invalid: {error}"))
             })
         })
@@ -312,7 +312,7 @@ pub fn validate_anchor_unit_lease_bindings(
     let mut expected = AnchorUnitLeaseBasis {
         realm_id,
         event_digests,
-        unit_digest: crate::Hash::new(format!("sha256:{}", "0".repeat(64)))?,
+        unit_digest: Hash::new(format!("sha256:{}", "0".repeat(64)))?,
     };
     expected.unit_digest = expected.expected_unit_digest()?;
     for lease in leases {
@@ -351,6 +351,18 @@ pub struct EventInitialSubmission {
     pub membership_compensation_evidence: Option<crate::MembershipCompensationSubmissionEvidence>,
 }
 
+/// Stable first-admission references for the one Ack-less human
+/// self-principal PCR Control authority class.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AcklessSelfPrincipalAdmissionEvidence {
+    pub device_id: DeviceId,
+    pub device_authorize_event_id: EventId,
+    pub device_generation_ref: u64,
+    pub seal_basis_digest: Hash,
+}
+
 /// Previously receipted publication evidence transported between peers.
 ///
 /// Wire shape: `service-operation-dtos.schema.json#/$defs/EventFederationSubmission`.
@@ -365,6 +377,8 @@ pub struct EventFederationSubmission {
     pub ingress_receipts: Vec<IngressReceipt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub control_proposal_ack: Option<ControlProposalAck>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ackless_self_principal_admission_evidence: Option<AcklessSelfPrincipalAdmissionEvidence>,
     /// Byte-identical transport-only evidence forwarded from self admission.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub membership_compensation_evidence: Option<crate::MembershipCompensationSubmissionEvidence>,
@@ -411,7 +425,7 @@ fn validate_control_proposal_ack(
                 "DataEvent submissions forbid a Control Proposal Ack".to_owned(),
             ));
         }
-        let event_digest = crate::Hash::new(event.event_digest_with_digest_suite(digest_suite)?)?;
+        let event_digest = Hash::new(event.event_digest_with_digest_suite(digest_suite)?)?;
         if receipt.realm_id != event.realm_id || receipt.proposal_digest != event_digest {
             return Err(WireError::Protocol(
                 "Control Proposal Ack does not bind the submitted Event".to_owned(),
@@ -561,6 +575,31 @@ impl EventFederationSubmission {
             context,
             digest_suite,
         )?;
+        if self.control_proposal_ack.is_some()
+            && self.ackless_self_principal_admission_evidence.is_some()
+        {
+            return Err(WireError::Protocol(
+                "federation Control admission cannot carry both an Ack and Ack-less evidence"
+                    .to_owned(),
+            ));
+        }
+        if let Some(evidence) = &self.ackless_self_principal_admission_evidence {
+            if !self.event.kind.is_control_plane() || self.event.seal_basis.is_none() {
+                return Err(WireError::Protocol(
+                    "Ack-less self-principal admission evidence requires a based Control Move"
+                        .to_owned(),
+                ));
+            }
+            let basis_digest = crate::canonical::canonical_sha256(
+                self.event.seal_basis.as_ref().expect("checked above"),
+            )?;
+            if evidence.seal_basis_digest.as_str() != basis_digest {
+                return Err(WireError::Protocol(
+                    "Ack-less self-principal admission evidence does not bind the signed Seal basis"
+                        .to_owned(),
+                ));
+            }
+        }
         validate_membership_compensation_evidence(
             &self.event,
             self.membership_compensation_evidence.as_ref(),
@@ -587,8 +626,7 @@ impl EventFederationSubmission {
             }
             _ => {}
         }
-        let event_digest =
-            crate::Hash::new(self.event.event_digest_with_digest_suite(digest_suite)?)?;
+        let event_digest = Hash::new(self.event.event_digest_with_digest_suite(digest_suite)?)?;
         for receipt in &self.ingress_receipts {
             receipt.validate_structural()?;
             if receipt.event_digest != event_digest {
@@ -1026,6 +1064,7 @@ mod tests {
             authorization_lease: None,
             ingress_receipts: Vec::new(),
             control_proposal_ack: None,
+            ackless_self_principal_admission_evidence: None,
             membership_compensation_evidence: None,
         };
         assert_eq!(
@@ -1044,6 +1083,7 @@ mod tests {
             authorization_lease: Some(lease_for(&intent())),
             ingress_receipts: Vec::new(),
             control_proposal_ack: None,
+            ackless_self_principal_admission_evidence: None,
             membership_compensation_evidence: None,
         };
         assert!(

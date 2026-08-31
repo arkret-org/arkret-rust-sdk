@@ -11,10 +11,11 @@ use arkret_models_identity::ServiceResolutionCarrier;
 use arkret_models_identity::agent_signer_evidence::AgentEventAdmissionReceipt;
 use arkret_wire::{
     AccountId, ActorId, AppletId, AuditReasonText, Base64UrlString, BlobRef, ConsentId,
-    ControlProposalAck, Cursor, DeviceId, DidCoreId, DidKey, Event, EventId,
-    EventInitialSubmission, Hash, IngressReceipt, MimiRoomUri, MlsGroupId, MorphId, NonEmptyString,
-    PayloadProof, ProofContextId, RealmId, ReasonCode, RelationId, ReportId, Result, Seal, SealId,
-    ServiceOperationId, SignalEnvelope, SpaceId, StrandId, WireError, canonical,
+    ControlProposalAck, Cursor, DeviceId, DidCoreId, DidKey, Event, EventFederationSubmission,
+    EventId, EventInitialSubmission, Hash, IngressReceipt, MimiRoomUri, MlsGroupId, MorphId,
+    NonEmptyString, PayloadProof, ProofContextId, RealmId, ReasonCode, RelationId, ReportId,
+    Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId, StrandId, WireError,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -702,6 +703,11 @@ impl PeerEventsResolveRequestBody {
                 "peer dependency resolve max_response_bytes is outside 1024..=8388608".to_owned(),
             ));
         }
+        if self.include_payload == Some(false) {
+            return Err(WireError::Protocol(
+                "peer dependency resolve requires the complete accepted Event payload".to_owned(),
+            ));
+        }
         validate_typed_missing_order(&self.event_ids, &self.event_digests, &[])
     }
 }
@@ -711,7 +717,7 @@ impl PeerEventsResolveRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct PeerEventsResolveOutcome {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub events: Vec<Event>,
+    pub events: Vec<EventFederationSubmission>,
     pub missing_event_ids: Vec<EventId>,
     pub missing_event_digests: Vec<Hash>,
 }
@@ -727,14 +733,15 @@ impl PeerEventsResolveOutcome {
             ));
         }
         let mut event_ids = std::collections::BTreeSet::new();
-        if self
-            .events
-            .iter()
-            .any(|event| !event_ids.insert(event.event_id.clone()))
-        {
-            return Err(WireError::Protocol(
-                "peer dependency resolve events must be duplicate-free".to_owned(),
-            ));
+        for submission in &self.events {
+            submission.validate_structural(
+                submission.event.event_id.digest_suite_code().digest_suite(),
+            )?;
+            if !event_ids.insert(submission.event.event_id.clone()) {
+                return Err(WireError::Protocol(
+                    "peer dependency resolve events must be duplicate-free".to_owned(),
+                ));
+            }
         }
         validate_typed_missing_order(&self.missing_event_ids, &self.missing_event_digests, &[])?;
         Ok(())
@@ -745,7 +752,8 @@ impl PeerEventsResolveOutcome {
         self.validate_structural()?;
         let mut returned_ids = std::collections::BTreeSet::new();
         let mut returned_digests = std::collections::BTreeSet::new();
-        for event in &self.events {
+        for submission in &self.events {
+            let event = &submission.event;
             let selected_by_id = request.event_ids.contains(&event.event_id);
             let matching_digests = request
                 .event_digests

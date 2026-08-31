@@ -375,6 +375,13 @@ impl ControlEventStore for MemoryControlEventStore {
                 .control_proposal_acks
                 .get(event_digest.as_str())
                 .cloned(),
+            ingress_class: inner
+                .ingress_classes
+                .get(event_digest.as_str())
+                .cloned()
+                .ok_or_else(|| {
+                    StoreError::Backend("control Event ingress class is missing".to_owned())
+                })?,
             decisions: inner
                 .proposal_decisions
                 .get(event_digest.as_str())

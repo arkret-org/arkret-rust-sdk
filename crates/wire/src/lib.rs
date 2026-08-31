@@ -126,9 +126,9 @@ pub use error_codes::*;
 pub use event_envelope::*;
 pub use event_receipt::*;
 pub use event_submission::{
-    AuthorizationLeaseIssueIntent, AuthorizationLeaseIssueOutcome,
-    AuthorizationLeaseIssueRequestBody, EventFederationSubmission, EventInitialSubmission,
-    EventPublicationLane, EventsSubmitBatchRequestBody, PcrGenesisUnit,
+    AcklessSelfPrincipalAdmissionEvidence, AuthorizationLeaseIssueIntent,
+    AuthorizationLeaseIssueOutcome, AuthorizationLeaseIssueRequestBody, EventFederationSubmission,
+    EventInitialSubmission, EventPublicationLane, EventsSubmitBatchRequestBody, PcrGenesisUnit,
     classify_event_submit_context, classify_federated_event_submit_context,
     validate_anchor_unit_lease_bindings,
 };

@@ -375,6 +375,7 @@ fn federation_submission(mut event: Event) -> EventFederationSubmission {
         authorization_lease: Some(authorization_lease),
         ingress_receipts: vec![receipt],
         control_proposal_ack,
+        ackless_self_principal_admission_evidence: None,
         membership_compensation_evidence: None,
     }
 }

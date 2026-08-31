@@ -253,6 +253,11 @@ mod federation_dependency_tests {
         let mut unsorted = valid;
         unsorted.event_ids.reverse();
         assert!(unsorted.validate().is_err());
+
+        let mut payload_projection = unsorted;
+        payload_projection.event_ids.reverse();
+        payload_projection.include_payload = Some(false);
+        assert!(payload_projection.validate().is_err());
     }
 }
 

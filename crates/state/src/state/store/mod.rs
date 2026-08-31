@@ -160,6 +160,7 @@ pub struct ControlProposalSnapshot {
     /// Trusted Realm digest suite used to key this exact accepted Event.
     pub digest_suite: arkret_canonical::DigestSuite,
     pub control_proposal_ack: Option<ControlProposalAck>,
+    pub ingress_class: ControlProposalIngressClass,
     pub decisions: Vec<ControlProposalDecision>,
     pub covering_seals: Vec<SealId>,
     pub decision_overdue: bool,
