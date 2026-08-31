@@ -13,8 +13,7 @@ version.workspace = true
 
 [features]
 default = []
-# PostgreSQL `text` persistence for validated wire-string newtypes that are
-# used directly as relational identifiers.
+# PostgreSQL persistence for validated identifiers and structured identities.
 diesel = ["dep:diesel"]
 # Raw Event fixture constructors for tests and dedicated conformance crates.
 # Production consumers must author standard Events through arkret-event-draft.
@@ -29,7 +28,7 @@ openapi = ["dep:salvo-oapi", "arkret-identifiers/openapi", "salvo-oapi/chrono"]
 arkret-canonical = { workspace = true }
 arkret-identifiers = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
-diesel = { workspace = true, features = ["postgres"], optional = true }
+diesel = { workspace = true, features = ["postgres", "serde_json"], optional = true }
 getrandom = { workspace = true }
 hex = { workspace = true }
 idna = { workspace = true }
