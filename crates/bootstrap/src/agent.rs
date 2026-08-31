@@ -1,4 +1,4 @@
-//! Managed Agent Principal Control Realm: canonical control materialization
+//! Agent Principal Control Realm: canonical control materialization
 //! and the controller-signed Seal built from it.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -28,9 +28,9 @@ use crate::projection::{CellWriteProjector, direct_projection, validate_realm_cr
 const MANAGED_AGENT_PCR_DIGEST_SUITE: arkret_canonical::DigestSuite =
     arkret_canonical::DigestSuite::Sha256;
 
-/// Public inputs for the profile-closed managed Agent PCR Realm payload.
+/// Public inputs for the profile-closed Agent PCR Realm payload.
 #[derive(Clone, Debug)]
-pub struct ManagedAgentPcrCreatePayloadInput {
+pub struct AgentPcrCreatePayloadInput {
     pub agent_id: DidCoreId,
     pub controller_id: DidCoreId,
     pub notary: NotaryValue,
@@ -43,22 +43,22 @@ pub struct ManagedAgentPcrCreatePayloadInput {
     pub created_at: DateTime<Utc>,
 }
 
-/// Build the canonical `ak.realm.create` payload for a managed Agent PCR.
-pub fn build_managed_agent_pcr_create_payload(
-    input: ManagedAgentPcrCreatePayloadInput,
+/// Build the canonical `ak.realm.create` payload for a Agent PCR.
+pub fn build_agent_pcr_create_payload(
+    input: AgentPcrCreatePayloadInput,
 ) -> Result<RealmCreatePayload> {
     if project_did_to_core_id(&input.initial_resolution.did)? != input.agent_id {
         return Err(WireError::Protocol(
-            "managed Agent initial_resolution did does not project to agent_id".to_owned(),
+            "Agent initial_resolution did does not project to agent_id".to_owned(),
         ));
     }
     input.notary.validate()?;
     if !notary_primary_projects_to_principal(&input.notary, &input.agent_id)? {
         return Err(WireError::Protocol(
-            "managed Agent notary primary does not match agent_id".to_owned(),
+            "Agent notary primary does not match agent_id".to_owned(),
         ));
     }
-    let genesis = RealmGenesis::managed_agent_control(
+    let genesis = RealmGenesis::agent_control(
         input.genesis_salt,
         input.initial_resolution,
         input.trust_domain,
@@ -97,9 +97,9 @@ fn notary_primary_projects_to_actor(notary: &NotaryValue, actor_id: &ActorId) ->
 }
 
 /// Complete reducer material needed to construct or validate a
-/// controller-signed managed Agent PCR Event Seal.
+/// controller-signed Agent PCR Event Seal.
 #[derive(Clone, Debug)]
-pub struct ManagedAgentPcrControlMaterial {
+pub struct AgentPcrControlMaterial {
     pub realm_id: RealmId,
     pub agent_id: ActorId,
     pub controller_id: ActorId,
@@ -114,7 +114,7 @@ pub struct ManagedAgentPcrControlMaterial {
     pub event_ops: Vec<(CellRef, IssuedOp)>,
 }
 
-/// Materialize the canonical control state of a managed Agent PCR.
+/// Materialize the canonical control state of a Agent PCR.
 ///
 /// The delegated create Event derives the six common Realm genesis cells plus
 /// its conditional Agent-status genesis cell. Every later managed PCR Event
@@ -123,16 +123,16 @@ pub struct ManagedAgentPcrControlMaterial {
 /// receiver admission one byte-identical state-root implementation.
 /// Successor Events must already have passed Seal-DAG basis verification; this
 /// pure fold groups identical leaf sets but does not resolve Seal objects.
-pub fn materialize_managed_agent_pcr_control(
+pub fn materialize_agent_pcr_control(
     events: &[Event],
     project: CellWriteProjector<'_>,
-) -> Result<ManagedAgentPcrControlMaterial> {
+) -> Result<AgentPcrControlMaterial> {
     if events
         .iter()
         .any(|event| event.kind == EventKind::RealmDigestSuiteTransition)
     {
         return Err(WireError::Protocol(
-            "managed Agent PCR bootstrap materializer does not accept digest-suite transition Seals"
+            "Agent PCR bootstrap materializer does not accept digest-suite transition Seals"
                 .to_owned(),
         ));
     }
@@ -151,7 +151,7 @@ pub fn materialize_managed_agent_pcr_control(
     }
     if creates.len() != 1 {
         return Err(WireError::Protocol(format!(
-            "managed Agent PCR material requires exactly one canonical create Event (found {})",
+            "Agent PCR material requires exactly one canonical create Event (found {})",
             creates.len()
         )));
     }
@@ -163,29 +163,27 @@ pub fn materialize_managed_agent_pcr_control(
     // provision by that declared Realm id instead.
     if !create.refs.is_empty() {
         return Err(WireError::Protocol(
-            "managed Agent PCR create must not carry semantic references".to_owned(),
+            "Agent PCR create must not carry semantic references".to_owned(),
         ));
     }
     let controller_id = create.executed_by.clone().ok_or_else(|| {
-        WireError::Protocol("managed Agent PCR create Event omits executed_by".to_owned())
+        WireError::Protocol("Agent PCR create Event omits executed_by".to_owned())
     })?;
     let authorization_ref = create.authorization_ref.clone().ok_or_else(|| {
-        WireError::Protocol("managed Agent PCR create Event omits authorization_ref".to_owned())
+        WireError::Protocol("Agent PCR create Event omits authorization_ref".to_owned())
     })?;
     let payload: RealmCreatePayload = create.typed_payload::<event_spec::RealmCreate>()?;
     let object = payload.object;
-    if object.purpose
-        != arkret_models_collaboration::events_payloads::RealmPurpose::ManagedAgentControl
-    {
+    if object.purpose != arkret_models_collaboration::events_payloads::RealmPurpose::AgentControl {
         return Err(WireError::Protocol(
-            "managed Agent PCR create purpose is inconsistent".to_owned(),
+            "Agent PCR create purpose is inconsistent".to_owned(),
         ));
     }
     let notary_value = object.notary;
     notary_value.validate()?;
     if !notary_primary_projects_to_actor(&notary_value, &create.actor_id)? {
         return Err(WireError::Protocol(
-            "managed Agent PCR notary must be the Agent DID".to_owned(),
+            "Agent PCR notary must be the Agent DID".to_owned(),
         ));
     }
     validate_realm_create_projection(create, create_effects)?;
@@ -203,7 +201,7 @@ pub fn materialize_managed_agent_pcr_control(
             || event.authorization_ref.as_deref() != Some(authorization_ref.as_str())
     }) {
         return Err(WireError::Protocol(
-            "managed Agent PCR Event authority or Realm differs from its genesis".to_owned(),
+            "Agent PCR Event authority or Realm differs from its genesis".to_owned(),
         ));
     }
 
@@ -226,7 +224,7 @@ pub fn materialize_managed_agent_pcr_control(
         .any(|pair| pair[0].0.actor_seq == pair[1].0.actor_seq)
     {
         return Err(WireError::Protocol(
-            "managed Agent PCR Event history contains duplicate actor_seq".to_owned(),
+            "Agent PCR Event history contains duplicate actor_seq".to_owned(),
         ));
     }
 
@@ -245,7 +243,7 @@ pub fn materialize_managed_agent_pcr_control(
             .any(|(event, _)| event.seal_basis.is_none())
     {
         return Err(WireError::Protocol(
-            "managed Agent PCR basis-less Events must form one leading anchor unit".to_owned(),
+            "Agent PCR basis-less Events must form one leading anchor unit".to_owned(),
         ));
     }
 
@@ -255,7 +253,7 @@ pub fn materialize_managed_agent_pcr_control(
     let mut event_ops = Vec::new();
     let mut joined = BTreeMap::new();
 
-    apply_managed_agent_batch(
+    apply_agent_batch(
         &ordered[..anchor_len],
         true,
         create,
@@ -269,13 +267,13 @@ pub fn materialize_managed_agent_pcr_control(
     let mut cursor = anchor_len;
     while cursor < ordered.len() {
         let basis = ordered[cursor].0.seal_basis.as_ref().ok_or_else(|| {
-            WireError::Protocol("managed Agent PCR successor Event omits seal_basis".to_owned())
+            WireError::Protocol("Agent PCR successor Event omits seal_basis".to_owned())
         })?;
         let mut end = cursor + 1;
         while end < ordered.len() && ordered[end].0.seal_basis.as_ref() == Some(basis) {
             end += 1;
         }
-        apply_managed_agent_batch(
+        apply_agent_batch(
             &ordered[cursor..end],
             false,
             create,
@@ -290,8 +288,8 @@ pub fn materialize_managed_agent_pcr_control(
     }
 
     let state_root = compute_state_root(&joined, MANAGED_AGENT_PCR_DIGEST_SUITE)
-        .map_err(|error| WireError::Protocol(format!("managed Agent PCR state root: {error}")))?;
-    Ok(ManagedAgentPcrControlMaterial {
+        .map_err(|error| WireError::Protocol(format!("Agent PCR state root: {error}")))?;
+    Ok(AgentPcrControlMaterial {
         realm_id: create.realm_id.clone(),
         agent_id: create.actor_id.clone(),
         controller_id,
@@ -305,7 +303,7 @@ pub fn materialize_managed_agent_pcr_control(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn apply_managed_agent_batch(
+fn apply_agent_batch(
     batch: &[(&Event, Hash)],
     anchor: bool,
     create: &Event,
@@ -321,7 +319,7 @@ fn apply_managed_agent_batch(
     for (event, move_id) in batch {
         if !covered.insert(move_id.clone()) {
             return Err(WireError::Protocol(
-                "managed Agent PCR Event material contains duplicate digests".to_owned(),
+                "Agent PCR Event material contains duplicate digests".to_owned(),
             ));
         }
         // Anchor-unit writes are staged by their closed bootstrap contract.
@@ -333,7 +331,7 @@ fn apply_managed_agent_batch(
         } else {
             let projected = project(event).map_err(|error| {
                 WireError::Protocol(format!(
-                    "managed Agent PCR cell write projection failed for {}: {error}",
+                    "Agent PCR cell write projection failed for {}: {error}",
                     event.kind.as_str()
                 ))
             })?;
@@ -343,7 +341,7 @@ fn apply_managed_agent_batch(
                     resolve_projected_write(write, &create.realm_id, &frozen_pre_state, registry)
                         .map_err(|error| {
                         WireError::Protocol(format!(
-                            "managed Agent PCR frozen-pre-state projection failed for {}: {error}",
+                            "Agent PCR frozen-pre-state projection failed for {}: {error}",
                             event.kind.as_str()
                         ))
                     })?,
@@ -355,7 +353,7 @@ fn apply_managed_agent_batch(
         // Event identity is the grow-only set key.
         if let Err(conflict) = ensure_unique_ordered_log_slots(&effects) {
             return Err(WireError::Protocol(format!(
-                "managed Agent PCR Event claims ordered-log slot {}#{} twice",
+                "Agent PCR Event claims ordered-log slot {}#{} twice",
                 conflict.cell, conflict.issuer_seq
             )));
         }
@@ -379,7 +377,7 @@ fn apply_managed_agent_batch(
             let report = OrderedLog.join_with_issuer_report(&issued);
             if !report.identity_collisions.is_empty() {
                 return Err(WireError::Protocol(format!(
-                    "managed Agent PCR cell {cell} contains an Event identity collision"
+                    "Agent PCR cell {cell} contains an Event identity collision"
                 )));
             }
         }
@@ -388,13 +386,13 @@ fn apply_managed_agent_batch(
 
     joined.clear();
     for (cell, batches) in batches_by_cell {
-        let binding = registry.resolve(&create.realm_id, cell).map_err(|error| {
-            WireError::Protocol(format!("managed Agent PCR cell registry: {error}"))
-        })?;
+        let binding = registry
+            .resolve(&create.realm_id, cell)
+            .map_err(|error| WireError::Protocol(format!("Agent PCR cell registry: {error}")))?;
         let state = join_cell_seal_batches(binding.lattice.as_ref(), cell, batches);
         if let CellState::Bottom(bottom) = &state {
             return Err(WireError::Protocol(format!(
-                "managed Agent PCR cell {cell} resolved to Bottom: {bottom:?}"
+                "Agent PCR cell {cell} resolved to Bottom: {bottom:?}"
             )));
         }
         joined.insert(cell.clone(), state);
@@ -402,17 +400,17 @@ fn apply_managed_agent_batch(
     Ok(())
 }
 
-/// The immutable proposal authority a managed Agent PCR was founded with.
+/// The immutable proposal authority a Agent PCR was founded with.
 ///
 /// Genesis authority is fixed by the single accepted `ak.realm.create`, so this
 /// type is built from that Event alone. Later transitions belong to
-/// [`materialize_managed_agent_pcr_control`], which folds the accepted history
+/// [`materialize_agent_pcr_control`], which folds the accepted history
 /// and therefore needs whatever frozen pre-state each transition requires.
 /// Keeping the two questions in separate types is what stops a caller that only
 /// wants genesis from handing over a full history and failing the moment a
 /// replacement adds an `ak.agent.key.revoke`.
 #[derive(Clone, Debug)]
-pub struct ManagedAgentPcrGenesisAuthority {
+pub struct AgentPcrGenesisAuthority {
     realm_id: RealmId,
     agent_id: ActorId,
     controller_id: ActorId,
@@ -421,7 +419,7 @@ pub struct ManagedAgentPcrGenesisAuthority {
     authority_set_ref: Hash,
 }
 
-impl ManagedAgentPcrGenesisAuthority {
+impl AgentPcrGenesisAuthority {
     /// Derive the founding authority from a fully validated delegated create.
     ///
     /// The create may be the candidate closed anchor currently undergoing
@@ -431,11 +429,10 @@ impl ManagedAgentPcrGenesisAuthority {
     pub fn from_delegated_create(create: &Event, project: CellWriteProjector<'_>) -> Result<Self> {
         if create.kind != EventKind::RealmCreate {
             return Err(WireError::Protocol(
-                "managed Agent PCR genesis authority requires ak.realm.create".to_owned(),
+                "Agent PCR genesis authority requires ak.realm.create".to_owned(),
             ));
         }
-        let material =
-            materialize_managed_agent_pcr_control(std::slice::from_ref(create), project)?;
+        let material = materialize_agent_pcr_control(std::slice::from_ref(create), project)?;
         let authority_set_ref = Hash::new(arkret_canonical::canonical_sha256(&material.notary)?)?;
         Ok(Self {
             realm_id: material.realm_id,
@@ -485,9 +482,9 @@ impl ManagedAgentPcrGenesisAuthority {
     }
 }
 
-/// Build and sign a managed Agent PCR Seal with the controller device named
+/// Build and sign a Agent PCR Seal with the controller device named
 /// by the accepted Agent DID delegation.
-pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
+pub fn build_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
     events: &[Event],
     predecessor: Option<&Seal>,
     availability: Option<&SealAvailabilityReceiptIssueOutcome>,
@@ -495,12 +492,12 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
     signer: &S,
     project: CellWriteProjector<'_>,
 ) -> Result<Seal> {
-    let material = materialize_managed_agent_pcr_control(events, project)?;
+    let material = materialize_agent_pcr_control(events, project)?;
     if project_did_to_core_id(signer.signer_did())?
         != *material.controller_id.signing_principal_id()
     {
         return Err(WireError::Protocol(
-            "managed Agent PCR Seal signer must be the delegated controller".to_owned(),
+            "Agent PCR Seal signer must be the delegated controller".to_owned(),
         ));
     }
     let target = material
@@ -512,7 +509,7 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
         Some(seal) => {
             if seal.realm_id != material.realm_id || seal.covered_event_digests.is_empty() {
                 return Err(WireError::Protocol(
-                    "managed Agent PCR predecessor has incompatible Realm or coverage".to_owned(),
+                    "Agent PCR predecessor has incompatible Realm or coverage".to_owned(),
                 ));
             }
             let current = seal
@@ -522,15 +519,14 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
                 .collect::<BTreeSet<_>>();
             if !current.is_subset(&target) {
                 return Err(WireError::Protocol(
-                    "managed Agent PCR predecessor coverage is not a subset of the target"
-                        .to_owned(),
+                    "Agent PCR predecessor coverage is not a subset of the target".to_owned(),
                 ));
             }
             (
                 vec![seal.id.clone()],
                 current,
                 seal.notary_seq.checked_add(1).ok_or_else(|| {
-                    WireError::Protocol("managed Agent PCR notary sequence overflow".to_owned())
+                    WireError::Protocol("Agent PCR notary sequence overflow".to_owned())
                 })?,
             )
         }
@@ -539,11 +535,11 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
     let delta = target.difference(&current).cloned().collect::<Vec<_>>();
     if delta.is_empty() {
         return Err(WireError::Protocol(
-            "managed Agent PCR Seal has no new Event delta".to_owned(),
+            "Agent PCR Seal has no new Event delta".to_owned(),
         ));
     }
     let control_root = control_event_set_root(&target, MANAGED_AGENT_PCR_DIGEST_SUITE)
-        .map_err(|error| WireError::Protocol(format!("managed Agent PCR control root: {error}")))?;
+        .map_err(|error| WireError::Protocol(format!("Agent PCR control root: {error}")))?;
     let completeness_root = arkret_state::control_event_completeness_root(
         &events
             .iter()
@@ -553,9 +549,7 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
         &target,
         MANAGED_AGENT_PCR_DIGEST_SUITE,
     )
-    .map_err(|error| {
-        WireError::Protocol(format!("managed Agent PCR completeness root: {error}"))
-    })?;
+    .map_err(|error| WireError::Protocol(format!("Agent PCR completeness root: {error}")))?;
     let (sealed_at, availability_receipt_digests) = match (predecessor, availability) {
         (None, None) => (Utc::now(), Vec::new()),
         (Some(_), Some(availability)) => {
@@ -571,12 +565,12 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
         }
         (None, Some(_)) => {
             return Err(WireError::Protocol(
-                "managed Agent PCR genesis Seal forbids availability preparation".to_owned(),
+                "Agent PCR genesis Seal forbids availability preparation".to_owned(),
             ));
         }
         (Some(_), None) => {
             return Err(WireError::Protocol(
-                "managed Agent PCR successor Seal requires availability preparation".to_owned(),
+                "Agent PCR successor Seal requires availability preparation".to_owned(),
             ));
         }
     };

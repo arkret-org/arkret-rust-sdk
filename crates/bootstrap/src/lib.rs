@@ -2,26 +2,25 @@
 //!
 //! Three branches share one derivation path — the self-principal PCR bootstrap
 //! unit ([`self_principal`]), its device-signed Seals ([`self_principal_seal`]),
-//! and the controller-delegated managed Agent PCR ([`managed_agent`]) — plus
+//! and the controller-delegated Agent PCR ([`agent`]) — plus
 //! the controller-owned provisioning drafts ([`agent_provision`]). Everything a
 //! bootstrap Event writes comes from the injected
 //! [`CellWriteProjector`][projection::CellWriteProjector]; see [`projection`]
 //! for why the evaluator is injected rather than linked.
 
+mod agent;
 mod agent_provision;
-mod managed_agent;
 mod projection;
 mod self_principal;
 mod self_principal_seal;
 #[cfg(test)]
 mod tests;
 
-pub use agent_provision::{AgentProvisionIntentOptions, build_agent_provision_intent};
-pub use managed_agent::{
-    ManagedAgentPcrControlMaterial, ManagedAgentPcrCreatePayloadInput,
-    ManagedAgentPcrGenesisAuthority, build_managed_agent_pcr_create_payload,
-    build_managed_agent_pcr_event_seal, materialize_managed_agent_pcr_control,
+pub use agent::{
+    AgentPcrControlMaterial, AgentPcrCreatePayloadInput, AgentPcrGenesisAuthority,
+    build_agent_pcr_create_payload, build_agent_pcr_event_seal, materialize_agent_pcr_control,
 };
+pub use agent_provision::{AgentProvisionIntentOptions, build_agent_provision_intent};
 pub use projection::{CellWriteProjector, expected_realm_create_cells};
 pub use self_principal::{
     SelfPrincipalPcrCreateInput, build_self_principal_pcr_create,

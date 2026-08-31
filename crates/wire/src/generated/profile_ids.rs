@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: profiles/conformance-profiles.json; version=2026-08-30.5;
-//! sha256=bb042b29defb6f7fc71b8626252a28ff1ac8fcf3de4ff7d1bca138e92d9799f0 Entries: profile_ids=97
+//! Input: profiles/conformance-profiles.json; version=2026-08-31.2;
+//! sha256=b020374a677c3b61284959bcb390dea2f9ce9bdd2e90c86fe67c32c1fb8d1918 Entries: profile_ids=97
 
 use serde::{Deserialize, Serialize};
 
@@ -13,6 +13,7 @@ pub enum ProfileId {
     AgentAuthV1,
     AgentDelegationPolicyV1,
     AgentParticipationPolicyV1,
+    AgentProvisioningV1,
     AgentRuntimeV1,
     AgentSidecarV1,
     AgentSignerEvidenceV1,
@@ -80,7 +81,6 @@ pub enum ProfileId {
     NotaryThresholdV1,
     OrganizationV1,
     OrganizationHighAssuranceIdentityV1,
-    PersonalAgentProvisioningV1,
     PersonalNodeV1,
     PersonalProductivityV1,
     PinnedItemsV1,
@@ -152,6 +152,7 @@ impl ProfileId {
         Self::AgentAuthV1,
         Self::AgentDelegationPolicyV1,
         Self::AgentParticipationPolicyV1,
+        Self::AgentProvisioningV1,
         Self::AgentRuntimeV1,
         Self::AgentSidecarV1,
         Self::AgentSignerEvidenceV1,
@@ -219,7 +220,6 @@ impl ProfileId {
         Self::NotaryThresholdV1,
         Self::OrganizationV1,
         Self::OrganizationHighAssuranceIdentityV1,
-        Self::PersonalAgentProvisioningV1,
         Self::PersonalNodeV1,
         Self::PersonalProductivityV1,
         Self::PinnedItemsV1,
@@ -252,6 +252,7 @@ impl ProfileId {
     pub const AGENT_DELEGATION_POLICY_V1: &'static str = "ak.profile.agent_delegation_policy.v1";
     pub const AGENT_PARTICIPATION_POLICY_V1: &'static str =
         "ak.profile.agent_participation_policy.v1";
+    pub const AGENT_PROVISIONING_V1: &'static str = "ak.profile.agent_provisioning.v1";
     pub const AGENT_RUNTIME_V1: &'static str = "ak.profile.agent_runtime.v1";
     pub const AGENT_SIDECAR_V1: &'static str = "ak.profile.agent_sidecar.v1";
     pub const AGENT_SIGNER_EVIDENCE_V1: &'static str = "ak.profile.agent_signer_evidence.v1";
@@ -339,8 +340,6 @@ impl ProfileId {
     pub const ORGANIZATION_V1: &'static str = "ak.profile.organization.v1";
     pub const ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1: &'static str =
         "ak.profile.organization_high_assurance_identity.v1";
-    pub const PERSONAL_AGENT_PROVISIONING_V1: &'static str =
-        "ak.profile.personal_agent_provisioning.v1";
     pub const PERSONAL_NODE_V1: &'static str = "ak.profile.personal_node.v1";
     pub const PERSONAL_PRODUCTIVITY_V1: &'static str = "ak.profile.personal_productivity.v1";
     pub const PINNED_ITEMS_V1: &'static str = "ak.profile.pinned_items.v1";
@@ -378,6 +377,7 @@ impl ProfileId {
             Self::AgentAuthV1 => Self::AGENT_AUTH_V1,
             Self::AgentDelegationPolicyV1 => Self::AGENT_DELEGATION_POLICY_V1,
             Self::AgentParticipationPolicyV1 => Self::AGENT_PARTICIPATION_POLICY_V1,
+            Self::AgentProvisioningV1 => Self::AGENT_PROVISIONING_V1,
             Self::AgentRuntimeV1 => Self::AGENT_RUNTIME_V1,
             Self::AgentSidecarV1 => Self::AGENT_SIDECAR_V1,
             Self::AgentSignerEvidenceV1 => Self::AGENT_SIGNER_EVIDENCE_V1,
@@ -447,7 +447,6 @@ impl ProfileId {
             Self::OrganizationHighAssuranceIdentityV1 => {
                 Self::ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1
             }
-            Self::PersonalAgentProvisioningV1 => Self::PERSONAL_AGENT_PROVISIONING_V1,
             Self::PersonalNodeV1 => Self::PERSONAL_NODE_V1,
             Self::PersonalProductivityV1 => Self::PERSONAL_PRODUCTIVITY_V1,
             Self::PinnedItemsV1 => Self::PINNED_ITEMS_V1,
@@ -482,6 +481,7 @@ impl ProfileId {
             Self::AgentAuthV1 => ProfileRole::Server,
             Self::AgentDelegationPolicyV1 => ProfileRole::Server,
             Self::AgentParticipationPolicyV1 => ProfileRole::Server,
+            Self::AgentProvisioningV1 => ProfileRole::Server,
             Self::AgentRuntimeV1 => ProfileRole::Server,
             Self::AgentSidecarV1 => ProfileRole::Server,
             Self::AgentSignerEvidenceV1 => ProfileRole::Interop,
@@ -549,7 +549,6 @@ impl ProfileId {
             Self::NotaryThresholdV1 => ProfileRole::Admin,
             Self::OrganizationV1 => ProfileRole::Admin,
             Self::OrganizationHighAssuranceIdentityV1 => ProfileRole::Directory,
-            Self::PersonalAgentProvisioningV1 => ProfileRole::Server,
             Self::PersonalNodeV1 => ProfileRole::Admin,
             Self::PersonalProductivityV1 => ProfileRole::Client,
             Self::PinnedItemsV1 => ProfileRole::Client,
@@ -591,6 +590,7 @@ impl ProfileId {
             Self::AGENT_AUTH_V1 => Some(Self::AgentAuthV1),
             Self::AGENT_DELEGATION_POLICY_V1 => Some(Self::AgentDelegationPolicyV1),
             Self::AGENT_PARTICIPATION_POLICY_V1 => Some(Self::AgentParticipationPolicyV1),
+            Self::AGENT_PROVISIONING_V1 => Some(Self::AgentProvisioningV1),
             Self::AGENT_RUNTIME_V1 => Some(Self::AgentRuntimeV1),
             Self::AGENT_SIDECAR_V1 => Some(Self::AgentSidecarV1),
             Self::AGENT_SIGNER_EVIDENCE_V1 => Some(Self::AgentSignerEvidenceV1),
@@ -666,7 +666,6 @@ impl ProfileId {
             Self::ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1 => {
                 Some(Self::OrganizationHighAssuranceIdentityV1)
             }
-            Self::PERSONAL_AGENT_PROVISIONING_V1 => Some(Self::PersonalAgentProvisioningV1),
             Self::PERSONAL_NODE_V1 => Some(Self::PersonalNodeV1),
             Self::PERSONAL_PRODUCTIVITY_V1 => Some(Self::PersonalProductivityV1),
             Self::PINNED_ITEMS_V1 => Some(Self::PinnedItemsV1),

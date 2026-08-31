@@ -150,7 +150,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ak.profile.agent_participation_policy.v1",
             ProfileRequirements {
                 profile_id: "ak.profile.agent_participation_policy.v1",
-                inherits: &["ak.profile.personal_agent_provisioning.v1"],
+                inherits: &["ak.profile.agent_provisioning.v1"],
                 enforcement_phases: &[
                     ProfileEnforcementPhase::Conformance,
                     ProfileEnforcementPhase::StartupClaimGuard,
@@ -265,7 +265,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ak.profile.agent_sidecar.v1",
             ProfileRequirements {
                 profile_id: "ak.profile.agent_sidecar.v1",
-                inherits: &["ak.profile.personal_agent_provisioning.v1"],
+                inherits: &["ak.profile.agent_provisioning.v1"],
                 enforcement_phases: &[
                     ProfileEnforcementPhase::Conformance,
                     ProfileEnforcementPhase::StartupClaimGuard,
@@ -3049,9 +3049,9 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             },
         );
         map.insert(
-            "ak.profile.personal_agent_provisioning.v1",
+            "ak.profile.agent_provisioning.v1",
             ProfileRequirements {
-                profile_id: "ak.profile.personal_agent_provisioning.v1",
+                profile_id: "ak.profile.agent_provisioning.v1",
                 inherits: &["ak.profile.agent_runtime.v1"],
                 enforcement_phases: &[
                     ProfileEnforcementPhase::Conformance,

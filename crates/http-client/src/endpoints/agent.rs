@@ -1,4 +1,4 @@
-//! Personal-agent endpoint methods on [`Client`].
+//! Agent endpoint methods on [`Client`].
 
 use arkret_models_collaboration::agent_operations::{
     AgentDeactivateRequestBody, AgentKeyPairOutcome, AgentKeyPairRequestBody,

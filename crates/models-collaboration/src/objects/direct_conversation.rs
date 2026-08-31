@@ -22,7 +22,7 @@ pub const DIRECT_CONVERSATION_REALM_ROLE_FEATURE: &str =
 #[serde(rename_all = "snake_case")]
 pub enum DirectConversationAuthorizationKind {
     AcceptedContact,
-    ManagedAgentController,
+    AgentController,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -40,9 +40,9 @@ impl DirectConversationAuthorizationBasis {
         }
     }
 
-    pub fn managed_agent_controller(event_refs: Vec<EventId>) -> Self {
+    pub fn agent_controller(event_refs: Vec<EventId>) -> Self {
         Self {
-            kind: DirectConversationAuthorizationKind::ManagedAgentController,
+            kind: DirectConversationAuthorizationKind::AgentController,
             event_refs,
         }
     }
@@ -51,7 +51,7 @@ impl DirectConversationAuthorizationBasis {
         let unique = self.event_refs.iter().collect::<BTreeSet<_>>();
         let expected_len = match self.kind {
             DirectConversationAuthorizationKind::AcceptedContact => 2,
-            DirectConversationAuthorizationKind::ManagedAgentController => 2,
+            DirectConversationAuthorizationKind::AgentController => 2,
         };
         if self.event_refs.len() != expected_len || unique.len() != self.event_refs.len() {
             return Err(WireError::Protocol(format!(
@@ -463,7 +463,7 @@ mod tests {
             .is_ok()
         );
         assert!(
-            DirectConversationAuthorizationBasis::managed_agent_controller(vec![
+            DirectConversationAuthorizationBasis::agent_controller(vec![
                 event_id("311"),
                 event_id("313"),
             ])
@@ -476,7 +476,7 @@ mod tests {
                 .is_err()
         );
         assert!(
-            DirectConversationAuthorizationBasis::managed_agent_controller(vec![
+            DirectConversationAuthorizationBasis::agent_controller(vec![
                 event_id("311"),
                 event_id("311"),
             ])
@@ -484,7 +484,7 @@ mod tests {
             .is_err()
         );
         assert!(
-            DirectConversationAuthorizationBasis::managed_agent_controller(vec![
+            DirectConversationAuthorizationBasis::agent_controller(vec![
                 event_id("311"),
                 event_id("312"),
                 event_id("313"),

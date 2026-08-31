@@ -324,7 +324,7 @@ pub(crate) fn test_actor_for_endpoint(endpoint: &MlsEndpointIdentity) -> ActorId
         MlsEndpointIdentity::HumanDevice { principal_id, .. } => {
             ActorId::account(arkret_wire::AccountId::new(principal_id.clone(), station))
         }
-        MlsEndpointIdentity::NativeAgentRuntime { agent_id, .. } => {
+        MlsEndpointIdentity::AgentRuntime { agent_id, .. } => {
             ActorId::account(arkret_wire::AccountId::new(agent_id.clone(), station))
         }
         MlsEndpointIdentity::MinimalMetadataPairwise {
@@ -387,7 +387,7 @@ impl ArkretMlsGroup {
                     }
                     device_id.as_str()
                 }
-                MlsEndpointIdentity::NativeAgentRuntime { agent_id, .. } => agent_id.as_str(),
+                MlsEndpointIdentity::AgentRuntime { agent_id, .. } => agent_id.as_str(),
                 MlsEndpointIdentity::MinimalMetadataPairwise {
                     pairwise_actor_id, ..
                 } => pairwise_actor_id.as_str(),
@@ -462,7 +462,7 @@ impl ArkretMlsGroup {
                     MlsEndpointIdentity::HumanDevice { device_id, .. } => {
                         identity.as_slice() == device_id.as_str().as_bytes()
                     }
-                    MlsEndpointIdentity::NativeAgentRuntime { agent_id, .. } => {
+                    MlsEndpointIdentity::AgentRuntime { agent_id, .. } => {
                         identity.as_slice() == agent_id.as_str().as_bytes()
                     }
                     MlsEndpointIdentity::MinimalMetadataPairwise {
@@ -1226,7 +1226,7 @@ impl ArkretMlsGroup {
             })?;
             let expected_credential = match &record.endpoint {
                 MlsEndpointIdentity::HumanDevice { device_id, .. } => device_id.as_str(),
-                MlsEndpointIdentity::NativeAgentRuntime { agent_id, .. } => agent_id.as_str(),
+                MlsEndpointIdentity::AgentRuntime { agent_id, .. } => agent_id.as_str(),
                 MlsEndpointIdentity::MinimalMetadataPairwise {
                     pairwise_actor_id, ..
                 } => pairwise_actor_id.as_str(),

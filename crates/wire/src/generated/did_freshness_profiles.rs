@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/did-freshness-profile-registry.json; version=2026-08-30.1;
-//! sha256=cd4725d6444255f478653128beed915d8bcd113c4721cc4179d00b49bffcbe40 Entries: registered=6
+//! Input: registry/did-freshness-profile-registry.json; version=2026-08-31.2;
+//! sha256=31298804f48f7a7bd15655920492298e1f08d05a37268671c555a1100967999a Entries: registered=6
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DidFreshnessProfileId {

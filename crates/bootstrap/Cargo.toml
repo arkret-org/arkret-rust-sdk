@@ -1,7 +1,7 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["algorithms", "data-structures"]
-description = "Arkret principal-control and managed-agent bootstrap validation."
+description = "Arkret principal-control and agent bootstrap validation."
 edition = "2024"
 homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "bootstrap", "identity", "protocol"]

@@ -1,4 +1,4 @@
-//! Current and historical portable Native Agent signer-evidence wire models.
+//! Current and historical portable Agent signer-evidence wire models.
 //!
 //! Current admission and historical verification are deliberately different
 //! enum branches. Historical validity is carried by the destination-signed
@@ -361,7 +361,7 @@ pub struct ControllerAccountGateAttestation {
     pub proof: AgentDetachedJws,
 }
 
-/// Authenticated S2S request used by a Native Agent PCR authority to obtain
+/// Authenticated S2S request used by an Agent PCR authority to obtain
 /// the Account Authority-owned controller lifecycle gate.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -477,7 +477,7 @@ pub struct AgentEvidenceTransparency {
 }
 
 /// Closed `current_admission_evidence` branch used when a peer KeyPackage
-/// response must carry target Native Agent authority without permitting the
+/// response must carry target Agent authority without permitting the
 /// historical-event branch.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -627,10 +627,10 @@ impl AgentSignerEvidenceQueryOutcome {
         for evidence in &self.evidence_items {
             if !matches!(
                 evidence,
-                crate::AuthenticatedSignerResolutionEvidence::NativeAgent { .. }
+                crate::AuthenticatedSignerResolutionEvidence::Agent { .. }
             ) {
                 return Err(arkret_wire::WireError::Protocol(
-                    "Agent signer evidence query success is not a Native Agent root".to_owned(),
+                    "Agent signer evidence query success is not an Agent root".to_owned(),
                 ));
             }
             evidence.validate_attester_binding()?;
@@ -651,7 +651,7 @@ impl AgentSignerEvidenceQueryOutcome {
         self.validate()?;
         let mut accounted = std::collections::BTreeMap::new();
         for evidence in &self.evidence_items {
-            let crate::AuthenticatedSignerResolutionEvidence::NativeAgent {
+            let crate::AuthenticatedSignerResolutionEvidence::Agent {
                 signer_id,
                 verification_method,
                 agent_signer_evidence,

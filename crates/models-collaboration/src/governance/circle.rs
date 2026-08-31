@@ -201,7 +201,7 @@ pub struct Circle {
     /// parent Realm.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_encryption_floor: Option<EncryptionFloor>,
-    /// Optional native-agent participation ceiling. Omitted bits inherit
+    /// Optional Agent participation ceiling. Omitted bits inherit
     /// the parent Realm ceiling independently.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_participation: Option<AgentParticipationPolicy>,
@@ -843,10 +843,7 @@ impl Circle {
         &self,
         parent: ParticipationBits,
     ) -> Result<ParticipationBits, AgentParticipationError> {
-        match self
-            .agent_participation
-            .and_then(|policy| policy.native_agent)
-        {
+        match self.agent_participation.and_then(|policy| policy.agent) {
             Some(child) => validate_agent_participation_ceiling_tightens(parent, child),
             None => Ok(parent),
         }
@@ -922,7 +919,7 @@ mod tests {
         let actor = actor("ak:did_core:webvh:z6mkfixturealice");
         let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         circle.agent_participation = Some(AgentParticipationPolicy {
-            native_agent: Some(ParticipationBits {
+            agent: Some(ParticipationBits {
                 reply_message: true,
                 reaction_add: true,
                 reaction_remove: true,
@@ -935,7 +932,7 @@ mod tests {
         assert_eq!(
             value.get("agent_participation"),
             Some(&serde_json::json!({
-                "native_agent": {
+                "agent": {
                     "reply_message": true,
                     "reaction_add": true,
                     "reaction_remove": true,
@@ -971,7 +968,7 @@ mod tests {
         );
 
         circle.agent_participation = Some(AgentParticipationPolicy {
-            native_agent: Some(ParticipationBits {
+            agent: Some(ParticipationBits {
                 reply_message: false,
                 reaction_add: false,
                 reaction_remove: false,
@@ -991,7 +988,7 @@ mod tests {
         );
 
         circle.agent_participation = Some(AgentParticipationPolicy {
-            native_agent: Some(ParticipationBits {
+            agent: Some(ParticipationBits {
                 reply_message: true,
                 reaction_add: true,
                 reaction_remove: true,

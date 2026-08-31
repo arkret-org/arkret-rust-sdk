@@ -899,7 +899,7 @@ pub fn project_did_to_core_id(did: &Did) -> Result<DidCoreId> {
 // `registry/id-kind-registry.json`; `arkret-schema` fails closed in both
 // directions.
 declare_uuid_id_kinds! {
-    // AKP-0008/0009 (spec head 37ce729) — personal agent auxiliary typed ids.
+    // AKP-0008/0009 (spec head 37ce729) — Agent auxiliary typed ids.
     // `agent_id` business references use the stable `DidCoreId`; full Agent
     // DIDs remain confined to registration and method-resolution evidence.
     // Audit release-session + attestation typed ids (id-kind-registry kinds

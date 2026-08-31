@@ -74,7 +74,7 @@ mod tests {
         // supplies one is rejected structurally, before the payload ever
         // reaches the registered schema.
         let mut event = event();
-        event.actor_kind = Some(EnvelopeActorKind::Native);
+        event.actor_kind = Some(EnvelopeActorKind::User);
 
         let error = event.validate_for_submit().unwrap_err().to_string();
 

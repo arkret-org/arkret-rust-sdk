@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     let agent_seed = [0x22; 32];
-    let agent = ArkretMlsIdentity::new_native_agent(
+    let agent = ArkretMlsIdentity::new_agent(
         DidCoreId::new("ak:did_core:web:kat-agent.example".to_owned())?,
         DidUrl::new("did:web:kat-agent.example#runtime-1".to_owned())?,
         EventId::new("ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g".to_owned())?,
@@ -47,7 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let cases = [
         kat_case("ordinary_human_device", &ordinary)?,
-        kat_case("native_agent_runtime", &agent)?,
+        kat_case("agent_runtime", &agent)?,
         kat_case("minimal_metadata_pairwise", &pairwise)?,
     ];
     let fixture = json!({
@@ -62,7 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "negative_contract": {
             "ordinary_credential": "must equal the selected canonical DeviceId",
             "ordinary_leaf_and_batch_key": "must both equal the current accepted device identity key",
-            "actor_credential": "must equal the selected Native Agent or pairwise ActorId",
+            "actor_credential": "must equal the selected Agent or pairwise ActorId",
             "actor_leaf_and_batch_key": "must both equal the selected accepted endpoint key",
             "deprecated_fields": [
                 "keypackages[].endpoint_signature",

@@ -2059,13 +2059,13 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/event_sync.rs::ManagedAgentPcrSealHeadReceipt",
+      "rust_type": "crates/models-collaboration/src/event_sync.rs::AgentPcrSealHeadReceipt",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/event_sync.rs",
       "line": 53,
       "kind": "struct",
-      "value_kind": "ManagedAgentPcrSealHeadReceipt",
-      "spec_pointer": "service-operation-dtos.schema.json#/$defs/ManagedAgentPcrSealHeadReceipt",
+      "value_kind": "AgentPcrSealHeadReceipt",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AgentPcrSealHeadReceipt",
       "schema_openness": "closed",
       "classification": "B",
       "cfg_gated": false,

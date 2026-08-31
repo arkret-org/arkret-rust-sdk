@@ -549,7 +549,7 @@ pub struct SyncUpdates {
     pub account_data: Vec<Event>,
     /// Notification deltas
     pub notifications: Vec<NotificationDelta>,
-    /// Independently verifiable Native Agent signer evidence delivered by
+    /// Independently verifiable Agent signer evidence delivered by
     /// the account stream, never by Event federation.
     #[serde(default)]
     pub agent_signer_evidence: Vec<crate::agent_signer_evidence::AgentSignerEvidence>,

@@ -854,7 +854,7 @@ mod tests {
         let binding = registry.resolve(&realm_id, &cell).unwrap();
         // Spec zh/models/realm-and-space.md section 2.5 step 7: the reducer
         // initial state is the registered internal `uninitialized`, which the
-        // managed-Agent genesis branch transitions to `active`. It is not a
+        // Agent genesis branch transitions to `active`. It is not a
         // public lifecycle value, so nothing may treat it as active.
         assert_eq!(
             binding.lattice.initial_state(),

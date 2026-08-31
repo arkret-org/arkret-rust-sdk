@@ -1,4 +1,4 @@
-//! Ordinary-Realm Native Agent MLS membership/key cross-binding.
+//! Ordinary-Realm Agent MLS membership/key cross-binding.
 
 use arkret_wire::{DidCoreId, EventId};
 

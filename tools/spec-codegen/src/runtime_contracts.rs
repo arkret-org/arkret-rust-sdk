@@ -43,11 +43,17 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
         .agent_runtime
         .capability_sets
         .iter()
-        .map(|(name, rule)| {
-            (
-                format!("capability_sets.{name}"),
-                &rule.mandatory_operations,
-            )
+        .flat_map(|(name, rule)| {
+            [
+                (
+                    format!("capability_sets.{name}.activation_operations"),
+                    &rule.activation_operations,
+                ),
+                (
+                    format!("capability_sets.{name}.mandatory_operations"),
+                    &rule.mandatory_operations,
+                ),
+            ]
         })
         .chain(
             inputs
@@ -61,6 +67,24 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
             if !operations.contains(value.as_str()) {
                 bail!("{owner} references unknown operation {value}");
             }
+        }
+    }
+    for (name, rule) in &inputs.agent_runtime.capability_sets {
+        if rule.selection_rule
+            != "any_activation_operation_present_in_immutable_provision_actions"
+        {
+            bail!("capability_sets.{name} uses unsupported selection_rule");
+        }
+        let activation = rule.activation_operations.iter().collect::<BTreeSet<_>>();
+        if activation.len() != rule.activation_operations.len() {
+            bail!("capability_sets.{name} repeats an activation operation");
+        }
+        if rule
+            .mandatory_operations
+            .iter()
+            .any(|operation| !activation.contains(operation))
+        {
+            bail!("capability_sets.{name} mandatory operations are not activation operations");
         }
     }
     for group in &inputs.operations.surface_groups {
@@ -455,8 +479,15 @@ fn generate_runtime_contracts(inputs: &SpecInputs) -> String {
         r#"}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AgentRuntimeCapabilitySelectionRule {
+    AnyActivationOperationPresentInImmutableProvisionActions,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AgentRuntimeCapabilityDescriptor {
     pub capability: AgentRuntimeCapability,
+    pub selection_rule: AgentRuntimeCapabilitySelectionRule,
+    pub activation_operations: &'static [ServiceOperationId],
     pub mandatory_operations: &'static [ServiceOperationId],
 }
 
@@ -466,8 +497,14 @@ pub const AGENT_RUNTIME_CAPABILITIES: &[AgentRuntimeCapabilityDescriptor] = &[
     for (name, rule) in &inputs.agent_runtime.capability_sets {
         writeln!(
             output,
-            "    AgentRuntimeCapabilityDescriptor {{ capability: AgentRuntimeCapability::{}, mandatory_operations: &[{}] }},",
+            "    AgentRuntimeCapabilityDescriptor {{ capability: AgentRuntimeCapability::{}, selection_rule: AgentRuntimeCapabilitySelectionRule::{}, activation_operations: &[{}], mandatory_operations: &[{}] }},",
             variant(name, &[]),
+            variant(&rule.selection_rule, &[]),
+            rule.activation_operations
+                .iter()
+                .map(|value| format!("ServiceOperationId::{}", variant(value, &["ak."])))
+                .collect::<Vec<_>>()
+                .join(", "),
             rule.mandatory_operations
                 .iter()
                 .map(|value| format!("ServiceOperationId::{}", variant(value, &["ak."])))

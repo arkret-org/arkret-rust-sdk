@@ -106,7 +106,7 @@ pub enum AuthorizationIncarnation {
 #[serde(rename_all = "snake_case")]
 pub enum AuthorProfile {
     OrdinaryHuman,
-    NativeAgent,
+    Agent,
     MinimalMetadata,
 }
 
@@ -119,7 +119,7 @@ pub enum RequesterEndpointAuthorization {
         requester_device_authorize_event_id: EventId,
         requester_device_generation_ref: u64,
     },
-    NativeAgent {
+    Agent {
         requester_agent_id: DidCoreId,
         requester_agent_verification_method: DidUrl,
         requester_agent_key_authorize_event_id: EventId,
@@ -137,7 +137,7 @@ impl RequesterEndpointAuthorization {
                     requester_device_generation_ref: 1..,
                     ..
                 }
-            ) | (AuthorProfile::NativeAgent, Self::NativeAgent { .. })
+            ) | (AuthorProfile::Agent, Self::Agent { .. })
                 | (AuthorProfile::MinimalMetadata, Self::MinimalMetadata)
         );
         if !matches {
@@ -1636,7 +1636,7 @@ impl HistoryKeyResponseSigningInput {
         }
     }
 
-    /// Compute the non-cyclic request digest bound by Native Agent current
+    /// Compute the non-cyclic request digest bound by Agent current
     /// admission evidence. The signer-evidence coordinates are deliberately
     /// excluded because that evidence contains this digest.
     pub fn history_source_agent_observation_digest(&self) -> Result<Hash> {
@@ -2400,7 +2400,7 @@ impl HistoryReleaseAttestation {
                 if views.recipient_account_status.is_some()
                     && views.recipient_pcr_device.is_some()
                     && views.recipient_agent_control_evidence.is_none() => {}
-            AuthorProfile::NativeAgent
+            AuthorProfile::Agent
                 if views.recipient_account_status.is_none()
                     && views.recipient_pcr_device.is_none()
                     && views.recipient_agent_control_evidence.is_some() => {}

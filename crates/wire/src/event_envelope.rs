@@ -136,39 +136,14 @@ pub fn prev_frontier_digest(prev_refs: &[EventId]) -> Result<String> {
     ))?)
 }
 
-/// AKP-0008 / AKP-0009 (spec head 37ce729) runtime classifier stamped by
-/// the reducer on every Envelope. Distinct from the existing `ActorKind`
-/// enum (which classifies `ActorProfile.actor_kind` as user/organization/team/...)
-/// this 4-value classifier describes the runtime origin of the
-/// envelope itself: native devices, applet-bound ghost actors, service
-/// principals, and personal agent runtimes.
+/// Reducer-stamped projection of the exact Actor Profile classification.
 ///
-/// Reducer rules:
-/// - This field is reducer-stamped. Clients MUST NOT supply it; reducers MUST reject envelopes that
-///   arrive with a client-supplied value (return `actor_kind_reducer_managed`).
-/// - The serialized wire form on the Envelope is the field name `actor_kind`, distinct from the
-///   `ActorProfile.actor_kind` slot.
-///
-/// `#[non_exhaustive]`: a future spec revision may register additional
-/// runtime-origin classifiers. Downstream `match` expressions MUST carry a
-/// `_` arm with fail-closed semantics (treat an unrecognised classifier as
-/// not satisfying any privileged-origin check). Deserialisation itself stays
-/// closed-set: an unknown wire value still fails the parse (fail-closed per
-/// conformance-profiles.md: implementations MUST reject illegal enum values).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[non_exhaustive]
-pub enum EnvelopeActorKind {
-    /// Envelope originated from a native device controlled by the principal.
-    Native,
-    /// Envelope originated from an applet-managed ghost actor.
-    Ghost,
-    /// Envelope originated from a service principal.
-    Service,
-    /// Envelope originated from a personal agent runtime acting on
-    /// behalf of a controller.
-    Agent,
-}
+/// Event `actor_kind` and `ActorProfile.actor_kind` share one closed wire enum;
+/// the field is not a runtime-origin classifier. In particular, devices are
+/// endpoints rather than actors, Ghost Actor is provenance rather than an
+/// actor kind, Agent is reserved for controller-provisioned Agents, and
+/// Applet-managed automation uses `Bot`.
+pub type EnvelopeActorKind = crate::ActorKind;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -604,7 +579,7 @@ fn validate_registration_did_evidence_fields(
 
 /// Derive the Realm id of an `ak.realm.create` from its own signed content.
 ///
-/// Every Realm kind, including principal and managed-Agent control Realms, is
+/// Every Realm kind, including principal and Agent control Realms, is
 /// event-derived. The high nibble of the token header is reserved and remains
 /// zero; no DID-subject-derived address branch exists.
 pub fn derive_genesis_realm_id(event_id: &EventId) -> RealmId {
@@ -896,7 +871,7 @@ pub enum ScopeRef {
         realm_id: RealmId,
         circle_id: CircleId,
     },
-    /// The named native Agent Sidecar scope inside `realm_id`.
+    /// The named Agent Sidecar scope inside `realm_id`.
     Sidecar {
         realm_id: RealmId,
         sidecar_id: SidecarId,

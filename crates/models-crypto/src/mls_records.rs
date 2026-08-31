@@ -22,7 +22,7 @@ pub enum MlsEndpointIdentity {
         principal_id: DidCoreId,
         device_id: DeviceId,
     },
-    NativeAgentRuntime {
+    AgentRuntime {
         agent_id: DidCoreId,
         verification_method: DidUrl,
         agent_key_authorize_event_id: EventId,
@@ -40,7 +40,7 @@ impl MlsEndpointIdentity {
                 principal_id,
                 device_id,
             } => Some((principal_id, device_id)),
-            Self::NativeAgentRuntime { .. } | Self::MinimalMetadataPairwise { .. } => None,
+            Self::AgentRuntime { .. } | Self::MinimalMetadataPairwise { .. } => None,
         }
     }
 
@@ -51,7 +51,7 @@ impl MlsEndpointIdentity {
         }
     }
 
-    pub fn native_agent_runtime(
+    pub fn agent_runtime(
         agent_id: DidCoreId,
         verification_method: DidUrl,
         agent_key_authorize_event_id: EventId,
@@ -62,21 +62,21 @@ impl MlsEndpointIdentity {
                 .split_once('#')
                 .ok_or_else(|| {
                     arkret_wire::WireError::Protocol(
-                        "Native Agent MLS verification method has no fragment".to_owned(),
+                        "Agent MLS verification method has no fragment".to_owned(),
                     )
                 })?;
         if fragment.is_empty() {
             return Err(arkret_wire::WireError::Protocol(
-                "Native Agent MLS verification method has an empty fragment".to_owned(),
+                "Agent MLS verification method has an empty fragment".to_owned(),
             ));
         }
         let controller = Did::new(controller.to_owned())?;
         if project_did_to_core_id(&controller)?.as_str() != agent_id.as_str() {
             return Err(arkret_wire::WireError::Protocol(
-                "Native Agent MLS verification method controller mismatch".to_owned(),
+                "Agent MLS verification method controller mismatch".to_owned(),
             ));
         }
-        Ok(Self::NativeAgentRuntime {
+        Ok(Self::AgentRuntime {
             agent_id,
             verification_method,
             agent_key_authorize_event_id,
@@ -119,7 +119,7 @@ impl MlsEndpointIdentity {
     pub fn actor_id(&self) -> &DidCoreId {
         match self {
             Self::HumanDevice { principal_id, .. } => principal_id,
-            Self::NativeAgentRuntime { agent_id, .. } => agent_id,
+            Self::AgentRuntime { agent_id, .. } => agent_id,
             Self::MinimalMetadataPairwise {
                 pairwise_actor_id, ..
             } => pairwise_actor_id,
@@ -129,11 +129,11 @@ impl MlsEndpointIdentity {
     pub fn validate(&self) -> arkret_wire::Result<()> {
         match self {
             Self::HumanDevice { .. } => Ok(()),
-            Self::NativeAgentRuntime {
+            Self::AgentRuntime {
                 agent_id,
                 verification_method,
                 agent_key_authorize_event_id,
-            } => Self::native_agent_runtime(
+            } => Self::agent_runtime(
                 agent_id.clone(),
                 verification_method.clone(),
                 agent_key_authorize_event_id.clone(),
@@ -288,7 +288,7 @@ pub struct MlsKeyPackageRecord {
     /// Globally unique typed identifier (`ak:mls:kp:<uuid>`, RFC 9562 UUIDv7).
     pub keypackage_id: String,
     /// Exact MLS endpoint that owns the BasicCredential and LeafNode key.
-    /// Human devices and Native Agent runtimes are mutually exclusive; callers
+    /// Human devices and Agent runtimes are mutually exclusive; callers
     /// must not infer one from the other or synthesize a placeholder device.
     pub endpoint: MlsEndpointIdentity,
     /// MLS KeyPackage material (base64url).

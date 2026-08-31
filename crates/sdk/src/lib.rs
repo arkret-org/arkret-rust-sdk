@@ -407,14 +407,14 @@ pub use managed_actor_authoring::{
     AppletManagedActorBundleAuthoringInput, author_applet_managed_actor_bundle,
 };
 pub use mls_governance::{
-    NativeAgentHistoricalTrustRequest, VerifiedMlsGovernanceClosure,
-    build_native_agent_signer_resolution_evidence,
+    AgentHistoricalTrustRequest, VerifiedMlsGovernanceClosure,
+    build_agent_signer_resolution_evidence,
     current_authorization_incarnation_from_verified_checkpoint, declared_genesis_live_digest_suite,
     derive_verified_mls_governance_checkpoint_at_basis, materialize_mls_governance_frontier,
-    signed_event_digest_claim, verify_event_derived_genesis_checkpoint,
-    verify_mls_governance_checkpoint, verify_mls_governance_closure, verify_mls_governance_cut,
-    verify_mls_governance_frontier, verify_native_agent_historical_event_key,
-    verify_native_agent_history_source_key, verify_seal_availability_dependencies_default,
+    signed_event_digest_claim, verify_agent_historical_event_key, verify_agent_history_source_key,
+    verify_event_derived_genesis_checkpoint, verify_mls_governance_checkpoint,
+    verify_mls_governance_closure, verify_mls_governance_cut, verify_mls_governance_frontier,
+    verify_seal_availability_dependencies_default,
 };
 pub use sdk_error::{Error, Result};
 pub use sidecar_recovery::{AgentSidecarContextLocator, recover_agent_sidecar_context_locators};

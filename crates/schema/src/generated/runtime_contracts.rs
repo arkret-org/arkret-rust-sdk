@@ -1,19 +1,19 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/agent-runtime-scope-registry.json; version=2026-08-27.1;
-//! sha256=0b84cde202d5a98c3f65b4ed3551f393ccbfbe9891de25d1a0b1228a236d1bdc Input: registry/
-//! contract-registry.json; version=2026-08-31.6;
-//! sha256=8d8b8760a213a78bf01e113158d27260bc5eb75370bd3036b47e575fdb2dd525 Input: registry/
-//! operation-registry.json; version=2026-08-31.6;
-//! sha256=b88b11a2694e01a4597ed609f1457f76308401f14123d6f178b74e6fc520aee9 Input: registry/
-//! event-kind-registry.json; version=2026-08-31.5;
-//! sha256=a522d11330e6d4eb20038211528751a2c6e3f1cdc4d1cf4b8bc66d8630d96574 Input: registry/
-//! schema-registry.json; version=2026-08-31.1;
-//! sha256=d10b71d70d5eb7a960ef2a832c813eecc6d22a2b1de187a0df22220fd0dc8a4e Input: registry/
+//! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
+//! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
+//! contract-registry.json; version=2026-08-31.8;
+//! sha256=994a97ecc2b8c62372026892fab13387cbb9caa7460149c2436608bbf5b434fb Input: registry/
+//! operation-registry.json; version=2026-08-31.8;
+//! sha256=af1a8c35a4a029f3caba0aa9c8fc3aedd752b9ca8d3ce74315a2b7c1e10a1116 Input: registry/
+//! event-kind-registry.json; version=2026-08-31.8;
+//! sha256=dd00c351fbc7c4bb6f089291292146fc1c0debb2931c0066736cb638b0276398 Input: registry/
+//! schema-registry.json; version=2026-08-31.3;
+//! sha256=c6843eca4309bccd4801f01f36042195bb29be20312a5ad1f6386bf90fb79f4e Input: registry/
 //! id-kind-registry.json; version=2026-08-30.2;
 //! sha256=5027ff6fedbe92ee1b1475278352416fbcee183acf7ce9e61124d1a156106ab3
 //! Input: deployment-probes.json; version=2026-06-19;
-//! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
+//! sha256=320013ec6aaad936b9d203e60b4a79ac04e3916d495ee9bea6af889c78d1e781
 //! Entries: capability_sets=2, layers=3, feature_additions=2, bootstrap_profiles=2,
 //! operation_surface_groups=31
 
@@ -26,26 +26,21 @@ pub enum AgentRuntimeCapability {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AgentRuntimeCapabilitySelectionRule {
+    AnyActivationOperationPresentInImmutableProvisionActions,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AgentRuntimeCapabilityDescriptor {
     pub capability: AgentRuntimeCapability,
+    pub selection_rule: AgentRuntimeCapabilitySelectionRule,
+    pub activation_operations: &'static [ServiceOperationId],
     pub mandatory_operations: &'static [ServiceOperationId],
 }
 
 pub const AGENT_RUNTIME_CAPABILITIES: &[AgentRuntimeCapabilityDescriptor] = &[
-    AgentRuntimeCapabilityDescriptor {
-        capability: AgentRuntimeCapability::E2ee,
-        mandatory_operations: &[ServiceOperationId::SelfKeysKeypackagesUploadCreateV1],
-    },
-    AgentRuntimeCapabilityDescriptor {
-        capability: AgentRuntimeCapability::InteractiveChat,
-        mandatory_operations: &[
-            ServiceOperationId::SelfEventsStreamSubscribeV1,
-            ServiceOperationId::SelfEventsReadScanV1,
-            ServiceOperationId::SelfEventsReadFrontierV1,
-            ServiceOperationId::SelfSealsReadFrontierV1,
-            ServiceOperationId::SelfEventsCommandSubmitV1,
-        ],
-    },
+    AgentRuntimeCapabilityDescriptor { capability: AgentRuntimeCapability::E2ee, selection_rule: AgentRuntimeCapabilitySelectionRule::AnyActivationOperationPresentInImmutableProvisionActions, activation_operations: &[ServiceOperationId::SelfKeysKeypackagesUploadCreateV1, ServiceOperationId::SelfKeysKeypackagesCommandConsumeV1, ServiceOperationId::SelfKeysKeypackagesCommandRevokeV1], mandatory_operations: &[ServiceOperationId::SelfKeysKeypackagesUploadCreateV1] },
+    AgentRuntimeCapabilityDescriptor { capability: AgentRuntimeCapability::InteractiveChat, selection_rule: AgentRuntimeCapabilitySelectionRule::AnyActivationOperationPresentInImmutableProvisionActions, activation_operations: &[ServiceOperationId::SelfEventsStreamSubscribeV1, ServiceOperationId::SelfEventsReadScanV1, ServiceOperationId::SelfEventsReadFrontierV1, ServiceOperationId::SelfSealsReadFrontierV1, ServiceOperationId::SelfEventsCommandSubmitV1], mandatory_operations: &[ServiceOperationId::SelfEventsStreamSubscribeV1, ServiceOperationId::SelfEventsReadScanV1, ServiceOperationId::SelfEventsReadFrontierV1, ServiceOperationId::SelfSealsReadFrontierV1, ServiceOperationId::SelfEventsCommandSubmitV1] },
 ];
 
 pub const fn agent_runtime_capability_descriptor(
@@ -776,8 +771,8 @@ pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] = 
     ServiceOperationId::SelfAccountReadDescribeV1,
 ];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-08-31.5";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-08-31.1";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-08-31.6";
+pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-08-31.8";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-08-31.3";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-08-31.8";
 pub const ID_KIND_REGISTRY_VERSION: &str = "2026-08-30.2";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

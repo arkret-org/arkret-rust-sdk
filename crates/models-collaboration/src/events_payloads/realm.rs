@@ -397,7 +397,7 @@ pub enum RealmPurpose {
     Collaboration,
     DirectConversation,
     PrincipalControl,
-    ManagedAgentControl,
+    AgentControl,
     AppletManagedControl,
 }
 
@@ -535,7 +535,7 @@ impl RealmGenesis {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn managed_agent_control(
+    pub fn agent_control(
         genesis_salt: GenesisSalt,
         initial_resolution: arkret_models_identity::ResolutionCommitment,
         trust_domain: TrustDomainId,
@@ -548,7 +548,7 @@ impl RealmGenesis {
     ) -> Result<Self> {
         let value = Self {
             schema: SchemaId::REALM_GENESIS_V1.to_owned(),
-            purpose: RealmPurpose::ManagedAgentControl,
+            purpose: RealmPurpose::AgentControl,
             genesis_salt,
             founding_device_descriptor: None,
             initial_resolution: Some(initial_resolution),
@@ -604,17 +604,17 @@ impl RealmGenesis {
             || (!matches!(
                 self.purpose,
                 RealmPurpose::PrincipalControl
-                    | RealmPurpose::ManagedAgentControl
+                    | RealmPurpose::AgentControl
                     | RealmPurpose::AppletManagedControl
             ) && self.initial_resolution.is_some())
             || (matches!(
                 self.purpose,
-                RealmPurpose::ManagedAgentControl | RealmPurpose::AppletManagedControl
+                RealmPurpose::AgentControl | RealmPurpose::AppletManagedControl
             ) && self.founding_device_descriptor.is_some())
             || (matches!(
                 self.purpose,
                 RealmPurpose::PrincipalControl
-                    | RealmPurpose::ManagedAgentControl
+                    | RealmPurpose::AgentControl
                     | RealmPurpose::AppletManagedControl
             ) != self.initial_resolution.is_some())
         {

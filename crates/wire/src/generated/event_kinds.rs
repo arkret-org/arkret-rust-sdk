@@ -12804,7 +12804,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
                     },
                     EventCellRuleField {
                         key: EventCellRuleKey::Const,
-                        value: EventCellRule::String("managed_agent_control"),
+                        value: EventCellRule::String("agent_control"),
                     },
                 ])),
                 derived_members_rule: None,
@@ -13123,7 +13123,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
                     },
                     EventCellRuleField {
                         key: EventCellRuleKey::Const,
-                        value: EventCellRule::String("managed_agent_control"),
+                        value: EventCellRule::String("agent_control"),
                     },
                 ])),
                 derived_members_rule: None,

@@ -1,4 +1,4 @@
-//! Native Agent signing-key binding and portable signer-evidence verification.
+//! Agent signing-key binding and portable signer-evidence verification.
 //!
 //! Current admission and historical Event verification intentionally expose
 //! different entry points. Callers cannot pass current state as a substitute
@@ -409,7 +409,7 @@ pub struct HistoricalAgentSignerEvidenceValidationContext<'a> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SignerPrincipalKind {
     Device,
-    NativeAgent,
+    Agent,
     Applet,
     Service,
     Integration,
@@ -420,7 +420,7 @@ pub enum SignerPrincipalKind {
 pub enum SignerRegime {
     MinimalMetadata,
     OrdinaryDevice,
-    OrdinaryNativeAgent,
+    OrdinaryAgent,
     AppletOrService,
 }
 
@@ -433,7 +433,7 @@ pub fn dispatch_signer_regime(
     }
     match principal_kind {
         SignerPrincipalKind::Device => Ok(SignerRegime::OrdinaryDevice),
-        SignerPrincipalKind::NativeAgent => Ok(SignerRegime::OrdinaryNativeAgent),
+        SignerPrincipalKind::Agent => Ok(SignerRegime::OrdinaryAgent),
         SignerPrincipalKind::Applet
         | SignerPrincipalKind::Service
         | SignerPrincipalKind::Integration => Ok(SignerRegime::AppletOrService),

@@ -25,13 +25,13 @@ use serde_json::Value;
 use crate::projection::direct_projection;
 use crate::self_principal::validate_self_principal_pcr_create;
 use crate::{
-    AgentProvisionIntentOptions, DID_INCEPTION_REF_ROLE, ManagedAgentPcrCreatePayloadInput,
-    ManagedAgentPcrGenesisAuthority, REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL,
-    REALM_GENESIS_CELL, REALM_NOTARY_CELL, REALM_REDUCER_PROFILE_CELL, SelfPrincipalPcrCreateInput,
-    build_agent_provision_intent, build_managed_agent_pcr_create_payload,
-    build_managed_agent_pcr_event_seal, build_self_principal_bootstrap_seal,
-    build_self_principal_pcr_create, build_self_principal_pcr_genesis_unit,
-    materialize_managed_agent_pcr_control, validate_self_principal_pcr_genesis_unit,
+    AgentPcrCreatePayloadInput, AgentPcrGenesisAuthority, AgentProvisionIntentOptions,
+    DID_INCEPTION_REF_ROLE, REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL, REALM_GENESIS_CELL,
+    REALM_NOTARY_CELL, REALM_REDUCER_PROFILE_CELL, SelfPrincipalPcrCreateInput,
+    build_agent_pcr_create_payload, build_agent_pcr_event_seal, build_agent_provision_intent,
+    build_self_principal_bootstrap_seal, build_self_principal_pcr_create,
+    build_self_principal_pcr_genesis_unit, materialize_agent_pcr_control,
+    validate_self_principal_pcr_genesis_unit,
 };
 
 struct FixtureSigner {
@@ -499,13 +499,13 @@ fn first_bootstrap_seal_covers_both_events_and_is_signed_by_device_one() {
     assert_eq!(signature.verification_method, signer.verification_method);
 }
 
-fn managed_agent_pcr_create() -> Event {
+fn agent_pcr_create() -> Event {
     let realm_id = RealmId::new("ak:realm:AYqEzQ3jW02EHkMjxFQTlyeowxPQXJE4fI6JGOnzi23t").unwrap();
     let agent_did = Did::new("did:webvh:z6mkfixtureagent:agent.example").unwrap();
     let agent = project_did_to_core_id(&agent_did).unwrap();
     let controller_did = Did::new("did:webvh:z6mkfixturecontroller:controller.example").unwrap();
     let controller = project_did_to_core_id(&controller_did).unwrap();
-    let payload = build_managed_agent_pcr_create_payload(ManagedAgentPcrCreatePayloadInput {
+    let payload = build_agent_pcr_create_payload(AgentPcrCreatePayloadInput {
         agent_id: agent.clone(),
         initial_resolution: fixture_resolution(agent_did.clone()),
         controller_id: controller.clone(),
@@ -536,9 +536,9 @@ fn managed_agent_pcr_create() -> Event {
 }
 
 #[test]
-fn managed_agent_pcr_payload_is_built_from_the_public_realm_type() {
+fn agent_pcr_payload_is_built_from_the_public_realm_type() {
     let did = Did::new("did:webvh:z6mkfixtureagent:agent.example").unwrap();
-    let payload = build_managed_agent_pcr_create_payload(ManagedAgentPcrCreatePayloadInput {
+    let payload = build_agent_pcr_create_payload(AgentPcrCreatePayloadInput {
         agent_id: project_did_to_core_id(&did).unwrap(),
         initial_resolution: fixture_resolution(did.clone()),
         controller_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturecontroller").unwrap(),
@@ -559,18 +559,17 @@ fn managed_agent_pcr_payload_is_built_from_the_public_realm_type() {
     );
     assert_eq!(
         value.pointer("/object/purpose").and_then(Value::as_str),
-        Some("managed_agent_control")
+        Some("agent_control")
     );
 }
 
 #[test]
-fn managed_agent_material_derives_the_genesis_leaf_set_from_the_registry() {
-    let create = managed_agent_pcr_create();
+fn agent_material_derives_the_genesis_leaf_set_from_the_registry() {
+    let create = agent_pcr_create();
     let canonical_actor = arkret_canonical::canonical_json_string(&create.actor_id).unwrap();
     let agent_status_subject = composite_subject(&[canonical_actor]).unwrap();
     let material =
-        materialize_managed_agent_pcr_control(std::slice::from_ref(&create), &registry_projection)
-            .unwrap();
+        materialize_agent_pcr_control(std::slice::from_ref(&create), &registry_projection).unwrap();
 
     assert_eq!(material.agent_id, create.actor_id);
     assert_eq!(
@@ -613,7 +612,7 @@ fn managed_agent_material_derives_the_genesis_leaf_set_from_the_registry() {
         .unwrap()
         .remove("notary");
     assert!(
-        materialize_managed_agent_pcr_control(&[no_notary], &registry_projection).is_err(),
+        materialize_agent_pcr_control(&[no_notary], &registry_projection).is_err(),
         "a Realm create whose notary source is missing must fail closed"
     );
 }
@@ -623,11 +622,10 @@ fn managed_agent_material_derives_the_genesis_leaf_set_from_the_registry() {
 /// pre-state-dependent transition and cannot silently get a current-state
 /// answer in its place.
 #[test]
-fn managed_agent_genesis_authority_covers_the_whole_founding_notary() {
-    let create = managed_agent_pcr_create();
+fn agent_genesis_authority_covers_the_whole_founding_notary() {
+    let create = agent_pcr_create();
     let authority =
-        ManagedAgentPcrGenesisAuthority::from_accepted_create(&create, &registry_projection)
-            .unwrap();
+        AgentPcrGenesisAuthority::from_accepted_create(&create, &registry_projection).unwrap();
 
     assert_eq!(authority.agent_id(), &create.actor_id);
     assert_eq!(
@@ -656,18 +654,15 @@ fn managed_agent_genesis_authority_covers_the_whole_founding_notary() {
     later_transition.executed_by = create.executed_by.clone();
     later_transition.authorization_ref = create.authorization_ref;
     assert!(
-        ManagedAgentPcrGenesisAuthority::from_accepted_create(
-            &later_transition,
-            &registry_projection
-        )
-        .is_err(),
+        AgentPcrGenesisAuthority::from_accepted_create(&later_transition, &registry_projection)
+            .is_err(),
         "only the accepted ak.realm.create defines the genesis authority"
     );
 }
 
 #[test]
 fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
-    let create = managed_agent_pcr_create();
+    let create = agent_pcr_create();
     let controller_actor = create.executed_by.clone().unwrap();
     let controller = Did::new("did:webvh:z6mkfixturecontroller:controller.example").unwrap();
     let mut anchor = arkret_wire::test_support::raw_event(
@@ -705,7 +700,7 @@ fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
         ))
         .unwrap(),
     };
-    let first = build_managed_agent_pcr_event_seal(
+    let first = build_agent_pcr_event_seal(
         std::slice::from_ref(&create),
         None,
         None,
@@ -714,7 +709,7 @@ fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
         &project,
     )
     .unwrap();
-    let error = build_managed_agent_pcr_event_seal(
+    let error = build_agent_pcr_event_seal(
         &[create, anchor],
         Some(&first),
         None,
@@ -731,7 +726,7 @@ fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
 }
 
 #[test]
-fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
+fn agent_provision_event_projects_the_registered_atomic_cells() {
     let controller_did = Did::new("did:webvh:z6mkfixture:controller.example").unwrap();
     let controller = DidCoreId::new("ak:did_core:webvh:z6mkfixture:controller.example").unwrap();
     let agent = DidCoreId::new("ak:did_core:webvh:z6mkfixture:agent.example").unwrap();
@@ -740,7 +735,7 @@ fn managed_agent_provision_event_projects_the_registered_atomic_cells() {
         &fixture_realm(1),
         &agent,
         &fixture_realm(2),
-        &DidUrl::new(format!("{controller_did}#managed-agent")).unwrap(),
+        &DidUrl::new(format!("{controller_did}#agent")).unwrap(),
         "summary",
         &Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap(),
         HandleVisibility::Private,

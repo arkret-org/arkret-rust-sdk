@@ -101,7 +101,7 @@ impl KeyPackagesUploadRequestBody {
                 Ok(())
             }
             _ => Err(
-                "KeyPackage upload must select exactly one device, Native Agent, or minimal-metadata pairwise endpoint",
+                "KeyPackage upload must select exactly one device, Agent, or minimal-metadata pairwise endpoint",
             ),
         }
     }
@@ -140,7 +140,7 @@ impl KeyPackagesUploadUnsignedRequest {
             }
             (None, None, None, Some(_), Some(_)) => Ok(()),
             _ => Err(
-                "KeyPackage upload must select exactly one device, Native Agent, or minimal-metadata pairwise endpoint",
+                "KeyPackage upload must select exactly one device, Agent, or minimal-metadata pairwise endpoint",
             ),
         }
     }
@@ -167,7 +167,7 @@ impl KeyPackagesUploadUnsignedRequest {
 }
 
 /// Convert a persisted MLS KeyPackage record into the canonical typed upload
-/// entry shared by ordinary devices and Native Agent runtimes.
+/// entry shared by ordinary devices and Agent runtimes.
 ///
 /// Request ownership and signing-key authorization remain caller concerns;
 /// this helper owns only the record-to-wire projection so digest, expiry, and
@@ -248,7 +248,7 @@ pub enum PeerKeyPackageRequesterAuthorization {
         signed_at: DateTime<Utc>,
         signature: KeyOperationSignature,
     },
-    NativeAgent {
+    Agent {
         verification_method: DidUrl,
         requester_agent_id: DidCoreId,
         agent_key_authorize_event_id: EventId,
@@ -493,7 +493,7 @@ fn validate_key_packages_claim_request_shape(
             }
             let _ = (requester_device_id, device_authorize_event_id);
         }
-        PeerKeyPackageRequesterAuthorization::NativeAgent {
+        PeerKeyPackageRequesterAuthorization::Agent {
             verification_method,
             requester_agent_id,
             agent_key_authorize_event_id,
@@ -1090,14 +1090,14 @@ pub fn keypackage_claim_authorization_signing_bytes(
             agent_key_authorize_event_id: None,
             signed_at: *signed_at,
         },
-        PeerKeyPackageRequesterAuthorization::NativeAgent {
+        PeerKeyPackageRequesterAuthorization::Agent {
             verification_method,
             requester_agent_id,
             agent_key_authorize_event_id,
             signed_at,
             ..
         } => PeerKeyPackageAuthorizationMetadata {
-            kind: "native_agent",
+            kind: "agent",
             verification_method,
             requester_device_id: None,
             device_authorize_event_id: None,
@@ -1176,7 +1176,7 @@ pub enum RecipientMlsDurableSigner {
         recipient_device_id: DeviceId,
         device_verification_method: DidUrl,
     },
-    NativeAgent {
+    Agent {
         recipient_agent_id: DidCoreId,
         recipient_agent_verification_method: DidUrl,
         agent_key_authorize_event_id: EventId,
@@ -1241,7 +1241,7 @@ impl Serialize for RecipientMlsDurableReceipt {
                 None,
                 None,
             ),
-            RecipientMlsDurableSigner::NativeAgent {
+            RecipientMlsDurableSigner::Agent {
                 recipient_agent_id,
                 recipient_agent_verification_method,
                 agent_key_authorize_event_id,
@@ -1309,7 +1309,7 @@ impl<'de> Deserialize<'de> for RecipientMlsDurableReceipt {
                 }
             }
             (None, None, Some(agent_id), Some(method), Some(event_id), None) => {
-                RecipientMlsDurableSigner::NativeAgent {
+                RecipientMlsDurableSigner::Agent {
                     recipient_agent_id: agent_id,
                     recipient_agent_verification_method: method,
                     agent_key_authorize_event_id: event_id,
@@ -1322,7 +1322,7 @@ impl<'de> Deserialize<'de> for RecipientMlsDurableReceipt {
             }
             _ => {
                 return Err(serde::de::Error::custom(
-                    "recipient durable receipt must select exactly one device, Native Agent, or minimal-metadata pairwise signer",
+                    "recipient durable receipt must select exactly one device, Agent, or minimal-metadata pairwise signer",
                 ));
             }
         };
@@ -1364,7 +1364,7 @@ impl RecipientMlsDurableReceipt {
                     return Err("recipient device receipt signature kid mismatch");
                 }
             }
-            RecipientMlsDurableSigner::NativeAgent {
+            RecipientMlsDurableSigner::Agent {
                 recipient_agent_id,
                 recipient_agent_verification_method,
                 agent_key_authorize_event_id,
@@ -1372,7 +1372,7 @@ impl RecipientMlsDurableReceipt {
                 if recipient_agent_id.as_core_id() != self.recipient_principal_id.as_core_id()
                     || self.signature.kid.as_str() != recipient_agent_verification_method.as_str()
                 {
-                    return Err("recipient Native Agent durable receipt binding mismatch");
+                    return Err("recipient Agent durable receipt binding mismatch");
                 }
                 let _ = agent_key_authorize_event_id;
             }
@@ -1427,7 +1427,7 @@ impl KeyPackagesConsumeRequestBody {
                 device_verification_method,
                 ..
             } => device_verification_method,
-            RecipientMlsDurableSigner::NativeAgent {
+            RecipientMlsDurableSigner::Agent {
                 recipient_agent_verification_method,
                 ..
             } => recipient_agent_verification_method,

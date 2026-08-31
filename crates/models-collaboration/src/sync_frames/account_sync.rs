@@ -187,7 +187,7 @@ pub struct NotificationContainer {
 
 /// Closed sender endpoint of one to-device message.
 ///
-/// A Native Agent runtime is not a human device:
+/// A Agent runtime is not a human device:
 /// It cannot be represented as an `ak:device`, so the endpoint is a closed XOR
 /// rather than an `Option<DeviceId>` a producer could fill with a principal id.
 ///
@@ -207,7 +207,7 @@ pub enum DeviceMessageSender {
     Device {
         sender_device_id: DeviceId,
     },
-    NativeAgent {
+    Agent {
         sender_agent_id: DidCoreId,
         sender_agent_verification_method: DidUrl,
         sender_agent_key_authorize_event_id: EventId,
@@ -287,14 +287,14 @@ impl DeviceMessageSender {
                 Some(sender_agent_verification_method),
                 Some(sender_agent_key_authorize_event_id),
                 None,
-            ) => Ok(Self::NativeAgent {
+            ) => Ok(Self::Agent {
                 sender_agent_id,
                 sender_agent_verification_method,
                 sender_agent_key_authorize_event_id,
             }),
             (None, None, None, None, Some(sender_id)) => Ok(Self::Service { sender_id }),
             _ => Err(
-                "device message sender must contain exactly one complete device, Native Agent, or Service branch",
+                "device message sender must contain exactly one complete device, Agent, or Service branch",
             ),
         }
     }
@@ -303,12 +303,12 @@ impl DeviceMessageSender {
     ///
     /// `device-message.schema.json` keys deduplication on
     /// `(sender_principal_id, <endpoint>, device_message_id)`; the endpoint is the
-    /// device for a human sender, the Agent principal for a Native Agent, and
+    /// device for a human sender, the Agent principal for an Agent, and
     /// the Station service id for a Service sender.
     pub fn endpoint_id(&self) -> &str {
         match self {
             Self::Device { sender_device_id } => sender_device_id.as_str(),
-            Self::NativeAgent {
+            Self::Agent {
                 sender_agent_id, ..
             } => sender_agent_id.as_str(),
             Self::Service { sender_id } => sender_id.as_str(),
@@ -319,7 +319,7 @@ impl DeviceMessageSender {
     pub fn device_id(&self) -> Option<&DeviceId> {
         match self {
             Self::Device { sender_device_id } => Some(sender_device_id),
-            Self::NativeAgent { .. } | Self::Service { .. } => None,
+            Self::Agent { .. } | Self::Service { .. } => None,
         }
     }
 
@@ -328,7 +328,7 @@ impl DeviceMessageSender {
     pub fn service_id(&self) -> Option<&DidCoreId> {
         match self {
             Self::Service { sender_id } => Some(sender_id),
-            Self::Device { .. } | Self::NativeAgent { .. } => None,
+            Self::Device { .. } | Self::Agent { .. } => None,
         }
     }
 }
@@ -1175,7 +1175,7 @@ mod device_message_tests {
         })
     }
 
-    /// The two sender endpoints are one closed XOR: a Native Agent has no
+    /// The two sender endpoints are one closed XOR: an Agent has no
     /// device identity and MUST NOT be spelled as one, and its branch is only
     /// usable complete — an Agent principal id without the key that currently
     /// speaks for it is not an authenticatable sender.
@@ -1242,7 +1242,7 @@ mod device_message_tests {
         );
         assert!(
             serde_json::from_value::<DeviceMessageEnvelope>(both).is_err(),
-            "a Native Agent sender must not also carry a device id"
+            "an Agent sender must not also carry a device id"
         );
 
         let mut half_agent = agent.clone();

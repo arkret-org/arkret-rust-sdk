@@ -737,7 +737,7 @@ impl KeyPackageClaimRecord {
                 .map_err(|_| "KeyPackage claim pairwise endpoint binding is invalid")
             }
             _ => Err(
-                "KeyPackage claim must select exactly one device, Native Agent, or minimal-metadata pairwise branch",
+                "KeyPackage claim must select exactly one device, Agent, or minimal-metadata pairwise branch",
             ),
         }
     }

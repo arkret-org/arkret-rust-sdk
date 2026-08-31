@@ -207,6 +207,8 @@ pub struct AgentRuntimeLayer {
 
 #[derive(Debug, Deserialize)]
 pub struct AgentCapabilitySet {
+    pub selection_rule: String,
+    pub activation_operations: Vec<String>,
     pub mandatory_operations: Vec<String>,
 }
 

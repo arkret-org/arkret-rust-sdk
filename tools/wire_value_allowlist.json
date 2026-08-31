@@ -2460,7 +2460,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/signatures/src/webvh/inception.rs::ManagedAgentBindingUpdateInput.previous_entries",
+      "finding": "crates/signatures/src/webvh/inception.rs::AgentBindingUpdateInput.previous_entries",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3306,7 +3306,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:crates/signatures/src/webvh/inception.rs::managed_agent_document_value:6b551bbaf712dc4a",
+      "finding": "json_authoring:crates/signatures/src/webvh/inception.rs::agent_document_value:6b551bbaf712dc4a",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",

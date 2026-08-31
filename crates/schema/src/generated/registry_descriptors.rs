@@ -2,10 +2,10 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/id-kind-registry.json; version=2026-08-30.2;
 //! sha256=5027ff6fedbe92ee1b1475278352416fbcee183acf7ce9e61124d1a156106ab3 Input: registry/
-//! capability-action-registry.json; version=2026-08-30.3;
-//! sha256=22d2d874a74e9ba0f7b6ed65624925660e3d7f3699fdb84b7bea196b994d5598 Input: registry/
-//! schema-registry.json; version=2026-08-31.1;
-//! sha256=d10b71d70d5eb7a960ef2a832c813eecc6d22a2b1de187a0df22220fd0dc8a4e Input: registry/
+//! capability-action-registry.json; version=2026-08-31.6;
+//! sha256=b1869bf05cfea8ddea39fafae193eea63c6a3d3b6738aadb57131d04fcf241c7 Input: registry/
+//! schema-registry.json; version=2026-08-31.3;
+//! sha256=c6843eca4309bccd4801f01f36042195bb29be20312a5ad1f6386bf90fb79f4e Input: registry/
 //! account-data-key-registry.json; version=2026-08-30.1;
 //! sha256=e46f0f04e0b29e29d8be37fb74e237eb76eba99e3f4259a24672bf0f57bfffd1 Entries: id_kinds=59,
 //! special_forms=14, actions=162, schemas=195, account_data_patterns=24
@@ -459,7 +459,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         required_evaluator_checks: &[],
         target_event_kinds: &[event_kind_str::AGENT_ACTION_APPROVE],
         grant_authority_actions: &[],
-        profile: Some("ak.profile.personal_agent_provisioning.v1"),
+        profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
         reducer_only: false,
@@ -473,7 +473,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         required_evaluator_checks: &[],
         target_event_kinds: &[event_kind_str::AGENT_ACTION_REJECT],
         grant_authority_actions: &[],
-        profile: Some("ak.profile.personal_agent_provisioning.v1"),
+        profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
         reducer_only: false,
@@ -487,7 +487,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         required_evaluator_checks: &[],
         target_event_kinds: &[event_kind_str::AGENT_ACTION_REQUEST],
         grant_authority_actions: &[],
-        profile: Some("ak.profile.personal_agent_provisioning.v1"),
+        profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
         reducer_only: false,
@@ -501,7 +501,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         required_evaluator_checks: &[],
         target_event_kinds: &[event_kind_str::AGENT_DRAFT_PROPOSE],
         grant_authority_actions: &[],
-        profile: Some("ak.profile.personal_agent_provisioning.v1"),
+        profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
         reducer_only: false,
@@ -543,7 +543,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         required_evaluator_checks: &[],
         target_event_kinds: &[event_kind_str::AGENT_SELECTOR_CLAIM],
         grant_authority_actions: &[],
-        profile: Some("ak.profile.personal_agent_provisioning.v1"),
+        profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
         reducer_only: false,
@@ -2535,7 +2535,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         required_evaluator_checks: &[],
         target_event_kinds: &[event_kind_str::SELF_AGENT_DEACTIVATE],
         grant_authority_actions: &[],
-        profile: Some("ak.profile.personal_agent_provisioning.v1"),
+        profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
         reducer_only: false,
@@ -2549,7 +2549,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         required_evaluator_checks: &[],
         target_event_kinds: &[event_kind_str::SELF_AGENT_PAUSE],
         grant_authority_actions: &[],
-        profile: Some("ak.profile.personal_agent_provisioning.v1"),
+        profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
         reducer_only: false,
@@ -2563,7 +2563,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         required_evaluator_checks: &[],
         target_event_kinds: &[event_kind_str::AGENT_PROVISION],
         grant_authority_actions: &[],
-        profile: Some("ak.profile.personal_agent_provisioning.v1"),
+        profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
         reducer_only: false,
@@ -2577,7 +2577,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         required_evaluator_checks: &[],
         target_event_kinds: &[],
         grant_authority_actions: &[],
-        profile: Some("ak.profile.personal_agent_provisioning.v1"),
+        profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
         reducer_only: false,
@@ -2591,7 +2591,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         required_evaluator_checks: &[],
         target_event_kinds: &[event_kind_str::SELF_AGENT_RESUME],
         grant_authority_actions: &[],
-        profile: Some("ak.profile.personal_agent_provisioning.v1"),
+        profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
         reducer_only: false,

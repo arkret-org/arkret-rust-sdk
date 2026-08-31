@@ -161,7 +161,7 @@ pub fn governance_runtime_dependency_selector_coordinates_for_acquisition(
 }
 
 /// Discover the next signer-evidence layer referenced by already resolved
-/// principal or Native Agent evidence. Repeat until this returns an empty set;
+/// principal or Agent evidence. Repeat until this returns an empty set;
 /// service evidence is the self-authenticating terminal branch.
 pub fn governance_attester_evidence_selectors<'a, E>(
     evidence: impl IntoIterator<Item = &'a E>,
@@ -183,7 +183,7 @@ where
                     content_digest: attester_signer_evidence_digest.clone(),
                 },
             ),
-            AuthenticatedSignerResolutionEvidence::NativeAgent {
+            AuthenticatedSignerResolutionEvidence::Agent {
                 attester_signer_evidence_digest,
                 controller_signer_evidence_digest,
                 account_authority_signer_evidence_digest,
@@ -245,7 +245,7 @@ pub fn governance_transitive_signer_evidence_selectors(
 }
 
 /// Validate the exact signer-evidence closure used to admit one history
-/// response source proof. The root must be either a Principal/Native Agent
+/// response source proof. The root must be either a Principal/Agent
 /// evidence object or the dedicated minimal-metadata MLS evidence. Service
 /// evidence is valid only as a recursively referenced attester leaf.
 pub fn validate_history_source_signer_dependency_closure(
@@ -381,7 +381,7 @@ fn validate_authenticated_evidence_reachability(
                 attester_signer_evidence_digest,
                 ..
             } => pending.push(attester_signer_evidence_digest.clone()),
-            AuthenticatedSignerResolutionEvidence::NativeAgent {
+            AuthenticatedSignerResolutionEvidence::Agent {
                 attester_signer_evidence_digest,
                 controller_signer_evidence_digest,
                 account_authority_signer_evidence_digest,
@@ -507,9 +507,9 @@ pub fn history_source_signer_dependency_closure(
                     attester_signer_evidence_digest,
                     ..
                 } => pending.push(attester_signer_evidence_digest.clone()),
-                AuthenticatedSignerResolutionEvidence::NativeAgent { .. } => {
+                AuthenticatedSignerResolutionEvidence::Agent { .. } => {
                     return Err(WireError::Protocol(
-                        "minimal-metadata IdentityLink signer closure contains Native Agent evidence"
+                        "minimal-metadata IdentityLink signer closure contains Agent evidence"
                             .to_owned(),
                     ));
                 }
@@ -541,7 +541,7 @@ pub fn history_source_signer_dependency_closure(
                     attester_signer_evidence_digest,
                     ..
                 } => pending.push(attester_signer_evidence_digest.clone()),
-                AuthenticatedSignerResolutionEvidence::NativeAgent {
+                AuthenticatedSignerResolutionEvidence::Agent {
                     attester_signer_evidence_digest,
                     controller_signer_evidence_digest,
                     account_authority_signer_evidence_digest,

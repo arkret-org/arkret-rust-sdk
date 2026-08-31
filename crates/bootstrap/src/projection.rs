@@ -47,7 +47,7 @@ pub fn expected_realm_create_cells(event: &Event) -> BTreeSet<String> {
         .get("object")
         .and_then(|object| object.get("purpose"))
         .and_then(serde_json::Value::as_str);
-    if purpose == Some("managed_agent_control") {
+    if purpose == Some("agent_control") {
         let canonical_actor = arkret_canonical::canonical_json_string(&event.actor_id)
             .expect("ActorId always has a canonical JSON representation");
         let subject = arkret_wire::composite_subject(&[canonical_actor])
@@ -63,7 +63,7 @@ pub fn expected_realm_create_cells(event: &Event) -> BTreeSet<String> {
         Some(
             "direct_conversation"
                 | "principal_control"
-                | "managed_agent_control"
+                | "agent_control"
                 | "applet_managed_control"
         )
     ) {
@@ -119,7 +119,7 @@ pub(crate) fn direct_projection(
 /// Assert that an `ak.realm.create` projection lands on its canonical genesis
 /// leaf set.
 ///
-/// Self PCR, managed Agent PCR and ordinary Realm producers all reach the
+/// Self PCR, Agent PCR and ordinary Realm producers all reach the
 /// receiver through the same contract. The five Realm security-root writes
 /// are always present; an `initial_resolution` adds the registered
 /// identity-resolution singleton, and the three create-locked Realm purposes

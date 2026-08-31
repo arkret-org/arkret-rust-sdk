@@ -41,14 +41,14 @@ fn federation_peer_actor_bounds_round_trip_exact_accounts_and_service() {
         account.signing_principal_id().clone(),
         DidCoreId::new("ak:did_core:web:other-station.example").unwrap(),
     ));
-    // Managed agents use the same Account identity carrier; credential class
+    // Agents use the same Account identity carrier; credential class
     // does not create an additional ActorId branch.
-    let managed_agent = account_actor("ak:did_core:web:agent.example");
+    let agent = account_actor("ak:did_core:web:agent.example");
     let service = ActorId::service(DidCoreId::new("ak:did_core:web:ps.example").unwrap());
     let bounds = BTreeMap::from([
         (account, 5),
         (another_station, 9),
-        (managed_agent, 12),
+        (agent, 12),
         (service, 17),
     ]);
     let frontier = peer_frontier_with_bounds(bounds.clone());

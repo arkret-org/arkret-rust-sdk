@@ -49,7 +49,7 @@ fn observation_input() -> HistorySourceAgentObservationInput {
 }
 
 #[test]
-fn native_agent_observation_digest_precedes_evidence_and_complete_source_proof() {
+fn agent_observation_digest_precedes_evidence_and_complete_source_proof() {
     let observation = observation_input();
     let observation_digest = observation
         .history_source_agent_observation_digest()

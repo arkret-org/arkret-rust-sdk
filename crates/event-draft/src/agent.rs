@@ -1,4 +1,4 @@
-//! Personal-agent Event materialization.
+//! Agent Event materialization.
 
 use arkret_models_collaboration::agent_operations::AgentLifecycleState;
 use arkret_models_collaboration::events_payloads::agent::{

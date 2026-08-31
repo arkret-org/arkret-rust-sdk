@@ -96,7 +96,7 @@ impl Serialize for MlsWelcomeEnvelope {
                 None,
                 None,
             ),
-            MlsEndpointIdentity::NativeAgentRuntime {
+            MlsEndpointIdentity::AgentRuntime {
                 agent_id,
                 verification_method,
                 agent_key_authorize_event_id,
@@ -163,7 +163,7 @@ impl<'de> Deserialize<'de> for MlsWelcomeEnvelope {
             (None, Some(agent_id), Some(method), Some(authorization_ref), None, None)
                 if wire.recipient_principal_id.as_ref() == Some(&agent_id) =>
             {
-                MlsEndpointIdentity::native_agent_runtime(agent_id, method, authorization_ref)
+                MlsEndpointIdentity::agent_runtime(agent_id, method, authorization_ref)
                     .map_err(serde::de::Error::custom)?
             }
             (None, None, None, None, Some(actor_id), Some(method))
@@ -174,7 +174,7 @@ impl<'de> Deserialize<'de> for MlsWelcomeEnvelope {
             }
             _ => {
                 return Err(serde::de::Error::custom(
-                    "MLS Welcome must select exactly one human device, Native Agent, or minimal-metadata pairwise endpoint",
+                    "MLS Welcome must select exactly one human device, Agent, or minimal-metadata pairwise endpoint",
                 ));
             }
         };

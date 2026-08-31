@@ -1,4 +1,4 @@
-//! Personal-Agent lifecycle wire models and the requested-scope commitment
+//! Agent lifecycle wire models and the requested-scope commitment
 //! digest, relocated from the `arkret` umbrella. These bind agent-key payloads
 //! (`events_payloads::agent`), grant / key-state artifacts
 //! (`governance::agent_artifacts`), capability grants
@@ -592,7 +592,7 @@ pub struct AgentRenewPairingOutcome {
     pub expires_at: DateTime<Utc>,
 }
 
-/// One-time bootstrap material handed to a personal agent runtime after
+/// One-time bootstrap material handed to an Agent runtime after
 /// provisioning. Mirrors `agent-operations.schema.json#/$defs/agent_pairing_bootstrap`
 /// and AKP-0008 §4.4: a short-lived, revocable pairing input only. It is not a
 /// session grant, capability grant or long-term secret, and it deliberately

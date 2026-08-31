@@ -332,7 +332,10 @@ fn actor_profile(
         schema: SchemaId::ACTOR_PROFILE_V1.to_owned(),
         realm_id: Some(branch.realm_id.clone()),
         principal_id: actor_id,
-        actor_kind: ActorKind::Integration,
+        actor_kind: match branch.role {
+            AppletManagedActorRole::Bot => ActorKind::Bot,
+            AppletManagedActorRole::Ghost => ActorKind::Integration,
+        },
         display_name: branch.display_name.clone(),
         handle: None,
         agent_slug: None,

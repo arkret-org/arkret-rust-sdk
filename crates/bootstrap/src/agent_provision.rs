@@ -1,4 +1,4 @@
-//! Controller-owned managed-agent provisioning Event authoring.
+//! Controller-owned agent provisioning Event authoring.
 
 use arkret_event_draft::TypedEventDraft;
 use arkret_models_collaboration::events_payloads::agent::{

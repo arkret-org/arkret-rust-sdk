@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum HistorySourceProofExternalVerificationRequest<'a> {
-    NativeAgent {
+    Agent {
         source_record: &'a HistoryKeyResponseSendRequest,
         signer_evidence: &'a AuthenticatedSignerResolutionEvidence,
         dependencies: &'a [GovernanceDependency],
@@ -259,7 +259,7 @@ impl VerifiedHistoryResponseRecord {
 ///
 /// The source key is resolved from the exact content-addressed signer evidence
 /// bound by the signed source record. The callback is invoked only for the
-/// Native Agent PCR/lifecycle/transparency anchors and the minimal-metadata
+/// Agent PCR/lifecycle/transparency anchors and the minimal-metadata
 /// encrypted IdentityLink plus LeafNode check against the receiver's verified local MLS
 /// state; it cannot substitute a key outside the signed evidence.
 #[allow(clippy::too_many_arguments)]
@@ -496,20 +496,20 @@ where
                 return invalid("source signer evidence does not bind its actor and method");
             }
             match evidence.as_ref() {
-                AuthenticatedSignerResolutionEvidence::NativeAgent { .. } => {
+                AuthenticatedSignerResolutionEvidence::Agent { .. } => {
                     let verified = verify_external_source_key(
-                        HistorySourceProofExternalVerificationRequest::NativeAgent {
+                        HistorySourceProofExternalVerificationRequest::Agent {
                             source_record: source,
                             signer_evidence: evidence.as_ref(),
                             dependencies,
                         },
                     )?;
-                    let AuthenticatedSignerResolutionEvidence::NativeAgent {
+                    let AuthenticatedSignerResolutionEvidence::Agent {
                         agent_signer_evidence,
                         ..
                     } = evidence.as_ref()
                     else {
-                        unreachable!("matched NativeAgent evidence above")
+                        unreachable!("matched Agent evidence above")
                     };
                     let binding = match agent_signer_evidence.as_ref() {
                         arkret_models_identity::AgentSignerEvidence::CurrentAdmission {
@@ -531,7 +531,7 @@ where
                     )?;
                     if verified != (PublicKeyMaterial::Ed25519Raw { bytes: expected }) {
                         return invalid(
-                            "Native Agent source verifier returned a key outside its signed evidence",
+                            "Agent source verifier returned a key outside its signed evidence",
                         );
                     }
                     Ok(verified)
@@ -781,13 +781,12 @@ fn verify_release_attestation(
         (
             Some(AuthorProfile::OrdinaryHuman),
             SourceEvidenceKind::Principal
-        ) | (
-            Some(AuthorProfile::NativeAgent),
-            SourceEvidenceKind::NativeAgent
-        ) | (
-            Some(AuthorProfile::MinimalMetadata),
-            SourceEvidenceKind::MinimalMetadata
-        ) | (None, SourceEvidenceKind::Principal)
+        ) | (Some(AuthorProfile::Agent), SourceEvidenceKind::Agent)
+            | (
+                Some(AuthorProfile::MinimalMetadata),
+                SourceEvidenceKind::MinimalMetadata
+            )
+            | (None, SourceEvidenceKind::Principal)
     );
     if !profile_matches {
         return invalid("history release source profile does not match signer evidence kind");
@@ -834,7 +833,7 @@ fn verify_release_attestation(
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SourceEvidenceKind {
     Principal,
-    NativeAgent,
+    Agent,
     MinimalMetadata,
 }
 
@@ -859,8 +858,8 @@ fn source_evidence_kind(
                     AuthenticatedSignerResolutionEvidence::Principal { .. } => {
                         SourceEvidenceKind::Principal
                     }
-                    AuthenticatedSignerResolutionEvidence::NativeAgent { .. } => {
-                        SourceEvidenceKind::NativeAgent
+                    AuthenticatedSignerResolutionEvidence::Agent { .. } => {
+                        SourceEvidenceKind::Agent
                     }
                 }
             }

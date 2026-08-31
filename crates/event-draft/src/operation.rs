@@ -593,7 +593,7 @@ impl MlsEnvelopeOperationExt for MlsWelcomeEnvelope {
                 principal_id,
                 device_id,
             } => format!("device:{principal_id}:{device_id}"),
-            arkret_models_crypto::MlsEndpointIdentity::NativeAgentRuntime {
+            arkret_models_crypto::MlsEndpointIdentity::AgentRuntime {
                 agent_id,
                 verification_method,
                 agent_key_authorize_event_id,

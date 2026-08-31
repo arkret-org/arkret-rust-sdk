@@ -908,7 +908,7 @@ impl SessionGrantIntrospectGrant {
                 ))
             }
             (SessionGrantHolderBinding::AgentRuntime { .. }, _) => Err(WireError::Protocol(
-                "managed Agent request context must use delegated runtime authority".to_owned(),
+                "Agent request context must use delegated runtime authority".to_owned(),
             )),
         }
     }

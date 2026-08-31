@@ -223,7 +223,7 @@ pub struct Strand {
     /// Declaration order mirrors `strand.schema.json`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub schema_refs: Option<Vec<String>>,
-    /// Optional native-agent participation ceiling, wrapped by agent class.
+    /// Optional Agent participation ceiling, wrapped by agent class.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_participation: Option<AgentParticipationPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

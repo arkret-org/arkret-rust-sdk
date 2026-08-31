@@ -27,7 +27,7 @@ pub enum AuthenticatedSignerResolutionEvidence {
         attester_signer_evidence_ref: SignerEvidenceRef,
         attester_signer_evidence_digest: Hash,
     },
-    NativeAgent {
+    Agent {
         signer_id: DidCoreId,
         verification_method: DidUrl,
         agent_signer_evidence: Box<AgentSignerEvidence>,
@@ -58,7 +58,7 @@ impl AuthenticatedSignerResolutionEvidence {
         match self {
             Self::Service { signer_id, .. }
             | Self::Principal { signer_id, .. }
-            | Self::NativeAgent { signer_id, .. } => signer_id,
+            | Self::Agent { signer_id, .. } => signer_id,
         }
     }
 
@@ -72,7 +72,7 @@ impl AuthenticatedSignerResolutionEvidence {
                 verification_method,
                 ..
             }
-            | Self::NativeAgent {
+            | Self::Agent {
                 verification_method,
                 ..
             } => verification_method,
@@ -126,7 +126,7 @@ impl AuthenticatedSignerResolutionEvidence {
                 }
                 public_resolution.validate_attestation_binding()?;
             }
-            Self::NativeAgent {
+            Self::Agent {
                 signer_id,
                 verification_method,
                 agent_signer_evidence,
@@ -153,8 +153,7 @@ impl AuthenticatedSignerResolutionEvidence {
                 };
                 if !matches_signer {
                     return Err(WireError::Protocol(
-                        "native-agent signer evidence does not authorize its signer or method"
-                            .to_owned(),
+                        "Agent signer evidence does not authorize its signer or method".to_owned(),
                     ));
                 }
             }
@@ -169,7 +168,7 @@ impl AuthenticatedSignerResolutionEvidence {
                 attester_signer_evidence_ref,
                 attester_signer_evidence_digest,
             )],
-            Self::NativeAgent {
+            Self::Agent {
                 attester_signer_evidence_ref,
                 attester_signer_evidence_digest,
                 controller_signer_evidence_ref,
@@ -229,9 +228,9 @@ pub fn ed25519_notary_signer_descriptor_from_evidence(
             normalized_did_document,
             ..
         } => normalized_did_document,
-        AuthenticatedSignerResolutionEvidence::NativeAgent { .. } => {
+        AuthenticatedSignerResolutionEvidence::Agent { .. } => {
             return Err(WireError::Protocol(
-                "native-agent signer evidence does not carry a normalized DID document for Realm notary bootstrap"
+                "Agent signer evidence does not carry a normalized DID document for Realm notary bootstrap"
                     .to_owned(),
             ));
         }
@@ -255,8 +254,8 @@ pub fn ed25519_notary_signer_descriptor_from_evidence(
         AuthenticatedSignerResolutionEvidence::Principal {
             public_resolution, ..
         } => ActorId::account(public_resolution.authority()),
-        AuthenticatedSignerResolutionEvidence::NativeAgent { .. } => {
-            unreachable!("native-agent signer evidence returned before descriptor construction")
+        AuthenticatedSignerResolutionEvidence::Agent { .. } => {
+            unreachable!("Agent signer evidence returned before descriptor construction")
         }
     };
     let descriptor = NotarySignerDescriptor {

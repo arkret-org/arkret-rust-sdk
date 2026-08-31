@@ -95,7 +95,7 @@ pub enum MlsRequesterTrustBinding {
         requester_device_id: DeviceId,
         requester_device_authorize_event_id: EventId,
     },
-    RequesterNativeAgent {
+    RequesterAgent {
         requester_agent_id: DidCoreId,
         requester_agent_verification_method: DidUrl,
         requester_agent_key_authorize_event_id: EventId,
@@ -112,9 +112,7 @@ impl MlsRequesterTrustBinding {
                 requester_device_id,
                 ..
             } => Some(requester_device_id),
-            Self::RequesterNativeAgent { .. } | Self::RequesterMinimalMetadataPairwise { .. } => {
-                None
-            }
+            Self::RequesterAgent { .. } | Self::RequesterMinimalMetadataPairwise { .. } => None,
         }
     }
 }
@@ -124,7 +122,7 @@ pub enum MlsWelcomeRecipient {
     Device {
         recipient_device_id: DeviceId,
     },
-    NativeAgent {
+    Agent {
         recipient_agent_id: DidCoreId,
         recipient_agent_verification_method: DidUrl,
         agent_key_authorize_event_id: EventId,
@@ -693,7 +691,7 @@ impl Serialize for MlsWelcomeClaimEnvelope {
                 None,
                 None,
             ),
-            MlsRequesterTrustBinding::RequesterNativeAgent {
+            MlsRequesterTrustBinding::RequesterAgent {
                 requester_agent_id,
                 requester_agent_verification_method,
                 requester_agent_key_authorize_event_id,
@@ -757,7 +755,7 @@ impl<'de> Deserialize<'de> for MlsWelcomeClaimEnvelope {
                 }
             }
             (None, None, Some(agent_id), Some(method), Some(authorize_event_id), None) => {
-                MlsRequesterTrustBinding::RequesterNativeAgent {
+                MlsRequesterTrustBinding::RequesterAgent {
                     requester_agent_id: agent_id,
                     requester_agent_verification_method: method,
                     requester_agent_key_authorize_event_id: authorize_event_id,
@@ -775,7 +773,7 @@ impl<'de> Deserialize<'de> for MlsWelcomeClaimEnvelope {
             }
             _ => {
                 return Err(serde::de::Error::custom(
-                    "Welcome claim requester must select exactly one device, Native Agent, or minimal-metadata pairwise branch",
+                    "Welcome claim requester must select exactly one device, Agent, or minimal-metadata pairwise branch",
                 ));
             }
         };
@@ -839,7 +837,7 @@ impl MlsWelcomeClaimEnvelopeSigningInput {
                 None,
                 None,
             ),
-            MlsRequesterTrustBinding::RequesterNativeAgent {
+            MlsRequesterTrustBinding::RequesterAgent {
                 requester_agent_id,
                 requester_agent_verification_method,
                 requester_agent_key_authorize_event_id,
@@ -922,7 +920,7 @@ impl MlsWelcomeClaimEnvelope {
         {
             return Err(ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
         }
-        if let MlsRequesterTrustBinding::RequesterNativeAgent {
+        if let MlsRequesterTrustBinding::RequesterAgent {
             requester_agent_id,
             requester_agent_verification_method,
             requester_agent_key_authorize_event_id,
@@ -1104,7 +1102,7 @@ impl Serialize for MlsWelcomePayload {
                 None,
                 None,
             ),
-            MlsWelcomeRecipient::NativeAgent {
+            MlsWelcomeRecipient::Agent {
                 recipient_agent_id,
                 recipient_agent_verification_method,
                 agent_key_authorize_event_id,
@@ -1178,7 +1176,7 @@ impl<'de> Deserialize<'de> for MlsWelcomePayload {
             (None, Some(agent_id), Some(method), Some(authorize_event_id), None, None)
                 if wire.recipient_principal_id.as_ref() == Some(&agent_id) =>
             {
-                MlsWelcomeRecipient::NativeAgent {
+                MlsWelcomeRecipient::Agent {
                     recipient_agent_id: agent_id,
                     recipient_agent_verification_method: method,
                     agent_key_authorize_event_id: authorize_event_id,
@@ -1199,7 +1197,7 @@ impl<'de> Deserialize<'de> for MlsWelcomePayload {
             }
             _ => {
                 return Err(serde::de::Error::custom(
-                    "MLS Welcome recipient must select exactly one device, Native Agent, or minimal-metadata pairwise branch",
+                    "MLS Welcome recipient must select exactly one device, Agent, or minimal-metadata pairwise branch",
                 ));
             }
         };
@@ -1341,7 +1339,7 @@ pub fn validate_mls_welcome_claim_envelope(
             None,
         ) if recipient_device_id == claim_device_id => {}
         (
-            MlsWelcomeRecipient::NativeAgent {
+            MlsWelcomeRecipient::Agent {
                 recipient_agent_id,
                 recipient_agent_verification_method,
                 agent_key_authorize_event_id,
@@ -1454,7 +1452,7 @@ fn validate_requester_signature_binding(
         {
             Ok(())
         }
-        MlsRequesterTrustBinding::RequesterNativeAgent {
+        MlsRequesterTrustBinding::RequesterAgent {
             requester_agent_id,
             requester_agent_verification_method,
             requester_agent_key_authorize_event_id,
@@ -1628,7 +1626,7 @@ mod tests {
     }
 
     #[test]
-    fn native_agent_claim_ref_requires_exclusive_authorization_binding() {
+    fn agent_claim_ref_requires_exclusive_authorization_binding() {
         let value = serde_json::json!({
             "claim_id": "claim-1",
             "keypackage_ref": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

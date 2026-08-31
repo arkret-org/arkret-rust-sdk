@@ -93,9 +93,9 @@ pub fn current_authorization_incarnation_from_verified_checkpoint(
     })
 }
 
-/// The only Native Agent historical-evidence checks that cannot be derived
+/// The only Agent historical-evidence checks that cannot be derived
 /// from the retained evidence/dependency closure itself.
-pub enum NativeAgentHistoricalTrustRequest<'a> {
+pub enum AgentHistoricalTrustRequest<'a> {
     /// Verify this embedded PCR Seal against independently pinned historical
     /// notary authority.
     PcrSeal(&'a Seal),
@@ -238,9 +238,9 @@ pub(crate) fn authenticated_document_key(
             )?;
             normalized_did_document.clone()
         }
-        AuthenticatedSignerResolutionEvidence::NativeAgent { .. } => {
+        AuthenticatedSignerResolutionEvidence::Agent { .. } => {
             return Err(WireError::Protocol(
-                "native-agent signer evidence requires the explicit historical-authority verifier"
+                "Agent signer evidence requires the explicit historical-authority verifier"
                     .to_owned(),
             ));
         }
@@ -268,11 +268,11 @@ pub(crate) fn bound_evidence_by_digest<'a>(
     Ok(evidence)
 }
 
-/// Assemble the only valid content-addressed Native Agent signer-resolution
+/// Assemble the only valid content-addressed Agent signer-resolution
 /// root from an Agent evidence object and its four already authenticated
 /// dependency leaves. Callers persist this returned root and the supplied
 /// leaves byte-exactly; they never mirror the wrapper construction rules.
-pub fn build_native_agent_signer_resolution_evidence(
+pub fn build_agent_signer_resolution_evidence(
     agent_signer_evidence: AgentSignerEvidence,
     authority_evidence: &AuthenticatedSignerResolutionEvidence,
     controller_evidence: &AuthenticatedSignerResolutionEvidence,
@@ -363,10 +363,10 @@ pub fn build_native_agent_signer_resolution_evidence(
         )
     {
         return Err(WireError::Protocol(
-            "Native Agent signer-resolution dependency leaves do not match the evidence".to_owned(),
+            "Agent signer-resolution dependency leaves do not match the evidence".to_owned(),
         ));
     }
-    let result = AuthenticatedSignerResolutionEvidence::NativeAgent {
+    let result = AuthenticatedSignerResolutionEvidence::Agent {
         signer_id,
         verification_method,
         agent_signer_evidence: Box::new(agent_signer_evidence),
@@ -384,23 +384,23 @@ pub fn build_native_agent_signer_resolution_evidence(
     Ok(result)
 }
 
-/// Verify the complete Native Agent historical-event evidence state machine
+/// Verify the complete Agent historical-event evidence state machine
 /// and return the exact Ed25519 Event key. Historical controller, Agent
 /// Authority, Account Authority, and receiver keys are resolved only from the
 /// typed signer-evidence dependency closure. The caller supplies one narrow
 /// callback for PCR notary/lifecycle/transparency trust anchors that the
 /// portable evidence does not self-authenticate.
-pub fn verify_native_agent_historical_event_key<VerifyExternalTrust>(
+pub fn verify_agent_historical_event_key<VerifyExternalTrust>(
     event: &Event,
     evidence: &AuthenticatedSignerResolutionEvidence,
     dependencies: &[GovernanceDependency],
     verify_external_trust: VerifyExternalTrust,
 ) -> Result<PublicKeyMaterial, WireError>
 where
-    VerifyExternalTrust: Fn(NativeAgentHistoricalTrustRequest<'_>) -> Result<(), WireError> + Copy,
+    VerifyExternalTrust: Fn(AgentHistoricalTrustRequest<'_>) -> Result<(), WireError> + Copy,
 {
     evidence.validate_attester_binding()?;
-    let AuthenticatedSignerResolutionEvidence::NativeAgent {
+    let AuthenticatedSignerResolutionEvidence::Agent {
         signer_id,
         verification_method,
         agent_signer_evidence,
@@ -415,7 +415,7 @@ where
     } = evidence
     else {
         return Err(WireError::Protocol(
-            "Native Agent historical key verifier received non-agent evidence".to_owned(),
+            "Agent historical key verifier received non-agent evidence".to_owned(),
         ));
     };
     let AgentSignerEvidence::HistoricalEvent {
@@ -426,7 +426,7 @@ where
     } = agent_signer_evidence.as_ref()
     else {
         return Err(WireError::Protocol(
-            "Native Agent signer evidence is not historical_event".to_owned(),
+            "Agent signer evidence is not historical_event".to_owned(),
         ));
     };
     let snapshot = &admission_evidence.agent_authority_snapshot;
@@ -485,12 +485,12 @@ where
         arkret_signatures::agent_evidence::agent_signing_key_binding_digest(binding)
             .map_err(|reason| WireError::Protocol(reason.as_str().to_owned()))?;
     let verify_pcr_seal = |seal: &Seal| {
-        verify_external_trust(NativeAgentHistoricalTrustRequest::PcrSeal(seal)).map_err(|_| {
+        verify_external_trust(AgentHistoricalTrustRequest::PcrSeal(seal)).map_err(|_| {
             arkret_signatures::agent_evidence::AgentEvidenceRejectedReason::SigningKeyMismatch
         })
     };
     let verify_lifecycle = |witness: &AgentLifecycleWitness| {
-        verify_external_trust(NativeAgentHistoricalTrustRequest::LifecycleWitness(witness))
+        verify_external_trust(AgentHistoricalTrustRequest::LifecycleWitness(witness))
             .map_err(|_| {
                 arkret_signatures::agent_evidence::AgentEvidenceRejectedReason::AuthorizationConflicted
             })
@@ -510,9 +510,7 @@ where
     )
     .map_err(|reason| WireError::Protocol(reason.as_str().to_owned()))?;
     let transparency_verified = if let Some(transparency) = transparency {
-        verify_external_trust(NativeAgentHistoricalTrustRequest::Transparency(
-            transparency,
-        ))?;
+        verify_external_trust(AgentHistoricalTrustRequest::Transparency(transparency))?;
         true
     } else {
         false
@@ -588,22 +586,22 @@ where
     }
 }
 
-/// Verify the complete Native Agent current-admission evidence state machine
+/// Verify the complete Agent current-admission evidence state machine
 /// for a history response source proof and return its exact Ed25519 key.
 /// Current observation request binding uses the dedicated non-cyclic history
 /// source digest; all authority keys come from the exact dependency closure.
-pub fn verify_native_agent_history_source_key<VerifyExternalTrust>(
+pub fn verify_agent_history_source_key<VerifyExternalTrust>(
     source: &HistoryKeyResponseSendRequest,
     evidence: &AuthenticatedSignerResolutionEvidence,
     dependencies: &[GovernanceDependency],
     verify_external_trust: VerifyExternalTrust,
 ) -> Result<PublicKeyMaterial, WireError>
 where
-    VerifyExternalTrust: Fn(NativeAgentHistoricalTrustRequest<'_>) -> Result<(), WireError> + Copy,
+    VerifyExternalTrust: Fn(AgentHistoricalTrustRequest<'_>) -> Result<(), WireError> + Copy,
 {
     source.validate()?;
     evidence.validate_attester_binding()?;
-    let AuthenticatedSignerResolutionEvidence::NativeAgent {
+    let AuthenticatedSignerResolutionEvidence::Agent {
         signer_id,
         verification_method,
         agent_signer_evidence,
@@ -618,7 +616,7 @@ where
     } = evidence
     else {
         return Err(WireError::Protocol(
-            "Native Agent history source verifier received non-agent evidence".to_owned(),
+            "Agent history source verifier received non-agent evidence".to_owned(),
         ));
     };
     let AgentSignerEvidence::CurrentAdmission {
@@ -629,7 +627,7 @@ where
     } = agent_signer_evidence.as_ref()
     else {
         return Err(WireError::Protocol(
-            "Native Agent history source evidence is not current_admission".to_owned(),
+            "Agent history source evidence is not current_admission".to_owned(),
         ));
     };
     if signer_id != source.source_actor_id.signing_principal_id()
@@ -638,7 +636,7 @@ where
         || current_observation.verifier_id != current_observation.audience_id
     {
         return Err(WireError::Protocol(
-            "Native Agent history source observation binding mismatch".to_owned(),
+            "Agent history source observation binding mismatch".to_owned(),
         ));
     }
 
@@ -676,7 +674,7 @@ where
         )
     {
         return Err(WireError::Protocol(
-            "Native Agent history source receiver evidence mismatch".to_owned(),
+            "Agent history source receiver evidence mismatch".to_owned(),
         ));
     }
     let controller_public_key =
@@ -698,12 +696,12 @@ where
         arkret_signatures::agent_evidence::agent_signing_key_binding_digest(binding)
             .map_err(|reason| WireError::Protocol(reason.as_str().to_owned()))?;
     let verify_pcr_seal = |seal: &Seal| {
-        verify_external_trust(NativeAgentHistoricalTrustRequest::PcrSeal(seal)).map_err(|_| {
+        verify_external_trust(AgentHistoricalTrustRequest::PcrSeal(seal)).map_err(|_| {
             arkret_signatures::agent_evidence::AgentEvidenceRejectedReason::SigningKeyMismatch
         })
     };
     let verify_lifecycle = |witness: &AgentLifecycleWitness| {
-        verify_external_trust(NativeAgentHistoricalTrustRequest::LifecycleWitness(witness))
+        verify_external_trust(AgentHistoricalTrustRequest::LifecycleWitness(witness))
             .map_err(|_| {
                 arkret_signatures::agent_evidence::AgentEvidenceRejectedReason::AuthorizationConflicted
             })
@@ -723,9 +721,7 @@ where
     )
     .map_err(|reason| WireError::Protocol(reason.as_str().to_owned()))?;
     let transparency_verified = if let Some(transparency) = transparency {
-        verify_external_trust(NativeAgentHistoricalTrustRequest::Transparency(
-            transparency,
-        ))?;
+        verify_external_trust(AgentHistoricalTrustRequest::Transparency(transparency))?;
         true
     } else {
         false
@@ -775,14 +771,14 @@ where
     }
 }
 
-fn verify_event_proofs_default<VerifyNativeAgentHistoryKey>(
+fn verify_event_proofs_default<VerifyAgentHistoryKey>(
     event: &Event,
     event_digest_suite: arkret_canonical::DigestSuite,
     dependencies: &[GovernanceDependency],
-    verify_native_agent_history_key: VerifyNativeAgentHistoryKey,
+    verify_agent_history_key: VerifyAgentHistoryKey,
 ) -> Result<(), WireError>
 where
-    VerifyNativeAgentHistoryKey: Fn(
+    VerifyAgentHistoryKey: Fn(
             &Event,
             arkret_canonical::DigestSuite,
             &AuthenticatedSignerResolutionEvidence,
@@ -816,13 +812,8 @@ where
                 ));
             }
             let key = match evidence {
-                AuthenticatedSignerResolutionEvidence::NativeAgent { .. } => {
-                    verify_native_agent_history_key(
-                        event,
-                        event_digest_suite,
-                        evidence,
-                        dependencies,
-                    )?
+                AuthenticatedSignerResolutionEvidence::Agent { .. } => {
+                    verify_agent_history_key(event, event_digest_suite, evidence, dependencies)?
                 }
                 _ => authenticated_document_key(evidence, dependencies, producer.created_at)?,
             };
@@ -1105,12 +1096,12 @@ fn verify_genesis_availability_commitment(
 /// the Producer + StationAdmission federation regime. The SDK owns
 /// frozen-notary selection, dependency verification, availability policy,
 /// reducer projection, recovery, and final state-root/basis checks.
-pub fn verify_mls_governance_checkpoint<VerifyNativeAgentHistoryKey>(
+pub fn verify_mls_governance_checkpoint<VerifyAgentHistoryKey>(
     candidate: &MlsGovernanceVerificationCheckpoint,
-    verify_native_agent_history_key: VerifyNativeAgentHistoryKey,
+    verify_agent_history_key: VerifyAgentHistoryKey,
 ) -> Result<MlsGovernanceVerificationCheckpoint, WireError>
 where
-    VerifyNativeAgentHistoryKey: Fn(
+    VerifyAgentHistoryKey: Fn(
             &Event,
             arkret_canonical::DigestSuite,
             &AuthenticatedSignerResolutionEvidence,
@@ -1135,12 +1126,7 @@ where
         &registry,
         arkret_signatures::verify_frozen_notary_signature,
         |event, digest_suite, dependencies| {
-            verify_event_proofs_default(
-                event,
-                digest_suite,
-                dependencies,
-                verify_native_agent_history_key,
-            )
+            verify_event_proofs_default(event, digest_suite, dependencies, verify_agent_history_key)
         },
         |seal, _, replay_context, dependencies| {
             verify_seal_availability_dependencies_default(
@@ -1161,16 +1147,16 @@ where
 /// replay. This is the bootstrap entry point for callers that do not yet have
 /// a durable verified checkpoint.
 #[allow(clippy::too_many_arguments)]
-pub fn verify_mls_governance_closure<VerifyNativeAgentHistoryKey>(
+pub fn verify_mls_governance_closure<VerifyAgentHistoryKey>(
     realm_id: &RealmId,
     basis: &SealBasis,
     seals: &[Seal],
     events: &[Event],
     dependencies: &[GovernanceDependency],
-    verify_native_agent_history_key: VerifyNativeAgentHistoryKey,
+    verify_agent_history_key: VerifyAgentHistoryKey,
 ) -> Result<VerifiedMlsGovernanceClosure, WireError>
 where
-    VerifyNativeAgentHistoryKey: Fn(
+    VerifyAgentHistoryKey: Fn(
             &Event,
             arkret_canonical::DigestSuite,
             &AuthenticatedSignerResolutionEvidence,
@@ -1202,7 +1188,7 @@ where
                     event,
                     digest_suite,
                     dependencies,
-                    verify_native_agent_history_key,
+                    verify_agent_history_key,
                 )
             },
             |seal, _, replay_context, dependencies| {
@@ -1227,13 +1213,13 @@ where
 /// complete verified checkpoint. Seal and Event closure selection, recursive
 /// signer-evidence discovery, and reducer replay remain SDK-owned; callers do
 /// not trim the checkpoint themselves.
-pub fn derive_verified_mls_governance_checkpoint_at_basis<VerifyNativeAgentHistoryKey>(
+pub fn derive_verified_mls_governance_checkpoint_at_basis<VerifyAgentHistoryKey>(
     existing_checkpoint: &MlsGovernanceVerificationCheckpoint,
     requested_basis: &SealBasis,
-    verify_native_agent_history_key: VerifyNativeAgentHistoryKey,
+    verify_agent_history_key: VerifyAgentHistoryKey,
 ) -> Result<MlsGovernanceVerificationCheckpoint, WireError>
 where
-    VerifyNativeAgentHistoryKey: Fn(
+    VerifyAgentHistoryKey: Fn(
             &Event,
             arkret_canonical::DigestSuite,
             &AuthenticatedSignerResolutionEvidence,
@@ -1266,7 +1252,7 @@ where
                     event,
                     digest_suite,
                     dependencies,
-                    verify_native_agent_history_key,
+                    verify_agent_history_key,
                 )
             },
             |seal, _, replay_context, dependencies| {
@@ -1345,7 +1331,7 @@ where
             accepted_events: selected_events,
             governance_dependencies: selected_dependencies,
         },
-        verify_native_agent_history_key,
+        verify_agent_history_key,
     )
 }
 
@@ -1412,16 +1398,16 @@ fn replay_dependency_closure(
 /// complete base checkpoint, then replays every-and-only cut Seal and Event
 /// objects against that state. A caller that has only a `SealBasis` cannot use
 /// this entry point.
-pub fn verify_mls_governance_cut<VerifyNativeAgentHistoryKey>(
+pub fn verify_mls_governance_cut<VerifyAgentHistoryKey>(
     base_checkpoint: &MlsGovernanceVerificationCheckpoint,
     target_basis: &SealBasis,
     cut_seals: &[Seal],
     cut_events: &[Event],
     cut_dependencies: &[GovernanceDependency],
-    verify_native_agent_history_key: VerifyNativeAgentHistoryKey,
+    verify_agent_history_key: VerifyAgentHistoryKey,
 ) -> Result<MlsGovernanceVerificationCheckpoint, WireError>
 where
-    VerifyNativeAgentHistoryKey: Fn(
+    VerifyAgentHistoryKey: Fn(
             &Event,
             arkret_canonical::DigestSuite,
             &AuthenticatedSignerResolutionEvidence,
@@ -1430,7 +1416,7 @@ where
         + Copy,
 {
     let verified_base =
-        verify_mls_governance_checkpoint(base_checkpoint, verify_native_agent_history_key)?;
+        verify_mls_governance_checkpoint(base_checkpoint, verify_agent_history_key)?;
     let registry = arkret_lattice_registry::try_build_sdk_cell_registry().map_err(|error| {
         WireError::Protocol(format!(
             "MLS governance registry construction failed: {error}"
@@ -1454,12 +1440,7 @@ where
         &registry,
         arkret_signatures::verify_frozen_notary_signature,
         |event, digest_suite, dependencies| {
-            verify_event_proofs_default(
-                event,
-                digest_suite,
-                dependencies,
-                verify_native_agent_history_key,
-            )
+            verify_event_proofs_default(event, digest_suite, dependencies, verify_agent_history_key)
         },
         |seal, _, replay_context, dependencies| {
             verify_seal_availability_dependencies_default(
@@ -1482,7 +1463,7 @@ where
 /// holder roles, retention, and quorum are derived from each Seal's verified
 /// predecessor state and checked entirely inside the SDK.
 #[allow(clippy::too_many_arguments)]
-pub fn verify_mls_governance_frontier<VerifyNativeAgentHistoryKey>(
+pub fn verify_mls_governance_frontier<VerifyAgentHistoryKey>(
     request: &MlsGovernanceProofRequestBody,
     bundle: &MlsGovernanceProofBundle,
     base_checkpoint: &MlsGovernanceVerificationCheckpoint,
@@ -1492,10 +1473,10 @@ pub fn verify_mls_governance_frontier<VerifyNativeAgentHistoryKey>(
     resolved_dependencies: &[GovernanceDependency],
     group_genesis_binding: &MlsGroupGenesisBinding,
     local_mls_leaves: &[MlsSecurityFrontierLeaf],
-    verify_native_agent_history_key: VerifyNativeAgentHistoryKey,
+    verify_agent_history_key: VerifyAgentHistoryKey,
 ) -> Result<VerifiedMlsGovernanceFrontier, WireError>
 where
-    VerifyNativeAgentHistoryKey: Fn(
+    VerifyAgentHistoryKey: Fn(
             &Event,
             arkret_canonical::DigestSuite,
             &AuthenticatedSignerResolutionEvidence,
@@ -1534,12 +1515,7 @@ where
         &registry,
         arkret_signatures::verify_frozen_notary_signature,
         |event, digest_suite, dependencies| {
-            verify_event_proofs_default(
-                event,
-                digest_suite,
-                dependencies,
-                verify_native_agent_history_key,
-            )
+            verify_event_proofs_default(event, digest_suite, dependencies, verify_agent_history_key)
         },
         |seal, _, replay_context, dependencies| {
             verify_seal_availability_dependencies_default(
@@ -1559,15 +1535,15 @@ where
 /// target checkpoint. The SDK first verifies the whole checkpoint, then
 /// materializes per-target-Seal branches from isolated reducer stores.
 #[allow(clippy::too_many_arguments)]
-pub fn materialize_mls_governance_frontier<VerifyNativeAgentHistoryKey>(
+pub fn materialize_mls_governance_frontier<VerifyAgentHistoryKey>(
     request: &MlsGovernanceProofRequestBody,
     target_checkpoint: &MlsGovernanceVerificationCheckpoint,
     group_genesis_binding: &MlsGroupGenesisBinding,
     local_mls_leaves: &[MlsSecurityFrontierLeaf],
-    verify_native_agent_history_key: VerifyNativeAgentHistoryKey,
+    verify_agent_history_key: VerifyAgentHistoryKey,
 ) -> Result<MlsGovernanceProofBundle, WireError>
 where
-    VerifyNativeAgentHistoryKey: Fn(
+    VerifyAgentHistoryKey: Fn(
             &Event,
             arkret_canonical::DigestSuite,
             &AuthenticatedSignerResolutionEvidence,
@@ -1580,8 +1556,7 @@ where
             "MLS governance registry construction failed: {error}"
         ))
     })?;
-    let verified =
-        verify_mls_governance_checkpoint(target_checkpoint, verify_native_agent_history_key)?;
+    let verified = verify_mls_governance_checkpoint(target_checkpoint, verify_agent_history_key)?;
     let authority_audits =
         arkret_schema::CapabilityAuthorityAuditIndex::from_events(&verified.accepted_events);
     arkret_state::mls_governance_proof::materialize_mls_governance_frontier_from_verified_checkpoint(
@@ -1601,15 +1576,15 @@ where
 /// create Event and the complete anchor unit; all ordinary reducer and frozen
 /// notary checks are then replayed before the checkpoint is returned.
 #[allow(clippy::too_many_arguments)]
-pub fn verify_event_derived_genesis_checkpoint<VerifyNativeAgentHistoryKey>(
+pub fn verify_event_derived_genesis_checkpoint<VerifyAgentHistoryKey>(
     realm_id: &RealmId,
     genesis_seal: &Seal,
     accepted_events: &[Event],
     governance_dependencies: &[GovernanceDependency],
-    verify_native_agent_history_key: VerifyNativeAgentHistoryKey,
+    verify_agent_history_key: VerifyAgentHistoryKey,
 ) -> Result<MlsGovernanceVerificationCheckpoint, WireError>
 where
-    VerifyNativeAgentHistoryKey: Fn(
+    VerifyAgentHistoryKey: Fn(
             &Event,
             arkret_canonical::DigestSuite,
             &AuthenticatedSignerResolutionEvidence,
@@ -1653,12 +1628,7 @@ where
         &registry,
         arkret_signatures::verify_frozen_notary_signature,
         |event, digest_suite, dependencies| {
-            verify_event_proofs_default(
-                event,
-                digest_suite,
-                dependencies,
-                verify_native_agent_history_key,
-            )
+            verify_event_proofs_default(event, digest_suite, dependencies, verify_agent_history_key)
         },
         |seal, _, replay_context, dependencies| {
             verify_seal_availability_dependencies_default(

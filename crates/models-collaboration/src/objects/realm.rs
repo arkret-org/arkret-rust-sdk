@@ -55,7 +55,7 @@ pub struct Realm {
     pub schema_refs: Vec<String>,
     /// Product/profile fields carried by `realm.schema.json`. Security
     /// discriminators such as `purpose=principal_control` and
-    /// `purpose=managed_agent_control` are validated by
+    /// `purpose=agent_control` are validated by
     /// the profile-specific admission path.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
@@ -90,7 +90,7 @@ pub struct Realm {
     pub content_encryption_floor: Option<EncryptionFloor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata_encryption_floor: Option<EncryptionFloor>,
-    /// Optional deployment-capped native-agent participation policy.
+    /// Optional deployment-capped Agent participation policy.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_participation: Option<AgentParticipationPolicy>,
     /// Realm Recovery Key (RRK) durability policy (realm-and-space.md §2.3.1,

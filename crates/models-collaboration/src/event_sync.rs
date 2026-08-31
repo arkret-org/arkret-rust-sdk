@@ -35,7 +35,7 @@ pub struct EventsFrontierState {
 pub struct SealFrontierState {
     pub frontier: RealmSealFrontierView,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub receipts: Vec<ManagedAgentPcrSealHeadReceipt>,
+    pub receipts: Vec<AgentPcrSealHeadReceipt>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -47,21 +47,21 @@ pub struct PeerSealFrontierState {
 }
 
 /// Typed, closed receipt carrying the last accepted controller-device-signed
-/// Seal for a managed Agent PCR whose Event log is ahead of Seal coverage.
+/// Seal for a Agent PCR whose Event log is ahead of Seal coverage.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ManagedAgentPcrSealHeadReceipt {
-    pub kind: ManagedAgentPcrSealHeadReceiptKind,
+pub struct AgentPcrSealHeadReceipt {
+    pub kind: AgentPcrSealHeadReceiptKind,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub seal: Seal,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ManagedAgentPcrSealHeadReceiptKind {
-    #[serde(rename = "ak.managed_agent_pcr.seal_head.v1")]
-    ManagedAgentPcrSealHeadV1,
+pub enum AgentPcrSealHeadReceiptKind {
+    #[serde(rename = "ak.agent_pcr.seal_head.v1")]
+    AgentPcrSealHeadV1,
 }
 
 /// Domain separator for the canonical Realm actor frontier digest transcript.

@@ -298,7 +298,7 @@ impl Client {
             .await
     }
 
-    /// Resolve a controller-scoped native personal agent selector exactly.
+    /// Resolve a controller-scoped Agent selector exactly.
     pub async fn directory_resolve_agent_selector(
         &self,
         request: &DirectoryResolveAgentSelectorRequestBody,

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-08-31.1;
-//! sha256=d10b71d70d5eb7a960ef2a832c813eecc6d22a2b1de187a0df22220fd0dc8a4e Entries: schema_ids=195,
+//! Input: registry/schema-registry.json; version=2026-08-31.3;
+//! sha256=c6843eca4309bccd4801f01f36042195bb29be20312a5ad1f6386bf90fb79f4e Entries: schema_ids=195,
 //! active=195
 
 use serde::{Deserialize, Serialize};
@@ -627,24 +627,22 @@ impl SchemaId {
     /// Authorized shared-Realm projection of another principal's global Actor Profile. It is the
     /// only outward carrier for the PCR-resident ak.profile.create / ak.profile.update facts.
     pub const ACTOR_PROFILE_OPERATIONS_V1: &'static str = "ak.schema.actor_profile_operations.v1";
-    /// Closed Native Personal Agent controller-membership binding and durable exact-set emergency
-    /// cleanup state.
+    /// Closed Agent controller-membership binding and durable exact-set emergency cleanup state.
     pub const AGENT_MEMBERSHIP_CASCADE_V1: &'static str = "ak.schema.agent_membership_cascade.v1";
-    /// Closed request/response DTO bundle for account pairing and native personal agent management
-    /// operations.
+    /// Closed request/response DTO bundle for account pairing and Agent management operations.
     pub const AGENT_OPERATIONS_V1: &'static str = "ak.schema.agent_operations.v1";
-    /// One-time bootstrap DTO for personal agent runtime pairing. Resolves to the sub-schema at
-    /// file + fragment (agent-operations.schema.json#/$defs/agent_pairing_bootstrap), not the
-    /// top-level oneOf DTO bundle that ak.schema.agent_operations.v1 maps to.
+    /// One-time bootstrap DTO for Agent runtime pairing. Resolves to the sub-schema at file +
+    /// fragment (agent-operations.schema.json#/$defs/agent_pairing_bootstrap), not the top-level
+    /// oneOf DTO bundle that ak.schema.agent_operations.v1 maps to.
     pub const AGENT_PAIRING_BOOTSTRAP_V1: &'static str = "ak.schema.agent_pairing_bootstrap.v1";
-    /// Single controller-authored native personal Agent provisioning payload with atomic
-    /// accountability and selector projections.
+    /// Single controller-authored Agent Agent provisioning payload with atomic accountability and
+    /// selector projections.
     pub const AGENT_PROVISION_V1: &'static str = "ak.schema.agent_provision.v1";
-    /// Controller-signed, verifier-bound private disclosure of a managed Agent's immutable
+    /// Controller-signed, verifier-bound private disclosure of an Agent's immutable
     /// requested_scope; the public Agent DID carries only its commitment digest.
     pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_V1: &'static str =
         "ak.schema.agent_requested_scope_disclosure.v1";
-    /// Signed controller-scoped native personal agent selector claim for
+    /// Signed controller-scoped Agent selector claim for
     /// @&lt;controller-handle&gt;/&lt;agent_slug&gt; resolution.
     pub const AGENT_SELECTOR_CLAIM_V1: &'static str = "ak.schema.agent_selector_claim.v1";
     /// Controller-owned private AI workspace with native Sidecar scope and ownership-derived Agent
@@ -668,12 +666,12 @@ impl SchemaId {
     /// Controller-private encrypted account-data plaintext for per-context Sidecar display mode and
     /// hosted-view state.
     pub const AGENT_SIDECAR_VIEW_STATE_V1: &'static str = "ak.schema.agent_sidecar_view_state.v1";
-    /// Destination-signed immutable receipt for the exact Native Agent signer evidence used when
-    /// one Event was accepted.
+    /// Destination-signed immutable receipt for the exact Agent signer evidence used when one Event
+    /// was accepted.
     pub const AGENT_SIGNER_ADMISSION_RECEIPT_V1: &'static str =
         "ak.schema.agent_signer_admission_receipt.v1";
-    /// Portable Native Agent signer authorization, state-witness, and freshness evidence used
-    /// outside the ordinary device directory.
+    /// Portable Agent signer authorization, state-witness, and freshness evidence used outside the
+    /// ordinary device directory.
     pub const AGENT_SIGNER_EVIDENCE_V1: &'static str = "ak.schema.agent_signer_evidence.v1";
     /// Deduplicated transport-level Agent signer evidence bundle shared by sync, backfill, and
     /// federation.
@@ -686,8 +684,8 @@ impl SchemaId {
     /// Authenticated shared-context Agent signer evidence query request.
     pub const AGENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1: &'static str =
         "ak.schema.agent_signer_evidence_query_request.v1";
-    /// Controller-signed minimal public binding from a Native Agent verification method to raw
-    /// Ed25519 key material and one accepted Agent key authorization.
+    /// Controller-signed minimal public binding from an Agent verification method to raw Ed25519
+    /// key material and one accepted Agent key authorization.
     pub const AGENT_SIGNING_KEY_BINDING_V1: &'static str = "ak.schema.agent_signing_key_binding.v1";
     /// Schema-registry object for applet protocol metadata snapshots. Event payloads for
     /// ak.applet.* use typed payload definitions in event-payload.schema.json.
@@ -810,8 +808,8 @@ impl SchemaId {
     /// attestation.
     pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_OUTCOME_V1: &'static str =
         "ak.schema.controller_account_gate_attestation_issue_outcome.v1";
-    /// Authenticated S2S request from a Native Agent PCR authority for the controller Account
-    /// Authority lifecycle gate needed to assemble signer evidence.
+    /// Authenticated S2S request from an Agent PCR authority for the controller Account Authority
+    /// lifecycle gate needed to assemble signer evidence.
     pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1: &'static str =
         "ak.schema.controller_account_gate_attestation_issue_request.v1";
     pub const CURSOR_V1: &'static str = "ak.schema.cursor.v1";

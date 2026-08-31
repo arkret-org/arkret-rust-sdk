@@ -59,7 +59,7 @@ pub(super) fn leaf_credential_bytes(device_id: &DeviceId) -> Vec<u8> {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ArkretMlsIdentityProfile {
     HumanDevice,
-    NativeAgent {
+    Agent {
         verification_method: DidUrl,
         agent_key_authorize_event_id: arkret_wire::EventId,
     },
@@ -75,10 +75,9 @@ impl ArkretMlsIdentityProfile {
             (Self::HumanDevice, MlsEndpointIdentity::HumanDevice { device_id, .. }) => {
                 leaf_credential_bytes(device_id)
             }
-            (
-                Self::NativeAgent { .. },
-                MlsEndpointIdentity::NativeAgentRuntime { agent_id, .. },
-            ) => agent_id.as_str().as_bytes().to_vec(),
+            (Self::Agent { .. }, MlsEndpointIdentity::AgentRuntime { agent_id, .. }) => {
+                agent_id.as_str().as_bytes().to_vec()
+            }
             (
                 Self::MinimalMetadataPairwise {
                     pairwise_actor_id, ..
@@ -181,20 +180,20 @@ impl ArkretMlsIdentity {
         )
     }
 
-    pub fn new_native_agent(
+    pub fn new_agent(
         agent_id: DidCoreId,
         verification_method: DidUrl,
         agent_key_authorize_event_id: arkret_wire::EventId,
         signer: ArkretMlsSigner,
     ) -> Result<Self> {
-        let endpoint = MlsEndpointIdentity::native_agent_runtime(
+        let endpoint = MlsEndpointIdentity::agent_runtime(
             agent_id,
             verification_method.clone(),
             agent_key_authorize_event_id.clone(),
         )?;
         Self::new_with_signer(
             endpoint,
-            ArkretMlsIdentityProfile::NativeAgent {
+            ArkretMlsIdentityProfile::Agent {
                 verification_method,
                 agent_key_authorize_event_id,
             },
@@ -260,7 +259,7 @@ impl ArkretMlsIdentity {
     }
 
     /// Convert a locally generated MLS record into the canonical typed upload
-    /// entry shared by ordinary clients and Native Agent runtimes.
+    /// entry shared by ordinary clients and Agent runtimes.
     pub fn key_package_upload_entry(
         &self,
         record: &MlsKeyPackageRecord,
@@ -323,11 +322,11 @@ impl ArkretMlsIdentity {
                 )
             }
             (
-                ArkretMlsIdentityProfile::NativeAgent {
+                ArkretMlsIdentityProfile::Agent {
                     verification_method,
                     agent_key_authorize_event_id,
                 },
-                MlsEndpointIdentity::NativeAgentRuntime { agent_id, .. },
+                MlsEndpointIdentity::AgentRuntime { agent_id, .. },
             ) => (
                 agent_id.clone(),
                 None,
@@ -419,12 +418,12 @@ impl ArkretMlsIdentity {
                 device_verification_method
             }
             (
-                MlsEndpointIdentity::NativeAgentRuntime {
+                MlsEndpointIdentity::AgentRuntime {
                     agent_id,
                     verification_method,
                     agent_key_authorize_event_id,
                 },
-                RecipientMlsDurableSigner::NativeAgent {
+                RecipientMlsDurableSigner::Agent {
                     recipient_agent_id,
                     recipient_agent_verification_method,
                     agent_key_authorize_event_id: recipient_agent_key_authorize_event_id,
@@ -485,7 +484,7 @@ impl ArkretMlsIdentity {
                 device_verification_method,
                 ..
             } => device_verification_method,
-            RecipientMlsDurableSigner::NativeAgent {
+            RecipientMlsDurableSigner::Agent {
                 recipient_agent_verification_method,
                 ..
             } => recipient_agent_verification_method,
@@ -865,13 +864,13 @@ mod tests {
     }
 
     #[test]
-    fn native_agent_identity_reuses_authorized_runtime_signing_key() {
+    fn agent_identity_reuses_authorized_runtime_signing_key() {
         let seed = [7_u8; 32];
         let expected = ed25519_dalek::SigningKey::from_bytes(&seed)
             .verifying_key()
             .to_bytes();
         let agent_id = DidCoreId::new("ak:did_core:web:agent.example".to_owned()).unwrap();
-        let identity = ArkretMlsIdentity::new_native_agent(
+        let identity = ArkretMlsIdentity::new_agent(
             agent_id,
             DidUrl::new("did:web:agent.example#runtime".to_owned()).unwrap(),
             arkret_wire::EventId::new(

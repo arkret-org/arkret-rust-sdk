@@ -2192,7 +2192,7 @@ fn add_pcr_holder_from_accepted_create(
     if !matches!(
         payload.object.purpose,
         RealmPurpose::PrincipalControl
-            | RealmPurpose::ManagedAgentControl
+            | RealmPurpose::AgentControl
             | RealmPurpose::AppletManagedControl
     ) {
         return Ok(false);

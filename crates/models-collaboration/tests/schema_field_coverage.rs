@@ -209,7 +209,7 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
                 "issuer_class": "domain_authority"
             }],
             "agent_participation": {
-                "native_agent": {
+                "agent": {
                     "reply_message": true,
                     "reaction_add": false,
                     "reaction_remove": false,

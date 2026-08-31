@@ -1,6 +1,6 @@
 //! AKP-0010 — Agent participation policy.
 //!
-//! Five orthogonal autonomous-behavior bits a native personal agent's
+//! Five orthogonal autonomous-behavior bits an Agent's
 //! controller may enable in a scope, each capped by a monotone
 //! `deployment ⊇ Realm ⊇ Circle ⊇ Strand` ceiling. The effective
 //! participation in a scope is `effective_ceiling ∩ controller_selection`,
@@ -121,14 +121,14 @@ pub struct ParticipationReplaceRequestBody {
 }
 
 /// Governance object shape used by Realm, Circle and Strand schemas.
-/// Native personal-agent permissions are explicitly namespaced so future
+/// Agent permissions are explicitly namespaced so future
 /// applet-agent policy cannot be confused with this ceiling.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentParticipationPolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub native_agent: Option<ParticipationBits>,
+    pub agent: Option<ParticipationBits>,
 }
 
 /// Error surfaced by the reducer-pure participation validators.
@@ -325,9 +325,9 @@ mod tests {
     }
 
     #[test]
-    fn governance_policy_wraps_native_agent_ceiling() {
+    fn governance_policy_wraps_agent_ceiling() {
         let policy = AgentParticipationPolicy {
-            native_agent: Some(ParticipationBits {
+            agent: Some(ParticipationBits {
                 reply_message: true,
                 reaction_add: false,
                 reaction_remove: false,
@@ -338,7 +338,7 @@ mod tests {
         assert_eq!(
             serde_json::to_value(policy).unwrap(),
             serde_json::json!({
-                "native_agent": {
+                "agent": {
                     "reply_message": true,
                     "reaction_add": false,
                     "reaction_remove": false,

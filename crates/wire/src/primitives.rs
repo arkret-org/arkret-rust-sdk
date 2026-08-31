@@ -5,7 +5,7 @@ use super::*;
 use crate::{Did, DidCoreId, ProofContextId, SignerEvidenceRef};
 
 /// Complete protocol identity for one principal at one Station, including
-/// human accounts, managed agents and integration actors. This identity does
+/// human accounts, Agents and integration actors. This identity does
 /// not select a credential class, provisioning workflow or authorization.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -402,13 +402,14 @@ impl fmt::Display for DurabilityPolicyParseError {
 
 impl std::error::Error for DurabilityPolicyParseError {}
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ActorKind {
     User,
-    Org,
+    Organization,
     Team,
     Agent,
+    Bot,
     Service,
     // No Device variant: a device is not an actor principal and has no DID of
     // its own. It belongs to a principal, is identified by

@@ -1,4 +1,4 @@
-//! Native Personal Agent Realm-membership cascade wire contracts.
+//! Agent Realm-membership cascade wire contracts.
 //!
 //! Canonical Agent membership transitions remain caller-signed Events.  The
 //! registered cascade carrier only supplies the exact-set/atomic transaction
