@@ -868,7 +868,7 @@ impl OrganizationModerationPolicyScope {
 #[derive(Clone, Debug)]
 pub enum ModerationPolicyTarget {
     Actor {
-        actor_id: DidCoreId,
+        actor_id: ActorId,
     },
     Organization {
         organization_id: DidCoreId,
@@ -966,7 +966,7 @@ impl<'de> Deserialize<'de> for ModerationPolicyTarget {
         #[serde(deny_unknown_fields)]
         struct ActorWire {
             kind: String,
-            actor_id: DidCoreId,
+            actor_id: ActorId,
         }
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
@@ -1503,6 +1503,43 @@ mod tests {
     use super::*;
 
     #[test]
+    fn moderation_actor_target_preserves_full_actor_schema() {
+        let registry = arkret_schema::schema_registry_from_default_spec_artifacts()
+            .unwrap()
+            .expect("spec schema registry");
+        let schema = format!(
+            "{}#/$defs/moderation_policy_target",
+            arkret_wire::SchemaId::EVENT_PAYLOAD_V1
+        );
+        let principal = DidCoreId::new("ak:did_core:web:actor.example").unwrap();
+        let mut identities = BTreeSet::new();
+        for actor in [
+            ActorId::account(arkret_wire::AccountId::new(
+                principal.clone(),
+                DidCoreId::new("ak:did_core:web:station-a.example").unwrap(),
+            )),
+            ActorId::account(arkret_wire::AccountId::new(
+                principal.clone(),
+                DidCoreId::new("ak:did_core:web:station-b.example").unwrap(),
+            )),
+            ActorId::service(principal.clone()),
+        ] {
+            let wire = json!({"kind": "actor", "actor_id": actor});
+            registry.validate_value(&schema, &wire).unwrap();
+            let decoded: ModerationPolicyTarget = serde_json::from_value(wire.clone()).unwrap();
+            assert!(
+                matches!(&decoded, ModerationPolicyTarget::Actor { actor_id } if actor_id == &actor)
+            );
+            assert_eq!(serde_json::to_value(decoded).unwrap(), wire);
+            assert!(identities.insert(actor));
+        }
+        assert_eq!(identities.len(), 3);
+        let legacy = json!({"kind": "actor", "actor_id": principal});
+        assert!(registry.validate_value(&schema, &legacy).is_err());
+        assert!(serde_json::from_value::<ModerationPolicyTarget>(legacy).is_err());
+    }
+
+    #[test]
     fn realm_media_service_uses_the_current_typed_descriptor() {
         let wire = json!({
             "value": {
@@ -1552,7 +1589,9 @@ mod tests {
     #[test]
     fn moderation_identity_targets_use_stable_typed_ids() {
         for value in [
-            json!({"kind": "actor", "actor_id": "ak:did_core:web:actor.example"}),
+            json!({"kind": "actor", "actor_id": ActorId::service(
+                DidCoreId::new("ak:did_core:web:actor.example").unwrap()
+            )}),
             json!({
                 "kind": "organization",
                 "organization_id": "ak:did_core:web:organization.example"

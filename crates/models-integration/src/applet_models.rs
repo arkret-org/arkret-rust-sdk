@@ -147,9 +147,53 @@ pub struct AppletCapabilityRevokeIntent {
 #[serde(deny_unknown_fields)]
 pub struct AppletMembershipRemoveIntent {
     pub event_kind: String,
-    pub member_id: DidCoreId,
+    pub member_id: ActorId,
     pub membership: AppletManagedMembershipRemoval,
     pub reason_code: ReasonCode,
+}
+
+#[cfg(test)]
+mod membership_remove_identity_tests {
+    use arkret_wire::AccountId;
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn applet_membership_removal_preserves_full_actor_schema() {
+        let registry = arkret_schema::schema_registry_from_default_spec_artifacts()
+            .unwrap()
+            .expect("spec schema registry");
+        let schema = format!(
+            "{}#/$defs/applet_membership_remove_intent",
+            arkret_wire::SchemaId::APPLET_INSTALL_OPERATIONS_V1
+        );
+        let principal = DidCoreId::new("ak:did_core:web:member.example").unwrap();
+        let mut identities = std::collections::BTreeSet::new();
+        for actor in [
+            ActorId::account(AccountId::new(
+                principal.clone(),
+                DidCoreId::new("ak:did_core:web:station-a.example").unwrap(),
+            )),
+            ActorId::account(AccountId::new(
+                principal.clone(),
+                DidCoreId::new("ak:did_core:web:station-b.example").unwrap(),
+            )),
+            ActorId::service(principal.clone()),
+        ] {
+            let wire = json!({"event_kind": "ak.member.state", "member_id": actor, "membership": "remove", "reason_code": "applet_revoked"});
+            registry.validate_value(&schema, &wire).unwrap();
+            let decoded: AppletMembershipRemoveIntent =
+                serde_json::from_value(wire.clone()).unwrap();
+            assert_eq!(decoded.member_id, actor);
+            assert_eq!(serde_json::to_value(decoded).unwrap(), wire);
+            assert!(identities.insert(actor));
+        }
+        assert_eq!(identities.len(), 3);
+        let legacy = json!({"event_kind": "ak.member.state", "member_id": principal, "membership": "remove", "reason_code": "applet_revoked"});
+        assert!(registry.validate_value(&schema, &legacy).is_err());
+        assert!(serde_json::from_value::<AppletMembershipRemoveIntent>(legacy).is_err());
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

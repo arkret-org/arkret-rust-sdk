@@ -12,9 +12,9 @@ use arkret_models_identity::handle::Handle;
 use arkret_models_identity::handle_claim::HandleClaim;
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    AccountId, Audience, AuditReasonText, BlobRef, DidCoreId, DidUrl, EncryptionProfile, EventId,
-    Hash, JoinRule, NonEmptyString, PayloadProof, ProofContextId, RealmId, Result, SchemaId,
-    SealBasis, ServiceOperationId, WireError, proof_kind,
+    AccountId, ActorId, Audience, AuditReasonText, BlobRef, DidCoreId, DidUrl, EncryptionProfile,
+    EventId, Hash, JoinRule, NonEmptyString, PayloadProof, ProofContextId, RealmId, Result,
+    SchemaId, SealBasis, ServiceOperationId, WireError, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -515,7 +515,7 @@ pub struct DirectoryActorSearchOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ActorPreview {
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -674,7 +674,7 @@ pub struct DirectoryResolveAgentSelectorRequestBody {
     pub controller_handle: Handle,
     pub agent_slug: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expected_actor_id: Option<DidCoreId>,
+    pub expected_actor_id: Option<ActorId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
     pub intent: DirectoryIntent,
@@ -1261,6 +1261,67 @@ impl DirectorySubjectHandleList {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod directory_actor_identity_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn actor_preview_and_selector_preserve_exact_actor_schema() {
+        let registry = arkret_schema::schema_registry_from_default_spec_artifacts()
+            .unwrap()
+            .expect("spec schema registry");
+        let preview_schema = format!("{}#/$defs/actor_preview", SchemaId::DIRECTORY_OPERATIONS_V1);
+        let selector_schema = format!(
+            "{}#/$defs/directory_resolve_agent_selector_request_body",
+            SchemaId::DIRECTORY_OPERATIONS_V1
+        );
+        let principal = DidCoreId::new("ak:did_core:web:actor.example").unwrap();
+        let mut identities = BTreeSet::new();
+        for actor in [
+            ActorId::account(AccountId::new(
+                principal.clone(),
+                DidCoreId::new("ak:did_core:web:station-a.example").unwrap(),
+            )),
+            ActorId::account(AccountId::new(
+                principal.clone(),
+                DidCoreId::new("ak:did_core:web:station-b.example").unwrap(),
+            )),
+            ActorId::service(principal.clone()),
+        ] {
+            let preview = json!({"actor_id": actor, "as_of": "2026-08-31T00:00:00.000Z", "policy_revision": "fixture"});
+            registry.validate_value(&preview_schema, &preview).unwrap();
+            let decoded: ActorPreview = serde_json::from_value(preview.clone()).unwrap();
+            assert_eq!(decoded.actor_id, actor);
+            assert_eq!(serde_json::to_value(decoded).unwrap(), preview);
+            assert!(identities.insert(actor.clone()));
+
+            let selector = json!({"controller_handle": "alice:example.com", "agent_slug": "assistant", "expected_actor_id": actor, "intent": "lookup", "requester_id": principal});
+            registry
+                .validate_value(&selector_schema, &selector)
+                .unwrap();
+            let decoded: DirectoryResolveAgentSelectorRequestBody =
+                serde_json::from_value(selector.clone()).unwrap();
+            assert_eq!(decoded.expected_actor_id, Some(actor));
+            assert_eq!(serde_json::to_value(decoded).unwrap(), selector);
+        }
+        assert_eq!(identities.len(), 3);
+        let preview = json!({"actor_id": principal, "as_of": "2026-08-31T00:00:00.000Z", "policy_revision": "fixture"});
+        assert!(registry.validate_value(&preview_schema, &preview).is_err());
+        assert!(serde_json::from_value::<ActorPreview>(preview).is_err());
+        let selector = json!({"controller_handle": "alice:example.com", "agent_slug": "assistant", "expected_actor_id": principal, "intent": "lookup", "requester_id": principal});
+        assert!(
+            registry
+                .validate_value(&selector_schema, &selector)
+                .is_err()
+        );
+        assert!(
+            serde_json::from_value::<DirectoryResolveAgentSelectorRequestBody>(selector).is_err()
+        );
     }
 }
 
