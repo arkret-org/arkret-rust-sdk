@@ -352,6 +352,29 @@ where
             let binding = registry
                 .resolve(realm_id, &effect.cell_id)
                 .map_err(|e| ControlMoveReject::Registry(e.to_string()))?;
+            // Section 9.3.1 requires an explicit whole-value CAS guard for a
+            // non-initial register. Checking only supplied predicates would
+            // admit a missing guard as another chain head and poison the cell.
+            if binding.lattice.kind() == crate::lattice::LatticeKind::CasRegister
+                && effect.op.op_type == LatticeOpType::Set
+                && !matches!(write.op, ProjectedOp::Reset { .. })
+            {
+                let observed = frozen_cell_value(&effect.cell_id, realm_id, pre_state, registry)?;
+                let initial = binding.lattice.initial_state().unwrap_or(Value::Null);
+                if observed != initial
+                    && !event.preconditions.iter().any(|precondition| {
+                        precondition.cell_id == effect.cell_id
+                            && precondition.predicate.op == PredicateOp::HeadEq
+                            && precondition.predicate.value.as_ref() == Some(&observed)
+                    })
+                {
+                    return Err(ControlMoveReject::FailedPrecondition {
+                        cell: effect.cell_id.to_string(),
+                        reason: "non-initial cas_register write requires whole-value head_eq"
+                            .to_owned(),
+                    });
+                }
+            }
             binding.lattice.validate_op(&effect.op).map_err(|e| {
                 ControlMoveReject::SchemaViolation(format!(
                     "derived write on {} invalid: {e}",
@@ -1332,6 +1355,81 @@ mod tests {
     }
 
     #[test]
+    fn cas_replacement_requires_the_exact_frozen_head_before_any_write_is_returned() {
+        let cell = CellRef::new("ak:cell:ak.component.realm.policy.v1:null").unwrap();
+        let old = json!({"disclosure": "disabled", "visibility": "members"});
+        let mut op = LatticeOp::empty();
+        op.op_type = LatticeOpType::Set;
+        op.value = Some(json!({"disclosure": "required"}));
+        let write = ProjectedCellWrite {
+            cell_id: cell.clone(),
+            op: ProjectedOp::Direct(op.clone()),
+        };
+        let registry = MemoryCellRegistry::new();
+        let initial = control_move(vec![], vec![]);
+        assert!(
+            verify_control_move(
+                &initial,
+                &realm(),
+                &BTreeMap::new(),
+                &registry,
+                ok_proofs,
+                project(vec![write.clone()]),
+            )
+            .is_ok()
+        );
+
+        let pre_state = BTreeMap::from([(cell.clone(), CellState::Value(old.clone()))]);
+        let before = pre_state.clone();
+        let missing = verify_control_move(
+            &initial,
+            &realm(),
+            &pre_state,
+            &registry,
+            ok_proofs,
+            project(vec![
+                transition_write(json!("invited"), json!("join")),
+                write.clone(),
+            ]),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            missing,
+            ControlMoveReject::FailedPrecondition { .. }
+        ));
+        assert_eq!(pre_state, before);
+
+        let replacement = control_move(
+            vec![Precondition {
+                cell_id: cell,
+                predicate: Predicate {
+                    op: PredicateOp::HeadEq,
+                    value: Some(old.clone()),
+                    values: None,
+                    predicate_id: None,
+                },
+            }],
+            vec![],
+        );
+        op.from = Some(old);
+        let replacement_write = ProjectedCellWrite {
+            op: ProjectedOp::Direct(op),
+            ..write
+        };
+        assert!(
+            verify_control_move(
+                &replacement,
+                &realm(),
+                &pre_state,
+                &registry,
+                ok_proofs,
+                project(vec![replacement_write]),
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
     fn precondition_head_eq_mismatch_rejects() {
         let pre = Precondition {
             cell_id: cell_member(),
@@ -1794,7 +1892,18 @@ mod tests {
 
     #[test]
     fn apply_patch_projection_sets_the_whole_post_state() {
-        let event = control_move(vec![], vec![]);
+        let event = control_move(
+            vec![Precondition {
+                cell_id: cell_realm_policy(),
+                predicate: Predicate {
+                    op: PredicateOp::HeadEq,
+                    value: Some(policy_prestate()),
+                    values: None,
+                    predicate_id: None,
+                },
+            }],
+            vec![],
+        );
         let mut pre_state = BTreeMap::new();
         pre_state.insert(cell_realm_policy(), CellState::Value(policy_prestate()));
 
@@ -1823,7 +1932,18 @@ mod tests {
 
     #[test]
     fn apply_patch_accepts_a_matching_prestate_binding() {
-        let event = control_move(vec![], vec![]);
+        let event = control_move(
+            vec![Precondition {
+                cell_id: cell_realm_policy(),
+                predicate: Predicate {
+                    op: PredicateOp::HeadEq,
+                    value: Some(policy_prestate()),
+                    values: None,
+                    predicate_id: None,
+                },
+            }],
+            vec![],
+        );
         let mut pre_state = BTreeMap::new();
         pre_state.insert(cell_realm_policy(), CellState::Value(policy_prestate()));
         let binding = crate::canonical::canonical_sha256(&policy_prestate()).unwrap();

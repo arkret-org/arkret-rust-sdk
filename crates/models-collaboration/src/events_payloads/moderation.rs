@@ -449,6 +449,9 @@ mod tests {
 pub struct ModerationDecisionLiftPayload {
     pub target_ref: ObjectRef,
     pub decision_ref: EventId,
+    /// Exact registered add dots from the observed decision Event. Required by
+    /// event-payload.schema.json; partial lift never expands to every cell add.
+    pub observed_dot_ids: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -456,6 +459,25 @@ pub struct ModerationDecisionLiftPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub effective_at: Option<DateTime<Utc>>,
+}
+
+#[cfg(test)]
+mod decision_lift_wire_tests {
+    use super::*;
+
+    #[test]
+    fn moderation_lift_requires_and_preserves_observed_dots() {
+        let decision = "ak:event:AaE8e4n3nA8AyIlk8Sh9_DhbS-5fInpC8DrDoA81pxI-";
+        let mut wire = serde_json::json!({
+            "target_ref": "ak:message:AUDcGyskAu9_TgDdHy4-tLmIbJp1s_rpjKSw3apHadK8",
+            "decision_ref": decision,
+            "observed_dot_ids": [format!("{decision}:0")],
+        });
+        let payload: ModerationDecisionLiftPayload = serde_json::from_value(wire.clone()).unwrap();
+        assert_eq!(serde_json::to_value(payload).unwrap(), wire);
+        wire.as_object_mut().unwrap().remove("observed_dot_ids");
+        assert!(serde_json::from_value::<ModerationDecisionLiftPayload>(wire).is_err());
+    }
 }
 
 /// Counterpart for

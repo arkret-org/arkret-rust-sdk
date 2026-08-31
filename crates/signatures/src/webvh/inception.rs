@@ -1645,7 +1645,7 @@ pub fn prepare_service_registration_inception<R: RngCore + ?Sized>(
     rng: &mut R,
     input: &ServiceRegistrationInceptionInput<'_>,
 ) -> Result<PreparedInception, WebvhInceptionError> {
-    prepare_service_registration_inception_internal(rng, input, None)
+    prepare_service_registration_inception_internal(rng, input, None, &[])
 }
 
 pub fn prepare_service_registration_inception_with_did_key_seed<R: RngCore + ?Sized>(
@@ -1653,13 +1653,25 @@ pub fn prepare_service_registration_inception_with_did_key_seed<R: RngCore + ?Si
     input: &ServiceRegistrationInceptionInput<'_>,
     did_key_seed: &[u8; SECRET_KEY_LENGTH],
 ) -> Result<PreparedInception, WebvhInceptionError> {
-    prepare_service_registration_inception_internal(rng, input, Some(did_key_seed))
+    prepare_service_registration_inception_internal(rng, input, Some(did_key_seed), &[])
+}
+
+/// Include deployment-authorized public assertion keys in the signed inception.
+/// These methods share the service controller and do not create another role.
+pub fn prepare_service_registration_inception_with_assertion_keys<R: RngCore + ?Sized>(
+    rng: &mut R,
+    input: &ServiceRegistrationInceptionInput<'_>,
+    did_key_seed: &[u8; SECRET_KEY_LENGTH],
+    assertion_keys: &[(&str, &str)],
+) -> Result<PreparedInception, WebvhInceptionError> {
+    prepare_service_registration_inception_internal(rng, input, Some(did_key_seed), assertion_keys)
 }
 
 fn prepare_service_registration_inception_internal<R: RngCore + ?Sized>(
     rng: &mut R,
     input: &ServiceRegistrationInceptionInput<'_>,
     supplied_did_key_seed: Option<&[u8; SECRET_KEY_LENGTH]>,
+    assertion_keys: &[(&str, &str)],
 ) -> Result<PreparedInception, WebvhInceptionError> {
     let local_id = service_registration_local_id(input.registration_key)
         .map_err(|error| WebvhInceptionError::InvalidRegistration(error.to_string()))?;
@@ -1673,6 +1685,7 @@ fn prepare_service_registration_inception_internal<R: RngCore + ?Sized>(
         input.version_time,
         input.did_key_fragment,
         supplied_did_key_seed,
+        assertion_keys,
     )
 }
 
@@ -1693,6 +1706,7 @@ fn prepare_service_inception_internal<R: RngCore + ?Sized>(
         input.version_time,
         input.did_key_fragment,
         supplied_did_key_seed,
+        &[],
     )
 }
 
@@ -1707,6 +1721,7 @@ fn prepare_service_inception_parts<R: RngCore + ?Sized>(
     version_time: DateTime<Utc>,
     did_key_fragment: Option<&str>,
     supplied_did_key_seed: Option<&[u8; SECRET_KEY_LENGTH]>,
+    assertion_keys: &[(&str, &str)],
 ) -> Result<PreparedInception, WebvhInceptionError> {
     let (method_authority, https_authority) = authority_pair(provider_endpoint)?;
     let local_id = normalize_local_id(local_id).ok_or(WebvhInceptionError::InvalidLocalId)?;
@@ -1733,7 +1748,7 @@ fn prepare_service_inception_parts<R: RngCore + ?Sized>(
     let placeholder_key_id = format!("{placeholder_did}#{did_key_fragment}");
     let service_endpoint = public_base_url.as_str();
     let version_time = version_time.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-    let document_skeleton = embedded_webvh_document_value_without_enrollment(
+    let mut document_skeleton = embedded_webvh_document_value_without_enrollment(
         &placeholder_did,
         &placeholder_key_id,
         &did_public_key_multibase,
@@ -1741,6 +1756,32 @@ fn prepare_service_inception_parts<R: RngCore + ?Sized>(
         service_endpoint,
         service_kind,
     );
+    for (fragment, public_key) in assertion_keys {
+        let fragment = normalize_key_fragment(fragment)
+            .filter(|normalized| normalized == fragment)
+            .ok_or(WebvhInceptionError::InvalidKeyFragment)?;
+        decode_ed25519_multibase(public_key)
+            .map_err(|error| WebvhInceptionError::InvalidRegistration(error.to_string()))?;
+        let method_id = format!("{placeholder_did}#{fragment}");
+        let methods = document_skeleton["verificationMethod"]
+            .as_array_mut()
+            .unwrap();
+        if methods.iter().any(|method| method["id"] == method_id) {
+            return Err(WebvhInceptionError::InvalidRegistration(
+                "duplicate service assertion verification method".to_owned(),
+            ));
+        }
+        methods.push(json!({
+            "id": method_id,
+            "type": "Multikey",
+            "controller": placeholder_did,
+            "publicKeyMultibase": public_key,
+        }));
+        document_skeleton["assertionMethod"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!(method_id));
+    }
     let entry_skeleton = build_webvh_inception_skeleton(&WebvhInceptionSkeletonInput {
         version_time: &version_time,
         update_keys: std::slice::from_ref(&update_public_key_multibase),
