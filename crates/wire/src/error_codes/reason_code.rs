@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-08-31.4;
-//! sha256=2493da55e7ae8179b748a6c26db88c45a5e6423b5f245748ba82226c4c0e0fd8
+//! Input: registry/error-code-registry.json; version=2026-08-31.5;
+//! sha256=333f762f648ad4a61a86db4f2e5a078896a5e27cc372807ace2f482ea07f5a66
 //! Entries: reason_codes=458
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2849,8 +2849,8 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DUPLICATE_CONFLICT,
-        applies_to: &["event_envelope", "client_sync"],
-        description: "A stable protocol identity was reused with different canonical content. For Event Envelope event_id this is quarantined per event-auth-state-resolution.md §11; for to-device device_message_id the send operation rejects the conflicting enqueue with reason device_message_id_conflict.",
+        applies_to: &["client_sync"],
+        description: "An idempotency key or non-Event stable identifier was reused with different canonical content. For to-device device_message_id the send operation rejects the conflicting enqueue with reason device_message_id_conflict. Event Envelope carried-ID mismatches use event_id_digest_mismatch; confirmed full-hash collision evidence uses witness_disagreement and whole-group quarantine per zh/sync/operations-sync.md §12.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DURABILITY_SCHEME_INCOMPATIBLE,
@@ -4468,6 +4468,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::WITNESS_DISAGREEMENT,
         applies_to: &["state_resolution", "federation_transaction"],
-        description: "Confirmed fork/witness evidence: two distinct canonical Event preimages independently recompute to the same complete suite-tagged event_id (full-hash collision evidence); a validated per-actor sibling set exceeds the registered single-bucket or per-position limit; a profile declares the observed sibling combination non-joinable; or witnesses required to sign the same complete (realm_id, from_frontier, to_frontier, actor_seq_ranges, root, count) attestation payload return inconsistent values. A carried event_id whose recomputed digest differs is only event_id_digest_mismatch and MUST be rejected before quarantine. Different valid event_id values at the same (realm_id, actor_id, actor_seq) are not by themselves disagreement: event-and-patch.md §2.6 permits a bounded legal sibling set, which peers MUST reconcile by validated set union. Raw frontier_root / heads / range-root differences across different replication, disclosure, or attestation scopes also are not disagreement. The verifier MUST quarantine only the affected evidence scope and fail closed; recovery requires raw replay, an aligned same-scope quorum, or operator-approved fork resolution. See zh/sync/operations-sync.md §12 and zh/sync/federation.md §4.5.1.",
+        description: "Confirmed fork/witness evidence: two byte-distinct canonical Event preimages pass structure, suite and proof prerequisites and independently recompute to the same complete suite-tagged event_id (full-hash collision evidence); a validated per-actor sibling set exceeds the registered single-bucket or per-position limit; a profile declares the observed sibling combination non-joinable; or witnesses required to sign the same complete (realm_id, from_frontier, to_frontier, actor_seq_ranges, root, count) attestation payload return inconsistent values. A carried event_id whose recomputed digest differs is only event_id_digest_mismatch and MUST be rejected before quarantine. Different valid event_id values at the same (realm_id, actor_id, actor_seq) are not by themselves disagreement: event-and-patch.md §2.6 permits a bounded legal sibling set, which peers MUST reconcile by validated set union. Raw frontier_root / heads / range-root differences across different replication, disclosure, or attestation scopes also are not disagreement. The verifier MUST quarantine only the affected evidence scope and fail closed; recovery requires raw replay, an aligned same-scope quorum, or operator-approved fork resolution. See zh/sync/operations-sync.md §12 and zh/sync/federation.md §4.5.1.",
     },
 ];

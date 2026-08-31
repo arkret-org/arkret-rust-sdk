@@ -13,7 +13,7 @@
 //! id-kind-registry.json; version=2026-08-30.2;
 //! sha256=5027ff6fedbe92ee1b1475278352416fbcee183acf7ce9e61124d1a156106ab3
 //! Input: deployment-probes.json; version=2026-06-19;
-//! sha256=320013ec6aaad936b9d203e60b4a79ac04e3916d495ee9bea6af889c78d1e781
+//! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
 //! Entries: capability_sets=2, layers=3, feature_additions=2, bootstrap_profiles=2,
 //! operation_surface_groups=31
 

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-08-31.4;
-//! sha256=2493da55e7ae8179b748a6c26db88c45a5e6423b5f245748ba82226c4c0e0fd8 Entries: error_codes=281
+//! Input: registry/error-code-registry.json; version=2026-08-31.5;
+//! sha256=333f762f648ad4a61a86db4f2e5a078896a5e27cc372807ace2f482ea07f5a66 Entries: error_codes=281
 
 use serde::{Deserialize, Serialize};
 
@@ -2518,7 +2518,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The same idempotency key or stable identifier was reused with different canonical content.",
+        description: "The same idempotency key or non-Event stable identifier was reused with different canonical content. Event Envelope carried-ID mismatches use event_id_digest_mismatch; confirmed full-hash collision evidence uses witness_disagreement.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::E2eeRequired,

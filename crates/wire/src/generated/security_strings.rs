@@ -3,19 +3,19 @@
 //! Input: registry/proof-context-registry.json; version=2026-08-31.2;
 //! sha256=e6a2c458b7060c7dac60efd30964060321f503aba82c800467c3b46616423aac Input: registry/
 //! exporter-label-registry.json; version=2026-08-31.1;
-//! sha256=231a491ea7abdbf0e896c12e7479fc6df3875fd1d072a2c09488993e22530469 Input: registry/
+//! sha256=48de77eabbcb98358ff0f5f5ec47aae5475159bb15096c52fb26991860e50dd5 Input: registry/
 //! digest-suite-registry.json; version=2026-08-31;
-//! sha256=c88f2aa7afc985d1d64456ae262ea75f6e6a33342bee1d1cb97501396ea414c0 Input: registry/
+//! sha256=d75d7fd0feb27c7a29db2255ce503f6137f31a9102086cb05be4b84ce03f297b Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
-//! sha256=87d9838de9d1155cb6d2466b0f189b2d7006573847d9087cb99169e5716cfb80 Input: registry/
+//! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
 //! hpke-suite-registry.json; version=2026-08-29.1;
-//! sha256=df918fa1b65348082afff99db7e13f45e9bd7eebb8f8d0b2c1320dcd1010182e Input: registry/
+//! sha256=462598a10f2780e1f6ddbddb819767b86a61a4200ada93a5e940ef41aae4db8f Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-08-25;
-//! sha256=26d8e76c166e7295bc8327a232314d48638a7f4ca7b2fd3da9e53e46da4145b4 Input: registry/
+//! sha256=68619d8db1de222c9d032fdc96e92be32e85fdc0a3a0befdf4b21d135a57075d Input: registry/
 //! mls-extension-registry.json; version=2026-08-25;
-//! sha256=51518dc2ea4b9fa6f4c491b24558c0663f172157e955bc7ae75d78559158fcb0 Input: registry/
+//! sha256=298685c15b11d75b55b1b6ece6a3674b320ae00a90f488cc4d2d3545f4888b86 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
-//! sha256=b8bba95405eeb37909c1037f64e933cbb8e237753e7cae88bbc27020bcc39a71
+//! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
 //! Entries: proof_contexts=75, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=32, aead_profiles=2
 
