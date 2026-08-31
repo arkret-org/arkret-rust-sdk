@@ -20,7 +20,6 @@ mod models {
         HistoryAccessPayload, ObjectLifecyclePayload, RealmArchivePayload, RealmDestroyPayload,
         RealmTombstonePayload,
     };
-    pub use arkret_models_collaboration::object_patch::ObjectPatchPayload;
     pub use arkret_wire::patch::{Patch, PatchOp};
     pub use arkret_wire::{
         AccountId, ActorId, Did, DidCoreId, EventId, Hash, HistoryAccess, InviteId,
@@ -560,21 +559,83 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
 }
 
 #[test]
-fn object_patch_payload_matches_registered_event_payload_schema() {
-    use models::{ObjectPatchPayload, Patch, PatchOp};
+fn typed_patch_payloads_match_registered_event_payload_schemas() {
+    use arkret_models_collaboration::events_payloads::{
+        MorphUpdatePayload, SpacePatchPayload, StrandPatchPayload,
+    };
 
     let mut patch = Patch::new();
-    patch.insert_op("title", PatchOp::set("Roadmap")).unwrap();
-    let payload = ObjectPatchPayload::for_target(
-        "ak:morph:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL",
-        patch,
+    patch
+        .insert_op("metadata.title", PatchOp::set("Roadmap"))
+        .unwrap();
+    let strand = StrandPatchPayload::for_strand(
+        StrandId::new("ak:strand:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL").unwrap(),
+        patch.clone(),
     )
-    .unwrap()
-    .to_value()
+    .unwrap();
+    let mut space_patch = Patch::new();
+    space_patch
+        .insert_op("title", PatchOp::set("Roadmap"))
+        .unwrap();
+    let space = SpacePatchPayload {
+        space_id: SpaceId::new("ak:space:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL").unwrap(),
+        patch: space_patch,
+        expected_state_digest: None,
+    };
+    let morph = MorphUpdatePayload::for_morph(
+        arkret_wire::MorphId::new("ak:morph:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL").unwrap(),
+        patch.clone(),
+    )
     .unwrap();
 
-    event_payload_validator_catalog()
-        .unwrap()
-        .validate_payload("ak.morph.update", &payload)
-        .unwrap();
+    let catalog = event_payload_validator_catalog().unwrap();
+    for (kind, target_field, payload) in [
+        ("ak.strand.update", "target_ref", strand.to_value().unwrap()),
+        (
+            "ak.space.update",
+            "space_id",
+            serde_json::to_value(space).unwrap(),
+        ),
+        ("ak.morph.update", "target_ref", morph.to_value().unwrap()),
+    ] {
+        catalog.validate_payload(kind, &payload).unwrap();
+        let path = if kind == "ak.space.update" {
+            "title"
+        } else {
+            "metadata.title"
+        };
+        assert_eq!(
+            payload["patch"][path],
+            json!({"$op": "set", "value": "Roadmap"})
+        );
+        assert_eq!(payload["patch"].as_object().unwrap().len(), 1);
+        assert_eq!(payload.as_object().unwrap().len(), 2);
+
+        let mut alias = payload.clone();
+        alias["object_ref"] = payload[target_field].clone();
+        assert!(catalog.validate_payload(kind, &alias).is_err());
+
+        let mut untargeted = payload.clone();
+        untargeted.as_object_mut().unwrap().remove(target_field);
+        assert!(catalog.validate_payload(kind, &untargeted).is_err());
+
+        let mut wrong_target = payload.clone();
+        wrong_target[target_field] =
+            json!("ak:message:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL");
+        assert!(catalog.validate_payload(kind, &wrong_target).is_err());
+
+        let mut malformed_target = payload.clone();
+        let prefix = payload[target_field]
+            .as_str()
+            .unwrap()
+            .rsplit_once(':')
+            .unwrap()
+            .0;
+        malformed_target[target_field] = json!(format!("{prefix}:not-a-typed-id"));
+        assert!(catalog.validate_payload(kind, &malformed_target).is_err());
+
+        let mut empty_patch = payload;
+        empty_patch["patch"] = json!({});
+        assert!(catalog.validate_payload(kind, &empty_patch).is_err());
+    }
 }

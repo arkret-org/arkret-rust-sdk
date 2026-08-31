@@ -803,17 +803,6 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/models-collaboration/src/events_payloads/object.rs::ObjectSnapshot.extra",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "BTreeMap<String, Value>",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
       "finding": "crates/models-collaboration/src/events_payloads/poll.rs::PollBlock.reply_context",
       "classification": "open_json",
       "lifecycle": "retained_boundary",
@@ -973,6 +962,54 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
       "spec_pointer": "event-payload.schema.json#/$defs/strand_create_payload/properties/initial_relations"
+    },
+    {
+      "finding": "crates/models-collaboration/src/events_payloads/view.rs::ViewCreateObject.document",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "spec_pointer": "view.schema.json#/properties/document",
+      "authority": "view.schema.json#/properties/document",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Preserve only the JSON extension/configuration boundary explicitly open in the current View schema.",
+      "test": "cargo test -p arkret-models-collaboration --lib view; cargo test -p arkret-models-collaboration --test query_view_contracts",
+      "reason": "The current normative View schema allows additional properties at this exact boundary; typed declared fields and create-object x_* restrictions remain enforced."
+    },
+    {
+      "finding": "crates/models-collaboration/src/events_payloads/view.rs::ViewCreateObject.graph",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "spec_pointer": "view.schema.json#/properties/graph",
+      "authority": "view.schema.json#/properties/graph",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Preserve only the JSON extension/configuration boundary explicitly open in the current View schema.",
+      "test": "cargo test -p arkret-models-collaboration --lib view; cargo test -p arkret-models-collaboration --test query_view_contracts",
+      "reason": "The current normative View schema allows additional properties at this exact boundary; typed declared fields and create-object x_* restrictions remain enforced."
+    },
+    {
+      "finding": "crates/models-collaboration/src/events_payloads/view.rs::ViewCreateObject.layout",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "spec_pointer": "view.schema.json#/properties/layout",
+      "authority": "view.schema.json#/properties/layout",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Preserve only the JSON extension/configuration boundary explicitly open in the current View schema.",
+      "test": "cargo test -p arkret-models-collaboration --lib view; cargo test -p arkret-models-collaboration --test query_view_contracts",
+      "reason": "The current normative View schema allows additional properties at this exact boundary; typed declared fields and create-object x_* restrictions remain enforced."
+    },
+    {
+      "finding": "crates/models-collaboration/src/events_payloads/view.rs::ViewCreateObject.timeline",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "spec_pointer": "view.schema.json#/properties/timeline",
+      "authority": "view.schema.json#/properties/timeline",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Preserve only the JSON extension/configuration boundary explicitly open in the current View schema.",
+      "test": "cargo test -p arkret-models-collaboration --lib view; cargo test -p arkret-models-collaboration --test query_view_contracts",
+      "reason": "The current normative View schema allows additional properties at this exact boundary; typed declared fields and create-object x_* restrictions remain enforced."
     },
     {
       "finding": "crates/models-collaboration/src/events_payloads/view.rs::ViewPayload.definition",
@@ -1376,6 +1413,30 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+    },
+    {
+      "finding": "crates/models-collaboration/src/objects/queries.rs::CollectionConfig.extra",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "spec_pointer": "view.schema.json#/$defs/collection_config",
+      "authority": "view.schema.json#/$defs/collection_config",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Preserve only the JSON extension/configuration boundary explicitly open in the current View schema.",
+      "test": "cargo test -p arkret-models-collaboration --lib view; cargo test -p arkret-models-collaboration --test query_view_contracts",
+      "reason": "The current normative View schema allows additional properties at this exact boundary; typed declared fields and create-object x_* restrictions remain enforced."
+    },
+    {
+      "finding": "crates/models-collaboration/src/objects/queries.rs::CollectionGrouping.extra",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "spec_pointer": "view.schema.json#/$defs/collection_grouping",
+      "authority": "view.schema.json#/$defs/collection_grouping",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Preserve only the JSON extension/configuration boundary explicitly open in the current View schema.",
+      "test": "cargo test -p arkret-models-collaboration --lib view; cargo test -p arkret-models-collaboration --test query_view_contracts",
+      "reason": "The current normative View schema allows additional properties at this exact boundary; typed declared fields and create-object x_* restrictions remain enforced."
     },
     {
       "finding": "crates/models-collaboration/src/objects/queries.rs::CollectionGrouping.lanes",
@@ -4264,6 +4325,17 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
+      "finding": "json_path_mutation:crates/models-collaboration/src/governance/invite_addressing.rs::payload_digest:fdec439e41f30d44",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "schemas/principal-locator.schema.json and registry/proof-context-registry.json: ak.principal_locator_proof.v1",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Serialize the closed PrincipalLocator with its owning SDK serializer, remove only the registered proofs carrier, then JCS-hash the complete remaining object.",
+      "test": "cargo test -p arkret-models-collaboration --lib principal_locator_serializes_canonical_timestamps",
+      "reason": "The protocol defines the unsigned digest by removing proofs. This owner-local canonical projection replaces the removed Soland raw-payload signer; it is not permission for arbitrary consumer mutation or open wire fields."
+    },
+    {
       "finding": "json_path_mutation:crates/models-collaboration/src/http_bodies.rs::deserialize:46746ebfeea5c088",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -5153,17 +5225,6 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
-      "finding": "json_path_mutation:crates/models-collaboration/src/governance/invite_addressing.rs::payload_digest:fdec439e41f30d44",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "schemas/principal-locator.schema.json and registry/proof-context-registry.json: ak.principal_locator_proof.v1",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Serialize the closed PrincipalLocator with its owning SDK serializer, remove only the registered proofs carrier, then JCS-hash the complete remaining object.",
-      "test": "cargo test -p arkret-models-collaboration --lib principal_locator_serializes_canonical_timestamps",
-      "reason": "The protocol defines the unsigned digest by removing proofs. This owner-local canonical projection replaces the removed Soland raw-payload signer; it is not permission for arbitrary consumer mutation or open wire fields."
     },
     {
       "finding": "json_path_mutation:soland/crates/http/src/routing/organizations.rs::upsert_organization_policy:46ba71a3fb50d6b8",

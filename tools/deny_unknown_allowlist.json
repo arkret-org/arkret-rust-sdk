@@ -1,14 +1,3 @@
 {
-  "entries": [
-    {
-      "rust_type": "crates/models-collaboration/src/objects/queries.rs::CollectionConfig",
-      "classification": "A",
-      "reason": "Deliberately strict: undeclared wire fields (page_size, selection_policy) must be rejected, with explicit unknown-field negative tests in crates/models-collaboration/tests/query_view_contracts.rs. The Spec view.schema.json#/$defs/collection_config still declares additionalProperties: true and is pending spec-side tightening."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/objects/queries.rs::CollectionGrouping",
-      "classification": "A",
-      "reason": "Deliberately strict: the undeclared wire field wip_limit_enforcement must be rejected, with an explicit unknown-field negative test in crates/models-collaboration/tests/query_view_contracts.rs. The Spec view.schema.json#/$defs/collection_grouping still declares additionalProperties: true and is pending spec-side tightening."
-    }
-  ]
+  "entries": []
 }

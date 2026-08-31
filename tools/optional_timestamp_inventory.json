@@ -1,9 +1,9 @@
 {
   "version": 2,
-  "total": 207,
+  "total": 209,
   "counts": {
     "internal": 57,
-    "optional_has_default": 148,
+    "optional_has_default": 150,
     "schema_field_unknown": 2
   },
   "sites": [
@@ -225,7 +225,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/audit.rs",
-      "line": 130,
+      "line": 129,
       "struct_name": "AuditAppletBindingCreatePayload",
       "field_name": "not_before",
       "field_type": "Option<DateTime<Utc>>",
@@ -237,7 +237,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/audit.rs",
-      "line": 166,
+      "line": 165,
       "struct_name": "AuditPayload",
       "field_name": "accessed_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -249,7 +249,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/audit.rs",
-      "line": 293,
+      "line": 291,
       "struct_name": "AuditSessionPayload",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -593,6 +593,30 @@
       "has_skip": true,
       "schema_pointer": "event-payload.schema.json#/$defs/organization_moderation_policy_document",
       "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-collaboration/src/events_payloads/view.rs",
+      "line": 113,
+      "struct_name": "ViewCreateObject",
+      "field_name": "state_changed_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "view.schema.json",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-collaboration/src/events_payloads/view.rs",
+      "line": 136,
+      "struct_name": "ViewCreateObject",
+      "field_name": "updated_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "view.schema.json",
+      "schema_source": "doc-pointer",
       "classification": "optional_has_default"
     },
     {
@@ -1353,7 +1377,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/queries.rs",
-      "line": 125,
+      "line": 127,
       "struct_name": "View",
       "field_name": "state_changed_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1365,7 +1389,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/queries.rs",
-      "line": 155,
+      "line": 157,
       "struct_name": "View",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",

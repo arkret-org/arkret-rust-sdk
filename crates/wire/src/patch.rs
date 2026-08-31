@@ -654,7 +654,8 @@ fn patch_apply_failed(path: &str, detail: &str) -> WireError {
 /// *proven* which object it is patching passes [`Self::Verified`].
 ///
 /// Proof means the object kind came from the payload's own typed target
-/// (`object_patch_payload.target_ref`, `view_payload.view_id`), not from an `id`
+/// (`strand_patch_payload.target_ref`, `morph_update_payload.target_ref`, or
+/// `view_payload.view_id`), not from an `id`
 /// found inside arbitrary prestate JSON: a guard that trusted that could be
 /// steered into another kind's exemptions. Anything unproven is
 /// [`Self::Unverified`] and keeps the conservative superset, so the guard fails

@@ -18,7 +18,6 @@ pub(crate) use serde_json::Value;
 
 pub(crate) use crate::events_payloads::event_wire::*;
 pub(crate) use crate::events_payloads::message::*;
-pub(crate) use crate::events_payloads::object::*;
 pub(crate) use crate::events_payloads::signature::*;
 pub(crate) use crate::governance::circle::*;
 pub(crate) use crate::governance::grant_constraint::*;

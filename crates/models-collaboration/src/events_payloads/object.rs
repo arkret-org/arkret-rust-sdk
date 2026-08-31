@@ -1,4 +1,4 @@
-//! Generic object creation, snapshots, and stage payloads.
+//! Generic object creation payloads.
 
 use crate::internal_prelude::*;
 
@@ -58,11 +58,3 @@ impl<T: ProtocolCreateObject> ObjectCreatePayload<T> {
 // `models::operation_payloads::ObjectLifecyclePayload` (generic Strand / Circle /
 // Morph archive·restore·tombstone shape, single-sourced by `target_ref`;
 // `additionalProperties:false`).
-
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/object_snapshot`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ObjectSnapshot {
-    pub id: ObjectRef,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}

@@ -904,6 +904,14 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/device_identity.rs::DeviceReanchorPayload",
       "schema": "event-payload.schema.json#/$defs/device_reanchor_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/view.rs::ViewPayload",
+      "schema": "event-payload.schema.json#/$defs/view_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/objects/queries.rs::SortSpec",
+      "schema": "view.schema.json#/$defs/sort_spec"
     }
   ],
   "exemptions": [
@@ -960,10 +968,6 @@
       "reason": "Documented counterpart is not field-set exact; Rust-only=[], Spec-only=['observed_dot_ids']."
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/object.rs::ObjectSnapshot",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/events_payloads/preview.rs::PreviewPolicyPayloadValueHistory",
       "reason": "Documented counterpart is not field-set exact; Rust-only=['content', 'include_member_events', 'max_events', 'range', 'sender_profile'], Spec-only=['reason', 'value']."
     },
@@ -992,10 +996,6 @@
       "reason": "Documented counterpart is not field-set exact; Rust-only=[], Spec-only=['expected_value', 'strand_id', 'watcher_actor_id']."
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/view.rs::ViewPayload",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=[], Spec-only=['expected_state_digest']."
-    },
-    {
       "rust_type": "crates/models-collaboration/src/governance/audit.rs::RywFrontier",
       "reason": "Documented counterpart is not field-set exact; Rust-only=['actor_frontier', 'realm_frontier'], Spec-only=['audit_actor_id', 'audit_assurance_class', 'audit_event_id', 'audit_policy_version_digest', 'frontier', 'issuer_id', 'issuer_role', 'observed_at', 'proofs', 'realm_id', 'realm_operator_organization_id', 'receipt_id', 'recovery_reason_code', 'schema', 'trust_domain', 'witness_attestation']."
     },
@@ -1014,10 +1014,6 @@
     {
       "rust_type": "crates/models-collaboration/src/governance/operation_wire.rs::PolicyRule",
       "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/object_patch.rs::ObjectPatchPayload",
-      "reason": "Documented pointer is not a direct object node: 'object_patch_payload'."
     },
     {
       "rust_type": "crates/models-collaboration/src/objects/blob.rs::SignatureValue",
@@ -1202,6 +1198,10 @@
     {
       "rust_type": "crates/wire/src/seal.rs::PayloadSignature",
       "reason": "Documented counterpart is not field-set exact; Rust-only=['created_at'], Spec-only=[]."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/view.rs::ViewCreateObject",
+      "reason": "The current create object combines the View schema with forbidden id/type and a restricted x_* flattened XExtensionMap; the field-set gate cannot statically compare flattened schemas. View create tests cover identity rejection, closed declared fields, extensions and kind-specific configuration."
     }
   ]
 }
