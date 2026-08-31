@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-08-31.2;
-//! sha256=e6a2c458b7060c7dac60efd30964060321f503aba82c800467c3b46616423aac Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-01.1;
+//! sha256=5aa0080d10dfcfc56e327a12fa87afe453311849d2f05d67eb11dc59532b0a35 Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
-//! sha256=e922f93d0060c4c8acaf5bc2da9ce8fe9a2c84234a71d5cc85b7b35d25895835 Input: registry/
+//! sha256=1bba5f530b6d6ce8d64c20b4418163bd3eebe8c44cef8a246d14b846c7d1b333 Input: registry/
 //! digest-suite-registry.json; version=2026-08-31;
 //! sha256=c88f2aa7afc985d1d64456ae262ea75f6e6a33342bee1d1cb97501396ea414c0 Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
@@ -2250,7 +2250,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "envelope_digest",
             "sender_actor_id",
-            "sender_device_id",
+            "sender_device_id?",
             "verification_method",
             "created_at",
             "domain?",
