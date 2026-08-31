@@ -60,8 +60,7 @@ pub fn sign_device_projection_attestation(
     Ok(attestation)
 }
 
-/// Verify one device projection attestation against the origin Principal
-/// Server's key.
+/// Verify one device projection attestation against the origin Station's key.
 ///
 /// The caller supplies the already-resolved key: this surface never resolves a
 /// DID per row, which is what makes the §8.3 hot path free of online lookups.

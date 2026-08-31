@@ -3447,9 +3447,8 @@ mod tests {
 
         // The cell subject retypes the accepted Event ID. The or_set tag is
         // `<event_id>:<write_index>`, and the element is the ID-free signed
-        // genesis payload. The materialized Grant gains its issuer Principal
-        // Server coordinate from the accepted envelope, never from producer
-        // payload input.
+        // genesis payload. The materialized Grant gains its issuer Station coordinate from the
+        // accepted envelope, never from producer payload input.
         let mut materialized_payload = serde_json::to_value(&event.payload).unwrap();
         materialized_payload["grant"]["authority_depth"] = json!(1);
         materialized_payload["grant"]["authority_root_refs"] = json!([{
