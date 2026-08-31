@@ -422,7 +422,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applet_id: Option<AppletId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub executed_by: Option<DidCoreId>,
+    pub executed_by: Option<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub registration_epoch: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -620,7 +620,7 @@ impl GrantConstraint {
     /// `constraint-schema.md` §7.3.
     pub fn applet_authority(
         applet_id: AppletId,
-        executed_by: DidCoreId,
+        executed_by: ActorId,
         registration_epoch: Hash,
     ) -> Self {
         let mut constraint = Self::new(
@@ -764,7 +764,7 @@ mod tests {
     fn applet_authority_uses_registered_authority_control_shape() {
         let constraint = GrantConstraint::applet_authority(
             AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
-            DidCoreId::new("ak:did_core:web:calendar.example").unwrap(),
+            ActorId::service(DidCoreId::new("ak:did_core:web:calendar.example").unwrap()),
             Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
         );
         let wire = serde_json::to_value(constraint).unwrap();
@@ -772,7 +772,13 @@ mod tests {
         assert_eq!(wire["constraint_kind"], "authority_control");
         assert_eq!(wire["constraint_subkind"], "applet_authority");
         assert_eq!(wire["evaluation_class"], "grant_local");
-        assert_eq!(wire["executed_by"], "ak:did_core:web:calendar.example");
+        assert_eq!(
+            wire["executed_by"],
+            serde_json::json!({"kind":"service","service_id":"ak:did_core:web:calendar.example"})
+        );
+        let mut legacy = wire.clone();
+        legacy["executed_by"] = serde_json::json!("ak:did_core:web:calendar.example");
+        assert!(serde_json::from_value::<GrantConstraint>(legacy).is_err());
         assert!(wire.get("applet_delegation_binding").is_none());
     }
 

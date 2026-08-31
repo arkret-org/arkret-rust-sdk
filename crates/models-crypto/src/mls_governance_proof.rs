@@ -250,7 +250,6 @@ impl MlsGovernanceFrontierCellEntry {
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceSealDescriptor {
     pub seal_ref: SealId,
-    pub seal_digest: Hash,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

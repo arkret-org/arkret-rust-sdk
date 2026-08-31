@@ -760,6 +760,53 @@ mod actor_sequence_bounds_map {
     }
 }
 
+/// Canonical, globally ordered leaf data for the federation frontier commitment
+/// (`federation.md` §4.5.1). Feed these bytes into the Seal Merkle family, not
+/// the snapshot tree. The Actor remains an object inside its leaf; only the
+/// response map key and the actor leaf's sorting key encode it as JSON text.
+pub fn federation_frontier_leaf_data(
+    head_ids: &[EventId],
+    actor_upper_bounds: &BTreeMap<ActorId, u64>,
+) -> Result<Vec<Vec<u8>>> {
+    #[derive(Serialize)]
+    #[serde(tag = "type", rename_all = "snake_case")]
+    enum FrontierLeaf<'a> {
+        Head {
+            event_digest: Hash,
+        },
+        ActorSeqUpperBound {
+            actor_id: &'a ActorId,
+            actor_seq_upper_bound: u64,
+        },
+    }
+
+    let mut leaves = Vec::new();
+    for event_id in head_ids.iter().collect::<BTreeSet<_>>() {
+        let digest = event_id.event_digest();
+        leaves.push((
+            format!("head:{digest}"),
+            FrontierLeaf::Head {
+                event_digest: digest,
+            },
+        ));
+    }
+    for (actor, upper_bound) in actor_upper_bounds {
+        actor.validate()?;
+        leaves.push((
+            format!("actor:{}", actor.canonical_key()?),
+            FrontierLeaf::ActorSeqUpperBound {
+                actor_id: actor,
+                actor_seq_upper_bound: *upper_bound,
+            },
+        ));
+    }
+    leaves.sort_unstable_by(|(left, _), (right, _)| left.as_bytes().cmp(right.as_bytes()));
+    leaves
+        .into_iter()
+        .map(|(_, leaf)| arkret_canonical::canonical_json_bytes(&leaf).map_err(Into::into))
+        .collect()
+}
+
 // ── FederationServiceBindingRef ─────────────────────────────────────────
 
 /// Typed binding reference for federation transport. Carried inside

@@ -637,15 +637,13 @@ mod events_submit_tests {
         let station = DidCoreId::new("ak:did_core:web:station.example").unwrap();
         for subject in [
             ActorId::account(AccountId::new(principal.clone(), station.clone())),
-            ActorId::hosted_principal(principal, station.clone()),
             ActorId::service(station),
         ] {
             let (client, capture) =
                 spawn_capture_server(r#"{"grants":[],"evaluated_at":"2026-08-31T00:00:00.000Z"}"#)
                     .await;
             let realm =
-                RealmId::new("ak:realm:ASZ8VNF9qzH4Hcjd-1qOOKONYlZmfQOIRvMYdkQ0XXBH")
-                    .unwrap();
+                RealmId::new("ak:realm:ASZ8VNF9qzH4Hcjd-1qOOKONYlZmfQOIRvMYdkQ0XXBH").unwrap();
             client
                 .authz_effective_grants(&realm, &subject, None)
                 .await
@@ -657,9 +655,7 @@ mod events_submit_tests {
                 line.split_whitespace().nth(1).unwrap()
             ))
             .unwrap();
-            let query = url
-                .query_pairs()
-                .collect::<BTreeMap<_, _>>();
+            let query = url.query_pairs().collect::<BTreeMap<_, _>>();
             assert_eq!(query.get("subject_actor_id").unwrap(), &subject.to_string());
             assert_eq!(query.get("realm_id").unwrap(), realm.as_str());
             assert_eq!(query.len(), 2);
@@ -686,9 +682,7 @@ mod events_submit_tests {
                 line.split_whitespace().nth(1).unwrap()
             ))
             .unwrap();
-            let query = url
-                .query_pairs()
-                .collect::<BTreeMap<_, _>>();
+            let query = url.query_pairs().collect::<BTreeMap<_, _>>();
             assert_eq!(query.get("subject").unwrap(), subject.principal_id.as_str());
             assert_eq!(query.get("subject_station_id").unwrap(), station);
             assert_eq!(query.len(), 2);
@@ -1285,7 +1279,6 @@ mod events_submit_tests {
                     "binding_event_ref":"ak:event:AfOnmtYgQpP17IGXP_64dE-weM-8C_AfXXXfYpJ3ubJG"
                 },
                 "group_state_ref":"ak:event:AfR_M7E56E86OkxTne77vQ9fmdFkzpnxO_TBqB4ymjKV",
-                "group_state_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "send_blockers": []
             }"#;
         let (client, capture) = spawn_capture_server(canned).await;

@@ -202,9 +202,11 @@ pub fn state_value_leaf_digest(
 
 /// Compute a Seal-family Merkle root from already ordered raw leaf data.
 ///
-/// This is shared by `state_root` and `control_event_set_root`; snapshot
-/// roots intentionally use a different, unprefixed Merkle family.
-pub(crate) fn seal_merkle_root_from_leaf_data(
+/// Shared by state/control-event roots and federation frontier commitments.
+/// Each input is un-hashed leaf data in the domain's required order. This
+/// function adds the leaf prefix, promotes odd tails without duplication,
+/// and uses H(empty) for an empty tree; it does not sort or deduplicate inputs.
+pub fn seal_merkle_root_from_leaf_data(
     leaf_data: &[Vec<u8>],
     digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<Hash, crate::WireError> {

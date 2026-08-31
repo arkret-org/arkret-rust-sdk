@@ -4,7 +4,9 @@ use std::str::FromStr;
 use super::*;
 use crate::{Did, DidCoreId, ProofContextId, SignerEvidenceRef};
 
-/// Complete protocol identity for one account at one Station.
+/// Complete protocol identity for one principal at one Station, including
+/// human accounts, managed agents and integration actors. This identity does
+/// not select a credential class, provisioning workflow or authorization.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -110,28 +112,13 @@ impl CanonicalIdentityEntry for ActorId {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ActorId {
-    Account {
-        account_id: AccountId,
-    },
-    HostedPrincipal {
-        principal_id: DidCoreId,
-        station_id: DidCoreId,
-    },
-    Service {
-        service_id: DidCoreId,
-    },
+    Account { account_id: AccountId },
+    Service { service_id: DidCoreId },
 }
 
 impl ActorId {
     pub fn account(account_id: AccountId) -> Self {
         Self::Account { account_id }
-    }
-
-    pub fn hosted_principal(principal_id: DidCoreId, station_id: DidCoreId) -> Self {
-        Self::HostedPrincipal {
-            principal_id,
-            station_id,
-        }
     }
 
     pub fn service(service_id: DidCoreId) -> Self {
@@ -141,7 +128,6 @@ impl ActorId {
     pub fn signing_principal_id(&self) -> &DidCoreId {
         match self {
             Self::Account { account_id } => &account_id.principal_id,
-            Self::HostedPrincipal { principal_id, .. } => principal_id,
             Self::Service { service_id } => service_id,
         }
     }
@@ -149,7 +135,6 @@ impl ActorId {
     pub fn route_service_id(&self) -> &DidCoreId {
         match self {
             Self::Account { account_id } => &account_id.station_id,
-            Self::HostedPrincipal { station_id, .. } => station_id,
             Self::Service { service_id } => service_id,
         }
     }
@@ -157,25 +142,17 @@ impl ActorId {
     pub fn as_account_id(&self) -> Option<&AccountId> {
         match self {
             Self::Account { account_id } => Some(account_id),
-            Self::HostedPrincipal { .. } | Self::Service { .. } => None,
+            Self::Service { .. } => None,
         }
     }
 
     pub fn validate(&self) -> Result<()> {
         match self {
             Self::Account { account_id } => account_id.validate(),
-            Self::HostedPrincipal {
-                principal_id,
-                station_id,
-            } if principal_id.as_str().is_empty() || station_id.as_str().is_empty() => {
-                Err(WireError::Protocol(
-                    "hosted principal actor id components must be non-empty".to_owned(),
-                ))
-            }
             Self::Service { service_id } if service_id.as_str().is_empty() => Err(
                 WireError::Protocol("service actor id must be non-empty".to_owned()),
             ),
-            Self::HostedPrincipal { .. } | Self::Service { .. } => Ok(()),
+            Self::Service { .. } => Ok(()),
         }
     }
 
@@ -1879,6 +1856,42 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
+
+    #[test]
+    fn station_actor_identity_is_independent_of_principal_classification() {
+        let principal = DidCoreId::new("ak:did_core:web:agent.example").unwrap();
+        let station = DidCoreId::new("ak:did_core:web:station.example").unwrap();
+        let account = AccountId::new(principal.clone(), station.clone());
+        let actor = ActorId::account(account.clone());
+        let value = serde_json::json!({"kind": "account", "account_id": account});
+        assert_eq!(serde_json::to_value(&actor).unwrap(), value);
+        assert_eq!(serde_json::from_value::<ActorId>(value).unwrap(), actor);
+        assert_eq!(actor.as_account_id(), Some(&account));
+        assert_eq!(actor.signing_principal_id(), &principal);
+        assert_eq!(actor.route_service_id(), &station);
+        assert_ne!(actor, ActorId::service(principal.clone()));
+        assert_ne!(
+            actor,
+            ActorId::account(AccountId::new(
+                principal,
+                DidCoreId::new("ak:did_core:web:other-station.example").unwrap(),
+            ))
+        );
+    }
+
+    #[test]
+    fn actor_identity_rejects_removed_variant_and_incomplete_account_shapes() {
+        let principal = "ak:did_core:web:agent.example";
+        let station = "ak:did_core:web:station.example";
+        for value in [
+            serde_json::json!({"kind": "hosted_principal", "principal_id": principal, "station_id": station}),
+            serde_json::json!({"kind": "account", "principal_id": principal, "station_id": station}),
+            serde_json::json!({"kind": "account", "account_id": {"principal_id": principal}}),
+            serde_json::json!({"kind": "account", "account_id": {"principal_id": principal, "station_id": station}, "actor_kind": "agent"}),
+        ] {
+            assert!(serde_json::from_value::<ActorId>(value).is_err());
+        }
+    }
 
     #[test]
     fn discoverability_tokens_are_closed_and_round_trip() {

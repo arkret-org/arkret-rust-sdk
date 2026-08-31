@@ -1477,10 +1477,10 @@ mod tests {
     use super::*;
 
     fn fake_actor(label: &str) -> ActorId {
-        ActorId::hosted_principal(
+        ActorId::account(AccountId::new(
             DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{label}")).unwrap(),
             DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
-        )
+        ))
     }
 
     fn fake_event_ref(suffix: &str) -> EventId {

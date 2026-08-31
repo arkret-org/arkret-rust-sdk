@@ -421,9 +421,11 @@ mod tests {
                 .derive_subject(
                     "ak.device.push_route",
                     &json!({
-                        "kind": "hosted_principal",
-                        "principal_id": "ak:did_core:webvh:z6mkfixture",
-                        "station_id": "ak:did_core:webvh:z6mkfixtureservice"
+                        "kind": "account",
+                        "account_id": {
+                            "principal_id": "ak:did_core:webvh:z6mkfixture",
+                            "station_id": "ak:did_core:webvh:z6mkfixtureservice"
+                        }
                     }),
                     &payload
                 )

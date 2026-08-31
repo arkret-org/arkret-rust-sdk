@@ -15,9 +15,9 @@ fn announce_origin_is_carried_only_by_the_signed_event_actor() {
             "event_id": "ak:event:ASWGTju1AH5ri82iFC0b-lZTclyFRuOI8TagaYiq5ZD2",
             "kind": "ak.realm.discovery", "realm_id": realm_id,
             "scope_ref": {"kind": "realm", "realm_id": realm_id},
-            "actor_id": {"kind": "hosted_principal",
+            "actor_id": {"kind": "account", "account_id": {
                 "principal_id": "ak:did_core:web:author.example",
-                "station_id": "ak:did_core:web:station.example"},
+                "station_id": "ak:did_core:web:station.example"}},
             "actor_seq": 1, "created_at": "2026-08-31T00:00:00.000Z",
             "prev_refs": [], "payload": {"value": {}}, "proofs": []
         },

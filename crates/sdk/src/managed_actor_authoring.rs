@@ -84,7 +84,10 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
         schema: AppletManagedActorProvisionPayload::SCHEMA.to_owned(),
         applet_id: branch.applet_id.clone(),
         service_id: branch.service_id.clone(),
-        actor_id: ActorId::hosted_principal(input.actor_id.clone(), branch.station_id.clone()),
+        actor_id: ActorId::account(arkret_wire::AccountId::new(
+            input.actor_id.clone(),
+            branch.station_id.clone(),
+        )),
         actor_role: branch.role,
         initial_resolution: input.initial_resolution.clone(),
         method_history_evidence: input.method_history_evidence.clone().try_into()?,
@@ -128,7 +131,10 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
     )?;
     let pcr_intent = TypedEventDraft::<event_spec::RealmCreate>::new(
         ScopeRef::RealmGenesis,
-        ActorId::hosted_principal(input.actor_id.clone(), branch.station_id.clone()),
+        ActorId::account(arkret_wire::AccountId::new(
+            input.actor_id.clone(),
+            branch.station_id.clone(),
+        )),
         RealmCreatePayload::new(genesis),
     )?
     .with_executed_by(ActorId::service(branch.service_id.clone()))
@@ -202,7 +208,10 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
     )?;
     let profile_intent = TypedEventDraft::<event_spec::ProfileCreate>::new(
         branch.realm_scope,
-        ActorId::hosted_principal(input.actor_id, branch.station_id.clone()),
+        ActorId::account(arkret_wire::AccountId::new(
+            input.actor_id,
+            branch.station_id.clone(),
+        )),
         ActorProfileCreatePayload { object: profile },
     )?
     .with_executed_by(ActorId::service(delegation.executed_by))

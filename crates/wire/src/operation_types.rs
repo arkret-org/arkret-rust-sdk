@@ -260,7 +260,6 @@ pub struct MembershipCompensationDelegationCore {
     pub authority: MembershipCompensationAuthority,
     pub admission_id: ProtocolOpaqueId,
     pub join_event_id: EventId,
-    pub join_event_digest: Hash,
     pub membership_cell_id: ProtocolOpaqueId,
     pub member_id: ActorId,
     pub join_actor_id: ActorId,
@@ -337,7 +336,6 @@ impl MembershipCompensationExecutorDelegation {
 pub struct MembershipJoinAcceptedProof {
     pub admission_id: ProtocolOpaqueId,
     pub join_event_id: EventId,
-    pub join_event_digest: Hash,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub issuer_id: DidCoreId,
@@ -422,7 +420,6 @@ impl MembershipCompensationSubmissionEvidence {
         let digest = &self.delegation.delegation_digest;
         if self.join_accepted_proof.admission_id != core.admission_id
             || self.join_accepted_proof.join_event_id != core.join_event_id
-            || self.join_accepted_proof.join_event_digest != core.join_event_digest
             || self.terminal_certificate.admission_id != core.admission_id
             || self.terminal_certificate.delegation_digest != *digest
             || self.single_use_cas_token.admission_id != core.admission_id

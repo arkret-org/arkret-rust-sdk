@@ -36,7 +36,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_collaboration::governance::grant_constraint::GrantConstraintSubkind;
-use arkret_wire::{ActorId, AppletId, CircleId, DidCoreId, Hash};
+use arkret_wire::{ActorId, AppletId, CircleId, Hash};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -245,7 +245,7 @@ pub enum GrantConstraint {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         applet_id: Option<AppletId>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        executed_by: Option<DidCoreId>,
+        executed_by: Option<ActorId>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         registration_epoch: Option<Hash>,
     },
@@ -365,7 +365,7 @@ pub fn authority_regrant_allowed(grant: &Grant) -> bool {
 pub fn validate_applet_authority_binding(
     grant: &Grant,
     applet_id: &str,
-    executed_by: &str,
+    executed_by: &ActorId,
     registration_epoch: &str,
 ) -> Result<(), AppletAuthorityBindingError> {
     let Some(binding) = grant
@@ -400,7 +400,7 @@ pub fn validate_applet_authority_binding(
     if binding_applet_id.as_str() != applet_id {
         return Err(AppletAuthorityBindingError::AppletIdMismatch);
     }
-    if binding_executed_by.as_str() != executed_by {
+    if binding_executed_by != executed_by {
         return Err(AppletAuthorityBindingError::ExecutedByMismatch);
     }
     if binding_registration_epoch.as_str() != registration_epoch {
@@ -471,6 +471,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::DidCoreId;
     use chrono::Duration;
 
     use super::*;
@@ -753,7 +754,9 @@ mod tests {
             applet_id: Some(
                 AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
             ),
-            executed_by: Some(DidCoreId::new("ak:did_core:web:calendar.example").unwrap()),
+            executed_by: Some(ActorId::service(
+                DidCoreId::new("ak:did_core:web:calendar.example").unwrap(),
+            )),
             registration_epoch: Some(registration_epoch),
         };
         let wire = serde_json::to_value(&constraint).unwrap();
@@ -775,14 +778,10 @@ mod tests {
     fn applet_authority_binding_must_match_epoch_subject_and_applet() {
         let mut grant = root_grant("g1", &["ak.message.create"], "ak:realm:1");
         let applet_id = "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb";
+        let executor = ActorId::service(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap());
         let registration_epoch = format!("sha256:{}", "a".repeat(64));
         assert!(matches!(
-            validate_applet_authority_binding(
-                &grant,
-                applet_id,
-                "ak:did_core:webvh:z6mkfixture",
-                &registration_epoch
-            ),
+            validate_applet_authority_binding(&grant, applet_id, &executor, &registration_epoch),
             Err(AppletAuthorityBindingError::Missing)
         ));
         grant.constraints.push(GrantConstraint::AuthorityControl {
@@ -790,27 +789,35 @@ mod tests {
             authority_regrant_allowed: false,
             constraint_subkind: Some(GrantConstraintSubkind::AppletAuthority),
             applet_id: Some(AppletId::new(applet_id).unwrap()),
-            executed_by: Some(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
+            executed_by: Some(executor.clone()),
             registration_epoch: Some(Hash::new(registration_epoch.clone()).unwrap()),
         });
         assert!(
-            validate_applet_authority_binding(
-                &grant,
-                applet_id,
-                "ak:did_core:webvh:z6mkfixture",
-                &registration_epoch
-            )
-            .is_ok()
+            validate_applet_authority_binding(&grant, applet_id, &executor, &registration_epoch)
+                .is_ok()
         );
         let different_epoch = format!("sha256:{}", "b".repeat(64));
         assert!(matches!(
-            validate_applet_authority_binding(
-                &grant,
-                applet_id,
-                "ak:did_core:webvh:z6mkfixture",
-                &different_epoch
-            ),
+            validate_applet_authority_binding(&grant, applet_id, &executor, &different_epoch),
             Err(AppletAuthorityBindingError::RegistrationEpochMismatch)
         ));
+        for station in [
+            "ak:did_core:web:station-a.example",
+            "ak:did_core:web:station-b.example",
+        ] {
+            let account_executor = ActorId::account(arkret_wire::AccountId::new(
+                executor.signing_principal_id().clone(),
+                DidCoreId::new(station).unwrap(),
+            ));
+            assert_eq!(
+                validate_applet_authority_binding(
+                    &grant,
+                    applet_id,
+                    &account_executor,
+                    &registration_epoch
+                ),
+                Err(AppletAuthorityBindingError::ExecutedByMismatch)
+            );
+        }
     }
 }

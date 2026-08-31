@@ -2267,8 +2267,6 @@ pub struct ReferenceLockedEventStub {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<String>)))]
     pub kind: Option<arkret_wire::EventKind>,
     pub realm_id: RealmId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub event_digest: Option<Hash>,
     pub reason_code: ReferenceLockedReasonCode,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]

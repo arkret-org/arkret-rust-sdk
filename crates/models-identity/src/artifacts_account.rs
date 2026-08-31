@@ -76,8 +76,13 @@ pub fn validate_device_summary_state(
         state.validate()?;
     }
     if states.windows(2).any(|pair| {
-        (pair[0].acceptance_seq(), pair[0].proposal_digest().as_str())
-            >= (pair[1].acceptance_seq(), pair[1].proposal_digest().as_str())
+        (
+            pair[0].acceptance_seq(),
+            pair[0].proposal_event_id().as_str(),
+        ) >= (
+            pair[1].acceptance_seq(),
+            pair[1].proposal_event_id().as_str(),
+        )
     }) {
         return Err(WireError::Protocol(
             "device summary revocation_states must be sorted and duplicate-free".to_owned(),
