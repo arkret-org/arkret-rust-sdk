@@ -807,18 +807,11 @@ mod tests {
             unreachable!()
         };
         let join_event = online_event();
-        let join_event_digest = Hash::new(
-            join_event
-                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-                .unwrap(),
-        )
-        .unwrap();
         let admission_id = crate::ProtocolOpaqueId::new("membership-admission-1").unwrap();
         let core = crate::MembershipCompensationDelegationCore {
             authority: crate::MembershipCompensationAuthority::V1,
             admission_id: admission_id.clone(),
             join_event_id: join_event.event_id.clone(),
-            join_event_digest: join_event_digest.clone(),
             membership_cell_id: crate::ProtocolOpaqueId::new("membership-cell-1").unwrap(),
             member_id: subject_id.clone(),
             join_actor_id: join_actor_id.clone(),
@@ -860,7 +853,6 @@ mod tests {
             join_accepted_proof: crate::MembershipJoinAcceptedProof {
                 admission_id: admission_id.clone(),
                 join_event_id: join_event.event_id,
-                join_event_digest,
                 accepted_at: instant(1),
                 issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureissuer").unwrap(),
                 signature: signature(),

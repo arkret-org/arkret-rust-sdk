@@ -1030,16 +1030,10 @@ where
     let (cut, edges) = exact_seal_cut(request, &seal_map)?;
     let mut seal_descriptors = cut
         .iter()
-        .map(|seal_id| {
-            let seal = seal_map
-                .get(seal_id)
-                .expect("exact cut contains resolved Seal ids only");
-            Ok(MlsGovernanceSealDescriptor {
-                seal_ref: seal_id.clone(),
-                seal_digest: canonical_hash(*seal)?,
-            })
+        .map(|seal_id| MlsGovernanceSealDescriptor {
+            seal_ref: seal_id.clone(),
         })
-        .collect::<arkret_wire::Result<Vec<_>>>()?;
+        .collect::<Vec<_>>();
     seal_descriptors.sort();
     let mut seal_predecessor_edges = edges
         .into_iter()
@@ -1323,8 +1317,8 @@ fn verify_resolved_seals<'a>(
         .proof_material
         .seal_descriptors
         .iter()
-        .map(|descriptor| (descriptor.seal_ref.clone(), &descriptor.seal_digest))
-        .collect::<BTreeMap<_, _>>();
+        .map(|descriptor| descriptor.seal_ref.clone())
+        .collect::<BTreeSet<_>>();
     if descriptors.len() != resolved.len() {
         return frontier_rejected("resolved Seal set is not every-and-only the descriptor set");
     }
@@ -1334,13 +1328,10 @@ fn verify_resolved_seals<'a>(
         .ok_or_else(|| WireError::Protocol("MLS proof scope has no Realm".to_owned()))?;
     let mut seals = BTreeMap::new();
     for seal in resolved {
-        let expected_digest = descriptors
-            .get(&seal.id)
-            .ok_or_else(|| WireError::Protocol("resolved undescribed Seal".to_owned()))?;
-        seal.validate_structural()?;
-        if &canonical_hash(seal)? != *expected_digest {
-            return frontier_rejected("resolved Seal canonical digest mismatch");
+        if !descriptors.contains(&seal.id) {
+            return Err(WireError::Protocol("resolved undescribed Seal".to_owned()));
         }
+        seal.validate_structural()?;
         if &seal.realm_id != expected_realm || seals.insert(seal.id.clone(), seal).is_some() {
             return frontier_rejected("resolved Seal set is duplicate or cross-Realm");
         }

@@ -194,7 +194,6 @@ pub struct AuditReleasePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_refs: Option<Vec<ObjectRef>>,
     pub seal_ref: SealId,
-    pub seal_digest: Hash,
     pub approver_actor_id: DidCoreId,
     pub notice_ref: EventId,
     pub purpose_kind: NonEmptyString,
