@@ -45,7 +45,7 @@ fn signal_envelope(signal_class: SignalClass, ttl_seconds: i64) -> SignalEnvelop
             core_id(),
             DidCoreId::new("ak:did_core:web:station.example").unwrap(),
         )),
-        sender_device_id: device_id(),
+        sender_device_id: Some(device_id()),
         seal_ref: SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
         signal_class,
         sent_at,
@@ -108,7 +108,7 @@ fn applet_transaction_signal_lane_enforces_the_class_ttl_ceiling() {
 }
 
 #[test]
-fn applet_transaction_signal_lane_requires_the_sending_device_and_rejects_unknown_fields() {
+fn applet_transaction_signal_lane_preserves_closed_sender_branches_and_unknown_field_rejection() {
     let body = applet_transaction(signal_envelope(SignalClass::Session, 30));
     let value = serde_json::to_value(&body).unwrap();
     assert_eq!(
@@ -121,7 +121,11 @@ fn applet_transaction_signal_lane_requires_the_sending_device_and_rejects_unknow
         .as_object_mut()
         .unwrap()
         .remove("sender_device_id");
-    assert!(serde_json::from_value::<AppletTransactionRequestBody>(without_device).is_err());
+    assert!(serde_json::from_value::<AppletTransactionRequestBody>(without_device).is_ok());
+
+    let mut null_device = value.clone();
+    null_device["signals"][0]["sender_device_id"] = Value::Null;
+    assert!(serde_json::from_value::<AppletTransactionRequestBody>(null_device).is_err());
 
     let mut unknown_member = value;
     unknown_member["signals"][0]

@@ -2,8 +2,8 @@
 //!
 //! Every registered profile is a closed schema that MUST carry the same two
 //! fields: `kind`, the only post-decryption payload discriminator, and
-//! `payload_sequence`, the third component of the
-//! `(sender_device_id, scope_ref, payload_sequence)` receiver dedupe triple.
+//! `payload_sequence`, the value in the verified sender endpoint and scope
+//! receiver sequence domain.
 //! They are not per-profile decoration — they are the rail's routing and
 //! dedupe precondition — so this module owns the one construction and
 //! validation entry for the whole family instead of each profile spelling the
@@ -23,8 +23,8 @@
 use arkret_wire::DidCoreId;
 use arkret_wire::signal::MAX_SIGNAL_PLAINTEXT_BYTES;
 use arkret_wire::{
-    ActorId, ErrorCode, EventId, Hlc, ReadReceiptScope, Result, SchemaId, StrandId, WireError,
-    canonical,
+    ActorId, DeviceId, ErrorCode, EventId, Hash, Hlc, ReadReceiptScope, Result, SchemaId, ScopeRef,
+    SignalEnvelope, StrandId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::de::DeserializeOwned;
@@ -58,6 +58,65 @@ impl SignalSequence {
     }
 }
 
+/// Endpoint component of a Signal payload-sequence domain.
+///
+/// Agent domains use the digest of the verified current raw Ed25519 signing
+/// key. Authorization Event ids and verification-method strings are excluded,
+/// so same-key re-authorization cannot reset the sequence.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum SignalSequenceEndpoint {
+    AccountDevice { device_id: DeviceId },
+    AgentKey { public_key_digest: Hash },
+}
+
+/// Durable sender and receiver namespace for `payload_sequence`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SignalSequenceDomain {
+    pub sender_actor_id: ActorId,
+    pub endpoint: SignalSequenceEndpoint,
+    pub scope_ref: ScopeRef,
+}
+
+impl SignalSequenceDomain {
+    /// Build a domain only after current endpoint authority has been verified.
+    /// `agent_public_key_digest` is required exactly for the Agent branch.
+    pub fn from_verified_envelope(
+        envelope: &SignalEnvelope,
+        agent_public_key_digest: Option<Hash>,
+    ) -> Result<Self> {
+        let endpoint = match (envelope.sender_device_id.as_ref(), agent_public_key_digest) {
+            (Some(device_id), None) => SignalSequenceEndpoint::AccountDevice {
+                device_id: device_id.clone(),
+            },
+            (None, Some(public_key_digest)) => {
+                SignalSequenceEndpoint::AgentKey { public_key_digest }
+            }
+            _ => {
+                return Err(WireError::Protocol(
+                    "Signal sequence domain requires a key digest exactly for the Agent branch"
+                        .to_owned(),
+                ));
+            }
+        };
+        Ok(Self {
+            sender_actor_id: envelope.sender_actor_id.clone(),
+            endpoint,
+            scope_ref: envelope.scope_ref.clone(),
+        })
+    }
+
+    /// Canonical durable-store key. This is a typed v1 namespace, not a wire
+    /// profile or storage schema version.
+    pub fn canonical_key(&self) -> Result<String> {
+        String::from_utf8(canonical::canonical_json_bytes(self)?)
+            .map_err(|error| WireError::Protocol(format!("Signal sequence domain UTF-8: {error}")))
+    }
+}
+
 impl From<u64> for SignalSequence {
     fn from(value: u64) -> Self {
         Self::new(value)
@@ -87,7 +146,7 @@ pub enum SignalSequenceDecision {
     },
 }
 
-/// Receiver rule for one `(sender_device_id, scope_ref)` sequence domain.
+/// Receiver rule for one [`SignalSequenceDomain`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SignalSequenceHighWater(Option<SignalSequence>);
 

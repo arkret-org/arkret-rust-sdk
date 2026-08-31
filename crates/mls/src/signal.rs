@@ -72,6 +72,34 @@ pub struct SignalSeal {
     pub nonce_counter: u64,
 }
 
+/// Independently resolved current authority for a Signal sender.
+///
+/// The enum makes the closed wire branch explicit at the authenticated receive
+/// boundary. Selecting `Agent` is itself an assertion that the caller has
+/// verified accepted Agent classification, lifecycle and controller
+/// membership; the MLS layer then binds that authority byte-for-byte to the
+/// active leaf before verifying the producer proof.
+#[derive(Clone, Copy, Debug)]
+pub enum SignalSenderAuthority<'a> {
+    AccountDevice {
+        public_key: &'a PublicKeyMaterial,
+        device_authorize_event_id: &'a EventId,
+    },
+    Agent {
+        public_key: &'a PublicKeyMaterial,
+        verification_method: &'a arkret_wire::DidUrl,
+        agent_key_authorize_event_id: &'a EventId,
+    },
+}
+
+impl SignalSenderAuthority<'_> {
+    fn public_key(&self) -> &PublicKeyMaterial {
+        match self {
+            Self::AccountDevice { public_key, .. } | Self::Agent { public_key, .. } => public_key,
+        }
+    }
+}
+
 impl ArkretMlsGroup {
     /// The next `device_nonce_counter_be64` this group would use for a Signal.
     ///
@@ -107,15 +135,22 @@ impl ArkretMlsGroup {
             )));
         }
         let suite = self.signal_suite_for(binding)?;
-        let Some((principal_id, device_id)) = self.identity.endpoint.as_human_device() else {
-            return Err(Error::Protocol(
-                "ordinary Signal sender requires a human-device MLS endpoint".to_owned(),
-            ));
+        let local_sender_matches = match &self.identity.endpoint {
+            MlsEndpointIdentity::HumanDevice {
+                principal_id,
+                device_id,
+            } => {
+                binding.sender_actor_id.as_account_id().is_some()
+                    && binding.sender_actor_id.signing_principal_id() == principal_id
+                    && binding.sender_device_id == Some(device_id)
+            }
+            MlsEndpointIdentity::AgentRuntime { agent_id, .. } => {
+                binding.sender_actor_id.signing_principal_id() == agent_id
+                    && binding.sender_device_id.is_none()
+            }
+            MlsEndpointIdentity::MinimalMetadataPairwise { .. } => false,
         };
-        if binding.sender_actor_id.as_account_id().is_none()
-            || binding.sender_actor_id.signing_principal_id() != principal_id
-            || binding.sender_device_id != device_id
-        {
+        if !local_sender_matches {
             return Err(Error::Protocol(
                 "signal sender does not match this MLS identity".to_owned(),
             ));
@@ -167,7 +202,7 @@ impl ArkretMlsGroup {
     /// sender-domain key and recomputed AAD. This is a cryptographic primitive,
     /// not sender authentication: every epoch member knows the shared root and
     /// can derive every sender-domain key. Use `open_signal_envelope` for the
-    /// authenticated receive path with independently current device evidence.
+    /// authenticated receive path with independently current endpoint evidence.
     pub fn open_signal_payload(
         &self,
         binding: &SignalAeadBinding<'_>,
@@ -217,7 +252,7 @@ impl ArkretMlsGroup {
     /// ([`SignalEnvelope::validate_structural`]: TTL ceilings, scope/realm
     /// agreement, size bounds, `envelope_digest` and the carried `aad_digest`)
     /// cannot be forgotten before decryption. The caller must independently
-    /// authenticate current device authority (not target-Seal-relative), and
+    /// authenticate current endpoint authority (not target-Seal-relative), and
     /// supply the accepted winning state reference for this exact scope/group.
     /// A leaf remaining after known revocation must never provide that current
     /// authority. Here the same current key and authorization Event are bound
@@ -227,8 +262,7 @@ impl ArkretMlsGroup {
         &self,
         envelope: &SignalEnvelope,
         content_scheme: EncryptedPayloadScheme,
-        current_device_key: &PublicKeyMaterial,
-        device_authorize_event_id: &EventId,
+        current_authority: SignalSenderAuthority<'_>,
         accepted_group_state_ref: &str,
         replay: &mut AeadNonceReplayTracker,
     ) -> Result<Vec<u8>> {
@@ -239,18 +273,44 @@ impl ArkretMlsGroup {
             ));
         }
         let leaf = self.verified_signal_sender_leaf(&envelope.aead_binding())?;
-        let current_key = current_device_key
+        let current_key = current_authority
+            .public_key()
             .ed25519_bytes()
             .map_err(|error| Error::Protocol(error.to_string()))?;
+        let authority_matches_leaf = match (&current_authority, &leaf.endpoint) {
+            (
+                SignalSenderAuthority::AccountDevice {
+                    device_authorize_event_id,
+                    ..
+                },
+                MlsEndpointIdentity::HumanDevice { .. },
+            ) => leaf.device_authorize_event_id.as_ref() == Some(*device_authorize_event_id),
+            (
+                SignalSenderAuthority::Agent {
+                    verification_method,
+                    agent_key_authorize_event_id,
+                    ..
+                },
+                MlsEndpointIdentity::AgentRuntime {
+                    verification_method: leaf_method,
+                    agent_key_authorize_event_id: leaf_authorize_event_id,
+                    ..
+                },
+            ) => {
+                envelope.proof.verification_method == **verification_method
+                    && leaf_method == *verification_method
+                    && leaf_authorize_event_id == *agent_key_authorize_event_id
+            }
+            _ => false,
+        };
         if base64url_decode(leaf.signature_key.as_str())?.as_slice() != current_key
-            || leaf.device_authorize_event_id.as_ref() != Some(device_authorize_event_id)
+            || !authority_matches_leaf
         {
             return Err(Error::Protocol(
-                "signal current device key or authorization differs from the accepted MLS leaf"
-                    .to_owned(),
+                "signal current endpoint authority differs from the accepted MLS leaf".to_owned(),
             ));
         }
-        verify_ed25519_signal_proof(envelope, current_device_key)
+        verify_ed25519_signal_proof(envelope, current_authority.public_key())
             .map_err(|error| Error::Crypto(error.to_string()))?;
         self.open_signal_payload(
             &envelope.aead_binding(),
@@ -333,8 +393,8 @@ impl ArkretMlsGroup {
     }
 
     fn verified_signal_sender_domain(&self, binding: &SignalAeadBinding<'_>) -> Result<Vec<u8>> {
-        self.verified_signal_sender_leaf(binding)?;
-        Ok(binding.sender_device_id.as_str().as_bytes().to_vec())
+        let leaf = self.verified_signal_sender_leaf(binding)?;
+        Ok(leaf.credential_ref.as_str().as_bytes().to_vec())
     }
 
     fn verified_signal_sender_leaf(
@@ -344,14 +404,14 @@ impl ArkretMlsGroup {
         let matching_leaves = self
             .verified_leaf_bindings()?
             .into_iter()
-            .filter(|leaf| {
-                matches!(
-                    &leaf.endpoint,
-                    MlsEndpointIdentity::HumanDevice {
-                        device_id,
-                        ..
-                    } if device_id == binding.sender_device_id
-                )
+            .filter(|leaf| match (&leaf.endpoint, binding.sender_device_id) {
+                (MlsEndpointIdentity::HumanDevice { device_id, .. }, Some(sender_device_id)) => {
+                    device_id == sender_device_id
+                }
+                (MlsEndpointIdentity::AgentRuntime { agent_id, .. }, None) => {
+                    agent_id == binding.sender_actor_id.signing_principal_id()
+                }
+                _ => false,
             })
             .collect::<Vec<_>>();
         if matching_leaves.len() != 1 {
@@ -363,9 +423,14 @@ impl ArkretMlsGroup {
             .into_iter()
             .next()
             .expect("one verified leaf");
-        if &leaf.actor_id != binding.sender_actor_id
-            || binding.sender_actor_id.as_account_id().is_none()
-        {
+        let branch_matches_actor = match (&leaf.endpoint, binding.sender_device_id) {
+            (MlsEndpointIdentity::HumanDevice { .. }, Some(_)) => {
+                binding.sender_actor_id.as_account_id().is_some()
+            }
+            (MlsEndpointIdentity::AgentRuntime { .. }, None) => true,
+            _ => false,
+        };
+        if &leaf.actor_id != binding.sender_actor_id || !branch_matches_actor {
             return Err(Error::Protocol(
                 "signal sender differs from the complete accepted MLS leaf actor".to_owned(),
             ));
@@ -485,7 +550,7 @@ mod tests {
                 realm_id: &self.realm_id,
                 scope_ref: &self.scope_ref,
                 sender_actor_id: &self.sender_actor_id,
-                sender_device_id: &self.sender_device_id,
+                sender_device_id: Some(&self.sender_device_id),
                 seal_ref: &self.seal_ref,
                 signal_class: SignalClass::Session,
                 sent_at: sent_at(),
@@ -824,7 +889,7 @@ mod tests {
             realm_id: parts.realm_id.clone(),
             scope_ref: parts.scope_ref.clone(),
             sender_actor_id: parts.sender_actor_id.clone(),
-            sender_device_id: parts.sender_device_id.clone(),
+            sender_device_id: Some(parts.sender_device_id.clone()),
             seal_ref: parts.seal_ref.clone(),
             signal_class: binding.signal_class,
             sent_at: binding.sent_at,
@@ -866,6 +931,16 @@ mod tests {
         )
     }
 
+    fn device_authority<'a>(
+        key: &'a PublicKeyMaterial,
+        authorization: &'a EventId,
+    ) -> SignalSenderAuthority<'a> {
+        SignalSenderAuthority::AccountDevice {
+            public_key: key,
+            device_authorize_event_id: authorization,
+        }
+    }
+
     #[test]
     fn sealed_payload_completes_a_valid_signal_envelope() {
         let (mut alice_group, bob_group) = alice_and_bob();
@@ -877,8 +952,7 @@ mod tests {
                 .open_signal_envelope(
                     &envelope,
                     EncryptedPayloadScheme::MlsExporterAeadV1,
-                    &key,
-                    &authorization,
+                    device_authority(&key, &authorization),
                     GROUP_STATE_REF,
                     &mut AeadNonceReplayTracker::new()
                 )
@@ -896,8 +970,7 @@ mod tests {
             bob.open_signal_envelope(
                 &envelope,
                 EncryptedPayloadScheme::MlsRfc9420,
-                &key,
-                &authorization,
+                device_authority(&key, &authorization),
                 GROUP_STATE_REF,
                 &mut AeadNonceReplayTracker::new(),
             )
@@ -908,8 +981,7 @@ mod tests {
             bob.open_signal_envelope(
                 &envelope,
                 EncryptedPayloadScheme::MlsExporterAeadV1,
-                &key,
-                &authorization,
+                device_authority(&key, &authorization),
                 GROUP_STATE_REF,
                 &mut AeadNonceReplayTracker::new(),
             )
@@ -956,8 +1028,7 @@ mod tests {
                     .open_signal_envelope(
                         &envelope,
                         EncryptedPayloadScheme::MlsExporterAeadV1,
-                        candidate_key,
-                        candidate_authorization,
+                        device_authority(candidate_key, candidate_authorization),
                         accepted_ref,
                         &mut AeadNonceReplayTracker::new()
                     )
@@ -979,8 +1050,7 @@ mod tests {
                 .open_signal_envelope(
                     &envelope,
                     EncryptedPayloadScheme::MlsExporterAeadV1,
-                    &key,
-                    &authorization,
+                    device_authority(&key, &authorization),
                     GROUP_STATE_REF,
                     &mut AeadNonceReplayTracker::new()
                 )
@@ -1037,8 +1107,7 @@ mod tests {
                 .open_signal_envelope(
                     &envelope,
                     EncryptedPayloadScheme::MlsExporterAeadV1,
-                    &key,
-                    &authorization,
+                    device_authority(&key, &authorization),
                     GROUP_STATE_REF,
                     &mut replay
                 )
@@ -1059,8 +1128,7 @@ mod tests {
                 .open_signal_envelope(
                     &honest,
                     EncryptedPayloadScheme::MlsExporterAeadV1,
-                    &key,
-                    &authorization,
+                    device_authority(&key, &authorization),
                     GROUP_STATE_REF,
                     &mut replay
                 )

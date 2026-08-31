@@ -74,6 +74,15 @@ impl PublicKeyMaterial {
         out.copy_from_slice(&raw);
         Ok(out)
     }
+
+    /// Digest of the normalized raw Ed25519 key bytes.
+    ///
+    /// Signal Agent sequence domains use this value so equivalent raw,
+    /// multibase and JWK encodings cannot create different domains, while a
+    /// real runtime key replacement necessarily creates a fresh domain.
+    pub fn raw_ed25519_digest(&self) -> Result<Hash> {
+        Hash::new(canonical::sha256_digest(self.ed25519_bytes()?)).map_err(Into::into)
+    }
 }
 
 /// Decode a `did:key` Ed25519 multibase string into raw key bytes.

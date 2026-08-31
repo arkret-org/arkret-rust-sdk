@@ -161,7 +161,7 @@ pub struct SignalAeadBinding<'a> {
     pub realm_id: &'a RealmId,
     pub scope_ref: &'a ScopeRef,
     pub sender_actor_id: &'a ActorId,
-    pub sender_device_id: &'a DeviceId,
+    pub sender_device_id: Option<&'a DeviceId>,
     pub seal_ref: &'a SealId,
     pub signal_class: SignalClass,
     pub sent_at: DateTime<Utc>,
@@ -244,10 +244,12 @@ impl SignalAeadBinding<'_> {
             "sender_actor_id".to_owned(),
             serde_json::to_value(self.sender_actor_id)?,
         );
-        object.insert(
-            "sender_device_id".to_owned(),
-            Value::String(self.sender_device_id.as_str().to_owned()),
-        );
+        if let Some(sender_device_id) = self.sender_device_id {
+            object.insert(
+                "sender_device_id".to_owned(),
+                Value::String(sender_device_id.as_str().to_owned()),
+            );
+        }
         object.insert(
             "seal_ref".to_owned(),
             Value::String(self.seal_ref.as_str().to_owned()),
@@ -288,7 +290,7 @@ impl SignalAeadBinding<'_> {
     }
 }
 
-/// Detached device proof over the Signal envelope.
+/// Detached sender proof over the Signal envelope.
 ///
 /// Distinct from [`crate::primitives::ProducerEventProof`]: the transcript names the
 /// sending device explicitly and commits to `envelope_digest`, not to an
@@ -328,7 +330,12 @@ pub struct SignalEnvelope {
     pub realm_id: RealmId,
     pub scope_ref: ScopeRef,
     pub sender_actor_id: ActorId,
-    pub sender_device_id: DeviceId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present_proof_value"
+    )]
+    pub sender_device_id: Option<DeviceId>,
     pub seal_ref: SealId,
     pub signal_class: SignalClass,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
@@ -337,6 +344,17 @@ pub struct SignalEnvelope {
     pub expires_at: DateTime<Utc>,
     pub encrypted_payload: SignalEncryptedPayload,
     pub proof: SignalProof,
+}
+
+/// Closed sender branch selected by the presence of `sender_device_id`.
+///
+/// This is only a structural discriminator. `Agent` becomes trusted only
+/// after the caller validates accepted Agent classification and current
+/// runtime authority.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SignalSenderEndpoint<'a> {
+    AccountDevice(&'a DeviceId),
+    Agent,
 }
 
 fn deserialize_present_proof_value<'de, D, T>(
@@ -350,6 +368,13 @@ where
 }
 
 impl SignalEnvelope {
+    pub fn sender_endpoint(&self) -> SignalSenderEndpoint<'_> {
+        match self.sender_device_id.as_ref() {
+            Some(device_id) => SignalSenderEndpoint::AccountDevice(device_id),
+            None => SignalSenderEndpoint::Agent,
+        }
+    }
+
     /// `H(canonical_json(envelope_without_proof))`.
     ///
     /// Because `proof` is the only removal, the digest commits to the
@@ -372,7 +397,7 @@ impl SignalEnvelope {
             realm_id: &self.realm_id,
             scope_ref: &self.scope_ref,
             sender_actor_id: &self.sender_actor_id,
-            sender_device_id: &self.sender_device_id,
+            sender_device_id: self.sender_device_id.as_ref(),
             seal_ref: &self.seal_ref,
             signal_class: self.signal_class,
             sent_at: self.sent_at,
@@ -409,10 +434,12 @@ impl SignalEnvelope {
             "sender_actor_id".to_owned(),
             serde_json::to_value(&self.sender_actor_id)?,
         );
-        object.insert(
-            "sender_device_id".to_owned(),
-            Value::String(self.sender_device_id.as_str().to_owned()),
-        );
+        if let Some(sender_device_id) = &self.sender_device_id {
+            object.insert(
+                "sender_device_id".to_owned(),
+                Value::String(sender_device_id.as_str().to_owned()),
+            );
+        }
         object.insert(
             "verification_method".to_owned(),
             Value::String(self.proof.verification_method.as_str().to_owned()),
@@ -511,10 +538,9 @@ impl SignalEnvelope {
         // sealing path (which runs before an envelope exists) enforces the
         // identical set.
         self.aead_binding().validate()?;
-        // `signal.md` §1 — the DID must project to the sender core id,
-        // and the fragment must equal the device id. This is only the
-        // completeness condition of the directory lookup key, never a
-        // substitute for current device authorization.
+        // `signal.md` §1 — the DID must project to the sender core id.
+        // Ordinary senders additionally bind the fragment to the device id;
+        // Agent senders bind the complete method through current authority.
         let (proof_controller, proof_fragment) = self
             .proof
             .verification_method
@@ -527,11 +553,13 @@ impl SignalEnvelope {
             })?;
         let proof_controller = project_did_to_core_id(&Did::new(proof_controller)?)?;
         if &proof_controller != self.sender_actor_id.signing_principal_id()
-            || proof_fragment != self.sender_device_id.as_str()
+            || self
+                .sender_device_id
+                .as_ref()
+                .is_some_and(|device_id| proof_fragment != device_id.as_str())
         {
             return Err(WireError::Protocol(
-                "signal proof verification_method controller or fragment does not match the sender directory key"
-                    .to_owned(),
+                "signal proof verification_method does not match the sender endpoint".to_owned(),
             ));
         }
         if self.proof.created_at != self.sent_at {
@@ -712,7 +740,7 @@ mod tests {
             realm_id: realm(),
             scope_ref: ScopeRef::Realm { realm_id: realm() },
             sender_actor_id: actor(),
-            sender_device_id: device(),
+            sender_device_id: Some(device()),
             seal_ref: SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
             signal_class,
             sent_at: sent_at(),
@@ -779,6 +807,23 @@ mod tests {
             moved.proof_binding_bytes().unwrap(),
             original.proof_binding_bytes().unwrap()
         );
+    }
+
+    #[test]
+    fn agent_sender_omits_device_and_null_is_not_an_alias() {
+        let mut agent = envelope(SignalClass::Session, 30);
+        agent.sender_device_id = None;
+        agent.proof.verification_method =
+            DidUrl::new("did:webvh:z6mkfixture:alice.example#runtime-key").unwrap();
+        agent.encrypted_payload.aad_digest = agent.expected_aad_digest().unwrap();
+        agent.proof.envelope_digest = agent.envelope_digest().unwrap();
+        agent.validate_structural().unwrap();
+        assert_eq!(agent.sender_endpoint(), SignalSenderEndpoint::Agent);
+
+        let mut encoded = serde_json::to_value(agent).unwrap();
+        assert!(encoded.get("sender_device_id").is_none());
+        encoded["sender_device_id"] = Value::Null;
+        assert!(serde_json::from_value::<SignalEnvelope>(encoded).is_err());
     }
 
     #[test]
