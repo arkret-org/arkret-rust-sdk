@@ -68,11 +68,11 @@ pub const MAX_SIGNAL_STREAM_RECONNECT_AFTER_MS: u64 = 300_000;
 pub const MAX_SIGNAL_STREAM_REASON_CHARS: usize = 128;
 
 /// AEAD plaintext bound before encryption.
-pub const MAX_SIGNAL_PLAINTEXT_BYTES: usize = 48 * 1024;
+pub const MAX_SIGNAL_PLAINTEXT_BYTES: usize = 46 * 1024;
 
 /// Unpadded base64url ceiling for `ciphertext`, including the AEAD tag
 /// (16 bytes for every active v1 ciphersuite).
-pub const MAX_SIGNAL_CIPHERTEXT_CHARS: usize = 65_558;
+pub const MAX_SIGNAL_CIPHERTEXT_CHARS: usize = 62_827;
 
 /// Hard TTL ceiling across every class.
 pub const MAX_SIGNAL_TTL: Duration = Duration::seconds(120);
@@ -184,7 +184,7 @@ impl SignalAeadBinding<'_> {
     /// under a header an ingress would then reject.
     pub fn validate(&self) -> Result<()> {
         self.sender_actor_id.validate()?;
-        if self.scope_ref.realm_id() != self.realm_id {
+        if self.scope_ref.realm_id_opt() != Some(self.realm_id) {
             return Err(WireError::Protocol(
                 "signal scope_ref.realm_id must equal the envelope realm_id".to_owned(),
             ));
@@ -302,9 +302,17 @@ pub struct SignalProof {
     pub envelope_digest: Hash,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present_proof_value"
+    )]
     pub domain: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present_proof_value"
+    )]
     pub audience: Option<Audience>,
     pub jws: String,
 }
@@ -329,6 +337,16 @@ pub struct SignalEnvelope {
     pub expires_at: DateTime<Utc>,
     pub encrypted_payload: SignalEncryptedPayload,
     pub proof: SignalProof,
+}
+
+fn deserialize_present_proof_value<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
 }
 
 impl SignalEnvelope {
@@ -412,6 +430,71 @@ impl SignalEnvelope {
         Ok(canonical::canonical_json_bytes(&Value::Object(object))?)
     }
 
+    /// Closed schema shape, independent of an individual item's admission.
+    /// Typed deserialization already rejects absent and unknown fields. A bad
+    /// transcript digest, TTL or sender binding is deliberately not a batch
+    /// shape error; the destination discards that item without an oracle.
+    pub fn validate_wire_shape(&self) -> Result<()> {
+        fn b64_chars(value: &str) -> bool {
+            value
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+        }
+        let invalid = || {
+            WireError::Protocol("signal envelope does not match its closed wire schema".to_owned())
+        };
+        self.sender_actor_id.validate()?;
+        let payload = &self.encrypted_payload;
+        if payload.ciphertext.len() > MAX_SIGNAL_CIPHERTEXT_CHARS {
+            return Err(WireError::Protocol(format!(
+                "signal ciphertext exceeds {MAX_SIGNAL_CIPHERTEXT_CHARS} characters"
+            )));
+        }
+        if payload.scheme != SIGNAL_AEAD_SCHEME
+            || payload.purpose != SIGNAL_AEAD_PURPOSE
+            || payload.key_ref.algorithm != "MLS-EXPORTER-AEAD"
+            || (crate::EventId::new(&payload.key_ref.group_state_ref).is_err()
+                && Hash::new(&payload.key_ref.group_state_ref).is_err())
+            || payload.nonce.len() != 16
+            || !b64_chars(&payload.nonce)
+            || payload.ciphertext.len() < 22
+            || !b64_chars(&payload.ciphertext)
+            || self.proof.kind != crate::proof_kind::DETACHED_JWS
+        {
+            return Err(invalid());
+        }
+        let Some((controller, fragment)) = self.proof.verification_method.as_str().split_once('#')
+        else {
+            return Err(invalid());
+        };
+        if controller.contains('?')
+            || controller.chars().any(char::is_whitespace)
+            || fragment.is_empty()
+            || !fragment
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b"._:-".contains(&byte))
+        {
+            return Err(invalid());
+        }
+        let segments = self.proof.jws.split('.').collect::<Vec<_>>();
+        if segments.len() != 3
+            || segments[0].is_empty()
+            || segments[2].is_empty()
+            || segments.iter().any(|segment| !b64_chars(segment))
+        {
+            return Err(invalid());
+        }
+        if canonical::canonical_json_bytes(self)?.len() > MAX_SIGNAL_ENVELOPE_BYTES {
+            return Err(WireError::ProtocolCode {
+                code: ErrorCode::PayloadTooLarge,
+                message: format!(
+                    "signal envelope exceeds {MAX_SIGNAL_ENVELOPE_BYTES} canonical bytes"
+                ),
+            });
+        }
+        Ok(())
+    }
+
     /// Every check the sender, ingress, relay and receiver share, except the
     /// signature verification and the current-directory device authorization
     /// lookup, which need key material and accepted state. The two are separate
@@ -423,15 +506,11 @@ impl SignalEnvelope {
     /// an implementation that starts requiring them has reintroduced the
     /// metadata leak this rail removed.
     pub fn validate_structural(&self) -> Result<()> {
+        self.validate_wire_shape()?;
         // Everything decidable from the immutable header is delegated so the
         // sealing path (which runs before an envelope exists) enforces the
         // identical set.
         self.aead_binding().validate()?;
-        if self.encrypted_payload.ciphertext.len() > MAX_SIGNAL_CIPHERTEXT_CHARS {
-            return Err(WireError::Protocol(format!(
-                "signal ciphertext exceeds {MAX_SIGNAL_CIPHERTEXT_CHARS} characters"
-            )));
-        }
         // `signal.md` §1 — the DID must project to the sender core id,
         // and the fragment must equal the device id. This is only the
         // completeness condition of the directory lookup key, never a
@@ -469,12 +548,6 @@ impl SignalEnvelope {
             return Err(WireError::Protocol(
                 "signal aad_digest does not match the immutable outer header".to_owned(),
             ));
-        }
-        let canonical_len = canonical::canonical_json_bytes(self)?.len();
-        if canonical_len > MAX_SIGNAL_ENVELOPE_BYTES {
-            return Err(WireError::Protocol(format!(
-                "signal envelope exceeds {MAX_SIGNAL_ENVELOPE_BYTES} canonical bytes"
-            )));
         }
         Ok(())
     }
@@ -561,18 +634,23 @@ impl SignalRelayRequest {
             )));
         }
         for signal in &self.signals {
-            if signal.realm_id != self.realm_id || signal.scope_ref.realm_id() != &self.realm_id {
+            if signal.realm_id != self.realm_id
+                || signal.scope_ref.realm_id_opt() != Some(&self.realm_id)
+            {
                 return Err(WireError::Protocol(
                     "signal relay request and every envelope must use one realm_id".to_owned(),
                 ));
             }
-            signal.validate_structural()?;
+            signal.validate_wire_shape()?;
         }
         let canonical_len = canonical::canonical_json_bytes(self)?.len();
         if canonical_len > MAX_SIGNAL_RELAY_CANONICAL_BODY_BYTES {
-            return Err(WireError::Protocol(format!(
-                "signal relay request exceeds {MAX_SIGNAL_RELAY_CANONICAL_BODY_BYTES} canonical bytes"
-            )));
+            return Err(WireError::ProtocolCode {
+                code: ErrorCode::PayloadTooLarge,
+                message: format!(
+                    "signal relay request exceeds {MAX_SIGNAL_RELAY_CANONICAL_BODY_BYTES} canonical bytes"
+                ),
+            });
         }
         Ok(())
     }
@@ -739,6 +817,49 @@ mod tests {
     }
 
     #[test]
+    fn proof_optional_fields_reject_explicit_null_without_normalizing_signed_bytes() {
+        for field in ["domain", "audience"] {
+            let mut value = serde_json::to_value(envelope(SignalClass::Session, 30)).unwrap();
+            value["proof"][field] = Value::Null;
+            assert!(serde_json::from_value::<SignalEnvelope>(value).is_err());
+        }
+    }
+
+    #[test]
+    fn relay_shape_does_not_promote_one_item_rejection_into_a_batch_oracle() {
+        let mut bad = envelope(SignalClass::Session, 31);
+        bad.proof.envelope_digest = Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap();
+        let mut request = SignalRelayRequest {
+            realm_id: realm(),
+            signals: vec![bad],
+        };
+        request.validate().unwrap();
+        assert!(request.signals[0].validate_structural().is_err());
+        request.signals[0].proof.kind = "unknown".to_owned();
+        assert!(request.validate().is_err());
+        request.signals[0].proof.kind = proof_kind::DETACHED_JWS.to_owned();
+        request.signals[0].encrypted_payload.nonce = "not base64".to_owned();
+        assert!(request.validate().is_err());
+        let mut value = serde_json::to_value(envelope(SignalClass::Session, 30)).unwrap();
+        value.as_object_mut().unwrap().remove("proof");
+        assert!(serde_json::from_value::<SignalEnvelope>(value).is_err());
+    }
+
+    #[test]
+    fn relay_canonical_body_limit_has_a_machine_readable_size_code() {
+        let mut signal = envelope(SignalClass::Session, 30);
+        signal.encrypted_payload.ciphertext = "A".repeat(16_000);
+        let request = SignalRelayRequest {
+            realm_id: realm(),
+            signals: vec![signal; 128],
+        };
+        assert_eq!(
+            request.validate().unwrap_err().error_code(),
+            Some(ErrorCode::PayloadTooLarge)
+        );
+    }
+
+    #[test]
     fn per_class_ttl_ceilings_are_enforced() {
         envelope(SignalClass::Session, 30)
             .validate_structural()
@@ -814,6 +935,26 @@ mod tests {
             let err = mutated.validate_structural().unwrap_err();
             assert!(err.to_string().contains("aad_digest"), "{err}");
         }
+    }
+
+    #[test]
+    fn ciphertext_bound_reserves_envelope_overhead_for_46_kib_plaintext() {
+        assert_eq!(MAX_SIGNAL_PLAINTEXT_BYTES, 46 * 1024);
+        let encoded = crate::base64url::base64url_encode(vec![0; MAX_SIGNAL_PLAINTEXT_BYTES + 16]);
+        assert_eq!(encoded.len(), MAX_SIGNAL_CIPHERTEXT_CHARS);
+        let mut signal = envelope(SignalClass::Session, 30);
+        signal.encrypted_payload.ciphertext = encoded;
+        signal.proof.envelope_digest = signal.envelope_digest().unwrap();
+        signal.validate_structural().unwrap();
+        signal.encrypted_payload.ciphertext.push('A');
+        signal.proof.envelope_digest = signal.envelope_digest().unwrap();
+        assert!(
+            signal
+                .validate_structural()
+                .unwrap_err()
+                .to_string()
+                .contains("signal ciphertext exceeds")
+        );
     }
 
     #[test]

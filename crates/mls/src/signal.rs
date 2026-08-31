@@ -2,10 +2,10 @@
 //! (`zh/sync/signal.md` §1, `zh/conformance/encoding.md` §10.1 / §10.2).
 //!
 //! Sibling construction to the `mls_exporter_aead_v1` content scheme in
-//! [`crate::group`]: both hang off the same per-epoch `history_secret`, and the
-//! registered label is the only thing separating them under one group and
-//! epoch. The parameters are *not* shared, and assuming they are is the easiest
-//! way to get this wrong:
+//! [`crate::group`]. Exporter-content scopes use the per-epoch history root;
+//! standard-MLS scopes use the non-deliverable `ak.signal-root-v1` exporter.
+//! The accepted scope policy, never an untrusted envelope, selects that root.
+//! Signal and content keep separate labels and framing:
 //!
 //! | | content | signal |
 //! | --- | --- | --- |
@@ -24,8 +24,9 @@
 //! Derivation chain, all of it fixed by the registries:
 //!
 //! ```text
-//! history_secret[N] = MLS-Exporter("ak.history-v1", realm_id, KDF.Nh)
-//! K_signal[N,D]     = ExpandWithLabel(history_secret[N], "ak.signal-v1",
+//! signal_root[N]    = history_secret[N]                 // exporter content
+//!                  | MLS-Exporter("ak.signal-root-v1", scope, KDF.Nh)
+//! K_signal[N,D]     = ExpandWithLabel(signal_root[N], "ak.signal-v1",
 //!                                     sender_domain, AEAD.Nk)
 //! nonce             = I2OSP(durable_sender_counter, AEAD.Nn)
 //! AAD               = JCS(pre-encryption immutable header)   // §10.2
@@ -36,9 +37,11 @@ use std::mem::size_of;
 use arkret_canonical::{base64url_decode, base64url_encode};
 use arkret_crypto::{AeadNonceContext, AeadNonceReplayTracker, compose_aead_nonce};
 use arkret_models_crypto::MlsEndpointIdentity;
+use arkret_signatures::{PublicKeyMaterial, verify_ed25519_signal_proof};
 use arkret_wire::{
-    Hash, MAX_SIGNAL_PLAINTEXT_BYTES, ReasonCode, SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME,
-    SignalAeadBinding, SignalEncryptedPayload, SignalEnvelope, canonical,
+    EncryptedPayloadScheme, EventId, Hash, MAX_SIGNAL_PLAINTEXT_BYTES, ReasonCode,
+    SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME, SignalAeadBinding, SignalEncryptedPayload,
+    SignalEnvelope, canonical,
 };
 use zeroize::Zeroizing;
 
@@ -90,9 +93,11 @@ impl ArkretMlsGroup {
     /// nonce. `binding` is the pre-encryption immutable header (§10.2) — it is
     /// the AEAD AAD *and* the source of the nonce-derivation context, so the
     /// caller commits to the routing header before any ciphertext exists.
+    /// `content_scheme` must come from locally accepted scope policy.
     pub fn seal_signal_payload(
         &mut self,
         binding: &SignalAeadBinding<'_>,
+        content_scheme: EncryptedPayloadScheme,
         plaintext: &[u8],
     ) -> Result<SignalSeal> {
         binding.validate()?;
@@ -115,7 +120,7 @@ impl ArkretMlsGroup {
                 "signal sender does not match this MLS identity".to_owned(),
             ));
         }
-        let sender_domain = self.local_content_sender_domain()?.into_bytes();
+        let sender_domain = self.verified_signal_sender_domain(binding)?;
 
         let counter = self.signal_nonce_counter;
         let nonce = self.signal_nonce(binding, &sender_domain, suite, counter)?;
@@ -130,7 +135,7 @@ impl ArkretMlsGroup {
 
         let nonce_b64 = base64url_encode(&nonce);
         let aad = binding.aad_bytes(&nonce_b64)?;
-        let key = self.derive_signal_key(binding, &sender_domain, suite)?;
+        let key = self.derive_signal_key(binding, content_scheme, &sender_domain, suite)?;
         let ciphertext = suite.seal(&key, &nonce, &aad, plaintext)?;
 
         Ok(SignalSeal {
@@ -159,10 +164,14 @@ impl ArkretMlsGroup {
     ///
     /// Resolves the declared sender to an active MLS leaf, rejects a repeated
     /// counter (`aead_nonce_counter_replay`), then opens under the verified
-    /// sender-domain key and recomputed AAD.
+    /// sender-domain key and recomputed AAD. This is a cryptographic primitive,
+    /// not sender authentication: every epoch member knows the shared root and
+    /// can derive every sender-domain key. Use `open_signal_envelope` for the
+    /// authenticated receive path with independently current device evidence.
     pub fn open_signal_payload(
         &self,
         binding: &SignalAeadBinding<'_>,
+        content_scheme: EncryptedPayloadScheme,
         nonce: &str,
         ciphertext: &str,
         replay: &mut AeadNonceReplayTracker,
@@ -190,16 +199,16 @@ impl ArkretMlsGroup {
         }
         let mut counter_bytes = [0u8; size_of::<u64>()];
         counter_bytes.copy_from_slice(&nonce_bytes[counter_offset..]);
+        // Recomputed from the header we just validated — never the sender's
+        // self-reported `aad_digest` (§10.2).
+        let aad = binding.aad_bytes(nonce)?;
+        let key = self.derive_signal_key(binding, content_scheme, &sender_domain, suite)?;
+        let plaintext = suite.open(&key, &nonce_bytes, &aad, &base64url_decode(ciphertext)?)?;
         replay.accept_counter(
             &signal_nonce_context(binding, &sender_domain)?,
             u64::from_be_bytes(counter_bytes),
         )?;
-
-        // Recomputed from the header we just validated — never the sender's
-        // self-reported `aad_digest` (§10.2).
-        let aad = binding.aad_bytes(nonce)?;
-        let key = self.derive_signal_key(binding, &sender_domain, suite)?;
-        suite.open(&key, &nonce_bytes, &aad, &base64url_decode(ciphertext)?)
+        Ok(plaintext)
     }
 
     /// Validate a received [`SignalEnvelope`] and open its payload.
@@ -207,18 +216,45 @@ impl ArkretMlsGroup {
     /// The one-call receive path, so the envelope-level checks
     /// ([`SignalEnvelope::validate_structural`]: TTL ceilings, scope/realm
     /// agreement, size bounds, `envelope_digest` and the carried `aad_digest`)
-    /// cannot be forgotten before decryption. Signature verification and the
-    /// `seal_ref`-relative device authorization lookup still belong to the
-    /// caller: they need key material and accepted state this crate does not
-    /// hold.
+    /// cannot be forgotten before decryption. The caller must independently
+    /// authenticate current device authority (not target-Seal-relative), and
+    /// supply the accepted winning state reference for this exact scope/group.
+    /// A leaf remaining after known revocation must never provide that current
+    /// authority. Here the same current key and authorization Event are bound
+    /// to the complete accepted leaf identity before the producer proof and
+    /// ciphertext are verified. No server assertion replaces these checks.
     pub fn open_signal_envelope(
         &self,
         envelope: &SignalEnvelope,
+        content_scheme: EncryptedPayloadScheme,
+        current_device_key: &PublicKeyMaterial,
+        device_authorize_event_id: &EventId,
+        accepted_group_state_ref: &str,
         replay: &mut AeadNonceReplayTracker,
     ) -> Result<Vec<u8>> {
         envelope.validate_structural()?;
+        if envelope.encrypted_payload.key_ref.group_state_ref != accepted_group_state_ref {
+            return Err(Error::Protocol(
+                "signal group_state_ref is not the accepted winning state".to_owned(),
+            ));
+        }
+        let leaf = self.verified_signal_sender_leaf(&envelope.aead_binding())?;
+        let current_key = current_device_key
+            .ed25519_bytes()
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        if base64url_decode(leaf.signature_key.as_str())?.as_slice() != current_key
+            || leaf.device_authorize_event_id.as_ref() != Some(device_authorize_event_id)
+        {
+            return Err(Error::Protocol(
+                "signal current device key or authorization differs from the accepted MLS leaf"
+                    .to_owned(),
+            ));
+        }
+        verify_ed25519_signal_proof(envelope, current_device_key)
+            .map_err(|error| Error::Crypto(error.to_string()))?;
         self.open_signal_payload(
             &envelope.aead_binding(),
+            content_scheme,
             &envelope.encrypted_payload.nonce,
             &envelope.encrypted_payload.ciphertext,
             replay,
@@ -234,6 +270,11 @@ impl ArkretMlsGroup {
     /// nonce prefix come from the MLS exporter, which only ever evaluates
     /// against the group's current epoch.
     fn signal_suite_for(&self, binding: &SignalAeadBinding<'_>) -> Result<ExporterAeadSuite> {
+        if self.group_id() != binding.scope_ref.canonical_mls_group_id()? {
+            return Err(Error::Protocol(
+                "signal scope does not name this MLS group".to_owned(),
+            ));
+        }
         let suite = ExporterAeadSuite::resolve(binding.aead_profile)?;
         if self.group_ciphersuite_canonical_id()? != binding.aead_profile {
             return Err(Error::Protocol(format!(
@@ -254,23 +295,29 @@ impl ArkretMlsGroup {
         Ok(suite)
     }
 
-    /// `K_signal[N,D] = ExpandWithLabel(history_secret[N], "ak.signal-v1",
+    /// `K_signal[N,D] = ExpandWithLabel(signal_root[N], "ak.signal-v1",
     /// sender_domain, AEAD.Nk)`.
     ///
-    /// The `history_secret` is derived without retaining it: a Signal is
-    /// ephemeral and must not make its epoch shareable history.
+    /// Neither root is retained here: Signal must not make its epoch shareable
+    /// history, and standard-MLS roots must never enter history distribution.
     fn derive_signal_key(
         &self,
         binding: &SignalAeadBinding<'_>,
+        content_scheme: EncryptedPayloadScheme,
         verified_sender_domain: &[u8],
         suite: ExporterAeadSuite,
     ) -> Result<Zeroizing<Vec<u8>>> {
-        let history_secret = self.derive_history_secret(binding.realm_id.as_str())?;
-        derive_signal_key_from_history_secret(
-            &history_secret,
-            verified_sender_domain,
-            suite.key_len(),
-        )
+        let signal_root = match content_scheme {
+            EncryptedPayloadScheme::MlsExporterAeadV1 => {
+                self.derive_history_secret(binding.realm_id.as_str())?
+            }
+            EncryptedPayloadScheme::MlsRfc9420 => self.export_secret(
+                arkret_wire::ExporterLabelId::SIGNAL_ROOT_V1,
+                &binding.scope_ref.canonical_effective_scope_key_bytes()?,
+                32,
+            )?,
+        };
+        derive_signal_key_from_history_secret(&signal_root, verified_sender_domain, suite.key_len())
     }
 
     /// `nonce = I2OSP(counter, AEAD.Nn)` (§10.1).
@@ -286,6 +333,14 @@ impl ArkretMlsGroup {
     }
 
     fn verified_signal_sender_domain(&self, binding: &SignalAeadBinding<'_>) -> Result<Vec<u8>> {
+        self.verified_signal_sender_leaf(binding)?;
+        Ok(binding.sender_device_id.as_str().as_bytes().to_vec())
+    }
+
+    fn verified_signal_sender_leaf(
+        &self,
+        binding: &SignalAeadBinding<'_>,
+    ) -> Result<crate::group::MlsVerifiedLeafBinding> {
         let matching_leaves = self
             .verified_leaf_bindings()?
             .into_iter()
@@ -293,20 +348,29 @@ impl ArkretMlsGroup {
                 matches!(
                     &leaf.endpoint,
                     MlsEndpointIdentity::HumanDevice {
-                        principal_id,
                         device_id,
-                    } if binding.sender_actor_id.as_account_id().is_some()
-                        && principal_id == binding.sender_actor_id.signing_principal_id()
-                        && device_id == binding.sender_device_id
+                        ..
+                    } if device_id == binding.sender_device_id
                 )
             })
-            .count();
-        if matching_leaves != 1 {
+            .collect::<Vec<_>>();
+        if matching_leaves.len() != 1 {
             return Err(Error::Protocol(
                 "signal sender does not resolve to exactly one active MLS leaf".to_owned(),
             ));
         }
-        Ok(binding.sender_device_id.as_str().as_bytes().to_vec())
+        let leaf = matching_leaves
+            .into_iter()
+            .next()
+            .expect("one verified leaf");
+        if &leaf.actor_id != binding.sender_actor_id
+            || binding.sender_actor_id.as_account_id().is_none()
+        {
+            return Err(Error::Protocol(
+                "signal sender differs from the complete accepted MLS leaf actor".to_owned(),
+            ));
+        }
+        Ok(leaf)
     }
 }
 
@@ -347,6 +411,7 @@ mod tests {
     const GROUP_STATE_REF: &str = "ak:event:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM";
     const ALICE_DEVICE: &str = "ak:device:01904100-0000-7000-8000-000000000006";
     const BOB_DEVICE: &str = "ak:device:01904100-0000-7000-8000-00000000000e";
+    const ALICE_SIGNING_SEED: [u8; 32] = [41; 32];
     const TYPING: &[u8] = br#"{"kind":"typing"}"#;
     /// `derive_signal_key(history_secret_of_the_content_key_vector,
     /// ALICE_DEVICE, 16)`.
@@ -435,9 +500,12 @@ mod tests {
     }
 
     fn alice_and_bob() -> (ArkretMlsGroup, ArkretMlsGroup) {
-        let alice = ArkretMlsIdentity::new_test_human_device(
+        let alice = ArkretMlsIdentity::new_human_device(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
             DeviceId::new(ALICE_DEVICE.to_owned()).unwrap(),
+            crate::identity::ArkretMlsSigner::from_ed25519_signing_key(
+                ed25519_dalek::SigningKey::from_bytes(&ALICE_SIGNING_SEED),
+            ),
         )
         .unwrap();
         let bob = ArkretMlsIdentity::new_test_human_device(
@@ -454,6 +522,15 @@ mod tests {
         bob_group
             .install_test_leaf_bindings(vec![alice_endpoint, bob_endpoint])
             .unwrap();
+        for group in [&mut alice_group, &mut bob_group] {
+            let mut bindings = group.verified_leaf_bindings().unwrap();
+            for leaf in &mut bindings {
+                let mut account = leaf.actor_id.as_account_id().unwrap().clone();
+                account.station_id = DidCoreId::new("ak:did_core:web:station.example").unwrap();
+                leaf.actor_id = arkret_wire::ActorId::account(account);
+            }
+            group.install_verified_leaf_bindings(bindings).unwrap();
+        }
         assert_eq!(alice_group.epoch(), bob_group.epoch());
         (alice_group, bob_group)
     }
@@ -611,7 +688,9 @@ mod tests {
         let parts = BindingParts::new("ak:did_core:webvh:z6mkfixturealice", ALICE_DEVICE);
         let binding = parts.binding(epoch);
 
-        let seal = alice_group.seal_signal_payload(&binding, TYPING).unwrap();
+        let seal = alice_group
+            .seal_signal_payload(&binding, EncryptedPayloadScheme::MlsExporterAeadV1, TYPING)
+            .unwrap();
         assert_eq!(seal.nonce_counter, 0);
         assert_eq!(seal.encrypted_payload.scheme, SIGNAL_AEAD_SCHEME);
         assert_eq!(seal.encrypted_payload.purpose, SIGNAL_AEAD_PURPOSE);
@@ -625,6 +704,7 @@ mod tests {
         let opened = bob_group
             .open_signal_payload(
                 &binding,
+                EncryptedPayloadScheme::MlsExporterAeadV1,
                 &seal.encrypted_payload.nonce,
                 &seal.encrypted_payload.ciphertext,
                 &mut replay,
@@ -636,6 +716,7 @@ mod tests {
         let error = bob_group
             .open_signal_payload(
                 &binding,
+                EncryptedPayloadScheme::MlsExporterAeadV1,
                 &seal.encrypted_payload.nonce,
                 &seal.encrypted_payload.ciphertext,
                 &mut replay,
@@ -655,7 +736,11 @@ mod tests {
         let bob_parts = BindingParts::new("ak:did_core:webvh:z6mkfixturebob", BOB_DEVICE);
 
         let error = alice_group
-            .seal_signal_payload(&bob_parts.binding(epoch), b"spoof")
+            .seal_signal_payload(
+                &bob_parts.binding(epoch),
+                EncryptedPayloadScheme::MlsExporterAeadV1,
+                b"spoof",
+            )
             .unwrap_err()
             .to_string();
         assert!(
@@ -664,7 +749,11 @@ mod tests {
         );
 
         let seal = alice_group
-            .seal_signal_payload(&alice_parts.binding(epoch), TYPING)
+            .seal_signal_payload(
+                &alice_parts.binding(epoch),
+                EncryptedPayloadScheme::MlsExporterAeadV1,
+                TYPING,
+            )
             .unwrap();
         // Re-declare Alice's ciphertext as Bob's: both the KDF context and AAD
         // change, so the ciphertext cannot authenticate.
@@ -672,6 +761,7 @@ mod tests {
             bob_group
                 .open_signal_payload(
                     &bob_parts.binding(epoch),
+                    EncryptedPayloadScheme::MlsExporterAeadV1,
                     &seal.encrypted_payload.nonce,
                     &seal.encrypted_payload.ciphertext,
                     &mut AeadNonceReplayTracker::new(),
@@ -693,7 +783,11 @@ mod tests {
         let mut nonces = Vec::new();
         for expected_counter in 0..3u64 {
             let seal = alice_group
-                .seal_signal_payload(&parts.binding(epoch), TYPING)
+                .seal_signal_payload(
+                    &parts.binding(epoch),
+                    EncryptedPayloadScheme::MlsExporterAeadV1,
+                    TYPING,
+                )
                 .unwrap();
             assert_eq!(seal.nonce_counter, expected_counter);
             nonces.push(seal.encrypted_payload.nonce);
@@ -711,13 +805,20 @@ mod tests {
     /// A sealed payload drops straight into a `SignalEnvelope` that passes the
     /// shared structural gate — proof that the AAD this module authenticates
     /// is the one an ingress recomputes from the wire header.
-    #[test]
-    fn sealed_payload_completes_a_valid_signal_envelope() {
-        let (mut alice_group, bob_group) = alice_and_bob();
+    fn signed_envelope(alice_group: &mut ArkretMlsGroup) -> SignalEnvelope {
+        signed_envelope_with_scheme(alice_group, EncryptedPayloadScheme::MlsExporterAeadV1)
+    }
+
+    fn signed_envelope_with_scheme(
+        alice_group: &mut ArkretMlsGroup,
+        content_scheme: EncryptedPayloadScheme,
+    ) -> SignalEnvelope {
         let epoch = alice_group.epoch();
         let parts = BindingParts::new("ak:did_core:webvh:z6mkfixturealice", ALICE_DEVICE);
         let binding = parts.binding(epoch);
-        let seal = alice_group.seal_signal_payload(&binding, TYPING).unwrap();
+        let seal = alice_group
+            .seal_signal_payload(&binding, content_scheme, TYPING)
+            .unwrap();
 
         let mut envelope = SignalEnvelope {
             realm_id: parts.realm_id.clone(),
@@ -744,13 +845,293 @@ mod tests {
             },
         };
         envelope.proof.envelope_digest = envelope.envelope_digest().unwrap();
+        envelope.proof.jws = arkret_signatures::sign_ed25519_detached_jws(
+            &ed25519_dalek::SigningKey::from_bytes(&ALICE_SIGNING_SEED),
+            &envelope.proof_binding_bytes().unwrap(),
+        )
+        .unwrap();
         envelope.validate_structural().unwrap();
+        envelope
+    }
+
+    fn current_alice_evidence(group: &ArkretMlsGroup) -> (PublicKeyMaterial, EventId) {
+        let leaf = group.verified_leaf_bindings().unwrap().into_iter()
+            .find(|leaf| matches!(&leaf.endpoint, MlsEndpointIdentity::HumanDevice {device_id, ..} if device_id.as_str() == ALICE_DEVICE))
+            .unwrap();
+        (
+            PublicKeyMaterial::Ed25519Raw {
+                bytes: base64url_decode(leaf.signature_key.as_str()).unwrap(),
+            },
+            leaf.device_authorize_event_id.unwrap(),
+        )
+    }
+
+    #[test]
+    fn sealed_payload_completes_a_valid_signal_envelope() {
+        let (mut alice_group, bob_group) = alice_and_bob();
+        let envelope = signed_envelope(&mut alice_group);
+        let (key, authorization) = current_alice_evidence(&bob_group);
 
         assert_eq!(
             bob_group
-                .open_signal_envelope(&envelope, &mut AeadNonceReplayTracker::new())
+                .open_signal_envelope(
+                    &envelope,
+                    EncryptedPayloadScheme::MlsExporterAeadV1,
+                    &key,
+                    &authorization,
+                    GROUP_STATE_REF,
+                    &mut AeadNonceReplayTracker::new()
+                )
                 .unwrap(),
             TYPING
+        );
+    }
+
+    #[test]
+    fn standard_mls_signal_root_is_not_the_deliverable_history_root() {
+        let (mut alice, bob) = alice_and_bob();
+        let envelope = signed_envelope_with_scheme(&mut alice, EncryptedPayloadScheme::MlsRfc9420);
+        let (key, authorization) = current_alice_evidence(&bob);
+        assert_eq!(
+            bob.open_signal_envelope(
+                &envelope,
+                EncryptedPayloadScheme::MlsRfc9420,
+                &key,
+                &authorization,
+                GROUP_STATE_REF,
+                &mut AeadNonceReplayTracker::new(),
+            )
+            .unwrap(),
+            TYPING
+        );
+        assert!(
+            bob.open_signal_envelope(
+                &envelope,
+                EncryptedPayloadScheme::MlsExporterAeadV1,
+                &key,
+                &authorization,
+                GROUP_STATE_REF,
+                &mut AeadNonceReplayTracker::new(),
+            )
+            .is_err()
+        );
+        let binding = envelope.aead_binding();
+        let domain = bob.verified_signal_sender_domain(&binding).unwrap();
+        let suite = bob.signal_suite_for(&binding).unwrap();
+        let standard_key = bob
+            .derive_signal_key(&binding, EncryptedPayloadScheme::MlsRfc9420, &domain, suite)
+            .unwrap();
+        let history_key = bob
+            .derive_signal_key(
+                &binding,
+                EncryptedPayloadScheme::MlsExporterAeadV1,
+                &domain,
+                suite,
+            )
+            .unwrap();
+        assert_ne!(&*standard_key, &*history_key);
+        assert!(alice.history_secrets.is_empty());
+        assert!(bob.history_secrets.is_empty());
+    }
+
+    #[test]
+    fn current_authority_and_winning_leaf_must_name_the_same_key_event_and_account() {
+        let (mut alice_group, mut bob_group) = alice_and_bob();
+        let envelope = signed_envelope(&mut alice_group);
+        let (key, authorization) = current_alice_evidence(&bob_group);
+        let wrong_key = PublicKeyMaterial::Ed25519Raw {
+            bytes: ed25519_dalek::SigningKey::from_bytes(&[9; 32])
+                .verifying_key()
+                .to_bytes()
+                .to_vec(),
+        };
+        let replacement = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [9; 32]);
+        for (candidate_key, candidate_authorization, accepted_ref) in [
+            (&wrong_key, &authorization, GROUP_STATE_REF),
+            (&key, &replacement, GROUP_STATE_REF),
+            (&key, &authorization, replacement.as_str()),
+        ] {
+            assert!(
+                bob_group
+                    .open_signal_envelope(
+                        &envelope,
+                        EncryptedPayloadScheme::MlsExporterAeadV1,
+                        candidate_key,
+                        candidate_authorization,
+                        accepted_ref,
+                        &mut AeadNonceReplayTracker::new()
+                    )
+                    .is_err()
+            );
+        }
+        let mut leaves = bob_group.verified_leaf_bindings().unwrap();
+        for leaf in &mut leaves {
+            if leaf.actor_id == envelope.sender_actor_id {
+                let mut account = leaf.actor_id.as_account_id().unwrap().clone();
+                account.station_id =
+                    DidCoreId::new("ak:did_core:web:other-station.example").unwrap();
+                leaf.actor_id = arkret_wire::ActorId::account(account);
+            }
+        }
+        bob_group.install_verified_leaf_bindings(leaves).unwrap();
+        assert!(
+            bob_group
+                .open_signal_envelope(
+                    &envelope,
+                    EncryptedPayloadScheme::MlsExporterAeadV1,
+                    &key,
+                    &authorization,
+                    GROUP_STATE_REF,
+                    &mut AeadNonceReplayTracker::new()
+                )
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn an_epoch_member_can_forge_sender_aead_but_not_the_producer_signature() {
+        let (mut alice_group, bob_group) = alice_and_bob();
+        let mut envelope = signed_envelope(&mut alice_group);
+        let (key, authorization) = current_alice_evidence(&bob_group);
+        let binding = envelope.aead_binding();
+        let sender_domain = bob_group.verified_signal_sender_domain(&binding).unwrap();
+        let suite = bob_group.signal_suite_for(&binding).unwrap();
+        let shared_key = bob_group
+            .derive_signal_key(
+                &binding,
+                EncryptedPayloadScheme::MlsExporterAeadV1,
+                &sender_domain,
+                suite,
+            )
+            .unwrap();
+        let nonce = base64url_decode(&envelope.encrypted_payload.nonce).unwrap();
+        let aad = binding
+            .aad_bytes(&envelope.encrypted_payload.nonce)
+            .unwrap();
+        envelope.encrypted_payload.ciphertext = base64url_encode(
+            suite
+                .seal(&shared_key, &nonce, &aad, b"forged by another member")
+                .unwrap(),
+        );
+        envelope.proof.envelope_digest = envelope.envelope_digest().unwrap();
+        envelope.proof.jws = arkret_signatures::sign_ed25519_detached_jws(
+            &ed25519_dalek::SigningKey::from_bytes(&[9; 32]),
+            &envelope.proof_binding_bytes().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            bob_group
+                .open_signal_payload(
+                    &envelope.aead_binding(),
+                    EncryptedPayloadScheme::MlsExporterAeadV1,
+                    &envelope.encrypted_payload.nonce,
+                    &envelope.encrypted_payload.ciphertext,
+                    &mut AeadNonceReplayTracker::new()
+                )
+                .unwrap(),
+            b"forged by another member"
+        );
+        let mut replay = AeadNonceReplayTracker::new();
+        assert!(
+            bob_group
+                .open_signal_envelope(
+                    &envelope,
+                    EncryptedPayloadScheme::MlsExporterAeadV1,
+                    &key,
+                    &authorization,
+                    GROUP_STATE_REF,
+                    &mut replay
+                )
+                .is_err()
+        );
+        // A rejected proof must not poison the honest sender's nonce slot.
+        let mut honest = envelope.clone();
+        honest.encrypted_payload.ciphertext =
+            base64url_encode(suite.seal(&shared_key, &nonce, &aad, TYPING).unwrap());
+        honest.proof.envelope_digest = honest.envelope_digest().unwrap();
+        honest.proof.jws = arkret_signatures::sign_ed25519_detached_jws(
+            &ed25519_dalek::SigningKey::from_bytes(&ALICE_SIGNING_SEED),
+            &honest.proof_binding_bytes().unwrap(),
+        )
+        .unwrap();
+        assert!(
+            bob_group
+                .open_signal_envelope(
+                    &honest,
+                    EncryptedPayloadScheme::MlsExporterAeadV1,
+                    &key,
+                    &authorization,
+                    GROUP_STATE_REF,
+                    &mut replay
+                )
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn duplicate_device_domains_are_rejected_even_across_different_station_accounts() {
+        let (mut alice, _) = alice_and_bob();
+        let duplicate = ArkretMlsIdentity::new_test_human_device(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+            DeviceId::new(ALICE_DEVICE).unwrap(),
+        )
+        .unwrap();
+        alice
+            .add_member(&duplicate.key_package_record().unwrap())
+            .unwrap();
+        let mut leaves = alice.verified_leaf_bindings().unwrap();
+        let mut index = 0;
+        for leaf in &mut leaves {
+            if matches!(&leaf.endpoint, MlsEndpointIdentity::HumanDevice { device_id, .. } if device_id.as_str() == ALICE_DEVICE)
+            {
+                let mut account = leaf.actor_id.as_account_id().unwrap().clone();
+                account.station_id = DidCoreId::new(if index == 0 {
+                    "ak:did_core:web:station.example"
+                } else {
+                    "ak:did_core:web:other-station.example"
+                })
+                .unwrap();
+                leaf.actor_id = arkret_wire::ActorId::account(account);
+                index += 1;
+            }
+        }
+        assert_eq!(index, 2);
+        alice.install_verified_leaf_bindings(leaves).unwrap();
+        let parts = BindingParts::new("ak:did_core:webvh:z6mkfixturealice", ALICE_DEVICE);
+        assert!(
+            alice
+                .verified_signal_sender_domain(&parts.binding(alice.epoch()))
+                .unwrap_err()
+                .to_string()
+                .contains("exactly one active MLS leaf")
+        );
+    }
+
+    #[test]
+    fn a_different_scope_cannot_borrow_the_same_epoch_group() {
+        let (mut alice_group, bob_group) = alice_and_bob();
+        let mut parts = BindingParts::new("ak:did_core:webvh:z6mkfixturealice", ALICE_DEVICE);
+        parts.realm_id =
+            RealmId::new("ak:realm:AUhJ30wlw7UA5CWJk9HZUsDp0GyhA-QVSF565JjdtLul").unwrap();
+        parts.scope_ref = ScopeRef::Realm {
+            realm_id: parts.realm_id.clone(),
+        };
+        let binding = parts.binding(bob_group.epoch());
+        assert!(
+            alice_group
+                .seal_signal_payload(&binding, EncryptedPayloadScheme::MlsExporterAeadV1, TYPING)
+                .is_err()
+        );
+        assert!(
+            bob_group
+                .open_signal_payload(
+                    &binding,
+                    EncryptedPayloadScheme::MlsExporterAeadV1,
+                    "AAAAAAAAAAAAAAAA",
+                    "AAAAAAAAAAAAAAAAAAAAAA",
+                    &mut AeadNonceReplayTracker::new()
+                )
+                .is_err()
         );
     }
 
@@ -760,9 +1141,24 @@ mod tests {
         let epoch = alice_group.epoch();
         let parts = BindingParts::new("ak:did_core:webvh:z6mkfixturealice", ALICE_DEVICE);
 
+        let at_limit = alice_group
+            .seal_signal_payload(
+                &parts.binding(epoch),
+                EncryptedPayloadScheme::MlsExporterAeadV1,
+                &vec![0; MAX_SIGNAL_PLAINTEXT_BYTES],
+            )
+            .unwrap();
+        assert_eq!(
+            at_limit.encrypted_payload.ciphertext.len(),
+            arkret_wire::MAX_SIGNAL_CIPHERTEXT_CHARS
+        );
         let oversized = vec![0u8; MAX_SIGNAL_PLAINTEXT_BYTES + 1];
         let error = alice_group
-            .seal_signal_payload(&parts.binding(epoch), &oversized)
+            .seal_signal_payload(
+                &parts.binding(epoch),
+                EncryptedPayloadScheme::MlsExporterAeadV1,
+                &oversized,
+            )
             .unwrap_err()
             .to_string();
         assert!(error.contains("signal plaintext exceeds"), "{error}");
@@ -770,7 +1166,11 @@ mod tests {
         // Neither the Signal key nor the sender prefix is derivable for an
         // epoch the MLS exporter no longer evaluates.
         let error = alice_group
-            .seal_signal_payload(&parts.binding(epoch + 1), TYPING)
+            .seal_signal_payload(
+                &parts.binding(epoch + 1),
+                EncryptedPayloadScheme::MlsExporterAeadV1,
+                TYPING,
+            )
             .unwrap_err()
             .to_string();
         assert!(error.contains("current epoch"), "{error}");

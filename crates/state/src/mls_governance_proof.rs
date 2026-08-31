@@ -200,7 +200,37 @@ pub fn materialize_registered_cell_value_from_verified_checkpoint<ProjectWrites>
 where
     ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
 {
+    materialize_registered_cell_value_at_basis_from_verified_checkpoint(
+        checkpoint,
+        &checkpoint.basis,
+        cell,
+        registry,
+        project_writes,
+    )
+}
+
+/// Read a registered cell at an explicitly named accepted cut of a trusted
+/// checkpoint. The caller cannot manufacture authority by naming an unknown
+/// Seal; the reducer resolves the basis against the fully replayed checkpoint.
+pub fn materialize_registered_cell_value_at_basis_from_verified_checkpoint<ProjectWrites>(
+    checkpoint: &MlsGovernanceVerificationCheckpoint,
+    basis: &SealBasis,
+    cell: &CellRef,
+    registry: &dyn CellRegistry,
+    project_writes: ProjectWrites,
+) -> arkret_wire::Result<Value>
+where
+    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+{
     checkpoint.validate_checkpoint()?;
+    basis.validate_protocol_bounds()?;
+    if basis
+        .leaves
+        .iter()
+        .any(|id| !checkpoint.accepted_seals.iter().any(|seal| &seal.id == id))
+    {
+        return frontier_rejected("requested cell basis contains an unverified Seal");
+    }
     let (seal_store, cell_store, ..) = replay_checkpoint_and_cut_to_basis(
         &checkpoint.realm_id,
         &checkpoint.basis,
@@ -216,7 +246,7 @@ where
         project_writes,
     )?;
     let state = effective_state_at(
-        &checkpoint.basis.leaves,
+        &basis.leaves,
         &checkpoint.realm_id,
         &seal_store,
         &cell_store,
