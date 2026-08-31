@@ -251,8 +251,8 @@ impl Client {
     ///
     /// Ordinary Events use online admission without a prefetched lease. A
     /// closed anchor unit has no accepted authority yet, so this method obtains
-    /// the complete anchor-unit lease set that lets the admitting Principal
-    /// Server issue the genesis Control Proposal Acks atomically.
+    /// the complete anchor-unit lease set that lets the admitting Station issue the genesis Control
+    /// Proposal Acks atomically.
     pub async fn prepare_initial_submissions(
         &self,
         events: &[Event],

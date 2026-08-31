@@ -227,8 +227,7 @@ impl QueryDeviceRecord {
     ///
     /// This is the generation half of the §8.2 gate only. A caller MUST also
     /// verify the attestation proof before treating the attested keys as usable;
-    /// `arkret-signatures` owns that half because it needs the serving Principal
-    /// Server's DID Document.
+    /// `arkret-signatures` owns that half because it needs the serving Station's DID Document.
     pub fn is_usable_in_generation(&self, generation: Option<&DeviceGenerationState>) -> bool {
         let attested = &self.device_projection_attestation.attestation;
         if attested.device_status != DeviceStatus::Active {
