@@ -353,7 +353,7 @@ pub struct AgentKeyPairRequestBody {
 /// already covered by the accepted, controller-signed Agent-PCR frontier.
 ///
 /// A durable Event is not yet an authorization witness. Callers MUST close the
-/// Event into a managed-PCR Seal and retry the same idempotent pairing request
+/// Event into an Agent PCR Seal and retry the same idempotent pairing request
 /// before treating the runtime as active.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

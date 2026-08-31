@@ -25,8 +25,7 @@ use chrono::{DateTime, Utc};
 use crate::REALM_CREATE_CELL;
 use crate::projection::{CellWriteProjector, direct_projection, validate_realm_create_projection};
 
-const MANAGED_AGENT_PCR_DIGEST_SUITE: arkret_canonical::DigestSuite =
-    arkret_canonical::DigestSuite::Sha256;
+const AGENT_PCR_DIGEST_SUITE: arkret_canonical::DigestSuite = arkret_canonical::DigestSuite::Sha256;
 
 /// Public inputs for the profile-closed Agent PCR Realm payload.
 #[derive(Clone, Debug)]
@@ -117,7 +116,7 @@ pub struct AgentPcrControlMaterial {
 /// Materialize the canonical control state of a Agent PCR.
 ///
 /// The delegated create Event derives the six common Realm genesis cells plus
-/// its conditional Agent-status genesis cell. Every later managed PCR Event
+/// its conditional Agent-status genesis cell. Every later Agent PCR Event
 /// likewise contributes exactly what its registered contract projects. Keeping
 /// this materialization in the SDK gives the controller-side Seal builder and
 /// receiver admission one byte-identical state-root implementation.
@@ -188,7 +187,7 @@ pub fn materialize_agent_pcr_control(
     }
     validate_realm_create_projection(create, create_effects)?;
 
-    // A managed PCR is itself a control-only Realm. Effectless protocol
+    // An Agent PCR is itself a control-only Realm. Effectless protocol
     // anchors such as `ak.mls.genesis` still belong to the notarized history:
     // they change the coverage root even though they do not change a lattice
     // cell. Omitting them would leave the MLS genesis outside its own
@@ -210,7 +209,7 @@ pub fn materialize_agent_pcr_control(
         .map(|event| {
             Ok((
                 event,
-                Hash::new(event.event_digest_with_digest_suite(MANAGED_AGENT_PCR_DIGEST_SUITE)?)?,
+                Hash::new(event.event_digest_with_digest_suite(AGENT_PCR_DIGEST_SUITE)?)?,
             ))
         })
         .collect::<Result<Vec<_>>>()?;
@@ -228,7 +227,7 @@ pub fn materialize_agent_pcr_control(
         ));
     }
 
-    // A first managed-PCR Seal is one closed anchor unit. Every later Event
+    // A first Agent PCR Seal is one closed anchor unit. Every later Event
     // is an ordinary Control Move and therefore carries the accepted Seal view
     // it was authored against. Keeping the batches explicit is load-bearing:
     // all Moves in one successor batch read the same frozen pre-state, while
@@ -287,7 +286,7 @@ pub fn materialize_agent_pcr_control(
         cursor = end;
     }
 
-    let state_root = compute_state_root(&joined, MANAGED_AGENT_PCR_DIGEST_SUITE)
+    let state_root = compute_state_root(&joined, AGENT_PCR_DIGEST_SUITE)
         .map_err(|error| WireError::Protocol(format!("Agent PCR state root: {error}")))?;
     Ok(AgentPcrControlMaterial {
         realm_id: create.realm_id.clone(),
@@ -447,7 +446,7 @@ impl AgentPcrGenesisAuthority {
     /// Derive the authority from the one accepted delegated create Event.
     ///
     /// The complete genesis leaf set is validated exactly as it is for any
-    /// other managed PCR bootstrap branch, and the authority digest covers the
+    /// other Agent PCR bootstrap branch, and the authority digest covers the
     /// whole founding [`NotaryValue`] — recovery members, controller
     /// organization, and every other field — not just the primary DID.
     pub fn from_accepted_create(create: &Event, project: CellWriteProjector<'_>) -> Result<Self> {
@@ -538,16 +537,16 @@ pub fn build_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
             "Agent PCR Seal has no new Event delta".to_owned(),
         ));
     }
-    let control_root = control_event_set_root(&target, MANAGED_AGENT_PCR_DIGEST_SUITE)
+    let control_root = control_event_set_root(&target, AGENT_PCR_DIGEST_SUITE)
         .map_err(|error| WireError::Protocol(format!("Agent PCR control root: {error}")))?;
     let completeness_root = arkret_state::control_event_completeness_root(
         &events
             .iter()
             .cloned()
-            .map(|event| (event, MANAGED_AGENT_PCR_DIGEST_SUITE))
+            .map(|event| (event, AGENT_PCR_DIGEST_SUITE))
             .collect::<Vec<_>>(),
         &target,
-        MANAGED_AGENT_PCR_DIGEST_SUITE,
+        AGENT_PCR_DIGEST_SUITE,
     )
     .map_err(|error| WireError::Protocol(format!("Agent PCR completeness root: {error}")))?;
     let (sealed_at, availability_receipt_digests) = match (predecessor, availability) {
@@ -599,16 +598,13 @@ pub fn build_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
         hlc,
     };
     let canonical_bytes = seal.canonical_bytes_for_id()?;
-    seal.id = Seal::id_from_canonical_bytes(&canonical_bytes, MANAGED_AGENT_PCR_DIGEST_SUITE)?;
+    seal.id = Seal::id_from_canonical_bytes(&canonical_bytes, AGENT_PCR_DIGEST_SUITE)?;
     seal.notary_signature = NotarySig::Single(
         signer
-            .sign_notary_payload_with_digest_suite(
-                &canonical_bytes,
-                MANAGED_AGENT_PCR_DIGEST_SUITE,
-            )?
+            .sign_notary_payload_with_digest_suite(&canonical_bytes, AGENT_PCR_DIGEST_SUITE)?
             .into(),
     );
     seal.validate_structural()?;
-    seal.validate_id(MANAGED_AGENT_PCR_DIGEST_SUITE)?;
+    seal.validate_id(AGENT_PCR_DIGEST_SUITE)?;
     Ok(seal)
 }
