@@ -681,8 +681,9 @@ pub struct EventsFrontierFederationPeerState {
     /// Filtered membership/role state root for `request.actor_id`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub membership_frontier_root: Option<Hash>,
-    /// Per-actor sequence upper bounds returned to an authorized peer.
-    #[serde(default)]
+    /// Per-actor sequence upper bounds returned to an authorized peer. JSON
+    /// object keys are the exact RFC 8785 canonical JSON text of each ActorId.
+    #[serde(default, with = "actor_sequence_bounds_map")]
     pub actor_seq_upper_bounds: BTreeMap<ActorId, u64>,
     /// Optional witness / receipt-service attestations over the frontier.
     #[serde(default)]
@@ -692,6 +693,71 @@ pub struct EventsFrontierFederationPeerState {
     pub issuer_id: DidCoreId,
     /// Service signature object over the peer frontier response.
     pub signature: BTreeMap<String, Value>,
+}
+
+mod actor_sequence_bounds_map {
+    use std::collections::BTreeMap;
+    use std::fmt;
+
+    use arkret_wire::ActorId;
+    use serde::de::{Error, MapAccess, Visitor};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub(super) fn serialize<S>(
+        bounds: &BTreeMap<ActorId, u64>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut encoded = BTreeMap::new();
+        for (actor, upper_bound) in bounds {
+            actor.validate().map_err(serde::ser::Error::custom)?;
+            let key = actor.canonical_key().map_err(serde::ser::Error::custom)?;
+            encoded.insert(key, upper_bound);
+        }
+        encoded.serialize(serializer)
+    }
+
+    pub(super) fn deserialize<'de, D>(deserializer: D) -> Result<BTreeMap<ActorId, u64>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct BoundsVisitor;
+
+        impl<'de> Visitor<'de> for BoundsVisitor {
+            type Value = BTreeMap<ActorId, u64>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("an object keyed by canonical ActorId JSON strings")
+            }
+
+            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+            where
+                M: MapAccess<'de>,
+            {
+                let mut bounds = BTreeMap::new();
+                while let Some((key, upper_bound)) = map.next_entry::<String, u64>()? {
+                    let value =
+                        arkret_canonical::parse_json_rejecting_duplicate_keys(key.as_bytes())
+                            .map_err(M::Error::custom)?;
+                    let actor = ActorId::deserialize(value).map_err(M::Error::custom)?;
+                    actor.validate().map_err(M::Error::custom)?;
+                    if actor.canonical_key().map_err(M::Error::custom)? != key {
+                        return Err(M::Error::custom(
+                            "actor sequence map key is not canonical ActorId JSON",
+                        ));
+                    }
+                    if bounds.insert(actor, upper_bound).is_some() {
+                        return Err(M::Error::custom("duplicate actor sequence map key"));
+                    }
+                }
+                Ok(bounds)
+            }
+        }
+
+        deserializer.deserialize_map(BoundsVisitor)
+    }
 }
 
 // ── FederationServiceBindingRef ─────────────────────────────────────────

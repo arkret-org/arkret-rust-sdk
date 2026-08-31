@@ -17,6 +17,95 @@ fn account_actor(principal: &str) -> ActorId {
     ))
 }
 
+fn peer_frontier_with_bounds(bounds: BTreeMap<ActorId, u64>) -> EventsFrontierFederationPeerState {
+    EventsFrontierFederationPeerState {
+        realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
+        head_ids: Vec::new(),
+        max_hlc: None,
+        frontier_root: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+        auth_state_root: None,
+        policy_frontier_root: None,
+        membership_frontier_root: None,
+        actor_seq_upper_bounds: bounds,
+        witness_receipts: Vec::new(),
+        observed_at: "2026-08-31T00:00:00.000Z".to_owned(),
+        issuer_id: DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
+        signature: BTreeMap::new(),
+    }
+}
+
+#[test]
+fn federation_peer_actor_bounds_round_trip_exact_accounts_and_service() {
+    let account = account_actor("ak:did_core:web:alice.example");
+    let another_station = ActorId::account(AccountId::new(
+        account.signing_principal_id().clone(),
+        DidCoreId::new("ak:did_core:web:other-station.example").unwrap(),
+    ));
+    // Managed agents use the same Account identity carrier; credential class
+    // does not create an additional ActorId branch.
+    let managed_agent = account_actor("ak:did_core:web:agent.example");
+    let service = ActorId::service(DidCoreId::new("ak:did_core:web:ps.example").unwrap());
+    let bounds = BTreeMap::from([
+        (account, 5),
+        (another_station, 9),
+        (managed_agent, 12),
+        (service, 17),
+    ]);
+    let frontier = peer_frontier_with_bounds(bounds.clone());
+    let encoded = serde_json::to_string(&frontier).unwrap();
+    let value: Value = serde_json::from_str(&encoded).unwrap();
+    let object = value["actor_seq_upper_bounds"].as_object().unwrap();
+    assert_eq!(object.len(), 4);
+    for (actor, upper_bound) in &bounds {
+        assert_eq!(object[&actor.canonical_key().unwrap()], json!(upper_bound));
+    }
+    assert_eq!(
+        serde_json::from_str::<EventsFrontierFederationPeerState>(&encoded).unwrap(),
+        frontier
+    );
+}
+
+#[test]
+fn federation_peer_actor_bounds_reject_noncanonical_and_legacy_keys() {
+    let actor = account_actor("ak:did_core:web:alice.example");
+    let canonical = actor.canonical_key().unwrap();
+    let invalid_keys = [
+        actor.signing_principal_id().to_string(),
+        serde_json::to_string(actor.signing_principal_id()).unwrap(),
+        format!(" {canonical}"),
+        serde_json::to_string_pretty(&actor).unwrap(),
+        format!(r#"{{"kind":"account","account_id":{}}}"#, actor.as_account_id().unwrap()),
+        r#"{"kind":"hosted_principal","principal_id":"ak:did_core:web:agent.example","station_id":"ak:did_core:web:ps.example"}"#.to_owned(),
+    ];
+    for key in invalid_keys {
+        let mut value = serde_json::to_value(peer_frontier_with_bounds(BTreeMap::new())).unwrap();
+        value["actor_seq_upper_bounds"] = json!({key.clone(): 3});
+        assert!(
+            serde_json::from_value::<EventsFrontierFederationPeerState>(value).is_err(),
+            "{key}"
+        );
+    }
+}
+
+#[test]
+fn federation_peer_actor_bounds_reject_duplicate_keys_in_raw_json() {
+    let actor = account_actor("ak:did_core:web:alice.example");
+    let key = serde_json::to_string(&actor.canonical_key().unwrap()).unwrap();
+    let encoded = serde_json::to_string(&peer_frontier_with_bounds(BTreeMap::new())).unwrap();
+    // Do not pass through Value: parsing into Value would discard duplicates
+    // before the protocol DTO's visitor can reject them.
+    let duplicate = encoded.replace(
+        "\"actor_seq_upper_bounds\":{}",
+        &format!("\"actor_seq_upper_bounds\":{{{key}:1,{key}:2}}"),
+    );
+    let error = serde_json::from_str::<EventsFrontierFederationPeerState>(&duplicate).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("duplicate actor sequence map key")
+    );
+}
+
 #[test]
 fn federation_submit_union_rejects_unknown_unit_kind_without_fallback() {
     let error = serde_json::from_value::<EventsSubmitFederationRequestBody>(json!({
