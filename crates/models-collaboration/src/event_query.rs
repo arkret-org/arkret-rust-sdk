@@ -161,9 +161,9 @@ mod tests {
         });
         for value in [
             serde_json::json!({"actor_ids": []}),
-            serde_json::json!({"actor_ids": [actor.clone()], "realm_ids": []}),
-            serde_json::json!({"actor_ids": [actor.clone(), actor.clone()]}),
-            serde_json::json!({"actor_ids": [actor.clone()], "realm_ids": null}),
+            serde_json::json!({"actor_ids": [actor], "realm_ids": []}),
+            serde_json::json!({"actor_ids": [actor.clone(), actor]}),
+            serde_json::json!({"actor_ids": [actor], "realm_ids": null}),
         ] {
             assert!(serde_json::from_value::<super::EventsQueryPostRequestBody>(value).is_err());
         }
