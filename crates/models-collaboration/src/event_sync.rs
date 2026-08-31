@@ -695,20 +695,22 @@ pub struct EventsFrontierFederationPeerState {
     pub signature: BTreeMap<String, Value>,
 }
 
-mod actor_sequence_bounds_map {
+pub(crate) mod actor_sequence_bounds_map {
     use std::collections::BTreeMap;
     use std::fmt;
+    use std::marker::PhantomData;
 
     use arkret_wire::ActorId;
     use serde::de::{Error, MapAccess, Visitor};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    pub(super) fn serialize<S>(
-        bounds: &BTreeMap<ActorId, u64>,
+    pub(crate) fn serialize<S, T>(
+        bounds: &BTreeMap<ActorId, T>,
         serializer: S,
     ) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
+        T: Serialize,
     {
         let mut encoded = BTreeMap::new();
         for (actor, upper_bound) in bounds {
@@ -719,14 +721,15 @@ mod actor_sequence_bounds_map {
         encoded.serialize(serializer)
     }
 
-    pub(super) fn deserialize<'de, D>(deserializer: D) -> Result<BTreeMap<ActorId, u64>, D::Error>
+    pub(crate) fn deserialize<'de, D, T>(deserializer: D) -> Result<BTreeMap<ActorId, T>, D::Error>
     where
         D: Deserializer<'de>,
+        T: Deserialize<'de>,
     {
-        struct BoundsVisitor;
+        struct BoundsVisitor<T>(PhantomData<T>);
 
-        impl<'de> Visitor<'de> for BoundsVisitor {
-            type Value = BTreeMap<ActorId, u64>;
+        impl<'de, T: Deserialize<'de>> Visitor<'de> for BoundsVisitor<T> {
+            type Value = BTreeMap<ActorId, T>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("an object keyed by canonical ActorId JSON strings")
@@ -737,7 +740,7 @@ mod actor_sequence_bounds_map {
                 M: MapAccess<'de>,
             {
                 let mut bounds = BTreeMap::new();
-                while let Some((key, upper_bound)) = map.next_entry::<String, u64>()? {
+                while let Some((key, upper_bound)) = map.next_entry::<String, T>()? {
                     let value =
                         arkret_canonical::parse_json_rejecting_duplicate_keys(key.as_bytes())
                             .map_err(M::Error::custom)?;
@@ -756,7 +759,7 @@ mod actor_sequence_bounds_map {
             }
         }
 
-        deserializer.deserialize_map(BoundsVisitor)
+        deserializer.deserialize_map(BoundsVisitor(PhantomData))
     }
 }
 

@@ -8,9 +8,37 @@ use arkret_models_collaboration::objects::mimi::{
 };
 use arkret_models_collaboration::session_grant_bodies::SessionLoginOutcome;
 use arkret_wire::{
-    Base64UrlString, DeviceId, DidCoreId, EventKind, Hash, MlsGroupId, NonEmptyString,
+    AccountId, ActorId, Base64UrlString, DeviceId, DidCoreId, EventKind, Hash, MlsGroupId,
+    NonEmptyString,
 };
 use serde_json::json;
+
+fn assert_actor_field_contract<T>(wire: &serde_json::Value, field: &str, schema: &str)
+where
+    T: serde::de::DeserializeOwned + serde::Serialize,
+{
+    let registry = arkret_schema::schema_registry_from_default_spec_artifacts()
+        .unwrap()
+        .expect("spec schema registry");
+    let principal = actor_id("alice");
+    let actors = [
+        ActorId::account(AccountId::new(principal.clone(), actor_id("station-a"))),
+        ActorId::account(AccountId::new(principal.clone(), actor_id("station-b"))),
+        ActorId::service(principal.clone()),
+    ];
+    assert_ne!(actors[0], actors[1]);
+    for actor in actors {
+        let mut value = wire.clone();
+        value[field] = json!(actor);
+        registry.validate_value(schema, &value).unwrap();
+        let decoded: T = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(decoded).unwrap(), value);
+    }
+    let mut legacy = wire.clone();
+    legacy[field] = json!(principal);
+    assert!(registry.validate_value(schema, &legacy).is_err());
+    assert!(serde_json::from_value::<T>(legacy).is_err());
+}
 
 fn actor_id(name: &str) -> DidCoreId {
     DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{name}")).unwrap()
@@ -22,7 +50,7 @@ fn device_id() -> DeviceId {
 
 #[test]
 fn mimi_room_update_wire_uses_sender_actor_id_only() {
-    let actor = actor_id("alice");
+    let actor = ActorId::account(AccountId::new(actor_id("alice"), actor_id("station")));
     let body = MimiRoomUpdateRequestBody {
         mls_group_id: MlsGroupId::new("group-1").unwrap(),
         update: MimiRoomUpdate {
@@ -49,6 +77,11 @@ fn mimi_room_update_wire_uses_sender_actor_id_only() {
     assert!(value.get("sender").is_none());
     assert!(value.get("confirmed_transcript_hash").is_some());
     assert!(value.get("transcript_hash").is_none());
+    assert_actor_field_contract::<MimiRoomUpdateRequestBody>(
+        &value,
+        "sender_actor_id",
+        "ak.schema.mimi_operations.v1#/$defs/mimi_room_update_request_body",
+    );
 
     let old_sender = json!({
         "mls_group_id": "group-1",
@@ -67,7 +100,7 @@ fn mimi_room_update_wire_uses_sender_actor_id_only() {
 
 #[test]
 fn mimi_submit_message_wire_uses_sender_actor_id_only() {
-    let actor = actor_id("alice");
+    let actor = ActorId::account(AccountId::new(actor_id("alice"), actor_id("station")));
     let body = MimiSubmitMessageRequestBody {
         sender_actor_id: actor.clone(),
         device_id: device_id(),
@@ -87,6 +120,12 @@ fn mimi_submit_message_wire_uses_sender_actor_id_only() {
     assert_eq!(value["sender_actor_id"], json!(actor));
     assert!(value.get("sender").is_none());
 
+    assert_actor_field_contract::<MimiSubmitMessageRequestBody>(
+        &value,
+        "sender_actor_id",
+        "ak.schema.mimi_operations.v1#/$defs/mimi_submit_message_request_body",
+    );
+
     let old_sender = json!({
         "sender": "did:webvh:z6mkfixture:alice.example",
         "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
@@ -97,6 +136,25 @@ fn mimi_submit_message_wire_uses_sender_actor_id_only() {
         }
     });
     assert!(serde_json::from_value::<MimiSubmitMessageRequestBody>(old_sender).is_err());
+}
+
+#[test]
+fn mimi_provenance_preserves_full_attributed_actor() {
+    let value = json!({
+        "provenance": "mimi_facade",
+        "source_provider_id": actor_id("provider"),
+        "attributed_sender_actor_id": ActorId::service(actor_id("alice")),
+        "attributed_sender_device_id": device_id(),
+        "source_envelope_digest": format!("sha256:{}", "a".repeat(64)),
+        "room_binding_ref": "ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    });
+    assert_actor_field_contract::<
+        arkret_models_collaboration::events_payloads::MimiMessageProvenance,
+    >(
+        &value,
+        "attributed_sender_actor_id",
+        "ak.schema.event_payload.v1#/$defs/mimi_message_provenance",
+    );
 }
 
 #[test]

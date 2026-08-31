@@ -1390,7 +1390,7 @@ pub struct MimiRoomUpdateRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub confirmed_transcript_hash: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sender_actor_id: Option<DidCoreId>,
+    pub sender_actor_id: Option<ActorId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub room_binding_event: Option<EventInitialSubmission>,
 }
@@ -1427,7 +1427,7 @@ pub struct MimiNotifyOutcome {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiSubmitMessageRequestBody {
-    pub sender_actor_id: DidCoreId,
+    pub sender_actor_id: ActorId,
     pub device_id: DeviceId,
     pub ciphertext: MimiCiphertext,
     #[serde(skip_serializing_if = "Option::is_none")]

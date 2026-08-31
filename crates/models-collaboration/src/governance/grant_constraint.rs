@@ -703,7 +703,7 @@ pub struct CapabilityGrant {
     )]
     pub updated_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub revoked_by: Option<DidCoreId>,
+    pub revoked_by: Option<ActorId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -714,9 +714,63 @@ pub struct CapabilityGrant {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::AccountId;
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn capability_revocation_preserves_exact_actor_identity() {
+        let registry = arkret_schema::schema_registry_from_default_spec_artifacts()
+            .unwrap()
+            .expect("spec schema registry");
+        let principal = DidCoreId::new("ak:did_core:web:revoker.example").unwrap();
+        let mut identities = std::collections::BTreeSet::new();
+        for actor in [
+            ActorId::account(AccountId::new(
+                principal.clone(),
+                DidCoreId::new("ak:did_core:web:station-a.example").unwrap(),
+            )),
+            ActorId::account(AccountId::new(
+                principal.clone(),
+                DidCoreId::new("ak:did_core:web:station-b.example").unwrap(),
+            )),
+            ActorId::service(principal.clone()),
+        ] {
+            let value = json!({
+                "id": "ak:grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+                "schema": SchemaId::CAPABILITY_V1,
+                "issuer_id": actor,
+                "subject": actor,
+                "actions": ["ak.event.read"],
+                "resources": [{"kind": "realm"}],
+                "issuer_authority_refs": [{
+                    "kind": "realm_root",
+                    "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+                    "cell_ref": "ak:cell:ak.component.realm.authority_root.v1:null",
+                    "controller_epoch_at_issuance": 0,
+                    "authority_generation": 0
+                }],
+                "issued_at": "2026-07-14T12:34:56.789Z",
+                "revoked_by": actor
+            });
+            registry
+                .validate_value(SchemaId::CAPABILITY_V1, &value)
+                .unwrap();
+            let decoded: CapabilityGrant = serde_json::from_value(value.clone()).unwrap();
+            assert_eq!(decoded.revoked_by.as_ref(), Some(&actor));
+            assert_eq!(serde_json::to_value(decoded).unwrap(), value);
+            assert!(identities.insert(actor));
+            let mut legacy = value;
+            legacy["revoked_by"] = json!(principal);
+            assert!(
+                registry
+                    .validate_value(SchemaId::CAPABILITY_V1, &legacy)
+                    .is_err()
+            );
+            assert!(serde_json::from_value::<CapabilityGrant>(legacy).is_err());
+        }
+    }
 
     #[test]
     fn capability_grant_accepts_omitted_optional_constraints() {

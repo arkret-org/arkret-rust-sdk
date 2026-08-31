@@ -288,11 +288,53 @@ pub struct AppletRevokeOutcome {
 pub struct AppletActorView {
     pub exists: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<DidCoreId>,
+    pub actor_id: Option<ActorId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub external_ref: Option<ExternalRef>,
+}
+
+#[cfg(test)]
+mod actor_view_tests {
+    use arkret_wire::{AccountId, SchemaId};
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn applet_actor_view_preserves_exact_actor_identity() {
+        let registry = arkret_schema::schema_registry_from_default_spec_artifacts()
+            .unwrap()
+            .expect("spec schema registry");
+        let schema = format!(
+            "{}#/$defs/applet_actor_view",
+            SchemaId::APPLET_EDGE_OPERATIONS_V1
+        );
+        let principal = DidCoreId::new("ak:did_core:web:bot.example").unwrap();
+        let mut identities = std::collections::BTreeSet::new();
+        for actor in [
+            ActorId::account(AccountId::new(
+                principal.clone(),
+                DidCoreId::new("ak:did_core:web:station-a.example").unwrap(),
+            )),
+            ActorId::account(AccountId::new(
+                principal.clone(),
+                DidCoreId::new("ak:did_core:web:station-b.example").unwrap(),
+            )),
+            ActorId::service(principal.clone()),
+        ] {
+            let value = json!({"exists": true, "actor_id": actor});
+            registry.validate_value(&schema, &value).unwrap();
+            let decoded: AppletActorView = serde_json::from_value(value.clone()).unwrap();
+            assert_eq!(decoded.actor_id.as_ref(), Some(&actor));
+            assert_eq!(serde_json::to_value(decoded).unwrap(), value);
+            assert!(identities.insert(actor));
+        }
+        let legacy = json!({"exists": true, "actor_id": principal});
+        assert!(registry.validate_value(&schema, &legacy).is_err());
+        assert!(serde_json::from_value::<AppletActorView>(legacy).is_err());
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

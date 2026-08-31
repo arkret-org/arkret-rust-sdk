@@ -1509,16 +1509,16 @@ mod tests {
             .expect("spec schema registry");
         let schema = format!(
             "{}#/$defs/moderation_policy_target",
-            arkret_wire::SchemaId::EVENT_PAYLOAD_V1
+            SchemaId::EVENT_PAYLOAD_V1
         );
         let principal = DidCoreId::new("ak:did_core:web:actor.example").unwrap();
         let mut identities = BTreeSet::new();
         for actor in [
-            ActorId::account(arkret_wire::AccountId::new(
+            ActorId::account(AccountId::new(
                 principal.clone(),
                 DidCoreId::new("ak:did_core:web:station-a.example").unwrap(),
             )),
-            ActorId::account(arkret_wire::AccountId::new(
+            ActorId::account(AccountId::new(
                 principal.clone(),
                 DidCoreId::new("ak:did_core:web:station-b.example").unwrap(),
             )),
