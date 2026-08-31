@@ -337,9 +337,10 @@ mod tests {
 
     #[test]
     fn shared_rrk_fixture_runs_through_the_production_resolver() {
-        let fixture =
-            arkret_schema::embedded_json_artifact("fixtures/history-key-recovery-fixture.json")
-                .unwrap();
+        let fixture = arkret_schema_conformance::spec_json_artifact(
+            "fixtures/history-key-recovery-fixture.json",
+        )
+        .unwrap();
         let kat = &fixture["rrk_registration_rotation_kat"];
         let key_tuple = &kat["events"]["register"]["payload"]["new_key_tuple"];
         let principal_id =

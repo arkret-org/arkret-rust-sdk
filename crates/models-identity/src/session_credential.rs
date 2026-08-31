@@ -861,9 +861,10 @@ mod tests {
 
     #[test]
     fn fixture_known_answer_matches_spec() {
-        let fixture =
-            arkret_schema::embedded_json_artifact("fixtures/session-grant-issuance-fixture.json")
-                .unwrap();
+        let fixture = arkret_schema_conformance::spec_json_artifact(
+            "fixtures/session-grant-issuance-fixture.json",
+        )
+        .unwrap();
         let vectors = fixture["accepted_vectors"].as_array().unwrap();
         for vector in vectors {
             let materialized =
@@ -887,9 +888,10 @@ mod tests {
 
     #[test]
     fn fixture_tamper_cases_fail_closed() {
-        let fixture =
-            arkret_schema::embedded_json_artifact("fixtures/session-grant-issuance-fixture.json")
-                .unwrap();
+        let fixture = arkret_schema_conformance::spec_json_artifact(
+            "fixtures/session-grant-issuance-fixture.json",
+        )
+        .unwrap();
         let mut covered = BTreeSet::new();
         for case in fixture["tamper_cases"].as_array().unwrap() {
             let name = case["name"].as_str().unwrap();
@@ -945,9 +947,10 @@ mod tests {
 
     #[test]
     fn fixture_credential_binding_negative_cases_fail_closed() {
-        let fixture =
-            arkret_schema::embedded_json_artifact("fixtures/session-grant-issuance-fixture.json")
-                .unwrap();
+        let fixture = arkret_schema_conformance::spec_json_artifact(
+            "fixtures/session-grant-issuance-fixture.json",
+        )
+        .unwrap();
         let mut covered = BTreeSet::new();
         for case in fixture["credential_binding_negative_cases"]
             .as_array()

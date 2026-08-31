@@ -1,5 +1,5 @@
 //! @generated; do not edit by hand.
-//! Generator: tools/generate-registry-types.py
+//! Generator: tools/spec-codegen
 //! Input: registry/operation-registry.json; version=2026-08-31.6;
 //! sha256=b88b11a2694e01a4597ed609f1457f76308401f14123d6f178b74e6fc520aee9 Entries: registered=231
 
@@ -1994,9 +1994,6 @@ impl ServiceOperationId {
         }
     }
 
-    /// Resolve the one registered operation selected by an HTTP request.
-    /// Query parameters are excluded by callers; each path-template
-    /// placeholder matches exactly one non-empty URL path segment.
     pub fn from_http_request(method: &str, path: &str) -> Option<Self> {
         let specificity = SERVICE_OPERATION_DESCRIPTORS
             .iter()
@@ -2026,13 +2023,10 @@ impl ServiceOperationId {
         matches.next().is_none().then_some(selected)
     }
 
-    /// Check whether this exact versioned operation belongs to an HTTP
-    /// method/path family selected by `Arkret-Operation`.
     pub fn matches_http_request(self, method: &str, path: &str) -> bool {
         let descriptor = self.descriptor();
         descriptor.http_method == method && http_path_template_matches(descriptor.http_path, path)
     }
-
     pub fn descriptor(self) -> &'static ServiceOperationDescriptor {
         &SERVICE_OPERATION_DESCRIPTORS[self as usize]
     }
@@ -2043,13 +2037,11 @@ impl std::fmt::Display for ServiceOperationId {
         f.write_str(self.as_str())
     }
 }
-
 impl Serialize for ServiceOperationId {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(self.as_str())
     }
 }
-
 impl<'de> Deserialize<'de> for ServiceOperationId {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let raw = String::deserialize(deserializer)?;

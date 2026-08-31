@@ -272,7 +272,7 @@ impl<'de> Deserialize<'de> for ViewReconcilePayload {
 
 #[cfg(test)]
 mod tests {
-    use arkret_schema::event_payload_validator_catalog;
+    use arkret_schema_conformance::event_payload_validator_catalog;
     use serde_json::json;
 
     use super::*;

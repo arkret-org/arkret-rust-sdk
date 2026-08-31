@@ -1,10 +1,10 @@
 use arkret_canonical::{DigestSuite, canonical_json_bytes, digest};
-use arkret_schema::embedded_json_artifact;
+use arkret_schema_conformance::spec_json_artifact;
 use serde_json::Value;
 
 #[test]
 fn identity_link_proof_binds_history_response_signing_key() {
-    let fixture = embedded_json_artifact("fixtures/privacy-security-fixture.json").unwrap();
+    let fixture = spec_json_artifact("fixtures/privacy-security-fixture.json").unwrap();
     let vector = fixture["cases"]
         .as_array()
         .unwrap()

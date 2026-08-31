@@ -1,12 +1,10 @@
-//! Schema registry and spec-drift helpers.
+//! Typed Arkret schema contracts and runtime validators.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs;
-use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
+mod criticality;
 mod error;
 mod event_cell_contract;
 mod event_validation;
@@ -15,6 +13,7 @@ mod prepared_event;
 pub mod protocol;
 
 pub use arkret_wire::events;
+pub use criticality::Criticality;
 pub use error::{Result, SchemaError, SchemaValidationIssue, SchemaValidationReason};
 pub use event_cell_contract::{
     CapabilityAuthorityAudit, CapabilityAuthorityAuditIndex, CapabilityAuthorityProjectionError,
@@ -41,14 +40,9 @@ pub use protocol::{
 };
 
 pub mod agent_runtime_scope;
-mod artifacts;
-pub use artifacts::embedded_json_artifact;
 pub mod conformance;
 mod payload_validator_profiles;
-mod payloads;
 pub mod sdk_conformance;
 
-pub use artifacts::*;
 pub use conformance::*;
 pub use payload_validator_profiles::*;
-pub use payloads::*;

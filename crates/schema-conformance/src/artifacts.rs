@@ -1,35 +1,21 @@
 use std::sync::OnceLock;
 
+use arkret_schema::Criticality;
+use arkret_schema::generated::{
+    CapabilityRiskTier, REGISTERED_ID_KINDS, REGISTERED_SCHEMA_IDS,
+    REGISTERED_SPECIAL_FORM_ID_KINDS,
+};
 use arkret_wire::ProfileId;
 use arkret_wire::generated::{EVENT_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS};
 
 use super::*;
-use crate::generated::{
-    CapabilityRiskTier, REGISTERED_ID_KINDS, REGISTERED_SCHEMA_IDS,
-    REGISTERED_SPECIAL_FORM_ID_KINDS,
-};
 
-const EMBEDDED_ARTIFACTS_SENTINEL: &str = "<embedded-spec-artifacts>";
+const FILESYSTEM_ARTIFACTS_SENTINEL: &str = "<filesystem-spec-artifacts>";
 /// The registry `status` that marks an entry part of the v1 surface the SDK
 /// must cover. Registries that omit the field are read as active.
 const ACTIVE_STATUS: &str = "active";
-#[cfg(any(feature = "embedded-artifacts", test))]
-const EMBEDDED_SPEC_ARTIFACTS_JSON: &str = include_str!("embedded_artifacts.json");
-#[cfg(not(any(feature = "embedded-artifacts", test)))]
-const EMBEDDED_SPEC_ARTIFACTS_JSON: &str = "{}";
-#[cfg(any(feature = "embedded-artifacts", test))]
-const EMBEDDED_OPENAPI_YAML: &str = include_str!("embedded_openapi.yaml");
-#[cfg(not(any(feature = "embedded-artifacts", test)))]
-const EMBEDDED_OPENAPI_YAML: &str = "";
-
-static EMBEDDED_SPEC_ARTIFACTS: OnceLock<std::result::Result<BTreeMap<String, Value>, String>> =
+static SPEC_ARTIFACTS: OnceLock<std::result::Result<BTreeMap<String, Value>, String>> =
     OnceLock::new();
-static EMBEDDED_CAPABILITY_ACTIONS: OnceLock<
-    std::result::Result<BTreeMap<String, ParsedCapabilityActionDescriptor>, String>,
-> = OnceLock::new();
-static EMBEDDED_CAPABILITY_ACTIONS_BY_EVENT_KIND: OnceLock<
-    std::result::Result<BTreeMap<String, Vec<String>>, String>,
-> = OnceLock::new();
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SpecArtifactBundle {
@@ -102,23 +88,6 @@ pub struct ParsedNonEventGrantAuthorityRule {
     pub scope_binding: String,
     pub epoch_binding: String,
     pub requested_action_binding: String,
-}
-
-/// Criticality level a receiver applies when it does not recognise an event's
-/// `component_type` / `component_version`.
-///
-/// Sourced verbatim from the spec event-kind-registry. Per-event overrides via
-/// `Event.requirements.critical_extensions` still take precedence.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Criticality {
-    /// Receivers MUST fail closed (`schema_violation`, `soft_fail`, or
-    /// `quarantine` depending on context) when the component is unknown.
-    Required,
-    /// Receivers MAY warn and ignore the event when the component is unknown.
-    Optional,
-    /// Receivers MUST silently drop the event when the component is unknown.
-    Ignore,
 }
 
 /// Component metadata for a single state event kind, as declared by the spec
@@ -199,22 +168,20 @@ impl SpecArtifactBundle {
         })
     }
 
-    pub fn load_embedded() -> Result<Self> {
+    pub fn load_configured() -> Result<Self> {
         Ok(Self {
-            schema_registry: read_embedded_json_artifact("registry/schema-registry.json")?,
-            event_kind_registry: read_embedded_json_artifact("registry/event-kind-registry.json")?,
-            operation_registry: read_embedded_json_artifact("registry/operation-registry.json")?,
-            operation_clause_registry: read_embedded_json_artifact(
+            schema_registry: read_spec_json_artifact("registry/schema-registry.json")?,
+            event_kind_registry: read_spec_json_artifact("registry/event-kind-registry.json")?,
+            operation_registry: read_spec_json_artifact("registry/operation-registry.json")?,
+            operation_clause_registry: read_spec_json_artifact(
                 "registry/operation-clause-registry.json",
             )?,
-            id_kind_registry: read_embedded_json_artifact("registry/id-kind-registry.json")?,
-            capability_action_registry: read_embedded_json_artifact(
+            id_kind_registry: read_spec_json_artifact("registry/id-kind-registry.json")?,
+            capability_action_registry: read_spec_json_artifact(
                 "registry/capability-action-registry.json",
             )?,
-            conformance_profiles: read_embedded_json_artifact(
-                "profiles/conformance-profiles.json",
-            )?,
-            artifacts_dir: Some(PathBuf::from(EMBEDDED_ARTIFACTS_SENTINEL)),
+            conformance_profiles: read_spec_json_artifact("profiles/conformance-profiles.json")?,
+            artifacts_dir: Some(PathBuf::from(FILESYSTEM_ARTIFACTS_SENTINEL)),
         })
     }
 
@@ -319,8 +286,8 @@ impl SpecArtifactBundle {
         let Some(artifacts_dir) = &self.artifacts_dir else {
             return Vec::new();
         };
-        let catalog = if artifacts_dir == Path::new(EMBEDDED_ARTIFACTS_SENTINEL) {
-            event_payload_validator_catalog_from_embedded_spec_artifacts()
+        let catalog = if artifacts_dir == Path::new(FILESYSTEM_ARTIFACTS_SENTINEL) {
+            event_payload_validator_catalog_from_configured_spec_artifacts()
         } else {
             event_payload_validator_catalog_from_spec_artifacts(artifacts_dir)
         };
@@ -780,7 +747,13 @@ pub fn default_spec_artifacts_dir() -> Option<PathBuf> {
     if let Ok(artifacts_dir) = std::env::var("ARKRET_SPEC_ARTIFACTS") {
         return Some(PathBuf::from(artifacts_dir));
     }
-    None
+    let co_checkout = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../..")
+        .join("arkret-spec")
+        .join("spec")
+        .join("v1")
+        .join("artifacts");
+    co_checkout.is_dir().then_some(co_checkout)
 }
 
 pub fn schema_registry_from_spec_artifacts(
@@ -816,8 +789,8 @@ pub fn schema_registry_from_spec_artifacts(
     Ok(registry)
 }
 
-pub fn schema_registry_from_embedded_spec_artifacts() -> Result<ProtocolSchemaRegistry> {
-    let bundle = SpecArtifactBundle::load_embedded()?;
+pub fn schema_registry_from_configured_spec_artifacts() -> Result<ProtocolSchemaRegistry> {
+    let bundle = SpecArtifactBundle::load_configured()?;
     let mut registry = ProtocolSchemaRegistry::new();
     let schemas = bundle
         .schema_registry
@@ -834,14 +807,14 @@ pub fn schema_registry_from_embedded_spec_artifacts() -> Result<ProtocolSchemaRe
         let file = entry.get("file").and_then(Value::as_str).ok_or_else(|| {
             SchemaError::Protocol(format!("schema artifact {schema_id} has no file"))
         })?;
-        let schema = read_embedded_json_artifact(file)?;
+        let schema = read_spec_json_artifact(file)?;
         if let Some(fragment) = entry.get("fragment").and_then(Value::as_str) {
             registry.register_fragment(schema_id, schema, fragment)?;
         } else {
             registry.register(schema_id, schema);
         }
     }
-    for (path, schema) in embedded_spec_artifacts()? {
+    for (path, schema) in spec_artifacts()? {
         if path.starts_with("schemas/") && path.ends_with(".json") && schema.get("$id").is_some() {
             registry.register_reference_document(schema.clone())?;
         }
@@ -896,76 +869,7 @@ pub fn schema_registry_from_default_spec_artifacts() -> Result<Option<ProtocolSc
     if let Some(artifacts_dir) = default_spec_artifacts_dir() {
         Ok(Some(schema_registry_from_spec_artifacts(artifacts_dir)?))
     } else {
-        Ok(Some(schema_registry_from_embedded_spec_artifacts()?))
-    }
-}
-
-/// Look up a capability action descriptor from the embedded spec artifact.
-///
-/// This is the runtime-friendly path for services that need to fail closed on
-/// unknown or unsupported capability actions without reading `arkret-spec` from
-/// the local filesystem.
-pub fn embedded_capability_action(
-    action: &str,
-) -> Result<Option<&'static ParsedCapabilityActionDescriptor>> {
-    match EMBEDDED_CAPABILITY_ACTIONS.get_or_init(|| {
-        let artifacts = embedded_spec_artifacts().map_err(|error| error.to_string())?;
-        let registry = artifacts
-            .get("registry/capability-action-registry.json")
-            .ok_or_else(|| {
-                "embedded spec artifact registry/capability-action-registry.json is missing"
-                    .to_owned()
-            })?;
-        capability_actions_from_registry(registry).map_err(|error| error.to_string())
-    }) {
-        Ok(actions) => Ok(actions.get(action)),
-        Err(error) => Err(SchemaError::Protocol(error.clone())),
-    }
-}
-
-/// The capability actions whose `target_event_kinds` cover `event_kind`.
-///
-/// Event kinds and capability actions are two distinct namespaces: an Event
-/// names what happened, a capability action names what an actor is authorized
-/// to do. Some strings coincide (`ak.message.create`), while others do not. A caller that
-/// holds an Event and needs the authorization question has to go through this
-/// registry-derived mapping rather than passing the kind straight to a
-/// capability check.
-///
-/// The returned slice is sorted and may name several actions; any one of them
-/// authorizes the Event.
-pub fn embedded_capability_actions_for_event_kind(event_kind: &str) -> Result<&'static [String]> {
-    const EMPTY: &[String] = &[];
-    match EMBEDDED_CAPABILITY_ACTIONS_BY_EVENT_KIND.get_or_init(|| {
-        let actions = match EMBEDDED_CAPABILITY_ACTIONS.get_or_init(|| {
-            let artifacts = embedded_spec_artifacts().map_err(|error| error.to_string())?;
-            let registry = artifacts
-                .get("registry/capability-action-registry.json")
-                .ok_or_else(|| {
-                    "embedded spec artifact registry/capability-action-registry.json is missing"
-                        .to_owned()
-                })?;
-            capability_actions_from_registry(registry).map_err(|error| error.to_string())
-        }) {
-            Ok(actions) => actions,
-            Err(error) => return Err(error.clone()),
-        };
-        let mut by_kind: BTreeMap<String, Vec<String>> = BTreeMap::new();
-        for (action, descriptor) in actions {
-            for kind in &descriptor.target_event_kinds {
-                by_kind
-                    .entry(kind.clone())
-                    .or_default()
-                    .push(action.clone());
-            }
-        }
-        for actions in by_kind.values_mut() {
-            actions.sort();
-        }
-        Ok(by_kind)
-    }) {
-        Ok(by_kind) => Ok(by_kind.get(event_kind).map_or(EMPTY, Vec::as_slice)),
-        Err(error) => Err(SchemaError::Protocol(error.clone())),
+        Ok(None)
     }
 }
 
@@ -977,24 +881,6 @@ fn capability_action_from_registry(
         return Ok(None);
     };
     Ok(Some(capability_action_from_entry(entry, action)?))
-}
-
-fn capability_actions_from_registry(
-    registry: &Value,
-) -> Result<BTreeMap<String, ParsedCapabilityActionDescriptor>> {
-    let entries = registry
-        .get("actions")
-        .and_then(Value::as_array)
-        .ok_or_else(|| {
-            SchemaError::Protocol("capability action registry missing actions".to_owned())
-        })?;
-    let mut actions = BTreeMap::new();
-    for entry in entries {
-        let action = required_registry_string(entry, "action", "capability action")?;
-        let descriptor = capability_action_from_entry(entry, action)?;
-        actions.insert(action.to_owned(), descriptor);
-    }
-    Ok(actions)
 }
 
 fn capability_action_from_entry(
@@ -1243,97 +1129,59 @@ fn read_json_artifact(path: &Path) -> Result<Value> {
     })
 }
 
-fn embedded_spec_artifacts() -> Result<&'static BTreeMap<String, Value>> {
-    match EMBEDDED_SPEC_ARTIFACTS.get_or_init(|| {
-        serde_json::from_str(EMBEDDED_SPEC_ARTIFACTS_JSON)
-            .map_err(|error| format!("failed to parse embedded spec artifacts: {error}"))
+fn spec_artifacts() -> Result<&'static BTreeMap<String, Value>> {
+    match SPEC_ARTIFACTS.get_or_init(|| {
+        let root = default_spec_artifacts_dir()
+            .ok_or_else(|| "spec artifacts directory is unavailable".to_owned())?;
+        let mut artifacts = BTreeMap::new();
+        load_json_artifact_tree(&root, &root, &mut artifacts)?;
+        Ok(artifacts)
     }) {
         Ok(artifacts) => Ok(artifacts),
         Err(error) => Err(SchemaError::Protocol(error.clone())),
     }
 }
 
-pub(super) fn read_embedded_json_artifact(path: &str) -> Result<Value> {
-    embedded_spec_artifacts()?
+fn load_json_artifact_tree(
+    root: &Path,
+    directory: &Path,
+    artifacts: &mut BTreeMap<String, Value>,
+) -> std::result::Result<(), String> {
+    for entry in fs::read_dir(directory)
+        .map_err(|error| format!("failed to read {}: {error}", directory.display()))?
+    {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let path = entry.path();
+        if path.is_dir() {
+            load_json_artifact_tree(root, &path, artifacts)?;
+            continue;
+        }
+        if path.extension().and_then(|extension| extension.to_str()) != Some("json") {
+            continue;
+        }
+        let relative = path
+            .strip_prefix(root)
+            .map_err(|error| error.to_string())?
+            .to_string_lossy()
+            .replace('\\', "/");
+        let text = fs::read_to_string(&path)
+            .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+        let value = serde_json::from_str(&text)
+            .map_err(|error| format!("failed to parse {}: {error}", path.display()))?;
+        artifacts.insert(relative, value);
+    }
+    Ok(())
+}
+
+pub(super) fn read_spec_json_artifact(path: &str) -> Result<Value> {
+    spec_artifacts()?
         .get(path)
         .cloned()
-        .ok_or_else(|| SchemaError::Protocol(format!("embedded spec artifact {path} is missing")))
+        .ok_or_else(|| SchemaError::Protocol(format!("spec artifact {path} is missing")))
 }
 
-pub fn embedded_json_artifact(path: &str) -> Result<Value> {
-    read_embedded_json_artifact(path)
-}
-
-/// Return whether the named Realm bootstrap slot explicitly registers a
-/// genesis `head_eq null` precondition.
-///
-/// Bootstrap validators consume this machine contract instead of growing a
-/// second hard-coded exception list in each SDK/service implementation.
-pub fn realm_bootstrap_genesis_head_eq_registered(profile: &str, condition: &str) -> Result<bool> {
-    let registry = read_embedded_json_artifact("registry/contract-registry.json")?;
-    let slots = registry
-        .pointer(&format!(
-            "/realm_bootstrap_registry/{profile}/ordered_slots"
-        ))
-        .and_then(Value::as_array)
-        .ok_or_else(|| {
-            SchemaError::Protocol(format!(
-                "Realm bootstrap profile {profile} has no ordered_slots registry"
-            ))
-        })?;
-    let matching = slots
-        .iter()
-        .filter(|slot| slot.get("condition").and_then(Value::as_str) == Some(condition))
-        .collect::<Vec<_>>();
-    if matching.len() != 1 {
-        return Err(SchemaError::Protocol(format!(
-            "Realm bootstrap condition {profile}/{condition} is not unique"
-        )));
-    }
-    Ok(matches!(matching[0].get("head_eq"), Some(Value::Null)))
-}
-
-/// Return the canonical OpenAPI YAML copied from the spec artifact pipeline.
-pub fn embedded_openapi_yaml() -> Result<&'static str> {
-    if EMBEDDED_OPENAPI_YAML.is_empty() {
-        return Err(SchemaError::Protocol(
-            "embedded OpenAPI artifact is unavailable; enable the embedded-artifacts feature"
-                .to_owned(),
-        ));
-    }
-    Ok(EMBEDDED_OPENAPI_YAML)
-}
-
-/// The union of every error identifier declared in the embedded
-/// `error-code-registry.json` snapshot — both the top-level `codes`
-/// (canonical error codes) and the `reason_codes` (sub-reasons).
-///
-/// The spec registry splits identifiers across two arrays: canonical error
-/// codes carry an `http_status` and live under `codes`, while finer-grained
-/// sub-reasons carry `applies_to` and live under `reason_codes`. Some curated
-/// `REASON_*` constants (e.g. the Reaction and direct-conversation sub-reasons)
-/// are registered by the spec under `codes` rather than `reason_codes`, so the
-/// cross-check in `crate::error` resolves against this union to avoid false
-/// drift on the array a given identifier happens to be filed under.
-pub fn embedded_error_code_identifiers() -> Result<BTreeSet<String>> {
-    let registry = read_embedded_json_artifact("registry/error-code-registry.json")?;
-    let mut identifiers = BTreeSet::new();
-    for array_field in ["codes", "reason_codes"] {
-        if let Some(entries) = registry.get(array_field).and_then(Value::as_array) {
-            identifiers.extend(
-                entries
-                    .iter()
-                    .filter_map(|entry| entry.get("code").and_then(Value::as_str))
-                    .map(str::to_owned),
-            );
-        }
-    }
-    if identifiers.is_empty() {
-        return Err(SchemaError::Protocol(
-            "embedded error-code-registry.json declared no codes or reason_codes".to_owned(),
-        ));
-    }
-    Ok(identifiers)
+pub fn spec_json_artifact(path: &str) -> Result<Value> {
+    read_spec_json_artifact(path)
 }
 
 fn missing_registry_values(
@@ -1409,9 +1257,7 @@ fn component_cell_identity(entry: &Value) -> Option<(&str, Option<&Value>)> {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "embedded-artifacts")]
-    use arkret_wire::ErrorStatusContext;
-    use arkret_wire::{ErrorCode, REASON_CODE_DESCRIPTORS};
+    use arkret_wire::{ErrorCode, ErrorStatusContext, REASON_CODE_DESCRIPTORS};
 
     use super::*;
 
@@ -1449,34 +1295,6 @@ mod tests {
         candidate.is_dir().then_some(candidate)
     }
 
-    fn collect_json_artifact_paths(root: &Path, dir: &Path, out: &mut BTreeSet<String>) {
-        let entries = fs::read_dir(dir)
-            .unwrap_or_else(|error| panic!("failed to read {}: {error}", dir.display()));
-        for entry in entries {
-            let path = entry
-                .unwrap_or_else(|error| {
-                    panic!("failed to read entry in {}: {error}", dir.display())
-                })
-                .path();
-            if path.is_dir() {
-                collect_json_artifact_paths(root, &path, out);
-            } else if path.extension().and_then(|ext| ext.to_str()) == Some("json") {
-                let rel = path
-                    .strip_prefix(root)
-                    .unwrap_or_else(|error| {
-                        panic!(
-                            "failed to strip {} from {}: {error}",
-                            root.display(),
-                            path.display()
-                        )
-                    })
-                    .to_string_lossy()
-                    .replace('\\', "/");
-                out.insert(rel);
-            }
-        }
-    }
-
     fn generated_error_codes() -> Vec<String> {
         ErrorCode::ALL
             .iter()
@@ -1510,44 +1328,41 @@ mod tests {
         )
     }
 
-    #[cfg(feature = "embedded-artifacts")]
-    fn embedded_registry_codes(field: &str) -> Vec<String> {
-        let registry = read_embedded_json_artifact("registry/error-code-registry.json")
-            .expect("embedded error-code-registry must load");
+    fn configured_registry_codes(field: &str) -> Vec<String> {
+        let registry = read_spec_json_artifact("registry/error-code-registry.json")
+            .expect("configured error-code-registry must load");
         registry
             .get(field)
             .and_then(Value::as_array)
-            .unwrap_or_else(|| panic!("embedded error-code-registry missing {field}"))
+            .unwrap_or_else(|| panic!("configured error-code-registry missing {field}"))
             .iter()
             .map(|entry| {
                 entry
                     .get("code")
                     .and_then(Value::as_str)
-                    .unwrap_or_else(|| panic!("embedded {field} entry missing code"))
+                    .unwrap_or_else(|| panic!("configured {field} entry missing code"))
                     .to_owned()
             })
             .collect()
     }
 
-    #[cfg(feature = "embedded-artifacts")]
     #[test]
-    fn generated_error_codes_match_embedded_registry() {
-        let mut embedded = embedded_registry_codes("codes");
+    fn generated_error_codes_match_configured_registry() {
+        let mut configured = configured_registry_codes("codes");
         let mut generated = generated_error_codes();
-        embedded.sort_unstable();
+        configured.sort_unstable();
         generated.sort_unstable();
-        assert_eq!(generated, embedded);
+        assert_eq!(generated, configured);
     }
 
-    #[cfg(feature = "embedded-artifacts")]
     #[test]
-    fn generated_error_code_context_statuses_match_embedded_registry() {
-        let registry = read_embedded_json_artifact("registry/error-code-registry.json")
-            .expect("embedded error-code-registry must load");
+    fn generated_error_code_context_statuses_match_configured_registry() {
+        let registry = read_spec_json_artifact("registry/error-code-registry.json")
+            .expect("configured error-code-registry must load");
         let entries = registry
             .get("codes")
             .and_then(Value::as_array)
-            .expect("embedded error-code-registry missing codes");
+            .expect("configured error-code-registry missing codes");
         let mut contexts_seen = 0usize;
         for entry in entries {
             let wire = entry
@@ -1613,17 +1428,16 @@ mod tests {
         assert_eq!(generated, live);
     }
 
-    #[cfg(feature = "embedded-artifacts")]
     #[test]
-    fn generated_reason_codes_match_embedded_registry() {
-        let mut embedded = embedded_registry_codes("reason_codes");
+    fn generated_reason_codes_match_configured_registry() {
+        let mut configured = configured_registry_codes("reason_codes");
         let mut generated: Vec<String> = REASON_CODE_DESCRIPTORS
             .iter()
             .map(|descriptor| descriptor.code.to_owned())
             .collect();
-        embedded.sort_unstable();
+        configured.sort_unstable();
         generated.sort_unstable();
-        assert_eq!(generated, embedded);
+        assert_eq!(generated, configured);
     }
 
     #[test]
@@ -1641,67 +1455,8 @@ mod tests {
     }
 
     #[test]
-    fn embedded_spec_artifacts_match_live_spec_when_available() {
-        let Some(artifacts_dir) = local_spec_artifacts_dir() else {
-            if std::env::var("ARKRET_REQUIRE_SPEC").as_deref() == Ok("1") {
-                panic!(
-                    "ARKRET_REQUIRE_SPEC=1 but no spec artifacts directory was found; \
-                     set ARKRET_SPEC_ARTIFACTS or provide a ../arkret-spec co-checkout"
-                );
-            }
-            return;
-        };
-        let embedded: BTreeSet<String> = embedded_spec_artifacts()
-            .expect("embedded artifacts must load")
-            .keys()
-            .cloned()
-            .collect();
-        let mut live = BTreeSet::new();
-        collect_json_artifact_paths(&artifacts_dir, &artifacts_dir, &mut live);
-
-        assert_eq!(embedded, live, "embedded spec artifact path set drifted");
-        for path in live {
-            let live_path = artifacts_dir.join(&path);
-            let live_text = fs::read_to_string(&live_path)
-                .unwrap_or_else(|error| panic!("failed to read {}: {error}", live_path.display()));
-            let live_value: Value = serde_json::from_str(&live_text)
-                .unwrap_or_else(|error| panic!("failed to parse {}: {error}", live_path.display()));
-            let embedded_value = embedded_json_artifact(&path)
-                .unwrap_or_else(|error| panic!("embedded artifact {path} failed to load: {error}"));
-            assert_eq!(embedded_value, live_value, "artifact {path} drifted");
-        }
-    }
-
-    #[cfg(feature = "embedded-artifacts")]
-    #[test]
-    fn embedded_openapi_matches_live_spec_when_available() {
-        let embedded = embedded_openapi_yaml().expect("embedded OpenAPI must load");
-        // 3.2 since the Events read operations moved to RFC 10008 QUERY, which
-        // earlier OpenAPI versions cannot express.
-        assert!(embedded.starts_with(
-            "openapi: 3.2.0
-"
-        ));
-        assert!(embedded.contains("\npaths:\n"));
-
-        let Some(artifacts_dir) = local_spec_artifacts_dir() else {
-            return;
-        };
-        let live_path = artifacts_dir
-            .join("openapi")
-            .join("arkret-service-api.openapi.yaml");
-        let live = fs::read_to_string(&live_path)
-            .unwrap_or_else(|error| panic!("failed to read {}: {error}", live_path.display()));
-        assert_eq!(
-            embedded.replace("\r\n", "\n"),
-            live.replace("\r\n", "\n"),
-            "embedded OpenAPI artifact drifted"
-        );
-    }
-
-    #[test]
     fn component_descriptor_resolves_canonical_and_alias_kinds() {
-        let bundle = SpecArtifactBundle::load_embedded().unwrap();
+        let bundle = SpecArtifactBundle::load_configured().unwrap();
         let canonical = bundle
             .component("ak.capability.grant")
             .unwrap()
@@ -1726,36 +1481,33 @@ mod tests {
     }
 
     #[test]
-    fn embedded_capability_action_reads_core_write_surface() {
-        let message = embedded_capability_action("ak.message.create")
-            .expect("embedded registry should parse")
-            .expect("message create should be registered");
+    fn generated_capability_action_reads_core_write_surface() {
+        let message =
+            capability_action("ak.message.create").expect("message create should be generated");
         assert_eq!(message.risk_tier, CapabilityRiskTier::Medium);
         assert_eq!(message.profile, None);
         assert_eq!(message.target_event_kinds, vec!["ak.message.create"]);
 
-        let policy = embedded_capability_action("ak.policy.manage")
-            .expect("embedded registry should parse")
-            .expect("policy manage should be registered");
+        let policy =
+            capability_action("ak.policy.manage").expect("policy manage should be generated");
         assert_eq!(policy.risk_tier, CapabilityRiskTier::High);
         assert_eq!(policy.event_mapping_kind, "aggregate_admin");
     }
 
     #[test]
-    fn embedded_capability_actions_for_event_kind_inverts_target_event_kinds() {
+    fn generated_capability_actions_for_event_kind_inverts_target_event_kinds() {
         // A kind whose string coincides with its governing action.
         assert!(
-            embedded_capability_actions_for_event_kind("ak.message.create")
-                .expect("embedded registry should parse")
-                .contains(&"ak.message.create".to_owned())
+            capability_actions_for_event_kind("ak.message.create")
+                .any(|descriptor| descriptor.action.as_str() == "ak.message.create")
         );
 
         // An unregistered kind yields no candidates rather than an error, so
         // the caller can fall back to its own fail-closed verdict.
         assert!(
-            embedded_capability_actions_for_event_kind("ak.not.a.registered.kind")
-                .expect("embedded registry should parse")
-                .is_empty()
+            capability_actions_for_event_kind("ak.not.a.registered.kind")
+                .next()
+                .is_none()
         );
     }
 
@@ -1780,11 +1532,7 @@ mod tests {
     }
 
     #[test]
-    fn embedded_capability_action_returns_none_for_unknown_action() {
-        assert!(
-            embedded_capability_action("ak.unknown.action.v1")
-                .expect("embedded registry should parse")
-                .is_none()
-        );
+    fn generated_capability_action_returns_none_for_unknown_action() {
+        assert!(capability_action("ak.unknown.action.v1").is_none());
     }
 }

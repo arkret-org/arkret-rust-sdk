@@ -1,5 +1,5 @@
 //! @generated; do not edit by hand.
-//! Generator: tools/generate-registry-types.py
+//! Generator: tools/spec-codegen
 //! Input: schemas/device-message.schema.json; version=unversioned;
 //! sha256=76b75e58e9f73b0c8b287d03b376cf4acc981ddb68860aaf36e0b68eeacdffa4
 //! Entries: actor_private_update_kinds=3

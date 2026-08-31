@@ -1,21 +1,19 @@
-use arkret_schema::{
-    ProtocolSchemaRegistry, SchemaError, SchemaValidationReason, embedded_json_artifact,
-    schema_registry_from_spec_artifacts,
-};
+use arkret_schema::{ProtocolSchemaRegistry, SchemaError, SchemaValidationReason};
+use arkret_schema_conformance::{schema_registry_from_spec_artifacts, spec_json_artifact};
 use serde_json::{Value, json};
 
 const STRING_PROFILE_FIXTURE: &str = "fixtures/string-profile-fixture.json";
 const STRING_PROFILE_SCHEMA: &str = "schemas/string-profiles.schema.json";
 const PROPERTY_PRESENCE_MANIFEST: &str = "reports/property-presence-manifest.json";
 
-/// Load one spec artifact from the live checkout, falling back to the embedded snapshot.
+/// Load one spec artifact from the explicitly configured or sibling checkout.
 fn spec_artifact(relative_path: &str) -> Option<Value> {
     if let Ok(artifacts_dir) = std::env::var("ARKRET_SPEC_ARTIFACTS") {
         let path = std::path::Path::new(&artifacts_dir).join(relative_path);
         let raw = std::fs::read_to_string(path).expect("live spec artifact must be readable");
         return Some(serde_json::from_str(&raw).expect("live spec artifact must be JSON"));
     }
-    embedded_json_artifact(relative_path).ok()
+    spec_json_artifact(relative_path).ok()
 }
 
 #[test]

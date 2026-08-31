@@ -2,7 +2,7 @@ use arkret_canonical::canonical;
 use arkret_event_draft::StrandCreateObject;
 use arkret_models_collaboration::events_payloads::{ObjectCreatePayload, StrandPatchPayload};
 use arkret_models_collaboration::objects::profiles::StrandTrack;
-use arkret_schema::event_payload_validator_catalog;
+use arkret_schema_conformance::event_payload_validator_catalog;
 use arkret_wire::{ActorId, DidCoreId, Patch, RealmId, SchemaId, StrandId};
 use serde_json::json;
 

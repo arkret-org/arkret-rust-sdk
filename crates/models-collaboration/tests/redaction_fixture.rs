@@ -24,14 +24,14 @@
 use arkret_models_collaboration::events_payloads::redaction::{
     REDACTED_MESSAGE_PLACEHOLDER, REDACTED_MESSAGE_STATE, redaction_tombstone_message_value,
 };
-use arkret_schema::embedded_json_artifact;
+use arkret_schema_conformance::spec_json_artifact;
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
 
 const FIXTURE_PATH: &str = "fixtures/redaction-fixture.json";
 
 fn fixture() -> Value {
-    embedded_json_artifact(FIXTURE_PATH).expect("embedded redaction fixture must load")
+    spec_json_artifact(FIXTURE_PATH).expect("embedded redaction fixture must load")
 }
 
 fn case(fixture: &Value, name: &str) -> Value {

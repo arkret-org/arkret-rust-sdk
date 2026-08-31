@@ -2026,9 +2026,10 @@ mod untagged_contract_tests {
     fn embedded_recovery_transcript_kat_closes_all_five_factors() {
         use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 
-        let fixture =
-            arkret_schema::embedded_json_artifact("fixtures/recovery-transcript-fixture.json")
-                .unwrap();
+        let fixture = arkret_schema_conformance::spec_json_artifact(
+            "fixtures/recovery-transcript-fixture.json",
+        )
+        .unwrap();
         let public_key = arkret_canonical::base64url_decode(
             fixture
                 .pointer("/test_key/public_key")

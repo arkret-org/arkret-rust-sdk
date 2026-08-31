@@ -508,9 +508,10 @@ mod tests {
     /// of the chain surfaces here too.
     #[test]
     fn signal_key_is_domain_separated_from_the_content_key() {
-        let fixture =
-            arkret_schema::embedded_json_artifact("fixtures/arkret-private-kdf-fixture.json")
-                .unwrap();
+        let fixture = arkret_schema_conformance::spec_json_artifact(
+            "fixtures/arkret-private-kdf-fixture.json",
+        )
+        .unwrap();
         let case = &fixture["cases"][0];
         let history_secret =
             hex::decode(case["expected"]["history_secret_hex"].as_str().unwrap()).unwrap();

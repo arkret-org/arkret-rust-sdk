@@ -13,13 +13,13 @@
 use arkret_push_policy::push_rule_core::{
     EventContext, ShouldNotify, WatchLevel, evaluate_watch_level,
 };
-use arkret_schema::embedded_json_artifact;
+use arkret_schema_conformance::spec_json_artifact;
 use serde_json::Value;
 
 const FIXTURE_PATH: &str = "fixtures/push-rule-core-fixture.json";
 
 fn fixture() -> Value {
-    embedded_json_artifact(FIXTURE_PATH).expect("embedded push-rule-core fixture must load")
+    spec_json_artifact(FIXTURE_PATH).expect("embedded push-rule-core fixture must load")
 }
 
 /// Build the SDK `EventContext` from the fixture `event` object. Every field

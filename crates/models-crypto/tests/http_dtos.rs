@@ -28,7 +28,7 @@ fn self_and_peer_keypackage_claim_dtos_have_distinct_schema_identities() {
 #[test]
 fn pairwise_claim_evidence_binds_every_signed_target_selector() {
     let fixture =
-        arkret_schema::embedded_json_artifact("fixtures/keypackage-lifecycle-fixture.json")
+        arkret_schema_conformance::spec_json_artifact("fixtures/keypackage-lifecycle-fixture.json")
             .unwrap();
     let cases = fixture["schema_validation_cases"].as_array().unwrap();
     let instance =
@@ -192,9 +192,10 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
 
 #[test]
 fn consume_receipt_coordinates_have_one_nested_carrier() {
-    let fixture =
-        arkret_schema::embedded_json_artifact("fixtures/keypackage-write-transcript-fixture.json")
-            .unwrap();
+    let fixture = arkret_schema_conformance::spec_json_artifact(
+        "fixtures/keypackage-write-transcript-fixture.json",
+    )
+    .unwrap();
     let receipt = fixture["cases"]
         .as_array()
         .unwrap()
@@ -234,9 +235,10 @@ fn consume_receipt_coordinates_have_one_nested_carrier() {
 
 #[test]
 fn consume_command_has_only_claim_and_durable_receipt() {
-    let fixture =
-        arkret_schema::embedded_json_artifact("fixtures/keypackage-write-transcript-fixture.json")
-            .unwrap();
+    let fixture = arkret_schema_conformance::spec_json_artifact(
+        "fixtures/keypackage-write-transcript-fixture.json",
+    )
+    .unwrap();
     let request = fixture["cases"]
         .as_array()
         .unwrap()

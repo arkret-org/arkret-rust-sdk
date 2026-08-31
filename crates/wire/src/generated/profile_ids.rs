@@ -1,5 +1,5 @@
 //! @generated; do not edit by hand.
-//! Generator: tools/generate-registry-types.py
+//! Generator: tools/spec-codegen
 //! Input: profiles/conformance-profiles.json; version=2026-08-30.5;
 //! sha256=bb042b29defb6f7fc71b8626252a28ff1ac8fcf3de4ff7d1bca138e92d9799f0 Entries: profile_ids=97
 
@@ -134,7 +134,6 @@ impl ProfileRole {
             Self::Interop => "interop",
         }
     }
-
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
             "client" => Some(Self::Client),
@@ -478,8 +477,6 @@ impl ProfileId {
         }
     }
 
-    /// Spec-declared role of this profile, mirroring
-    /// `conformance-profiles.json#/profile_roles`.
     pub const fn role(self) -> ProfileRole {
         match self {
             Self::AgentAuthV1 => ProfileRole::Server,
@@ -582,7 +579,6 @@ impl ProfileId {
         }
     }
 
-    /// Every profile whose spec role is `role`, in declaration order.
     pub fn with_role(role: ProfileRole) -> impl Iterator<Item = Self> {
         Self::ALL
             .iter()
@@ -709,13 +705,11 @@ impl std::fmt::Display for ProfileId {
         f.write_str(self.as_str())
     }
 }
-
 impl Serialize for ProfileId {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(self.as_str())
     }
 }
-
 impl<'de> Deserialize<'de> for ProfileId {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let raw = String::deserialize(deserializer)?;

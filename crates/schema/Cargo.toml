@@ -1,7 +1,7 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "development-tools"]
-description = "Arkret v1 schema catalog, validators, and spec artifact tooling."
+description = "Arkret v1 typed schema contracts and runtime validators."
 edition = "2024"
 homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "schema", "conformance"]
@@ -13,7 +13,6 @@ version.workspace = true
 
 [features]
 default = []
-embedded-artifacts = []
 
 [dependencies]
 arkret-canonical = { workspace = true }
@@ -28,6 +27,7 @@ tracing = { workspace = true }
 web-time = { workspace = true }
 
 [dev-dependencies]
+arkret-schema-conformance = { workspace = true }
 arkret-models-crypto = { workspace = true }
 arkret-wire = { workspace = true, features = ["test-support"] }
 hex = { workspace = true }
@@ -37,16 +37,12 @@ workspace = true
 
 [[test]]
 name = "encoding_vectors"
-required-features = ["embedded-artifacts"]
 
 [[test]]
 name = "hash_transition_fixture"
-required-features = ["embedded-artifacts"]
 
 [[test]]
 name = "identity_link_response_signing_fixture"
-required-features = ["embedded-artifacts"]
 
 [[test]]
 name = "device_revocation_pending_fixture"
-required-features = ["embedded-artifacts"]

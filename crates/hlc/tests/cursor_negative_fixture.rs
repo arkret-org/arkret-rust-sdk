@@ -11,7 +11,7 @@
 //! published rejection semantics.
 
 use arkret_hlc::Cursor;
-use arkret_schema::embedded_json_artifact;
+use arkret_schema_conformance::spec_json_artifact;
 
 const FIXTURE_PATH: &str = "fixtures/cursor-negative-fixture.json";
 const VECTOR_ID: &str = "ak.vector.encoding.reject_invalid_cursor.core.v1";
@@ -19,7 +19,7 @@ const VECTOR_ID: &str = "ak.vector.encoding.reject_invalid_cursor.core.v1";
 #[test]
 fn cursor_negative_fixture_cases_all_reject() {
     let fixture =
-        embedded_json_artifact(FIXTURE_PATH).expect("embedded cursor-negative fixture must load");
+        spec_json_artifact(FIXTURE_PATH).expect("embedded cursor-negative fixture must load");
     let vectors = fixture["vectors"]
         .as_array()
         .expect("fixture vectors must be an array");
@@ -62,7 +62,7 @@ fn cursor_negative_fixture_cases_all_reject() {
 #[test]
 fn cursor_negative_fixture_case_inventory_is_pinned() {
     let fixture =
-        embedded_json_artifact(FIXTURE_PATH).expect("embedded cursor-negative fixture must load");
+        spec_json_artifact(FIXTURE_PATH).expect("embedded cursor-negative fixture must load");
     let names: Vec<String> = fixture["vectors"][0]["cases"]
         .as_array()
         .expect("vector cases")

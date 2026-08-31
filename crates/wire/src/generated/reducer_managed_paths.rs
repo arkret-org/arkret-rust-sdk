@@ -1,5 +1,5 @@
 //! @generated; do not edit by hand.
-//! Generator: tools/generate-registry-types.py
+//! Generator: tools/spec-codegen
 //! Input: registry/reducer-managed-path-registry.json; version=2026-08-23.1;
 //! sha256=aaff5fbfe2de048b5659500ea4a618242031ae305bea54ad8c585fb4641726b2
 //! Entries: universal_paths=9, object_kinds=7, any_object_paths=17

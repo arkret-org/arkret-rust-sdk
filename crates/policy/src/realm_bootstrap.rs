@@ -336,12 +336,13 @@ pub fn validate_realm_bootstrap_unit(
                     "ak:cell:ak.component.member.state.v1:{creator_subject}"
                 ))
                 .map_err(|_| RealmBootstrapValidationError::OutOfOrderBootstrap)?;
-                let genesis_head_eq_registered =
-                    arkret_schema::realm_bootstrap_genesis_head_eq_registered(
-                        "ordinary_collaboration",
-                        "subject_is_genesis_actor_and_membership_is_join",
-                    )
-                    .map_err(|_| RealmBootstrapValidationError::OutOfOrderBootstrap)?;
+                let genesis_head_eq_registered = arkret_schema::realm_bootstrap_slot_for_condition(
+                    arkret_schema::RealmBootstrapProfile::OrdinaryCollaboration,
+                    arkret_schema::RealmBootstrapCondition::SubjectIsGenesisActorAndMembershipIsJoin,
+                )
+                .is_some_and(|slot| {
+                    slot.head_eq == Some(arkret_schema::RealmBootstrapHeadEq::Null)
+                });
                 if !genesis_head_eq_registered
                     || followup.preconditions.len() != 1
                     || followup.preconditions[0].cell_id != creator_cell

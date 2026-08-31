@@ -1,5 +1,5 @@
 //! @generated; do not edit by hand.
-//! Generator: tools/generate-registry-types.py
+//! Generator: tools/spec-codegen
 //! Input: registry/did-freshness-profile-registry.json; version=2026-08-30.1;
 //! sha256=cd4725d6444255f478653128beed915d8bcd113c4721cc4179d00b49bffcbe40 Entries: registered=6
 
@@ -64,8 +64,6 @@ impl DidFreshnessProfileId {
         }
     }
 
-    /// §5.4: an unknown id resolves to the strictest tier, never to
-    /// "any cached binding will do".
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
             Self::CURRENT_EXTERNAL_CLAIM_V1 => Some(Self::CurrentExternalClaimV1),

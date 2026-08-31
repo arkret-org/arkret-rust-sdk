@@ -1272,7 +1272,7 @@ mod directory_actor_identity_tests {
 
     #[test]
     fn actor_preview_and_selector_preserve_exact_actor_schema() {
-        let registry = arkret_schema::schema_registry_from_default_spec_artifacts()
+        let registry = arkret_schema_conformance::schema_registry_from_default_spec_artifacts()
             .unwrap()
             .expect("spec schema registry");
         let preview_schema = format!("{}#/$defs/actor_preview", SchemaId::DIRECTORY_OPERATIONS_V1);
@@ -1638,9 +1638,10 @@ mod directory_governance_proof_tests {
     /// (`ak.vector.proof_context.transcript.directory_governance_request.v1`).
     #[test]
     fn spec_vector_directory_governance_request_matches_byte_for_byte() {
-        let fixture =
-            arkret_schema::embedded_json_artifact("fixtures/proof-context-transcript-fixture.json")
-                .expect("embedded fixture");
+        let fixture = arkret_schema_conformance::spec_json_artifact(
+            "fixtures/proof-context-transcript-fixture.json",
+        )
+        .expect("embedded fixture");
         let cases = fixture["cases"].as_array().expect("cases");
         let vector = cases
             .iter()

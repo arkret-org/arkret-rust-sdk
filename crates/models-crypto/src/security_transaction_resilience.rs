@@ -401,7 +401,7 @@ mod tests {
 
     #[test]
     fn embedded_security_transaction_resilience_fixture_runs_all_scenarios() {
-        let fixture = arkret_schema::embedded_json_artifact(
+        let fixture = arkret_schema_conformance::spec_json_artifact(
             "fixtures/security-transaction-resilience-fixture.json",
         )
         .unwrap();

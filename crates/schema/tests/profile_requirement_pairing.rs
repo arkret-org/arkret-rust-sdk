@@ -13,7 +13,8 @@
 //! matrix stays complete even for combinations the live spec does not currently
 //! contain, and the test needs no co-checkout.
 
-use arkret_schema::{REGISTERED_SCHEMA_IDS, SpecArtifactBundle};
+use arkret_schema::REGISTERED_SCHEMA_IDS;
+use arkret_schema_conformance::SpecArtifactBundle;
 use serde_json::json;
 
 const CANDIDATE_SCHEMA: &str = "ak.schema.only_a_candidate.v1";

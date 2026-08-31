@@ -3,14 +3,14 @@ use std::path::{Path, PathBuf};
 
 use arkret_models_discovery::ServiceDescribe;
 use arkret_models_integration::AppletPingOutcome;
-use arkret_schema::embedded_json_artifact;
+use arkret_schema_conformance::spec_json_artifact;
 use arkret_wire::{Did, ServiceKind, ServiceOperationId, TrustDomainId};
 use serde_json::{Value, json};
 
 const INVENTORY: &str = include_str!("../../../conformance/ak-sdk-024-public-api-inventory.json");
 
 fn fixture() -> Value {
-    embedded_json_artifact("fixtures/service-protocol-version-bootstrap-fixture.json").unwrap()
+    spec_json_artifact("fixtures/service-protocol-version-bootstrap-fixture.json").unwrap()
 }
 
 fn service_describe_value() -> Value {

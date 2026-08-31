@@ -297,7 +297,7 @@ fn applet_package_derives_registration_and_rejects_stale_epoch() {
     assert_eq!(registration.namespaces, package.namespaces);
     assert_eq!(registration.manifest.registration_epoch_evidence, evidence);
     let registration_value = serde_json::to_value(&registration).unwrap();
-    arkret_schema::event_payload_validator_catalog()
+    arkret_schema_conformance::event_payload_validator_catalog()
         .unwrap()
         .validate_payload("ak.applet.registration", &registration_value)
         .unwrap();

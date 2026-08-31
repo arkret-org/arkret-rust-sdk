@@ -1,5 +1,5 @@
 //! @generated; do not edit by hand.
-//! Generator: tools/generate-registry-types.py
+//! Generator: tools/spec-codegen
 //! Input: registry/authority-source-registry.json; version=2026-08-30.2;
 //! sha256=184dea0702cb8456e9129711577ff67af8a4cf26500ee1a24984b2e3bd412e7d Entries: registered=4
 
@@ -54,13 +54,11 @@ impl std::fmt::Display for AuthoritySourceId {
         f.write_str(self.as_str())
     }
 }
-
 impl Serialize for AuthoritySourceId {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(self.as_str())
     }
 }
-
 impl<'de> Deserialize<'de> for AuthoritySourceId {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let raw = String::deserialize(deserializer)?;

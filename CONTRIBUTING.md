@@ -37,33 +37,34 @@ behavior being changed.
 
 ## Spec-derived surfaces
 
-The Rust outputs listed in `tools/spec-generation-manifest.json` and the two
-embedded snapshots under `crates/schema/src/` are generated from
-`arkret-spec/spec/v1/artifacts` and committed. Generated Rust files carry an
-`@generated` header and must never be hand-edited; the manifest is the
-authoritative list of Rust outputs and their input artifacts.
+The Rust outputs listed in `tools/spec-generation-manifest.json` are generated
+from `arkret-spec/spec/v1/artifacts` and committed. Generated Rust files carry
+an `@generated` header and must never be hand-edited; the manifest is the
+authoritative list of Rust outputs and their input artifacts. Production crates
+consume these typed descriptors and do not package the source JSON or OpenAPI
+documents. Filesystem-backed drift and conformance loading lives in the
+non-published `arkret-schema-conformance` crate.
 
-Use the single synchronization entry point so both layers are regenerated
-**against the same artifact tree, in the same commit**:
+Use the single synchronization entry point so every static surface is
+regenerated against the same artifact tree in the same commit:
 
 ```sh
 ./tools/sync-spec.ps1 -ArtifactsDir ../arkret-spec/spec/v1/artifacts
 ```
 
-Verify both layers with the matching check mode (it needs no `cargo`):
+Verify the generated surfaces with the matching check mode:
 
 ```sh
 ./tools/sync-spec.ps1 -ArtifactsDir ../arkret-spec/spec/v1/artifacts -Check
 ```
 
-The entry point delegates to two independently testable implementation layers:
-`sync-spec-generated.ps1` produces compile-time Rust constants and descriptors,
-while `refresh-embedded-artifacts.py` produces the runtime JSON/OpenAPI
-snapshot. They have gone stale to *different* spec generations before, which is
-why contributors and CI must not invoke only one layer. The `sha256=` in a
-generated file's header is the digest of the input *at generation time*, not of
-the current spec, so recompute it against the spec file rather than trusting the
-`version:` line.
+The entry point delegates to `sync-spec-generated.ps1`, which runs the Rust
+contract generator and the remaining specialized generators, formats their
+committed outputs, and performs byte-for-byte drift checks. Runtime crates do
+not package the source JSON, fixtures, or canonical OpenAPI document. The
+`sha256=` in a generated file's header is the digest of the input at generation
+time, not of the current spec, so recompute it against the spec file rather than
+trusting the `version:` line.
 
 Nothing above runs in the pre-commit hook (it needs a spec checkout the hook
 cannot assume), so the enforcement is the `spec-drift` CI job. Run the checks
@@ -73,7 +74,7 @@ yourself before claiming a surface is synchronized.
 
 | Gate | Asserts |
 |---|---|
-| `cargo run -p arkret-schema --example spec_drift_report` | Generated schema descriptors and the remaining `SUPPORTED_*` declarations match the live registries in both directions. Needs `ARKRET_SPEC_ARTIFACTS`. |
+| `cargo run -p arkret-schema-conformance --example spec_drift_report` | Generated schema descriptors and the remaining conformance coverage declarations match the live registries in both directions. Needs `ARKRET_SPEC_ARTIFACTS`. |
 | `cargo test -p arkret-schema --test id_kind_coverage` | `SUPPORTED_ID_KINDS` matches the typed ids `arkret-identifiers` actually declares. |
 | `cargo test -p arkret-http-client --test operation_path_coverage` | Every `/_arkret/...` path the client sends is a registered operation path. |
 
@@ -127,7 +128,7 @@ record the affected repos in the `CHANGELOG.md` entry.
 
 Adding a "downstream compile smoke test" job that checks out and builds the
 downstream repositories in `.github/workflows/` was evaluated and rejected.
-Cross-repo checkout itself is supported (the `embedded-snapshot` and
+Cross-repo checkout itself is supported (the `generated-contracts` and
 `spec-drift` jobs already check out `arkret-org/arkret-spec` into a sibling path),
 but a *reliable, cheap* downstream compile job is not practical here:
 

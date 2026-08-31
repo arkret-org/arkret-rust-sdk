@@ -1,13 +1,14 @@
-use std::collections::{BTreeMap, BTreeSet};
-use std::sync::OnceLock;
+use std::collections::BTreeMap;
 
-use serde_json::{Map, Value};
+use serde_json::Value;
 use thiserror::Error;
+
+use crate::generated::{
+    GENERATED_ACTOR_PRIVATE_FAMILIES, GENERATED_ACTOR_PRIVATE_WRITES, GENERATED_FSM_CONTRACTS,
+};
 
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
 pub enum ContractRegistryError {
-    #[error("embedded contract registry is unavailable: {0}")]
-    Embedded(String),
     #[error("invalid canonical contract registry: {0}")]
     Invalid(String),
 }
@@ -59,8 +60,82 @@ pub struct ActorPrivateFsmContract {
 pub struct ActorPrivateEventWrite {
     pub event_kind: String,
     pub cell_family: String,
-    pub cell_subject: Value,
-    pub effect_projection: Value,
+    pub cell_subject: ActorPrivateSubjectRule,
+    pub effect_projection: ActorPrivateEffectProjection,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ActorPrivateSubjectComponent {
+    Field(&'static str),
+    CanonicalJson(&'static str),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ActorPrivateSubjectRule {
+    Did(&'static str),
+    Composite(&'static [ActorPrivateSubjectComponent]),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ActorPrivateEffectProjection {
+    Transition {
+        from: Option<&'static str>,
+        to: &'static str,
+    },
+    SetPayload,
+    MergePayload,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct GeneratedActorPrivateFsm {
+    pub initial_state: &'static str,
+    pub states: &'static [&'static str],
+    pub terminal_states: &'static [&'static str],
+    pub allowed_transitions: &'static [(&'static str, &'static str)],
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct GeneratedActorPrivateFamily {
+    pub cell_family: &'static str,
+    pub merge: ActorPrivateMergeKind,
+    pub tombstone: Option<ActorPrivateTombstoneMode>,
+    pub bottom_reject: bool,
+    pub fsm: Option<GeneratedActorPrivateFsm>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct GeneratedActorPrivateWrite {
+    pub event_kind: &'static str,
+    pub cell_family: &'static str,
+    pub cell_subject: ActorPrivateSubjectRule,
+    pub effect_projection: ActorPrivateEffectProjection,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum GeneratedState {
+    Null,
+    String(&'static str),
+}
+
+impl GeneratedState {
+    fn to_value(self) -> Value {
+        match self {
+            Self::Null => Value::Null,
+            Self::String(value) => Value::String(value.to_owned()),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct GeneratedFsmContract {
+    pub cell_family: &'static str,
+    pub axis: &'static str,
+    pub states: &'static [&'static str],
+    pub terminal_states: &'static [&'static str],
+    pub initial_states: &'static [&'static str],
+    pub allowed_transitions: &'static [(&'static str, &'static str)],
+    pub runtime_initial_state: GeneratedState,
+    pub runtime_transitions: &'static [(GeneratedState, GeneratedState)],
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -136,34 +211,15 @@ impl ActorPrivateRegistry {
                 "{event_kind} is not a registered actor-private Event"
             ))
         })?;
-        let subject = write.cell_subject.as_object().ok_or_else(|| {
-            ContractRegistryError::Invalid(format!("{event_kind} cell_subject must be an object"))
-        })?;
-        match subject.get("kind").and_then(Value::as_str) {
-            Some("did") => {
-                let field = subject
-                    .get("field")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| {
-                        ContractRegistryError::Invalid(format!(
-                            "{event_kind} DID subject omits field"
-                        ))
-                    })?;
+        match write.cell_subject {
+            ActorPrivateSubjectRule::Did(field) => {
                 resolve_private_string_field(field, envelope_actor_id, payload)
             }
-            Some("composite") => {
-                let components = subject
-                    .get("components")
-                    .and_then(Value::as_array)
-                    .ok_or_else(|| {
-                        ContractRegistryError::Invalid(format!(
-                            "{event_kind} composite subject omits components"
-                        ))
-                    })?;
+            ActorPrivateSubjectRule::Composite(components) => {
                 let values = components
                     .iter()
                     .map(|component| {
-                        resolve_private_component(event_kind, component, envelope_actor_id, payload)
+                        resolve_private_component(*component, envelope_actor_id, payload)
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 arkret_wire::composite_subject(
@@ -171,9 +227,6 @@ impl ActorPrivateRegistry {
                 )
                 .map_err(|error| ContractRegistryError::Invalid(error.to_string()))
             }
-            other => Err(ContractRegistryError::Invalid(format!(
-                "{event_kind} has unsupported actor-private subject kind {other:?}"
-            ))),
         }
     }
 
@@ -283,167 +336,75 @@ impl ActorPrivateRegistry {
 }
 
 pub fn build_actor_private_registry() -> Result<ActorPrivateRegistry, ContractRegistryError> {
-    let registry = event_kind_registry()?;
-    let private = object_member(registry, "actor_private_contracts")?;
-    let raw_families = object_member(private, "cell_families")?;
-    let raw_writes = object_member(private, "event_writes")?;
-    let mut families = BTreeMap::new();
-    for (family, raw) in raw_families {
-        if !family.starts_with("ak.private.") {
-            return Err(ContractRegistryError::Invalid(format!(
-                "actor-private registry contains shared family {family}"
-            )));
-        }
-        let raw = raw.as_object().ok_or_else(|| {
-            ContractRegistryError::Invalid(format!(
-                "actor-private family {family} must be an object"
-            ))
-        })?;
-        let merge = match raw.get("merge").and_then(Value::as_str) {
-            Some("server_revision_cas") => ActorPrivateMergeKind::ServerRevisionCas,
-            Some("fsm_cas") => ActorPrivateMergeKind::FsmCas,
-            Some("cas_register") => ActorPrivateMergeKind::CasRegister,
-            Some("causal_then_hlc_then_device") => ActorPrivateMergeKind::CausalThenHlcThenDevice,
-            other => {
-                return Err(ContractRegistryError::Invalid(format!(
-                    "actor-private family {family} has unknown merge {other:?}"
-                )));
-            }
-        };
-        let tombstone = match raw.get("tombstone").and_then(Value::as_str) {
-            None => None,
-            Some("value_tombstone") => Some(ActorPrivateTombstoneMode::ValueTombstone),
-            Some("versioned_tombstone") => Some(ActorPrivateTombstoneMode::VersionedTombstone),
-            other => {
-                return Err(ContractRegistryError::Invalid(format!(
-                    "actor-private family {family} has unknown tombstone {other:?}"
-                )));
-            }
-        };
-        families.insert(
-            family.clone(),
-            ActorPrivateFamilyContract {
-                cell_family: family.clone(),
-                merge,
-                tombstone,
-                bottom_reject: raw.get("bottom").and_then(Value::as_str) == Some("reject")
-                    || matches!(merge, ActorPrivateMergeKind::FsmCas),
-                fsm: parse_actor_private_fsm(family, raw.get("fsm"))?,
-            },
-        );
-    }
-    let mut event_writes = BTreeMap::new();
-    for (event_kind, raw) in raw_writes {
-        let raw = raw.as_object().ok_or_else(|| {
-            ContractRegistryError::Invalid(format!(
-                "actor-private Event {event_kind} write must be an object"
-            ))
-        })?;
-        let family = raw
-            .get("cell_family")
-            .and_then(Value::as_str)
-            .ok_or_else(|| {
-                ContractRegistryError::Invalid(format!(
-                    "actor-private Event {event_kind} omits cell_family"
-                ))
-            })?;
-        if !families.contains_key(family) {
-            return Err(ContractRegistryError::Invalid(format!(
-                "actor-private Event {event_kind} references unknown family {family}"
-            )));
-        }
-        event_writes.insert(
-            event_kind.clone(),
-            ActorPrivateEventWrite {
-                event_kind: event_kind.clone(),
-                cell_family: family.to_owned(),
-                cell_subject: raw.get("cell_subject").cloned().ok_or_else(|| {
-                    ContractRegistryError::Invalid(format!(
-                        "actor-private Event {event_kind} omits cell_subject"
-                    ))
-                })?,
-                effect_projection: raw.get("effect_projection").cloned().ok_or_else(|| {
-                    ContractRegistryError::Invalid(format!(
-                        "actor-private Event {event_kind} omits effect_projection"
-                    ))
-                })?,
-            },
-        );
-    }
+    let families = GENERATED_ACTOR_PRIVATE_FAMILIES
+        .iter()
+        .map(|generated| {
+            let fsm = generated.fsm.map(|fsm| ActorPrivateFsmContract {
+                initial_state: fsm.initial_state.to_owned(),
+                states: owned_strings(fsm.states),
+                terminal_states: owned_strings(fsm.terminal_states),
+                allowed_transitions: owned_transitions(fsm.allowed_transitions),
+            });
+            (
+                generated.cell_family.to_owned(),
+                ActorPrivateFamilyContract {
+                    cell_family: generated.cell_family.to_owned(),
+                    merge: generated.merge,
+                    tombstone: generated.tombstone,
+                    bottom_reject: generated.bottom_reject,
+                    fsm,
+                },
+            )
+        })
+        .collect();
+    let event_writes = GENERATED_ACTOR_PRIVATE_WRITES
+        .iter()
+        .map(|generated| {
+            (
+                generated.event_kind.to_owned(),
+                ActorPrivateEventWrite {
+                    event_kind: generated.event_kind.to_owned(),
+                    cell_family: generated.cell_family.to_owned(),
+                    cell_subject: generated.cell_subject,
+                    effect_projection: generated.effect_projection,
+                },
+            )
+        })
+        .collect();
     Ok(ActorPrivateRegistry {
         families,
         event_writes,
     })
 }
 
-fn parse_actor_private_fsm(
-    family: &str,
-    value: Option<&Value>,
-) -> Result<Option<ActorPrivateFsmContract>, ContractRegistryError> {
-    let Some(fsm) = value.and_then(Value::as_object) else {
-        return Ok(None);
-    };
-    let states = string_array(fsm, "states", family)?;
-    let terminal_states = string_array(fsm, "terminal_states", family)?;
-    let initial_state = fsm
-        .get("initial_state")
-        .and_then(Value::as_str)
-        .ok_or_else(|| {
-            ContractRegistryError::Invalid(format!(
-                "actor-private FSM {family} omits initial_state"
-            ))
-        })?
-        .to_owned();
-    let allowed_transitions = transition_array(fsm, "allowed_transitions", family)?;
-    if !states.contains(&initial_state)
-        || terminal_states.iter().any(|state| !states.contains(state))
-        || allowed_transitions
-            .iter()
-            .any(|(from, to)| !states.contains(from) || !states.contains(to))
-    {
-        return Err(ContractRegistryError::Invalid(format!(
-            "actor-private FSM {family} references an undeclared state"
-        )));
-    }
-    Ok(Some(ActorPrivateFsmContract {
-        initial_state,
-        states,
-        terminal_states,
-        allowed_transitions,
-    }))
+fn owned_strings(values: &[&str]) -> Vec<String> {
+    values.iter().map(|value| (*value).to_owned()).collect()
+}
+
+fn owned_transitions(values: &[(&str, &str)]) -> Vec<(String, String)> {
+    values
+        .iter()
+        .map(|(from, to)| ((*from).to_owned(), (*to).to_owned()))
+        .collect()
 }
 
 fn resolve_private_component(
-    event_kind: &str,
-    component: &Value,
+    component: ActorPrivateSubjectComponent,
     envelope_actor_id: &Value,
     payload: &Value,
 ) -> Result<String, ContractRegistryError> {
-    if let Some(field) = component.as_str() {
-        return resolve_private_string_field(field, envelope_actor_id, payload);
+    match component {
+        ActorPrivateSubjectComponent::Field(field) => {
+            resolve_private_string_field(field, envelope_actor_id, payload)
+        }
+        ActorPrivateSubjectComponent::CanonicalJson(field) => {
+            let value = resolve_private_value(field, envelope_actor_id, payload)?;
+            let bytes = arkret_wire::canonical::canonical_json_bytes(value)
+                .map_err(|error| ContractRegistryError::Invalid(error.to_string()))?;
+            String::from_utf8(bytes)
+                .map_err(|error| ContractRegistryError::Invalid(error.to_string()))
+        }
     }
-    let descriptor = component.as_object().ok_or_else(|| {
-        ContractRegistryError::Invalid(format!(
-            "{event_kind} composite component must be a string or descriptor"
-        ))
-    })?;
-    if descriptor.get("kind").and_then(Value::as_str) != Some("canonical_json") {
-        return Err(ContractRegistryError::Invalid(format!(
-            "{event_kind} composite component has unsupported kind"
-        )));
-    }
-    let field = descriptor
-        .get("field")
-        .and_then(Value::as_str)
-        .ok_or_else(|| {
-            ContractRegistryError::Invalid(format!(
-                "{event_kind} canonical_json component omits field"
-            ))
-        })?;
-    let value = resolve_private_value(field, envelope_actor_id, payload)?;
-    let bytes = arkret_wire::canonical::canonical_json_bytes(value)
-        .map_err(|error| ContractRegistryError::Invalid(error.to_string()))?;
-    String::from_utf8(bytes).map_err(|error| ContractRegistryError::Invalid(error.to_string()))
 }
 
 fn resolve_private_string_field(
@@ -500,401 +461,25 @@ fn valid_revision_successor(
 }
 
 pub fn canonical_fsm_contracts() -> Result<Vec<ResolvedFsmContract>, ContractRegistryError> {
-    let registry = event_kind_registry()?;
-    let templates = object_member(registry, "fsm_templates")?;
-    let contracts = object_member(registry, "fsm_contracts")?;
-    let cell_contracts = object_member(registry, "cell_contracts")?;
-    let mut resolved = Vec::with_capacity(contracts.len());
-    for (family, contract) in contracts {
-        if family.starts_with("ak.private.") {
-            return Err(ContractRegistryError::Invalid(format!(
-                "private FSM {family} is declared in the shared fsm_contracts map"
-            )));
-        }
-        let contract = contract.as_object().ok_or_else(|| {
-            ContractRegistryError::Invalid(format!("FSM contract {family} must be an object"))
-        })?;
-        let (source, parameters) = if let Some(template_id) =
-            contract.get("template").and_then(Value::as_str)
-        {
-            let template = templates
-                .get(template_id)
-                .and_then(Value::as_object)
-                .ok_or_else(|| {
-                    ContractRegistryError::Invalid(format!(
-                        "FSM contract {family} references unknown template {template_id}"
-                    ))
-                })?;
-            validate_template_parameters(family, template, contract.get("instance_parameters"))?;
-            (
-                template,
-                contract
-                    .get("instance_parameters")
-                    .and_then(Value::as_object),
-            )
-        } else {
-            (contract, None)
-        };
-        resolved.push(resolve_fsm(
-            family,
-            contract,
-            source,
-            parameters,
-            cell_contracts,
-        )?);
-    }
-    Ok(resolved)
+    Ok(GENERATED_FSM_CONTRACTS
+        .iter()
+        .map(resolved_fsm_contract)
+        .collect())
 }
 
-fn resolve_fsm(
-    family: &str,
-    instance: &Map<String, Value>,
-    source: &Map<String, Value>,
-    parameters: Option<&Map<String, Value>>,
-    cell_contracts: &Map<String, Value>,
-) -> Result<ResolvedFsmContract, ContractRegistryError> {
-    let axis = instance
-        .get("axis")
-        .and_then(Value::as_str)
-        .ok_or_else(|| ContractRegistryError::Invalid(format!("FSM {family} omits axis")))?
-        .to_owned();
-    let states = string_array(source, "states", family)?;
-    let state_set: BTreeSet<_> = states.iter().cloned().collect();
-    if state_set.len() != states.len() {
-        return Err(ContractRegistryError::Invalid(format!(
-            "FSM {family} declares duplicate states"
-        )));
-    }
-    let terminal_states = string_array(source, "terminal_states", family)?;
-    let declared_transitions =
-        transition_array_allowing_initial(source, "allowed_transitions", family)?;
-    let mut explicit_initial_transitions = declared_transitions
-        .iter()
-        .filter_map(|(from, to)| from.is_none().then_some(to.clone()))
-        .collect::<Vec<_>>();
-    let mut allowed_transitions = declared_transitions
-        .into_iter()
-        .filter_map(|(from, to)| from.map(|from| (from, to)))
-        .collect::<Vec<_>>();
-    if let Some(conditionals) = source.get("conditional_transitions") {
-        for conditional in conditionals.as_array().ok_or_else(|| {
-            ContractRegistryError::Invalid(format!(
-                "FSM template for {family} has non-array conditional_transitions"
-            ))
-        })? {
-            let when = conditional
-                .get("when")
-                .and_then(Value::as_object)
-                .ok_or_else(|| {
-                    ContractRegistryError::Invalid(format!(
-                        "FSM template conditional for {family} omits when"
-                    ))
-                })?;
-            let parameter = when
-                .get("parameter")
-                .and_then(Value::as_str)
-                .ok_or_else(|| {
-                    ContractRegistryError::Invalid(format!(
-                        "FSM template conditional for {family} omits parameter"
-                    ))
-                })?;
-            let expected = when.get("const").ok_or_else(|| {
-                ContractRegistryError::Invalid(format!(
-                    "FSM template conditional for {family} omits const"
-                ))
-            })?;
-            if parameters.and_then(|values| values.get(parameter)) == Some(expected) {
-                allowed_transitions.push(transition_value(conditional.get("transition"), family)?);
-            }
-        }
-    }
-    for terminal in &terminal_states {
-        if !state_set.contains(terminal) {
-            return Err(ContractRegistryError::Invalid(format!(
-                "FSM {family} terminal state {terminal} is unknown"
-            )));
-        }
-    }
-    for (from, to) in &allowed_transitions {
-        if !state_set.contains(from) || !state_set.contains(to) {
-            return Err(ContractRegistryError::Invalid(format!(
-                "FSM {family} transition {from}->{to} names an unknown state"
-            )));
-        }
-    }
-    let initial_states = if let Some(values) = source.get("initial_states") {
-        value_string_array(values, "initial_states", family)?
-    } else if !explicit_initial_transitions.is_empty() {
-        explicit_initial_transitions.clone()
-    } else {
-        vec![
-            source
-                .get("initial_state")
-                .and_then(Value::as_str)
-                .ok_or_else(|| {
-                    ContractRegistryError::Invalid(format!(
-                        "FSM {family} omits initial_state/initial_states"
-                    ))
-                })?
-                .to_owned(),
-        ]
-    };
-    if initial_states
-        .iter()
-        .any(|initial| !state_set.contains(initial))
-    {
-        return Err(ContractRegistryError::Invalid(format!(
-            "FSM {family} declares an unknown initial state"
-        )));
-    }
-    if explicit_initial_transitions
-        .iter()
-        .any(|initial| !initial_states.contains(initial))
-    {
-        return Err(ContractRegistryError::Invalid(format!(
-            "FSM {family} null transition names a non-initial state"
-        )));
-    }
-    explicit_initial_transitions.sort();
-    explicit_initial_transitions.dedup();
-
-    let explicit_null_initial = cell_contracts.values().any(|contract| {
-        contract
-            .get("cell_writes")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .any(|write| {
-                write.get("cell_family").and_then(Value::as_str) == Some(family)
-                    && write
-                        .pointer("/effect_projection/from/const")
-                        .is_some_and(Value::is_null)
-            })
-    });
-    let multiple_initials = source.get("initial_states").is_some();
-    let runtime_uses_null =
-        explicit_null_initial || multiple_initials || !explicit_initial_transitions.is_empty();
-    let runtime_initial_state = Some(if runtime_uses_null {
-        Value::Null
-    } else {
-        Value::String(initial_states[0].clone())
-    });
-    let mut runtime_transitions = Vec::new();
-    if runtime_uses_null {
-        let runtime_initials = if explicit_initial_transitions.is_empty() {
-            &initial_states
-        } else {
-            &explicit_initial_transitions
-        };
-        runtime_transitions.extend(
-            runtime_initials
-                .iter()
-                .cloned()
-                .map(|initial| (Value::Null, Value::String(initial))),
-        );
-    }
-    runtime_transitions.extend(
-        allowed_transitions
+fn resolved_fsm_contract(generated: &GeneratedFsmContract) -> ResolvedFsmContract {
+    ResolvedFsmContract {
+        cell_family: generated.cell_family.to_owned(),
+        axis: generated.axis.to_owned(),
+        states: owned_strings(generated.states),
+        terminal_states: owned_strings(generated.terminal_states),
+        initial_states: owned_strings(generated.initial_states),
+        allowed_transitions: owned_transitions(generated.allowed_transitions),
+        runtime_initial_state: Some(generated.runtime_initial_state.to_value()),
+        runtime_transitions: generated
+            .runtime_transitions
             .iter()
-            .cloned()
-            .map(|(from, to)| (Value::String(from), Value::String(to))),
-    );
-    Ok(ResolvedFsmContract {
-        cell_family: family.to_owned(),
-        axis,
-        states,
-        terminal_states,
-        initial_states,
-        allowed_transitions,
-        runtime_initial_state,
-        runtime_transitions,
-    })
-}
-
-fn validate_template_parameters(
-    family: &str,
-    template: &Map<String, Value>,
-    values: Option<&Value>,
-) -> Result<(), ContractRegistryError> {
-    let schema = template
-        .get("parameter_schema")
-        .and_then(Value::as_object)
-        .ok_or_else(|| {
-            ContractRegistryError::Invalid(format!(
-                "templated FSM {family} references a template without parameter_schema"
-            ))
-        })?;
-    let values = values.and_then(Value::as_object).ok_or_else(|| {
-        ContractRegistryError::Invalid(format!("templated FSM {family} omits instance_parameters"))
-    })?;
-    if values.keys().collect::<BTreeSet<_>>() != schema.keys().collect::<BTreeSet<_>>() {
-        return Err(ContractRegistryError::Invalid(format!(
-            "templated FSM {family} parameter closure does not match its template"
-        )));
+            .map(|(from, to)| (from.to_value(), to.to_value()))
+            .collect(),
     }
-    for (name, definition) in schema {
-        match definition.get("value_shape").and_then(Value::as_str) {
-            Some("boolean") if values.get(name).is_some_and(Value::is_boolean) => {}
-            Some(shape) => {
-                return Err(ContractRegistryError::Invalid(format!(
-                    "templated FSM {family} parameter {name} does not satisfy {shape}"
-                )));
-            }
-            None => {
-                return Err(ContractRegistryError::Invalid(format!(
-                    "templated FSM {family} parameter {name} omits value_shape"
-                )));
-            }
-        }
-    }
-    Ok(())
-}
-
-fn event_kind_registry() -> Result<&'static Map<String, Value>, ContractRegistryError> {
-    static REGISTRY: OnceLock<Result<Map<String, Value>, ContractRegistryError>> = OnceLock::new();
-    REGISTRY
-        .get_or_init(|| {
-            let artifact = arkret_schema::embedded_json_artifact("registry/contract-registry.json")
-                .map_err(|error| ContractRegistryError::Embedded(error.to_string()))?;
-            artifact
-                .get("event_kind_registry")
-                .and_then(Value::as_object)
-                .cloned()
-                .ok_or_else(|| {
-                    ContractRegistryError::Invalid(
-                        "contract-registry omits event_kind_registry".to_owned(),
-                    )
-                })
-        })
-        .as_ref()
-        .map_err(Clone::clone)
-}
-
-fn object_member<'a>(
-    object: &'a Map<String, Value>,
-    member: &str,
-) -> Result<&'a Map<String, Value>, ContractRegistryError> {
-    object
-        .get(member)
-        .and_then(Value::as_object)
-        .ok_or_else(|| {
-            ContractRegistryError::Invalid(format!("event_kind_registry omits object {member}"))
-        })
-}
-
-fn string_array(
-    object: &Map<String, Value>,
-    member: &str,
-    family: &str,
-) -> Result<Vec<String>, ContractRegistryError> {
-    value_string_array(
-        object.get(member).ok_or_else(|| {
-            ContractRegistryError::Invalid(format!("FSM {family} omits {member}"))
-        })?,
-        member,
-        family,
-    )
-}
-
-fn value_string_array(
-    value: &Value,
-    member: &str,
-    family: &str,
-) -> Result<Vec<String>, ContractRegistryError> {
-    value
-        .as_array()
-        .ok_or_else(|| {
-            ContractRegistryError::Invalid(format!("FSM {family} {member} must be an array"))
-        })?
-        .iter()
-        .map(|value| {
-            value.as_str().map(ToOwned::to_owned).ok_or_else(|| {
-                ContractRegistryError::Invalid(format!(
-                    "FSM {family} {member} must contain strings"
-                ))
-            })
-        })
-        .collect()
-}
-
-fn transition_array(
-    object: &Map<String, Value>,
-    member: &str,
-    family: &str,
-) -> Result<Vec<(String, String)>, ContractRegistryError> {
-    object
-        .get(member)
-        .and_then(Value::as_array)
-        .ok_or_else(|| {
-            ContractRegistryError::Invalid(format!("FSM {family} omits array {member}"))
-        })?
-        .iter()
-        .map(|value| transition_value(Some(value), family))
-        .collect()
-}
-
-fn transition_array_allowing_initial(
-    object: &Map<String, Value>,
-    member: &str,
-    family: &str,
-) -> Result<Vec<(Option<String>, String)>, ContractRegistryError> {
-    object
-        .get(member)
-        .and_then(Value::as_array)
-        .ok_or_else(|| {
-            ContractRegistryError::Invalid(format!("FSM {family} omits array {member}"))
-        })?
-        .iter()
-        .map(|value| {
-            let pair = value.as_array().ok_or_else(|| {
-                ContractRegistryError::Invalid(format!("FSM {family} transition must be an array"))
-            })?;
-            if pair.len() != 2 {
-                return Err(ContractRegistryError::Invalid(format!(
-                    "FSM {family} transition must have exactly two states"
-                )));
-            }
-            let from = if pair[0].is_null() {
-                None
-            } else {
-                Some(
-                    pair[0]
-                        .as_str()
-                        .ok_or_else(|| {
-                            ContractRegistryError::Invalid(format!(
-                                "FSM {family} transition from must be null or a string"
-                            ))
-                        })?
-                        .to_owned(),
-                )
-            };
-            let to = pair[1].as_str().ok_or_else(|| {
-                ContractRegistryError::Invalid(format!(
-                    "FSM {family} transition to must be a string"
-                ))
-            })?;
-            Ok((from, to.to_owned()))
-        })
-        .collect()
-}
-
-fn transition_value(
-    value: Option<&Value>,
-    family: &str,
-) -> Result<(String, String), ContractRegistryError> {
-    let pair = value.and_then(Value::as_array).ok_or_else(|| {
-        ContractRegistryError::Invalid(format!("FSM {family} transition must be an array"))
-    })?;
-    if pair.len() != 2 {
-        return Err(ContractRegistryError::Invalid(format!(
-            "FSM {family} transition must have exactly two states"
-        )));
-    }
-    let from = pair[0].as_str().ok_or_else(|| {
-        ContractRegistryError::Invalid(format!("FSM {family} transition from must be a string"))
-    })?;
-    let to = pair[1].as_str().ok_or_else(|| {
-        ContractRegistryError::Invalid(format!("FSM {family} transition to must be a string"))
-    })?;
-    Ok((from.to_owned(), to.to_owned()))
 }

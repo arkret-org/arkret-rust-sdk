@@ -1,0 +1,23 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+categories = ["development-tools", "testing"]
+description = "Filesystem-backed Arkret spec drift and conformance tooling."
+edition = "2024"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+keywords = ["arkret", "schema", "conformance"]
+license = "Apache-2.0"
+name = "arkret-schema-conformance"
+publish = false
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+arkret-schema = { workspace = true }
+arkret-wire = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

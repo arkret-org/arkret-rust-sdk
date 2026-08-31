@@ -314,9 +314,10 @@ mod tests {
     /// (`visibility-policy-fixture.json`).
     #[test]
     fn since_join_prejoin_vector_executes_against_the_decision_functions() {
-        let fixture =
-            arkret_schema::embedded_json_artifact("fixtures/visibility-policy-fixture.json")
-                .unwrap();
+        let fixture = arkret_schema_conformance::spec_json_artifact(
+            "fixtures/visibility-policy-fixture.json",
+        )
+        .unwrap();
         let case = find_case(
             &fixture,
             "ak.vector.history_access.since_join_prejoin_denied.v1",
@@ -376,9 +377,10 @@ mod tests {
     /// any other Realm scope.
     #[test]
     fn direct_conversation_scope_has_no_local_history_rule() {
-        let fixture =
-            arkret_schema::embedded_json_artifact("fixtures/history-key-recovery-fixture.json")
-                .unwrap();
+        let fixture = arkret_schema_conformance::spec_json_artifact(
+            "fixtures/history-key-recovery-fixture.json",
+        )
+        .unwrap();
         assert!(
             fixture["covers_vectors"]
                 .as_array()

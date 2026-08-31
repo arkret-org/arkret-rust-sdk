@@ -103,13 +103,13 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
     SPEC_LATTICE_BINDINGS.to_vec()
 }
 
-/// Build the shared Realm cell registry from the embedded canonical contract.
+/// Build the shared Realm cell registry from generated canonical descriptors.
 ///
-/// This convenience wrapper is appropriate when an invalid embedded artifact
+/// This convenience wrapper is appropriate when an invalid generated contract
 /// is a process invariant violation. Servers that need a recoverable startup
 /// error should call [`try_build_sdk_cell_registry`] and fail closed.
 pub fn build_sdk_cell_registry() -> MemoryCellRegistry {
-    try_build_sdk_cell_registry().expect("embedded canonical cell contract must resolve")
+    try_build_sdk_cell_registry().expect("generated canonical cell contract must resolve")
 }
 
 pub fn try_build_sdk_cell_registry() -> Result<MemoryCellRegistry, ContractRegistryError> {

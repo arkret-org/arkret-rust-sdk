@@ -1,7 +1,7 @@
 //! Executable state consumer for the RSVP `mv_register_cases` carried by
 //! `fixtures/encoding-fixture.json`.
 
-use arkret_schema::embedded_json_artifact;
+use arkret_schema_conformance::spec_json_artifact;
 use arkret_state::lattice::{CellState, Lattice, MvRegister, SealedOp};
 use arkret_wire::{CellRef, Hash, LatticeOp, LatticeOpType};
 use serde_json::{Value, json};
@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 const VECTOR_ID: &str = "ak.vector.calendar.rsvp_composite_subject.v1";
 
 fn vector() -> Value {
-    let fixture = embedded_json_artifact("fixtures/encoding-fixture.json")
+    let fixture = spec_json_artifact("fixtures/encoding-fixture.json")
         .expect("embedded encoding fixture must load");
     fixture["vectors"]
         .as_array()

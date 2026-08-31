@@ -143,14 +143,10 @@ jobs:
       - run: cargo check -p arkret-mls --target wasm32-unknown-unknown --no-default-features
       - run: cargo check -p arkret-identifiers --target wasm32-unknown-unknown --no-default-features
 
-  embedded-snapshot:
-    name: embedded spec snapshot drift gate
+  generated-contracts:
+    name: generated contract drift gate
     runs-on: ubuntu-latest
-    # Hard gate (SDK-TEST-07): the embedded spec artifact snapshot MUST match
-    # the live spec. ARKRET_REQUIRE_SPEC=1 turns the otherwise-skipping test
-    # into a failure when the spec checkout is missing, so this job can never
-    # silently pass without comparing. Refresh every spec-derived SDK surface
-    # with `./tools/sync-spec.ps1` when the spec moves.
+    # Hard gate: every committed typed descriptor MUST match the live spec.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -161,18 +157,19 @@ jobs:
           path: arkret-spec
           # Public spec repo; if private, set a PAT under
           # secrets.SPEC_READ_TOKEN and pass `token: ${{ secrets.SPEC_READ_TOKEN }}`.
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.98"
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: arkret-rust-sdk
-      - name: Run embedded snapshot drift gate
+      - name: Run generated contract drift gate
         working-directory: arkret-rust-sdk
-        env:
-          ARKRET_REQUIRE_SPEC: "1"
-          ARKRET_SPEC_ARTIFACTS: ${{ github.workspace }}/arkret-spec/spec/v1/artifacts
-        run: cargo test -p arkret-schema --lib embedded_spec_artifacts_match_live_spec_when_available
+        shell: pwsh
+        run: ./tools/sync-spec.ps1 -ArtifactsDir ${{ github.workspace }}/arkret-spec/spec/v1/artifacts -Check
 
   docs:
     name: Documentation
@@ -289,15 +286,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: arkret-rust-sdk
-      - name: Verify embedded artifact generator
+      - name: Verify Rust spec generator
         working-directory: arkret-rust-sdk
-        run: python tools/test_refresh_embedded_artifacts.py
-      # Runs here rather than in the `rust` job: the test builds its fixtures by
-      # copying real registry files out of the sibling arkret-spec checkout, so
-      # it needs this job's two-repo layout.
-      - name: Verify registry type generator
-        working-directory: arkret-rust-sdk
-        run: python tools/tests/test_generate_registry_types.py
+        run: cargo test --manifest-path tools/spec-codegen/Cargo.toml
       - name: Guard SDK wire struct fields against live Spec schemas
         working-directory: arkret-rust-sdk
         run: |
@@ -315,13 +306,10 @@ jobs:
         run: >-
           python tools/generate-operation-coverage-matrix.py --check
           --artifacts ${{ github.workspace }}/arkret-spec/spec/v1/artifacts
-      # Cross-checks the hand-maintained SUPPORTED_* coverage constants in
-      # crates/schema/src/artifacts.rs against the live registries in both
-      # directions. The example this invokes did not exist until 2026-08-01, so
-      # despite the job being declared a hard gate it had never once executed —
-      # see review_code.md in the sibling arkret-work repository.
+      # Cross-checks generated SDK coverage against the live registries in both
+      # directions through the explicit conformance crate.
       - name: Run spec_drift_report
         working-directory: arkret-rust-sdk
         env:
           ARKRET_SPEC_ARTIFACTS: ${{ github.workspace }}/arkret-spec/spec/v1/artifacts
-        run: cargo run -p arkret-schema --example spec_drift_report
+        run: cargo run -p arkret-schema-conformance --example spec_drift_report

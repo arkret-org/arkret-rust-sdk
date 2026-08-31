@@ -1,5 +1,5 @@
 //! @generated; do not edit by hand.
-//! Generator: tools/generate-registry-types.py
+//! Generator: tools/spec-codegen
 //! Input: registry/error-code-registry.json; version=2026-08-31.1;
 //! sha256=0d74e0513ccfd1f71ca581a12b9a41e13e315af0daeca28d497f9cf94c6a756f
 //! Entries: reason_codes=458

@@ -1,5 +1,5 @@
 //! @generated; do not edit by hand.
-//! Generator: tools/generate-registry-types.py
+//! Generator: tools/spec-codegen
 //! Input: registry/schema-registry.json; version=2026-08-31.1;
 //! sha256=d10b71d70d5eb7a960ef2a832c813eecc6d22a2b1de187a0df22220fd0dc8a4e Entries: schema_ids=195,
 //! active=195

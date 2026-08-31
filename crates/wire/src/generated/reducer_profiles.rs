@@ -1,5 +1,5 @@
 //! @generated; do not edit by hand.
-//! Generator: tools/generate-registry-types.py
+//! Generator: tools/spec-codegen
 //! Input: registry/reducer-profile-registry.json; version=2026-08-25.1;
 //! sha256=0fde5d1bda803d7e4600b2f7386f957fa933e7f37b3a1eb912d042127b9dd632
 //! Entries: reducer_profiles=1, upgrade_edges=0
@@ -31,7 +31,6 @@ impl ReducerProfileId {
     }
 
     /// Whether this profile registers a direct upgrade to `target`.
-    /// An upgrade the source does not declare is never valid.
     pub fn can_upgrade_to(self, target: Self) -> bool {
         REDUCER_PROFILE_UPGRADE_EDGES.contains(&(self, target))
     }
@@ -40,13 +39,10 @@ impl ReducerProfileId {
 /// Directed reducer-profile upgrades registered by the source profile.
 pub const REDUCER_PROFILE_UPGRADE_EDGES: &[(ReducerProfileId, ReducerProfileId)] = &[];
 
-/// Whether `value` names an active Realm reducer profile.
 pub fn is_reducer_profile_id(value: &str) -> bool {
     ReducerProfileId::from_wire(value).is_some()
 }
 
-/// Whether `source` registers a direct upgrade to `target`. Ids that are
-/// unknown or no longer active never upgrade.
 pub fn can_upgrade_reducer_profile(source: &str, target: &str) -> bool {
     match (
         ReducerProfileId::from_wire(source),

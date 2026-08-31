@@ -1,5 +1,5 @@
 //! @generated; do not edit by hand.
-//! Generator: tools/generate-registry-types.py
+//! Generator: tools/spec-codegen
 //! Input: registry/service-kind-registry.json; version=2026-08-30.5;
 //! sha256=3ba6fc77e9034642544b6077a69f5c38210c14117c0c010ad3ffe9af243abf04 Entries: active=16
 

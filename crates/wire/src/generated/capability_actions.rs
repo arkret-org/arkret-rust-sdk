@@ -1,5 +1,5 @@
 //! @generated; do not edit by hand.
-//! Generator: tools/generate-registry-types.py
+//! Generator: tools/spec-codegen
 //! Input: registry/capability-action-registry.json; version=2026-08-30.3;
 //! sha256=22d2d874a74e9ba0f7b6ed65624925660e3d7f3699fdb84b7bea196b994d5598 Entries: registered=162
 

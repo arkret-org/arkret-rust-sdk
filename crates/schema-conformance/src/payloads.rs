@@ -110,7 +110,10 @@ fn build_default_event_payload_validator_catalog() -> Result<EventPayloadValidat
     if let Some(artifacts_dir) = default_spec_artifacts_dir() {
         event_payload_validator_catalog_from_spec_artifacts(artifacts_dir)
     } else {
-        event_payload_validator_catalog_from_embedded_spec_artifacts()
+        Err(SchemaError::Protocol(
+            "JSON Schema conformance validation requires an explicit spec artifacts directory; runtime validation uses the typed event payload dispatch"
+                .to_owned(),
+        ))
     }
 }
 
@@ -123,10 +126,10 @@ pub fn event_payload_validator_catalog_from_spec_artifacts(
     event_payload_validator_catalog_from_bundle(&bundle, registry)
 }
 
-pub fn event_payload_validator_catalog_from_embedded_spec_artifacts()
+pub fn event_payload_validator_catalog_from_configured_spec_artifacts()
 -> Result<EventPayloadValidatorCatalog> {
-    let bundle = SpecArtifactBundle::load_embedded()?;
-    let registry = schema_registry_from_embedded_spec_artifacts()?;
+    let bundle = SpecArtifactBundle::load_configured()?;
+    let registry = schema_registry_from_configured_spec_artifacts()?;
     event_payload_validator_catalog_from_bundle(&bundle, registry)
 }
 
@@ -232,7 +235,7 @@ mod tests {
 
     #[test]
     fn concurrent_catalog_clones_compile_each_payload_validator_once() {
-        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+        let catalog = event_payload_validator_catalog_from_configured_spec_artifacts().unwrap();
         let payload = Arc::new(json!({
             "policy_revision": 1,
             "federation_policy": "restricted",
@@ -406,8 +409,8 @@ mod tests {
     /// registry `payload_schema_ref`; there is no naming fallback or exception.
     #[test]
     fn catalog_covers_every_active_standard_kind() {
-        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
-        let bundle = SpecArtifactBundle::load_embedded().unwrap();
+        let catalog = event_payload_validator_catalog_from_configured_spec_artifacts().unwrap();
+        let bundle = SpecArtifactBundle::load_configured().unwrap();
         let entries = bundle
             .event_kind_registry
             .get("event_kinds")
@@ -454,7 +457,7 @@ mod tests {
     /// (`generic_standard_payload`) rather than a dedicated
     /// `event-payload.schema.json#/$defs/*_payload` def.
     ///
-    /// It asserts, over the full embedded spec event-kind registry, that the set
+    /// It asserts, over the configured spec event-kind registry, that the set
     /// of active standard kinds landing on each catch-all shape is *exactly* the
     /// documented list — catching drift in both directions:
     /// - a newly registered kind that silently inherits a catch-all via a broad family arm (appears
@@ -469,8 +472,8 @@ mod tests {
     fn every_active_standard_kind_avoids_undocumented_generic_payloads() {
         const GENERIC_DEF: &str = "generic_standard_payload";
 
-        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
-        let bundle = SpecArtifactBundle::load_embedded().unwrap();
+        let catalog = event_payload_validator_catalog_from_configured_spec_artifacts().unwrap();
+        let bundle = SpecArtifactBundle::load_configured().unwrap();
         let entries = bundle
             .event_kind_registry
             .get("event_kinds")
@@ -518,7 +521,7 @@ mod tests {
 
     #[test]
     fn applet_registration_resolves_to_strong_payload_not_generic() {
-        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+        let catalog = event_payload_validator_catalog_from_configured_spec_artifacts().unwrap();
         // The strong def wins over the generic fallback.
         assert_eq!(
             catalog.rules["ak.applet.registration"].payload_schema_id,
@@ -540,7 +543,7 @@ mod tests {
 
     #[test]
     fn catalog_reports_registered_payload_validators() {
-        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+        let catalog = event_payload_validator_catalog_from_configured_spec_artifacts().unwrap();
 
         assert!(catalog.has_payload_validator(EventKind::RealmHistoryAccess.as_str()));
         assert!(!catalog.has_payload_validator("ak.unknown.test"));
@@ -548,7 +551,7 @@ mod tests {
 
     #[test]
     fn selector_claim_resolves_to_its_registered_schema() {
-        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+        let catalog = event_payload_validator_catalog_from_configured_spec_artifacts().unwrap();
         let rule = &catalog.rules[EventKind::AgentSelectorClaim.as_str()];
 
         assert_eq!(rule.payload_schema_id, SchemaId::AGENT_SELECTOR_CLAIM_V1);
@@ -612,7 +615,7 @@ mod tests {
 
     #[test]
     fn strong_catalog_accepts_read_receipt_policy_payload() {
-        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+        let catalog = event_payload_validator_catalog_from_configured_spec_artifacts().unwrap();
         assert_eq!(
             catalog.rules["ak.realm.read_receipt_policy"].payload_schema_id,
             format!(
@@ -630,10 +633,9 @@ mod tests {
             .unwrap();
     }
 
-    #[cfg(feature = "embedded-artifacts")]
     #[test]
     fn realm_join_rule_and_discovery_each_close_their_own_whole_value() {
-        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+        let catalog = event_payload_validator_catalog_from_configured_spec_artifacts().unwrap();
         assert_eq!(
             catalog.rules["ak.realm.join_rule"].payload_schema_id,
             format!(
@@ -727,7 +729,7 @@ mod tests {
 
     #[test]
     fn strong_catalog_accepts_device_authorize_payload() {
-        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+        let catalog = event_payload_validator_catalog_from_configured_spec_artifacts().unwrap();
         assert_eq!(
             catalog.rules["ak.device.authorize"].payload_schema_id,
             format!(
@@ -766,7 +768,7 @@ mod tests {
     /// the `realm_organization_payload` def and derive the 8 top-level required fields.
     #[test]
     fn strong_catalog_validates_realm_organization_relationship_statement() {
-        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+        let catalog = event_payload_validator_catalog_from_configured_spec_artifacts().unwrap();
         assert_eq!(
             catalog.rules["ak.realm.organization"].payload_schema_id,
             format!(
@@ -812,7 +814,7 @@ mod tests {
     /// SDK-ORG-03 negative cases: each MUST be rejected by the strong schema.
     #[test]
     fn strong_catalog_rejects_invalid_realm_organization_statements() {
-        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+        let catalog = event_payload_validator_catalog_from_configured_spec_artifacts().unwrap();
 
         // revoked status without revokes_statement_id.
         let mut revoked_missing = realm_organization_active_payload();

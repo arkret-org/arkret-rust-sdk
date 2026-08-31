@@ -126,6 +126,37 @@ macro_rules! event_payload_accessors {
             }
         )+
 
+        /// Validate an erased standard Event payload through its generated
+        /// kind-to-Rust-type dispatch. The wire payload is never interpreted
+        /// through a bundled JSON Schema at runtime.
+        pub fn validate_event_payload(
+            kind: &arkret_wire::EventKind,
+            payload: &Value,
+        ) -> Result<()> {
+            $(
+                if *kind == <$marker>::KIND {
+                    let typed: <$marker as EventSpec>::Payload =
+                        serde_json::from_value(payload.clone()).map_err(|source| {
+                            WireError::PayloadInvalid {
+                                kind: <$marker>::KIND_STR,
+                                reason: source.to_string(),
+                            }
+                        })?;
+                    <$marker as EventSpec>::validate_payload(&typed).map_err(|error| {
+                        WireError::PayloadInvalid {
+                            kind: <$marker>::KIND_STR,
+                            reason: error.to_string(),
+                        }
+                    })?;
+                    return Ok(());
+                }
+            )+
+            Err(WireError::Protocol(format!(
+                "event kind {} has no typed payload binding",
+                kind.as_str()
+            )))
+        }
+
         /// Strongly typed, read-only payload projections for a wire [`Event`].
         pub trait EventPayloadExt {
             fn typed_payload<K: EventSpec>(&self) -> Result<K::Payload>;

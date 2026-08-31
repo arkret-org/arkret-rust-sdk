@@ -5,7 +5,7 @@ param(
 )
 
 # Internal Rust-generation layer. Contributors and CI should normally invoke
-# sync-spec.ps1 so this layer and the embedded artifact snapshot stay aligned.
+# sync-spec.ps1 so every generated Rust surface stays aligned.
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -70,9 +70,9 @@ try {
         throw 'MLS security-frontier generation failed'
     }
 
-    & python (Join-Path $PSScriptRoot 'generate-registry-types.py') --artifacts-dir $artifacts --output-root $targetRoot
+    & cargo run --quiet --manifest-path (Join-Path $PSScriptRoot 'spec-codegen/Cargo.toml') -- --artifacts-dir $artifacts --output-root $targetRoot
     if ($LASTEXITCODE -ne 0) {
-        throw 'registry type generation failed'
+        throw 'Rust spec code generation failed'
     }
 
     $allOutputs = @(

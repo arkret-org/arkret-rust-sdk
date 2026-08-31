@@ -1,18 +1,16 @@
-//! Registry-backed validation for payload-agnostic wire events.
+//! Typed validation for payload-agnostic wire events.
 
-use arkret_wire::{Event, SchemaId};
+use arkret_wire::Event;
 
-use crate::{
-    ProtocolSchemaRegistry, Result, SchemaError, schema_registry_from_default_spec_artifacts,
-};
+use crate::{Result, SchemaError};
 
-/// Validate an Event envelope against the registered `event-envelope` schema.
+/// Validate an Event envelope against the SDK's closed typed wire contract.
 pub fn validate_event_wire_schema(event: &Event) -> Result<()> {
     let value = serde_json::to_value(event)
         .map_err(|error| SchemaError::Protocol(format!("event serialization failed: {error}")))?;
-    let registry = schema_registry_from_default_spec_artifacts()?
-        .unwrap_or_else(ProtocolSchemaRegistry::default);
-    registry.validate_value(SchemaId::EVENT_V1, &value)
+    serde_json::from_value::<Event>(value)
+        .map(|_| ())
+        .map_err(|error| SchemaError::Protocol(format!("event wire contract failed: {error}")))
 }
 
 /// Run the complete Event submit gate: structural checks followed by schema validation.
@@ -23,7 +21,7 @@ pub fn validate_event_for_submit(event: &Event) -> Result<()> {
     validate_event_wire_schema(event)
 }
 
-/// Registry-backed schema validation layered on top of the wire [`Event`].
+/// Typed wire validation layered on top of the wire [`Event`].
 pub trait EventSchemaExt {
     fn validate_wire_schema(&self) -> Result<()>;
     fn validate_for_submit(&self) -> Result<()>;
@@ -63,13 +61,11 @@ mod tests {
     }
 
     #[test]
-    fn extension_trait_and_free_function_share_the_schema_gate() {
+    fn extension_trait_and_free_function_share_the_typed_wire_gate() {
         let event = event();
 
-        let direct = validate_event_wire_schema(&event).unwrap_err().to_string();
-        let extension = event.validate_wire_schema().unwrap_err().to_string();
-
-        assert_eq!(extension, direct);
+        validate_event_wire_schema(&event).unwrap();
+        event.validate_wire_schema().unwrap();
     }
 
     #[test]

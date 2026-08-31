@@ -2,7 +2,7 @@
   "version": 1,
   "entries": [
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/identifiers/src/generated/digest_suite_codes.rs"
       ],
@@ -50,7 +50,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/error_codes/error_code.rs",
         "crates/wire/src/error_codes/reason_code.rs"
@@ -73,7 +73,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/generated/operation_ids.rs"
       ],
@@ -84,7 +84,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/generated/capability_discovery.rs"
       ],
@@ -99,7 +99,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/generated/schema_ids.rs"
       ],
@@ -110,7 +110,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/generated/closed_registry_types.rs"
       ],
@@ -123,7 +123,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/generated/account_data_keys.rs"
       ],
@@ -134,7 +134,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/generated/service_kinds.rs"
       ],
@@ -145,7 +145,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/generated/relation_kinds.rs"
       ],
@@ -156,7 +156,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/generated/capability_actions.rs"
       ],
@@ -167,7 +167,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/generated/profile_ids.rs"
       ],
@@ -182,7 +182,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/generated/reducer_profiles.rs"
       ],
@@ -196,7 +196,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/generated/did_freshness_profiles.rs"
       ],
@@ -207,7 +207,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/generated/authority_sources.rs"
       ],
@@ -218,7 +218,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/generated/history_store_limits.rs"
       ],
@@ -229,7 +229,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/generated/redactable_fields.rs"
       ],
@@ -244,7 +244,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/generated/reducer_managed_paths.rs"
       ],
@@ -260,7 +260,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/generated/security_strings.rs"
       ],
@@ -278,7 +278,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/generated/service_contract_ids.rs"
       ],
@@ -292,7 +292,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/generated/device_message_kinds.rs"
       ],
@@ -306,7 +306,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/wire/src/generated/authority_set_ids.rs"
       ],
@@ -320,7 +320,7 @@
       ]
     },
     {
-      "generator": "registry-types",
+      "generator": "spec-codegen",
       "outputs": [
         "crates/schema/src/generated/registry_descriptors.rs"
       ],
@@ -331,6 +331,57 @@
         "registry/id-kind-registry.json",
         "registry/capability-action-registry.json",
         "registry/account-data-key-registry.json"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
+        "crates/schema/src/generated/runtime_contracts.rs"
+      ],
+      "owner": "arkret-schema",
+      "mode": "registered+descriptor",
+      "artifacts": [
+        "registry/agent-runtime-scope-registry.json",
+        "registry/contract-registry.json",
+        "registry/operation-registry.json",
+        "registry/event-kind-registry.json",
+        "registry/schema-registry.json",
+        "registry/id-kind-registry.json",
+        "deployment-probes.json"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
+        "crates/lattice-registry/src/generated/contract_registry.rs"
+      ],
+      "owner": "arkret-lattice-registry",
+      "mode": "static-typed-descriptor",
+      "artifacts": [
+        "registry/contract-registry.json"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
+        "crates/schema/src/generated/event_runtime_contracts.rs"
+      ],
+      "owner": "arkret-schema",
+      "mode": "registered+descriptor",
+      "artifacts": [
+        "registry/event-kind-registry.json",
+        "registry/id-kind-registry.json"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
+        "crates/schema/src/generated/openapi_query.rs"
+      ],
+      "owner": "arkret-schema",
+      "mode": "openapi-operation+component",
+      "artifacts": [
+        "openapi/arkret-service-api.openapi.yaml"
       ]
     }
   ]

@@ -721,7 +721,7 @@ mod tests {
 
     #[test]
     fn capability_revocation_preserves_exact_actor_identity() {
-        let registry = arkret_schema::schema_registry_from_default_spec_artifacts()
+        let registry = arkret_schema_conformance::schema_registry_from_default_spec_artifacts()
             .unwrap()
             .expect("spec schema registry");
         let principal = DidCoreId::new("ak:did_core:web:revoker.example").unwrap();

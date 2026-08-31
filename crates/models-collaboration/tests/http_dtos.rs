@@ -17,7 +17,7 @@ fn assert_actor_field_contract<T>(wire: &serde_json::Value, field: &str, schema:
 where
     T: serde::de::DeserializeOwned + serde::Serialize,
 {
-    let registry = arkret_schema::schema_registry_from_default_spec_artifacts()
+    let registry = arkret_schema_conformance::schema_registry_from_default_spec_artifacts()
         .unwrap()
         .expect("spec schema registry");
     let principal = actor_id("alice");

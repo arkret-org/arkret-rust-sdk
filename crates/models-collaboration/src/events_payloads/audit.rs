@@ -433,7 +433,7 @@ mod tests {
             serde_json::to_value(serde_json::from_value::<T>(value)?)
         }
 
-        let registry = arkret_schema::schema_registry_from_default_spec_artifacts()
+        let registry = arkret_schema_conformance::schema_registry_from_default_spec_artifacts()
             .unwrap()
             .expect("spec schema registry");
         let principal = DidCoreId::new("ak:did_core:web:auditor.example").unwrap();

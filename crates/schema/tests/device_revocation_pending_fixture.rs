@@ -1,10 +1,8 @@
-use arkret_schema::embedded_json_artifact;
+use arkret_schema_conformance::spec_json_artifact;
 
-#[cfg(feature = "embedded-artifacts")]
 #[test]
-fn embedded_device_revocation_fixture_keeps_the_named_contract() {
-    let fixture =
-        embedded_json_artifact("fixtures/device-revocation-pending-fixture.json").unwrap();
+fn configured_device_revocation_fixture_keeps_the_named_contract() {
+    let fixture = spec_json_artifact("fixtures/device-revocation-pending-fixture.json").unwrap();
     assert_eq!(fixture["suite"], "device_revocation_pending_state");
     assert_eq!(fixture["runner"]["kind"], "named_suite");
     assert_eq!(

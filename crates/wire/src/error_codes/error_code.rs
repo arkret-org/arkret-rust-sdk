@@ -1,5 +1,5 @@
 //! @generated; do not edit by hand.
-//! Generator: tools/generate-registry-types.py
+//! Generator: tools/spec-codegen
 //! Input: registry/error-code-registry.json; version=2026-08-31.1;
 //! sha256=0d74e0513ccfd1f71ca581a12b9a41e13e315af0daeca28d497f9cf94c6a756f Entries: error_codes=281
 
@@ -1558,19 +1558,15 @@ impl ErrorCode {
     pub fn descriptor(self) -> &'static ErrorCodeDescriptor {
         &ERROR_CODE_DESCRIPTORS[self as usize]
     }
-
     pub fn http_status(self) -> u16 {
         self.descriptor().http_status
     }
-
     pub fn type_uri(self) -> &'static str {
         self.descriptor().type_uri
     }
-
     pub fn title(self) -> &'static str {
         self.descriptor().title
     }
-
     pub fn http_status_in(self, context: ErrorStatusContext) -> u16 {
         let descriptor = self.descriptor();
         descriptor

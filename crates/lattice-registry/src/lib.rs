@@ -50,9 +50,10 @@ mod tests {
     }
 
     #[test]
-    fn sdk_cell_registry_bindings_match_embedded_spec_exactly() {
+    fn sdk_cell_registry_bindings_match_configured_spec_exactly() {
         let artifact =
-            arkret_schema::embedded_json_artifact("registry/event-kind-registry.json").unwrap();
+            arkret_schema_conformance::spec_json_artifact("registry/event-kind-registry.json")
+                .unwrap();
         let mut expected = BTreeMap::new();
         for event in artifact["event_kinds"].as_array().unwrap() {
             if event["status"] != "active" {

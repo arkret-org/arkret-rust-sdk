@@ -42,7 +42,7 @@ pub use event_intent::EventIntent;
 pub use event_payload::{
     EVENT_KINDS_WITHOUT_RUST_PAYLOAD, EVENT_PAYLOAD_BINDINGS,
     EVENT_SPECS_WITHOUT_TYPED_BINDING_COUNT, EventPayloadBinding, EventPayloadExt, EventSpec,
-    MessageEventPayload, ResolvedStateEventPayloadExt,
+    MessageEventPayload, ResolvedStateEventPayloadExt, validate_event_payload,
 };
 pub use ghost_profile::GhostActorProfileRequest;
 pub use operation::{

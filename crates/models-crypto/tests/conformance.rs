@@ -2,11 +2,11 @@ use arkret_canonical::{base64url, canonical};
 use arkret_models_crypto::{
     EncryptedEnvelope, MlsCommitEnvelope, MlsCommitPayload, MlsGovernanceBindingPayload,
 };
-use arkret_schema::{embedded_json_artifact, event_payload_validator_catalog};
+use arkret_schema_conformance::{event_payload_validator_catalog, spec_json_artifact};
 use arkret_wire::{EventId, Hash, ProfileId, RealmId};
 
 fn encoding_vector(vector_id: &str) -> serde_json::Value {
-    let fixture = embedded_json_artifact("fixtures/encoding-fixture.json").unwrap();
+    let fixture = spec_json_artifact("fixtures/encoding-fixture.json").unwrap();
     fixture["vectors"]
         .as_array()
         .unwrap()

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use arkret_schema::{
+use arkret_schema_conformance::{
     EventPayloadValidatorCatalog, default_spec_artifacts_dir,
     event_payload_validator_catalog_from_spec_artifacts,
 };

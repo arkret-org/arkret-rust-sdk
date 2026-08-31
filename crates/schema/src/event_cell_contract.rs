@@ -8,13 +8,11 @@
 
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::OnceLock;
 
-#[cfg(test)]
-use arkret_wire::EventCellRule;
 use arkret_wire::{
-    CbaEffectPlane, CellRef, Event, EventId, EventKind, LatticeOp, LatticeOpType, NULL_SUBJECT,
-    ObservedRemoveMatch, PredicateOp, ProjectedCellWrite, ProjectedEventInput, ProjectedOp,
+    CbaEffectPlane, CellRef, Event, EventCellRule, EventCellRuleKey, EventCellRuleOperator,
+    EventCellWriteDescriptor, EventId, EventKind, LatticeOp, LatticeOpType, NULL_SUBJECT,
+    PredicateOp, ProjectedCellWrite, ProjectedEventInput, ProjectedOp,
 };
 use serde_json::Value;
 use thiserror::Error;
@@ -311,21 +309,6 @@ impl<const N: usize> From<[(CellRef, Value); N]> for FrozenPreState {
     }
 }
 
-static EMBEDDED_EVENT_KIND_REGISTRY: OnceLock<Result<Value, String>> = OnceLock::new();
-
-fn event_kind_registry() -> Result<&'static Value, EventCellContractError> {
-    EMBEDDED_EVENT_KIND_REGISTRY
-        .get_or_init(|| {
-            crate::embedded_json_artifact("registry/event-kind-registry.json")
-                .map_err(|error| error.to_string())
-        })
-        .as_ref()
-        .map_err(|message| EventCellContractError::EffectSetMismatch {
-            kind: "<registry>".to_owned(),
-            message: message.clone(),
-        })
-}
-
 /// Project every active registry-declared cell write for `event`.
 ///
 /// This is the single evaluator both producers and receivers use, so target
@@ -432,39 +415,40 @@ fn project_registered_operation_writes_with_pre_state(
     authority_resolver: Option<&CapabilityAuthorityResolver<'_>>,
 ) -> Result<Vec<ProjectedCellWrite>, EventCellContractError> {
     let kind = event.kind.as_str().to_owned();
-    let registry = event_kind_registry()?;
-    let row = registry
-        .get("event_kinds")
-        .and_then(Value::as_array)
-        .and_then(|rows| {
-            rows.iter()
-                .find(|row| row.get("event_kind").and_then(Value::as_str) == Some(kind.as_str()))
-        })
+    let descriptor = event
+        .kind
+        .descriptor()
         .ok_or_else(|| EventCellContractError::UnregisteredReducerInput(kind.clone()))?;
-    validate_pre_state_requirements(event, row, frozen_pre_state, &kind)?;
-    let Some(writes) = row.get("cell_writes").and_then(Value::as_array) else {
+    let runtime_contract = crate::event_runtime_contract(&kind)
+        .ok_or_else(|| EventCellContractError::UnregisteredReducerInput(kind.clone()))?;
+    validate_pre_state_requirements(
+        event,
+        runtime_contract.pre_state_requirements,
+        frozen_pre_state,
+        &kind,
+    )?;
+    let writes = descriptor.cell_writes;
+    if writes.is_empty() {
         // An active reducer-input kind MUST declare a complete contract
         // (`event-and-patch.md` §2.4.2). Returning an empty projection for one
         // would admit the Event while writing nothing, which is the opposite of
         // fail-closed: the registry gap would look like "this kind touches no
         // cell". A row that is not an active reducer input legitimately has no
         // writes and projects none.
-        if row.get("status").and_then(Value::as_str) == Some("active")
-            && row.get("reducer_input").and_then(Value::as_bool) == Some(true)
-        {
+        if runtime_contract.reducer_input {
             return Err(EventCellContractError::MissingCellContract(kind));
         }
         return Ok(Vec::new());
-    };
+    }
 
     let mut projected = Vec::new();
-    let mut seen = BTreeMap::<String, (String, String)>::new();
+    let mut seen = BTreeMap::<String, (String, EventCellRuleOperator)>::new();
     for (write_index, write) in writes.iter().enumerate() {
         // `write_index` is the registry index, so a write skipped by its
         // `condition` still consumes one. The dot must be reproducible from the
         // registry alone; renumbering the surviving writes would make it depend
         // on payload shape.
-        if !condition_matches(event, write.get("condition"), &kind)? {
+        if !condition_matches(event, write.condition_rule, &kind)? {
             continue;
         }
         // `event-and-patch.md` §2.4.2: the one registered write whose target is
@@ -473,7 +457,7 @@ fn project_registered_operation_writes_with_pre_state(
         // and the projection is a reset rather than a lattice op. The grammar is
         // closed to `ak.conflict.recovery`; anything else declaring it is
         // a registry error, not a shape to interpret.
-        if let Some(cell_ref_rule) = write.get("cell_ref") {
+        if let Some(cell_ref_rule) = write.cell_ref_rule {
             if event.kind != EventKind::ConflictRecovery {
                 return Err(effect_set_error(
                     &kind,
@@ -481,17 +465,17 @@ fn project_registered_operation_writes_with_pre_state(
                 ));
             }
             let cell = conflict_recovery_cell(event, cell_ref_rule, &kind)?;
-            let projection = write.get("effect_projection").ok_or_else(|| {
+            let projection = write.effect_projection_rule.ok_or_else(|| {
                 effect_set_error(&kind, "conflict recovery write omits effect_projection")
             })?;
-            if projection.get("kind").and_then(Value::as_str) != Some("reset") {
+            if projection.operator() != Some(EventCellRuleOperator::Reset) {
                 return Err(effect_set_error(
                     &kind,
                     "conflict recovery effect_projection must be kind=reset",
                 ));
             }
             let source = projection
-                .get("value")
+                .field(EventCellRuleKey::Value)
                 .ok_or_else(|| effect_set_error(&kind, "reset effect_projection omits value"))?;
             let value = effect_source_value(
                 event,
@@ -509,13 +493,10 @@ fn project_registered_operation_writes_with_pre_state(
             continue;
         }
         let family = write
-            .get("cell_family")
-            .and_then(Value::as_str)
+            .cell_family
+            .map(|family| family.as_str())
             .ok_or_else(|| effect_set_error(&kind, "cell write omits cell_family"))?;
-        let subject = derive_subject_value(
-            event,
-            write.get("cell_subject").filter(|value| !value.is_null()),
-        )?;
+        let subject = derive_subject_value(event, write.cell_subject_rule)?;
         let cell = CellRef::new(format!("ak:cell:{family}:{subject}")).map_err(|error| {
             EventCellContractError::InvalidCell {
                 kind: kind.clone(),
@@ -523,13 +504,15 @@ fn project_registered_operation_writes_with_pre_state(
             }
         })?;
         let lattice = write
-            .get("lattice")
-            .and_then(Value::as_str)
+            .lattice
+            .map(|lattice| lattice.as_str())
             .ok_or_else(|| effect_set_error(&kind, "cell write omits lattice"))?;
         let projection = write
-            .get("effect_projection")
+            .effect_projection_rule
             .ok_or_else(|| effect_set_error(&kind, "cell write omits effect_projection"))?;
-        let projection_kind = projection.get("kind").and_then(Value::as_str).unwrap_or("");
+        let projection_kind = projection
+            .operator()
+            .ok_or_else(|| effect_set_error(&kind, "effect_projection omits kind"))?;
         // Two active writes on one cell are a registry error in general, because
         // nothing orders them. The one registered exception is an or_set
         // observed-remove paired with an add, which `key-management.md` §3.6.1
@@ -539,11 +522,11 @@ fn project_registered_operation_writes_with_pre_state(
         // sibling add cannot be part of), so it is well defined.
         if let Some((previous_lattice, previous_kind)) = seen.insert(
             cell.as_str().to_owned(),
-            (lattice.to_owned(), projection_kind.to_owned()),
+            (lattice.to_owned(), projection_kind),
         ) {
             let atomic_or_set_pair = previous_lattice == "or_set"
                 && lattice == "or_set"
-                && is_or_set_remove(&previous_kind) != is_or_set_remove(projection_kind);
+                && is_or_set_remove(previous_kind) != is_or_set_remove(projection_kind);
             if !atomic_or_set_pair {
                 return Err(effect_set_error(
                     &kind,
@@ -574,79 +557,42 @@ fn project_registered_operation_writes_with_pre_state(
 
 fn validate_pre_state_requirements(
     event: &ProjectedEventInput,
-    row: &Value,
+    requirements: &[crate::EventPreStateRequirementDescriptor],
     frozen_pre_state: &FrozenPreState,
     kind: &str,
 ) -> Result<(), EventCellContractError> {
-    let Some(requirements) = row.get("pre_state_requirements").and_then(Value::as_array) else {
-        return Ok(());
-    };
     for requirement in requirements {
-        let family = requirement
-            .get("cell_family")
-            .and_then(Value::as_str)
-            .ok_or_else(|| effect_set_error(kind, "pre-state requirement omits cell_family"))?;
-        let subject_path = requirement
-            .get("subject")
-            .and_then(|value| value.get("field"))
-            .and_then(Value::as_str)
-            .ok_or_else(|| effect_set_error(kind, "pre-state requirement omits subject.field"))?;
-        let subject = field_value(event, subject_path)
+        let subject = field_value(event, requirement.subject_field)
             .ok_or_else(|| effect_set_error(kind, "pre-state subject field is absent"))
             .and_then(|value| {
                 scalar_subject(value).map_err(|message| effect_set_error(kind, &message))
             })?;
-        let cell = CellRef::new(format!("ak:cell:{family}:{subject}")).map_err(|error| {
-            EventCellContractError::InvalidCell {
-                kind: kind.to_owned(),
-                message: error.to_string(),
-            }
+        let cell = CellRef::new(format!(
+            "ak:cell:{}:{subject}",
+            requirement.cell_family.as_str()
+        ))
+        .map_err(|error| EventCellContractError::InvalidCell {
+            kind: kind.to_owned(),
+            message: error.to_string(),
         })?;
         let stored = frozen_pre_state.get(&cell);
-        let predicate = requirement
-            .get("predicate")
-            .and_then(Value::as_object)
-            .ok_or_else(|| effect_set_error(kind, "pre-state requirement omits predicate"))?;
-        let field = predicate
-            .get("field")
-            .and_then(Value::as_str)
-            .ok_or_else(|| effect_set_error(kind, "pre-state requirement predicate omits field"))?;
-        let stored_value = stored.and_then(|value| nested_value(value, field));
-        let satisfied = match predicate.get("kind").and_then(Value::as_str) {
-            Some("stored_field_present") => stored_value.is_some_and(|value| !value.is_null()),
-            Some("stored_field_equals_payload") => {
-                let payload_path = predicate
-                    .get("payload_field")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| {
-                        effect_set_error(kind, "stored_field_equals_payload omits payload_field")
-                    })?;
-                stored_value == field_value(event, payload_path)
+        let stored_value = stored.and_then(|value| nested_value(value, requirement.stored_field));
+        let satisfied = match requirement.predicate {
+            crate::EventPreStatePredicateKind::StoredFieldPresent => {
+                stored_value.is_some_and(|value| !value.is_null())
             }
-            other => {
-                return Err(effect_set_error(
-                    kind,
-                    &format!("unsupported pre-state predicate {other:?}"),
-                ));
+            crate::EventPreStatePredicateKind::StoredFieldEqualsPayload => {
+                let payload_path = requirement.payload_field.ok_or_else(|| {
+                    effect_set_error(kind, "stored_field_equals_payload omits payload_field")
+                })?;
+                stored_value == field_value(event, payload_path)
             }
         };
         if !satisfied {
-            let failure = requirement
-                .get("failure")
-                .and_then(Value::as_object)
-                .ok_or_else(|| effect_set_error(kind, "pre-state requirement omits failure"))?;
             return Err(EventCellContractError::PreStateRequirement {
                 kind: kind.to_owned(),
-                code: failure
-                    .get("code")
-                    .and_then(Value::as_str)
-                    .unwrap_or("failed_precondition")
-                    .to_owned(),
-                reason_code: failure
-                    .get("reason_code")
-                    .and_then(Value::as_str)
-                    .unwrap_or("reducer_projection_failed")
-                    .to_owned(),
+                code: requirement.failure_code.to_owned(),
+                reason_code: requirement.failure_reason_code.to_owned(),
                 message: format!("predicate failed for {cell}"),
             });
         }
@@ -738,11 +684,14 @@ fn dot_for(event: &ProjectedEventInput, write_index: usize) -> String {
 /// redirect which cell a recovery may reset.
 fn conflict_recovery_cell(
     event: &ProjectedEventInput,
-    cell_ref_rule: &Value,
+    cell_ref_rule: EventCellRule,
     kind: &str,
 ) -> Result<CellRef, EventCellContractError> {
-    if cell_ref_rule.get("kind").and_then(Value::as_str) != Some("cell_ref")
-        || cell_ref_rule.get("field").and_then(Value::as_str) != Some("payload.target_cell")
+    if cell_ref_rule.operator() != Some(EventCellRuleOperator::CellRef)
+        || cell_ref_rule
+            .field(EventCellRuleKey::Field)
+            .and_then(EventCellRule::as_str)
+            != Some("payload.target_cell")
     {
         return Err(effect_set_error(
             kind,
@@ -789,8 +738,8 @@ fn cas_register_predecessor(event: &ProjectedEventInput, cell: &CellRef) -> Opti
 #[allow(clippy::too_many_arguments)]
 fn derive_effect_ops(
     event: &ProjectedEventInput,
-    write: &Value,
-    projection: &Value,
+    write: &EventCellWriteDescriptor,
+    projection: EventCellRule,
     lattice: &str,
     cell: &CellRef,
     kind: &str,
@@ -799,17 +748,16 @@ fn derive_effect_ops(
     authority_resolver: Option<&CapabilityAuthorityResolver<'_>>,
 ) -> Result<Vec<ProjectedOp>, EventCellContractError> {
     let projection_kind = projection
-        .get("kind")
-        .and_then(Value::as_str)
+        .operator()
         .ok_or_else(|| effect_set_error(kind, "effect_projection omits kind"))?;
-    let source = |member: &str| -> Result<Value, EventCellContractError> {
+    let source = |key: EventCellRuleKey, member: &str| -> Result<Value, EventCellContractError> {
         effect_source_value(
             event,
             write,
-            projection.get(member).ok_or_else(|| {
+            projection.field(key).ok_or_else(|| {
                 effect_set_error(
                     kind,
-                    &format!("{projection_kind} projection omits {member}"),
+                    &format!("{} projection omits {member}", projection_kind.as_str()),
                 )
             })?,
             kind,
@@ -819,36 +767,38 @@ fn derive_effect_ops(
         )
     };
     match projection_kind {
-        "transition" => {
-            require_lattice(kind, projection_kind, lattice, &["fsm"])?;
+        EventCellRuleOperator::Transition => {
+            require_lattice(kind, projection_kind.as_str(), lattice, &["fsm"])?;
             let mut op = LatticeOp::empty();
             op.op_type = LatticeOpType::Transition;
-            op.from = Some(source("from")?);
-            op.to = Some(source("to")?);
+            op.from = Some(source(EventCellRuleKey::From, "from")?);
+            op.to = Some(source(EventCellRuleKey::To, "to")?);
             Ok(vec![ProjectedOp::Direct(op)])
         }
-        "transition_to" => {
-            require_lattice(kind, projection_kind, lattice, &["fsm"])?;
-            Ok(vec![ProjectedOp::TransitionTo { to: source("to")? }])
+        EventCellRuleOperator::TransitionTo => {
+            require_lattice(kind, projection_kind.as_str(), lattice, &["fsm"])?;
+            Ok(vec![ProjectedOp::TransitionTo {
+                to: source(EventCellRuleKey::To, "to")?,
+            }])
         }
-        "set" => {
+        EventCellRuleOperator::Set => {
             require_lattice(
                 kind,
-                projection_kind,
+                projection_kind.as_str(),
                 lattice,
                 &["cas_register", "mv_register"],
             )?;
             let mut op = LatticeOp::empty();
-            op.value = Some(source("value")?);
+            op.value = Some(source(EventCellRuleKey::Value, "value")?);
             if lattice == "cas_register" {
                 op.from = cas_register_predecessor(event, cell);
             }
             Ok(vec![ProjectedOp::Direct(op)])
         }
-        "apply_patch" => {
+        EventCellRuleOperator::ApplyPatch => {
             require_lattice(
                 kind,
-                projection_kind,
+                projection_kind.as_str(),
                 lattice,
                 &["cas_register", "mv_register"],
             )?;
@@ -859,13 +809,12 @@ fn derive_effect_ops(
             // still required to be `payload.*` — the binding is a
             // producer-signed claim about the frozen pre-state, which the other
             // source forms cannot express.
-            let expected_prestate = match projection.get("expected_prestate") {
+            let expected_prestate = match projection.field(EventCellRuleKey::ExpectedPrestate) {
                 None => None,
                 Some(declared) => {
                     let path = declared
-                        .as_object()
-                        .and_then(|source| source.get("field"))
-                        .and_then(Value::as_str)
+                        .field(EventCellRuleKey::Field)
+                        .and_then(EventCellRule::as_str)
                         .filter(|path| path.starts_with("payload."))
                         .ok_or_else(|| {
                             effect_set_error(
@@ -877,76 +826,49 @@ fn derive_effect_ops(
                 }
             };
             Ok(vec![ProjectedOp::ApplyPatch {
-                patch: source("patch")?,
+                patch: source(EventCellRuleKey::Patch, "patch")?,
                 expected_prestate,
             }])
         }
-        "append" => {
-            require_lattice(kind, projection_kind, lattice, &["ordered_log"])?;
+        EventCellRuleOperator::Append => {
+            require_lattice(kind, projection_kind.as_str(), lattice, &["ordered_log"])?;
             let mut op = LatticeOp::empty();
             op.op_type = LatticeOpType::Append;
-            op.value = Some(source("value")?);
-            op.issuer_seq = Some(source("issuer_seq")?.as_u64().ok_or_else(|| {
-                effect_set_error(kind, "append issuer_seq must derive an unsigned integer")
-            })?);
+            op.value = Some(source(EventCellRuleKey::Value, "value")?);
+            op.issuer_seq = Some(
+                source(EventCellRuleKey::IssuerSeq, "issuer_seq")?
+                    .as_u64()
+                    .ok_or_else(|| {
+                        effect_set_error(kind, "append issuer_seq must derive an unsigned integer")
+                    })?,
+            );
             Ok(vec![ProjectedOp::Direct(op)])
         }
-        "or_set_add" => {
-            require_lattice(kind, projection_kind, lattice, &["or_set"])?;
+        EventCellRuleOperator::OrSetAdd => {
+            require_lattice(kind, projection_kind.as_str(), lattice, &["or_set"])?;
             let mut op = LatticeOp::empty();
             op.op_type = LatticeOpType::Add;
             op.tag = Some(or_set_tag(
                 event,
                 write,
-                projection.get("tag"),
+                projection.field(EventCellRuleKey::Tag),
                 kind,
                 dot,
                 digest_suite,
                 authority_resolver,
             )?);
-            op.value = Some(source("value")?);
+            op.value = Some(source(EventCellRuleKey::Value, "value")?);
             Ok(vec![ProjectedOp::Direct(op)])
         }
-        "or_set_remove_observed" => {
-            require_lattice(kind, projection_kind, lattice, &["or_set"])?;
-            // The surviving add-dot set is read from the frozen pre-state, which
-            // the Control Move's seal_basis has already pinned. That is what
-            // makes it deterministic without the producer enumerating dots; a
-            // producer-named subset is `or_set_delta`'s job instead.
-            let element_match = match projection.get("match") {
-                None => None,
-                Some(rule) => {
-                    let element_field = rule
-                        .get("element_field")
-                        .and_then(Value::as_str)
-                        .ok_or_else(|| {
-                            effect_set_error(
-                                kind,
-                                "or_set_remove_observed match omits element_field",
-                            )
-                        })?;
-                    let expected = effect_source_value(
-                        event,
-                        write,
-                        rule.get("source").ok_or_else(|| {
-                            effect_set_error(kind, "or_set_remove_observed match omits source")
-                        })?,
-                        kind,
-                        dot,
-                        digest_suite,
-                        authority_resolver,
-                    )?;
-                    Some(ObservedRemoveMatch {
-                        element_field: element_field.to_owned(),
-                        expected,
-                    })
-                }
-            };
-            Ok(vec![ProjectedOp::RemoveObserved { element_match }])
+        EventCellRuleOperator::OrSetRemoveObserved => {
+            require_lattice(kind, projection_kind.as_str(), lattice, &["or_set"])?;
+            Ok(vec![ProjectedOp::RemoveObserved {
+                element_match: None,
+            }])
         }
-        "or_set_remove_dots" => {
-            require_lattice(kind, projection_kind, lattice, &["or_set"])?;
-            let dots = source("dots")?;
+        EventCellRuleOperator::OrSetRemoveDots => {
+            require_lattice(kind, projection_kind.as_str(), lattice, &["or_set"])?;
+            let dots = source(EventCellRuleKey::Dots, "dots")?;
             let dots = dots.as_array().ok_or_else(|| {
                 effect_set_error(kind, "or_set_remove_dots dots must be an array")
             })?;
@@ -976,54 +898,18 @@ fn derive_effect_ops(
                 })
                 .collect()
         }
-        "or_set_batch_add" => {
-            require_lattice(kind, projection_kind, lattice, &["or_set"])?;
-            let tag_context = projection
-                .get("tag_context")
-                .and_then(Value::as_str)
-                .ok_or_else(|| effect_set_error(kind, "or_set_batch_add omits tag_context"))?;
-            let values = source("values")?;
-            let mut sorted = values
-                .as_array()
-                .ok_or_else(|| effect_set_error(kind, "or_set_batch_add values must be an array"))?
-                .clone();
-            // Canonical value order, not payload order: independent receivers
-            // MUST derive the same numbered tag set for the same value set.
-            sorted.sort_by_cached_key(|value| {
-                arkret_canonical::canonical_json_bytes(value).unwrap_or_default()
-            });
-            if sorted.windows(2).any(|pair| pair[0] == pair[1]) {
-                return Err(effect_set_error(
-                    kind,
-                    "or_set_batch_add values must be unique",
-                ));
-            }
-            sorted
-                .into_iter()
-                .enumerate()
-                .map(|(index, value)| {
-                    let mut op = LatticeOp::empty();
-                    op.op_type = LatticeOpType::Add;
-                    let _ = index;
-                    op.tag = Some(batch_add_tag(tag_context, dot, &value, kind)?);
-                    op.value = Some(value);
-                    Ok(ProjectedOp::Direct(op))
-                })
-                .collect()
-        }
-        "or_set_delta" => {
-            require_lattice(kind, projection_kind, lattice, &["or_set"])?;
+        EventCellRuleOperator::OrSetDelta => {
+            require_lattice(kind, projection_kind.as_str(), lattice, &["or_set"])?;
             let selector = projection
-                .get("selector")
-                .and_then(Value::as_str)
+                .field(EventCellRuleKey::Selector)
+                .and_then(EventCellRule::as_str)
                 .ok_or_else(|| effect_set_error(kind, "or_set_delta omits selector"))?;
             let discriminator = field_value(event, selector)
                 .and_then(Value::as_str)
                 .ok_or_else(|| effect_set_error(kind, "or_set_delta selector is missing"))?;
             let branch = projection
-                .get("branches")
-                .and_then(Value::as_object)
-                .and_then(|branches| branches.get(discriminator))
+                .field(EventCellRuleKey::Branches)
+                .and_then(|branches| branches.field_named(discriminator))
                 .ok_or_else(|| {
                     effect_set_error(
                         kind,
@@ -1031,27 +917,28 @@ fn derive_effect_ops(
                     )
                 })?;
             let branch_op = branch
-                .get("op")
-                .and_then(Value::as_str)
+                .field(EventCellRuleKey::Op)
+                .and_then(EventCellRule::as_str)
                 .ok_or_else(|| effect_set_error(kind, "or_set_delta branch omits op"))?;
-            let branch_source = |member: &str| -> Result<Value, EventCellContractError> {
-                effect_source_value(
-                    event,
-                    write,
-                    branch.get(member).ok_or_else(|| {
-                        effect_set_error(kind, &format!("or_set_delta branch omits {member}"))
-                    })?,
-                    kind,
-                    dot,
-                    digest_suite,
-                    authority_resolver,
-                )
-            };
+            let branch_source =
+                |key: EventCellRuleKey, member: &str| -> Result<Value, EventCellContractError> {
+                    effect_source_value(
+                        event,
+                        write,
+                        branch.field(key).ok_or_else(|| {
+                            effect_set_error(kind, &format!("or_set_delta branch omits {member}"))
+                        })?,
+                        kind,
+                        dot,
+                        digest_suite,
+                        authority_resolver,
+                    )
+                };
             let mut op = LatticeOp::empty();
             op.tag = Some(or_set_tag(
                 event,
                 write,
-                branch.get("tag"),
+                branch.field(EventCellRuleKey::Tag),
                 kind,
                 dot,
                 digest_suite,
@@ -1060,7 +947,7 @@ fn derive_effect_ops(
             match branch_op {
                 "add" => {
                     op.op_type = LatticeOpType::Add;
-                    op.value = Some(branch_source("value")?);
+                    op.value = Some(branch_source(EventCellRuleKey::Value, "value")?);
                 }
                 "remove" => op.op_type = LatticeOpType::Remove,
                 other => {
@@ -1074,7 +961,7 @@ fn derive_effect_ops(
         }
         other => Err(effect_set_error(
             kind,
-            &format!("unknown effect_projection kind {other}"),
+            &format!("unsupported effect_projection kind {}", other.as_str()),
         )),
     }
 }
@@ -1119,15 +1006,19 @@ pub fn or_set_dot(event_id: &str, write_index: usize) -> String {
 /// element.
 fn or_set_tag(
     event: &ProjectedEventInput,
-    write: &Value,
-    source: Option<&Value>,
+    write: &EventCellWriteDescriptor,
+    source: Option<EventCellRule>,
     kind: &str,
     dot: &str,
     digest_suite: arkret_canonical::DigestSuite,
     authority_resolver: Option<&CapabilityAuthorityResolver<'_>>,
 ) -> Result<String, EventCellContractError> {
     let source = source.ok_or_else(|| effect_set_error(kind, "or_set op omits its tag source"))?;
-    if source.get("envelope_field").and_then(Value::as_str) == Some("event_id") {
+    if source
+        .field(EventCellRuleKey::EnvelopeField)
+        .and_then(EventCellRule::as_str)
+        == Some("event_id")
+    {
         return Err(effect_set_error(
             kind,
             "or_set tag must use {\"dot\": true}; a bare event_id is not a dot",
@@ -1187,17 +1078,17 @@ pub fn batch_add_tag(
 /// else means the registry and the Event cannot be evaluated together, which
 /// fails closed.
 /// Whether a projection kind removes from an `or_set` rather than adding to it.
-fn is_or_set_remove(projection_kind: &str) -> bool {
+fn is_or_set_remove(projection_kind: EventCellRuleOperator) -> bool {
     matches!(
         projection_kind,
-        "or_set_remove_observed" | "or_set_remove_dots"
+        EventCellRuleOperator::OrSetRemoveObserved | EventCellRuleOperator::OrSetRemoveDots
     )
 }
 
 fn effect_source_value(
     event: &ProjectedEventInput,
-    write: &Value,
-    source: &Value,
+    write: &EventCellWriteDescriptor,
+    source: EventCellRule,
     kind: &str,
     dot: &str,
     digest_suite: arkret_canonical::DigestSuite,
@@ -1212,11 +1103,20 @@ fn effect_source_value(
             "effect source must contain exactly one member",
         ));
     }
-    if source.get("dot").and_then(Value::as_bool) == Some(true) {
+    let source = EventCellRule::Object(source);
+    if source
+        .field(EventCellRuleKey::Dot)
+        .and_then(EventCellRule::as_bool)
+        == Some(true)
+    {
         return Ok(Value::String(dot.to_owned()));
     }
-    if source.get("projected_value").and_then(Value::as_bool) == Some(true) {
-        let rule = write.get("value_projection").ok_or_else(|| {
+    if source
+        .field(EventCellRuleKey::ProjectedValue)
+        .and_then(EventCellRule::as_bool)
+        == Some(true)
+    {
+        let rule = write.value_projection_rule.ok_or_else(|| {
             effect_set_error(
                 kind,
                 "projected_value source requires a declared value_projection",
@@ -1224,7 +1124,10 @@ fn effect_source_value(
         })?;
         return derive_value_projection_value(event, rule, digest_suite);
     }
-    if let Some(path) = source.get("field").and_then(Value::as_str) {
+    if let Some(path) = source
+        .field(EventCellRuleKey::Field)
+        .and_then(EventCellRule::as_str)
+    {
         // `"payload"` names the complete signed payload object, which is how
         // every facet cell that stores its payload verbatim is declared. It has
         // no dotted member suffix, so [`field_value`] — which walks members —
@@ -1236,7 +1139,10 @@ fn effect_source_value(
             .cloned()
             .ok_or_else(|| effect_set_error(kind, &format!("effect source {path} is missing")));
     }
-    if let Some(field) = source.get("envelope_field").and_then(Value::as_str) {
+    if let Some(field) = source
+        .field(EventCellRuleKey::EnvelopeField)
+        .and_then(EventCellRule::as_str)
+    {
         // `realm_id` is the one envelope field whose wire form and in-memory
         // form differ: `ak.realm.create` omits it on the wire because the Realm
         // id is receiver-derived (from the Event for collaboration, or from the
@@ -1249,8 +1155,8 @@ fn effect_source_value(
         return projected_envelope_value(event, field)
             .ok_or_else(|| effect_set_error(kind, &format!("envelope field {field} is missing")));
     }
-    if let Some(value) = source.get("const") {
-        return Ok(value.clone());
+    if let Some(value) = source.field(EventCellRuleKey::Const) {
+        return Ok(value.to_json_value());
     }
     Err(effect_set_error(
         kind,
@@ -1291,7 +1197,7 @@ fn projected_envelope_value(event: &ProjectedEventInput, field: &str) -> Option<
 /// signed payload. Retired split Station-coordinate members are rejected.
 fn materialized_payload_root(
     event: &ProjectedEventInput,
-    write: &Value,
+    write: &EventCellWriteDescriptor,
     kind: &str,
     authority_resolver: Option<&CapabilityAuthorityResolver<'_>>,
 ) -> Result<Value, EventCellContractError> {
@@ -1311,8 +1217,8 @@ fn materialized_payload_root(
             )
         })?;
     let derived_members = write
-        .get("derived_members")
-        .and_then(Value::as_array)
+        .derived_members_rule
+        .and_then(EventCellRule::as_array)
         .ok_or_else(|| effect_set_error(kind, "capability grant write omits derived_members"))?;
     for retired in ["issuer_station_id", "subject_station_id"] {
         if grant.contains_key(retired) {
@@ -1325,8 +1231,8 @@ fn materialized_payload_root(
     let mut authority_audit = None;
     for member in derived_members {
         let name = member
-            .get("name")
-            .and_then(Value::as_str)
+            .field(EventCellRuleKey::Name)
+            .and_then(EventCellRule::as_str)
             .ok_or_else(|| effect_set_error(kind, "derived member omits name"))?;
         if grant.contains_key(name) {
             return Err(effect_set_error(
@@ -1334,7 +1240,10 @@ fn materialized_payload_root(
                 &format!("producer-authored payload.grant.{name} is forbidden"),
             ));
         }
-        match member.get("derivation").and_then(Value::as_str) {
+        match member
+            .field(EventCellRuleKey::Derivation)
+            .and_then(EventCellRule::as_str)
+        {
             Some("capability_authority_depth" | "capability_authority_root_refs") => {
                 let audit = match authority_audit.as_ref() {
                     Some(audit) => audit,
@@ -1376,7 +1285,10 @@ fn materialized_payload_root(
                             .expect("authority audit was just initialized")
                     }
                 };
-                let value = match member.get("derivation").and_then(Value::as_str) {
+                let value = match member
+                    .field(EventCellRuleKey::Derivation)
+                    .and_then(EventCellRule::as_str)
+                {
                     Some("capability_authority_depth") => {
                         Value::Number(audit.authority_depth.into())
                     }
@@ -1401,86 +1313,50 @@ fn materialized_payload_root(
 
 fn condition_matches(
     event: &ProjectedEventInput,
-    condition: Option<&Value>,
+    condition: Option<EventCellRule>,
     kind: &str,
 ) -> Result<bool, EventCellContractError> {
     let Some(condition) = condition else {
         return Ok(true);
     };
     let condition_kind = condition
-        .get("kind")
-        .and_then(Value::as_str)
+        .operator()
         .ok_or_else(|| effect_set_error(kind, "condition omits kind"))?;
     let present = |path: &str| field_value(event, path).is_some_and(|value| !value.is_null());
     match condition_kind {
-        "field_present" => condition
-            .get("field")
-            .and_then(Value::as_str)
+        EventCellRuleOperator::FieldPresent => condition
+            .field(EventCellRuleKey::Field)
+            .and_then(EventCellRule::as_str)
             .map(present)
             .ok_or_else(|| effect_set_error(kind, "field_present omits field")),
-        "field_absent" => condition
-            .get("field")
-            .and_then(Value::as_str)
+        EventCellRuleOperator::FieldAbsent => condition
+            .field(EventCellRuleKey::Field)
+            .and_then(EventCellRule::as_str)
             .map(|path| !present(path))
             .ok_or_else(|| effect_set_error(kind, "field_absent omits field")),
-        "field_equals" => {
+        EventCellRuleOperator::FieldEquals => {
             let path = condition
-                .get("field")
-                .and_then(Value::as_str)
+                .field(EventCellRuleKey::Field)
+                .and_then(EventCellRule::as_str)
                 .ok_or_else(|| effect_set_error(kind, "field_equals omits field"))?;
             let expected = condition
-                .get("const")
+                .field(EventCellRuleKey::Const)
                 .ok_or_else(|| effect_set_error(kind, "field_equals omits const"))?;
             if !matches!(
                 expected,
-                Value::String(_) | Value::Number(_) | Value::Bool(_)
+                EventCellRule::String(_) | EventCellRule::Integer(_) | EventCellRule::Bool(_)
             ) {
                 return Err(effect_set_error(
                     kind,
                     "field_equals const must be a string, number, or boolean",
                 ));
             }
-            Ok(field_value(event, path) == Some(expected))
-        }
-        "any_field_present" => {
-            let fields = condition
-                .get("fields")
-                .and_then(Value::as_array)
-                .ok_or_else(|| effect_set_error(kind, "any_field_present omits fields"))?;
-            if fields.len() < 2 || fields.iter().any(|field| field.as_str().is_none()) {
-                return Err(effect_set_error(
-                    kind,
-                    "any_field_present requires at least two string fields",
-                ));
-            }
-            Ok(fields.iter().filter_map(Value::as_str).any(present))
-        }
-        "critical_ref_role_exact_count" => {
-            let role = condition
-                .get("role")
-                .and_then(Value::as_str)
-                .ok_or_else(|| {
-                    effect_set_error(kind, "critical_ref_role_exact_count omits role")
-                })?;
-            let expected = condition
-                .get("count")
-                .and_then(Value::as_u64)
-                .ok_or_else(|| {
-                    effect_set_error(
-                        kind,
-                        "critical_ref_role_exact_count omits a non-negative integer count",
-                    )
-                })?;
-            let actual = event
-                .refs
-                .iter()
-                .filter(|event_ref| event_ref.critical && event_ref.role == role)
-                .count() as u64;
-            Ok(actual == expected)
+            let expected = expected.to_json_value();
+            Ok(field_value(event, path) == Some(&expected))
         }
         other => Err(effect_set_error(
             kind,
-            &format!("unknown condition kind {other}"),
+            &format!("unsupported condition kind {}", other.as_str()),
         )),
     }
 }
@@ -1494,46 +1370,50 @@ fn effect_set_error(kind: &str, message: &str) -> EventCellContractError {
 
 fn derive_value_projection_value(
     event: &ProjectedEventInput,
-    rule: &Value,
-    digest_suite: arkret_canonical::DigestSuite,
+    rule: EventCellRule,
+    _digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<Value, EventCellContractError> {
     let kind = event.kind.as_str().to_owned();
-    if rule.get("kind").and_then(Value::as_str) != Some("object") {
+    if rule.operator() != Some(EventCellRuleOperator::Object) {
         return Err(projection_error(
             &kind,
             "value projection kind must be object",
         ));
     }
     let members = rule
-        .get("members")
-        .and_then(Value::as_array)
+        .field(EventCellRuleKey::Members)
+        .and_then(EventCellRule::as_array)
         .ok_or_else(|| projection_error(&kind, "value projection members are missing"))?;
 
     let mut projected = serde_json::Map::new();
     for member in members {
         let name = member
-            .get("name")
-            .and_then(Value::as_str)
+            .field(EventCellRuleKey::Name)
+            .and_then(EventCellRule::as_str)
             .ok_or_else(|| projection_error(&kind, "value projection member is unnamed"))?;
         let optional = member
-            .get("optional")
-            .and_then(Value::as_bool)
+            .field(EventCellRuleKey::Optional)
+            .and_then(EventCellRule::as_bool)
             .unwrap_or(false);
 
-        if let Some(literal) = member.get("literal") {
-            projected.insert(name.to_owned(), literal.clone());
+        if let Some(literal) = member.field(EventCellRuleKey::Literal) {
+            projected.insert(name.to_owned(), literal.to_json_value());
             continue;
         }
-        let resolved = if let Some(path) = member.get("field").and_then(Value::as_str) {
+        let resolved = if let Some(path) = member
+            .field(EventCellRuleKey::Field)
+            .and_then(EventCellRule::as_str)
+        {
             field_value(event, path).cloned()
-        } else if let Some(path) = member.get("envelope_field").and_then(Value::as_str) {
+        } else if let Some(path) = member
+            .field(EventCellRuleKey::EnvelopeField)
+            .and_then(EventCellRule::as_str)
+        {
             projected_envelope_value(event, path)
-        } else if let Some(component) = member.get("select") {
-            let path = select_field_path(event, component, &kind)?;
-            field_value(event, &path).cloned()
-        } else if let Some(digest_of) = member.get("digest_of") {
-            member_digest(event, digest_of, &kind, digest_suite)?
-        } else if let Some(derivation) = member.get("derivation").and_then(Value::as_str) {
+        } else if let Some(derivation) = member
+            .field(EventCellRuleKey::Derivation)
+            .and_then(EventCellRule::as_str)
+        {
             member_derivation(event, derivation, &kind)?
         } else {
             return Err(projection_error(
@@ -1577,64 +1457,6 @@ fn member_derivation(
             &format!("unsupported value projection derivation {derivation}"),
         )),
     }
-}
-
-/// Compute a `digest_of` member over its declared input encoding.
-fn member_digest(
-    event: &ProjectedEventInput,
-    digest_of: &Value,
-    kind: &str,
-    digest_suite: arkret_canonical::DigestSuite,
-) -> Result<Option<Value>, EventCellContractError> {
-    // The whole-payload input has no field path: it commits to every signed
-    // byte, so a projection cannot silently lose a semantically relevant field
-    // as the payload evolves (device-lifecycle.md 13.0.1).
-    if digest_of.get("input").and_then(Value::as_str) == Some("event_payload_canonical_bytes") {
-        let payload = payload_root(event);
-        let bytes = arkret_canonical::canonical_json_bytes(&payload)
-            .map_err(|error| projection_error(kind, &error.to_string()))?;
-        return Ok(Some(Value::String(arkret_canonical::digest(
-            digest_suite,
-            &bytes,
-        ))));
-    }
-    let path = digest_of
-        .get("field")
-        .and_then(Value::as_str)
-        .ok_or_else(|| projection_error(kind, "digest_of field is missing"))?;
-    let Some(source) = field_value(event, path) else {
-        return Ok(None);
-    };
-    let bytes = match digest_of.get("input").and_then(Value::as_str) {
-        // Digesting the base64url text instead of the decoded ciphertext is
-        // explicitly forbidden by `conformance/encoding.md` §10.
-        Some("base64url_decoded_bytes") => {
-            let encoded = source
-                .as_str()
-                .ok_or_else(|| projection_error(kind, &format!("{path} must be a string")))?;
-            arkret_canonical::base64url_decode(encoded)
-                .map_err(|error| projection_error(kind, &error.to_string()))?
-        }
-        Some("canonical_json_bytes") => arkret_canonical::canonical_json_bytes(source)
-            .map_err(|error| projection_error(kind, &error.to_string()))?,
-        other => {
-            return Err(projection_error(
-                kind,
-                &format!(
-                    "unsupported digest_of input {}",
-                    other.unwrap_or("<missing>")
-                ),
-            ));
-        }
-    };
-    // device-lifecycle.md 13.0.1: the wire form follows the Realm's active
-    // `digest_algorithm`. Hard-coding SHA-256 would make a blake3 Realm's
-    // `op.value` — and therefore its state root — diverge from any conformant
-    // implementation.
-    Ok(Some(Value::String(arkret_canonical::digest(
-        digest_suite,
-        &bytes,
-    ))))
 }
 
 fn projection_error(kind: &str, message: &str) -> EventCellContractError {
@@ -1684,13 +1506,12 @@ fn derive_subject(
     event: &Event,
     rule: Option<EventCellRule>,
 ) -> Result<String, EventCellContractError> {
-    let rule = rule.map(EventCellRule::to_json_value);
-    derive_subject_value(&ProjectedEventInput::from(event), rule.as_ref())
+    derive_subject_value(&ProjectedEventInput::from(event), rule)
 }
 
 fn derive_subject_value(
     event: &ProjectedEventInput,
-    rule: Option<&Value>,
+    rule: Option<EventCellRule>,
 ) -> Result<String, EventCellContractError> {
     let kind = event.kind.as_str().to_owned();
     let Some(rule) = rule else {
@@ -1701,29 +1522,31 @@ fn derive_subject_value(
         // order against any implementation that follows the spec.
         return Ok(NULL_SUBJECT.to_owned());
     };
-    let rule_kind = rule.get("kind").and_then(Value::as_str).unwrap_or_default();
+    let rule_kind = rule
+        .operator()
+        .ok_or_else(|| subject_error(&kind, "cell subject rule omits kind"))?;
     match rule_kind {
-        "composite" => {
+        EventCellRuleOperator::Composite => {
             let components = rule
-                .get("components")
-                .and_then(Value::as_array)
+                .field(EventCellRuleKey::Components)
+                .and_then(EventCellRule::as_array)
                 .ok_or_else(|| subject_error(&kind, "composite components are missing"))?;
             derive_composite(event, components, &kind)
         }
-        "tuple" => {
+        EventCellRuleOperator::Tuple => {
             let components = rule
-                .get("components")
-                .and_then(Value::as_array)
+                .field(EventCellRuleKey::Components)
+                .and_then(EventCellRule::as_array)
                 .ok_or_else(|| subject_error(&kind, "tuple components are missing"))?;
             derive_composite(event, components, &kind)
         }
-        "coalesce" => {
+        EventCellRuleOperator::Coalesce => {
             let fields = rule
-                .get("fields")
-                .and_then(Value::as_array)
+                .field(EventCellRuleKey::Fields)
+                .and_then(EventCellRule::as_array)
                 .ok_or_else(|| subject_error(&kind, "coalesce fields are missing"))?;
             for field in fields {
-                let Some(path) = field.as_str() else {
+                let Some(path) = (*field).as_str() else {
                     continue;
                 };
                 if let Some(value) = field_value(event, path) {
@@ -1741,10 +1564,10 @@ fn derive_subject_value(
         // single CellRef subject segment and two different URIs can never fold
         // onto one cell. Every other simple kind (`did` / `typed_id` /
         // `string` / `id:<kind>`) embeds its canonical scalar verbatim.
-        "uri" => {
+        EventCellRuleOperator::Uri => {
             let path = rule
-                .get("field")
-                .and_then(Value::as_str)
+                .field(EventCellRuleKey::Field)
+                .and_then(EventCellRule::as_str)
                 .ok_or_else(|| subject_error(&kind, "cell subject field is missing"))?;
             let value = field_value(event, path)
                 .ok_or_else(|| subject_error(&kind, &format!("{path} is missing")))?;
@@ -1753,8 +1576,8 @@ fn derive_subject_value(
         }
         _ => {
             let path = rule
-                .get("field")
-                .and_then(Value::as_str)
+                .field(EventCellRuleKey::Field)
+                .and_then(EventCellRule::as_str)
                 .ok_or_else(|| subject_error(&kind, "cell subject field is missing"))?;
             // `envelope.event_id` is legal only under an `id:<kind>` rule, and
             // it never yields the raw `ak:event:` string: the subject is the
@@ -1763,7 +1586,7 @@ fn derive_subject_value(
             // every later update of the same object, which locates it by
             // `payload.<kind>_id`.
             if path == EVENT_ID_SUBJECT_SOURCE {
-                return retype_event_id(&event.event_id, rule_kind, &kind);
+                return retype_event_id(&event.event_id, rule_kind.as_str(), &kind);
             }
             if let Some(value) = field_value(event, path) {
                 return scalar_subject(value).map_err(|message| subject_error(&kind, &message));
@@ -1826,20 +1649,10 @@ pub fn derived_object_ids_for_kind(kind: &str, event_id: &EventId) -> Vec<String
 /// to a generic additional-property failure. Non-derived and unregistered
 /// Event kinds return an empty vector.
 pub fn event_derived_id_kinds_for_kind(kind: &str) -> Vec<String> {
-    let Some(registry) = event_kind_registry().ok() else {
+    let Some(contract) = crate::event_runtime_contract(kind) else {
         return Vec::new();
     };
-    let Some(row) = registry
-        .get("event_kinds")
-        .and_then(Value::as_array)
-        .and_then(|rows| {
-            rows.iter()
-                .find(|row| row.get("event_kind").and_then(Value::as_str) == Some(kind))
-        })
-    else {
-        return Vec::new();
-    };
-    if row.get("id_source").and_then(Value::as_str) != Some("event_derived") {
+    if contract.id_source != Some(crate::EventIdSource::EventDerived) {
         return Vec::new();
     }
     // The target id kind is declared, never inferred: `ak.profile.create`
@@ -1847,20 +1660,11 @@ pub fn event_derived_id_kinds_for_kind(kind: &str) -> Vec<String> {
     // Realm-level ordered log whose subject says nothing about the object it
     // creates. Guessing from the event kind's middle segment would be wrong for
     // both.
-    if let Some(id_kind) = row.get("id_kind").and_then(Value::as_str) {
-        vec![id_kind.to_owned()]
-    } else {
-        row.get("id_kinds")
-            .and_then(Value::as_array)
-            .map(|targets| {
-                targets
-                    .iter()
-                    .filter_map(Value::as_str)
-                    .map(ToOwned::to_owned)
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
+    contract
+        .derived_id_kinds
+        .iter()
+        .map(|id_kind| (*id_kind).to_owned())
+        .collect()
 }
 
 /// Retype this create Event's `event_id` into the object-id kind the rule
@@ -1897,7 +1701,7 @@ fn retype_event_id(
 
 fn derive_composite(
     event: &ProjectedEventInput,
-    components: &[Value],
+    components: &[EventCellRule],
     kind: &str,
 ) -> Result<String, EventCellContractError> {
     let parts = components
@@ -1912,21 +1716,21 @@ fn derive_composite(
 /// discriminated `select` (`conformance/encoding.md` §9.5.1).
 fn component_value(
     event: &ProjectedEventInput,
-    component: &Value,
+    component: &EventCellRule,
     kind: &str,
 ) -> Result<Value, EventCellContractError> {
-    if let Some(path) = component.as_str() {
+    if let Some(path) = (*component).as_str() {
         let value = subject_field_value(event, path)
             .ok_or_else(|| subject_error(kind, &format!("{path} is missing")))?;
         return composite_scalar(value.as_ref()).map_err(|message| subject_error(kind, &message));
     }
-    if component.get("kind").and_then(Value::as_str) == Some("string_set_digest") {
-        return string_set_digest_component_value(event, component, kind);
+    if component.operator() == Some(EventCellRuleOperator::StringSetDigest) {
+        return string_set_digest_component_value(event, *component, kind);
     }
-    if component.get("kind").and_then(Value::as_str) == Some("canonical_json") {
+    if component.operator() == Some(EventCellRuleOperator::CanonicalJson) {
         let path = component
-            .get("field")
-            .and_then(Value::as_str)
+            .field(EventCellRuleKey::Field)
+            .and_then(EventCellRule::as_str)
             .ok_or_else(|| subject_error(kind, "canonical_json component field is missing"))?;
         let value = subject_field_value(event, path)
             .ok_or_else(|| subject_error(kind, &format!("{path} is missing")))?;
@@ -1938,12 +1742,15 @@ fn component_value(
             .map_err(|error| subject_error(kind, &format!("{path} is not UTF-8: {error}")))?;
         return Ok(Value::String(canonical));
     }
-    if let Some(path) = component.get("field").and_then(Value::as_str) {
+    if let Some(path) = component
+        .field(EventCellRuleKey::Field)
+        .and_then(EventCellRule::as_str)
+    {
         let value = subject_field_value(event, path)
             .ok_or_else(|| subject_error(kind, &format!("{path} is missing")))?;
         return composite_scalar(value.as_ref()).map_err(|message| subject_error(kind, &message));
     }
-    let path = select_field_path(event, component, kind)?;
+    let path = select_field_path(event, *component, kind)?;
     let value = subject_field_value(event, &path)
         .ok_or_else(|| subject_error(kind, &format!("{path} is missing")))?;
     composite_scalar(value.as_ref()).map_err(|message| subject_error(kind, &message))
@@ -1951,25 +1758,25 @@ fn component_value(
 
 fn string_set_digest_component_value(
     event: &ProjectedEventInput,
-    component: &Value,
+    component: EventCellRule,
     kind: &str,
 ) -> Result<Value, EventCellContractError> {
     let object = component
         .as_object()
         .ok_or_else(|| subject_error(kind, "string_set_digest component must be an object"))?;
     if object.len() != 3
-        || !object.contains_key("kind")
-        || !object.contains_key("field")
-        || !object.contains_key("context")
+        || component.operator() != Some(EventCellRuleOperator::StringSetDigest)
+        || component.field(EventCellRuleKey::Field).is_none()
+        || component.field(EventCellRuleKey::Context).is_none()
     {
         return Err(subject_error(
             kind,
             "string_set_digest component must contain only kind, field, and context",
         ));
     }
-    let path = object
-        .get("field")
-        .and_then(Value::as_str)
+    let path = component
+        .field(EventCellRuleKey::Field)
+        .and_then(EventCellRule::as_str)
         .filter(|path| path.starts_with("payload."))
         .ok_or_else(|| {
             subject_error(
@@ -1977,9 +1784,9 @@ fn string_set_digest_component_value(
                 "string_set_digest component field must be an explicit payload path",
             )
         })?;
-    let context = object
-        .get("context")
-        .and_then(Value::as_str)
+    let context = component
+        .field(EventCellRuleKey::Context)
+        .and_then(EventCellRule::as_str)
         .ok_or_else(|| subject_error(kind, "string_set_digest component context is missing"))?;
     if kind == arkret_wire::event_kind_str::IDENTITY_ACCOUNTABILITY_GRANT
         && context != arkret_wire::DomainSeparationId::ACCOUNTABILITY_SCOPE_SET_V1
@@ -2039,22 +1846,21 @@ fn string_set_digest_component_value(
 /// `realm_id` as well, which is exactly the `realm` branch's value field.
 fn select_field_path(
     event: &ProjectedEventInput,
-    component: &Value,
+    component: EventCellRule,
     kind: &str,
 ) -> Result<String, EventCellContractError> {
-    if component.get("kind").and_then(Value::as_str) != Some("select") {
+    if component.operator() != Some(EventCellRuleOperator::Select) {
         return Err(subject_error(
             kind,
             "composite component has an unknown kind",
         ));
     }
     let selector = component
-        .get("selector")
-        .and_then(Value::as_str)
+        .field(EventCellRuleKey::Selector)
+        .and_then(EventCellRule::as_str)
         .ok_or_else(|| subject_error(kind, "select component is missing selector"))?;
     let branches = component
-        .get("branches")
-        .and_then(Value::as_object)
+        .field(EventCellRuleKey::Branches)
         .ok_or_else(|| subject_error(kind, "select component is missing branches"))?;
     let discriminator_value = subject_field_value(event, selector)
         .ok_or_else(|| subject_error(kind, &format!("selector {selector} is missing")))?;
@@ -2062,33 +1868,16 @@ fn select_field_path(
         .as_ref()
         .as_str()
         .ok_or_else(|| subject_error(kind, &format!("selector {selector} is not a string")))?;
-    let branch = branches.get(discriminator).ok_or_else(|| {
+    let branch = branches.field_named(discriminator).ok_or_else(|| {
         subject_error(
             kind,
             &format!("selector {selector} has no registered branch"),
         )
     })?;
     let selected = branch
-        .get("field")
-        .and_then(Value::as_str)
+        .field(EventCellRuleKey::Field)
+        .and_then(EventCellRule::as_str)
         .ok_or_else(|| subject_error(kind, "selected branch declares no field"))?;
-    // Only the fields this branch explicitly forbids make the payload
-    // ambiguous. The registry mirrors the wire schema's exclusivity here so
-    // derivation still fails closed off the schema-validated path.
-    for forbidden in branch
-        .get("forbidden_fields")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_str)
-    {
-        if subject_field_value(event, forbidden).is_some() {
-            return Err(subject_error(
-                kind,
-                &format!("forbidden field {forbidden} is present for branch {discriminator}"),
-            ));
-        }
-    }
     Ok(selected.to_owned())
 }
 
@@ -2162,7 +1951,8 @@ fn subject_error(kind: &str, message: &str) -> EventCellContractError {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::events::kinds::EventKind;
+    use arkret_wire::EventCellRuleField;
+    use arkret_wire::events::kinds::{EventCellWriteDescriptor, EventKind};
     use serde_json::json;
 
     use super::*;
@@ -2241,7 +2031,7 @@ mod tests {
             .expect("the registered contract must be evaluable")
     }
 
-    fn sole_write(event: &Event) -> arkret_wire::events::kinds::EventCellWriteDescriptor {
+    fn sole_write(event: &Event) -> EventCellWriteDescriptor {
         let writes = event.kind.descriptor().unwrap().cell_writes;
         assert_eq!(
             writes.len(),
@@ -2469,13 +2259,17 @@ mod tests {
         assert!(matches!(
             component_value(
                 &projected,
-                &json!("envelope.event_id"),
+                &EventCellRule::String("envelope.event_id"),
                 EventKind::RsvpSet.as_str(),
             ),
             Err(EventCellContractError::SubjectDerivation { .. })
         ));
         assert!(matches!(
-            component_value(&projected, &json!("actor_id"), EventKind::RsvpSet.as_str(),),
+            component_value(
+                &projected,
+                &EventCellRule::String("actor_id"),
+                EventKind::RsvpSet.as_str(),
+            ),
             Err(EventCellContractError::SubjectDerivation { .. })
         ));
 
@@ -2489,12 +2283,18 @@ mod tests {
             "-9qLc7Kio2nqksl6UbozbVpH6BFDu_uurV0Lm_ey8SQ"
         );
 
-        let envelope_actor = json!({
-            "kind": "canonical_json",
-            "field": "envelope.actor_id"
-        });
+        const ENVELOPE_ACTOR: EventCellRule = EventCellRule::Object(&[
+            EventCellRuleField {
+                key: EventCellRuleKey::Kind,
+                value: EventCellRule::Operator(EventCellRuleOperator::CanonicalJson),
+            },
+            EventCellRuleField {
+                key: EventCellRuleKey::Field,
+                value: EventCellRule::String("envelope.actor_id"),
+            },
+        ]);
         assert_eq!(
-            component_value(&projected, &envelope_actor, EventKind::RsvpSet.as_str(),).unwrap(),
+            component_value(&projected, &ENVELOPE_ACTOR, EventKind::RsvpSet.as_str(),).unwrap(),
             json!(
                 r#"{"account_id":{"principal_id":"ak:did_core:webvh:z6mkfixture","station_id":"ak:did_core:web:principal.example"},"kind":"account"}"#
             )
@@ -2673,18 +2473,28 @@ mod tests {
     fn object_value_projection_can_copy_the_accepted_event_id() {
         let event = accountability_event(json!("employment"), "active");
         let projected = ProjectedEventInput::from(&event);
-        let value = derive_value_projection_value(
-            &projected,
-            &json!({
-                "kind": "object",
-                "members": [{
-                    "name": "resolution_event_ref",
-                    "envelope_field": "event_id"
-                }]
-            }),
-            arkret_canonical::DigestSuite::Sha256,
-        )
-        .expect("event_id is a registered envelope projection source");
+        const RULE: EventCellRule = EventCellRule::Object(&[
+            EventCellRuleField {
+                key: EventCellRuleKey::Kind,
+                value: EventCellRule::Operator(EventCellRuleOperator::Object),
+            },
+            EventCellRuleField {
+                key: EventCellRuleKey::Members,
+                value: EventCellRule::Array(&[EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Name,
+                        value: EventCellRule::String("resolution_event_ref"),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::EnvelopeField,
+                        value: EventCellRule::String("event_id"),
+                    },
+                ])]),
+            },
+        ]);
+        let value =
+            derive_value_projection_value(&projected, RULE, arkret_canonical::DigestSuite::Sha256)
+                .expect("event_id is a registered envelope projection source");
 
         assert_eq!(
             value,
@@ -2763,16 +2573,25 @@ mod tests {
         }
 
         let event = accountability_event(json!("employment"), "active");
-        let descriptor = json!({
-            "kind": "string_set_digest",
-            "field": "payload.accountability_scope",
-            "context": "ak.accountability_scope_set.v1-wrong"
-        });
+        const DESCRIPTOR: EventCellRule = EventCellRule::Object(&[
+            EventCellRuleField {
+                key: EventCellRuleKey::Kind,
+                value: EventCellRule::Operator(EventCellRuleOperator::StringSetDigest),
+            },
+            EventCellRuleField {
+                key: EventCellRuleKey::Field,
+                value: EventCellRule::String("payload.accountability_scope"),
+            },
+            EventCellRuleField {
+                key: EventCellRuleKey::Context,
+                value: EventCellRule::String("ak.accountability_scope_set.v1-wrong"),
+            },
+        ]);
         let projected = ProjectedEventInput::from(&event);
         assert!(matches!(
             component_value(
                 &projected,
-                &descriptor,
+                &DESCRIPTOR,
                 EventKind::IdentityAccountabilityGrant.as_str()
             ),
             Err(EventCellContractError::SubjectDerivation { .. })
@@ -3741,6 +3560,7 @@ mod tests {
 mod or_set_dot_vector_tests {
     //! `ak.vector.encoding.or_set_dot_and_batch_tag.v1`.
 
+    use arkret_wire::EventCellRuleField;
     use serde_json::json;
 
     use super::*;
@@ -3838,10 +3658,19 @@ mod or_set_dot_vector_tests {
         }))
         .unwrap();
         let projected = ProjectedEventInput::from(&event);
+        const BARE_EVENT_ID: EventCellRule = EventCellRule::Object(&[EventCellRuleField {
+            key: EventCellRuleKey::EnvelopeField,
+            value: EventCellRule::String("event_id"),
+        }]);
+        let write = event
+            .kind
+            .descriptor()
+            .expect("capability grant must be registered")
+            .cell_writes[0];
         let error = or_set_tag(
             &projected,
-            &json!({}),
-            Some(&json!({"envelope_field": "event_id"})),
+            &write,
+            Some(BARE_EVENT_ID),
             event.kind.as_str(),
             &or_set_dot(event.event_id.as_str(), 0),
             arkret_canonical::DigestSuite::Sha256,

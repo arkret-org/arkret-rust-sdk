@@ -203,6 +203,7 @@ dependencies = [
  "arkret-models-collaboration",
  "arkret-models-crypto",
  "arkret-schema",
+ "arkret-schema-conformance",
  "arkret-signatures",
  "arkret-wire",
  "bip39",
@@ -254,6 +255,7 @@ dependencies = [
  "arkret-models-identity",
  "arkret-models-integration",
  "arkret-schema",
+ "arkret-schema-conformance",
  "arkret-wire",
  "chrono",
  "serde",
@@ -268,6 +270,7 @@ dependencies = [
  "arkret-canonical",
  "arkret-identifiers",
  "arkret-schema",
+ "arkret-schema-conformance",
  "arkret-wire",
  "serde_json",
  "thiserror",
@@ -330,6 +333,7 @@ dependencies = [
  "arkret-keystore",
  "arkret-models-identity",
  "arkret-schema",
+ "arkret-schema-conformance",
  "arkret-signatures",
  "arkret-state",
  "arkret-wire",
@@ -366,6 +370,7 @@ version = "0.3.0"
 dependencies = [
  "arkret-models-collaboration",
  "arkret-schema",
+ "arkret-schema-conformance",
  "arkret-state",
  "arkret-wire",
  "serde_json",
@@ -392,6 +397,7 @@ dependencies = [
  "arkret-models-crypto",
  "arkret-policy",
  "arkret-schema",
+ "arkret-schema-conformance",
  "arkret-signatures",
  "arkret-wire",
  "chrono",
@@ -422,6 +428,7 @@ dependencies = [
  "arkret-models-crypto",
  "arkret-models-identity",
  "arkret-schema",
+ "arkret-schema-conformance",
  "arkret-wire",
  "chrono",
  "chrono-tz",
@@ -445,6 +452,7 @@ version = "0.3.0"
 dependencies = [
  "arkret-canonical",
  "arkret-schema",
+ "arkret-schema-conformance",
  "arkret-wire",
  "chrono",
  "ed25519-dalek",
@@ -464,6 +472,7 @@ dependencies = [
  "arkret-models-identity",
  "arkret-models-integration",
  "arkret-schema",
+ "arkret-schema-conformance",
  "arkret-wire",
  "chrono",
  "curve25519-dalek",
@@ -484,6 +493,7 @@ dependencies = [
  "arkret-canonical",
  "arkret-locale",
  "arkret-schema",
+ "arkret-schema-conformance",
  "arkret-wire",
  "chrono",
  "salvo-oapi",
@@ -500,6 +510,7 @@ dependencies = [
  "arkret-canonical",
  "arkret-models-identity",
  "arkret-schema",
+ "arkret-schema-conformance",
  "arkret-wire",
  "chrono",
  "salvo-oapi",
@@ -515,6 +526,7 @@ dependencies = [
  "arkret-event-draft",
  "arkret-models-collaboration",
  "arkret-schema",
+ "arkret-schema-conformance",
  "arkret-wire",
  "chrono",
  "serde",
@@ -528,6 +540,7 @@ version = "0.3.0"
 dependencies = [
  "arkret-models-integration",
  "arkret-schema",
+ "arkret-schema-conformance",
  "proptest",
  "serde",
  "serde_json",
@@ -549,6 +562,7 @@ dependencies = [
  "arkret-canonical",
  "arkret-identifiers",
  "arkret-models-crypto",
+ "arkret-schema-conformance",
  "arkret-wire",
  "chrono",
  "hex",
@@ -558,6 +572,17 @@ dependencies = [
  "thiserror",
  "tracing",
  "web-time",
+]
+
+[[package]]
+name = "arkret-schema-conformance"
+version = "0.3.0"
+dependencies = [
+ "arkret-schema",
+ "arkret-wire",
+ "serde",
+ "serde_json",
+ "tracing",
 ]
 
 [[package]]
@@ -586,6 +611,7 @@ dependencies = [
  "arkret-models-crypto",
  "arkret-models-identity",
  "arkret-schema",
+ "arkret-schema-conformance",
  "arkret-state",
  "arkret-wire",
  "base64 0.22.1",
@@ -615,6 +641,7 @@ dependencies = [
  "arkret-models-collaboration",
  "arkret-models-crypto",
  "arkret-schema",
+ "arkret-schema-conformance",
  "arkret-wire",
  "chrono",
  "hex",

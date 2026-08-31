@@ -22,7 +22,8 @@ thiserror = { workspace = true }
 web-time = { workspace = true }
 
 [dev-dependencies]
-arkret-schema = { workspace = true, features = ["embedded-artifacts"] }
+arkret-schema-conformance = { workspace = true }
+arkret-schema = { workspace = true }
 serde_json = { workspace = true }
 
 [lints]

@@ -161,7 +161,7 @@ mod membership_remove_identity_tests {
 
     #[test]
     fn applet_membership_removal_preserves_full_actor_schema() {
-        let registry = arkret_schema::schema_registry_from_default_spec_artifacts()
+        let registry = arkret_schema_conformance::schema_registry_from_default_spec_artifacts()
             .unwrap()
             .expect("spec schema registry");
         let schema = format!(
@@ -304,7 +304,7 @@ mod actor_view_tests {
 
     #[test]
     fn applet_actor_view_preserves_exact_actor_identity() {
-        let registry = arkret_schema::schema_registry_from_default_spec_artifacts()
+        let registry = arkret_schema_conformance::schema_registry_from_default_spec_artifacts()
             .unwrap()
             .expect("spec schema registry");
         let schema = format!(

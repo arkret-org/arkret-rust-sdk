@@ -17,7 +17,7 @@ use arkret_models_collaboration::governance::realm_governance::{
     RealmLinkKind, RealmLinkPayload, RealmLinkStatus, RealmLinkTransitionCandidate,
     RealmLinkTransitionOutcome, evaluate_realm_link_transition,
 };
-use arkret_schema::embedded_json_artifact;
+use arkret_schema_conformance::spec_json_artifact;
 use arkret_state::lattice::ordered_log::IssuedOp;
 use arkret_state::lattice::{
     CasRegister, CellState, Counter, Fsm, Lattice, MvRegister, OrderedLog, SealedOp,
@@ -32,7 +32,7 @@ use serde_json::{Value, json};
 const FIXTURE_PATH: &str = "fixtures/cba-lattice-fixture.json";
 
 fn fixture() -> Value {
-    embedded_json_artifact(FIXTURE_PATH).expect("embedded cba-lattice fixture must load")
+    spec_json_artifact(FIXTURE_PATH).expect("embedded cba-lattice fixture must load")
 }
 
 fn cell() -> CellRef {

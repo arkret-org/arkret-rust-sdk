@@ -7,12 +7,12 @@ use arkret_models_collaboration::sync_frames::account_subscribe::AccountSubscrib
 use arkret_models_collaboration::sync_frames::stream_trace::{
     StreamTraceFrame, StreamTraceFrameKind, StreamTraceValidator,
 };
-use arkret_schema::embedded_json_artifact;
+use arkret_schema_conformance::spec_json_artifact;
 use serde_json::{Value, json};
 
 #[test]
 fn history_response_stream_fixture_uses_production_wire_helpers() {
-    let fixture = embedded_json_artifact("fixtures/history-key-recovery-fixture.json").unwrap();
+    let fixture = spec_json_artifact("fixtures/history-key-recovery-fixture.json").unwrap();
     let kat = &fixture["response_stream_cases"];
     let send: HistoryKeyResponseSendRequest =
         serde_json::from_value(kat["wire_instances"]["manifest_send"].clone()).unwrap();
@@ -64,7 +64,7 @@ fn history_response_stream_fixture_uses_production_wire_helpers() {
 
 #[test]
 fn history_fresh_endpoint_fixture_executes_deterministic_model() {
-    let fixture = embedded_json_artifact("fixtures/history-key-recovery-fixture.json").unwrap();
+    let fixture = spec_json_artifact("fixtures/history-key-recovery-fixture.json").unwrap();
     let case = fixture["scope_and_endpoint_kats"]
         .as_array()
         .unwrap()
@@ -150,7 +150,7 @@ fn history_fresh_endpoint_fixture_executes_deterministic_model() {
 
 #[test]
 fn account_subscribe_fixture_cases_match_typed_wire_model() {
-    let fixture = embedded_json_artifact("fixtures/sync-fixture.json").unwrap();
+    let fixture = spec_json_artifact("fixtures/sync-fixture.json").unwrap();
     for case in fixture["account_subscribe_schema_cases"]
         .as_array()
         .unwrap()
@@ -228,7 +228,7 @@ fn surface_frame(surface: Surface, value: &Value) -> SurfaceFrame {
 
 #[test]
 fn registered_stream_sequence_vector_applies_to_both_surfaces() {
-    let fixture = embedded_json_artifact("fixtures/sync-fixture.json").unwrap();
+    let fixture = spec_json_artifact("fixtures/sync-fixture.json").unwrap();
     let vector = &fixture["stream_frame_sequence"];
     assert_eq!(
         vector["vector_id"].as_str(),

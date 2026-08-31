@@ -253,7 +253,8 @@ mod tests {
 
         let value = serde_json::to_value(&payload).unwrap();
         let catalog =
-            arkret_schema::event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+            arkret_schema_conformance::event_payload_validator_catalog_from_configured_spec_artifacts()
+                .unwrap();
         catalog
             .validate_payload(EventKind::AccountDataSet.as_str(), &value)
             .unwrap();

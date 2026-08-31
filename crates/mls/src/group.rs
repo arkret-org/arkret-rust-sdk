@@ -2589,9 +2589,10 @@ mod content_scheme_anchor_tests {
     /// `content_nonce_prefix_is_the_exporter_over_the_canonical_context_alone`).
     #[test]
     fn exporter_aead_content_scheme_regression_anchor() {
-        let fixture =
-            arkret_schema::embedded_json_artifact("fixtures/arkret-private-kdf-fixture.json")
-                .unwrap();
+        let fixture = arkret_schema_conformance::spec_json_artifact(
+            "fixtures/arkret-private-kdf-fixture.json",
+        )
+        .unwrap();
         let case = fixture["cases"]
             .as_array()
             .unwrap()
@@ -2691,9 +2692,10 @@ mod content_scheme_anchor_tests {
     /// check: a key derived at any other length is not a prefix of this one.
     #[test]
     fn content_key_matches_registered_spec_vector() {
-        let fixture =
-            arkret_schema::embedded_json_artifact("fixtures/arkret-private-kdf-fixture.json")
-                .unwrap();
+        let fixture = arkret_schema_conformance::spec_json_artifact(
+            "fixtures/arkret-private-kdf-fixture.json",
+        )
+        .unwrap();
         let case = &fixture["cases"][0];
         let history_secret =
             hex::decode(case["expected"]["history_secret_hex"].as_str().unwrap()).unwrap();
@@ -2736,9 +2738,10 @@ mod content_scheme_anchor_tests {
 
     #[test]
     fn reaction_routing_tag_matches_registered_spec_vector() {
-        let fixture =
-            arkret_schema::embedded_json_artifact("fixtures/arkret-private-kdf-fixture.json")
-                .unwrap();
+        let fixture = arkret_schema_conformance::spec_json_artifact(
+            "fixtures/arkret-private-kdf-fixture.json",
+        )
+        .unwrap();
         let case = fixture["cases"]
             .as_array()
             .unwrap()

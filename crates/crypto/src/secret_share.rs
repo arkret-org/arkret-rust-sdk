@@ -802,7 +802,8 @@ mod organization_recovery_archive_tests {
     #[test]
     fn context_matches_the_registered_surface_profile() {
         let registry =
-            arkret_schema::embedded_json_artifact("registry/hpke-suite-registry.json").unwrap();
+            arkret_schema_conformance::spec_json_artifact("registry/hpke-suite-registry.json")
+                .unwrap();
         let profile = registry["surface_profiles"]
             .as_array()
             .unwrap()

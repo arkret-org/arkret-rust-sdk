@@ -1,6 +1,6 @@
 use arkret_identifiers::Hlc;
 use arkret_models_crypto::MlsGovernanceBindingPayload;
-use arkret_schema::embedded_json_artifact;
+use arkret_schema_conformance::spec_json_artifact;
 use arkret_wire::EventKind;
 use arkret_wire::cursor::Cursor;
 use serde_json::{Value, json};
@@ -18,7 +18,7 @@ fn hex_decode(input: &str) -> Option<Vec<u8>> {
 
 #[test]
 fn encoding_fixture_vectors_execute_against_sdk() {
-    let fixture = embedded_json_artifact("fixtures/encoding-fixture.json").unwrap();
+    let fixture = spec_json_artifact("fixtures/encoding-fixture.json").unwrap();
     let vectors = fixture
         .get("vectors")
         .and_then(Value::as_array)

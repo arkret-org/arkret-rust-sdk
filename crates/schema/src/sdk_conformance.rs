@@ -590,11 +590,13 @@ mod tests {
         ));
     }
 
-    #[cfg(feature = "embedded-artifacts")]
     #[test]
     fn fixture_schema_cases_match_typed_claim_validation() {
-        let fixture =
-            crate::embedded_json_artifact("fixtures/sdk-conformance-claim-fixture.json").unwrap();
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+            "../../../arkret-spec/spec/v1/artifacts/fixtures/sdk-conformance-claim-fixture.json",
+        );
+        let fixture: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
         for case in fixture["schema_validation_cases"].as_array().unwrap() {
             let expect_valid = case["expect_valid"].as_bool().unwrap();
             let parsed = serde_json::from_value::<SdkConformanceClaim>(case["instance"].clone());

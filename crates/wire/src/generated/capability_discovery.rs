@@ -1,5 +1,5 @@
 //! @generated; do not edit by hand.
-//! Generator: tools/generate-registry-types.py
+//! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json; version=2026-08-31.6;
 //! sha256=8d8b8760a213a78bf01e113158d27260bc5eb75370bd3036b47e575fdb2dd525
 //! Entries: operation_bundles=33 features=22
@@ -18,7 +18,6 @@ pub struct OperationBundleDescriptor {
     pub service_kind: ServiceKind,
     pub members: &'static [OperationBindingPair],
 }
-
 impl OperationBundleDescriptor {
     pub fn contains(&self, operation_id: ServiceOperationId, binding_kind: BindingKind) -> bool {
         self.members
@@ -1217,7 +1216,6 @@ pub fn operation_bundle_descriptor(
         .ok()
         .map(|index| &OPERATION_BUNDLES[index])
 }
-
 pub fn operation_bundles_for_service_kind(
     service_kind: ServiceKind,
 ) -> impl Iterator<Item = &'static OperationBundleDescriptor> {
@@ -1225,14 +1223,12 @@ pub fn operation_bundles_for_service_kind(
         .iter()
         .filter(move |bundle| bundle.service_kind == service_kind)
 }
-
 pub fn role_describe_bundle_descriptor(
     service_kind: ServiceKind,
 ) -> Option<&'static OperationBundleDescriptor> {
     operation_bundles_for_service_kind(service_kind)
         .find(|bundle| bundle.operation_bundle_id.ends_with(".describe.v1"))
 }
-
 pub fn operation_binding_is_registered(
     operation_id: ServiceOperationId,
     binding_kind: BindingKind,

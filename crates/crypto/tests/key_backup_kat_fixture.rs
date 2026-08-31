@@ -1,7 +1,7 @@
 #![cfg(feature = "backup")]
 //! Executable consumers for the key-backup cryptographic transcripts in
 //! `fixtures/key-backup-hardening-fixture.json`.
-use arkret_schema::embedded_json_artifact;
+use arkret_schema_conformance::spec_json_artifact;
 use chacha20poly1305::ChaCha20Poly1305;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chrono::{DateTime, Utc};
@@ -21,8 +21,7 @@ fn str_field<'a>(value: &'a Value, key: &str) -> &'a str {
 
 #[test]
 fn unlock_proof_kat_opens_to_the_declared_canonical_plaintext() {
-    let fixture =
-        embedded_json_artifact(FIXTURE_PATH).expect("embedded key-backup hardening fixture");
+    let fixture = spec_json_artifact(FIXTURE_PATH).expect("embedded key-backup hardening fixture");
     let case = fixture["cases"]
         .as_array()
         .expect("fixture cases")

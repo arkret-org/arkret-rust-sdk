@@ -1,12 +1,11 @@
 use arkret_models_integration::Widget;
 use arkret_models_integration::applet::AppletRegistrationEpochTranscript;
-use arkret_schema::embedded_json_artifact;
+use arkret_schema_conformance::spec_json_artifact;
 use serde_json::json;
 
 #[test]
 fn applet_registration_epoch_fixture_executes_against_owner() {
-    let fixture =
-        embedded_json_artifact("fixtures/applet-registration-epoch-fixture.json").unwrap();
+    let fixture = spec_json_artifact("fixtures/applet-registration-epoch-fixture.json").unwrap();
     let positive = &fixture["positive"];
     let transcript: AppletRegistrationEpochTranscript =
         serde_json::from_value(positive["transcript"].clone()).unwrap();

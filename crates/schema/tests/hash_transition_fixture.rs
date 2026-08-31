@@ -1,5 +1,5 @@
 use arkret_canonical::{DigestSuite, canonical_json_bytes, digest, digest_bytes_from_slices};
-use arkret_schema::embedded_json_artifact;
+use arkret_schema_conformance::spec_json_artifact;
 use arkret_wire::EventId;
 use serde_json::Value;
 
@@ -44,7 +44,7 @@ fn assert_event_id(digest_wire: &str, expected_id: &str, suite: DigestSuite) {
 
 #[test]
 fn hash_transition_fixture_authenticates_genesis_and_transition_bytes() {
-    let fixture = embedded_json_artifact("fixtures/hash-transition-fixture.json").unwrap();
+    let fixture = spec_json_artifact("fixtures/hash-transition-fixture.json").unwrap();
     let genesis = &fixture["cases"][0];
     assert_sha256(
         genesis,

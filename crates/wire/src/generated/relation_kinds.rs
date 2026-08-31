@@ -1,5 +1,5 @@
 //! @generated; do not edit by hand.
-//! Generator: tools/generate-registry-types.py
+//! Generator: tools/spec-codegen
 //! Input: registry/relation-kind-registry.json; version=2026-08-31.1;
 //! sha256=4793e1c5caea30014037f99014d7cbf24ca5cb374a7d63731fc2735c5adb8153 Entries: standard=15
 

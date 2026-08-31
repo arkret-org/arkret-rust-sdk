@@ -1054,7 +1054,7 @@ mod tests {
             ArkretMlsSigner::from_ed25519_signing_key(ed25519_dalek::SigningKey::from_bytes(&seed)),
         )
         .unwrap();
-        let fixture = arkret_schema::embedded_json_artifact(
+        let fixture = arkret_schema_conformance::spec_json_artifact(
             "fixtures/keypackage-pairwise-welcome-fixture.json",
         )
         .unwrap();

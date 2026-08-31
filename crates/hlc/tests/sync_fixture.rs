@@ -20,13 +20,13 @@
 
 use arkret_canonical::base64url::base64url_decode;
 use arkret_hlc::Cursor;
-use arkret_schema::embedded_json_artifact;
+use arkret_schema_conformance::spec_json_artifact;
 use serde_json::Value;
 
 const FIXTURE_PATH: &str = "fixtures/sync-fixture.json";
 
 fn fixture() -> Value {
-    embedded_json_artifact(FIXTURE_PATH).expect("embedded sync fixture must load")
+    spec_json_artifact(FIXTURE_PATH).expect("embedded sync fixture must load")
 }
 
 #[test]

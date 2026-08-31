@@ -34,7 +34,7 @@ const SERVICE_OPERATION_DTOS: &str = "schemas/service-operation-dtos.schema.json
 
 /// Field names declared by `<artifact>#/$defs/<definition>/properties`.
 fn schema_property_names(artifact: &str, definition: &str) -> BTreeSet<String> {
-    let schema = arkret_schema::embedded_json_artifact(artifact)
+    let schema = arkret_schema_conformance::spec_json_artifact(artifact)
         .unwrap_or_else(|error| panic!("embedded artifact {artifact} failed to load: {error}"));
     let properties = schema
         .get("$defs")
@@ -258,7 +258,7 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
 /// Field names declared by a standalone schema artifact's top-level
 /// `properties`.
 fn root_property_names(artifact: &str) -> BTreeSet<String> {
-    let schema = arkret_schema::embedded_json_artifact(artifact)
+    let schema = arkret_schema_conformance::spec_json_artifact(artifact)
         .unwrap_or_else(|error| panic!("embedded artifact {artifact} failed to load: {error}"));
     schema
         .get("properties")

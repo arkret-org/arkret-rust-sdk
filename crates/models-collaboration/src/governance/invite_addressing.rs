@@ -1130,7 +1130,7 @@ mod tests {
         assert_eq!(parsed, cell);
 
         // SDK output is accepted by the spec schema, with and without entries.
-        let registry = arkret_schema::schema_registry_from_default_spec_artifacts()
+        let registry = arkret_schema_conformance::schema_registry_from_default_spec_artifacts()
             .unwrap()
             .expect("spec artifact registry available (live co-checkout or embedded)");
         registry

@@ -1565,7 +1565,7 @@ mod tests {
 
     #[test]
     fn welcome_payload_fixture_binds_inline_bytes_and_rejects_retired_carriers() {
-        let fixture = arkret_schema::embedded_json_artifact(
+        let fixture = arkret_schema_conformance::spec_json_artifact(
             "fixtures/keypackage-pairwise-welcome-fixture.json",
         )
         .unwrap();

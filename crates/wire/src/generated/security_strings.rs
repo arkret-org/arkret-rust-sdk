@@ -1,5 +1,5 @@
 //! @generated; do not edit by hand.
-//! Generator: tools/generate-registry-types.py
+//! Generator: tools/spec-codegen
 //! Input: registry/proof-context-registry.json; version=2026-08-31.1;
 //! sha256=098c5615916a3ff47c1361f1b15b6ba7d0ff30eafbc2d05e0850dc515e62e266 Input: registry/
 //! exporter-label-registry.json; version=2026-08-21.1;

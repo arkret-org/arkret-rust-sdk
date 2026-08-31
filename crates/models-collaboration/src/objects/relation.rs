@@ -483,7 +483,8 @@ mod tests {
 
     #[test]
     fn relation_profile_wire_shape_passes_embedded_realm_schema() {
-        let registry = arkret_schema::schema_registry_from_embedded_spec_artifacts().unwrap();
+        let registry =
+            arkret_schema_conformance::schema_registry_from_configured_spec_artifacts().unwrap();
         let value = serde_json::json!({
             "relation_kind": "assigned_to",
             "from_kind": "strand",

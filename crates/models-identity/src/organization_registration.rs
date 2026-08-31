@@ -963,7 +963,7 @@ mod tests {
 
     #[test]
     fn embedded_organization_registration_fixture_has_19_typed_schema_cases() {
-        let fixture = arkret_schema::embedded_json_artifact(
+        let fixture = arkret_schema_conformance::spec_json_artifact(
             "fixtures/organization-registration-fixture.json",
         )
         .unwrap();

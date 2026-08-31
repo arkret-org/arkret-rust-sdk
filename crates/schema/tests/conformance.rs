@@ -1,10 +1,10 @@
-#[cfg(feature = "embedded-artifacts")]
 use arkret_canonical::canonical;
 use arkret_schema::*;
+use arkret_schema_conformance::spec_json_artifact;
 use arkret_wire::generated::profile_requirements::non_event_grant_authority_rule;
-#[cfg(feature = "embedded-artifacts")]
-use arkret_wire::{ActorId, DidUrl, Hash, ProducerEventProof};
-use arkret_wire::{BUILT_IN_CONFORMANCE_FIXTURES_VERSION, SchemaId};
+use arkret_wire::{
+    ActorId, BUILT_IN_CONFORMANCE_FIXTURES_VERSION, DidUrl, Hash, ProducerEventProof, SchemaId,
+};
 use serde_json::json;
 
 fn required_profiles() -> [ConformanceProfile; 11] {
@@ -222,10 +222,9 @@ fn conformance_fixture_set_loads_and_reports_external_json() {
     assert!(empty.validate().is_err());
 }
 
-#[cfg(feature = "embedded-artifacts")]
 #[test]
 fn federation_fixture_resolves_reducer_profile_from_cba() {
-    let fixture = embedded_json_artifact("fixtures/federation-fixture.json").unwrap();
+    let fixture = spec_json_artifact("fixtures/federation-fixture.json").unwrap();
     let case = fixture["cases"]
         .as_array()
         .unwrap()
@@ -235,7 +234,7 @@ fn federation_fixture_resolves_reducer_profile_from_cba() {
     let profile_id = case["input"]["settled_reducer_profile"]
         .as_str()
         .expect("federation reducer-profile id missing");
-    let registry = embedded_json_artifact("registry/reducer-profile-registry.json").unwrap();
+    let registry = spec_json_artifact("registry/reducer-profile-registry.json").unwrap();
     let profile = registry["profiles"]
         .as_array()
         .unwrap()
@@ -252,10 +251,9 @@ fn federation_fixture_resolves_reducer_profile_from_cba() {
     assert_eq!(case["expected"], "accepted");
 }
 
-#[cfg(feature = "embedded-artifacts")]
 #[test]
 fn signature_binding_payload_matches_spec_encoding_vector() {
-    let fixture = embedded_json_artifact("fixtures/encoding-fixture.json").unwrap();
+    let fixture = spec_json_artifact("fixtures/encoding-fixture.json").unwrap();
     let vector = fixture["vectors"]
         .as_array()
         .unwrap()
@@ -288,13 +286,12 @@ fn signature_binding_payload_matches_spec_encoding_vector() {
     );
 }
 
-#[cfg(feature = "embedded-artifacts")]
 #[test]
-fn generated_relation_kind_metadata_matches_embedded_registry() {
+fn generated_relation_kind_metadata_matches_configured_registry() {
     use arkret_wire::{RELATION_KIND_DESCRIPTORS, RelationKind, RelationTruthSourceClass};
 
-    let registry = embedded_json_artifact("registry/relation-kind-registry.json")
-        .expect("embedded relation registry");
+    let registry = spec_json_artifact("registry/relation-kind-registry.json")
+        .expect("configured relation registry");
     let relation_kinds = registry["relation_kinds"]
         .as_array()
         .expect("relation_kinds array");

@@ -583,9 +583,10 @@ mod tests {
 
     #[test]
     fn rrk_archive_fixture_executes_the_durable_before_gc_barrier() {
-        let fixture =
-            arkret_schema::embedded_json_artifact("fixtures/history-key-recovery-fixture.json")
-                .unwrap();
+        let fixture = arkret_schema_conformance::spec_json_artifact(
+            "fixtures/history-key-recovery-fixture.json",
+        )
+        .unwrap();
         let kat = &fixture["organization_recovery_archive_durable_before_gc_kat"];
         let replica: OrganizationRecoveryArchiveReplica =
             serde_json::from_value(kat["replica"].clone()).unwrap();

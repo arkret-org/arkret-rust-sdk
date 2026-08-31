@@ -1025,11 +1025,57 @@ pub enum EventCellRule {
 }
 
 impl EventCellRule {
+    pub const fn as_str(self) -> Option<&'static str> {
+        match self {
+            Self::String(value) => Some(value),
+            Self::Operator(value) => Some(value.as_str()),
+            _ => None,
+        }
+    }
+
+    pub const fn as_bool(self) -> Option<bool> {
+        match self {
+            Self::Bool(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub const fn as_u64(self) -> Option<u64> {
+        match self {
+            Self::Integer(value) if value >= 0 => Some(value as u64),
+            _ => None,
+        }
+    }
+
+    pub const fn as_array(self) -> Option<&'static [Self]> {
+        match self {
+            Self::Array(values) => Some(values),
+            _ => None,
+        }
+    }
+
+    pub const fn as_object(self) -> Option<&'static [EventCellRuleField]> {
+        match self {
+            Self::Object(fields) => Some(fields),
+            _ => None,
+        }
+    }
+
     pub fn field(self, key: EventCellRuleKey) -> Option<Self> {
         match self {
             Self::Object(fields) => fields
                 .iter()
                 .find(|field| field.key == key)
+                .map(|field| field.value),
+            _ => None,
+        }
+    }
+
+    pub fn field_named(self, name: &str) -> Option<Self> {
+        match self {
+            Self::Object(fields) => fields
+                .iter()
+                .find(|field| field.key.as_str() == name)
                 .map(|field| field.value),
             _ => None,
         }

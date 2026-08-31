@@ -388,7 +388,7 @@ mod tests {
 
     #[test]
     fn franking_transcript_fixture_matches_byte_for_byte_and_rejects_mutations() {
-        let fixture = arkret_schema::embedded_json_artifact(
+        let fixture = arkret_schema_conformance::spec_json_artifact(
             "fixtures/franking-proof-transcript-fixture.json",
         )
         .unwrap();

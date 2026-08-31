@@ -169,8 +169,9 @@ fn directory_search_realms_request_uses_source_realm_id() {
 
 #[test]
 fn private_contact_discovery_privacy_fixture_closes_current_v1_wire() {
-    let fixture = arkret_schema::embedded_json_artifact("fixtures/privacy-security-fixture.json")
-        .expect("embedded privacy fixture");
+    let fixture =
+        arkret_schema_conformance::spec_json_artifact("fixtures/privacy-security-fixture.json")
+            .expect("embedded privacy fixture");
     let vector = fixture["cases"]
         .as_array()
         .unwrap()

@@ -80,9 +80,10 @@ mod tests {
     }
 
     fn fixture_case(name: &str) -> Value {
-        let fixture =
-            arkret_schema::embedded_json_artifact("fixtures/arkret-private-kdf-fixture.json")
-                .unwrap();
+        let fixture = arkret_schema_conformance::spec_json_artifact(
+            "fixtures/arkret-private-kdf-fixture.json",
+        )
+        .unwrap();
         fixture["cases"]
             .as_array()
             .expect("kdf fixture must carry cases")

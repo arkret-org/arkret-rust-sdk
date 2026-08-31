@@ -19,7 +19,8 @@ serde_json.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
-arkret-schema = { workspace = true, features = ["embedded-artifacts"] }
+arkret-schema-conformance = { workspace = true }
+arkret-schema = { workspace = true }
 proptest = { workspace = true, default-features = false, features = ["std"] }
 
 [lints]

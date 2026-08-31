@@ -95,11 +95,11 @@ mod tests {
     }
 
     #[test]
-    fn executable_dispatch_matches_the_embedded_profile_registry() {
-        let registry = crate::artifacts::read_embedded_json_artifact(
-            "registry/payload-validator-profile-registry.json",
-        )
-        .unwrap();
+    fn executable_dispatch_matches_the_configured_profile_registry() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+            "../../../arkret-spec/spec/v1/artifacts/registry/payload-validator-profile-registry.json",
+        );
+        let registry: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
         let profiles = registry["profiles"].as_array().unwrap();
         assert_eq!(profiles.len(), 1);
         assert_eq!(profiles[0]["event_kind"], EventKind::SchemaDefine.as_str());

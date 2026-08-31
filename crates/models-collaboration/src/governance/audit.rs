@@ -217,7 +217,7 @@ mod tests {
 
     #[test]
     fn audit_ryw_receipt_and_frontier_preserve_full_actor_schema() {
-        let registry = arkret_schema::schema_registry_from_default_spec_artifacts()
+        let registry = arkret_schema_conformance::schema_registry_from_default_spec_artifacts()
             .unwrap()
             .expect("spec schema registry");
         let digest = format!("sha256:{}", "0".repeat(64));

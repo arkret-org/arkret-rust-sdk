@@ -51,8 +51,9 @@ uuid = { workspace = true }
 zeroize = { workspace = true, default-features = true }
 
 [dev-dependencies]
+arkret-schema-conformance = { workspace = true }
 arkret-identifiers = { workspace = true }
-arkret-schema = { workspace = true, features = ["embedded-artifacts"] }
+arkret-schema = { workspace = true }
 arkret-wire = { workspace = true, features = ["test-support"] }
 # SDK-SOTA-03 microbenchmarks (run on demand with `cargo bench`, never in CI).
 criterion = { workspace = true }

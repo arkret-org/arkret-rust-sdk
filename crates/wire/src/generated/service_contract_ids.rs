@@ -1,5 +1,5 @@
 //! @generated; do not edit by hand.
-//! Generator: tools/generate-registry-types.py
+//! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json; version=2026-08-31.6;
 //! sha256=8d8b8760a213a78bf01e113158d27260bc5eb75370bd3036b47e575fdb2dd525
 //! Entries: service_contracts=2

@@ -18,7 +18,7 @@
 //! here, not only below the transcript layer.
 
 use arkret_canonical::{base64url_decode, base64url_encode, canonical};
-use arkret_schema::embedded_json_artifact;
+use arkret_schema_conformance::spec_json_artifact;
 use arkret_signatures::proof::{PublicKeyMaterial, verify_detached_ed25519_signature};
 use arkret_signatures::{PRODUCTION_ALGORITHMS, verify_ed25519_detached_jws_proof};
 use arkret_wire::{Did, DidUrl, Hash, ProducerEventProof, project_did_to_core_id};
@@ -29,7 +29,7 @@ const FIXTURE_PATH: &str = "fixtures/crypto-signature-fixture.json";
 const ED25519_VECTOR: &str = "ak.vector.encoding.crypto.ed25519_detached_jws.v1";
 
 fn fixture() -> Value {
-    embedded_json_artifact(FIXTURE_PATH).expect("embedded crypto-signature fixture must load")
+    spec_json_artifact(FIXTURE_PATH).expect("embedded crypto-signature fixture must load")
 }
 
 fn vector(fixture: &Value, name: &str) -> Value {

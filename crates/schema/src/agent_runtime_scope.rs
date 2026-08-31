@@ -1,97 +1,40 @@
 //! Typed consumer for the canonical Personal Agent runtime scope registry.
 //!
-//! The operation sets live only in the embedded spec artifact. Product code
-//! selects capabilities and supplies the three accepted scope layers; this
-//! module returns the exact migration reason and recovery class without a
-//! second hand-maintained action list.
+//! The operation sets are generated from the canonical spec artifact. Product
+//! code consumes static descriptors and never parses the registry at runtime.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
-use serde::Deserialize;
 use thiserror::Error;
 
-use crate::artifacts::embedded_json_artifact;
-
-const REGISTRY_PATH: &str = "registry/agent-runtime-scope-registry.json";
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum AgentRuntimeCapability {
-    InteractiveChat,
-    E2ee,
-}
-
-impl AgentRuntimeCapability {
-    const fn registry_key(self) -> &'static str {
-        match self {
-            Self::InteractiveChat => "interactive_chat",
-            Self::E2ee => "e2ee",
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AgentRuntimeScopeLayer {
-    Provision,
-    KeyAuthorization,
-    Session,
-}
+pub use crate::generated::{AgentRuntimeCapability, AgentRuntimeScopeLayer};
+use crate::generated::{agent_runtime_capability_descriptor, agent_runtime_scope_layer_descriptor};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AgentRuntimeScopeDeficiency {
     pub layer: AgentRuntimeScopeLayer,
     pub missing_operations: Vec<String>,
-    pub reason: String,
-    pub recovery: String,
+    pub reason: &'static str,
+    pub recovery: &'static str,
 }
 
 #[derive(Debug, Error)]
 pub enum AgentRuntimeScopeError {
-    #[error("agent runtime scope registry is invalid: {0}")]
-    InvalidRegistry(String),
-    #[error("agent runtime capability is absent from registry: {0}")]
-    UnknownCapability(&'static str),
-    #[error("agent runtime layer is absent from registry: {0:?}")]
-    UnknownLayer(AgentRuntimeScopeLayer),
-}
-
-#[derive(Deserialize)]
-struct Registry {
-    layers: Vec<LayerRule>,
-    capability_sets: BTreeMap<String, CapabilityRule>,
-}
-
-#[derive(Deserialize)]
-struct LayerRule {
-    layer: AgentRuntimeScopeLayer,
-    missing_reason: String,
-    recovery: String,
-}
-
-#[derive(Deserialize)]
-struct CapabilityRule {
-    mandatory_operations: Vec<String>,
-}
-
-fn registry() -> Result<Registry, AgentRuntimeScopeError> {
-    let value = embedded_json_artifact(REGISTRY_PATH)
-        .map_err(|error| AgentRuntimeScopeError::InvalidRegistry(error.to_string()))?;
-    serde_json::from_value(value)
-        .map_err(|error| AgentRuntimeScopeError::InvalidRegistry(error.to_string()))
+    #[error("generated agent runtime scope descriptor is inconsistent")]
+    InconsistentDescriptor,
 }
 
 pub fn required_agent_runtime_operations(
     capabilities: impl IntoIterator<Item = AgentRuntimeCapability>,
 ) -> Result<Vec<String>, AgentRuntimeScopeError> {
-    let registry = registry()?;
     let mut required = BTreeSet::new();
     for capability in capabilities {
-        let key = capability.registry_key();
-        let rule = registry
-            .capability_sets
-            .get(key)
-            .ok_or(AgentRuntimeScopeError::UnknownCapability(key))?;
-        required.extend(rule.mandatory_operations.iter().cloned());
+        required.extend(
+            agent_runtime_capability_descriptor(capability)
+                .mandatory_operations
+                .iter()
+                .map(|operation| operation.as_str().to_owned()),
+        );
     }
     Ok(required.into_iter().collect())
 }
@@ -103,7 +46,6 @@ pub fn assess_agent_runtime_scopes(
     session_scope: impl IntoIterator<Item = impl AsRef<str>>,
 ) -> Result<Option<AgentRuntimeScopeDeficiency>, AgentRuntimeScopeError> {
     let required = required_agent_runtime_operations(capabilities)?;
-    let registry = registry()?;
     let supplied = [
         (
             AgentRuntimeScopeLayer::Provision,
@@ -137,16 +79,15 @@ pub fn assess_agent_runtime_scopes(
         if missing.is_empty() {
             continue;
         }
-        let rule = registry
-            .layers
-            .iter()
-            .find(|rule| rule.layer == layer)
-            .ok_or(AgentRuntimeScopeError::UnknownLayer(layer))?;
+        let rule = agent_runtime_scope_layer_descriptor(layer);
+        if rule.layer != layer {
+            return Err(AgentRuntimeScopeError::InconsistentDescriptor);
+        }
         return Ok(Some(AgentRuntimeScopeDeficiency {
             layer,
             missing_operations: missing,
-            reason: rule.missing_reason.clone(),
-            recovery: rule.recovery.clone(),
+            reason: rule.missing_reason,
+            recovery: rule.recovery,
         }));
     }
     Ok(None)

@@ -37,8 +37,9 @@ url = { workspace = true }
 voprf = { workspace = true }
 
 [dev-dependencies]
+arkret-schema-conformance = { workspace = true }
 arkret-models-integration = { workspace = true }
-arkret-schema = { workspace = true, features = ["embedded-artifacts"] }
+arkret-schema = { workspace = true }
 ed25519-dalek = { workspace = true }
 hex = { workspace = true }
 

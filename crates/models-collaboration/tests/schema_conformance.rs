@@ -1,4 +1,8 @@
-use arkret_schema::*;
+use arkret_schema_conformance::{
+    default_spec_artifacts_dir, event_payload_validator_catalog,
+    event_payload_validator_catalog_from_spec_artifacts,
+    schema_registry_from_default_spec_artifacts, schema_registry_from_spec_artifacts,
+};
 use arkret_wire::EventKind;
 use serde_json::json;
 
