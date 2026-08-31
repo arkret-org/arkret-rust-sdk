@@ -78,7 +78,6 @@ pub struct DeviceRevocationPendingState {
     pub target_device_authorize_event_id: EventId,
     pub target_device_generation_ref: u64,
     pub proposal_event_id: EventId,
-    pub proposal_digest: Hash,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub acceptance_seq: u64,
@@ -102,7 +101,6 @@ pub struct DeviceRevokedState {
     pub target_device_authorize_event_id: EventId,
     pub target_device_generation_ref: u64,
     pub proposal_event_id: EventId,
-    pub proposal_digest: Hash,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub acceptance_seq: u64,
@@ -124,7 +122,7 @@ pub enum DeviceRevocationGateRecord {
 fn validate_record_common(
     account_id: &AccountId,
     target_device_generation_ref: u64,
-    proposal_digest: &Hash,
+    proposal_event_id: &EventId,
     acceptance_seq: u64,
     ack: &ControlProposalAck,
 ) -> Result<()> {
@@ -135,9 +133,9 @@ fn validate_record_common(
         ));
     }
     ack.validate_protocol_bounds()?;
-    if &ack.proposal_digest != proposal_digest {
+    if ack.proposal_digest != proposal_event_id.event_digest() {
         return Err(WireError::Protocol(
-            "device revocation record proposal digest does not match its Ack".to_owned(),
+            "device revocation record proposal Event ID does not match its Ack".to_owned(),
         ));
     }
     Ok(())
@@ -148,7 +146,7 @@ impl DeviceRevocationPendingState {
         validate_record_common(
             &self.account_id,
             self.target_device_generation_ref,
-            &self.proposal_digest,
+            &self.proposal_event_id,
             self.acceptance_seq,
             &self.control_proposal_ack,
         )?;
@@ -191,7 +189,7 @@ impl DeviceRevokedState {
         validate_record_common(
             &self.account_id,
             self.target_device_generation_ref,
-            &self.proposal_digest,
+            &self.proposal_event_id,
             self.acceptance_seq,
             &self.control_proposal_ack,
         )?;
@@ -219,10 +217,10 @@ impl DeviceRevocationGateRecord {
         }
     }
 
-    pub fn proposal_digest(&self) -> &Hash {
+    pub fn proposal_event_id(&self) -> &EventId {
         match self {
-            Self::Pending(state) => &state.proposal_digest,
-            Self::Revoked(state) => &state.proposal_digest,
+            Self::Pending(state) => &state.proposal_event_id,
+            Self::Revoked(state) => &state.proposal_event_id,
         }
     }
 

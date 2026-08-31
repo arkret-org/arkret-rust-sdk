@@ -55,9 +55,7 @@ pub struct InviteQuarantineEntry {
     pub introduction_kind: InviteQuarantineIntroductionKind,
     pub effective_kind: InviteQuarantineIntroductionKind,
     pub trust_tier: InviteTrustTier,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub invite_event_id: Option<EventId>,
-    pub invite_event_digest: Hash,
+    pub invite_event_id: EventId,
     pub request_digest: Hash,
     pub idempotency_key_digest: Hash,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]

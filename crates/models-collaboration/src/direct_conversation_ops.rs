@@ -657,13 +657,10 @@ pub enum DirectConversationResolveOutcome {
         coordinates: DirectConversationCoordinates,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         group_state_ref: Option<EventId>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        group_state_digest: Option<Hash>,
     },
     Found {
         coordinates: DirectConversationCoordinates,
         group_state_ref: EventId,
-        group_state_digest: Hash,
         send_blockers: Vec<DirectConversationSendBlocker>,
     },
     Suspended {
@@ -671,8 +668,6 @@ pub enum DirectConversationResolveOutcome {
         blockers: Vec<DirectConversationSendBlocker>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         group_state_ref: Option<EventId>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        group_state_digest: Option<Hash>,
     },
     TemporarilyUnavailable {
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -693,26 +688,8 @@ impl DirectConversationResolveOutcome {
         }
     }
 
-    /// Validate the exact current group-state Event reference and digest pair.
+    /// Validate the response shape.
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
-        let pair = match self {
-            Self::Provisional {
-                group_state_ref,
-                group_state_digest,
-                ..
-            }
-            | Self::Suspended {
-                group_state_ref,
-                group_state_digest,
-                ..
-            } => Some((group_state_ref.is_some(), group_state_digest.is_some())),
-            _ => None,
-        };
-        if pair.is_some_and(|(event_ref, value_digest)| event_ref != value_digest) {
-            return Err(arkret_wire::WireError::Protocol(
-                "group state Event ref and digest must be paired".to_owned(),
-            ));
-        }
         Ok(())
     }
 }
