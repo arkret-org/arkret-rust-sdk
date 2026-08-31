@@ -21,7 +21,6 @@ pub enum AuditAccessedKind {
     WatchAuditRead,
     #[serde(rename = "e2ee_late_recovery")]
     E2EELateRecovery,
-    JoinApplicationReview,
     PolicyAuditRead,
     Other,
 }
@@ -425,6 +424,15 @@ audit_session_payload!(AuditSessionClosePayload, validate_audit_session_close);
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn audit_access_kind_rejects_retired_join_application_review() {
+        assert_eq!(
+            serde_json::from_str::<AuditAccessedKind>(r#""policy_audit_read""#).unwrap(),
+            AuditAccessedKind::PolicyAuditRead,
+        );
+        assert!(serde_json::from_str::<AuditAccessedKind>(r#""join_application_review""#).is_err());
+    }
 
     #[test]
     fn audit_control_plane_state_transitions_are_closed() {

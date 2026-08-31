@@ -32,6 +32,39 @@ use arkret_wire::SchemaId;
 use models::*;
 
 #[test]
+fn moderation_decision_rejects_retired_policy_server_field() {
+    use arkret_models_collaboration::events_payloads::moderation::ModerationDecisionPayload;
+
+    let catalog = event_payload_validator_catalog().unwrap();
+    let value = json!({
+        "target_ref": "ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "decision": "quarantine",
+        "issuer_id": "ak:did_core:web:moderator.example",
+        "request_canonical_digest": format!("sha256:{}", "11".repeat(32))
+    });
+    catalog
+        .validate_payload("ak.moderation.decision", &value)
+        .unwrap();
+    let payload: ModerationDecisionPayload = serde_json::from_value(value.clone()).unwrap();
+    assert_eq!(serde_json::to_value(payload).unwrap(), value);
+
+    for retired_ref in [
+        json!(null),
+        json!("ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB"),
+        json!({"request_canonical_digest": value["request_canonical_digest"]}),
+    ] {
+        let mut retired = value.clone();
+        retired["policy_decision_ref"] = retired_ref;
+        assert!(
+            catalog
+                .validate_payload("ak.moderation.decision", &retired)
+                .is_err()
+        );
+        assert!(serde_json::from_value::<ModerationDecisionPayload>(retired).is_err());
+    }
+}
+
+#[test]
 fn relation_create_payload_strong_type_passes_spec_validator() {
     let catalog = event_payload_validator_catalog().unwrap();
     // No relation id: it is derived from the create Event's event_id.

@@ -262,6 +262,10 @@
       "schema": "moderation-evidence.schema.json#/$defs/franking_proof"
     },
     {
+      "rust_type": "crates/models-collaboration/src/events_payloads/moderation.rs::ModerationDecisionPayload",
+      "schema": "event-payload.schema.json#/$defs/moderation_decision_payload"
+    },
+    {
       "rust_type": "crates/models-collaboration/src/events_payloads/moderation.rs::ModerationReportPayload",
       "schema": "event-payload.schema.json#/$defs/moderation_report_payload"
     },
@@ -954,10 +958,6 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/moderation.rs::ModerationDecisionLiftPayload",
       "reason": "Documented counterpart is not field-set exact; Rust-only=[], Spec-only=['observed_dot_ids']."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/moderation.rs::ModerationDecisionPayload",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=['policy_decision_ref'], Spec-only=[]."
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/object.rs::ObjectSnapshot",
