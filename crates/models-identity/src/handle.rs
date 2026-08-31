@@ -217,18 +217,6 @@ pub enum HandleClaimKind {
     OrganizationHandle,
 }
 
-/// `binding_source` accepted on a handle claim hint. Excludes
-/// `did_document_default` — handle claims MUST commit to a concrete
-/// recipient service when ferrying a builder payload.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum HandleHintBindingSource {
-    Explicit,
-    JoinPolicy,
-    OrganizationPolicy,
-    RealmPolicy,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

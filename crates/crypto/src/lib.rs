@@ -16,6 +16,8 @@ pub mod aead_nonce;
 pub mod backup;
 #[cfg(feature = "blob-aead")]
 pub mod blob_aead;
+#[cfg(feature = "blob-aead")]
+pub mod file_transfer_aead;
 #[cfg(feature = "identity-root")]
 pub mod identity_root;
 #[cfg(feature = "key-verification")]

@@ -6,6 +6,28 @@
 use arkret_wire::{Base64UrlString, BlobRef, EventId, Hash};
 use serde::{Deserialize, Serialize};
 
+pub const MIN_SEGMENT_SIZE: u32 = 1024;
+pub const MAX_SEGMENT_SIZE: u32 = 8_388_608;
+pub const MAX_SEGMENT_COUNT: u32 = 1_048_576;
+
+/// The shared stream geometry for attachment and file-transfer descriptors.
+/// Compute without addition overflow, before allocating or deriving any key.
+pub fn stream_segment_count(size_bytes: u64, segment_bytes: u32) -> arkret_wire::Result<u32> {
+    if !(MIN_SEGMENT_SIZE..=MAX_SEGMENT_SIZE).contains(&segment_bytes) {
+        return Err(arkret_wire::WireError::Protocol(
+            "schema_violation: segment_bounds_invalid: segment_bytes outside v1 bounds".into(),
+        ));
+    }
+    let count = size_bytes.max(1).div_ceil(u64::from(segment_bytes));
+    if count > u64::from(MAX_SEGMENT_COUNT) {
+        return Err(arkret_wire::WireError::Protocol(
+            "schema_violation: segment_bounds_invalid: derived segment count exceeds v1 limit"
+                .into(),
+        ));
+    }
+    Ok(count as u32)
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/blob.schema.json#/$defs/encrypted_attachment/properties/key_ref`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -127,4 +149,27 @@ pub struct StreamEncryptedAttachment {
 pub enum EncryptedAttachment {
     WholeFile(WholeFileEncryptedAttachment),
     Stream(StreamEncryptedAttachment),
+}
+
+#[cfg(test)]
+mod geometry_tests {
+    use super::*;
+
+    #[test]
+    fn derives_empty_exact_boundary_and_maximum_without_overflow() {
+        for (size, expected) in [(0, 1), (1, 1), (1024, 1), (1025, 2), (2048, 2)] {
+            assert_eq!(stream_segment_count(size, 1024).unwrap(), expected);
+        }
+        let max = u64::from(MAX_SEGMENT_COUNT) * u64::from(MAX_SEGMENT_SIZE);
+        assert_eq!(
+            stream_segment_count(max, MAX_SEGMENT_SIZE).unwrap(),
+            MAX_SEGMENT_COUNT
+        );
+        for size in [max + 1, u64::MAX] {
+            assert!(stream_segment_count(size, MAX_SEGMENT_SIZE).is_err());
+        }
+        for size in [0, 1023, MAX_SEGMENT_SIZE + 1, u32::MAX] {
+            assert!(stream_segment_count(0, size).is_err());
+        }
+    }
 }
