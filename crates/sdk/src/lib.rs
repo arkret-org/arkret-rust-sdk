@@ -171,7 +171,6 @@ pub use arkret_models_collaboration::history_key::*;
 pub use arkret_models_collaboration::http_bodies::*;
 pub use arkret_models_collaboration::mls_group_state_material::*;
 pub use arkret_models_collaboration::object_lifecycle::*;
-pub use arkret_models_collaboration::object_patch::*;
 pub use arkret_models_collaboration::objects::account_status::{
     AccountStatus, AccountStatusTransitionRejection,
 };

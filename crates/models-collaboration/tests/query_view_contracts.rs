@@ -225,7 +225,7 @@ fn view_supports_renderer_and_facet_config_facades() {
         visible_fields: Vec::new(),
         layout: None,
         collection: Some(CollectionConfig {
-            item_facets: vec![Facet::Stateful, Facet::Rankable],
+            item_facets: vec!["stateful".to_owned(), "rankable".to_owned()],
             item_render: Some(CollectionItemRender::Card),
             ..Default::default()
         }),
@@ -265,4 +265,12 @@ fn view_supports_renderer_and_facet_config_facades() {
         }))
         .is_err()
     );
+
+    let config: CollectionConfig = serde_json::from_value(json!({
+        "custom_collection_option": true,
+        "grouping": {"mode": "none", "custom_group_option": true}
+    }))
+    .unwrap();
+    assert_eq!(config.extra["custom_collection_option"], true);
+    assert_eq!(config.grouping.unwrap().extra["custom_group_option"], true);
 }

@@ -26,7 +26,6 @@ pub mod http_bodies;
 mod internal_prelude;
 pub mod mls_group_state_material;
 pub mod object_lifecycle;
-pub mod object_patch;
 pub mod objects;
 pub mod prepared_event_draft;
 pub mod principal_operations;

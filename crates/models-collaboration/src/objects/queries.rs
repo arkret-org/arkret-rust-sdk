@@ -13,7 +13,9 @@ use serde_json::Value;
 use crate::objects::relation::RelationEndpoint;
 use crate::objects::view::DashboardConfig;
 
+/// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/sort_spec`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SortSpec {
     pub field: String,
     pub direction: SortDirection,
@@ -225,6 +227,9 @@ impl View {
                 self.kind
             )));
         }
+        if let Some(collection) = &self.collection {
+            collection.validate_extensions()?;
+        }
         self.validate_lifecycle()
     }
 
@@ -272,12 +277,11 @@ impl View {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct CollectionConfig {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub item_object_kinds: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub item_facets: Vec<Facet>,
+    pub item_facets: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub item_render: Option<CollectionItemRender>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -288,6 +292,47 @@ pub struct CollectionConfig {
     pub count_policy: Option<CollectionCountPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub grouping: Option<CollectionGrouping>,
+    #[serde(
+        default,
+        flatten,
+        skip_serializing_if = "BTreeMap::is_empty",
+        deserialize_with = "deserialize_collection_extensions"
+    )]
+    pub extra: BTreeMap<String, Value>,
+}
+
+impl CollectionConfig {
+    pub(crate) fn validate_extensions(&self) -> Result<()> {
+        validate_collection_extensions(&self.extra)?;
+        if let Some(grouping) = &self.grouping {
+            validate_collection_extensions(&grouping.extra)?;
+        }
+        Ok(())
+    }
+}
+
+fn validate_collection_extensions(extra: &BTreeMap<String, Value>) -> Result<()> {
+    // views.md sections 3.3 and 3.4 forbid these keys even though the schema
+    // permits other extension members in collection and grouping configs.
+    for field in ["page_size", "selection_policy", "wip_limit_enforcement"] {
+        if extra.contains_key(field) {
+            return Err(WireError::Protocol(format!(
+                "schema_violation: View collection configuration must not carry {field}"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn deserialize_collection_extensions<'de, D>(
+    deserializer: D,
+) -> std::result::Result<BTreeMap<String, Value>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let extra = BTreeMap::deserialize(deserializer)?;
+    validate_collection_extensions(&extra).map_err(serde::de::Error::custom)?;
+    Ok(extra)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -320,13 +365,12 @@ pub enum CollectionGroupingMode {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct CollectionGrouping {
     pub mode: CollectionGroupingMode,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub field: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub lanes: Vec<BTreeMap<String, Value>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lanes: Option<Vec<BTreeMap<String, Value>>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub board_space_id: Option<SpaceId>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -343,6 +387,13 @@ pub struct CollectionGrouping {
     pub columns_by: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hidden_count_policy: Option<CollectionCountPolicy>,
+    #[serde(
+        default,
+        flatten,
+        skip_serializing_if = "BTreeMap::is_empty",
+        deserialize_with = "deserialize_collection_extensions"
+    )]
+    pub extra: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

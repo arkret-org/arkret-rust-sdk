@@ -273,9 +273,9 @@ event_payload_accessors! {
     event_spec::RelationTombstone => (as_relation_tombstone, RelationTombstonePayload),
     event_spec::ContainerMoveItem => (as_container_move_item, ContainerMoveItemPayload, ContainerMoveItemPayload::validate),
     event_spec::ContainerRebalance => (as_container_rebalance, ContainerRebalancePayload, ContainerRebalancePayload::validate),
-    event_spec::ViewCreate => (as_view_create, ViewPayload),
-    event_spec::ViewUpdate => (as_view_update, ViewPayload),
-    event_spec::ViewReconcile => (as_view_reconcile, ViewReconcilePayload),
+    event_spec::ViewCreate => (as_view_create, ViewPayload, ViewPayload::validate_for_create),
+    event_spec::ViewUpdate => (as_view_update, ViewPayload, ViewPayload::validate_for_update),
+    event_spec::ViewReconcile => (as_view_reconcile, ViewReconcilePayload, ViewReconcilePayload::validate),
     event_spec::AgentKeyAuthorize => (as_agent_key_authorize, AgentKeyAuthorizePayload),
     event_spec::AgentKeyRevoke => (as_agent_key_revoke, AgentKeyRevokePayload),
     event_spec::AgentProvision => (as_agent_provision, AgentProvisionPayload, AgentProvisionPayload::validate),
@@ -446,6 +446,26 @@ mod tests {
             causal_refs: Vec::new(),
             proofs: Vec::new(),
         }
+    }
+
+    #[test]
+    fn view_payload_accessors_enforce_their_distinct_write_shapes() {
+        let mut event = base_event();
+        event.kind = EventKind::ViewCreate;
+        event.payload = serde_json::from_value(json!({"definition": {}})).unwrap();
+        assert!(event.as_view_create().is_err());
+
+        event.kind = EventKind::ViewUpdate;
+        assert!(event.as_view_update().is_err());
+        event.payload = serde_json::from_value(json!({
+            "view_id": "ak:view:AaiFHUI8GObKlPqeNvnl4E37L9moM-J0DjA4_UN9FvhR",
+            "patch": {"title": {"$op": "set", "value": "Updated"}}
+        }))
+        .unwrap();
+        assert!(event.as_view_update().is_ok());
+
+        event.kind = EventKind::ViewReconcile;
+        assert!(event.as_view_reconcile().is_err());
     }
 
     #[test]

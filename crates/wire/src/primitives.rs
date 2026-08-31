@@ -493,21 +493,17 @@ impl ViewKind {
     /// Renderers permitted for this `ViewKind` per `views.md` §4.
     ///
     /// Implementations MUST refuse to materialize a view whose
-    /// `(kind, renderer)` pair is not in this whitelist (or `Custom` /
-    /// `Composite`, which delegate to profile-declared renderers). The
+    /// `(kind, renderer)` pair is not in this whitelist. The
     /// whitelist intentionally allows `ViewRenderer::Custom` everywhere
     /// because profiles MAY declare additional renderers per kind.
     pub fn allowed_renderers(self) -> &'static [ViewRenderer] {
         use ViewRenderer::*;
         match self {
-            ViewKind::Collection => &[Board, Card, Row, Table, Calendar, Gantt, Custom],
+            ViewKind::Collection => &[Board, List, Table, Calendar, Gantt, Custom],
             ViewKind::Timeline => &[Timeline, Thread, Chat, Forum, Custom],
-            ViewKind::Graph => &[Graph, Custom],
+            ViewKind::Graph => &[Graph, Tree, Custom],
             ViewKind::Document => &[Document, Custom],
-            ViewKind::Composite => &[
-                Board, Card, Row, Table, Calendar, Gantt, Timeline, Thread, Chat, Forum, Graph,
-                Tree, Document, Dashboard, Custom,
-            ],
+            ViewKind::Composite => &[Dashboard, Custom],
         }
     }
 
@@ -523,8 +519,7 @@ impl ViewKind {
 #[serde(rename_all = "snake_case")]
 pub enum ViewRenderer {
     Board,
-    Card,
-    Row,
+    List,
     Table,
     Calendar,
     Gantt,
