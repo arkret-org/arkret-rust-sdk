@@ -51,37 +51,14 @@ pub const SCHEME_STREAM: &str = arkret_wire::BLOB_SCHEME_STREAM_AEAD_V1;
 /// XChaCha20-Poly1305 streaming `alg` value.
 pub const ALG_STREAM_XCHACHA: &str = "mls_exporter_aead_xchacha20poly1305_stream";
 
+/// Maximum derived segment count: 2^20 (scalability-constraints.md §6).
+pub use arkret_models_crypto::MAX_SEGMENT_COUNT;
+/// Maximum `segment_bytes`: 8 MiB (scalability-constraints.md §6).
+pub use arkret_models_crypto::MAX_SEGMENT_SIZE;
 /// Minimum `segment_bytes`: 1 KiB (scalability-constraints.md §6). Values
 /// outside `[MIN_SEGMENT_SIZE, MAX_SEGMENT_SIZE]` MUST be rejected on both
 /// the send and receive paths (`schema_violation`).
-pub const MIN_SEGMENT_SIZE: u32 = 1024;
-/// Maximum `segment_bytes`: 8 MiB (scalability-constraints.md §6).
-pub const MAX_SEGMENT_SIZE: u32 = 8_388_608;
-/// Maximum derived segment count: 2^20 (scalability-constraints.md §6).
-pub const MAX_SEGMENT_COUNT: u32 = 1_048_576;
-
-/// Reject segment parameters outside the spec hard limits.
-fn validate_segment_bounds(segment_bytes: u32, segment_count: u32) -> Result<()> {
-    if !(MIN_SEGMENT_SIZE..=MAX_SEGMENT_SIZE).contains(&segment_bytes) {
-        return Err(protocol(
-            "schema_violation",
-            &format!(
-                "segment_bytes={segment_bytes} outside [{MIN_SEGMENT_SIZE}, {MAX_SEGMENT_SIZE}] \
-                 (scalability-constraints.md §6)"
-            ),
-        ));
-    }
-    if segment_count == 0 || segment_count > MAX_SEGMENT_COUNT {
-        return Err(protocol(
-            "schema_violation",
-            &format!(
-                "segment_count={segment_count} outside [1, {MAX_SEGMENT_COUNT}] \
-                 (scalability-constraints.md §6)"
-            ),
-        ));
-    }
-    Ok(())
-}
+pub use arkret_models_crypto::MIN_SEGMENT_SIZE;
 
 /// XChaCha20-Poly1305 AEAD nonce length, `N_AEAD` (§3.3.2).
 const N_AEAD: usize = 24;
@@ -258,19 +235,8 @@ fn stream_segment_aad(
 /// Derive the unique streaming segment count from the plaintext length and
 /// fixed segment size. Empty plaintext is one authenticated empty segment.
 pub fn stream_segment_count(size_bytes: u64, segment_bytes: u32) -> Result<u32> {
-    if !(MIN_SEGMENT_SIZE..=MAX_SEGMENT_SIZE).contains(&segment_bytes) {
-        return Err(protocol(
-            "schema_violation",
-            &format!(
-                "segment_bytes={segment_bytes} outside [{MIN_SEGMENT_SIZE}, {MAX_SEGMENT_SIZE}]"
-            ),
-        ));
-    }
-    let count = size_bytes.max(1).div_ceil(u64::from(segment_bytes));
-    let count = u32::try_from(count)
-        .map_err(|_| protocol("schema_violation", "derived segment count exceeds u32"))?;
-    validate_segment_bounds(segment_bytes, count)?;
-    Ok(count)
+    arkret_models_crypto::stream_segment_count(size_bytes, segment_bytes)
+        .map_err(|error| protocol("schema_violation", &error.to_string()))
 }
 
 // ─── streaming encrypt ──────────────────────────────────────────────────────

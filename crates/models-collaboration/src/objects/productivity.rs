@@ -1018,6 +1018,9 @@ impl FileTransferRecord {
         }
         self.access.validate()?;
         self.encryption.validate()?;
+        if let Some(segment_bytes) = self.encryption.segment_bytes {
+            arkret_models_crypto::stream_segment_count(self.plaintext_size_bytes, segment_bytes)?;
+        }
         DeviceId::new(self.origin_device_id.clone()).map_err(|_| {
             WireError::Protocol("file-transfer origin_device_id must be a ak:device id".to_owned())
         })?;
@@ -1143,24 +1146,72 @@ pub enum FileTransferAccessVisibility {
 pub struct FileTransferEncryption {
     pub scheme: String,
     pub aead_profile: String,
-    pub nonce: String,
+    #[serde(
+        default,
+        deserialize_with = "file_transfer_present_value",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub nonce: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "file_transfer_present_value",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub nonce_prefix: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "file_transfer_present_value",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub segment_bytes: Option<u32>,
     pub aad: FileTransferAad,
     pub key_delivery: FileTransferKeyDelivery,
 }
 
+fn file_transfer_present_value<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
+}
+
 impl FileTransferEncryption {
     pub fn validate(&self) -> Result<()> {
-        if self.scheme != arkret_wire::BLOB_SCHEME_WHOLE_FILE_AEAD_V1 {
-            return Err(WireError::Protocol(
-                "file-transfer encryption scheme mismatch".to_owned(),
-            ));
-        }
         if self.aead_profile != arkret_wire::AeadProfileId::XCHACHA20_POLY1305_V1 {
             return Err(WireError::Protocol(
                 "file-transfer AEAD profile mismatch".to_owned(),
             ));
         }
-        validate_base64url("file-transfer nonce", &self.nonce)?;
+        let (nonce, length) = match self.scheme.as_str() {
+            arkret_wire::BLOB_SCHEME_WHOLE_FILE_AEAD_V1
+                if self.nonce_prefix.is_none() && self.segment_bytes.is_none() =>
+            {
+                (self.nonce.as_deref(), 24)
+            }
+            arkret_wire::BLOB_SCHEME_STREAM_AEAD_V1 if self.nonce.is_none() => {
+                let segment_bytes = self.segment_bytes.ok_or_else(|| {
+                    WireError::Protocol("file-transfer stream requires segment_bytes".into())
+                })?;
+                arkret_models_crypto::stream_segment_count(0, segment_bytes)?;
+                (self.nonce_prefix.as_deref(), 19)
+            }
+            _ => {
+                return Err(WireError::Protocol(
+                    "file-transfer encryption scheme/fields mismatch".into(),
+                ));
+            }
+        };
+        let nonce = nonce
+            .ok_or_else(|| WireError::Protocol("file-transfer nonce material missing".into()))?;
+        validate_base64url("file-transfer nonce material", nonce)?;
+        if arkret_wire::base64url::base64url_decode(nonce)?.len() != length {
+            return Err(WireError::Protocol(
+                "file-transfer nonce material has invalid length".into(),
+            ));
+        }
         self.aad.validate()?;
         self.key_delivery.validate()
     }
@@ -2767,7 +2818,9 @@ mod tests {
             encryption: FileTransferEncryption {
                 scheme: arkret_wire::BLOB_SCHEME_WHOLE_FILE_AEAD_V1.to_owned(),
                 aead_profile: "ak.aead.xchacha20_poly1305.v1".to_owned(),
-                nonce: "abc_DEF-012".to_owned(),
+                nonce: Some(base64url_encode(&[0u8; 24])),
+                nonce_prefix: None,
+                segment_bytes: None,
                 aad: FileTransferAad {
                     schema: SchemaId::FILE_TRANSFER_V1.to_owned(),
                     purpose: "file_transfer".to_owned(),

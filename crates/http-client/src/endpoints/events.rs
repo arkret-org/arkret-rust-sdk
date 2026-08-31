@@ -679,9 +679,9 @@ impl Client {
     /// Walk every durable Event page for one actor.
     ///
     /// Actor-scoped reads are required when a caller must reproduce a complete
-    /// principal control history. Realm-scoped projection scans can omit
-    /// canonical anchor Events that do not have an independently visible
-    /// projection row.
+    /// principal control history (service-http-binding.md section 3.3.1.1).
+    /// Realm scans also use the canonical log, but apply Realm history/scope
+    /// visibility; they are not the authorized full actor-history contract.
     pub async fn events_read_all_pages_for_actor(
         &self,
         actor_id: &ActorId,

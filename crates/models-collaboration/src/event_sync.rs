@@ -663,23 +663,40 @@ impl RealmSealFrontierView {
 /// every consumer.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EventsFrontierFederationPeerState {
     pub realm_id: RealmId,
     /// Current federation-visible head Event IDs for the realm.
     pub head_ids: Vec<EventId>,
     /// Maximum HLC observed by the issuer at this frontier, when available.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_frontier_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub max_hlc: Option<String>,
     /// Hash commitment returned to an authorized federation peer.
     pub frontier_root: Hash,
     /// Issuer-local authorization-state commitment for `request.actor_id`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_frontier_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub auth_state_root: Option<Hash>,
     /// Filtered policy-cell state root for the requested Realm.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_frontier_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub policy_frontier_root: Option<Hash>,
     /// Filtered membership/role state root for `request.actor_id`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_frontier_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub membership_frontier_root: Option<Hash>,
     /// Per-actor sequence upper bounds returned to an authorized peer. JSON
     /// object keys are the exact RFC 8785 canonical JSON text of each ActorId.
@@ -693,6 +710,105 @@ pub struct EventsFrontierFederationPeerState {
     pub issuer_id: DidCoreId,
     /// Service signature object over the peer frontier response.
     pub signature: BTreeMap<String, Value>,
+}
+
+fn deserialize_frontier_optional<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
+}
+
+impl EventsFrontierFederationPeerState {
+    /// Rebuild the signed object from the response, never from an untrusted
+    /// `signature.signed_payload` mirror. Optional commitments always use null.
+    pub fn signature_payload(&self) -> Result<Value> {
+        let roots = [
+            self.auth_state_root.as_ref(),
+            self.policy_frontier_root.as_ref(),
+            self.membership_frontier_root.as_ref(),
+        ];
+        if roots.iter().any(Option::is_some) && roots.iter().any(Option::is_none) {
+            return Err(WireError::Protocol(
+                "partial actor frontier roots".to_owned(),
+            ));
+        }
+        let observed = DateTime::parse_from_rfc3339(&self.observed_at)
+            .map_err(|error| WireError::Protocol(format!("frontier observed_at: {error}")))?;
+        if arkret_canonical::format_timestamp_canonical(observed.with_timezone(&Utc))
+            != self.observed_at
+        {
+            return Err(WireError::Protocol(
+                "noncanonical frontier observed_at".to_owned(),
+            ));
+        }
+        Ok(serde_json::json!({
+            "domain": arkret_wire::DomainSeparationId::EVENTS_FRONTIER_SIGNATURE_V1,
+            "frontier_root": self.frontier_root,
+            "auth_state_root": self.auth_state_root,
+            "policy_frontier_root": self.policy_frontier_root,
+            "membership_frontier_root": self.membership_frontier_root,
+            "realm_id": self.realm_id,
+            "issuer_id": self.issuer_id,
+            "max_hlc": self.max_hlc,
+            "observed_at": self.observed_at,
+        }))
+    }
+
+    /// Validate envelope metadata and freshness before cryptographic verification.
+    /// The caller must also recompute the frontier root and resolve the issuer's
+    /// currently authorized verification method; this method does not verify JWS.
+    pub fn signature_binding_bytes(&self, now: DateTime<Utc>) -> Result<Vec<u8>> {
+        const FIELDS: [&str; 7] = [
+            "typ",
+            "scheme",
+            "verification_method",
+            "payload_digest",
+            "created_at",
+            "jws",
+            "signed_payload",
+        ];
+        if self.signature.len() != FIELDS.len()
+            || FIELDS
+                .iter()
+                .any(|field| !self.signature.contains_key(*field))
+        {
+            return Err(WireError::Protocol(
+                "invalid frontier signature envelope".to_owned(),
+            ));
+        }
+        let payload = self.signature_payload()?;
+        let bytes = arkret_canonical::canonical_json_bytes(&payload)
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
+        if self.signature["typ"] != arkret_wire::DomainSeparationId::EVENTS_FRONTIER_SIGNATURE_V1
+            || self.signature["scheme"] != "ed25519-detached-jws"
+            || self.signature["created_at"] != self.observed_at
+            || self.signature["signed_payload"] != payload
+            || self.signature["payload_digest"] != arkret_canonical::sha256_digest(&bytes)
+            || self.signature["jws"].as_str().is_none_or(str::is_empty)
+        {
+            return Err(WireError::Protocol(
+                "frontier signature binding mismatch".to_owned(),
+            ));
+        }
+        let method = self.signature["verification_method"]
+            .as_str()
+            .ok_or_else(|| {
+                WireError::Protocol("frontier verification_method missing".to_owned())
+            })?;
+        arkret_wire::DidUrl::new(method.to_owned())
+            .map_err(|error| WireError::Protocol(error.to_owned()))?;
+        let observed = DateTime::parse_from_rfc3339(&self.observed_at)
+            .map_err(|error| WireError::Protocol(error.to_string()))?
+            .with_timezone(&Utc);
+        if (now - observed).num_milliseconds().unsigned_abs() > 300_000 {
+            return Err(WireError::Protocol("frontier signature expired".to_owned()));
+        }
+        Ok(bytes)
+    }
 }
 
 pub(crate) mod actor_sequence_bounds_map {
