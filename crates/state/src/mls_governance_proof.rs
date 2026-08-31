@@ -67,6 +67,29 @@ impl MlsGroupGenesisBinding {
             )),
         }
     }
+
+    pub fn from_proposal(proposal: &ProposedMlsGroupGenesisBinding) -> arkret_wire::Result<Self> {
+        proposal.validate()?;
+        Ok(Self {
+            content_scheme: proposal.content_scheme,
+            durability_policy: proposal.durability_policy,
+        })
+    }
+}
+
+fn validate_proposal_binding(
+    request: &MlsGovernanceProofRequestBody,
+    binding: &MlsGroupGenesisBinding,
+) -> arkret_wire::Result<()> {
+    if let Some(proposal) = &request.proposed_group_genesis_binding {
+        let proposed = MlsGroupGenesisBinding::from_proposal(proposal)?;
+        if &proposed != binding {
+            return frontier_rejected(
+                "materialized MLS genesis binding differs from proposed_group_genesis_binding",
+            );
+        }
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -788,6 +811,7 @@ where
         );
     }
     group_genesis_binding.validate()?;
+    validate_proposal_binding(request, group_genesis_binding)?;
     if bundle.frontier_projection.frontier_registry_digest
         != mls_security_frontier_registry_digest()
     {
@@ -1009,6 +1033,7 @@ where
     }
     target_checkpoint.validate_checkpoint()?;
     group_genesis_binding.validate()?;
+    validate_proposal_binding(request, group_genesis_binding)?;
     let expected_realm = request
         .effective_scope
         .realm_id_opt()

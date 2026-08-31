@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-08-31.5;
-//! sha256=333f762f648ad4a61a86db4f2e5a078896a5e27cc372807ace2f482ea07f5a66
+//! Input: registry/error-code-registry.json; version=2026-09-01.1;
+//! sha256=95f54a58e16b54f20738672a750e6482694553274689e09e45228fbc0859708a
 //! Entries: reason_codes=458
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -276,7 +276,7 @@ pub enum ReasonCode {
     PairingRequestExpired,
     PartialAuthState,
     ParticipantBindingInvalid,
-    ParticipantIdentityUnrecognised,
+    ParticipantIdUnrecognised,
     PatchAtomicConflict,
     PatchPathInvalid,
     PatchPathReducerManaged,
@@ -805,7 +805,7 @@ impl ReasonCode {
     pub const PAIRING_REQUEST_EXPIRED: &'static str = "pairing_request_expired";
     pub const PARTIAL_AUTH_STATE: &'static str = "partial_auth_state";
     pub const PARTICIPANT_BINDING_INVALID: &'static str = "participant_binding_invalid";
-    pub const PARTICIPANT_IDENTITY_UNRECOGNISED: &'static str = "participant_identity_unrecognised";
+    pub const PARTICIPANT_ID_UNRECOGNISED: &'static str = "participant_id_unrecognised";
     pub const PATCH_ATOMIC_CONFLICT: &'static str = "patch_atomic_conflict";
     pub const PATCH_PATH_INVALID: &'static str = "patch_path_invalid";
     pub const PATCH_PATH_REDUCER_MANAGED: &'static str = "patch_path_reducer_managed";
@@ -1347,7 +1347,7 @@ impl ReasonCode {
             Self::PairingRequestExpired => Self::PAIRING_REQUEST_EXPIRED,
             Self::PartialAuthState => Self::PARTIAL_AUTH_STATE,
             Self::ParticipantBindingInvalid => Self::PARTICIPANT_BINDING_INVALID,
-            Self::ParticipantIdentityUnrecognised => Self::PARTICIPANT_IDENTITY_UNRECOGNISED,
+            Self::ParticipantIdUnrecognised => Self::PARTICIPANT_ID_UNRECOGNISED,
             Self::PatchAtomicConflict => Self::PATCH_ATOMIC_CONFLICT,
             Self::PatchPathInvalid => Self::PATCH_PATH_INVALID,
             Self::PatchPathReducerManaged => Self::PATCH_PATH_REDUCER_MANAGED,
@@ -1889,7 +1889,7 @@ impl ReasonCode {
             Self::PAIRING_REQUEST_EXPIRED => Self::PairingRequestExpired,
             Self::PARTIAL_AUTH_STATE => Self::PartialAuthState,
             Self::PARTICIPANT_BINDING_INVALID => Self::ParticipantBindingInvalid,
-            Self::PARTICIPANT_IDENTITY_UNRECOGNISED => Self::ParticipantIdentityUnrecognised,
+            Self::PARTICIPANT_ID_UNRECOGNISED => Self::ParticipantIdUnrecognised,
             Self::PATCH_ATOMIC_CONFLICT => Self::PatchAtomicConflict,
             Self::PATCH_PATH_INVALID => Self::PatchPathInvalid,
             Self::PATCH_PATH_REDUCER_MANAGED => Self::PatchPathReducerManaged,
@@ -3509,12 +3509,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PARTICIPANT_BINDING_INVALID,
         applies_to: &["event_envelope", "service_call"],
-        description: "A `ak.call.state` participant's `participant_binding` failed one of: (a) issuer_kid resolution against current `ak.realm.media_service.service_id`; (b) field consistency with the participant entry (`realm_id` / `call_id` / `focus_id` / `actor_id` / `device_id` / `participant_identity`); (c) `expires_at` freshness vs event `created_at`; (d) signature verification. Reducer MUST `failed_precondition`. See zh/crypto-media/call-state.md §4.1.",
+        description: "A `ak.call.state` participant's `participant_binding` failed one of: (a) issuer_kid resolution against current `ak.realm.media_service.service_id`; (b) field consistency with the participant entry (`realm_id` / `call_id` / `focus_id` / `actor_id` / `device_id` / `participant_id`); (c) `expires_at` freshness vs event `created_at`; (d) signature verification. Reducer MUST `failed_precondition`. See zh/crypto-media/call-state.md §4.1.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::PARTICIPANT_IDENTITY_UNRECOGNISED,
+        code: ReasonCode::PARTICIPANT_ID_UNRECOGNISED,
         applies_to: &["service_call"],
-        description: "Backend (LiveKit / SFU / etc.) signalled `ParticipantConnected` with a `participant_identity` that has no matching value in the accepted call roster effective OR-Set (or matches a value whose `participant_binding` fails verification). Client MUST refuse to establish media streams for that participant — this closes the attack where a compromised backend tries to inject unauthorized participants into the conference. See zh/crypto-media/media-service-binding.md §7.",
+        description: "Backend (LiveKit / SFU / etc.) signalled `ParticipantConnected` with a `participant_id` that has no matching value in the accepted call roster effective OR-Set (or matches a value whose `participant_binding` fails verification). Client MUST refuse to establish media streams for that participant — this closes the attack where a compromised backend tries to inject unauthorized participants into the conference. See zh/crypto-media/media-service-binding.md §7.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PATCH_ATOMIC_CONFLICT,

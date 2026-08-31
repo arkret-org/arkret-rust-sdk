@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/capability-action-registry.json; version=2026-08-31.6;
-//! sha256=b1869bf05cfea8ddea39fafae193eea63c6a3d3b6738aadb57131d04fcf241c7 Entries: registered=162
+//! Input: registry/capability-action-registry.json; version=2026-08-31.8;
+//! sha256=b2ad43bc54bef48e34697fa5f5a45c8be32f70e1ea39d42284335a5e24b6cdf3 Entries: registered=163
 
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +18,7 @@ pub enum CapabilityActionId {
     AgentSidecarExchangeControl,
     AgentSidecarPublish,
     AgentSidecarWrite,
+    AppletBridgeError,
     AppletGhostProvision,
     ApprovalVote,
     AuditAccessed,
@@ -184,6 +185,7 @@ impl CapabilityActionId {
         Self::AgentSidecarExchangeControl,
         Self::AgentSidecarPublish,
         Self::AgentSidecarWrite,
+        Self::AppletBridgeError,
         Self::AppletGhostProvision,
         Self::ApprovalVote,
         Self::AuditAccessed,
@@ -348,6 +350,7 @@ impl CapabilityActionId {
     pub const AGENT_SIDECAR_EXCHANGE_CONTROL: &'static str = "ak.agent.sidecar.exchange.control";
     pub const AGENT_SIDECAR_PUBLISH: &'static str = "ak.agent.sidecar.publish";
     pub const AGENT_SIDECAR_WRITE: &'static str = "ak.agent.sidecar.write";
+    pub const APPLET_BRIDGE_ERROR: &'static str = "ak.applet.bridge_error";
     pub const APPLET_GHOST_PROVISION: &'static str = "ak.applet.ghost.provision";
     pub const APPROVAL_VOTE: &'static str = "ak.approval.vote";
     pub const AUDIT_ACCESSED: &'static str = "ak.audit.accessed";
@@ -521,6 +524,7 @@ impl CapabilityActionId {
             Self::AgentSidecarExchangeControl => Self::AGENT_SIDECAR_EXCHANGE_CONTROL,
             Self::AgentSidecarPublish => Self::AGENT_SIDECAR_PUBLISH,
             Self::AgentSidecarWrite => Self::AGENT_SIDECAR_WRITE,
+            Self::AppletBridgeError => Self::APPLET_BRIDGE_ERROR,
             Self::AppletGhostProvision => Self::APPLET_GHOST_PROVISION,
             Self::ApprovalVote => Self::APPROVAL_VOTE,
             Self::AuditAccessed => Self::AUDIT_ACCESSED,
@@ -692,6 +696,7 @@ impl CapabilityActionId {
             Self::AGENT_SIDECAR_EXCHANGE_CONTROL => Some(Self::AgentSidecarExchangeControl),
             Self::AGENT_SIDECAR_PUBLISH => Some(Self::AgentSidecarPublish),
             Self::AGENT_SIDECAR_WRITE => Some(Self::AgentSidecarWrite),
+            Self::APPLET_BRIDGE_ERROR => Some(Self::AppletBridgeError),
             Self::APPLET_GHOST_PROVISION => Some(Self::AppletGhostProvision),
             Self::APPROVAL_VOTE => Some(Self::ApprovalVote),
             Self::AUDIT_ACCESSED => Some(Self::AuditAccessed),

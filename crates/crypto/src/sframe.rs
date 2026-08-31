@@ -7,7 +7,7 @@
 //! [`e2ee_key_source_unauthorised`](ReasonCode::E2EE_KEY_SOURCE_UNAUTHORISED).
 //!
 //! - Frame key: label `ak-rtc-frame-key/v1`, Context = canonical JSON of `{realm_id, call_id,
-//!   focus_id, epoch_id, participant_identity, device_id}`.
+//!   focus_id, epoch_id, participant_id, device_id}`.
 //!
 //! All derivations output `KDF.Nh = 32` bytes (RFC 9420 §8 `MLS-Exporter`).
 
@@ -55,18 +55,18 @@ pub struct FrameKeyContext {
     pub call_id: CallId,
     pub focus_id: String,
     pub epoch_id: u64,
-    pub participant_identity: String,
+    pub participant_id: String,
     pub device_id: DeviceId,
 }
 
 impl FrameKeyContext {
-    /// Reject a context that cannot bind a single sender. `participant_identity`
+    /// Reject a context that cannot bind a single sender. `participant_id`
     /// and `focus_id` MUST be non-empty — an empty Context or an epoch-only
     /// binding fails closed per §8.1.
     fn ensure_sender_bound(&self) -> Result<()> {
-        if self.participant_identity.trim().is_empty() || self.focus_id.trim().is_empty() {
+        if self.participant_id.trim().is_empty() || self.focus_id.trim().is_empty() {
             return Err(Error::Protocol(format!(
-                "{}: frame key context missing sender binding (focus_id / participant_identity)",
+                "{}: frame key context missing sender binding (focus_id / participant_id)",
                 ReasonCode::E2EE_KEY_SOURCE_UNAUTHORISED
             )));
         }
@@ -154,8 +154,7 @@ mod tests {
             call_id: call(),
             focus_id: "fra-1".to_owned(),
             epoch_id: 7,
-            participant_identity: "ak:rtc_participant:0198c2f4-0000-7000-8000-000000000000"
-                .to_owned(),
+            participant_id: "ak:rtc_participant:0198c2f4-0000-7000-8000-000000000000".to_owned(),
             device_id: device(),
         }
     }
@@ -180,7 +179,7 @@ mod tests {
         assert_ne!(base, derive_frame_key(&exporter, &next_epoch).unwrap());
 
         let mut other_sender = frame_context();
-        other_sender.participant_identity = "ak:rtc_participant:other".to_owned();
+        other_sender.participant_id = "ak:rtc_participant:other".to_owned();
         assert_ne!(base, derive_frame_key(&exporter, &other_sender).unwrap());
     }
 
@@ -188,7 +187,7 @@ mod tests {
     fn empty_sender_binding_fails_closed() {
         let exporter = FixedExporter { seed: b"epoch-7" };
         let mut context = frame_context();
-        context.participant_identity = String::new();
+        context.participant_id = String::new();
         let err = derive_frame_key(&exporter, &context).unwrap_err();
         assert!(err.to_string().contains("e2ee_key_source_unauthorised"));
 
@@ -209,7 +208,7 @@ mod tests {
              \"device_id\":\"ak:device:01904100-0000-7000-8000-000000000005\",\
              \"epoch_id\":7,\
              \"focus_id\":\"fra-1\",\
-             \"participant_identity\":\"ak:rtc_participant:0198c2f4-0000-7000-8000-000000000000\",\
+             \"participant_id\":\"ak:rtc_participant:0198c2f4-0000-7000-8000-000000000000\",\
              \"realm_id\":\"ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs\"}"
         );
     }

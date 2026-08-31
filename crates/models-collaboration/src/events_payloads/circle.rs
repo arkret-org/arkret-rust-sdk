@@ -82,14 +82,14 @@ mod presence_tests {
         explicit_null["expected_membership"] = Value::Null;
         let null: CircleMemberStatePayload = serde_json::from_value(explicit_null).unwrap();
         let mut explicit_value = base;
-        explicit_value["expected_membership"] = json!("invite");
+        explicit_value["expected_membership"] = json!("knock");
         let value: CircleMemberStatePayload = serde_json::from_value(explicit_value).unwrap();
 
         assert_eq!(missing.expected_membership, WirePresence::Missing);
         assert_eq!(null.expected_membership, WirePresence::Null);
         assert_eq!(
             value.expected_membership,
-            WirePresence::Value(CircleMembership::Invite)
+            WirePresence::Value(CircleMembership::Knock)
         );
         assert!(
             serde_json::to_value(missing)

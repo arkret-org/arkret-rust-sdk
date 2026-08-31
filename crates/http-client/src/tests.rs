@@ -779,6 +779,7 @@ mod events_submit_tests {
             base_group_state_ref: Some(
                 EventId::new("ak:event:AbnHJt4q4qY18zqvLiy3Emmqy7weTAuApx42RmRgPr2h").unwrap(),
             ),
+            proposed_group_genesis_binding: None,
             previous_epoch: 0,
             next_epoch: 1,
             binding_profile: MlsGovernanceBindingProfile::AkSecurityFrontierV1,

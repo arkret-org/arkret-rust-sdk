@@ -9,8 +9,8 @@ use std::collections::BTreeSet;
 use arkret_wire::base64url::{base64url_decode, base64url_encode};
 use arkret_wire::event_envelope::ScopeRef;
 use arkret_wire::{
-    ActorId, Base64UrlString, CellRef, EventId, Hash, NonEmptyString, Result, SealBasis, SealId,
-    WireError,
+    ActorId, Base64UrlString, CellRef, ContentScheme, DurabilityPolicy, EventId, Hash,
+    NonEmptyString, Result, SealBasis, SealId, WireError,
 };
 use serde::{Deserialize, Serialize};
 
@@ -53,6 +53,32 @@ pub enum MlsGovernanceBindingProfile {
     AkSecurityFrontierV1,
 }
 
+/// Immutable group binding proposed only by the unique pre-Genesis 0 -> 0
+/// governance query. It is query input, not accepted authority.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProposedMlsGroupGenesisBinding {
+    pub content_scheme: ContentScheme,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub durability_policy: Option<DurabilityPolicy>,
+}
+
+impl ProposedMlsGroupGenesisBinding {
+    pub fn validate(&self) -> Result<()> {
+        match (self.content_scheme, self.durability_policy) {
+            (ContentScheme::MlsRfc9420, None)
+            | (
+                ContentScheme::MlsExporterAeadV1,
+                Some(DurabilityPolicy::None | DurabilityPolicy::OrganizationRecoveryKey),
+            ) => Ok(()),
+            _ => schema(
+                "proposed MLS group genesis binding content scheme and durability policy mismatch",
+            ),
+        }
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -67,6 +93,8 @@ pub struct MlsGovernanceProofRequestBody {
     pub frontier_purpose: MlsGovernanceFrontierPurpose,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_group_state_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proposed_group_genesis_binding: Option<ProposedMlsGroupGenesisBinding>,
     pub previous_epoch: u64,
     pub next_epoch: u64,
     pub binding_profile: MlsGovernanceBindingProfile,
@@ -124,6 +152,12 @@ impl MlsGovernanceProofRequestBody {
                 "MLS governance proof genesis forbids base_group_state_ref and successor requires it",
             );
         }
+        if !genesis && self.proposed_group_genesis_binding.is_some() {
+            return schema("MLS governance successor query forbids proposed_group_genesis_binding");
+        }
+        if let Some(proposal) = &self.proposed_group_genesis_binding {
+            proposal.validate()?;
+        }
         if arkret_canonical::canonical_json_bytes(self)?.len()
             > MLS_GOVERNANCE_PROOF_MAX_REQUEST_BYTES
         {
@@ -142,6 +176,105 @@ impl MlsGovernanceProofRequestBody {
                 &bytes,
             ]),
         )?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use arkret_wire::{AccountId, DidCoreId, RealmId};
+
+    fn genesis_request(proposal: ProposedMlsGroupGenesisBinding) -> MlsGovernanceProofRequestBody {
+        let realm_id =
+            RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI").unwrap();
+        let effective_scope = ScopeRef::Realm { realm_id };
+        MlsGovernanceProofRequestBody {
+            profile: MlsGovernanceProofProfile::GroupSecurityFrontier,
+            mls_group_id: Base64UrlString::new(
+                effective_scope.canonical_mls_group_id().unwrap(),
+            )
+            .unwrap(),
+            effective_scope,
+            local_mls_leaves: vec![MlsSecurityFrontierLeaf {
+                leaf_index: 0,
+                actor_id: ActorId::account(AccountId::new(
+                    DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+                    DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+                )),
+                credential_ref: NonEmptyString::new("device-1").unwrap(),
+            }],
+            proof_base_basis: SealBasis {
+                leaves: vec![SealId::new(
+                    "ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                )
+                .unwrap()],
+            },
+            proof_target_basis: SealBasis {
+                leaves: vec![SealId::new(
+                    "ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                )
+                .unwrap()],
+            },
+            byte_limit: MLS_GOVERNANCE_PROOF_MAX_BYTES,
+            frontier_purpose: MlsGovernanceFrontierPurpose::GroupBinding,
+            base_group_state_ref: None,
+            proposed_group_genesis_binding: Some(proposal),
+            previous_epoch: 0,
+            next_epoch: 0,
+            binding_profile: MlsGovernanceBindingProfile::AkSecurityFrontierV1,
+        }
+    }
+
+    #[test]
+    fn genesis_binding_proposals_validate_all_registered_combinations() {
+        for proposal in [
+            ProposedMlsGroupGenesisBinding {
+                content_scheme: ContentScheme::MlsRfc9420,
+                durability_policy: None,
+            },
+            ProposedMlsGroupGenesisBinding {
+                content_scheme: ContentScheme::MlsExporterAeadV1,
+                durability_policy: Some(DurabilityPolicy::None),
+            },
+            ProposedMlsGroupGenesisBinding {
+                content_scheme: ContentScheme::MlsExporterAeadV1,
+                durability_policy: Some(DurabilityPolicy::OrganizationRecoveryKey),
+            },
+        ] {
+            genesis_request(proposal).validate().unwrap();
+        }
+    }
+
+    #[test]
+    fn genesis_binding_proposal_is_part_of_query_digest_and_successor_forbids_it() {
+        let rfc9420 = genesis_request(ProposedMlsGroupGenesisBinding {
+            content_scheme: ContentScheme::MlsRfc9420,
+            durability_policy: None,
+        });
+        let exporter = genesis_request(ProposedMlsGroupGenesisBinding {
+            content_scheme: ContentScheme::MlsExporterAeadV1,
+            durability_policy: Some(DurabilityPolicy::None),
+        });
+        assert_ne!(
+            rfc9420.query_digest().unwrap(),
+            exporter.query_digest().unwrap()
+        );
+
+        let mut successor = exporter;
+        successor.previous_epoch = 1;
+        successor.next_epoch = 2;
+        successor.base_group_state_ref =
+            Some(EventId::new("ak:event:AbnHJt4q4qY18zqvLiy3Emmqy7weTAuApx42RmRgPr2h").unwrap());
+        assert!(successor.validate().is_err());
+    }
+
+    #[test]
+    fn genesis_binding_proposal_rejects_mismatched_scheme_and_durability() {
+        let invalid = genesis_request(ProposedMlsGroupGenesisBinding {
+            content_scheme: ContentScheme::MlsRfc9420,
+            durability_policy: Some(DurabilityPolicy::None),
+        });
+        assert!(invalid.validate().is_err());
     }
 }
 

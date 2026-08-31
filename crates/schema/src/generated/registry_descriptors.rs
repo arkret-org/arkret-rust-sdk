@@ -2,13 +2,13 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/id-kind-registry.json; version=2026-08-30.2;
 //! sha256=5027ff6fedbe92ee1b1475278352416fbcee183acf7ce9e61124d1a156106ab3 Input: registry/
-//! capability-action-registry.json; version=2026-08-31.6;
-//! sha256=b1869bf05cfea8ddea39fafae193eea63c6a3d3b6738aadb57131d04fcf241c7 Input: registry/
+//! capability-action-registry.json; version=2026-08-31.8;
+//! sha256=b2ad43bc54bef48e34697fa5f5a45c8be32f70e1ea39d42284335a5e24b6cdf3 Input: registry/
 //! schema-registry.json; version=2026-08-31.3;
 //! sha256=c6843eca4309bccd4801f01f36042195bb29be20312a5ad1f6386bf90fb79f4e Input: registry/
 //! account-data-key-registry.json; version=2026-08-30.1;
 //! sha256=e46f0f04e0b29e29d8be37fb74e237eb76eba99e3f4259a24672bf0f57bfffd1 Entries: id_kinds=59,
-//! special_forms=14, actions=162, schemas=195, account_data_patterns=24
+//! special_forms=14, actions=163, schemas=195, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -590,6 +590,20 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         subject_only: false,
         reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::AppletBridgeError,
+        category: "service",
+        risk_tier: CapabilityRiskTier::Medium,
+        required_constraints: &["applet_id", "registration_epoch"],
+        required_evaluator_checks: &["active_applet_registration_exact"],
+        target_event_kinds: &[event_kind_str::APPLET_BRIDGE_ERROR],
+        grant_authority_actions: &[],
+        profile: Some("ak.profile.applet_bridge.v1"),
+        root_control_only: false,
+        subject_only: false,
+        reducer_only: false,
+        event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AppletGhostProvision,

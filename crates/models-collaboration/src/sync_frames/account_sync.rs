@@ -1388,7 +1388,6 @@ mod device_message_tests {
 #[serde(rename_all = "snake_case")]
 pub enum MembershipState {
     Join,
-    Invite,
     Knock,
 }
 
@@ -1567,6 +1566,15 @@ mod tests {
         });
         let parsed: std::result::Result<MemberRosterEntry, _> = serde_json::from_value(raw);
         assert!(parsed.is_err(), "unknown roster fields must be rejected");
+    }
+
+    #[test]
+    fn member_roster_entry_rejects_invite_lifecycle_as_membership() {
+        let raw = serde_json::json!({
+            "actor_id": fake_actor("alice"),
+            "membership": "invite"
+        });
+        assert!(serde_json::from_value::<MemberRosterEntry>(raw).is_err());
     }
 
     #[test]

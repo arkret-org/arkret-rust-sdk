@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-08-31.5;
-//! sha256=333f762f648ad4a61a86db4f2e5a078896a5e27cc372807ace2f482ea07f5a66 Entries: error_codes=281
+//! Input: registry/error-code-registry.json; version=2026-09-01.1;
+//! sha256=95f54a58e16b54f20738672a750e6482694553274689e09e45228fbc0859708a Entries: error_codes=283
 
 use serde::{Deserialize, Serialize};
 
@@ -174,6 +174,8 @@ pub enum ErrorCode {
     MimiReporterResolutionRequired,
     MimiRoomBindingEventInvalid,
     MlsGenesisAlreadyExists,
+    MlsGenesisBindingProposalMismatch,
+    MlsGenesisBindingProposalRequired,
     MlsGovernanceAnchorUnreachable,
     MlsGovernanceProofBoundsExceeded,
     MlsKeypackageClaimRequestExpired,
@@ -471,6 +473,8 @@ impl ErrorCode {
         Self::MimiReporterResolutionRequired,
         Self::MimiRoomBindingEventInvalid,
         Self::MlsGenesisAlreadyExists,
+        Self::MlsGenesisBindingProposalMismatch,
+        Self::MlsGenesisBindingProposalRequired,
         Self::MlsGovernanceAnchorUnreachable,
         Self::MlsGovernanceProofBoundsExceeded,
         Self::MlsKeypackageClaimRequestExpired,
@@ -766,6 +770,10 @@ impl ErrorCode {
     pub const MIMI_REPORTER_RESOLUTION_REQUIRED: &'static str = "mimi_reporter_resolution_required";
     pub const MIMI_ROOM_BINDING_EVENT_INVALID: &'static str = "mimi_room_binding_event_invalid";
     pub const MLS_GENESIS_ALREADY_EXISTS: &'static str = "mls_genesis_already_exists";
+    pub const MLS_GENESIS_BINDING_PROPOSAL_MISMATCH: &'static str =
+        "mls_genesis_binding_proposal_mismatch";
+    pub const MLS_GENESIS_BINDING_PROPOSAL_REQUIRED: &'static str =
+        "mls_genesis_binding_proposal_required";
     pub const MLS_GOVERNANCE_ANCHOR_UNREACHABLE: &'static str = "mls_governance_anchor_unreachable";
     pub const MLS_GOVERNANCE_PROOF_BOUNDS_EXCEEDED: &'static str =
         "mls_governance_proof_bounds_exceeded";
@@ -1079,6 +1087,8 @@ impl ErrorCode {
             Self::MimiReporterResolutionRequired => "mimi_reporter_resolution_required",
             Self::MimiRoomBindingEventInvalid => "mimi_room_binding_event_invalid",
             Self::MlsGenesisAlreadyExists => "mls_genesis_already_exists",
+            Self::MlsGenesisBindingProposalMismatch => "mls_genesis_binding_proposal_mismatch",
+            Self::MlsGenesisBindingProposalRequired => "mls_genesis_binding_proposal_required",
             Self::MlsGovernanceAnchorUnreachable => "mls_governance_anchor_unreachable",
             Self::MlsGovernanceProofBoundsExceeded => "mls_governance_proof_bounds_exceeded",
             Self::MlsKeypackageClaimRequestExpired => "mls_keypackage_claim_request_expired",
@@ -1389,6 +1399,12 @@ impl ErrorCode {
             "mimi_reporter_resolution_required" => Some(Self::MimiReporterResolutionRequired),
             "mimi_room_binding_event_invalid" => Some(Self::MimiRoomBindingEventInvalid),
             "mls_genesis_already_exists" => Some(Self::MlsGenesisAlreadyExists),
+            "mls_genesis_binding_proposal_mismatch" => {
+                Some(Self::MlsGenesisBindingProposalMismatch)
+            }
+            "mls_genesis_binding_proposal_required" => {
+                Some(Self::MlsGenesisBindingProposalRequired)
+            }
             "mls_governance_anchor_unreachable" => Some(Self::MlsGovernanceAnchorUnreachable),
             "mls_governance_proof_bounds_exceeded" => Some(Self::MlsGovernanceProofBoundsExceeded),
             "mls_keypackage_claim_request_expired" => Some(Self::MlsKeypackageClaimRequestExpired),
@@ -2999,6 +3015,26 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "An MLS genesis operation attempted to initialize a group whose genesis state is already durably accepted. Receivers MUST preserve the existing group state and reject the conflicting initialization.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::MlsGenesisBindingProposalMismatch,
+        type_uri: "https://arkret.org/problems/mls_genesis_binding_proposal_mismatch",
+        title: "MLS genesis binding proposal mismatch",
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "The proposed_group_genesis_binding differs from the signed Genesis binding, from the winning concurrently accepted Genesis binding, or is supplied after an accepted Genesis already exists. The losing caller MUST discard the proposal-bound proof, re-query without a proposal against the winning immutable binding, and MUST NOT reuse the old query/cache entry.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::MlsGenesisBindingProposalRequired,
+        type_uri: "https://arkret.org/problems/mls_genesis_binding_proposal_required",
+        title: "MLS genesis binding proposal required",
+        http_status: 422,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "A 0 -> 0 group_security_frontier query targets a scope/group with no accepted MLS Genesis but omits proposed_group_genesis_binding. The service MUST NOT default content_scheme or durability_policy. The caller must resubmit the exact proposed immutable binding; the failed request produces no proof and no cache entry.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MlsGovernanceAnchorUnreachable,
