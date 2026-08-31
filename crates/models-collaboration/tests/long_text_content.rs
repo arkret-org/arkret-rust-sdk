@@ -1,20 +1,19 @@
 //! `ak.content.long_text` normative validators.
 //!
 //! Covers the rules that JSON Schema cannot express: UTF-8 byte bounds,
-//! normalization, the format / media-type binding, hash-only Blob refs and the
+//! normalization, the closed media-type set, hash-only Blob refs and the
 //! mandatory streaming AEAD scheme for the E2EE branch.
 //! See `zh/models/content-types.md` sections 4.1.1 - 4.1.4.
 
 use arkret_models_collaboration::events_payloads::message::{
     CONTENT_KIND_LONG_TEXT, CONTENT_TEXT_INLINE_MAX_BYTES, ContentBlock, ContentBlockKind,
-    LONG_TEXT_FALLBACK_MAX_BYTES, LongTextBodyKind, LongTextFormat, TextFormat,
+    LONG_TEXT_FALLBACK_MAX_BYTES, LongTextBodyKind, LongTextMediaType, TextFormat,
     long_text_line_count, long_text_prefix, normalize_long_text,
 };
 use serde_json::json;
 
 fn plaintext_block() -> ContentBlock {
     ContentBlock::new(ContentBlockKind::LongText, "first four KiB of the body")
-        .with_field("format", json!("markdown"))
         .with_field("body_kind", json!("prefix"))
         .with_field(
             "blob_ref",
@@ -26,7 +25,6 @@ fn plaintext_block() -> ContentBlock {
 
 fn e2ee_block() -> ContentBlock {
     ContentBlock::new(ContentBlockKind::LongText, "authenticated summary")
-        .with_field("format", json!("plain"))
         .with_field("body_kind", json!("summary"))
         .with_field(
             "attachment",
@@ -78,16 +76,72 @@ fn exactly_one_branch_is_allowed() {
 }
 
 #[test]
-fn media_type_is_bound_to_format() {
-    let mismatched = plaintext_block().with_field("media_type", json!("text/plain"));
-    assert!(mismatched.validate_long_text().is_err());
+fn media_type_is_required_and_closed_in_both_branches() {
+    for seed in [plaintext_block(), e2ee_block()] {
+        for media_type in ["text/plain", "text/markdown"] {
+            let mut block = seed.clone();
+            if let Some(attachment) = block.extra.get_mut("attachment") {
+                attachment["media_type"] = json!(media_type);
+            } else {
+                block.extra.insert("media_type".into(), json!(media_type));
+            }
+            block.validate_long_text().unwrap();
+            let parsed = block.long_text_media_type().unwrap();
+            assert_eq!(parsed.as_str(), media_type);
+            assert_eq!(serde_json::to_value(parsed).unwrap(), json!(media_type));
+            assert_eq!(
+                serde_json::from_value::<LongTextMediaType>(json!(media_type)).unwrap(),
+                parsed
+            );
+        }
+        for invalid in [
+            None,
+            Some(json!("text/html")),
+            Some(json!("text/plain; charset=utf-8")),
+            Some(json!("text/markdown; charset=utf-8")),
+            Some(json!("markdown")),
+            Some(json!("Text/Plain")),
+            Some(json!(null)),
+            Some(json!(42)),
+        ] {
+            let mut block = seed.clone();
+            if let Some(attachment) = block.extra.get_mut("attachment") {
+                let object = attachment.as_object_mut().unwrap();
+                object.remove("media_type");
+                if let Some(value) = invalid {
+                    object.insert("media_type".into(), value);
+                }
+            } else {
+                block.extra.remove("media_type");
+                if let Some(value) = invalid {
+                    block.extra.insert("media_type".into(), value);
+                }
+            }
+            assert!(block.validate_long_text().is_err());
+            assert_eq!(block.long_text_media_type(), None);
+        }
+    }
+}
 
-    let parameterized =
-        plaintext_block().with_field("media_type", json!("text/markdown; charset=utf-8"));
-    assert!(parameterized.validate_long_text().is_err());
-
-    assert_eq!(LongTextFormat::Plain.media_type(), "text/plain");
-    assert_eq!(LongTextFormat::Markdown.media_type(), "text/markdown");
+#[test]
+fn legacy_format_is_rejected_in_both_branches() {
+    for block in [plaintext_block(), e2ee_block()] {
+        for format in ["plain", "markdown", "prosemirror_json"] {
+            assert!(
+                block
+                    .clone()
+                    .with_field("format", json!(format))
+                    .validate_long_text()
+                    .is_err()
+            );
+        }
+    }
+    assert!(
+        e2ee_block()
+            .with_field("media_type", json!("text/plain"))
+            .validate_long_text()
+            .is_err()
+    );
 }
 
 #[test]
@@ -146,7 +200,6 @@ fn fallback_body_is_bounded_in_utf8_bytes() {
     assert!(oversized.chars().count() < LONG_TEXT_FALLBACK_MAX_BYTES);
     assert!(oversized.len() > LONG_TEXT_FALLBACK_MAX_BYTES);
     let block = ContentBlock::new(ContentBlockKind::LongText, oversized)
-        .with_field("format", json!("plain"))
         .with_field("body_kind", json!("summary"))
         .with_field(
             "blob_ref",
@@ -161,7 +214,6 @@ fn fallback_body_is_bounded_in_utf8_bytes() {
 fn fallback_body_must_already_be_normalized() {
     let crlf = plaintext_block();
     let crlf = ContentBlock::new(ContentBlockKind::LongText, "line one\r\nline two")
-        .with_field("format", json!("markdown"))
         .with_field("body_kind", json!("prefix"))
         .with_field("blob_ref", crlf.extra.get("blob_ref").unwrap().clone())
         .with_field("size_bytes", json!(700_000u64))
@@ -201,13 +253,6 @@ fn body_kind_is_a_closed_set() {
     assert_eq!(LongTextBodyKind::parse("excerpt"), None);
     let unknown = plaintext_block().with_field("body_kind", json!("excerpt"));
     assert!(unknown.validate_long_text().is_err());
-}
-
-#[test]
-fn format_is_a_closed_set_without_prosemirror() {
-    assert_eq!(LongTextFormat::parse("prosemirror_json"), None);
-    let structured = plaintext_block().with_field("format", json!("prosemirror_json"));
-    assert!(structured.validate_long_text().is_err());
 }
 
 #[test]
@@ -260,12 +305,21 @@ fn plaintext_builder_derives_normalized_metadata_and_scalar_safe_prefix() {
     let source = format!("{}\r\nlast", "\u{4e2d}".repeat(1_400));
     let block = ContentBlock::plaintext_long_text(
         &source,
-        LongTextFormat::Markdown,
+        LongTextMediaType::Markdown,
         format!("ak:blob:sha256:{}", "d".repeat(64)),
         LongTextBodyKind::Prefix,
         None,
     )
     .unwrap();
+    assert!(block.to_value().unwrap().get("format").is_none());
+    assert_eq!(
+        block.long_text_media_type(),
+        Some(LongTextMediaType::Markdown)
+    );
+    assert_eq!(
+        block.long_text_media_type().unwrap().text_format(),
+        TextFormat::Markdown
+    );
     let normalized = normalize_long_text(&source).unwrap();
     assert_eq!(block.body, long_text_prefix(&normalized));
     assert!(block.body.is_char_boundary(block.body.len()));
@@ -284,7 +338,7 @@ fn plaintext_builder_requires_a_bounded_normalized_summary() {
     assert!(
         ContentBlock::plaintext_long_text(
             "full body",
-            LongTextFormat::Plain,
+            LongTextMediaType::Plain,
             &blob_ref,
             LongTextBodyKind::Summary,
             None,
@@ -293,7 +347,7 @@ fn plaintext_builder_requires_a_bounded_normalized_summary() {
     );
     let block = ContentBlock::plaintext_long_text(
         "line one\r\nline two",
-        LongTextFormat::Plain,
+        LongTextMediaType::Plain,
         blob_ref,
         LongTextBodyKind::Summary,
         Some("short\rsummary"),

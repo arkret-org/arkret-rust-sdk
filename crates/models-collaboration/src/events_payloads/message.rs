@@ -434,24 +434,17 @@ impl TextFormat {
     }
 }
 
-/// Closed `format` set for `ak.content.long_text`, paired with its media type.
+/// Closed full-body media types for `ak.content.long_text`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum LongTextFormat {
+pub enum LongTextMediaType {
+    #[serde(rename = "text/plain")]
     Plain,
+    #[serde(rename = "text/markdown")]
     Markdown,
 }
 
-impl LongTextFormat {
+impl LongTextMediaType {
     pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Plain => "plain",
-            Self::Markdown => "markdown",
-        }
-    }
-
-    /// Media type bound to this format. No parameters: charset is fixed to UTF-8 by the kind.
-    pub fn media_type(self) -> &'static str {
         match self {
             Self::Plain => "text/plain",
             Self::Markdown => "text/markdown",
@@ -460,9 +453,17 @@ impl LongTextFormat {
 
     pub fn parse(value: &str) -> Option<Self> {
         match value {
-            "plain" => Some(Self::Plain),
-            "markdown" => Some(Self::Markdown),
+            "text/plain" => Some(Self::Plain),
+            "text/markdown" => Some(Self::Markdown),
             _ => None,
+        }
+    }
+
+    /// Local rendering choice; never serialized as a long-text `format` field.
+    pub fn text_format(self) -> TextFormat {
+        match self {
+            Self::Plain => TextFormat::Plain,
+            Self::Markdown => TextFormat::Markdown,
         }
     }
 }
@@ -544,6 +545,26 @@ fn hash_blob_ref_suite_and_hex(blob_ref: &str) -> Option<(&str, &str)> {
 }
 
 impl ContentBlock {
+    /// Read the full-body media type from the sole carrier for the selected branch.
+    pub fn long_text_media_type(&self) -> Option<LongTextMediaType> {
+        if self.kind != ContentBlockKind::LongText {
+            return None;
+        }
+        match (
+            self.extra.contains_key("blob_ref"),
+            self.extra.get("attachment"),
+        ) {
+            (true, None) => self
+                .extra_str("media_type")
+                .and_then(LongTextMediaType::parse),
+            (false, Some(attachment)) => attachment
+                .get("media_type")
+                .and_then(Value::as_str)
+                .and_then(LongTextMediaType::parse),
+            _ => None,
+        }
+    }
+
     /// Build the plaintext branch of `ak.content.long_text` from the complete
     /// source body and the hash-addressed Blob ref returned by its upload.
     ///
@@ -552,7 +573,7 @@ impl ContentBlock {
     /// an explicit summary and normalizes it independently.
     pub fn plaintext_long_text(
         full_body: &str,
-        format: LongTextFormat,
+        media_type: LongTextMediaType,
         blob_ref: impl Into<String>,
         body_kind: LongTextBodyKind,
         summary: Option<&str>,
@@ -578,18 +599,17 @@ impl ContentBlock {
             }
         };
         let block = Self::new(ContentBlockKind::LongText, fallback)
-            .with_field("format", Value::String(format.as_str().to_owned()))
             .with_field("body_kind", Value::String(body_kind.as_str().to_owned()))
             .with_field("blob_ref", Value::String(blob_ref.into()))
             .with_field("size_bytes", Value::from(normalized.len() as u64))
             .with_field("line_count", Value::from(long_text_line_count(&normalized)))
-            .with_field("media_type", Value::String(format.media_type().to_owned()));
+            .with_field("media_type", Value::String(media_type.as_str().to_owned()));
         block.validate_long_text()?;
         Ok(block)
     }
 
     /// Validate an `ak.content.long_text` block against the normative rules that JSON Schema
-    /// cannot express: UTF-8 byte bounds, normalization, format / media-type binding,
+    /// cannot express: UTF-8 byte bounds, normalization,
     /// hash-only Blob refs, the streaming descriptor shape and the
     /// mandatory streaming AEAD scheme for the E2EE branch.
     ///
@@ -609,12 +629,6 @@ impl ContentBlock {
             ));
         }
 
-        let format = self
-            .extra_str("format")
-            .and_then(LongTextFormat::parse)
-            .ok_or_else(|| {
-                WireError::Protocol("long_text requires format = plain | markdown".to_owned())
-            })?;
         self.extra_str("body_kind")
             .and_then(LongTextBodyKind::parse)
             .ok_or_else(|| {
@@ -646,7 +660,6 @@ impl ContentBlock {
         // The wire shape is additionalProperties=false, so the branch's field set is closed.
         let allowed: &[&str] = if plaintext_branch {
             &[
-                "format",
                 "body_kind",
                 "blob_ref",
                 "size_bytes",
@@ -654,7 +667,7 @@ impl ContentBlock {
                 "media_type",
             ]
         } else {
-            &["format", "body_kind", "line_count", "attachment"]
+            &["body_kind", "line_count", "attachment"]
         };
         if let Some(unknown) = self
             .extra
@@ -665,6 +678,13 @@ impl ContentBlock {
                 "long_text does not allow field {unknown:?}"
             )));
         }
+
+        self.long_text_media_type().ok_or_else(|| {
+            WireError::Protocol(
+                "long_text requires media_type = text/plain | text/markdown in its body descriptor"
+                    .to_owned(),
+            )
+        })?;
 
         if plaintext_branch {
             let blob_ref = self.extra_str("blob_ref").unwrap_or_default();
@@ -678,13 +698,6 @@ impl ContentBlock {
                 return Err(WireError::Protocol(
                     "plaintext long_text requires size_bytes".to_owned(),
                 ));
-            }
-            let media_type = self.extra_str("media_type").unwrap_or_default();
-            if media_type != format.media_type() {
-                return Err(WireError::Protocol(format!(
-                    "long_text media_type {media_type:?} does not match format {}",
-                    format.as_str()
-                )));
             }
         } else {
             let attachment = self
@@ -710,12 +723,6 @@ impl ContentBlock {
                     "E2EE long_text attachment must use the matching _stream AEAD algorithm"
                         .to_owned(),
                 ));
-            }
-            if field("media_type") != format.media_type() {
-                return Err(WireError::Protocol(format!(
-                    "E2EE long_text attachment media_type does not match format {}",
-                    format.as_str()
-                )));
             }
             let blob_ref = field("blob_ref");
             let Some((suite, hex)) = hash_blob_ref_suite_and_hex(blob_ref) else {
