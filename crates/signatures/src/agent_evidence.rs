@@ -1302,6 +1302,7 @@ fn validate_state_witnesses(
         )
         && lifecycle.component.as_str() == AGENT_STATUS_COMPONENT
         && lifecycle.agent_id == *context.signer_id
+        && lifecycle.accepted_status_event.actor_id == *context.signer_actor_id
         && lifecycle.controller_id == *context.controller_id
         && lifecycle.seal.id == lifecycle.seal_id
         && lifecycle.seal.state_root == lifecycle.state_root
