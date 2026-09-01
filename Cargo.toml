@@ -74,7 +74,7 @@ rust-version = "1.98"
 # AES-128-GCM: the AEAD of the only ACTIVE MLS ciphersuite row
 # (mls-ciphersuite-registry.json `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`),
 # used by the `ak.signal_exporter_aead.v1` Signal rail.
-aes-gcm = { version = "0.10.3", default-features = false, features = ["aes", "alloc"] }
+aes-gcm = { version = "0.11.1", default-features = false, features = ["aes", "alloc"] }
 argon2 = { version = "0.5.3", default-features = false, features = ["alloc", "password-hash"] }
 arkret-auth = { version = "0.3.0", path = "crates/auth", default-features = false }
 arkret-bootstrap = { version = "0.3.0", path = "crates/bootstrap", default-features = false }
