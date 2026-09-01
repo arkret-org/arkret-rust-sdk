@@ -1109,7 +1109,8 @@
     },
     {
       "rust_type": "crates/models-discovery/src/service_description.rs::AuthMetadata",
-      "reason": "serde(flatten) prevents a static complete field set"
+      "schema": "service-describe.schema.json#/properties/auth_metadata",
+      "reason": "serde(flatten) permits schema-only fields; declared non-flatten fields are checked one-way"
     },
     {
       "rust_type": "crates/models-discovery/src/service_description.rs::ClaimedProfileEntry",

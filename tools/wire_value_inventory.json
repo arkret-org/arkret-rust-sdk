@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total": 684,
+    "total": 683,
     "scope": {
       "repositories": [
         "arkret-rust-sdk",
@@ -55,7 +55,7 @@
       "lattice-registry": 3,
       "models-collaboration": 108,
       "models-crypto": 1,
-      "models-discovery": 11,
+      "models-discovery": 10,
       "models-identity": 17,
       "models-integration": 7,
       "runtime": 3,
@@ -75,27 +75,27 @@
       "json_authoring": 102,
       "json_path_mutation": 101,
       "paired_api": 17,
-      "public_value_field": 462
+      "public_value_field": 461
     },
     "by_classification": {
       "closed_discriminated": 23,
       "independent": 18,
       "internal_or_fixture": 2,
-      "open_json": 102,
+      "open_json": 101,
       "polymorphic_boundary": 539
     },
     "by_lifecycle": {
       "pending_migration": 23,
-      "retained_boundary": 661
+      "retained_boundary": 660
     },
     "by_decision": {
       "closed": 23,
       "independent": 18,
-      "open": 102,
+      "open": 101,
       "raw": 541
     },
     "by_owner_repository": {
-      "arkret-rust-sdk": 290,
+      "arkret-rust-sdk": 289,
       "bridges": 3,
       "chime": 3,
       "coauth": 41,
@@ -109,7 +109,7 @@
       "closed": 8,
       "open_json": 4,
       "open_json_container": 25,
-      "open_map": 75,
+      "open_map": 74,
       "unknown": 572
     }
   },
@@ -4403,32 +4403,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
       "evidence": "public Option<BTreeMap<String, Value>> field"
-    },
-    {
-      "finding": "crates/models-discovery/src/service_description.rs::AuthMetadata.extra",
-      "category": "public_value_field",
-      "rust_field": "crates/models-discovery/src/service_description.rs::AuthMetadata.extra",
-      "crate": "models-discovery",
-      "file": "crates/models-discovery/src/service_description.rs",
-      "path": "crates/models-discovery/src/service_description.rs",
-      "line": 1320,
-      "owner": "AuthMetadata",
-      "owner_repository": "arkret-rust-sdk",
-      "symbol": "AuthMetadata.extra",
-      "field": "extra",
-      "discriminator": null,
-      "data_field": "extra",
-      "rust_type": "BTreeMap<String, Value>",
-      "spec_pointer": "service-describe.schema.json#/properties/auth_metadata/patternProperties/^x_[a-z][a-z0-9_]{0,63}$",
-      "schema_shape": "open_map",
-      "classification": "open_json",
-      "lifecycle": "retained_boundary",
-      "decision": "open",
-      "authority": "service-describe.schema.json#/properties/auth_metadata/patternProperties/^x_[a-z][a-z0-9_]{0,63}$",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "evidence": "public BTreeMap<String, Value> field"
     },
     {
       "finding": "crates/models-discovery/src/service_description.rs::BottomDiagnostic.head_ids",

@@ -1,13 +1,13 @@
 {
   "summary": {
-    "total": 1373,
+    "total": 1372,
     "by_classification": {
       "A": 8,
-      "B": 758,
+      "B": 757,
       "needs_review": 607
     },
     "by_openness": {
-      "closed": 766,
+      "closed": 765,
       "unresolved": 599,
       "unspecified": 8
     },
@@ -18,7 +18,7 @@
       "mls": 4,
       "models-collaboration": 802,
       "models-crypto": 126,
-      "models-discovery": 21,
+      "models-discovery": 20,
       "models-identity": 153,
       "models-integration": 77,
       "policy": 4,
@@ -12638,19 +12638,6 @@
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/models-discovery/src/service_description.rs::AuthGrantExchange",
-      "crate": "models-discovery",
-      "file": "crates/models-discovery/src/service_description.rs",
-      "line": 1390,
-      "kind": "struct",
-      "value_kind": "AuthGrantExchange",
-      "spec_pointer": "service-describe.schema.json#/$defs/auth_grant_exchange",
-      "schema_openness": "closed",
-      "classification": "B",
       "cfg_gated": false,
       "flatten_extra": false
     },

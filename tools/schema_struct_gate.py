@@ -53,6 +53,7 @@ class RustStruct:
     name: str
     line: int
     fields: frozenset[str] | None
+    has_flatten: bool
     pointer: str | None
     unsupported_reason: str | None
 
@@ -118,6 +119,7 @@ def parse_struct(
     rename_all_match = RENAME_ALL_RE.search(serde_attributes)
     rename_all = rename_all_match.group(1) if rename_all_match else None
     fields: set[str] = set()
+    has_flatten = False
     unsupported_reason = (
         "struct-level serde conversion/transparent representation is not an object field set"
         if STRUCT_TRANSFORM_RE.search(serde_attributes)
@@ -131,8 +133,8 @@ def parse_struct(
         if unsupported_reason is not None:
             break
         if FLATTEN_RE.search(field_attributes):
-            unsupported_reason = "serde(flatten) prevents a static complete field set"
-            break
+            has_flatten = True
+            continue
         if SKIP_RE.search(field_attributes):
             continue
         rename_match = RENAME_RE.search(field_attributes)
@@ -148,6 +150,7 @@ def parse_struct(
         name=name,
         line=source.count("\n", 0, match.start()) + 1,
         fields=None if unsupported_reason else frozenset(fields),
+        has_flatten=has_flatten,
         pointer=pointer,
         unsupported_reason=unsupported_reason,
     )
@@ -251,19 +254,40 @@ def validate(
         if not schema_fields:
             errors.append(f"schema target for {rust_type} has no object properties: {pointer}")
             continue
-        if set(item.fields) != schema_fields:
+        rust_only = set(item.fields) - schema_fields
+        spec_only = schema_fields - set(item.fields)
+        if rust_only or (spec_only and not item.has_flatten):
             errors.append(
                 f"field mismatch for {rust_type} -> {pointer}: "
-                f"Rust-only={sorted(set(item.fields) - schema_fields)}, "
-                f"Spec-only={sorted(schema_fields - set(item.fields))}"
+                f"Rust-only={sorted(rust_only)}, "
+                f"Spec-only={sorted(spec_only)}"
             )
     for entry in exemptions:
         rust_type = entry.get("rust_type")
         reason = entry.get("reason")
         if rust_type not in structs:
             errors.append(f"exempted Rust struct no longer exists: {rust_type}")
+            continue
         if not isinstance(reason, str) or len(reason.strip()) < 20:
             errors.append(f"exemption for {rust_type} needs a concrete reason")
+        item = structs[rust_type]
+        one_way_pointer = entry.get("schema")
+        if one_way_pointer is not None and not isinstance(one_way_pointer, str):
+            errors.append(f"exemption for {rust_type} has a non-string schema pointer")
+            continue
+        if item.has_flatten and item.fields is not None and one_way_pointer:
+            try:
+                schema_path, node = resolver.pointer_node(one_way_pointer)
+                schema_fields = schema_property_names(resolver, schema_path, node)
+            except (FileNotFoundError, KeyError, ValueError, json.JSONDecodeError) as error:
+                errors.append(f"cannot resolve {one_way_pointer} for {rust_type}: {error}")
+                continue
+            rust_only = set(item.fields) - schema_fields
+            if rust_only:
+                errors.append(
+                    f"field mismatch for flattened {rust_type} -> {one_way_pointer}: "
+                    f"Rust-only={sorted(rust_only)}"
+                )
     return errors
 
 
@@ -277,6 +301,17 @@ def bootstrap(registry_path: Path, spec_root: Path) -> None:
             continue
         if item.fields is None:
             exemptions.append({"rust_type": item.rust_type, "reason": item.unsupported_reason or "unsupported shape"})
+            continue
+        if item.has_flatten:
+            exemptions.append(
+                {
+                    "rust_type": item.rust_type,
+                    "reason": (
+                        "serde(flatten) permits schema-only fields; declared "
+                        "non-flatten fields are checked one-way."
+                    ),
+                }
+            )
             continue
         try:
             schema_path, node = resolver.pointer_node(item.pointer)

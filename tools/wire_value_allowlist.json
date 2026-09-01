@@ -1935,18 +1935,6 @@
       "spec_pointer": "directory-operations.schema.json#/$defs/directory_search_organizations_request_body/properties/claims"
     },
     {
-      "finding": "crates/models-discovery/src/service_description.rs::AuthMetadata.extra",
-      "classification": "open_json",
-      "lifecycle": "retained_boundary",
-      "decision": "open",
-      "authority": "service-describe.schema.json#/properties/auth_metadata/patternProperties/^x_[a-z][a-z0-9_]{0,63}$",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "spec_pointer": "service-describe.schema.json#/properties/auth_metadata/patternProperties/^x_[a-z][a-z0-9_]{0,63}$"
-    },
-    {
       "finding": "crates/models-discovery/src/service_description.rs::BottomDiagnostic.head_ids",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",

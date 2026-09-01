@@ -1109,9 +1109,9 @@ mod tests {
     }
 
     #[test]
-    fn auth_grant_exchange_is_the_closed_account_handoff_shape() {
+    fn auth_grant_exchange_is_the_account_handoff_shape_with_x_extensions() {
         let exchange: AuthGrantExchange =
-            serde_json::from_value(json!({"kind": "account_handoff"})).unwrap();
+            serde_json::from_value(json!({"kind": "account_handoff", "x_vendor": true})).unwrap();
         assert_eq!(exchange.kind, AuthGrantExchangeKind::AccountHandoff);
         assert!(
             serde_json::from_value::<AuthGrantExchange>(
@@ -1119,6 +1119,64 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn auth_metadata_subtree_round_trips_x_extensions_and_rejects_bare_keys() {
+        let wire = json!({
+            "account_authority": {
+                "origin": "https://auth.example",
+                "gate_account_base_url": "https://auth.example/_arkret/gate/account",
+                "x_authority": true
+            },
+            "methods": [{
+                "method": "oidc",
+                "issuer_uri": "https://auth.example",
+                "openid_configuration_url": "https://auth.example/.well-known/openid-configuration",
+                "client_id": "fixture",
+                "scopes": ["openid"],
+                "grant_exchange": {
+                    "kind": "account_handoff",
+                    "x_exchange": {"label": "safe-to-ignore"}
+                },
+                "x_method": 1
+            }],
+            "did_binding_methods": ["session_grant"],
+            "x_metadata": "safe-to-ignore"
+        });
+        let decoded: AuthMetadata = serde_json::from_value(wire.clone()).unwrap();
+        assert_eq!(serde_json::to_value(decoded).unwrap(), wire);
+
+        let invalid_values = [
+            json!({"mode": "development"}),
+            json!({
+                "account_authority": {
+                    "origin": "https://auth.example",
+                    "gate_account_base_url": "https://auth.example/_arkret/gate/account",
+                    "mode": "development"
+                }
+            }),
+            json!({
+                "methods": [{
+                    "method": "passkey",
+                    "grant_exchange": {"kind": "account_handoff"},
+                    "mode": "development"
+                }]
+            }),
+            json!({
+                "methods": [{
+                    "method": "passkey",
+                    "grant_exchange": {
+                        "kind": "account_handoff",
+                        "mode": "development"
+                    }
+                }]
+            }),
+            json!({"read": "legacy"}),
+        ];
+        for invalid in invalid_values {
+            assert!(serde_json::from_value::<AuthMetadata>(invalid).is_err());
+        }
     }
 
     fn directory_description() -> ServiceDescribe {
@@ -1304,9 +1362,9 @@ mod tests {
 /// Strongly-typed `auth_metadata` block of the service-describe response.
 /// Mirrors `service-describe.schema.json#/properties/auth_metadata`. Every
 /// declared field is optional or defaulted so a conforming service that sends
-/// only what the schema declares still deserializes; the `extra` flatten
-/// captures `x_*` and any other unknown keys (`additionalProperties: true`)
-/// without data loss.
+/// only what the schema declares still deserializes. The `extra` flatten
+/// preserves schema-authorized `x_*` metadata and rejects every other
+/// unregistered key.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthMetadata {
@@ -1316,13 +1374,9 @@ pub struct AuthMetadata {
     pub methods: Vec<AuthMethod>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub did_binding_methods: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub read: Option<String>,
-    /// Captures `x_*` and any other `additionalProperties: true` keys so the
-    /// SDK round-trips future / vendor-specific fields without dropping them.
-    #[serde(default, flatten)]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub extra: BTreeMap<String, Value>,
+    /// Schema-authorized, safely ignorable `x_*` metadata.
+    #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
+    pub extra: XExtensionMap,
 }
 
 impl AuthMetadata {
@@ -1333,8 +1387,7 @@ impl AuthMetadata {
             account_authority: None,
             methods: Vec::new(),
             did_binding_methods: Vec::new(),
-            read: None,
-            extra: BTreeMap::new(),
+            extra: XExtensionMap::default(),
         }
     }
 }
@@ -1347,6 +1400,9 @@ impl AuthMetadata {
 pub struct AccountAuthority {
     pub origin: WebOrigin,
     pub gate_account_base_url: String,
+    /// Schema-authorized, safely ignorable `x_*` metadata.
+    #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
+    pub extra: XExtensionMap,
 }
 
 /// Mirrors `service-describe.schema.json#/$defs/auth_method`. Describes a
@@ -1367,6 +1423,9 @@ pub struct AuthMethod {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub scopes: Vec<String>,
     pub grant_exchange: AuthGrantExchange,
+    /// Schema-authorized, safely ignorable `x_*` metadata.
+    #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
+    pub extra: XExtensionMap,
 }
 
 /// `method` discriminant for [`AuthMethod`]. Mirrors the closed enum in
@@ -1387,9 +1446,11 @@ pub enum AuthMethodKind {
 /// handoff. SessionGrant issue is a later, separately authenticated operation.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct AuthGrantExchange {
     pub kind: AuthGrantExchangeKind,
+    /// Schema-authorized, safely ignorable `x_*` metadata.
+    #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
+    pub extra: XExtensionMap,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
