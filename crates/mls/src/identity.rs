@@ -409,10 +409,11 @@ impl ArkretMlsIdentity {
                     device_id,
                 },
                 RecipientMlsDurableSigner::Device {
+                    recipient_account_id,
                     recipient_device_id,
                     device_verification_method,
                 },
-            ) if &receipt.recipient_principal_id == principal_id
+            ) if &recipient_account_id.principal_id == principal_id
                 && recipient_device_id == device_id =>
             {
                 device_verification_method
@@ -428,7 +429,7 @@ impl ArkretMlsIdentity {
                     recipient_agent_verification_method,
                     agent_key_authorize_event_id: recipient_agent_key_authorize_event_id,
                 },
-            ) if &receipt.recipient_principal_id == agent_id
+            ) if receipt.recipient_principal_id().as_ref() == Some(agent_id)
                 && recipient_agent_id == agent_id
                 && recipient_agent_verification_method == verification_method
                 && recipient_agent_key_authorize_event_id == agent_key_authorize_event_id =>
@@ -443,7 +444,7 @@ impl ArkretMlsIdentity {
                 RecipientMlsDurableSigner::MinimalMetadataPairwise {
                     recipient_pairwise_verification_method,
                 },
-            ) if &receipt.recipient_principal_id == pairwise_actor_id
+            ) if receipt.recipient_principal_id().as_ref() == Some(pairwise_actor_id)
                 && recipient_pairwise_verification_method == verification_method =>
             {
                 recipient_pairwise_verification_method
@@ -1104,7 +1105,6 @@ mod tests {
             .unwrap(),
             claim_request_id,
             key_package_ref: NonEmptyString::new(keypackage_ref).unwrap(),
-            recipient_principal_id: pairwise_actor_id,
             recipient: RecipientMlsDurableSigner::MinimalMetadataPairwise {
                 recipient_pairwise_verification_method: verification_method.clone(),
             },

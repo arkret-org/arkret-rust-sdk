@@ -6,7 +6,7 @@ use arkret_canonical::{
     decode_multibase_base58btc, decode_multicodec_varint, encode_multibase_base58btc,
 };
 use arkret_wire::{
-    ActorId, AttestationId, AuditReasonText, AuthoritySetIssuer, AuthoritySetIssuerRole,
+    AccountId, ActorId, AttestationId, AuditReasonText, AuthoritySetIssuer, AuthoritySetIssuerRole,
     AuthorizationLease, BackupId, BackupObjectRef, BackupRotationBinding, BackupRotationKind,
     BackupSeriesId, Base64UrlString, CbaProofBundle, ControlProposalAck, Cursor, DeviceId,
     DidCoreId, DidUrl, EpochRange, Event, EventId, EventInitialSubmission, EventKind,
@@ -119,7 +119,9 @@ pub const KEY_BACKUP_DELETE_TRANSCRIPT_CONTEXT: &str = ProofContextId::KEY_BACKU
 pub enum KeyBackupDeleteProof {
     /// Principal-control-key proof. The proof's `verification_method` MUST be a
     /// principal-grade DID control method whose controller DID is byte-identical
-    /// to the transcript's `principal_id`, and that key MUST be a currently
+    /// to the transcript's `account_id.principal_id`, while the accepted
+    /// authorization independently binds the exact `account_id.station_id`;
+    /// that key MUST be a currently
     /// accepted principal control key at `created_at`. Device, service and
     /// retired keys are rejected.
     PrincipalSigning { proof: PayloadProof },
@@ -161,7 +163,7 @@ pub struct KeyBackupDeleteQuorumSignature {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysBackupsIssueDeleteChallengeRequestBody {
-    /// While a challenge for the same `(principal_id, backup_id, request_id)` is
+    /// While a challenge for the same `(account_id, backup_id, request_id)` is
     /// still valid the service returns that same challenge; a different
     /// `request_id` mints a new one.
     pub request_id: Base64UrlString,
@@ -185,7 +187,7 @@ pub struct KeysBackupsDeleteChallenge {
     /// freshness values.
     pub nonce: Base64UrlString,
     pub operation: String,
-    pub principal_id: DidCoreId,
+    pub account_id: AccountId,
     pub backup_id: BackupId,
     /// The service base origin this challenge is valid against.
     pub audience: NonEmptyString,
@@ -209,7 +211,7 @@ impl KeysBackupsDeleteChallenge {
             "context": KEY_BACKUP_DELETE_TRANSCRIPT_CONTEXT,
             "operation": ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_DELETE_V1,
             "request_id": self.request_id.as_str(),
-            "principal_id": self.principal_id.as_str(),
+            "account_id": &self.account_id,
             "backup_id": self.backup_id.as_str(),
             "reason": reason,
             "challenge_id": self.challenge_id.as_str(),
@@ -1723,7 +1725,7 @@ pub struct KeyBackupRetention {
 /// versioned and bound to the Principal Control Realm via publish / rotate /
 /// revoke control events.
 ///
-/// Required surface: `schema`, `policy_id`, `principal_id`, `version`,
+/// Required surface: `schema`, `policy_id`, `account_id`, `version`,
 /// `supersedes_id`, `trust_domain`, `allowed_proof_kinds`, `issued_at`,
 /// `auth_data`. The proof-family configuration sub-objects
 /// (`threshold` / `device_quorum` / `trusted_recovery_services`) are required
@@ -1735,8 +1737,8 @@ pub struct RecoveryPolicy {
     /// Schema id (`ak.schema.recovery_policy.v1`).
     pub schema: String,
     pub policy_id: PolicyId,
-    pub principal_id: DidCoreId,
-    /// Monotonically increasing counter scoped by `principal_id`.
+    pub account_id: AccountId,
+    /// Monotonically increasing counter scoped by exact `account_id`.
     pub version: u64,
     /// Predecessor `policy_id`; `None` only for the genesis policy.
     pub supersedes_id: Option<PolicyId>,
@@ -2062,7 +2064,7 @@ impl RecoveryPolicy {
 #[derive(Clone, Debug)]
 pub struct UnsignedRecoveryPolicyBody {
     pub policy_id: PolicyId,
-    pub principal_id: DidCoreId,
+    pub account_id: AccountId,
     pub version: u64,
     pub supersedes_id: Option<PolicyId>,
     pub trust_domain: TrustDomainId,
@@ -2113,7 +2115,7 @@ impl UnsignedRecoveryPolicy {
         let policy = RecoveryPolicy {
             schema: RecoveryPolicy::SCHEMA.to_owned(),
             policy_id: body.policy_id,
-            principal_id: body.principal_id,
+            account_id: body.account_id,
             version: body.version,
             supersedes_id: body.supersedes_id,
             trust_domain: body.trust_domain,
@@ -2149,7 +2151,7 @@ fn recovery_policy_unsigned_value(body: &UnsignedRecoveryPolicyBody) -> Result<V
     let mut value = json!({
         "schema": RecoveryPolicy::SCHEMA,
         "policy_id": &body.policy_id,
-        "principal_id": &body.principal_id,
+        "account_id": &body.account_id,
         "version": body.version,
         "supersedes_id": &body.supersedes_id,
         "trust_domain": &body.trust_domain,
@@ -2211,7 +2213,7 @@ fn domain_separated_unsigned_object_bytes(domain: &str, value: &Value) -> Result
 #[serde(deny_unknown_fields)]
 pub struct RecoveryPolicySummary {
     pub policy_id: PolicyId,
-    pub principal_id: DidCoreId,
+    pub account_id: AccountId,
     pub version: u64,
     pub acceptance_basis_ref: LeaseBasisRef,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2251,7 +2253,7 @@ pub struct RecoveryControlFrontier {
 #[serde(deny_unknown_fields)]
 pub struct RecoveryPolicyActiveOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub principal_id: Option<DidCoreId>,
+    pub account_id: Option<AccountId>,
     pub active_policy: Option<RecoveryPolicySummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_policy_ref: Option<RecoveryPolicyRef>,
@@ -2347,7 +2349,7 @@ impl From<RecoveryPolicyPublishRequest> for EventInitialSubmission {
 #[serde(deny_unknown_fields)]
 pub struct RecoveryPolicyPublishOutcome {
     pub policy_id: PolicyId,
-    pub principal_id: DidCoreId,
+    pub account_id: AccountId,
     pub version: u64,
     pub acceptance_basis_ref: LeaseBasisRef,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -2668,7 +2670,7 @@ impl RecoveryProofKind {
 /// backup unlock, and MLS Welcome replay action.
 ///
 /// Required surface: `schema`, `receipt_id`, `transaction_id`,
-/// `transaction_request_digest`, `principal_id`,
+/// `transaction_request_digest`, `account_id`,
 /// `recovery_session_id`, `policy_id`, `policy_version`, `trust_domain`,
 /// `new_device_id`, `proof_summary`, `unlocked_backups`,
 /// `welcome_count`, `outcome`, `started_at`, `completed_at`, `auth_data`.
@@ -2681,7 +2683,7 @@ pub struct RecoveryReceipt {
     pub transaction_id: TransactionId,
     pub transaction_request_digest: Hash,
     pub prepared_plan_digest: Hash,
-    pub principal_id: DidCoreId,
+    pub account_id: AccountId,
     pub recovery_session_id: RecoverySessionId,
     pub policy_id: PolicyId,
     pub policy_version: u64,
@@ -2774,7 +2776,7 @@ pub struct UnsignedRecoveryReceiptBody {
     pub transaction_id: TransactionId,
     pub transaction_request_digest: Hash,
     pub prepared_plan_digest: Hash,
-    pub principal_id: DidCoreId,
+    pub account_id: AccountId,
     pub recovery_session_id: RecoverySessionId,
     pub policy_id: PolicyId,
     pub policy_version: u64,
@@ -2839,7 +2841,7 @@ impl UnsignedRecoveryReceipt {
             transaction_id: body.transaction_id,
             transaction_request_digest: body.transaction_request_digest,
             prepared_plan_digest: body.prepared_plan_digest,
-            principal_id: body.principal_id,
+            account_id: body.account_id,
             recovery_session_id: body.recovery_session_id,
             policy_id: body.policy_id,
             policy_version: body.policy_version,
@@ -2932,7 +2934,7 @@ fn recovery_receipt_unsigned_value(body: &UnsignedRecoveryReceiptBody) -> Value 
         "transaction_id": &body.transaction_id,
         "transaction_request_digest": &body.transaction_request_digest,
         "prepared_plan_digest": &body.prepared_plan_digest,
-        "principal_id": &body.principal_id,
+        "account_id": &body.account_id,
         "recovery_session_id": &body.recovery_session_id,
         "policy_id": &body.policy_id,
         "policy_version": body.policy_version,

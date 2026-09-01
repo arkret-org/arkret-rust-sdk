@@ -53,8 +53,7 @@ pub const PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_CONTEXT: &str =
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalResolutionProjectionAttestationCore {
-    pub principal_id: DidCoreId,
-    pub station_id: DidCoreId,
+    pub account_id: AccountId,
     pub resolution_projection: PrincipalResolutionProjection,
     pub method_history_evidence_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -77,8 +76,7 @@ impl PrincipalResolutionProjectionAttestation {
         arkret_canonical::canonical_json_bytes(&serde_json::json!({
             "context": PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_CONTEXT,
             "payload_digest": payload_digest,
-            "principal_id": self.attestation.principal_id,
-            "station_id": self.attestation.station_id,
+            "account_id": self.attestation.account_id,
             "resolution_projection": self.attestation.resolution_projection,
             "method_history_evidence_digest": self.attestation.method_history_evidence_digest,
             "issued_at": arkret_canonical::format_timestamp_canonical(self.attestation.issued_at),
@@ -101,8 +99,7 @@ impl PrincipalResolutionProjectionAttestation {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PublicPrincipalResolution {
-    pub principal_id: DidCoreId,
-    pub station_id: DidCoreId,
+    pub account_id: AccountId,
     pub resolution_projection: PrincipalResolutionProjection,
     pub method_history_evidence: ResolutionMethodHistoryEvidence,
     pub projection_attestation: PrincipalResolutionProjectionAttestation,
@@ -111,7 +108,7 @@ pub struct PublicPrincipalResolution {
 impl PublicPrincipalResolution {
     /// The complete public selector and the complete external identity.
     pub fn authority(&self) -> AccountId {
-        AccountId::new(self.principal_id.clone(), self.station_id.clone())
+        self.account_id.clone()
     }
 
     /// Cross-bind the attestation to the response it travels with.
@@ -120,7 +117,7 @@ impl PublicPrincipalResolution {
     /// swapped before a caller spends a signature check on them.
     pub fn validate_attestation_binding(&self) -> arkret_wire::Result<()> {
         let core = &self.projection_attestation.attestation;
-        if core.principal_id != self.principal_id || core.station_id != self.station_id {
+        if core.account_id != self.account_id {
             return Err(arkret_wire::WireError::Protocol(
                 "public principal resolution attestation pair mismatch".to_owned(),
             ));
@@ -198,8 +195,7 @@ impl PrincipalResolutionAuditRequest {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalResolutionAuditEvidence {
-    pub principal_id: DidCoreId,
-    pub station_id: DidCoreId,
+    pub account_id: AccountId,
     pub principal_control_realm_id: RealmId,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub principal_genesis_receipt: EventBatchReceipt,

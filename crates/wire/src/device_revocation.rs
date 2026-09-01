@@ -307,7 +307,7 @@ impl DeviceRevocationGateCheckRequestBody {
             }
         }
         if let Some(proof) = &self.accepted_device_possession_proof
-            && (proof.principal_id() != &self.account_id.principal_id
+            && (proof.account_id() != &self.account_id
                 || proof.device_id() != &self.device_id
                 || proof.session_intent_digest() != &self.intent_digest)
         {
@@ -900,7 +900,10 @@ mod tests {
             request_id: RequestId::new("ak:request:01970000-0000-7000-8000-000000000021").unwrap(),
             account_subject: hash('b'),
             account_handoff_grant_digest: hash('c'),
-            principal_id: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            account_id: AccountId::new(
+                DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+                DidCoreId::new("ak:did_core:web:service.example").unwrap(),
+            ),
             device_id: DeviceId::new("ak:device:0196419b-0000-7000-8000-000000000001").unwrap(),
             audience_id: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
             holder_jkt: "A".repeat(43),

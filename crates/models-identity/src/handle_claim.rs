@@ -1,193 +1,407 @@
-//! Handle-claim wire models for exact account discovery.
+//! Closed HandleClaim core, revocation and signed status-view wire models.
 
-use std::collections::BTreeMap;
-
-use arkret_wire::{AccountId, DidCoreId, PayloadProof, Result, SchemaId, WireError};
-use chrono::{DateTime, Utc};
+use arkret_wire::{
+    AccountId, Audience, DidCoreId, DidUrl, EventId, Hash, PayloadProof, PayloadProofPurpose,
+    Result, SchemaId, WireError,
+};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
-use crate::handle::{Handle, HandleBindingState, HandleClaimKind, HandleVisibility};
+use crate::handle::{Handle, HandleVisibility};
 
-fn default_handle_claim_schema() -> String {
-    SchemaId::HANDLE_CLAIM_V1.to_owned()
+pub const HANDLE_CLAIM_CORE_SCHEMA: &str = "ak.schema.handle_claim_core.v1";
+pub const HANDLE_CLAIM_REVOCATION_SCHEMA: &str = "ak.schema.handle_claim_revocation.v1";
+pub const HANDLE_CLAIM_PROOF_DOMAIN: &str = "ak.handle_claim_proof.v1";
+pub const HANDLE_CLAIM_STATUS_DOMAIN: &str = "ak.handle_claim_status.v1";
+pub const HANDLE_CLAIM_REVOCATION_DOMAIN: &str = "ak.handle_claim_revocation.v1";
+pub const HANDLE_CLAIM_STATUS_MAX_FRESHNESS_SECONDS: i64 = 300;
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum HandleClaimVariant {
+    HandleBinding,
+    OrganizationHandle { organization_id: String },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HandleClaimStatus {
+    Pending,
+    Verified,
+    Revoked,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HandleClaim {
-    #[serde(default = "default_handle_claim_schema")]
+#[serde(tag = "role", rename_all = "snake_case", deny_unknown_fields)]
+pub enum HandleClaimRevoker {
+    Issuer { issuer_id: DidCoreId },
+    Holder { subject_account_id: AccountId },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HandleClaimCore {
     pub schema: String,
     pub handle: Handle,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub handle_aliases: Vec<String>,
-    /// The handle identifies an exact account, not a bare principal DID.
     pub subject_account_id: AccountId,
     pub issuer_id: DidCoreId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub vouching_id: Option<DidCoreId>,
-    pub binding_state: HandleBindingState,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub claim_kind: Option<HandleClaimKind>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub visibility: Option<HandleVisibility>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub claim: HandleClaimVariant,
+    pub visibility: HandleVisibility,
     pub audience: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub challenge: Option<String>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub claim_scope: BTreeMap<String, Value>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub claims: Vec<Value>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub source_refs: Vec<EventId>,
+    pub proofs: [PayloadProof; 2],
+}
+
+#[derive(Serialize)]
+struct HandleClaimCoreDigestInput<'a> {
+    schema: &'a str,
+    handle: &'a Handle,
+    handle_aliases: &'a [String],
+    subject_account_id: &'a AccountId,
+    issuer_id: &'a DidCoreId,
+    claim: &'a HandleClaimVariant,
+    visibility: HandleVisibility,
+    audience: &'a Option<String>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    issued_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
+    expires_at: &'a Option<DateTime<Utc>>,
+    source_refs: &'a [EventId],
+}
+
+impl HandleClaimCore {
+    pub const SCHEMA: &'static str = HANDLE_CLAIM_CORE_SCHEMA;
+
+    pub fn claim_digest(&self) -> Result<Hash> {
+        domain_separated_digest(
+            b"ak.handle_claim_proof.v1\n",
+            &HandleClaimCoreDigestInput {
+                schema: &self.schema,
+                handle: &self.handle,
+                handle_aliases: &self.handle_aliases,
+                subject_account_id: &self.subject_account_id,
+                issuer_id: &self.issuer_id,
+                claim: &self.claim,
+                visibility: self.visibility,
+                audience: &self.audience,
+                issued_at: self.issued_at,
+                expires_at: &self.expires_at,
+                source_refs: &self.source_refs,
+            },
+        )
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.subject_account_id.validate()?;
+        if self.schema != Self::SCHEMA {
+            return Err(protocol("handle claim core schema mismatch"));
+        }
+        if matches!(self.claim, HandleClaimVariant::OrganizationHandle { ref organization_id } if organization_id.is_empty())
+        {
+            return Err(protocol("organization handle requires organization_id"));
+        }
+        if (self.visibility == HandleVisibility::Public) != self.audience.is_none()
+            || self.audience.as_ref().is_some_and(String::is_empty)
+        {
+            return Err(protocol("handle claim visibility/audience mismatch"));
+        }
+        if self
+            .expires_at
+            .is_some_and(|expires| expires <= self.issued_at)
+        {
+            return Err(protocol("handle claim expiry must follow issuance"));
+        }
+        validate_sorted_unique(&self.handle_aliases, "handle_aliases")?;
+        validate_sorted_unique(&self.source_refs, "source_refs")?;
+        let digest = self.claim_digest()?;
+        validate_proof(
+            &self.proofs[0],
+            HANDLE_CLAIM_PROOF_DOMAIN,
+            PayloadProofPurpose::IssuerAttestation,
+            &digest,
+        )?;
+        validate_proof(
+            &self.proofs[1],
+            HANDLE_CLAIM_PROOF_DOMAIN,
+            PayloadProofPurpose::HolderAcceptance,
+            &digest,
+        )?;
+        if self.proofs.iter().any(|proof| {
+            proof.created_at < self.issued_at
+                || self
+                    .expires_at
+                    .is_some_and(|expires| proof.created_at >= expires)
+        }) {
+            return Err(protocol("handle claim proof is outside core validity"));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HandleClaimRevocation {
+    pub schema: String,
+    pub claim_digest: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub revoked_at: DateTime<Utc>,
+    pub revoker: HandleClaimRevoker,
+    pub proof: PayloadProof,
+}
+
+#[derive(Serialize)]
+struct HandleClaimRevocationDigestInput<'a> {
+    schema: &'a str,
+    claim_digest: &'a Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    revoked_at: DateTime<Utc>,
+    revoker: &'a HandleClaimRevoker,
+}
+
+impl HandleClaimRevocation {
+    pub const SCHEMA: &'static str = HANDLE_CLAIM_REVOCATION_SCHEMA;
+
+    pub fn digest(&self) -> Result<Hash> {
+        domain_separated_digest(
+            b"ak.handle_claim_revocation.v1\n",
+            &HandleClaimRevocationDigestInput {
+                schema: &self.schema,
+                claim_digest: &self.claim_digest,
+                revoked_at: self.revoked_at,
+                revoker: &self.revoker,
+            },
+        )
+    }
+
+    fn validate_for(&self, core: &HandleClaimCore, now: DateTime<Utc>) -> Result<()> {
+        if self.schema != Self::SCHEMA
+            || self.claim_digest != core.claim_digest()?
+            || self.revoked_at < core.issued_at
+            || self.revoked_at > now
+        {
+            return Err(protocol("handle claim revocation binding mismatch"));
+        }
+        match &self.revoker {
+            HandleClaimRevoker::Issuer { issuer_id } if issuer_id == &core.issuer_id => {}
+            HandleClaimRevoker::Holder { subject_account_id }
+                if subject_account_id == &core.subject_account_id => {}
+            _ => return Err(protocol("handle claim revoker role/id mismatch")),
+        }
+        validate_proof(
+            &self.proof,
+            HANDLE_CLAIM_REVOCATION_DOMAIN,
+            PayloadProofPurpose::RevocationAuthorization,
+            &self.digest()?,
+        )
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HandleClaim {
+    pub schema: String,
+    pub claim: HandleClaimCore,
+    pub claim_digest: Hash,
+    pub status: HandleClaimStatus,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub as_of: DateTime<Utc>,
+    pub verifier_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub verified_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub source_refs: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<PayloadProof>,
+    pub revocation: Option<HandleClaimRevocation>,
+    pub revocation_digest: Option<Hash>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub fresh_until: DateTime<Utc>,
+    pub status_proof: PayloadProof,
+}
+
+#[derive(Serialize)]
+struct HandleClaimStatusDigestInput<'a> {
+    claim_digest: &'a Hash,
+    status: HandleClaimStatus,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    as_of: DateTime<Utc>,
+    verifier_id: &'a DidCoreId,
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
+    verified_at: &'a Option<DateTime<Utc>>,
+    revocation_digest: &'a Option<Hash>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    fresh_until: DateTime<Utc>,
 }
 
 impl HandleClaim {
     pub const SCHEMA: &'static str = SchemaId::HANDLE_CLAIM_V1;
 
+    pub fn status_digest(&self) -> Result<Hash> {
+        domain_separated_digest(
+            b"ak.handle_claim_status.v1\n",
+            &HandleClaimStatusDigestInput {
+                claim_digest: &self.claim_digest,
+                status: self.status,
+                as_of: self.as_of,
+                verifier_id: &self.verifier_id,
+                verified_at: &self.verified_at,
+                revocation_digest: &self.revocation_digest,
+                fresh_until: self.fresh_until,
+            },
+        )
+    }
+
     pub fn validate(&self) -> Result<()> {
-        self.subject_account_id.validate()?;
-        if self.binding_state == HandleBindingState::Verified && self.expires_at.is_none() {
-            return Err(WireError::Protocol(
-                "binding_state=verified requires expires_at".to_owned(),
-            ));
+        self.claim.validate()?;
+        if self.schema != Self::SCHEMA || self.claim_digest != self.claim.claim_digest()? {
+            return Err(protocol("handle claim status/core digest mismatch"));
         }
-        Ok(())
+        if self.fresh_until <= self.as_of
+            || self.fresh_until
+                > self.as_of + Duration::seconds(HANDLE_CLAIM_STATUS_MAX_FRESHNESS_SECONDS)
+            || self
+                .claim
+                .expires_at
+                .is_some_and(|expires| self.fresh_until > expires)
+        {
+            return Err(protocol("handle claim status freshness is invalid"));
+        }
+        match self.status {
+            HandleClaimStatus::Pending => {
+                if self.verified_at.is_some()
+                    || self.revocation.is_some()
+                    || self.revocation_digest.is_some()
+                {
+                    return Err(protocol("pending handle claim status fields are invalid"));
+                }
+            }
+            HandleClaimStatus::Verified => {
+                if self
+                    .verified_at
+                    .is_none_or(|verified| verified < self.claim.issued_at || verified > self.as_of)
+                    || self.revocation.is_some()
+                    || self.revocation_digest.is_some()
+                {
+                    return Err(protocol("verified handle claim status fields are invalid"));
+                }
+            }
+            HandleClaimStatus::Revoked => {
+                let revocation = self
+                    .revocation
+                    .as_ref()
+                    .ok_or_else(|| protocol("revoked handle claim is missing carrier"))?;
+                revocation.validate_for(&self.claim, self.as_of)?;
+                if self.revocation_digest.as_ref() != Some(&revocation.digest()?) {
+                    return Err(protocol("handle claim revocation digest mismatch"));
+                }
+            }
+        }
+        validate_proof(
+            &self.status_proof,
+            HANDLE_CLAIM_STATUS_DOMAIN,
+            PayloadProofPurpose::StatusAttestation,
+            &self.status_digest()?,
+        )
     }
 
     pub fn validate_remote_resolution(
         &self,
         expected_audience: Option<&str>,
         expected_account_id: Option<&AccountId>,
+        trusted_verifier_ids: &[DidCoreId],
         now: DateTime<Utc>,
     ) -> Result<()> {
         self.validate()?;
-        if self.schema != SchemaId::HANDLE_CLAIM_V1 {
-            return Err(WireError::Protocol(
-                "handle claim schema mismatch".to_owned(),
-            ));
-        }
-        if self.binding_state != HandleBindingState::Verified {
-            return Err(WireError::Protocol(
-                "handle claim must be verified".to_owned(),
-            ));
-        }
-        if self
-            .expires_at
-            .ok_or_else(|| WireError::Protocol("handle claim requires expires_at".to_owned()))?
-            <= now
+        if self.status != HandleClaimStatus::Verified
+            || now < self.as_of
+            || now >= self.fresh_until
+            || self.claim.expires_at.is_some_and(|expires| expires <= now)
         {
-            return Err(WireError::Protocol("handle claim expired".to_owned()));
+            return Err(protocol("handle claim is not currently verified and fresh"));
         }
-        if self.proofs.is_empty() {
-            return Err(WireError::Protocol(
-                "handle claim requires proof".to_owned(),
-            ));
-        }
-        if let Some(expected_audience) = expected_audience
-            && self.audience.as_deref() != Some(expected_audience)
+        if !trusted_verifier_ids
+            .iter()
+            .any(|id| id == &self.verifier_id)
         {
-            return Err(WireError::Protocol(
-                "handle claim audience mismatch".to_owned(),
-            ));
+            return Err(protocol("handle claim verifier is not trusted"));
         }
-        if expected_account_id.is_some_and(|expected| expected != &self.subject_account_id) {
-            return Err(WireError::Protocol(
-                "handle claim account id mismatch".to_owned(),
-            ));
+        if expected_audience != self.claim.audience.as_deref() && self.claim.audience.is_some() {
+            return Err(protocol("handle claim audience mismatch"));
+        }
+        if expected_account_id.is_some_and(|expected| expected != &self.claim.subject_account_id) {
+            return Err(protocol("handle claim account id mismatch"));
         }
         Ok(())
     }
 
     pub fn handle_canonical(&self) -> Option<&str> {
-        Some(self.handle.canonical())
+        Some(self.claim.handle.canonical())
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use arkret_wire::{DidUrl, Hash};
-
-    use super::*;
-
-    fn account_id() -> AccountId {
-        AccountId::new(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
-        )
+fn validate_proof(
+    proof: &PayloadProof,
+    domain: &str,
+    purpose: PayloadProofPurpose,
+    digest: &Hash,
+) -> Result<()> {
+    proof.validate()?;
+    if proof.domain.as_deref() != Some(domain)
+        || proof.proof_purpose.as_ref() != Some(&purpose)
+        || &proof.payload_digest != digest
+    {
+        return Err(protocol("handle claim proof transcript mismatch"));
     }
+    Ok(())
+}
 
-    fn fixture_claim() -> HandleClaim {
-        HandleClaim {
-            schema: HandleClaim::SCHEMA.to_owned(),
-            handle: Handle::parse("alice:example.com").unwrap(),
-            handle_aliases: Vec::new(),
-            subject_account_id: account_id(),
-            issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureissuer").unwrap(),
-            vouching_id: None,
-            binding_state: HandleBindingState::Verified,
-            claim_kind: Some(HandleClaimKind::HandleBinding),
-            visibility: None,
-            audience: Some("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19".to_owned()),
-            challenge: None,
-            claim_scope: BTreeMap::new(),
-            claims: Vec::new(),
-            created_at: Utc::now(),
-            expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
-            verified_at: None,
-            source_refs: Vec::new(),
-            proofs: vec![PayloadProof {
-                kind: "detached_jws".to_owned(),
-                verification_method: DidUrl::new("did:webvh:z6mkfixture:issuer.example#key-1")
-                    .unwrap(),
-                payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-                created_at: Utc::now(),
-                domain: None,
-                audience: None,
-                proof_purpose: None,
-                jws: "placeholder".to_owned(),
-            }],
-        }
-    }
+#[derive(Serialize)]
+struct HandleClaimProofSigningInput<'a> {
+    kind: &'a str,
+    verification_method: &'a DidUrl,
+    payload_digest: &'a Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    created_at: DateTime<Utc>,
+    domain: &'a Option<String>,
+    audience: &'a Option<Audience>,
+    proof_purpose: &'a Option<PayloadProofPurpose>,
+}
 
-    #[test]
-    fn verified_claim_uses_exact_account_id() {
-        let claim = fixture_claim();
-        claim.validate().unwrap();
-        let value = serde_json::to_value(&claim).unwrap();
-        assert_eq!(
-            value["subject_account_id"]["principal_id"],
-            account_id().principal_id.as_str()
-        );
-        assert!(value.get("subject_id").is_none());
-        assert!(value.get("member_delivery_binding").is_none());
-    }
+/// Exact detached-JWS transcript shared by HandleClaim core, status and
+/// revocation proofs. The JWS covers all proof role/binding metadata as well
+/// as the domain-separated payload digest.
+pub fn handle_claim_proof_signing_bytes(proof: &PayloadProof) -> Result<Vec<u8>> {
+    arkret_canonical::canonical_json_bytes(&HandleClaimProofSigningInput {
+        kind: &proof.kind,
+        verification_method: &proof.verification_method,
+        payload_digest: &proof.payload_digest,
+        created_at: proof.created_at,
+        domain: &proof.domain,
+        audience: &proof.audience,
+        proof_purpose: &proof.proof_purpose,
+    })
+    .map_err(|error| protocol(error.to_string()))
+}
 
-    #[test]
-    fn remote_resolution_compares_the_complete_pair() {
-        let claim = fixture_claim();
-        let different_server = AccountId::new(
-            claim.subject_account_id.principal_id.clone(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixtureother").unwrap(),
-        );
-        assert!(
-            claim
-                .validate_remote_resolution(
-                    claim.audience.as_deref(),
-                    Some(&different_server),
-                    Utc::now(),
-                )
-                .is_err()
-        );
+fn validate_sorted_unique<T: Ord>(values: &[T], field: &str) -> Result<()> {
+    if values.windows(2).any(|pair| pair[0] >= pair[1]) {
+        return Err(protocol(format!(
+            "handle claim {field} is not sorted and unique"
+        )));
     }
+    Ok(())
+}
+
+fn domain_separated_digest(domain: &[u8], value: &impl Serialize) -> Result<Hash> {
+    let canonical = arkret_canonical::canonical_json_bytes(value)
+        .map_err(|error| protocol(error.to_string()))?;
+    let mut preimage = Vec::with_capacity(domain.len() + canonical.len());
+    preimage.extend_from_slice(domain);
+    preimage.extend_from_slice(&canonical);
+    Hash::new(arkret_canonical::sha256_digest(preimage)).map_err(Into::into)
+}
+
+fn protocol(message: impl Into<String>) -> WireError {
+    WireError::Protocol(message.into())
 }

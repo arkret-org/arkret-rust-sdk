@@ -12,7 +12,8 @@ use serde_json::Value;
 
 use crate::error::{Result, WireError};
 use crate::{
-    DeviceId, DidCoreId, DidUrl, EventId, Hash, ReceiptId, RecoverySessionId, TransactionId,
+    AccountId, DeviceId, DidCoreId, DidUrl, EventId, Hash, ReceiptId, RecoverySessionId,
+    TransactionId,
 };
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -82,7 +83,7 @@ pub struct RecoveryCompletionAttestation {
     pub transaction_id: TransactionId,
     pub transaction_request_digest: Hash,
     pub prepared_plan_digest: Hash,
-    pub principal_id: DidCoreId,
+    pub account_id: AccountId,
     pub coordinator_id: DidCoreId,
     pub recovery_session_id: RecoverySessionId,
     pub terminal_receipt_id: ReceiptId,
@@ -116,6 +117,11 @@ impl RecoveryCompletionAttestation {
                 "recovery completion generation must be positive".to_owned(),
             ));
         }
+        if self.account_id.station_id != self.coordinator_id {
+            return Err(WireError::Protocol(
+                "recovery completion coordinator must equal account_id.station_id".to_owned(),
+            ));
+        }
         Ok(())
     }
 
@@ -126,7 +132,7 @@ impl RecoveryCompletionAttestation {
             transaction_id: self.transaction_id.clone(),
             transaction_request_digest: self.transaction_request_digest.clone(),
             prepared_plan_digest: self.prepared_plan_digest.clone(),
-            principal_id: self.principal_id.clone(),
+            account_id: self.account_id.clone(),
             coordinator_id: self.coordinator_id.clone(),
             recovery_session_id: self.recovery_session_id.clone(),
             terminal_receipt_id: self.terminal_receipt_id.clone(),
@@ -145,7 +151,7 @@ pub struct UnsignedRecoveryCompletionAttestationBody {
     pub transaction_id: TransactionId,
     pub transaction_request_digest: Hash,
     pub prepared_plan_digest: Hash,
-    pub principal_id: DidCoreId,
+    pub account_id: AccountId,
     pub coordinator_id: DidCoreId,
     pub recovery_session_id: RecoverySessionId,
     pub terminal_receipt_id: ReceiptId,
@@ -189,7 +195,7 @@ impl UnsignedRecoveryCompletionAttestation {
             transaction_id: body.transaction_id,
             transaction_request_digest: body.transaction_request_digest,
             prepared_plan_digest: body.prepared_plan_digest,
-            principal_id: body.principal_id,
+            account_id: body.account_id,
             coordinator_id: body.coordinator_id,
             recovery_session_id: body.recovery_session_id,
             terminal_receipt_id: body.terminal_receipt_id,
@@ -217,6 +223,11 @@ fn validate_recovery_completion_attestation_body(
             "recovery completion generation must be positive".to_owned(),
         ));
     }
+    if body.account_id.station_id != body.coordinator_id {
+        return Err(WireError::Protocol(
+            "recovery completion coordinator must equal account_id.station_id".to_owned(),
+        ));
+    }
     Ok(())
 }
 
@@ -229,7 +240,7 @@ fn recovery_completion_attestation_signing_bytes(
         "transaction_id": &body.transaction_id,
         "transaction_request_digest": &body.transaction_request_digest,
         "prepared_plan_digest": &body.prepared_plan_digest,
-        "principal_id": &body.principal_id,
+        "account_id": &body.account_id,
         "coordinator_id": &body.coordinator_id,
         "recovery_session_id": &body.recovery_session_id,
         "terminal_receipt_id": &body.terminal_receipt_id,

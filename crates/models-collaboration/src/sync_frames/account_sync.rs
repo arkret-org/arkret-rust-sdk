@@ -205,6 +205,7 @@ pub struct NotificationContainer {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum DeviceMessageSender {
     Device {
+        sender_account_id: AccountId,
         sender_device_id: DeviceId,
     },
     Agent {
@@ -224,6 +225,8 @@ pub enum DeviceMessageSender {
 /// "unknown" ones. Strictness that matters here is the XOR itself.
 #[derive(Deserialize)]
 struct DeviceMessageSenderWire {
+    #[serde(default)]
+    sender_account_id: Option<AccountId>,
     #[serde(default)]
     sender_device_id: Option<DeviceId>,
     #[serde(default)]
@@ -247,6 +250,7 @@ impl<'de> Deserialize<'de> for DeviceMessageSender {
     {
         let wire = DeviceMessageSenderWire::deserialize(deserializer)?;
         Self::from_slots(
+            wire.sender_account_id,
             wire.sender_device_id,
             wire.sender_agent_id,
             wire.sender_agent_verification_method,
@@ -258,13 +262,14 @@ impl<'de> Deserialize<'de> for DeviceMessageSender {
 }
 
 impl DeviceMessageSender {
-    /// Select the endpoint branch from the five wire slots, or reject.
+    /// Select the endpoint branch from the six wire slots, or reject.
     ///
     /// Exactly one complete branch is legal. A half-filled Agent branch, or a
     /// device id beside an Agent id, would let a producer carry a second
     /// unauthenticated sender identity past the rule that an Agent is never
     /// spelled as an `ak:device`.
     pub fn from_slots(
+        sender_account_id: Option<AccountId>,
         sender_device_id: Option<DeviceId>,
         sender_agent_id: Option<DidCoreId>,
         sender_agent_verification_method: Option<DidUrl>,
@@ -272,16 +277,21 @@ impl DeviceMessageSender {
         sender_id: Option<DidCoreId>,
     ) -> std::result::Result<Self, &'static str> {
         match (
+            sender_account_id,
             sender_device_id,
             sender_agent_id,
             sender_agent_verification_method,
             sender_agent_key_authorize_event_id,
             sender_id,
         ) {
-            (Some(sender_device_id), None, None, None, None) => {
-                Ok(Self::Device { sender_device_id })
+            (Some(sender_account_id), Some(sender_device_id), None, None, None, None) => {
+                Ok(Self::Device {
+                    sender_account_id,
+                    sender_device_id,
+                })
             }
             (
+                None,
                 None,
                 Some(sender_agent_id),
                 Some(sender_agent_verification_method),
@@ -292,7 +302,7 @@ impl DeviceMessageSender {
                 sender_agent_verification_method,
                 sender_agent_key_authorize_event_id,
             }),
-            (None, None, None, None, Some(sender_id)) => Ok(Self::Service { sender_id }),
+            (None, None, None, None, None, Some(sender_id)) => Ok(Self::Service { sender_id }),
             _ => Err(
                 "device message sender must contain exactly one complete device, Agent, or Service branch",
             ),
@@ -302,12 +312,13 @@ impl DeviceMessageSender {
     /// The endpoint half of the receiver dedupe key.
     ///
     /// `device-message.schema.json` keys deduplication on
-    /// `(sender_principal_id, <endpoint>, device_message_id)`; the endpoint is the
-    /// device for a human sender, the Agent principal for an Agent, and
-    /// the Station service id for a Service sender.
+    /// The device branch additionally binds the exact sender AccountId; Agent
+    /// and Station branches use their branch-specific identity directly.
     pub fn endpoint_id(&self) -> &str {
         match self {
-            Self::Device { sender_device_id } => sender_device_id.as_str(),
+            Self::Device {
+                sender_device_id, ..
+            } => sender_device_id.as_str(),
             Self::Agent {
                 sender_agent_id, ..
             } => sender_agent_id.as_str(),
@@ -318,7 +329,9 @@ impl DeviceMessageSender {
     /// The authoring device, when the sender is one.
     pub fn device_id(&self) -> Option<&DeviceId> {
         match self {
-            Self::Device { sender_device_id } => Some(sender_device_id),
+            Self::Device {
+                sender_device_id, ..
+            } => Some(sender_device_id),
             Self::Agent { .. } | Self::Service { .. } => None,
         }
     }
@@ -347,11 +360,10 @@ impl DeviceMessageSender {
 pub struct DeviceMessageEnvelope {
     pub device_message_id: DeviceMessageId,
     pub kind: ProtocolKind,
-    pub sender_principal_id: DidCoreId,
     #[serde(flatten)]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub sender: DeviceMessageSender,
-    pub recipient_principal_id: DidCoreId,
+    pub recipient_account_id: AccountId,
     pub recipient_device_id: DeviceId,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     pub sent_at: DateTime<Utc>,
@@ -384,7 +396,8 @@ pub enum DeviceMessageContent {
 struct DeviceMessageEnvelopeWire {
     device_message_id: DeviceMessageId,
     kind: ProtocolKind,
-    sender_principal_id: DidCoreId,
+    #[serde(default)]
+    sender_account_id: Option<AccountId>,
     #[serde(default)]
     sender_device_id: Option<DeviceId>,
     #[serde(default)]
@@ -395,7 +408,7 @@ struct DeviceMessageEnvelopeWire {
     sender_agent_key_authorize_event_id: Option<EventId>,
     #[serde(default)]
     sender_id: Option<DidCoreId>,
-    recipient_principal_id: DidCoreId,
+    recipient_account_id: AccountId,
     recipient_device_id: DeviceId,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     sent_at: DateTime<Utc>,
@@ -420,6 +433,7 @@ impl<'de> Deserialize<'de> for DeviceMessageEnvelope {
             ));
         }
         let sender = DeviceMessageSender::from_slots(
+            wire.sender_account_id,
             wire.sender_device_id,
             wire.sender_agent_id,
             wire.sender_agent_verification_method,
@@ -427,10 +441,10 @@ impl<'de> Deserialize<'de> for DeviceMessageEnvelope {
             wire.sender_id,
         )
         .map_err(serde::de::Error::custom)?;
-        if matches!(&sender, DeviceMessageSender::Service { .. }) {
-            if wire.sender_principal_id != wire.recipient_principal_id {
+        if let DeviceMessageSender::Service { sender_id } = &sender {
+            if sender_id != &wire.recipient_account_id.station_id {
                 return Err(serde::de::Error::custom(
-                    "service device message sender_principal_id must equal recipient_principal_id",
+                    "service device message sender_id must equal recipient_account_id.station_id",
                 ));
             }
             if ActorPrivateUpdateKind::from_wire(wire.kind.as_str()).is_none() {
@@ -444,9 +458,8 @@ impl<'de> Deserialize<'de> for DeviceMessageEnvelope {
         Ok(Self {
             device_message_id: wire.device_message_id,
             kind: wire.kind,
-            sender_principal_id: wire.sender_principal_id,
             sender,
-            recipient_principal_id: wire.recipient_principal_id,
+            recipient_account_id: wire.recipient_account_id,
             recipient_device_id: wire.recipient_device_id,
             sent_at: wire.sent_at,
             expires_at: wire.expires_at,
@@ -824,6 +837,8 @@ enum ActorPrivateDeviceUpdateWire {
     #[serde(rename = "ak.account_data.update")]
     AccountData {
         #[serde(default)]
+        sender_account_id: Option<AccountId>,
+        #[serde(default)]
         sender_device_id: Option<DeviceId>,
         #[serde(default)]
         sender_agent_id: Option<DidCoreId>,
@@ -840,6 +855,8 @@ enum ActorPrivateDeviceUpdateWire {
     #[serde(rename = "ak.account.blocklist.update")]
     Blocklist {
         #[serde(default)]
+        sender_account_id: Option<AccountId>,
+        #[serde(default)]
         sender_device_id: Option<DeviceId>,
         #[serde(default)]
         sender_agent_id: Option<DidCoreId>,
@@ -855,6 +872,8 @@ enum ActorPrivateDeviceUpdateWire {
     },
     #[serde(rename = "ak.read_cursor.update")]
     ReadCursor {
+        #[serde(default)]
+        sender_account_id: Option<AccountId>,
         #[serde(default)]
         sender_device_id: Option<DeviceId>,
         #[serde(default)]
@@ -873,6 +892,7 @@ enum ActorPrivateDeviceUpdateWire {
 
 impl ActorPrivateDeviceUpdateWire {
     fn sender(
+        sender_account_id: Option<AccountId>,
         sender_device_id: Option<DeviceId>,
         sender_agent_id: Option<DidCoreId>,
         sender_agent_verification_method: Option<DidUrl>,
@@ -880,6 +900,7 @@ impl ActorPrivateDeviceUpdateWire {
         sender_id: Option<DidCoreId>,
     ) -> std::result::Result<DeviceMessageSender, &'static str> {
         DeviceMessageSender::from_slots(
+            sender_account_id,
             sender_device_id,
             sender_agent_id,
             sender_agent_verification_method,
@@ -896,6 +917,7 @@ impl<'de> Deserialize<'de> for ActorPrivateDeviceUpdate {
     {
         match ActorPrivateDeviceUpdateWire::deserialize(deserializer)? {
             ActorPrivateDeviceUpdateWire::AccountData {
+                sender_account_id,
                 sender_device_id,
                 sender_agent_id,
                 sender_agent_verification_method,
@@ -905,6 +927,7 @@ impl<'de> Deserialize<'de> for ActorPrivateDeviceUpdate {
                 created_at,
             } => Ok(Self::AccountData {
                 sender: ActorPrivateDeviceUpdateWire::sender(
+                    sender_account_id,
                     sender_device_id,
                     sender_agent_id,
                     sender_agent_verification_method,
@@ -916,6 +939,7 @@ impl<'de> Deserialize<'de> for ActorPrivateDeviceUpdate {
                 created_at,
             }),
             ActorPrivateDeviceUpdateWire::Blocklist {
+                sender_account_id,
                 sender_device_id,
                 sender_agent_id,
                 sender_agent_verification_method,
@@ -925,6 +949,7 @@ impl<'de> Deserialize<'de> for ActorPrivateDeviceUpdate {
                 created_at,
             } => Ok(Self::Blocklist {
                 sender: ActorPrivateDeviceUpdateWire::sender(
+                    sender_account_id,
                     sender_device_id,
                     sender_agent_id,
                     sender_agent_verification_method,
@@ -936,6 +961,7 @@ impl<'de> Deserialize<'de> for ActorPrivateDeviceUpdate {
                 created_at,
             }),
             ActorPrivateDeviceUpdateWire::ReadCursor {
+                sender_account_id,
                 sender_device_id,
                 sender_agent_id,
                 sender_agent_verification_method,
@@ -945,6 +971,7 @@ impl<'de> Deserialize<'de> for ActorPrivateDeviceUpdate {
                 created_at,
             } => Ok(Self::ReadCursor {
                 sender: ActorPrivateDeviceUpdateWire::sender(
+                    sender_account_id,
                     sender_device_id,
                     sender_agent_id,
                     sender_agent_verification_method,
@@ -1135,9 +1162,15 @@ mod device_message_tests {
         json!({
             "device_message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
             "kind": "ak.key.verification.request",
-            "sender_principal_id": "ak:did_core:webvh:z6mkfixture",
+            "sender_account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:webvh:z6mkfixtureservice"
+            },
             "sender_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
-            "recipient_principal_id": "ak:did_core:webvh:z6mkfixture",
+            "recipient_account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:webvh:z6mkfixtureservice"
+            },
             "recipient_device_id": "ak:device:01904100-0000-7000-8000-000000000002",
             "sent_at": "2026-07-15T00:00:00.000Z",
             "expires_at": "2026-07-15T00:10:00.000Z",
@@ -1185,6 +1218,10 @@ mod device_message_tests {
     #[test]
     fn a_sender_carrying_both_branches_is_rejected_not_narrowed() {
         let both = json!({
+            "sender_account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "station_id": "ak:did_core:webvh:z6mkfixtureservice"
+            },
             "sender_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
             "sender_agent_id": "ak:did_core:webvh:z6mkfixtureagent",
             "sender_agent_verification_method":
@@ -1195,6 +1232,10 @@ mod device_message_tests {
         assert!(serde_json::from_value::<DeviceMessageSender>(both).is_err());
         assert!(
             serde_json::from_value::<DeviceMessageSender>(json!({
+                "sender_account_id": {
+                    "principal_id": "ak:did_core:webvh:z6mkfixture",
+                    "station_id": "ak:did_core:webvh:z6mkfixtureservice"
+                },
                 "sender_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
                 "sender_id": "ak:did_core:webvh:z6mkfixtureservice"
             }))
@@ -1217,6 +1258,10 @@ mod device_message_tests {
         assert!(
             serde_json::from_value::<DeviceMessageSender>(json!({
                 "device_message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
+                "sender_account_id": {
+                    "principal_id": "ak:did_core:webvh:z6mkfixture",
+                    "station_id": "ak:did_core:webvh:z6mkfixtureservice"
+                },
                 "sender_device_id": "ak:device:01904100-0000-7000-8000-000000000001"
             }))
             .is_ok()
@@ -1226,6 +1271,7 @@ mod device_message_tests {
     #[test]
     fn device_message_sender_endpoint_is_a_closed_xor() {
         let mut agent = envelope_value();
+        agent.as_object_mut().unwrap().remove("sender_account_id");
         agent.as_object_mut().unwrap().remove("sender_device_id");
         for (key, value) in agent_sender_fields().as_object().unwrap() {
             agent
@@ -1259,10 +1305,15 @@ mod device_message_tests {
         no_endpoint
             .as_object_mut()
             .unwrap()
+            .remove("sender_account_id");
+        no_endpoint
+            .as_object_mut()
+            .unwrap()
             .remove("sender_device_id");
         assert!(serde_json::from_value::<DeviceMessageEnvelope>(no_endpoint).is_err());
 
         let mut service = envelope_value();
+        service.as_object_mut().unwrap().remove("sender_account_id");
         service.as_object_mut().unwrap().remove("sender_device_id");
         service["kind"] = json!(ActorPrivateUpdateKind::ACCOUNT_DATA_UPDATE);
         service["content"] = json!({
@@ -1298,7 +1349,7 @@ mod device_message_tests {
         );
 
         let mut cross_principal_service = service;
-        cross_principal_service["sender_principal_id"] =
+        cross_principal_service["recipient_account_id"]["station_id"] =
             json!("ak:did_core:webvh:z6mkfixtureother");
         assert!(
             serde_json::from_value::<DeviceMessageEnvelope>(cross_principal_service).is_err(),
@@ -1459,7 +1510,7 @@ impl MemberRosterEntry {
         }
         if let (Some(subject), Some(claims)) = (&self.subject_account_id, &self.handle_claims) {
             for claim in claims {
-                if &claim.subject_account_id != subject {
+                if &claim.claim.subject_account_id != subject {
                     return Err(WireError::Protocol(
                         "member_roster_entry: handle_claims[].subject_account_id must equal subject_account_id"
                             .to_owned(),

@@ -9,7 +9,7 @@
 //! pure function of its inputs.
 //!
 //! This module is wasm-safe: it depends only on the identity-domain wire
-//! shapes ([`Handle`], [`HandleClaim`], [`HandleBindingState`]) plus the
+//! shapes ([`Handle`], [`HandleClaim`], [`HandleClaimStatus`]) plus the
 //! `arkret-wire` primitives (`Did`/`Error`/`Result`) and `arkret-canonical`
 //! (JCS canonicalization + sha256), and pulls in no client / keystore /
 //! salvo / MLS native-only dependency. The umbrella `arkret` crate re-exports
@@ -17,11 +17,10 @@
 //! sodmin) depend on this authoritative implementation directly instead of
 //! mirroring the algorithm by hand.
 
-use arkret_canonical::canonical;
-use arkret_wire::{AccountId, DidCoreId, Result, WireError};
+use arkret_wire::{AccountId, DidCoreId, Result};
 use chrono::{DateTime, Utc};
 
-use crate::{Handle, HandleBindingState, HandleClaim};
+use crate::{Handle, HandleClaim, HandleClaimStatus};
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -158,23 +157,26 @@ pub fn select_primary_handle(input: &PrimaryHandleSelectInput<'_>) -> Option<Han
 /// canonical handle string of the winning claim (if any). Admin / UI
 /// views that just need "the handle to show" use this.
 pub fn select_primary_handle_string(input: &PrimaryHandleSelectInput<'_>) -> Option<String> {
-    select_primary_handle(input).map(|c| c.handle.canonical().to_owned())
+    select_primary_handle(input).map(|c| c.claim.handle.canonical().to_owned())
 }
 
 fn candidate_passes_step0(c: &HandleClaim, input: &PrimaryHandleSelectInput<'_>) -> bool {
-    if &c.subject_account_id != input.account_id {
+    if c.validate().is_err() || &c.claim.subject_account_id != input.account_id {
         return false;
     }
-    if c.binding_state != HandleBindingState::Verified {
+    if c.status != HandleClaimStatus::Verified
+        || input.resolution_as_of < c.as_of
+        || input.resolution_as_of >= c.fresh_until
+    {
         return false;
     }
     // created_at MUST be <= resolution_as_of. `created_at` is schema-required,
     // so it is always present on a parsed claim.
-    if c.created_at > input.resolution_as_of {
+    if c.claim.issued_at > input.resolution_as_of {
         return false;
     }
     // expires_at MUST be > resolution_as_of.
-    match c.expires_at {
+    match c.claim.expires_at {
         Some(expiry) if expiry > input.resolution_as_of => {}
         _ => return false,
     }
@@ -184,7 +186,7 @@ fn candidate_passes_step0(c: &HandleClaim, input: &PrimaryHandleSelectInput<'_>)
         _ => return false,
     }
     // audience scope filter: present audience must equal context.
-    if let Some(aud) = &c.audience {
+    if let Some(aud) = &c.claim.audience {
         match input.context {
             Some(ctx) if ctx == aud => {}
             _ => return false,
@@ -194,11 +196,11 @@ fn candidate_passes_step0(c: &HandleClaim, input: &PrimaryHandleSelectInput<'_>)
 }
 
 fn matches_audience(c: &HandleClaim, context: Option<&str>) -> bool {
-    matches!((c.audience.as_deref(), context), (Some(a), Some(ctx)) if a == ctx)
+    matches!((c.claim.audience.as_deref(), context), (Some(a), Some(ctx)) if a == ctx)
 }
 
 fn holder_flagged(c: &HandleClaim, holder_primary: Option<&str>) -> bool {
-    holder_primary.is_some_and(|preferred| c.handle.canonical() == preferred)
+    holder_primary.is_some_and(|preferred| c.claim.handle.canonical() == preferred)
 }
 
 /// Returns `true` if `candidate` should win over `best` per the Step 2
@@ -222,8 +224,8 @@ fn tie_break_prefers(
     if cand_pos != best_pos {
         return cand_pos < best_pos;
     }
-    let cand_created = candidate.created_at;
-    let best_created = best.created_at;
+    let cand_created = candidate.claim.issued_at;
+    let best_created = best.claim.issued_at;
     if cand_created != best_created {
         return cand_created > best_created;
     }
@@ -237,8 +239,8 @@ fn policy_entry<'a>(
     claim: &HandleClaim,
     policy: &'a [HandleIssuerPolicyEntry],
 ) -> Option<(usize, &'a HandleIssuerPolicyEntry)> {
-    let issuer = &claim.issuer_id;
-    let handle = &claim.handle;
+    let issuer = &claim.claim.issuer_id;
+    let handle = &claim.claim.handle;
     policy
         .iter()
         .enumerate()
@@ -278,30 +280,7 @@ fn domain_matches(pattern: &str, domain: &str) -> bool {
 /// hint. Unordered-collection arrays (`handle_aliases`, `source_refs`,
 /// are sorted before canonicalization; `claims` keeps issuer order (order is semantic).
 pub fn claim_digest(claim: &HandleClaim) -> Result<String> {
-    let mut value = serde_json::to_value(claim)
-        .map_err(|e| WireError::Protocol(format!("claim_digest serialize: {e}")))?;
-    if let Some(obj) = value.as_object_mut() {
-        // Exclude non-semantic / hint fields.
-        obj.remove("proofs");
-        obj.remove("verified_at");
-        obj.remove("challenge");
-        // Sort unordered-collection arrays.
-        sort_string_array(obj.get_mut("handle_aliases"));
-        sort_string_array(obj.get_mut("source_refs"));
-    }
-    let bytes = canonical::canonical_json_bytes(&value)
-        .map_err(|e| WireError::Protocol(format!("claim_digest canonicalize: {e}")))?;
-    Ok(canonical::sha256_digest(bytes))
-}
-
-fn sort_string_array(slot: Option<&mut serde_json::Value>) {
-    if let Some(serde_json::Value::Array(items)) = slot {
-        items.sort_by(|a, b| {
-            a.as_str()
-                .unwrap_or_default()
-                .cmp(b.as_str().unwrap_or_default())
-        });
-    }
+    claim.claim.claim_digest().map(|digest| digest.to_string())
 }
 
 /// Outcome of [`render_mention`], carrying the rendered label plus the
@@ -333,7 +312,7 @@ pub fn render_mention(
 ) -> MentionRender {
     if let Some(claim) = select_primary_handle(selection) {
         return MentionRender::Verified {
-            handle: claim.handle,
+            handle: claim.claim.handle,
         };
     }
     if let Some(handle) = cached_handle {
@@ -401,7 +380,7 @@ fn truncate_did(did: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{DidUrl, Hash, PayloadProof};
+    use arkret_wire::{Audience, DidUrl, Hash, PayloadProof, PayloadProofPurpose};
 
     use super::*;
 
@@ -424,26 +403,63 @@ mod tests {
         expires: DateTime<Utc>,
         audience: Option<&str>,
     ) -> HandleClaim {
-        HandleClaim {
-            schema: HandleClaim::SCHEMA.to_owned(),
+        let as_of = Utc::now();
+        let mut core = crate::HandleClaimCore {
+            schema: crate::HandleClaimCore::SCHEMA.to_owned(),
             handle: Handle::parse(handle).unwrap(),
             handle_aliases: Vec::new(),
             subject_account_id: subject(),
             issuer_id: DidCoreId::new(issuer_did).unwrap(),
-            vouching_id: None,
-            binding_state: HandleBindingState::Verified,
-            claim_kind: None,
-            visibility: None,
+            claim: crate::HandleClaimVariant::HandleBinding,
+            visibility: if audience.is_some() {
+                crate::HandleVisibility::Restricted
+            } else {
+                crate::HandleVisibility::Public
+            },
             audience: audience.map(str::to_owned),
-            challenge: None,
-            claim_scope: Default::default(),
-            claims: Vec::new(),
-            created_at: created,
+            issued_at: created,
             expires_at: Some(expires),
-            verified_at: None,
             source_refs: Vec::new(),
-            proofs: Vec::new(),
+            proofs: [
+                placeholder_payload_proof(
+                    PayloadProofPurpose::IssuerAttestation,
+                    crate::HANDLE_CLAIM_PROOF_DOMAIN,
+                    created,
+                    audience,
+                ),
+                placeholder_payload_proof(
+                    PayloadProofPurpose::HolderAcceptance,
+                    crate::HANDLE_CLAIM_PROOF_DOMAIN,
+                    created,
+                    audience,
+                ),
+            ],
+        };
+        let digest = core.claim_digest().unwrap();
+        for proof in &mut core.proofs {
+            proof.payload_digest = digest.clone();
         }
+        let mut claim = HandleClaim {
+            schema: HandleClaim::SCHEMA.to_owned(),
+            claim: core,
+            claim_digest: digest.clone(),
+            status: HandleClaimStatus::Verified,
+            as_of,
+            verifier_id: DidCoreId::new(issuer_did).unwrap(),
+            verified_at: None,
+            revocation: None,
+            revocation_digest: None,
+            fresh_until: as_of + chrono::Duration::minutes(5),
+            status_proof: placeholder_payload_proof(
+                PayloadProofPurpose::StatusAttestation,
+                crate::HANDLE_CLAIM_STATUS_DOMAIN,
+                as_of,
+                audience,
+            ),
+        };
+        claim.verified_at = Some(as_of);
+        claim.status_proof.payload_digest = claim.status_digest().unwrap();
+        claim
     }
 
     fn subject() -> AccountId {
@@ -453,16 +469,21 @@ mod tests {
         )
     }
 
-    fn placeholder_payload_proof() -> PayloadProof {
+    fn placeholder_payload_proof(
+        purpose: PayloadProofPurpose,
+        domain: &str,
+        created_at: DateTime<Utc>,
+        audience: Option<&str>,
+    ) -> PayloadProof {
         PayloadProof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:issuer.example#key-1").unwrap(),
             payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-            created_at: Utc::now(),
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: "placeholder".to_owned(),
+            created_at,
+            domain: Some(domain.to_owned()),
+            audience: audience.map(|value| Audience::Single(value.to_owned())),
+            proof_purpose: Some(purpose),
+            jws: "eyJhbGciOiJFZDI1NTE5In0..AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
         }
     }
 
@@ -516,7 +537,7 @@ mod tests {
             resolution_as_of: now,
         };
         let chosen = select_primary_handle(&input).unwrap();
-        assert_eq!(chosen.handle.canonical(), "alice:acme.example");
+        assert_eq!(chosen.claim.handle.canonical(), "alice:acme.example");
     }
 
     #[test]
@@ -586,13 +607,9 @@ mod tests {
             None,
         );
         let mut b = a.clone();
-        // Mutating non-semantic hint fields MUST NOT change the digest.
+        // Status-view metadata is outside the immutable core digest.
         a.verified_at = Some(now);
-        a.challenge = Some("nonce-1".to_owned());
-        a.proofs = vec![placeholder_payload_proof()];
         b.verified_at = Some(now - chrono::Duration::hours(5));
-        b.challenge = Some("nonce-2".to_owned());
-        b.proofs = vec![];
         assert_eq!(claim_digest(&a).unwrap(), claim_digest(&b).unwrap());
     }
 

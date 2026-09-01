@@ -9,8 +9,8 @@ use arkret_models_identity::{HandleClaim, RouteAssistance, ServiceResolutionCarr
 use arkret_wire::event_envelope::Event;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    AccountId, BlobRef, DidCoreId, EventId, Hash, InviteId, InviteLocatorId, InviteReceiveAction,
-    RealmId, Result, SchemaId, UnknownInviteAction, WireError,
+    AccountId, ActorId, BlobRef, DidCoreId, EventId, Hash, InviteId, InviteLocatorId,
+    InviteReceiveAction, RealmId, Result, SchemaId, UnknownInviteAction, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -410,7 +410,6 @@ pub enum IntroductionEvidence {
         )]
         resolved_at: Option<DateTime<Utc>>,
     },
-    SameStation,
     ExplicitAddress,
 }
 
@@ -421,7 +420,6 @@ impl IntroductionEvidence {
             Self::ConsentGrant { .. } => "consent_grant",
             Self::SharedRealm { .. } => "shared_realm",
             Self::HandleClaim { .. } => "handle_claim",
-            Self::SameStation => "same_station",
             Self::ExplicitAddress => "explicit_address",
         }
     }
@@ -608,9 +606,9 @@ pub struct InviteDeliveryEntry {
     /// deduplication key of the register.
     pub invite_id: InviteId,
     pub realm_id: RealmId,
-    /// `did_core_id` of the inviter as bound by the delivery verification
-    /// chain.
-    pub inviter_id: DidCoreId,
+    /// Complete inviter account copied from the accepted Invite Event and
+    /// bound by the delivery verification chain.
+    pub inviter_account_id: AccountId,
     /// Opaque server-issued private invite locator token. Clients MUST treat
     /// it as opaque and MUST NOT persist it outside this cell or equivalent
     /// holder-private state.
@@ -658,11 +656,11 @@ pub struct InviteReceivePolicy {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trusted_realm_ids: Vec<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub trusted_principal_ids: Vec<DidCoreId>,
+    pub trusted_source_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub denied_principal_ids: Vec<DidCoreId>,
+    pub denied_source_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub denied_subject_ids: Vec<DidCoreId>,
+    pub denied_actor_ids: Vec<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disclosure: Option<DisclosurePolicy>,
 }
@@ -691,9 +689,9 @@ impl InviteReceivePolicy {
             trusted_handle_issuer_ids: Vec::new(),
             trusted_directory_ids: Vec::new(),
             trusted_realm_ids: Vec::new(),
-            trusted_principal_ids: Vec::new(),
-            denied_principal_ids: Vec::new(),
-            denied_subject_ids: Vec::new(),
+            trusted_source_ids: Vec::new(),
+            denied_source_ids: Vec::new(),
+            denied_actor_ids: Vec::new(),
             disclosure: Some(DisclosurePolicy {
                 high_trust: Some(DisclosureLevel::Outcome),
                 discovery_trust: Some(DisclosureLevel::Opaque),
@@ -725,8 +723,13 @@ pub struct DisclosurePolicy {
 
 #[cfg(test)]
 mod tests {
-    use arkret_models_identity::handle::HandleBindingState;
-    use arkret_wire::{Did, DidUrl, PayloadProof, ReceivePolicyConstraints, ReceivePolicySurface};
+    use arkret_models_identity::{
+        HandleClaimCore, HandleClaimStatus, HandleClaimVariant, HandleVisibility,
+    };
+    use arkret_wire::{
+        Did, DidUrl, PayloadProof, PayloadProofPurpose, ReceivePolicyConstraints,
+        ReceivePolicySurface,
+    };
 
     use super::*;
 
@@ -989,17 +992,20 @@ mod tests {
             trusted_handle_issuer_ids: Vec::new(),
             trusted_directory_ids: Vec::new(),
             trusted_realm_ids: Vec::new(),
-            trusted_principal_ids: Vec::new(),
-            denied_principal_ids: Vec::new(),
-            denied_subject_ids: Vec::new(),
+            trusted_source_ids: Vec::new(),
+            denied_source_ids: Vec::new(),
+            denied_actor_ids: Vec::new(),
             disclosure: None,
         };
         let value = serde_json::to_value(&policy).expect("serialize policy");
-        assert!(value.get("denied_subject_ids").is_none());
+        assert!(value.get("denied_actor_ids").is_none());
         assert!(value.get("disclosure").is_none());
 
         let policy = InviteReceivePolicy {
-            denied_subject_ids: vec![DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()],
+            denied_actor_ids: vec![ActorId::account(AccountId::new(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+            ))],
             disclosure: Some(DisclosurePolicy {
                 high_trust: Some(DisclosureLevel::Outcome),
                 discovery_trust: Some(DisclosureLevel::Opaque),
@@ -1021,38 +1027,60 @@ mod tests {
         let resolved_at = DateTime::parse_from_rfc3339("2026-06-07T10:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
+        let core_proof = PayloadProof {
+            kind: "detached_jws".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:issuer.example#key-1").unwrap(),
+            payload_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
+            created_at: resolved_at,
+            domain: Some("ak.handle_claim_proof.v1".to_owned()),
+            audience: None,
+            proof_purpose: Some(PayloadProofPurpose::IssuerAttestation),
+            jws: "header..sig".to_owned(),
+        };
         let claim = HandleClaim {
             schema: HandleClaim::SCHEMA.to_owned(),
-            handle: handle.clone(),
-            handle_aliases: Vec::new(),
-            subject_account_id: AccountId::new(
-                DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-                DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
-            ),
-            issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureissuer").unwrap(),
-            vouching_id: None,
-            binding_state: HandleBindingState::Verified,
-            claim_kind: None,
-            visibility: None,
-            audience: None,
-            challenge: None,
-            claim_scope: Default::default(),
-            claims: Vec::new(),
-            created_at: resolved_at,
-            expires_at: Some(expires_at),
-            verified_at: None,
-            source_refs: Vec::new(),
-            proofs: vec![PayloadProof {
+            claim: HandleClaimCore {
+                schema: HandleClaimCore::SCHEMA.to_owned(),
+                handle: handle.clone(),
+                handle_aliases: Vec::new(),
+                subject_account_id: AccountId::new(
+                    DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                    DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
+                ),
+                issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureissuer").unwrap(),
+                claim: HandleClaimVariant::HandleBinding,
+                visibility: HandleVisibility::Public,
+                audience: None,
+                issued_at: resolved_at,
+                expires_at: Some(expires_at),
+                source_refs: Vec::new(),
+                proofs: [
+                    core_proof.clone(),
+                    PayloadProof {
+                        proof_purpose: Some(PayloadProofPurpose::HolderAcceptance),
+                        ..core_proof
+                    },
+                ],
+            },
+            claim_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
+            status: HandleClaimStatus::Verified,
+            as_of: resolved_at,
+            verifier_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureissuer").unwrap(),
+            verified_at: Some(resolved_at),
+            revocation: None,
+            revocation_digest: None,
+            fresh_until: resolved_at + chrono::Duration::minutes(5),
+            status_proof: PayloadProof {
                 kind: "detached_jws".to_owned(),
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:issuer.example#key-1")
                     .unwrap(),
                 payload_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
-                created_at: resolved_at.to_owned(),
-                domain: None,
+                created_at: resolved_at,
+                domain: Some("ak.handle_claim_status.v1".to_owned()),
                 audience: None,
-                proof_purpose: None,
+                proof_purpose: Some(PayloadProofPurpose::StatusAttestation),
                 jws: "header..sig".to_owned(),
-            }],
+            },
         };
         let evidence = IntroductionEvidence::HandleClaim {
             handle,
@@ -1083,8 +1111,8 @@ mod tests {
             allowed_handle_domains: None,
             trusted_handle_issuer_ids: None,
             trusted_directory_ids: None,
-            trusted_principal_ids: None,
-            denied_principal_ids: None,
+            trusted_source_ids: None,
+            denied_source_ids: None,
             accepted_subject_did_methods: Some(Vec::new()),
         };
         let value = serde_json::to_value(&constraints).expect("serialize constraints");
@@ -1104,7 +1132,10 @@ mod tests {
                 .unwrap(),
             realm_id: RealmId::new("ak:realm:ARkAfriCBkEJNgK9UxfUciMBt-L3mtRcFLO8ICOBW_9K")
                 .unwrap(),
-            inviter_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+            inviter_account_id: AccountId::new(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
+            ),
             invite_token: "srv-01HYZ8Z000000000000000".to_owned(),
             received_at: DateTime::parse_from_rfc3339("2026-08-20T01:02:03Z")
                 .unwrap()

@@ -13,6 +13,7 @@ pub mod agent_operations;
 pub use arkret_models_identity::agent_signer_evidence;
 pub mod call_signal;
 pub mod contact_operations;
+pub mod current_signer_evidence;
 pub mod direct_conversation_ops;
 pub mod event_query;
 pub mod event_sync;
@@ -37,6 +38,7 @@ pub mod signal_message_stream;
 pub mod signal_plaintext;
 pub mod sync_frames;
 
+pub use current_signer_evidence::*;
 pub use events_payloads::{
     RealmOrganizationAuthorization, RealmOrganizationControlScope, RealmOrganizationIssuerRole,
     RealmOrganizationPayload, RealmOrganizationRelationship, RealmOrganizationStatus,

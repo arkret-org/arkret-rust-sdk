@@ -30,8 +30,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::handle::HandleBindingState;
-
 /// Realm-scoped, actor-scoped full `member_identity` segment.
 ///
 /// Carried by `ak.member.identity.update` in plaintext or inside an
@@ -221,16 +219,14 @@ pub struct EffectiveIdentityEntry {
 
 /// Visible handle-claim summary folded into the roster
 /// [`member_display_state_digest`]. Mirrors the spec
-/// `{claim_digest, binding_state, expires_at}` triplet.
+/// `{claim_digest, status, revocation_digest, fresh_until}` status-view summary.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct RosterHandleClaimDigestEntry {
     pub claim_digest: Hash,
-    pub binding_state: HandleBindingState,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp"
-    )]
-    pub expires_at: Option<DateTime<Utc>>,
+    pub status: crate::HandleClaimStatus,
+    pub revocation_digest: Option<Hash>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub fresh_until: DateTime<Utc>,
 }
 
 /// MID-6 — effective-set helper.
@@ -316,14 +312,15 @@ pub fn member_identity_effective_set_digest(
 ///
 /// SHA-256 over RFC 8785 JCS canonical JSON of
 /// `{realm_id, actor_id, effective_events:[{event_id, segment, payload_digest}],
-///   handle_claims:[{claim_digest, binding_state, expires_at}]}`
+///   handle_claims:[{claim_digest, status, revocation_digest, fresh_until}]}`
 /// with `effective_events` sorted by `(segment, event_id)` and
 /// `handle_claims` sorted by `claim_digest`.
 ///
 /// Used for roster display cache invalidation. Folds the visible
 /// handle-claim digest set so handle reassignment (issuer signs a new
-/// claim / revokes an old one) changes the digest, while a pure
-/// `verified_at` / proof-repacking refresh leaves it stable.
+/// claim / revokes an old one) changes the digest. A refreshed signed status
+/// view also changes `fresh_until`, so stale evidence cannot retain a roster
+/// display cache key.
 pub fn member_display_state_digest(
     realm_id: &RealmId,
     actor_id: &ActorId,

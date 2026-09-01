@@ -167,7 +167,7 @@ pub fn verify_public_principal_resolution_history(
 ) -> Result<arkret_models_identity::PrincipalResolutionProjection> {
     verify_authenticated_service_resolution_history(
         station_resolution,
-        &resolution.station_id,
+        &resolution.account_id.station_id,
         now,
     )?;
     arkret_signatures::service_resolution::verify_public_principal_resolution(
@@ -180,7 +180,7 @@ pub fn verify_public_principal_resolution_history(
     let projection = &resolution.resolution_projection;
     if project_did_to_core_id(&projection.did)
         .map_err(|error| WireError::Protocol(error.to_string()))?
-        != resolution.principal_id
+        != resolution.account_id.principal_id
         || principal_document.id != projection.did
         || projection.updated_at > resolution.projection_attestation.attestation.issued_at
     {

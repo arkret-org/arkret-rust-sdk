@@ -12,6 +12,9 @@ use arkret_models_collaboration::governance::agent_participation::{
 use arkret_models_collaboration::sidecar_operations::{
     SidecarEnsureOutcome, SidecarEnsureRequestBody,
 };
+use arkret_models_collaboration::{
+    CurrentSignerEvidenceQueryOutcome, CurrentSignerEvidenceQueryRequestBody,
+};
 use arkret_models_identity::agent_signer_evidence::{
     AgentSignerEvidenceQueryOutcome, AgentSignerEvidenceQueryRequestBody,
 };
@@ -23,10 +26,24 @@ use crate::{Client, Error, Result};
 const AGENT_KEY_PAIR_PATH: &str = "/_arkret/gate/account/agent-key-pair";
 const AGENTS_PATH: &str = "/_arkret/self/agents";
 const AGENT_SIGNER_EVIDENCE_QUERY_PATH: &str = "/_arkret/self/agent-signer-evidence/query";
+const CURRENT_SIGNER_EVIDENCE_QUERY_PATH: &str = "/_arkret/self/current-signer-evidence/query";
 const AGENT_SIDECARS_PATH: &str = "/_arkret/self/agent-sidecars";
 const AGENT_SIDECAR_ENSURE_PATH: &str = "/_arkret/self/agent-sidecars:ensure";
 
 impl Client {
+    /// Resolve origin-signed current authority for one exact received Signal.
+    pub async fn current_signer_evidence_query(
+        &self,
+        request: &CurrentSignerEvidenceQueryRequestBody,
+    ) -> Result<CurrentSignerEvidenceQueryOutcome> {
+        request.validate()?;
+        let outcome: CurrentSignerEvidenceQueryOutcome = self
+            .post(CURRENT_SIGNER_EVIDENCE_QUERY_PATH, request)
+            .await?;
+        outcome.validate_for_request(request, chrono::Utc::now())?;
+        Ok(outcome)
+    }
+
     /// `POST /_arkret/self/agent-signer-evidence/query`
     /// (`ak.self.agent_signer_evidence.read.resolve.v1`).
     pub async fn agent_signer_evidence_query(

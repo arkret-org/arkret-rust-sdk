@@ -535,7 +535,7 @@ impl Client {
     ///
     /// `key-management.md` §7.8.1: freshness is issued by the service, and a
     /// caller-minted nonce is never accepted. While a challenge for the same
-    /// `(principal_id, backup_id, request_id)` is still valid the service
+    /// `(account_id, backup_id, request_id)` is still valid the service
     /// returns that same challenge, so a retry of this call does not invalidate
     /// a proof already signed against it; a different `request_id` mints a new
     /// one.

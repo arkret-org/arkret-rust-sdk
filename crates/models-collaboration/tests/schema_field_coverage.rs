@@ -200,7 +200,11 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
             "relaxed_window_max_ms": 60000,
             "media_service_decrypts": true,
             "join_policy": {
-                "gates": [{ "gate_id": "open", "kind": "allow_all" }],
+                "gates": [{
+                    "gate_id": "claim",
+                    "kind": "claim_required",
+                    "required_claims": ["verified_email"]
+                }],
                 "combinator": "all"
             },
             "handle_issuer_policies": [{

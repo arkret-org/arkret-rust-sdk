@@ -5,7 +5,10 @@ use crate::{Error, Result, verify_detached_ed25519_signature};
 
 /// Verify the Ed25519 proof of possession over the SDK-owned device
 /// authorization transcript.
-pub fn verify_device_authorize_possession(payload: &DeviceAuthorizePayload) -> Result<()> {
+pub fn verify_device_authorize_possession(
+    payload: &DeviceAuthorizePayload,
+    subject_account_id: &arkret_wire::AccountId,
+) -> Result<()> {
     payload
         .validate_wire_constraints()
         .map_err(|reason| Error::Protocol(reason.to_owned()))?;
@@ -18,7 +21,7 @@ pub fn verify_device_authorize_possession(payload: &DeviceAuthorizePayload) -> R
     let key = PublicKeyMaterial::Ed25519Multibase {
         value: public_key.to_owned(),
     };
-    let transcript = payload.device_possession_signature_input()?;
+    let transcript = payload.device_possession_signature_input(subject_account_id)?;
     if !verify_detached_ed25519_signature(&key, &transcript, signature) {
         return Err(Error::Protocol(
             "device_authorize_device_signature_invalid".to_owned(),

@@ -293,7 +293,7 @@ pub struct SecurityTransactionTerminalResult {
 pub struct SecurityTransaction {
     pub transaction_id: TransactionId,
     pub kind: SecurityTransactionKind,
-    pub principal_id: DidCoreId,
+    pub account_id: AccountId,
     pub coordinator_id: DidCoreId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -313,7 +313,7 @@ pub struct SecurityTransaction {
 pub struct RecoveryTransactionCreateRequest {
     pub transaction_id: TransactionId,
     pub kind: SecurityTransactionKind,
-    pub principal_id: DidCoreId,
+    pub account_id: AccountId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub prepared_plan: RecoveryPreparedPlan,
@@ -325,7 +325,7 @@ pub struct RecoveryTransactionCreateRequest {
 pub struct SecurityRotationTransactionCreateRequest {
     pub transaction_id: TransactionId,
     pub kind: SecurityTransactionKind,
-    pub principal_id: DidCoreId,
+    pub account_id: AccountId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub prepared_plan: SecurityRotationPlan,
@@ -345,7 +345,7 @@ pub enum SecurityTransactionCreateRequest {
 impl RecoveryTransactionCreateRequest {
     pub fn new(
         transaction_id: TransactionId,
-        principal_id: DidCoreId,
+        account_id: AccountId,
         expires_at: DateTime<Utc>,
         prepared_plan: RecoveryPreparedPlan,
     ) -> Result<Self> {
@@ -353,7 +353,7 @@ impl RecoveryTransactionCreateRequest {
         Ok(Self {
             transaction_id,
             kind: SecurityTransactionKind::Recovery,
-            principal_id,
+            account_id,
             expires_at,
             prepared_plan,
         })
@@ -363,7 +363,7 @@ impl RecoveryTransactionCreateRequest {
 impl SecurityRotationTransactionCreateRequest {
     pub fn from_prepared_rotations(
         transaction_id: TransactionId,
-        principal_id: DidCoreId,
+        account_id: AccountId,
         expires_at: DateTime<Utc>,
         revoke_unit: PreparedEventUnit,
         new_secret_commitment: Hash,
@@ -379,7 +379,7 @@ impl SecurityRotationTransactionCreateRequest {
         )?;
         Self::new(
             transaction_id,
-            principal_id,
+            account_id,
             expires_at,
             SecurityRotationPlan {
                 revoke_unit,
@@ -393,7 +393,7 @@ impl SecurityRotationTransactionCreateRequest {
 
     pub fn new(
         transaction_id: TransactionId,
-        principal_id: DidCoreId,
+        account_id: AccountId,
         expires_at: DateTime<Utc>,
         prepared_plan: SecurityRotationPlan,
     ) -> Result<Self> {
@@ -416,7 +416,7 @@ impl SecurityRotationTransactionCreateRequest {
         Ok(Self {
             transaction_id,
             kind: SecurityTransactionKind::SecurityRotation,
-            principal_id,
+            account_id,
             expires_at,
             prepared_plan,
         })
@@ -515,18 +515,18 @@ impl SecurityTransactionCreateRequest {
         let request_digest = Hash::new(arkret_canonical::canonical::sha256_digest(
             &canonical_request,
         ))?;
-        let (transaction_id, kind, principal_id, expires_at, prepared_plan) = match self {
+        let (transaction_id, kind, account_id, expires_at, prepared_plan) = match self {
             Self::Recovery(request) => (
                 request.transaction_id,
                 request.kind,
-                request.principal_id,
+                request.account_id,
                 request.expires_at,
                 SecurityTransactionPreparedPlan::Recovery(request.prepared_plan),
             ),
             Self::SecurityRotation(request) => (
                 request.transaction_id,
                 request.kind,
-                request.principal_id,
+                request.account_id,
                 request.expires_at,
                 SecurityTransactionPreparedPlan::SecurityRotation(request.prepared_plan),
             ),
@@ -537,7 +537,7 @@ impl SecurityTransactionCreateRequest {
         let resource = SecurityTransaction {
             transaction_id,
             kind,
-            principal_id,
+            account_id,
             coordinator_id,
             expires_at,
             created_at,
@@ -828,6 +828,13 @@ impl SecurityTransaction {
     }
 
     pub fn validate_structural(&self) -> Result<()> {
+        self.account_id.validate()?;
+        if self.account_id.station_id != self.coordinator_id {
+            return Err(WireError::Protocol(
+                "security transaction coordinator must be the exact account Station service"
+                    .to_owned(),
+            ));
+        }
         if self.expires_at <= self.created_at {
             return Err(WireError::Protocol(
                 "security transaction expires_at must be after created_at".to_owned(),
@@ -928,7 +935,7 @@ impl SecurityTransaction {
                     if attestation.transaction_id != self.transaction_id
                         || attestation.transaction_request_digest != self.request_digest
                         || attestation.prepared_plan_digest != self.prepared_plan_digest
-                        || attestation.principal_id != self.principal_id
+                        || attestation.account_id != self.account_id
                         || attestation.coordinator_id != self.coordinator_id
                         || attestation.recovery_session_id != binding.recovery_session_id
                         || attestation.terminal_receipt_id != binding.terminal_receipt_id
@@ -1007,10 +1014,7 @@ impl SecurityTransaction {
     fn validate_security_rotation_plan(&self, plan: &SecurityRotationPlan) -> Result<()> {
         validate_security_rotation_fixed_shape(plan)?;
         let revoke_request = plan.revoke_unit.events_submit_request()?;
-        let rotation_actor = ActorId::account(AccountId::new(
-            self.principal_id.clone(),
-            self.coordinator_id.clone(),
-        ));
+        let rotation_actor = ActorId::account(self.account_id.clone());
         if revoke_request.events.len() != 1
             || revoke_request.events[0].event.kind != crate::event_kind_str::DEVICE_REVOKE
             || revoke_request.events[0].event.actor_id != rotation_actor

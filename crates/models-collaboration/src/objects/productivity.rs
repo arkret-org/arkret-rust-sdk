@@ -1552,7 +1552,6 @@ pub fn parse_contact_remark_account_data_key(key: &str) -> Result<String> {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountBlocklistPayload {
-    pub holder_id: DidCoreId,
     pub version: u64,
     pub entries: Vec<AccountBlocklistPayloadEntry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2421,7 +2420,6 @@ mod tests {
     #[test]
     fn account_blocklist_uses_closed_typed_targets_and_revision_semantics() {
         let payload: AccountBlocklistPayload = serde_json::from_value(json!({
-            "holder_id": "ak:did_core:webvh:z6mkfixture",
             "version": 2,
             "entries": [
                 {
@@ -2449,7 +2447,6 @@ mod tests {
         assert_eq!(payload.version, 2);
 
         let cleared: AccountBlocklistPayload = serde_json::from_value(json!({
-            "holder_id": "ak:did_core:webvh:z6mkfixture",
             "version": 3,
             "entries": []
         }))
@@ -2460,7 +2457,6 @@ mod tests {
     #[test]
     fn account_blocklist_rejects_wrong_typed_ref_and_overlapping_surface() {
         let wrong_ref = serde_json::from_value::<AccountBlocklistPayload>(json!({
-            "holder_id": "ak:did_core:webvh:z6mkfixture",
             "version": 1,
             "entries": [{
                 "target": {
@@ -2475,7 +2471,6 @@ mod tests {
         assert!(wrong_ref.is_err());
 
         let overlap: AccountBlocklistPayload = serde_json::from_value(json!({
-            "holder_id": "ak:did_core:webvh:z6mkfixture",
             "version": 1,
             "entries": [
                 {

@@ -46,7 +46,7 @@ pub const SECRET_SEND_KIND: &str = arkret_wire::SECRET_SEND_KIND;
 ///
 /// `crypto-media/device-lifecycle.md` §10.7 fixes the AAD as the RFC 8785
 /// canonical JSON of exactly nine members: the envelope's `device_message_id`,
-/// `kind`, `sender_principal_id`, `sender_device_id`, `recipient_principal_id`,
+/// `kind`, `sender_account_id`, `sender_device_id`, `recipient_account_id`,
 /// `recipient_device_id` and `expires_at`, plus the content's `request_id` and
 /// `secret_id`.
 ///
@@ -59,9 +59,9 @@ pub struct SecretShareSendAad<'a> {
     /// Envelope `device_message_id`; MUST be allocated before sealing so the
     /// ciphertext, the envelope and the durable queue row all carry one value.
     pub device_message_id: &'a arkret_wire::DeviceMessageId,
-    pub sender_principal_id: &'a arkret_wire::DidCoreId,
+    pub sender_account_id: &'a arkret_wire::AccountId,
     pub sender_device_id: &'a DeviceId,
-    pub recipient_principal_id: &'a arkret_wire::DidCoreId,
+    pub recipient_account_id: &'a arkret_wire::AccountId,
     pub recipient_device_id: &'a DeviceId,
     /// Content `request_id`, verbatim.
     pub request_id: &'a str,
@@ -90,9 +90,9 @@ impl SecretShareSendAad<'_> {
         let aad = serde_json::json!({
             "device_message_id": self.device_message_id.as_str(),
             "kind": SECRET_SEND_KIND,
-            "sender_principal_id": self.sender_principal_id.as_str(),
+            "sender_account_id": self.sender_account_id,
             "sender_device_id": self.sender_device_id.as_str(),
-            "recipient_principal_id": self.recipient_principal_id.as_str(),
+            "recipient_account_id": self.recipient_account_id,
             "recipient_device_id": self.recipient_device_id.as_str(),
             "request_id": self.request_id,
             "secret_id": self.secret_id,
@@ -387,15 +387,16 @@ mod secret_share_send_aad_tests {
     const SENDER: &str = "ak:did_core:webvh:z6mkfixturesender";
     const SENDER_DEVICE: &str = "ak:device:01904100-0000-7000-8000-00000000000a";
     const RECIPIENT: &str = "ak:did_core:webvh:z6mkfixturerecipient";
+    const STATION: &str = "ak:did_core:webvh:z6mkfixturestation";
     const RECIPIENT_DEVICE: &str = "ak:device:01904100-0000-7000-8000-00000000000b";
     const REQUEST_ID: &str = "req-01904100";
     const EXPIRES: &str = "2026-06-10T00:30:00.000Z";
 
     struct Members {
         device_message_id: arkret_wire::DeviceMessageId,
-        sender_principal_id: arkret_wire::DidCoreId,
+        sender_account_id: arkret_wire::AccountId,
         sender_device_id: DeviceId,
-        recipient_principal_id: arkret_wire::DidCoreId,
+        recipient_account_id: arkret_wire::AccountId,
         recipient_device_id: DeviceId,
         request_id: String,
         secret_id: String,
@@ -407,9 +408,15 @@ mod secret_share_send_aad_tests {
             Self {
                 device_message_id: arkret_wire::DeviceMessageId::new(MESSAGE_ID.to_owned())
                     .unwrap(),
-                sender_principal_id: arkret_wire::DidCoreId::new(SENDER.to_owned()).unwrap(),
+                sender_account_id: arkret_wire::AccountId::new(
+                    arkret_wire::DidCoreId::new(SENDER.to_owned()).unwrap(),
+                    arkret_wire::DidCoreId::new(STATION.to_owned()).unwrap(),
+                ),
                 sender_device_id: DeviceId::new(SENDER_DEVICE.to_owned()).unwrap(),
-                recipient_principal_id: arkret_wire::DidCoreId::new(RECIPIENT.to_owned()).unwrap(),
+                recipient_account_id: arkret_wire::AccountId::new(
+                    arkret_wire::DidCoreId::new(RECIPIENT.to_owned()).unwrap(),
+                    arkret_wire::DidCoreId::new(STATION.to_owned()).unwrap(),
+                ),
                 recipient_device_id: DeviceId::new(RECIPIENT_DEVICE.to_owned()).unwrap(),
                 request_id: REQUEST_ID.to_owned(),
                 secret_id: "inkson_mls_account_secret".to_owned(),
@@ -420,9 +427,9 @@ mod secret_share_send_aad_tests {
         fn bytes(&self) -> Vec<u8> {
             SecretShareSendAad {
                 device_message_id: &self.device_message_id,
-                sender_principal_id: &self.sender_principal_id,
+                sender_account_id: &self.sender_account_id,
                 sender_device_id: &self.sender_device_id,
-                recipient_principal_id: &self.recipient_principal_id,
+                recipient_account_id: &self.recipient_account_id,
                 recipient_device_id: &self.recipient_device_id,
                 request_id: &self.request_id,
                 secret_id: &self.secret_id,
@@ -442,11 +449,11 @@ mod secret_share_send_aad_tests {
             r#""expires_at":"2026-06-10T00:30:00.000Z","#,
             r#""kind":"ak.secret.send","#,
             r#""recipient_device_id":"ak:device:01904100-0000-7000-8000-00000000000b","#,
-            r#""recipient_principal_id":"ak:did_core:webvh:z6mkfixturerecipient","#,
+            r#""recipient_account_id":{"principal_id":"ak:did_core:webvh:z6mkfixturerecipient","station_id":"ak:did_core:webvh:z6mkfixturestation"},"#,
             r#""request_id":"req-01904100","#,
             r#""secret_id":"inkson_mls_account_secret","#,
             r#""sender_device_id":"ak:device:01904100-0000-7000-8000-00000000000a","#,
-            r#""sender_principal_id":"ak:did_core:webvh:z6mkfixturesender"}"#,
+            r#""sender_account_id":{"principal_id":"ak:did_core:webvh:z6mkfixturesender","station_id":"ak:did_core:webvh:z6mkfixturestation"}}"#,
         );
         assert_eq!(
             String::from_utf8(Members::golden().bytes()).unwrap(),
@@ -469,9 +476,9 @@ mod secret_share_send_aad_tests {
         assert_ne!(mutated.bytes(), golden, "device_message_id");
 
         let mut mutated = Members::golden();
-        mutated.sender_principal_id =
+        mutated.sender_account_id.station_id =
             arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixtureother".to_owned()).unwrap();
-        assert_ne!(mutated.bytes(), golden, "sender_principal_id");
+        assert_ne!(mutated.bytes(), golden, "sender_account_id.station_id");
 
         let mut mutated = Members::golden();
         mutated.sender_device_id =
@@ -479,9 +486,9 @@ mod secret_share_send_aad_tests {
         assert_ne!(mutated.bytes(), golden, "sender_device_id");
 
         let mut mutated = Members::golden();
-        mutated.recipient_principal_id =
+        mutated.recipient_account_id.station_id =
             arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixtureother".to_owned()).unwrap();
-        assert_ne!(mutated.bytes(), golden, "recipient_principal_id");
+        assert_ne!(mutated.bytes(), golden, "recipient_account_id.station_id");
 
         let mut mutated = Members::golden();
         mutated.recipient_device_id =
@@ -510,9 +517,9 @@ mod secret_share_send_aad_tests {
         assert!(
             SecretShareSendAad {
                 device_message_id: &bad.device_message_id,
-                sender_principal_id: &bad.sender_principal_id,
+                sender_account_id: &bad.sender_account_id,
                 sender_device_id: &bad.sender_device_id,
-                recipient_principal_id: &bad.recipient_principal_id,
+                recipient_account_id: &bad.recipient_account_id,
                 recipient_device_id: &bad.recipient_device_id,
                 request_id: &bad.request_id,
                 secret_id: &bad.secret_id,
@@ -527,9 +534,9 @@ mod secret_share_send_aad_tests {
         assert!(
             SecretShareSendAad {
                 device_message_id: &bad.device_message_id,
-                sender_principal_id: &bad.sender_principal_id,
+                sender_account_id: &bad.sender_account_id,
                 sender_device_id: &bad.sender_device_id,
-                recipient_principal_id: &bad.recipient_principal_id,
+                recipient_account_id: &bad.recipient_account_id,
                 recipient_device_id: &bad.recipient_device_id,
                 request_id: &bad.request_id,
                 secret_id: &bad.secret_id,

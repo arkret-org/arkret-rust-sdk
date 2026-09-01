@@ -18,6 +18,7 @@ default = []
 # opt in.
 openapi = [
     "dep:salvo-oapi",
+    "arkret-models-collaboration/openapi",
     "arkret-models-identity/openapi",
     "arkret-wire/openapi",
     "salvo-oapi/chrono",
@@ -26,6 +27,7 @@ openapi = [
 [dependencies]
 arkret-canonical = { workspace = true }
 arkret-models-identity = { workspace = true }
+arkret-models-collaboration = { workspace = true }
 arkret-wire = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 curve25519-dalek = { workspace = true }

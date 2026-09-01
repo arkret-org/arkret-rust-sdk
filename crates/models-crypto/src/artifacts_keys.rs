@@ -326,7 +326,7 @@ pub struct KeyBackupUnlockProofAuthData {
 pub struct KeyBackupUnlockProof {
     pub schema: String,
     pub recovery_session_id: RecoverySessionId,
-    pub principal_id: DidCoreId,
+    pub account_id: AccountId,
     pub requesting_device_id: DeviceId,
     pub backup_id: BackupId,
     pub backup_kind: BackupKind,
@@ -411,7 +411,7 @@ impl UnsignedKeyBackupUnlockProofAuthData {
 #[derive(Clone, Debug)]
 pub struct UnsignedKeyBackupUnlockProof {
     recovery_session_id: RecoverySessionId,
-    principal_id: DidCoreId,
+    account_id: AccountId,
     requesting_device_id: DeviceId,
     backup_id: BackupId,
     backup_kind: BackupKind,
@@ -429,7 +429,7 @@ impl UnsignedKeyBackupUnlockProof {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         recovery_session_id: RecoverySessionId,
-        principal_id: DidCoreId,
+        account_id: AccountId,
         requesting_device_id: DeviceId,
         backup_id: BackupId,
         backup_kind: BackupKind,
@@ -452,7 +452,7 @@ impl UnsignedKeyBackupUnlockProof {
         validate_unlock_proof_signature_algorithm(auth_data.signature_algorithm)?;
         Ok(Self {
             recovery_session_id,
-            principal_id,
+            account_id,
             requesting_device_id,
             backup_id,
             backup_kind,
@@ -475,7 +475,7 @@ impl UnsignedKeyBackupUnlockProof {
         let proof = KeyBackupUnlockProof {
             schema: KeyBackupUnlockProof::SCHEMA.to_owned(),
             recovery_session_id: self.recovery_session_id,
-            principal_id: self.principal_id,
+            account_id: self.account_id,
             requesting_device_id: self.requesting_device_id,
             backup_id: self.backup_id,
             backup_kind: self.backup_kind,
@@ -507,7 +507,7 @@ impl UnsignedKeyBackupUnlockProof {
         struct UnsignedProof<'a> {
             schema: &'static str,
             recovery_session_id: &'a RecoverySessionId,
-            principal_id: &'a DidCoreId,
+            account_id: &'a AccountId,
             requesting_device_id: &'a DeviceId,
             backup_id: &'a BackupId,
             backup_kind: BackupKind,
@@ -527,7 +527,7 @@ impl UnsignedKeyBackupUnlockProof {
         serde_json::to_value(UnsignedProof {
             schema: KeyBackupUnlockProof::SCHEMA,
             recovery_session_id: &self.recovery_session_id,
-            principal_id: &self.principal_id,
+            account_id: &self.account_id,
             requesting_device_id: &self.requesting_device_id,
             backup_id: &self.backup_id,
             backup_kind: self.backup_kind,

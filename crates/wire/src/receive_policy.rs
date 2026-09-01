@@ -70,9 +70,9 @@ pub struct ReceivePolicyConstraints {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trusted_directory_ids: Option<Vec<DidCoreId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub trusted_principal_ids: Option<Vec<DidCoreId>>,
+    pub trusted_source_ids: Option<Vec<DidCoreId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub denied_principal_ids: Option<Vec<DidCoreId>>,
+    pub denied_source_ids: Option<Vec<DidCoreId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accepted_subject_did_methods: Option<Vec<String>>,
 }

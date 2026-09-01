@@ -1,6 +1,6 @@
 //! Join-policy event payloads.
 
-use arkret_wire::DidCoreId;
+use arkret_wire::{AccountId, ActorId, Did, DidCoreId, RealmId};
 
 use crate::internal_prelude::*;
 
@@ -49,19 +49,60 @@ impl From<DidMethod> for String {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct JoinPolicyPayloadGatesItem {
-    pub gate_id: JoinPolicyGateId,
-    pub kind: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub auto_resolve: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allowed_did_methods: Option<Vec<DidMethod>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allowed_principal_ids: Option<Vec<DidCoreId>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub denied_principal_ids: Option<Vec<DidCoreId>>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum JoinPolicyPayloadGatesItem {
+    ClaimRequired {
+        gate_id: JoinPolicyGateId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        auto_resolve: Option<bool>,
+        required_claims: Vec<String>,
+    },
+    ChallengeResponse {
+        gate_id: JoinPolicyGateId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        auto_resolve: Option<bool>,
+        provider_did: Did,
+        challenge_kinds: Vec<JoinPolicyDirectoryChallengeKind>,
+        max_proof_age: String,
+    },
+    ParentMembership {
+        gate_id: JoinPolicyGateId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        auto_resolve: Option<bool>,
+        membership_source_realm_ids: Vec<RealmId>,
+        require_min_membership: JoinPolicyRequiredMembership,
+    },
+    PrincipalAdmission {
+        gate_id: JoinPolicyGateId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        auto_resolve: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        allowed_did_methods: Option<Vec<DidMethod>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        allowed_account_ids: Option<Vec<AccountId>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        denied_account_ids: Option<Vec<AccountId>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        allowed_actor_ids: Option<Vec<ActorId>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        denied_actor_ids: Option<Vec<ActorId>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        allowed_principal_core_ids: Option<Vec<DidCoreId>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        denied_principal_core_ids: Option<Vec<DidCoreId>>,
+    },
+    Cooldown {
+        gate_id: JoinPolicyGateId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        auto_resolve: Option<bool>,
+        min_interval_since_leave: String,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum JoinPolicyRequiredMembership {
+    Join,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -83,13 +124,12 @@ pub struct JoinPolicyDirectoryHint {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct JoinPolicyPayload {
     pub gates: Vec<JoinPolicyPayloadGatesItem>,
     pub combinator: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub directory_hint: Option<JoinPolicyDirectoryHint>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
 }
 
 #[cfg(test)]
@@ -97,22 +137,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn join_policy_keeps_open_extensions_but_rejects_retired_review_hints() {
+    fn join_policy_is_closed_and_kind_typed() {
         let value = serde_json::json!({
             "gates": [{
                 "gate_id": "membership",
                 "kind": "parent_membership",
-                "x_gate_extension": {"enabled": true}
+                "membership_source_realm_ids": ["ak:realm:ASOikrLmQRDmUfDmMaw1Bx-NCkNptz9Sw2olIhr_M_23"],
+                "require_min_membership": "join"
             }],
             "combinator": "all",
             "directory_hint": {
                 "summary": "Membership required",
                 "challenge_kinds_displayed": ["captcha"]
-            },
-            "x_policy_extension": {"enabled": true}
+            }
         });
         let payload: JoinPolicyPayload = serde_json::from_value(value.clone()).unwrap();
         assert_eq!(serde_json::to_value(payload).unwrap(), value);
+
+        let mut gate_extension = value.clone();
+        gate_extension["gates"][0]["x_gate_extension"] = serde_json::json!({"enabled": true});
+        assert!(serde_json::from_value::<JoinPolicyPayload>(gate_extension).is_err());
+        let mut policy_extension = value.clone();
+        policy_extension["x_policy_extension"] = serde_json::json!({"enabled": true});
+        assert!(serde_json::from_value::<JoinPolicyPayload>(policy_extension).is_err());
 
         for (field, retired_value) in [
             ("expected_review_time", serde_json::json!("PT1H")),
@@ -122,6 +169,19 @@ mod tests {
             retired["directory_hint"][field] = retired_value;
             assert!(serde_json::from_value::<JoinPolicyPayload>(retired).is_err());
         }
+    }
+
+    #[test]
+    fn principal_admission_rejects_legacy_bare_principal_lists() {
+        let legacy = serde_json::json!({
+            "gates": [{
+                "gate_id": "identity",
+                "kind": "principal_admission",
+                "allowed_principal_ids": ["ak:did_core:webvh:z6mkfixture"]
+            }],
+            "combinator": "all"
+        });
+        assert!(serde_json::from_value::<JoinPolicyPayload>(legacy).is_err());
     }
 
     #[test]

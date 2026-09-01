@@ -4,11 +4,11 @@
 //! sha256=5027ff6fedbe92ee1b1475278352416fbcee183acf7ce9e61124d1a156106ab3 Input: registry/
 //! capability-action-registry.json; version=2026-08-31.8;
 //! sha256=b2ad43bc54bef48e34697fa5f5a45c8be32f70e1ea39d42284335a5e24b6cdf3 Input: registry/
-//! schema-registry.json; version=2026-08-31.3;
-//! sha256=c6843eca4309bccd4801f01f36042195bb29be20312a5ad1f6386bf90fb79f4e Input: registry/
+//! schema-registry.json; version=2026-09-01.1;
+//! sha256=c9867f3896c5875e9b169354d77e26ed98b33567e06393654a28e12c1d435c95 Input: registry/
 //! account-data-key-registry.json; version=2026-08-30.1;
 //! sha256=e46f0f04e0b29e29d8be37fb74e237eb76eba99e3f4259a24672bf0f57bfffd1 Entries: id_kinds=59,
-//! special_forms=14, actions=163, schemas=195, account_data_patterns=24
+//! special_forms=14, actions=163, schemas=200, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3329,6 +3329,14 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/agent-signer-evidence-operations.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1,
+        file: "schemas/current-signer-evidence-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::CURRENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1,
+        file: "schemas/current-signer-evidence-operations.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::CURSOR_V1,
         file: "schemas/cursor.schema.json",
     },
@@ -3422,6 +3430,14 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     },
     SchemaDescriptor {
         schema_id: SchemaId::HANDLE_CLAIM_V1,
+        file: "schemas/handle-claim.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::HANDLE_CLAIM_CORE_V1,
+        file: "schemas/handle-claim.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::HANDLE_CLAIM_REVOCATION_V1,
         file: "schemas/handle-claim.schema.json",
     },
     SchemaDescriptor {
@@ -3675,6 +3691,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::RELATION_V1,
         file: "schemas/relation.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::RESOURCE_DISCOVERY_STATE_V1,
+        file: "schemas/event-payload.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::RESOURCE_SELECTOR_V1,

@@ -4,6 +4,7 @@ use arkret_models_crypto::http_bodies::{
     KeyPackageConsumeReceipt, KeyPackagesClaimOutcome, KeyPackagesClaimRequestBody,
     KeyPackagesConsumeOutcome, KeyPackagesConsumeUnsignedRequest, PeerKeyPackageClaimReceipt,
     PeerKeyPackagesClaimOutcome, PeerKeyPackagesClaimRequestBody,
+    PeerKeyPackagesClaimUnsignedRequest,
 };
 use arkret_models_crypto::{KeyOperationSignature, KeyPackageClaimRecord};
 use arkret_wire::{Base64UrlString, DidCoreId, DidUrl, Hash, NonEmptyString};
@@ -23,6 +24,43 @@ fn self_and_peer_keypackage_claim_dtos_have_distinct_schema_identities() {
         TypeId::of::<KeyPackagesClaimOutcome>(),
         TypeId::of::<PeerKeyPackagesClaimOutcome>()
     );
+}
+
+#[test]
+fn human_claim_account_station_is_bound_and_legacy_principal_mirrors_are_rejected() {
+    let fixture =
+        arkret_schema_conformance::spec_json_artifact("fixtures/keypackage-lifecycle-fixture.json")
+            .unwrap();
+    let request = fixture["unsigned_selector_transcripts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["branch"] == "device")
+        .unwrap()["unsigned_request"]
+        .clone();
+    let parsed: PeerKeyPackagesClaimUnsignedRequest =
+        serde_json::from_value(request.clone()).unwrap();
+    let canonical = arkret_canonical::canonical_json_bytes(&parsed).unwrap();
+
+    let mut other_station = request.clone();
+    other_station["target_account_id"]["station_id"] =
+        json!("ak:did_core:webvh:z6mkfixtureotherstation");
+    let other_station: PeerKeyPackagesClaimUnsignedRequest =
+        serde_json::from_value(other_station).unwrap();
+    assert_ne!(
+        canonical,
+        arkret_canonical::canonical_json_bytes(&other_station).unwrap(),
+        "same principal at another Station is a distinct claim target"
+    );
+
+    for legacy in ["target_principal_id", "requester_id"] {
+        let mut mirrored = request.clone();
+        mirrored[legacy] = json!("ak:did_core:webvh:z6mkfixture");
+        assert!(
+            serde_json::from_value::<PeerKeyPackagesClaimUnsignedRequest>(mirrored).is_err(),
+            "legacy {legacy} mirror must not be dual-read"
+        );
+    }
 }
 
 #[test]
@@ -144,12 +182,19 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
             "destination_id": "ak:did_core:webvh:z6mkfixtureservice",
             "request": {
                 "claim_request_id": "Y2xhaW0tbm9uY2U",
-                "target_principal_id": "ak:did_core:webvh:z6mkfixture",
+                "target_account_id": {
+                    "principal_id": "ak:did_core:webvh:z6mkfixture",
+                    "station_id": "ak:did_core:webvh:z6mkfixtureservice"
+                },
                 "intended_realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-                "requester_id": "ak:did_core:webvh:z6mkfixture",
+                "requester_account_id": {
+                    "principal_id": "ak:did_core:webvh:z6mkfixture",
+                    "station_id": "ak:did_core:webvh:z6mkfixtureservice"
+                },
                 "mls_group_id": "mls-group-fixture",
                 "claim_purpose": "realm_membership",
                 "required_capabilities": ["ak.mls.profile.full"],
+                "target_device_ids": ["ak:device:01904100-0000-7000-8000-000000000001"],
                 "expires_at": "2099-01-01T00:00:00.000Z"
             },
             "claimed_at": "2098-12-31T23:59:30.000Z",

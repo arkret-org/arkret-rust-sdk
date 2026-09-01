@@ -243,6 +243,7 @@ mod federation_dependency_tests {
             include_payload: None,
             max_response_bytes: Some(4096),
             history_traversal_access: None,
+            directory_source_ref_access: None,
         };
         assert!(valid.validate().is_ok());
 
@@ -258,6 +259,149 @@ mod federation_dependency_tests {
         payload_projection.event_ids.reverse();
         payload_projection.include_payload = Some(false);
         assert!(payload_projection.validate().is_err());
+    }
+}
+
+mod mimi_reporter_authority_tests {
+    use std::collections::BTreeMap;
+
+    use arkret_wire::{
+        AccountId, ActorId, Audience, DidCoreId, DidUrl, Event, EventId, EventInitialSubmission,
+        EventRequirements, Hash, Hlc, MimiRoomUri, NonEmptyString, PayloadProof, RealmId, ScopeRef,
+        StrandId, proof_kind,
+    };
+
+    use super::super::{MimiReportAbuseRequestBody, MimiReporterAuthority};
+
+    fn event_id(seed: &[u8]) -> EventId {
+        EventId::from_event_digest(&Hash::new(arkret_canonical::sha256_digest(seed)).unwrap())
+            .unwrap()
+    }
+
+    fn request() -> MimiReportAbuseRequestBody {
+        let created_at = "2026-09-01T00:00:00Z".parse().unwrap();
+        let reporter_id = DidCoreId::new("ak:did_core:web:alice.example").unwrap();
+        let source_provider_id = DidCoreId::new("ak:did_core:web:provider.example").unwrap();
+        let realm_id =
+            RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI".to_owned())
+                .unwrap();
+        let actor_id = ActorId::account(AccountId::new(
+            reporter_id.clone(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        ));
+        let report_event = EventInitialSubmission {
+            event: Event {
+                event_id: event_id(b"report"),
+                kind: arkret_wire::EventKind::SelfModerationReport,
+                realm_id: realm_id.clone(),
+                scope_ref: ScopeRef::Realm {
+                    realm_id: realm_id.clone(),
+                },
+                actor_id: actor_id.clone(),
+                actor_seq: 1,
+                created_at,
+                hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
+                prev_refs: Vec::new(),
+                refs: Vec::new(),
+                preconditions: Vec::new(),
+                seal_ref: None,
+                auth_context: None,
+                seal_basis: None,
+                requirements: EventRequirements::default(),
+                payload: BTreeMap::new(),
+                executed_by: None,
+                authorization_ref: None,
+                applet_id: None,
+                external_ref: None,
+                actor_kind: None,
+                unsigned: BTreeMap::new(),
+                causal_refs: Vec::new(),
+                proofs: Vec::new(),
+            },
+            authorization_lease: None,
+            cba_proof_bundles: Vec::new(),
+            control_proposal_ack: None,
+            membership_compensation_evidence: None,
+        };
+        let mut request = MimiReportAbuseRequestBody {
+            strand_id: StrandId::new("ak:strand:AaCQjogT126mXVYM2VaV0guWrFdS4nCOsDP-Ft0iWyKp")
+                .unwrap(),
+            mimi_room_uri: MimiRoomUri::new("mimi://provider.example/rooms/room-1").unwrap(),
+            realm_id,
+            target_ref: NonEmptyString::new(
+                "mimi://provider.example/rooms/room-1/messages/message-1",
+            )
+            .unwrap(),
+            reporter_id: reporter_id.clone(),
+            source_provider_id: source_provider_id.clone(),
+            reporter_authority: MimiReporterAuthority {
+                actor_id,
+                membership_event_id: event_id(b"membership"),
+                room_binding_event_id: event_id(b"room-binding"),
+                expires_at: created_at + chrono::Duration::minutes(5),
+                proof: PayloadProof {
+                    kind: proof_kind::DETACHED_JWS.to_owned(),
+                    verification_method: DidUrl::new("did:web:alice.example#device-1").unwrap(),
+                    payload_digest: Hash::new(arkret_canonical::sha256_digest(b"placeholder"))
+                        .unwrap(),
+                    created_at,
+                    domain: Some("ak:trust_domain:example.com".to_owned()),
+                    audience: Some(Audience::Single(source_provider_id.to_string())),
+                    proof_purpose: None,
+                    jws: "e30..c2ln".to_owned(),
+                },
+            },
+            report_event,
+            abuse_reason_code: NonEmptyString::new("spam").unwrap(),
+            evidence_package: None,
+            franking_proof: None,
+            description: Some(NonEmptyString::new("unsolicited").unwrap()),
+        };
+        request.reporter_authority.proof.payload_digest = request.payload_digest().unwrap();
+        request
+    }
+
+    #[test]
+    fn transcript_covers_actor_provider_room_target_and_state_refs() {
+        let request = request();
+        let transcript: serde_json::Value = arkret_canonical::from_canonical_json_slice(
+            &request.reporter_authority_binding_bytes().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(transcript["context"], "ak.mimi_reporter_authority_proof.v1");
+        assert_eq!(transcript["reporter_id"], request.reporter_id.as_str());
+        assert_eq!(
+            transcript["source_provider_id"],
+            request.source_provider_id.as_str()
+        );
+        assert_eq!(transcript["mimi_room_uri"], request.mimi_room_uri.as_str());
+        assert_eq!(transcript["target_ref"], request.target_ref.as_str());
+        assert_eq!(
+            transcript["membership_event_id"],
+            request.reporter_authority.membership_event_id.as_str()
+        );
+    }
+
+    #[test]
+    fn rejects_other_station_actor_mutated_body_and_stale_expiry() {
+        let valid = request();
+
+        let mut other_actor = valid.clone();
+        other_actor.reporter_authority.actor_id = ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:web:mallory.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:other-station.example").unwrap(),
+        ));
+        assert!(other_actor.reporter_authority_binding_bytes().is_err());
+
+        let mut mutated = valid.clone();
+        mutated.target_ref =
+            NonEmptyString::new("mimi://provider.example/rooms/room-1/messages/other-message")
+                .unwrap();
+        assert!(mutated.reporter_authority_binding_bytes().is_err());
+
+        let mut stale = valid;
+        stale.reporter_authority.expires_at = stale.reporter_authority.proof.created_at;
+        assert!(stale.reporter_authority_binding_bytes().is_err());
     }
 }
 
@@ -317,7 +461,6 @@ mod device_pairing_tests {
         .unwrap()
         .attach_signature(device_signature);
         let authorize_payload = UnsignedDeviceAuthorizePayload::new(
-            principal_id.clone(),
             target_device.clone(),
             NonEmptyString::new(did_key.as_str()).unwrap(),
             hpke_key,

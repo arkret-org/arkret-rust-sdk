@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-01.1;
-//! sha256=cabdfb05fa1d1046b7e0e3ca40c05961caea19e27b0befc6e0bbfbb712658a11 Entries: registered=231
+//! Input: registry/operation-registry.json; version=2026-09-01.2;
+//! sha256=6902118b2fca3f9fe0efcc24819f2abd05d1f0eabe8dff15ca482cdaf82b9beb Entries: registered=233
 
 use serde::{Deserialize, Serialize};
 
@@ -75,6 +75,7 @@ pub enum ServiceOperationId {
     PeerAccountStatusCommandSubmitV1,
     PeerAccountStatusReadResolveV1,
     PeerContactsCommandSubmitV1,
+    PeerCurrentSignerEvidenceReadResolveV1,
     PeerDeviceRevocationsCommandCheckV1,
     PeerErasureReceiptCommandSubmitV1,
     PeerErasureReceiptResourceGetV1,
@@ -174,6 +175,7 @@ pub enum ServiceOperationId {
     SelfControlProposalAcksCommandIssueV1,
     SelfControlProposalDecisionsCommandSubmitV1,
     SelfControlProposalDecisionsReadGetV1,
+    SelfCurrentSignerEvidenceReadResolveV1,
     SelfDeviceMessagesCommandAckV1,
     SelfDeviceMessagesCommandSendV1,
     SelfDeviceMessagesReadListV1,
@@ -309,6 +311,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT_V1,
+    ServiceOperationId::PEER_CURRENT_SIGNER_EVIDENCE_READ_RESOLVE_V1,
     ServiceOperationId::PEER_DEVICE_REVOCATIONS_COMMAND_CHECK_V1,
     ServiceOperationId::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_ERASURE_RECEIPT_RESOURCE_GET_V1,
@@ -408,6 +411,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_CONTROL_PROPOSAL_ACKS_COMMAND_ISSUE_V1,
     ServiceOperationId::SELF_CONTROL_PROPOSAL_DECISIONS_COMMAND_SUBMIT_V1,
     ServiceOperationId::SELF_CONTROL_PROPOSAL_DECISIONS_READ_GET_V1,
+    ServiceOperationId::SELF_CURRENT_SIGNER_EVIDENCE_READ_RESOLVE_V1,
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_ACK_V1,
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND_V1,
     ServiceOperationId::SELF_DEVICE_MESSAGES_READ_LIST_V1,
@@ -585,6 +589,7 @@ impl ServiceOperationId {
         Self::PeerAccountStatusCommandSubmitV1,
         Self::PeerAccountStatusReadResolveV1,
         Self::PeerContactsCommandSubmitV1,
+        Self::PeerCurrentSignerEvidenceReadResolveV1,
         Self::PeerDeviceRevocationsCommandCheckV1,
         Self::PeerErasureReceiptCommandSubmitV1,
         Self::PeerErasureReceiptResourceGetV1,
@@ -684,6 +689,7 @@ impl ServiceOperationId {
         Self::SelfControlProposalAcksCommandIssueV1,
         Self::SelfControlProposalDecisionsCommandSubmitV1,
         Self::SelfControlProposalDecisionsReadGetV1,
+        Self::SelfCurrentSignerEvidenceReadResolveV1,
         Self::SelfDeviceMessagesCommandAckV1,
         Self::SelfDeviceMessagesCommandSendV1,
         Self::SelfDeviceMessagesReadListV1,
@@ -875,6 +881,8 @@ impl ServiceOperationId {
     pub const PEER_ACCOUNT_STATUS_READ_RESOLVE_V1: &'static str =
         "ak.peer.account_status.read.resolve.v1";
     pub const PEER_CONTACTS_COMMAND_SUBMIT_V1: &'static str = "ak.peer.contacts.command.submit.v1";
+    pub const PEER_CURRENT_SIGNER_EVIDENCE_READ_RESOLVE_V1: &'static str =
+        "ak.peer.current_signer_evidence.read.resolve.v1";
     pub const PEER_DEVICE_REVOCATIONS_COMMAND_CHECK_V1: &'static str =
         "ak.peer.device_revocations.command.check.v1";
     pub const PEER_ERASURE_RECEIPT_COMMAND_SUBMIT_V1: &'static str =
@@ -1034,6 +1042,8 @@ impl ServiceOperationId {
         "ak.self.control_proposal_decisions.command.submit.v1";
     pub const SELF_CONTROL_PROPOSAL_DECISIONS_READ_GET_V1: &'static str =
         "ak.self.control_proposal_decisions.read.get.v1";
+    pub const SELF_CURRENT_SIGNER_EVIDENCE_READ_RESOLVE_V1: &'static str =
+        "ak.self.current_signer_evidence.read.resolve.v1";
     pub const SELF_DEVICE_MESSAGES_COMMAND_ACK_V1: &'static str =
         "ak.self.device_messages.command.ack.v1";
     pub const SELF_DEVICE_MESSAGES_COMMAND_SEND_V1: &'static str =
@@ -1256,6 +1266,9 @@ impl ServiceOperationId {
             Self::PeerAccountStatusCommandSubmitV1 => Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1,
             Self::PeerAccountStatusReadResolveV1 => Self::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1,
             Self::PeerContactsCommandSubmitV1 => Self::PEER_CONTACTS_COMMAND_SUBMIT_V1,
+            Self::PeerCurrentSignerEvidenceReadResolveV1 => {
+                Self::PEER_CURRENT_SIGNER_EVIDENCE_READ_RESOLVE_V1
+            }
             Self::PeerDeviceRevocationsCommandCheckV1 => {
                 Self::PEER_DEVICE_REVOCATIONS_COMMAND_CHECK_V1
             }
@@ -1416,6 +1429,9 @@ impl ServiceOperationId {
             }
             Self::SelfControlProposalDecisionsReadGetV1 => {
                 Self::SELF_CONTROL_PROPOSAL_DECISIONS_READ_GET_V1
+            }
+            Self::SelfCurrentSignerEvidenceReadResolveV1 => {
+                Self::SELF_CURRENT_SIGNER_EVIDENCE_READ_RESOLVE_V1
             }
             Self::SelfDeviceMessagesCommandAckV1 => Self::SELF_DEVICE_MESSAGES_COMMAND_ACK_V1,
             Self::SelfDeviceMessagesCommandSendV1 => Self::SELF_DEVICE_MESSAGES_COMMAND_SEND_V1,
@@ -1670,6 +1686,9 @@ impl ServiceOperationId {
             }
             Self::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1 => Some(Self::PeerAccountStatusReadResolveV1),
             Self::PEER_CONTACTS_COMMAND_SUBMIT_V1 => Some(Self::PeerContactsCommandSubmitV1),
+            Self::PEER_CURRENT_SIGNER_EVIDENCE_READ_RESOLVE_V1 => {
+                Some(Self::PeerCurrentSignerEvidenceReadResolveV1)
+            }
             Self::PEER_DEVICE_REVOCATIONS_COMMAND_CHECK_V1 => {
                 Some(Self::PeerDeviceRevocationsCommandCheckV1)
             }
@@ -1863,6 +1882,9 @@ impl ServiceOperationId {
             Self::SELF_CONTROL_PROPOSAL_DECISIONS_READ_GET_V1 => {
                 Some(Self::SelfControlProposalDecisionsReadGetV1)
             }
+            Self::SELF_CURRENT_SIGNER_EVIDENCE_READ_RESOLVE_V1 => {
+                Some(Self::SelfCurrentSignerEvidenceReadResolveV1)
+            }
             Self::SELF_DEVICE_MESSAGES_COMMAND_ACK_V1 => Some(Self::SelfDeviceMessagesCommandAckV1),
             Self::SELF_DEVICE_MESSAGES_COMMAND_SEND_V1 => {
                 Some(Self::SelfDeviceMessagesCommandSendV1)
@@ -2047,6 +2069,29 @@ impl<'de> Deserialize<'de> for ServiceOperationId {
         let raw = String::deserialize(deserializer)?;
         Self::from_wire(&raw)
             .ok_or_else(|| serde::de::Error::custom(format!("unknown service operation id: {raw}")))
+    }
+}
+
+#[cfg(feature = "openapi")]
+impl salvo_oapi::ToSchema for ServiceOperationId {
+    fn to_schema(
+        _components: &mut salvo_oapi::Components,
+    ) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {
+        salvo_oapi::schema::Object::new()
+            .schema_type(salvo_oapi::schema::BasicType::String)
+            .enum_values(Self::ALL.iter().map(|value| value.as_str()))
+            .into()
+    }
+}
+
+#[cfg(feature = "openapi")]
+impl salvo_oapi::ComposeSchema for ServiceOperationId {
+    fn compose(
+        components: &mut salvo_oapi::Components,
+        generics: Vec<salvo_oapi::RefOr<salvo_oapi::schema::Schema>>,
+    ) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {
+        let _ = generics;
+        <Self as salvo_oapi::ToSchema>::to_schema(components)
     }
 }
 
@@ -2942,7 +2987,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantRefreshRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantRefreshOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantOutcome",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.gate.account.command.refresh_session_grant.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_expired\",\"session_grant_replay_terminal\",\"session_grant_replay_indeterminate\"]}",
@@ -3323,9 +3368,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
         durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.self.moderation.report"])),
+            rationale: None,
             branch_contract_json: None,
         }),
     },
@@ -3585,6 +3630,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some("delivers_existing_signed_fact_without_committing_a_local_event"),
             branch_contract_json: None,
         }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerCurrentSignerEvidenceReadResolveV1,
+        http_method: "POST",
+        http_path: "/_arkret/peer/current-signer-evidence/query",
+        grpc: Some("PeerCurrentSignerEvidence/Resolve"),
+        mq: Some("peer.current_signer_evidence.query.resolve"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/current-signer-evidence-operations.schema.json#/$defs/query_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/current-signer-evidence-operations.schema.json#/$defs/query_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerDeviceRevocationsCommandCheckV1,
@@ -5476,7 +5541,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfConsentCommandGrantV1,
         http_method: "POST",
-        http_path: "/_arkret/self/consent/cells/{holder_principal_id}/grant",
+        http_path: "/_arkret/self/consent/cells/grant",
         grpc: Some("SelfConsent/Grant"),
         mq: Some("self.consent.command.grant"),
         body_class: Some("non_streaming_json"),
@@ -5530,7 +5595,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfConsentCommandRevokeV1,
         http_method: "POST",
-        http_path: "/_arkret/self/consent/cells/{holder_principal_id}/revoke",
+        http_path: "/_arkret/self/consent/cells/revoke",
         grpc: Some("SelfConsent/Revoke"),
         mq: Some("self.consent.command.revoke"),
         body_class: Some("non_streaming_json"),
@@ -5575,7 +5640,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfConsentResourceGetV1,
         http_method: "GET",
-        http_path: "/_arkret/self/consent/cells/{holder_principal_id}",
+        http_path: "/_arkret/self/consent/cell",
         grpc: Some("SelfConsent/Get"),
         mq: Some("self.consent.resource.get"),
         body_class: Some("non_streaming_json"),
@@ -5824,6 +5889,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some(
             "schemas/control-proposal-decision.schema.json#/$defs/control_proposal_decision_read_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfCurrentSignerEvidenceReadResolveV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/current-signer-evidence/query",
+        grpc: Some("SelfCurrentSignerEvidence/Resolve"),
+        mq: Some("self.current_signer_evidence.query.resolve"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/current-signer-evidence-operations.schema.json#/$defs/query_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/current-signer-evidence-operations.schema.json#/$defs/query_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,

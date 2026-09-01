@@ -6,11 +6,9 @@
 //!     `<localpart>:<domain>` handle then formatting it MUST yield the same bytes.
 //!  2. **`acct:` round-trips synthesise the canonical form.** Any valid `acct:` is convertible to
 //!     canonical and back to `acct:` without information loss.
-//!  3. **`HandleClaim::validate` enforces verified-claim expiry.**
+//!  3. Handle parsing rejects structurally unsafe localparts.
 
-use arkret_models_identity::{Handle, HandleBindingState, HandleClaim};
-use arkret_wire::{AccountId, DidCoreId};
-use chrono::{Duration, Utc};
+use arkret_models_identity::Handle;
 use proptest::prelude::*;
 
 const PROPTEST_CASES: u32 = 64;
@@ -33,35 +31,6 @@ fn arb_domain() -> impl Strategy<Value = String> {
 /// Strategy: a valid canonical handle (no port).
 fn arb_handle() -> impl Strategy<Value = String> {
     (arb_localpart(), arb_domain()).prop_map(|(local, domain)| format!("{local}:{domain}"))
-}
-
-/// Claim shell with every field written explicitly: `HandleClaim` has no
-/// `Default` impl because the schema-required `created_at` must come from a
-/// real constructor, not a fabricated placeholder.
-fn base_claim() -> HandleClaim {
-    HandleClaim {
-        schema: HandleClaim::SCHEMA.to_owned(),
-        handle: Handle::parse("alice:example.com").unwrap(),
-        handle_aliases: Vec::new(),
-        subject_account_id: AccountId::new(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
-        ),
-        issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureissuer").unwrap(),
-        vouching_id: None,
-        binding_state: HandleBindingState::Pending,
-        claim_kind: None,
-        visibility: None,
-        audience: None,
-        challenge: None,
-        claim_scope: Default::default(),
-        claims: Vec::new(),
-        created_at: Utc::now(),
-        expires_at: None,
-        verified_at: None,
-        source_refs: Vec::new(),
-        proofs: Vec::new(),
-    }
 }
 
 proptest! {
@@ -93,31 +62,6 @@ proptest! {
         let again = parsed.to_acct();
         prop_assert_eq!(again, acct);
         prop_assert_eq!(parsed.canonical(), handle.canonical());
-    }
-
-    /// MUST rule: binding_state=verified ⇒ requires expires_at.
-    #[test]
-    fn verified_state_requires_handle_and_expires(
-        has_expiry in any::<bool>(),
-        handle in arb_handle(),
-    ) {
-        let mut claim = HandleClaim {
-            binding_state: HandleBindingState::Verified,
-            handle: Handle::parse(&handle).unwrap(),
-            ..base_claim()
-        };
-        if has_expiry {
-            claim.expires_at = Some(Utc::now() + Duration::minutes(5));
-        }
-        let outcome = claim.validate();
-        if has_expiry {
-            prop_assert!(outcome.is_ok(), "verified+expiry should validate");
-        } else {
-            prop_assert!(
-                outcome.is_err(),
-                "verified without expiry MUST be rejected"
-            );
-        }
     }
 
     /// Empty and structurally unsafe localparts are rejected at parse time.

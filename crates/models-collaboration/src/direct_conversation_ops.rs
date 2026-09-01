@@ -21,7 +21,9 @@ pub use arkret_wire::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::contact_operations::{ContactPeer, ContactRoundEvidenceBundle};
+use crate::contact_operations::{
+    ContactPeer, ContactRoundEvidenceBundle, validate_contact_evidence_directions,
+};
 use crate::events_payloads::RealmCreatePayload;
 use crate::events_payloads::event_wire::decode_payload_after_kind_validation;
 
@@ -389,6 +391,7 @@ fn validate_contact_contact_round_evidence_shape(
             ..
         } => sorted_pair_member_ids,
     };
+    validate_contact_evidence_directions(bundle)?;
     if participants[0] >= participants[1]
         || bundle.current_proofs.iter().any(|proof| {
             proof.contact_round_id != bundle.contact_round_id
@@ -398,10 +401,11 @@ fn validate_contact_contact_round_evidence_shape(
         || bundle
             .current_proofs
             .iter()
-            .map(|proof| &proof.issuer_id)
+            .map(|proof| proof.peer.contact_actor_id())
             .collect::<std::collections::BTreeSet<_>>()
             != participants
                 .iter()
+                .cloned()
                 .collect::<std::collections::BTreeSet<_>>()
     {
         return Err(protocol_error("Contact current proofs are invalid"));
@@ -484,7 +488,7 @@ fn validate_contact_contact_round_evidence_shape(
             if expected != actual
                 || attestations.iter().any(|attestation| {
                     attestation.complete_through == 0
-                        || attestation.issuer_id.as_core_id() == attestation.peer_id.as_core_id()
+                        || attestation.subject_id == attestation.peer_id
                         || attestation
                             .request_receipt_digests
                             .iter()

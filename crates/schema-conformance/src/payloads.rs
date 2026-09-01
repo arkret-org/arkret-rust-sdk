@@ -530,12 +530,12 @@ mod tests {
                 schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
             )
         );
-        // Discovery state uses the dedicated closed state payload shared by
-        // resource-discovery kinds.
+        // Each discovery kind resolves to its own exact closed payload; the
+        // resource_discovery_state union is an SDK-facing aggregate only.
         assert_eq!(
             catalog.rules["ak.applet.discovery"].payload_schema_id,
             format!(
-                "{schemaid_event_payload_v1}#/$defs/resource_discovery_state_payload",
+                "{schemaid_event_payload_v1}#/$defs/applet_discovery_state_payload",
                 schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
             )
         );

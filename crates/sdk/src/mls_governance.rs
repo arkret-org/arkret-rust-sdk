@@ -211,8 +211,8 @@ pub(crate) fn authenticated_document_key(
                     "principal signer evidence attester must be a service".to_owned(),
                 ));
             };
-            if public_resolution.station_id != *attester_id
-                || public_resolution.principal_id != *signer_id
+            if public_resolution.account_id.station_id != *attester_id
+                || public_resolution.account_id.principal_id != *signer_id
                 || public_resolution.resolution_projection.did != normalized_did_document.id
                 || public_resolution
                     .method_history_evidence

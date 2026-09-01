@@ -3,7 +3,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-use arkret_wire::{ActorId, Did, DidCoreId, TrustDomainId, validate_canonical_idna_domain};
+use arkret_wire::{
+    ActorId, AppletId, Did, DidCoreId, TrustDomainId, validate_canonical_idna_domain,
+};
 
 use crate::governance::operation_wire::Policy;
 use crate::internal_prelude::*;
@@ -322,7 +324,101 @@ state_payload_with_subject!(
     organization_principal_id,
     Did
 );
-state_payload_with_subject!(ResourceDiscoveryStatePayload, resource_id, NonEmptyString);
+
+/// Canonical resource key for actor/applet/handle discovery cells.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ResourceDiscoveryId {
+    Actor(ActorId),
+    Applet(AppletId),
+    Handle(CanonicalDiscoveryHandle),
+}
+
+validated_string_newtype!(
+    CanonicalDiscoveryHandle,
+    canonical_discovery_handle_is_valid,
+    "discovery handle must be canonical prepared-localpart:lowercase-domain"
+);
+
+fn canonical_discovery_handle_is_valid(value: &str) -> bool {
+    static PATTERN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(
+            r"^[^\s:@/#?\\]+:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$",
+        )
+        .expect("canonical handle regex")
+    });
+    value.chars().count() >= 5
+        && value.chars().count() <= 382
+        && value
+            .split_once(':')
+            .is_some_and(|(local, domain)| local.chars().count() <= 128 && domain.len() <= 253)
+        && PATTERN.is_match(value)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ResourceDiscoveryKind {
+    Actor,
+    Applet,
+    Handle,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ResourceDiscoverability {
+    Public,
+    Listed,
+    Restricted,
+    Unlisted,
+    InviteOnly,
+    Secret,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResourceDiscoveryStateValue {
+    pub resource_kind: ResourceDiscoveryKind,
+    pub discoverability: ResourceDiscoverability,
+    pub directory_ids: Vec<DidCoreId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile_visibility: Option<Value>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResourceDiscoveryStatePayload {
+    pub resource_id: ResourceDiscoveryId,
+    pub value: ResourceDiscoveryStateValue,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+impl ResourceDiscoveryStatePayload {
+    pub fn validate(&self) -> Result<()> {
+        let kind_matches = matches!(
+            (&self.resource_id, self.value.resource_kind),
+            (ResourceDiscoveryId::Actor(_), ResourceDiscoveryKind::Actor)
+                | (
+                    ResourceDiscoveryId::Applet(_),
+                    ResourceDiscoveryKind::Applet
+                )
+                | (
+                    ResourceDiscoveryId::Handle(_),
+                    ResourceDiscoveryKind::Handle
+                )
+        );
+        if !kind_matches {
+            return schema_violation("discovery resource_id does not match value.resource_kind");
+        }
+        if self.value.directory_ids.len() > 64 || contains_duplicate(&self.value.directory_ids) {
+            return schema_violation("discovery directory_ids must contain at most 64 unique ids");
+        }
+        Ok(())
+    }
+}
+
 state_payload_with_subject!(DidProofStatePayload, did, Did);
 state_payload_with_subject!(PolicyRuleStatePayload, rule_id, PolicyRuleId);
 state_payload_with_subject!(SovereignDidPolicyStatePayload, trust_domain, TrustDomainId);

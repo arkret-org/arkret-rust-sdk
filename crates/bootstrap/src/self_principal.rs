@@ -162,8 +162,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
     let authorize_proof = validate_event_proof_digests(authorize)?;
     let payload: DeviceAuthorizePayload =
         authorize.typed_payload::<event_spec::DeviceAuthorize>()?;
-    if payload.principal_id.as_core_id() != create.actor_id.signing_principal_id().as_core_id()
-        || payload.authorization_binding_kind != DeviceAuthorizationBindingKind::RegistrationAnchor
+    if payload.authorization_binding_kind != DeviceAuthorizationBindingKind::RegistrationAnchor
         || payload.recovery_session_id.is_some()
     {
         return Err(WireError::Protocol(
@@ -228,9 +227,12 @@ pub fn validate_self_principal_pcr_genesis_unit(
     // cell for this principal and device -- an authoritative claim the old
     // emptiness check could never make.
     let authorize_effects = direct_projection(authorize, project)?;
+    let actor_subject =
+        String::from_utf8(arkret_canonical::canonical_json_bytes(&create.actor_id)?)
+            .map_err(|_| WireError::Protocol("device actor subject is not UTF-8".to_owned()))?;
     let device_cell = CellRef::new(format!(
         "ak:cell:ak.component.device.authorization.v1:{}",
-        composite_subject(&[payload.principal_id.as_str(), payload.device_id.as_str()])?
+        composite_subject(&[actor_subject.as_str(), payload.device_id.as_str()])?
     ))?;
     if authorize_effects.len() != 1 || authorize_effects[0].cell_id != device_cell {
         return Err(WireError::Protocol(

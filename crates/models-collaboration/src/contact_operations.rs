@@ -32,6 +32,17 @@ impl ContactPeer {
             Self::Agent { actor_id, .. } => actor_id.clone(),
         }
     }
+
+    /// Station that accepts private delivery for this participant.
+    pub fn delivery_station_id(&self) -> &DidCoreId {
+        match self {
+            Self::Human { account_id } => &account_id.station_id,
+            Self::Agent {
+                controller_account_id,
+                ..
+            } => &controller_account_id.station_id,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -164,7 +175,8 @@ impl ContactNextPrepareInput {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactCurrentProof {
     pub contact_round_id: Hash,
-    pub issuer_id: ActorId,
+    pub issuer_id: DidCoreId,
+    pub peer: ContactPeer,
     pub terminal: bool,
     pub head_event_ref: EventId,
     pub accepted_frontier: Vec<EventId>,
@@ -217,7 +229,7 @@ pub struct NormalResponseAcceptanceReceipt {
     pub outgoing_slot_absence_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
-    pub issuer_id: ActorId,
+    pub issuer_id: DidCoreId,
     pub signature: ProtocolSignature,
 }
 
@@ -231,6 +243,75 @@ impl NormalResponseAcceptanceReceipt {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum OutgoingRequestState {
+    Absent,
+}
+
+/// Exact CAS observation covered by `outgoing_slot_absence_digest`.
+///
+/// `slot_predecessor` intentionally serializes as JSON null at genesis. No
+/// field in this closed transcript is optional on the wire.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct OutgoingSlotAbsenceTranscript {
+    pub sorted_pair_member_ids: [ActorId; 2],
+    pub request_slot_owner: ActorId,
+    pub contact_round_id: Hash,
+    pub slot_predecessor: Option<Hash>,
+    pub cas_sequence: u64,
+    pub cas_frontier: Vec<EventId>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub observed_at: DateTime<Utc>,
+    pub outgoing_request_state: OutgoingRequestState,
+}
+
+impl OutgoingSlotAbsenceTranscript {
+    pub fn validate_shape(&self) -> arkret_wire::Result<()> {
+        let pair_bytes = self
+            .sorted_pair_member_ids
+            .iter()
+            .map(arkret_canonical::canonical_json_bytes)
+            .collect::<arkret_canonical::Result<Vec<_>>>()?;
+        if pair_bytes[0] >= pair_bytes[1]
+            || !self
+                .sorted_pair_member_ids
+                .contains(&self.request_slot_owner)
+            || self.cas_sequence == 0
+            || self.cas_frontier.is_empty()
+            || !self.cas_frontier.windows(2).all(|pair| pair[0] < pair[1])
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "invalid Contact outgoing-slot-absence transcript".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn canonical_bytes(&self) -> arkret_wire::Result<Vec<u8>> {
+        self.validate_shape()?;
+        arkret_canonical::canonical_json_bytes(self).map_err(Into::into)
+    }
+
+    pub fn digest(&self) -> arkret_wire::Result<Hash> {
+        let mut bytes = b"ak.contact.no_outgoing_slot.v1\n".to_vec();
+        bytes.extend(self.canonical_bytes()?);
+        Hash::new(arkret_canonical::sha256_digest(bytes)).map_err(Into::into)
+    }
+
+    pub fn verify_digest(&self, expected: &Hash) -> arkret_wire::Result<()> {
+        if &self.digest()? != expected {
+            return Err(arkret_wire::WireError::Protocol(
+                "Contact outgoing-slot-absence digest mismatch".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -239,7 +320,7 @@ pub struct RejectAcceptanceReceipt {
     pub reject_event_ref: EventId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
-    pub issuer_id: ActorId,
+    pub issuer_id: DidCoreId,
     pub signature: ProtocolSignature,
 }
 
@@ -638,6 +719,7 @@ pub fn validate_recontact_continuity(
             "Contact round continuity exceeds 64 predecessors".to_owned(),
         ));
     }
+    validate_contact_evidence_directions(current)?;
     let mut expected = current.previous_terminal_contact_round_id.as_ref();
     if current
         .request_receipts
@@ -651,6 +733,7 @@ pub fn validate_recontact_continuity(
     let mut seen = std::collections::BTreeSet::new();
     seen.insert(current.contact_round_id.clone());
     for predecessor in predecessors {
+        validate_contact_evidence_directions(predecessor)?;
         if expected != Some(&predecessor.contact_round_id)
             || predecessor.current_proofs.len() != 2
             || predecessor.current_proofs.iter().any(|proof| {
@@ -711,6 +794,77 @@ pub fn validate_recontact_continuity(
             "continuity_evidence_unavailable: Contact continuity does not reach its root"
                 .to_owned(),
         ));
+    }
+    Ok(())
+}
+
+/// Validate participant direction independently from the service signer.
+/// Same-Station pairs may legitimately have equal issuer IDs, so direction is
+/// keyed exclusively by each signed peer/subject pair.
+pub fn validate_contact_evidence_directions(
+    bundle: &ContactRoundEvidenceBundle,
+) -> arkret_wire::Result<()> {
+    let pair = contact_round_participants(&bundle.contact_round);
+    let mut proof_peers = std::collections::BTreeSet::new();
+    for proof in &bundle.current_proofs {
+        let peer = proof.peer.contact_actor_id();
+        let subject = if peer == pair[0] {
+            &pair[1]
+        } else if peer == pair[1] {
+            &pair[0]
+        } else {
+            return Err(arkret_wire::WireError::Protocol(
+                "Contact current proof peer is outside the exact pair".to_owned(),
+            ));
+        };
+        let Some(subject_account) = subject.as_account_id() else {
+            return Err(arkret_wire::WireError::Protocol(
+                "Contact proof subject has no account Station authority".to_owned(),
+            ));
+        };
+        if proof.issuer_id != subject_account.station_id || !proof_peers.insert(peer) {
+            return Err(arkret_wire::WireError::Protocol(
+                "Contact current proofs do not cover distinct opposite directions".to_owned(),
+            ));
+        }
+    }
+    if bundle.current_proofs.len() == 2 && proof_peers != pair.clone().into_iter().collect() {
+        return Err(arkret_wire::WireError::Protocol(
+            "Contact current proofs do not cover the exact pair".to_owned(),
+        ));
+    }
+
+    if let Some(attestations) = &bundle.glare_concurrency_attestations {
+        let mut subjects = std::collections::BTreeSet::new();
+        for attestation in attestations {
+            let opposite = if attestation.subject_id == pair[0] {
+                &pair[1]
+            } else if attestation.subject_id == pair[1] {
+                &pair[0]
+            } else {
+                return Err(arkret_wire::WireError::Protocol(
+                    "Contact glare subject is outside the exact pair".to_owned(),
+                ));
+            };
+            let Some(subject_account) = attestation.subject_id.as_account_id() else {
+                return Err(arkret_wire::WireError::Protocol(
+                    "Contact glare subject has no account Station authority".to_owned(),
+                ));
+            };
+            if &attestation.peer_id != opposite
+                || attestation.issuer_id != subject_account.station_id
+                || !subjects.insert(attestation.subject_id.clone())
+            {
+                return Err(arkret_wire::WireError::Protocol(
+                    "Contact glare attestations do not cover opposite directions".to_owned(),
+                ));
+            }
+        }
+        if subjects != pair.into_iter().collect() {
+            return Err(arkret_wire::WireError::Protocol(
+                "Contact glare attestations do not cover the exact pair".to_owned(),
+            ));
+        }
     }
     Ok(())
 }
@@ -1063,8 +1217,9 @@ pub enum PeerContactSubmitRequestBody {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct GlareConcurrencyAttestation {
+    pub subject_id: ActorId,
     pub issuer_id: DidCoreId,
-    pub peer_id: DidCoreId,
+    pub peer_id: ActorId,
     pub request_receipt_digests: [Hash; 2],
     pub observed_frontier: Vec<EventId>,
     pub complete_through: u64,
@@ -1317,7 +1472,10 @@ mod event_digest_derivation_tests {
 
         let proof = ContactCurrentProof {
             contact_round_id: hash('c'),
-            issuer_id: account_actor("ak:did_core:webvh:z6mkfixturealice"),
+            issuer_id: DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
+            peer: ContactPeer::Human {
+                account_id: account("ak:did_core:webvh:z6mkfixturebob"),
+            },
             terminal: false,
             head_event_ref: EventId::new(EVENT_REF).unwrap(),
             accepted_frontier: vec![EventId::new(EVENT_REF).unwrap()],
@@ -1333,7 +1491,7 @@ mod event_digest_derivation_tests {
             response_event_ref: EventId::new(EVENT_REF).unwrap(),
             outgoing_slot_absence_digest: hash('e'),
             accepted_at: timestamp(),
-            issuer_id: account_actor("ak:did_core:webvh:z6mkfixturebob"),
+            issuer_id: DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
             signature: signature(),
         };
         assert_eq!(response.response_digest().as_str(), EVENT_DIGEST);
@@ -1342,7 +1500,7 @@ mod event_digest_derivation_tests {
             request_receipt: request,
             reject_event_ref: EventId::new(EVENT_REF).unwrap(),
             accepted_at: timestamp(),
-            issuer_id: account_actor("ak:did_core:webvh:z6mkfixturebob"),
+            issuer_id: DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
             signature: signature(),
         };
         assert_eq!(reject.reject_digest().as_str(), EVENT_DIGEST);
@@ -1358,5 +1516,47 @@ mod event_digest_derivation_tests {
             signature: signature(),
         };
         assert_eq!(mirror.signed_event_digest().as_str(), EVENT_DIGEST);
+    }
+
+    #[test]
+    fn outgoing_slot_absence_transcript_matches_normative_kat() {
+        let alice = ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturestationa").unwrap(),
+        ));
+        let bob = ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturestationb").unwrap(),
+        ));
+        let transcript = OutgoingSlotAbsenceTranscript {
+            sorted_pair_member_ids: [alice, bob.clone()],
+            request_slot_owner: bob,
+            contact_round_id: Hash::new(
+                "sha256:0ceca65487c2143ddb4e4c4e7831fcd6e1e8e049bff470a30aa8c033b4c913ec",
+            )
+            .unwrap(),
+            slot_predecessor: None,
+            cas_sequence: 7,
+            cas_frontier: vec![
+                EventId::new("ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD").unwrap(),
+                EventId::new("ak:event:AWi7O9JH8Ib3wHJrt01Tl7Gf67pixYPhAmufRLOXFoBA").unwrap(),
+            ],
+            observed_at: DateTime::parse_from_rfc3339("2026-08-31T03:59:00.000Z")
+                .unwrap()
+                .with_timezone(&Utc),
+            outgoing_request_state: OutgoingRequestState::Absent,
+        };
+        assert_eq!(
+            transcript.digest().unwrap().as_str(),
+            "sha256:07bf0692dbec6a4cef398e0f7de448dd2f970edf47fe10d48921bc67a57ecabe"
+        );
+
+        let mut swapped = transcript.clone();
+        swapped.sorted_pair_member_ids.swap(0, 1);
+        assert!(swapped.validate_shape().is_err());
+        let mut duplicate_direction = transcript;
+        duplicate_direction.request_slot_owner =
+            account_actor("ak:did_core:webvh:z6mkfixtureoutside");
+        assert!(duplicate_direction.validate_shape().is_err());
     }
 }

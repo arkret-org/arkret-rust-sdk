@@ -18,8 +18,7 @@ use arkret_models_collaboration::http_bodies::{
     DevicePairingStatusOutcome, DevicePairingStatusRequestBody,
 };
 use arkret_models_collaboration::session_grant_bodies::{
-    SessionGrantOutcome, SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody,
-    SessionGrantRequestBody,
+    SessionGrantOutcome, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
 };
 use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountSubscribeBatch, AccountSubscribeFrame, AccountSubscribeFrameKind,
@@ -151,7 +150,7 @@ impl Client {
     pub async fn auth_refresh_session_grant(
         &self,
         req: &SessionGrantRefreshRequestBody,
-    ) -> Result<SessionGrantRefreshOutcome> {
+    ) -> Result<SessionGrantOutcome> {
         self.post_protocol_replay_safe("/_arkret/gate/account/session-grants/refresh", req)
             .await
     }
@@ -642,7 +641,8 @@ mod tests {
             "expires_at": "2026-08-08T12:04:00.000Z",
             "session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
             "session_public_key": r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
-            "audience_id": "ak:did_core:web:service.example"
+            "audience_id": "ak:did_core:web:service.example",
+            "granted_scope": []
         })
         .to_string()
     }
@@ -673,12 +673,11 @@ mod tests {
                 "principal_id": "ak:did_core:web:alice.example",
                 "station_id": "ak:did_core:web:service.example"
             },
-            "grant_jwt": "successor.jwt",
+            "session_grant": "successor.jwt",
             "session_public_key": r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
             "expires_at": "2026-08-08T12:04:00.000Z",
             "audience_id": "ak:did_core:web:service.example",
-            "scopes": [],
-            "dpop_jkt": "holder-thumbprint",
+            "granted_scope": [],
             "previous_session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW"
         })
         .to_string()

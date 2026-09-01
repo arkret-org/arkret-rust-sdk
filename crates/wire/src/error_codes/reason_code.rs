@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-01.1;
-//! sha256=95f54a58e16b54f20738672a750e6482694553274689e09e45228fbc0859708a
+//! Input: registry/error-code-registry.json; version=2026-09-01.2;
+//! sha256=6e49184ea59315d356e39b66043897bf5f95b196f2f83d613c352f72b73dc197
 //! Entries: reason_codes=458
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -3034,7 +3034,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::HANDLE_HOLDER_ACCEPTANCE_MISSING,
         applies_to: &["auth_decision", "service_call"],
-        description: "A restricted handle whose subject account is NOT controlled by the issuer was presented as binding_state=verified without a holder-acceptance proof (a proof in proofs[] signed by a verification method of subject_account_id.principal_id covering the exact account tuple, handle, audience and claim_scope). Verifiers MUST treat it as at most issuer-attested (below verified): it MUST NOT enter the verified candidate set, be displayed as verified, or drive grant conditions, roster strong attribution or AccountId targeting. This closes issuer-unilateral impersonation within the issuer's audience. See zh/identity/identity-handles.md §6.",
+        description: "A restricted HandleClaim status view was presented as status=verified while its immutable claim core omitted or invalidated the required holder_acceptance proof over the exact claim_digest (including claim.subject_account_id, claim.handle and claim.audience). Verifiers MUST reject the entire status view: it MUST NOT enter the verified candidate set, be displayed as verified, or drive grant conditions, roster strong attribution or AccountId targeting. This closes issuer-unilateral impersonation within the issuer's audience. See zh/identity/identity-handles.md §6.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::HANDLE_HOMOGRAPH_FORBIDDEN,
@@ -3869,7 +3869,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_PRINCIPAL_ISOLATION,
         applies_to: &["authz", "device_recovery"],
-        description: "A recovery policy or recovery session request targets a principal_id different from the principal bound to the authenticated SessionGrant. Servers MUST reject without revealing the target principal's recovery state.",
+        description: "A recovery policy or recovery session request targets an AccountId different from the exact account bound to the authenticated SessionGrant. Servers MUST compare both principal_id and station_id and reject without revealing the target account's recovery state.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_PROOF_KIND_UNKNOWN,

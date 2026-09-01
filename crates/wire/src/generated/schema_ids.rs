@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-08-31.3;
-//! sha256=c6843eca4309bccd4801f01f36042195bb29be20312a5ad1f6386bf90fb79f4e Entries: schema_ids=195,
-//! active=195
+//! Input: registry/schema-registry.json; version=2026-09-01.1;
+//! sha256=c9867f3896c5875e9b169354d77e26ed98b33567e06393654a28e12c1d435c95 Entries: schema_ids=200,
+//! active=200
 
 use serde::{Deserialize, Serialize};
 
@@ -77,6 +77,8 @@ pub enum SchemaId {
     ControllerAccountGateAttestationV1,
     ControllerAccountGateAttestationIssueOutcomeV1,
     ControllerAccountGateAttestationIssueRequestV1,
+    CurrentSignerEvidenceQueryOutcomeV1,
+    CurrentSignerEvidenceQueryRequestV1,
     CursorV1,
     DeviceMessageV1,
     DevicePairingBootstrapV1,
@@ -101,6 +103,8 @@ pub enum SchemaId {
     FileTransferV1,
     GrantConstraintV1,
     HandleClaimV1,
+    HandleClaimCoreV1,
+    HandleClaimRevocationV1,
     HighRiskAuthorityProofV1,
     HistoryKeyV1,
     HttpProblemDetailsV1,
@@ -164,6 +168,7 @@ pub enum SchemaId {
     RecoverySessionV1,
     RegistrationDidEvidenceV1,
     RelationV1,
+    ResourceDiscoveryStateV1,
     ResourceSelectorV1,
     RsvpV1,
     SdkConformanceClaimV1,
@@ -276,6 +281,8 @@ impl SchemaId {
         Self::ControllerAccountGateAttestationV1,
         Self::ControllerAccountGateAttestationIssueOutcomeV1,
         Self::ControllerAccountGateAttestationIssueRequestV1,
+        Self::CurrentSignerEvidenceQueryOutcomeV1,
+        Self::CurrentSignerEvidenceQueryRequestV1,
         Self::CursorV1,
         Self::DeviceMessageV1,
         Self::DevicePairingBootstrapV1,
@@ -300,6 +307,8 @@ impl SchemaId {
         Self::FileTransferV1,
         Self::GrantConstraintV1,
         Self::HandleClaimV1,
+        Self::HandleClaimCoreV1,
+        Self::HandleClaimRevocationV1,
         Self::HighRiskAuthorityProofV1,
         Self::HistoryKeyV1,
         Self::HttpProblemDetailsV1,
@@ -363,6 +372,7 @@ impl SchemaId {
         Self::RecoverySessionV1,
         Self::RegistrationDidEvidenceV1,
         Self::RelationV1,
+        Self::ResourceDiscoveryStateV1,
         Self::ResourceSelectorV1,
         Self::RsvpV1,
         Self::SdkConformanceClaimV1,
@@ -475,6 +485,8 @@ impl SchemaId {
         Self::ControllerAccountGateAttestationV1,
         Self::ControllerAccountGateAttestationIssueOutcomeV1,
         Self::ControllerAccountGateAttestationIssueRequestV1,
+        Self::CurrentSignerEvidenceQueryOutcomeV1,
+        Self::CurrentSignerEvidenceQueryRequestV1,
         Self::CursorV1,
         Self::DeviceMessageV1,
         Self::DevicePairingBootstrapV1,
@@ -499,6 +511,8 @@ impl SchemaId {
         Self::FileTransferV1,
         Self::GrantConstraintV1,
         Self::HandleClaimV1,
+        Self::HandleClaimCoreV1,
+        Self::HandleClaimRevocationV1,
         Self::HighRiskAuthorityProofV1,
         Self::HistoryKeyV1,
         Self::HttpProblemDetailsV1,
@@ -562,6 +576,7 @@ impl SchemaId {
         Self::RecoverySessionV1,
         Self::RegistrationDidEvidenceV1,
         Self::RelationV1,
+        Self::ResourceDiscoveryStateV1,
         Self::ResourceSelectorV1,
         Self::RsvpV1,
         Self::SdkConformanceClaimV1,
@@ -812,6 +827,14 @@ impl SchemaId {
     /// lifecycle gate needed to assemble signer evidence.
     pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1: &'static str =
         "ak.schema.controller_account_gate_attestation_issue_request.v1";
+    /// Origin-Station-signed response binding exact Signal, recipient, proxy verifier, challenge
+    /// and closed current signer evidence.
+    pub const CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1: &'static str =
+        "ak.schema.current_signer_evidence_query_outcome.v1";
+    /// Request-bound cold-recipient query selecting exactly one current account-device or Agent
+    /// authority branch per sender.
+    pub const CURRENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1: &'static str =
+        "ak.schema.current_signer_evidence_query_request.v1";
     pub const CURSOR_V1: &'static str = "ak.schema.cursor.v1";
     pub const DEVICE_MESSAGE_V1: &'static str = "ak.schema.device_message.v1";
     /// Pairing material DTO handed to an already-authorized device after resolving a device-pairing
@@ -874,6 +897,11 @@ impl SchemaId {
     pub const FILE_TRANSFER_V1: &'static str = "ak.schema.file_transfer.v1";
     pub const GRANT_CONSTRAINT_V1: &'static str = "ak.schema.grant_constraint.v1";
     pub const HANDLE_CLAIM_V1: &'static str = "ak.schema.handle_claim.v1";
+    /// Signed Handle Claim core binding one canonical handle to an exact Account subject and
+    /// issuer.
+    pub const HANDLE_CLAIM_CORE_V1: &'static str = "ak.schema.handle_claim_core.v1";
+    /// Signed issuer-or-holder revocation of one exact Handle Claim digest.
+    pub const HANDLE_CLAIM_REVOCATION_V1: &'static str = "ak.schema.handle_claim_revocation.v1";
     /// Shared high-risk authority proof family (principal_signing / device_quorum /
     /// trusted_recovery_service) over an operation's canonical transcript, each branch reusing the
     /// common detached-JWS leaf. First consumer: active-series key backup tail deletion
@@ -1034,6 +1062,9 @@ impl SchemaId {
     /// Account-local registration DID evidence retained for onboarding and recovery audit.
     pub const REGISTRATION_DID_EVIDENCE_V1: &'static str = "ak.schema.registration_did_evidence.v1";
     pub const RELATION_V1: &'static str = "ak.schema.relation.v1";
+    /// Closed SDK-facing union at schemas/event-payload.schema.json#/$defs/resource_discovery_state
+    /// over the exact Actor, Applet, and Handle discovery-state Event payloads.
+    pub const RESOURCE_DISCOVERY_STATE_V1: &'static str = "ak.schema.resource_discovery_state.v1";
     pub const RESOURCE_SELECTOR_V1: &'static str = "ak.schema.resource_selector.v1";
     /// Payload schema for ak.rsvp.set.
     pub const RSVP_V1: &'static str = "ak.schema.rsvp.v1";
@@ -1223,6 +1254,12 @@ impl SchemaId {
             Self::ControllerAccountGateAttestationIssueRequestV1 => {
                 Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1
             }
+            Self::CurrentSignerEvidenceQueryOutcomeV1 => {
+                Self::CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1
+            }
+            Self::CurrentSignerEvidenceQueryRequestV1 => {
+                Self::CURRENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1
+            }
             Self::CursorV1 => Self::CURSOR_V1,
             Self::DeviceMessageV1 => Self::DEVICE_MESSAGE_V1,
             Self::DevicePairingBootstrapV1 => Self::DEVICE_PAIRING_BOOTSTRAP_V1,
@@ -1247,6 +1284,8 @@ impl SchemaId {
             Self::FileTransferV1 => Self::FILE_TRANSFER_V1,
             Self::GrantConstraintV1 => Self::GRANT_CONSTRAINT_V1,
             Self::HandleClaimV1 => Self::HANDLE_CLAIM_V1,
+            Self::HandleClaimCoreV1 => Self::HANDLE_CLAIM_CORE_V1,
+            Self::HandleClaimRevocationV1 => Self::HANDLE_CLAIM_REVOCATION_V1,
             Self::HighRiskAuthorityProofV1 => Self::HIGH_RISK_AUTHORITY_PROOF_V1,
             Self::HistoryKeyV1 => Self::HISTORY_KEY_V1,
             Self::HttpProblemDetailsV1 => Self::HTTP_PROBLEM_DETAILS_V1,
@@ -1310,6 +1349,7 @@ impl SchemaId {
             Self::RecoverySessionV1 => Self::RECOVERY_SESSION_V1,
             Self::RegistrationDidEvidenceV1 => Self::REGISTRATION_DID_EVIDENCE_V1,
             Self::RelationV1 => Self::RELATION_V1,
+            Self::ResourceDiscoveryStateV1 => Self::RESOURCE_DISCOVERY_STATE_V1,
             Self::ResourceSelectorV1 => Self::RESOURCE_SELECTOR_V1,
             Self::RsvpV1 => Self::RSVP_V1,
             Self::SdkConformanceClaimV1 => Self::SDK_CONFORMANCE_CLAIM_V1,
@@ -1457,6 +1497,12 @@ impl SchemaId {
             Self::ControllerAccountGateAttestationIssueRequestV1 => {
                 "schemas/agent-signer-evidence-operations.schema.json"
             }
+            Self::CurrentSignerEvidenceQueryOutcomeV1 => {
+                "schemas/current-signer-evidence-operations.schema.json"
+            }
+            Self::CurrentSignerEvidenceQueryRequestV1 => {
+                "schemas/current-signer-evidence-operations.schema.json"
+            }
             Self::CursorV1 => "schemas/cursor.schema.json",
             Self::DeviceMessageV1 => "schemas/device-message.schema.json",
             Self::DevicePairingBootstrapV1 => "schemas/device-pairing.schema.json",
@@ -1483,6 +1529,8 @@ impl SchemaId {
             Self::FileTransferV1 => "schemas/file-transfer.schema.json",
             Self::GrantConstraintV1 => "schemas/grant-constraint.schema.json",
             Self::HandleClaimV1 => "schemas/handle-claim.schema.json",
+            Self::HandleClaimCoreV1 => "schemas/handle-claim.schema.json",
+            Self::HandleClaimRevocationV1 => "schemas/handle-claim.schema.json",
             Self::HighRiskAuthorityProofV1 => "schemas/high-risk-authority-proof.schema.json",
             Self::HistoryKeyV1 => "schemas/history-key.schema.json",
             Self::HttpProblemDetailsV1 => "schemas/http-problem-details.schema.json",
@@ -1552,6 +1600,7 @@ impl SchemaId {
             Self::RecoverySessionV1 => "schemas/recovery-session.schema.json",
             Self::RegistrationDidEvidenceV1 => "schemas/registration-did-evidence.schema.json",
             Self::RelationV1 => "schemas/relation.schema.json",
+            Self::ResourceDiscoveryStateV1 => "schemas/event-payload.schema.json",
             Self::ResourceSelectorV1 => "schemas/resource-selector.schema.json",
             Self::RsvpV1 => "schemas/rsvp.schema.json",
             Self::SdkConformanceClaimV1 => "schemas/sdk-conformance-claim.schema.json",
@@ -1697,6 +1746,12 @@ impl SchemaId {
             Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1 => {
                 Some(Self::ControllerAccountGateAttestationIssueRequestV1)
             }
+            Self::CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1 => {
+                Some(Self::CurrentSignerEvidenceQueryOutcomeV1)
+            }
+            Self::CURRENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1 => {
+                Some(Self::CurrentSignerEvidenceQueryRequestV1)
+            }
             Self::CURSOR_V1 => Some(Self::CursorV1),
             Self::DEVICE_MESSAGE_V1 => Some(Self::DeviceMessageV1),
             Self::DEVICE_PAIRING_BOOTSTRAP_V1 => Some(Self::DevicePairingBootstrapV1),
@@ -1721,6 +1776,8 @@ impl SchemaId {
             Self::FILE_TRANSFER_V1 => Some(Self::FileTransferV1),
             Self::GRANT_CONSTRAINT_V1 => Some(Self::GrantConstraintV1),
             Self::HANDLE_CLAIM_V1 => Some(Self::HandleClaimV1),
+            Self::HANDLE_CLAIM_CORE_V1 => Some(Self::HandleClaimCoreV1),
+            Self::HANDLE_CLAIM_REVOCATION_V1 => Some(Self::HandleClaimRevocationV1),
             Self::HIGH_RISK_AUTHORITY_PROOF_V1 => Some(Self::HighRiskAuthorityProofV1),
             Self::HISTORY_KEY_V1 => Some(Self::HistoryKeyV1),
             Self::HTTP_PROBLEM_DETAILS_V1 => Some(Self::HttpProblemDetailsV1),
@@ -1786,6 +1843,7 @@ impl SchemaId {
             Self::RECOVERY_SESSION_V1 => Some(Self::RecoverySessionV1),
             Self::REGISTRATION_DID_EVIDENCE_V1 => Some(Self::RegistrationDidEvidenceV1),
             Self::RELATION_V1 => Some(Self::RelationV1),
+            Self::RESOURCE_DISCOVERY_STATE_V1 => Some(Self::ResourceDiscoveryStateV1),
             Self::RESOURCE_SELECTOR_V1 => Some(Self::ResourceSelectorV1),
             Self::RSVP_V1 => Some(Self::RsvpV1),
             Self::SDK_CONFORMANCE_CLAIM_V1 => Some(Self::SdkConformanceClaimV1),

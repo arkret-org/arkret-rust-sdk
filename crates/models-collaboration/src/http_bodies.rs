@@ -32,7 +32,9 @@ use crate::events_payloads::{
 };
 use crate::governance::agent_artifacts::{DeviceMetadata, GrantSnapshot, PublicKey};
 use crate::governance::agent_membership_cascade::AgentMembershipCascadeOutcome;
-use crate::history_key::{PeerHistoryTraversalAccess, SelfHistoryTraversalAccess};
+use crate::history_key::{
+    DirectorySourceRefAccess, PeerHistoryTraversalAccess, SelfHistoryTraversalAccess,
+};
 use crate::objects::blob::BlobUploadMetadata;
 use crate::objects::mimi::{
     MimiCiphertext, MimiConsentPurpose, MimiConsentTarget, MimiDelivery, MimiFailure,
@@ -679,6 +681,8 @@ pub struct PeerEventsResolveRequestBody {
     pub max_response_bytes: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub history_traversal_access: Option<PeerHistoryTraversalAccess>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub directory_source_ref_access: Option<DirectorySourceRefAccess>,
 }
 
 impl PeerEventsResolveRequestBody {
@@ -687,6 +691,30 @@ impl PeerEventsResolveRequestBody {
             return Err(WireError::Protocol(
                 "peer dependency resolve requires at least one selector".to_owned(),
             ));
+        }
+        if self.history_traversal_access.is_some() && self.directory_source_ref_access.is_some() {
+            return Err(WireError::Protocol(
+                "peer resolve access carriers are mutually exclusive".to_owned(),
+            ));
+        }
+        if let Some(access) = &self.directory_source_ref_access {
+            access.validate()?;
+            if self.event_ids.is_empty() || !self.event_digests.is_empty() {
+                return Err(WireError::Protocol(
+                    "directory source-ref access requires event_ids and forbids event_digests"
+                        .to_owned(),
+                ));
+            }
+            if self.realm_id != access.realm_id
+                || self
+                    .event_ids
+                    .iter()
+                    .any(|event_id| !access.source_refs.contains(event_id))
+            {
+                return Err(WireError::Protocol(
+                    "directory source-ref access does not bind every selector".to_owned(),
+                ));
+            }
         }
         if self.event_ids.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
             || self.event_digests.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
@@ -1775,15 +1803,17 @@ impl MimiIdentifierQueryOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiReportAbuseRequestBody {
     pub strand_id: StrandId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mimi_room_uri: Option<MimiRoomUri>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<RealmId>,
+    pub mimi_room_uri: MimiRoomUri,
+    pub realm_id: RealmId,
     pub target_ref: NonEmptyString,
     pub reporter_id: DidCoreId,
+    pub source_provider_id: DidCoreId,
+    pub reporter_authority: MimiReporterAuthority,
+    pub report_event: EventInitialSubmission,
     pub abuse_reason_code: NonEmptyString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evidence_package: Option<MimiOpaquePayload>,
@@ -1791,6 +1821,83 @@ pub struct MimiReportAbuseRequestBody {
     pub franking_proof: Option<MimiOpaquePayload>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<NonEmptyString>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct MimiReporterAuthority {
+    pub actor_id: ActorId,
+    pub membership_event_id: EventId,
+    pub room_binding_event_id: EventId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    pub proof: PayloadProof,
+}
+
+impl MimiReportAbuseRequestBody {
+    pub fn unsigned_payload(&self) -> Result<Value> {
+        let mut value = serde_json::to_value(self)?;
+        let authority = value
+            .get_mut("reporter_authority")
+            .and_then(Value::as_object_mut)
+            .ok_or_else(|| {
+                WireError::Protocol("MIMI reporter authority must be an object".to_owned())
+            })?;
+        authority.remove("proof").ok_or_else(|| {
+            WireError::Protocol("MIMI reporter authority proof is required".to_owned())
+        })?;
+        Ok(value)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        mimi_payload_digest(&self.unsigned_payload()?)
+    }
+
+    pub fn reporter_authority_binding_bytes(&self) -> Result<Vec<u8>> {
+        let authority = &self.reporter_authority;
+        if authority.actor_id.signing_principal_id() != &self.reporter_id {
+            return Err(WireError::Protocol(
+                "MIMI reporter authority actor does not bind reporter_id".to_owned(),
+            ));
+        }
+        if authority.expires_at <= authority.proof.created_at {
+            return Err(WireError::Protocol(
+                "MIMI reporter authority expiry must follow proof creation".to_owned(),
+            ));
+        }
+        mimi_proof_binding_bytes(
+            ProofContextId::MIMI_REPORTER_AUTHORITY_PROOF_V1,
+            ServiceOperationId::OPEN_MIMI_COMMAND_REPORT_ABUSE_V1,
+            Some(serde_json::to_value(&authority.actor_id)?),
+            vec![
+                ("reporter_id", serde_json::to_value(&self.reporter_id)?),
+                (
+                    "source_provider_id",
+                    serde_json::to_value(&self.source_provider_id)?,
+                ),
+                ("mimi_room_uri", serde_json::to_value(&self.mimi_room_uri)?),
+                ("realm_id", serde_json::to_value(&self.realm_id)?),
+                ("strand_id", serde_json::to_value(&self.strand_id)?),
+                ("target_ref", serde_json::to_value(&self.target_ref)?),
+                ("report_event", serde_json::to_value(&self.report_event)?),
+                (
+                    "membership_event_id",
+                    serde_json::to_value(&authority.membership_event_id)?,
+                ),
+                (
+                    "room_binding_event_id",
+                    serde_json::to_value(&authority.room_binding_event_id)?,
+                ),
+                (
+                    "expires_at",
+                    Value::String(canonical::format_timestamp_canonical(authority.expires_at)),
+                ),
+            ],
+            &self.payload_digest()?,
+            &authority.proof,
+        )
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

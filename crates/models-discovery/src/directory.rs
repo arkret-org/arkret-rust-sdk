@@ -973,7 +973,7 @@ pub struct DirectoryPushRegisterOutcome {
 pub struct DirectoryAnnounceRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub discovery_event: Event,
-    pub source_refs: Vec<String>,
+    pub source_ref_access: arkret_models_collaboration::history_key::DirectorySourceRefAccess,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1253,7 +1253,7 @@ impl DirectorySubjectHandleList {
     /// response closed; this validator fails closed.
     pub fn validate(&self) -> Result<()> {
         for claim in &self.claims {
-            if claim.subject_account_id != self.account_id {
+            if claim.claim.subject_account_id != self.account_id {
                 return Err(WireError::Protocol(
                     "list_handles_for_subject: claims[].subject_account_id must equal response.account_id"
                         .to_owned(),

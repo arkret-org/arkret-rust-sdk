@@ -551,9 +551,9 @@ impl ModerationReportPayload {
                 }
             }
             Some(ModerationReportProvenance::MimiFacade) => {
-                if self.source_provider_id.is_none() || actor_id == &self.reporter_id {
+                if self.source_provider_id.is_none() || actor_id != &self.reporter_id {
                     return Err(
-                        "MIMI facade moderation report requires source_provider_id and service authorship",
+                        "MIMI facade moderation report requires source_provider_id and reporter authorship",
                     );
                 }
             }

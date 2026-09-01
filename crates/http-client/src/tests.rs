@@ -387,7 +387,9 @@ mod events_submit_tests {
     use arkret_models_collaboration::direct_conversation_ops::{
         DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
     };
-    use arkret_models_collaboration::http_bodies::MimiReportAbuseRequestBody;
+    use arkret_models_collaboration::http_bodies::{
+        MimiReportAbuseRequestBody, MimiReporterAuthority,
+    };
     use arkret_models_collaboration::objects::blob::BlobUploadMetadata;
     use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
     use arkret_models_crypto::{
@@ -1395,10 +1397,44 @@ mod events_submit_tests {
         let request = MimiReportAbuseRequestBody {
             strand_id: StrandId::new("ak:strand:AaCQjogT126mXVYM2VaV0guWrFdS4nCOsDP-Ft0iWyKp")
                 .unwrap(),
-            mimi_room_uri: Some(MimiRoomUri::new("mimi://provider/rooms/room-1").unwrap()),
-            realm_id: None,
+            mimi_room_uri: MimiRoomUri::new("mimi://provider/rooms/room-1").unwrap(),
+            realm_id: RealmId::new(
+                "ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI".to_owned(),
+            )
+            .unwrap(),
             target_ref: NonEmptyString::new("mimi://provider/rooms/room-1/messages/msg-1").unwrap(),
             reporter_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            source_provider_id: DidCoreId::new("ak:did_core:web:provider.example").unwrap(),
+            reporter_authority: MimiReporterAuthority {
+                actor_id: ActorId::account(AccountId::new(
+                    DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                    DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+                )),
+                membership_event_id: EventId::new(
+                    "ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6",
+                )
+                .unwrap(),
+                room_binding_event_id: EventId::new(
+                    "ak:event:Adoyyx1AqvJH02hYxuUtpzuC-zpV8GxwFQ8XInZLbu3s",
+                )
+                .unwrap(),
+                expires_at: "2026-09-01T01:00:00Z".parse().unwrap(),
+                proof: PayloadProof {
+                    kind: proof_kind::DETACHED_JWS.to_owned(),
+                    verification_method: DidUrl::new(
+                        "did:webvh:z6mkfixture:alice.example#device-1",
+                    )
+                    .unwrap(),
+                    payload_digest: Hash::new(arkret_canonical::sha256_digest(b"mimi-report"))
+                        .unwrap(),
+                    created_at: "2026-09-01T00:00:00Z".parse().unwrap(),
+                    domain: None,
+                    audience: None,
+                    proof_purpose: None,
+                    jws: "a..b".to_owned(),
+                },
+            },
+            report_event: fixture_submission("mimi moderation report"),
             abuse_reason_code: NonEmptyString::new("spam").unwrap(),
             evidence_package: None,
             franking_proof: None,

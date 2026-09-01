@@ -7,8 +7,8 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    AuditReasonText, Base64UrlString, DeviceId, DidCoreId, DidUrl, DomainSeparationId, EventId,
-    Hash, KeyPackageRef, NonEmptyString, RealmId, StrandId,
+    AccountId, AuditReasonText, Base64UrlString, DeviceId, DidCoreId, DidUrl, DomainSeparationId,
+    EventId, Hash, KeyPackageRef, NonEmptyString, RealmId, StrandId,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -269,8 +269,10 @@ pub enum PeerKeyPackageRequesterAuthorization {
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimUnsignedRequest {
     pub claim_request_id: Base64UrlString,
-    pub target_principal_id: DidCoreId,
-    pub requester_id: DidCoreId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_account_id: Option<AccountId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requester_account_id: Option<AccountId>,
     pub intended_realm_id: RealmId,
     pub mls_group_id: NonEmptyString,
     pub claim_purpose: PeerKeyPackageClaimPurpose,
@@ -312,8 +314,10 @@ pub struct KeyPackagesClaimServiceBinding {
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimRequestBody {
     pub claim_request_id: Base64UrlString,
-    pub target_principal_id: DidCoreId,
-    pub requester_id: DidCoreId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_account_id: Option<AccountId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requester_account_id: Option<AccountId>,
     pub intended_realm_id: RealmId,
     pub mls_group_id: NonEmptyString,
     pub claim_purpose: PeerKeyPackageClaimPurpose,
@@ -348,8 +352,8 @@ impl PeerKeyPackagesClaimRequestBody {
     pub fn unsigned_request(&self) -> PeerKeyPackagesClaimUnsignedRequest {
         PeerKeyPackagesClaimUnsignedRequest {
             claim_request_id: self.claim_request_id.clone(),
-            target_principal_id: self.target_principal_id.clone(),
-            requester_id: self.requester_id.clone(),
+            target_account_id: self.target_account_id.clone(),
+            requester_account_id: self.requester_account_id.clone(),
             intended_realm_id: self.intended_realm_id.clone(),
             mls_group_id: self.mls_group_id.clone(),
             claim_purpose: self.claim_purpose,
@@ -371,7 +375,6 @@ impl PeerKeyPackagesClaimRequestBody {
     pub fn validate_shape(&self) -> Result<(), PeerKeyPackageClaimShapeError> {
         validate_key_packages_claim_request_shape(
             &self.unsigned_request(),
-            &self.requester_id,
             &self.requester_authorization,
         )
     }
@@ -382,8 +385,10 @@ impl PeerKeyPackagesClaimRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesClaimRequestBody {
     pub claim_request_id: Base64UrlString,
-    pub target_principal_id: DidCoreId,
-    pub requester_id: DidCoreId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_account_id: Option<AccountId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requester_account_id: Option<AccountId>,
     pub intended_realm_id: RealmId,
     pub mls_group_id: NonEmptyString,
     pub claim_purpose: PeerKeyPackageClaimPurpose,
@@ -418,8 +423,8 @@ impl KeyPackagesClaimRequestBody {
     pub fn unsigned_request(&self) -> PeerKeyPackagesClaimUnsignedRequest {
         PeerKeyPackagesClaimUnsignedRequest {
             claim_request_id: self.claim_request_id.clone(),
-            target_principal_id: self.target_principal_id.clone(),
-            requester_id: self.requester_id.clone(),
+            target_account_id: self.target_account_id.clone(),
+            requester_account_id: self.requester_account_id.clone(),
             intended_realm_id: self.intended_realm_id.clone(),
             mls_group_id: self.mls_group_id.clone(),
             claim_purpose: self.claim_purpose,
@@ -441,7 +446,6 @@ impl KeyPackagesClaimRequestBody {
     pub fn validate_shape(&self) -> Result<(), PeerKeyPackageClaimShapeError> {
         validate_key_packages_claim_request_shape(
             &self.unsigned_request(),
-            &self.requester_id,
             &self.requester_authorization,
         )
     }
@@ -451,8 +455,8 @@ impl From<&KeyPackagesClaimRequestBody> for PeerKeyPackagesClaimRequestBody {
     fn from(value: &KeyPackagesClaimRequestBody) -> Self {
         Self {
             claim_request_id: value.claim_request_id.clone(),
-            target_principal_id: value.target_principal_id.clone(),
-            requester_id: value.requester_id.clone(),
+            target_account_id: value.target_account_id.clone(),
+            requester_account_id: value.requester_account_id.clone(),
             intended_realm_id: value.intended_realm_id.clone(),
             mls_group_id: value.mls_group_id.clone(),
             claim_purpose: value.claim_purpose,
@@ -476,7 +480,6 @@ impl From<&KeyPackagesClaimRequestBody> for PeerKeyPackagesClaimRequestBody {
 
 fn validate_key_packages_claim_request_shape(
     unsigned_request: &PeerKeyPackagesClaimUnsignedRequest,
-    requester_id: &DidCoreId,
     requester_authorization: &PeerKeyPackageRequesterAuthorization,
 ) -> Result<(), PeerKeyPackageClaimShapeError> {
     validate_peer_claim_fields(unsigned_request)?;
@@ -488,20 +491,22 @@ fn validate_key_packages_claim_request_shape(
             signature,
             ..
         } => {
-            if signature.kid.as_str() != verification_method.as_str() {
+            if unsigned_request.requester_account_id.is_none()
+                || signature.kid.as_str() != verification_method.as_str()
+            {
                 return Err(PeerKeyPackageClaimShapeError::VerificationMethodMismatch);
             }
             let _ = (requester_device_id, device_authorize_event_id);
         }
         PeerKeyPackageRequesterAuthorization::Agent {
             verification_method,
-            requester_agent_id,
+            requester_agent_id: _,
             agent_key_authorize_event_id,
             signature,
             ..
         } => {
-            if signature.kid.as_str() != verification_method.as_str()
-                || requester_agent_id != requester_id
+            if unsigned_request.requester_account_id.is_some()
+                || signature.kid.as_str() != verification_method.as_str()
             {
                 return Err(PeerKeyPackageClaimShapeError::VerificationMethodMismatch);
             }
@@ -512,8 +517,9 @@ fn validate_key_packages_claim_request_shape(
             signature,
             ..
         } => {
-            if signature.kid.as_str() != verification_method.as_str()
-                || !valid_pairwise_binding(requester_id, verification_method)
+            if unsigned_request.requester_account_id.is_some()
+                || signature.kid.as_str() != verification_method.as_str()
+                || pairwise_actor_from_method(verification_method).is_none()
             {
                 return Err(PeerKeyPackageClaimShapeError::VerificationMethodMismatch);
             }
@@ -842,15 +848,15 @@ pub enum PeerKeyPackageClaimShapeError {
     DuplicateTargetDevice,
     #[error("direct conversation claims require strand_id and pair_key and forbid last resort")]
     InvalidDirectConversationFields,
-    #[error("requester_id authorization must select exactly one supported authority model")]
+    #[error("requester authorization must select exactly one supported authority model")]
     InvalidAuthorizationModel,
-    #[error("requester_id authorization signature kid must equal verification_method")]
+    #[error("requester authorization signature kid must equal verification_method")]
     VerificationMethodMismatch,
     #[error("peer claim query outcome fields do not match its state")]
     InvalidQueryOutcome,
     #[error("peer claim outcome fields or receipt bindings are inconsistent")]
     InvalidClaimOutcome,
-    #[error("requester_id signing key evidence does not match requester_id authorization")]
+    #[error("requester signing key evidence does not match requester authorization")]
     SignerEvidenceMismatch,
     #[error("target signing key evidence does not match its claim record")]
     TargetSignerEvidenceMismatch,
@@ -878,7 +884,7 @@ pub fn validate_target_claim_evidence(
         .collect::<Vec<_>>();
     validate_required_keypackage_capabilities(&required_capabilities, &advertised_capabilities)
         .map_err(|_| PeerKeyPackageClaimShapeError::TargetSignerEvidenceMismatch)?;
-    if claim.principal_id != request.target_principal_id
+    if request.target_principal_id().as_ref() != Some(&claim.principal_id)
         || request
             .target_keypackage_ref
             .as_ref()
@@ -992,24 +998,27 @@ fn validate_peer_claim_fields(
     {
         return Err(PeerKeyPackageClaimShapeError::InvalidDirectConversationFields);
     }
-    let human_target = !request.target_device_ids.is_empty()
+    let human_target = request.target_account_id.is_some()
+        && !request.target_device_ids.is_empty()
         && request.target_agent_id.is_none()
         && request.target_agent_verification_method.is_none()
         && request.target_agent_key_authorize_event_id.is_none()
         && request.target_pairwise_verification_method.is_none();
-    let agent_target = request.target_device_ids.is_empty()
+    let agent_target = request.target_account_id.is_none()
+        && request.target_device_ids.is_empty()
         && request.target_agent_id.is_some()
         && request.target_agent_verification_method.is_some()
         && request.target_agent_key_authorize_event_id.is_some()
         && request.target_pairwise_verification_method.is_none();
-    let pairwise_target = request.target_device_ids.is_empty()
+    let pairwise_target = request.target_account_id.is_none()
+        && request.target_device_ids.is_empty()
         && request.target_agent_id.is_none()
         && request.target_agent_verification_method.is_none()
         && request.target_agent_key_authorize_event_id.is_none()
         && request
             .target_pairwise_verification_method
             .as_ref()
-            .is_some_and(|method| valid_pairwise_binding(&request.target_principal_id, method));
+            .is_some_and(|method| pairwise_actor_from_method(method).is_some());
     if [human_target, agent_target, pairwise_target]
         .into_iter()
         .filter(|selected| *selected)
@@ -1021,16 +1030,54 @@ fn validate_peer_claim_fields(
     {
         return Err(PeerKeyPackageClaimShapeError::InvalidDirectConversationFields);
     }
-    if let Some(agent_id) = &request.target_agent_id
-        && agent_id.as_core_id() != request.target_principal_id.as_core_id()
-    {
-        return Err(PeerKeyPackageClaimShapeError::InvalidDirectConversationFields);
-    }
     Ok(())
 }
 
 fn valid_pairwise_binding(actor_id: &DidCoreId, method: &DidUrl) -> bool {
     MlsEndpointIdentity::minimal_metadata_pairwise(actor_id.clone(), method.clone()).is_ok()
+}
+
+fn pairwise_actor_from_method(method: &DidUrl) -> Option<DidCoreId> {
+    let (controller, fragment) = method.as_str().split_once('#')?;
+    let multibase = controller.strip_prefix("did:key:")?;
+    if fragment != multibase {
+        return None;
+    }
+    let actor_id = DidCoreId::new(format!("ak:did_core:key:{multibase}")).ok()?;
+    valid_pairwise_binding(&actor_id, method).then_some(actor_id)
+}
+
+impl PeerKeyPackagesClaimUnsignedRequest {
+    pub fn target_principal_id(&self) -> Option<DidCoreId> {
+        self.target_account_id
+            .as_ref()
+            .map(|account| account.principal_id.clone())
+            .or_else(|| self.target_agent_id.clone())
+            .or_else(|| {
+                self.target_pairwise_verification_method
+                    .as_ref()
+                    .and_then(pairwise_actor_from_method)
+            })
+    }
+
+    pub fn requester_principal_id(
+        &self,
+        authorization: &PeerKeyPackageRequesterAuthorization,
+    ) -> Option<DidCoreId> {
+        match authorization {
+            PeerKeyPackageRequesterAuthorization::Device { .. } => self
+                .requester_account_id
+                .as_ref()
+                .map(|account| account.principal_id.clone()),
+            PeerKeyPackageRequesterAuthorization::Agent {
+                requester_agent_id, ..
+            } => Some(requester_agent_id.clone()),
+            PeerKeyPackageRequesterAuthorization::MinimalMetadataPairwise {
+                verification_method,
+                ..
+            } => pairwise_actor_from_method(verification_method),
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -1156,7 +1203,6 @@ pub struct RecipientMlsDurableReceipt {
     pub domain: NonEmptyString,
     pub claim_request_id: Base64UrlString,
     pub key_package_ref: NonEmptyString,
-    pub recipient_principal_id: DidCoreId,
     pub recipient: RecipientMlsDurableSigner,
     pub recipient_id: DidCoreId,
     pub realm_id: RealmId,
@@ -1173,6 +1219,7 @@ pub struct RecipientMlsDurableReceipt {
 #[allow(clippy::large_enum_variant)]
 pub enum RecipientMlsDurableSigner {
     Device {
+        recipient_account_id: AccountId,
         recipient_device_id: DeviceId,
         device_verification_method: DidUrl,
     },
@@ -1193,7 +1240,8 @@ struct RecipientMlsDurableReceiptWire {
     claim_request_id: Base64UrlString,
     #[serde(rename = "keypackage_ref")]
     key_package_ref: NonEmptyString,
-    recipient_principal_id: DidCoreId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    recipient_account_id: Option<AccountId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     recipient_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1223,6 +1271,7 @@ impl Serialize for RecipientMlsDurableReceipt {
         S: serde::Serializer,
     {
         let (
+            recipient_account_id,
             recipient_device_id,
             device_verification_method,
             recipient_agent_id,
@@ -1231,9 +1280,11 @@ impl Serialize for RecipientMlsDurableReceipt {
             recipient_pairwise_verification_method,
         ) = match &self.recipient {
             RecipientMlsDurableSigner::Device {
+                recipient_account_id,
                 recipient_device_id,
                 device_verification_method,
             } => (
+                Some(recipient_account_id.clone()),
                 Some(recipient_device_id.clone()),
                 Some(device_verification_method.clone()),
                 None,
@@ -1246,6 +1297,7 @@ impl Serialize for RecipientMlsDurableReceipt {
                 recipient_agent_verification_method,
                 agent_key_authorize_event_id,
             } => (
+                None,
                 None,
                 None,
                 Some(recipient_agent_id.clone()),
@@ -1261,6 +1313,7 @@ impl Serialize for RecipientMlsDurableReceipt {
                 None,
                 None,
                 None,
+                None,
                 Some(recipient_pairwise_verification_method.clone()),
             ),
         };
@@ -1268,7 +1321,7 @@ impl Serialize for RecipientMlsDurableReceipt {
             domain: self.domain.clone(),
             claim_request_id: self.claim_request_id.clone(),
             key_package_ref: self.key_package_ref.clone(),
-            recipient_principal_id: self.recipient_principal_id.clone(),
+            recipient_account_id,
             recipient_device_id,
             device_verification_method,
             recipient_agent_id,
@@ -1295,6 +1348,7 @@ impl<'de> Deserialize<'de> for RecipientMlsDurableReceipt {
     {
         let wire = RecipientMlsDurableReceiptWire::deserialize(deserializer)?;
         let recipient = match (
+            wire.recipient_account_id,
             wire.recipient_device_id,
             wire.device_verification_method,
             wire.recipient_agent_id,
@@ -1302,20 +1356,21 @@ impl<'de> Deserialize<'de> for RecipientMlsDurableReceipt {
             wire.agent_key_authorize_event_id,
             wire.recipient_pairwise_verification_method,
         ) {
-            (Some(device_id), Some(method), None, None, None, None) => {
+            (Some(account_id), Some(device_id), Some(method), None, None, None, None) => {
                 RecipientMlsDurableSigner::Device {
+                    recipient_account_id: account_id,
                     recipient_device_id: device_id,
                     device_verification_method: method,
                 }
             }
-            (None, None, Some(agent_id), Some(method), Some(event_id), None) => {
+            (None, None, None, Some(agent_id), Some(method), Some(event_id), None) => {
                 RecipientMlsDurableSigner::Agent {
                     recipient_agent_id: agent_id,
                     recipient_agent_verification_method: method,
                     agent_key_authorize_event_id: event_id,
                 }
             }
-            (None, None, None, None, None, Some(method)) => {
+            (None, None, None, None, None, None, Some(method)) => {
                 RecipientMlsDurableSigner::MinimalMetadataPairwise {
                     recipient_pairwise_verification_method: method,
                 }
@@ -1330,7 +1385,6 @@ impl<'de> Deserialize<'de> for RecipientMlsDurableReceipt {
             domain: wire.domain,
             claim_request_id: wire.claim_request_id,
             key_package_ref: wire.key_package_ref,
-            recipient_principal_id: wire.recipient_principal_id,
             recipient,
             recipient_id: wire.recipient_id,
             realm_id: wire.realm_id,
@@ -1347,6 +1401,21 @@ impl<'de> Deserialize<'de> for RecipientMlsDurableReceipt {
 }
 
 impl RecipientMlsDurableReceipt {
+    pub fn recipient_principal_id(&self) -> Option<DidCoreId> {
+        match &self.recipient {
+            RecipientMlsDurableSigner::Device {
+                recipient_account_id,
+                ..
+            } => Some(recipient_account_id.principal_id.clone()),
+            RecipientMlsDurableSigner::Agent {
+                recipient_agent_id, ..
+            } => Some(recipient_agent_id.clone()),
+            RecipientMlsDurableSigner::MinimalMetadataPairwise {
+                recipient_pairwise_verification_method,
+            } => pairwise_actor_from_method(recipient_pairwise_verification_method),
+        }
+    }
+
     pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
         signed_receipt_canonical_signing_bytes(self, self.domain.as_str())
     }
@@ -1365,13 +1434,11 @@ impl RecipientMlsDurableReceipt {
                 }
             }
             RecipientMlsDurableSigner::Agent {
-                recipient_agent_id,
+                recipient_agent_id: _,
                 recipient_agent_verification_method,
                 agent_key_authorize_event_id,
             } => {
-                if recipient_agent_id.as_core_id() != self.recipient_principal_id.as_core_id()
-                    || self.signature.kid.as_str() != recipient_agent_verification_method.as_str()
-                {
+                if self.signature.kid.as_str() != recipient_agent_verification_method.as_str() {
                     return Err("recipient Agent durable receipt binding mismatch");
                 }
                 let _ = agent_key_authorize_event_id;
@@ -1380,10 +1447,7 @@ impl RecipientMlsDurableReceipt {
                 recipient_pairwise_verification_method,
             } => {
                 if self.signature.kid.as_str() != recipient_pairwise_verification_method.as_str()
-                    || !valid_pairwise_binding(
-                        &self.recipient_principal_id,
-                        recipient_pairwise_verification_method,
-                    )
+                    || pairwise_actor_from_method(recipient_pairwise_verification_method).is_none()
                 {
                     return Err("recipient pairwise durable receipt binding mismatch");
                 }

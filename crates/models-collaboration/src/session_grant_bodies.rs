@@ -19,7 +19,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::agent_operations::AgentRequestedScopeDisclosure;
-use crate::governance::agent_participation::AgentParticipationEntry;
 
 #[derive(Serialize)]
 struct HumanSessionGrantIntent<'a> {
@@ -116,7 +115,7 @@ impl HumanSessionGrantRequest {
         let proof = &self.accepted_device_possession_proof;
         AcceptedDevicePossessionProof::Issue(proof.clone()).validate()?;
         if proof.request_id != self.request_id
-            || proof.principal_id != self.principal_id
+            || proof.account_id.principal_id != self.principal_id
             || proof.device_id != self.device_id
             || proof.audience_id != self.audience_id
         {
@@ -424,50 +423,19 @@ pub struct SessionGrantOutcome {
     pub session_grant: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    /// Stable id of the issued session grant. Returned for every grant (human
-    /// and agent). Mirrors `SessionGrantRefreshOutcome.session_grant_id`.
+    /// Stable id of the issued or rotated session grant.
     pub session_grant_id: SessionGrantId,
     /// JWK of the holder/session key the grant is bound to. The client needs
     /// this for RFC 9421 PoP / DPoP `cnf.jkt` derivation on `/_arkret/self/*`
     /// requests, returned at issue time to avoid a mandatory introspect
-    /// round-trip. Mirrors `SessionGrantRefreshOutcome.session_public_key`.
+    /// round-trip.
     pub session_public_key: CanonicalSessionPublicJwk,
-    /// Audience the grant is bound to. Mirrors `SessionGrantRefreshOutcome.audience_id`.
+    /// Audience the grant is bound to.
     pub audience_id: DidCoreId,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub granted_scope: Vec<String>,
-    /// `ak.profile.agent_auth.v1` overlay (AKP-0008 §4.6). Materialized narrow
-    /// scope granted to the agent runtime session. Service-surface scope is
-    /// intersected separately from content capability grants. Present iff the
-    /// request was the `agent_key_proof` branch; `None` (absent) for human
-    /// session grants.
+    /// Present only on refresh and names the atomically superseded predecessor.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scope_details: Option<SessionGrantScopeDetails>,
-}
-
-/// `ak.profile.agent_auth.v1` overlay describing the narrow scope actually
-/// granted to an agent runtime session. Agent-only; absent for human grants.
-///
-/// Mirrors `service-operation-dtos.schema.json#/$defs/SessionGrantOutcome/properties/scope_details`
-/// (`additionalProperties: false`).
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SessionGrantScopeDetails {
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub realm_ids: Vec<RealmId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub strand_ids: Vec<StrandId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub track_names: Vec<String>,
-    /// `ak.profile.agent_participation_policy.v1` overlay (AKP-0016). Each entry
-    /// is isomorphic to `agent_participation_entry`.
-    #[serde(
-        rename = "participation_entries",
-        default,
-        skip_serializing_if = "Vec::is_empty"
-    )]
-    pub agent_participation_entries: Vec<AgentParticipationEntry>,
+    pub previous_session_grant_id: Option<SessionGrantId>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -768,27 +736,6 @@ pub fn session_grant_refresh_request_digest(
     Ok(Hash::new(canonical::canonical_sha256(&input)?)?)
 }
 
-/// `ak.gate.account.command.refresh_session_grant.v1` outcome.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SessionGrantRefreshOutcome {
-    pub session_grant_id: SessionGrantId,
-    pub account_id: AccountId,
-    pub grant_jwt: String,
-    /// JWK the rotated grant is bound to (the device holder key); the server
-    /// does not mint a fresh session private key on rotation.
-    pub session_public_key: CanonicalSessionPublicJwk,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    pub audience_id: DidCoreId,
-    pub scopes: Vec<String>,
-    /// RFC 7638 thumbprint of the holder key (equals the grant's `cnf.jkt`).
-    pub dpop_jkt: String,
-    /// The predecessor grant, atomically superseded on success.
-    pub previous_session_grant_id: SessionGrantId,
-}
-
 /// `ak.gate.account.command.logout_auth_session.v1` request.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1073,7 +1020,8 @@ mod session_grant_contract_tests {
             "expires_at": "2026-08-08T12:00:00.000Z",
             "session_grant_id": GRANT_ID,
             "session_public_key": CANONICAL_JWK,
-            "audience_id": "ak:did_core:web:service.example"
+            "audience_id": "ak:did_core:web:service.example",
+            "granted_scope": []
         });
         assert!(serde_json::from_value::<SessionGrantOutcome>(valid.clone()).is_ok());
 
@@ -1082,6 +1030,7 @@ mod session_grant_contract_tests {
             "session_grant_id",
             "session_public_key",
             "audience_id",
+            "granted_scope",
         ] {
             let mut missing = valid.clone();
             missing.as_object_mut().unwrap().remove(field);
@@ -1310,17 +1259,16 @@ mod session_grant_contract_tests {
                 "principal_id": "ak:did_core:web:alice.example",
                 "station_id": "ak:did_core:web:service.example"
             },
-            "grant_jwt": "successor.jwt",
+            "session_grant": "successor.jwt",
             "session_public_key": CANONICAL_JWK,
             "expires_at": "2026-08-08T12:04:00.000Z",
             "audience_id": "ak:did_core:web:service.example",
-            "scopes": [],
-            "dpop_jkt": "holder-thumbprint",
+            "granted_scope": [],
             "previous_session_grant_id": GRANT_ID
         });
-        assert!(serde_json::from_value::<SessionGrantRefreshOutcome>(refresh.clone()).is_ok());
-        refresh.as_object_mut().unwrap().remove("scopes");
-        assert!(serde_json::from_value::<SessionGrantRefreshOutcome>(refresh).is_err());
+        assert!(serde_json::from_value::<SessionGrantOutcome>(refresh.clone()).is_ok());
+        refresh.as_object_mut().unwrap().remove("granted_scope");
+        assert!(serde_json::from_value::<SessionGrantOutcome>(refresh).is_err());
     }
 
     #[test]

@@ -5,8 +5,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash, ProofContextId, RequestId, Result,
-    SessionGrantId, WireError, canonical,
+    AccountId, Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash, ProofContextId, RequestId,
+    Result, SessionGrantId, WireError, canonical,
 };
 
 pub const ACCEPTED_DEVICE_POSSESSION_PROOF_CONTEXT: &str =
@@ -43,7 +43,7 @@ pub struct AcceptedDeviceIssuePossessionProof {
     pub request_id: RequestId,
     pub account_subject: Hash,
     pub account_handoff_grant_digest: Hash,
-    pub principal_id: DidCoreId,
+    pub account_id: AccountId,
     pub device_id: DeviceId,
     pub audience_id: DidCoreId,
     pub holder_jkt: String,
@@ -73,7 +73,7 @@ pub struct UnsignedAcceptedDeviceIssuePossessionProof {
     pub request_id: RequestId,
     pub account_subject: Hash,
     pub account_handoff_grant_digest: Hash,
-    pub principal_id: DidCoreId,
+    pub account_id: AccountId,
     pub device_id: DeviceId,
     pub audience_id: DidCoreId,
     pub holder_jkt: String,
@@ -101,7 +101,7 @@ impl UnsignedAcceptedDeviceIssuePossessionProof {
             request_id: self.request_id,
             account_subject: self.account_subject,
             account_handoff_grant_digest: self.account_handoff_grant_digest,
-            principal_id: self.principal_id,
+            account_id: self.account_id,
             device_id: self.device_id,
             audience_id: self.audience_id,
             holder_jkt: self.holder_jkt,
@@ -123,7 +123,7 @@ pub struct AcceptedDeviceRefreshPossessionProof {
     pub context: AcceptedDevicePossessionProofContext,
     pub purpose: AcceptedDeviceRefreshPossessionPurpose,
     pub predecessor_session_grant_id: SessionGrantId,
-    pub principal_id: DidCoreId,
+    pub account_id: AccountId,
     pub device_id: DeviceId,
     pub audience_id: DidCoreId,
     pub holder_jkt: String,
@@ -151,7 +151,7 @@ pub struct UnsignedAcceptedDeviceRefreshPossessionProof {
     pub context: AcceptedDevicePossessionProofContext,
     pub purpose: AcceptedDeviceRefreshPossessionPurpose,
     pub predecessor_session_grant_id: SessionGrantId,
-    pub principal_id: DidCoreId,
+    pub account_id: AccountId,
     pub device_id: DeviceId,
     pub audience_id: DidCoreId,
     pub holder_jkt: String,
@@ -177,7 +177,7 @@ impl UnsignedAcceptedDeviceRefreshPossessionProof {
             context: self.context,
             purpose: self.purpose,
             predecessor_session_grant_id: self.predecessor_session_grant_id,
-            principal_id: self.principal_id,
+            account_id: self.account_id,
             device_id: self.device_id,
             audience_id: self.audience_id,
             holder_jkt: self.holder_jkt,
@@ -201,10 +201,10 @@ pub enum AcceptedDevicePossessionProof {
 }
 
 impl AcceptedDevicePossessionProof {
-    pub fn principal_id(&self) -> &DidCoreId {
+    pub fn account_id(&self) -> &AccountId {
         match self {
-            Self::Issue(proof) => &proof.principal_id,
-            Self::Refresh(proof) => &proof.principal_id,
+            Self::Issue(proof) => &proof.account_id,
+            Self::Refresh(proof) => &proof.account_id,
         }
     }
 
@@ -345,7 +345,10 @@ mod tests {
             request_id: RequestId::new("ak:request:01970000-0000-7000-8000-000000000021").unwrap(),
             account_subject: hash('a'),
             account_handoff_grant_digest: hash('b'),
-            principal_id: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            account_id: AccountId::new(
+                DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+                DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+            ),
             device_id: DeviceId::new("ak:device:0196419b-0000-7000-8000-000000000001").unwrap(),
             audience_id: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
             holder_jkt: "A".repeat(43),
@@ -384,7 +387,7 @@ mod tests {
                 "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
             )
             .unwrap(),
-            principal_id: issue.principal_id,
+            account_id: issue.account_id,
             device_id: issue.device_id,
             audience_id: issue.audience_id,
             holder_jkt: issue.holder_jkt,

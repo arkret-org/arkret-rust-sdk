@@ -21,7 +21,6 @@ pub enum DeviceAuthorizationBindingKind {
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceAuthorizePayload {
-    pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub device_public_key_did: NonEmptyString,
     /// Device HPKE public key used for secret/key envelope sealing. Services
@@ -49,7 +48,6 @@ pub struct DeviceAuthorizePayload {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DeviceAuthorizePayloadWire {
-    principal_id: DidCoreId,
     device_id: DeviceId,
     device_public_key_did: NonEmptyString,
     hpke_key: NonEmptyString,
@@ -76,7 +74,6 @@ impl<'de> Deserialize<'de> for DeviceAuthorizePayload {
     {
         let wire = DeviceAuthorizePayloadWire::deserialize(deserializer)?;
         let payload = Self {
-            principal_id: wire.principal_id,
             device_id: wire.device_id,
             device_public_key_did: wire.device_public_key_did,
             hpke_key: wire.hpke_key,
@@ -116,8 +113,12 @@ impl DeviceAuthorizePayload {
     /// The signature proves possession of the private key corresponding to
     /// `device_public_key_did`; authorization is independently established by the
     /// root anchor or an accepted device.
-    pub fn device_possession_signature_input(&self) -> Result<Vec<u8>> {
-        UnsignedDeviceAuthorizePayload::from_signed(self).device_possession_signature_input()
+    pub fn device_possession_signature_input(
+        &self,
+        subject_account_id: &AccountId,
+    ) -> Result<Vec<u8>> {
+        UnsignedDeviceAuthorizePayload::from_signed(self)
+            .device_possession_signature_input(subject_account_id)
     }
 }
 
@@ -125,7 +126,6 @@ impl DeviceAuthorizePayload {
 /// The type is deliberately not serializable.
 #[derive(Clone, Debug)]
 pub struct UnsignedDeviceAuthorizePayload {
-    principal_id: DidCoreId,
     device_id: DeviceId,
     device_public_key_did: NonEmptyString,
     hpke_key: NonEmptyString,
@@ -142,7 +142,6 @@ pub struct UnsignedDeviceAuthorizePayload {
 impl UnsignedDeviceAuthorizePayload {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        principal_id: DidCoreId,
         device_id: DeviceId,
         device_public_key_did: NonEmptyString,
         hpke_key: NonEmptyString,
@@ -156,7 +155,6 @@ impl UnsignedDeviceAuthorizePayload {
         recovery_session_id: Option<RecoverySessionId>,
     ) -> Result<Self> {
         let payload = Self {
-            principal_id,
             device_id,
             device_public_key_did,
             hpke_key,
@@ -177,7 +175,6 @@ impl UnsignedDeviceAuthorizePayload {
 
     fn from_signed(payload: &DeviceAuthorizePayload) -> Self {
         Self {
-            principal_id: payload.principal_id.clone(),
             device_id: payload.device_id.clone(),
             device_public_key_did: payload.device_public_key_did.clone(),
             hpke_key: payload.hpke_key.clone(),
@@ -211,12 +208,10 @@ impl UnsignedDeviceAuthorizePayload {
         match (&self.authorization_binding_kind, &self.authorized_by) {
             (
                 DeviceAuthorizationBindingKind::RegistrationAnchor,
-                DeviceOrPrincipalRef::Principal(principal_id),
-            ) if principal_id == &self.principal_id && self.recovery_session_id.is_none() => {}
-            (
-                DeviceAuthorizationBindingKind::PcrRecovery,
-                DeviceOrPrincipalRef::Principal(principal_id),
-            ) if principal_id == &self.principal_id && self.recovery_session_id.is_some() => {}
+                DeviceOrPrincipalRef::Principal(_),
+            ) if self.recovery_session_id.is_none() => {}
+            (DeviceAuthorizationBindingKind::PcrRecovery, DeviceOrPrincipalRef::Principal(_))
+                if self.recovery_session_id.is_some() => {}
             (DeviceAuthorizationBindingKind::AcceptedDevice, DeviceOrPrincipalRef::DeviceId(_))
                 if self.recovery_session_id.is_none() => {}
             _ => return Err("device_authorize_authorization_binding_mismatch"),
@@ -229,7 +224,10 @@ impl UnsignedDeviceAuthorizePayload {
         Ok(())
     }
 
-    pub fn device_possession_signature_input(&self) -> Result<Vec<u8>> {
+    pub fn device_possession_signature_input(
+        &self,
+        subject_account_id: &AccountId,
+    ) -> Result<Vec<u8>> {
         self.validate_wire_constraints()
             .map_err(|reason| WireError::Protocol(reason.to_owned()))?;
         let device_key_algorithm = self.device_key_algorithm.as_deref().ok_or_else(|| {
@@ -252,7 +250,7 @@ impl UnsignedDeviceAuthorizePayload {
         let expires_at = self.expires_at.as_ref().and_then(|value| value.as_ref());
         let recovery_session_id = self.recovery_session_id.as_ref().map(|id| id.as_str());
         let body = serde_json::json!({
-            "principal_id": self.principal_id.as_str(),
+            "account_id": subject_account_id,
             "device_id": self.device_id.as_str(),
             "device_public_key_did": self.device_public_key_did.as_str(),
             "hpke_key": self.hpke_key.as_str(),
@@ -287,7 +285,6 @@ impl UnsignedDeviceAuthorizePayload {
         let signature = NonEmptyString::new(signature.into_string())
             .map_err(|reason| WireError::Protocol(reason.to_owned()))?;
         Ok(DeviceAuthorizePayload {
-            principal_id: self.principal_id,
             device_id: self.device_id,
             device_public_key_did: self.device_public_key_did,
             hpke_key: self.hpke_key,
@@ -543,7 +540,6 @@ use arkret_wire::SchemaId;
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceListUpdatePayload {
-    pub principal_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub changed_ids: Option<Vec<DeviceId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -562,7 +558,6 @@ pub struct DeviceListUpdatePayload {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DeviceListUpdatePayloadWire {
-    principal_id: DidCoreId,
     #[serde(default)]
     changed_ids: Option<Vec<DeviceId>>,
     #[serde(default)]
@@ -606,7 +601,6 @@ impl<'de> Deserialize<'de> for DeviceListUpdatePayload {
             }
         }
         Ok(Self {
-            principal_id: wire.principal_id,
             changed_ids: wire.changed_ids,
             left_ids: wire.left_ids,
             device_list_digest: wire.device_list_digest,
@@ -630,7 +624,6 @@ pub enum DeviceOrPrincipalRef {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceRevokePayload {
-    pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub revoked_by: DeviceOrPrincipalRef,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -781,7 +774,6 @@ mod tests {
 
     fn device_authorize_value() -> Value {
         json!({
-            "principal_id": "ak:did_core:webvh:z6mkfixture",
             "device_id": "ak:device:01904100-0000-7000-8000-a11ce0000001",
             "device_public_key_did": "z6MkDeviceKey",
             "hpke_key": "z6LSHpkeKey",
@@ -795,6 +787,13 @@ mod tests {
             "authorization_binding_kind": "registration_anchor",
             "device_signature": "c2ln"
         })
+    }
+
+    fn subject_account_id() -> AccountId {
+        AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        )
     }
 
     #[test]
@@ -823,8 +822,12 @@ mod tests {
     fn possession_input_binds_authorization_kind() {
         let payload: DeviceAuthorizePayload =
             serde_json::from_value(device_authorize_value()).unwrap();
-        let input =
-            String::from_utf8(payload.device_possession_signature_input().unwrap()).unwrap();
+        let input = String::from_utf8(
+            payload
+                .device_possession_signature_input(&subject_account_id())
+                .unwrap(),
+        )
+        .unwrap();
         assert!(
             input
                 .as_bytes()
@@ -837,7 +840,9 @@ mod tests {
         recovery["recovery_session_id"] =
             json!("ak:recovery_session:01904100-0000-7000-8000-000000000003");
         let recovery: DeviceAuthorizePayload = serde_json::from_value(recovery).unwrap();
-        let recovery_input = recovery.device_possession_signature_input().unwrap();
+        let recovery_input = recovery
+            .device_possession_signature_input(&subject_account_id())
+            .unwrap();
         assert!(
             recovery_input
                 .starts_with(binding_contexts::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PREFIX)
@@ -925,23 +930,15 @@ mod tests {
 
     #[test]
     fn device_list_update_enforces_any_of_and_set_constraints() {
-        let principal_id = "ak:did_core:webvh:z6mkfixturealice";
+        assert!(serde_json::from_value::<DeviceListUpdatePayload>(json!({})).is_err());
         assert!(
             serde_json::from_value::<DeviceListUpdatePayload>(json!({
-                "principal_id": principal_id
-            }))
-            .is_err()
-        );
-        assert!(
-            serde_json::from_value::<DeviceListUpdatePayload>(json!({
-                "principal_id": principal_id,
                 "changed_ids": []
             }))
             .is_err()
         );
         assert!(
             serde_json::from_value::<DeviceListUpdatePayload>(json!({
-                "principal_id": principal_id,
                 "left_ids": [
                     "ak:device:01904100-0000-7000-8000-000000000001",
                     "ak:device:01904100-0000-7000-8000-000000000001"
@@ -951,7 +948,6 @@ mod tests {
         );
         assert!(
             serde_json::from_value::<DeviceListUpdatePayload>(json!({
-                "principal_id": principal_id,
                 "device_list_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
             }))
             .is_ok()

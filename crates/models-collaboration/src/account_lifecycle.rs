@@ -18,9 +18,9 @@ use arkret_models_identity::account::{
 };
 use arkret_models_identity::actor_profile::{AccountMaterializedProfile, ActorProfile};
 use arkret_wire::{
-    AccountId, ActorProfileId, AppletId, AppletRevokeMode, AuditReasonText, ConsentScope, Cursor,
-    DeviceId, Did, DidCoreId, DidUrl, EventBatchReceipt, EventInitialSubmission, EventKind, Hash,
-    PayloadProof, ProofContextId, RealmId, ReasonCode, ReceiptId, Result, SchemaId, ScopeRef,
+    AccountId, ActorId, ActorProfileId, AppletId, AppletRevokeMode, AuditReasonText, ConsentScope,
+    Cursor, DeviceId, Did, DidCoreId, DidUrl, EventBatchReceipt, EventInitialSubmission, EventKind,
+    Hash, PayloadProof, ProofContextId, RealmId, ReasonCode, ReceiptId, Result, SchemaId, ScopeRef,
     ServiceOperationId, SessionGrantId, UnsignedPayloadProof, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -37,13 +37,23 @@ pub enum ConsentState {
     NoConsent,
 }
 
+/// Exact peer correlation for one consent cell. Account/Agent peers retain
+/// their complete ActorId; a Realm pairwise peer is intentionally a local
+/// principal projection and cannot be confused with an account actor.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ConsentPeer {
+    Actor { actor_id: ActorId },
+    PairwisePrincipal { principal_id: DidCoreId },
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ConsentCellView {
     pub cell_id: String,
-    pub holder_principal_id: DidCoreId,
-    pub peer_principal_id: DidCoreId,
+    pub peer: ConsentPeer,
     pub consent_scope: ConsentScope,
     pub state: ConsentState,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -111,7 +121,7 @@ pub struct ConsentRevokeRequestBody {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ConsentRequestRequestBody {
-    pub holder_principal_id: DidCoreId,
+    pub holder_account_id: AccountId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub consent_scope: Option<ConsentScope>,
 }

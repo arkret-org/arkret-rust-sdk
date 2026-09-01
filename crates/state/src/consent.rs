@@ -16,8 +16,9 @@
 //! accept this kind of contact from that peer".
 
 use arkret_identifiers::{CellRef, ConsentId};
+use arkret_models_collaboration::account_lifecycle::ConsentPeer;
 use arkret_models_collaboration::governance::grant_constraint::GrantConstraint;
-use arkret_wire::{DidCoreId, WireError};
+use arkret_wire::WireError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -80,7 +81,7 @@ pub fn consent_cell_id(consent_id: &ConsentId) -> Result<CellRef, WireError> {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ConsentGrantValue {
     pub consent_id: ConsentId,
-    pub peer_id: DidCoreId,
+    pub peer: ConsentPeer,
     pub scope: Scope,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -106,8 +107,14 @@ mod tests {
         Utc.with_ymd_and_hms(year, month, day, 0, 0, 0).unwrap()
     }
 
-    fn bob() -> DidCoreId {
-        DidCoreId::new("ak:did_core:webvh:z6mkfixture:bob.example").unwrap()
+    fn bob() -> ConsentPeer {
+        ConsentPeer::Actor {
+            actor_id: arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+                arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixture:bob.example").unwrap(),
+                arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixture:station.example")
+                    .unwrap(),
+            )),
+        }
     }
 
     fn consent_id() -> ConsentId {
@@ -133,7 +140,7 @@ mod tests {
     fn grant_value_round_trip_through_serde() {
         let v = ConsentGrantValue {
             consent_id: consent_id(),
-            peer_id: bob(),
+            peer: bob(),
             scope: Scope::Invite,
             not_before: None,
             expires_at: Some(ts(2026, 12, 31)),

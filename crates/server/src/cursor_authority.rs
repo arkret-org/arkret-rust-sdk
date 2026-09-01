@@ -12,8 +12,10 @@ use serde_json::Value;
 /// Fields bound server-side to a stream cursor handle.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CursorBindingContext {
-    /// Opaque request subject bound to the cursor. This may be a stable
-    /// principal id, a handle-claim subject, or the literal anonymous scope.
+    /// Opaque request subject bound to the cursor. Account-scoped callers MUST
+    /// use [`Self::for_account`] so this contains canonical JCS(AccountId), not
+    /// a principal plus service sidecar. Generic directory callers may use a
+    /// registered non-account selector or the literal anonymous scope.
     pub binding_subject: String,
     pub device_id: Option<String>,
     pub service_id: DidCoreId,
@@ -33,6 +35,24 @@ impl CursorBindingContext {
             service_id,
             filter_digest: filter_digest.into(),
         }
+    }
+
+    pub fn for_account(
+        account_id: &arkret_wire::AccountId,
+        device_id: String,
+        filter_digest: impl Into<String>,
+    ) -> Result<Self, CursorAuthorityError> {
+        let binding_subject = String::from_utf8(
+            arkret_canonical::canonical_json_bytes(account_id)
+                .map_err(|error| CursorAuthorityError::ParamInvalid(error.to_string()))?,
+        )
+        .map_err(|error| CursorAuthorityError::ParamInvalid(error.to_string()))?;
+        Ok(Self {
+            binding_subject,
+            device_id: Some(device_id),
+            service_id: account_id.station_id.clone(),
+            filter_digest: filter_digest.into(),
+        })
     }
 }
 
@@ -289,6 +309,41 @@ mod tests {
         assert_eq!(
             CursorAuthority::resolve_stream(&decoded, &context, Some(&record)).unwrap_err(),
             CursorAuthorityError::IntegrityInvalid
+        );
+    }
+
+    #[test]
+    fn account_context_separates_same_core_at_different_stations() {
+        let principal_id = arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap();
+        let account_a = arkret_wire::AccountId::new(
+            principal_id.clone(),
+            arkret_wire::DidCoreId::new("ak:did_core:web:station-a.example").unwrap(),
+        );
+        let account_b = arkret_wire::AccountId::new(
+            principal_id,
+            arkret_wire::DidCoreId::new("ak:did_core:web:station-b.example").unwrap(),
+        );
+        let context_a = CursorBindingContext::for_account(
+            &account_a,
+            "ak:device:01904100-0000-7000-8000-000000000001".to_owned(),
+            "sha256:filter-a",
+        )
+        .unwrap();
+        let context_b = CursorBindingContext::for_account(
+            &account_b,
+            "ak:device:01904100-0000-7000-8000-000000000001".to_owned(),
+            "sha256:filter-a",
+        )
+        .unwrap();
+        assert_ne!(context_a, context_b);
+        assert_eq!(
+            context_a,
+            CursorBindingContext::for_account(
+                &account_a,
+                "ak:device:01904100-0000-7000-8000-000000000001".to_owned(),
+                "sha256:filter-a",
+            )
+            .unwrap()
         );
     }
 }

@@ -586,10 +586,6 @@
       "schema": "seal-transparency.schema.json"
     },
     {
-      "rust_type": "crates/models-collaboration/src/session_grant_bodies.rs::SessionGrantScopeDetails",
-      "schema": "service-operation-dtos.schema.json#/$defs/SessionGrantOutcome/properties/scope_details"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/signal_plaintext.rs::PresencePlaintext",
       "schema": "signal-presence.schema.json"
     },

@@ -114,7 +114,7 @@ impl AuthenticatedSignerResolutionEvidence {
                 normalized_did_document,
                 ..
             } => {
-                if &public_resolution.principal_id != signer_id
+                if &public_resolution.account_id.principal_id != signer_id
                     || !normalized_did_document
                         .verification_methods
                         .contains_key(verification_method.as_str())

@@ -179,7 +179,7 @@ impl Client {
             .post("/_arkret/root/identity/recovery-policy", request)
             .await?;
         if outcome.policy_id != payload.policy_id
-            || outcome.principal_id != payload.value.principal_id
+            || outcome.account_id != payload.value.account_id
             || outcome.version != payload.value.version
         {
             return Err(Error::Protocol(

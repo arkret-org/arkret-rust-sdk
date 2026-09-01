@@ -75,7 +75,7 @@ pub fn verify_public_principal_resolution(
     now: DateTime<Utc>,
 ) -> arkret_wire::Result<VerifyingKey> {
     resolution.validate_attestation_binding()?;
-    verify_full_to_core_binding(&station_document.id, &resolution.station_id)?;
+    verify_full_to_core_binding(&station_document.id, &resolution.account_id.station_id)?;
     let attestation = &resolution.projection_attestation;
     if attestation.proof.created_at != attestation.attestation.issued_at {
         return Err(arkret_wire::WireError::Protocol(
