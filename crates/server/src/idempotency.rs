@@ -47,9 +47,9 @@ impl IdempotencyDirection {
 }
 
 /// Spec 5-tuple idempotency identity
-/// (`applet-integration.md` §7.3: "幂等 identity MUST 至少绑定
-/// `(operation_id, direction, Source-Service-ID, Destination-Service-ID,
-/// Idempotency-Key)`").
+/// (`applet-integration.md` §7.3 requires the idempotency identity to bind at
+/// least `(operation_id, direction, Source-Service-ID, Destination-Service-ID,
+/// Idempotency-Key)`).
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IdempotencyIdentity {
     pub operation_id: String,

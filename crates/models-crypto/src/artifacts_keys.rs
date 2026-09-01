@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::ops::Deref;
 
+pub use arkret_wire::RecoveryIdentityModel;
 use arkret_wire::{
     AccountId, AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString,
     DeviceId, DeviceReanchorPreFenceSealFrontier, DidCoreId, DidUrl, DomainSeparationId, EventId,
@@ -20,8 +21,6 @@ use crate::key_backup::{
     SecretStorageContentIndex, SecretStorageItemKind,
 };
 use crate::keys::DeviceGenerationStatus;
-
-pub use arkret_wire::RecoveryIdentityModel;
 
 /// The `backup_kind`-discriminated keybag body of
 /// `spec/v1/artifacts/schemas/key-backup-plaintext.schema.json` (`oneOf`).

@@ -453,8 +453,8 @@ pub fn parse_canonical_json_within(bytes: &[u8], max_ingress_bytes: usize) -> Re
 /// This is the ingress primitive for wire formats whose member order is fixed
 /// by a schema rather than by canonical key sorting — the
 /// `ak.profile.binding.websocket.v1` connection frames
-/// (`zh/sync/websocket-binding.md` §4: "解析器必须在 schema validation 前拒绝
-/// duplicate member") are the only such format in v1. Anything that is signed,
+/// (`zh/sync/websocket-binding.md` §4 requires parsers to reject duplicate
+/// members before schema validation) are the only such format in v1. Anything that is signed,
 /// digested or compared byte-for-byte MUST keep using [`parse_canonical_json`].
 pub fn parse_json_rejecting_duplicate_keys(bytes: &[u8]) -> Result<Value> {
     parse_json_rejecting_duplicate_keys_within(bytes, MAX_CANONICAL_JSON_INGRESS_BYTES)

@@ -1463,18 +1463,7 @@ impl ArkretMlsGroup {
         self.add_members_with_optional_governance_binding(member_key_packages, None)
     }
 
-    pub fn add_members_with_governance_binding(
-        &mut self,
-        member_key_packages: &[MlsKeyPackageRecord],
-        governance_binding: &MlsGovernanceBindingPayload,
-    ) -> Result<MlsAddMembersResult> {
-        self.add_members_with_optional_governance_binding(
-            member_key_packages,
-            Some(governance_binding),
-        )
-    }
-
-    fn add_members_with_optional_governance_binding(
+    pub(crate) fn add_members_with_optional_governance_binding(
         &mut self,
         member_key_packages: &[MlsKeyPackageRecord],
         governance_binding: Option<&MlsGovernanceBindingPayload>,
@@ -1592,18 +1581,6 @@ impl ArkretMlsGroup {
             },
             welcomes,
         })
-    }
-
-    /// Remove every leaf attributed to `target` by the accepted-transition
-    /// binding map. BasicCredential bytes are never treated as a principal
-    /// directory.
-    ///
-    /// Errors when the target actor has no leaf in this group.
-    pub fn remove_member_by_actor(&mut self, target: &ActorId) -> Result<MlsRemoveMemberResult> {
-        self.remove_members_by_actor_with_optional_governance_binding(
-            std::slice::from_ref(target),
-            None,
-        )
     }
 
     /// Remove every leaf owned by any complete actor in `targets` in one MLS
@@ -2538,19 +2515,12 @@ mod content_scheme_anchor_tests {
         let group = founder();
         let profile = group.group_ciphersuite_canonical_id().unwrap();
         assert_eq!(profile, "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519");
+        let MlsEndpointIdentity::HumanDevice { device_id, .. } = &group.identity.endpoint else {
+            panic!("test founder is a human device");
+        };
         assert_eq!(
             group
-                .content_nonce_context(
-                    group
-                        .identity
-                        .endpoint
-                        .as_human_device()
-                        .expect("test founder is a human device")
-                        .1
-                        .as_str()
-                        .as_bytes(),
-                    3,
-                )
+                .content_nonce_context(device_id.as_str().as_bytes(), 3)
                 .unwrap()
                 .mls_group_id,
             group.group_id()

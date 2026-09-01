@@ -112,7 +112,9 @@ mod tests {
             restored.security_frontier_leaves().unwrap(),
             group.security_frontier_leaves().unwrap()
         );
-        let removed = restored.remove_member_by_actor(&remote_actor).unwrap();
+        let removed = restored
+            .remove_members_by_actor(std::slice::from_ref(&remote_actor))
+            .unwrap();
         assert_eq!(removed.removed_actors, vec![remote_actor]);
         assert_eq!(restored.member_actor_ids().unwrap(), vec![local_actor]);
     }
@@ -508,9 +510,9 @@ mod tests {
             .unwrap();
         let add_binding = governance_binding(&group_id, 0, 1, governance_hash('2'));
         let add = alice_group
-            .add_members_with_governance_binding(
+            .add_members_with_optional_governance_binding(
                 &[bob_key_package, carol_key_package],
-                &add_binding,
+                Some(&add_binding),
             )
             .unwrap();
         let carol_welcome = add
@@ -845,9 +847,9 @@ mod tests {
         assert!(members.contains(&DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap()));
 
         let _ = alice_group
-            .remove_member_by_actor(&test_account_actor(
+            .remove_members_by_actor(std::slice::from_ref(&test_account_actor(
                 &DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
-            ))
+            )))
             .unwrap();
         assert_eq!(
             alice_group.member_principal_ids().unwrap(),
@@ -1024,9 +1026,9 @@ mod tests {
             .add_members(&[bob_key_package, carol_key_package])
             .unwrap();
         group
-            .remove_member_by_actor(&test_account_actor(
+            .remove_members_by_actor(std::slice::from_ref(&test_account_actor(
                 &DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
-            ))
+            )))
             .unwrap();
 
         let epoch_before_preview = group.epoch();
@@ -1350,7 +1352,7 @@ mod tests {
         assert!(matches!(error, Error::Protocol(_)));
     }
 
-    /// T31 — `remove_member_by_actor` removes a leaf, advances the
+    /// T31 — `remove_members_by_actor` removes a leaf, advances the
     /// group's epoch and produces a commit envelope that surviving members
     /// can apply to converge.
     #[test]
@@ -1385,7 +1387,7 @@ mod tests {
         let epoch_before = alice_group.epoch();
         let target = DidCoreId::new("ak:did_core:webvh:z6mkfixturecharlie").unwrap();
         let result = alice_group
-            .remove_member_by_actor(&test_account_actor(&target))
+            .remove_members_by_actor(std::slice::from_ref(&test_account_actor(&target)))
             .unwrap();
 
         // Epoch advanced by exactly one Commit.
@@ -1479,7 +1481,8 @@ mod tests {
             .unwrap();
 
         let absent = DidCoreId::new("ak:did_core:webvh:z6mkfixturenobody").unwrap();
-        let err = alice_group.remove_member_by_actor(&test_account_actor(&absent));
+        let err =
+            alice_group.remove_members_by_actor(std::slice::from_ref(&test_account_actor(&absent)));
         assert!(matches!(err, Err(Error::Protocol(_))));
     }
 

@@ -25,7 +25,7 @@
 //! that keeps it honest.
 //!
 //! Because the spec states the ceiling as a *lower bound* on the per-attempt
-//! cap ("单次上限至少 60,000 ms"), jitter is added **on top of** the capped base
+//! cap (the per-attempt cap is at least 60,000 ms), jitter is added **on top of** the capped base
 //! rather than re-clamped into it. Re-clamping would collapse the jitter window
 //! to zero once the ladder saturates, which is exactly the fleet-synchronizing
 //! behavior the jitter clause exists to prevent.
@@ -364,7 +364,7 @@ impl Jitter {
 /// Add `0..ratio` of `base` to `base`.
 ///
 /// Additive, never subtractive: the spec floors are stated as "at least"
-/// ("首次等待至少 1,000 ms"), so shaving the delay would breach them.
+/// (the first wait is at least 1,000 ms), so shaving the delay would breach them.
 #[must_use]
 pub fn apply_jitter(base: Duration, ratio: f64, jitter: &mut Jitter) -> Duration {
     if ratio <= 0.0 || base.is_zero() {

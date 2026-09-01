@@ -12,10 +12,10 @@
 //! Two things are deliberately separated here.
 //!
 //! * **Discovery** is streaming and durable. The work queue and visited set are a caller-supplied
-//!   [`DirectTraversalJournal`] port ("SQLite 或等价 disk-backed work queue+visited set",
-//!   `history-visibility.md` §5), so the verifier keeps only the Seal descriptor it is currently
-//!   expanding plus a constant number of accumulators live. Nothing about the discovered cut is
-//!   materialized in this crate's memory.
+//!   [`DirectTraversalJournal`] port ("SQLite or an equivalent disk-backed work queue and visited
+//!   set", `history-visibility.md` §5), so the verifier keeps only the Seal descriptor it is
+//!   currently expanding plus a constant number of accumulators live. Nothing about the discovered
+//!   cut is materialized in this crate's memory.
 //! * **Replay** reuses the existing reducer through [`crate::apply_replayed_seal_in_context`].
 //!   There is exactly one implementation of notary selection, delta admission, root recomputation
 //!   and Bottom/recovery in the SDK, and direct traversal streams Seals into it one at a time

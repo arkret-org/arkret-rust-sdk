@@ -34,16 +34,6 @@ pub enum MlsEndpointIdentity {
 }
 
 impl MlsEndpointIdentity {
-    pub fn as_human_device(&self) -> Option<(&DidCoreId, &DeviceId)> {
-        match self {
-            Self::HumanDevice {
-                principal_id,
-                device_id,
-            } => Some((principal_id, device_id)),
-            Self::AgentRuntime { .. } | Self::MinimalMetadataPairwise { .. } => None,
-        }
-    }
-
     pub fn human_device(principal_id: DidCoreId, device_id: DeviceId) -> Self {
         Self::HumanDevice {
             principal_id,

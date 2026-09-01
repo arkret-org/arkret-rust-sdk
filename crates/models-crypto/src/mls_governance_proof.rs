@@ -181,8 +181,9 @@ impl MlsGovernanceProofRequestBody {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use arkret_wire::{AccountId, DidCoreId, RealmId};
+
+    use super::*;
 
     fn genesis_request(proposal: ProposedMlsGroupGenesisBinding) -> MlsGovernanceProofRequestBody {
         let realm_id =

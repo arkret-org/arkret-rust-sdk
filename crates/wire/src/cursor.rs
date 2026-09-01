@@ -39,7 +39,7 @@ pub fn generate_cursor_handle() -> Result<String> {
 ///
 /// # Issuing-service only
 ///
-/// Per spec `conformance/conformance-vectors.md` ("cursor 不透明性" vector,
+/// Per spec `conformance/conformance-vectors.md` (the "cursor opacity" vector,
 /// expected client behaviour): clients MUST treat a cursor as an opaque
 /// string, MUST NOT parse its internal fields to build requests, and MUST
 /// NOT rely on the base64url-decoded `h` / timestamps / any other internal field —
