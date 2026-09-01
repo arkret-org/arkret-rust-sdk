@@ -139,13 +139,11 @@ hmac = { version = "0.13.0", default-features = false }
 hpke = { version = "0.13", default-features = false, features = ["x25519", "std"] }
 idna = { version = "1.1.0", default-features = true }
 jsonschema = { version = "0.49.2", default-features = false }
-# Pinned to a specific commit (not a mutable `branch = "main"`) so E2EE/MLS
-# core builds are reproducible and upstream `main` churn can't silently change
-# crypto behavior. Bump deliberately under review when adopting a new OpenMLS.
-openmls = { version = "0.8.1", git = "https://github.com/openmls/openmls.git", rev = "d5a3aa7b595cb445614aa04b38f3d3aa42cf4911", default-features = false }
-openmls_basic_credential = { version = "0.5.0", git = "https://github.com/openmls/openmls.git", rev = "d5a3aa7b595cb445614aa04b38f3d3aa42cf4911", default-features = false }
-openmls_rust_crypto = { version = "0.5.1", git = "https://github.com/openmls/openmls.git", rev = "d5a3aa7b595cb445614aa04b38f3d3aa42cf4911", default-features = false }
-openmls_traits = { version = "0.5.0", git = "https://github.com/openmls/openmls.git", rev = "d5a3aa7b595cb445614aa04b38f3d3aa42cf4911", default-features = false }
+# Use the latest stable, mutually compatible OpenMLS releases from crates.io.
+openmls = { version = "0.9.0", default-features = false }
+openmls_basic_credential = { version = "0.6.0", default-features = false }
+openmls_rust_crypto = { version = "0.6.0", default-features = false }
+openmls_traits = { version = "0.6.0", default-features = false }
 p256 = { version = "0.13.2", default-features = false, features = ["ecdsa"] }
 precis-profiles = { version = "0.1.13", default-features = false }
 proptest = { version = "1", default-features = false }
@@ -171,7 +169,7 @@ serde_path_to_error = { version = "0.1.20", default-features = false }
 sha2 = { version = "0.11.0", default-features = false }
 subtle = { version = "2.6.1", default-features = false }
 thiserror = { version = "2.0.18", default-features = false }
-tls_codec = { version = "0.4.2", default-features = false, features = ["mls", "serde", "std"] }
+tls_codec = { version = "0.5.0", default-features = false, features = ["mls", "serde", "std"] }
 tokio = { version = "1.52.3", default-features = false, features = ["sync"] }
 tracing = { version = "0.1.44", default-features = false, features = ["std", "attributes"] }
 unicode-normalization = { version = "0.1.25", default-features = false, features = ["std"] }
