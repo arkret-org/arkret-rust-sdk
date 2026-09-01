@@ -3,10 +3,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_crypto::DeviceProjectionAttestation;
-use arkret_models_identity::{AgentSignerEvidence, AuthenticatedSignerResolutionEvidence};
+use arkret_models_identity::{
+    AgentCurrentObservation, AgentSignerEvidence, AuthenticatedSignerResolutionEvidence,
+};
 use arkret_wire::{
-    AccountId, ActorId, DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, ProtocolSignature,
-    RealmId, RequestId, ServiceOperationId, SignalEnvelope, WireError,
+    AccountId, ActorId, DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, ProtocolOperationId,
+    ProtocolSignature, RealmId, RequestId, ServiceOperationId, SignalEnvelope, WireError,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -112,6 +114,37 @@ pub struct CurrentSignerEvidenceQueryRequestBody {
 }
 
 impl CurrentSignerEvidenceQueryRequestBody {
+    /// Retype this request's UUID payload as the instance-level operation id
+    /// bound by an Agent current observation.
+    pub fn agent_observation_operation_id(&self) -> arkret_wire::Result<ProtocolOperationId> {
+        let payload = self
+            .request_id
+            .as_str()
+            .strip_prefix(RequestId::KIND_PREFIX)
+            .ok_or_else(|| {
+                WireError::Protocol(
+                    "current signer evidence request id has an invalid kind prefix".to_owned(),
+                )
+            })?;
+        ProtocolOperationId::new(format!("ak:operation:{payload}")).map_err(|error| {
+            WireError::Protocol(format!(
+                "current signer evidence request cannot derive an Agent observation operation id: {error}"
+            ))
+        })
+    }
+
+    fn agent_observation_binds_request(
+        &self,
+        observation: &AgentCurrentObservation,
+    ) -> arkret_wire::Result<bool> {
+        let expected_operation_id = self.agent_observation_operation_id()?;
+        Ok(observation.operation_id == expected_operation_id
+            && observation.request_digest == self.request_digest
+            && observation.verifier_id == self.recipient_account_id.station_id
+            && observation.audience_id == self.recipient_account_id.principal_id
+            && observation.challenge == self.challenge)
+    }
+
     pub fn validate(&self) -> arkret_wire::Result<()> {
         self.recipient_account_id.validate()?;
         if self.operation_id != ServiceOperationId::SelfSignalCommandSendV1 {
@@ -278,10 +311,7 @@ impl CurrentSignerEvidenceItem {
                 };
                 if signer_id != actor.signing_principal_id()
                     || root_method != verification_method
-                    || current_observation.request_digest != request.request_digest
-                    || current_observation.verifier_id != request.recipient_account_id.station_id
-                    || current_observation.audience_id != request.recipient_account_id.principal_id
-                    || current_observation.challenge != request.challenge
+                    || !request.agent_observation_binds_request(current_observation)?
                     || outer_attestation.expires_at < expires_at
                     || dependencies.is_empty()
                     || dependencies.len() > 64
@@ -500,7 +530,7 @@ impl CurrentSignerEvidenceQueryOutcome {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::Base64UrlString;
+    use arkret_wire::{Base64UrlString, SealId};
     use chrono::TimeZone as _;
 
     use super::*;
@@ -532,6 +562,55 @@ mod tests {
                 device_id: DeviceId::new("ak:device:019b0000-0000-7000-8000-000000000002").unwrap(),
             }],
         }
+    }
+
+    fn agent_observation(
+        request: &CurrentSignerEvidenceQueryRequestBody,
+    ) -> AgentCurrentObservation {
+        let evaluated_at = Utc.with_ymd_and_hms(2026, 9, 1, 0, 0, 0).single().unwrap();
+        AgentCurrentObservation {
+            operation_id: request.agent_observation_operation_id().unwrap(),
+            request_digest: request.request_digest.clone(),
+            verifier_id: request.recipient_account_id.station_id.clone(),
+            audience_id: request.recipient_account_id.principal_id.clone(),
+            challenge: request.challenge.clone(),
+            agent_snapshot_digest: graph_hash(10),
+            agent_key_seal_id: SealId::new(format!("ak:seal:sha256:{}", "b".repeat(64))).unwrap(),
+            agent_status_seal_id: SealId::new(format!("ak:seal:sha256:{}", "c".repeat(64)))
+                .unwrap(),
+            controller_gate_attestation_digest: graph_hash(11),
+            evaluated_at,
+            expires_at: evaluated_at + Duration::seconds(30),
+        }
+    }
+
+    #[test]
+    fn agent_observation_operation_id_retypes_the_request_payload() {
+        let request = request();
+
+        assert_eq!(
+            request.agent_observation_operation_id().unwrap().as_str(),
+            "ak:operation:019b0000-0000-7000-8000-000000000001"
+        );
+    }
+
+    #[test]
+    fn agent_observation_binding_rejects_a_different_operation_instance() {
+        let request = request();
+        let mut observation = agent_observation(&request);
+        assert!(
+            request
+                .agent_observation_binds_request(&observation)
+                .unwrap()
+        );
+
+        observation.operation_id =
+            ProtocolOperationId::new("ak:operation:019b0000-0000-7000-8000-000000000099").unwrap();
+        assert!(
+            !request
+                .agent_observation_binds_request(&observation)
+                .unwrap()
+        );
     }
 
     fn outcome(
