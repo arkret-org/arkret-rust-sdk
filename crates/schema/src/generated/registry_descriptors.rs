@@ -2,13 +2,13 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/id-kind-registry.json; version=2026-08-30.2;
 //! sha256=5027ff6fedbe92ee1b1475278352416fbcee183acf7ce9e61124d1a156106ab3 Input: registry/
-//! capability-action-registry.json; version=2026-08-31.8;
-//! sha256=b2ad43bc54bef48e34697fa5f5a45c8be32f70e1ea39d42284335a5e24b6cdf3 Input: registry/
+//! capability-action-registry.json; version=2026-09-01.4;
+//! sha256=b7270454dddbd0c94faa6f09bb41949b248766cd11f0f160d64e9b4ceaa29b63 Input: registry/
 //! schema-registry.json; version=2026-09-01.1;
 //! sha256=c9867f3896c5875e9b169354d77e26ed98b33567e06393654a28e12c1d435c95 Input: registry/
 //! account-data-key-registry.json; version=2026-08-30.1;
 //! sha256=e46f0f04e0b29e29d8be37fb74e237eb76eba99e3f4259a24672bf0f57bfffd1 Entries: id_kinds=59,
-//! special_forms=14, actions=163, schemas=200, account_data_patterns=24
+//! special_forms=14, actions=164, schemas=200, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -1106,6 +1106,20 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
+        action: CapabilityActionId::ForkResolution,
+        category: "general",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[event_kind_str::FORK_RESOLUTION],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: false,
+        reducer_only: false,
+        event_mapping_kind: "same_name",
+    },
+    CapabilityActionDescriptor {
         action: CapabilityActionId::InviteAccept,
         category: "personal",
         risk_tier: CapabilityRiskTier::Low,
@@ -2115,6 +2129,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::CONFLICT_RECOVERY,
             event_kind_str::CONTAINER_MOVE_ITEM,
             event_kind_str::CONTAINER_REBALANCE,
+            event_kind_str::FORK_RESOLUTION,
             event_kind_str::INVITE_CANCEL,
             event_kind_str::INVITE_CLAIM,
             event_kind_str::INVITE_CREATE,
@@ -2228,6 +2243,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.container.move_item",
             "ak.container.rebalance",
             "ak.event.read",
+            "ak.fork.resolution",
             "ak.invite.cancel",
             "ak.invite.claim",
             "ak.invite.create",

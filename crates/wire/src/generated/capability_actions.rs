@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/capability-action-registry.json; version=2026-08-31.8;
-//! sha256=b2ad43bc54bef48e34697fa5f5a45c8be32f70e1ea39d42284335a5e24b6cdf3 Entries: registered=163
+//! Input: registry/capability-action-registry.json; version=2026-09-01.4;
+//! sha256=b7270454dddbd0c94faa6f09bb41949b248766cd11f0f160d64e9b4ceaa29b63 Entries: registered=164
 
 use serde::{Deserialize, Serialize};
 
@@ -53,6 +53,7 @@ pub enum CapabilityActionId {
     ContainerMoveItem,
     ContainerRebalance,
     EventRead,
+    ForkResolution,
     InviteAccept,
     InviteCancel,
     InviteClaim,
@@ -220,6 +221,7 @@ impl CapabilityActionId {
         Self::ContainerMoveItem,
         Self::ContainerRebalance,
         Self::EventRead,
+        Self::ForkResolution,
         Self::InviteAccept,
         Self::InviteCancel,
         Self::InviteClaim,
@@ -385,6 +387,7 @@ impl CapabilityActionId {
     pub const CONTAINER_MOVE_ITEM: &'static str = "ak.container.move_item";
     pub const CONTAINER_REBALANCE: &'static str = "ak.container.rebalance";
     pub const EVENT_READ: &'static str = "ak.event.read";
+    pub const FORK_RESOLUTION: &'static str = "ak.fork.resolution";
     pub const INVITE_ACCEPT: &'static str = "ak.invite.accept";
     pub const INVITE_CANCEL: &'static str = "ak.invite.cancel";
     pub const INVITE_CLAIM: &'static str = "ak.invite.claim";
@@ -559,6 +562,7 @@ impl CapabilityActionId {
             Self::ContainerMoveItem => Self::CONTAINER_MOVE_ITEM,
             Self::ContainerRebalance => Self::CONTAINER_REBALANCE,
             Self::EventRead => Self::EVENT_READ,
+            Self::ForkResolution => Self::FORK_RESOLUTION,
             Self::InviteAccept => Self::INVITE_ACCEPT,
             Self::InviteCancel => Self::INVITE_CANCEL,
             Self::InviteClaim => Self::INVITE_CLAIM,
@@ -731,6 +735,7 @@ impl CapabilityActionId {
             Self::CONTAINER_MOVE_ITEM => Some(Self::ContainerMoveItem),
             Self::CONTAINER_REBALANCE => Some(Self::ContainerRebalance),
             Self::EVENT_READ => Some(Self::EventRead),
+            Self::FORK_RESOLUTION => Some(Self::ForkResolution),
             Self::INVITE_ACCEPT => Some(Self::InviteAccept),
             Self::INVITE_CANCEL => Some(Self::InviteCancel),
             Self::INVITE_CLAIM => Some(Self::InviteClaim),

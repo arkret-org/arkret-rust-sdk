@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/proof-context-registry.json; version=2026-09-01.2;
-//! sha256=2cf6a5e873dd6f1acc3dcc76b8033b1bbf2a4d0e6569d21e2057c0d3cb500bec Input: registry/
+//! sha256=1831060c84e3acb95429815585fd1b8fd571cae83cac9ce6cc07b6a940df1919 Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=1bba5f530b6d6ce8d64c20b4418163bd3eebe8c44cef8a246d14b846c7d1b333 Input: registry/
 //! digest-suite-registry.json; version=2026-08-31;
@@ -1438,7 +1438,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "verification_method",
             "created_at",
             "proof_purpose",
-            "audience_id",
+            "audience",
         ],
         schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/DirectoryGovernanceProof",
     },

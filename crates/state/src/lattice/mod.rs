@@ -44,6 +44,7 @@ pub use fsm::Fsm;
 pub use mv_register::MvRegister;
 pub use or_set::OrSet;
 pub use ordered_log::OrderedLog;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 pub use traits::{Lattice, LatticeKind, OpError};
 
@@ -90,7 +91,8 @@ impl SealedOp {
 }
 
 /// Resolved cell state. Either a concrete value or a [`Bottom`] diagnostic.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum CellState {
     Value(Value),
     Bottom(Bottom),

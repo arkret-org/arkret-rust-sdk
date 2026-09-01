@@ -370,6 +370,10 @@
       "schema": "event-payload.schema.json#/$defs/space_patch_payload"
     },
     {
+      "rust_type": "crates/models-collaboration/src/events_payloads/state.rs::ForkResolutionPayload",
+      "schema": "event-payload.schema.json#/$defs/fork_resolution_payload"
+    },
+    {
       "rust_type": "crates/models-collaboration/src/events_payloads/state.rs::MediaServiceFocus",
       "schema": "event-payload.schema.json#/$defs/media_service_focus"
     },

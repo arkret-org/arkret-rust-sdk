@@ -346,6 +346,9 @@ where
     {
         verify_recovery_refs(event)?;
     }
+    if event.kind == arkret_wire::EventKind::ForkResolution {
+        verify_fork_resolution_refs(event, pre_state)?;
+    }
     let mut effects = Vec::with_capacity(projected.len());
     for write in &projected {
         for effect in resolve_projected_write(write, realm_id, pre_state, registry)? {
@@ -418,6 +421,44 @@ fn verify_recovery_refs(event: &Event) -> Result<(), ControlMoveReject> {
         return Err(ControlMoveReject::FailedPrecondition {
             cell: event.realm_id.as_str().to_owned(),
             reason: "recovery_witness_missing".to_owned(),
+        });
+    }
+    Ok(())
+}
+
+fn verify_fork_resolution_refs(
+    event: &Event,
+    pre_state: &BTreeMap<CellRef, CellState>,
+) -> Result<(), ControlMoveReject> {
+    let capability = event
+        .refs
+        .iter()
+        .find(|reference| reference.role == "recovery_capability" && reference.critical)
+        .ok_or_else(|| ControlMoveReject::FailedPrecondition {
+            cell: event.realm_id.as_str().to_owned(),
+            reason: arkret_wire::ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED.to_owned(),
+        })?;
+    if !event.refs.iter().any(|reference| {
+        reference.critical
+            && matches!(
+                reference.role.as_str(),
+                "attestation" | "inclusion_proof" | "state_witness"
+            )
+    }) {
+        return Err(ControlMoveReject::FailedPrecondition {
+            cell: event.realm_id.as_str().to_owned(),
+            reason: "recovery_witness_missing".to_owned(),
+        });
+    }
+    if !recovery_capability_is_active_for(
+        capability.id.as_str(),
+        &event.actor_id,
+        pre_state,
+        arkret_wire::event_kind_str::FORK_RESOLUTION,
+    ) {
+        return Err(ControlMoveReject::FailedPrecondition {
+            cell: event.realm_id.as_str().to_owned(),
+            reason: arkret_wire::ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED.to_owned(),
         });
     }
     Ok(())
@@ -766,13 +807,24 @@ pub(super) fn recovery_capability_is_active(
     actor_id: &ActorId,
     pre_state: &BTreeMap<CellRef, CellState>,
 ) -> bool {
+    recovery_capability_is_active_for(
+        grant_id,
+        actor_id,
+        pre_state,
+        arkret_wire::event_kind_str::CONFLICT_RECOVERY,
+    )
+}
+
+fn recovery_capability_is_active_for(
+    grant_id: &str,
+    actor_id: &ActorId,
+    pre_state: &BTreeMap<CellRef, CellState>,
+    action: &str,
+) -> bool {
     find_capability_grant(grant_id, pre_state).is_ok_and(|grant| {
         !grant.is_revoked()
             && grant.subject() == Some(actor_id)
-            && grant
-                .actions
-                .iter()
-                .any(|action| action == arkret_wire::event_kind_str::CONFLICT_RECOVERY)
+            && grant.actions.iter().any(|candidate| candidate == action)
             && grant.has_resources()
     })
 }

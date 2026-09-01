@@ -263,6 +263,7 @@ event_payload_accessors! {
     event_spec::PolicySet => (as_policy_set, PolicySetStatePayload, PolicySetStatePayload::validate),
     event_spec::PolicyRule => (as_policy_rule, PolicyRuleStatePayload),
     event_spec::PolicyAction => (as_policy_action, PolicyActionStatePayload, PolicyActionStatePayload::validate),
+    event_spec::ForkResolution => (as_fork_resolution, ForkResolutionPayload, ForkResolutionPayload::validate),
     event_spec::ConflictRecovery => (as_state_conflict_recovery, StateConflictRecoveryPayload),
     event_spec::NotaryFaultEquivocation => (as_notary_fault_equivocation, NotaryFaultEquivocationPayload),
     event_spec::NotaryFaultCensorship => (as_notary_fault_censorship, NotaryFaultCensorshipPayload),

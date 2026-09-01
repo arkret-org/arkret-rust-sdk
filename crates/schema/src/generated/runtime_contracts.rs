@@ -3,11 +3,11 @@
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
 //! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
 //! contract-registry.json; version=2026-09-01.4;
-//! sha256=b147c2dbf5ef1592355770f5094c733e1432f4b0b93a32dfe46f1688cc69e997 Input: registry/
+//! sha256=10e5621bc3b5856fe96bacb27dd0fc1e189da92947a0d337d206a9173a7668f6 Input: registry/
 //! operation-registry.json; version=2026-09-01.3;
 //! sha256=8007d2c1fa4bda60aa57cb9a77ca0b1706aeb4c7631d199adb4f239ee2c54ea5 Input: registry/
-//! event-kind-registry.json; version=2026-09-01.3;
-//! sha256=4733068327e65f1ab233f105d5ff60e80fe46111413490179fec4d9ec7a61000 Input: registry/
+//! event-kind-registry.json; version=2026-09-01.4;
+//! sha256=9baf20f9edc061b47115eb2f8d50429943dbd87ddb712c9f2000d10005985693 Input: registry/
 //! schema-registry.json; version=2026-09-01.1;
 //! sha256=c9867f3896c5875e9b169354d77e26ed98b33567e06393654a28e12c1d435c95 Input: registry/
 //! id-kind-registry.json; version=2026-08-30.2;
@@ -773,7 +773,7 @@ pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] = 
     ServiceOperationId::SelfAccountReadDescribeV1,
 ];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-01.3";
+pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-01.4";
 pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-01.1";
 pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-01.3";
 pub const ID_KIND_REGISTRY_VERSION: &str = "2026-08-30.2";

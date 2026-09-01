@@ -7,6 +7,7 @@ use arkret_wire::{
     ActorId, AppletId, Did, DidCoreId, TrustDomainId, validate_canonical_idna_domain,
 };
 
+use super::event_wire::decode_payload_after_kind_validation;
 use crate::governance::operation_wire::Policy;
 use crate::internal_prelude::*;
 use crate::objects::media::MediaBackendKind;
@@ -1561,6 +1562,245 @@ impl<'de> Deserialize<'de> for StateConflictRecoveryPayload {
     }
 }
 
+/// Original confirmed-evidence scope resolved by `ak.fork.resolution`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ForkResolutionSubject {
+    EventSiblingBucket {
+        actor_id: ActorId,
+        actor_seq: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        prev_frontier_digest: Option<Hash>,
+        sibling_event_digests: Vec<Hash>,
+    },
+    EventIdCollision {
+        event_id: EventId,
+        variants: Vec<ForkResolutionCollisionVariant>,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ForkResolutionCollisionVariant {
+    pub canonical_event_bytes_b64u: Base64UrlString,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ForkResolutionWinnerKind {
+    CanonicalWinner,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ForkResolutionVoidKind {
+    VoidAll,
+}
+
+/// Closed subject-specific fork verdict. The two winner shapes deliberately
+/// cannot be interchanged: a full-hash collision has no digest-only identity.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ForkResolutionVerdict {
+    SiblingWinner {
+        kind: ForkResolutionWinnerKind,
+        event_digest: Hash,
+    },
+    CollisionWinner {
+        kind: ForkResolutionWinnerKind,
+        canonical_event_bytes_b64u: Base64UrlString,
+    },
+    VoidAll {
+        kind: ForkResolutionVoidKind,
+    },
+}
+
+/// Counterpart for `event-payload.schema.json#/$defs/fork_resolution_payload`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ForkResolutionPayload {
+    pub subject: ForkResolutionSubject,
+    pub verdict: ForkResolutionVerdict,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ForkResolutionPayloadWire {
+    subject: ForkResolutionSubject,
+    verdict: ForkResolutionVerdict,
+}
+
+impl ForkResolutionPayload {
+    pub fn validate(&self) -> Result<()> {
+        match (&self.subject, &self.verdict) {
+            (
+                ForkResolutionSubject::EventSiblingBucket {
+                    sibling_event_digests,
+                    ..
+                },
+                ForkResolutionVerdict::SiblingWinner { event_digest, .. },
+            ) => {
+                validate_resolution_collection(
+                    sibling_event_digests.iter().map(Hash::as_str),
+                    sibling_event_digests.len(),
+                    "sibling Event digests",
+                )?;
+                if !sibling_event_digests.contains(event_digest) {
+                    return schema_violation(
+                        "fork resolution sibling winner is outside the complete subject set",
+                    );
+                }
+            }
+            (
+                ForkResolutionSubject::EventSiblingBucket {
+                    sibling_event_digests,
+                    ..
+                },
+                ForkResolutionVerdict::VoidAll { .. },
+            ) => validate_resolution_collection(
+                sibling_event_digests.iter().map(Hash::as_str),
+                sibling_event_digests.len(),
+                "sibling Event digests",
+            )?,
+            (
+                ForkResolutionSubject::EventIdCollision { variants, .. },
+                ForkResolutionVerdict::CollisionWinner {
+                    canonical_event_bytes_b64u,
+                    ..
+                },
+            ) => {
+                validate_collision_variants(variants)?;
+                if !variants.iter().any(|variant| {
+                    &variant.canonical_event_bytes_b64u == canonical_event_bytes_b64u
+                }) {
+                    return schema_violation(
+                        "fork resolution collision winner is outside the complete variant set",
+                    );
+                }
+            }
+            (
+                ForkResolutionSubject::EventIdCollision { variants, .. },
+                ForkResolutionVerdict::VoidAll { .. },
+            ) => validate_collision_variants(variants)?,
+            _ => {
+                return schema_violation(
+                    "fork resolution verdict does not match its evidence subject",
+                );
+            }
+        }
+        Ok(())
+    }
+}
+
+impl ForkResolutionSubject {
+    pub fn evidence_scope_key(&self) -> Result<Hash> {
+        Ok(Hash::new(arkret_canonical::sha256_digest(
+            arkret_canonical::canonical_json_bytes(self)?,
+        ))?)
+    }
+}
+
+fn validate_resolution_collection<'a>(
+    values: impl Iterator<Item = &'a str>,
+    len: usize,
+    label: &str,
+) -> Result<()> {
+    if !(2..=64).contains(&len) {
+        return schema_violation(format!("fork resolution {label} must contain 2..=64 items"));
+    }
+    let values = values.collect::<Vec<_>>();
+    if !values.windows(2).all(|pair| pair[0] < pair[1]) {
+        return schema_violation(format!(
+            "fork resolution {label} must be strictly bytewise ascending and unique"
+        ));
+    }
+    Ok(())
+}
+
+fn validate_collision_variants(variants: &[ForkResolutionCollisionVariant]) -> Result<()> {
+    validate_resolution_collection(
+        variants
+            .iter()
+            .map(|variant| variant.canonical_event_bytes_b64u.as_str()),
+        variants.len(),
+        "canonical collision variants",
+    )
+}
+
+impl<'de> Deserialize<'de> for ForkResolutionPayload {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = ForkResolutionPayloadWire::deserialize(deserializer)?;
+        let payload = Self {
+            subject: wire.subject,
+            verdict: wire.verdict,
+        };
+        payload.validate().map_err(serde::de::Error::custom)?;
+        Ok(payload)
+    }
+}
+
+/// Canonical consumer record projected only from an accepted recovery Seal.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ForkResolutionRecord {
+    pub realm_id: RealmId,
+    pub subject: ForkResolutionSubject,
+    pub verdict: ForkResolutionVerdict,
+    pub resolution_event_digest: Hash,
+}
+
+impl ForkResolutionRecord {
+    pub fn from_accepted_seal(
+        event: &Event,
+        covering_seal: &Seal,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<Self> {
+        if event.kind != EventKind::ForkResolution || event.realm_id != covering_seal.realm_id {
+            return schema_violation(
+                "fork resolution record source is not an exact same-Realm ak.fork.resolution Event",
+            );
+        }
+        if covering_seal.predecessor_refs.is_empty() {
+            return schema_violation("fork resolution cannot be carried by a genesis Seal");
+        }
+        let payload = decode_payload_after_kind_validation::<ForkResolutionPayload>(event)?;
+        payload.validate()?;
+        let resolution_event_digest =
+            Hash::new(event.event_digest_with_digest_suite(digest_suite)?)?;
+        if !covering_seal.delta.contains(&resolution_event_digest) {
+            return schema_violation(
+                "fork resolution Event is not covered by the supplied accepted Seal",
+            );
+        }
+        if !event
+            .refs
+            .iter()
+            .any(|reference| reference.critical && reference.role == "recovery_capability")
+        {
+            return schema_violation(ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED);
+        }
+        if !event.refs.iter().any(|reference| {
+            reference.critical
+                && matches!(
+                    reference.role.as_str(),
+                    "attestation" | "inclusion_proof" | "state_witness"
+                )
+        }) {
+            return schema_violation(
+                "fork resolution omits a critical witness or inclusion-proof reference",
+            );
+        }
+        Ok(Self {
+            realm_id: event.realm_id.clone(),
+            subject: payload.subject,
+            verdict: payload.verdict,
+            resolution_event_digest,
+        })
+    }
+}
+
 /// Counterpart for `event-payload.schema.json#/$defs/notary_fault_equivocation_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1706,5 +1946,65 @@ mod tests {
             }))
             .is_err()
         );
+    }
+
+    #[test]
+    fn fork_resolution_collision_requires_canonical_bytes_winner() {
+        let valid = json!({
+            "subject": {
+                "kind": "event_id_collision",
+                "event_id": "ak:event:AUl7i16DNG_PX5V_-ud5fDx65PwcMpaj4uSW2K4C0Ev9",
+                "variants": [
+                    {"canonical_event_bytes_b64u": "YQ"},
+                    {"canonical_event_bytes_b64u": "Yg"}
+                ]
+            },
+            "verdict": {
+                "kind": "canonical_winner",
+                "canonical_event_bytes_b64u": "YQ"
+            }
+        });
+        serde_json::from_value::<ForkResolutionPayload>(valid.clone())
+            .expect("canonical bytes winner");
+
+        let mut digest_only = valid;
+        digest_only["verdict"] = json!({
+            "kind": "canonical_winner",
+            "event_digest": format!("sha256:{}", "1".repeat(64))
+        });
+        assert!(serde_json::from_value::<ForkResolutionPayload>(digest_only).is_err());
+    }
+
+    #[test]
+    fn fork_resolution_sibling_set_is_complete_sorted_and_binds_winner() {
+        let first = format!("sha256:{}", "1".repeat(64));
+        let second = format!("sha256:{}", "2".repeat(64));
+        let valid = json!({
+            "subject": {
+                "kind": "event_sibling_bucket",
+                "actor_id": {
+                    "kind": "service",
+                    "service_id": "ak:did_core:web:actor.example"
+                },
+                "actor_seq": 4,
+                "sibling_event_digests": [first, second]
+            },
+            "verdict": {
+                "kind": "canonical_winner",
+                "event_digest": format!("sha256:{}", "2".repeat(64))
+            }
+        });
+        serde_json::from_value::<ForkResolutionPayload>(valid.clone()).expect("sorted winner");
+
+        let mut outside = valid.clone();
+        outside["verdict"]["event_digest"] = json!(format!("sha256:{}", "3".repeat(64)));
+        assert!(serde_json::from_value::<ForkResolutionPayload>(outside).is_err());
+
+        let mut reversed = valid;
+        reversed["subject"]["sibling_event_digests"] = json!([
+            format!("sha256:{}", "2".repeat(64)),
+            format!("sha256:{}", "1".repeat(64))
+        ]);
+        assert!(serde_json::from_value::<ForkResolutionPayload>(reversed).is_err());
     }
 }

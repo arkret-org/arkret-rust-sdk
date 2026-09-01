@@ -1,5 +1,7 @@
 //! Sync, realm, and snapshot schema artifact counterparts.
 
+use std::collections::BTreeSet;
+
 use arkret_wire::{
     ActorId, DidCoreId, PayloadProof, ProofContextId, SchemaId, UnsignedPayloadProof,
 };
@@ -158,6 +160,91 @@ impl RangeCompletenessAttestation {
     }
 }
 
+/// Exact-scope resolution emitted after already-verified quorum witnesses
+/// converge on one range-completeness payload again.
+#[derive(Clone, Debug)]
+pub struct WitnessReagreementResolutionRecord {
+    pub realm_id: RealmId,
+    pub event_range: RangeCompletenessAttestationEventRange,
+    pub root: Hash,
+    pub count: u64,
+    pub witness_ids: BTreeSet<DidCoreId>,
+}
+
+impl WitnessReagreementResolutionRecord {
+    pub fn evidence_scope_key(&self) -> Result<Hash> {
+        Ok(Hash::new(canonical::sha256_digest(
+            canonical::canonical_json_bytes(&serde_json::json!({
+                "realm_id": self.realm_id,
+                "event_range": self.event_range,
+            }))?,
+        ))?)
+    }
+
+    pub fn resolution_digest(&self) -> Result<Hash> {
+        Ok(Hash::new(canonical::sha256_digest(
+            canonical::canonical_json_bytes(&serde_json::json!({
+                "realm_id": self.realm_id,
+                "event_range": self.event_range,
+                "root": self.root,
+                "count": self.count,
+                "witness_ids": self.witness_ids,
+            }))?,
+        ))?)
+    }
+}
+
+/// Project a single resolution record from a set whose signatures and witness
+/// eligibility were verified by the caller. This function owns the remaining
+/// deterministic rule: quorum cardinality, distinct issuers, exact complete
+/// scope and byte-identical payload.
+pub fn project_verified_witness_reagreement(
+    attestations: &[RangeCompletenessAttestation],
+    required_quorum: usize,
+) -> Result<WitnessReagreementResolutionRecord> {
+    if required_quorum < 2 || attestations.len() < required_quorum {
+        return Err(WireError::Protocol(
+            "witness_disagreement: a same-scope witness resolution requires quorum".to_owned(),
+        ));
+    }
+    let first = attestations.first().ok_or_else(|| {
+        WireError::Protocol("witness_disagreement: witness set is empty".to_owned())
+    })?;
+    let expected = canonical::canonical_json_bytes(&serde_json::json!({
+        "realm_id": first.realm_id,
+        "event_range": first.event_range,
+        "root": first.root,
+        "count": first.count,
+    }))?;
+    let mut witness_ids = BTreeSet::new();
+    for attestation in attestations {
+        let payload = canonical::canonical_json_bytes(&serde_json::json!({
+            "realm_id": attestation.realm_id,
+            "event_range": attestation.event_range,
+            "root": attestation.root,
+            "count": attestation.count,
+        }))?;
+        if payload != expected || !witness_ids.insert(attestation.issuer_id.clone()) {
+            return Err(WireError::Protocol(
+                "witness_disagreement: witnesses do not cover one identical complete scope"
+                    .to_owned(),
+            ));
+        }
+    }
+    if witness_ids.len() < required_quorum {
+        return Err(WireError::Protocol(
+            "witness_disagreement: distinct witness quorum is not met".to_owned(),
+        ));
+    }
+    Ok(WitnessReagreementResolutionRecord {
+        realm_id: first.realm_id.clone(),
+        event_range: first.event_range.clone(),
+        root: first.root.clone(),
+        count: first.count,
+        witness_ids,
+    })
+}
+
 /// Counterpart for `spec/v1/artifacts/schemas/snapshot.schema.json#/properties/frontier`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SnapshotFrontierValue {
@@ -287,4 +374,72 @@ pub struct SnapshotBootstrap {
     pub signature: PayloadProof,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verification_hints: Option<SnapshotVerificationHintsValue>,
+}
+
+#[cfg(test)]
+mod witness_reagreement_tests {
+    use super::*;
+
+    fn attestation(issuer: &str, root_byte: char) -> RangeCompletenessAttestation {
+        RangeCompletenessAttestation {
+            attestation_id: format!("attestation-{issuer}"),
+            schema: RangeCompletenessAttestation::SCHEMA.to_owned(),
+            issuer_id: DidCoreId::new(issuer).unwrap(),
+            issuer_role: "witness".to_owned(),
+            realm_id: RealmId::new(
+                "ak:realm:Abeq9pC3fxOERl1X0ivHa5cJCBy41KfYu5LKvGfPFq5K".to_owned(),
+            )
+            .unwrap(),
+            event_range: RangeCompletenessAttestationEventRange {
+                from_frontier: RangeCompletenessAttestationEventRangeFromFrontier {
+                    realm_frontier: Vec::new(),
+                    extra: BTreeMap::new(),
+                },
+                to_frontier: RangeCompletenessAttestationEventRangeToFrontier {
+                    realm_frontier: Vec::new(),
+                    extra: BTreeMap::new(),
+                },
+                actor_seq_ranges: Vec::new(),
+            },
+            root: Hash::new(format!("sha256:{}", root_byte.to_string().repeat(64))).unwrap(),
+            count: 0,
+            observed_at: Utc::now(),
+            witness_attestation: RangeCompletenessAttestationWitnessAttestation {
+                witnesses: Vec::new(),
+            },
+            proofs: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn witness_reagreement_requires_distinct_same_scope_quorum() {
+        let first = attestation("ak:did_core:web:witness-a.example", '1');
+        let second = attestation("ak:did_core:web:witness-b.example", '1');
+        let record = project_verified_witness_reagreement(&[first.clone(), second], 2).unwrap();
+        assert_eq!(record.witness_ids.len(), 2);
+        assert!(record.evidence_scope_key().is_ok());
+        assert!(record.resolution_digest().is_ok());
+
+        assert!(project_verified_witness_reagreement(&[first.clone(), first], 2).is_err());
+        assert!(
+            project_verified_witness_reagreement(
+                &[
+                    attestation("ak:did_core:web:witness-a.example", '1'),
+                    attestation("ak:did_core:web:witness-b.example", '2'),
+                ],
+                2,
+            )
+            .is_err()
+        );
+        assert!(
+            project_verified_witness_reagreement(
+                &[
+                    attestation("ak:did_core:web:witness-a.example", '1'),
+                    attestation("ak:did_core:web:witness-b.example", '1'),
+                ],
+                3,
+            )
+            .is_err()
+        );
+    }
 }

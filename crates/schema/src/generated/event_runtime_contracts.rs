@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/event-kind-registry.json; version=2026-09-01.3;
-//! sha256=4733068327e65f1ab233f105d5ff60e80fe46111413490179fec4d9ec7a61000 Input: registry/
+//! Input: registry/event-kind-registry.json; version=2026-09-01.4;
+//! sha256=9baf20f9edc061b47115eb2f8d50429943dbd87ddb712c9f2000d10005985693 Input: registry/
 //! id-kind-registry.json; version=2026-08-30.2;
 //! sha256=5027ff6fedbe92ee1b1475278352416fbcee183acf7ce9e61124d1a156106ab3
-//! Entries: active_events=174, pre_state_requirements=2
+//! Entries: active_events=175, pre_state_requirements=2
 
 use arkret_wire::{CellFamilyId, event_kind_str};
 
@@ -469,6 +469,13 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::DIRECT_CONVERSATION_BOUND,
+        reducer_input: true,
+        id_source: None,
+        derived_id_kinds: &[],
+        pre_state_requirements: &[],
+    },
+    EventRuntimeContractDescriptor {
+        event_kind: event_kind_str::FORK_RESOLUTION,
         reducer_input: true,
         id_source: None,
         derived_id_kinds: &[],
