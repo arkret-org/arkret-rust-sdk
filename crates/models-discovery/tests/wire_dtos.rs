@@ -21,7 +21,25 @@ fn announce_origin_is_carried_only_by_the_signed_event_actor() {
             "actor_seq": 1, "created_at": "2026-08-31T00:00:00.000Z",
             "prev_refs": [], "payload": {"value": {}}, "proofs": []
         },
-        "source_refs": ["ak:event:ASWGTju1AH5ri82iFC0b-lZTclyFRuOI8TagaYiq5ZD2"],
+        "source_ref_access": {
+            "kind": "directory_announce",
+            "source_id": "ak:did_core:web:station.example",
+            "directory_id": "ak:did_core:web:directory.example",
+            "realm_id": realm_id,
+            "discovery_event_id": "ak:event:ASWGTju1AH5ri82iFC0b-lZTclyFRuOI8TagaYiq5ZD2",
+            "source_refs": ["ak:event:ASWGTju1AH5ri82iFC0b-lZTclyFRuOI8TagaYiq5ZD2"],
+            "as_of": "2026-08-31T00:00:00.000Z",
+            "expires_at": "2026-08-31T00:05:00.000Z",
+            "proof": {
+                "kind": "detached_jws",
+                "verification_method": "did:web:station.example#notary-key",
+                "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+                "created_at": "2026-08-31T00:00:00.000Z",
+                "domain": "ak:trust_domain:example.com",
+                "audience": "ak:did_core:web:directory.example",
+                "jws": "e30..c2ln"
+            }
+        },
         "as_of": "2026-08-31T00:00:00.000Z"
     });
     let body: arkret_models_discovery::DirectoryAnnounceRequestBody =
@@ -41,11 +59,23 @@ fn announce_origin_is_carried_only_by_the_signed_event_actor() {
         serde_json::from_value::<arkret_models_discovery::DirectoryAnnounceRequestBody>(value)
             .is_err()
     );
-    let mut missing_refs = serde_json::to_value(body).unwrap();
-    missing_refs.as_object_mut().unwrap().remove("source_refs");
+    let mut missing_access = serde_json::to_value(&body).unwrap();
+    missing_access
+        .as_object_mut()
+        .unwrap()
+        .remove("source_ref_access");
     assert!(
         serde_json::from_value::<arkret_models_discovery::DirectoryAnnounceRequestBody>(
-            missing_refs
+            missing_access
+        )
+        .is_err()
+    );
+    let mut legacy_refs = serde_json::to_value(body).unwrap();
+    legacy_refs["source_refs"] =
+        serde_json::json!(["ak:event:ASWGTju1AH5ri82iFC0b-lZTclyFRuOI8TagaYiq5ZD2"]);
+    assert!(
+        serde_json::from_value::<arkret_models_discovery::DirectoryAnnounceRequestBody>(
+            legacy_refs
         )
         .is_err()
     );
