@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-01.2;
-//! sha256=a81e23e69cc41bddebbf4cab686b8326d2d3f9c1ed5b087c2552b2171572d1c5
-//! Entries: operation_bundles=33 features=22
+//! Input: registry/contract-registry.json; version=2026-09-01.3;
+//! sha256=f80531a86f1a93ecf4f1fea1b95ad1ab015cef0c1f88b3bbbef1fb0b0ffe2531
+//! Entries: operation_bundles=34 features=22
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -551,6 +551,20 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfAppletRevokeCommandPreviewV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+        ],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.station.current_signer_evidence.v1",
+        service_kind: ServiceKind::Station,
+        members: &[
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerCurrentSignerEvidenceReadResolveV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfCurrentSignerEvidenceReadResolveV1,
                 binding_kind: BindingKind::HttpJson,
             },
         ],

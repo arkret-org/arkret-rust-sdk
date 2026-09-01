@@ -53,6 +53,24 @@ fn station_http_core_advertises_service_resolution() {
 }
 
 #[test]
+fn station_current_signer_evidence_bundle_closes_both_query_hops() {
+    let bundle =
+        operation_bundle_descriptor("ak.operation_bundle.station.current_signer_evidence.v1")
+            .expect("Station current-signer evidence bundle must be registered");
+
+    assert_eq!(bundle.service_kind, ServiceKind::Station);
+    assert_eq!(bundle.members.len(), 2);
+    assert!(bundle.contains(
+        ServiceOperationId::SelfCurrentSignerEvidenceReadResolveV1,
+        BindingKind::HttpJson,
+    ));
+    assert!(bundle.contains(
+        ServiceOperationId::PeerCurrentSignerEvidenceReadResolveV1,
+        BindingKind::HttpJson,
+    ));
+}
+
+#[test]
 fn station_history_key_recovery_bundle_closes_feature_requirements() {
     let bundle = operation_bundle_descriptor("ak.operation_bundle.station.history_key_recovery.v1")
         .expect("Station history-key recovery bundle must be registered");
