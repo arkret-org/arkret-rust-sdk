@@ -25,6 +25,10 @@ jobs:
       - run: cargo +nightly fmt --all -- --check
       - name: Guard crate layering (frozen phase-0 exit review rules)
         run: python tools/check-layering.py
+      - name: Guard in-source test layout and hotspot growth
+        run: |
+          python -m unittest tools.tests.test_test_layout_gate
+          python tools/test_layout_gate.py
       - name: Guard protocol time representations
         run: python tools/lint-time-representations.py
       - name: Guard optional canonical timestamp defaults
