@@ -16,8 +16,8 @@ use arkret_models_identity::agent_signer_evidence::{
     AgentSigningPublicKey, ControllerAccountEligibility, ControllerAccountStatus,
 };
 use arkret_wire::{
-    CellRef, Did, DidCoreId, DidUrl, DomainSeparationId, EventId, Hash, NonEmptyString, ProfileId,
-    ProtocolOperationId, RealmId, SchemaId, Seal, SealId, SignerEvidenceRef,
+    ActorId, CellRef, Did, DidCoreId, DidUrl, DomainSeparationId, EventId, Hash, NonEmptyString,
+    ProfileId, ProtocolOperationId, RealmId, SchemaId, Seal, SealId, SignerEvidenceRef,
     project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -349,6 +349,10 @@ pub struct VerifiedAgentEvidenceState {
 
 pub struct AgentEvidenceStateVerificationContext<'a> {
     pub signer_id: &'a DidCoreId,
+    /// Complete Account identity of the Agent whose lifecycle cell is proven.
+    /// The Station component is identity-bearing and must never be collapsed to
+    /// the signing principal DID.
+    pub signer_actor_id: &'a ActorId,
     pub agent_key_id: &'a NonEmptyString,
     pub controller_id: &'a DidCoreId,
     pub agent_key_authorize_event_id: &'a EventId,
@@ -535,9 +539,15 @@ pub fn agent_authorization_cell_ref(
 }
 
 fn agent_lifecycle_cell_ref(
-    agent_id: &DidCoreId,
+    agent_actor_id: &ActorId,
 ) -> Result<NonEmptyString, AgentEvidenceRejectedReason> {
-    let subject = arkret_wire::composite_subject(&[agent_id.as_str()])
+    if agent_actor_id.as_account_id().is_none() {
+        return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
+    }
+    let canonical_actor = agent_actor_id
+        .canonical_key()
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    let subject = arkret_wire::composite_subject(&[canonical_actor.as_str()])
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
     NonEmptyString::new(format!("ak:cell:{AGENT_STATUS_COMPONENT}:{subject}"))
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
@@ -1266,6 +1276,8 @@ fn validate_state_witnesses(
     let lifecycle_value = serde_json::to_value(lifecycle.cell_value)
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
     Ok(key.component.as_str() == AGENT_KEY_COMPONENT
+        && context.signer_actor_id.as_account_id().is_some()
+        && context.signer_actor_id.signing_principal_id() == context.signer_id
         && key.agent_id == *context.signer_id
         && key.authorization_event_id == *context.agent_key_authorize_event_id
         && key.seal.id == key.seal_id
@@ -1294,7 +1306,8 @@ fn validate_state_witnesses(
         && lifecycle.seal.id == lifecycle.seal_id
         && lifecycle.seal.state_root == lifecycle.state_root
         && lifecycle.seal.realm_id == snapshot.core.principal_control_realm_id
-        && agent_lifecycle_cell_ref(context.signer_id).ok() == Some(lifecycle.cell_ref.clone())
+        && agent_lifecycle_cell_ref(context.signer_actor_id).ok()
+            == Some(lifecycle.cell_ref.clone())
         && verify_witness_branch(
             &lifecycle.cell_ref,
             &lifecycle_value,
@@ -1689,5 +1702,22 @@ mod digest_domain_tests {
             "sha256:544e62cee8033709e389e5b2755343d0d0fa8c4850215cfb6331717e80d1aea3"
         );
         assert_ne!(authorization_digest, runtime_request_digest);
+    }
+
+    #[test]
+    fn lifecycle_cell_subject_binds_complete_agent_account_identity() {
+        let agent_id =
+            project_did_to_core_id(&Did::new("did:webvh:z6mkfixture:agent.example").unwrap())
+                .unwrap();
+        let station_a = DidCoreId::new("ak:did_core:web:station-a.example").unwrap();
+        let station_b = DidCoreId::new("ak:did_core:web:station-b.example").unwrap();
+        let actor_a = ActorId::account(arkret_wire::AccountId::new(agent_id.clone(), station_a));
+        let actor_b = ActorId::account(arkret_wire::AccountId::new(agent_id.clone(), station_b));
+
+        assert_ne!(
+            agent_lifecycle_cell_ref(&actor_a).unwrap(),
+            agent_lifecycle_cell_ref(&actor_b).unwrap()
+        );
+        assert!(agent_lifecycle_cell_ref(&ActorId::service(agent_id)).is_err());
     }
 }

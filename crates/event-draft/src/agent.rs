@@ -64,6 +64,11 @@ struct AgentLifecycleEventInput<P> {
 fn build_agent_lifecycle_intent<K: EventSpec>(
     input: AgentLifecycleEventInput<K::Payload>,
 ) -> Result<EventIntent> {
+    if input.agent_actor_id.as_account_id().is_none() {
+        return Err(crate::EventDraftError::Protocol(
+            "Agent lifecycle Events require a complete Account ActorId".to_owned(),
+        ));
+    }
     TypedEventDraft::<K>::new(
         input.principal_control_scope_ref,
         input.agent_actor_id,
@@ -181,8 +186,8 @@ mod tests {
     use arkret_schema::{or_set_dot, project_registered_cell_writes};
     use arkret_wire::cell::composite_subject;
     use arkret_wire::{
-        AuthoredEvent, CellRef, DidCoreId, Event, EventId, EventKind, Hash, Hlc, LatticeOp,
-        LatticeOpType, ProjectedCellWrite, ProjectedOp, RealmId,
+        AccountId, AuthoredEvent, CellRef, DidCoreId, Event, EventId, EventKind, Hash, Hlc,
+        LatticeOp, LatticeOpType, ProjectedCellWrite, ProjectedOp, RealmId,
     };
     use chrono::TimeZone;
     use serde_json::{Value, json};
@@ -223,8 +228,9 @@ mod tests {
         CellRef::new(format!("ak:cell:ak.component.agent.key.v1:{subject}")).unwrap()
     }
 
-    fn agent_status_cell(agent_id: &DidCoreId) -> CellRef {
-        CellRef::new(format!("ak:cell:ak.component.agent.status.v1:{agent_id}")).unwrap()
+    fn agent_status_cell(agent_actor_id: &ActorId) -> CellRef {
+        let subject = composite_subject(&[agent_actor_id.canonical_key().unwrap()]).unwrap();
+        CellRef::new(format!("ak:cell:ak.component.agent.status.v1:{subject}")).unwrap()
     }
 
     fn payload_object(event: &Event) -> Value {
@@ -422,15 +428,17 @@ mod tests {
     fn lifecycle_events_bind_payload_and_status_transition() {
         let agent_id = core_id("agent");
         let agent_did = did("agent");
+        let agent_actor_id =
+            ActorId::account(AccountId::new(agent_id.clone(), core_id("agent-station")));
         let controller_id = core_id("controller");
         let changed_at = Utc.with_ymd_and_hms(2026, 7, 19, 8, 0, 0).unwrap();
         let authorization_ref = DidUrl::new(format!("{agent_did}#managed-controller")).unwrap();
 
-        let status_cell = agent_status_cell(&agent_id);
+        let status_cell = agent_status_cell(&agent_actor_id);
 
         let pause = authored(
             build_agent_pause_intent(
-                ActorId::service(agent_id.clone()),
+                agent_actor_id.clone(),
                 ActorId::service(controller_id.clone()),
                 scope(),
                 authorization_ref.clone(),
@@ -457,7 +465,7 @@ mod tests {
 
         let resume = authored(
             build_agent_resume_intent(
-                ActorId::service(agent_id),
+                agent_actor_id,
                 ActorId::service(controller_id),
                 scope(),
                 authorization_ref,
@@ -499,5 +507,21 @@ mod tests {
             )]
         );
         assert_eq!(deactivate.payload["reason"], "user_requested");
+    }
+
+    #[test]
+    fn lifecycle_event_rejects_service_actor_identity() {
+        let agent_id = core_id("agent");
+        let error = build_agent_pause_intent(
+            ActorId::service(agent_id),
+            ActorId::service(core_id("controller")),
+            scope(),
+            DidUrl::new("did:webvh:z6mkfixture:agent.example#managed-controller").unwrap(),
+            None,
+            Utc.with_ymd_and_hms(2026, 7, 19, 8, 0, 0).unwrap(),
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("complete Account ActorId"));
     }
 }

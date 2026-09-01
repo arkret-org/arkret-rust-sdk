@@ -499,6 +499,7 @@ where
         admission_evidence,
         &arkret_signatures::agent_evidence::AgentEvidenceStateVerificationContext {
             signer_id,
+            signer_actor_id: &event.actor_id,
             agent_key_id: &binding.agent_key_id,
             controller_id: &binding.controller_id,
             agent_key_authorize_event_id: &binding.agent_key_authorize_event_id,
@@ -710,6 +711,7 @@ where
         admission_evidence,
         &arkret_signatures::agent_evidence::AgentEvidenceStateVerificationContext {
             signer_id,
+            signer_actor_id: &source.source_actor_id,
             agent_key_id: &binding.agent_key_id,
             controller_id: &binding.controller_id,
             agent_key_authorize_event_id: &binding.agent_key_authorize_event_id,
