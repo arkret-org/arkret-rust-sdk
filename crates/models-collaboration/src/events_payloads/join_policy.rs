@@ -87,9 +87,9 @@ pub enum JoinPolicyPayloadGatesItem {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         denied_actor_ids: Option<Vec<ActorId>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        allowed_principal_core_ids: Option<Vec<DidCoreId>>,
+        allowed_principal_ids: Option<Vec<DidCoreId>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        denied_principal_core_ids: Option<Vec<DidCoreId>>,
+        denied_principal_ids: Option<Vec<DidCoreId>>,
     },
     Cooldown {
         gate_id: JoinPolicyGateId,
@@ -172,16 +172,34 @@ mod tests {
     }
 
     #[test]
-    fn principal_admission_rejects_legacy_bare_principal_lists() {
-        let legacy = serde_json::json!({
+    fn principal_admission_principal_ids_round_trip() {
+        let value = serde_json::json!({
             "gates": [{
                 "gate_id": "identity",
                 "kind": "principal_admission",
-                "allowed_principal_ids": ["ak:did_core:webvh:z6mkfixture"]
+                "allowed_principal_ids": ["ak:did_core:webvh:z6mkallowed"],
+                "denied_principal_ids": ["ak:did_core:webvh:z6mkdenied"]
             }],
             "combinator": "all"
         });
-        assert!(serde_json::from_value::<JoinPolicyPayload>(legacy).is_err());
+        let payload: JoinPolicyPayload = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(payload).unwrap(), value);
+    }
+
+    #[test]
+    fn principal_admission_rejects_unknown_principal_list_fields() {
+        for disposition in ["allowed", "denied"] {
+            let mut value = serde_json::json!({
+                "gates": [{
+                    "gate_id": "identity",
+                    "kind": "principal_admission"
+                }],
+                "combinator": "all"
+            });
+            let legacy_field = [disposition, "_principal_", "core_ids"].concat();
+            value["gates"][0][legacy_field] = serde_json::json!(["ak:did_core:webvh:z6mkfixture"]);
+            assert!(serde_json::from_value::<JoinPolicyPayload>(value).is_err());
+        }
     }
 
     #[test]
