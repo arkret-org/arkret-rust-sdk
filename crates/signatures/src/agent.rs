@@ -47,14 +47,45 @@ pub struct RuntimeKeyRequestBuilder<'a> {
     runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
 }
 
+/// Verify that an exact Agent signing method belongs to the stable Agent id.
+///
+/// This is a projection check, not string prefix comparison: the DID URL
+/// carries a resolvable complete DID while `agent_id` remains the stable
+/// [`DidCoreId`] used by pairing, sessions, actors, and indexes.
+pub fn validate_agent_verification_method(
+    agent_id: &DidCoreId,
+    verification_method: &DidUrl,
+) -> Result<()> {
+    let controller = verification_method
+        .as_str()
+        .split_once('#')
+        .map(|(controller, _)| controller)
+        .expect("DidUrl always contains a fragment");
+    let controller =
+        Did::new(controller.to_owned()).map_err(|reason| Error::Protocol(reason.to_string()))?;
+    let projected = project_did_to_core_id(&controller)
+        .map_err(|reason| Error::Protocol(reason.to_string()))?;
+    if &projected != agent_id {
+        return Err(Error::Protocol(
+            "agent runtime verification_method must belong to agent_id".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
 impl<'a> RuntimeKeyRequestBuilder<'a> {
-    pub fn new(
+    /// Build a runtime-key request for an already selected Agent verification
+    /// method.
+    ///
+    /// Agent identity references use the stable [`DidCoreId`] carried by the
+    /// bootstrap, while the authorized signing key is named by this complete
+    /// DID URL. Validation projects the method controller back to the stable
+    /// id; callers must not manufacture a DID by treating the core id as one.
+    pub fn new_with_verification_method(
         signing_key: &'a SigningKey,
         bootstrap: AgentPairingBootstrap,
-        agent_did: &Did,
-        endpoint_device_id: DeviceId,
+        verification_method: &DidUrl,
     ) -> Self {
-        let verification_method = format!("{agent_did}#{endpoint_device_id}");
         let proof_created_at = Utc::now();
         let proof_expires_at = std::cmp::min(
             bootstrap.pairing_expires_at,
@@ -63,11 +94,26 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
         Self {
             signing_key,
             bootstrap,
-            verification_method,
+            verification_method: verification_method.to_string(),
             proof_created_at,
             proof_expires_at,
             runtime_attestation: None,
         }
+    }
+
+    /// Convenience constructor for device-shaped method fragments.
+    ///
+    /// Agent runtimes whose accepted key uses another fragment shape should
+    /// call [`Self::new_with_verification_method`] with the exact method.
+    pub fn new(
+        signing_key: &'a SigningKey,
+        bootstrap: AgentPairingBootstrap,
+        agent_did: &Did,
+        endpoint_device_id: DeviceId,
+    ) -> Self {
+        let verification_method = DidUrl::new(format!("{agent_did}#{endpoint_device_id}"))
+            .expect("validated DID and DeviceId form a valid verification method");
+        Self::new_with_verification_method(signing_key, bootstrap, &verification_method)
     }
 
     #[must_use]
@@ -269,23 +315,9 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
                 "agent pairing bootstrap request id and code must not be empty".to_owned(),
             ));
         }
-        if self.verification_method.trim().is_empty()
-            || DidUrl::new(self.verification_method.clone())
-                .ok()
-                .and_then(|method| {
-                    method
-                        .as_str()
-                        .split_once('#')
-                        .and_then(|(controller, _)| Did::new(controller).ok())
-                })
-                .and_then(|did| project_did_to_core_id(&did).ok())
-                .is_none_or(|core_id| core_id != self.bootstrap.agent_id)
-        {
-            return Err(Error::Protocol(
-                "agent runtime verification_method must belong to agent_id".to_owned(),
-            ));
-        }
-        Ok(())
+        let verification_method = DidUrl::new(self.verification_method.clone())
+            .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+        validate_agent_verification_method(&self.bootstrap.agent_id, &verification_method)
     }
 }
 
@@ -673,6 +705,69 @@ mod tests {
             proof.created_at + chrono::Duration::seconds(300)
         );
         assert!(proof.expires_at <= pairing_expires_at);
+    }
+
+    #[test]
+    fn runtime_key_request_builder_preserves_exact_agent_verification_method() {
+        let signing_key = SigningKey::from_bytes(&[7_u8; 32]);
+        let agent_id = DidCoreId::new("ak:did_core:web:agent.example").unwrap();
+        let bootstrap = AgentPairingBootstrap {
+            arkret_base_url: "https://arkret.example".to_owned(),
+            service_id: DidCoreId::new("ak:did_core:web:arkret.example").unwrap(),
+            agent_id,
+            pairing_request_id: arkret_wire::OpaqueLocalId::new(
+                "01970000-0000-7000-8000-000000000022",
+            )
+            .unwrap(),
+            pairing_code: "12345678".to_owned(),
+            pairing_expires_at: Utc::now() + chrono::Duration::minutes(5),
+        };
+        let verification_method = DidUrl::new("did:web:agent.example#runtime-1").unwrap();
+
+        let request = RuntimeKeyRequestBuilder::new_with_verification_method(
+            &signing_key,
+            bootstrap,
+            &verification_method,
+        )
+        .build_approval_request()
+        .unwrap();
+
+        assert_eq!(request.body.verification_method, verification_method);
+        assert_eq!(
+            request.body.public_key.kid.as_str(),
+            verification_method.as_str()
+        );
+        assert_eq!(
+            request.body.proof_of_possession.verification_method,
+            verification_method
+        );
+    }
+
+    #[test]
+    fn runtime_key_request_builder_rejects_method_for_another_agent() {
+        let signing_key = SigningKey::from_bytes(&[7_u8; 32]);
+        let bootstrap = AgentPairingBootstrap {
+            arkret_base_url: "https://arkret.example".to_owned(),
+            service_id: DidCoreId::new("ak:did_core:web:arkret.example").unwrap(),
+            agent_id: DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
+            pairing_request_id: arkret_wire::OpaqueLocalId::new(
+                "01970000-0000-7000-8000-000000000022",
+            )
+            .unwrap(),
+            pairing_code: "12345678".to_owned(),
+            pairing_expires_at: Utc::now() + chrono::Duration::minutes(5),
+        };
+        let wrong_method = DidUrl::new("did:web:other.example#runtime-1").unwrap();
+
+        let error = RuntimeKeyRequestBuilder::new_with_verification_method(
+            &signing_key,
+            bootstrap,
+            &wrong_method,
+        )
+        .build_approval_request()
+        .unwrap_err();
+
+        assert!(error.to_string().contains("must belong to agent_id"));
     }
 
     #[test]
