@@ -106,7 +106,7 @@ arkret-signatures = { version = "0.3.0", path = "crates/signatures", default-fea
 arkret-state = { version = "0.3.0", path = "crates/state", default-features = false }
 arkret-wire = { version = "0.3.0", path = "crates/wire", default-features = false }
 atomic-write-file = "0.3.0"
-base64 = { version = "0.22.1", default-features = false, features = ["std"] }
+base64 = { version = "0.23.1", default-features = false, features = ["std"] }
 bip39 = { version = "2.2.0", default-features = false, features = ["std"] }
 blake3 = { version = "1.5.5", default-features = false }
 bs58 = { version = "0.5.1", default-features = false, features = ["std"] }
