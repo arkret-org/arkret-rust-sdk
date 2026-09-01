@@ -124,28 +124,6 @@ type HpkeKdf = HkdfSha256;
 /// DHKEM(X25519) encapsulated-key length (RFC 9180 `Npk`); fixed at 32 bytes.
 const HPKE_ENC_LEN: usize = 32;
 
-/// Minimal CSPRNG adapter over `getrandom` for the `hpke` crate's rand_core 0.9
-/// RNG interface. Only used to mint the per-seal ephemeral DHKEM keypair.
-struct OsCsRng;
-
-impl rand_core_09::RngCore for OsCsRng {
-    fn next_u32(&mut self) -> u32 {
-        let mut b = [0u8; 4];
-        self.fill_bytes(&mut b);
-        u32::from_le_bytes(b)
-    }
-    fn next_u64(&mut self) -> u64 {
-        let mut b = [0u8; 8];
-        self.fill_bytes(&mut b);
-        u64::from_le_bytes(b)
-    }
-    fn fill_bytes(&mut self, dst: &mut [u8]) {
-        getrandom::fill(dst).expect("OS CSPRNG must not fail");
-    }
-}
-
-impl rand_core_09::CryptoRng for OsCsRng {}
-
 /// RFC 9180 base-mode single-shot seal to a recipient X25519 public key
 /// (`ak.hpke_x25519_aead_chacha20poly1305.v1`), via the `hpke` crate. A fresh
 /// ephemeral keypair is generated per seal. The wire blob is
@@ -176,13 +154,12 @@ pub fn seal_base_mode_to_x25519_pubkey(
     getrandom::fill(&mut rng_probe)
         .map_err(|err| Error::Crypto(format!("OS CSPRNG unavailable for HPKE seal: {err}")))?;
 
-    let (encapped, ciphertext) = single_shot_seal::<HpkeAead, HpkeKdf, HpkeKem, _>(
+    let (encapped, ciphertext) = single_shot_seal::<HpkeAead, HpkeKdf, HpkeKem>(
         &OpModeS::Base,
         &recipient_pub,
         info,
         plaintext,
         aad,
-        &mut OsCsRng,
     )
     .map_err(|_| Error::Crypto("hpke seal failed".to_owned()))?;
 
@@ -612,7 +589,7 @@ mod tests {
     /// Fresh X25519 recovery/device keypair `(priv, pub)` as raw bytes, minted
     /// via the `hpke` crate so the tests do not re-derive X25519 by hand.
     fn hpke_keypair() -> (Vec<u8>, Vec<u8>) {
-        let (sk, pk) = <HpkeKem as hpke::Kem>::gen_keypair(&mut OsCsRng);
+        let (sk, pk) = <HpkeKem as hpke::Kem>::gen_keypair();
         (sk.to_bytes().to_vec(), pk.to_bytes().to_vec())
     }
 
@@ -766,7 +743,7 @@ mod organization_recovery_archive_tests {
     const REALM: &str = "ak:realm:AfjSiYTXJZS-0ifVfy1f_uzsmJIBjDyN11_-dxnne50e";
 
     fn hpke_keypair() -> (Vec<u8>, Vec<u8>) {
-        let (sk, pk) = <HpkeKem as hpke::Kem>::gen_keypair(&mut OsCsRng);
+        let (sk, pk) = <HpkeKem as hpke::Kem>::gen_keypair();
         (sk.to_bytes().to_vec(), pk.to_bytes().to_vec())
     }
 

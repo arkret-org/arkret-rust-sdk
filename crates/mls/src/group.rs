@@ -2095,7 +2095,7 @@ pub fn reaction_routing_tag_from_root(
         32,
     )
     .map_err(|error| Error::Crypto(error.to_string()))?;
-    let mut mac = <Hmac<Sha256> as hmac::KeyInit>::new_from_slice(&routing_key)
+    let mut mac = <Hmac<Sha256> as KeyInit>::new_from_slice(&routing_key)
         .map_err(|_| Error::Crypto("reaction routing HMAC key is invalid".to_owned()))?;
     mac.update(normalized.as_bytes());
     Ok(base64url_encode(mac.finalize().into_bytes()))

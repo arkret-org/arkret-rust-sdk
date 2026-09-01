@@ -8,7 +8,7 @@
 //! and never a spurious "valid".
 
 use arkret_signatures::proof::{PublicKeyMaterial, verify_ed25519_detached_jws_proof};
-use arkret_wire::{DidCoreId, ProducerEventProof};
+use arkret_wire::{ActorId, DidCoreId, ProducerEventProof};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
@@ -34,7 +34,9 @@ fuzz_target!(|data: &[u8]| {
         return;
     };
 
-    let actor_id = DidCoreId::new("ak:did_core:web:fuzz.example").expect("static DID core ID");
+    let actor_id = ActorId::service(
+        DidCoreId::new("ak:did_core:web:fuzz.example").expect("static DID core ID"),
+    );
     // Verifier must return Ok/Err, never panic, on arbitrary canonical bytes +
     // arbitrary (parsed) proof + arbitrary key.
     let _ =

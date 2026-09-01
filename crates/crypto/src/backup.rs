@@ -282,7 +282,7 @@ impl VaultBinding {
     ) -> Result<[u8; VAULT_NONCE_LEN]> {
         let nonce_key = derive_subkey(root, b"arkret-key-backup-aead-nonce-v1");
         let transcript_bytes = self.nonce_transcript_canonical_bytes(nonce_salt_b64)?;
-        let mut mac = <HmacSha256 as hmac::digest::KeyInit>::new_from_slice(&nonce_key)
+        let mut mac = <HmacSha256 as KeyInit>::new_from_slice(&nonce_key)
             .map_err(|err| KeyBackupError::Kdf(format!("nonce hmac key: {err}")))?;
         mac.update(&transcript_bytes);
         let tag = mac.finalize().into_bytes();

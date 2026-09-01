@@ -74,8 +74,8 @@ rust-version = "1.98"
 # AES-128-GCM: the AEAD of the only ACTIVE MLS ciphersuite row
 # (mls-ciphersuite-registry.json `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`),
 # used by the `ak.signal_exporter_aead.v1` Signal rail.
-aes-gcm = { version = "0.10.3", default-features = false, features = ["aes", "alloc"] }
-argon2 = { version = "0.5.3", default-features = false, features = ["alloc", "password-hash"] }
+aes-gcm = { version = "0.11.1", default-features = false, features = ["aes", "alloc"] }
+argon2 = { version = "0.6.0", default-features = false, features = ["alloc", "password-hash"] }
 arkret-auth = { version = "0.3.0", path = "crates/auth", default-features = false }
 arkret-bootstrap = { version = "0.3.0", path = "crates/bootstrap", default-features = false }
 arkret-canonical = { version = "0.3.0", path = "crates/canonical", default-features = false }
@@ -105,30 +105,25 @@ arkret-server = { version = "0.3.0", path = "crates/server", default-features = 
 arkret-signatures = { version = "0.3.0", path = "crates/signatures", default-features = false }
 arkret-state = { version = "0.3.0", path = "crates/state", default-features = false }
 arkret-wire = { version = "0.3.0", path = "crates/wire", default-features = false }
-atomic-write-file = "0.3.0"
-base64 = { version = "0.22.1", default-features = false, features = ["std"] }
-bip39 = { version = "2.2.0", default-features = false, features = ["std"] }
-blake3 = { version = "1.5.5", default-features = false }
+atomic-write-file = "0.3.1"
+base64 = { version = "0.23.1", default-features = false, features = ["std"] }
+bip39 = { version = "2.2.2", default-features = false, features = ["std"] }
+blake3 = { version = "1.8.7", default-features = false }
 bs58 = { version = "0.5.1", default-features = false, features = ["std"] }
-chacha20poly1305 = { version = "0.10.1", default-features = false, features = ["alloc"] }
+chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["alloc"] }
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "std", "serde"] }
 chrono-tz = { version = "0.10.4", default-features = false }
 # Dev-only microbenchmark harness (SDK-SOTA-03). Excluded from cargo-deny via
 # `.deny.toml`; benches compile under `--all-targets` but are never run in CI.
-criterion = { version = "0.7", default-features = false, features = ["cargo_bench_support"] }
-curve25519-dalek = { version = "4.1.3", default-features = false, features = ["alloc"] }
+criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
+curve25519-dalek = { version = "5.0.0", default-features = false, features = ["alloc"] }
 diesel = { version = "2.3", default-features = false }
-ed25519-dalek = { version = "2.2.0", default-features = false, features = ["std", "rand_core"] }
+ed25519-dalek = { version = "3.0.0", default-features = false, features = ["alloc", "rand_core"] }
 futures-util = { version = "0.3", default-features = false }
-# RNG stack is deliberately dual-track (SDK-SOTA-06): ed25519-dalek 2.x /
-# x25519-dalek 2.x pin the rand_core 0.6 ecosystem (getrandom 0.2,
-# rand_chacha 0.3), while the rest of the workspace is on getrandom 0.4.
-# Converge to a single track once curve25519-dalek / ed25519-dalek publish a
-# rand_core 0.9+ line; until then the getrandom 0.2 duplicate (managed via the
-# explicit `getrandom_02` rename below, same for rand_core/rand_chacha) is
-# intentional — exempt it in any cargo-deny `[bans] multiple-versions` check
-# rather than "fixing" the duplication.
-getrandom = { version = "0.4.2", default-features = false, features = ["std"] }
+# `getrandom` 0.2 remains as a wasm feature-unification alias for legacy
+# transitive consumers; current direct cryptography dependencies use the 0.4
+# RNG stack.
+getrandom = { version = "0.4.3", default-features = false, features = ["std"] }
 getrandom_02 = { package = "getrandom", version = "0.2" }
 hex = "0.4.3"
 hkdf = { version = "0.13.0", default-features = false }
@@ -136,52 +131,48 @@ hmac = { version = "0.13.0", default-features = false }
 # RFC 9180 HPKE (rozbb/rust-hpke). Every transitive dep it needs (aes-gcm,
 # hkdf 0.12, sha2 0.10, rand_core 0.9, x25519-dalek, chacha20poly1305) is
 # already pulled in by the OpenMLS stack, so this adds no new version churn.
-hpke = { version = "0.13", default-features = false, features = ["x25519", "std"] }
+hpke = { version = "0.14", default-features = false, features = ["alloc", "chacha", "getrandom", "x25519"] }
 idna = { version = "1.1.0", default-features = true }
-jsonschema = { version = "0.49.2", default-features = false }
+jsonschema = { version = "0.52.1", default-features = false }
 # Use the latest stable, mutually compatible OpenMLS releases from crates.io.
 openmls = { version = "0.9.0", default-features = false }
 openmls_basic_credential = { version = "0.6.0", default-features = false }
 openmls_rust_crypto = { version = "0.6.0", default-features = false }
 openmls_traits = { version = "0.6.0", default-features = false }
-p256 = { version = "0.13.2", default-features = false, features = ["ecdsa"] }
+p256 = { version = "0.14.0", default-features = false, features = ["ecdsa"] }
 precis-profiles = { version = "0.1.13", default-features = false }
 proptest = { version = "1", default-features = false }
-rand_chacha = { version = "0.3.1", default-features = false }
-rand_core = { version = "0.6.4", default-features = false }
-# rand_core 0.9 alias for the HPKE RNG interface (rust-hpke is on the 0.9
-# line; x25519-dalek keeps `rand_core` on 0.6). Same rename pattern as
-# `getrandom_02`; the 0.9 duplicate is already in the tree via the MLS stack.
-rand_core_09 = { package = "rand_core", version = "0.9", default-features = false }
-regex = { version = "1.12.4", default-features = false, features = ["std", "unicode-perl"] }
+rand_chacha = { version = "0.10.0", default-features = false }
+rand_core = { version = "0.10.1", default-features = false }
+regex = { version = "1.13.1", default-features = false, features = ["std", "unicode-perl"] }
 reqwest = { version = "0.13.4", default-features = false, features = ["query"] }
 # OpenAPI 3 schema derives (`ToSchema`) for wire model types. Optional and
 # gated behind each model crate's `openapi` feature so the no-default data
 # graph stays framework-free; enabled by service crates that serve OpenAPI.
 salvo-oapi = { version = "=0.96.0", default-features = false, features = ["rfc9457"] }
 # Linux KeyStore backend, enabled only by the keystore crate target cfg.
-secret-service = { version = "5.1.0", default-features = false, features = ["rt-tokio-crypto-rust"] }
+secret-service = { version = "5.2.0", default-features = false, features = ["rt-tokio-crypto-rust"] }
 # macOS KeyStore backend, enabled only by the keystore crate target cfg.
 security-framework = { version = "3.7.0", default-features = false }
-serde = { version = "1.0.228", default-features = false, features = ["std", "derive"] }
-serde_json = { version = "1.0.150", default-features = false, features = ["std"] }
+serde = { version = "1.0.229", default-features = false, features = ["std", "derive"] }
+serde_json = { version = "1.0.151", default-features = false, features = ["std"] }
 serde_path_to_error = { version = "0.1.20", default-features = false }
 sha2 = { version = "0.11.0", default-features = false }
 subtle = { version = "2.6.1", default-features = false }
-thiserror = { version = "2.0.18", default-features = false }
+thiserror = { version = "2.0.20", default-features = false }
 tls_codec = { version = "0.5.0", default-features = false, features = ["mls", "serde", "std"] }
-tokio = { version = "1.52.3", default-features = false, features = ["sync"] }
+tokio = { version = "1.53.1", default-features = false, features = ["sync"] }
 tracing = { version = "0.1.44", default-features = false, features = ["std", "attributes"] }
 unicode-normalization = { version = "0.1.25", default-features = false, features = ["std"] }
 unicode-security = { version = "0.1.2", default-features = false }
 url = { version = "2.5.8", default-features = false }
-uuid = { version = "1.23", default-features = false, features = ["std", "v7", "serde"] }
+uuid = { version = "1.26", default-features = false, features = ["std", "v7", "serde"] }
 voprf = { version = "0.6.0-pre.1", default-features = false, features = ["ristretto255-ciphersuite"] }
 web-time = "1.1.0"
 # Windows KeyStore backend, enabled only by the keystore crate target cfg.
 windows = { version = "0.62.2", default-features = false }
-x25519-dalek = { version = "2.0.1", default-features = false, features = ["static_secrets", "getrandom"] }
-zeroize = { version = "1.8.2", default-features = false, features = ["derive"] }
+x25519-dalek = { version = "3.0.0", default-features = false, features = ["static_secrets", "getrandom"] }
+zeroize = { version = "1.9.0", default-features = false, features = ["derive"] }
 
 [workspace.lints.rust]
 rust_2018_idioms = "warn"

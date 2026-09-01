@@ -43,7 +43,7 @@ use arkret_wire::{
 };
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{SECRET_KEY_LENGTH, Signer, SigningKey};
-use rand_core::RngCore;
+use rand_core::Rng;
 use serde_json::{Value, json};
 use thiserror::Error;
 use url::Url;
@@ -1618,7 +1618,7 @@ pub struct ServiceRegistrationInceptionInput<'a> {
 /// entry. Used by a service (e.g. a Station hosting its own webvh log,
 /// or an auth server minting against such a host) to bootstrap its own stable
 /// service identity without an external minting round-trip.
-pub fn prepare_service_inception<R: RngCore + ?Sized>(
+pub fn prepare_service_inception<R: Rng + ?Sized>(
     rng: &mut R,
     input: &ServiceInceptionInput<'_>,
 ) -> Result<PreparedInception, WebvhInceptionError> {
@@ -1633,7 +1633,7 @@ pub fn prepare_service_inception<R: RngCore + ?Sized>(
 /// public half of `did_key_seed`, while the WebVH update key remains freshly
 /// generated from `rng`. The secret seed is copied into the returned
 /// [`PreparedInception`] so its existing zeroization guarantees still apply.
-pub fn prepare_service_inception_with_did_key_seed<R: RngCore + ?Sized>(
+pub fn prepare_service_inception_with_did_key_seed<R: Rng + ?Sized>(
     rng: &mut R,
     input: &ServiceInceptionInput<'_>,
     did_key_seed: &[u8; SECRET_KEY_LENGTH],
@@ -1641,14 +1641,14 @@ pub fn prepare_service_inception_with_did_key_seed<R: RngCore + ?Sized>(
     prepare_service_inception_internal(rng, input, Some(did_key_seed))
 }
 
-pub fn prepare_service_registration_inception<R: RngCore + ?Sized>(
+pub fn prepare_service_registration_inception<R: Rng + ?Sized>(
     rng: &mut R,
     input: &ServiceRegistrationInceptionInput<'_>,
 ) -> Result<PreparedInception, WebvhInceptionError> {
     prepare_service_registration_inception_internal(rng, input, None, &[])
 }
 
-pub fn prepare_service_registration_inception_with_did_key_seed<R: RngCore + ?Sized>(
+pub fn prepare_service_registration_inception_with_did_key_seed<R: Rng + ?Sized>(
     rng: &mut R,
     input: &ServiceRegistrationInceptionInput<'_>,
     did_key_seed: &[u8; SECRET_KEY_LENGTH],
@@ -1658,7 +1658,7 @@ pub fn prepare_service_registration_inception_with_did_key_seed<R: RngCore + ?Si
 
 /// Include deployment-authorized public assertion keys in the signed inception.
 /// These methods share the service controller and do not create another role.
-pub fn prepare_service_registration_inception_with_assertion_keys<R: RngCore + ?Sized>(
+pub fn prepare_service_registration_inception_with_assertion_keys<R: Rng + ?Sized>(
     rng: &mut R,
     input: &ServiceRegistrationInceptionInput<'_>,
     did_key_seed: &[u8; SECRET_KEY_LENGTH],
@@ -1667,7 +1667,7 @@ pub fn prepare_service_registration_inception_with_assertion_keys<R: RngCore + ?
     prepare_service_registration_inception_internal(rng, input, Some(did_key_seed), assertion_keys)
 }
 
-fn prepare_service_registration_inception_internal<R: RngCore + ?Sized>(
+fn prepare_service_registration_inception_internal<R: Rng + ?Sized>(
     rng: &mut R,
     input: &ServiceRegistrationInceptionInput<'_>,
     supplied_did_key_seed: Option<&[u8; SECRET_KEY_LENGTH]>,
@@ -1689,7 +1689,7 @@ fn prepare_service_registration_inception_internal<R: RngCore + ?Sized>(
     )
 }
 
-fn prepare_service_inception_internal<R: RngCore + ?Sized>(
+fn prepare_service_inception_internal<R: Rng + ?Sized>(
     rng: &mut R,
     input: &ServiceInceptionInput<'_>,
     supplied_did_key_seed: Option<&[u8; SECRET_KEY_LENGTH]>,
@@ -1711,7 +1711,7 @@ fn prepare_service_inception_internal<R: RngCore + ?Sized>(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn prepare_service_inception_parts<R: RngCore + ?Sized>(
+fn prepare_service_inception_parts<R: Rng + ?Sized>(
     rng: &mut R,
     provider_endpoint: &Url,
     public_base_url: &CanonicalServiceUrl,
@@ -1910,7 +1910,7 @@ pub fn prepare_supplied_principal_inception(
     })
 }
 
-fn random_seed<R: RngCore + ?Sized>(rng: &mut R) -> [u8; SECRET_KEY_LENGTH] {
+fn random_seed<R: Rng + ?Sized>(rng: &mut R) -> [u8; SECRET_KEY_LENGTH] {
     let mut seed = [0u8; SECRET_KEY_LENGTH];
     rng.fill_bytes(&mut seed);
     seed
